@@ -51,3 +51,4 @@
 - /resultados → Evolución y gráficas por paciente
 - /estadisticas → Datos globales de la clínica
 # sie-app
+# sie-app
