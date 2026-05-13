@@ -50,3 +50,4 @@
 - /valoracion → Valoración inicial en 7 pasos
 - /resultados → Evolución y gráficas por paciente
 - /estadisticas → Datos globales de la clínica
+# sie-app
