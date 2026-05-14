@@ -120,7 +120,7 @@ export default function AgendaPage() {
                             </div>
                             {slotCitas.map(c=>(
                               <div key={c.id}
-                                onClick={()=>setPanelPac(c)}
+                                onClick={(e)=>{e.stopPropagation();setPanelPac(c)}}
                                 style={{display:'flex',alignItems:'center',gap:3,padding:'2px 4px',borderRadius:3,cursor:'pointer',marginBottom:1,minHeight:28,transition:'background .1s'}}
                                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.15)'}
                                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
