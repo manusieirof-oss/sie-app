@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation'
 export default function FichaPacientePage() {
   const { id } = useParams()
   const router = useRouter()
-  
   const [tab, setTab] = useState('ficha')
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)
@@ -21,6 +20,8 @@ export default function FichaPacientePage() {
   const [form, setForm] = useState<any>({})
   const [modalBono, setModalBono] = useState(false)
   const [nuevoBono, setNuevoBono] = useState({ tipo:'esencial', estado_pago:'pendiente' })
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
 
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
@@ -46,8 +47,40 @@ export default function FichaPacientePage() {
   }
 
   async function guardarEdicion() {
-    await supabase.from('pacientes').update({ nombre:form.nombre, apellidos:form.apellidos, telefono:form.telefono, email:form.email, dni:form.dni, altura_cm:form.altura_cm, peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas:form.notas }).eq('id',id)
+    await supabase.from('pacientes').update({
+      nombre:form.nombre, apellidos:form.apellidos, telefono:form.telefono,
+      email:form.email, dni:form.dni, altura_cm:form.altura_cm,
+      peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas:form.notas
+    }).eq('id',id)
     setEditando(false); cargar()
+  }
+
+  async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendoFoto(true)
+    const ext = file.name.split('.').pop()
+    const path = `${id}/foto.${ext}`
+    const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
+    if (error) { alert('Error al subir foto: ' + error.message); setSubiendoFoto(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+    await supabase.from('pacientes').update({ foto_url: publicUrl }).eq('id', id)
+    setSubiendoFoto(false)
+    cargar()
+  }
+
+  async function eliminarPaciente() {
+    if (!confirm(`¿Eliminar definitivamente a ${pac.nombre} ${pac.apellidos}? Esta acción no se puede deshacer.`)) return
+    if (!confirm('Segunda confirmación: ¿estás seguro? Se eliminarán todos sus datos, citas y sesiones.')) return
+    setEliminando(true)
+    await supabase.from('pacientes').delete().eq('id', id)
+    router.push('/pacientes')
+  }
+
+  async function darDeBaja() {
+    if (!confirm(`¿Dar de baja a ${pac.nombre} ${pac.apellidos}? Sus datos se conservan pero no aparecerá en la agenda.`)) return
+    await supabase.from('pacientes').update({ estado: 'baja' }).eq('id', id)
+    router.push('/pacientes')
   }
 
   async function toggleMolestia(molId: string, activa: boolean) {
@@ -58,7 +91,11 @@ export default function FichaPacientePage() {
   async function crearBono() {
     if (bono) await supabase.from('bonos').update({ activo:false }).eq('id',bono.id)
     const diasMap: Record<string,number> = { esencial:2, progreso:3, avanzado:4, avanzado_mas1:5 }
-    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasMap[nuevoBono.tipo], estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true })
+    await supabase.from('bonos').insert({
+      paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasMap[nuevoBono.tipo],
+      estado_pago:nuevoBono.estado_pago, mes, anio,
+      fecha_inicio:new Date().toISOString().split('T')[0], activo:true
+    })
     setModalBono(false); cargar()
   }
 
@@ -81,7 +118,19 @@ export default function FichaPacientePage() {
     <>
       {/* CABECERA */}
       <div className="pat-header">
-        <div className="pat-avatar">{iniciales}</div>
+        {/* FOTO */}
+        <div style={{position:'relative',flexShrink:0}}>
+          {pac.foto_url ? (
+            <img src={pac.foto_url} alt={pac.nombre} style={{width:46,height:46,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
+          ) : (
+            <div className="pat-avatar">{iniciales}</div>
+          )}
+          <label style={{position:'absolute',bottom:-4,right:-4,width:20,height:20,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid var(--n)'}}>
+            {subiendoFoto ? '⏳' : '📷'}
+            <input type="file" accept="image/*" onChange={subirFoto} style={{display:'none'}}/>
+          </label>
+        </div>
+
         <div style={{flex:1}}>
           {editando ? (
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
@@ -98,7 +147,8 @@ export default function FichaPacientePage() {
             {bono && <span className={`badge ${pagoBadge[bono.estado_pago]||'badge-b'}`}>{pagoLabel[bono.estado_pago]}</span>}
           </div>
         </div>
-        <div style={{display:'flex',gap:6,flexShrink:0}}>
+
+        <div style={{display:'flex',gap:5,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
           <button className="btn btn-s btn-sm" onClick={()=>router.push('/pacientes')}>← Listado</button>
           {editando ? (
             <>
@@ -108,6 +158,10 @@ export default function FichaPacientePage() {
           ) : (
             <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}>✎ Editar</button>
           )}
+          <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={eliminando}>○ Dar de baja</button>
+          <button className="btn btn-d btn-sm" onClick={eliminarPaciente} disabled={eliminando} style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}}>
+            {eliminando ? '⏳' : '🗑 Eliminar'}
+          </button>
         </div>
       </div>
 
@@ -152,7 +206,6 @@ export default function FichaPacientePage() {
                 </div>
               )}
             </div>
-
             <div className="card">
               <div className="card-title">Próximas citas</div>
               {citas.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin citas programadas</div>}
@@ -167,29 +220,25 @@ export default function FichaPacientePage() {
               ))}
             </div>
           </div>
-
           <div>
             <div className="card">
               <div className="card-title">Bono activo <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bono?'Cambiar':'+ Asignar'}</button></div>
               {bono ? (
-                <>
-                  <div style={{background:'var(--bl)',border:'1px solid var(--bm)',borderRadius:7,padding:'9px 11px',marginBottom:8}}>
-                    <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
-                    <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Mes {mes}/{anio}</div>
-                    <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                      {['pagado','pendiente','impago'].map(estado=>(
-                        <button key={estado} className={`btn btn-sm ${bono.estado_pago===estado?'btn-p':'btn-s'}`} onClick={()=>cambiarPago(estado)}>
-                          {pagoLabel[estado]}
-                        </button>
-                      ))}
-                    </div>
+                <div style={{background:'var(--bl)',border:'1px solid var(--bm)',borderRadius:7,padding:'9px 11px'}}>
+                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
+                  <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Mes {mes}/{anio}</div>
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                    {['pagado','pendiente','impago'].map(estado=>(
+                      <button key={estado} className={`btn btn-sm ${bono.estado_pago===estado?'btn-p':'btn-s'}`} onClick={()=>cambiarPago(estado)}>
+                        {pagoLabel[estado]}
+                      </button>
+                    ))}
                   </div>
-                </>
+                </div>
               ) : (
                 <div style={{fontSize:10,color:'var(--grl)',padding:'8px 0'}}>Sin bono asignado este mes</div>
               )}
             </div>
-
             <div className="card">
               <div className="card-title">Últimas sesiones</div>
               {sesiones.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin sesiones registradas</div>}
@@ -215,7 +264,7 @@ export default function FichaPacientePage() {
               <div className="card-title">Molestias y dolores <button className="btn btn-s btn-sm" onClick={async()=>{const zona=prompt('Zona / localización:');if(!zona)return;const eva=prompt('Intensidad EVA (0-10):');await supabase.from('molestias').insert({paciente_id:id,zona,tipo:'molestia',eva:parseInt(eva||'5'),activa:true});cargar()}}>+ Añadir</button></div>
               {molestias.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin molestias registradas</div>}
               {molestias.map(m=>(
-                <div key={m.id} style={{borderRadius:7,padding:'8px 10px',marginBottom:5,border:'1px solid var(--bd)',background:'var(--w)',borderColor:m.activa?'#F5C8C8':'var(--gm)',backgroundColor:m.activa?'var(--redl)':'var(--gl)'}}>
+                <div key={m.id} style={{borderRadius:7,padding:'8px 10px',marginBottom:5,border:'1px solid',borderColor:m.activa?'#F5C8C8':'var(--gm)',backgroundColor:m.activa?'var(--redl)':'var(--gl)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={{flex:1}}>
                       <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.zona}</div>
@@ -224,9 +273,8 @@ export default function FichaPacientePage() {
                     <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:m.activa?'var(--redl)':'var(--gl)',color:m.activa?'var(--red)':'var(--gd)'}}>
                       {m.activa?'● Activa':'✓ Resuelta'}
                     </span>
-                    <button className="toggle on" style={{background:m.activa?'var(--red)':'var(--g)'}} onClick={()=>toggleMolestia(m.id,m.activa)}/>
+                    <button className="toggle" style={{background:m.activa?'var(--red)':'var(--g)'}} onClick={()=>toggleMolestia(m.id,m.activa)}/>
                   </div>
-                  {m.observaciones && <div style={{fontSize:9,color:'var(--gr)',marginTop:4,fontWeight:300}}>{m.observaciones}</div>}
                 </div>
               ))}
             </div>
@@ -248,7 +296,7 @@ export default function FichaPacientePage() {
             <div className="card">
               <div className="card-title">Escalas Borg y estrés <button className="btn btn-s btn-sm" onClick={async()=>{const borg=prompt('Borg · bienestar (0-10):');const estres=prompt('Estrés (0-10):');if(!borg||!estres)return;await supabase.from('escalas').insert({paciente_id:id,fecha:new Date().toISOString().split('T')[0],borg:parseInt(borg),estres:parseInt(estres)});cargar()}}>+ Hoy</button></div>
               {escalas.map(e=>(
-                <div key={e.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                <div key={e.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                   <span style={{fontSize:9,color:'var(--grl)',width:50,fontWeight:300}}>{new Date(e.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
                   <div style={{flex:1}}>
                     <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
@@ -283,7 +331,7 @@ export default function FichaPacientePage() {
       {/* TAB ENTRENAMIENTO */}
       {tab==='entreno' && (
         <div>
-          <div className="info-pill">Las sesiones de entrenamiento se crean desde el módulo Entrenamiento del menú lateral.</div>
+          <div className="info-pill">Las sesiones se crean desde el módulo 🏋 Entrenamiento del menú lateral.</div>
           <div className="card">
             <div className="card-title">Sesiones registradas</div>
             {sesiones.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin sesiones. Ve a 🏋 Entrenamiento para crear la primera.</div>}
