@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -14,36 +14,30 @@ const NAV = [
 ]
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(undefined)
   const router = useRouter()
   const pathname = usePathname()
-  const initialized = useRef(false)
 
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      setLoading(false)
-      if (!session && pathname !== '/login') router.push('/login')
     })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
-      if (!session && pathname !== '/login') router.push('/login')
     })
-
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (user === null && pathname !== '/login') router.push('/login')
+  }, [user, pathname])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  if (loading) return (
+  if (user === undefined) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'var(--n)'}}>
       <span style={{color:'var(--g)',fontSize:14,letterSpacing:4}}>SIE</span>
     </div>
