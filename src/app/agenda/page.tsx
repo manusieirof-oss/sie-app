@@ -179,8 +179,8 @@ export default function AgendaPage() {
       {/* PANEL FLOTANTE PACIENTE */}
       {panelPac && (
         <>
-          <div onClick={()=>setPanelPac(null)} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:48}}/>
-          <div style={{position:'fixed',top:0,right:0,width:300,height:'100vh',background:'var(--w)',borderLeft:'1px solid var(--bd)',zIndex:49,display:'flex',flexDirection:'column',boxShadow:'-4px 0 20px rgba(38,40,37,.08)'}}>
+          <div onClick={()=>setPanelPac(null)} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
+          <div style={{position:'fixed',top:0,right:0,width:300,height:'100vh',background:'var(--w)',borderLeft:'1px solid var(--bd)',zIndex:99,display:'flex',flexDirection:'column',boxShadow:'-4px 0 20px rgba(38,40,37,.08)'}}>
             <div style={{padding:'12px 14px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:9}}>
               <div style={{width:34,height:34,borderRadius:'50%',background:'var(--gl)',border:'1.5px solid var(--gm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:500,color:'var(--gd)',flexShrink:0}}>
                 {(panelPac.pacientes?.nombre?.[0]||'?')+( panelPac.pacientes?.apellidos?.[0]||'')}
