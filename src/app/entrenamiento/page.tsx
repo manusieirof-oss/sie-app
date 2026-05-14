@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function EntrenamientoPage() {
   const [tab, setTab] = useState('biblioteca')
@@ -13,7 +13,7 @@ export default function EntrenamientoPage() {
   const [modalSes, setModalSes] = useState(false)
   const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', etiquetas:'' })
   const [nuevaSes, setNuevaSes] = useState({ paciente_id:'', nombre:'', descripcion:'', partes: [{ nombre:'Calentamiento', ejercicios:[] as string[] }, { nombre:'Parte principal', ejercicios:[] as string[] }, { nombre:'Vuelta a la calma', ejercicios:[] as string[] }] })
-  const supabase = createClient()
+  
 
   useEffect(() => { cargar() }, [])
 

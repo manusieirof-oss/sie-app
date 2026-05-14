@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const STEPS = ['Paciente','Anamnesis','Historial','Molestias','Tests','Plan','Resumen']
@@ -11,7 +11,7 @@ export default function ValoracionPage() {
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  
 
   const [form, setForm] = useState({
     paciente_id:'', nombre:'', apellidos:'', telefono:'', email:'', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'', tipo_clase:'entrenamiento',

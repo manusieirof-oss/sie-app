@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function ResultadosPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -9,7 +9,7 @@ export default function ResultadosPage() {
   const [molestias, setMolestias] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+  
 
   useEffect(() => {
     supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))

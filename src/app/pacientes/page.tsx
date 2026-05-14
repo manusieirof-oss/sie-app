@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default function PacientesPage() {
@@ -12,7 +12,7 @@ export default function PacientesPage() {
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [modal, setModal] = useState(false)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
-  const supabase = createClient()
+  
   const mesActual = new Date().getMonth()+1
   const anioActual = new Date().getFullYear()
 

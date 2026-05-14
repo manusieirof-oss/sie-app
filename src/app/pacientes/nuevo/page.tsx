@@ -1,10 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function NuevoPacientePage() {
-  const supabase = createClient()
+  
   const router = useRouter()
   const [form, setForm] = useState({
     nombre: '', apellidos: '', dni: '', fecha_nacimiento: '',

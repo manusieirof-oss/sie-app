@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 
 export default function FichaPacientePage() {
   const { id } = useParams()
   const router = useRouter()
-  const supabase = createClient()
+  
   const [tab, setTab] = useState('ficha')
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 
@@ -13,7 +13,7 @@ export default function AgendaPage() {
   const [guardando, setGuardando] = useState(false)
   const [nuevaCita, setNuevaCita] = useState({ paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'' })
   const [panelPac, setPanelPac] = useState<any>(null)
-  const supabase = createClient()
+  
 
   const fechaDisplay = new Date(fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
   const hoy = new Date().toISOString().split('T')[0]

@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function EstadisticasPage() {
   const [data, setData] = useState<any>({ pacientes:[], bonos:[], molestias:[], patologias:[] })
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
 
