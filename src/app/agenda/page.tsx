@@ -10,6 +10,7 @@ export default function AgendaPage() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
+  const [guardando, setGuardando] = useState(false)
   const [nuevaCita, setNuevaCita] = useState({ paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'' })
   const supabase = createClient()
 
@@ -33,6 +34,10 @@ export default function AgendaPage() {
   }
 
   async function crearCita() {
+    if (guardando) return
+    setGuardando(true)
+    if (guardando) return
+    setGuardando(true)
     if (!nuevaCita.paciente_id) { alert('Selecciona un paciente'); return }
     const { error } = await supabase.from('citas').insert({
       paciente_id: nuevaCita.paciente_id,
