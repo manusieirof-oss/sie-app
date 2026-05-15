@@ -80,6 +80,12 @@ export default function PacientesPage() {
             {f==='todos'?'Todos':pagoLabel[f]}
           </span>
         ))}
+        <span style={{fontSize:9,color:'var(--grl)'}}>Estado:</span>
+        {['activo','baja','pausa','todos'].map(f=>(
+          <span key={f} onClick={()=>setFiltroEstado(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroEstado===f?'var(--g)':'var(--w)',color:filtroEstado===f?'#fff':'var(--gr)'}}>
+            {f==='activo'?'Activos':f==='baja'?'Bajas':f==='pausa'?'Pausas':'Todos'}
+          </span>
+        ))}
         <span style={{fontSize:9,color:'var(--grl)'}}>Tipo:</span>
         {['todos','entrenamiento','pilates','rehabilitacion'].map(f=>(
           <span key={f} className={`badge ${filtroTipo===f?'badge-g':''}`} style={{cursor:'pointer',border:'1px solid var(--bd)',padding:'3px 9px',borderRadius:99}} onClick={()=>setFiltroTipo(f)}>
