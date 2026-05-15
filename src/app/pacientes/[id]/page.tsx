@@ -19,9 +19,11 @@ export default function FichaPacientePage() {
   const [editando, setEditando] = useState(false)
   const [form, setForm] = useState<any>({})
   const [modalBono, setModalBono] = useState(false)
+  const [modalPausa, setModalPausa] = useState(false)
   const [nuevoBono, setNuevoBono] = useState({ tipo:'esencial', estado_pago:'pendiente' })
+  const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
-  const [eliminando, setEliminando] = useState(false)
+  const [procesando, setProcesando] = useState(false)
 
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
@@ -37,7 +39,7 @@ export default function FichaPacientePage() {
       supabase.from('patologias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('medicamentos').select('*').eq('paciente_id',id),
       supabase.from('escalas').select('*').eq('paciente_id',id).order('fecha',{ascending:false}).limit(5),
-      supabase.from('citas').select('*').eq('paciente_id',id).gte('fecha',new Date().toISOString().split('T')[0]).order('fecha').limit(5),
+      supabase.from('citas').select('*').eq('paciente_id',id).gte('fecha',new Date().toISOString().split('T')[0]).order('fecha').limit(10),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
     ])
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
@@ -69,40 +71,61 @@ export default function FichaPacientePage() {
     cargar()
   }
 
-  async function eliminarPaciente() {
-    if (!confirm(`¿Eliminar definitivamente a ${pac.nombre} ${pac.apellidos}? Esta acción no se puede deshacer.`)) return
-    if (!confirm('Segunda confirmación: ¿estás seguro? Se eliminarán todos sus datos, citas y sesiones.')) return
-    setEliminando(true)
-    await supabase.from('pacientes').delete().eq('id', id)
+  async function darDeBaja() {
+    if (!confirm(`¿Dar de baja a ${pac.nombre} ${pac.apellidos}?\n\nSus datos se conservan pero se eliminarán TODAS sus citas futuras automáticamente.`)) return
+    setProcesando(true)
+    const hoy = new Date().toISOString().split('T')[0]
+    await supabase.from('citas').delete().eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
+    await supabase.from('pacientes').update({ estado:'baja' }).eq('id',id)
+    setProcesando(false)
+    alert('✓ Paciente dado de baja. Sus citas futuras han sido eliminadas.')
     router.push('/pacientes')
   }
 
-  async function darDeBaja() {
-    if (!confirm(`¿Dar de baja a ${pac.nombre} ${pac.apellidos}? Sus datos se conservan pero no aparecerá en la agenda.`)) return
-    await supabase.from('pacientes').update({ estado: 'baja' }).eq('id', id)
+  async function aplicarPausa() {
+    if (!pausa.hasta) { alert('Indica la fecha de vuelta'); return }
+    if (pausa.hasta <= pausa.desde) { alert('La fecha de vuelta debe ser posterior a la de inicio'); return }
+    setProcesando(true)
+    const { data: citasPausa } = await supabase.from('citas').select('id').eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
+    if (citasPausa && citasPausa.length > 0) {
+      await supabase.from('citas').update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
+    }
+    await supabase.from('pacientes').update({ estado:'pausa', notas:(pac.notas||'')+`\n[PAUSA: ${pausa.desde} → ${pausa.hasta}]` }).eq('id',id)
+    setProcesando(false)
+    setModalPausa(false)
+    alert(`✓ Pausa aplicada. ${citasPausa?.length||0} citas canceladas del ${pausa.desde} al ${pausa.hasta}.\nEl paciente se reactivará automáticamente al volver.`)
+    cargar()
+  }
+
+  async function reactivar() {
+    if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
+    await supabase.from('pacientes').update({ estado:'activo' }).eq('id',id)
+    alert('✓ Paciente reactivado. Recuerda crear sus nuevas citas en la agenda.')
+    cargar()
+  }
+
+  async function eliminarPaciente() {
+    if (!confirm(`¿Eliminar DEFINITIVAMENTE a ${pac.nombre} ${pac.apellidos}?\n\nEsta acción NO se puede deshacer. Se borrarán todos sus datos, citas y sesiones.`)) return
+    if (!confirm('Segunda confirmación: ¿estás completamente seguro?')) return
+    setProcesando(true)
+    await supabase.from('pacientes').delete().eq('id',id)
     router.push('/pacientes')
   }
 
   async function toggleMolestia(molId: string, activa: boolean) {
-    await supabase.from('molestias').update({ activa:!activa }).eq('id',molId)
-    cargar()
+    await supabase.from('molestias').update({ activa:!activa }).eq('id',molId); cargar()
   }
 
   async function crearBono() {
     if (bono) await supabase.from('bonos').update({ activo:false }).eq('id',bono.id)
     const diasMap: Record<string,number> = { esencial:2, progreso:3, avanzado:4, avanzado_mas1:5 }
-    await supabase.from('bonos').insert({
-      paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasMap[nuevoBono.tipo],
-      estado_pago:nuevoBono.estado_pago, mes, anio,
-      fecha_inicio:new Date().toISOString().split('T')[0], activo:true
-    })
+    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasMap[nuevoBono.tipo], estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true })
     setModalBono(false); cargar()
   }
 
   async function cambiarPago(estado: string) {
     if (!bono) return
-    await supabase.from('bonos').update({ estado_pago:estado }).eq('id',bono.id)
-    cargar()
+    await supabase.from('bonos').update({ estado_pago:estado }).eq('id',bono.id); cargar()
   }
 
   const edad = pac?.fecha_nacimiento ? Math.floor((Date.now()-new Date(pac.fecha_nacimiento).getTime())/(1000*60*60*24*365.25)) : null
@@ -110,6 +133,8 @@ export default function FichaPacientePage() {
   const bonoLabel: Record<string,string> = { esencial:'Esencial · 2d/sem', progreso:'Progreso · 3d/sem', avanzado:'Avanzado · 4d/sem', avanzado_mas1:'Avanzado +1 · 5d/sem' }
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
+  const estadoColor: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)' }
+  const estadoLabel: Record<string,string> = { activo:'● Activo', baja:'○ Baja', pausa:'⏸ Pausa' }
 
   if (loading) return <div className="loading">Cargando ficha...</div>
   if (!pac) return <div className="loading">Paciente no encontrado</div>
@@ -118,7 +143,6 @@ export default function FichaPacientePage() {
     <>
       {/* CABECERA */}
       <div className="pat-header">
-        {/* FOTO */}
         <div style={{position:'relative',flexShrink:0}}>
           {pac.foto_url ? (
             <img src={pac.foto_url} alt={pac.nombre} style={{width:46,height:46,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
@@ -126,7 +150,7 @@ export default function FichaPacientePage() {
             <div className="pat-avatar">{iniciales}</div>
           )}
           <label style={{position:'absolute',bottom:-4,right:-4,width:20,height:20,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid var(--n)'}}>
-            {subiendoFoto ? '⏳' : '📷'}
+            {subiendoFoto?'⏳':'📷'}
             <input type="file" accept="image/*" onChange={subirFoto} style={{display:'none'}}/>
           </label>
         </div>
@@ -140,9 +164,11 @@ export default function FichaPacientePage() {
           ) : (
             <div className="pat-name">{pac.nombre} {pac.apellidos}</div>
           )}
-          <div className="pat-meta">{edad ? `${edad} años · ` : ''}{pac.altura_cm ? `${pac.altura_cm} cm · ` : ''}{pac.peso_kg ? `${pac.peso_kg} kg` : ''}</div>
+          <div className="pat-meta">{edad?`${edad} años · `:''}{pac.altura_cm?`${pac.altura_cm} cm · `:''}{pac.peso_kg?`${pac.peso_kg} kg`:''}</div>
           <div style={{display:'flex',gap:5,marginTop:5,flexWrap:'wrap'}}>
-            <span className="badge badge-g">● Activo</span>
+            <span style={{fontSize:8,fontWeight:500,padding:'2px 8px',borderRadius:99,background:'rgba(255,255,255,.1)',color:estadoColor[pac.estado]||'var(--g)'}}>
+              {estadoLabel[pac.estado]||'● Activo'}
+            </span>
             {bono && <span className="badge badge-b">{bonoLabel[bono.tipo]||bono.tipo}</span>}
             {bono && <span className={`badge ${pagoBadge[bono.estado_pago]||'badge-b'}`}>{pagoLabel[bono.estado_pago]}</span>}
           </div>
@@ -158,12 +184,34 @@ export default function FichaPacientePage() {
           ) : (
             <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}>✎ Editar</button>
           )}
-          <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={eliminando}>○ Dar de baja</button>
-          <button className="btn btn-d btn-sm" onClick={eliminarPaciente} disabled={eliminando} style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}}>
-            {eliminando ? '⏳' : '🗑 Eliminar'}
+          {pac.estado==='activo' && <>
+            <button className="btn btn-t btn-sm" onClick={()=>setModalPausa(true)}>⏸ Pausa</button>
+            <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>○ Dar de baja</button>
+          </>}
+          {(pac.estado==='baja'||pac.estado==='pausa') && (
+            <button className="btn btn-p btn-sm" onClick={reactivar} disabled={procesando}>▶ Reactivar</button>
+          )}
+          <button className="btn btn-d btn-sm" onClick={eliminarPaciente} disabled={procesando} style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}}>
+            {procesando?'⏳':'🗑 Eliminar'}
           </button>
         </div>
       </div>
+
+      {/* AVISO BAJA/PAUSA */}
+      {pac.estado!=='activo' && (
+        <div style={{background:pac.estado==='baja'?'var(--redl)':'var(--ambl)',border:`1px solid ${pac.estado==='baja'?'var(--red)':'var(--amb)'}`,borderRadius:'var(--rl)',padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:16}}>{pac.estado==='baja'?'○':'⏸'}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:500,color:pac.estado==='baja'?'var(--red)':'#7A5800'}}>
+              {pac.estado==='baja'?'Paciente dado de baja':'Paciente en pausa temporal'}
+            </div>
+            <div style={{fontSize:10,color:pac.estado==='baja'?'var(--red)':'#7A5800',fontWeight:300}}>
+              {pac.estado==='baja'?'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.':'Sus citas del periodo de pausa fueron canceladas.'}
+            </div>
+          </div>
+          <button className="btn btn-p btn-sm" onClick={reactivar}>▶ Reactivar</button>
+        </div>
+      )}
 
       {/* TABS */}
       <div className="tabs">
@@ -202,7 +250,7 @@ export default function FichaPacientePage() {
                       <span style={{fontWeight:400}}>{v}</span>
                     </div>
                   ):null)}
-                  {pac.notas && <div style={{marginTop:8,padding:'7px 9px',background:'var(--bl)',borderRadius:5,fontSize:10,color:'var(--n)',fontWeight:300}}>{pac.notas}</div>}
+                  {pac.notas && <div style={{marginTop:8,padding:'7px 9px',background:'var(--bl)',borderRadius:5,fontSize:10,color:'var(--n)',fontWeight:300,whiteSpace:'pre-line'}}>{pac.notas}</div>}
                 </div>
               )}
             </div>
@@ -248,7 +296,7 @@ export default function FichaPacientePage() {
                     <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
                     <div style={{fontSize:9,color:'var(--grl)'}}>{s.duracion_min} min · {s.estado}</div>
                   </div>
-                  <span className={`badge ${s.estado==='realizada'?'badge-g':'badge-b'}`}>{s.estado}</span>
+                  <span className={`badge ${s.estado==='realizada'?'badge-g':s.estado==='lista'?'badge-pen':'badge-b'}`}>{s.estado}</span>
                 </div>
               ))}
             </div>
@@ -376,7 +424,32 @@ export default function FichaPacientePage() {
           </div>
         </div>
       )}
+
+      {/* MODAL PAUSA */}
+      {modalPausa && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalPausa(false)}}>
+          <div className="modal">
+            <div className="modal-title">⏸ Pausa temporal<button className="modal-close" onClick={()=>setModalPausa(false)}>✕</button></div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,fontWeight:300}}>
+              Las citas del periodo seleccionado se cancelarán automáticamente. El paciente podrá reactivarse cuando vuelva.
+            </div>
+            <div className="g2">
+              <div className="field"><label>Desde</label><input type="date" className="input" value={pausa.desde} onChange={e=>setPausa(p=>({...p,desde:e.target.value}))}/></div>
+              <div className="field"><label>Hasta (fecha de vuelta)</label><input type="date" className="input" value={pausa.hasta} onChange={e=>setPausa(p=>({...p,hasta:e.target.value}))}/></div>
+            </div>
+            <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,padding:'8px 11px',fontSize:10,color:'#7A5800',marginBottom:12}}>
+              ⚠ Se cancelarán todas las citas programadas entre esas fechas. Para reactivar al paciente entra en su ficha y pulsa ▶ Reactivar.
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-s btn-sm" onClick={()=>setModalPausa(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={aplicarPausa} disabled={procesando}>
+                {procesando?'⏳ Aplicando...':'⏸ Aplicar pausa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
-// v2
