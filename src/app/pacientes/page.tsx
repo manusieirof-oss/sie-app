@@ -10,6 +10,7 @@ export default function PacientesPage() {
   const [buscar, setBuscar] = useState('')
   const [filtroPago, setFiltroPago] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
+  const [filtroEstado, setFiltroEstado] = useState('activo')
   const [modal, setModal] = useState(false)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
@@ -21,7 +22,7 @@ export default function PacientesPage() {
   async function cargar() {
     setLoading(true)
     const [{ data: p }, { data: b }] = await Promise.all([
-      supabase.from('pacientes').select('*').eq('estado','activo').order('nombre'),
+      supabase.from('pacientes').select('*').order('nombre'),
       supabase.from('bonos').select('*').eq('mes',mesActual).eq('anio',anioActual).eq('activo',true),
     ])
     setPacientes(p || [])
@@ -59,8 +60,9 @@ export default function PacientesPage() {
     const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.telefono||'').includes(q)
     const bono = getBonoActual(p.id)
     const matchPago = filtroPago==='todos' || bono?.estado_pago===filtroPago || (!bono && filtroPago==='pendiente')
+    const matchEstado = filtroEstado==='todos' || p.estado===filtroEstado
     const matchTipo = filtroTipo==='todos' || p.tipo_clase===filtroTipo
-    return matchQ && matchPago && matchTipo
+    return matchQ && matchPago && matchTipo && matchEstado
   })
 
   const totalPag = bonos.filter(b=>b.estado_pago==='pagado').length
