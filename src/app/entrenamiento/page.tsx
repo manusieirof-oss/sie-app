@@ -94,7 +94,7 @@ export default function EntrenamientoPage() {
                     return (
                       <div key={et.id} style={{marginBottom:4}}>
                         {/* NIVEL 1 */}
-                        <div onClick={()=>toggle(et.id,seleccionadas,onChange)}
+                        <div onClick={(e)=>{e.preventDefault();toggle(et.id,seleccionadas,onChange)}}
                           style={{display:'flex',alignItems:'center',gap:5,padding:'4px 6px',borderRadius:4,cursor:'pointer',background:sel?'var(--g)':'transparent',color:sel?'#fff':'var(--n)',transition:'all .1s',marginBottom:1}}
                           onMouseOver={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='var(--gl)'}}
                           onMouseOut={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='transparent'}}>
@@ -113,7 +113,7 @@ export default function EntrenamientoPage() {
                               return (
                                 <div key={sub.id} style={{marginBottom:2}}>
                                   <div style={{display:'flex',alignItems:'center',gap:3}}>
-                                    <div onClick={()=>toggle(sub.id,seleccionadas,onChange)}
+                                    <div onClick={(e)=>{e.preventDefault();toggle(sub.id,seleccionadas,onChange)}}
                                       style={{display:'flex',alignItems:'center',gap:4,padding:'3px 5px',borderRadius:3,cursor:'pointer',flex:1,background:selSub?'var(--g)':'transparent',color:selSub?'#fff':'var(--gr)',transition:'all .1s'}}
                                       onMouseOver={e=>{if(!selSub)(e.currentTarget as HTMLElement).style.background='var(--gl)'}}
                                       onMouseOut={e=>{if(!selSub)(e.currentTarget as HTMLElement).style.background='transparent'}}>
@@ -132,7 +132,7 @@ export default function EntrenamientoPage() {
                                       {subsubs.map(ss=>{
                                         const selSS = seleccionadas.includes(ss.id)
                                         return (
-                                          <div key={ss.id} onClick={()=>toggle(ss.id,seleccionadas,onChange)}
+                                          <div key={ss.id} onClick={(e)=>{e.preventDefault();toggle(ss.id,seleccionadas,onChange)}}
                                             style={{display:'flex',alignItems:'center',gap:4,padding:'2px 4px',borderRadius:3,cursor:'pointer',background:selSS?'var(--g)':'transparent',color:selSS?'#fff':'var(--grl)',transition:'all .1s',marginBottom:1}}
                                             onMouseOver={e=>{if(!selSS)(e.currentTarget as HTMLElement).style.background='var(--gl)'}}
                                             onMouseOut={e=>{if(!selSS)(e.currentTarget as HTMLElement).style.background='transparent'}}>
