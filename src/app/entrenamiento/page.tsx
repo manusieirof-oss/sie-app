@@ -13,6 +13,26 @@ const CATEGORIAS = [
   { key: 'patologia', label: '🏥 Patología' },
 ]
 
+const VARIANTES = ['Bilateral','Unilateral','Alterno','Unipodal','Supino','Prono','Decúbito lateral']
+const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resistencia','Propiocepción','Coordinación']
+
+type EjercicioSesion = {
+  ejercicio_id: string
+  nombre: string
+  variante: string
+  capacidad: string
+  series: string
+  reps: string
+  peso: string
+  tiempo: string
+  nota: string
+}
+
+type Parte = {
+  nombre: string
+  ejercicios: EjercicioSesion[]
+}
+
 export default function EntrenamientoPage() {
   const [tab, setTab] = useState('biblioteca')
   const [ejercicios, setEjercicios] = useState<any[]>([])
@@ -27,11 +47,24 @@ export default function EntrenamientoPage() {
   const [modalSes, setModalSes] = useState(false)
   const [modalEtiqueta, setModalEtiqueta] = useState(false)
   const [modalSelEt, setModalSelEt] = useState(false)
+  const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
   const [guardando, setGuardando] = useState(false)
   const [subsubAbiertas, setSubsubAbiertas] = useState<string[]>([])
+  const [buscarBiblio, setBuscarBiblio] = useState('')
+  const [filtroEtBiblio, setFiltroEtBiblio] = useState<string[]>([])
+  const [modalFiltrosBiblio, setModalFiltrosBiblio] = useState(false)
   const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', etiquetas_ids:[] as string[] })
-  const [nuevaSes, setNuevaSes] = useState({ paciente_id:'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[] as string[]},{nombre:'Parte principal',ejercicios:[] as string[]},{nombre:'Vuelta a la calma',ejercicios:[] as string[]}] })
   const [nuevaEtiqueta, setNuevaEtiqueta] = useState({ categoria:'musculo', nombre:'', padre_id:'' })
+  const [nuevaSes, setNuevaSes] = useState<{ paciente_id:string, nombre:string, descripcion:string, partes:Parte[] }>({
+    paciente_id:'', nombre:'', descripcion:'',
+    partes:[
+      { nombre:'Calentamiento', ejercicios:[] },
+      { nombre:'Parte principal', ejercicios:[] },
+      { nombre:'Vuelta a la calma', ejercicios:[] },
+    ]
+  })
+  const [ejEnConfig, setEjEnConfig] = useState<{parteIdx:number, ej:any}|null>(null)
+  const [configEj, setConfigEj] = useState<EjercicioSesion>({ ejercicio_id:'', nombre:'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
 
   useEffect(() => { cargar() }, [])
 
@@ -66,12 +99,10 @@ export default function EntrenamientoPage() {
   function toggle(id: string, lista: string[], setLista: (v:string[])=>void) {
     setLista(lista.includes(id) ? lista.filter(x=>x!==id) : [...lista, id])
   }
-
   function toggleSubsub(id: string) {
     setSubsubAbiertas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
   }
 
-  // COMPONENTE SELECTOR DE ETIQUETAS EN COLUMNAS
   function SelectorColumnas({ seleccionadas, onChange }: { seleccionadas: string[], onChange: (v:string[])=>void }) {
     return (
       <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'65vh'}}>
@@ -81,29 +112,25 @@ export default function EntrenamientoPage() {
             const selCount = etiquetas.filter(e=>e.categoria===cat.key && seleccionadas.includes(e.id)).length
             return (
               <div key={cat.key} style={{background:'var(--w)',display:'flex',flexDirection:'column'}}>
-                {/* CABECERA CATEGORÍA */}
                 <div style={{padding:'8px 10px',background:'var(--n)',position:'sticky',top:0}}>
                   <div style={{fontSize:10,fontWeight:500,color:'#fff'}}>{cat.label}</div>
-                  {selCount>0 && <div style={{fontSize:8,color:'var(--gm)',marginTop:1}}>{selCount} seleccionadas</div>}
+                  {selCount>0 && <div style={{fontSize:8,color:'var(--gm)',marginTop:1}}>{selCount} selec.</div>}
                 </div>
-                {/* ETIQUETAS */}
-                <div style={{padding:'6px 6px',flex:1,overflowY:'auto'}}>
+                <div style={{padding:'6px 6px',flex:1}}>
                   {nivel1.map(et=>{
                     const subs = getSubs(et.id)
                     const sel = seleccionadas.includes(et.id)
                     return (
                       <div key={et.id} style={{marginBottom:4}}>
-                        {/* NIVEL 1 */}
                         <div onClick={(e)=>{e.preventDefault();toggle(et.id,seleccionadas,onChange)}}
                           style={{display:'flex',alignItems:'center',gap:5,padding:'4px 6px',borderRadius:4,cursor:'pointer',background:sel?'var(--g)':'transparent',color:sel?'#fff':'var(--n)',transition:'all .1s',marginBottom:1}}
                           onMouseOver={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='var(--gl)'}}
                           onMouseOut={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='transparent'}}>
-                          <div style={{width:12,height:12,borderRadius:2,border:`1.5px solid ${sel?'rgba(255,255,255,.6)':'var(--bd)'}`,background:sel?'rgba(255,255,255,.2)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                            {sel && <span style={{fontSize:8,color:'#fff',fontWeight:700}}>✓</span>}
+                          <div style={{width:12,height:12,borderRadius:2,border:`1.5px solid ${sel?'rgba(255,255,255,.6)':'var(--bd)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                            {sel && <span style={{fontSize:8,color:'var(--g)',fontWeight:700,background:'#fff',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:1}}>✓</span>}
                           </div>
                           <span style={{fontSize:10,fontWeight:sel?500:400}}>{et.nombre}</span>
                         </div>
-                        {/* NIVEL 2 — siempre visible */}
                         {subs.length>0 && (
                           <div style={{marginLeft:8,borderLeft:'1.5px solid var(--bm)',paddingLeft:6}}>
                             {subs.map(sub=>{
@@ -117,16 +144,13 @@ export default function EntrenamientoPage() {
                                       style={{display:'flex',alignItems:'center',gap:4,padding:'3px 5px',borderRadius:3,cursor:'pointer',flex:1,background:selSub?'var(--g)':'transparent',color:selSub?'#fff':'var(--gr)',transition:'all .1s'}}
                                       onMouseOver={e=>{if(!selSub)(e.currentTarget as HTMLElement).style.background='var(--gl)'}}
                                       onMouseOut={e=>{if(!selSub)(e.currentTarget as HTMLElement).style.background='transparent'}}>
-                                      <div style={{width:10,height:10,borderRadius:2,border:`1px solid ${selSub?'rgba(255,255,255,.6)':'var(--bd)'}`,background:selSub?'rgba(255,255,255,.2)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                        {selSub && <span style={{fontSize:7,color:'#fff',fontWeight:700}}>✓</span>}
+                                      <div style={{width:10,height:10,borderRadius:2,border:`1px solid ${selSub?'rgba(255,255,255,.6)':'var(--bd)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                        {selSub && <span style={{fontSize:7,color:'var(--g)',fontWeight:700,background:'#fff',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:1}}>✓</span>}
                                       </div>
                                       <span style={{fontSize:9,fontWeight:300}}>{sub.nombre}</span>
                                     </div>
-                                    {subsubs.length>0 && (
-                                      <div onClick={()=>toggleSubsub(sub.id)} style={{fontSize:8,color:'var(--grl)',cursor:'pointer',padding:'2px 3px',transform:subsubAbierta?'rotate(90deg)':'',transition:'transform .15s'}}>›</div>
-                                    )}
+                                    {subsubs.length>0 && <div onClick={()=>toggleSubsub(sub.id)} style={{fontSize:8,color:'var(--grl)',cursor:'pointer',padding:'2px 3px',transform:subsubAbierta?'rotate(90deg)':'',transition:'transform .15s'}}>›</div>}
                                   </div>
-                                  {/* NIVEL 3 — solo si se expande */}
                                   {subsubs.length>0 && subsubAbierta && (
                                     <div style={{marginLeft:10,borderLeft:'1.5px solid var(--bm)',paddingLeft:5}}>
                                       {subsubs.map(ss=>{
@@ -136,8 +160,8 @@ export default function EntrenamientoPage() {
                                             style={{display:'flex',alignItems:'center',gap:4,padding:'2px 4px',borderRadius:3,cursor:'pointer',background:selSS?'var(--g)':'transparent',color:selSS?'#fff':'var(--grl)',transition:'all .1s',marginBottom:1}}
                                             onMouseOver={e=>{if(!selSS)(e.currentTarget as HTMLElement).style.background='var(--gl)'}}
                                             onMouseOut={e=>{if(!selSS)(e.currentTarget as HTMLElement).style.background='transparent'}}>
-                                            <div style={{width:8,height:8,borderRadius:1,border:`1px solid ${selSS?'rgba(255,255,255,.6)':'var(--bd)'}`,background:selSS?'rgba(255,255,255,.2)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                              {selSS && <span style={{fontSize:6,color:'#fff',fontWeight:700}}>✓</span>}
+                                            <div style={{width:8,height:8,borderRadius:1,border:`1px solid ${selSS?'rgba(255,255,255,.6)':'var(--bd)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                              {selSS && <span style={{fontSize:6,color:'var(--g)',fontWeight:700,background:'#fff',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:1}}>✓</span>}
                                             </div>
                                             <span style={{fontSize:8,fontWeight:300}}>{ss.nombre}</span>
                                           </div>
@@ -162,18 +186,72 @@ export default function EntrenamientoPage() {
     )
   }
 
+  // BIBLIOTECA PARA SESIÓN
+  const ejerciciosFiltradosBiblio = ejercicios.filter(e=>{
+    const matchQ = !buscarBiblio || e.nombre.toLowerCase().includes(buscarBiblio.toLowerCase())
+    const matchEt = filtroEtBiblio.length===0 || filtroEtBiblio.every(fid=>(e.etiquetas||[]).includes(fid))
+    return matchQ && matchEt
+  })
+
+  function abrirConfigEj(ej: any, parteIdx: number) {
+    setEjEnConfig({ parteIdx, ej })
+    setConfigEj({ ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
+    setModalBiblioteca(null)
+  }
+
+  function confirmarEjercicio() {
+    if (!ejEnConfig) return
+    const ejSesion: EjercicioSesion = { ...configEj }
+    setNuevaSes(prev=>{
+      const partes = [...prev.partes]
+      partes[ejEnConfig.parteIdx] = { ...partes[ejEnConfig.parteIdx], ejercicios: [...partes[ejEnConfig.parteIdx].ejercicios, ejSesion] }
+      return { ...prev, partes }
+    })
+    setEjEnConfig(null)
+  }
+
+  function eliminarEjDeParte(parteIdx: number, ejIdx: number) {
+    setNuevaSes(prev=>{
+      const partes = [...prev.partes]
+      partes[parteIdx] = { ...partes[parteIdx], ejercicios: partes[parteIdx].ejercicios.filter((_,i)=>i!==ejIdx) }
+      return { ...prev, partes }
+    })
+  }
+
+  function añadirParte() {
+    setNuevaSes(prev=>({ ...prev, partes:[...prev.partes, { nombre:'Nueva parte', ejercicios:[] }] }))
+  }
+
+  function renombrarParte(idx: number, nombre: string) {
+    setNuevaSes(prev=>{ const partes=[...prev.partes]; partes[idx]={...partes[idx],nombre}; return {...prev,partes} })
+  }
+
+  function eliminarParte(idx: number) {
+    setNuevaSes(prev=>({ ...prev, partes:prev.partes.filter((_,i)=>i!==idx) }))
+  }
+
+  async function crearSesion() {
+    if (!nuevaSes.paciente_id || !nuevaSes.nombre) { alert('Selecciona paciente y pon un nombre'); return }
+    setGuardando(true)
+    await supabase.from('sesiones').insert({
+      paciente_id: nuevaSes.paciente_id,
+      nombre: nuevaSes.nombre,
+      descripcion: nuevaSes.descripcion,
+      partes: nuevaSes.partes,
+      estado: 'lista'
+    })
+    setModalSes(false)
+    setNuevaSes({ paciente_id:'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })
+    setGuardando(false)
+    cargar()
+  }
+
   async function crearEjercicio() {
     if (guardando) return
     if (!nuevoEj.nombre) { alert('El nombre es obligatorio'); return }
     setGuardando(true)
     await supabase.from('ejercicios').insert({ nombre:nuevoEj.nombre, descripcion:nuevoEj.descripcion, video_url:nuevoEj.video_url, etiquetas:nuevoEj.etiquetas_ids })
     setModalEj(false); setNuevoEj({ nombre:'', descripcion:'', video_url:'', etiquetas_ids:[] }); setGuardando(false); cargar()
-  }
-
-  async function crearSesion() {
-    if (!nuevaSes.paciente_id || !nuevaSes.nombre) { alert('Selecciona paciente y pon un nombre'); return }
-    await supabase.from('sesiones').insert({ paciente_id:nuevaSes.paciente_id, nombre:nuevaSes.nombre, descripcion:nuevaSes.descripcion, partes:nuevaSes.partes, estado:'lista' })
-    setModalSes(false); setNuevaSes({ paciente_id:'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] }); cargar()
   }
 
   async function crearEtiqueta() {
@@ -213,21 +291,18 @@ export default function EntrenamientoPage() {
             <span style={{fontSize:10,color:'var(--grl)'}}>{filtrados.length} ejercicios</span>
             <button className="btn btn-p btn-sm" onClick={()=>setModalEj(true)}>+ Nuevo ejercicio</button>
           </div>
-
-          {/* CHIPS FILTROS ACTIVOS */}
           {filtroEtiquetas.length>0 && (
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
               {filtroEtiquetas.map(id=>(
                 <span key={id} onClick={()=>setFiltroEtiquetas(f=>f.filter(x=>x!==id))} style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
-                  {getNombre(id)} <span style={{fontSize:10,opacity:.7}}>✕</span>
+                  {getNombre(id)} <span style={{opacity:.7}}>✕</span>
                 </span>
               ))}
             </div>
           )}
-
           {loading?<div className="loading">Cargando...</div>:filtrados.length===0?(
             <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>
-              {ejercicios.length===0?'No hay ejercicios. Crea el primero con + Nuevo ejercicio.':'Sin resultados para esta búsqueda.'}
+              {ejercicios.length===0?'No hay ejercicios. Crea el primero con + Nuevo ejercicio.':'Sin resultados.'}
             </div>
           ):(
             <div className="g3">
@@ -267,24 +342,32 @@ export default function EntrenamientoPage() {
             <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin sesiones. Crea la primera con + Nueva sesión.</div>
           ):sesiones.map(s=>(
             <div key={s.id} className="card">
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{s.nombre}</div>
                   <div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>{s.pacientes?.nombre} {s.pacientes?.apellidos} · {new Date(s.created_at).toLocaleDateString('es-ES')}</div>
-                  {s.descripcion&&<div style={{fontSize:10,color:'var(--gr)',marginTop:3}}>{s.descripcion}</div>}
+                  {s.descripcion&&<div style={{fontSize:10,color:'var(--gr)',marginTop:2}}>{s.descripcion}</div>}
                 </div>
-                <div style={{display:'flex',gap:5,flexDirection:'column',alignItems:'flex-end'}}>
+                <div style={{display:'flex',gap:5,alignItems:'center'}}>
                   <span className={`badge ${s.estado==='realizada'?'badge-g':s.estado==='lista'?'badge-pen':'badge-b'}`}>{s.estado}</span>
                   {s.estado!=='realizada'&&<button className="btn btn-t btn-sm" onClick={()=>cambiarEstado(s.id,'realizada')}>✓ Realizada</button>}
                 </div>
               </div>
               {(s.partes||[]).map((parte:any,pi:number)=>(
-                <div key={pi} style={{marginTop:8,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
+                <div key={pi} style={{marginBottom:6,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
                   <div style={{padding:'5px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bm)',fontSize:10,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</div>
-                  {(parte.ejercicios||[]).map((ej:string,ei:number)=>(
-                    <div key={ei} style={{padding:'4px 10px',fontSize:10,color:'var(--n)',fontWeight:300,borderBottom:'1px solid var(--bl)'}}>{ej}</div>
+                  {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
+                    <div key={ei} style={{padding:'6px 10px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:8}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre||ej}</div>
+                        {ej.variante&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
+                          {[ej.variante,ej.capacidad,ej.series&&`${ej.series} series`,ej.reps&&`${ej.reps} reps`,ej.peso&&`${ej.peso}kg`,ej.tiempo&&`${ej.tiempo}seg`].filter(Boolean).join(' · ')}
+                        </div>}
+                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:2,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                      </div>
+                    </div>
                   ))}
-                  {(parte.ejercicios||[]).length===0&&<div style={{padding:'4px 10px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>}
+                  {(parte.ejercicios||[]).length===0&&<div style={{padding:'5px 10px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>}
                 </div>
               ))}
             </div>
@@ -346,22 +429,204 @@ export default function EntrenamientoPage() {
         </>
       )}
 
-      {/* MODAL FILTRO ETIQUETAS */}
+      {/* MODAL FILTRO ETIQUETAS BIBLIOTECA */}
       {modalFiltro && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalFiltro(false)}}>
           <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1200,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
             <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Filtrar por etiquetas</div>
-                <div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>Pulsa para seleccionar · Las subsubetiquetas se expanden con ›</div>
-              </div>
-              {filtroEtiquetas.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroEtiquetas([])}>✕ Limpiar todo</button>}
-              <button onClick={()=>setModalFiltro(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui',fontWeight:500}}>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Filtrar por etiquetas</div></div>
+              {filtroEtiquetas.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroEtiquetas([])}>✕ Limpiar</button>}
+              <button onClick={()=>setModalFiltro(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui'}}>
                 Aplicar{filtroEtiquetas.length>0?` (${filtroEtiquetas.length})`:''}
               </button>
             </div>
-            <div style={{flex:1,overflow:'hidden',padding:1}}>
-              <SelectorColumnas seleccionadas={filtroEtiquetas} onChange={setFiltroEtiquetas}/>
+            <div style={{flex:1,overflow:'hidden',padding:1}}><SelectorColumnas seleccionadas={filtroEtiquetas} onChange={setFiltroEtiquetas}/></div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL NUEVA SESIÓN */}
+      {modalSes && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando)setModalSes(false)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:900,maxHeight:'92vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{fontSize:14,fontWeight:400,color:'var(--n)',flex:1}}>Nueva sesión de entrenamiento</div>
+              <button onClick={()=>setModalSes(false)} style={{background:'none',border:'none',fontSize:18,color:'var(--gr)',cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:16}}>
+              {/* DATOS BÁSICOS */}
+              <div className="g2" style={{marginBottom:12}}>
+                <div className="field"><label>Paciente *</label>
+                  <select className="input" value={nuevaSes.paciente_id} onChange={e=>setNuevaSes(p=>({...p,paciente_id:e.target.value}))}>
+                    <option value="">Seleccionar paciente...</option>
+                    {pacientes.map(p=><option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>)}
+                  </select>
+                </div>
+                <div className="field"><label>Nombre de la sesión *</label>
+                  <input className="input" value={nuevaSes.nombre} onChange={e=>setNuevaSes(p=>({...p,nombre:e.target.value}))} placeholder="ej. Fuerza cuádriceps · Fase 1"/>
+                </div>
+                <div className="field" style={{gridColumn:'1/-1'}}><label>Objetivo / descripción</label>
+                  <input className="input" value={nuevaSes.descripcion} onChange={e=>setNuevaSes(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Trabajar fuerza extensora sin impacto"/>
+                </div>
+              </div>
+
+              {/* PARTES */}
+              {nuevaSes.partes.map((parte,pi)=>(
+                <div key={pi} style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',marginBottom:10}}>
+                  {/* CABECERA PARTE */}
+                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+                    <input value={parte.nombre} onChange={e=>renombrarParte(pi,e.target.value)}
+                      style={{flex:1,fontSize:12,fontWeight:500,color:'var(--n)',border:'none',background:'transparent',fontFamily:'system-ui',padding:'2px 0'}}/>
+                    <button className="btn btn-t btn-sm" onClick={()=>setModalBiblioteca({parteIdx:pi})}>+ Añadir ejercicio</button>
+                    {nuevaSes.partes.length>1 && <button onClick={()=>eliminarParte(pi)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 6px'}}>✕</button>}
+                  </div>
+                  {/* EJERCICIOS DE LA PARTE */}
+                  <div style={{padding:8}}>
+                    {parte.ejercicios.length===0 && (
+                      <div onClick={()=>setModalBiblioteca({parteIdx:pi})} style={{border:'1.5px dashed var(--bm)',borderRadius:5,padding:'10px',textAlign:'center',fontSize:10,color:'var(--grl)',cursor:'pointer'}}
+                        onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)'}}
+                        onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)'}}>
+                        + Añadir ejercicio de la biblioteca
+                      </div>
+                    )}
+                    {parte.ejercicios.map((ej,ei)=>(
+                      <div key={ei} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'7px 10px',background:'var(--bl)',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{ej.nombre}</div>
+                          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                            {ej.variante && <span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
+                            {ej.capacidad && <span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
+                            {ej.series && <span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
+                            {ej.reps && <span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.reps} reps</span>}
+                            {ej.peso && <span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
+                            {ej.tiempo && <span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
+                          </div>
+                          {ej.nota && <div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                        </div>
+                        <button onClick={()=>eliminarEjDeParte(pi,ei)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px',flexShrink:0}}>✕</button>
+                      </div>
+                    ))}
+                    {parte.ejercicios.length>0 && (
+                      <button className="btn btn-t btn-sm" style={{marginTop:4}} onClick={()=>setModalBiblioteca({parteIdx:pi})}>+ Añadir otro ejercicio</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button className="btn btn-s btn-sm" onClick={añadirParte}>+ Añadir parte</button>
+            </div>
+            <div style={{padding:'10px 16px',borderTop:'1px solid var(--bd)',display:'flex',gap:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalSes(false)} disabled={guardando}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={crearSesion} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar sesión'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BIBLIOTECA PARA SESIÓN */}
+      {modalBiblioteca && !ejEnConfig && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalBiblioteca(null)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'80vw',maxWidth:900,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>Seleccionar ejercicio · {nuevaSes.partes[modalBiblioteca.parteIdx]?.nombre}</div>
+              <button onClick={()=>setModalBiblioteca(null)} style={{background:'none',border:'none',fontSize:18,color:'var(--gr)',cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{padding:'10px 14px',borderBottom:'1px solid var(--bd)',display:'flex',gap:8,alignItems:'center'}}>
+              <input className="input" placeholder="🔍 Buscar ejercicio..." value={buscarBiblio} onChange={e=>setBuscarBiblio(e.target.value)} style={{flex:1}}/>
+              <button className="btn btn-s btn-sm" onClick={()=>setModalFiltrosBiblio(true)} style={{position:'relative'}}>
+                🏷 Filtrar
+                {filtroEtBiblio.length>0&&<span style={{position:'absolute',top:-5,right:-5,width:16,height:16,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:8,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center'}}>{filtroEtBiblio.length}</span>}
+              </button>
+              {filtroEtBiblio.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroEtBiblio([])}>✕</button>}
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:12}}>
+              {ejerciciosFiltradosBiblio.length===0 ? (
+                <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:11}}>Sin resultados</div>
+              ) : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                  {ejerciciosFiltradosBiblio.map(e=>{
+                    const etsDelEj = (e.etiquetas||[]).map((id:string)=>etiquetas.find(et=>et.id===id)).filter(Boolean)
+                    return (
+                      <div key={e.id} onClick={()=>abrirConfigEj(e,modalBiblioteca.parteIdx)}
+                        style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',cursor:'pointer',transition:'all .15s'}}
+                        onMouseOver={el=>{const c=el.currentTarget;c.style.borderColor='var(--g)';c.style.background='var(--gl)'}}
+                        onMouseOut={el=>{const c=el.currentTarget;c.style.borderColor='var(--bd)';c.style.background='var(--bl)'}}>
+                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
+                        {e.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginBottom:5,fontWeight:300}}>{e.descripcion.slice(0,60)}...</div>}
+                        <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                          {etsDelEj.slice(0,3).map((et:any)=>(
+                            <span key={et.id} style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--g)',color:'#fff'}}>{et.nombre}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FILTROS BIBLIOTECA SESIÓN */}
+      {modalFiltrosBiblio && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalFiltrosBiblio(false)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1200,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Filtrar ejercicios por etiqueta</div></div>
+              {filtroEtBiblio.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroEtBiblio([])}>✕ Limpiar</button>}
+              <button onClick={()=>setModalFiltrosBiblio(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui'}}>
+                Aplicar{filtroEtBiblio.length>0?` (${filtroEtBiblio.length})`:''}
+              </button>
+            </div>
+            <div style={{flex:1,overflow:'hidden',padding:1}}><SelectorColumnas seleccionadas={filtroEtBiblio} onChange={setFiltroEtBiblio}/></div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIGURAR EJERCICIO */}
+      {ejEnConfig && (
+        <div className="modal-bg">
+          <div className="modal" style={{width:480}}>
+            <div className="modal-title">
+              Configurar ejercicio
+              <button className="modal-close" onClick={()=>setEjEnConfig(null)}>✕</button>
+            </div>
+            <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 11px',marginBottom:12}}>
+              <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{ejEnConfig.ej.nombre}</div>
+              {ejEnConfig.ej.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2,fontWeight:300}}>{ejEnConfig.ej.descripcion}</div>}
+            </div>
+            <div className="g2">
+              <div className="field"><label>Variante de ejecución</label>
+                <select className="input" value={configEj.variante} onChange={e=>setConfigEj(p=>({...p,variante:e.target.value}))}>
+                  {VARIANTES.map(v=><option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Capacidad</label>
+                <select className="input" value={configEj.capacidad} onChange={e=>setConfigEj(p=>({...p,capacidad:e.target.value}))}>
+                  {CAPACIDADES.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Series</label>
+                <input className="input" type="number" value={configEj.series} onChange={e=>setConfigEj(p=>({...p,series:e.target.value}))} placeholder="ej. 3"/>
+              </div>
+              <div className="field"><label>Repeticiones</label>
+                <input className="input" type="number" value={configEj.reps} onChange={e=>setConfigEj(p=>({...p,reps:e.target.value}))} placeholder="ej. 10"/>
+              </div>
+              <div className="field"><label>Peso (kg)</label>
+                <input className="input" type="number" value={configEj.peso} onChange={e=>setConfigEj(p=>({...p,peso:e.target.value}))} placeholder="ej. 20"/>
+              </div>
+              <div className="field"><label>Tiempo (segundos)</label>
+                <input className="input" type="number" value={configEj.tiempo} onChange={e=>setConfigEj(p=>({...p,tiempo:e.target.value}))} placeholder="ej. 30"/>
+              </div>
+            </div>
+            <div className="field"><label>Nota para este paciente</label>
+              <textarea className="input" value={configEj.nota} onChange={e=>setConfigEj(p=>({...p,nota:e.target.value}))} placeholder="ej. Precaución rodilla derecha, reducir rango de movimiento..." style={{minHeight:56}}/>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-s btn-sm" onClick={()=>{setEjEnConfig(null);setModalBiblioteca({parteIdx:ejEnConfig.parteIdx})}}>← Volver</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={confirmarEjercicio}>✓ Añadir a la sesión</button>
             </div>
           </div>
         </div>
@@ -373,11 +638,11 @@ export default function EntrenamientoPage() {
           <div className="modal" style={{width:480}}>
             <div className="modal-title">Nuevo ejercicio<button className="modal-close" onClick={()=>setModalEj(false)}>✕</button></div>
             <div className="field"><label>Nombre *</label><input className="input" value={nuevoEj.nombre} onChange={e=>setNuevoEj(p=>({...p,nombre:e.target.value}))} placeholder="ej. Curl de bíceps" autoFocus disabled={guardando}/></div>
-            <div className="field"><label>Descripción motriz</label><textarea className="input" value={nuevoEj.descripcion} onChange={e=>setNuevoEj(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción del movimiento, puntos clave de ejecución..." disabled={guardando}/></div>
+            <div className="field"><label>Descripción motriz</label><textarea className="input" value={nuevoEj.descripcion} onChange={e=>setNuevoEj(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción del movimiento, puntos clave..." disabled={guardando}/></div>
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} placeholder="https://youtube.com/..." disabled={guardando}/></div>
             <div className="field">
               <label>Etiquetas</label>
-              {nuevoEj.etiquetas_ids.length>0 && (
+              {nuevoEj.etiquetas_ids.length>0&&(
                 <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>
                   {nuevoEj.etiquetas_ids.map(id=>(
                     <span key={id} onClick={()=>setNuevoEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
@@ -387,7 +652,7 @@ export default function EntrenamientoPage() {
                 </div>
               )}
               <button className="btn btn-s btn-sm" onClick={()=>setModalSelEt(true)} style={{width:'100%',justifyContent:'center'}}>
-                🏷 {nuevoEj.etiquetas_ids.length>0?`${nuevoEj.etiquetas_ids.length} etiquetas seleccionadas · Cambiar`:'Seleccionar etiquetas'}
+                🏷 {nuevoEj.etiquetas_ids.length>0?`${nuevoEj.etiquetas_ids.length} etiquetas · Cambiar`:'Seleccionar etiquetas'}
               </button>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
@@ -399,54 +664,18 @@ export default function EntrenamientoPage() {
         </div>
       )}
 
-      {/* MODAL SELECTOR ETIQUETAS PARA EJERCICIO */}
+      {/* MODAL SELECTOR ETIQUETAS EJERCICIO */}
       {modalSelEt && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSelEt(false)}}>
           <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1200,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
             <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Seleccionar etiquetas del ejercicio</div>
-                <div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>{nuevoEj.etiquetas_ids.length} seleccionadas</div>
-              </div>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Etiquetas del ejercicio</div><div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>{nuevoEj.etiquetas_ids.length} seleccionadas</div></div>
               {nuevoEj.etiquetas_ids.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setNuevoEj(p=>({...p,etiquetas_ids:[]}))}>✕ Limpiar</button>}
-              <button onClick={()=>setModalSelEt(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui',fontWeight:500}}>
+              <button onClick={()=>setModalSelEt(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui'}}>
                 Confirmar{nuevoEj.etiquetas_ids.length>0?` (${nuevoEj.etiquetas_ids.length})`:''}
               </button>
             </div>
-            <div style={{flex:1,overflow:'hidden',padding:1}}>
-              <SelectorColumnas seleccionadas={nuevoEj.etiquetas_ids} onChange={ids=>setNuevoEj(p=>({...p,etiquetas_ids:ids}))}/>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL NUEVA SESIÓN */}
-      {modalSes && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSes(false)}}>
-          <div className="modal" style={{width:500}}>
-            <div className="modal-title">Nueva sesión<button className="modal-close" onClick={()=>setModalSes(false)}>✕</button></div>
-            <div className="field"><label>Paciente *</label>
-              <select className="input" value={nuevaSes.paciente_id} onChange={e=>setNuevaSes(p=>({...p,paciente_id:e.target.value}))}>
-                <option value="">Seleccionar paciente...</option>
-                {pacientes.map(p=><option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>)}
-              </select>
-            </div>
-            <div className="field"><label>Nombre *</label><input className="input" value={nuevaSes.nombre} onChange={e=>setNuevaSes(p=>({...p,nombre:e.target.value}))} placeholder="ej. Fuerza cuádriceps · Fase 1"/></div>
-            <div className="field"><label>Descripción / objetivo</label><input className="input" value={nuevaSes.descripcion} onChange={e=>setNuevaSes(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Sesión enfocada en tren inferior sin impacto"/></div>
-            {nuevaSes.partes.map((parte,pi)=>(
-              <div key={pi} style={{marginBottom:8,border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-                <div style={{padding:'7px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bd)',fontSize:10,fontWeight:500}}>{parte.nombre}</div>
-                <div style={{padding:8}}>
-                  <textarea className="input" style={{minHeight:56,fontSize:11}} placeholder="Un ejercicio por línea&#10;ej: Curl bíceps · 3×12 · 8kg"
-                    onChange={e=>setNuevaSes(prev=>{const p=[...prev.partes];p[pi]={...p[pi],ejercicios:e.target.value.split('\n').filter(Boolean)};return{...prev,partes:p}})}/>
-                </div>
-              </div>
-            ))}
-            <div style={{display:'flex',gap:8,marginTop:8}}>
-              <button className="btn btn-d btn-sm" onClick={()=>setModalSes(false)}>Cancelar</button>
-              <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearSesion}>💾 Guardar sesión</button>
-            </div>
+            <div style={{flex:1,overflow:'hidden',padding:1}}><SelectorColumnas seleccionadas={nuevoEj.etiquetas_ids} onChange={ids=>setNuevoEj(p=>({...p,etiquetas_ids:ids}))}/></div>
           </div>
         </div>
       )}
