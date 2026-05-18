@@ -26,6 +26,7 @@ type EjercicioSesion = {
   peso: string
   tiempo: string
   nota: string
+  imagen_url?: string
 }
 
 type Parte = {
@@ -49,11 +50,12 @@ export default function EntrenamientoPage() {
   const [modalSelEt, setModalSelEt] = useState(false)
   const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [subiendoImg, setSubiendoImg] = useState(false)
   const [subsubAbiertas, setSubsubAbiertas] = useState<string[]>([])
   const [buscarBiblio, setBuscarBiblio] = useState('')
   const [filtroEtBiblio, setFiltroEtBiblio] = useState<string[]>([])
   const [modalFiltrosBiblio, setModalFiltrosBiblio] = useState(false)
-  const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', etiquetas_ids:[] as string[] })
+  const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file: null as File|null })
   const [nuevaEtiqueta, setNuevaEtiqueta] = useState({ categoria:'musculo', nombre:'', padre_id:'' })
   const [nuevaSes, setNuevaSes] = useState<{ paciente_id:string, nombre:string, descripcion:string, partes:Parte[] }>({
     paciente_id:'', nombre:'', descripcion:'',
@@ -101,6 +103,21 @@ export default function EntrenamientoPage() {
   }
   function toggleSubsub(id: string) {
     setSubsubAbiertas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
+  }
+
+  async function handleImagenEjercicio(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNuevoEj(p=>({...p, imagen_file: file, imagen_url: URL.createObjectURL(file)}))
+  }
+
+  async function subirImagenYGuardar(ejercicioId: string, file: File): Promise<string|null> {
+    const ext = file.name.split('.').pop()
+    const path = `ejercicios/${ejercicioId}/foto.${ext}`
+    const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
+    if (error) { alert('Error al subir imagen: ' + error.message); return null }
+    const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+    return publicUrl
   }
 
   function SelectorColumnas({ seleccionadas, onChange }: { seleccionadas: string[], onChange: (v:string[])=>void }) {
@@ -186,7 +203,6 @@ export default function EntrenamientoPage() {
     )
   }
 
-  // BIBLIOTECA PARA SESIÓN
   const ejerciciosFiltradosBiblio = ejercicios.filter(e=>{
     const matchQ = !buscarBiblio || e.nombre.toLowerCase().includes(buscarBiblio.toLowerCase())
     const matchEt = filtroEtBiblio.length===0 || filtroEtBiblio.every(fid=>(e.etiquetas||[]).includes(fid))
@@ -195,16 +211,15 @@ export default function EntrenamientoPage() {
 
   function abrirConfigEj(ej: any, parteIdx: number) {
     setEjEnConfig({ parteIdx, ej })
-    setConfigEj({ ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
+    setConfigEj({ ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'' })
     setModalBiblioteca(null)
   }
 
   function confirmarEjercicio() {
     if (!ejEnConfig) return
-    const ejSesion: EjercicioSesion = { ...configEj }
     setNuevaSes(prev=>{
       const partes = [...prev.partes]
-      partes[ejEnConfig.parteIdx] = { ...partes[ejEnConfig.parteIdx], ejercicios: [...partes[ejEnConfig.parteIdx].ejercicios, ejSesion] }
+      partes[ejEnConfig.parteIdx] = { ...partes[ejEnConfig.parteIdx], ejercicios: [...partes[ejEnConfig.parteIdx].ejercicios, {...configEj}] }
       return { ...prev, partes }
     })
     setEjEnConfig(null)
@@ -230,6 +245,37 @@ export default function EntrenamientoPage() {
     setNuevaSes(prev=>({ ...prev, partes:prev.partes.filter((_,i)=>i!==idx) }))
   }
 
+  async function crearEjercicio() {
+    if (guardando) return
+    if (!nuevoEj.nombre) { alert('El nombre es obligatorio'); return }
+    setGuardando(true)
+    setSubiendoImg(true)
+    const { data: ejData, error } = await supabase.from('ejercicios').insert({
+      nombre: nuevoEj.nombre,
+      descripcion: nuevoEj.descripcion,
+      video_url: nuevoEj.video_url,
+      etiquetas: nuevoEj.etiquetas_ids,
+      imagen_url: '',
+    }).select().single()
+
+    if (error || !ejData) { alert('Error al crear ejercicio'); setGuardando(false); setSubiendoImg(false); return }
+
+    let imagenUrl = ''
+    if (nuevoEj.imagen_file) {
+      const url = await subirImagenYGuardar(ejData.id, nuevoEj.imagen_file)
+      if (url) {
+        imagenUrl = url
+        await supabase.from('ejercicios').update({ imagen_url: url }).eq('id', ejData.id)
+      }
+    }
+
+    setSubiendoImg(false)
+    setModalEj(false)
+    setNuevoEj({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[], imagen_file:null })
+    setGuardando(false)
+    cargar()
+  }
+
   async function crearSesion() {
     if (!nuevaSes.paciente_id || !nuevaSes.nombre) { alert('Selecciona paciente y pon un nombre'); return }
     setGuardando(true)
@@ -244,14 +290,6 @@ export default function EntrenamientoPage() {
     setNuevaSes({ paciente_id:'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })
     setGuardando(false)
     cargar()
-  }
-
-  async function crearEjercicio() {
-    if (guardando) return
-    if (!nuevoEj.nombre) { alert('El nombre es obligatorio'); return }
-    setGuardando(true)
-    await supabase.from('ejercicios').insert({ nombre:nuevoEj.nombre, descripcion:nuevoEj.descripcion, video_url:nuevoEj.video_url, etiquetas:nuevoEj.etiquetas_ids })
-    setModalEj(false); setNuevoEj({ nombre:'', descripcion:'', video_url:'', etiquetas_ids:[] }); setGuardando(false); cargar()
   }
 
   async function crearEtiqueta() {
@@ -312,7 +350,12 @@ export default function EntrenamientoPage() {
                   <div key={e.id} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer',transition:'border-color .15s'}}
                     onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                     onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-                    <div style={{height:56,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,borderBottom:'1px solid var(--bd)'}}>💪</div>
+                    {/* IMAGEN O PLACEHOLDER */}
+                    {e.imagen_url ? (
+                      <img src={e.imagen_url} alt={e.nombre} style={{width:'100%',height:80,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>
+                    ) : (
+                      <div style={{height:80,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>💪</div>
+                    )}
                     <div style={{padding:'8px 10px'}}>
                       <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
                       {e.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginBottom:5,fontWeight:300,lineHeight:1.4}}>{e.descripcion.slice(0,80)}{e.descripcion.length>80?'...':''}</div>}
@@ -358,6 +401,7 @@ export default function EntrenamientoPage() {
                   <div style={{padding:'5px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bm)',fontSize:10,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</div>
                   {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
                     <div key={ei} style={{padding:'6px 10px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:8}}>
+                      {ej.imagen_url && <img src={ej.imagen_url} alt={ej.nombre} style={{width:40,height:40,objectFit:'cover',borderRadius:4,flexShrink:0}}/>}
                       <div style={{flex:1}}>
                         <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre||ej}</div>
                         {ej.variante&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
@@ -429,7 +473,7 @@ export default function EntrenamientoPage() {
         </>
       )}
 
-      {/* MODAL FILTRO ETIQUETAS BIBLIOTECA */}
+      {/* MODAL FILTRO ETIQUETAS */}
       {modalFiltro && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalFiltro(false)}}>
           <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1200,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
@@ -454,7 +498,6 @@ export default function EntrenamientoPage() {
               <button onClick={()=>setModalSes(false)} style={{background:'none',border:'none',fontSize:18,color:'var(--gr)',cursor:'pointer'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:16}}>
-              {/* DATOS BÁSICOS */}
               <div className="g2" style={{marginBottom:12}}>
                 <div className="field"><label>Paciente *</label>
                   <select className="input" value={nuevaSes.paciente_id} onChange={e=>setNuevaSes(p=>({...p,paciente_id:e.target.value}))}>
@@ -469,18 +512,14 @@ export default function EntrenamientoPage() {
                   <input className="input" value={nuevaSes.descripcion} onChange={e=>setNuevaSes(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Trabajar fuerza extensora sin impacto"/>
                 </div>
               </div>
-
-              {/* PARTES */}
               {nuevaSes.partes.map((parte,pi)=>(
                 <div key={pi} style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',marginBottom:10}}>
-                  {/* CABECERA PARTE */}
                   <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
                     <input value={parte.nombre} onChange={e=>renombrarParte(pi,e.target.value)}
                       style={{flex:1,fontSize:12,fontWeight:500,color:'var(--n)',border:'none',background:'transparent',fontFamily:'system-ui',padding:'2px 0'}}/>
                     <button className="btn btn-t btn-sm" onClick={()=>setModalBiblioteca({parteIdx:pi})}>+ Añadir ejercicio</button>
                     {nuevaSes.partes.length>1 && <button onClick={()=>eliminarParte(pi)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 6px'}}>✕</button>}
                   </div>
-                  {/* EJERCICIOS DE LA PARTE */}
                   <div style={{padding:8}}>
                     {parte.ejercicios.length===0 && (
                       <div onClick={()=>setModalBiblioteca({parteIdx:pi})} style={{border:'1.5px dashed var(--bm)',borderRadius:5,padding:'10px',textAlign:'center',fontSize:10,color:'var(--grl)',cursor:'pointer'}}
@@ -491,6 +530,7 @@ export default function EntrenamientoPage() {
                     )}
                     {parte.ejercicios.map((ej,ei)=>(
                       <div key={ei} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'7px 10px',background:'var(--bl)',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4}}>
+                        {ej.imagen_url && <img src={ej.imagen_url} alt={ej.nombre} style={{width:36,height:36,objectFit:'cover',borderRadius:4,flexShrink:0}}/>}
                         <div style={{flex:1}}>
                           <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{ej.nombre}</div>
                           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
@@ -548,15 +588,21 @@ export default function EntrenamientoPage() {
                     const etsDelEj = (e.etiquetas||[]).map((id:string)=>etiquetas.find(et=>et.id===id)).filter(Boolean)
                     return (
                       <div key={e.id} onClick={()=>abrirConfigEj(e,modalBiblioteca.parteIdx)}
-                        style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',cursor:'pointer',transition:'all .15s'}}
-                        onMouseOver={el=>{const c=el.currentTarget;c.style.borderColor='var(--g)';c.style.background='var(--gl)'}}
-                        onMouseOut={el=>{const c=el.currentTarget;c.style.borderColor='var(--bd)';c.style.background='var(--bl)'}}>
-                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
-                        {e.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginBottom:5,fontWeight:300}}>{e.descripcion.slice(0,60)}...</div>}
-                        <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-                          {etsDelEj.slice(0,3).map((et:any)=>(
-                            <span key={et.id} style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--g)',color:'#fff'}}>{et.nombre}</span>
-                          ))}
+                        style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer',transition:'all .15s'}}
+                        onMouseOver={el=>{const c=el.currentTarget;c.style.borderColor='var(--g)'}}
+                        onMouseOut={el=>{const c=el.currentTarget;c.style.borderColor='var(--bd)'}}>
+                        {e.imagen_url ? (
+                          <img src={e.imagen_url} alt={e.nombre} style={{width:'100%',height:70,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>
+                        ) : (
+                          <div style={{height:70,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,borderBottom:'1px solid var(--bd)'}}>💪</div>
+                        )}
+                        <div style={{padding:'8px 10px'}}>
+                          <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
+                          <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                            {etsDelEj.slice(0,3).map((et:any)=>(
+                              <span key={et.id} style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--g)',color:'#fff'}}>{et.nombre}</span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )
@@ -573,7 +619,7 @@ export default function EntrenamientoPage() {
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalFiltrosBiblio(false)}}>
           <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1200,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
             <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Filtrar ejercicios por etiqueta</div></div>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>Filtrar ejercicios</div></div>
               {filtroEtBiblio.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroEtBiblio([])}>✕ Limpiar</button>}
               <button onClick={()=>setModalFiltrosBiblio(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui'}}>
                 Aplicar{filtroEtBiblio.length>0?` (${filtroEtBiblio.length})`:''}
@@ -592,9 +638,12 @@ export default function EntrenamientoPage() {
               Configurar ejercicio
               <button className="modal-close" onClick={()=>setEjEnConfig(null)}>✕</button>
             </div>
-            <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 11px',marginBottom:12}}>
-              <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{ejEnConfig.ej.nombre}</div>
-              {ejEnConfig.ej.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2,fontWeight:300}}>{ejEnConfig.ej.descripcion}</div>}
+            <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 11px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
+              {ejEnConfig.ej.imagen_url && <img src={ejEnConfig.ej.imagen_url} alt={ejEnConfig.ej.nombre} style={{width:48,height:48,objectFit:'cover',borderRadius:5,flexShrink:0}}/>}
+              <div>
+                <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{ejEnConfig.ej.nombre}</div>
+                {ejEnConfig.ej.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2,fontWeight:300}}>{ejEnConfig.ej.descripcion}</div>}
+              </div>
             </div>
             <div className="g2">
               <div className="field"><label>Variante de ejecución</label>
@@ -621,7 +670,7 @@ export default function EntrenamientoPage() {
               </div>
             </div>
             <div className="field"><label>Nota para este paciente</label>
-              <textarea className="input" value={configEj.nota} onChange={e=>setConfigEj(p=>({...p,nota:e.target.value}))} placeholder="ej. Precaución rodilla derecha, reducir rango de movimiento..." style={{minHeight:56}}/>
+              <textarea className="input" value={configEj.nota} onChange={e=>setConfigEj(p=>({...p,nota:e.target.value}))} placeholder="ej. Precaución rodilla derecha..." style={{minHeight:56}}/>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-s btn-sm" onClick={()=>{setEjEnConfig(null);setModalBiblioteca({parteIdx:ejEnConfig.parteIdx})}}>← Volver</button>
@@ -641,6 +690,24 @@ export default function EntrenamientoPage() {
             <div className="field"><label>Descripción motriz</label><textarea className="input" value={nuevoEj.descripcion} onChange={e=>setNuevoEj(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción del movimiento, puntos clave..." disabled={guardando}/></div>
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} placeholder="https://youtube.com/..." disabled={guardando}/></div>
             <div className="field">
+              <label>Imagen del ejercicio</label>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
+                {nuevoEj.imagen_url ? (
+                  <div style={{position:'relative'}}>
+                    <img src={nuevoEj.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6,border:'1px solid var(--bd)'}}/>
+                    <button onClick={()=>setNuevoEj(p=>({...p,imagen_url:'',imagen_file:null}))}
+                      style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>💪</div>
+                )}
+                <label style={{cursor:'pointer'}}>
+                  <div className="btn btn-s btn-sm">{nuevoEj.imagen_url?'📷 Cambiar imagen':'📷 Subir imagen'}</div>
+                  <input type="file" accept="image/*" onChange={handleImagenEjercicio} style={{display:'none'}} disabled={guardando}/>
+                </label>
+              </div>
+            </div>
+            <div className="field">
               <label>Etiquetas</label>
               {nuevoEj.etiquetas_ids.length>0&&(
                 <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>
@@ -658,7 +725,9 @@ export default function EntrenamientoPage() {
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalEj(false)} disabled={guardando}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearEjercicio} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar ejercicio'}</button>
+              <button className="btn btn-p" onClick={crearEjercicio} disabled={guardando}>
+                {guardando?(subiendoImg?'⏳ Subiendo imagen...':'⏳ Guardando...'):'💾 Guardar ejercicio'}
+              </button>
             </div>
           </div>
         </div>
