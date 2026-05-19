@@ -423,7 +423,7 @@ export default function AgendaPage() {
                           <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{sesionDetalle.nombre}</div>
                           {sesionDetalle.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300,marginTop:1}}>{sesionDetalle.descripcion}</div>}
                         </div>
-                        <button className="btn btn-t btn-sm" onClick={()=>setMostrarSesiones(true)}>Cambiar</button>
+                        <button className="btn btn-t btn-sm" onClick={()=>setMostrarSesiones(s=>!s)}>{mostrarSesiones?'▲ Ocultar':'Cambiar'}</button>
                       </div>
 
                       {/* PARTES Y EJERCICIOS */}
@@ -516,45 +516,7 @@ export default function AgendaPage() {
         </>
       )}
 
-      {/* MODAL ASIGNAR SESIÓN */}
-      {mostrarSesiones && (
-        <div className="modal-bg" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)setMostrarSesiones(false)}} style={{zIndex:100}}>
-          <div className="modal" style={{width:420}}>
-            <div className="modal-title">
-              Asignar sesión · {panelPac?.pacientes?.nombre}
-              <button className="modal-close" onClick={()=>setMostrarSesiones(false)}>✕</button>
-            </div>
-            <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>Selecciona la sesión para esta cita</div>
-            {sesionesPaciente.length===0 ? (
-              <div style={{textAlign:'center',padding:20,color:'var(--grl)',fontSize:11}}>
-                Este paciente no tiene sesiones creadas.<br/>
-                <a href="/entrenamiento" style={{color:'var(--g)',fontSize:11}}>Ir a Entrenamiento para crear una →</a>
-              </div>
-            ) : (
-              <div>
-                {sesionesPaciente.map(s=>(
-                  <div key={s.id} onClick={(e)=>{e.stopPropagation();asignarSesion(s.id)}}
-                    style={{padding:'10px 12px',background:'var(--bl)',borderRadius:7,border:`1.5px solid ${sesionDetalle?.id===s.id?'var(--g)':'var(--bd)'}`,marginBottom:6,cursor:'pointer',transition:'all .15s'}}
-                    onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
-                    onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor=sesionDetalle?.id===s.id?'var(--g)':'var(--bd)'}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2}}>{s.nombre}</div>
-                        {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>{s.descripcion}</div>}
-                        <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{(s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)} ejercicios</div>
-                      </div>
-                      {sesionDetalle?.id===s.id&&<span style={{fontSize:10,color:'var(--g)',fontWeight:600}}>✓ Asignada</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
-              <button className="btn btn-s btn-sm" onClick={()=>setMostrarSesiones(false)}>Cerrar</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Selector de sesion integrado en el panel lateral */}
 
       {/* MODAL NUEVA CITA */}
       {modal && (
