@@ -54,7 +54,7 @@ export default function AgendaPage() {
       const ultimoDia = new Date(parseInt(fecha.slice(0,4)),parseInt(fecha.slice(5,7)),0).getDate()
       fechaFin = fecha.slice(0,7)+'-'+String(ultimoDia).padStart(2,'0')
     }
-    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,telefono,email,tipo_clase), sesiones(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).neq('estado','cancelada').order('fecha').order('hora')
+    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).neq('estado','cancelada').order('fecha').order('hora')
     setCitas(c||[])
     setLoading(false)
   }
@@ -113,7 +113,7 @@ export default function AgendaPage() {
     cargar()
     // Reabrir panel con datos actualizados
     setTimeout(async()=>{
-      const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,telefono,email,tipo_clase), sesiones(id,nombre,partes,descripcion)').eq('id',panelPac.id).single()
+      const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').eq('id',panelPac.id).single()
       if (c) abrirPanel(c)
     }, 500)
   }
