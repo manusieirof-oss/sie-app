@@ -533,7 +533,7 @@ export default function AgendaPage() {
             ) : (
               <div>
                 {sesionesPaciente.map(s=>(
-                  <div key={s.id} onClick={()=>asignarSesion(s.id)}
+                  <div key={s.id} onClick={(e)=>{e.stopPropagation();asignarSesion(s.id)}}
                     style={{padding:'10px 12px',background:'var(--bl)',borderRadius:7,border:`1.5px solid ${sesionDetalle?.id===s.id?'var(--g)':'var(--bd)'}`,marginBottom:6,cursor:'pointer',transition:'all .15s'}}
                     onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                     onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor=sesionDetalle?.id===s.id?'var(--g)':'var(--bd)'}>
