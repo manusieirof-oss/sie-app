@@ -386,7 +386,7 @@ export default function AgendaPage() {
       {/* PANEL FLOTANTE PACIENTE */}
       {panelPac && (
         <>
-          <div onClick={()=>setPanelPac(null)} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
+          <div onClick={()=>{if(!modalAsignarSesion)setPanelPac(null)}} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
           <div style={{position:'fixed',top:0,right:0,width:320,height:'100vh',background:'var(--w)',borderLeft:'1px solid var(--bd)',zIndex:99,display:'flex',flexDirection:'column',boxShadow:'-4px 0 20px rgba(38,40,37,.08)'}}>
             
             {/* CABECERA */}
@@ -518,7 +518,7 @@ export default function AgendaPage() {
 
       {/* MODAL ASIGNAR SESIÓN */}
       {modalAsignarSesion && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalAsignarSesion(false)}}>
+        <div className="modal-bg" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)setModalAsignarSesion(false)}}>
           <div className="modal" style={{width:420}}>
             <div className="modal-title">
               Asignar sesión · {panelPac?.pacientes?.nombre}
