@@ -24,7 +24,7 @@ export default function AgendaPage() {
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
-    repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses'
+    repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:''
   })
 
   const hoy = new Date().toISOString().split('T')[0]
@@ -118,7 +118,7 @@ export default function AgendaPage() {
     if (!nuevaCita.paciente_id) { alert('Selecciona un paciente'); return }
     setGuardando(true)
     if (!nuevaCita.repetir) {
-      await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada'})
+      await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null})
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
       let fechaFin=nuevaCita.fecha_fin
@@ -145,7 +145,7 @@ export default function AgendaPage() {
       }
     }
     setModal(false)
-    setNuevaCita({paciente_id:'',hora:'08:30',sala:'A',tipo:'clase',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses'})
+    setNuevaCita({paciente_id:'',hora:'08:30',sala:'A',tipo:'clase',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:''})
     setGuardando(false); cargar()
   }
 
@@ -159,6 +159,25 @@ export default function AgendaPage() {
 
   const totalPersonas=citas.filter(c=>c.fecha===fecha).length
   const clases=citas.filter(c=>c.fecha===fecha&&c.tipo==='clase').length
+
+  function SesionSelector({ pacienteId, sesionId, onChange }: { pacienteId: string, sesionId: string, onChange: (id: string) => void }) {
+    const [sesiones, setSesiones] = useState<any[]>([])
+    useEffect(() => {
+      if (!pacienteId) return
+      supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id', pacienteId).order('created_at', {ascending:false}).then(({data}) => setSesiones(data||[]))
+    }, [pacienteId])
+    if (sesiones.length === 0) return <div style={{fontSize:10,color:'var(--grl)',padding:'6px 0'}}>Este paciente no tiene sesiones creadas aún</div>
+    return (
+      <div>
+        <select className="input" value={sesionId} onChange={e=>onChange(e.target.value)}>
+          <option value="">— Sin sesión asignada —</option>
+          {sesiones.map(s=>(
+            <option key={s.id} value={s.id}>{s.nombre} · {(s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)} ejercicios</option>
+          ))}
+        </select>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -577,6 +596,12 @@ export default function AgendaPage() {
             <div className="field"><label>Notas (opcional)</label>
               <input className="input" value={nuevaCita.notas} onChange={e=>setNuevaCita(p=>({...p,notas:e.target.value}))} placeholder="ej. Molestia lumbar, precaución..." disabled={guardando}/>
             </div>
+            {nuevaCita.paciente_id && (
+              <div className="field">
+                <label>Sesión de entrenamiento (opcional)</label>
+                <SesionSelector pacienteId={nuevaCita.paciente_id} sesionId={nuevaCita.sesion_id} onChange={id=>setNuevaCita(p=>({...p,sesion_id:id}))}/>
+              </div>
+            )}
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>{if(!guardando)setModal(false)}} disabled={guardando}>Cancelar</button>
               <div style={{flex:1}}/>
