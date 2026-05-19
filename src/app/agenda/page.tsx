@@ -21,7 +21,7 @@ export default function AgendaPage() {
   const [anotaciones, setAnotaciones] = useState<Record<string,string>>({})
   const [pesos, setPesos] = useState<Record<string,string>>({})
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
-  const [modalAsignarSesion, setModalAsignarSesion] = useState(false)
+  const [mostrarSesiones, setMostrarSesiones] = useState(false)
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
     repetir: false, dias_repetir: [] as string[], fecha_fin: '', periodo: '3meses'
@@ -109,7 +109,7 @@ export default function AgendaPage() {
 
   async function asignarSesion(sesionId: string) {
     await supabase.from('citas').update({ sesion_id: sesionId }).eq('id', panelPac.id)
-    setModalAsignarSesion(false)
+    setMostrarSesiones(false)
     cargar()
     // Reabrir panel con datos actualizados
     setTimeout(async()=>{
@@ -386,7 +386,7 @@ export default function AgendaPage() {
       {/* PANEL FLOTANTE PACIENTE */}
       {panelPac && (
         <>
-          <div onClick={()=>{if(!modalAsignarSesion)setPanelPac(null)}} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
+          <div onClick={()=>{if(!mostrarSesiones)setPanelPac(null); else setMostrarSesiones(false)}} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
           <div style={{position:'fixed',top:0,right:0,width:320,height:'100vh',background:'var(--w)',borderLeft:'1px solid var(--bd)',zIndex:99,display:'flex',flexDirection:'column',boxShadow:'-4px 0 20px rgba(38,40,37,.08)'}}>
             
             {/* CABECERA */}
@@ -423,7 +423,7 @@ export default function AgendaPage() {
                           <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{sesionDetalle.nombre}</div>
                           {sesionDetalle.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300,marginTop:1}}>{sesionDetalle.descripcion}</div>}
                         </div>
-                        <button className="btn btn-t btn-sm" onClick={()=>setModalAsignarSesion(true)}>Cambiar</button>
+                        <button className="btn btn-t btn-sm" onClick={()=>setMostrarSesiones(true)}>Cambiar</button>
                       </div>
 
                       {/* PARTES Y EJERCICIOS */}
@@ -478,7 +478,7 @@ export default function AgendaPage() {
                     <div style={{textAlign:'center',padding:'20px 10px'}}>
                       <div style={{fontSize:24,marginBottom:8}}>📋</div>
                       <div style={{fontSize:11,color:'var(--grl)',marginBottom:12,fontWeight:300}}>Sin sesión asignada para esta cita</div>
-                      <button className="btn btn-p btn-sm" style={{width:'100%',justifyContent:'center'}} onClick={()=>setModalAsignarSesion(true)}>
+                      <button className="btn btn-p btn-sm" style={{width:'100%',justifyContent:'center'}} onClick={()=>setMostrarSesiones(true)}>
                         + Asignar sesión
                       </button>
                     </div>
@@ -517,12 +517,12 @@ export default function AgendaPage() {
       )}
 
       {/* MODAL ASIGNAR SESIÓN */}
-      {modalAsignarSesion && (
-        <div className="modal-bg" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)setModalAsignarSesion(false)}}>
+      {mostrarSesiones && (
+        <div className="modal-bg" onClick={e=>{e.stopPropagation();if(e.target===e.currentTarget)setMostrarSesiones(false)}} style={{zIndex:100}}>
           <div className="modal" style={{width:420}}>
             <div className="modal-title">
               Asignar sesión · {panelPac?.pacientes?.nombre}
-              <button className="modal-close" onClick={()=>setModalAsignarSesion(false)}>✕</button>
+              <button className="modal-close" onClick={()=>setMostrarSesiones(false)}>✕</button>
             </div>
             <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>Selecciona la sesión para esta cita</div>
             {sesionesPaciente.length===0 ? (
@@ -550,7 +550,7 @@ export default function AgendaPage() {
               </div>
             )}
             <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
-              <button className="btn btn-s btn-sm" onClick={()=>setModalAsignarSesion(false)}>Cerrar</button>
+              <button className="btn btn-s btn-sm" onClick={()=>setMostrarSesiones(false)}>Cerrar</button>
             </div>
           </div>
         </div>
