@@ -22,6 +22,7 @@ export default function AgendaPage() {
   const [anotaciones, setAnotaciones] = useState<Record<string,string>>({})
   const [pesos, setPesos] = useState<Record<string,string>>({})
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
+  const [editandoCita, setEditandoCita] = useState<any>(null)
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:''
@@ -111,6 +112,20 @@ export default function AgendaPage() {
     if (ex) await supabase.from('anotaciones_ejercicios').update(datos).eq('id',ex.id)
     else await supabase.from('anotaciones_ejercicios').insert(datos)
     setGuardandoAnot(null)
+  }
+
+  async function guardarEdicionCita() {
+    if (!editandoCita) return
+    setGuardando(true)
+    await supabase.from('citas').update({
+      hora: editandoCita.hora,
+      sala: editandoCita.sala,
+      tipo: editandoCita.tipo,
+      notas: editandoCita.notas,
+    }).eq('id', editandoCita.id)
+    setEditandoCita(null)
+    setGuardando(false)
+    cargar()
   }
 
   async function crearCita() {
@@ -232,6 +247,16 @@ export default function AgendaPage() {
                                 <span>{tipo==='valoracion'?'Valoración':tipo==='individual'?'Individual':tipo==='revaloracion'?'Revaloración':'Clase'}</span>
                                 <span>{sc.length}/6</span>
                               </div>
+                              {sc.length<6 && (
+                                <div onClick={(e)=>{e.stopPropagation();setNuevaCita(p=>({...p,hora:h,sala}));setModal(true)}}
+                                  style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}
+                                  title="Añadir paciente a este grupo">+</div>
+                              )}
+                              {sc.length<6 && (
+                                <div onClick={(e)=>{e.stopPropagation();setNuevaCita(p=>({...p,hora:h,sala}));setModal(true)}}
+                                  style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}
+                                  title="Añadir paciente a este grupo">+</div>
+                              )}
                               {sc.map(c=>(
                                 <div key={c.id} onClick={()=>abrirPanel(c)}
                                   style={{display:'flex',alignItems:'center',gap:3,padding:'2px 4px',borderRadius:3,cursor:'pointer',marginBottom:1,minHeight:28}}
@@ -495,7 +520,51 @@ export default function AgendaPage() {
                 <div style={{padding:11}}>
                   {panelPac.pacientes?.telefono&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>📞 {panelPac.pacientes.telefono}</div>}
                   {panelPac.pacientes?.email&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>✉️ {panelPac.pacientes.email}</div>}
-                  <div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:10}}>🏷 {panelPac.pacientes?.tipo_clase||'—'}</div>
+                  <div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:12}}>🏷 {panelPac.pacientes?.tipo_clase||'—'}</div>
+
+                  {/* EDITOR DE CITA */}
+                  <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:7,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    Datos de la cita
+                    <button className="btn btn-t btn-sm" onClick={()=>setEditandoCita(editandoCita?null:{...panelPac})}>
+                      {editandoCita?'Cancelar':'✎ Editar'}
+                    </button>
+                  </div>
+
+                  {editandoCita ? (
+                    <div style={{marginBottom:12}}>
+                      <div className="field"><label>Hora</label>
+                        <select className="input" value={editandoCita.hora?.slice(0,5)||''} onChange={e=>setEditandoCita((p:any)=>({...p,hora:e.target.value+':00'}))}>
+                          {['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'].map(h=><option key={h} value={h}>{h}</option>)}
+                        </select>
+                      </div>
+                      <div className="field"><label>Sala</label>
+                        <select className="input" value={editandoCita.sala||''} onChange={e=>setEditandoCita((p:any)=>({...p,sala:e.target.value}))}>
+                          <option value="A">Sala A</option>
+                          <option value="B">Sala B</option>
+                        </select>
+                      </div>
+                      <div className="field"><label>Tipo</label>
+                        <select className="input" value={editandoCita.tipo||''} onChange={e=>setEditandoCita((p:any)=>({...p,tipo:e.target.value}))}>
+                          <option value="clase">Clase grupal</option>
+                          <option value="individual">Individual</option>
+                          <option value="valoracion">Valoración</option>
+                          <option value="revaloracion">Revaloración</option>
+                        </select>
+                      </div>
+                      <div className="field"><label>Notas</label>
+                        <input className="input" value={editandoCita.notas||''} onChange={e=>setEditandoCita((p:any)=>({...p,notas:e.target.value}))} placeholder="Notas sobre esta cita..."/>
+                      </div>
+                      <button className="btn btn-p" style={{width:'100%',justifyContent:'center'}} onClick={guardarEdicionCita} disabled={guardando}>
+                        {guardando?'⏳ Guardando...':'💾 Guardar cambios'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px',marginBottom:12,fontSize:10,color:'var(--n)',fontWeight:300}}>
+                      <div>{panelPac.hora?.slice(0,5)} · Sala {panelPac.sala} · {panelPac.tipo}</div>
+                      {panelPac.notas&&<div style={{marginTop:4,color:'var(--gr)'}}>{panelPac.notas}</div>}
+                    </div>
+                  )}
+
                   <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:7}}>Estado de la cita</div>
                   <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12}}>
                     {[['programada','Programada'],['realizada','✓ Realizada'],['falta','Falta'],['cancelada','Cancelar']].map(([est,lbl])=>(
