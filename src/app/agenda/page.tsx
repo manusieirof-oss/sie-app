@@ -24,6 +24,9 @@ export default function AgendaPage() {
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
   const [editandoCita, setEditandoCita] = useState<any>(null)
   const [notasDia, setNotasDia] = useState<any[]>([])
+  const [buscarPac, setBuscarPac] = useState('')
+  const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([])
+  const [buscando, setBuscando] = useState(false)
   const [modalNota, setModalNota] = useState(false)
   const [nuevaNota, setNuevaNota] = useState('')
   const [nuevaCita, setNuevaCita] = useState({
@@ -99,6 +102,25 @@ export default function AgendaPage() {
     const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
     setSesionesPaciente(sp||[])
     setLoadingSesion(false)
+  }
+
+  async function buscarPaciente(q: string) {
+    setBuscarPac(q)
+    if (!q.trim()) { setResultadosBusqueda([]); return }
+    setBuscando(true)
+    const { data } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos)').eq('paciente_id', (await supabase.from('pacientes').select('id').ilike('nombre', `%${q}%`).limit(1).maybeSingle()).data?.id||'00000000-0000-0000-0000-000000000000').gte('fecha', new Date().toISOString().split('T')[0]).order('fecha').limit(10)
+    setResultadosBusqueda(data||[])
+    setBuscando(false)
+  }
+
+  async function buscarPacienteDirecto(q: string) {
+    setBuscarPac(q)
+    if (!q.trim()) { setResultadosBusqueda([]); return }
+    const matchingPacs = pacientes.filter(p => `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q.toLowerCase()))
+    if (matchingPacs.length === 0) { setResultadosBusqueda([]); return }
+    const ids = matchingPacs.map(p => p.id)
+    const { data } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos)').in('paciente_id', ids).gte('fecha', new Date().toISOString().split('T')[0]).neq('estado','cancelada').order('fecha').limit(15)
+    setResultadosBusqueda(data||[])
   }
 
   async function crearNotaDia() {
@@ -235,6 +257,27 @@ export default function AgendaPage() {
         </span>
         {fecha!==hoy&&<button className="btn btn-t btn-sm" onClick={()=>setFecha(hoy)}>Hoy</button>}
         <button className="btn btn-s btn-sm" onClick={nextPeriodo}>›</button>
+        <div style={{position:'relative'}}>
+          <input className="input" placeholder="🔍 Buscar paciente..." value={buscarPac} onChange={e=>buscarPacienteDirecto(e.target.value)} style={{width:180,fontSize:11}}/>
+          {buscarPac && resultadosBusqueda.length>0 && (
+            <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'0 4px 12px rgba(0,0,0,.1)',zIndex:50,maxHeight:280,overflowY:'auto',marginTop:3}}>
+              {resultadosBusqueda.map(c=>(
+                <div key={c.id} onClick={()=>{setFecha(c.fecha);setBuscarPac('');setResultadosBusqueda([]);setVista('dia')}}
+                  style={{padding:'8px 11px',cursor:'pointer',borderBottom:'1px solid var(--bl)',transition:'background .1s'}}
+                  onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                  onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                  <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</div>
+                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>
+                    {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {buscarPac && resultadosBusqueda.length===0 && buscarPac.length>1 && (
+            <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',fontSize:10,color:'var(--grl)',zIndex:50,marginTop:3}}>Sin citas futuras para ese paciente</div>
+          )}
+        </div>
         <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nueva cita</button>
       </div>
 
