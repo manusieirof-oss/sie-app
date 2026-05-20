@@ -247,12 +247,7 @@ export default function AgendaPage() {
                                 <span>{tipo==='valoracion'?'Valoración':tipo==='individual'?'Individual':tipo==='revaloracion'?'Revaloración':'Clase'}</span>
                                 <span>{sc.length}/6</span>
                               </div>
-                              {sc.length<6 && (
-                                <div onClick={(e)=>{e.stopPropagation();setNuevaCita(p=>({...p,hora:h,sala}));setModal(true)}}
-                                  style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}
-                                  title="Añadir paciente a este grupo">+</div>
-                              )}
-                              {sc.length<6 && (
+                              {sc.length<6 && sc.length>0 && (
                                 <div onClick={(e)=>{e.stopPropagation();setNuevaCita(p=>({...p,hora:h,sala}));setModal(true)}}
                                   style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}
                                   title="Añadir paciente a este grupo">+</div>
