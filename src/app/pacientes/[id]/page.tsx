@@ -135,6 +135,8 @@ export default function FichaPacientePage() {
   const [patologias, setPatologias] = useState<any[]>([])
   const [medicamentos, setMedicamentos] = useState<any[]>([])
   const [escalas, setEscalas] = useState<any[]>([])
+  const [tests, setTests] = useState<any[]>([])
+  const [testsDisp, setTestsDisp] = useState<any[]>([])
   const [citas, setCitas] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -161,11 +163,17 @@ export default function FichaPacientePage() {
       supabase.from('patologias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('medicamentos').select('*').eq('paciente_id',id),
       supabase.from('escalas').select('*').eq('paciente_id',id).order('fecha',{ascending:false}).limit(5),
+      supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
       supabase.from('citas').select('*').eq('paciente_id',id).gte('fecha',new Date().toISOString().split('T')[0]).order('fecha').limit(10),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
     ])
+    const [{ data: t }, { data: td }] = await Promise.all([
+      supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
+      supabase.from('tests').select('*').order('nombre'),
+    ])
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
+    setTests(t||[]); setTestsDisp(td||[])
     setForm(p||{})
     setLoading(false)
   }
@@ -493,6 +501,57 @@ export default function FichaPacientePage() {
                   <div><div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.nombre}</div><div style={{fontSize:9,color:'var(--grl)'}}>{m.frecuencia}</div></div>
                 </div>
               ))}
+            </div>
+            <div className="card" style={{gridColumn:'1/-1'}}>
+              <div className="card-title">
+                Tests funcionales
+                <button className="btn btn-s btn-sm" onClick={async()=>{
+                  const testId=prompt('ID del test (ver lista en Entrenamiento → Tests)');
+                  if(!testId)return;
+                  const res=prompt('Resultado (positivo/negativo):');
+                  if(!res)return;
+                  await supabase.from('resultados_tests').insert({paciente_id:id,test_id:testId,fecha:new Date().toISOString().split('T')[0],resultado:res});
+                  cargar();
+                }}>+ Registrar</button>
+              </div>
+              {tests.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin tests registrados</div>}
+              {tests.length>0 && (
+                <div className="g2">
+                  <div>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--red)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>● Positivos / Activos</div>
+                    {tests.filter(t=>t.resultado==='positivo').length===0 && <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Sin tests positivos</div>}
+                    {tests.filter(t=>t.resultado==='positivo').map(t=>(
+                      <div key={t.id} style={{padding:'7px 10px',background:'var(--redl)',borderRadius:6,border:'1px solid #F5C8C8',marginBottom:4}}>
+                        <div style={{display:'flex',alignItems:'center',gap:7}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{t.tests?.nombre||'Test'}</div>
+                            <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
+                          </div>
+                          <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid var(--red)'}}>+ Positivo</span>
+                          <button onClick={async()=>{await supabase.from('resultados_tests').update({resultado:'negativo'}).eq('id',t.id);cargar()}} style={{fontSize:8,padding:'2px 6px',borderRadius:3,border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui'}}>→ Negativo</button>
+                        </div>
+                        {t.observaciones&&<div style={{fontSize:9,color:'var(--gr)',marginTop:4,fontStyle:'italic'}}>{t.observaciones}</div>}
+                        {t.fecha_repeticion&&<div style={{fontSize:9,color:'var(--amb)',marginTop:2}}>⏰ Revisión: {new Date(t.fecha_repeticion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>✓ Negativos / Resueltos</div>
+                    {tests.filter(t=>t.resultado==='negativo').length===0 && <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Sin tests negativos</div>}
+                    {tests.filter(t=>t.resultado==='negativo').map(t=>(
+                      <div key={t.id} style={{padding:'7px 10px',background:'var(--gl)',borderRadius:6,border:'1px solid var(--gm)',marginBottom:4}}>
+                        <div style={{display:'flex',alignItems:'center',gap:7}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{t.tests?.nombre||'Test'}</div>
+                            <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
+                          </div>
+                          <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',border:'1px solid var(--gm)'}}>− Negativo</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
