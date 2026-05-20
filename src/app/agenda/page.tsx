@@ -23,6 +23,9 @@ export default function AgendaPage() {
   const [pesos, setPesos] = useState<Record<string,string>>({})
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
   const [editandoCita, setEditandoCita] = useState<any>(null)
+  const [notasDia, setNotasDia] = useState<any[]>([])
+  const [modalNota, setModalNota] = useState(false)
+  const [nuevaNota, setNuevaNota] = useState('')
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:''
@@ -54,6 +57,8 @@ export default function AgendaPage() {
       const ult=new Date(parseInt(fecha.slice(0,4)),parseInt(fecha.slice(5,7)),0).getDate()
       fechaFin=fecha.slice(0,7)+'-'+String(ult).padStart(2,'0')
     }
+    const { data: nd } = await supabase.from('notas_dia').select('*').eq('fecha', fecha).order('created_at')
+    setNotasDia(nd||[])
     const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).neq('estado','cancelada').order('fecha').order('hora')
     setCitas(c||[])
     setLoading(false)
@@ -94,6 +99,24 @@ export default function AgendaPage() {
     const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
     setSesionesPaciente(sp||[])
     setLoadingSesion(false)
+  }
+
+  async function crearNotaDia() {
+    if (!nuevaNota.trim()) return
+    await supabase.from('notas_dia').insert({ fecha, texto: nuevaNota.trim() })
+    setNuevaNota('')
+    setModalNota(false)
+    cargar()
+  }
+
+  async function toggleNotaResuelta(id: string, resuelta: boolean) {
+    await supabase.from('notas_dia').update({ resuelta: !resuelta }).eq('id', id)
+    cargar()
+  }
+
+  async function eliminarNota(id: string) {
+    await supabase.from('notas_dia').delete().eq('id', id)
+    cargar()
   }
 
   async function asignarSesion(sesionId:string) {
@@ -290,15 +313,36 @@ export default function AgendaPage() {
                 ))}
               </div>
               <div style={{flex:1,overflowY:'auto',padding:'7px 9px'}}>
-                <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:6}}>Notas del día</div>
-                {citas.filter(c=>c.notas&&c.fecha===fecha).map(c=>(
-                  <div key={c.id} style={{borderRadius:5,padding:'5px 8px',borderLeft:'2px solid var(--g)',background:'var(--gl)',marginBottom:4}}>
-                    <div style={{fontSize:8,color:'var(--gd)',marginBottom:1}}>{c.pacientes?.nombre}</div>
-                    <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{c.notas}</div>
+                {/* NOTAS DE PACIENTES */}
+                {citas.filter(c=>c.notas&&c.fecha===fecha).length>0&&(
+                  <>
+                    <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>Alertas pacientes</div>
+                    {citas.filter(c=>c.notas&&c.fecha===fecha).map(c=>(
+                      <div key={c.id} style={{borderRadius:5,padding:'5px 8px',borderLeft:'2px solid var(--g)',background:'var(--gl)',marginBottom:4}}>
+                        <div style={{fontSize:8,color:'var(--gd)',marginBottom:1}}>{c.pacientes?.nombre}</div>
+                        <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{c.notas}</div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {/* NOTAS DEL DÍA */}
+                <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5,marginTop:8}}>Notas del día</div>
+                {notasDia.length===0&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Sin notas para hoy</div>}
+                {notasDia.map(n=>(
+                  <div key={n.id} style={{borderRadius:5,padding:'6px 8px',borderLeft:'2px solid var(--amb)',background:n.resuelta?'var(--bl)':'var(--ambl)',marginBottom:4,opacity:n.resuelta?0.6:1}}>
+                    <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4,textDecoration:n.resuelta?'line-through':'none'}}>{n.texto}</div>
+                    <div style={{display:'flex',gap:5,marginTop:4}}>
+                      <button onClick={()=>toggleNotaResuelta(n.id,n.resuelta)} style={{fontSize:8,padding:'1px 6px',borderRadius:3,border:'1px solid var(--amb)',background:'transparent',color:'var(--amb)',cursor:'pointer',fontFamily:'system-ui'}}>
+                        {n.resuelta?'↩ Reabrir':'✓ Hecho'}
+                      </button>
+                      <button onClick={()=>eliminarNota(n.id)} style={{fontSize:8,padding:'1px 6px',borderRadius:3,border:'1px solid var(--red)',background:'transparent',color:'var(--red)',cursor:'pointer',fontFamily:'system-ui'}}>✕</button>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div style={{padding:'8px 10px',borderTop:'1px solid var(--bd)',fontSize:9,color:'var(--g)',cursor:'pointer'}} onClick={()=>setModal(true)}>+ Nueva cita</div>
+              <div style={{padding:'7px 9px',borderTop:'1px solid var(--bd)',fontSize:9,color:'var(--amb)',cursor:'pointer',fontWeight:500,display:'flex',alignItems:'center',gap:5}} onClick={()=>setModalNota(true)}>
+                <span>📝</span> + Nota del día
+              </div>
             </div>
           </div>
         )}
@@ -581,6 +625,30 @@ export default function AgendaPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* MODAL NOTA DEL DÍA */}
+      {modalNota&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNota(false)}}>
+          <div className="modal" style={{width:380}}>
+            <div className="modal-title">
+              📝 Nueva nota del día
+              <button className="modal-close" onClick={()=>setModalNota(false)}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>{fechaDisplay}</div>
+            <div className="field">
+              <label>Nota</label>
+              <textarea className="input" value={nuevaNota} onChange={e=>setNuevaNota(e.target.value)}
+                placeholder="ej. Traer bandas elásticas azules, llamar a Carmen para confirmar..." 
+                style={{minHeight:80}} autoFocus/>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalNota(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={crearNotaDia} disabled={!nuevaNota.trim()}>💾 Guardar nota</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODAL NUEVA CITA */}
