@@ -147,6 +147,11 @@ export default function FichaPacientePage() {
   const [nuevoBono, setNuevoBono] = useState({ tipo:'esencial', estado_pago:'pendiente' })
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const [modalRegistrarTest, setModalRegistrarTest] = useState(false)
+  const [testSeleccionado, setTestSeleccionado] = useState('')
+  const [resultadoTest, setResultadoTest] = useState('positivo')
+  const [obsTest, setObsTest] = useState('')
+  const [fechaRevTest, setFechaRevTest] = useState('')
   const [procesando, setProcesando] = useState(false)
 
   const mes = new Date().getMonth()+1
@@ -185,6 +190,21 @@ export default function FichaPacientePage() {
       peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas:form.notas
     }).eq('id',id)
     setEditando(false); cargar()
+  }
+
+  async function registrarTest() {
+    if (!testSeleccionado) { alert('Selecciona un test'); return }
+    await supabase.from('resultados_tests').insert({
+      paciente_id: id,
+      test_id: testSeleccionado,
+      fecha: new Date().toISOString().split('T')[0],
+      resultado: resultadoTest,
+      observaciones: obsTest,
+      fecha_repeticion: fechaRevTest || null,
+    })
+    setModalRegistrarTest(false)
+    setTestSeleccionado(''); setResultadoTest('positivo'); setObsTest(''); setFechaRevTest('')
+    cargar()
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -505,14 +525,7 @@ export default function FichaPacientePage() {
             <div className="card" style={{gridColumn:'1/-1'}}>
               <div className="card-title">
                 Tests funcionales
-                <button className="btn btn-s btn-sm" onClick={async()=>{
-                  const testId=prompt('ID del test (ver lista en Entrenamiento → Tests)');
-                  if(!testId)return;
-                  const res=prompt('Resultado (positivo/negativo):');
-                  if(!res)return;
-                  await supabase.from('resultados_tests').insert({paciente_id:id,test_id:testId,fecha:new Date().toISOString().split('T')[0],resultado:res});
-                  cargar();
-                }}>+ Registrar</button>
+                <button className="btn btn-s btn-sm" onClick={()=>setModalRegistrarTest(true)}>+ Registrar test</button>
               </div>
               {tests.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin tests registrados</div>}
               {tests.length>0 && (
@@ -560,6 +573,43 @@ export default function FichaPacientePage() {
       {/* TAB ENTRENAMIENTO */}
       {tab==='entreno' && (
         <EntrenoTab pacienteId={String(id)} sesiones={sesiones} supabase={supabase} onRefresh={cargar}/>
+      )}
+
+      {/* MODAL REGISTRAR TEST */}
+      {modalRegistrarTest && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalRegistrarTest(false)}}>
+          <div className="modal" style={{width:460}}>
+            <div className="modal-title">Registrar test<button className="modal-close" onClick={()=>setModalRegistrarTest(false)}>✕</button></div>
+            <div className="field"><label>Test *</label>
+              <select className="input" value={testSeleccionado} onChange={e=>setTestSeleccionado(e.target.value)}>
+                <option value="">Seleccionar test...</option>
+                {testsDisp.map((t:any)=><option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+            </div>
+            <div className="field"><label>Resultado</label>
+              <div style={{display:'flex',gap:8,marginTop:4}}>
+                {[['positivo','+ Positivo','var(--red)','var(--redl)'],['negativo','− Negativo','var(--g)','var(--gl)']].map(([v,l,c,bg])=>(
+                  <div key={v} onClick={()=>setResultadoTest(v)} style={{flex:1,padding:'10px',borderRadius:'var(--rl)',border:`2px solid ${resultadoTest===v?c:'var(--bd)'}`,background:resultadoTest===v?bg:'var(--w)',cursor:'pointer',textAlign:'center',transition:'all .15s'}}>
+                    <div style={{fontSize:12,fontWeight:500,color:resultadoTest===v?c:'var(--grl)'}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="field"><label>Observaciones</label>
+              <textarea className="input" value={obsTest} onChange={e=>setObsTest(e.target.value)} placeholder="Notas sobre el resultado del test..." style={{minHeight:60}}/>
+            </div>
+            {resultadoTest==='positivo' && (
+              <div className="field"><label>Fecha de revisión (opcional)</label>
+                <input type="date" className="input" value={fechaRevTest} onChange={e=>setFechaRevTest(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
+              </div>
+            )}
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalRegistrarTest(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={registrarTest}>💾 Guardar resultado</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODAL BONO */}

@@ -47,6 +47,9 @@ export default function EntrenamientoPage() {
   const [modalEj, setModalEj] = useState(false)
   const [modalSes, setModalSes] = useState(false)
   const [modalEtiqueta, setModalEtiqueta] = useState(false)
+  const [testsLib, setTestsLib] = useState<any[]>([])
+  const [modalTest, setModalTest] = useState(false)
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3 })
   const [modalSelEt, setModalSelEt] = useState(false)
   const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -77,8 +80,11 @@ export default function EntrenamientoPage() {
       supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre'),
       supabase.from('sesiones').select('*, pacientes(nombre,apellidos)').order('created_at',{ascending:false}).limit(20),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
+      supabase.from('tests').select('*').order('nombre'),
     ])
     setEjercicios(e||[]); setPacientes(p||[]); setSesiones(s||[]); setEtiquetas(et||[])
+    const { data: tl } = await supabase.from('tests').select('*').order('nombre')
+    setTestsLib(tl||[])
     setLoading(false)
   }
 
@@ -292,6 +298,22 @@ export default function EntrenamientoPage() {
     cargar()
   }
 
+  async function crearTest() {
+    if (!nuevoTest.nombre) { alert('El nombre es obligatorio'); return }
+    await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses })
+    setModalTest(false)
+    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3 })
+    const { data: tl } = await supabase.from('tests').select('*').order('nombre')
+    setTestsLib(tl||[])
+  }
+
+  async function eliminarTest(id: string) {
+    if (!confirm('¿Eliminar este test?')) return
+    await supabase.from('tests').delete().eq('id', id)
+    const { data: tl } = await supabase.from('tests').select('*').order('nombre')
+    setTestsLib(tl||[])
+  }
+
   async function crearEtiqueta() {
     if (!nuevaEtiqueta.nombre) { alert('Escribe el nombre'); return }
     await supabase.from('etiquetas').insert({ categoria:nuevaEtiqueta.categoria, nombre:nuevaEtiqueta.nombre, padre_id:nuevaEtiqueta.padre_id||null })
@@ -311,7 +333,7 @@ export default function EntrenamientoPage() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Biblioteca'],['sesiones','📋 Sesiones'],['etiquetas','🏷 Etiquetas']].map(([k,l])=>(
+        {[['biblioteca','📚 Biblioteca'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -416,6 +438,29 @@ export default function EntrenamientoPage() {
               ))}
             </div>
           ))}
+        </>
+      )}
+
+      {/* TESTS */}
+      {tab==='tests' && (
+        <>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontSize:11,color:'var(--grl)',fontWeight:300}}>{testsLib.length} tests en la biblioteca</div>
+            <button className="btn btn-p btn-sm" onClick={()=>setModalTest(true)}>+ Nuevo test</button>
+          </div>
+          <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
+            {testsLib.length===0 && <div style={{padding:20,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin tests. Crea el primero con + Nuevo test.</div>}
+            {testsLib.map((t,i)=>(
+              <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 13px',borderBottom:i<testsLib.length-1?'1px solid var(--bl)':'none'}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>🔍 {t.nombre}</div>
+                  {t.descripcion&&<div style={{fontSize:10,color:'var(--grl)',fontWeight:300,lineHeight:1.4}}>{t.descripcion}</div>}
+                  <div style={{fontSize:9,color:'var(--g)',marginTop:3}}>Revisión cada {t.frecuencia_meses} meses</div>
+                </div>
+                <button onClick={()=>eliminarTest(t.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px',flexShrink:0}}>✕</button>
+              </div>
+            ))}
+          </div>
         </>
       )}
 
@@ -745,6 +790,35 @@ export default function EntrenamientoPage() {
               </button>
             </div>
             <div style={{flex:1,overflow:'hidden',padding:1}}><SelectorColumnas seleccionadas={nuevoEj.etiquetas_ids} onChange={ids=>setNuevoEj(p=>({...p,etiquetas_ids:ids}))}/></div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL NUEVO TEST */}
+      {modalTest && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalTest(false)}}>
+          <div className="modal">
+            <div className="modal-title">Nuevo test<button className="modal-close" onClick={()=>setModalTest(false)}>✕</button></div>
+            <div className="field"><label>Nombre *</label>
+              <input className="input" value={nuevoTest.nombre} onChange={e=>setNuevoTest(p=>({...p,nombre:e.target.value}))} placeholder="ej. Test de Thomas" autoFocus/>
+            </div>
+            <div className="field"><label>Descripción · qué evalúa</label>
+              <textarea className="input" value={nuevoTest.descripcion} onChange={e=>setNuevoTest(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Evalúa el acortamiento del psoas ilíaco..."/>
+            </div>
+            <div className="field"><label>Frecuencia de revisión (meses)</label>
+              <select className="input" value={nuevoTest.frecuencia_meses} onChange={e=>setNuevoTest(p=>({...p,frecuencia_meses:parseInt(e.target.value)}))}>
+                <option value={1}>1 mes</option>
+                <option value={2}>2 meses</option>
+                <option value={3}>3 meses</option>
+                <option value={6}>6 meses</option>
+                <option value={12}>12 meses</option>
+              </select>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalTest(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={crearTest}>💾 Guardar test</button>
+            </div>
           </div>
         </div>
       )}
