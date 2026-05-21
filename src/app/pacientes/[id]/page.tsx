@@ -578,50 +578,102 @@ export default function FichaPacientePage() {
                 <button className="btn btn-s btn-sm" onClick={()=>setModalRegistrarTest(true)}>+ Registrar test</button>
               </div>
               {tests.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin tests registrados</div>}
-              {tests.length>0 && (
-                <div className="g2">
-                  <div>
-                    <div style={{fontSize:9,fontWeight:600,color:'var(--red)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>● Positivos / Activos</div>
-                    {tests.filter(t=>t.resultado==='positivo').length===0 && <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Sin tests positivos</div>}
-                    {tests.filter(t=>t.resultado==='positivo').map(t=>(
-                      <div key={t.id} style={{padding:'7px 10px',background:'var(--redl)',borderRadius:6,border:'1px solid #F5C8C8',marginBottom:4}}>
-                        <div style={{display:'flex',alignItems:'center',gap:7}}>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{t.tests?.nombre||'Test'}{t.lado&&t.lado!=='bilateral'?' · '+t.lado.charAt(0).toUpperCase()+t.lado.slice(1):''}</div>
-                            <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
+              {tests.length>0 && (() => {
+                // Agrupar tests por test_id + lado
+                const grupos: Record<string, any[]> = {}
+                tests.forEach(t => {
+                  const key = `${t.test_id}_${t.lado||'bilateral'}`
+                  if (!grupos[key]) grupos[key] = []
+                  grupos[key].push(t)
+                })
+                const gruposArr = Object.values(grupos)
+                const positivos = gruposArr.filter(g=>g[0].resultado==='positivo')
+                const negativos = gruposArr.filter(g=>g[0].resultado==='negativo')
+                return (
+                  <div className="g2">
+                    <div>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--red)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>● Positivos / Activos</div>
+                      {positivos.length===0 && <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Sin tests positivos</div>}
+                      {positivos.map((grupo,gi)=>{
+                        const t = grupo[0]
+                        const anteriores = grupo.slice(1)
+                        return (
+                          <div key={gi} style={{padding:'7px 10px',background:'var(--redl)',borderRadius:6,border:'1px solid #F5C8C8',marginBottom:6}}>
+                            <div style={{display:'flex',alignItems:'center',gap:7}}>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{t.tests?.nombre||'Test'}{t.lado&&t.lado!=='bilateral'?' · '+t.lado.charAt(0).toUpperCase()+t.lado.slice(1):''}</div>
+                                <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})} · {grupo.length} {grupo.length===1?'registro':'registros'}</div>
+                              </div>
+                              <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid var(--red)'}}>+ Positivo</span>
+                              <button onClick={async()=>{await supabase.from('resultados_tests').update({resultado:'negativo'}).eq('id',t.id);cargar()}} style={{fontSize:8,padding:'2px 6px',borderRadius:3,border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui'}}>→ Negativo</button>
+                            </div>
+                            {(t.items_resultado||[]).filter((i:any)=>i.marcado).map((item:any,ii:number)=>(
+                              <div key={ii} style={{fontSize:9,color:'var(--red)',marginTop:3,display:'flex',alignItems:'center',gap:5}}>
+                                <span>☑</span><span>{item.nombre}{item.grados?' · '+item.grados+'°':''}</span>
+                              </div>
+                            ))}
+                            {t.observaciones&&<div style={{fontSize:9,color:'var(--gr)',marginTop:4,fontStyle:'italic'}}>{t.observaciones}</div>}
+                            {t.fecha_repeticion&&<div style={{fontSize:9,color:'var(--amb)',marginTop:2}}>⏰ Revisión: {new Date(t.fecha_repeticion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
+                            {anteriores.length>0&&(
+                              <details style={{marginTop:6}}>
+                                <summary style={{fontSize:9,color:'var(--grl)',cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:4}}>
+                                  <span>▸ Historial ({anteriores.length} {anteriores.length===1?'vez anterior':'veces anteriores'})</span>
+                                </summary>
+                                <div style={{marginTop:5,paddingLeft:8,borderLeft:'2px solid #F5C8C8'}}>
+                                  {anteriores.map((ant,ai)=>(
+                                    <div key={ai} style={{marginBottom:5,padding:'5px 8px',background:'rgba(255,255,255,.6)',borderRadius:4}}>
+                                      <div style={{fontSize:9,fontWeight:400,color:'var(--n)',marginBottom:2}}>{new Date(ant.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})} · <span style={{color:ant.resultado==='positivo'?'var(--red)':'var(--g)'}}>{ant.resultado==='positivo'?'+ Positivo':'− Negativo'}</span></div>
+                                      {(ant.items_resultado||[]).filter((i:any)=>i.marcado).map((item:any,ii:number)=>(
+                                        <div key={ii} style={{fontSize:8,color:'var(--gr)'}}>☑ {item.nombre}{item.grados?' · '+item.grados+'°':''}</div>
+                                      ))}
+                                      {ant.observaciones&&<div style={{fontSize:8,color:'var(--grl)',fontStyle:'italic'}}>{ant.observaciones}</div>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
                           </div>
-                          <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid var(--red)'}}>+ Positivo</span>
-                          <button onClick={async()=>{await supabase.from('resultados_tests').update({resultado:'negativo'}).eq('id',t.id);cargar()}} style={{fontSize:8,padding:'2px 6px',borderRadius:3,border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui'}}>→ Negativo</button>
-                        </div>
-                        {(t.items_resultado||[]).filter((i:any)=>i.marcado).map((item:any,ii:number)=>(
-                          <div key={ii} style={{fontSize:9,color:'var(--red)',marginTop:3,display:'flex',alignItems:'center',gap:5}}>
-                            <span>☑</span>
-                            <span>{item.nombre}{item.grados?' · '+item.grados+'°':''}</span>
+                        )
+                      })}
+                    </div>
+                    <div>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>✓ Negativos / Resueltos</div>
+                      {negativos.length===0 && <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Sin tests negativos</div>}
+                      {negativos.map((grupo,gi)=>{
+                        const t = grupo[0]
+                        const anteriores = grupo.slice(1)
+                        return (
+                          <div key={gi} style={{padding:'7px 10px',background:'var(--gl)',borderRadius:6,border:'1px solid var(--gm)',marginBottom:6}}>
+                            <div style={{display:'flex',alignItems:'center',gap:7}}>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{t.tests?.nombre||'Test'}{t.lado&&t.lado!=='bilateral'?' · '+t.lado.charAt(0).toUpperCase()+t.lado.slice(1):''}</div>
+                                <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})} · {grupo.length} {grupo.length===1?'registro':'registros'}</div>
+                              </div>
+                              <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',border:'1px solid var(--gm)'}}>− Negativo</span>
+                            </div>
+                            {t.observaciones&&<div style={{fontSize:9,color:'var(--gr)',marginTop:3,fontStyle:'italic'}}>{t.observaciones}</div>}
+                            {anteriores.length>0&&(
+                              <details style={{marginTop:6}}>
+                                <summary style={{fontSize:9,color:'var(--grl)',cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:4}}>
+                                  <span>▸ Historial ({anteriores.length} {anteriores.length===1?'vez anterior':'veces anteriores'})</span>
+                                </summary>
+                                <div style={{marginTop:5,paddingLeft:8,borderLeft:'2px solid var(--gm)'}}>
+                                  {anteriores.map((ant,ai)=>(
+                                    <div key={ai} style={{marginBottom:5,padding:'5px 8px',background:'rgba(255,255,255,.6)',borderRadius:4}}>
+                                      <div style={{fontSize:9,fontWeight:400,color:'var(--n)',marginBottom:2}}>{new Date(ant.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})} · <span style={{color:ant.resultado==='positivo'?'var(--red)':'var(--g)'}}>{ant.resultado==='positivo'?'+ Positivo':'− Negativo'}</span></div>
+                                      {ant.observaciones&&<div style={{fontSize:8,color:'var(--grl)',fontStyle:'italic'}}>{ant.observaciones}</div>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
                           </div>
-                        ))}
-                        {t.observaciones&&<div style={{fontSize:9,color:'var(--gr)',marginTop:4,fontStyle:'italic'}}>{t.observaciones}</div>}
-                        {t.fecha_repeticion&&<div style={{fontSize:9,color:'var(--amb)',marginTop:2}}>⏰ Revisión: {new Date(t.fecha_repeticion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
-                      </div>
-                    ))}
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div>
-                    <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>✓ Negativos / Resueltos</div>
-                    {tests.filter(t=>t.resultado==='negativo').length===0 && <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Sin tests negativos</div>}
-                    {tests.filter(t=>t.resultado==='negativo').map(t=>(
-                      <div key={t.id} style={{padding:'7px 10px',background:'var(--gl)',borderRadius:6,border:'1px solid var(--gm)',marginBottom:4}}>
-                        <div style={{display:'flex',alignItems:'center',gap:7}}>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{t.tests?.nombre||'Test'}{t.lado&&t.lado!=='bilateral'?' · '+t.lado.charAt(0).toUpperCase()+t.lado.slice(1):''}</div>
-                            <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
-                          </div>
-                          <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',border:'1px solid var(--gm)'}}>− Negativo</span>
-                        </div>
-                        {t.observaciones&&<div style={{fontSize:9,color:'var(--gr)',marginTop:3,fontStyle:'italic'}}>{t.observaciones}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
           </div>
         </div>
