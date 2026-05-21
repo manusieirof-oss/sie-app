@@ -204,6 +204,14 @@ export default function FichaPacientePage() {
     } else {
       setItemsTest([])
     }
+    // Calcular fecha de revisión automáticamente
+    if (t && t.frecuencia_meses) {
+      const hoy = new Date()
+      hoy.setMonth(hoy.getMonth() + t.frecuencia_meses)
+      setFechaRevTest(hoy.toISOString().split('T')[0])
+    } else {
+      setFechaRevTest('')
+    }
   }
 
   function calcularResultado(): string {
@@ -701,11 +709,16 @@ export default function FichaPacientePage() {
             <div className="field"><label>Observaciones libres</label>
               <textarea className="input" value={obsTest} onChange={e=>setObsTest(e.target.value)} placeholder="Notas adicionales sobre el resultado..." style={{minHeight:50}}/>
             </div>
-            {(itemsTest.length>0?calcularResultado():resultadoTest)==='positivo' && (
-              <div className="field"><label>Fecha de revisión</label>
-                <input type="date" className="input" value={fechaRevTest} onChange={e=>setFechaRevTest(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
-              </div>
-            )}
+            <div className="field">
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span>Fecha de revisión</span>
+                {testSeleccionadoObj?.frecuencia_meses && <span style={{fontSize:9,color:'var(--g)',fontWeight:300}}>Predeterminada: {testSeleccionadoObj.frecuencia_meses} meses</span>}
+              </label>
+              <input type="date" className="input" value={fechaRevTest} onChange={e=>setFechaRevTest(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
+              {fechaRevTest && <div style={{fontSize:9,color:'var(--grl)',marginTop:3,fontWeight:300}}>
+                Revisión el {new Date(fechaRevTest+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+              </div>}
+            </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalRegistrarTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
