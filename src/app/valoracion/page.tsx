@@ -13,18 +13,29 @@ export default function ValoracionPage() {
   const router = useRouter()
   
 
+  const [testsLib, setTestsLib] = useState<any[]>([])
+  const [testsValoracion, setTestsValoracion] = useState<{test_id:string, nombre:string, lado:string, items_resultado:any[], resultado:string, observaciones:string, fecha_repeticion:string, frecuencia_meses:number}[]>([])
+  const [testActivo, setTestActivo] = useState<number|null>(null)
+
   const [form, setForm] = useState({
     paciente_id:'', nombre:'', apellidos:'', telefono:'', email:'', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'', tipo_clase:'entrenamiento',
     anamnesis:'', trabajo:'', tipo_jornada:'sedentario', objetivo1:'', objetivo2:'', objetivo3:'', deseo:'', borg:5, estres:5,
     medicacion:'', operaciones:'', alergias:'', patologias:'', dieta:'sin_restricciones', plantillas:false,
     molestias:[{ zona:'', tipo:'molestia', eva:5, observaciones:'' }],
-    test_thomas:'sin_realizar', test_trend:'sin_realizar', test_lumbar:'sin_realizar', test_obs:'',
+
     tipo_clase_def:'entrenamiento', bono:'esencial', dias_asistencia:'', franja:'manana', notas_plan:'',
   })
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
 
+  function calcularResultadoVal(items: any[], logica: string): string {
+    const marcados = items.filter(i=>i.marcado).length
+    if (logica==='todos') return marcados===items.length && items.length>0?'positivo':'negativo'
+    return marcados>0?'positivo':'negativo'
+  }
+
   useEffect(() => {
     supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
+    supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
   }, [])
 
   async function finalizar() {
@@ -46,15 +57,17 @@ export default function ValoracionPage() {
         ...[form.medicacion].filter(Boolean).map(m=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m })),
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
       ])
-      const fechaRev = new Date(); fechaRev.setMonth(fechaRev.getMonth()+3)
-      const tests = [
-        { nombre:'Test de Thomas', resultado:form.test_thomas },
-        { nombre:'Test Trendelenburg', resultado:form.test_trend },
-        { nombre:'Test SIE Control motor lumbar', resultado:form.test_lumbar },
-      ].filter(t=>t.resultado!=='sin_realizar')
-      for (const t of tests) {
-        const { data: testData } = await supabase.from('tests').select('id').ilike('nombre',`%${t.nombre}%`).single()
-        if (testData) await supabase.from('resultados_tests').insert({ test_id:testData.id, paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], resultado:t.resultado, observaciones:form.test_obs, fecha_repeticion:t.resultado==='positivo'?fechaRev.toISOString().split('T')[0]:null })
+      for (const t of testsValoracion) {
+        await supabase.from('resultados_tests').insert({
+          test_id: t.test_id,
+          paciente_id: pacienteId,
+          fecha: new Date().toISOString().split('T')[0],
+          resultado: t.resultado,
+          observaciones: t.observaciones,
+          fecha_repeticion: t.fecha_repeticion || null,
+          lado: t.lado,
+          items_resultado: t.items_resultado,
+        })
       }
       setExito(true)
       setTimeout(()=>router.push(`/pacientes/${pacienteId}`), 2000)
@@ -279,20 +292,102 @@ export default function ValoracionPage() {
           {[['test_thomas','Test de Thomas · Flexores cadera','Evalúa acortamiento de psoas y recto femoral. Sugerido por: molestia lumbar.'],
             ['test_trend','Test Trendelenburg · Glúteo medio','Evalúa fuerza del glúteo medio y estabilidad pélvica.'],
             ['test_lumbar','Test SIE · Control motor lumbar','Test propio del método SIE. Evalúa estabilidad y control motor lumbar.'],
-          ].map(([key,nombre,desc])=>(
-            <div key={key} style={{background:'var(--w)',border:`1px solid ${form[key as keyof typeof form]==='positivo'?'#F5C8C8':form[key as keyof typeof form]==='negativo'?'var(--gm)':'var(--bd)'}`,borderRadius:'var(--rl)',padding:'11px 13px',marginBottom:7,backgroundColor:form[key as keyof typeof form]==='positivo'?'var(--redl)':form[key as keyof typeof form]==='negativo'?'var(--gl)':'var(--w)'}}>
-              <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>🔍 {nombre}</div>
-              <div style={{fontSize:9,color:'var(--gr)',marginBottom:7,fontWeight:300}}>{desc}</div>
-              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                {[['positivo','+ Positivo','btn-d'],['negativo','− Negativo','btn-p'],['sin_realizar','Sin realizar','btn-s']].map(([v,l,cls])=>(
-                  <button key={v} className={`btn btn-sm ${form[key as keyof typeof form]===v?cls:'btn-s'}`} onClick={()=>up(key,v)}>{l}{form[key as keyof typeof form]===v?' ✓':''}</button>
-                ))}
+          ]}
+
+          {/* TESTS AÑADIDOS */}
+          {testsValoracion.map((tv,ti)=>{
+            const testLib = testsLib.find(t=>t.id===tv.test_id)
+            const isActivo = testActivo===ti
+            return (
+              <div key={ti} style={{background:tv.resultado==='positivo'?'var(--redl)':tv.resultado==='negativo'?'var(--gl)':'var(--bl)',border:`1px solid ${tv.resultado==='positivo'?'#F5C8C8':tv.resultado==='negativo'?'var(--gm)':'var(--bd)'}`,borderRadius:'var(--rl)',padding:'11px 13px',marginBottom:7}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:isActivo?10:0}}>
+                  {testLib?.imagen_url&&<img src={testLib.imagen_url} alt={tv.nombre} style={{width:36,height:36,objectFit:'cover',borderRadius:4,flexShrink:0}}/>}
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{tv.nombre} · <span style={{fontSize:9,color:'var(--grl)'}}>{tv.lado}</span></div>
+                    <div style={{fontSize:9,color:tv.resultado==='positivo'?'var(--red)':tv.resultado==='negativo'?'var(--gd)':'var(--grl)',fontWeight:500}}>
+                      {tv.resultado==='positivo'?'+ Positivo':tv.resultado==='negativo'?'− Negativo':'Sin resultado'}
+                    </div>
+                  </div>
+                  <button className="btn btn-t btn-sm" onClick={()=>setTestActivo(isActivo?null:ti)}>
+                    {isActivo?'▲ Cerrar':'✎ Editar'}
+                  </button>
+                  <button onClick={()=>setTestsValoracion(prev=>prev.filter((_,i)=>i!==ti))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
+                </div>
+                {isActivo && (
+                  <div>
+                    <div className="g2" style={{marginBottom:8}}>
+                      <div className="field"><label>Lado</label>
+                        <select className="input" value={tv.lado} onChange={e=>{const tv2=[...testsValoracion];tv2[ti]={...tv2[ti],lado:e.target.value};setTestsValoracion(tv2)}}>
+                          <option value="bilateral">Bilateral</option>
+                          <option value="derecho">Derecho</option>
+                          <option value="izquierdo">Izquierdo</option>
+                        </select>
+                      </div>
+                    </div>
+                    {tv.items_resultado.length>0 ? (
+                      <div style={{marginBottom:8}}>
+                        {tv.items_resultado.map((item,ii)=>(
+                          <div key={ii} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 9px',background:item.marcado?'var(--redl)':'var(--w)',borderRadius:5,border:`1px solid ${item.marcado?'#F5C8C8':'var(--bd)'}`,marginBottom:3,transition:'all .15s'}}>
+                            <input type="checkbox" checked={item.marcado} onChange={e=>{const tv2=[...testsValoracion];const its=[...tv2[ti].items_resultado];its[ii]={...its[ii],marcado:e.target.checked};tv2[ti]={...tv2[ti],items_resultado:its,resultado:calcularResultadoVal(its,testLib?.logica)};setTestsValoracion(tv2)}} style={{width:16,height:16,accentColor:'var(--red)',cursor:'pointer'}}/>
+                            <span style={{flex:1,fontSize:11,color:'var(--n)',fontWeight:item.marcado?400:300}}>{item.nombre}</span>
+                            {item.tiene_grados&&item.marcado&&(
+                              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                <input type="number" value={item.grados||''} onChange={e=>{const tv2=[...testsValoracion];const its=[...tv2[ti].items_resultado];its[ii]={...its[ii],grados:e.target.value};tv2[ti]={...tv2[ti],items_resultado:its};setTestsValoracion(tv2)}}
+                                  style={{width:50,fontSize:11,padding:'2px 4px',border:'1px solid var(--red)',borderRadius:3,background:'var(--redl)',textAlign:'center',fontFamily:'system-ui'}} placeholder="0"/>
+                                <span style={{fontSize:10,color:'var(--red)'}}>°</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <div style={{padding:'6px 10px',borderRadius:5,background:tv.resultado==='positivo'?'var(--redl)':'var(--gl)',border:`1px solid ${tv.resultado==='positivo'?'var(--red)':'var(--gm)'}`,fontSize:10,fontWeight:500,color:tv.resultado==='positivo'?'var(--red)':'var(--gd)',marginTop:6}}>
+                          {tv.resultado==='positivo'?'+ Resultado: Positivo':'− Resultado: Negativo'} · calculado automáticamente
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{display:'flex',gap:6,marginBottom:8}}>
+                        {[['positivo','+ Positivo'],['negativo','− Negativo']].map(([v,l])=>(
+                          <div key={v} onClick={()=>{const tv2=[...testsValoracion];tv2[ti]={...tv2[ti],resultado:v};setTestsValoracion(tv2)}}
+                            style={{flex:1,padding:'8px',borderRadius:'var(--rl)',border:`2px solid ${tv.resultado===v?(v==='positivo'?'var(--red)':'var(--g)'):'var(--bd)'}`,background:tv.resultado===v?(v==='positivo'?'var(--redl)':'var(--gl)'):'var(--w)',cursor:'pointer',textAlign:'center',transition:'all .15s'}}>
+                            <div style={{fontSize:11,fontWeight:500,color:tv.resultado===v?(v==='positivo'?'var(--red)':'var(--gd)'):'var(--grl)'}}>{l}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="field"><label>Observaciones</label>
+                      <textarea className="input" value={tv.observaciones} onChange={e=>{const tv2=[...testsValoracion];tv2[ti]={...tv2[ti],observaciones:e.target.value};setTestsValoracion(tv2)}} style={{minHeight:44}} placeholder="Notas sobre este test..."/>
+                    </div>
+                    <div className="field"><label>Fecha de revisión</label>
+                      <input type="date" className="input" value={tv.fecha_repeticion} onChange={e=>{const tv2=[...testsValoracion];tv2[ti]={...tv2[ti],fecha_repeticion:e.target.value};setTestsValoracion(tv2)}} min={new Date().toISOString().split('T')[0]}/>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-          <div className="card" style={{marginTop:8}}>
-            <div className="card-title">Observaciones generales de los tests</div>
-            <textarea className="input" value={form.test_obs} onChange={e=>up('test_obs',e.target.value)} placeholder="Notas sobre los tests realizados..." style={{minHeight:60}}/>
+            )
+          })}
+
+          {/* AÑADIR TEST */}
+          <div style={{background:'var(--bl)',border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)',padding:'11px 13px',marginTop:6}}>
+            <div style={{fontSize:10,fontWeight:500,color:'var(--n)',marginBottom:8}}>+ Añadir test de la biblioteca</div>
+            <select className="input" onChange={e=>{
+              if (!e.target.value) return
+              const t = testsLib.find(t=>t.id===e.target.value)
+              if (!t) return
+              const hoy = new Date(); hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
+              setTestsValoracion(prev=>[...prev,{
+                test_id:t.id, nombre:t.nombre, lado:'bilateral',
+                items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),
+                resultado:'sin_realizar', observaciones:'',
+                fecha_repeticion:hoy.toISOString().split('T')[0],
+                frecuencia_meses:t.frecuencia_meses||3
+              }])
+              setTestActivo(testsValoracion.length)
+              e.target.value=''
+            }}>
+              <option value="">Seleccionar test...</option>
+              {testsLib.filter(t=>!testsValoracion.find(tv=>tv.test_id===t.id)).map(t=>(
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              ))}
+            </select>
           </div>
         </div>
       )}
