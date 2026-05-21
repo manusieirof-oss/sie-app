@@ -288,11 +288,7 @@ export default function ValoracionPage() {
       {/* PASO 5 */}
       {step===5 && (
         <div>
-          <div className="warn-pill">Tests sugeridos según las molestias y patologías registradas. Anota el resultado de cada uno.</div>
-          {[['test_thomas','Test de Thomas · Flexores cadera','Evalúa acortamiento de psoas y recto femoral. Sugerido por: molestia lumbar.'],
-            ['test_trend','Test Trendelenburg · Glúteo medio','Evalúa fuerza del glúteo medio y estabilidad pélvica.'],
-            ['test_lumbar','Test SIE · Control motor lumbar','Test propio del método SIE. Evalúa estabilidad y control motor lumbar.'],
-          ]}
+
 
           {/* TESTS AÑADIDOS */}
           {testsValoracion.map((tv,ti)=>{
@@ -384,7 +380,7 @@ export default function ValoracionPage() {
               e.target.value=''
             }}>
               <option value="">Seleccionar test...</option>
-              {testsLib.filter(t=>!testsValoracion.find(tv=>tv.test_id===t.id)).map(t=>(
+              {testsLib.filter(t=>{ const ladosUsados=testsValoracion.filter(tv=>tv.test_id===t.id).map(tv=>tv.lado); return !['bilateral','derecho','izquierdo'].every(l=>ladosUsados.includes(l)) }).map(t=>(
                 <option key={t.id} value={t.id}>{t.nombre}</option>
               ))}
             </select>
