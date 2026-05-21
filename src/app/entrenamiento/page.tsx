@@ -49,7 +49,8 @@ export default function EntrenamientoPage() {
   const [modalEtiqueta, setModalEtiqueta] = useState(false)
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [modalTest, setModalTest] = useState(false)
-  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3 })
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as {nombre:string, tiene_grados:boolean}[], logica:'cualquiera' })
+  const [subiendoImgTest, setSubiendoImgTest] = useState(false)
   const [modalSelEt, setModalSelEt] = useState(false)
   const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -300,9 +301,28 @@ export default function EntrenamientoPage() {
 
   async function crearTest() {
     if (!nuevoTest.nombre) { alert('El nombre es obligatorio'); return }
-    await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses })
+    setSubiendoImgTest(true)
+    const { data: t, error } = await supabase.from('tests').insert({
+      nombre: nuevoTest.nombre,
+      descripcion: nuevoTest.descripcion,
+      frecuencia_meses: nuevoTest.frecuencia_meses,
+      video_url: nuevoTest.video_url,
+      items: nuevoTest.items,
+      logica: nuevoTest.logica,
+      imagen_url: '',
+    }).select().single()
+    if (!error && t && nuevoTest.imagen_file) {
+      const ext = nuevoTest.imagen_file.name.split('.').pop()
+      const path = `tests/${t.id}/foto.${ext}`
+      const { error: upErr } = await supabase.storage.from('fotos').upload(path, nuevoTest.imagen_file, { upsert: true })
+      if (!upErr) {
+        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+        await supabase.from('tests').update({ imagen_url: publicUrl }).eq('id', t.id)
+      }
+    }
+    setSubiendoImgTest(false)
     setModalTest(false)
-    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3 })
+    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera' })
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
   }
@@ -448,16 +468,39 @@ export default function EntrenamientoPage() {
             <div style={{fontSize:11,color:'var(--grl)',fontWeight:300}}>{testsLib.length} tests en la biblioteca</div>
             <button className="btn btn-p btn-sm" onClick={()=>setModalTest(true)}>+ Nuevo test</button>
           </div>
-          <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-            {testsLib.length===0 && <div style={{padding:20,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin tests. Crea el primero con + Nuevo test.</div>}
-            {testsLib.map((t,i)=>(
-              <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 13px',borderBottom:i<testsLib.length-1?'1px solid var(--bl)':'none'}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>🔍 {t.nombre}</div>
-                  {t.descripcion&&<div style={{fontSize:10,color:'var(--grl)',fontWeight:300,lineHeight:1.4}}>{t.descripcion}</div>}
-                  <div style={{fontSize:9,color:'var(--g)',marginTop:3}}>Revisión cada {t.frecuencia_meses} meses</div>
+          <div className="g3">
+            {testsLib.length===0 && <div style={{gridColumn:'1/-1',padding:30,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin tests. Crea el primero con + Nuevo test.</div>}
+            {testsLib.map(t=>(
+              <div key={t.id} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',transition:'border-color .15s'}}
+                onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
+                onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
+                {t.imagen_url ? (
+                  <img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:80,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>
+                ) : (
+                  <div style={{height:80,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>
+                )}
+                <div style={{padding:'9px 11px'}}>
+                  <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{t.nombre}</div>
+                  {t.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300,lineHeight:1.4,marginBottom:5}}>{t.descripcion.slice(0,80)}{t.descripcion.length>80?'...':''}</div>}
+                  {(t.items||[]).length>0&&(
+                    <div style={{marginBottom:5}}>
+                      <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:3}}>Ítems · {t.logica==='cualquiera'?'Cualquiera = +':'Todos = +'}</div>
+                      {(t.items||[]).slice(0,3).map((item:any,i:number)=>(
+                        <div key={i} style={{fontSize:9,color:'var(--n)',fontWeight:300,padding:'1px 0'}}>
+                          ☐ {item.nombre}{item.tiene_grados?' (°)':''}
+                        </div>
+                      ))}
+                      {(t.items||[]).length>3&&<div style={{fontSize:8,color:'var(--grl)'}}>+{(t.items||[]).length-3} más</div>}
+                    </div>
+                  )}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{fontSize:9,color:'var(--g)'}}>Revisión cada {t.frecuencia_meses} meses</div>
+                    <div style={{display:'flex',gap:4}}>
+                      {t.video_url&&<a href={t.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11}}>🎥</a>}
+                      <button onClick={()=>eliminarTest(t.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
+                    </div>
+                  </div>
                 </div>
-                <button onClick={()=>eliminarTest(t.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px',flexShrink:0}}>✕</button>
               </div>
             ))}
           </div>
@@ -797,27 +840,83 @@ export default function EntrenamientoPage() {
       {/* MODAL NUEVO TEST */}
       {modalTest && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalTest(false)}}>
-          <div className="modal">
+          <div className="modal" style={{width:520,maxHeight:'90vh'}}>
             <div className="modal-title">Nuevo test<button className="modal-close" onClick={()=>setModalTest(false)}>✕</button></div>
+            
             <div className="field"><label>Nombre *</label>
               <input className="input" value={nuevoTest.nombre} onChange={e=>setNuevoTest(p=>({...p,nombre:e.target.value}))} placeholder="ej. Test de Thomas" autoFocus/>
             </div>
             <div className="field"><label>Descripción · qué evalúa</label>
-              <textarea className="input" value={nuevoTest.descripcion} onChange={e=>setNuevoTest(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Evalúa el acortamiento del psoas ilíaco..."/>
+              <textarea className="input" value={nuevoTest.descripcion} onChange={e=>setNuevoTest(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Evalúa el acortamiento del psoas ilíaco y recto femoral..."/>
             </div>
-            <div className="field"><label>Frecuencia de revisión (meses)</label>
-              <select className="input" value={nuevoTest.frecuencia_meses} onChange={e=>setNuevoTest(p=>({...p,frecuencia_meses:parseInt(e.target.value)}))}>
-                <option value={1}>1 mes</option>
-                <option value={2}>2 meses</option>
-                <option value={3}>3 meses</option>
-                <option value={6}>6 meses</option>
-                <option value={12}>12 meses</option>
-              </select>
+            <div className="g2">
+              <div className="field"><label>Enlace vídeo</label>
+                <input className="input" value={nuevoTest.video_url} onChange={e=>setNuevoTest(p=>({...p,video_url:e.target.value}))} placeholder="https://youtube.com/..."/>
+              </div>
+              <div className="field"><label>Frecuencia revisión</label>
+                <select className="input" value={nuevoTest.frecuencia_meses} onChange={e=>setNuevoTest(p=>({...p,frecuencia_meses:parseInt(e.target.value)}))}>
+                  <option value={1}>1 mes</option>
+                  <option value={2}>2 meses</option>
+                  <option value={3}>3 meses</option>
+                  <option value={6}>6 meses</option>
+                  <option value={12}>12 meses</option>
+                </select>
+              </div>
             </div>
+
+            {/* IMAGEN */}
+            <div className="field">
+              <label>Imagen del test</label>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
+                {nuevoTest.imagen_url ? (
+                  <div style={{position:'relative'}}>
+                    <img src={nuevoTest.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6,border:'1px solid var(--bd)'}}/>
+                    <button onClick={()=>setNuevoTest(p=>({...p,imagen_url:'',imagen_file:null}))}
+                      style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>🔍</div>
+                )}
+                <label style={{cursor:'pointer'}}>
+                  <div className="btn btn-s btn-sm">{nuevoTest.imagen_url?'📷 Cambiar':'📷 Subir imagen'}</div>
+                  <input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setNuevoTest(p=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/>
+                </label>
+              </div>
+            </div>
+
+            {/* ÍTEMS */}
+            <div className="field">
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                <label style={{margin:0}}>Ítems de evaluación</label>
+                <div style={{display:'flex',gap:5,alignItems:'center'}}>
+                  <span style={{fontSize:9,color:'var(--grl)'}}>Resultado positivo si:</span>
+                  <select style={{fontSize:9,padding:'2px 6px',border:'1px solid var(--bd)',borderRadius:3,background:'var(--bl)',color:'var(--n)',fontFamily:'system-ui'}} value={nuevoTest.logica} onChange={e=>setNuevoTest(p=>({...p,logica:e.target.value}))}>
+                    <option value="cualquiera">Cualquier ítem marcado</option>
+                    <option value="todos">Todos los ítems marcados</option>
+                  </select>
+                </div>
+              </div>
+              {nuevoTest.items.map((item,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
+                  <input className="input" value={item.nombre} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],nombre:e.target.value};setNuevoTest(p=>({...p,items:its}))}}
+                    placeholder={`ej. La rodilla no llega a 90°`} style={{flex:1,fontSize:11}}/>
+                  <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0,whiteSpace:'nowrap'}}>
+                    <input type="checkbox" checked={item.tiene_grados} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],tiene_grados:e.target.checked};setNuevoTest(p=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>
+                    Mide grados °
+                  </label>
+                  <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 4px',flexShrink:0}}>✕</button>
+                </div>
+              ))}
+              <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',tiene_grados:false}]}))}>+ Añadir ítem</button>
+              {nuevoTest.items.length===0&&<div style={{fontSize:9,color:'var(--grl)',marginTop:5,fontWeight:300}}>Sin ítems — el test se registrará solo como positivo/negativo</div>}
+            </div>
+
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearTest}>💾 Guardar test</button>
+              <button className="btn btn-p" onClick={crearTest} disabled={subiendoImgTest}>
+                {subiendoImgTest?'⏳ Guardando...':'💾 Guardar test'}
+              </button>
             </div>
           </div>
         </div>
