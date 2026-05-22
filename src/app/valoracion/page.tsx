@@ -18,7 +18,7 @@ export default function ValoracionPage() {
   const [testActivo, setTestActivo] = useState<number|null>(null)
 
   const [form, setForm] = useState({
-    paciente_id:'', nombre:'', apellidos:'', telefono:'', email:'', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'', tipo_clase:'entrenamiento',
+    paciente_id:'', nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'', tipo_clase:'entrenamiento',
     anamnesis:'', trabajo:'', tipo_jornada:'sedentario', objetivo1:'', objetivo2:'', objetivo3:'', deseo:'', borg:5, estres:5,
     medicacion:'', operaciones:'', alergias:'', patologias:'', dieta:'sin_restricciones', plantillas:false,
     molestias:[{ zona:'', tipo:'molestia', eva:5, observaciones:'' }],
@@ -44,7 +44,7 @@ export default function ValoracionPage() {
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
-        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, estado:'activo' }).select().single()
+        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
       }

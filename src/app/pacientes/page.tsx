@@ -12,7 +12,7 @@ export default function PacientesPage() {
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroEstado, setFiltroEstado] = useState('activo')
   const [modal, setModal] = useState(false)
-  const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
+  const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
   const mesActual = new Date().getMonth()+1
   const anioActual = new Date().getFullYear()
@@ -150,6 +150,7 @@ export default function PacientesPage() {
             <div className="g2">
               <div className="field"><label>Nombre *</label><input className="input" value={nuevo.nombre} onChange={e=>setNuevo(p=>({...p,nombre:e.target.value}))} placeholder="Nombre"/></div>
               <div className="field"><label>Apellidos *</label><input className="input" value={nuevo.apellidos} onChange={e=>setNuevo(p=>({...p,apellidos:e.target.value}))} placeholder="Apellidos"/></div>
+              <div className="field"><label>Nombre en clínica</label><input className="input" value={nuevo.nombre_clinica||''} onChange={e=>setNuevo(p=>({...p,nombre_clinica:e.target.value}))} placeholder="ej. Manu (nombre corto)"/></div>
               <div className="field"><label>Teléfono</label><input className="input" value={nuevo.telefono} onChange={e=>setNuevo(p=>({...p,telefono:e.target.value}))} placeholder="+34 600 000 000"/></div>
               <div className="field"><label>Email</label><input className="input" type="email" value={nuevo.email} onChange={e=>setNuevo(p=>({...p,email:e.target.value}))} placeholder="correo@email.com"/></div>
               <div className="field"><label>DNI</label><input className="input" value={nuevo.dni} onChange={e=>setNuevo(p=>({...p,dni:e.target.value}))} placeholder="12345678A"/></div>
