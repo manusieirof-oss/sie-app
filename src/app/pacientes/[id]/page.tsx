@@ -363,8 +363,10 @@ export default function FichaPacientePage() {
               <input className="input" value={form.nombre_clinica||''} onChange={e=>setForm((p:any)=>({...p,nombre_clinica:e.target.value}))} style={{flex:1,minWidth:120,background:'rgba(255,255,255,.1)',color:'#fff',borderColor:'var(--gm)'}} placeholder="Nombre en clínica (ej. Manu)"/>
             </div>
           ) : (
-            <div className="pat-name">{pac.nombre} {pac.apellidos}</div>
-            {pac.nombre_clinica&&<div style={{fontSize:11,color:'var(--gm)',fontWeight:300,marginTop:1}}>"{pac.nombre_clinica}"</div>}
+            <>
+              <div className="pat-name">{pac.nombre} {pac.apellidos}</div>
+              {pac.nombre_clinica&&<div style={{fontSize:11,color:'var(--gm)',fontWeight:300,marginTop:1}}>"{pac.nombre_clinica}"</div>}
+            </>
           )}
           <div className="pat-meta">{edad?`${edad} años · `:''}{pac.altura_cm?`${pac.altura_cm} cm · `:''}{pac.peso_kg?`${pac.peso_kg} kg`:''}</div>
           <div style={{display:'flex',gap:5,marginTop:5,flexWrap:'wrap'}}>
