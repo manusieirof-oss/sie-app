@@ -129,6 +129,7 @@ export default function ValoracionPage() {
                 <div className="g2">
                   <div className="field"><label>Nombre *</label><input className="input" value={form.nombre} onChange={e=>up('nombre',e.target.value)}/></div>
                   <div className="field"><label>Apellidos *</label><input className="input" value={form.apellidos} onChange={e=>up('apellidos',e.target.value)}/></div>
+                  <div className="field"><label>Nombre en clínica</label><input className="input" value={form.nombre_clinica||''} onChange={e=>up('nombre_clinica',e.target.value)} placeholder="ej. Manu"/></div>
                   <div className="field"><label>Teléfono</label><input className="input" value={form.telefono} onChange={e=>up('telefono',e.target.value)}/></div>
                   <div className="field"><label>Email</label><input className="input" type="email" value={form.email} onChange={e=>up('email',e.target.value)}/></div>
                   <div className="field"><label>DNI</label><input className="input" value={form.dni} onChange={e=>up('dni',e.target.value)}/></div>
