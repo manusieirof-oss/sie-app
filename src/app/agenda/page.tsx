@@ -543,7 +543,7 @@ export default function AgendaPage() {
                       {sesionesPaciente.length===0?(
                         <div style={{textAlign:'center',padding:16,color:'var(--grl)',fontSize:10}}>
                           Sin sesiones para este paciente.<br/>
-                          <a href="/entrenamiento" style={{color:'var(--g)',fontSize:10}}>Crear sesión →</a>
+                          <a href={`/entrenamiento?nueva_sesion=1&paciente_id=${panelPac?.paciente_id}&paciente_nombre=${encodeURIComponent((panelPac?.pacientes?.nombre_clinica||panelPac?.pacientes?.nombre||'')+' '+(panelPac?.pacientes?.apellidos||''))}`} style={{color:'var(--g)',fontSize:10,fontWeight:500}}>+ Crear sesión para este paciente →</a>
                         </div>
                       ):sesionesPaciente.map((s:any)=>(
                         <button key={s.id} onClick={()=>asignarSesion(s.id)}

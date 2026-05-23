@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const CATEGORIAS = [
@@ -35,6 +36,7 @@ type Parte = {
 }
 
 export default function EntrenamientoPage() {
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState('biblioteca')
   const [ejercicios, setEjercicios] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -73,6 +75,17 @@ export default function EntrenamientoPage() {
   const [configEj, setConfigEj] = useState<EjercicioSesion>({ ejercicio_id:'', nombre:'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
 
   useEffect(() => { cargar() }, [])
+
+  useEffect(() => {
+    const nuevaSesion = searchParams.get('nueva_sesion')
+    const pacienteId = searchParams.get('paciente_id')
+    const pacienteNombre = searchParams.get('paciente_nombre')
+    if (nuevaSesion && pacienteId) {
+      setTab('sesiones')
+      setModalSes(true)
+      setNuevaSes(p=>({...p, paciente_id: pacienteId}))
+    }
+  }, [searchParams])
 
   async function cargar() {
     setLoading(true)
