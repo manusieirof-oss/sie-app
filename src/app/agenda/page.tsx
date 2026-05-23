@@ -683,7 +683,7 @@ export default function AgendaPage() {
                       </button>
                     ))}
                   </div>
-                  {panelPac.notas&&<div style={{padding:'7px 9px',background:'var(--ambl)',borderRadius:5,border:'1px solid var(--amb)',fontSize:10,color:'#7A5800'}}>{panelPac.notas}</div>}
+
                 </div>
               )}
             </div>
