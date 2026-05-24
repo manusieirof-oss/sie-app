@@ -477,7 +477,9 @@ export default function FichaPacientePage() {
                         )
                       })}
                       {recuperaciones.filter(r=>r.estado==='recuperada').length>0 && (
-                        <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>✓ {recuperaciones.filter(r=>r.estado==='recuperada').length} clases ya recuperadas</div>
+                        <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
+                          ✓ {recuperaciones.filter(r=>r.estado==='recuperada').length} {recuperaciones.filter(r=>r.estado==='recuperada').length===1?'clase recuperada':'clases recuperadas'}
+                        </div>
                       )}
                     </div>
                   )}
