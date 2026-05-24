@@ -885,6 +885,7 @@ export default function FichaPacientePage() {
 
                 <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:300}}>ℹ️ Las citas se actualizan a las 00:00</div>
           </div>
+          </div>
 
                 {/* BLOQUE ESCALAS */}
                 {escalas.length>0 && (
