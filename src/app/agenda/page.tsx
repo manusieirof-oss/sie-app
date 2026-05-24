@@ -262,7 +262,7 @@ export default function AgendaPage() {
 
   async function cargarRecuperaciones(pacienteId: string) {
     if (!pacienteId) { setRecuperacionesPaciente([]); return }
-    const { data } = await supabase.from('recuperaciones').select('*').eq('paciente_id', pacienteId).eq('estado','pendiente').order('fecha_limite')
+    const { data } = await supabase.from('recuperaciones').select('*').eq('paciente_id', pacienteId).eq('estado','pendiente').is('cita_recuperacion_id', null).order('fecha_limite')
     setRecuperacionesPaciente(data||[])
   }
 
