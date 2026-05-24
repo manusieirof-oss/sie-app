@@ -183,7 +183,8 @@ export default function AgendaPage() {
     if (!nuevaCita.paciente_id) { alert('Selecciona un paciente'); return }
     setGuardando(true)
     if (!nuevaCita.repetir) {
-      const { data: citaCreada } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null,cita_recuperacion_de:nuevaCita.recuperacion_id||null}).select().single()
+      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
+      if (errCita) { console.error('Error creando cita:', errCita); alert('Error al crear la cita: '+errCita.message); setGuardando(false); return }
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
         await supabase.from('recuperaciones').update({estado:'recuperada',cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
       }
