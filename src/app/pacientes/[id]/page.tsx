@@ -183,7 +183,7 @@ export default function FichaPacientePage() {
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
     setTests(t||[]); setTestsDisp(td||[])
-    const { data: rec } = await supabase.from('recuperaciones').select('*').eq('paciente_id',id).order('fecha_falta',{ascending:false})
+    const { data: rec } = await supabase.from('recuperaciones').select('*, citas_recuperacion:cita_recuperacion_id(id,fecha,estado)').eq('paciente_id',id).order('fecha_falta',{ascending:false})
     setRecuperaciones(rec||[])
     setForm(p||{})
     setLoading(false)
@@ -463,7 +463,7 @@ export default function FichaPacientePage() {
                     <div style={{marginTop:10,borderTop:'1px solid var(--bd)',paddingTop:10}}>
                       <div style={{fontSize:9,fontWeight:600,color:'var(--amb)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>🔄 Clases a recuperar</div>
                       {recuperaciones.filter(r=>r.estado==='pendiente').map((r,i)=>{
-                        const tieneCita = !!r.cita_recuperacion_id
+                        const tieneCita = !!r.cita_recuperacion_id && r.citas_recuperacion?.estado !== 'cancelada'
                         return (
                           <div key={r.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:tieneCita?'var(--gl)':'var(--ambl)',borderRadius:5,border:`1px solid ${tieneCita?'var(--gm)':'var(--amb)'}`,marginBottom:3}}>
                             <div style={{flex:1}}>

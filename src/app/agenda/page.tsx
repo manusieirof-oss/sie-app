@@ -219,6 +219,10 @@ export default function AgendaPage() {
 
   async function cambiarEstado(id:string,estado:string) {
     await supabase.from('citas').update({estado}).eq('id',id)
+    // Si se cancela una cita de recuperación, liberar la recuperación asociada
+    if (estado==='cancelada') {
+      await supabase.from('recuperaciones').update({estado:'pendiente',cita_recuperacion_id:null}).eq('cita_recuperacion_id',id)
+    }
     
     // Si marca falta → crear registro de recuperación
     if (estado==='falta' && panelPac) {
