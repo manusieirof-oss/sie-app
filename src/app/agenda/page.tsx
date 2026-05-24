@@ -737,7 +737,7 @@ export default function AgendaPage() {
 
                   <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:7}}>Estado de la cita</div>
                   {(()=>{
-                    const esPasada = panelPac.fecha < new Date().toISOString().split('T')[0]
+                    const esPasada = panelPac.fecha <= new Date().toISOString().split('T')[0]
                     const estado = panelPac.estado
                     return (
                       <div style={{marginBottom:12}}>
