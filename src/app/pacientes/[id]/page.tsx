@@ -428,6 +428,37 @@ export default function FichaPacientePage() {
       {tab==='ficha' && (
         <div className="g2">
           <div>
+            {/* RESUMEN ASISTENCIA */}
+            {(()=>{
+              const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
+              const faltas = citas.filter((c:any)=>c.estado==='falta').length
+              const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
+              const total = realizadas + faltas
+              const pct = total>0 ? Math.round((realizadas/total)*100) : 0
+              const faltasRecuperables = citas.filter((c:any)=>c.estado==='falta' && c.recuperable).length
+              return (
+                <div className="card" style={{marginBottom:0}}>
+                  <div className="card-title">Resumen de asistencia</div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:10}}>
+                    {[['Realizadas',realizadas,'var(--g)'],['Faltas',faltas,'var(--red)'],['Canceladas',canceladas,'var(--grl)'],['% Asistencia',total>0?pct+'%':'—','var(--n)']].map(([l,v,c])=>(
+                      <div key={String(l)} style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px',textAlign:'center'}}>
+                        <div style={{fontSize:20,fontWeight:300,color:c}}>{v}</div>
+                        <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {total>0 && (
+                    <div style={{background:'var(--bm)',borderRadius:99,height:6,overflow:'hidden',marginBottom:8}}>
+                      <div style={{width:pct+'%',height:'100%',background:'var(--g)',borderRadius:99,transition:'width .3s'}}/>
+                    </div>
+                  )}
+                  {faltasRecuperables>0 && (
+                    <div style={{fontSize:10,color:'var(--amb)',fontWeight:400}}>⚠ {faltasRecuperables} {faltasRecuperables===1?'clase pendiente':'clases pendientes'} de recuperar</div>
+                  )}
+                  <div style={{fontSize:9,color:'var(--grl)',marginTop:6,fontWeight:300}}>ℹ️ Las citas se marcan como realizadas automáticamente a las 00:00</div>
+                </div>
+              )
+            })()}
             <div className="card">
               <div className="card-title">Datos personales</div>
               {editando ? (
