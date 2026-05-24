@@ -165,7 +165,7 @@ export default function FichaPacientePage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: c },{ data: s }] = await Promise.all([
+    const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: _rt },{ data: c },{ data: s }] = await Promise.all([
       supabase.from('pacientes').select('*').eq('id',id).single(),
       supabase.from('bonos').select('*').eq('paciente_id',id).eq('activo',true).order('created_at',{ascending:false}).limit(1).maybeSingle(),
       supabase.from('molestias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
