@@ -859,7 +859,68 @@ export default function FichaPacientePage() {
                   </div>
                 </div>
 
-                <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:300}}>ℹ️ Las citas se actualizan a las 00:00 · Próximamente: evolución de cargas y tests</div>
+                <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:300}}>ℹ️ Las citas se actualizan a las 00:00</div>
+
+                {/* BLOQUE TESTS */}
+                {tests.length>0 && (
+                  <div className="card" style={{marginTop:16}}>
+                    <div className="card-title">Evolución de tests funcionales</div>
+                    {(()=>{
+                      // Agrupar por test_id + lado
+                      const grupos: Record<string,any[]> = {}
+                      tests.forEach((t:any)=>{
+                        const key = `${t.test_id}_${t.lado||'bilateral'}`
+                        if (!grupos[key]) grupos[key]=[]
+                        grupos[key].push(t)
+                      })
+                      return Object.values(grupos).map((grupo:any[],gi:number)=>{
+                        const sorted = [...grupo].sort((a,b)=>a.fecha.localeCompare(b.fecha))
+                        const ultimo = sorted[sorted.length-1]
+                        const primero = sorted[0]
+                        const mejoro = primero.resultado==='positivo' && ultimo.resultado==='negativo'
+                        const empeoro = primero.resultado==='negativo' && ultimo.resultado==='positivo'
+                        const ladoStr = ultimo.lado&&ultimo.lado!=='bilateral'?' · '+ultimo.lado.charAt(0).toUpperCase()+ultimo.lado.slice(1):''
+                        return (
+                          <div key={gi} style={{marginBottom:10,padding:'9px 11px',background:'var(--bl)',borderRadius:7,border:'1px solid var(--bd)'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ultimo.tests?.nombre||'Test'}{ladoStr}</div>
+                                <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{sorted.length} {sorted.length===1?'registro':'registros'}</div>
+                              </div>
+                              {mejoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',fontWeight:500}}>✓ Mejorado</span>}
+                              {empeoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--redl)',color:'var(--red)',fontWeight:500}}>⚠ Empeorado</span>}
+                              <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:ultimo.resultado==='positivo'?'var(--redl)':'var(--gl)',color:ultimo.resultado==='positivo'?'var(--red)':'var(--gd)',fontWeight:500}}>
+                                {ultimo.resultado==='positivo'?'+ Positivo':'− Negativo'}
+                              </span>
+                            </div>
+                            {/* LÍNEA TEMPORAL */}
+                            <div style={{display:'flex',alignItems:'center',gap:2,overflowX:'auto',paddingBottom:2}}>
+                              {sorted.map((t:any,ti:number)=>(
+                                <div key={t.id} style={{display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+                                  <div style={{textAlign:'center'}}>
+                                    <div style={{width:10,height:10,borderRadius:'50%',background:t.resultado==='positivo'?'var(--red)':'var(--g)',margin:'0 auto 2px'}}/>
+                                    <div style={{fontSize:7,color:'var(--grl)',whiteSpace:'nowrap'}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                                  </div>
+                                  {ti<sorted.length-1&&<div style={{width:16,height:1,background:'var(--bm)',flexShrink:0}}/>}
+                                </div>
+                              ))}
+                            </div>
+                            {/* ÍTEMS CON GRADOS DEL ÚLTIMO REGISTRO */}
+                            {(ultimo.items_resultado||[]).filter((i:any)=>i.marcado&&i.grados).length>0&&(
+                              <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--bm)'}}>
+                                {(ultimo.items_resultado||[]).filter((i:any)=>i.marcado&&i.grados).map((item:any,ii:number)=>(
+                                  <div key={ii} style={{fontSize:9,color:'var(--red)',display:'flex',alignItems:'center',gap:4}}>
+                                    <span>☑</span><span>{item.nombre}: <strong>{item.grados}°</strong></span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                )}
               </div>
             )
           })()}
