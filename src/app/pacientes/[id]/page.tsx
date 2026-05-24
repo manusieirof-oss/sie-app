@@ -861,6 +861,62 @@ export default function FichaPacientePage() {
 
                 <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:300}}>ℹ️ Las citas se actualizan a las 00:00</div>
 
+                {/* BLOQUE ESCALAS */}
+                {escalas.length>0 && (
+                  <div className="card" style={{marginTop:16,marginBottom:16}}>
+                    <div className="card-title">Evolución escalas</div>
+                    <div className="g2">
+                      {/* BORG */}
+                      <div>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:8}}>Esfuerzo percibido (Borg)</div>
+                        <div style={{display:'flex',alignItems:'flex-end',gap:4,height:80}}>
+                          {[...escalas].reverse().slice(-6).map((e:any,i:number)=>{
+                            const h = Math.round((e.borg/10)*70)
+                            return (
+                              <div key={e.id} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                                <div style={{fontSize:7,color:'var(--n)',fontWeight:500}}>{e.borg}</div>
+                                <div style={{width:'80%',height:h,background:'var(--g)',borderRadius:'2px 2px 0 0',minHeight:4}}/>
+                                <div style={{fontSize:7,color:'var(--grl)',whiteSpace:'nowrap'}}>{new Date(e.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      {/* ESTRÉS */}
+                      <div>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:8}}>Nivel de estrés</div>
+                        <div style={{display:'flex',alignItems:'flex-end',gap:4,height:80}}>
+                          {[...escalas].reverse().slice(-6).map((e:any,i:number)=>{
+                            const h = Math.round((e.estres/10)*70)
+                            return (
+                              <div key={e.id} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                                <div style={{fontSize:7,color:'var(--n)',fontWeight:500}}>{e.estres}</div>
+                                <div style={{width:'80%',height:h,background:'var(--amb)',borderRadius:'2px 2px 0 0',minHeight:4}}/>
+                                <div style={{fontSize:7,color:'var(--grl)',whiteSpace:'nowrap'}}>{new Date(e.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* EVOLUCIÓN PESO */}
+                {pac?.peso_kg && (
+                  <div className="card" style={{marginBottom:16}}>
+                    <div className="card-title">Datos físicos actuales</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,textAlign:'center'}}>
+                      {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm'],['IMC',pac.peso_kg&&pac.altura_cm?Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10:'—','']].map(([l,v,u])=>(
+                        <div key={String(l)} style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px'}}>
+                          <div style={{fontSize:20,fontWeight:300,color:'var(--n)'}}>{v}{u&&<span style={{fontSize:10,color:'var(--grl)',marginLeft:2}}>{u}</span>}</div>
+                          <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>{l}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* BLOQUE TESTS */}
                 {tests.length>0 && (
                   <div className="card" style={{marginTop:16}}>
