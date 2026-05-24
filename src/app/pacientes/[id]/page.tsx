@@ -550,17 +550,25 @@ export default function FichaPacientePage() {
               )}
             </div>
             <div className="card">
-              <div className="card-title">Últimas sesiones</div>
-              {sesiones.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin sesiones registradas</div>}
-              {sesiones.map(s=>(
-                <div key={s.id} className="ri">
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
-                    <div style={{fontSize:9,color:'var(--grl)'}}>{s.duracion_min} min · {s.estado}</div>
-                  </div>
-                  <span className={`badge ${s.estado==='realizada'?'badge-g':s.estado==='lista'?'badge-pen':'badge-b'}`}>{s.estado}</span>
-                </div>
-              ))}
+              <div className="card-title">Historial de sesiones</div>
+              {(()=>{
+                const citasConSesion = citas.filter((c:any)=>c.sesion_id).slice(0,15)
+                if (citasConSesion.length===0) return <div style={{fontSize:10,color:'var(--grl)'}}>Sin sesiones realizadas aún</div>
+                return citasConSesion.map((c:any)=>{
+                  const sesion = sesiones.find((s:any)=>s.id===c.sesion_id)
+                  return (
+                    <div key={c.id} className="ri">
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{sesion?.nombre||'Sesión'}</div>
+                        <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>
+                          {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
+                        </div>
+                      </div>
+                      <span className={`badge ${c.estado==='realizada'?'badge-g':c.estado==='falta'?'badge-r':'badge-b'}`}>{c.estado}</span>
+                    </div>
+                  )
+                })
+              })()}
             </div>
           </div>
         </div>
