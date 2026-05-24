@@ -88,7 +88,10 @@ export default function AgendaPage() {
   }
 
   async function abrirPanel(c:any) {
-    setPanelPac(c); setPanelTab('sesion'); setSesionDetalle(null)
+    // Cargar bono del paciente
+    const { data: bonoData } = await supabase.from('bonos').select('*').eq('paciente_id',c.paciente_id).eq('activo',true).maybeSingle()
+    setPanelPac({...c, bono_info: bonoData||null})
+    setPanelTab('sesion'); setSesionDetalle(null)
     setAnotaciones({}); setPesos({}); setMostrarSesiones(false); setLoadingSesion(true)
     if (c.sesiones) {
       setSesionDetalle(c.sesiones)
@@ -210,7 +213,10 @@ export default function AgendaPage() {
   }
 
   async function cambiarEstado(id:string,estado:string) {
-    await supabase.from('citas').update({estado}).eq('id',id); cargar()
+    await supabase.from('citas').update({estado}).eq('id',id)
+    // Actualizar panel sin cerrarlo
+    setPanelPac((prev:any)=>prev?{...prev,estado}:null)
+    cargar()
   }
 
   const prevPeriodo=()=>{const d=new Date(fecha+'T12:00:00');if(vista==='dia')d.setDate(d.getDate()-1);else if(vista==='semana')d.setDate(d.getDate()-7);else d.setMonth(d.getMonth()-1);setFecha(d.toISOString().split('T')[0])}
@@ -630,6 +636,22 @@ export default function AgendaPage() {
                   {panelPac.pacientes?.telefono&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>📞 {panelPac.pacientes.telefono}</div>}
                   {panelPac.pacientes?.email&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>✉️ {panelPac.pacientes.email}</div>}
                   <div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:12}}>🏷 {panelPac.pacientes?.tipo_clase||'—'}</div>
+                  
+                  {/* BONO */}
+                  {(()=>{
+                    const bono = panelPac.pacientes?.bono
+                    const bonoLabel:Record<string,string> = {esencial:'Esencial · 2d/sem',progreso:'Progreso · 3d/sem',avanzado:'Avanzado · 4d/sem',avanzado_mas1:'Avanzado+1 · 5d/sem'}
+                    const pagoColor:Record<string,string> = {pagado:'var(--g)',pendiente:'var(--red)',parcial:'var(--amb)'}
+                    return panelPac.bono_info ? (
+                      <div style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px',marginBottom:12,border:'1px solid var(--bd)'}}>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>Bono</div>
+                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{bonoLabel[panelPac.bono_info.tipo]||panelPac.bono_info.tipo}</div>
+                        <div style={{fontSize:10,fontWeight:500,color:pagoColor[panelPac.bono_info.estado_pago]||'var(--grl)',marginTop:2}}>
+                          {panelPac.bono_info.estado_pago==='pagado'?'✓ Pagado':panelPac.bono_info.estado_pago==='pendiente'?'⚠ Pendiente de pago':'◑ Pago parcial'}
+                        </div>
+                      </div>
+                    ) : null
+                  })()}
 
                   {/* EDITOR DE CITA */}
                   <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:7,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -675,14 +697,45 @@ export default function AgendaPage() {
                   )}
 
                   <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:7}}>Estado de la cita</div>
-                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12}}>
-                    {[['programada','Programada'],['realizada','✓ Realizada'],['falta','Falta'],['cancelada','Cancelar']].map(([est,lbl])=>(
-                      <button key={est} onClick={()=>{cambiarEstado(panelPac.id,est);setPanelPac(null)}}
-                        style={{fontSize:10,padding:'5px 10px',borderRadius:'var(--r)',border:`1px solid ${est==='realizada'?'var(--g)':est==='cancelada'||est==='falta'?'var(--red)':'var(--bd)'}`,background:panelPac.estado===est?(est==='realizada'?'var(--g)':est==='cancelada'||est==='falta'?'var(--red)':'var(--g)'):'var(--w)',color:panelPac.estado===est?'#fff':(est==='realizada'?'var(--g)':est==='cancelada'||est==='falta'?'var(--red)':'var(--n)'),cursor:'pointer',fontFamily:'system-ui'}}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
+                  {(()=>{
+                    const esPasada = panelPac.fecha < new Date().toISOString().split('T')[0]
+                    const estado = panelPac.estado
+                    return (
+                      <div style={{marginBottom:12}}>
+                        {/* ESTADO ACTUAL */}
+                        <div style={{padding:'6px 10px',borderRadius:5,marginBottom:8,background:estado==='realizada'?'var(--gl)':estado==='falta'?'var(--redl)':estado==='cancelada'?'var(--bm)':'var(--ambl)',border:`1px solid ${estado==='realizada'?'var(--gm)':estado==='falta'?'#F5C8C8':estado==='cancelada'?'var(--bd)':'var(--amb)'}`,fontSize:10,fontWeight:500,color:estado==='realizada'?'var(--gd)':estado==='falta'?'var(--red)':estado==='cancelada'?'var(--gr)':'#7A5800'}}>
+                          {estado==='realizada'?'✓ Realizada':estado==='falta'?'✗ Falta':estado==='cancelada'?'Cancelada':'⏳ Programada'}
+                        </div>
+                        {/* BOTONES SEGÚN CONTEXTO */}
+                        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                          {esPasada && estado!=='falta' && estado!=='cancelada' && (
+                            <button onClick={()=>cambiarEstado(panelPac.id,'falta')}
+                              style={{fontSize:10,padding:'5px 12px',borderRadius:'var(--r)',border:'1px solid var(--red)',background:'var(--redl)',color:'var(--red)',cursor:'pointer',fontFamily:'system-ui',fontWeight:500}}>
+                              ✗ Marcar falta
+                            </button>
+                          )}
+                          {estado==='falta' && (
+                            <button onClick={()=>cambiarEstado(panelPac.id,'realizada')}
+                              style={{fontSize:10,padding:'5px 12px',borderRadius:'var(--r)',border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui',fontWeight:500}}>
+                              ↩ Deshacer falta
+                            </button>
+                          )}
+                          {estado!=='cancelada' && (
+                            <button onClick={()=>cambiarEstado(panelPac.id,'cancelada')}
+                              style={{fontSize:10,padding:'5px 12px',borderRadius:'var(--r)',border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)',cursor:'pointer',fontFamily:'system-ui'}}>
+                              Cancelar cita
+                            </button>
+                          )}
+                          {estado==='cancelada' && (
+                            <button onClick={()=>cambiarEstado(panelPac.id,'programada')}
+                              style={{fontSize:10,padding:'5px 12px',borderRadius:'var(--r)',border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui'}}>
+                              ↩ Reactivar cita
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                 </div>
               )}
