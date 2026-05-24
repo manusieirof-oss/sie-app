@@ -214,6 +214,30 @@ export default function AgendaPage() {
 
   async function cambiarEstado(id:string,estado:string) {
     await supabase.from('citas').update({estado}).eq('id',id)
+    
+    // Si marca falta → crear registro de recuperación
+    if (estado==='falta' && panelPac) {
+      const fechaFalta = new Date(panelPac.fecha+'T12:00:00')
+      const fechaLimite = new Date(fechaFalta)
+      fechaLimite.setDate(fechaLimite.getDate()+30)
+      // Verificar que no existe ya una recuperación para esta cita
+      const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',id).maybeSingle()
+      if (!existing) {
+        await supabase.from('recuperaciones').insert({
+          paciente_id: panelPac.paciente_id,
+          cita_falta_id: id,
+          fecha_falta: panelPac.fecha,
+          fecha_limite: fechaLimite.toISOString().split('T')[0],
+          estado: 'pendiente'
+        })
+      }
+    }
+    
+    // Si deshace falta → eliminar recuperación pendiente
+    if (estado==='realizada' && panelPac) {
+      await supabase.from('recuperaciones').delete().eq('cita_falta_id',id).eq('estado','pendiente')
+    }
+    
     // Actualizar panel sin cerrarlo
     setPanelPac((prev:any)=>prev?{...prev,estado}:null)
     cargar()
