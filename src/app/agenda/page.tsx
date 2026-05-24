@@ -31,8 +31,10 @@ export default function AgendaPage() {
   const [nuevaNota, setNuevaNota] = useState('')
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
-    repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:''
+    repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:'',
+    es_recuperacion:false, recuperacion_id:''
   })
+  const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
 
   const hoy = new Date().toISOString().split('T')[0]
   const fechaObj = new Date(fecha+'T12:00:00')
@@ -181,7 +183,10 @@ export default function AgendaPage() {
     if (!nuevaCita.paciente_id) { alert('Selecciona un paciente'); return }
     setGuardando(true)
     if (!nuevaCita.repetir) {
-      await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null})
+      const { data: citaCreada } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null,cita_recuperacion_de:nuevaCita.recuperacion_id||null}).select().single()
+      if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
+        await supabase.from('recuperaciones').update({estado:'recuperada',cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
+      }
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
       let fechaFin=nuevaCita.fecha_fin
@@ -249,6 +254,12 @@ export default function AgendaPage() {
 
   const totalPersonas=citas.filter(c=>c.fecha===fecha).length
   const clases=citas.filter(c=>c.fecha===fecha&&c.tipo==='clase').length
+
+  async function cargarRecuperaciones(pacienteId: string) {
+    if (!pacienteId) { setRecuperacionesPaciente([]); return }
+    const { data } = await supabase.from('recuperaciones').select('*').eq('paciente_id', pacienteId).eq('estado','pendiente').order('fecha_limite')
+    setRecuperacionesPaciente(data||[])
+  }
 
   function SesionSelector({ pacienteId, sesionId, onChange }: { pacienteId: string, sesionId: string, onChange: (id: string) => void }) {
     const [sesiones, setSesiones] = useState<any[]>([])
@@ -808,7 +819,7 @@ export default function AgendaPage() {
             </div>
             <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>{fechaDisplay}</div>
             <div className="field"><label>Paciente *</label>
-              <select className="input" value={nuevaCita.paciente_id} onChange={e=>setNuevaCita(p=>({...p,paciente_id:e.target.value}))} disabled={guardando}>
+              <select className="input" value={nuevaCita.paciente_id} onChange={e=>{setNuevaCita(p=>({...p,paciente_id:e.target.value,es_recuperacion:false,recuperacion_id:''}));cargarRecuperaciones(e.target.value)}} disabled={guardando}>
                 <option value="">Seleccionar paciente...</option>
                 {pacientes.map(p=>(<option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>))}
               </select>
@@ -872,6 +883,27 @@ export default function AgendaPage() {
                 </>
               )}
             </div>
+            {nuevaCita.paciente_id && recuperacionesPaciente.length>0 && (
+              <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:'var(--rl)',padding:'10px 12px',marginBottom:8}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:nuevaCita.es_recuperacion?8:0}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>¿Es clase de recuperación?</div>
+                    <div style={{fontSize:9,color:'#7A5800',fontWeight:300}}>{recuperacionesPaciente.length} falta{recuperacionesPaciente.length>1?'s':''} pendiente{recuperacionesPaciente.length>1?'s':''}</div>
+                  </div>
+                  <button className="toggle" style={{background:nuevaCita.es_recuperacion?'var(--g)':'var(--bm)'}} onClick={()=>setNuevaCita(p=>({...p,es_recuperacion:!p.es_recuperacion,recuperacion_id:''}))}/>
+                </div>
+                {nuevaCita.es_recuperacion && (
+                  <select className="input" value={nuevaCita.recuperacion_id} onChange={e=>setNuevaCita(p=>({...p,recuperacion_id:e.target.value}))}>
+                    <option value="">Seleccionar falta a recuperar...</option>
+                    {recuperacionesPaciente.map(r=>(
+                      <option key={r.id} value={r.id}>
+                        Falta del {new Date(r.fecha_falta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} · vence {new Date(r.fecha_limite+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
             <div className="field"><label>Notas (opcional)</label>
               <input className="input" value={nuevaCita.notas} onChange={e=>setNuevaCita(p=>({...p,notas:e.target.value}))} placeholder="ej. Molestia lumbar, precaución..." disabled={guardando}/>
             </div>
