@@ -462,15 +462,20 @@ export default function FichaPacientePage() {
                   {recuperaciones.filter(r=>r.estado==='pendiente').length>0 && (
                     <div style={{marginTop:10,borderTop:'1px solid var(--bd)',paddingTop:10}}>
                       <div style={{fontSize:9,fontWeight:600,color:'var(--amb)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>🔄 Clases a recuperar</div>
-                      {recuperaciones.filter(r=>r.estado==='pendiente').map((r,i)=>(
-                        <div key={r.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:'var(--ambl)',borderRadius:5,border:'1px solid var(--amb)',marginBottom:3}}>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>Falta del {new Date(r.fecha_falta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
-                            <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Vence el {new Date(r.fecha_limite+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                      {recuperaciones.filter(r=>r.estado==='pendiente').map((r,i)=>{
+                        const tieneCita = !!r.cita_recuperacion_id
+                        return (
+                          <div key={r.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:tieneCita?'var(--gl)':'var(--ambl)',borderRadius:5,border:`1px solid ${tieneCita?'var(--gm)':'var(--amb)'}`,marginBottom:3}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>Falta del {new Date(r.fecha_falta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                              <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Vence el {new Date(r.fecha_limite+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                            </div>
+                            <span style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:tieneCita?'var(--g)':'var(--amb)',color:'#fff',fontWeight:500}}>
+                              {tieneCita?'📅 Programada':'Pendiente'}
+                            </span>
                           </div>
-                          <span style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:'var(--amb)',color:'#fff',fontWeight:500}}>Pendiente</span>
-                        </div>
-                      ))}
+                        )
+                      })}
                       {recuperaciones.filter(r=>r.estado==='recuperada').length>0 && (
                         <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>✓ {recuperaciones.filter(r=>r.estado==='recuperada').length} clases ya recuperadas</div>
                       )}
