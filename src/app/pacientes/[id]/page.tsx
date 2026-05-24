@@ -173,7 +173,7 @@ export default function FichaPacientePage() {
       supabase.from('medicamentos').select('*').eq('paciente_id',id),
       supabase.from('escalas').select('*').eq('paciente_id',id).order('fecha',{ascending:false}).limit(5),
       supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
-      supabase.from('citas').select('*').eq('paciente_id',id).gte('fecha',new Date().toISOString().split('T')[0]).order('fecha').limit(10),
+      supabase.from('citas').select('id,fecha,hora,sala,tipo,estado,sesion_id,notas').eq('paciente_id',id).order('fecha',{ascending:false}).limit(50),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
     ])
     const [{ data: t }, { data: td }] = await Promise.all([
