@@ -186,7 +186,7 @@ export default function AgendaPage() {
       const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
       if (errCita) { console.error('Error creando cita:', errCita); alert('Error al crear la cita: '+errCita.message); setGuardando(false); return }
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
-        await supabase.from('recuperaciones').update({estado:'recuperada',cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
+        await supabase.from('recuperaciones').update({cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
       }
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
