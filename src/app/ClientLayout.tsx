@@ -11,6 +11,7 @@ const NAV = [
   { href: '/valoracion', icon: '📋', label: 'Valorac.' },
   { href: '/resultados', icon: '📊', label: 'Result.' },
   { href: '/estadisticas', icon: '📈', label: 'Stats' },
+  { href: '/ajustes', icon: '⚙️', label: 'Ajustes' },
 ]
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -49,7 +50,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const todayStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const pageTitle: Record<string,string> = {
     '/agenda':'Agenda','/pacientes':'Pacientes','/entrenamiento':'Entrenamiento',
-    '/valoracion':'Valoración','/resultados':'Resultados','/estadisticas':'Estadísticas',
+    '/valoracion':'Valoración','/resultados':'Resultados','/estadisticas':'Estadísticas','/ajustes':'Ajustes',
   }
   const currentTitle = Object.entries(pageTitle).find(([k])=>pathname.startsWith(k))?.[1] ?? 'SIE'
 
