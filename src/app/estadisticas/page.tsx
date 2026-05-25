@@ -17,7 +17,7 @@ export default function StatsPage() {
     setLoading(true)
     const [{ data: p },{ data: c },{ data: b },{ data: r },{ data: m },{ data: t }] = await Promise.all([
       supabase.from('pacientes').select('id,estado,tipo_clase,fecha_nacimiento').order('created_at'),
-      supabase.from('citas').select('id,fecha,estado,paciente_id').order('fecha',{ascending:false}).limit(500),
+      supabase.from('citas').select('id,fecha,estado,paciente_id,pacientes(nombre,apellidos)').order('fecha',{ascending:false}).limit(500),
       supabase.from('bonos').select('*').eq('activo',true),
       supabase.from('recuperaciones').select('*').order('created_at',{ascending:false}),
       supabase.from('molestias').select('zona,activa').eq('activa',true),
@@ -222,7 +222,7 @@ export default function StatsPage() {
                 <div key={pacId} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid var(--bl)'}}>
                   <div style={{width:18,height:18,borderRadius:'50%',background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:600,color:'var(--gr)',flexShrink:0}}>{i+1}</div>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>{pac?.id||'Paciente'}</div>
+                    <div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>{(()=>{const c=citas.find((ci:any)=>ci.paciente_id===pacId);return c?.pacientes?`${c.pacientes.nombre} ${c.pacientes.apellidos}`:'Paciente'})()}</div>
                     <div style={{fontSize:8,color:'var(--grl)'}}>{pct}% asistencia</div>
                   </div>
                   <span style={{fontSize:12,fontWeight:300,color:'var(--red)'}}>{datos.f}</span>
