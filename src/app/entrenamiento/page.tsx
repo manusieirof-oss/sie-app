@@ -51,6 +51,10 @@ export default function EntrenamientoPage() {
   const [modalEtiqueta, setModalEtiqueta] = useState(false)
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [modalTest, setModalTest] = useState(false)
+  const [modalEditarTest, setModalEditarTest] = useState(false)
+  const [testEditando, setTestEditando] = useState<any>(null)
+  const [modalEditarTest, setModalEditarTest] = useState(false)
+  const [testEditando, setTestEditando] = useState<any>(null)
   const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as {nombre:string, tiene_grados:boolean}[], logica:'cualquiera' })
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
   const [modalSelEt, setModalSelEt] = useState(false)
@@ -341,6 +345,34 @@ export default function EntrenamientoPage() {
     setTestsLib(tl||[])
   }
 
+  async function guardarEditTest() {
+    if (!testEditando) return
+    await supabase.from('tests').update({
+      nombre: testEditando.nombre,
+      descripcion: testEditando.descripcion,
+      video_url: testEditando.video_url,
+      frecuencia_meses: testEditando.frecuencia_meses,
+      logica: testEditando.logica,
+      items: testEditando.items||[],
+      etiquetas_relacionadas: testEditando.etiquetas_relacionadas||[]
+    }).eq('id', testEditando.id)
+    setModalEditarTest(false); setTestEditando(null); cargar()
+  }
+
+  async function guardarEditTest() {
+    if (!testEditando) return
+    await supabase.from('tests').update({
+      nombre: testEditando.nombre,
+      descripcion: testEditando.descripcion,
+      video_url: testEditando.video_url,
+      frecuencia_meses: testEditando.frecuencia_meses,
+      logica: testEditando.logica,
+      items: testEditando.items||[],
+      etiquetas_relacionadas: testEditando.etiquetas_relacionadas||[]
+    }).eq('id', testEditando.id)
+    setModalEditarTest(false); setTestEditando(null); cargar()
+  }
+
   async function eliminarTest(id: string) {
     if (!confirm('¿Eliminar este test?')) return
     await supabase.from('tests').delete().eq('id', id)
@@ -572,6 +604,8 @@ export default function EntrenamientoPage() {
                     <div style={{fontSize:9,color:'var(--g)'}}>Revisión cada {t.frecuencia_meses} meses</div>
                     <div style={{display:'flex',gap:4}}>
                       {t.video_url&&<a href={t.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11}}>🎥</a>}
+                      <button onClick={()=>{setTestEditando({...t});setModalEditarTest(true)}} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✏️</button>
+                      <button onClick={()=>{setTestEditando({...t});setModalEditarTest(true)}} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✏️</button>
                       <button onClick={()=>eliminarTest(t.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
                     </div>
                   </div>
@@ -1021,6 +1055,84 @@ export default function EntrenamientoPage() {
               <button className="btn btn-d btn-sm" onClick={()=>setModalEtiqueta(false)}>Cancelar</button>
               <div style={{flex:1}}/>
               <button className="btn btn-p" onClick={crearEtiqueta}>💾 Guardar etiqueta</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL EDITAR TEST */}
+      {modalEditarTest&&testEditando&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalEditarTest(false)}}>
+          <div className="modal" style={{width:520,maxHeight:'90vh'}}>
+            <div className="modal-title">Editar test<button className="modal-close" onClick={()=>setModalEditarTest(false)}>✕</button></div>
+            <div className="field"><label>Nombre *</label><input className="input" value={testEditando.nombre||''} onChange={e=>setTestEditando((p:any)=>({...p,nombre:e.target.value}))}/></div>
+            <div className="field"><label>Descripción</label><textarea className="input" value={testEditando.descripcion||''} onChange={e=>setTestEditando((p:any)=>({...p,descripcion:e.target.value}))}/></div>
+            <div className="field"><label>Enlace vídeo</label><input className="input" value={testEditando.video_url||''} onChange={e=>setTestEditando((p:any)=>({...p,video_url:e.target.value}))}/></div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <div className="field"><label>Revisión cada (meses)</label><input className="input" type="number" value={testEditando.frecuencia_meses||3} onChange={e=>setTestEditando((p:any)=>({...p,frecuencia_meses:parseInt(e.target.value)||3}))}/></div>
+              <div className="field"><label>Positivo si</label>
+                <select className="input" value={testEditando.logica||'cualquiera'} onChange={e=>setTestEditando((p:any)=>({...p,logica:e.target.value}))}>
+                  <option value="cualquiera">Algún ítem marcado</option>
+                  <option value="todos">Todos los ítems marcados</option>
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label>Etiquetas relacionadas (ejercicios recomendados cuando positivo)</label>
+              <div style={{marginTop:5}}>
+                <SelectorEtiquetas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={ids=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/>
+              </div>
+              {(testEditando.etiquetas_relacionadas||[]).length>0&&(
+                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:3}}>
+                  {testEditando.etiquetas_relacionadas.map((id:string)=>{
+                    const et = etiquetas.find((e:any)=>e.id===id)
+                    return et?<span key={id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{et.nombre}</span>:null
+                  })}
+                </div>
+              )}
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalEditarTest(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={guardarEditTest}>💾 Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL EDITAR TEST */}
+      {modalEditarTest&&testEditando&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalEditarTest(false)}}>
+          <div className="modal" style={{width:520,maxHeight:'90vh'}}>
+            <div className="modal-title">Editar test<button className="modal-close" onClick={()=>setModalEditarTest(false)}>✕</button></div>
+            <div className="field"><label>Nombre *</label><input className="input" value={testEditando.nombre||''} onChange={e=>setTestEditando((p:any)=>({...p,nombre:e.target.value}))}/></div>
+            <div className="field"><label>Descripción</label><textarea className="input" value={testEditando.descripcion||''} onChange={e=>setTestEditando((p:any)=>({...p,descripcion:e.target.value}))}/></div>
+            <div className="field"><label>Enlace vídeo</label><input className="input" value={testEditando.video_url||''} onChange={e=>setTestEditando((p:any)=>({...p,video_url:e.target.value}))}/></div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <div className="field"><label>Revisión cada (meses)</label><input className="input" type="number" value={testEditando.frecuencia_meses||3} onChange={e=>setTestEditando((p:any)=>({...p,frecuencia_meses:parseInt(e.target.value)||3}))}/></div>
+              <div className="field"><label>Positivo si</label>
+                <select className="input" value={testEditando.logica||'cualquiera'} onChange={e=>setTestEditando((p:any)=>({...p,logica:e.target.value}))}>
+                  <option value="cualquiera">Algún ítem marcado</option>
+                  <option value="todos">Todos los ítems marcados</option>
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label>Etiquetas relacionadas (ejercicios recomendados cuando positivo)</label>
+              <div style={{marginTop:5}}>
+                <SelectorEtiquetas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={ids=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/>
+              </div>
+              {(testEditando.etiquetas_relacionadas||[]).length>0&&(
+                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:3}}>
+                  {testEditando.etiquetas_relacionadas.map((id:string)=>{
+                    const et = etiquetas.find((e:any)=>e.id===id)
+                    return et?<span key={id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{et.nombre}</span>:null
+                  })}
+                </div>
+              )}
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalEditarTest(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={guardarEditTest}>💾 Guardar cambios</button>
             </div>
           </div>
         </div>
