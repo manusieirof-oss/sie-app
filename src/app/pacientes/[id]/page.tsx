@@ -4,23 +4,35 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 
 function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void }) {
-  const [citas, setCitas] = useState<any[]>([])
+  const [seccion, setSeccion] = useState<'activo'|'pendientes'|'historial'>('activo')
+  const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
+  const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
   const [sesionAsignar, setSesionAsignar] = useState('')
   const [guardando, setGuardando] = useState(false)
-  const [filtro, setFiltro] = useState<'todas'|'sin_sesion'|'con_sesion'>('todas')
 
-  useEffect(() => { cargarCitas() }, [])
+  useEffect(() => { cargarDatos() }, [])
 
-  async function cargarCitas() {
+  async function cargarDatos() {
     const hoy = new Date().toISOString().split('T')[0]
     const [{ data: c }, { data: s }] = await Promise.all([
-      supabase.from('citas').select('*, sesiones:sesion_id(id,nombre)').eq('paciente_id', pacienteId).gte('fecha', hoy).neq('estado','cancelada').order('fecha').order('hora'),
-      supabase.from('sesiones').select('id,nombre,descripcion').eq('paciente_id', pacienteId).order('created_at', {ascending:false}),
+      supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id', pacienteId).gte('fecha', hoy).neq('estado','cancelada').order('fecha').order('hora'),
+      supabase.from('sesiones').select('id,nombre,descripcion,created_at').eq('paciente_id', pacienteId).order('created_at',{ascending:false}),
     ])
-    setCitas(c||[])
-    setSesionesDisp(s||[])
+    const todasCitas = c||[]
+    const todasSesiones = s||[]
+    
+    // Citas con sesión asignada = plan activo
+    setCitasFuturas(todasCitas)
+    
+    // Sesiones sin cita asignada = pendientes
+    const sesionesConCita = todasCitas.filter(ci=>ci.sesion_id).map(ci=>ci.sesion_id)
+    setSesionesDisp(todasSesiones.filter(s=>!sesionesConCita.includes(s.id)))
+    
+    // Historial: citas pasadas con sesión
+    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id', pacienteId).lt('fecha', hoy).eq('estado','realizada').not('sesion_id','is',null).order('fecha',{ascending:false}).limit(20)
+    setSesionesHistorial(hist||[])
   }
 
   async function asignarEnBloque() {
@@ -29,96 +41,111 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
     for (const citaId of seleccionadas) {
       await supabase.from('citas').update({ sesion_id: sesionAsignar }).eq('id', citaId)
     }
-    setSeleccionadas([])
-    setSesionAsignar('')
-    setGuardando(false)
-    cargarCitas()
-    onRefresh()
+    setSeleccionadas([]); setSesionAsignar(''); setGuardando(false)
+    cargarDatos(); onRefresh()
   }
 
   function toggleCita(id: string) {
-    setSeleccionadas(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id])
+    setSeleccionadas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
   }
 
-  function seleccionarTodas() {
-    const citasFiltradas = getCitasFiltradas()
-    if (seleccionadas.length === citasFiltradas.length) setSeleccionadas([])
-    else setSeleccionadas(citasFiltradas.map(c=>c.id))
-  }
-
-  function getCitasFiltradas() {
-    if (filtro==='sin_sesion') return citas.filter(c=>!c.sesiones)
-    if (filtro==='con_sesion') return citas.filter(c=>c.sesiones)
-    return citas
-  }
-
-  const citasFiltradas = getCitasFiltradas()
-  const sinSesion = citas.filter(c=>!c.sesiones).length
-  const conSesion = citas.filter(c=>c.sesiones).length
+  const citasConSesion = citasFuturas.filter(c=>c.sesiones)
+  const citasSinSesion = citasFuturas.filter(c=>!c.sesiones)
 
   return (
     <div>
-      <div className="info-pill" style={{marginBottom:10}}>
-        {citas.length} citas futuras · <span style={{color:'var(--red)',fontWeight:500}}>{sinSesion} sin sesión</span> · <span style={{color:'var(--g)',fontWeight:500}}>{conSesion} con sesión</span>
+      {/* SECCIONES */}
+      <div style={{display:'flex',gap:4,marginBottom:12,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3}}>
+        {([['activo','📋 Plan activo',citasConSesion.length],['pendientes','⏳ Pendientes',sesionesDisp.length],['historial','📂 Historial',sesionesHistorial.length]] as const).map(([k,l,n])=>(
+          <button key={k} onClick={()=>setSeccion(k)}
+            style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:seccion===k?'var(--w)':'transparent',color:seccion===k?'var(--n)':'var(--grl)',fontWeight:seccion===k?500:300,boxShadow:seccion===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+            {l} <span style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:seccion===k?'var(--g)':'var(--bm)',color:seccion===k?'#fff':'var(--grl)'}}>{n}</span>
+          </button>
+        ))}
       </div>
 
-      {/* ASIGNAR EN BLOQUE */}
-      {seleccionadas.length>0 && (
-        <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:'var(--rl)',padding:'10px 13px',marginBottom:10,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-          <span style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{seleccionadas.length} citas seleccionadas</span>
-          <select className="input" style={{flex:1,minWidth:200}} value={sesionAsignar} onChange={e=>setSesionAsignar(e.target.value)}>
-            <option value="">Seleccionar sesión...</option>
-            {sesionesDisp.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
-          <button className="btn btn-p btn-sm" onClick={asignarEnBloque} disabled={guardando}>
-            {guardando?'⏳ Asignando...':'✓ Asignar a todas'}
-          </button>
-          <button className="btn btn-d btn-sm" onClick={()=>setSeleccionadas([])}>✕ Cancelar</button>
+      {/* PLAN ACTIVO */}
+      {seccion==='activo' && (
+        <div>
+          {seleccionadas.length>0 && (
+            <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:'var(--rl)',padding:'10px 13px',marginBottom:10,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <span style={{fontSize:11,color:'var(--n)'}}>{seleccionadas.length} citas seleccionadas</span>
+              <select className="input" style={{flex:1,minWidth:200}} value={sesionAsignar} onChange={e=>setSesionAsignar(e.target.value)}>
+                <option value="">Seleccionar sesión pendiente...</option>
+                {sesionesDisp.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+              <button className="btn btn-p btn-sm" onClick={asignarEnBloque} disabled={guardando}>{guardando?'⏳':'✓ Asignar'}</button>
+              <button className="btn btn-d btn-sm" onClick={()=>setSeleccionadas([])}>✕</button>
+            </div>
+          )}
+          <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
+            {citasFuturas.length===0 && <div style={{padding:20,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin citas futuras programadas</div>}
+            {citasFuturas.map((c,i)=>{
+              const sel = seleccionadas.includes(c.id)
+              const tieneSesion = !!c.sesiones
+              const fecha = new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})
+              return (
+                <div key={c.id} onClick={()=>toggleCita(c.id)}
+                  style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:i<citasFuturas.length-1?'1px solid var(--bl)':'none',cursor:'pointer',background:sel?'var(--gl)':'var(--w)'}}
+                  onMouseOver={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.04)'}}
+                  onMouseOut={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='var(--w)'}}>
+                  <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${sel?'var(--g)':'var(--bd)'}`,background:sel?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    {sel&&<span style={{fontSize:10,color:'#fff',fontWeight:700}}>✓</span>}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
+                    {tieneSesion ? (
+                      <div style={{fontSize:9,color:'var(--g)',marginTop:1}}>📋 {c.sesiones.nombre}</div>
+                    ) : (
+                      <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Sin sesión asignada</div>
+                    )}
+                  </div>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:tieneSesion?'var(--g)':'var(--bm)',flexShrink:0}}/>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
-      {/* FILTROS */}
-      <div style={{display:'flex',gap:5,marginBottom:8,alignItems:'center'}}>
-        {[['todas','Todas'],['sin_sesion','Sin sesión'],['con_sesion','Con sesión']].map(([k,l])=>(
-          <span key={k} onClick={()=>setFiltro(k as any)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtro===k?'var(--g)':'var(--w)',color:filtro===k?'#fff':'var(--gr)'}}>{l}</span>
-        ))}
-        <div style={{flex:1}}/>
-        <button className="btn btn-t btn-sm" onClick={seleccionarTodas}>
-          {seleccionadas.length===citasFiltradas.length&&citasFiltradas.length>0?'Deseleccionar todas':'Seleccionar todas'}
-        </button>
-      </div>
-
-      {/* LISTA DE CITAS */}
-      <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-        {citasFiltradas.length===0 && <div style={{padding:20,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin citas futuras</div>}
-        {citasFiltradas.map((c,i)=>{
-          const sel = seleccionadas.includes(c.id)
-          const tieneSesion = !!c.sesiones
-          const fecha = new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})
-          return (
-            <div key={c.id} onClick={()=>toggleCita(c.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:i<citasFiltradas.length-1?'1px solid var(--bl)':'none',cursor:'pointer',background:sel?'var(--gl)':'var(--w)',transition:'background .1s'}}
-              onMouseOver={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.04)'}}
-              onMouseOut={e=>{if(!sel)(e.currentTarget as HTMLElement).style.background='var(--w)'}}>
-              <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${sel?'var(--g)':'var(--bd)'}`,background:sel?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {sel&&<span style={{fontSize:10,color:'#fff',fontWeight:700}}>✓</span>}
+      {/* PENDIENTES */}
+      {seccion==='pendientes' && (
+        <div>
+          {sesionesDisp.length===0 ? (
+            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones pendientes de asignar</div>
+          ) : sesionesDisp.map(s=>(
+            <div key={s.id} className="card">
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:s.descripcion?6:0}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
+                  {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{s.descripcion}</div>}
+                </div>
+                <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800',fontWeight:500}}>⏳ Pendiente</span>
               </div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
-                {tieneSesion ? (
-                  <div style={{fontSize:9,color:'var(--g)',marginTop:1,fontWeight:400}}>📋 {c.sesiones.nombre}</div>
-                ) : (
-                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1,fontWeight:300}}>Sin sesión asignada</div>
-                )}
-              </div>
-              <div style={{width:8,height:8,borderRadius:'50%',background:tieneSesion?'var(--g)':'var(--bm)',flexShrink:0}}/>
+              <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Creada el {new Date(s.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
             </div>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {sesionesDisp.length===0 && (
-        <div style={{marginTop:10,padding:'10px 13px',background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:'var(--rl)',fontSize:10,color:'#7A5800'}}>
-          Este paciente no tiene sesiones creadas. Ve a 🏋 Entrenamiento para crear la primera.
+      {/* HISTORIAL */}
+      {seccion==='historial' && (
+        <div>
+          {sesionesHistorial.length===0 ? (
+            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin sesiones realizadas aún</div>
+          ) : sesionesHistorial.map((c,i)=>(
+            <div key={c.id} className="card">
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{c.sesiones?.nombre||'Sesión'}</div>
+                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>
+                    {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
+                  </div>
+                </div>
+                <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',fontWeight:500}}>✓ Realizada</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
