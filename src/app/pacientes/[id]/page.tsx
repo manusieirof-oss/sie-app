@@ -1,8 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
-import { useRef } from 'react'
 
 function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void }) {
   const [citas, setCitas] = useState<any[]>([])
