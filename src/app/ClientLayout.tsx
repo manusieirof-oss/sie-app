@@ -7,7 +7,7 @@ import Link from 'next/link'
 const NAV = [
   { href: '/agenda', icon: '📅', label: 'Agenda' },
   { href: '/pacientes', icon: '👥', label: 'Pacientes' },
-  { href: '/entrenamiento', icon: '📚', label: 'Biblio.' },
+  { href: '/entrenamiento', icon: '📚', label: 'Biblioteca' },
   { href: '/valoracion', icon: '📋', label: 'Valorac.' },
   { href: '/estadisticas', icon: '📊', label: 'Stats' },
   { href: '/ajustes', icon: '⚙️', label: 'Ajustes' },

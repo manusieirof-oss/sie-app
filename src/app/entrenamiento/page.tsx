@@ -56,6 +56,7 @@ export default function EntrenamientoPage() {
   const [modalSelEt, setModalSelEt] = useState(false)
   const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [ejSeleccionado, setEjSeleccionado] = useState<any>(null)
   const [subiendoImg, setSubiendoImg] = useState(false)
   const [subsubAbiertas, setSubsubAbiertas] = useState<string[]>([])
   const [buscarBiblio, setBuscarBiblio] = useState('')
@@ -407,9 +408,9 @@ export default function EntrenamientoPage() {
                     onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
                     {/* IMAGEN O PLACEHOLDER */}
                     {e.imagen_url ? (
-                      <img src={e.imagen_url} alt={e.nombre} style={{width:'100%',height:80,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>
+                      <img src={e.imagen_url} alt={e.nombre} onClick={()=>setEjSeleccionado(e)} style={{width:'100%',height:120,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block',cursor:'pointer'}}/>
                     ) : (
-                      <div style={{height:80,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>💪</div>
+                      <div onClick={()=>setEjSeleccionado(e)} style={{height:120,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)',cursor:'pointer'}}>💪</div>
                     )}
                     <div style={{padding:'8px 10px'}}>
                       <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
@@ -475,6 +476,67 @@ export default function EntrenamientoPage() {
       )}
 
       {/* TESTS */}
+      {/* PANEL LATERAL EJERCICIO */}
+      {ejSeleccionado && (
+        <>
+          <div onClick={()=>setEjSeleccionado(null)} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.16)',zIndex:48}}/>
+          <div style={{position:'fixed',top:0,right:0,width:360,height:'100vh',background:'var(--w)',borderLeft:'1px solid var(--bd)',zIndex:49,display:'flex',flexDirection:'column',boxShadow:'-4px 0 20px rgba(38,40,37,.08)'}}>
+            <div style={{padding:'12px 14px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:8}}>
+              <div style={{flex:1,fontSize:13,fontWeight:400,color:'var(--n)'}}>{ejSeleccionado.nombre}</div>
+              <button onClick={()=>setEjSeleccionado(null)} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto'}}>
+              {ejSeleccionado.imagen_url ? (
+                <img src={ejSeleccionado.imagen_url} alt={ejSeleccionado.nombre} style={{width:'100%',height:200,objectFit:'cover'}}/>
+              ) : (
+                <div style={{height:160,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>💪</div>
+              )}
+              <div style={{padding:14}}>
+                {ejSeleccionado.descripcion && (
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Descripción</div>
+                    <div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{ejSeleccionado.descripcion}</div>
+                  </div>
+                )}
+                {ejSeleccionado.video_url && (
+                  <a href={ejSeleccionado.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:12,display:'inline-flex'}}>🎥 Ver vídeo</a>
+                )}
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Etiquetas</div>
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {(ejSeleccionado.etiquetas||[]).map((id:string)=>{
+                      const et = etiquetas.find((e:any)=>e.id===id)
+                      return et?<span key={id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{et.nombre}</span>:null
+                    })}
+                    {!(ejSeleccionado.etiquetas||[]).length&&<span style={{fontSize:10,color:'var(--grl)'}}>Sin etiquetas</span>}
+                  </div>
+                </div>
+                {(()=>{
+                  const variantes = ejercicios.filter(e=>e.id!==ejSeleccionado.id&&(e.etiquetas||[]).some((et:string)=>(ejSeleccionado.etiquetas||[]).includes(et))).slice(0,5)
+                  return variantes.length>0?(
+                    <div>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:8}}>Variantes y ejercicios similares</div>
+                      {variantes.map((v:any)=>(
+                        <div key={v.id} onClick={()=>setEjSeleccionado(v)}
+                          style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer',background:'var(--bl)'}}
+                          onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
+                          onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
+                          <div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
+                            {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span>💪</span>}
+                          </div>
+                          <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:300}}>{v.nombre}</span>
+                          <span style={{fontSize:12,color:'var(--grl)'}}>›</span>
+                        </div>
+                      ))}
+                    </div>
+                  ):null
+                })()}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {tab==='tests' && (
         <>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -488,9 +550,9 @@ export default function EntrenamientoPage() {
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
                 {t.imagen_url ? (
-                  <img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:80,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>
+                  <img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:120,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>
                 ) : (
-                  <div style={{height:80,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>
+                  <div style={{height:120,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>
                 )}
                 <div style={{padding:'9px 11px'}}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{t.nombre}</div>
