@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 
 function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void }) {
-  const [seccion, setSeccion] = useState<'activo'|'pendientes'|'historial'>('activo')
+  const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
   const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
@@ -31,7 +31,7 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
     setSesionesDisp(todasSesiones.filter(s=>!sesionesConCita.includes(s.id)))
     
     // Historial: citas pasadas con sesión
-    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id', pacienteId).lt('fecha', hoy).eq('estado','realizada').not('sesion_id','is',null).order('fecha',{ascending:false}).limit(20)
+    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre)').eq('paciente_id', pacienteId).lt('fecha', hoy).order('fecha',{ascending:false}).limit(30)
     setSesionesHistorial(hist||[])
   }
 
@@ -56,7 +56,7 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
     <div>
       {/* SECCIONES */}
       <div style={{display:'flex',gap:4,marginBottom:12,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3}}>
-        {([['activo','📋 Plan activo',citasConSesion.length],['pendientes','⏳ Pendientes',sesionesDisp.length],['historial','📂 Historial',sesionesHistorial.length]] as const).map(([k,l,n])=>(
+        {([['activo','📋 Plan activo',citasFuturas.length],['sesiones','📋 Sesiones',sesionesDisp.length],['historial','📂 Historial',sesionesHistorial.length]] as const).map(([k,l,n])=>(
           <button key={k} onClick={()=>setSeccion(k)}
             style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:seccion===k?'var(--w)':'transparent',color:seccion===k?'var(--n)':'var(--grl)',fontWeight:seccion===k?500:300,boxShadow:seccion===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
             {l} <span style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:seccion===k?'var(--g)':'var(--bm)',color:seccion===k?'#fff':'var(--grl)'}}>{n}</span>
@@ -67,6 +67,23 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
       {/* PLAN ACTIVO */}
       {seccion==='activo' && (
         <div>
+          {/* BARRA PROGRESO */}
+          {(()=>{
+            const total = citasFuturas.length
+            const conSes = citasFuturas.filter(c=>c.sesiones).length
+            const pct = total>0?Math.round((conSes/total)*100):0
+            return total>0?(
+              <div style={{marginBottom:10,padding:'8px 12px',background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
+                  <span style={{fontSize:10,color:'var(--n)'}}>Sesiones asignadas</span>
+                  <span style={{fontSize:10,fontWeight:500,color:'var(--g)'}}>{conSes}/{total} · {pct}%</span>
+                </div>
+                <div style={{height:6,background:'var(--bm)',borderRadius:99,overflow:'hidden'}}>
+                  <div style={{height:'100%',background:'var(--g)',borderRadius:99,width:pct+'%',transition:'width .3s'}}/>
+                </div>
+              </div>
+            ):null
+          })()}
           {seleccionadas.length>0 && (
             <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:'var(--rl)',padding:'10px 13px',marginBottom:10,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
               <span style={{fontSize:11,color:'var(--n)'}}>{seleccionadas.length} citas seleccionadas</span>
@@ -108,23 +125,29 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
         </div>
       )}
 
-      {/* PENDIENTES */}
-      {seccion==='pendientes' && (
+      {/* SESIONES */}
+      {seccion==='sesiones' && (
         <div>
           {sesionesDisp.length===0 ? (
-            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones pendientes de asignar</div>
-          ) : sesionesDisp.map(s=>(
-            <div key={s.id} className="card">
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:s.descripcion?6:0}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
-                  {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{s.descripcion}</div>}
+            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas para este paciente</div>
+          ) : sesionesDisp.map(s=>{
+            const citasAsignadas = citasFuturas.filter(c=>c.sesion_id===s.id)
+            const asignada = citasAsignadas.length>0
+            return (
+              <div key={s.id} className="card">
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
+                    {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{s.descripcion}</div>}
+                  </div>
+                  <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:asignada?'var(--gl)':'var(--ambl)',color:asignada?'var(--gd)':'#7A5800',fontWeight:500}}>
+                    {asignada?`✓ ${citasAsignadas.length} cita${citasAsignadas.length>1?'s':''}  asignada${citasAsignadas.length>1?'s':''}`:' Sin asignar'}
+                  </span>
                 </div>
-                <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800',fontWeight:500}}>⏳ Pendiente</span>
+                <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Creada el {new Date(s.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
               </div>
-              <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Creada el {new Date(s.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -132,20 +155,23 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
       {seccion==='historial' && (
         <div>
           {sesionesHistorial.length===0 ? (
-            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin sesiones realizadas aún</div>
-          ) : sesionesHistorial.map((c,i)=>(
-            <div key={c.id} className="card">
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{c.sesiones?.nombre||'Sesión'}</div>
-                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>
-                    {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
+            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin historial aún</div>
+          ) : sesionesHistorial.map((c,i)=>{
+            const badgeColor = c.estado==='realizada'?{bg:'var(--gl)',color:'var(--gd)',txt:'✓ Realizada'}:c.estado==='cancelada'?{bg:'var(--bm)',color:'var(--gr)',txt:'Cancelada'}:{bg:'var(--redl)',color:'var(--red)',txt:'Falta'}
+            return (
+              <div key={c.id} className="card">
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{flex:1}}>
+                    {c.sesiones?.nombre && <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2}}>📋 {c.sesiones.nombre}</div>}
+                    <div style={{fontSize:9,color:'var(--grl)'}}>
+                      {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
+                    </div>
                   </div>
+                  <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:badgeColor.bg,color:badgeColor.color,fontWeight:500}}>{badgeColor.txt}</span>
                 </div>
-                <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',fontWeight:500}}>✓ Realizada</span>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
