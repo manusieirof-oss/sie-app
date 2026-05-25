@@ -53,6 +53,8 @@ export default function EntrenamientoPage() {
   const [modalTest, setModalTest] = useState(false)
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
+  const [modalEditarTest, setModalEditarTest] = useState(false)
+  const [testEditando, setTestEditando] = useState<any>(null)
   const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as {nombre:string, tiene_grados:boolean}[], logica:'cualquiera' })
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
   const [modalSelEt, setModalSelEt] = useState(false)
