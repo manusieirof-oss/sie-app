@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 
@@ -157,25 +157,6 @@ export default function FichaPacientePage() {
   const [ladoTest, setLadoTest] = useState('bilateral')
   const [testSeleccionadoObj, setTestSeleccionadoObj] = useState<any>(null)
   const [procesando, setProcesando] = useState(false)
-
-  const resultadosRef = useRef<HTMLDivElement>(null)
-
-  async function generarPDF() {
-    if (!resultadosRef.current || !pac) return
-    const { default: jsPDF } = await import('jspdf')
-    const { default: html2canvas } = await import('html2canvas')
-    const canvas = await html2canvas(resultadosRef.current, { scale: 2, backgroundColor: '#ffffff' })
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pdfWidth = pdf.internal.pageSize.getWidth()
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-    pdf.setFontSize(14)
-    pdf.text(`${pac.nombre} ${pac.apellidos} · Informe de resultados`, 14, 14)
-    pdf.setFontSize(9)
-    pdf.text(new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}), 14, 20)
-    pdf.addImage(imgData, 'PNG', 0, 25, pdfWidth, pdfHeight)
-    pdf.save(`${pac.nombre}_${pac.apellidos}_resultados.pdf`)
-  }
 
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
@@ -775,10 +756,6 @@ export default function FichaPacientePage() {
 
       {tab==='resultados' && (
         <div>
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <button className="btn btn-p btn-sm" onClick={generarPDF}>📄 Generar PDF</button>
-          </div>
-          <div ref={resultadosRef}>
           {(()=>{
             // DATOS DE ASISTENCIA
             const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
@@ -883,8 +860,6 @@ export default function FichaPacientePage() {
                 </div>
 
                 <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:300}}>ℹ️ Las citas se actualizan a las 00:00</div>
-          </div>
-          </div>
 
                 {/* BLOQUE ESCALAS */}
                 {escalas.length>0 && (
