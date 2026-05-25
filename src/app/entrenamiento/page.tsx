@@ -1021,7 +1021,7 @@ export default function EntrenamientoPage() {
             <div className="field">
               <label>Etiquetas relacionadas · ejercicios recomendados cuando positivo</label>
               <div style={{marginTop:5}}>
-                <SelectorEtiquetas seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={ids=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/>
+                <SelectorColumnas seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={ids=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/>
               </div>
               {(nuevoTest.etiquetas_relacionadas||[]).length>0&&(
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:3}}>
@@ -1091,7 +1091,7 @@ export default function EntrenamientoPage() {
             <div className="field">
               <label>Etiquetas relacionadas (ejercicios recomendados cuando positivo)</label>
               <div style={{marginTop:5}}>
-                <SelectorEtiquetas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={ids=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/>
+                <SelectorColumnas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={ids=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/>
               </div>
               {(testEditando.etiquetas_relacionadas||[]).length>0&&(
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:3}}>
@@ -1130,7 +1130,7 @@ export default function EntrenamientoPage() {
             <div className="field">
               <label>Etiquetas relacionadas (ejercicios recomendados cuando positivo)</label>
               <div style={{marginTop:5}}>
-                <SelectorEtiquetas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={ids=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/>
+                <SelectorColumnas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={ids=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/>
               </div>
               {(testEditando.etiquetas_relacionadas||[]).length>0&&(
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:3}}>
