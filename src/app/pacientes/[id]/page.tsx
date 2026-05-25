@@ -11,6 +11,9 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
   const [sesionAsignar, setSesionAsignar] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [modalSesion, setModalSesion] = useState(false)
+  const [editandoSesion, setEditandoSesion] = useState<any>(null)
+  const [formSesion, setFormSesion] = useState({ nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:''},{nombre:'Parte principal',ejercicios:''},{nombre:'Vuelta a la calma',ejercicios:''}] })
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -47,6 +50,41 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
 
   function toggleCita(id: string) {
     setSeleccionadas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
+  }
+
+  async function guardarSesion() {
+    if (!formSesion.nombre) { alert('Escribe un nombre'); return }
+    setGuardando(true)
+    const partes = formSesion.partes.map(p=>({nombre:p.nombre, ejercicios:p.ejercicios.split('\n').filter(Boolean)}))
+    if (editandoSesion) {
+      await supabase.from('sesiones').update({ nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes }).eq('id',editandoSesion.id)
+    } else {
+      await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes, estado:'lista' })
+    }
+    setModalSesion(false); setEditandoSesion(null)
+    setFormSesion({ nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:''},{nombre:'Parte principal',ejercicios:''},{nombre:'Vuelta a la calma',ejercicios:''}] })
+    setGuardando(false); cargarDatos()
+  }
+
+  async function duplicarSesion(s: any) {
+    await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:s.nombre+' (copia)', descripcion:s.descripcion, partes:s.partes||[], estado:'lista' })
+    cargarDatos()
+  }
+
+  async function eliminarSesion(id: string) {
+    if (!confirm('¿Eliminar esta sesión?')) return
+    await supabase.from('sesiones').delete().eq('id',id)
+    cargarDatos()
+  }
+
+  function abrirEditarSesion(s: any) {
+    setEditandoSesion(s)
+    setFormSesion({
+      nombre: s.nombre||'',
+      descripcion: s.descripcion||'',
+      partes: (s.partes||[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}]).map((p:any)=>({nombre:p.nombre, ejercicios:Array.isArray(p.ejercicios)?p.ejercicios.join('\n'):p.ejercicios||''}))
+    })
+    setModalSesion(true)
   }
 
   const citasConSesion = citasFuturas.filter(c=>c.sesiones)
@@ -112,7 +150,11 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
                   <div style={{flex:1}}>
                     <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                     {tieneSesion ? (
-                      <div style={{fontSize:9,color:'var(--g)',marginTop:1}}>📋 {c.sesiones.nombre}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:5,marginTop:1}}>
+                        <span style={{fontSize:9,color:'var(--g)'}}>📋 {c.sesiones.nombre}</span>
+                        <button onClick={e=>{e.stopPropagation();supabase.from('citas').update({sesion_id:null}).eq('id',c.id).then(()=>cargarDatos())}}
+                          style={{fontSize:8,color:'var(--grl)',background:'none',border:'none',cursor:'pointer',padding:'0 3px'}}>✕</button>
+                      </div>
                     ) : (
                       <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Sin sesión asignada</div>
                     )}
@@ -128,26 +170,65 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
       {/* SESIONES */}
       {seccion==='sesiones' && (
         <div>
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+            <button className="btn btn-p btn-sm" onClick={()=>{setEditandoSesion(null);setFormSesion({nombre:'',descripcion:'',partes:[{nombre:'Calentamiento',ejercicios:''},{nombre:'Parte principal',ejercicios:''},{nombre:'Vuelta a la calma',ejercicios:''}]});setModalSesion(true)}}>+ Nueva sesión</button>
+          </div>
           {sesionesDisp.length===0 ? (
-            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas para este paciente</div>
+            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas. Crea la primera.</div>
           ) : sesionesDisp.map(s=>{
             const citasAsignadas = citasFuturas.filter(c=>c.sesion_id===s.id)
             const asignada = citasAsignadas.length>0
             return (
               <div key={s.id} className="card">
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
                     {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{s.descripcion}</div>}
                   </div>
-                  <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:asignada?'var(--gl)':'var(--ambl)',color:asignada?'var(--gd)':'#7A5800',fontWeight:500}}>
-                    {asignada?`✓ ${citasAsignadas.length} cita${citasAsignadas.length>1?'s':''}  asignada${citasAsignadas.length>1?'s':''}`:' Sin asignar'}
+                  <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:asignada?'var(--gl)':'var(--ambl)',color:asignada?'var(--gd)':'#7A5800',fontWeight:500,whiteSpace:'nowrap'}}>
+                    {asignada?`✓ ${citasAsignadas.length} cita${citasAsignadas.length>1?'s':''} asignada${citasAsignadas.length>1?'s':''}`:' Sin asignar'}
                   </span>
                 </div>
-                <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Creada el {new Date(s.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
+                {/* PARTES */}
+                {(s.partes||[]).slice(0,2).map((p:any,pi:number)=>(
+                  <div key={pi} style={{fontSize:9,color:'var(--grl)',marginBottom:2}}>
+                    <span style={{fontWeight:500,color:'var(--gr)'}}>{p.nombre}:</span> {(p.ejercicios||[]).slice(0,2).join(' · ')}{(p.ejercicios||[]).length>2?` +${(p.ejercicios||[]).length-2} más`:''}
+                  </div>
+                ))}
+                <div style={{display:'flex',gap:5,marginTop:8}}>
+                  <button className="btn btn-s btn-sm" onClick={()=>abrirEditarSesion(s)}>✏️ Editar</button>
+                  <button className="btn btn-t btn-sm" onClick={()=>duplicarSesion(s)}>⧉ Duplicar</button>
+                  <button className="btn btn-d btn-sm" onClick={()=>eliminarSesion(s.id)}>🗑</button>
+                </div>
               </div>
             )
           })}
+
+          {/* MODAL SESION */}
+          {modalSesion&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSesion(false)}}>
+              <div className="modal" style={{width:500}}>
+                <div className="modal-title">{editandoSesion?'Editar sesión':'Nueva sesión'}<button className="modal-close" onClick={()=>setModalSesion(false)}>✕</button></div>
+                <div className="field"><label>Nombre *</label><input className="input" value={formSesion.nombre} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} autoFocus/></div>
+                <div className="field"><label>Descripción / objetivo</label><input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Fuerza tren inferior sin impacto"/></div>
+                {formSesion.partes.map((parte,pi)=>(
+                  <div key={pi} style={{marginBottom:8,border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
+                    <div style={{padding:'7px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bd)',fontSize:10,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</div>
+                    <div style={{padding:8}}>
+                      <textarea className="input" style={{minHeight:60,fontSize:11}} value={parte.ejercicios}
+                        placeholder="Escribe los ejercicios uno por línea&#10;ej: Sentadilla búlgara · 4x10 · 20kg"
+                        onChange={e=>setFormSesion(prev=>{const p=[...prev.partes];p[pi]={...p[pi],ejercicios:e.target.value};return{...prev,partes:p}})}/>
+                    </div>
+                  </div>
+                ))}
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalSesion(false)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar sesión'}</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
