@@ -164,65 +164,140 @@ export default function FichaPacientePage() {
     if (!pac) return
     const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
     const faltas = citas.filter((c:any)=>c.estado==='falta').length
+    const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
+    const recuperadas = recuperaciones.filter((r:any)=>r.estado==='recuperada').length
     const total = realizadas + faltas
     const pct = total>0 ? Math.round((realizadas/total)*100) : 0
     const fecha = new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})
-    
-    const html = `
-      <html><head><meta charset="utf-8">
-      <style>
-        body { font-family: Arial, sans-serif; color: #262825; padding: 30px; }
-        h1 { font-size: 20px; font-weight: 300; margin-bottom: 4px; }
-        h2 { font-size: 13px; font-weight: 600; color: #5A969E; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
-        .meta { font-size: 11px; color: #888; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
-        .card { background: #f5f3ef; border-radius: 6px; padding: 10px; text-align: center; }
-        .card .val { font-size: 24px; font-weight: 300; color: #262825; }
-        .card .lbl { font-size: 9px; color: #888; margin-top: 2px; }
-        .test { padding: 8px 12px; background: #f5f3ef; border-radius: 5px; margin-bottom: 6px; }
-        .test .nombre { font-size: 12px; font-weight: 500; }
-        .test .detalle { font-size: 10px; color: #888; margin-top: 2px; }
-        .pos { color: #B05A5A; } .neg { color: #5A969E; }
-        .footer { margin-top: 30px; font-size: 9px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
-      </style></head><body>
-      <h1>${pac.nombre} ${pac.apellidos}</h1>
-      <div class="meta">Informe de resultados · ${fecha} · Generado por SIE Gestión Clínica</div>
-      
-      <h2>Asistencia</h2>
-      <div class="grid">
+
+    // DONUT SVG
+    const radio = 15.9
+    const circunferencia = 2 * Math.PI * radio
+    const dashR = total>0 ? (realizadas/total)*100 : 0
+    const dashF = total>0 ? (faltas/total)*100 : 0
+    const donutSVG = `<svg viewBox="0 0 36 36" width="120" height="120" style="transform:rotate(-90deg)">
+      <circle cx="18" cy="18" r="${radio}" fill="none" stroke="#EBF4F5" stroke-width="3"/>
+      <circle cx="18" cy="18" r="${radio}" fill="none" stroke="#5A969E" stroke-width="3"
+        stroke-dasharray="${dashR} ${100-dashR}" stroke-linecap="round"/>
+      ${faltas>0?`<circle cx="18" cy="18" r="${radio}" fill="none" stroke="#B05A5A" stroke-width="3"
+        stroke-dasharray="${dashF} ${100-dashF}" stroke-dashoffset="${-dashR}" stroke-linecap="round"/>`:''}
+    </svg>`
+
+    // BARRAS POR MES
+    const mesesMap: Record<string,{r:number,f:number}> = {}
+    citas.forEach((c:any)=>{
+      const m = c.fecha?.slice(0,7); if(!m) return
+      if(!mesesMap[m]) mesesMap[m]={r:0,f:0}
+      if(c.estado==='realizada') mesesMap[m].r++
+      if(c.estado==='falta') mesesMap[m].f++
+    })
+    const meses = Object.entries(mesesMap).sort(([a],[b])=>a.localeCompare(b)).slice(-6)
+    const maxM = Math.max(...meses.map(([,v])=>v.r+v.f),1)
+    const barWidth = 40
+    const barGap = 10
+    const svgW = meses.length*(barWidth+barGap)
+    const barrasSVG = meses.length>0 ? `<svg width="${svgW}" height="100" viewBox="0 0 ${svgW} 100">
+      ${meses.map(([mes,datos],i)=>{
+        const x = i*(barWidth+barGap)
+        const hR = Math.round((datos.r/maxM)*70)
+        const hF = Math.round((datos.f/maxM)*70)
+        const [,m] = mes.split('-')
+        const nm = new Date(2024,parseInt(m)-1,1).toLocaleDateString('es-ES',{month:'short'})
+        return `<rect x="${x+5}" y="${90-hR}" width="${barWidth-10}" height="${hR}" fill="#5A969E" rx="2"/>
+        ${datos.f>0?`<rect x="${x+5}" y="${90-hR-hF}" width="${barWidth-10}" height="${hF}" fill="#B05A5A" rx="2" opacity="0.7"/>`:''}
+        <text x="${x+barWidth/2}" y="98" text-anchor="middle" font-size="8" fill="#888">${nm}</text>
+        <text x="${x+barWidth/2}" y="${85-hR-hF-2}" text-anchor="middle" font-size="7" fill="#444">${datos.r+datos.f>0?Math.round((datos.r/(datos.r+datos.f))*100)+'%':''}</text>`
+      }).join('')}
+    </svg>` : '<p style="color:#888;font-size:11px">Sin datos de meses</p>'
+
+    const html = `<html><head><meta charset="utf-8"><style>
+      body{font-family:Arial,sans-serif;color:#262825;padding:30px;max-width:700px;margin:0 auto}
+      h1{font-size:22px;font-weight:300;margin-bottom:4px}
+      h2{font-size:11px;font-weight:700;color:#5A969E;margin:24px 0 10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #EBF4F5;padding-bottom:6px}
+      .meta{font-size:11px;color:#888;margin-bottom:24px}
+      .row{display:flex;gap:20px;align-items:center;margin-bottom:16px}
+      .donut-wrap{position:relative;width:120px;height:120px;flex-shrink:0}
+      .donut-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+      .donut-pct{font-size:20px;font-weight:300;color:#262825}
+      .donut-sub{font-size:8px;color:#888}
+      .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1}
+      .card{background:#f5f3ef;border-radius:6px;padding:10px;text-align:center}
+      .val{font-size:22px;font-weight:300}
+      .lbl{font-size:8px;color:#888;margin-top:2px}
+      .test{padding:8px 12px;background:#f5f3ef;border-radius:5px;margin-bottom:5px}
+      .tn{font-size:12px;font-weight:500;margin-bottom:3px}
+      .td{font-size:10px;color:#666}
+      .pos{color:#B05A5A;font-weight:600} .neg{color:#5A969E;font-weight:600}
+      .legend{display:flex;gap:16px;margin-top:8px}
+      .leg-item{display:flex;align-items:center;gap:4px;font-size:9px;color:#888}
+      .leg-dot{width:8px;height:8px;border-radius:50%}
+      .footer{margin-top:30px;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:10px;text-align:center}
+      @media print{body{padding:15px}}
+    </style></head><body>
+    <h1>${pac.nombre} ${pac.apellidos}${pac.nombre_clinica?' ('+pac.nombre_clinica+')':''}</h1>
+    <div class="meta">
+      ${pac.fecha_nacimiento?Math.floor((Date.now()-new Date(pac.fecha_nacimiento).getTime())/(1000*60*60*24*365.25))+' años · ':''}
+      ${pac.tipo_clase||''} · Informe generado el ${fecha}
+    </div>
+
+    <h2>Asistencia global</h2>
+    <div class="row">
+      <div class="donut-wrap">
+        ${donutSVG}
+        <div class="donut-label"><div class="donut-pct">${pct}%</div><div class="donut-sub">asistencia</div></div>
+      </div>
+      <div class="grid4">
         <div class="card"><div class="val" style="color:#5A969E">${realizadas}</div><div class="lbl">Realizadas</div></div>
         <div class="card"><div class="val" style="color:#B05A5A">${faltas}</div><div class="lbl">Faltas</div></div>
-        <div class="card"><div class="val">${citas.filter((c:any)=>c.estado==='cancelada').length}</div><div class="lbl">Canceladas</div></div>
-        <div class="card"><div class="val" style="color:#5A969E">${pct}%</div><div class="lbl">% Asistencia</div></div>
+        <div class="card"><div class="val" style="color:#888">${canceladas}</div><div class="lbl">Canceladas</div></div>
+        <div class="card"><div class="val" style="color:#C9A84C">${recuperadas}</div><div class="lbl">Recuperadas</div></div>
       </div>
-      
-      ${pac.peso_kg ? `<h2>Datos físicos</h2>
-      <div class="grid">
-        <div class="card"><div class="val">${pac.peso_kg}<span style="font-size:12px;color:#888"> kg</span></div><div class="lbl">Peso</div></div>
-        <div class="card"><div class="val">${pac.altura_cm||'—'}<span style="font-size:12px;color:#888"> cm</span></div><div class="lbl">Altura</div></div>
-        <div class="card"><div class="val">${pac.peso_kg&&pac.altura_cm?Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10:'—'}</div><div class="lbl">IMC</div></div>
-      </div>` : ''}
-      
-      ${tests.length>0 ? `<h2>Tests funcionales</h2>
-      ${tests.map((t:any)=>`<div class="test">
-        <div class="nombre">${t.tests?.nombre||'Test'}${t.lado&&t.lado!=='bilateral'?' · '+t.lado:''}</div>
-        <div class="detalle">
-          <span class="${t.resultado==='positivo'?'pos':'neg'}">${t.resultado==='positivo'?'+ Positivo':'− Negativo'}</span>
-          · ${new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
-          ${(t.items_resultado||[]).filter((i:any)=>i.marcado).map((i:any)=>
-            `<br>☑ ${i.nombre}${i.grados?' · '+i.grados+'°':''}`
-          ).join('')}
-        </div>
-      </div>`).join('')}` : ''}
-      
-      <div class="footer">SIE · Gestión Clínica · ${fecha}</div>
-      </body></html>
-    `
+    </div>
+
+    <h2>Asistencia por mes</h2>
+    ${barrasSVG}
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#5A969E"></div>Realizadas</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#B05A5A;opacity:.7"></div>Faltas</div>
+    </div>
+
+    ${pac.peso_kg||pac.altura_cm ? `<h2>Datos físicos</h2>
+    <div class="grid4" style="max-width:300px">
+      ${pac.peso_kg?`<div class="card"><div class="val">${pac.peso_kg}</div><div class="lbl">Peso (kg)</div></div>`:''}
+      ${pac.altura_cm?`<div class="card"><div class="val">${pac.altura_cm}</div><div class="lbl">Altura (cm)</div></div>`:''}
+      ${pac.peso_kg&&pac.altura_cm?`<div class="card"><div class="val">${Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10}</div><div class="lbl">IMC</div></div>`:''}
+    </div>` : ''}
+
+    ${tests.length>0 ? `<h2>Tests funcionales</h2>
+    ${tests.map((t:any)=>`<div class="test">
+      <div class="tn">${t.tests?.nombre||'Test'}${t.lado&&t.lado!=='bilateral'?' · <span style="font-weight:300;color:#888">'+t.lado+'</span>':''}</div>
+      <div class="td">
+        <span class="${t.resultado==='positivo'?'pos':'neg'}">${t.resultado==='positivo'?'+ Positivo':'− Negativo'}</span>
+        &nbsp;·&nbsp;${new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
+        ${(t.items_resultado||[]).filter((i:any)=>i.marcado).map((i:any)=>
+          `<br>☑ ${i.nombre}${i.grados?' · <strong>'+i.grados+'°</strong>':''}`
+        ).join('')}
+      </div>
+    </div>`).join('')}` : ''}
+
+    ${escalas.length>0 ? `<h2>Últimas escalas</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tr style="background:#f5f3ef"><th style="padding:6px 10px;text-align:left">Fecha</th><th style="padding:6px 10px">Borg</th><th style="padding:6px 10px">Estrés</th></tr>
+      ${[...escalas].slice(0,5).map((e:any)=>`<tr style="border-bottom:1px solid #f0ede8">
+        <td style="padding:5px 10px">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</td>
+        <td style="padding:5px 10px;text-align:center">${e.borg}/10</td>
+        <td style="padding:5px 10px;text-align:center">${e.estres}/10</td>
+      </tr>`).join('')}
+    </table>` : ''}
+
+    <div class="footer">SIE · Gestión Clínica · ${fecha}</div>
+    </body></html>`
+
     const ventana = window.open('', '_blank')
     if (ventana) {
       ventana.document.write(html)
       ventana.document.close()
-      ventana.print()
+      setTimeout(()=>ventana.print(), 500)
     }
   }
 
