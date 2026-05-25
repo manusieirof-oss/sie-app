@@ -1020,6 +1020,20 @@ export default function EntrenamientoPage() {
               {nuevoTest.items.length===0&&<div style={{fontSize:9,color:'var(--grl)',marginTop:5,fontWeight:300}}>Sin ítems — el test se registrará solo como positivo/negativo</div>}
             </div>
 
+            <div className="field">
+              <label>Etiquetas relacionadas · ejercicios recomendados cuando positivo</label>
+              <div style={{marginTop:5}}>
+                <SelectorEtiquetas seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={ids=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/>
+              </div>
+              {(nuevoTest.etiquetas_relacionadas||[]).length>0&&(
+                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:3}}>
+                  {(nuevoTest.etiquetas_relacionadas||[]).map((id:string)=>{
+                    const et = etiquetas.find((e:any)=>e.id===id)
+                    return et?<span key={id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{et.nombre}</span>:null
+                  })}
+                </div>
+              )}
+            </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
