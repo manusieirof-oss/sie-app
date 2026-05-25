@@ -113,7 +113,10 @@ export default function TallerPage() {
           <option value="">Seleccionar paciente...</option>
           {pacientes.map(p=><option key={p.id} value={p.id}>{p.nombre_clinica||p.nombre} {p.apellidos}</option>)}
         </select>
-        {pacienteId && <button className="btn btn-p btn-sm" onClick={abrirNueva}>+ Nueva sesión</button>}
+        {pacienteId && (
+          <a href={`/entrenamiento?nueva_sesion=1&paciente_id=${pacienteId}&paciente_nombre=${encodeURIComponent((pacSel?.nombre_clinica||pacSel?.nombre||'')+' '+(pacSel?.apellidos||''))}`}
+            className="btn btn-p btn-sm">+ Nueva sesión</a>
+        )}
       </div>
 
       {!pacienteId ? (
