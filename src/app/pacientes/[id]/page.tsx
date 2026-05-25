@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 
@@ -157,6 +157,74 @@ export default function FichaPacientePage() {
   const [ladoTest, setLadoTest] = useState('bilateral')
   const [testSeleccionadoObj, setTestSeleccionadoObj] = useState<any>(null)
   const [procesando, setProcesando] = useState(false)
+
+  const resultadosRef = useRef<HTMLDivElement>(null)
+
+  function generarPDF() {
+    if (!pac) return
+    const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
+    const faltas = citas.filter((c:any)=>c.estado==='falta').length
+    const total = realizadas + faltas
+    const pct = total>0 ? Math.round((realizadas/total)*100) : 0
+    const fecha = new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})
+    
+    const html = `
+      <html><head><meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; color: #262825; padding: 30px; }
+        h1 { font-size: 20px; font-weight: 300; margin-bottom: 4px; }
+        h2 { font-size: 13px; font-weight: 600; color: #5A969E; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .meta { font-size: 11px; color: #888; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+        .card { background: #f5f3ef; border-radius: 6px; padding: 10px; text-align: center; }
+        .card .val { font-size: 24px; font-weight: 300; color: #262825; }
+        .card .lbl { font-size: 9px; color: #888; margin-top: 2px; }
+        .test { padding: 8px 12px; background: #f5f3ef; border-radius: 5px; margin-bottom: 6px; }
+        .test .nombre { font-size: 12px; font-weight: 500; }
+        .test .detalle { font-size: 10px; color: #888; margin-top: 2px; }
+        .pos { color: #B05A5A; } .neg { color: #5A969E; }
+        .footer { margin-top: 30px; font-size: 9px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
+      </style></head><body>
+      <h1>${pac.nombre} ${pac.apellidos}</h1>
+      <div class="meta">Informe de resultados · ${fecha} · Generado por SIE Gestión Clínica</div>
+      
+      <h2>Asistencia</h2>
+      <div class="grid">
+        <div class="card"><div class="val" style="color:#5A969E">${realizadas}</div><div class="lbl">Realizadas</div></div>
+        <div class="card"><div class="val" style="color:#B05A5A">${faltas}</div><div class="lbl">Faltas</div></div>
+        <div class="card"><div class="val">${citas.filter((c:any)=>c.estado==='cancelada').length}</div><div class="lbl">Canceladas</div></div>
+        <div class="card"><div class="val" style="color:#5A969E">${pct}%</div><div class="lbl">% Asistencia</div></div>
+      </div>
+      
+      ${pac.peso_kg ? `<h2>Datos físicos</h2>
+      <div class="grid">
+        <div class="card"><div class="val">${pac.peso_kg}<span style="font-size:12px;color:#888"> kg</span></div><div class="lbl">Peso</div></div>
+        <div class="card"><div class="val">${pac.altura_cm||'—'}<span style="font-size:12px;color:#888"> cm</span></div><div class="lbl">Altura</div></div>
+        <div class="card"><div class="val">${pac.peso_kg&&pac.altura_cm?Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10:'—'}</div><div class="lbl">IMC</div></div>
+      </div>` : ''}
+      
+      ${tests.length>0 ? `<h2>Tests funcionales</h2>
+      ${tests.map((t:any)=>`<div class="test">
+        <div class="nombre">${t.tests?.nombre||'Test'}${t.lado&&t.lado!=='bilateral'?' · '+t.lado:''}</div>
+        <div class="detalle">
+          <span class="${t.resultado==='positivo'?'pos':'neg'}">${t.resultado==='positivo'?'+ Positivo':'− Negativo'}</span>
+          · ${new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
+          ${(t.items_resultado||[]).filter((i:any)=>i.marcado).map((i:any)=>
+            `<br>☑ ${i.nombre}${i.grados?' · '+i.grados+'°':''}`
+          ).join('')}
+        </div>
+      </div>`).join('')}` : ''}
+      
+      <div class="footer">SIE · Gestión Clínica · ${fecha}</div>
+      </body></html>
+    `
+    const ventana = window.open('', '_blank')
+    if (ventana) {
+      ventana.document.write(html)
+      ventana.document.close()
+      ventana.print()
+    }
+  }
 
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
@@ -756,6 +824,9 @@ export default function FichaPacientePage() {
 
       {tab==='resultados' && (
         <div>
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+            <button className="btn btn-p btn-sm" onClick={generarPDF}>📄 Imprimir / Guardar PDF</button>
+          </div>
           {(()=>{
             // DATOS DE ASISTENCIA
             const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
