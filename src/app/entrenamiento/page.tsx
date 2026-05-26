@@ -372,7 +372,8 @@ export default function EntrenamientoPage() {
   }
 
   async function eliminarTest(id: string) {
-    if (!confirm('¿Eliminar este test?')) return
+    if (!confirm('¿Eliminar este test? Se eliminarán también todos sus resultados asociados.')) return
+    await supabase.from('resultados_tests').delete().eq('test_id', id)
     await supabase.from('tests').delete().eq('id', id)
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
