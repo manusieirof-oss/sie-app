@@ -278,7 +278,7 @@ export default function ValoracionPage() {
               <div className="field"><label>Trabajo / profesión</label><input className="input" value={form.trabajo} onChange={e=>up('trabajo',e.target.value)} placeholder="ej. Administrativo, enfermera..."/></div>
               <div className="field"><label>Tipo de jornada</label>
                 <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>
-                  {['Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'].map(j=>(
+                  {['Sentado','Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'].map(j=>(
                     <span key={j} onClick={()=>up('tipo_jornada',j)}
                       style={{fontSize:10,padding:'4px 10px',borderRadius:99,border:`1px solid ${form.tipo_jornada===j?'var(--g)':'var(--bd)'}`,background:form.tipo_jornada===j?'var(--g)':'var(--w)',color:form.tipo_jornada===j?'#fff':'var(--gr)',cursor:'pointer'}}>
                       {j}
