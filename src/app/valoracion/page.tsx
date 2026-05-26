@@ -257,32 +257,36 @@ export default function ValoracionPage() {
       {/* PASO 2 */}
       {step===2 && (
         <div>
+          {/* ANAMNESIS */}
           <div className="card" style={{marginBottom:8}}>
             <div className="card-title">Anamnesis inicial · motivo de consulta</div>
             <textarea className="input" style={{minHeight:110,fontSize:13,lineHeight:1.6}} placeholder="¿Por qué empieza en SIE? Situación actual, historial, expectativas..." value={form.anamnesis} onChange={e=>up('anamnesis',e.target.value)}/>
             <div className="g2" style={{marginTop:8}}>
               <div className="field"><label>Trabajo / profesión</label><input className="input" value={form.trabajo} onChange={e=>up('trabajo',e.target.value)} placeholder="ej. Administrativo, enfermera..."/></div>
               <div className="field"><label>Tipo de jornada</label>
-                <select className="input" value={form.tipo_jornada} onChange={e=>up('tipo_jornada',e.target.value)}>
-                  <option value="sedentario">Sedentario · principalmente sentado</option>
-                  <option value="de_pie">De pie la mayor parte</option>
-                  <option value="mixto">Mixto</option>
-                  <option value="fisico">Esfuerzo físico continuo</option>
-                </select>
+                <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>
+                  {['Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'].map(j=>(
+                    <span key={j} onClick={()=>up('tipo_jornada',j)}
+                      style={{fontSize:10,padding:'4px 10px',borderRadius:99,border:`1px solid ${form.tipo_jornada===j?'var(--g)':'var(--bd)'}`,background:form.tipo_jornada===j?'var(--g)':'var(--w)',color:form.tipo_jornada===j?'#fff':'var(--gr)',cursor:'pointer'}}>
+                      {j}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          <div className="g3">
+
+          <div className="g2" style={{marginBottom:8}}>
+            {/* OBJETIVOS */}
             <div className="card">
-              <div className="card-title">Objetivos</div>
-              <div className="field"><label>Principal</label><input className="input" value={form.objetivo1} onChange={e=>up('objetivo1',e.target.value)} placeholder="ej. Reducir dolor de espalda"/></div>
-              <div className="field"><label>Secundario</label><input className="input" value={form.objetivo2} onChange={e=>up('objetivo2',e.target.value)} placeholder="ej. Ganar fuerza"/></div>
-              <div className="field"><label>Personal</label><input className="input" value={form.objetivo3} onChange={e=>up('objetivo3',e.target.value)} placeholder="ej. Perder peso"/></div>
+              <div className="card-title">Objetivos del paciente</div>
+              <div className="field"><label>Objetivo 1</label><input className="input" value={form.objetivo1} onChange={e=>up('objetivo1',e.target.value)} placeholder="ej. Reducir dolor de espalda"/></div>
+              <div className="field"><label>Objetivo 2</label><input className="input" value={form.objetivo2} onChange={e=>up('objetivo2',e.target.value)} placeholder="ej. Ganar fuerza"/></div>
+              <div className="field"><label>Objetivo 3</label><input className="input" value={form.objetivo3} onChange={e=>up('objetivo3',e.target.value)} placeholder="ej. Perder peso"/></div>
+              <div className="field"><label>Si pudiera concederle un deseo ¿cuál sería?</label><textarea className="input" style={{minHeight:60}} value={form.deseo} onChange={e=>up('deseo',e.target.value)} placeholder="ej. Poder jugar con mis hijos sin dolor..."/></div>
             </div>
-            <div className="card">
-              <div className="card-title">Deseo</div>
-              <div className="field"><label>Si pudiera concederle un deseo ¿cuál sería?</label><textarea className="input" style={{minHeight:80}} value={form.deseo} onChange={e=>up('deseo',e.target.value)} placeholder="ej. Poder jugar con mis hijos sin dolor..."/></div>
-            </div>
+
+            {/* ESCALAS */}
             <div className="card">
               <div className="card-title">Escalas</div>
               <div className="field">
@@ -301,30 +305,17 @@ export default function ValoracionPage() {
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* PASO 3 */}
-      {step===3 && (
-        <div className="g2">
-          <div>
-            <div className="card"><div className="card-title">Medicación actual</div>
-              <div className="field"><label>Medicamentos (uno por línea)</label><textarea className="input" style={{minHeight:70}} value={form.medicacion} onChange={e=>up('medicacion',e.target.value)} placeholder="ej. Ibuprofeno 400mg · puntual&#10;Anticonceptivos · diario"/></div>
+          {/* SALUD Y HÁBITOS */}
+          <div className="g2">
+            <div className="card">
+              <div className="card-title">Medicación actual</div>
+              <textarea className="input" style={{minHeight:70}} value={form.medicacion} onChange={e=>up('medicacion',e.target.value)} placeholder="ej. Ibuprofeno 400mg · puntual&#10;Anticonceptivos · diario"/>
             </div>
-            <div className="card"><div className="card-title">Operaciones / cirugías</div>
-              <div className="field"><textarea className="input" style={{minHeight:60}} value={form.operaciones} onChange={e=>up('operaciones',e.target.value)} placeholder="ej. Apendicectomía 2018&#10;Artroscopia rodilla derecha 2020"/></div>
-            </div>
-            <div className="card"><div className="card-title">Alergias</div>
-              <div className="field"><input className="input" value={form.alergias} onChange={e=>up('alergias',e.target.value)} placeholder="ej. Lactosa, penicilina..."/></div>
-            </div>
-          </div>
-          <div>
-            <div className="card"><div className="card-title">Patologías y alteraciones</div>
-              <div style={{fontSize:9,color:'var(--grl)',marginBottom:7}}>Una por línea. Podrás subir informes desde la ficha del paciente.</div>
-              <textarea className="input" style={{minHeight:80}} value={form.patologias} onChange={e=>up('patologias',e.target.value)} placeholder="ej. Hernia L4-L5 · activa&#10;Escoliosis leve&#10;Hiperpronación bilateral"/>
-            </div>
-            <div className="card"><div className="card-title">Otros</div>
-              <div className="field"><label>Dieta</label>
+            <div className="card">
+              <div className="card-title">Alergias e intolerancias</div>
+              <div className="field"><label>Alergias</label><input className="input" value={form.alergias} onChange={e=>up('alergias',e.target.value)} placeholder="ej. Penicilina, látex..."/></div>
+              <div className="field"><label>Dieta / intolerancias</label>
                 <select className="input" value={form.dieta} onChange={e=>up('dieta',e.target.value)}>
                   <option value="sin_restricciones">Sin restricciones</option>
                   <option value="sin_lactosa">Sin lactosa</option>
@@ -341,6 +332,22 @@ export default function ValoracionPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PASO 3 */}
+      {step===3 && (
+        <div className="g2">
+          <div className="card">
+            <div className="card-title">Operaciones / cirugías</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:7}}>Una por línea con el año si se recuerda.</div>
+            <textarea className="input" style={{minHeight:100}} value={form.operaciones} onChange={e=>up('operaciones',e.target.value)} placeholder="ej. Apendicectomía 2018&#10;Artroscopia rodilla derecha 2020"/>
+          </div>
+          <div className="card">
+            <div className="card-title">Patologías y alteraciones</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:7}}>Una por línea. Podrás subir informes desde la ficha del paciente.</div>
+            <textarea className="input" style={{minHeight:100}} value={form.patologias} onChange={e=>up('patologias',e.target.value)} placeholder="ej. Hernia L4-L5 · activa&#10;Escoliosis leve&#10;Hiperpronación bilateral"/>
           </div>
         </div>
       )}
