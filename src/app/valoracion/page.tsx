@@ -20,13 +20,23 @@ export default function ValoracionPage() {
   const [form, setForm] = useState({
     paciente_id:'', nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'', tipo_clase:'entrenamiento', como_nos_conocio:'',
     anamnesis:'', trabajo:'', tipo_jornada:'sedentario', objetivo1:'', objetivo2:'', objetivo3:'', deseo:'', borg:5, estres:5,
-    medicacion:'', operaciones:'', alergias:'', patologias:'', dieta:'sin_restricciones', plantillas:false,
+    medicacion:[] as {nombre:string,frecuencia:string}[], operaciones:'', alergias:[] as string[], intolerancias:[] as string[], patologias:'', dieta:'sin_restricciones', plantillas:false, tipo_plantilla:'',
     molestias:[{ zona:'', tipo:'molestia', eva:5, observaciones:'' }],
 
     tipo_clase_def:'entrenamiento', bono:'esencial', dias_asistencia:'', franja:'manana', notas_plan:'',
   })
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
   const [firmaAceptada, setFirmaAceptada] = useState(false)
+  const [medsBiblio, setMedsBiblio] = useState<any[]>([])
+  const [alergiasBiblio, setAlergiasBiblio] = useState<any[]>([])
+  const [intolBiblio, setIntolBiblio] = useState<any[]>([])
+  const [buscarMed, setBuscarMed] = useState('')
+  const [buscarAlerg, setBuscarAlerg] = useState('')
+  const [buscarIntol, setBuscarIntol] = useState('')
+  const [modalNuevoMed, setModalNuevoMed] = useState(false)
+  const [modalNuevaAlerg, setModalNuevaAlerg] = useState(false)
+  const [modalNuevaIntol, setModalNuevaIntol] = useState(false)
+  const [nuevoNombre, setNuevoNombre] = useState('')
   const [firmaCanvas, setFirmaCanvas] = useState<string>('')
   const [dibujando, setDibujando] = useState(false)
 
@@ -38,6 +48,9 @@ export default function ValoracionPage() {
 
   useEffect(() => {
     supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
+    supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre').then(({data})=>setMedsBiblio(data||[]))
+    supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlergiasBiblio(data||[]))
+    supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
   }, [])
 
@@ -57,7 +70,7 @@ export default function ValoracionPage() {
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres }),
         ...form.molestias.filter(m=>m.zona).map(m=>supabase.from('molestias').insert({ paciente_id:pacienteId, zona:m.zona, tipo:m.tipo, eva:m.eva, observaciones:m.observaciones, activa:true })),
         ...[form.patologias].filter(Boolean).map(p=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p, estado:'activa' })),
-        ...[form.medicacion].filter(Boolean).map(m=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m })),
+        ...form.medicacion.map((m:any)=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m.nombre, frecuencia:m.frecuencia||'' })),
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
       ])
       for (const t of testsValoracion) {
@@ -307,32 +320,193 @@ export default function ValoracionPage() {
           </div>
 
           {/* SALUD Y HÁBITOS */}
-          <div className="g2">
+          <div className="g3">
+            {/* MEDICACIÓN */}
             <div className="card">
-              <div className="card-title">Medicación actual</div>
-              <textarea className="input" style={{minHeight:70}} value={form.medicacion} onChange={e=>up('medicacion',e.target.value)} placeholder="ej. Ibuprofeno 400mg · puntual&#10;Anticonceptivos · diario"/>
-            </div>
-            <div className="card">
-              <div className="card-title">Alergias e intolerancias</div>
-              <div className="field"><label>Alergias</label><input className="input" value={form.alergias} onChange={e=>up('alergias',e.target.value)} placeholder="ej. Penicilina, látex..."/></div>
-              <div className="field"><label>Dieta / intolerancias</label>
-                <select className="input" value={form.dieta} onChange={e=>up('dieta',e.target.value)}>
-                  <option value="sin_restricciones">Sin restricciones</option>
-                  <option value="sin_lactosa">Sin lactosa</option>
-                  <option value="sin_gluten">Sin gluten</option>
-                  <option value="vegetariana">Vegetariana</option>
-                  <option value="vegana">Vegana</option>
-                </select>
-              </div>
-              <div className="field"><label>¿Usa plantillas?</label>
-                <div style={{display:'flex',gap:8,marginTop:4}}>
-                  {[['No',false],['Sí',true]].map(([l,v])=>(
-                    <span key={String(l)} onClick={()=>up('plantillas',v)} style={{padding:'4px 12px',borderRadius:99,border:`1px solid ${form.plantillas===v?'var(--g)':'var(--bd)'}`,background:form.plantillas===v?'var(--g)':'var(--w)',color:form.plantillas===v?'#fff':'var(--gr)',cursor:'pointer',fontSize:11}}>{l}</span>
+              <div className="card-title">💊 Medicación actual</div>
+              {form.medicacion.length>0&&(
+                <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                  {form.medicacion.map((m,i)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--gl)',border:'1px solid var(--gm)'}}>
+                      <span style={{fontSize:10,color:'var(--n)'}}>{m.nombre}</span>
+                      {m.frecuencia&&<span style={{fontSize:9,color:'var(--grl)'}}>· {m.frecuencia}</span>}
+                      <button onClick={()=>up('medicacion',form.medicacion.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'0 2px'}}>✕</button>
+                    </div>
                   ))}
                 </div>
+              )}
+              <input className="input" placeholder="🔍 Buscar medicamento..." value={buscarMed} onChange={e=>setBuscarMed(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+              {buscarMed&&(
+                <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:140,overflowY:'auto',marginBottom:6}}>
+                  {medsBiblio.filter(m=>m.nombre.toLowerCase().includes(buscarMed.toLowerCase())).slice(0,8).map(m=>(
+                    <div key={m.id} onClick={()=>{
+                      const freq = prompt('Frecuencia (ej. Diario, Puntual, Cada 8h):','Diario')
+                      up('medicacion',[...form.medicacion,{nombre:m.nombre,frecuencia:freq||''}])
+                      setBuscarMed('')
+                    }} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                      {m.nombre} <span style={{fontSize:8,color:'var(--grl)'}}>· {m.categoria}</span>
+                    </div>
+                  ))}
+                  {medsBiblio.filter(m=>m.nombre.toLowerCase().includes(buscarMed.toLowerCase())).length===0&&(
+                    <div style={{padding:'6px 10px',fontSize:10,color:'var(--grl)'}}>
+                      Sin resultados · <button className="btn btn-t btn-sm" onClick={()=>{setNuevoNombre(buscarMed);setModalNuevoMed(true)}}>+ Añadir "{buscarMed}"</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ALERGIAS */}
+            <div className="card">
+              <div className="card-title">🌿 Alergias</div>
+              {form.alergias.length>0&&(
+                <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                  {form.alergias.map((a:string,i:number)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--redl)',border:'1px solid #F5C8C8'}}>
+                      <span style={{fontSize:10,color:'var(--red)'}}>{a}</span>
+                      <button onClick={()=>up('alergias',form.alergias.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input className="input" placeholder="🔍 Buscar alergia..." value={buscarAlerg} onChange={e=>setBuscarAlerg(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+              {buscarAlerg&&(
+                <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:140,overflowY:'auto',marginBottom:6}}>
+                  {alergiasBiblio.filter(a=>a.nombre.toLowerCase().includes(buscarAlerg.toLowerCase())).slice(0,8).map(a=>(
+                    <div key={a.id} onClick={()=>{
+                      if(!form.alergias.includes(a.nombre)) up('alergias',[...form.alergias,a.nombre])
+                      setBuscarAlerg('')
+                    }} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                      {a.nombre} <span style={{fontSize:8,color:'var(--grl)'}}>· {a.categoria}</span>
+                    </div>
+                  ))}
+                  {alergiasBiblio.filter(a=>a.nombre.toLowerCase().includes(buscarAlerg.toLowerCase())).length===0&&(
+                    <div style={{padding:'6px 10px',fontSize:10,color:'var(--grl)'}}>
+                      Sin resultados · <button className="btn btn-t btn-sm" onClick={()=>{setNuevoNombre(buscarAlerg);setModalNuevaAlerg(true)}}>+ Añadir</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* INTOLERANCIAS Y PLANTILLAS */}
+            <div className="card">
+              <div className="card-title">⚠️ Intolerancias</div>
+              {form.intolerancias.length>0&&(
+                <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                  {form.intolerancias.map((a:string,i:number)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--ambl)',border:'1px solid var(--amb)'}}>
+                      <span style={{fontSize:10,color:'#7A5800'}}>{a}</span>
+                      <button onClick={()=>up('intolerancias',form.intolerancias.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'#7A5800',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input className="input" placeholder="🔍 Buscar intolerancia..." value={buscarIntol} onChange={e=>setBuscarIntol(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+              {buscarIntol&&(
+                <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:120,overflowY:'auto',marginBottom:6}}>
+                  {intolBiblio.filter(a=>a.nombre.toLowerCase().includes(buscarIntol.toLowerCase())).slice(0,8).map(a=>(
+                    <div key={a.id} onClick={()=>{
+                      if(!form.intolerancias.includes(a.nombre)) up('intolerancias',[...form.intolerancias,a.nombre])
+                      setBuscarIntol('')
+                    }} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                      {a.nombre}
+                    </div>
+                  ))}
+                  {intolBiblio.filter(a=>a.nombre.toLowerCase().includes(buscarIntol.toLowerCase())).length===0&&(
+                    <div style={{padding:'6px 10px',fontSize:10,color:'var(--grl)'}}>
+                      Sin resultados · <button className="btn btn-t btn-sm" onClick={()=>{setNuevoNombre(buscarIntol);setModalNuevaIntol(true)}}>+ Añadir</button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{borderTop:'1px solid var(--bl)',paddingTop:8,marginTop:4}}>
+                <div className="field"><label>¿Usa plantillas?</label>
+                  <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
+                    {[['No',false],['Sí',true]].map(([l,v])=>(
+                      <span key={String(l)} onClick={()=>up('plantillas',v)} style={{padding:'4px 12px',borderRadius:99,border:`1px solid ${form.plantillas===v?'var(--g)':'var(--bd)'}`,background:form.plantillas===v?'var(--g)':'var(--w)',color:form.plantillas===v?'#fff':'var(--gr)',cursor:'pointer',fontSize:11}}>{l}</span>
+                    ))}
+                  </div>
+                </div>
+                {form.plantillas===true&&(
+                  <div className="field">
+                    <label>Tipo de plantilla</label>
+                    <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>
+                      {['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'].map(t=>(
+                        <span key={t} onClick={()=>up('tipo_plantilla',t)} style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${form.tipo_plantilla===t?'var(--g)':'var(--bd)'}`,background:form.tipo_plantilla===t?'var(--g)':'var(--w)',color:form.tipo_plantilla===t?'#fff':'var(--gr)',cursor:'pointer'}}>{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {/* MODALES AÑADIR A BIBLIOTECA */}
+          {modalNuevoMed&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevoMed(false)}}>
+              <div className="modal">
+                <div className="modal-title">Añadir medicamento<button className="modal-close" onClick={()=>setModalNuevoMed(false)}>✕</button></div>
+                <div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalNuevoMed(false)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={async()=>{
+                    if(!nuevoNombre) return
+                    await supabase.from('medicamentos_biblioteca').insert({nombre:nuevoNombre,categoria:'Otros',activo:true})
+                    setMedsBiblio(p=>[...p,{id:Date.now(),nombre:nuevoNombre,categoria:'Otros'}])
+                    const freq = prompt('Frecuencia:','Diario')
+                    up('medicacion',[...form.medicacion,{nombre:nuevoNombre,frecuencia:freq||''}])
+                    setModalNuevoMed(false); setNuevoNombre(''); setBuscarMed('')
+                  }}>💾 Añadir</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {modalNuevaAlerg&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaAlerg(false)}}>
+              <div className="modal">
+                <div className="modal-title">Añadir alergia<button className="modal-close" onClick={()=>setModalNuevaAlerg(false)}>✕</button></div>
+                <div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalNuevaAlerg(false)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={async()=>{
+                    if(!nuevoNombre) return
+                    await supabase.from('alergias_biblioteca').insert({nombre:nuevoNombre,categoria:'Otros',activo:true})
+                    setAlergiasBiblio(p=>[...p,{id:Date.now(),nombre:nuevoNombre,categoria:'Otros'}])
+                    up('alergias',[...form.alergias,nuevoNombre])
+                    setModalNuevaAlerg(false); setNuevoNombre(''); setBuscarAlerg('')
+                  }}>💾 Añadir</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {modalNuevaIntol&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaIntol(false)}}>
+              <div className="modal">
+                <div className="modal-title">Añadir intolerancia<button className="modal-close" onClick={()=>setModalNuevaIntol(false)}>✕</button></div>
+                <div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalNuevaIntol(false)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={async()=>{
+                    if(!nuevoNombre) return
+                    await supabase.from('intolerancias_biblioteca').insert({nombre:nuevoNombre,categoria:'Otros',activo:true})
+                    setIntolBiblio(p=>[...p,{id:Date.now(),nombre:nuevoNombre,categoria:'Otros'}])
+                    up('intolerancias',[...form.intolerancias,nuevoNombre])
+                    setModalNuevaIntol(false); setNuevoNombre(''); setBuscarIntol('')
+                  }}>💾 Añadir</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
