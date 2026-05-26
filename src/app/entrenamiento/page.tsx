@@ -603,7 +603,6 @@ export default function EntrenamientoPage() {
                     <div style={{display:'flex',gap:4}}>
                       {t.video_url&&<a href={t.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11}}>🎥</a>}
                       <button onClick={()=>{setTestEditando({...t});setModalEditarTest(true)}} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✏️</button>
-                      <button onClick={()=>{setTestEditando({...t});setModalEditarTest(true)}} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✏️</button>
                       <button onClick={()=>eliminarTest(t.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
                     </div>
                   </div>
