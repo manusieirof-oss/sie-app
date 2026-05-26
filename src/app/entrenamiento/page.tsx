@@ -43,6 +43,12 @@ export default function EntrenamientoPage() {
   const [sesiones, setSesiones] = useState<any[]>([])
   const [etiquetas, setEtiquetas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [medsBiblio, setMedsBiblio] = useState<any[]>([])
+  const [alergiasBiblio, setAlergiasBiblio] = useState<any[]>([])
+  const [intolBiblio, setIntolBiblio] = useState<any[]>([])
+  const [buscarLista, setBuscarLista] = useState('')
+  const [modalNuevoItem, setModalNuevoItem] = useState<{tipo:string,categoria:string}|null>(null)
+  const [nuevoItemNombre, setNuevoItemNombre] = useState('')
   const [buscar, setBuscar] = useState('')
   const [filtroEtiquetas, setFiltroEtiquetas] = useState<string[]>([])
   const [modalFiltro, setModalFiltro] = useState(false)
@@ -100,6 +106,12 @@ export default function EntrenamientoPage() {
       supabase.from('tests').select('*').order('nombre'),
     ])
     setEjercicios(e||[]); setPacientes(p||[]); setSesiones(s||[]); setEtiquetas(et||[])
+    const [{ data: meds },{ data: alerg },{ data: intol }] = await Promise.all([
+      supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
+      supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
+      supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
+    ])
+    setMedsBiblio(meds||[]); setAlergiasBiblio(alerg||[]); setIntolBiblio(intol||[])
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
     setLoading(false)
@@ -398,7 +410,7 @@ export default function EntrenamientoPage() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas']].map(([k,l])=>(
+        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -1148,6 +1160,112 @@ export default function EntrenamientoPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* LISTAS */}
+      {tab==='listas' && (
+        <>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+            <input className="input" placeholder="🔍 Buscar en listas..." value={buscarLista} onChange={e=>setBuscarLista(e.target.value)} style={{flex:1}}/>
+          </div>
+
+          {/* MEDICAMENTOS */}
+          <div className="card" style={{marginBottom:10}}>
+            <div className="card-title">💊 Medicamentos <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'medicamento',categoria:''})}>+ Añadir</button></div>
+            {(()=>{
+              const cats = [...new Set(medsBiblio.map((m:any)=>m.categoria))]
+              const filtrados = medsBiblio.filter((m:any)=>!buscarLista||m.nombre.toLowerCase().includes(buscarLista.toLowerCase()))
+              return cats.map(cat=>{
+                const items = filtrados.filter((m:any)=>m.categoria===cat)
+                if (!items.length) return null
+                return (
+                  <div key={cat} style={{marginBottom:8}}>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>{cat}</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {items.map((m:any)=>(
+                        <span key={m.id} style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--bl)',border:'1px solid var(--bd)',color:'var(--n)'}}>{m.nombre}</span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+
+          {/* ALERGIAS */}
+          <div className="card" style={{marginBottom:10}}>
+            <div className="card-title">🌿 Alergias <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'alergia',categoria:''})}>+ Añadir</button></div>
+            {(()=>{
+              const cats = [...new Set(alergiasBiblio.map((m:any)=>m.categoria))]
+              const filtrados = alergiasBiblio.filter((m:any)=>!buscarLista||m.nombre.toLowerCase().includes(buscarLista.toLowerCase()))
+              return cats.map(cat=>{
+                const items = filtrados.filter((m:any)=>m.categoria===cat)
+                if (!items.length) return null
+                return (
+                  <div key={cat} style={{marginBottom:8}}>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>{cat}</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {items.map((m:any)=>(
+                        <span key={m.id} style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--redl)',border:'1px solid #F5C8C8',color:'var(--red)'}}>{m.nombre}</span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+
+          {/* INTOLERANCIAS */}
+          <div className="card">
+            <div className="card-title">⚠️ Intolerancias <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'intolerancia',categoria:''})}>+ Añadir</button></div>
+            {(()=>{
+              const cats = [...new Set(intolBiblio.map((m:any)=>m.categoria))]
+              const filtrados = intolBiblio.filter((m:any)=>!buscarLista||m.nombre.toLowerCase().includes(buscarLista.toLowerCase()))
+              return cats.map(cat=>{
+                const items = filtrados.filter((m:any)=>m.categoria===cat)
+                if (!items.length) return null
+                return (
+                  <div key={cat} style={{marginBottom:8}}>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>{cat}</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {items.map((m:any)=>(
+                        <span key={m.id} style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800'}}>{m.nombre}</span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+
+          {/* MODAL AÑADIR ITEM */}
+          {modalNuevoItem&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevoItem(null)}}>
+              <div className="modal">
+                <div className="modal-title">
+                  Añadir {modalNuevoItem.tipo}
+                  <button className="modal-close" onClick={()=>setModalNuevoItem(null)}>✕</button>
+                </div>
+                <div className="field"><label>Nombre *</label>
+                  <input className="input" value={nuevoItemNombre} onChange={e=>setNuevoItemNombre(e.target.value)} autoFocus placeholder={`ej. ${modalNuevoItem.tipo==='medicamento'?'Tramadol':modalNuevoItem.tipo==='alergia'?'Polen de olivo':'Sorbitol'}`}/>
+                </div>
+                <div className="field"><label>Categoría</label>
+                  <input className="input" value={modalNuevoItem.categoria} onChange={e=>setModalNuevoItem(p=>p?{...p,categoria:e.target.value}:null)}
+                    placeholder={modalNuevoItem.tipo==='medicamento'?'ej. Antiinflamatorios':modalNuevoItem.tipo==='alergia'?'ej. Ambientales':'ej. Digestivas'}/>
+                </div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalNuevoItem(null)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={async()=>{
+                    if (!nuevoItemNombre) return
+                    const tabla = modalNuevoItem.tipo==='medicamento'?'medicamentos_biblioteca':modalNuevoItem.tipo==='alergia'?'alergias_biblioteca':'intolerancias_biblioteca'
+                    await supabase.from(tabla).insert({ nombre:nuevoItemNombre, categoria:modalNuevoItem.categoria||'Otros', activo:true })
+                    setModalNuevoItem(null); setNuevoItemNombre(''); cargar()
+                  }}>💾 Guardar</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   )
