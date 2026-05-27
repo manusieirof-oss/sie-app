@@ -29,6 +29,10 @@ export default function ValoracionPage() {
   const [firmaAceptada, setFirmaAceptada] = useState(false)
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
+  const [molsBiblio, setMolsBiblio] = useState<any[]>([])
+  const [buscarMol, setBuscarMol] = useState('')
+  const [molConfigurando, setMolConfigurando] = useState<any>(null)
+  const [modalNuevaMol, setModalNuevaMol] = useState(false)
   const [opsBiblio, setOpsBiblio] = useState<any[]>([])
   const [buscarOp, setBuscarOp] = useState('')
   const [modalNuevaOp, setModalNuevaOp] = useState(false)
@@ -58,6 +62,7 @@ export default function ValoracionPage() {
     supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre').then(({data})=>setMedsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre').then(({data})=>setPatsBiblio(data||[]))
+    supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre').then(({data})=>setMolsBiblio(data||[]))
     supabase.from('operaciones_biblioteca').select('*').eq('activo',true).order('zona').order('nombre').then(({data})=>setOpsBiblio(data||[]))
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlergiasBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
@@ -740,30 +745,123 @@ export default function ValoracionPage() {
       {/* PASO 4 */}
       {step===4 && (
         <div>
-          <div className="info-pill">Anota cada zona con molestia. Las molestias activas aparecerán como alertas en la agenda.</div>
-          {form.molestias.map((m,i)=>(
-            <div key={i} className="card">
-              <div className="card-title">Zona de molestia {i+1} {i>0&&<button className="btn btn-d btn-sm" onClick={()=>up('molestias',form.molestias.filter((_:any,j:number)=>j!==i))}>Eliminar</button>}</div>
-              <div className="g2">
-                <div className="field"><label>Zona / localización</label><input className="input" value={m.zona} onChange={e=>{const ms=[...form.molestias];ms[i]={...ms[i],zona:e.target.value};up('molestias',ms)}} placeholder="ej. Lumbar izquierda, rodilla derecha..."/></div>
-                <div className="field"><label>Tipo</label>
-                  <select className="input" value={m.tipo} onChange={e=>{const ms=[...form.molestias];ms[i]={...ms[i],tipo:e.target.value};up('molestias',ms)}}>
-                    <option value="molestia">Molestia</option><option value="dolor_agudo">Dolor agudo</option><option value="dolor_cronico">Dolor crónico</option><option value="rigidez">Rigidez</option>
-                  </select>
+          <div className="info-pill" style={{marginBottom:10}}>Anota cada molestia del paciente. Las activas aparecerán como alertas en la agenda y guiarán el entrenamiento.</div>
+
+          {/* MOLESTIAS AÑADIDAS */}
+          {form.molestias.filter((m:any)=>m.zona).length>0&&(
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
+              {form.molestias.filter((m:any)=>m.zona).map((m:any,i:number)=>{
+                const color = m.eva>=7?'var(--red)':m.eva>=4?'#7A5800':'var(--gd)'
+                const bg = m.eva>=7?'var(--redl)':m.eva>=4?'var(--ambl)':'var(--gl)'
+                const border = m.eva>=7?'#F5C8C8':m.eva>=4?'var(--amb)':'var(--gm)'
+                return (
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:99,background:bg,border:`1px solid ${border}`}}>
+                    <span style={{fontSize:10,color,fontWeight:400}}>{m.zona}</span>
+                    <span style={{fontSize:8,color}}>EVA {m.eva}</span>
+                    {m.lado&&m.lado!=='bilateral'&&<span style={{fontSize:8,color}}>· {m.lado}</span>}
+                    <button onClick={()=>up('molestias',form.molestias.filter((_:any,j:number)=>j!==i))} style={{fontSize:9,color,background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* BUSCADOR */}
+          <div className="card" style={{marginBottom:10}}>
+            <div className="card-title">Buscar molestia en biblioteca</div>
+            <input className="input" placeholder="🔍 ej. Dolor lumbar, rodilla..." value={buscarMol} onChange={e=>setBuscarMol(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+            {buscarMol&&(
+              <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:180,overflowY:'auto'}}>
+                {molsBiblio.filter(m=>m.nombre.toLowerCase().includes(buscarMol.toLowerCase())||m.zona.toLowerCase().includes(buscarMol.toLowerCase())).slice(0,10).map((m:any)=>(
+                  <div key={m.id} onClick={()=>{setMolConfigurando({nombre:m.nombre,zona:m.zona,tipo:'molestia',eva:5,lado:'bilateral',cuando:'al_moverse',observaciones:''});setBuscarMol('')}}
+                    style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}}
+                    onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                    onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                    <div style={{fontWeight:400}}>{m.nombre}</div>
+                    <div style={{fontSize:8,color:'var(--grl)'}}>{m.zona}</div>
+                  </div>
+                ))}
+                {molsBiblio.filter(m=>m.nombre.toLowerCase().includes(buscarMol.toLowerCase())).length===0&&(
+                  <div style={{padding:'6px 10px',fontSize:10,color:'var(--grl)'}}>
+                    Sin resultados · <button className="btn btn-t btn-sm" onClick={()=>{setNuevoNombre(buscarMol);setModalNuevaMol(true)}}>+ Añadir</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* MODAL CONFIGURAR MOLESTIA */}
+          {molConfigurando&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMolConfigurando(null)}}>
+              <div className="modal">
+                <div className="modal-title">{molConfigurando.nombre}<button className="modal-close" onClick={()=>setMolConfigurando(null)}>✕</button></div>
+                <div className="g2">
+                  <div className="field"><label>Tipo</label>
+                    <select className="input" value={molConfigurando.tipo} onChange={e=>setMolConfigurando((p:any)=>({...p,tipo:e.target.value}))}>
+                      <option value="molestia">Molestia</option>
+                      <option value="dolor_agudo">Dolor agudo</option>
+                      <option value="dolor_cronico">Dolor crónico</option>
+                      <option value="rigidez">Rigidez</option>
+                    </select>
+                  </div>
+                  <div className="field"><label>Lado</label>
+                    <select className="input" value={molConfigurando.lado} onChange={e=>setMolConfigurando((p:any)=>({...p,lado:e.target.value}))}>
+                      <option value="bilateral">Bilateral</option>
+                      <option value="izquierdo">Izquierdo</option>
+                      <option value="derecho">Derecho</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="field" style={{gridColumn:'1/-1'}}>
-                  <label>Intensidad EVA ({m.eva}/10)</label>
-                  <input type="range" min={0} max={10} value={m.eva} onChange={e=>{const ms=[...form.molestias];ms[i]={...ms[i],eva:parseInt(e.target.value)};up('molestias',ms)}} style={{width:'100%',accentColor:'var(--red)'}}/>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--grl)'}}><span>0 Sin dolor</span><span style={{fontWeight:500,color:'var(--red)'}}>{m.eva}</span><span>10 Máximo</span></div>
+                <div className="field">
+                  <label>Intensidad EVA ({molConfigurando.eva}/10)</label>
+                  <input type="range" min={0} max={10} value={molConfigurando.eva} onChange={e=>setMolConfigurando((p:any)=>({...p,eva:parseInt(e.target.value)}))} style={{width:'100%',accentColor:'var(--red)'}}/>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--grl)'}}>
+                    <span>0 Sin dolor</span><span style={{fontWeight:500,color:'var(--red)'}}>{molConfigurando.eva}</span><span>10 Máximo</span>
+                  </div>
                 </div>
-                <div className="field" style={{gridColumn:'1/-1'}}>
-                  <label>Observaciones</label>
-                  <input className="input" value={m.observaciones} onChange={e=>{const ms=[...form.molestias];ms[i]={...ms[i],observaciones:e.target.value};up('molestias',ms)}} placeholder="Cuándo aparece, qué lo provoca, sensación..."/>
+                <div className="field"><label>¿Cuándo aparece?</label>
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>
+                    {['En reposo','Al moverse','Con carga','Al caminar','Siempre','Al despertar'].map(c=>(
+                      <span key={c} onClick={()=>setMolConfigurando((p:any)=>({...p,cuando:c}))}
+                        style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${molConfigurando.cuando===c?'var(--g)':'var(--bd)'}`,background:molConfigurando.cuando===c?'var(--g)':'var(--w)',color:molConfigurando.cuando===c?'#fff':'var(--gr)',cursor:'pointer'}}>{c}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="field"><label>Observaciones</label>
+                  <textarea className="input" style={{minHeight:60}} value={molConfigurando.observaciones} onChange={e=>setMolConfigurando((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Sensación, qué lo provoca, qué lo alivia..."/>
+                </div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setMolConfigurando(null)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={()=>{
+                    up('molestias',[...form.molestias,{zona:molConfigurando.nombre,tipo:molConfigurando.tipo,eva:molConfigurando.eva,lado:molConfigurando.lado,cuando:molConfigurando.cuando,observaciones:molConfigurando.observaciones}])
+                    setMolConfigurando(null)
+                  }}>✓ Añadir molestia</button>
                 </div>
               </div>
             </div>
-          ))}
-          <button className="btn btn-t" onClick={()=>up('molestias',[...form.molestias,{zona:'',tipo:'molestia',eva:5,observaciones:''}])}>+ Añadir zona</button>
+          )}
+
+          {/* MODAL NUEVA MOLESTIA */}
+          {modalNuevaMol&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaMol(false)}}>
+              <div className="modal">
+                <div className="modal-title">Nueva molestia<button className="modal-close" onClick={()=>setModalNuevaMol(false)}>✕</button></div>
+                <div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalNuevaMol(false)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={async()=>{
+                    if(!nuevoNombre) return
+                    const {data:nm} = await supabase.from('molestias_biblioteca').insert({nombre:nuevoNombre,zona:'Otros',activo:true}).select().single()
+                    if(nm) setMolsBiblio((p:any)=>[...p,nm])
+                    setMolConfigurando({nombre:nuevoNombre,zona:'Otros',tipo:'molestia',eva:5,lado:'bilateral',cuando:'al_moverse',observaciones:''})
+                    setModalNuevaMol(false); setNuevoNombre('')
+                  }}>💾 Añadir</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

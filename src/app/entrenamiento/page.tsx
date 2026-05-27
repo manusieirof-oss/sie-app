@@ -46,6 +46,8 @@ export default function EntrenamientoPage() {
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [opsBiblioLib, setOpsBiblioLib] = useState<any[]>([])
   const [patologiasBiblio, setPatologiasBiblio] = useState<any[]>([])
+  const [molestiasBiblio, setMolestiasBiblio] = useState<any[]>([])
+  const [buscarMol, setBuscarMol] = useState('')
   const [buscarPat, setBuscarPat] = useState('')
   const [patSeleccionada, setPatSeleccionada] = useState<any>(null)
   const [alergiasBiblio, setAlergiasBiblio] = useState<any[]>([])
@@ -120,6 +122,8 @@ export default function EntrenamientoPage() {
     setOpsBiblioLib(ops||[])
     const { data: pats } = await supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre')
     setPatologiasBiblio(pats||[])
+    const { data: mols } = await supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre')
+    setMolestiasBiblio(mols||[])
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
     setLoading(false)
@@ -418,7 +422,7 @@ export default function EntrenamientoPage() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías']].map(([k,l])=>(
+        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -1343,6 +1347,32 @@ export default function EntrenamientoPage() {
               </div>
             </div>
           )}
+        </>
+      )}
+      {/* MOLESTIAS BIBLIOTECA */}
+      {tab==='molestias_bib' && (
+        <>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+            <input className="input" placeholder="🔍 Buscar molestia..." value={buscarMol} onChange={e=>setBuscarMol(e.target.value)} style={{flex:1}}/>
+            <span style={{fontSize:10,color:'var(--grl)'}}>{molestiasBiblio.filter(m=>!buscarMol||m.nombre.toLowerCase().includes(buscarMol.toLowerCase())).length} molestias</span>
+          </div>
+          {(()=>{
+            const filtradas = molestiasBiblio.filter(m=>!buscarMol||m.nombre.toLowerCase().includes(buscarMol.toLowerCase())||m.zona.toLowerCase().includes(buscarMol.toLowerCase()))
+            const zonas = [...new Set(filtradas.map(m=>m.zona))]
+            return zonas.map(zona=>{
+              const items = filtradas.filter(m=>m.zona===zona)
+              return (
+                <div key={zona} className="card" style={{marginBottom:8}}>
+                  <div className="card-title">📍 {zona}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    {items.map(m=>(
+                      <span key={m.id} style={{fontSize:10,padding:'4px 10px',borderRadius:99,background:'var(--redl)',border:'1px solid #F5C8C8',color:'var(--red)'}}>{m.nombre}</span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          })()}
         </>
       )}
     </>
