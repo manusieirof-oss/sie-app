@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
-const STEPS = ['Paciente','Anamnesis','Historial','Molestias','Tests','Plan','Resumen']
+const STEPS = ['Paciente','Anamnesis','Historial','Tests','Plan','Resumen']
 
 export default function ValoracionPage() {
   const [step, setStep] = useState(1)
@@ -739,11 +739,9 @@ export default function ValoracionPage() {
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* PASO 4 */}
-      {step===4 && (
+        {/* MOLESTIAS */}
+        (
         <div>
           <div className="info-pill" style={{marginBottom:10}}>Anota cada molestia del paciente. Las activas aparecerán como alertas en la agenda y guiarán el entrenamiento.</div>
 
@@ -865,8 +863,8 @@ export default function ValoracionPage() {
         </div>
       )}
 
-      {/* PASO 5 */}
-      {step===5 && (
+      {/* PASO 4 */}
+      {step===4 && (
         <div>
 
 
@@ -968,8 +966,8 @@ export default function ValoracionPage() {
         </div>
       )}
 
-      {/* PASO 6 */}
-      {step===6 && (
+      {/* PASO 5 */}
+      {step===5 && (
         <div className="g2">
           <div>
             <div className="card"><div className="card-title">Tipo de clase definitivo</div>
@@ -1009,8 +1007,8 @@ export default function ValoracionPage() {
         </div>
       )}
 
-      {/* PASO 7 RESUMEN */}
-      {step===7 && (
+      {/* PASO 6 RESUMEN */}
+      {step===6 && (
         <div className="g2">
           <div>
             <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
