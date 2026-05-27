@@ -20,7 +20,7 @@ export default function ValoracionPage() {
   const [form, setForm] = useState({
     paciente_id:'', nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'', tipo_clase:'entrenamiento', como_nos_conocio:'',
     anamnesis:'', trabajo:'', tipo_jornada:'sedentario', objetivo1:'', objetivo2:'', objetivo3:'', deseo:'', borg:5, estres:5,
-    medicacion:[] as {nombre:string,frecuencia:string}[], operaciones:'', alergias:[] as string[], intolerancias:[] as string[], patologias:'', dieta:'sin_restricciones', plantillas:false, tipo_plantilla:'',
+    medicacion:[] as {nombre:string,frecuencia:string}[], operaciones:'', alergias:[] as string[], intolerancias:[] as string[], patologias:[] as {nombre:string,lado:string,estado:string,tiene_informe:boolean,observaciones:string}[], dieta:'sin_restricciones', plantillas:false, tipo_plantilla:'',
     molestias:[{ zona:'', tipo:'molestia', eva:5, observaciones:'' }],
 
     tipo_clase_def:'entrenamiento', bono:'esencial', dias_asistencia:'', franja:'manana', notas_plan:'',
@@ -28,6 +28,10 @@ export default function ValoracionPage() {
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
   const [firmaAceptada, setFirmaAceptada] = useState(false)
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
+  const [patsBiblio, setPatsBiblio] = useState<any[]>([])
+  const [buscarPat, setBuscarPat] = useState('')
+  const [modalNuevaPat, setModalNuevaPat] = useState(false)
+  const [patConfigurando, setPatConfigurando] = useState<any>(null)
   const [alergiasBiblio, setAlergiasBiblio] = useState<any[]>([])
   const [intolBiblio, setIntolBiblio] = useState<any[]>([])
   const [buscarMed, setBuscarMed] = useState('')
@@ -49,6 +53,7 @@ export default function ValoracionPage() {
   useEffect(() => {
     supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre').then(({data})=>setMedsBiblio(data||[]))
+    supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlergiasBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
@@ -69,7 +74,7 @@ export default function ValoracionPage() {
         supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true }),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres }),
         ...form.molestias.filter(m=>m.zona).map(m=>supabase.from('molestias').insert({ paciente_id:pacienteId, zona:m.zona, tipo:m.tipo, eva:m.eva, observaciones:m.observaciones, activa:true })),
-        ...[form.patologias].filter(Boolean).map(p=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p, estado:'activa' })),
+        ...form.patologias.map((p:any)=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p.nombre, estado:p.estado, descripcion:p.observaciones||'' })),
         ...form.medicacion.map((m:any)=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m.nombre, frecuencia:m.frecuencia||'' })),
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
       ])
@@ -512,17 +517,125 @@ export default function ValoracionPage() {
 
       {/* PASO 3 */}
       {step===3 && (
-        <div className="g2">
-          <div className="card">
-            <div className="card-title">Operaciones / cirugías</div>
-            <div style={{fontSize:9,color:'var(--grl)',marginBottom:7}}>Una por línea con el año si se recuerda.</div>
-            <textarea className="input" style={{minHeight:100}} value={form.operaciones} onChange={e=>up('operaciones',e.target.value)} placeholder="ej. Apendicectomía 2018&#10;Artroscopia rodilla derecha 2020"/>
+        <div>
+          <div className="g2" style={{marginBottom:10}}>
+            {/* OPERACIONES */}
+            <div className="card">
+              <div className="card-title">🔪 Operaciones / cirugías</div>
+              <div style={{fontSize:9,color:'var(--grl)',marginBottom:7}}>Una por línea con el año si se recuerda.</div>
+              <textarea className="input" style={{minHeight:100}} value={form.operaciones} onChange={e=>up('operaciones',e.target.value)} placeholder="ej. Artroscopia rodilla derecha 2020&#10;Cesárea 2018"/>
+            </div>
+
+            {/* PATOLOGÍAS */}
+            <div className="card">
+              <div className="card-title">🏥 Patologías y alteraciones</div>
+              {form.patologias.length>0&&(
+                <div style={{marginBottom:8}}>
+                  {form.patologias.map((p:any,i:number)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderRadius:6,background:p.estado==='activa'?'var(--redl)':p.estado==='cronica'?'var(--ambl)':'var(--gl)',border:`1px solid ${p.estado==='activa'?'#F5C8C8':p.estado==='cronica'?'var(--amb)':'var(--gm)'}`,marginBottom:4}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>{p.nombre}</div>
+                        <div style={{fontSize:8,color:'var(--grl)'}}>
+                          {p.lado} · {p.estado}
+                          {p.tiene_informe&&' · 📄 Con informe'}
+                        </div>
+                      </div>
+                      <button onClick={()=>up('patologias',form.patologias.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input className="input" placeholder="🔍 Buscar patología..." value={buscarPat} onChange={e=>setBuscarPat(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+              {buscarPat&&(
+                <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:160,overflowY:'auto',marginBottom:6}}>
+                  {patsBiblio.filter(p=>p.nombre.toLowerCase().includes(buscarPat.toLowerCase())||p.zona.toLowerCase().includes(buscarPat.toLowerCase())).slice(0,8).map((p:any)=>(
+                    <div key={p.id} onClick={()=>{setPatConfigurando({...p,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''});setBuscarPat('')}}
+                      style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                      <div style={{fontWeight:400}}>{p.nombre}</div>
+                      <div style={{fontSize:8,color:'var(--grl)'}}>{p.zona} · {p.sistema}</div>
+                    </div>
+                  ))}
+                  {patsBiblio.filter(p=>p.nombre.toLowerCase().includes(buscarPat.toLowerCase())).length===0&&(
+                    <div style={{padding:'6px 10px',fontSize:10,color:'var(--grl)'}}>
+                      Sin resultados · <button className="btn btn-t btn-sm" onClick={()=>{setNuevoNombre(buscarPat);setModalNuevaPat(true)}}>+ Añadir</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="card">
-            <div className="card-title">Patologías y alteraciones</div>
-            <div style={{fontSize:9,color:'var(--grl)',marginBottom:7}}>Una por línea. Podrás subir informes desde la ficha del paciente.</div>
-            <textarea className="input" style={{minHeight:100}} value={form.patologias} onChange={e=>up('patologias',e.target.value)} placeholder="ej. Hernia L4-L5 · activa&#10;Escoliosis leve&#10;Hiperpronación bilateral"/>
-          </div>
+
+          {/* MODAL CONFIGURAR PATOLOGÍA */}
+          {patConfigurando&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setPatConfigurando(null)}}>
+              <div className="modal">
+                <div className="modal-title">{patConfigurando.nombre}<button className="modal-close" onClick={()=>setPatConfigurando(null)}>✕</button></div>
+                {patConfigurando.precauciones&&(
+                  <div style={{padding:'6px 9px',background:'var(--ambl)',borderRadius:5,border:'1px solid var(--amb)',fontSize:9,color:'#7A5800',marginBottom:10}}>
+                    ⚠️ {patConfigurando.precauciones}
+                  </div>
+                )}
+                <div className="g2">
+                  <div className="field"><label>Lado</label>
+                    <select className="input" value={patConfigurando.lado} onChange={e=>setPatConfigurando((p:any)=>({...p,lado:e.target.value}))}>
+                      <option value="bilateral">Bilateral</option>
+                      <option value="izquierdo">Izquierdo</option>
+                      <option value="derecho">Derecho</option>
+                      <option value="no_aplica">No aplica</option>
+                    </select>
+                  </div>
+                  <div className="field"><label>Estado</label>
+                    <select className="input" value={patConfigurando.estado} onChange={e=>setPatConfigurando((p:any)=>({...p,estado:e.target.value}))}>
+                      <option value="activa">Activa</option>
+                      <option value="cronica">Crónica</option>
+                      <option value="resuelta">Resuelta</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="field"><label>Observaciones específicas del paciente</label>
+                  <textarea className="input" style={{minHeight:60}} value={patConfigurando.observaciones} onChange={e=>setPatConfigurando((p:any)=>({...p,observaciones:e.target.value}))} placeholder="ej. Cirugía en 2020, sin secuelas..."/>
+                </div>
+                <div onClick={()=>setPatConfigurando((p:any)=>({...p,tiene_informe:!p.tiene_informe}))}
+                  style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1px solid ${patConfigurando.tiene_informe?'var(--g)':'var(--bd)'}`,background:patConfigurando.tiene_informe?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}>
+                  <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${patConfigurando.tiene_informe?'var(--g)':'var(--bd)'}`,background:patConfigurando.tiene_informe?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    {patConfigurando.tiene_informe&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:10,color:'var(--n)'}}>📄 El paciente tiene informe médico</span>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setPatConfigurando(null)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={()=>{
+                    up('patologias',[...form.patologias,{nombre:patConfigurando.nombre,lado:patConfigurando.lado,estado:patConfigurando.estado,tiene_informe:patConfigurando.tiene_informe,observaciones:patConfigurando.observaciones}])
+                    setPatConfigurando(null)
+                  }}>✓ Añadir patología</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL NUEVA PATOLOGÍA */}
+          {modalNuevaPat&&(
+            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaPat(false)}}>
+              <div className="modal">
+                <div className="modal-title">Nueva patología<button className="modal-close" onClick={()=>setModalNuevaPat(false)}>✕</button></div>
+                <div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div>
+                <div style={{display:'flex',gap:8,marginTop:8}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setModalNuevaPat(false)}>Cancelar</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p" onClick={async()=>{
+                    if(!nuevoNombre) return
+                    const {data:np} = await supabase.from('patologias_biblioteca').insert({nombre:nuevoNombre,zona:'Otros',sistema:'Otros',activo:true}).select().single()
+                    if(np) setPatsBiblio((p:any)=>[...p,np])
+                    setPatConfigurando({nombre:nuevoNombre,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})
+                    setModalNuevaPat(false); setNuevoNombre('')
+                  }}>💾 Añadir</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
