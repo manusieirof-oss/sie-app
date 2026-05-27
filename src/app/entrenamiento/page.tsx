@@ -44,6 +44,9 @@ export default function EntrenamientoPage() {
   const [etiquetas, setEtiquetas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
+  const [patologiasBiblio, setPatologiasBiblio] = useState<any[]>([])
+  const [buscarPat, setBuscarPat] = useState('')
+  const [patSeleccionada, setPatSeleccionada] = useState<any>(null)
   const [alergiasBiblio, setAlergiasBiblio] = useState<any[]>([])
   const [intolBiblio, setIntolBiblio] = useState<any[]>([])
   const [buscarLista, setBuscarLista] = useState('')
@@ -112,6 +115,8 @@ export default function EntrenamientoPage() {
       supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
     ])
     setMedsBiblio(meds||[]); setAlergiasBiblio(alerg||[]); setIntolBiblio(intol||[])
+    const { data: pats } = await supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre')
+    setPatologiasBiblio(pats||[])
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
     setLoading(false)
@@ -410,7 +415,7 @@ export default function EntrenamientoPage() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas']].map(([k,l])=>(
+        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -1161,6 +1166,53 @@ export default function EntrenamientoPage() {
           </div>
         </div>
       )}
+      {/* PATOLOGÍAS BIBLIOTECA */}
+      {tab==='patologias_bib' && (
+        <>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+            <input className="input" placeholder="🔍 Buscar patología..." value={buscarPat} onChange={e=>setBuscarPat(e.target.value)} style={{flex:1}}/>
+            <span style={{fontSize:10,color:'var(--grl)'}}>{patologiasBiblio.filter(p=>!buscarPat||p.nombre.toLowerCase().includes(buscarPat.toLowerCase())).length} patologías</span>
+          </div>
+          {(()=>{
+            const filtradas = patologiasBiblio.filter(p=>!buscarPat||p.nombre.toLowerCase().includes(buscarPat.toLowerCase())||p.zona.toLowerCase().includes(buscarPat.toLowerCase())||p.sistema.toLowerCase().includes(buscarPat.toLowerCase()))
+            const zonas = [...new Set(filtradas.map(p=>p.zona))]
+            return zonas.map(zona=>{
+              const items = filtradas.filter(p=>p.zona===zona)
+              return (
+                <div key={zona} className="card" style={{marginBottom:8}}>
+                  <div className="card-title">📍 {zona}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    {items.map(p=>(
+                      <div key={p.id} onClick={()=>setPatSeleccionada(patSeleccionada?.id===p.id?null:p)}
+                        style={{padding:'4px 10px',borderRadius:99,border:`1px solid ${patSeleccionada?.id===p.id?'var(--g)':'var(--bd)'}`,background:patSeleccionada?.id===p.id?'var(--gl)':'var(--w)',cursor:'pointer',fontSize:10,color:patSeleccionada?.id===p.id?'var(--gd)':'var(--n)',transition:'all .12s'}}>
+                        {p.nombre}
+                      </div>
+                    ))}
+                  </div>
+                  {patSeleccionada&&items.some(i=>i.id===patSeleccionada.id)&&(
+                    <div style={{marginTop:10,padding:'10px 12px',background:'var(--bl)',borderRadius:6,border:'1px solid var(--bd)'}}>
+                      <div style={{display:'flex',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+                        <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{patSeleccionada.sistema}</span>
+                        <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:patSeleccionada.gravedad_tipica==='severa'?'var(--redl)':patSeleccionada.gravedad_tipica==='moderada'?'var(--ambl)':'var(--gl)',color:patSeleccionada.gravedad_tipica==='severa'?'var(--red)':patSeleccionada.gravedad_tipica==='moderada'?'#7A5800':'var(--gd)'}}>
+                          {patSeleccionada.gravedad_tipica}
+                        </span>
+                        <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{patSeleccionada.lado_tipico}</span>
+                      </div>
+                      {patSeleccionada.descripcion&&<div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.5,marginBottom:6}}>{patSeleccionada.descripcion}</div>}
+                      {patSeleccionada.precauciones&&(
+                        <div style={{padding:'6px 9px',background:'var(--ambl)',borderRadius:5,border:'1px solid var(--amb)',fontSize:9,color:'#7A5800'}}>
+                          ⚠️ <strong>Precauciones:</strong> {patSeleccionada.precauciones}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          })()}
+        </>
+      )}
+
       {/* LISTAS */}
       {tab==='listas' && (
         <>
