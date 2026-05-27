@@ -44,6 +44,7 @@ export default function EntrenamientoPage() {
   const [etiquetas, setEtiquetas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
+  const [opsBiblioLib, setOpsBiblioLib] = useState<any[]>([])
   const [patologiasBiblio, setPatologiasBiblio] = useState<any[]>([])
   const [buscarPat, setBuscarPat] = useState('')
   const [patSeleccionada, setPatSeleccionada] = useState<any>(null)
@@ -115,6 +116,8 @@ export default function EntrenamientoPage() {
       supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
     ])
     setMedsBiblio(meds||[]); setAlergiasBiblio(alerg||[]); setIntolBiblio(intol||[])
+    const { data: ops } = await supabase.from('operaciones_biblioteca').select('*').eq('activo',true).order('zona').order('nombre')
+    setOpsBiblioLib(ops||[])
     const { data: pats } = await supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre')
     setPatologiasBiblio(pats||[])
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
@@ -1220,6 +1223,29 @@ export default function EntrenamientoPage() {
             <input className="input" placeholder="🔍 Buscar en listas..." value={buscarLista} onChange={e=>setBuscarLista(e.target.value)} style={{flex:1}}/>
           </div>
 
+          {/* OPERACIONES */}
+          <div className="card" style={{marginBottom:10}}>
+            <div className="card-title">🔪 Operaciones / Cirugías <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'operacion',categoria:''})}>+ Añadir</button></div>
+            {(()=>{
+              const cats = [...new Set(opsBiblioLib.map((o:any)=>o.zona))]
+              const filtrados = opsBiblioLib.filter((o:any)=>!buscarLista||o.nombre.toLowerCase().includes(buscarLista.toLowerCase()))
+              return cats.map(cat=>{
+                const items = filtrados.filter((o:any)=>o.zona===cat)
+                if (!items.length) return null
+                return (
+                  <div key={cat} style={{marginBottom:8}}>
+                    <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>{cat}</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {items.map((o:any)=>(
+                        <span key={o.id} style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--bl)',border:'1px solid var(--bd)',color:'var(--n)'}}>{o.nombre}</span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+
           {/* MEDICAMENTOS */}
           <div className="card" style={{marginBottom:10}}>
             <div className="card-title">💊 Medicamentos <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'medicamento',categoria:''})}>+ Añadir</button></div>
@@ -1309,7 +1335,7 @@ export default function EntrenamientoPage() {
                   <div style={{flex:1}}/>
                   <button className="btn btn-p" onClick={async()=>{
                     if (!nuevoItemNombre) return
-                    const tabla = modalNuevoItem.tipo==='medicamento'?'medicamentos_biblioteca':modalNuevoItem.tipo==='alergia'?'alergias_biblioteca':'intolerancias_biblioteca'
+                    const tabla = modalNuevoItem.tipo==='medicamento'?'medicamentos_biblioteca':modalNuevoItem.tipo==='alergia'?'alergias_biblioteca':modalNuevoItem.tipo==='operacion'?'operaciones_biblioteca':'intolerancias_biblioteca'
                     await supabase.from(tabla).insert({ nombre:nuevoItemNombre, categoria:modalNuevoItem.categoria||'Otros', activo:true })
                     setModalNuevoItem(null); setNuevoItemNombre(''); cargar()
                   }}>💾 Guardar</button>
