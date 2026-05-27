@@ -741,7 +741,6 @@ export default function ValoracionPage() {
           )}
 
         {/* MOLESTIAS */}
-        (
         <div>
           <div className="info-pill" style={{marginBottom:10}}>Anota cada molestia del paciente. Las activas aparecerán como alertas en la agenda y guiarán el entrenamiento.</div>
 
