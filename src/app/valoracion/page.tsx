@@ -859,7 +859,6 @@ export default function ValoracionPage() {
               </div>
             </div>
           )}
-        </div>
       )}
 
       {/* PASO 4 */}
