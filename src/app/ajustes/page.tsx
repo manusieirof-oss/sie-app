@@ -9,6 +9,12 @@ export default function AjustesPage() {
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [comoNosConocio, setComoNosConocio] = useState<string[]>([])
+  const [tiposJornada, setTiposJornada] = useState<string[]>([])
+  const [tiposPlantilla, setTiposPlantilla] = useState<string[]>([])
+  const [deportesLista, setDeportesLista] = useState<string[]>([])
+  const [nuevoJornada, setNuevoJornada] = useState('')
+  const [nuevoPlantilla, setNuevoPlantilla] = useState('')
+  const [nuevoDeporte, setNuevoDeporte] = useState('')
   const [tiposClase, setTiposClase] = useState<{valor:string,icono:string,nombre:string}[]>([])
   const [bonos, setBonos] = useState<{id:string,nombre:string,dias:number,descripcion:string}[]>([])
   const [nuevoComoNos, setNuevoComoNos] = useState('')
@@ -26,6 +32,12 @@ export default function AjustesPage() {
       setAjustes(map)
       if (map.como_nos_conocio) setComoNosConocio(JSON.parse(map.como_nos_conocio))
       else setComoNosConocio(['Recomendación de un conocido','Instagram','Google','Facebook','Pasó por aquí','Otro'])
+      if (map.tipos_jornada) setTiposJornada(JSON.parse(map.tipos_jornada))
+      else setTiposJornada(['Sentado','Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'])
+      if (map.tipos_plantilla) setTiposPlantilla(JSON.parse(map.tipos_plantilla))
+      else setTiposPlantilla(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
+      if (map.deportes_lista) setDeportesLista(JSON.parse(map.deportes_lista))
+      else setDeportesLista(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
       if (map.tipos_clase) setTiposClase(JSON.parse(map.tipos_clase))
       else setTiposClase([
         {valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},
@@ -51,6 +63,9 @@ export default function AjustesPage() {
     const toSave = {
       ...ajustes,
       como_nos_conocio: JSON.stringify(comoNosConocio),
+      tipos_jornada: JSON.stringify(tiposJornada),
+      tipos_plantilla: JSON.stringify(tiposPlantilla),
+      deportes_lista: JSON.stringify(deportesLista),
       tipos_clase: JSON.stringify(tiposClase),
       bonos_config: JSON.stringify(bonos),
     }
@@ -173,6 +188,60 @@ export default function AjustesPage() {
                   ;(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value=''
                 }
               }}>+ Añadir</button>
+            </div>
+          </div>
+
+          <div className="card" style={{marginBottom:12}}>
+            <div className="card-title">🏃 Tipos de jornada laboral</div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones del selector de tipo de jornada en la valoración</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
+              {tiposJornada.map((op,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:'var(--bl)',border:'1px solid var(--bd)'}}>
+                  <span style={{fontSize:10,color:'var(--n)'}}>{op}</span>
+                  <button onClick={()=>setTiposJornada(p=>p.filter((_,j)=>j!==i))} style={{fontSize:9,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <input className="input" value={nuevoJornada} onChange={e=>setNuevoJornada(e.target.value)} placeholder="Nueva opción..." style={{flex:1,fontSize:11}}
+                onKeyDown={e=>{if(e.key==='Enter'&&nuevoJornada){setTiposJornada(p=>[...p,nuevoJornada]);setNuevoJornada('')}}}/>
+              <button className="btn btn-p btn-sm" onClick={()=>{if(nuevoJornada){setTiposJornada(p=>[...p,nuevoJornada]);setNuevoJornada('')}}}>+ Añadir</button>
+            </div>
+          </div>
+
+          <div className="card" style={{marginBottom:12}}>
+            <div className="card-title">🦶 Tipos de plantilla</div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones del selector de tipo de plantilla</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
+              {tiposPlantilla.map((op,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:'var(--bl)',border:'1px solid var(--bd)'}}>
+                  <span style={{fontSize:10,color:'var(--n)'}}>{op}</span>
+                  <button onClick={()=>setTiposPlantilla(p=>p.filter((_,j)=>j!==i))} style={{fontSize:9,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <input className="input" value={nuevoPlantilla} onChange={e=>setNuevoPlantilla(e.target.value)} placeholder="Nueva opción..." style={{flex:1,fontSize:11}}
+                onKeyDown={e=>{if(e.key==='Enter'&&nuevoPlantilla){setTiposPlantilla(p=>[...p,nuevoPlantilla]);setNuevoPlantilla('')}}}/>
+              <button className="btn btn-p btn-sm" onClick={()=>{if(nuevoPlantilla){setTiposPlantilla(p=>[...p,nuevoPlantilla]);setNuevoPlantilla('')}}}>+ Añadir</button>
+            </div>
+          </div>
+
+          <div className="card" style={{marginBottom:12}}>
+            <div className="card-title">🏃 Deportes</div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Lista de deportes disponibles en la valoración</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
+              {deportesLista.map((op,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 10px',borderRadius:99,background:'var(--bl)',border:'1px solid var(--bd)'}}>
+                  <span style={{fontSize:10,color:'var(--n)'}}>{op}</span>
+                  <button onClick={()=>setDeportesLista(p=>p.filter((_,j)=>j!==i))} style={{fontSize:9,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <input className="input" value={nuevoDeporte} onChange={e=>setNuevoDeporte(e.target.value)} placeholder="Nuevo deporte..." style={{flex:1,fontSize:11}}
+                onKeyDown={e=>{if(e.key==='Enter'&&nuevoDeporte){setDeportesLista(p=>[...p,nuevoDeporte]);setNuevoDeporte('')}}}/>
+              <button className="btn btn-p btn-sm" onClick={()=>{if(nuevoDeporte){setDeportesLista(p=>[...p,nuevoDeporte]);setNuevoDeporte('')}}}>+ Añadir</button>
             </div>
           </div>
 
