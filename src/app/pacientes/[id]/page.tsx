@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import FichaTab from './components/FichaTab'
+import TimelineTab from './components/TimelineTab'
 import { useParams, useRouter } from 'next/navigation'
 
 function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void }) {
@@ -704,7 +705,7 @@ export default function FichaPacientePage() {
 
       {/* TABS */}
       <div className="tabs">
-        {[['ficha','📋 Ficha'],['salud','❤️ Salud'],['entreno','🏋 Entrenamiento'],['resultados','📊 Resultados']].map(([k,l])=>(
+        {[['ficha','📋 Ficha'],['timeline','🕐 Historial'],['salud','❤️ Salud'],['entreno','🏋 Entrenamiento'],['resultados','📊 Resultados']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -724,6 +725,10 @@ export default function FichaPacientePage() {
           mes={mes}
           anio={anio}
         />
+      )}
+
+      {tab==='timeline' && (
+        <TimelineTab pacienteId={String(id)}/>
       )}
 
       {tab==='salud' && (
