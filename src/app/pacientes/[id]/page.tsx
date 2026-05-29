@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import FichaTab from './components/FichaTab'
 import { useParams, useRouter } from 'next/navigation'
 
 function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void }) {
@@ -710,152 +711,21 @@ export default function FichaPacientePage() {
 
       {/* TAB FICHA */}
       {tab==='ficha' && (
-        <div className="g2">
-          <div>
-            {/* RESUMEN ASISTENCIA */}
-            {(()=>{
-              const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
-              const faltas = citas.filter((c:any)=>c.estado==='falta').length
-              const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
-              const total = realizadas + faltas
-              const pct = total>0 ? Math.round((realizadas/total)*100) : 0
-              const faltasRecuperables = citas.filter((c:any)=>c.estado==='falta' && c.recuperable).length
-              return (
-                <div className="card" style={{marginBottom:0}}>
-                  <div className="card-title">Resumen de asistencia</div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:10}}>
-                    {[['Realizadas',realizadas,'var(--g)'],['Faltas',faltas,'var(--red)'],['Canceladas',canceladas,'var(--grl)'],['% Asistencia',total>0?pct+'%':'—','var(--n)']].map(([l,v,c])=>(
-                      <div key={String(l)} style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px',textAlign:'center'}}>
-                        <div style={{fontSize:20,fontWeight:300,color:c}}>{v}</div>
-                        <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {total>0 && (
-                    <div style={{background:'var(--bm)',borderRadius:99,height:6,overflow:'hidden',marginBottom:8}}>
-                      <div style={{width:pct+'%',height:'100%',background:'var(--g)',borderRadius:99,transition:'width .3s'}}/>
-                    </div>
-                  )}
-                  {faltasRecuperables>0 && (
-                    <div style={{fontSize:10,color:'var(--amb)',fontWeight:400}}>⚠ {faltasRecuperables} {faltasRecuperables===1?'clase pendiente':'clases pendientes'} de recuperar</div>
-                  )}
-                  <div style={{fontSize:9,color:'var(--grl)',marginTop:6,fontWeight:300}}>ℹ️ Las citas se marcan como realizadas automáticamente a las 00:00</div>
-                  {recuperaciones.filter(r=>r.estado==='pendiente').length>0 && (
-                    <div style={{marginTop:10,borderTop:'1px solid var(--bd)',paddingTop:10}}>
-                      <div style={{fontSize:9,fontWeight:600,color:'var(--amb)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>🔄 Clases a recuperar</div>
-                      {recuperaciones.filter(r=>r.estado==='pendiente').map((r,i)=>{
-                        const tieneCita = !!r.cita_recuperacion_id
-                        return (
-                          <div key={r.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:tieneCita?'var(--gl)':'var(--ambl)',borderRadius:5,border:`1px solid ${tieneCita?'var(--gm)':'var(--amb)'}`,marginBottom:3}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>Falta del {new Date(r.fecha_falta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
-                              <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Vence el {new Date(r.fecha_limite+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
-                            </div>
-                            <span style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:tieneCita?'var(--g)':'var(--amb)',color:'#fff',fontWeight:500}}>
-                              {tieneCita?'📅 Programada':'Pendiente'}
-                            </span>
-                          </div>
-                        )
-                      })}
-                      {recuperaciones.filter(r=>r.estado==='recuperada').length>0 && (
-                        <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
-                          ✓ {recuperaciones.filter(r=>r.estado==='recuperada').length} {recuperaciones.filter(r=>r.estado==='recuperada').length===1?'clase recuperada':'clases recuperadas'}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-            <div className="card">
-              <div className="card-title">Datos personales</div>
-              {editando ? (
-                <div className="g2">
-                  {[['dni','DNI'],['telefono','Teléfono'],['email','Email']].map(([k,l])=>(
-                    <div key={k} className="field"><label>{l}</label><input className="input" value={form[k]||''} onChange={e=>setForm((p:any)=>({...p,[k]:e.target.value}))}/></div>
-                  ))}
-                  <div className="field"><label>Altura (cm)</label><input className="input" type="number" value={form.altura_cm||''} onChange={e=>setForm((p:any)=>({...p,altura_cm:e.target.value}))}/></div>
-                  <div className="field"><label>Peso (kg)</label><input className="input" type="number" value={form.peso_kg||''} onChange={e=>setForm((p:any)=>({...p,peso_kg:e.target.value}))}/></div>
-                  <div className="field" style={{gridColumn:'1/-1'}}><label>Tipo de clase</label>
-                    <select className="input" value={form.tipo_clase||''} onChange={e=>setForm((p:any)=>({...p,tipo_clase:e.target.value}))}>
-                      <option value="entrenamiento">🏋 Entrenamiento</option>
-                      <option value="pilates">🧘 Pilates</option>
-                      <option value="rehabilitacion">🏥 Rehabilitación</option>
-                    </select>
-                  </div>
-                  <div className="field" style={{gridColumn:'1/-1'}}><label>Notas internas</label><textarea className="input" value={form.notas||''} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} style={{minHeight:60}}/></div>
-                </div>
-              ) : (
-                <div>
-                  {[['DNI',pac.dni],['Teléfono',pac.telefono],['Email',pac.email],['Tipo clase',pac.tipo_clase]].map(([l,v])=>v?(
-                    <div key={l} style={{display:'flex',gap:8,marginBottom:5,fontSize:11}}>
-                      <span style={{color:'var(--grl)',minWidth:70,fontWeight:300}}>{l}</span>
-                      <span style={{fontWeight:400}}>{v}</span>
-                    </div>
-                  ):null)}
-                  {pac.notas && <div style={{marginTop:8,padding:'7px 9px',background:'var(--bl)',borderRadius:5,fontSize:10,color:'var(--n)',fontWeight:300,whiteSpace:'pre-line'}}>{pac.notas}</div>}
-                </div>
-              )}
-            </div>
-            <div className="card">
-              <div className="card-title">Próximas citas</div>
-              {citas.length===0 && <div style={{fontSize:10,color:'var(--grl)'}}>Sin citas programadas</div>}
-              {citas.map(c=>(
-                <div key={c.id} className="ri">
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)}</div>
-                    <div style={{fontSize:9,color:'var(--grl)'}}>Sala {c.sala} · {c.tipo}</div>
-                  </div>
-                  <span className={`badge ${c.estado==='realizada'?'badge-g':'badge-b'}`}>{c.estado}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="card">
-              <div className="card-title">Bono activo <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bono?'Cambiar':'+ Asignar'}</button></div>
-              {bono ? (
-                <div style={{background:'var(--bl)',border:'1px solid var(--bm)',borderRadius:7,padding:'9px 11px'}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
-                  <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Mes {mes}/{anio}</div>
-                  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                    {['pagado','pendiente','impago'].map(estado=>(
-                      <button key={estado} className={`btn btn-sm ${bono.estado_pago===estado?'btn-p':'btn-s'}`} onClick={()=>cambiarPago(estado)}>
-                        {pagoLabel[estado]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div style={{fontSize:10,color:'var(--grl)',padding:'8px 0'}}>Sin bono asignado este mes</div>
-              )}
-            </div>
-            <div className="card">
-              <div className="card-title">Historial de sesiones</div>
-              {(()=>{
-                const citasConSesion = citas.filter((c:any)=>c.sesion_id).slice(0,15)
-                if (citasConSesion.length===0) return <div style={{fontSize:10,color:'var(--grl)'}}>Sin sesiones realizadas aún</div>
-                return citasConSesion.map((c:any)=>{
-                  const sesion = sesiones.find((s:any)=>s.id===c.sesion_id)
-                  return (
-                    <div key={c.id} className="ri">
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{sesion?.nombre||'Sesión'}</div>
-                        <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>
-                          {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
-                        </div>
-                      </div>
-                      <span className={`badge ${c.estado==='realizada'?'badge-g':c.estado==='falta'?'badge-r':'badge-b'}`}>{c.estado}</span>
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-          </div>
-        </div>
+        <FichaTab
+          pac={pac}
+          bono={bono}
+          citas={citas}
+          recuperaciones={recuperaciones}
+          editando={editando}
+          form={form}
+          setForm={setForm}
+          setModalBono={setModalBono}
+          bonoLabel={bonoLabel}
+          mes={mes}
+          anio={anio}
+        />
       )}
 
-      {/* TAB SALUD */}
       {tab==='salud' && (
         <div className="g2">
           <div>
