@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import SesionesTab from './components/SesionesTab'
 import { supabase } from '@/lib/supabase'
 
 const CATEGORIAS = [
@@ -422,7 +423,7 @@ export default function EntrenamientoPage() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Biblioteca'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias']].map(([k,l])=>(
+        {[['biblioteca','📚 Biblioteca'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -486,48 +487,15 @@ export default function EntrenamientoPage() {
         </>
       )}
 
-      {/* SESIONES */}
       {tab==='sesiones' && (
-        <>
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <button className="btn btn-p btn-sm" onClick={()=>setModalSes(true)}>+ Nueva sesión</button>
-          </div>
-          {loading?<div className="loading">Cargando...</div>:sesiones.length===0?(
-            <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin sesiones. Crea la primera con + Nueva sesión.</div>
-          ):sesiones.map(s=>(
-            <div key={s.id} className="card">
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{s.nombre}</div>
-                  <div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>{s.pacientes?.nombre} {s.pacientes?.apellidos} · {new Date(s.created_at).toLocaleDateString('es-ES')}</div>
-                  {s.descripcion&&<div style={{fontSize:10,color:'var(--gr)',marginTop:2}}>{s.descripcion}</div>}
-                </div>
-                <div style={{display:'flex',gap:5,alignItems:'center'}}>
-                  <span className={`badge ${s.estado==='realizada'?'badge-g':s.estado==='lista'?'badge-pen':'badge-b'}`}>{s.estado}</span>
-                  {s.estado!=='realizada'&&<button className="btn btn-t btn-sm" onClick={()=>cambiarEstado(s.id,'realizada')}>✓ Realizada</button>}
-                </div>
-              </div>
-              {(s.partes||[]).map((parte:any,pi:number)=>(
-                <div key={pi} style={{marginBottom:6,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
-                  <div style={{padding:'5px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bm)',fontSize:10,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</div>
-                  {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
-                    <div key={ei} style={{padding:'6px 10px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:8}}>
-                      {ej.imagen_url && <img src={ej.imagen_url} alt={ej.nombre} style={{width:40,height:40,objectFit:'cover',borderRadius:4,flexShrink:0}}/>}
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre||ej}</div>
-                        {ej.variante&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
-                          {[ej.variante,ej.capacidad,ej.series&&`${ej.series} series`,ej.reps&&`${ej.reps} reps`,ej.peso&&`${ej.peso}kg`,ej.tiempo&&`${ej.tiempo}seg`].filter(Boolean).join(' · ')}
-                        </div>}
-                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:2,fontStyle:'italic'}}>📝 {ej.nota}</div>}
-                      </div>
-                    </div>
-                  ))}
-                  {(parte.ejercicios||[]).length===0&&<div style={{padding:'5px 10px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>}
-                </div>
-              ))}
-            </div>
-          ))}
-        </>
+        <SesionesTab
+          sesiones={sesiones}
+          pacientes={pacientes}
+          ejercicios={ejercicios}
+          etiquetas={etiquetas}
+          cargar={cargar}
+          getNombre={getNombre}
+        />
       )}
 
       {/* TESTS */}

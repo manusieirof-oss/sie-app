@@ -1,0 +1,264 @@
+'use client'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+
+type EjercicioSesion = {
+  ejercicio_id: string
+  nombre: string
+  variante: string
+  capacidad: string
+  series: string
+  reps: string
+  peso: string
+  tiempo: string
+  nota: string
+  imagen_url?: string
+}
+
+type Parte = {
+  nombre: string
+  ejercicios: EjercicioSesion[]
+}
+
+const VARIANTES = ['Bilateral','Unilateral','Alterno','Unipodal','Supino','Prono','Decúbito lateral']
+const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resistencia','Propiocepción','Coordinación']
+
+export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, cargar, getNombre }: any) {
+  const [modalSes, setModalSes] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
+  const [ejEnConfig, setEjEnConfig] = useState<{parteIdx:number,ej:any}|null>(null)
+  const [buscarBiblio, setBuscarBiblio] = useState('')
+  const [filtroEtBiblio, setFiltroEtBiblio] = useState<string[]>([])
+  const [configEj, setConfigEj] = useState<EjercicioSesion>({ ejercicio_id:'', nombre:'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
+  const [nuevaSes, setNuevaSes] = useState<{paciente_id:string,nombre:string,descripcion:string,partes:Parte[]}>({
+    paciente_id:'', nombre:'', descripcion:'',
+    partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}]
+  })
+
+  const ejerciciosFiltrados = ejercicios.filter((e:any) => {
+    const matchQ = !buscarBiblio || e.nombre.toLowerCase().includes(buscarBiblio.toLowerCase())
+    const matchEt = filtroEtBiblio.length===0 || filtroEtBiblio.every((fid:string)=>(e.etiquetas||[]).includes(fid))
+    return matchQ && matchEt
+  })
+
+  function abrirConfigEj(ej: any, parteIdx: number) {
+    setEjEnConfig({ parteIdx, ej })
+    setConfigEj({ ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'' })
+    setModalBiblioteca(null)
+  }
+
+  function confirmarEjercicio() {
+    if (!ejEnConfig) return
+    setNuevaSes(prev=>{
+      const partes=[...prev.partes]
+      partes[ejEnConfig.parteIdx]={...partes[ejEnConfig.parteIdx],ejercicios:[...partes[ejEnConfig.parteIdx].ejercicios,{...configEj}]}
+      return {...prev,partes}
+    })
+    setEjEnConfig(null)
+  }
+
+  function eliminarEjDeParte(parteIdx:number, ejIdx:number) {
+    setNuevaSes(prev=>{
+      const partes=[...prev.partes]
+      partes[parteIdx]={...partes[parteIdx],ejercicios:partes[parteIdx].ejercicios.filter((_,i)=>i!==ejIdx)}
+      return {...prev,partes}
+    })
+  }
+
+  function añadirParte() { setNuevaSes(prev=>({...prev,partes:[...prev.partes,{nombre:'Nueva parte',ejercicios:[]}]})) }
+  function renombrarParte(idx:number, nombre:string) { setNuevaSes(prev=>{const partes=[...prev.partes];partes[idx]={...partes[idx],nombre};return {...prev,partes}}) }
+  function eliminarParte(idx:number) { setNuevaSes(prev=>({...prev,partes:prev.partes.filter((_,i)=>i!==idx)})) }
+
+  async function crearSesion() {
+    if (!nuevaSes.paciente_id || !nuevaSes.nombre) { alert('Selecciona paciente y pon un nombre'); return }
+    setGuardando(true)
+    await supabase.from('sesiones').insert({ paciente_id:nuevaSes.paciente_id, nombre:nuevaSes.nombre, descripcion:nuevaSes.descripcion, partes:nuevaSes.partes, estado:'lista' })
+    setModalSes(false)
+    setNuevaSes({paciente_id:'',nombre:'',descripcion:'',partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}]})
+    setGuardando(false)
+    cargar()
+  }
+
+  async function cambiarEstado(id:string, estado:string) {
+    await supabase.from('sesiones').update({estado}).eq('id',id); cargar()
+  }
+
+  return (
+    <>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+        <button className="btn btn-p btn-sm" onClick={()=>setModalSes(true)}>+ Nueva sesión</button>
+      </div>
+
+      {sesiones.length===0?(
+        <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin sesiones. Crea la primera con + Nueva sesión.</div>
+      ):sesiones.map((s:any)=>(
+        <div key={s.id} className="card">
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{s.nombre}</div>
+              <div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>{s.pacientes?.nombre} {s.pacientes?.apellidos} · {new Date(s.created_at).toLocaleDateString('es-ES')}</div>
+              {s.descripcion&&<div style={{fontSize:10,color:'var(--gr)',marginTop:2}}>{s.descripcion}</div>}
+            </div>
+            <div style={{display:'flex',gap:5,alignItems:'center'}}>
+              <span className={`badge ${s.estado==='realizada'?'badge-g':s.estado==='lista'?'badge-pen':'badge-b'}`}>{s.estado}</span>
+              {s.estado!=='realizada'&&<button className="btn btn-t btn-sm" onClick={()=>cambiarEstado(s.id,'realizada')}>✓ Realizada</button>}
+            </div>
+          </div>
+          {(s.partes||[]).map((parte:any,pi:number)=>(
+            <div key={pi} style={{marginBottom:6,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
+              <div style={{padding:'5px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bm)',fontSize:10,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</div>
+              {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
+                <div key={ei} style={{padding:'6px 10px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:8}}>
+                  {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:40,height:40,objectFit:'cover',borderRadius:4,flexShrink:0}}/>}
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre||ej}</div>
+                    {ej.variante&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{[ej.variante,ej.capacidad,ej.series&&`${ej.series} series`,ej.reps&&`${ej.reps} reps`,ej.peso&&`${ej.peso}kg`,ej.tiempo&&`${ej.tiempo}seg`].filter(Boolean).join(' · ')}</div>}
+                    {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:2,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                  </div>
+                </div>
+              ))}
+              {(parte.ejercicios||[]).length===0&&<div style={{padding:'5px 10px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>}
+            </div>
+          ))}
+        </div>
+      ))}
+
+      {/* MODAL NUEVA SESIÓN */}
+      {modalSes&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando)setModalSes(false)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:900,maxHeight:'92vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{fontSize:14,fontWeight:400,color:'var(--n)',flex:1}}>Nueva sesión de entrenamiento</div>
+              <button onClick={()=>setModalSes(false)} style={{background:'none',border:'none',fontSize:18,color:'var(--gr)',cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:16}}>
+              <div className="g2" style={{marginBottom:12}}>
+                <div className="field"><label>Paciente *</label>
+                  <select className="input" value={nuevaSes.paciente_id} onChange={e=>setNuevaSes(p=>({...p,paciente_id:e.target.value}))}>
+                    <option value="">Seleccionar paciente...</option>
+                    {pacientes.map((p:any)=><option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>)}
+                  </select>
+                </div>
+                <div className="field"><label>Nombre de la sesión *</label>
+                  <input className="input" value={nuevaSes.nombre} onChange={e=>setNuevaSes(p=>({...p,nombre:e.target.value}))} placeholder="ej. Fuerza cuádriceps · Fase 1"/>
+                </div>
+                <div className="field" style={{gridColumn:'1/-1'}}><label>Objetivo / descripción</label>
+                  <input className="input" value={nuevaSes.descripcion} onChange={e=>setNuevaSes(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Trabajar fuerza extensora sin impacto"/>
+                </div>
+              </div>
+              {nuevaSes.partes.map((parte,pi)=>(
+                <div key={pi} style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',marginBottom:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+                    <input value={parte.nombre} onChange={e=>renombrarParte(pi,e.target.value)} style={{flex:1,fontSize:12,fontWeight:500,color:'var(--n)',border:'none',background:'transparent',fontFamily:'system-ui',padding:'2px 0'}}/>
+                    <button className="btn btn-t btn-sm" onClick={()=>setModalBiblioteca({parteIdx:pi})}>+ Añadir ejercicio</button>
+                    {nuevaSes.partes.length>1&&<button onClick={()=>eliminarParte(pi)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 6px'}}>✕</button>}
+                  </div>
+                  <div style={{padding:8}}>
+                    {parte.ejercicios.length===0&&(
+                      <div onClick={()=>setModalBiblioteca({parteIdx:pi})} style={{border:'1.5px dashed var(--bm)',borderRadius:5,padding:'10px',textAlign:'center',fontSize:10,color:'var(--grl)',cursor:'pointer'}}
+                        onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)'}}
+                        onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)'}}>
+                        + Añadir ejercicio de la biblioteca
+                      </div>
+                    )}
+                    {parte.ejercicios.map((ej,ei)=>(
+                      <div key={ei} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'7px 10px',background:'var(--bl)',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4}}>
+                        {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:36,height:36,objectFit:'cover',borderRadius:4,flexShrink:0}}/>}
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{ej.nombre}</div>
+                          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                            {ej.variante&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
+                            {ej.capacidad&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
+                            {ej.series&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
+                            {ej.reps&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.reps} reps</span>}
+                            {ej.peso&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
+                            {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
+                          </div>
+                          {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                        </div>
+                        <button onClick={()=>eliminarEjDeParte(pi,ei)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px',flexShrink:0}}>✕</button>
+                      </div>
+                    ))}
+                    {parte.ejercicios.length>0&&<button className="btn btn-t btn-sm" style={{marginTop:4}} onClick={()=>setModalBiblioteca({parteIdx:pi})}>+ Añadir otro ejercicio</button>}
+                  </div>
+                </div>
+              ))}
+              <button className="btn btn-s btn-sm" onClick={añadirParte}>+ Añadir parte</button>
+            </div>
+            <div style={{padding:'10px 16px',borderTop:'1px solid var(--bd)',display:'flex',gap:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalSes(false)} disabled={guardando}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={crearSesion} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar sesión'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BIBLIOTECA */}
+      {modalBiblioteca&&!ejEnConfig&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalBiblioteca(null)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'80vw',maxWidth:900,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>Seleccionar ejercicio · {nuevaSes.partes[modalBiblioteca.parteIdx]?.nombre}</div>
+              <button onClick={()=>setModalBiblioteca(null)} style={{background:'none',border:'none',fontSize:18,color:'var(--gr)',cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{padding:'10px 14px',borderBottom:'1px solid var(--bd)'}}>
+              <input className="input" placeholder="🔍 Buscar ejercicio..." value={buscarBiblio} onChange={e=>setBuscarBiblio(e.target.value)} style={{width:'100%'}}/>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                {ejerciciosFiltrados.map((e:any)=>(
+                  <div key={e.id} onClick={()=>abrirConfigEj(e,modalBiblioteca.parteIdx)}
+                    style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer'}}
+                    onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
+                    onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
+                    {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} style={{width:'100%',height:70,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div style={{height:70,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,borderBottom:'1px solid var(--bd)'}}>💪</div>}
+                    <div style={{padding:'8px 10px'}}>
+                      <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{e.nombre}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIGURAR EJERCICIO */}
+      {ejEnConfig&&(
+        <div className="modal-bg">
+          <div className="modal" style={{width:480}}>
+            <div className="modal-title">Configurar ejercicio<button className="modal-close" onClick={()=>setEjEnConfig(null)}>✕</button></div>
+            <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 11px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
+              {ejEnConfig.ej.imagen_url&&<img src={ejEnConfig.ej.imagen_url} alt={ejEnConfig.ej.nombre} style={{width:48,height:48,objectFit:'cover',borderRadius:5,flexShrink:0}}/>}
+              <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{ejEnConfig.ej.nombre}</div>
+            </div>
+            <div className="g2">
+              <div className="field"><label>Variante</label>
+                <select className="input" value={configEj.variante} onChange={e=>setConfigEj(p=>({...p,variante:e.target.value}))}>
+                  {VARIANTES.map(v=><option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Capacidad</label>
+                <select className="input" value={configEj.capacidad} onChange={e=>setConfigEj(p=>({...p,capacidad:e.target.value}))}>
+                  {CAPACIDADES.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Series</label><input className="input" type="number" value={configEj.series} onChange={e=>setConfigEj(p=>({...p,series:e.target.value}))}/></div>
+              <div className="field"><label>Reps</label><input className="input" type="number" value={configEj.reps} onChange={e=>setConfigEj(p=>({...p,reps:e.target.value}))}/></div>
+              <div className="field"><label>Peso (kg)</label><input className="input" type="number" value={configEj.peso} onChange={e=>setConfigEj(p=>({...p,peso:e.target.value}))}/></div>
+              <div className="field"><label>Tiempo (seg)</label><input className="input" type="number" value={configEj.tiempo} onChange={e=>setConfigEj(p=>({...p,tiempo:e.target.value}))}/></div>
+            </div>
+            <div className="field"><label>Nota</label><textarea className="input" value={configEj.nota} onChange={e=>setConfigEj(p=>({...p,nota:e.target.value}))} style={{minHeight:56}} placeholder="ej. Precaución rodilla derecha..."/></div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-s btn-sm" onClick={()=>{setEjEnConfig(null);setModalBiblioteca({parteIdx:ejEnConfig.parteIdx})}}>← Volver</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={confirmarEjercicio}>✓ Añadir a la sesión</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
