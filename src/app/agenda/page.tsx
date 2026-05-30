@@ -40,6 +40,7 @@ export default function AgendaPage() {
     es_recuperacion:false, recuperacion_id:''
   })
   const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
+  const [proximasAlertas, setProximasAlertas] = useState<any[]>([])
 
   const hoy = new Date().toISOString().split('T')[0]
   const fechaObj = new Date(fecha+'T12:00:00')
@@ -68,6 +69,9 @@ export default function AgendaPage() {
       fechaFin=fecha.slice(0,7)+'-'+String(ult).padStart(2,'0')
     }
     const { data: nd } = await supabase.from('notas_dia').select('*').eq('fecha', fecha).order('created_at')
+    const hoyStr = new Date().toISOString().split('T')[0]
+    const { data: alertas } = await supabase.from('notas').select('*, pacientes(nombre)').eq('tipo','urgente').eq('visible_agenda',true).gte('fecha', hoyStr).order('fecha').limit(10)
+    setProximasAlertas(alertas||[])
     setNotasDia(nd||[])
     const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).neq('estado','cancelada').order('fecha').order('hora')
     setCitas(c||[])
@@ -279,7 +283,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
         </>
