@@ -36,6 +36,7 @@ function EntrenamientoContent() {
   const [patologiasBiblio, setPatologiasBiblio] = useState<any[]>([])
   const [molestiasBiblio, setMolestiasBiblio] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [pacienteIdParam, setPacienteIdParam] = useState('')
   const [subsubAbiertas, setSubsubAbiertas] = useState<string[]>([])
 
   useEffect(() => { cargar() }, [])
@@ -43,7 +44,7 @@ function EntrenamientoContent() {
   useEffect(() => {
     const nuevaSesion = searchParams.get('nueva_sesion')
     const pacienteId = searchParams.get('paciente_id')
-    if (nuevaSesion && pacienteId) setTab('sesiones')
+    if (nuevaSesion && pacienteId) { setTab('sesiones'); setPacienteIdParam(pacienteId) }
   }, [searchParams])
 
   async function cargar() {
@@ -183,7 +184,7 @@ function EntrenamientoContent() {
       {loading?<div className="loading">Cargando...</div>:(
         <>
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
-          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} cargar={cargar} getNombre={getNombre}/>}
+          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} cargar={cargar}/>}
           {tab==='listas'&&<ListasTab medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}

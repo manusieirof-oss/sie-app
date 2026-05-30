@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type EjercicioSesion = {
@@ -23,7 +23,7 @@ type Parte = {
 const VARIANTES = ['Bilateral','Unilateral','Alterno','Unipodal','Supino','Prono','Decúbito lateral']
 const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resistencia','Propiocepción','Coordinación']
 
-export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, cargar, getNombre }: any) {
+export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, cargar, getNombre, pacienteIdInicial }: any) {
   const [modalSes, setModalSes] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
@@ -35,6 +35,13 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     paciente_id:'', nombre:'', descripcion:'',
     partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}]
   })
+
+  useEffect(() => {
+    if (pacienteIdInicial) {
+      setNuevaSes(p=>({...p, paciente_id: pacienteIdInicial}))
+      setModalSes(true)
+    }
+  }, [pacienteIdInicial])
 
   const ejerciciosFiltrados = ejercicios.filter((e:any) => {
     const matchQ = !buscarBiblio || e.nombre.toLowerCase().includes(buscarBiblio.toLowerCase())
