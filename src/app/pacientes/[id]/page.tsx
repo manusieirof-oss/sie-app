@@ -5,7 +5,7 @@ import FichaTab from './components/FichaTab'
 import TimelineTab from './components/TimelineTab'
 import { useParams, useRouter } from 'next/navigation'
 
-function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void }) {
+function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh, onNuevaSesion }: { pacienteId: string, sesiones: any[], supabase: any, onRefresh: () => void, onNuevaSesion: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
@@ -172,7 +172,7 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
       {seccion==='sesiones' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <button className="btn btn-p btn-sm" onClick={()=>router.push(`/entrenamiento?nueva_sesion=1&paciente_id=${id}`)}>+ Nueva sesión</button>
+            <button className="btn btn-p btn-sm" onClick={onNuevaSesion}>+ Nueva sesión</button>
           </div>
           {sesionesDisp.length===0 ? (
             <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas. Crea la primera.</div>
@@ -878,7 +878,7 @@ export default function FichaPacientePage() {
 
       {/* TAB ENTRENAMIENTO */}
       {tab==='entreno' && (
-        <EntrenoTab pacienteId={String(id)} sesiones={sesiones} supabase={supabase} onRefresh={cargar}/>
+        <EntrenoTab pacienteId={String(id)} sesiones={sesiones} supabase={supabase} onRefresh={cargar} onNuevaSesion={()=>router.push(`/entrenamiento?nueva_sesion=1&paciente_id=${id}`)}/>
       )}
 
       {tab==='resultados' && (
