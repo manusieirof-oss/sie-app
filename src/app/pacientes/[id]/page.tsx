@@ -172,7 +172,7 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
       {seccion==='sesiones' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <a href={`/entrenamiento?nueva_sesion=1&paciente_id=${id}&paciente_nombre=${encodeURIComponent((pac?.nombre_clinica||pac?.nombre||'')+' '+(pac?.apellidos||''))}`} className="btn btn-p btn-sm">+ Nueva sesión</a>
+            <a href={`/entrenamiento?nueva_sesion=1&paciente_id=${pac?.id}&paciente_nombre=${encodeURIComponent((pac?.nombre_clinica||pac?.nombre||'')+' '+(pac?.apellidos||''))}`} className="btn btn-p btn-sm">+ Nueva sesión</a>
           </div>
           {sesionesDisp.length===0 ? (
             <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas. Crea la primera.</div>
