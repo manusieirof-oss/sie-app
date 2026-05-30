@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import BibliotecaTab from './components/BibliotecaTab'
@@ -21,7 +21,7 @@ const CATEGORIAS = [
   { key: 'patologia', label: '🏥 Patología' },
 ]
 
-export default function EntrenamientoPage() {
+function EntrenamientoContent() {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState('biblioteca')
   const [ejercicios, setEjercicios] = useState<any[]>([])
@@ -192,5 +192,13 @@ export default function EntrenamientoPage() {
         </>
       )}
     </>
+  )
+}
+
+export default function EntrenamientoPage() {
+  return (
+    <Suspense fallback={<div className="loading">Cargando...</div>}>
+      <EntrenamientoContent />
+    </Suspense>
   )
 }
