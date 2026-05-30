@@ -125,7 +125,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>🔔 Próximas alertas</div>
             {proximasAlertas.map((a:any,i:number)=>(
               <div key={i} style={{borderRadius:5,padding:'5px 8px',borderLeft:'2px solid var(--amb)',background:'var(--ambl)',marginBottom:4}}>
-                <div style={{fontSize:8,color:'#7A5800',marginBottom:1,fontWeight:500}}>{a.pacientes?.nombre} · {new Date(a.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                <div style={{fontSize:8,color:'#7A5800',marginBottom:1,fontWeight:500}}>{new Date(a.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
                 <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.texto?.replace('🔔 ','')}</div>
               </div>
             ))}
