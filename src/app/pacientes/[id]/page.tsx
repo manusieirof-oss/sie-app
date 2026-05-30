@@ -172,7 +172,7 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
       {seccion==='sesiones' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <button className="btn btn-p btn-sm" onClick={()=>{setEditandoSesion(null);setFormSesion({nombre:'',descripcion:'',partes:[{nombre:'Calentamiento',ejercicios:''},{nombre:'Parte principal',ejercicios:''},{nombre:'Vuelta a la calma',ejercicios:''}]});setModalSesion(true)}}>+ Nueva sesión</button>
+            <a href={`/entrenamiento?nueva_sesion=1&paciente_id=${id}&paciente_nombre=${encodeURIComponent((pac?.nombre_clinica||pac?.nombre||'')+' '+(pac?.apellidos||''))}`} className="btn btn-p btn-sm">+ Nueva sesión</a>
           </div>
           {sesionesDisp.length===0 ? (
             <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas. Crea la primera.</div>
@@ -205,36 +205,7 @@ function EntrenoTab({ pacienteId, sesiones, supabase, onRefresh }: { pacienteId:
             )
           })}
 
-          {/* MODAL SESION */}
-          {modalSesion&&(
-            <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSesion(false)}}>
-              <div className="modal" style={{width:500}}>
-                <div className="modal-title">{editandoSesion?'Editar sesión':'Nueva sesión'}<button className="modal-close" onClick={()=>setModalSesion(false)}>✕</button></div>
-                <div className="field"><label>Nombre *</label><input className="input" value={formSesion.nombre} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} autoFocus/></div>
-                <div className="field"><label>Descripción / objetivo</label><input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="ej. Fuerza tren inferior sin impacto"/></div>
-                {formSesion.partes.map((parte,pi)=>(
-                  <div key={pi} style={{marginBottom:8,border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-                    <div style={{display:'flex',alignItems:'center',padding:'7px 10px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-                      <input style={{flex:1,fontSize:10,fontWeight:500,color:'var(--n)',background:'transparent',border:'none',outline:'none',fontFamily:'system-ui'}}
-                        value={parte.nombre} onChange={e=>setFormSesion(prev=>{const p=[...prev.partes];p[pi]={...p[pi],nombre:e.target.value};return{...prev,partes:p}})}/>
-                      {formSesion.partes.length>1&&<button onClick={()=>setFormSesion(prev=>({...prev,partes:prev.partes.filter((_,i)=>i!==pi)}))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>}
-                    </div>
-                    <div style={{padding:8}}>
-                      <textarea className="input" style={{minHeight:80,fontSize:11}} value={parte.ejercicios}
-                        placeholder="Escribe los ejercicios uno por línea&#10;ej: Sentadilla búlgara · 4x10 · 20kg&#10;Puente glúteo · 3x30seg"
-                        onChange={e=>setFormSesion(prev=>{const p=[...prev.partes];p[pi]={...p[pi],ejercicios:e.target.value};return{...prev,partes:p}})}/>
-                    </div>
-                  </div>
-                ))}
-                <button className="btn btn-t btn-sm" onClick={()=>setFormSesion(prev=>({...prev,partes:[...prev.partes,{nombre:'Nueva parte',ejercicios:''}]}))}>+ Añadir parte</button>
-                <div style={{display:'flex',gap:8,marginTop:8}}>
-                  <button className="btn btn-d btn-sm" onClick={()=>setModalSesion(false)}>Cancelar</button>
-                  <div style={{flex:1}}/>
-                  <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar sesión'}</button>
-                </div>
-              </div>
-            </div>
-          )}
+
         </div>
       )}
 
