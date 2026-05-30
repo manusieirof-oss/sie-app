@@ -48,7 +48,8 @@ export default function TimelineTab({ pacienteId }: { pacienteId: string }) {
   async function guardarNota() {
     if (!nuevaNota.trim()) return
     setGuardando(true)
-    await supabase.from('notas').insert({ paciente_id: pacienteId, texto: nuevaNota, tipo: 'clinica', fecha: new Date().toISOString().split('T')[0], visible_agenda: false })
+    const { error } = await supabase.from('notas').insert({ paciente_id: pacienteId, texto: nuevaNota, tipo: 'clinica', fecha: new Date().toISOString().split('T')[0], visible_agenda: false })
+    if (error) { alert('Error: '+error.message); setGuardando(false); return }
     setNuevaNota(''); setModalNota(false); setGuardando(false); cargar()
   }
 
