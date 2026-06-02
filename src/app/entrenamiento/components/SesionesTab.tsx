@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import ModalEditarSesion from './ModalEditarSesion'
 import { supabase } from '@/lib/supabase'
 
 type EjercicioSesion = {
@@ -31,6 +32,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [buscarBiblio, setBuscarBiblio] = useState('')
   const [filtroEtBiblio, setFiltroEtBiblio] = useState<string[]>([])
   const [configEj, setConfigEj] = useState<EjercicioSesion>({ ejercicio_id:'', nombre:'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
+  const [sesionEditando, setSesionEditando] = useState<any>(null)
   const [aplicarTodos, setAplicarTodos] = useState<{parteIdx:number}|null>(null)
   const [configBloque, setConfigBloque] = useState({series:'', reps:'', tiempo:'', descanso:''})
   const [nuevaSes, setNuevaSes] = useState<{paciente_id:string,nombre:string,descripcion:string,partes:Parte[]}>({
@@ -112,6 +114,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
             <div style={{display:'flex',gap:5,alignItems:'center'}}>
               <span className={`badge ${s.estado==='realizada'?'badge-g':s.estado==='lista'?'badge-pen':'badge-b'}`}>{s.estado}</span>
               {s.estado!=='realizada'&&<button className="btn btn-t btn-sm" onClick={()=>cambiarEstado(s.id,'realizada')}>✓ Realizada</button>}
+                <button className="btn btn-s btn-sm" onClick={()=>setSesionEditando(s)}>✏️ Editar</button>
             </div>
           </div>
           {(s.partes||[]).map((parte:any,pi:number)=>(
@@ -203,6 +206,15 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
             </div>
           </div>
         </div>
+      )}
+
+      {sesionEditando&&(
+        <ModalEditarSesion
+          sesion={sesionEditando}
+          ejercicios={ejercicios}
+          onGuardado={cargar}
+          onCerrar={()=>setSesionEditando(null)}
+        />
       )}
 
       {/* MODAL APLICAR A TODOS */}
