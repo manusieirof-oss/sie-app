@@ -31,6 +31,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [buscarBiblio, setBuscarBiblio] = useState('')
   const [filtroEtBiblio, setFiltroEtBiblio] = useState<string[]>([])
   const [configEj, setConfigEj] = useState<EjercicioSesion>({ ejercicio_id:'', nombre:'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
+  const [aplicarTodos, setAplicarTodos] = useState<{parteIdx:number}|null>(null)
+  const [configBloque, setConfigBloque] = useState({series:'', reps:'', tiempo:'', descanso:''})
   const [nuevaSes, setNuevaSes] = useState<{paciente_id:string,nombre:string,descripcion:string,partes:Parte[]}>({
     paciente_id:'', nombre:'', descripcion:'',
     partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}]
@@ -159,6 +161,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
                     <input value={parte.nombre} onChange={e=>renombrarParte(pi,e.target.value)} style={{flex:1,fontSize:12,fontWeight:500,color:'var(--n)',border:'none',background:'transparent',fontFamily:'system-ui',padding:'2px 0'}}/>
                     <button className="btn btn-t btn-sm" onClick={()=>setModalBiblioteca({parteIdx:pi})}>+ Añadir ejercicio</button>
+                    {parte.ejercicios.length>0&&<button className="btn btn-s btn-sm" onClick={()=>{setConfigBloque({series:'',reps:'',tiempo:'',descanso:''});setAplicarTodos({parteIdx:pi})}}>⚡ Aplicar a todos</button>}
                     {nuevaSes.partes.length>1&&<button onClick={()=>eliminarParte(pi)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 6px'}}>✕</button>}
                   </div>
                   <div style={{padding:8}}>
@@ -197,6 +200,56 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
               <button className="btn btn-d btn-sm" onClick={()=>setModalSes(false)} disabled={guardando}>Cancelar</button>
               <div style={{flex:1}}/>
               <button className="btn btn-p" onClick={crearSesion} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar sesión'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL APLICAR A TODOS */}
+      {aplicarTodos&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setAplicarTodos(null)}}>
+          <div className="modal" style={{width:400}}>
+            <div className="modal-title">
+              ⚡ Aplicar a todos · {nuevaSes.partes[aplicarTodos.parteIdx]?.nombre}
+              <button className="modal-close" onClick={()=>setAplicarTodos(null)}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:12}}>
+              Se aplicará a los {nuevaSes.partes[aplicarTodos.parteIdx]?.ejercicios.length} ejercicios de este bloque. Deja en blanco lo que no quieras cambiar.
+            </div>
+            <div className="g2">
+              <div className="field"><label>Series</label>
+                <input className="input" type="number" value={configBloque.series} onChange={e=>setConfigBloque(p=>({...p,series:e.target.value}))} placeholder="ej. 3"/>
+              </div>
+              <div className="field"><label>Repeticiones</label>
+                <input className="input" type="number" value={configBloque.reps} onChange={e=>setConfigBloque(p=>({...p,reps:e.target.value}))} placeholder="ej. 10"/>
+              </div>
+              <div className="field"><label>Tiempo (segundos)</label>
+                <input className="input" type="number" value={configBloque.tiempo} onChange={e=>setConfigBloque(p=>({...p,tiempo:e.target.value}))} placeholder="ej. 60"/>
+              </div>
+              <div className="field"><label>Descanso entre ejercicios (seg)</label>
+                <input className="input" type="number" value={configBloque.descanso} onChange={e=>setConfigBloque(p=>({...p,descanso:e.target.value}))} placeholder="ej. 60"/>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setAplicarTodos(null)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={()=>{
+                setNuevaSes(prev=>{
+                  const partes=[...prev.partes]
+                  partes[aplicarTodos.parteIdx]={
+                    ...partes[aplicarTodos.parteIdx],
+                    ejercicios: partes[aplicarTodos.parteIdx].ejercicios.map(ej=>({
+                      ...ej,
+                      ...(configBloque.series&&{series:configBloque.series}),
+                      ...(configBloque.reps&&{reps:configBloque.reps}),
+                      ...(configBloque.tiempo&&{tiempo:configBloque.tiempo}),
+                      ...(configBloque.descanso&&{nota:ej.nota?ej.nota+` · Descanso ${configBloque.descanso}seg`:`Descanso ${configBloque.descanso}seg`}),
+                    }))
+                  }
+                  return {...prev,partes}
+                })
+                setAplicarTodos(null)
+              }}>✓ Aplicar</button>
             </div>
           </div>
         </div>
