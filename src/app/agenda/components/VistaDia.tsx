@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas }: {
   fecha: string
   hoy: string
   fechaDisplay: string
@@ -19,8 +19,10 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
   pausaInicio?: string
   pausaFin?: string
   descanso?: number
+  maxPersonas?: number
 }) {
   const DESCANSO = descanso || 10
+  const MAX = maxPersonas || 6
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const PAUSA_INICIO = pausaInicio || '12:30'
   const PAUSA_FIN = pausaFin || '15:30'
@@ -55,9 +57,9 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                       <div style={{borderRadius:4,padding:'3px 5px',background:tipo==='valoracion'||tipo==='revaloracion'?'var(--ambl)':'var(--gl)',borderLeft:`2px solid ${tipo==='valoracion'||tipo==='revaloracion'?'var(--amb)':'var(--g)'}`}}>
                         <div style={{fontSize:7,color:'var(--gr)',marginBottom:2,display:'flex',justifyContent:'space-between'}}>
                           <span>{tipo==='valoracion'?'Valoración':tipo==='individual'?'Individual':tipo==='revaloracion'?'Revaloración':'Clase'}</span>
-                          <span>{sc.length}/6</span>
+                          <span>{sc.length}/{MAX}</span>
                         </div>
-                        {sc.length<6&&sc.length>0&&(
+                        {sc.length<MAX&&sc.length>0&&(
                           <div onClick={e=>{e.stopPropagation();setNuevaCita((p:any)=>({...p,hora:h,sala}));setModal(true)}}
                             style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}>+</div>
                         )}
