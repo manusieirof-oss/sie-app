@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso }: {
   fecha: string
   hoy: string
   fechaDisplay: string
@@ -18,7 +18,9 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
   horas?: string[]
   pausaInicio?: string
   pausaFin?: string
+  descanso?: number
 }) {
+  const DESCANSO = descanso || 10
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const PAUSA_INICIO = pausaInicio || '12:30'
   const PAUSA_FIN = pausaFin || '15:30'
@@ -78,7 +80,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             </div>
             <div style={{display:'grid',gridTemplateColumns:'48px 1fr 1fr',background:'var(--bl)'}}>
               <div style={{borderRight:'1px solid var(--bm)'}}/>
-              <div style={{gridColumn:'2/-1',padding:'1px 6px',borderLeft:'1px solid var(--bm)',fontSize:7,color:'var(--grl)'}}>10 min cambio</div>
+              <div style={{gridColumn:'2/-1',padding:'1px 6px',borderLeft:'1px solid var(--bm)',fontSize:7,color:'var(--grl)'}}>{DESCANSO} min cambio</div>
             </div>
           </div>
         ))}

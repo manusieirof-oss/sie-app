@@ -45,6 +45,7 @@ export default function AgendaPage() {
   const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
   const [pausaInicio, setPausaInicio] = useState('12:30')
   const [pausaFin, setPausaFin] = useState('15:30')
+  const [descanso, setDescanso] = useState(10)
 
   const hoy = new Date().toISOString().split('T')[0]
   const fechaObj = new Date(fecha+'T12:00:00')
@@ -65,9 +66,8 @@ export default function AgendaPage() {
       const descanso = parseInt(map.clinica_tiempo_cambio || '10')
       setPausaInicio(pInicio)
       setPausaFin(pFin)
-      const nuevasHoras = generarHoras(inicio, fin, pInicio, pFin, duracion, descanso)
-      console.log('Ajustes cargados:', {inicio, fin, pInicio, pFin, duracion, descanso, slots: nuevasHoras})
-      setHoras(nuevasHoras)
+      setDescanso(descanso)
+      setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
     }
   }
   useEffect(() => { cargar() }, [fecha, vista])
@@ -306,7 +306,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
         </>
