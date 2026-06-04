@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { generarHoras } from '@/lib/generarHoras'
 import VistaDia from './components/VistaDia'
 import VistaSemana from './components/VistaSemana'
 import VistaMes from './components/VistaMes'
@@ -41,6 +42,9 @@ export default function AgendaPage() {
   })
   const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
   const [proximasAlertas, setProximasAlertas] = useState<any[]>([])
+  const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
+  const [pausaInicio, setPausaInicio] = useState('12:30')
+  const [pausaFin, setPausaFin] = useState('15:30')
 
   const hoy = new Date().toISOString().split('T')[0]
   const fechaObj = new Date(fecha+'T12:00:00')
