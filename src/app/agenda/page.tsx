@@ -65,7 +65,9 @@ export default function AgendaPage() {
       const descanso = parseInt(map.clinica_tiempo_cambio || '10')
       setPausaInicio(pInicio)
       setPausaFin(pFin)
-      setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
+      const nuevasHoras = generarHoras(inicio, fin, pInicio, pFin, duracion, descanso)
+      console.log('Ajustes cargados:', {inicio, fin, pInicio, pFin, duracion, descanso, slots: nuevasHoras})
+      setHoras(nuevasHoras)
     }
   }
   useEffect(() => { cargar() }, [fecha, vista])
