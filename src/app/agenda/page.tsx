@@ -50,7 +50,24 @@ export default function AgendaPage() {
   const fechaObj = new Date(fecha+'T12:00:00')
   const fechaDisplay = fechaObj.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 
-  useEffect(() => { cargarPacientes() }, [])
+  useEffect(() => { cargarPacientes(); cargarAjustes() }, [])
+
+  async function cargarAjustes() {
+    const { data } = await supabase.from('ajustes').select('clave,valor')
+    if (data) {
+      const map: Record<string,string> = {}
+      data.forEach((a:any) => { map[a.clave] = a.valor || '' })
+      const inicio = map.agenda_inicio || '08:30'
+      const fin = map.agenda_fin || '21:30'
+      const pInicio = map.clinica_pausa_inicio || '12:30'
+      const pFin = map.clinica_pausa_fin || '15:30'
+      const duracion = parseInt(map.clinica_duracion_clase || '50')
+      const descanso = parseInt(map.clinica_tiempo_cambio || '10')
+      setPausaInicio(pInicio)
+      setPausaFin(pFin)
+      setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
+    }
+  }
   useEffect(() => { cargar() }, [fecha, vista])
 
   async function cargarPacientes() {
