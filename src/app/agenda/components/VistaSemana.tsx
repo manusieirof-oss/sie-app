@@ -1,8 +1,6 @@
 'use client'
 
-const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
-
-export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel }: {
+export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin }: {
   fecha: string
   hoy: string
   citas: any[]
@@ -12,7 +10,13 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
   setNuevaCita: (fn: (p: any) => any) => void
   setModal: (v: boolean) => void
   abrirPanel: (c: any) => void
+  horas?: string[]
+  pausaInicio?: string
+  pausaFin?: string
 }) {
+  const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
+  const PAUSA_INICIO = pausaInicio || '12:30'
+  const PAUSA_FIN = pausaFin || '15:30'
   const fs = getFechasSemana()
   const dn = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
@@ -37,7 +41,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
       </div>
       {HORAS.map(h=>(
         <div key={h}>
-          {h==='15:30'&&<div style={{padding:'3px 10px',background:'var(--bm)',borderBottom:'1px solid var(--bd)',fontSize:8,color:'var(--gr)'}}>— Pausa 12:30–15:30</div>}
+          {h===PAUSA_FIN&&<div style={{padding:'3px 10px',background:'var(--bm)',borderBottom:'1px solid var(--bd)',fontSize:8,color:'var(--gr)'}}>— Pausa {PAUSA_INICIO}–{PAUSA_FIN}</div>}
           <div style={{display:'grid',gridTemplateColumns:'44px repeat(6,1fr)',borderBottom:'1px solid var(--bl)'}}>
             <div style={{fontSize:8,color:'var(--grl)',padding:'4px 2px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:300}}>{h}</div>
             {fs.map(f=>{
