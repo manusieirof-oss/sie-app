@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 
-export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, guardando, guardarEdicionCita, cambiarEstado }: any) {
+export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, guardando, guardarEdicionCita, cambiarEstado, horas }: any) {
+  const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const [modalNota, setModalNota] = useState(false)
   const [modalAviso, setModalAviso] = useState(false)
   const [textoNota, setTextoNota] = useState('')

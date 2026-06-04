@@ -2,7 +2,7 @@
 import PanelSesion from './PanelSesion'
 import PanelDatos from './PanelDatos'
 
-export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDetalle, sesionesPaciente, loadingSesion, mostrarSesiones, setMostrarSesiones, anotaciones, setAnotaciones, pesos, setPesos, guardandoAnot, editandoCita, setEditandoCita, guardando, guardarAnotacion, asignarSesion, guardarEdicionCita, cambiarEstado, onCerrar }: any) {
+export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDetalle, sesionesPaciente, loadingSesion, mostrarSesiones, setMostrarSesiones, anotaciones, setAnotaciones, pesos, setPesos, guardandoAnot, editandoCita, setEditandoCita, guardando, guardarAnotacion, asignarSesion, guardarEdicionCita, cambiarEstado, onCerrar, horas }: any) {
   return (
     <>
       <div onClick={onCerrar} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
@@ -55,6 +55,7 @@ export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDe
               guardando={guardando}
               guardarEdicionCita={guardarEdicionCita}
               cambiarEstado={cambiarEstado}
+              horas={horas}
             />
           )}
         </div>

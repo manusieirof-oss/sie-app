@@ -310,11 +310,11 @@ export default function AgendaPage() {
         </>
       )}
 
-      {panelPac&&<PanelLateral panelPac={panelPac} panelTab={panelTab} setPanelTab={setPanelTab} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} guardarEdicionCita={guardarEdicionCita} cambiarEstado={cambiarEstado} onCerrar={()=>setPanelPac(null)}/>}
+      {panelPac&&<PanelLateral panelPac={panelPac} panelTab={panelTab} setPanelTab={setPanelTab} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} guardarEdicionCita={guardarEdicionCita} cambiarEstado={cambiarEstado} onCerrar={()=>setPanelPac(null)} horas={horas}/>}
 
       {modalNota&&<ModalNotaDia fechaDisplay={fechaDisplay} nuevaNota={nuevaNota} setNuevaNota={setNuevaNota} onGuardar={crearNotaDia} onCerrar={()=>setModalNota(false)}/>}
 
-      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector}/>}
+      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas}/>}
     </>
   )
 }

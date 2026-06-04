@@ -3,7 +3,8 @@
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
-export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector }: any) {
+export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas }: any) {
+  const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   function toggleDia(dia: string) {
     setNuevaCita((p: any) => ({...p, dias_repetir: p.dias_repetir.includes(dia) ? p.dias_repetir.filter((d: string) => d !== dia) : [...p.dias_repetir, dia]}))
   }
