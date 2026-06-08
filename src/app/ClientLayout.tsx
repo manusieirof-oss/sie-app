@@ -14,6 +14,8 @@ const NAV = [
   { href: '/ajustes', icon: '⚙️', label: 'Ajustes' },
 ]
 
+const NAV_FINANZAS = { href: '/finanzas', icon: '💰', label: 'Finanzas' }
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined)
   const [perfil, setPerfil] = useState<any>(null)
@@ -59,7 +61,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const todayStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const pageTitle: Record<string,string> = {
     '/agenda':'Agenda','/pacientes':'Pacientes','/entrenamiento':'Biblioteca','/taller':'Taller',
-    '/valoracion':'Valoración','/estadisticas':'Stats','/ajustes':'Ajustes',
+    '/valoracion':'Valoración','/estadisticas':'Stats','/ajustes':'Ajustes','/finanzas':'Finanzas',
   }
   const currentTitle = Object.entries(pageTitle).find(([k])=>pathname.startsWith(k))?.[1] ?? 'SIE'
 
@@ -73,6 +75,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <span className="nav-label">{n.label}</span>
           </Link>
         ))}
+        {(perfil?.rol==='admin' || perfil?.permisos?.finanzas===true) && (
+          <Link href={NAV_FINANZAS.href} className={`nav-item ${pathname.startsWith(NAV_FINANZAS.href)?'active':''}`}>
+            <span>{NAV_FINANZAS.icon}</span>
+            <span className="nav-label">{NAV_FINANZAS.label}</span>
+          </Link>
+        )}
         <div style={{marginTop:'auto'}}>
           <button className="nav-item" onClick={handleLogout}>
             <span>🚪</span>
