@@ -17,7 +17,7 @@ export default function PasoPlan({ form, up }: any) {
         </div>
         <div className="card">
           <div className="card-title">Bono definitivo</div>
-          {([['esencial','Esencial','2 días/semana'],['progreso','Progreso','3 días/semana'],['avanzado','Avanzado','4 días/semana'],['avanzado_mas1','Avanzado +1','5 días/semana'],['individual','Individual','Sesiones individuales']] as const).map(([v,l,d])=>(
+          {([['reducido','Reducido','2 días/semana'],['esencial','Esencial','3 días/semana'],['progreso','Progreso','4 días/semana'],['avanzado','Avanzado','5 días/semana'],['individual','Individual','Sesiones sueltas'],['bono4','Bono 4 sesiones','4 sesiones']] as const).map(([v,l,d])=>(
             <div key={v} onClick={()=>up('bono',v)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1.5px solid ${form.bono===v?'var(--g)':'var(--bd)'}`,background:form.bono===v?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:4,transition:'all .15s'}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{l}</div>

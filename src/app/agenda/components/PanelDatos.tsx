@@ -15,7 +15,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
   const [fechaAviso, setFechaAviso] = useState('')
   const [guardandoNota, setGuardandoNota] = useState(false)
 
-  const bonoLabel: Record<string,string> = {esencial:'Esencial · 2d/sem',progreso:'Progreso · 3d/sem',avanzado:'Avanzado · 4d/sem',avanzado_mas1:'Avanzado+1 · 5d/sem',individual:'Individual'}
+  const bonoLabel: Record<string,string> = {reducido:'Reducido · 2d/sem',esencial:'Esencial · 3d/sem',progreso:'Progreso · 4d/sem',avanzado:'Avanzado · 5d/sem',individual:'Individual',bono4:'Bono 4 sesiones'}
   const pagoColor: Record<string,string> = {pagado:'var(--g)',pendiente:'var(--red)',parcial:'var(--amb)'}
 
   async function guardarNotaRapida() {

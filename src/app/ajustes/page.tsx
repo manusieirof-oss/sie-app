@@ -18,7 +18,7 @@ export default function AjustesPage() {
   const [tiposJornada, setTiposJornada] = useState<string[]>([])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>([])
   const [deportesLista, setDeportesLista] = useState<string[]>([])
-  const [bonos, setBonos] = useState([{id:'esencial',nombre:'Esencial',dias:2,descripcion:'2 días/semana'},{id:'progreso',nombre:'Progreso',dias:3,descripcion:'3 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:4,descripcion:'4 días/semana'},{id:'avanzado_mas1',nombre:'Avanzado +1',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones individuales'}])
+  const [bonos, setBonos] = useState([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
   const [nuevoComoNos, setNuevoComoNos] = useState('')
   const [nuevoJornada, setNuevoJornada] = useState('')
   const [nuevoPlantilla, setNuevoPlantilla] = useState('')

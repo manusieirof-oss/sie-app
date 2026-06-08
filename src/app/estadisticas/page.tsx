@@ -92,7 +92,7 @@ export default function StatsPage() {
   // BONOS POR TIPO
   const bonosMap: Record<string,number> = {}
   bonos.forEach(b=>{ bonosMap[b.tipo]=(bonosMap[b.tipo]||0)+1 })
-  const bonoLabel: Record<string,string> = {esencial:'Esencial',progreso:'Progreso',avanzado:'Avanzado',avanzado_mas1:'Avanzado+1'}
+  const bonoLabel: Record<string,string> = {reducido:'Reducido',esencial:'Esencial',progreso:'Progreso',avanzado:'Avanzado',individual:'Individual',bono4:'Bono 4 sesiones'}
 
   return (
     <div>

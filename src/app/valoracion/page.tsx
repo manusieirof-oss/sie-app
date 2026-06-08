@@ -40,7 +40,7 @@ export default function ValoracionPage() {
     plantillas:false as boolean,tipo_plantilla:'' as string,
     medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
     patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
-    tipo_clase_def:'entrenamiento',bono:'esencial',dias_asistencia:'',franja:'manana',notas_plan:'',
+    tipo_clase_def:'entrenamiento',bono:'reducido',dias_asistencia:'',franja:'manana',notas_plan:'',
   })
 
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
@@ -76,7 +76,7 @@ export default function ValoracionPage() {
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
       }
-      const diasMap: Record<string,number> = { esencial:2, progreso:3, avanzado:4, avanzado_mas1:5, individual:1 }
+      const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
       await Promise.all([
         supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true }),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan}) }),

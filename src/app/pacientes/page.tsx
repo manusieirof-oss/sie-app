@@ -53,7 +53,7 @@ export default function PacientesPage() {
   const tipoLabel: Record<string,string> = { entrenamiento:'🏋 Entrenamiento', pilates:'🧘 Pilates', rehabilitacion:'🏥 Rehabilitación' }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
-  const bonoLabel: Record<string,string> = { esencial:'Esencial', progreso:'Progreso', avanzado:'Avanzado', avanzado_mas1:'Avanzado +1' }
+  const bonoLabel: Record<string,string> = { reducido:'Reducido', esencial:'Esencial', progreso:'Progreso', avanzado:'Avanzado', individual:'Individual', bono4:'Bono 4 sesiones' }
 
   const filtrados = pacientes.filter(p=>{
     const q = buscar.toLowerCase()

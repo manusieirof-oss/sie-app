@@ -22,7 +22,7 @@ export default function NuevoPacientePage() {
     if (!form.nombre || !form.apellidos) { setError('Nombre y apellidos son obligatorios'); return }
     setSaving(true)
     setError('')
-    const dias = { esencial: 2, progreso: 3, avanzado: 4, avanzado_mas1: 5 }
+    const dias = { reducido: 2, esencial: 3, progreso: 4, avanzado: 5, individual: 1, bono4: 1 }
     const { data: pat, error: err } = await supabase.from('pacientes').insert({
       nombre: form.nombre, apellidos: form.apellidos, dni: form.dni || null,
       fecha_nacimiento: form.fecha_nacimiento || null, telefono: form.telefono || null,
@@ -91,7 +91,7 @@ export default function NuevoPacientePage() {
               </div>
               <div className="card">
                 <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--grl)', letterSpacing: '.7px', textTransform: 'uppercase', marginBottom: 12 }}>Bono</div>
-                {[['esencial','Esencial','2 días/semana'],['progreso','Progreso','3 días/semana'],['avanzado','Avanzado','4 días/semana'],['avanzado_mas1','Avanzado +1','5 días/semana']].map(([v,l,d]) => (
+                {[['reducido','Reducido','2 días/semana'],['esencial','Esencial','3 días/semana'],['progreso','Progreso','4 días/semana'],['avanzado','Avanzado','5 días/semana'],['individual','Individual','Sesiones sueltas'],['bono4','Bono 4 sesiones','4 sesiones']].map(([v,l,d]) => (
                   <div key={v} onClick={() => setBono(b => ({ ...b, tipo: v }))}
                     style={{ border: `1.5px solid ${bono.tipo === v ? 'var(--g)' : 'var(--bd)'}`, background: bono.tipo === v ? 'var(--gl)' : 'var(--w)', borderRadius: 6, padding: '8px 11px', cursor: 'pointer', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ flex: 1 }}><div style={{ fontSize: 11, fontWeight: 400, color: 'var(--n)' }}>{l}</div><div style={{ fontSize: 9, color: 'var(--grl)' }}>{d}</div></div>
