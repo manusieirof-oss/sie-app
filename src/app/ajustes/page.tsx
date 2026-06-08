@@ -6,9 +6,10 @@ import ValoracionTab from './components/ValoracionTab'
 import BonosTab from './components/BonosTab'
 import RecuperacionesTab from './components/RecuperacionesTab'
 import UsuariosTab from './components/UsuariosTab'
+import CuentaTab from './components/CuentaTab'
 
 export default function AjustesPage() {
-  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'usuarios'>('clinica')
+  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'usuarios'|'cuenta'>('clinica')
   const [perfilActual, setPerfilActual] = useState<any>(null)
   const [ajustes, setAjustes] = useState<Record<string,string>>({})
   const [guardando, setGuardando] = useState(false)
@@ -79,7 +80,7 @@ export default function AjustesPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
-          {([['clinica','🏥 Clínica'],['valoracion','📋 Valoración'],['bonos','🎫 Bonos'],['recuperaciones','🔄 Recuperaciones'],...(perfilActual?.rol==='admin'?[['usuarios','👥 Usuarios']]:[])] as const).map(([k,l])=>(
+          {([['clinica','🏥 Clínica'],['valoracion','📋 Valoración'],['bonos','🎫 Bonos'],['recuperaciones','🔄 Recuperaciones'],['cuenta','🔐 Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','👥 Usuarios']]:[])] as const).map(([k,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:10,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:300,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
               {l}
@@ -96,6 +97,7 @@ export default function AjustesPage() {
       {tab==='bonos'&&<BonosTab bonos={bonos} setBonos={setBonos}/>}
       {tab==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
       {tab==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
+      {tab==='cuenta'&&<CuentaTab perfilActual={perfilActual}/>}
     </div>
   )
 }
