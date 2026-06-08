@@ -4,7 +4,7 @@ export default function ResumenTab({ planes, gastos, bonos }: any) {
   // Mapa de precios finales por tipo de bono
   const precioPorTipo: Record<string, number> = {}
   planes.forEach((p: any) => {
-    precioPorTipo[p.bono_tipo] = Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
+    precioPorTipo[p.bono_tipo] = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
   })
 
   // Bonos activos

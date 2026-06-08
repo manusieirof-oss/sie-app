@@ -13,7 +13,7 @@ export default function PlanesTab({ planes, recargar }: any) {
     setEditando(p.id)
     setModo('final')
     setIvaEdit(String(p.iva))
-    const final = Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
+    const final = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
     setValor(String(final))
   }
 
@@ -21,11 +21,15 @@ export default function PlanesTab({ planes, recargar }: any) {
     setGuardando(true)
     const v = parseFloat(valor) || 0
     const iva = parseFloat(ivaEdit) || 0
-    // Si el modo es 'final', calculamos el base. Si es 'base', lo usamos directamente.
-    const base = modo === 'final'
-      ? Math.round((v / (1 + iva/100)) * 100) / 100
-      : v
-    await supabase.from('planes').update({ precio_base: base, iva }).eq('id', p.id)
+    let base, finalP
+    if (modo === 'final') {
+      finalP = v
+      base = Math.round((v / (1 + iva/100)) * 100) / 100
+    } else {
+      base = v
+      finalP = Math.round(v * (1 + iva/100) * 100) / 100
+    }
+    await supabase.from('planes').update({ precio_base: base, precio_final: finalP, iva }).eq('id', p.id)
     setEditando(null)
     setGuardando(false)
     recargar()
@@ -58,8 +62,8 @@ export default function PlanesTab({ planes, recargar }: any) {
       </div>
 
       {planes.map((p:any) => {
-        const ivaImporte = Math.round(p.precio_base * (p.iva/100) * 100) / 100
-        const final = Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
+        const final = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
+        const ivaImporte = Math.round((final - p.precio_base) * 100) / 100
         const enEdicion = editando === p.id
         const preview = enEdicion ? calcularPreview() : null
 
