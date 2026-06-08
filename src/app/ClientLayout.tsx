@@ -16,6 +16,7 @@ const NAV = [
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined)
+  const [perfil, setPerfil] = useState<any>(null)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -28,6 +29,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (user?.id) {
+      supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
+        setPerfil(data)
+      })
+    }
+  }, [user])
 
   useEffect(() => {
     if (user === null && pathname !== '/login') router.push('/login')
