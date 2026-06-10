@@ -208,7 +208,8 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                 const hoy=new Date();hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
                 const fechaRev=hoy.toISOString().split('T')[0]
                 const ladoVacio=()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
-                {const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])}
+                const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
+                setTestActivo(testsValoracion.length)
               }} style={{display:'flex',alignItems:'center',gap:7,padding:'7px 8px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:5,cursor:'pointer',background:'var(--w)'}}>
                 {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:26,height:26,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧪</div>}
                 <span style={{fontSize:10,color:'var(--n)',flex:1}}>{t.nombre}</span>
