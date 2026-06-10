@@ -71,7 +71,7 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
                     {LADOS.map(([k,l])=>{
                       const tiene = tv.lados?.[k] && tv.lados[k].resultado!=='sin_realizar'
                       return (
-                        <button key={k} onClick={()=>{const tv2=[...testsValoracion];tv2[ti]={...tv2[ti],ladoActivo:k};setTestsValoracion(tv2)}}
+                        <button key={k} onClick={()=>{const tv2=[...testsValoracion];const ex=tv2[ti].lados?.[k];const init=ex||{items_resultado:(testLib?.items||[]).map((it:any)=>({...it,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:''};tv2[ti]={...tv2[ti],ladoActivo:k,lados:{...(tv2[ti].lados||{}),[k]:init}};setTestsValoracion(tv2)}}
                           style={{fontSize:10,padding:'6px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:ladoActivo===k?'var(--w)':'transparent',color:ladoActivo===k?'var(--n)':'var(--grl)',fontWeight:ladoActivo===k?500:300,boxShadow:ladoActivo===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
                           {l}{tiene&&<span style={{width:6,height:6,borderRadius:'50%',background:tv.lados[k].resultado==='positivo'?'var(--red)':'var(--g)'}}/>}
                         </button>
@@ -106,11 +106,16 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
                       <div style={{padding:'7px 11px',borderRadius:6,background:d.resultado==='positivo'?'var(--redl)':'var(--gl)',border:`1px solid ${d.resultado==='positivo'?'var(--red)':'var(--gm)'}`,fontSize:10,fontWeight:500,color:d.resultado==='positivo'?'var(--red)':'var(--gd)',marginTop:6}}>
                         {d.resultado==='positivo'?'+ Positivo':d.resultado==='negativo'?'− Negativo':'Marca los ítems observados'} {d.resultado!=='sin_realizar'&&'· calculado automáticamente'}
                       </div>
+                      {(d.items_resultado||[]).filter((it:any)=>it.marcado).length===0 && (
+                        <div onClick={()=>updateLado(ti,ladoActivo,{resultado:d.resultado==='negativo'?'sin_realizar':'negativo'})} style={{marginTop:6,padding:'6px 10px',borderRadius:6,border:`1.5px solid ${d.resultado==='negativo'?'var(--g)':'var(--bd)'}`,background:d.resultado==='negativo'?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:500,color:d.resultado==='negativo'?'var(--gd)':'var(--grl)'}}>
+                          {d.resultado==='negativo'?'✓ Marcado como negativo':'Sin hallazgos · marcar como − Negativo'}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div style={{display:'flex',gap:6,marginBottom:10}}>
                       {(['positivo','negativo'] as const).map(v=>(
-                        <div key={v} onClick={()=>updateLado(ti,ladoActivo,{resultado:v})} style={{flex:1,padding:'9px',borderRadius:'var(--rl)',border:`2px solid ${d.resultado===v?(v==='positivo'?'var(--red)':'var(--g)'):'var(--bd)'}`,background:d.resultado===v?(v==='positivo'?'var(--redl)':'var(--gl)'):'var(--w)',cursor:'pointer',textAlign:'center'}}>
+                        <div key={v} onClick={()=>updateLado(ti,ladoActivo,{resultado:d.resultado===v?'sin_realizar':v})} style={{flex:1,padding:'9px',borderRadius:'var(--rl)',border:`2px solid ${d.resultado===v?(v==='positivo'?'var(--red)':'var(--g)'):'var(--bd)'}`,background:d.resultado===v?(v==='positivo'?'var(--redl)':'var(--gl)'):'var(--w)',cursor:'pointer',textAlign:'center'}}>
                           <div style={{fontSize:11,fontWeight:500,color:d.resultado===v?(v==='positivo'?'var(--red)':'var(--gd)'):'var(--grl)'}}>{v==='positivo'?'+ Positivo':'− Negativo'}</div>
                         </div>
                       ))}
