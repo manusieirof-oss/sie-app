@@ -18,12 +18,12 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
-  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as {nombre:string,tiene_grados:boolean}[], logica:'cualquiera', etiquetas_relacionadas:[] as string[] })
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as {nombre:string,tiene_grados:boolean}[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], tipo_lado:'bilateral' })
 
   async function crearTest() {
     if (!nuevoTest.nombre) { alert('El nombre es obligatorio'); return }
     setSubiendoImgTest(true)
-    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, imagen_url:'' }).select().single()
+    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
     if (!error && t && nuevoTest.imagen_file) {
       const ext = nuevoTest.imagen_file.name.split('.').pop()
       const path = `tests/${t.id}/foto.${ext}`
@@ -35,14 +35,14 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
     }
     setSubiendoImgTest(false)
     setModalTest(false)
-    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', etiquetas_relacionadas:[] })
+    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', etiquetas_relacionadas:[], tipo_lado:'bilateral' })
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
   }
 
   async function guardarEditTest() {
     if (!testEditando) return
-    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[] }).eq('id', testEditando.id)
+    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], tipo_lado:testEditando.tipo_lado||'bilateral' }).eq('id', testEditando.id)
     setModalEditarTest(false); setTestEditando(null)
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
@@ -107,6 +107,14 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
               </div>
             </div>
             <div className="field">
+              <label>¿Tiene lados?</label>
+              <div style={{display:'flex',gap:6,marginTop:4}}>
+                {([['bilateral','Bilateral / único'],['lateral','Izquierdo / Derecho']] as const).map(([v,l])=>(
+                  <div key={v} onClick={()=>setNuevoTest(p=>({...p,tipo_lado:v}))} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${nuevoTest.tipo_lado===v?'var(--g)':'var(--bd)'}`,background:nuevoTest.tipo_lado===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:nuevoTest.tipo_lado===v?500:300,color:nuevoTest.tipo_lado===v?'var(--gd)':'var(--grl)'}}>{l}</div>
+                ))}
+              </div>
+            </div>
+            <div className="field">
               <label>Imagen</label>
               <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
                 {nuevoTest.imagen_url?<div style={{position:'relative'}}><img src={nuevoTest.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setNuevoTest(p=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>🔍</div>}
@@ -159,6 +167,14 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
                   <option value="cualquiera">Algún ítem marcado</option>
                   <option value="todos">Todos los ítems marcados</option>
                 </select>
+              </div>
+            </div>
+            <div className="field">
+              <label>¿Tiene lados?</label>
+              <div style={{display:'flex',gap:6,marginTop:4}}>
+                {([['bilateral','Bilateral / único'],['lateral','Izquierdo / Derecho']] as const).map(([v,l])=>(
+                  <div key={v} onClick={()=>setTestEditando((p:any)=>({...p,tipo_lado:v}))} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${(testEditando.tipo_lado||'bilateral')===v?'var(--g)':'var(--bd)'}`,background:(testEditando.tipo_lado||'bilateral')===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:(testEditando.tipo_lado||'bilateral')===v?500:300,color:(testEditando.tipo_lado||'bilateral')===v?'var(--gd)':'var(--grl)'}}>{l}</div>
+                ))}
               </div>
             </div>
             <div className="field">

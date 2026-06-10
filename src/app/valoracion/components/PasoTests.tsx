@@ -2,7 +2,9 @@
 
 export default function PasoTests({ testsLib, testsValoracion, setTestsValoracion, testActivo, setTestActivo }: any) {
 
-  const LADOS = [['bilateral','Bilateral'],['izquierdo','Izquierdo'],['derecho','Derecho']] as const
+  const LADOS_BILATERAL = [['bilateral','Bilateral']] as const
+  const LADOS_LATERAL = [['izquierdo','Izquierdo'],['derecho','Derecho']] as const
+  function ladosDeTest(testLib:any){ return (testLib?.tipo_lado==='lateral') ? LADOS_LATERAL : LADOS_BILATERAL }
 
   function calcularResultado(items:any[], logica:string):string {
     const marcados = items.filter(i=>i.marcado).length
@@ -24,11 +26,12 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
   }
 
   // Resumen breve de qué lados tienen resultado (para la miniatura)
+  const NOMBRE_LADO:Record<string,string> = {bilateral:'Bilateral',izquierdo:'Izquierdo',derecho:'Derecho'}
   function resumenLados(tv:any){
     const r:string[]=[]
-    LADOS.forEach(([k,l])=>{
+    Object.keys(tv.lados||{}).forEach((k)=>{
       const d = tv.lados?.[k]
-      if (d && d.resultado && d.resultado!=='sin_realizar') r.push(`${l}: ${d.resultado==='positivo'?'+':'−'}`)
+      if (d && d.resultado && d.resultado!=='sin_realizar') r.push(`${NOMBRE_LADO[k]||k}: ${d.resultado==='positivo'?'+':'−'}`)
     })
     return r
   }
@@ -68,7 +71,7 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
                 <div style={{marginTop:12}}>
                   {/* PESTAÑAS DE LADO */}
                   <div style={{display:'flex',gap:3,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,marginBottom:12,width:'fit-content'}}>
-                    {LADOS.map(([k,l])=>{
+                    {ladosDeTest(testLib).map(([k,l])=>{
                       const tiene = tv.lados?.[k] && tv.lados[k].resultado!=='sin_realizar'
                       return (
                         <button key={k} onClick={()=>{const tv2=[...testsValoracion];const ex=tv2[ti].lados?.[k];const fh=new Date();fh.setMonth(fh.getMonth()+(tv2[ti].frecuencia_meses||3));const init=ex||{items_resultado:(testLib?.items||[]).map((it:any)=>({...it,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fh.toISOString().split('T')[0]};tv2[ti]={...tv2[ti],ladoActivo:k,lados:{...(tv2[ti].lados||{}),[k]:init}};setTestsValoracion(tv2)}}
@@ -122,7 +125,7 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
                     </div>
                   )}
 
-                  <div className="field"><label>Observaciones · {LADOS.find(([k])=>k===ladoActivo)?.[1]}</label><textarea className="input" value={d.observaciones} onChange={e=>updateLado(ti,ladoActivo,{observaciones:e.target.value})} style={{minHeight:44}} placeholder="Notas..."/></div>
+                  <div className="field"><label>Observaciones · {NOMBRE_LADO[ladoActivo]||ladoActivo}</label><textarea className="input" value={d.observaciones} onChange={e=>updateLado(ti,ladoActivo,{observaciones:e.target.value})} style={{minHeight:44}} placeholder="Notas..."/></div>
                   <div className="field"><label>Fecha de revisión</label><input type="date" className="input" value={d.fecha_repeticion} onChange={e=>updateLado(ti,ladoActivo,{fecha_repeticion:e.target.value})} min={new Date().toISOString().split('T')[0]}/></div>
                 </div>
               )}
@@ -140,7 +143,7 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
             const hoy = new Date(); hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
             const fechaRev = hoy.toISOString().split('T')[0]
             const ladoVacio = ()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
-            setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:'bilateral',frecuencia_meses:t.frecuencia_meses||3,lados:{bilateral:ladoVacio()}}])
+            {const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])}
             setTestActivo(testsValoracion.length)
             e.target.value=''
           }}>
@@ -172,7 +175,7 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
                 const hoy=new Date();hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
                 const fechaRev=hoy.toISOString().split('T')[0]
                 const ladoVacio=()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
-                setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:'bilateral',frecuencia_meses:t.frecuencia_meses||3,lados:{bilateral:ladoVacio()}}])
+                {const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])}
               }} style={{display:'flex',alignItems:'center',gap:7,padding:'7px 8px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:5,cursor:'pointer',background:'var(--w)'}}>
                 {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:26,height:26,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧪</div>}
                 <span style={{fontSize:10,color:'var(--n)',flex:1}}>{t.nombre}</span>
