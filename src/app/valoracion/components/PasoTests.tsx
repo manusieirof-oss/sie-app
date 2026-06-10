@@ -71,7 +71,7 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
                     {LADOS.map(([k,l])=>{
                       const tiene = tv.lados?.[k] && tv.lados[k].resultado!=='sin_realizar'
                       return (
-                        <button key={k} onClick={()=>{const tv2=[...testsValoracion];const ex=tv2[ti].lados?.[k];const init=ex||{items_resultado:(testLib?.items||[]).map((it:any)=>({...it,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:''};tv2[ti]={...tv2[ti],ladoActivo:k,lados:{...(tv2[ti].lados||{}),[k]:init}};setTestsValoracion(tv2)}}
+                        <button key={k} onClick={()=>{const tv2=[...testsValoracion];const ex=tv2[ti].lados?.[k];const fh=new Date();fh.setMonth(fh.getMonth()+(tv2[ti].frecuencia_meses||3));const init=ex||{items_resultado:(testLib?.items||[]).map((it:any)=>({...it,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fh.toISOString().split('T')[0]};tv2[ti]={...tv2[ti],ladoActivo:k,lados:{...(tv2[ti].lados||{}),[k]:init}};setTestsValoracion(tv2)}}
                           style={{fontSize:10,padding:'6px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:ladoActivo===k?'var(--w)':'transparent',color:ladoActivo===k?'var(--n)':'var(--grl)',fontWeight:ladoActivo===k?500:300,boxShadow:ladoActivo===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
                           {l}{tiene&&<span style={{width:6,height:6,borderRadius:'50%',background:tv.lados[k].resultado==='positivo'?'var(--red)':'var(--g)'}}/>}
                         </button>
