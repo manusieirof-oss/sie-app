@@ -87,7 +87,14 @@ export default function ValoracionPage() {
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
       ])
       for (const t of testsValoracion) {
-        await supabase.from('resultados_tests').insert({ test_id:t.test_id, paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], resultado:t.resultado, observaciones:t.observaciones, fecha_repeticion:t.fecha_repeticion||null, lado:t.lado, items_resultado:t.items_resultado })
+        const lados = t.lados || {}
+        const ladosConDato = Object.keys(lados).filter(k => lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
+        const aGuardar = ladosConDato.length ? ladosConDato : Object.keys(lados)
+        for (const ladoKey of aGuardar) {
+          const d = lados[ladoKey]
+          if (!d) continue
+          await supabase.from('resultados_tests').insert({ test_id:t.test_id, paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], resultado:d.resultado, observaciones:d.observaciones, fecha_repeticion:d.fecha_repeticion||null, lado:ladoKey, items_resultado:d.items_resultado })
+        }
       }
       setExito(true)
       setTimeout(()=>router.push(`/pacientes/${pacienteId}`), 2000)

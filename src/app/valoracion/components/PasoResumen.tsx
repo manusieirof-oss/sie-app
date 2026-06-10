@@ -21,13 +21,22 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
         </div>
         <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8}}>🔍 Tests</div>
-          {testsValoracion.length===0?<div style={{fontSize:10,color:'var(--grl)'}}>Sin tests</div>:testsValoracion.map((tv:any,i:number)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 7px',background:tv.resultado==='positivo'?'var(--redl)':'var(--gl)',borderRadius:4,marginBottom:3,fontSize:10}}>
-              <span>{tv.resultado==='positivo'?'🔴':'🟢'}</span>
-              <span style={{fontWeight:500}}>{tv.nombre}</span>
-              <span style={{color:'var(--grl)',fontSize:9}}>· {tv.lado}</span>
-            </div>
-          ))}
+          {testsValoracion.length===0?<div style={{fontSize:10,color:'var(--grl)'}}>Sin tests</div>:testsValoracion.flatMap((tv:any,i:number)=>{
+            const lados = tv.lados || {}
+            const conDato = Object.keys(lados).filter(k=>lados[k] && lados[k].resultado && lados[k].resultado!=='sin_realizar')
+            if (!conDato.length) return [(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 7px',background:'var(--bl)',borderRadius:4,marginBottom:3,fontSize:10}}>
+                <span>⚪</span><span style={{fontWeight:500}}>{tv.nombre}</span><span style={{color:'var(--grl)',fontSize:9}}>· sin resultado</span>
+              </div>
+            )]
+            return conDato.map((k:string)=>(
+              <div key={i+'-'+k} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 7px',background:lados[k].resultado==='positivo'?'var(--redl)':'var(--gl)',borderRadius:4,marginBottom:3,fontSize:10}}>
+                <span>{lados[k].resultado==='positivo'?'🔴':'🟢'}</span>
+                <span style={{fontWeight:500}}>{tv.nombre}</span>
+                <span style={{color:'var(--grl)',fontSize:9}}>· {k}</span>
+              </div>
+            ))
+          })}
         </div>
         {form.notas_plan&&<div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:6}}>📝 Plan</div>
