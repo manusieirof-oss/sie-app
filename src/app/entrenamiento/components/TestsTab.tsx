@@ -42,7 +42,19 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
 
   async function guardarEditTest() {
     if (!testEditando) return
-    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], tipo_lado:testEditando.tipo_lado||'bilateral' }).eq('id', testEditando.id)
+    setSubiendoImgTest(true)
+    let imagenUrl = testEditando.imagen_url || ''
+    if (testEditando.imagen_file) {
+      const ext = testEditando.imagen_file.name.split('.').pop()
+      const path = `tests/${testEditando.id}/foto.${ext}`
+      const { error: upErr } = await supabase.storage.from('fotos').upload(path, testEditando.imagen_file, { upsert: true })
+      if (!upErr) {
+        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+        imagenUrl = publicUrl + '?t=' + Date.now()
+      }
+    }
+    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
+    setSubiendoImgTest(false)
     setModalEditarTest(false); setTestEditando(null)
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
@@ -178,13 +190,35 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
               </div>
             </div>
             <div className="field">
+              <label>Imagen</label>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
+                {testEditando.imagen_url?<div style={{position:'relative'}}><img src={testEditando.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setTestEditando((p:any)=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>🔍</div>}
+                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm">📷 Cambiar</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setTestEditando((p:any)=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
+              </div>
+            </div>
+            <div className="field">
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                <label style={{margin:0}}>Ítems</label>
+              </div>
+              {(testEditando.items||[]).map((item:any,i:number)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
+                  <input className="input" value={item.nombre} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],nombre:e.target.value};setTestEditando((p:any)=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
+                  <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
+                    <input type="checkbox" checked={!!item.tiene_grados} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],tiene_grados:e.target.checked};setTestEditando((p:any)=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
+                  </label>
+                  <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                </div>
+              ))}
+              <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',tiene_grados:false}]}))}>+ Añadir ítem</button>
+            </div>
+            <div className="field">
               <label>Etiquetas relacionadas</label>
               <div style={{marginTop:5}}><SelectorColumnas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalEditarTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardarEditTest}>💾 Guardar</button>
+              <button className="btn btn-p" onClick={guardarEditTest} disabled={subiendoImgTest}>{subiendoImgTest?'⏳':'💾 Guardar'}</button>
             </div>
           </div>
         </div>
