@@ -74,14 +74,14 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
 
         {/* CONSENTIMIENTO IMÁGENES (opcional) */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Uso de imágenes (opcional)</span>
+          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Imágenes para seguimiento de la readaptación (opcional)</span>
           <button className="btn btn-t btn-sm" onClick={()=>setDocAbierto('imagenes')}>📄 Leer documento</button>
         </div>
         <div onClick={()=>setImagenesAceptada((p:boolean)=>!p)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,border:`1.5px solid ${imagenesAceptada?'var(--g)':'var(--bd)'}`,background:imagenesAceptada?'var(--gl)':'var(--w)',cursor:'pointer'}}>
           <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${imagenesAceptada?'var(--g)':'var(--bd)'}`,background:imagenesAceptada?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             {imagenesAceptada&&<span style={{color:'#fff',fontSize:11,fontWeight:700}}>✓</span>}
           </div>
-          <span style={{fontSize:10,color:'var(--n)',fontWeight:300}}>He leído y acepto el tratamiento de imágenes para seguimiento</span>
+          <span style={{fontSize:10,color:'var(--n)',fontWeight:300}}>He leído y acepto el uso de imágenes para el seguimiento de mi readaptación</span>
         </div>
 
         {(firmaCanvas||firmaAceptada||imagenesAceptada)&&<div style={{marginTop:8,fontSize:9,color:'var(--gd)',background:'var(--gl)',borderRadius:4,padding:'4px 8px'}}>✓ Consentimiento registrado · {new Date().toLocaleDateString('es-ES')}</div>}
