@@ -18,6 +18,7 @@ export default function ValoracionPage() {
   const [exito, setExito] = useState(false)
   const router = useRouter()
   const [testsLib, setTestsLib] = useState<any[]>([])
+  const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
   const [testsValoracion, setTestsValoracion] = useState<any[]>([])
   const [testActivo, setTestActivo] = useState<number|null>(null)
   const [comoNosConocioOpts, setComoNosConocioOpts] = useState<string[]>(['Recomendación de un conocido','Instagram','Google','Facebook','Pasó por aquí','Otro'])
@@ -55,6 +56,7 @@ export default function ValoracionPage() {
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlergiasBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
+    supabase.from('etiquetas').select('*').order('nombre').then(({data})=>setEtiquetasLib(data||[]))
     supabase.from('ajustes').select('clave,valor').then(({data})=>{
       if(data){
         const map: Record<string,string> = {}
@@ -142,7 +144,7 @@ export default function ValoracionPage() {
       {step===1&&<PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} dibujando={dibujando} setDibujando={setDibujando}/>}
       {step===2&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla}/>}
       {step===3&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
-      {step===4&&<PasoTests testsLib={testsLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
+      {step===4&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
       {step===5&&<PasoPlan form={form} up={up}/>}
       {step===6&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar}/>}
 

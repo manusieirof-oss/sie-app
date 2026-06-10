@@ -1,6 +1,9 @@
 'use client'
+import { useState } from 'react'
 
-export default function PasoTests({ testsLib, testsValoracion, setTestsValoracion, testActivo, setTestActivo }: any) {
+export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, setTestsValoracion, testActivo, setTestActivo }: any) {
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState<string>('')
 
   const LADOS_BILATERAL = [['bilateral','Bilateral']] as const
   const LADOS_LATERAL = [['izquierdo','Izquierdo'],['derecho','Derecho']] as const
@@ -133,23 +136,53 @@ export default function PasoTests({ testsLib, testsValoracion, setTestsValoracio
           )
         })}
 
-        {/* AÑADIR TEST */}
+        {/* AÑADIR TEST · BUSCADOR CON FILTROS */}
         <div style={{background:'var(--bl)',border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)',padding:'11px 13px',marginTop:6}}>
           <div style={{fontSize:10,fontWeight:500,color:'var(--n)',marginBottom:8}}>+ Añadir test de la biblioteca</div>
-          <select className="input" onChange={e=>{
-            if (!e.target.value) return
-            const t = testsLib.find((t:any)=>t.id===e.target.value)
-            if (!t) return
-            const hoy = new Date(); hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
-            const fechaRev = hoy.toISOString().split('T')[0]
-            const ladoVacio = ()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
-            {const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])}
-            setTestActivo(testsValoracion.length)
-            e.target.value=''
-          }}>
-            <option value="">Seleccionar test...</option>
-            {testsLib.map((t:any)=><option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
+          <input className="input" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="🔍 Buscar test por nombre..." style={{marginBottom:8}}/>
+          {/* CHIPS DE ETIQUETAS (las que tienen los tests) */}
+          {(() => {
+            const idsUsados = Array.from(new Set(testsLib.flatMap((t:any)=>t.etiquetas_relacionadas||[])))
+            const etiquetasUsadas = etiquetasLib.filter((e:any)=>idsUsados.includes(e.id))
+            if (!etiquetasUsadas.length) return null
+            return (
+              <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                <button onClick={()=>setFiltroEtiqueta('')} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',background:filtroEtiqueta===''?'var(--g)':'var(--w)',color:filtroEtiqueta===''?'#fff':'var(--grl)',cursor:'pointer',fontFamily:'system-ui'}}>Todas</button>
+                {etiquetasUsadas.map((e:any)=>(
+                  <button key={e.id} onClick={()=>setFiltroEtiqueta(filtroEtiqueta===e.id?'':e.id)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',background:filtroEtiqueta===e.id?'var(--g)':'var(--w)',color:filtroEtiqueta===e.id?'#fff':'var(--grl)',cursor:'pointer',fontFamily:'system-ui'}}>{e.nombre}</button>
+                ))}
+              </div>
+            )
+          })()}
+          {/* LISTA FILTRADA */}
+          <div style={{maxHeight:220,overflowY:'auto'}}>
+            {(() => {
+              const yaAnadidos = testsValoracion.map((tv:any)=>tv.test_id)
+              const filtrados = testsLib.filter((t:any)=>{
+                if (yaAnadidos.includes(t.id)) return false
+                if (busqueda && !t.nombre.toLowerCase().includes(busqueda.toLowerCase())) return false
+                if (filtroEtiqueta && !(t.etiquetas_relacionadas||[]).includes(filtroEtiqueta)) return false
+                return true
+              })
+              if (!filtrados.length) return <div style={{fontSize:10,color:'var(--grl)',padding:'8px 4px'}}>Sin tests que coincidan</div>
+              return filtrados.map((t:any)=>(
+                <div key={t.id} onClick={()=>{
+                  const hoy=new Date();hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
+                  const fechaRev=hoy.toISOString().split('T')[0]
+                  const ladoVacio=()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
+                  const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral'
+                  setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
+                  setTestActivo(testsValoracion.length)
+                  setBusqueda('')
+                }} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 9px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer',background:'var(--w)'}}>
+                  {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:28,height:28,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:28,height:28,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>🧪</div>}
+                  <span style={{flex:1,fontSize:11,color:'var(--n)'}}>{t.nombre}</span>
+                  {t.tipo_lado==='lateral'&&<span style={{fontSize:8,color:'var(--grl)'}}>I/D</span>}
+                  <span style={{fontSize:14,color:'var(--g)'}}>+</span>
+                </div>
+              ))
+            })()}
+          </div>
         </div>
       </div>
 
