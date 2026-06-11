@@ -1,29 +1,29 @@
 'use client'
 
-export default function PasoPlan({ form, up }: any) {
+export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
   return (
     <div className="g2">
       <div>
         <div className="card">
           <div className="card-title">Tipo de clase definitivo</div>
           <div className="g3">
-            {([['entrenamiento','🏋','Entrenamiento'],['pilates','🧘','Pilates'],['rehabilitacion','🏥','Rehabilitación'],['individual','👤','Individual'],['embarazadas','🤰','Embarazadas']] as const).map(([v,ic,l])=>(
-              <div key={v} onClick={()=>up('tipo_clase_def',v)} style={{border:`1.5px solid ${form.tipo_clase_def===v?'var(--g)':'var(--bd)'}`,borderRadius:'var(--rl)',padding:10,textAlign:'center',cursor:'pointer',background:form.tipo_clase_def===v?'var(--gl)':'var(--w)',transition:'all .15s'}}>
-                <div style={{fontSize:20,marginBottom:4}}>{ic}</div>
-                <div style={{fontSize:10,fontWeight:400}}>{l}</div>
+            {tiposClaseOpts.map((tc:any)=>(
+              <div key={tc.valor} onClick={()=>up('tipo_clase_def',tc.valor)} style={{border:`1.5px solid ${form.tipo_clase_def===tc.valor?'var(--g)':'var(--bd)'}`,borderRadius:'var(--rl)',padding:10,textAlign:'center',cursor:'pointer',background:form.tipo_clase_def===tc.valor?'var(--gl)':'var(--w)',transition:'all .15s'}}>
+                <div style={{fontSize:20,marginBottom:4}}>{tc.icono}</div>
+                <div style={{fontSize:10,fontWeight:400}}>{tc.nombre}</div>
               </div>
             ))}
           </div>
         </div>
         <div className="card">
           <div className="card-title">Bono definitivo</div>
-          {([['reducido','Reducido','2 días/semana'],['esencial','Esencial','3 días/semana'],['progreso','Progreso','4 días/semana'],['avanzado','Avanzado','5 días/semana'],['individual','Individual','Sesiones sueltas'],['bono4','Bono 4 sesiones','4 sesiones']] as const).map(([v,l,d])=>(
-            <div key={v} onClick={()=>up('bono',v)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1.5px solid ${form.bono===v?'var(--g)':'var(--bd)'}`,background:form.bono===v?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:4,transition:'all .15s'}}>
+          {bonosOpts.map((b:any)=>(
+            <div key={b.id} onClick={()=>up('bono',b.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1.5px solid ${form.bono===b.id?'var(--g)':'var(--bd)'}`,background:form.bono===b.id?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:4,transition:'all .15s'}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{l}</div>
-                <div style={{fontSize:9,color:'var(--grl)'}}>{d}</div>
+                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{b.nombre}</div>
+                <div style={{fontSize:9,color:'var(--grl)'}}>{b.descripcion}</div>
               </div>
-              {form.bono===v&&<div style={{width:16,height:16,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</div>}
+              {form.bono===b.id&&<div style={{width:16,height:16,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</div>}
             </div>
           ))}
         </div>

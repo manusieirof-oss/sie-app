@@ -25,6 +25,8 @@ export default function ValoracionPage() {
   const [tiposJornada, setTiposJornada] = useState<string[]>(['Sentado','Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
   const [deportesOpts, setDeportesOpts] = useState<string[]>(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
+  const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},{valor:'pilates',icono:'🧘',nombre:'Pilates'},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación'},{valor:'individual',icono:'👤',nombre:'Individual'},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas'}])
+  const [bonosOpts, setBonosOpts] = useState<any[]>([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -65,6 +67,8 @@ export default function ValoracionPage() {
         if(map.tipos_jornada) setTiposJornada(JSON.parse(map.tipos_jornada))
         if(map.tipos_plantilla) setTiposPlantilla(JSON.parse(map.tipos_plantilla))
         if(map.deportes_lista) setDeportesOpts(JSON.parse(map.deportes_lista))
+        if(map.tipos_clase) setTiposClaseOpts(JSON.parse(map.tipos_clase))
+        if(map.bonos_lista) setBonosOpts(JSON.parse(map.bonos_lista))
       }
     })
   }, [])
@@ -145,7 +149,7 @@ export default function ValoracionPage() {
       {step===2&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla}/>}
       {step===3&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {step===4&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
-      {step===5&&<PasoPlan form={form} up={up}/>}
+      {step===5&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
       {step===6&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar}/>}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'1px solid var(--bd)'}}>
