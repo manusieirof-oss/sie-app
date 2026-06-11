@@ -104,10 +104,12 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
             </div>
           )}
 
-          {/* HORA EXACTA (todos los modos) */}
-          <div className="field"><label>Hora exacta preferida (opcional)</label>
-            <input className="input" type="time" value={hp.hora_exacta||''} onChange={e=>upHp('hora_exacta',e.target.value)}/>
-          </div>
+          {/* HORA EXACTA (solo modo general) */}
+          {hp.modo==='general' && (
+            <div className="field"><label>Hora exacta preferida (opcional)</label>
+              <input className="input" type="time" value={hp.hora_exacta||''} onChange={e=>upHp('hora_exacta',e.target.value)}/>
+            </div>
+          )}
 
           {/* NOTAS DE HORARIO */}
           <div className="field"><label>Notas de horario (opcional)</label>
