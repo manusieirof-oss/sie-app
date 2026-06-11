@@ -76,12 +76,13 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
                 {DIAS.map(d=>{
                   const franjaDia = hp.franjas_dia?.[d] || ''
                   return (
-                    <div key={d} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                    <div key={d} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
                       <span style={{width:28,fontSize:11,fontWeight:500,color:franjaDia?'var(--n)':'var(--grl)'}}>{d}</span>
                       <div style={{display:'flex',gap:4,flexWrap:'wrap',flex:1}}>
                         {FRANJAS.map(([v,l])=>(
                           <span key={v} onClick={()=>{const fd={...(hp.franjas_dia||{})};if(fd[d]===v){delete fd[d]}else{fd[d]=v}upHp('franjas_dia',fd)}} style={{fontSize:9,padding:'3px 8px',borderRadius:99,border:`1px solid ${franjaDia===v?'var(--g)':'var(--bd)'}`,background:franjaDia===v?'var(--g)':'var(--w)',color:franjaDia===v?'#fff':'var(--grl)',cursor:'pointer'}}>{l}</span>
                         ))}
+                        {franjaDia && <input type="time" value={hp.horas_dia?.[d]||''} onChange={e=>{const hd={...(hp.horas_dia||{})};if(e.target.value){hd[d]=e.target.value}else{delete hd[d]}upHp('horas_dia',hd)}} style={{fontSize:9,padding:'2px 5px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui'}}/>}
                       </div>
                     </div>
                   )
@@ -93,21 +94,13 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
 
           {/* MODO ALTERNO */}
           {hp.modo==='alterno' && (
-            <div className="field"><label>Alternancia por semanas</label>
+            <div className="field"><label>Tipo de alternancia</label>
               <div style={{display:'flex',gap:5,marginTop:4,flexWrap:'wrap'}}>
-                {([['manana_tarde','Semana mañana / Semana tarde'],['tarde_manana','Semana tarde / Semana mañana']] as const).map(([v,l])=>(
-                  <div key={v} onClick={()=>upHp('alterno',v)} style={{flex:1,minWidth:140,padding:'8px',borderRadius:6,border:`1.5px solid ${hp.alterno===v?'var(--g)':'var(--bd)'}`,background:hp.alterno===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:hp.alterno===v?500:300,color:hp.alterno===v?'var(--gd)':'var(--grl)'}}>{l}</div>
+                {([['manana_tarde','Semana mañana / Semana tarde'],['turnos','Turnos']] as const).map(([v,l])=>(
+                  <div key={v} onClick={()=>upHp('alterno',v)} style={{flex:1,minWidth:140,padding:'10px 8px',borderRadius:6,border:`1.5px solid ${hp.alterno===v?'var(--g)':'var(--bd)'}`,background:hp.alterno===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:hp.alterno===v?500:300,color:hp.alterno===v?'var(--gd)':'var(--grl)'}}>{l}</div>
                 ))}
               </div>
-              <div className="field" style={{marginTop:8}}><label>Días de asistencia</label>
-                <div style={{display:'flex',gap:5,marginTop:4,flexWrap:'wrap'}}>
-                  {DIAS.map(d=>{
-                    const dias=form.dias_asistencia?form.dias_asistencia.split(','):[]
-                    const sel=dias.includes(d)
-                    return <span key={d} onClick={()=>{const curr=form.dias_asistencia?form.dias_asistencia.split(',').filter(Boolean):[];const next=sel?curr.filter((x:string)=>x!==d):[...curr,d];up('dias_asistencia',next.join(','))}} style={{width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'50%',border:`1.5px solid ${sel?'var(--g)':'var(--bd)'}`,background:sel?'var(--g)':'var(--w)',color:sel?'#fff':'var(--gr)',cursor:'pointer',fontSize:10,fontWeight:sel?600:300}}>{d}</span>
-                  })}
-                </div>
-              </div>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:6}}>Los turnos se gestionan semana a semana en la agenda según disponibilidad del cliente.</div>
             </div>
           )}
 
