@@ -1,9 +1,11 @@
 'use client'
+import { useState } from 'react'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
 export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas }: any) {
+  const [busquedaPac, setBusquedaPac] = useState('')
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   function toggleDia(dia: string) {
     setNuevaCita((p: any) => ({...p, dias_repetir: p.dias_repetir.includes(dia) ? p.dias_repetir.filter((d: string) => d !== dia) : [...p.dias_repetir, dia]}))
@@ -18,10 +20,33 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
         </div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>{fechaDisplay}</div>
         <div className="field"><label>Paciente *</label>
-          <select className="input" value={nuevaCita.paciente_id} onChange={e=>{setNuevaCita((p:any)=>({...p,paciente_id:e.target.value,es_recuperacion:false,recuperacion_id:''}));cargarRecuperaciones(e.target.value)}} disabled={guardando}>
-            <option value="">Seleccionar paciente...</option>
-            {pacientes.map((p:any)=>(<option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>))}
-          </select>
+          {nuevaCita.paciente_id ? (
+            (() => {
+              const sel = pacientes.find((p:any)=>p.id===nuevaCita.paciente_id)
+              return (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 11px',borderRadius:6,border:'1.5px solid var(--g)',background:'var(--gl)'}}>
+                  <span style={{flex:1,fontSize:12,color:'var(--n)',fontWeight:500}}>{sel?`${sel.nombre} ${sel.apellidos}`:'Paciente'}</span>
+                  <button onClick={()=>{setNuevaCita((p:any)=>({...p,paciente_id:'',es_recuperacion:false,recuperacion_id:''}));setBusquedaPac('')}} disabled={guardando} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>Cambiar</button>
+                </div>
+              )
+            })()
+          ) : (
+            <>
+              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Buscar paciente por nombre..." disabled={guardando} autoFocus/>
+              {busquedaPac && (
+                <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:200,overflowY:'auto',marginTop:4}}>
+                  {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos}`.toLowerCase().includes(busquedaPac.toLowerCase())).slice(0,30).map((p:any)=>(
+                    <div key={p.id} onClick={()=>{setNuevaCita((prev:any)=>({...prev,paciente_id:p.id,es_recuperacion:false,recuperacion_id:''}));cargarRecuperaciones(p.id);setBusquedaPac('')}} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                      {p.nombre} {p.apellidos}
+                    </div>
+                  ))}
+                  {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos}`.toLowerCase().includes(busquedaPac.toLowerCase())).length===0 && (
+                    <div style={{padding:'8px 11px',fontSize:10,color:'var(--grl)'}}>Sin pacientes que coincidan</div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
           <div className="field"><label>Hora</label>
