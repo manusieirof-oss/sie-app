@@ -75,7 +75,7 @@ export default function AgendaPage() {
   useEffect(() => { cargar() }, [fecha, vista])
 
   async function cargarPacientes() {
-    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre')
+    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').eq('estado','activo').order('nombre')
     setPacientes(data||[])
   }
 
