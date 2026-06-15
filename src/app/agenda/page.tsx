@@ -184,7 +184,23 @@ export default function AgendaPage() {
   async function guardarEdicionCita() {
     if (!editandoCita) return
     setGuardando(true)
-    await supabase.from('citas').update({hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
+    // Detectar la cita original para comparar fecha/hora
+    const original = citas.find((c:any)=>c.id===editandoCita.id)
+    const fechaNueva = editandoCita.fecha
+    const horaNueva = editandoCita.hora
+    await supabase.from('citas').update({fecha:editandoCita.fecha,hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
+    // Registrar cambios de fecha y hora en el historial
+    if (original) {
+      const registros:any[]=[]
+      if (fechaNueva && original.fecha && fechaNueva!==original.fecha) {
+        registros.push({cita_id:editandoCita.id,paciente_id:editandoCita.paciente_id,campo_cambiado:'fecha',valor_anterior:original.fecha,valor_nuevo:fechaNueva})
+      }
+      const hAnt=(original.hora||'').slice(0,5), hNue=(horaNueva||'').slice(0,5)
+      if (hNue && hAnt && hNue!==hAnt) {
+        registros.push({cita_id:editandoCita.id,paciente_id:editandoCita.paciente_id,campo_cambiado:'hora',valor_anterior:hAnt,valor_nuevo:hNue})
+      }
+      if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
+    }
     setEditandoCita(null); setGuardando(false); cargar()
   }
 
