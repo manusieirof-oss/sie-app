@@ -18,7 +18,9 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
           Nueva cita
           <button className="modal-close" onClick={()=>{if(!guardando)onCerrar()}}>✕</button>
         </div>
-        <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>{fechaDisplay}</div>
+        <div className="field"><label>Día de la cita *</label>
+          <input type="date" className="input" value={nuevaCita.fecha||''} onChange={e=>setNuevaCita((p:any)=>({...p,fecha:e.target.value}))} disabled={guardando}/>
+        </div>
         <div className="field"><label>Paciente *</label>
           {nuevaCita.paciente_id ? (
             (() => {
@@ -51,6 +53,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
           <div className="field"><label>Hora</label>
             <select className="input" value={nuevaCita.hora} onChange={e=>setNuevaCita((p:any)=>({...p,hora:e.target.value}))} disabled={guardando}>
+              <option value="">Elegir hora...</option>
               {HORAS.map(h=><option key={h} value={h}>{h}</option>)}
             </select>
           </div>

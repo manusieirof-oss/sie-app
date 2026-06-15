@@ -47,7 +47,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                 return (
                   <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:3,minHeight:52}}>
                     {sc.length===0?(
-                      <div onClick={()=>{setNuevaCita((p:any)=>({...p,hora:h,sala}));setModal(true)}}
+                      <div onClick={()=>{setNuevaCita((p:any)=>({...p,fecha,hora:h,sala}));setModal(true)}}
                         style={{border:'1.5px dashed var(--bm)',borderRadius:4,minHeight:44,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'var(--grl)',cursor:'pointer',transition:'all .12s'}}
                         onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)';el.style.background='var(--gl)'}}
                         onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)';el.style.background=''}}>
@@ -60,7 +60,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                           <span>{sc.length}/{MAX}</span>
                         </div>
                         {sc.length<MAX&&sc.length>0&&(
-                          <div onClick={e=>{e.stopPropagation();setNuevaCita((p:any)=>({...p,hora:h,sala}));setModal(true)}}
+                          <div onClick={e=>{e.stopPropagation();setNuevaCita((p:any)=>({...p,fecha,hora:h,sala}));setModal(true)}}
                             style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}>+</div>
                         )}
                         {sc.map(c=>(

@@ -52,7 +52,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
               return (
                 <div key={f} style={{borderLeft:'1px solid var(--bl)',background:isH?'rgba(90,150,158,.03)':'transparent',minHeight:52}}>
                   {!tieneGente ? (
-                    <div onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,hora:h}));setModal(true)}}
+                    <div onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,fecha:f,hora:h}));setModal(true)}}
                       style={{height:'100%',minHeight:50,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,color:'transparent',cursor:'pointer'}}
                       onMouseOver={e=>{const el=e.currentTarget;el.style.background='var(--gl)';el.style.color='var(--g)';el.textContent='+'}}
                       onMouseOut={e=>{const el=e.currentTarget;el.style.background='';el.style.color='transparent';el.textContent='+'}}>+</div>

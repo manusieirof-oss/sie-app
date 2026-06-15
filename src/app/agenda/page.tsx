@@ -36,7 +36,7 @@ export default function AgendaPage() {
   const [modalNota, setModalNota] = useState(false)
   const [nuevaNota, setNuevaNota] = useState('')
   const [nuevaCita, setNuevaCita] = useState({
-    paciente_id:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
+    paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:'',
     es_recuperacion:false, recuperacion_id:''
   })
@@ -189,9 +189,12 @@ export default function AgendaPage() {
   async function crearCita() {
     if (guardando) return
     if (!nuevaCita.paciente_id) { alert('Selecciona un paciente'); return }
+    const fechaCita = nuevaCita.fecha || fecha
+    if (!fechaCita) { alert('Selecciona el día de la cita'); return }
+    if (!nuevaCita.hora) { alert('Selecciona la hora de la cita'); return }
     setGuardando(true)
     if (!nuevaCita.repetir) {
-      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
+      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fechaCita,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
       if (errCita) { alert('Error: '+errCita.message); setGuardando(false); return }
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
         await supabase.from('recuperaciones').update({cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
@@ -200,7 +203,7 @@ export default function AgendaPage() {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
       let fechaFin=nuevaCita.fecha_fin
       if (!fechaFin) {
-        const fd=new Date(fecha+'T12:00:00')
+        const fd=new Date(fechaCita+'T12:00:00')
         if (nuevaCita.periodo==='1mes') fd.setMonth(fd.getMonth()+1)
         else if (nuevaCita.periodo==='3meses') fd.setMonth(fd.getMonth()+3)
         else if (nuevaCita.periodo==='6meses') fd.setMonth(fd.getMonth()+6)
@@ -209,7 +212,7 @@ export default function AgendaPage() {
       }
       const diasMap:Record<string,number>={Lun:1,Mar:2,Mié:3,Jue:4,Vie:5,Sáb:6}
       const citasACrear:any[]=[]
-      const fa=new Date(fecha+'T12:00:00'),ff=new Date(fechaFin+'T12:00:00')
+      const fa=new Date(fechaCita+'T12:00:00'),ff=new Date(fechaFin+'T12:00:00')
       while(fa<=ff) {
         const ds=fa.getDay()===0?7:fa.getDay()
         const dStr=Object.entries(diasMap).find(([,v])=>v===ds)?.[0]
@@ -222,7 +225,7 @@ export default function AgendaPage() {
       }
     }
     setModal(false)
-    setNuevaCita({paciente_id:'',hora:'08:30',sala:'A',tipo:'clase',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:'',es_recuperacion:false,recuperacion_id:''})
+    setNuevaCita({paciente_id:'',fecha:'',hora:'08:30',sala:'A',tipo:'clase',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:'',es_recuperacion:false,recuperacion_id:''})
     setGuardando(false); cargar()
   }
 
@@ -303,7 +306,7 @@ export default function AgendaPage() {
             <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',fontSize:10,color:'var(--grl)',zIndex:50,marginTop:3}}>Sin citas futuras</div>
           )}
         </div>
-        <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nueva cita</button>
+        <button className="btn btn-p btn-sm" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:''}));setModal(true)}}>+ Nueva cita</button>
       </div>
 
       {loading?<div className="loading">Cargando agenda...</div>:(
