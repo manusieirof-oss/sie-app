@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[] }: {
   fecha: string
   hoy: string
   fechaDisplay: string
@@ -54,9 +54,9 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                         + libre
                       </div>
                     ):(
-                      <div style={{borderRadius:4,padding:'3px 5px',background:tipo==='valoracion'||tipo==='revaloracion'?'var(--ambl)':'var(--gl)',borderLeft:`2px solid ${tipo==='valoracion'||tipo==='revaloracion'?'var(--amb)':'var(--g)'}`}}>
+                      <div style={{borderRadius:4,padding:'3px 5px',background:(tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E')+'22',borderLeft:`2px solid ${tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E'}`}}>
                         <div style={{fontSize:7,color:'var(--gr)',marginBottom:2,display:'flex',justifyContent:'space-between'}}>
-                          <span>{tipo==='valoracion'?'Valoración':tipo==='individual'?'Individual':tipo==='revaloracion'?'Revaloración':'Clase'}</span>
+                          <span>{tiposCita.find((t:any)=>t.id===tipo)?.nombre||'Clase'}</span>
                           <span>{sc.length}/{MAX}</span>
                         </div>
                         {sc.length<MAX&&sc.length>0&&(
