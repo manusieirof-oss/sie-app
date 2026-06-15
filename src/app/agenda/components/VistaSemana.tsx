@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], maxPersonas=6 }: {
+export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], maxPersonas=6, setEditandoCita }: {
   fecha: string
   hoy: string
   citas: any[]
@@ -12,6 +12,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
   abrirPanel: (c: any) => void
   tiposCita?: any[]
   maxPersonas?: number
+  setEditandoCita?: (c: any) => void
   horas?: string[]
   pausaInicio?: string
   pausaFin?: string
@@ -63,7 +64,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
                       <div style={{background:cdA.length>=maxPersonas?'transparent':cdA.length>0?'var(--gl)':'transparent',borderRadius:3,padding:'2px 3px',borderLeft:cdA.length>=maxPersonas?'2px solid var(--bd)':cdA.length>0?'2px solid var(--g)':'none',minHeight:48,opacity:cdA.length>=maxPersonas?0.55:1}}>
                         {cdA.length>0&&<div style={{fontSize:7,color:'var(--g)',fontWeight:600,marginBottom:1,letterSpacing:.3}}>A {cdA.length}/{maxPersonas}</div>}
                         {cdA.map(c=>(
-                          <div key={c.id} onClick={()=>abrirPanel(c)}
+                          <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})}
                             style={{fontSize:8,color:'var(--n)',fontWeight:300,padding:'1px',cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3,display:'flex',alignItems:'center',gap:3}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--n)'}>
@@ -76,7 +77,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
                       <div style={{background:cdB.length>=maxPersonas?'transparent':cdB.length>0?'rgba(90,150,158,.06)':'transparent',borderRadius:3,padding:'2px 3px',borderLeft:cdB.length>=maxPersonas?'2px solid var(--bd)':cdB.length>0?'2px solid var(--gm)':'none',minHeight:48,opacity:cdB.length>=maxPersonas?0.55:1}}>
                         {cdB.length>0&&<div style={{fontSize:7,color:'var(--gm)',fontWeight:600,marginBottom:1,letterSpacing:.3}}>B {cdB.length}/{maxPersonas}</div>}
                         {cdB.map(c=>(
-                          <div key={c.id} onClick={()=>abrirPanel(c)}
+                          <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})}
                             style={{fontSize:8,color:'var(--n)',fontWeight:300,padding:'1px',cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3,display:'flex',alignItems:'center',gap:3}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--n)'}>

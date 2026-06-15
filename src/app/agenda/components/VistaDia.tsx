@@ -57,26 +57,24 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                       </div>
                     ):(
                       <div style={{borderRadius:4,padding:'3px 5px',background:(tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E')+'22',borderLeft:`2px solid ${tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E'}`}}>
-                        <div style={{fontSize:7,color:'var(--gr)',marginBottom:2,display:'flex',justifyContent:'space-between'}}>
-                          <span>{tiposCita.find((t:any)=>t.id===tipo)?.nombre||'Clase'}</span>
+                        <div style={{fontSize:7,color:'var(--gr)',marginBottom:3,display:'flex',justifyContent:'flex-end'}}>
                           <span>{sc.length}/{MAX}</span>
                         </div>
-                        {sc.length<MAX&&sc.length>0&&(
-                          <div onClick={e=>{e.stopPropagation();setNuevaCita((p:any)=>({...p,fecha,hora:h,sala}));setModal(true)}}
-                            style={{display:'flex',alignItems:'center',justifyContent:'center',width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:12,cursor:'pointer',marginLeft:'auto',marginBottom:3,flexShrink:0}}>+</div>
-                        )}
                         {sc.map(c=>(
                           <div key={c.id} onClick={()=>abrirPanel(c)}
                             style={{display:'flex',alignItems:'center',gap:3,padding:'2px 4px',borderRadius:3,cursor:'pointer',marginBottom:1,minHeight:28}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.15)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                            <div style={{width:14,height:14,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:7,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{c.pacientes?.nombre?.[0]||'?'}</div>
-                            <span style={{fontSize:10,color:'var(--n)',flex:1,fontWeight:300,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
-                            {c.sesiones&&<span style={{fontSize:8,color:'var(--g)'}}>📋</span>}
-                            <span onClick={e=>{e.stopPropagation();setEditandoCita&&setEditandoCita({...c})}} style={{fontSize:9,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Editar cita" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>✎</span>
-                            <div style={{width:6,height:6,borderRadius:'50%',background:c.estado==='realizada'?'var(--g)':c.estado==='falta'?'var(--red)':'var(--amb)',flexShrink:0}}/>
+                            <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
+                            <span onClick={e=>{e.stopPropagation();setEditandoCita&&setEditandoCita({...c})}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 3px'}} title="Editar cita" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>✎</span>
                           </div>
                         ))}
+                        {sc.length<MAX&&(
+                          <div onClick={e=>{e.stopPropagation();setNuevaCita((p:any)=>({...p,fecha,hora:h,sala}));setModal(true)}}
+                            style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'3px',marginTop:3,borderRadius:4,border:'1px dashed var(--bm)',color:'var(--grl)',fontSize:11,cursor:'pointer'}}
+                            onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)'}}
+                            onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)'}}>+ añadir</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -95,7 +93,6 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
       <div style={{borderLeft:'1px solid var(--bd)',display:'flex',flexDirection:'column'}}>
         <div style={{padding:'9px 11px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
           <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>Resumen del día</div>
-          <div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>{fechaDisplay}</div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,padding:'8px 9px',borderBottom:'1px solid var(--bd)'}}>
           {[['Personas',totalPersonas],['Clases',clases]].map(([l,v])=>(
