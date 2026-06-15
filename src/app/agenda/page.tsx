@@ -43,6 +43,7 @@ export default function AgendaPage() {
   const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
   const [proximasAlertas, setProximasAlertas] = useState<any[]>([])
   const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
+  const [tiposCita, setTiposCita] = useState<any[]>([{id:'clase',nombre:'Clase grupal',color:'#5A969E',duracion:50,cuenta_clase:true},{id:'individual',nombre:'Individual / Pareja',color:'#3E7179',duracion:50,cuenta_clase:false},{id:'valoracion',nombre:'Valoración inicial',color:'#C9A84C',duracion:60,cuenta_clase:false},{id:'revaloracion',nombre:'Revaloración',color:'#C9A84C',duracion:60,cuenta_clase:false}])
   const [pausaInicio, setPausaInicio] = useState('12:30')
   const [pausaFin, setPausaFin] = useState('15:30')
   const [descanso, setDescanso] = useState(10)
@@ -70,6 +71,7 @@ export default function AgendaPage() {
       setDescanso(descanso)
       setMaxPersonas(parseInt(map.clinica_max_personas_sala || '6'))
       setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
+      if (map.tipos_cita) setTiposCita(JSON.parse(map.tipos_cita))
     }
   }
   useEffect(() => { cargar() }, [fecha, vista])
@@ -194,7 +196,7 @@ export default function AgendaPage() {
     if (!nuevaCita.hora) { alert('Selecciona la hora de la cita'); return }
     setGuardando(true)
     if (!nuevaCita.repetir) {
-      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fechaCita,duracion_min:nuevaCita.tipo==='valoracion'?60:50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
+      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fechaCita,duracion_min:(tiposCita.find((t:any)=>t.id===nuevaCita.tipo)?.duracion)||50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
       if (errCita) { alert('Error: '+errCita.message); setGuardando(false); return }
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
         await supabase.from('recuperaciones').update({cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
@@ -216,7 +218,7 @@ export default function AgendaPage() {
       while(fa<=ff) {
         const ds=fa.getDay()===0?7:fa.getDay()
         const dStr=Object.entries(diasMap).find(([,v])=>v===ds)?.[0]
-        if (dStr&&nuevaCita.dias_repetir.includes(dStr)) citasACrear.push({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fa.toISOString().split('T')[0],duracion_min:50,estado:'programada'})
+        if (dStr&&nuevaCita.dias_repetir.includes(dStr)) citasACrear.push({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fa.toISOString().split('T')[0],duracion_min:(tiposCita.find((t:any)=>t.id===nuevaCita.tipo)?.duracion)||50,estado:'programada'})
         fa.setDate(fa.getDate()+1)
       }
       if (citasACrear.length>0) {
@@ -321,7 +323,7 @@ export default function AgendaPage() {
 
       {modalNota&&<ModalNotaDia fechaDisplay={fechaDisplay} nuevaNota={nuevaNota} setNuevaNota={setNuevaNota} onGuardar={crearNotaDia} onCerrar={()=>setModalNota(false)}/>}
 
-      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas}/>}
+      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita}/>}
     </>
   )
 }
