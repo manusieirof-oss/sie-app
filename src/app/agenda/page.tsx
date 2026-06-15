@@ -302,7 +302,7 @@ export default function AgendaPage() {
         <button className="btn btn-s btn-sm" onClick={prevPeriodo}>‹</button>
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{width:'auto',maxWidth:160,flexShrink:0}}/>
         <span style={{fontSize:11,fontWeight:400,color:'var(--n)',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-          {vista==='dia'?fechaDisplay:vista==='semana'?'Semana del '+fechaDisplay:fechaObj.toLocaleDateString('es-ES',{month:'long',year:'numeric'})}
+          {vista==='semana'?'Semana del '+fechaDisplay:vista==='mes'?fechaObj.toLocaleDateString('es-ES',{month:'long',year:'numeric'}):''}
         </span>
         {fecha!==hoy&&<button className="btn btn-t btn-sm" onClick={()=>setFecha(hoy)}>Hoy</button>}
         <button className="btn btn-s btn-sm" onClick={nextPeriodo}>›</button>
