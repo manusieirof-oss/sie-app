@@ -4,12 +4,13 @@ import { supabase } from '@/lib/supabase'
 import ClinicaTab from './components/ClinicaTab'
 import ValoracionTab from './components/ValoracionTab'
 import BonosTab from './components/BonosTab'
+import AgendaTab from './components/AgendaTab'
 import RecuperacionesTab from './components/RecuperacionesTab'
 import UsuariosTab from './components/UsuariosTab'
 import CuentaTab from './components/CuentaTab'
 
 export default function AjustesPage() {
-  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'usuarios'|'cuenta'>('clinica')
+  const [tab, setTab] = useState<'clinica'|'valoracion'|'agenda'|'bonos'|'recuperaciones'|'usuarios'|'cuenta'>('clinica')
   const [perfilActual, setPerfilActual] = useState<any>(null)
   const [ajustes, setAjustes] = useState<Record<string,string>>({})
   const [guardando, setGuardando] = useState(false)
@@ -20,6 +21,7 @@ export default function AjustesPage() {
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>([])
   const [deportesLista, setDeportesLista] = useState<string[]>([])
   const [bonos, setBonos] = useState([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
+  const [tiposCita, setTiposCita] = useState([{id:'clase',nombre:'Clase grupal',color:'#5A969E',duracion:50,cuenta_clase:true},{id:'individual',nombre:'Individual / Pareja',color:'#3E7179',duracion:50,cuenta_clase:false},{id:'valoracion',nombre:'Valoración inicial',color:'#C9A84C',duracion:60,cuenta_clase:false},{id:'revaloracion',nombre:'Revaloración',color:'#C9A84C',duracion:60,cuenta_clase:false}])
   const [nuevoComoNos, setNuevoComoNos] = useState('')
   const [nuevoJornada, setNuevoJornada] = useState('')
   const [nuevoPlantilla, setNuevoPlantilla] = useState('')
@@ -50,6 +52,7 @@ export default function AjustesPage() {
       if (map.deportes_lista) setDeportesLista(JSON.parse(map.deportes_lista))
       else setDeportesLista(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
       if (map.bonos_lista) setBonos(JSON.parse(map.bonos_lista))
+      if (map.tipos_cita) setTiposCita(JSON.parse(map.tipos_cita))
     }
   }
 
@@ -67,6 +70,7 @@ export default function AjustesPage() {
       tipos_plantilla: JSON.stringify(tiposPlantilla),
       deportes_lista: JSON.stringify(deportesLista),
       bonos_lista: JSON.stringify(bonos),
+      tipos_cita: JSON.stringify(tiposCita),
     }
     for (const [clave, valor] of Object.entries(datos)) {
       await supabase.from('ajustes').upsert({ clave, valor: String(valor) }, { onConflict: 'clave' })
@@ -80,7 +84,7 @@ export default function AjustesPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
-          {([['clinica','🏥 Clínica'],['valoracion','📋 Valoración'],['bonos','🎫 Bonos'],['recuperaciones','🔄 Recuperaciones'],['cuenta','🔐 Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','👥 Usuarios']]:[])] as const).map(([k,l])=>(
+          {([['clinica','🏥 Clínica'],['valoracion','📋 Valoración'],['agenda','📅 Agenda'],['bonos','🎫 Bonos'],['recuperaciones','🔄 Recuperaciones'],['cuenta','🔐 Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','👥 Usuarios']]:[])] as const).map(([k,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:10,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:300,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
               {l}
@@ -94,6 +98,7 @@ export default function AjustesPage() {
 
       {tab==='clinica'&&<ClinicaTab ajustes={ajustes} set={set}/>}
       {tab==='valoracion'&&<ValoracionTab ajustes={ajustes} set={set} comoNosConocio={comoNosConocio} setComoNosConocio={setComoNosConocio} tiposClase={tiposClase} setTiposClase={setTiposClase} tiposJornada={tiposJornada} setTiposJornada={setTiposJornada} tiposPlantilla={tiposPlantilla} setTiposPlantilla={setTiposPlantilla} deportesLista={deportesLista} setDeportesLista={setDeportesLista} nuevoComoNos={nuevoComoNos} setNuevoComoNos={setNuevoComoNos} nuevoJornada={nuevoJornada} setNuevoJornada={setNuevoJornada} nuevoPlantilla={nuevoPlantilla} setNuevoPlantilla={setNuevoPlantilla} nuevoDeporte={nuevoDeporte} setNuevoDeporte={setNuevoDeporte}/>}
+      {tab==='agenda'&&<AgendaTab tiposCita={tiposCita} setTiposCita={setTiposCita}/>}
       {tab==='bonos'&&<BonosTab bonos={bonos} setBonos={setBonos}/>}
       {tab==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
       {tab==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
