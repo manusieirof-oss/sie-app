@@ -262,6 +262,29 @@ export default function AgendaPage() {
     cargar()
   }
 
+  async function cambiarEstadoCita(cita:any, estado:string) {
+    await supabase.from('citas').update({estado}).eq('id',cita.id)
+    // Cancelada (avisa) -> genera recuperacion
+    if (estado==='cancelada') {
+      const fechaFalta=new Date(cita.fecha+'T12:00:00')
+      const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
+      const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()
+      if (!existing) await supabase.from('recuperaciones').insert({paciente_id:cita.paciente_id,cita_falta_id:cita.id,fecha_falta:cita.fecha,fecha_limite:fechaLimite.toISOString().split('T')[0],estado:'pendiente'})
+    }
+    // Falta (no avisa) -> NO recupera, y elimina recuperacion previa si la hubiera
+    if (estado==='falta') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
+    // Volver a realizada/programada -> quitar recuperacion pendiente
+    if (estado==='realizada'||estado==='programada') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
+    setEditandoCita(null); cargar()
+  }
+
+  async function eliminarCita(cita:any) {
+    if (!confirm('⚠️ Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
+    await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
+    await supabase.from('citas').delete().eq('id',cita.id)
+    setEditandoCita(null); cargar()
+  }
+
   async function cargarRecuperaciones(pacienteId: string) {
     if (!pacienteId) { setRecuperacionesPaciente([]); return }
     const { data } = await supabase.from('recuperaciones').select('*').eq('paciente_id',pacienteId).eq('estado','pendiente').is('cita_recuperacion_id',null).order('fecha_limite')
@@ -341,7 +364,7 @@ export default function AgendaPage() {
       {modalNota&&<ModalNotaDia fechaDisplay={fechaDisplay} nuevaNota={nuevaNota} setNuevaNota={setNuevaNota} onGuardar={crearNotaDia} onCerrar={()=>setModalNota(false)}/>}
 
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita}/>}
-      {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita}/>}
+      {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
     </>
   )
 }
