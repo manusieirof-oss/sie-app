@@ -101,7 +101,7 @@ export default function AgendaPage() {
     const { data: alertas } = await supabase.from('notas').select('*').eq('tipo','urgente').eq('visible_agenda',true).gte('fecha', hoyStr).order('fecha').limit(10)
     setProximasAlertas(alertas||[])
     setNotasDia(nd||[])
-    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).neq('estado','cancelada').order('fecha').order('hora')
+    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).order('fecha').order('hora')
     setCitas(c||[])
     setLoading(false)
   }

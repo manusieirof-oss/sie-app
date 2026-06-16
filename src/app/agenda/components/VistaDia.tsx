@@ -45,16 +45,29 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             <div style={{display:'grid',gridTemplateColumns:'48px 1fr 1fr',borderBottom:'1px solid var(--bl)'}}>
               <div style={{fontSize:9,color:'var(--grl)',padding:'6px 3px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:300}}>{h}</div>
               {(['A','B'] as const).map(sala=>{
-                const sc=getCitasSlot(h,sala),tipo=sc[0]?.tipo
+                const scAll=getCitasSlot(h,sala)
+                const sc=scAll.filter((c:any)=>c.estado!=='cancelada')
+                const scCanceladas=scAll.filter((c:any)=>c.estado==='cancelada')
+                const tipo=sc[0]?.tipo
+                const renderCancelada=(c:any)=>(
+                  <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})}
+                    style={{display:'flex',alignItems:'center',gap:3,padding:'2px 4px',borderRadius:3,cursor:'pointer',marginBottom:1,minHeight:22,opacity:.5}} title="Cita cancelada · pulsa para editar/deshacer">
+                    <span style={{fontSize:10,color:'var(--grl)',flex:1,fontWeight:300,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center',textDecoration:'line-through'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
+                    <span style={{fontSize:7,color:'var(--grl)',flexShrink:0}}>cancelada</span>
+                  </div>
+                )
                 return (
                   <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:3,minHeight:52}}>
                     {sc.length===0?(
+                      <>
                       <div onClick={()=>{setNuevaCita((p:any)=>({...p,fecha,hora:h,sala}));setModal(true)}}
                         style={{border:'1.5px dashed var(--bm)',borderRadius:4,minHeight:44,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'var(--grl)',cursor:'pointer',transition:'all .12s'}}
                         onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)';el.style.background='var(--gl)'}}
                         onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)';el.style.background=''}}>
                         + libre
                       </div>
+                      {scCanceladas.map(renderCancelada)}
+                      </>
                     ):(
                       <div style={{borderRadius:4,padding:'3px 5px',background:(tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E')+'22',borderLeft:`2px solid ${tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E'}`}}>
                         <div style={{fontSize:7,color:'var(--gr)',marginBottom:3,display:'flex',justifyContent:'flex-end'}}>
@@ -75,6 +88,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                             onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)'}}
                             onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)'}}>+ añadir</div>
                         )}
+                        {scCanceladas.map(renderCancelada)}
                       </div>
                     )}
                   </div>

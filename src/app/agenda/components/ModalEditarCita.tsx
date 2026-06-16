@@ -52,19 +52,21 @@ export default function ModalEditarCita({ editandoCita, setEditandoCita, guardan
         <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8}}>Estado de la cita</div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            <button onClick={()=>cambiarEstadoCita&&cambiarEstadoCita(editandoCita,'realizada')} disabled={guardando}
-              style={{flex:1,minWidth:90,padding:'8px 6px',borderRadius:6,border:`1.5px solid ${editandoCita.estado==='realizada'?'var(--g)':'var(--bd)'}`,background:editandoCita.estado==='realizada'?'var(--gl)':'var(--w)',cursor:'pointer',fontFamily:'system-ui',fontSize:10,color:editandoCita.estado==='realizada'?'var(--gd)':'var(--gr)',fontWeight:editandoCita.estado==='realizada'?500:400}}>
-              ✓ Realizada
-            </button>
             <button onClick={()=>cambiarEstadoCita&&cambiarEstadoCita(editandoCita,'falta')} disabled={guardando}
               style={{flex:1,minWidth:90,padding:'8px 6px',borderRadius:6,border:`1.5px solid ${editandoCita.estado==='falta'?'var(--red)':'var(--bd)'}`,background:editandoCita.estado==='falta'?'var(--redl)':'var(--w)',cursor:'pointer',fontFamily:'system-ui',fontSize:10,color:editandoCita.estado==='falta'?'var(--red)':'var(--gr)',fontWeight:editandoCita.estado==='falta'?500:400,display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
-              <span>✗ Falta</span><span style={{fontSize:7,opacity:.8}}>no recupera</span>
+              <span>Falta</span><span style={{fontSize:7,opacity:.8}}>no recupera</span>
             </button>
             <button onClick={()=>cambiarEstadoCita&&cambiarEstadoCita(editandoCita,'cancelada')} disabled={guardando}
               style={{flex:1,minWidth:90,padding:'8px 6px',borderRadius:6,border:`1.5px solid ${editandoCita.estado==='cancelada'?'var(--amb)':'var(--bd)'}`,background:editandoCita.estado==='cancelada'?'var(--ambl)':'var(--w)',cursor:'pointer',fontFamily:'system-ui',fontSize:10,color:editandoCita.estado==='cancelada'?'#7A5800':'var(--gr)',fontWeight:editandoCita.estado==='cancelada'?500:400,display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
               <span>Cancelada</span><span style={{fontSize:7,opacity:.8}}>recupera</span>
             </button>
           </div>
+          {(editandoCita.estado==='falta'||editandoCita.estado==='cancelada')&&(
+            <button onClick={()=>cambiarEstadoCita&&cambiarEstadoCita(editandoCita,'programada')} disabled={guardando}
+              style={{width:'100%',marginTop:8,padding:'7px',borderRadius:6,border:'1px solid var(--g)',background:'var(--gl)',cursor:'pointer',fontFamily:'system-ui',fontSize:10,color:'var(--gd)',fontWeight:500}}>
+              ↩ Deshacer · volver a normal
+            </button>
+          )}
           <button onClick={()=>eliminarCita&&eliminarCita(editandoCita)} disabled={guardando}
             style={{width:'100%',marginTop:8,padding:'7px',borderRadius:6,border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontFamily:'system-ui',fontSize:10,color:'var(--red)'}}>
             🗑 Eliminar cita
