@@ -8,6 +8,7 @@ import VistaMes from './components/VistaMes'
 import PanelLateral from './components/PanelLateral'
 import ModalNuevaCita from './components/ModalNuevaCita'
 import ModalEditarCita from './components/ModalEditarCita'
+import ModalDatosCita from './components/ModalDatosCita'
 import ModalNotaDia from './components/ModalNotaDia'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -31,6 +32,7 @@ export default function AgendaPage() {
   const [pesos, setPesos] = useState<Record<string,string>>({})
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
   const [editandoCita, setEditandoCita] = useState<any>(null)
+  const [verDatosCita, setVerDatosCita] = useState<any>(null)
   const [notasDia, setNotasDia] = useState<any[]>([])
   const [buscarPac, setBuscarPac] = useState('')
   const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([])
@@ -120,6 +122,11 @@ export default function AgendaPage() {
     for(let i=1;i<ds;i++) dias.push(null)
     for(let i=1;i<=ultimo.getDate();i++) dias.push(`${anio}-${String(mes).padStart(2,'0')}-${String(i).padStart(2,'0')}`)
     return dias
+  }
+
+  async function abrirDatosCita(c:any) {
+    const { data: bonoData } = await supabase.from('bonos').select('*').eq('paciente_id',c.paciente_id).eq('activo',true).maybeSingle()
+    setVerDatosCita({...c, bono_info: bonoData||null})
   }
 
   async function abrirPanel(c:any) {
@@ -353,7 +360,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} setEditandoCita={setEditandoCita}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
         </>
@@ -365,6 +372,7 @@ export default function AgendaPage() {
 
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita}/>}
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
+      {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
     </>
   )
 }
