@@ -9,6 +9,7 @@ import PanelLateral from './components/PanelLateral'
 import ModalNuevaCita from './components/ModalNuevaCita'
 import ModalEditarCita from './components/ModalEditarCita'
 import ModalDatosCita from './components/ModalDatosCita'
+import ModalEntrenoCita from './components/ModalEntrenoCita'
 import ModalNotaDia from './components/ModalNotaDia'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -33,6 +34,7 @@ export default function AgendaPage() {
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
   const [editandoCita, setEditandoCita] = useState<any>(null)
   const [verDatosCita, setVerDatosCita] = useState<any>(null)
+  const [verEntrenoCita, setVerEntrenoCita] = useState<any>(null)
   const [notasDia, setNotasDia] = useState<any[]>([])
   const [buscarPac, setBuscarPac] = useState('')
   const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([])
@@ -148,6 +150,24 @@ export default function AgendaPage() {
     setLoadingSesion(false)
   }
 
+  async function abrirEntrenoCita(c:any) {
+    setVerEntrenoCita(c)
+    setSesionDetalle(null)
+    setAnotaciones({}); setPesos({}); setMostrarSesiones(false); setLoadingSesion(true)
+    if (c.sesiones) {
+      setSesionDetalle(c.sesiones)
+      const { data: anots } = await supabase.from('anotaciones_ejercicios').select('*').eq('paciente_id',c.paciente_id).eq('cita_id',c.id)
+      if (anots) {
+        const am:Record<string,string>={}, pm:Record<string,string>={}
+        anots.forEach((a:any)=>{am[a.ejercicio_id]=a.anotacion||'';pm[a.ejercicio_id]=a.peso_real?.toString()||''})
+        setAnotaciones(am); setPesos(pm)
+      }
+    }
+    const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
+    setSesionesPaciente(sp||[])
+    setLoadingSesion(false)
+  }
+
   async function buscarPacienteDirecto(q: string) {
     setBuscarPac(q)
     if (!q.trim()) { setResultadosBusqueda([]); return }
@@ -173,17 +193,20 @@ export default function AgendaPage() {
   }
 
   async function asignarSesion(sesionId:string) {
-    await supabase.from('citas').update({sesion_id:sesionId}).eq('id',panelPac.id)
+    const citaActiva = verEntrenoCita || panelPac
+    if (!citaActiva) return
+    await supabase.from('citas').update({sesion_id:sesionId}).eq('id',citaActiva.id)
     setMostrarSesiones(false)
     setSesionDetalle(sesionesPaciente.find(s=>s.id===sesionId)||null)
     cargar()
   }
 
   async function guardarAnotacion(ejercicioId:string) {
-    if (!panelPac) return
+    const citaActiva = verEntrenoCita || panelPac
+    if (!citaActiva) return
     setGuardandoAnot(ejercicioId)
-    const { data: ex } = await supabase.from('anotaciones_ejercicios').select('id').eq('paciente_id',panelPac.paciente_id).eq('ejercicio_id',ejercicioId).eq('cita_id',panelPac.id).maybeSingle()
-    const datos = {paciente_id:panelPac.paciente_id,ejercicio_id:ejercicioId,cita_id:panelPac.id,anotacion:anotaciones[ejercicioId]||'',peso_real:pesos[ejercicioId]?parseFloat(pesos[ejercicioId]):null,fecha}
+    const { data: ex } = await supabase.from('anotaciones_ejercicios').select('id').eq('paciente_id',citaActiva.paciente_id).eq('ejercicio_id',ejercicioId).eq('cita_id',citaActiva.id).maybeSingle()
+    const datos = {paciente_id:citaActiva.paciente_id,ejercicio_id:ejercicioId,cita_id:citaActiva.id,anotacion:anotaciones[ejercicioId]||'',peso_real:pesos[ejercicioId]?parseFloat(pesos[ejercicioId]):null,fecha}
     if (ex) await supabase.from('anotaciones_ejercicios').update(datos).eq('id',ex.id)
     else await supabase.from('anotaciones_ejercicios').insert(datos)
     setGuardandoAnot(null)
@@ -360,7 +383,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
         </>
@@ -373,6 +396,7 @@ export default function AgendaPage() {
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita}/>}
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
+      {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} onCerrar={()=>setVerEntrenoCita(null)}/>}
     </>
   )
 }
