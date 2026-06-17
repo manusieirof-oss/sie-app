@@ -71,15 +71,15 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                       {scCanceladas.map(renderCancelada)}
                       </>
                     ):(
-                      <div style={{borderRadius:4,padding:'3px 5px',background:(tiposClase.find((t:any)=>t.valor===tipo)?.color||'#5A969E')+'33',borderLeft:`4px solid ${tiposClase.find((t:any)=>t.valor===tipo)?.color||'#5A969E'}`}}>
+                      <div style={{borderRadius:4,padding:'3px 5px'}}>
                         <div style={{fontSize:7,color:'var(--gr)',marginBottom:3,display:'flex',justifyContent:'flex-end'}}>
                           <span>{sc.length}/{MAX}</span>
                         </div>
                         {sc.map(c=>(
                           <div key={c.id} onClick={()=>abrirPanel(c)}
-                            style={{display:'flex',alignItems:'center',gap:3,padding:'2px 4px',borderRadius:3,cursor:'pointer',marginBottom:1,minHeight:28}}
-                            onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.15)'}
-                            onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                            style={{display:'flex',alignItems:'center',gap:3,padding:'4px 6px',borderRadius:4,cursor:'pointer',marginBottom:2,minHeight:28,background:(tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E')+'33'}}
+                            onMouseOver={e=>(e.currentTarget as HTMLElement).style.opacity='0.8'}
+                            onMouseOut={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
                             <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
                             <span onClick={e=>{e.stopPropagation();abrirEntrenoCita&&abrirEntrenoCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Entrenamiento" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>🏋</span>
                             <span onClick={e=>{e.stopPropagation();abrirDatosCita&&abrirDatosCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Ver datos" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>👤</span>
