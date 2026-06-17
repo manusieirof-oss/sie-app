@@ -41,7 +41,7 @@ export default function AgendaPage() {
   const [modalNota, setModalNota] = useState(false)
   const [nuevaNota, setNuevaNota] = useState('')
   const [nuevaCita, setNuevaCita] = useState({
-    paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'clase', notas:'',
+    paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'entrenamiento', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:'',
     es_recuperacion:false, recuperacion_id:''
   })
@@ -49,6 +49,7 @@ export default function AgendaPage() {
   const [proximasAlertas, setProximasAlertas] = useState<any[]>([])
   const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
   const [tiposCita, setTiposCita] = useState<any[]>([{id:'clase',nombre:'Clase grupal',color:'#5A969E',duracion:50,cuenta_clase:true},{id:'individual',nombre:'Individual / Pareja',color:'#3E7179',duracion:50,cuenta_clase:false},{id:'valoracion',nombre:'Valoración inicial',color:'#C9A84C',duracion:60,cuenta_clase:false},{id:'revaloracion',nombre:'Revaloración',color:'#C9A84C',duracion:60,cuenta_clase:false}])
+  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'🧘',nombre:'Pilates',color:'#A8CDD1',duracion:50},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'👤',nombre:'Individual',color:'#3E7179',duracion:50},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas',color:'#B05A5A',duracion:50}])
   const [pausaInicio, setPausaInicio] = useState('12:30')
   const [pausaFin, setPausaFin] = useState('15:30')
   const [descanso, setDescanso] = useState(10)
@@ -77,6 +78,7 @@ export default function AgendaPage() {
       setMaxPersonas(parseInt(map.clinica_max_personas_sala || '6'))
       setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
       if (map.tipos_cita) setTiposCita(JSON.parse(map.tipos_cita))
+      if (map.tipos_clase) setTiposClase(JSON.parse(map.tipos_clase))
     }
   }
   useEffect(() => { cargar() }, [fecha, vista])
@@ -243,7 +245,7 @@ export default function AgendaPage() {
     if (!nuevaCita.hora) { alert('Selecciona la hora de la cita'); return }
     setGuardando(true)
     if (!nuevaCita.repetir) {
-      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fechaCita,duracion_min:(tiposCita.find((t:any)=>t.id===nuevaCita.tipo)?.duracion)||50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
+      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fechaCita,duracion_min:(tiposClase.find((t:any)=>t.valor===nuevaCita.tipo)?.duracion)||50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
       if (errCita) { alert('Error: '+errCita.message); setGuardando(false); return }
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
         await supabase.from('recuperaciones').update({cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
@@ -265,7 +267,7 @@ export default function AgendaPage() {
       while(fa<=ff) {
         const ds=fa.getDay()===0?7:fa.getDay()
         const dStr=Object.entries(diasMap).find(([,v])=>v===ds)?.[0]
-        if (dStr&&nuevaCita.dias_repetir.includes(dStr)) citasACrear.push({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fa.toISOString().split('T')[0],duracion_min:(tiposCita.find((t:any)=>t.id===nuevaCita.tipo)?.duracion)||50,estado:'programada'})
+        if (dStr&&nuevaCita.dias_repetir.includes(dStr)) citasACrear.push({paciente_id:nuevaCita.paciente_id,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fa.toISOString().split('T')[0],duracion_min:(tiposClase.find((t:any)=>t.valor===nuevaCita.tipo)?.duracion)||50,estado:'programada'})
         fa.setDate(fa.getDate()+1)
       }
       if (citasACrear.length>0) {
@@ -274,7 +276,7 @@ export default function AgendaPage() {
       }
     }
     setModal(false)
-    setNuevaCita({paciente_id:'',fecha:'',hora:'08:30',sala:'A',tipo:'clase',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:'',es_recuperacion:false,recuperacion_id:''})
+    setNuevaCita({paciente_id:'',fecha:'',hora:'08:30',sala:'A',tipo:'entrenamiento',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:'',es_recuperacion:false,recuperacion_id:''})
     setGuardando(false); cargar()
   }
 
@@ -383,8 +385,8 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita}/>}
-          {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita}/>}
+          {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
         </>
       )}
@@ -393,8 +395,8 @@ export default function AgendaPage() {
 
       {modalNota&&<ModalNotaDia fechaDisplay={fechaDisplay} nuevaNota={nuevaNota} setNuevaNota={setNuevaNota} onGuardar={crearNotaDia} onCerrar={()=>setModalNota(false)}/>}
 
-      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita}/>}
-      {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
+      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase}/>}
+      {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} onCerrar={()=>setVerEntrenoCita(null)}/>}
     </>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
-export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[] }: any) {
+export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[] }: any) {
   const [busquedaPac, setBusquedaPac] = useState('')
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   function toggleDia(dia: string) {
@@ -66,7 +66,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
         </div>
         <div className="field"><label>Tipo</label>
           <select className="input" value={nuevaCita.tipo} onChange={e=>setNuevaCita((p:any)=>({...p,tipo:e.target.value}))} disabled={guardando}>
-            {tiposCita.map((t:any)=><option key={t.id} value={t.id}>{t.nombre} ({t.duracion} min)</option>)}
+            {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.icono} {t.nombre} ({t.duracion} min)</option>)}
           </select>
         </div>
         <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px 12px',marginBottom:10}}>

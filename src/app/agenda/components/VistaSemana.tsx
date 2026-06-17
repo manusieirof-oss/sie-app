@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], maxPersonas=6, setEditandoCita }: {
+export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita }: {
   fecha: string
   hoy: string
   citas: any[]
@@ -11,6 +11,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
   setModal: (v: boolean) => void
   abrirPanel: (c: any) => void
   tiposCita?: any[]
+  tiposClase?: any[]
   maxPersonas?: number
   setEditandoCita?: (c: any) => void
   horas?: string[]
@@ -68,7 +69,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
                             style={{fontSize:8,color:'var(--n)',fontWeight:300,padding:'1px',cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3,display:'flex',alignItems:'center',gap:3}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--n)'}>
-                            <span style={{width:5,height:5,borderRadius:'50%',background:tiposCita.find((t:any)=>t.id===c.tipo)?.color||'#5A969E',flexShrink:0}}/>
+                            <span style={{width:5,height:5,borderRadius:'50%',background:tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E',flexShrink:0}}/>
                             <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
                           </div>
                         ))}
@@ -81,7 +82,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
                             style={{fontSize:8,color:'var(--n)',fontWeight:300,padding:'1px',cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3,display:'flex',alignItems:'center',gap:3}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--n)'}>
-                            <span style={{width:5,height:5,borderRadius:'50%',background:tiposCita.find((t:any)=>t.id===c.tipo)?.color||'#5A969E',flexShrink:0}}/>
+                            <span style={{width:5,height:5,borderRadius:'50%',background:tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E',flexShrink:0}}/>
                             <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
                           </div>
                         ))}

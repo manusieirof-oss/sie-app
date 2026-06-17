@@ -1,6 +1,6 @@
 'use client'
 
-export default function ModalEditarCita({ editandoCita, setEditandoCita, guardando, guardarEdicionCita, onCerrar, horas, tiposCita=[], cambiarEstadoCita, eliminarCita }: any) {
+export default function ModalEditarCita({ editandoCita, setEditandoCita, guardando, guardarEdicionCita, onCerrar, horas, tiposCita=[], tiposClase=[], cambiarEstadoCita, eliminarCita }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   if (!editandoCita) return null
   const nombrePac = editandoCita.pacientes ? `${editandoCita.pacientes.nombre} ${editandoCita.pacientes.apellidos||''}` : 'Paciente'
@@ -35,7 +35,7 @@ export default function ModalEditarCita({ editandoCita, setEditandoCita, guardan
 
         <div className="field"><label>Tipo</label>
           <select className="input" value={editandoCita.tipo||''} onChange={e=>setEditandoCita((p:any)=>({...p,tipo:e.target.value}))} disabled={guardando}>
-            {tiposCita.map((t:any)=><option key={t.id} value={t.id}>{t.nombre} ({t.duracion} min)</option>)}
+            {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.icono} {t.nombre} ({t.duracion} min)</option>)}
           </select>
         </div>
 

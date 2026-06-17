@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita }: {
   fecha: string
   hoy: string
   fechaDisplay: string
@@ -71,7 +71,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                       {scCanceladas.map(renderCancelada)}
                       </>
                     ):(
-                      <div style={{borderRadius:4,padding:'3px 5px',background:(tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E')+'22',borderLeft:`2px solid ${tiposCita.find((t:any)=>t.id===tipo)?.color||'#5A969E'}`}}>
+                      <div style={{borderRadius:4,padding:'3px 5px',background:(tiposClase.find((t:any)=>t.valor===tipo)?.color||'#5A969E')+'33',borderLeft:`4px solid ${tiposClase.find((t:any)=>t.valor===tipo)?.color||'#5A969E'}`}}>
                         <div style={{fontSize:7,color:'var(--gr)',marginBottom:3,display:'flex',justifyContent:'flex-end'}}>
                           <span>{sc.length}/{MAX}</span>
                         </div>
