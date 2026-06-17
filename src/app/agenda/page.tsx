@@ -5,7 +5,6 @@ import { generarHoras } from '@/lib/generarHoras'
 import VistaDia from './components/VistaDia'
 import VistaSemana from './components/VistaSemana'
 import VistaMes from './components/VistaMes'
-import PanelLateral from './components/PanelLateral'
 import ModalNuevaCita from './components/ModalNuevaCita'
 import ModalEditarCita from './components/ModalEditarCita'
 import ModalDatosCita from './components/ModalDatosCita'
@@ -391,7 +390,6 @@ export default function AgendaPage() {
         </>
       )}
 
-      {panelPac&&<PanelLateral panelPac={panelPac} panelTab={panelTab} setPanelTab={setPanelTab} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} guardarEdicionCita={guardarEdicionCita} cambiarEstado={cambiarEstado} onCerrar={()=>setPanelPac(null)} horas={horas}/>}
 
       {modalNota&&<ModalNotaDia fechaDisplay={fechaDisplay} nuevaNota={nuevaNota} setNuevaNota={setNuevaNota} onGuardar={crearNotaDia} onCerrar={()=>setModalNota(false)}/>}
 

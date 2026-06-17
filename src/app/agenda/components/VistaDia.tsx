@@ -76,7 +76,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                           <span>{sc.length}/{MAX}</span>
                         </div>
                         {sc.map(c=>(
-                          <div key={c.id} onClick={()=>abrirPanel(c)}
+                          <div key={c.id} onClick={()=>abrirEntrenoCita&&abrirEntrenoCita(c)}
                             style={{display:'flex',alignItems:'center',gap:3,padding:'4px 6px',borderRadius:4,cursor:'pointer',marginBottom:2,minHeight:28,background:(tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E')+'33'}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.opacity='0.8'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
