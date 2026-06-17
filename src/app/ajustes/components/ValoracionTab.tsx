@@ -23,23 +23,27 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
 
       <div className="card" style={{marginBottom:12}}>
         <div className="card-title">🏋 Tipos de clase</div>
-        <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones disponibles en valoración y ficha del paciente</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
+        <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones de clase/entreno. El color y la duración se usan en la agenda.</div>
+        <div style={{marginBottom:10}}>
           {tiposClase.map((tc:any,i:number)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:8,background:'var(--bl)',border:'1px solid var(--bd)'}}>
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,background:'var(--bl)',border:'1px solid var(--bd)',marginBottom:5}}>
+              <input type="color" value={tc.color||'#5A969E'} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,color:e.target.value}:x))} style={{width:24,height:24,border:'none',borderRadius:6,cursor:'pointer',background:'none',flexShrink:0}} title="Color en la agenda"/>
               <span style={{fontSize:14}}>{tc.icono}</span>
-              <span style={{fontSize:10,color:'var(--n)'}}>{tc.nombre}</span>
-              <button onClick={()=>setTiposClase((p:any[])=>p.filter((_,j)=>j!==i))} style={{fontSize:9,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+              <input className="input" value={tc.nombre} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,nombre:e.target.value}:x))} style={{flex:1,fontSize:11,padding:'4px 8px'}}/>
+              <label style={{fontSize:9,color:'var(--grl)',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+                <input className="input" type="number" value={tc.duracion||50} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,duracion:parseInt(e.target.value)||0}:x))} style={{width:50,fontSize:9,padding:'2px 5px'}}/>min
+              </label>
+              <button onClick={()=>setTiposClase((p:any[])=>p.filter((_,j)=>j!==i))} style={{fontSize:9,color:'var(--red)',background:'none',border:'none',cursor:'pointer',flexShrink:0}}>✕</button>
             </div>
           ))}
         </div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          <input className="input" placeholder="Icono ej. 🤸" style={{width:70,fontSize:11}} id="nuevo-tipo-icono"/>
-          <input className="input" placeholder="Nombre ej. CrossFit" style={{flex:1,fontSize:11}} id="nuevo-tipo-nombre"/>
+          <input className="input" placeholder="Icono" style={{width:60,fontSize:11}} id="nuevo-tipo-icono"/>
+          <input className="input" placeholder="Nombre ej. Mayores" style={{flex:1,fontSize:11}} id="nuevo-tipo-nombre"/>
           <button className="btn btn-p btn-sm" onClick={()=>{
             const ic=(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value
             const nm=(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value
-            if(nm){setTiposClase((p:any[])=>[...p,{valor:nm.toLowerCase().replace(/\s/g,'_'),icono:ic||'📌',nombre:nm}]);(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value='';(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value=''}
+            if(nm){setTiposClase((p:any[])=>[...p,{valor:nm.toLowerCase().replace(/\s/g,'_'),icono:ic||'📌',nombre:nm,color:'#5A969E',duracion:50}]);(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value='';(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value=''}
           }}>+ Añadir</button>
         </div>
       </div>

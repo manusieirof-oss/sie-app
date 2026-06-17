@@ -16,7 +16,7 @@ export default function AjustesPage() {
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [comoNosConocio, setComoNosConocio] = useState<string[]>(['Recomendación de un conocido','Instagram','Google','Facebook','Pasó por aquí','Otro'])
-  const [tiposClase, setTiposClase] = useState([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},{valor:'pilates',icono:'🧘',nombre:'Pilates'},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación'},{valor:'individual',icono:'👤',nombre:'Individual'},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas'}])
+  const [tiposClase, setTiposClase] = useState([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'🧘',nombre:'Pilates',color:'#A8CDD1',duracion:50},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'👤',nombre:'Individual',color:'#3E7179',duracion:50},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas',color:'#B05A5A',duracion:50}])
   const [tiposJornada, setTiposJornada] = useState<string[]>([])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>([])
   const [deportesLista, setDeportesLista] = useState<string[]>([])
