@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[] }: {
   fecha: string
   hoy: string
   fechaDisplay: string
@@ -12,6 +12,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
   setEditandoCita?: (c: any) => void
   abrirDatosCita?: (c: any) => void
   abrirEntrenoCita?: (c: any) => void
+  setVerAlertasCita?: (c: any) => void
+  alertasPaciente?: any[]
   setEditandoCita?: (c: any) => void
   setNuevaCita: (fn: (p: any) => any) => void
   setModal: (v: boolean) => void
@@ -76,10 +78,11 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
                           <span>{sc.length}/{MAX}</span>
                         </div>
                         {sc.map(c=>(
-                          <div key={c.id} onClick={()=>abrirEntrenoCita&&abrirEntrenoCita(c)}
+                          <div key={c.id} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)}
                             style={{display:'flex',alignItems:'center',gap:3,padding:'4px 6px',borderRadius:4,cursor:'pointer',marginBottom:2,minHeight:28,background:(tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E')+'33'}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.opacity='0.8'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
+                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{fontSize:10,flexShrink:0}} title="Tiene alertas activas">⚠️</span>}
                             <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
                             <span onClick={e=>{e.stopPropagation();abrirEntrenoCita&&abrirEntrenoCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Entrenamiento" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>🏋</span>
                             <span onClick={e=>{e.stopPropagation();abrirDatosCita&&abrirDatosCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Ver datos" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>👤</span>

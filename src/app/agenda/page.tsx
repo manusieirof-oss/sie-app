@@ -9,6 +9,7 @@ import ModalNuevaCita from './components/ModalNuevaCita'
 import ModalEditarCita from './components/ModalEditarCita'
 import ModalDatosCita from './components/ModalDatosCita'
 import ModalEntrenoCita from './components/ModalEntrenoCita'
+import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalNotaDia from './components/ModalNotaDia'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -17,6 +18,7 @@ const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 export default function AgendaPage() {
   const [vista, setVista] = useState<'dia'|'semana'|'mes'>('dia')
   const [citas, setCitas] = useState<any[]>([])
+  const [alertasPaciente, setAlertasPaciente] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(true)
@@ -34,6 +36,7 @@ export default function AgendaPage() {
   const [editandoCita, setEditandoCita] = useState<any>(null)
   const [verDatosCita, setVerDatosCita] = useState<any>(null)
   const [verEntrenoCita, setVerEntrenoCita] = useState<any>(null)
+  const [verAlertasCita, setVerAlertasCita] = useState<any>(null)
   const [notasDia, setNotasDia] = useState<any[]>([])
   const [buscarPac, setBuscarPac] = useState('')
   const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([])
@@ -108,6 +111,8 @@ export default function AgendaPage() {
     setNotasDia(nd||[])
     const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).order('fecha').order('hora')
     setCitas(c||[])
+    const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
+    setAlertasPaciente(alPac||[])
     setLoading(false)
   }
 
@@ -316,6 +321,18 @@ export default function AgendaPage() {
     setEditandoCita(null); cargar()
   }
 
+  async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
+    await supabase.from('alertas_paciente').insert({paciente_id:pacienteId,tipo,afecta_sesion:afectaSesion,descripcion,activa:true})
+    const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
+    setAlertasPaciente(alPac||[])
+  }
+
+  async function cerrarAlerta(alertaId:string) {
+    await supabase.from('alertas_paciente').update({activa:false,fecha_cierre:new Date().toISOString()}).eq('id',alertaId)
+    const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
+    setAlertasPaciente(alPac||[])
+  }
+
   async function cargarRecuperaciones(pacienteId: string) {
     if (!pacienteId) { setRecuperacionesPaciente([]); return }
     const { data } = await supabase.from('recuperaciones').select('*').eq('paciente_id',pacienteId).eq('estado','pendiente').is('cita_recuperacion_id',null).order('fecha_limite')
@@ -384,7 +401,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} notasDia={notasDia} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} toggleNotaResuelta={toggleNotaResuelta} eliminarNota={eliminarNota} setModalNota={setModalNota} proximasAlertas={proximasAlertas} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
         </>
@@ -397,6 +414,7 @@ export default function AgendaPage() {
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} onCerrar={()=>setVerEntrenoCita(null)}/>}
+      {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}
     </>
   )
 }
