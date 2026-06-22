@@ -1,6 +1,6 @@
 'use client'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[] }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas }: {
   fecha: string
   hoy: string
   fechaDisplay: string
@@ -14,6 +14,9 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
   abrirEntrenoCita?: (c: any) => void
   setVerAlertasCita?: (c: any) => void
   alertasPaciente?: any[]
+  tareas?: any[]
+  completarTarea?: (id:string,v:boolean)=>void
+  setModalTareas?: (v:boolean)=>void
   setEditandoCita?: (c: any) => void
   setNuevaCita: (fn: (p: any) => any) => void
   setModal: (v: boolean) => void
@@ -135,19 +138,27 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
               ))}
             </>
           )}
-          <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5,marginTop:8}}>Notas del día</div>
-          {notasDia.length===0&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Sin notas para hoy</div>}
-          {notasDia.map(n=>(
-            <div key={n.id} style={{borderRadius:5,padding:'6px 8px',borderLeft:'2px solid var(--amb)',background:n.resuelta?'var(--bl)':'var(--ambl)',marginBottom:4,opacity:n.resuelta?0.6:1}}>
-              <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4,textDecoration:n.resuelta?'line-through':'none'}}>{n.texto}</div>
-              <div style={{display:'flex',gap:5,marginTop:4}}>
-                <button onClick={()=>toggleNotaResuelta(n.id,n.resuelta)} style={{fontSize:8,padding:'1px 6px',borderRadius:3,border:'1px solid var(--amb)',background:'transparent',color:'var(--amb)',cursor:'pointer',fontFamily:'system-ui'}}>
-                  {n.resuelta?'↩ Reabrir':'✓ Hecho'}
-                </button>
-                <button onClick={()=>eliminarNota(n.id)} style={{fontSize:8,padding:'1px 6px',borderRadius:3,border:'1px solid var(--red)',background:'transparent',color:'var(--red)',cursor:'pointer',fontFamily:'system-ui'}}>✕</button>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5,marginTop:8}}>
+            <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase'}}>Tareas pendientes</div>
+            <span onClick={()=>setModalTareas&&setModalTareas(true)} style={{fontSize:8,color:'var(--g)',cursor:'pointer',fontWeight:500}}>ver todas</span>
+          </div>
+          {(tareas||[]).filter((t:any)=>!t.completada).length===0&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Sin tareas pendientes</div>}
+          {(tareas||[]).filter((t:any)=>!t.completada).slice(0,8).map((t:any)=>{
+            const hoyStr=new Date().toISOString().split('T')[0]
+            const venc=t.fecha_limite&&t.fecha_limite<hoyStr
+            const esHoy=t.fecha_limite===hoyStr
+            const bd=venc?'var(--red)':esHoy?'var(--amb)':'var(--bm)'
+            const bg=venc?'var(--redl)':esHoy?'var(--ambl)':'var(--bl)'
+            return (
+              <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:6,borderRadius:5,padding:'6px 8px',borderLeft:`2px solid ${bd}`,background:bg,marginBottom:4}}>
+                <div onClick={()=>completarTarea&&completarTarea(t.id,true)} style={{width:14,height:14,borderRadius:3,border:'2px solid var(--bm)',background:'transparent',cursor:'pointer',flexShrink:0,marginTop:1}} title="Marcar hecha"/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.3}}>{t.titulo}</div>
+                  {t.fecha_limite&&<div style={{fontSize:8,color:venc?'var(--red)':esHoy?'#7A5800':'var(--grl)',marginTop:1,fontWeight:venc||esHoy?600:400}}>📅 {t.fecha_limite}{venc?' · vencida':esHoy?' · hoy':''}</div>}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         {proximasAlertas && proximasAlertas.length>0&&(
           <div style={{padding:'7px 9px',borderBottom:'1px solid var(--bd)'}}>
@@ -160,8 +171,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             ))}
           </div>
         )}
-        <div style={{padding:'7px 9px',borderTop:'1px solid var(--bd)',fontSize:9,color:'var(--amb)',cursor:'pointer',fontWeight:500,display:'flex',alignItems:'center',gap:5}} onClick={()=>setModalNota(true)}>
-          <span>📝</span> + Nota del día
+        <div style={{padding:'7px 9px',borderTop:'1px solid var(--bd)',fontSize:9,color:'var(--g)',cursor:'pointer',fontWeight:500,display:'flex',alignItems:'center',gap:5}} onClick={()=>setModalTareas&&setModalTareas(true)}>
+          <span>✓</span> + Nueva tarea
         </div>
       </div>
     </div>
