@@ -23,7 +23,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
   }
 
   const pacFiltrados = buscarPac.trim()
-    ? (pacientes||[]).filter((p)=>`${p.nombre} ${p.apellidos||''}`.toLowerCase().includes(buscarPac.toLowerCase())).slice(0,5)
+    ? (pacientes||[]).filter((p)=>`${p.nombre} ${p.apellidos||''} ${p.nombre_clinica||''}`.toLowerCase().includes(buscarPac.toLowerCase())).slice(0,5)
     : []
 
   let lista = (tareas||[]).filter((t)=>verCompletadas?t.completada:!t.completada)

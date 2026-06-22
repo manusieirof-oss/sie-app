@@ -427,7 +427,6 @@ export default function AgendaPage() {
             <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',fontSize:10,color:'var(--grl)',zIndex:50,marginTop:3}}>Sin citas futuras</div>
           )}
         </div>
-        <button className="btn btn-s btn-sm" onClick={()=>setModalTareas(true)}>✓ Tareas{tareas.filter((t:any)=>!t.completada).length>0&&<span style={{marginLeft:5,background:'var(--g)',color:'#fff',borderRadius:8,padding:'0 6px',fontSize:9}}>{tareas.filter((t:any)=>!t.completada).length}</span>}</button>
         <button className="btn btn-p btn-sm" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:''}));setModal(true)}}>+ Nueva cita</button>
       </div>
 
