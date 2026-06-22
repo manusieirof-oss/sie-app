@@ -127,17 +127,23 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
           ))}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:'7px 9px'}}>
-          {citas.filter(c=>c.notas&&c.fecha===fecha).length>0&&(
-            <>
-              <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>Alertas pacientes</div>
-              {citas.filter(c=>c.notas&&c.fecha===fecha).map(c=>(
-                <div key={c.id} style={{borderRadius:5,padding:'5px 8px',borderLeft:'2px solid var(--g)',background:'var(--gl)',marginBottom:4}}>
-                  <div style={{fontSize:8,color:'var(--gd)',marginBottom:1}}>{c.pacientes?.nombre}</div>
-                  <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{c.notas}</div>
-                </div>
-              ))}
-            </>
-          )}
+          {(()=>{
+            const pacsHoy = new Set(citas.filter((c:any)=>c.fecha===fecha).map((c:any)=>c.paciente_id))
+            const alertasHoy = (alertasPaciente||[]).filter((a:any)=>pacsHoy.has(a.paciente_id))
+            if (alertasHoy.length===0) return null
+            const nombrePac=(pid:string)=>{const c=citas.find((x:any)=>x.paciente_id===pid);return c?.pacientes?`${c.pacientes.nombre} ${c.pacientes.apellidos||''}`:''}
+            return (
+              <>
+                <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>⚠️ Alertas de hoy</div>
+                {alertasHoy.map((a:any)=>(
+                  <div key={a.id} style={{borderRadius:5,padding:'5px 8px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)',marginBottom:4}}>
+                    <div style={{fontSize:8,color:a.afecta_sesion?'var(--red)':'var(--gd)',marginBottom:1,fontWeight:500}}>{nombrePac(a.paciente_id)}{a.afecta_sesion&&' · afecta sesión'}</div>
+                    <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</div>
+                  </div>
+                ))}
+              </>
+            )
+          })()}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5,marginTop:8}}>
             <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase'}}>Tareas pendientes</div>
             <span onClick={()=>setModalTareas&&setModalTareas(true)} style={{fontSize:8,color:'var(--g)',cursor:'pointer',fontWeight:500}}>ver todas</span>
@@ -165,17 +171,6 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             </div>
           )}
         </div>
-        {proximasAlertas && proximasAlertas.length>0&&(
-          <div style={{padding:'7px 9px',borderBottom:'1px solid var(--bd)'}}>
-            <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>🔔 Próximas alertas</div>
-            {proximasAlertas.map((a:any,i:number)=>(
-              <div key={i} style={{borderRadius:5,padding:'5px 8px',borderLeft:'2px solid var(--amb)',background:'var(--ambl)',marginBottom:4}}>
-                <div style={{fontSize:8,color:'#7A5800',marginBottom:1,fontWeight:500}}>{new Date(a.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
-                <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.texto?.replace('🔔 ','')}</div>
-              </div>
-            ))}
-          </div>
-        )}
         <div style={{padding:'7px 9px',borderTop:'1px solid var(--bd)',fontSize:9,color:'var(--g)',cursor:'pointer',fontWeight:500,display:'flex',alignItems:'center',gap:5}} onClick={()=>setModalTareas&&setModalTareas(true)}>
           <span>✓</span> + Nueva tarea
         </div>
