@@ -143,7 +143,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             <span onClick={()=>setModalTareas&&setModalTareas(true)} style={{fontSize:8,color:'var(--g)',cursor:'pointer',fontWeight:500}}>ver todas</span>
           </div>
           {(tareas||[]).filter((t:any)=>!t.completada).length===0&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>Sin tareas pendientes</div>}
-          {(tareas||[]).filter((t:any)=>!t.completada).slice(0,8).map((t:any)=>{
+          {(tareas||[]).filter((t:any)=>!t.completada).slice(0,5).map((t:any)=>{
             const hoyStr=new Date().toISOString().split('T')[0]
             const venc=t.fecha_limite&&t.fecha_limite<hoyStr
             const esHoy=t.fecha_limite===hoyStr
@@ -159,6 +159,11 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
               </div>
             )
           })}
+          {(tareas||[]).filter((t:any)=>!t.completada).length>5&&(
+            <div onClick={()=>setModalTareas&&setModalTareas(true)} style={{fontSize:9,color:'var(--g)',cursor:'pointer',fontWeight:500,textAlign:'center',padding:'4px',marginTop:2}}>
+              +{(tareas||[]).filter((t:any)=>!t.completada).length-5} tareas más
+            </div>
+          )}
         </div>
         {proximasAlertas && proximasAlertas.length>0&&(
           <div style={{padding:'7px 9px',borderBottom:'1px solid var(--bd)'}}>
