@@ -10,6 +10,7 @@ import ModalEditarCita from './components/ModalEditarCita'
 import ModalDatosCita from './components/ModalDatosCita'
 import ModalEntrenoCita from './components/ModalEntrenoCita'
 import ModalAlertasCita from './components/ModalAlertasCita'
+import ModalTareas from './components/ModalTareas'
 import ModalNotaDia from './components/ModalNotaDia'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -19,10 +20,14 @@ export default function AgendaPage() {
   const [vista, setVista] = useState<'dia'|'semana'|'mes'>('dia')
   const [citas, setCitas] = useState<any[]>([])
   const [alertasPaciente, setAlertasPaciente] = useState<any[]>([])
+  const [perfiles, setPerfiles] = useState<any[]>([])
+  const [userId, setUserId] = useState<string|null>(null)
+  const [tareas, setTareas] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
+  const [modalTareas, setModalTareas] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [panelPac, setPanelPac] = useState<any>(null)
   const [panelTab, setPanelTab] = useState<'sesion'|'datos'>('sesion')
@@ -113,6 +118,12 @@ export default function AgendaPage() {
     setCitas(c||[])
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])
+    const { data: perf } = await supabase.from('perfiles').select('user_id,nombre,rol')
+    setPerfiles(perf||[])
+    const { data: { user } } = await supabase.auth.getUser()
+    setUserId(user?.id||null)
+    const { data: tar } = await supabase.from('tareas').select('*').order('fecha_limite',{ascending:true,nullsFirst:false})
+    setTareas(tar||[])
     setLoading(false)
   }
 
@@ -321,6 +332,26 @@ export default function AgendaPage() {
     setEditandoCita(null); cargar()
   }
 
+  async function recargarTareas() {
+    const { data: tar } = await supabase.from('tareas').select('*').order('fecha_limite',{ascending:true,nullsFirst:false})
+    setTareas(tar||[])
+  }
+
+  async function crearTarea(titulo:string, asignadoA:string, fechaLimite:string, pacienteId:string) {
+    await supabase.from('tareas').insert({titulo,asignado_a:asignadoA||null,fecha_limite:fechaLimite||null,paciente_id:pacienteId||null,creada_por:userId,completada:false})
+    recargarTareas()
+  }
+
+  async function completarTarea(tareaId:string, completada:boolean) {
+    await supabase.from('tareas').update({completada,fecha_completada:completada?new Date().toISOString():null,completada_por:completada?userId:null}).eq('id',tareaId)
+    recargarTareas()
+  }
+
+  async function borrarTarea(tareaId:string) {
+    await supabase.from('tareas').delete().eq('id',tareaId)
+    recargarTareas()
+  }
+
   async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
     await supabase.from('alertas_paciente').insert({paciente_id:pacienteId,tipo,afecta_sesion:afectaSesion,descripcion,activa:true})
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
@@ -396,6 +427,7 @@ export default function AgendaPage() {
             <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',fontSize:10,color:'var(--grl)',zIndex:50,marginTop:3}}>Sin citas futuras</div>
           )}
         </div>
+        <button className="btn btn-s btn-sm" onClick={()=>setModalTareas(true)}>✓ Tareas{tareas.filter((t:any)=>!t.completada).length>0&&<span style={{marginLeft:5,background:'var(--g)',color:'#fff',borderRadius:8,padding:'0 6px',fontSize:9}}>{tareas.filter((t:any)=>!t.completada).length}</span>}</button>
         <button className="btn btn-p btn-sm" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:''}));setModal(true)}}>+ Nueva cita</button>
       </div>
 
@@ -415,6 +447,7 @@ export default function AgendaPage() {
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} alertasPaciente={alertasPaciente} onCerrar={()=>setVerEntrenoCita(null)}/>}
       {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}
+      {modalTareas&&<ModalTareas tareas={tareas} perfiles={perfiles} pacientes={pacientes} userId={userId} crearTarea={crearTarea} completarTarea={completarTarea} borrarTarea={borrarTarea} onCerrar={()=>setModalTareas(false)}/>}
     </>
   )
 }
