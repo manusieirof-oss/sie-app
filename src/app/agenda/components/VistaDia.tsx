@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 
 export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas }: {
   fecha: string
@@ -35,6 +36,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const PAUSA_INICIO = pausaInicio || '12:30'
   const PAUSA_FIN = pausaFin || '15:30'
+  const [alertasExpand, setAlertasExpand] = useState(false)
+
   function getCitasSlot(h: string, sala: string) {
     return citas.filter(c=>c.hora.startsWith(h)&&c.sala===sala&&c.fecha===fecha)
   }
@@ -135,12 +138,17 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
             return (
               <>
                 <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>⚠️ Alertas de hoy</div>
-                {alertasHoy.map((a:any)=>(
+                {(alertasExpand?alertasHoy:alertasHoy.slice(0,5)).map((a:any)=>(
                   <div key={a.id} style={{borderRadius:5,padding:'5px 8px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)',marginBottom:4}}>
                     <div style={{fontSize:8,color:a.afecta_sesion?'var(--red)':'var(--gd)',marginBottom:1,fontWeight:500}}>{nombrePac(a.paciente_id)}{a.afecta_sesion&&' · afecta sesión'}</div>
                     <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</div>
                   </div>
                 ))}
+                {alertasHoy.length>5&&(
+                  <div onClick={()=>setAlertasExpand(!alertasExpand)} style={{fontSize:9,color:'var(--g)',cursor:'pointer',fontWeight:500,textAlign:'center',padding:'4px',marginBottom:2}}>
+                    {alertasExpand?'ver menos':`+${alertasHoy.length-5} alertas más`}
+                  </div>
+                )}
               </>
             )
           })()}
