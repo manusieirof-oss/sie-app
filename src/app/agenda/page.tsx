@@ -104,7 +104,7 @@ export default function AgendaPage() {
       const ult=new Date(parseInt(fecha.slice(0,4)),parseInt(fecha.slice(5,7)),0).getDate()
       fechaFin=fecha.slice(0,7)+'-'+String(ult).padStart(2,'0')
     }
-    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).order('fecha').order('hora')
+    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase,notas_fijas), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).order('fecha').order('hora')
     setCitas(c||[])
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])

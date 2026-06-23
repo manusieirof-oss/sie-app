@@ -45,6 +45,13 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
       {panelPac.pacientes?.email&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>✉️ {panelPac.pacientes.email}</div>}
       <div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:12}}>🏷 {panelPac.pacientes?.tipo_clase||'—'}</div>
 
+      {/* NOTAS PERMANENTES (lectura) */}
+      {panelPac.pacientes?.notas_fijas && (
+        <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 10px',marginBottom:12,fontSize:10,color:'var(--n)',fontWeight:400,whiteSpace:'pre-line'}}>
+          📌 {panelPac.pacientes.notas_fijas}
+        </div>
+      )}
+
       {/* BONO */}
       {panelPac.bono_info&&(
         <div style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px',marginBottom:12,border:'1px solid var(--bd)'}}>
