@@ -1,12 +1,11 @@
 'use client'
 import { useState } from 'react'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, toggleNotaResuelta, eliminarNota, setModalNota, proximasAlertas, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas }: {
   fecha: string
   hoy: string
   fechaDisplay: string
   citas: any[]
-  notasDia: any[]
   totalPersonas: number
   clases: number
   abrirPanel: (c: any) => void
@@ -21,10 +20,6 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, notasDia, to
   setEditandoCita?: (c: any) => void
   setNuevaCita: (fn: (p: any) => any) => void
   setModal: (v: boolean) => void
-  toggleNotaResuelta: (id: string, resuelta: boolean) => void
-  eliminarNota: (id: string) => void
-  setModalNota: (v: boolean) => void
-  proximasAlertas?: any[]
   horas?: string[]
   pausaInicio?: string
   pausaFin?: string
