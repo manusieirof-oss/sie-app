@@ -37,6 +37,15 @@ export default function PacientesPage() {
     return bonos.find(b=>b.paciente_id===pacienteId)
   }
 
+  async function ciclarPago(e: React.MouseEvent, bono: any) {
+    e.preventDefault(); e.stopPropagation()
+    if (!bono) return
+    const orden: Record<string,string> = { pagado:'pendiente', pendiente:'impago', impago:'pagado' }
+    const nuevoEstado = orden[bono.estado_pago] || 'pendiente'
+    await supabase.from('bonos').update({ estado_pago:nuevoEstado }).eq('id',bono.id)
+    setBonos(prev=>prev.map(b=>b.id===bono.id?{...b,estado_pago:nuevoEstado}:b))
+  }
+
   async function crearPaciente() {
     if (!nuevo.nombre || !nuevo.apellidos) { alert('Nombre y apellidos son obligatorios'); return }
     const { error } = await supabase.from('pacientes').insert({
@@ -54,6 +63,8 @@ export default function PacientesPage() {
   }
 
   const tipoLabel: Record<string,string> = { entrenamiento:'🏋 Entrenamiento', pilates:'🧘 Pilates', rehabilitacion:'🏥 Rehabilitación' }
+  const labelTipo = (v:string) => { const t = tiposClase.find((x:any)=>x.valor===v); return t ? `${t.icono} ${t.nombre}` : (tipoLabel[v]||'—') }
+  const estadoBadge: Record<string,{txt:string,bg:string,col:string}> = { activo:{txt:'● Activo',bg:'var(--gl)',col:'var(--gd)'}, baja:{txt:'○ Baja',bg:'var(--redl)',col:'var(--red)'}, pausa:{txt:'⏸ Pausa',bg:'var(--ambl)',col:'#7A5800'} }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
   const bonoLabel: Record<string,string> = { reducido:'Reducido', esencial:'Esencial', progreso:'Progreso', avanzado:'Avanzado', individual:'Individual', bono4:'Bono 4 sesiones' }
@@ -140,8 +151,8 @@ export default function PacientesPage() {
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-          <div style={{display:'grid',gridTemplateColumns:'36px 1fr 110px 130px 110px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-            {['','Paciente','Bono','Tipo clase','Cuota actual'].map((h,i)=>(
+          <div style={{display:'grid',gridTemplateColumns:'36px 1fr 95px 100px 120px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+            {['','Paciente','Estado','Bono','Tipo clase','Cuota actual'].map((h,i)=>(
               <div key={i} style={{fontSize:9,fontWeight:500,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',padding:'7px 10px',borderLeft:i>0?'1px solid var(--bd)':'none'}}>{h}</div>
             ))}
           </div>
@@ -151,7 +162,7 @@ export default function PacientesPage() {
             const pago = bono?.estado_pago || 'pendiente'
             const iniciales = `${p.nombre?.[0]||''}${p.apellidos?.[0]||''}`.toUpperCase()
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:'36px 1fr 110px 130px 110px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
+              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:'36px 1fr 95px 100px 120px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
                 <div style={{padding:'8px 4px',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -159,14 +170,21 @@ export default function PacientesPage() {
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{p.nombre} {p.apellidos}</div>
-                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.email || p.telefono || '—'}</div>
+                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.email || p.telefono || '—'}</div>
+                </div>
+                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
+                  <span style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:estadoBadge[p.estado]?.bg||'var(--bl)',color:estadoBadge[p.estado]?.col||'var(--gr)'}}>{estadoBadge[p.estado]?.txt||p.estado}</span>
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span> : <span style={{fontSize:10,color:'var(--grl)'}}>Sin bono</span>}
                 </div>
-                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{tipoLabel[p.tipo_clase]||'—'}</div>
+                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
-                  <span className={`badge ${pagoBadge[pago]||'badge-b'}`}>{pagoLabel[pago]||'—'}</span>
+                  {bono ? (
+                    <span onClick={e=>ciclarPago(e,bono)} className={`badge ${pagoBadge[pago]||'badge-b'}`} style={{cursor:'pointer'}} title="Clic para cambiar estado de pago">{pagoLabel[pago]||'—'}</span>
+                  ) : (
+                    <span style={{fontSize:10,color:'var(--grl)'}}>Sin cuota</span>
+                  )}
                 </div>
               </Link>
             )
