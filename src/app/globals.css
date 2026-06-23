@@ -62,7 +62,7 @@ textarea.input{resize:vertical;min-height:70px;}
 .modal-title{font-size:15px;font-weight:400;color:var(--n);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;}
 .modal-close{cursor:pointer;color:var(--grl);font-size:18px;background:none;border:none;padding:2px;}
 .pat-header{background:var(--n);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.pat-avatar{width:46px;height:46px;border-radius:50%;background:rgba(90,150,158,.25);border:1.5px solid var(--g);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--g);flex-shrink:0;}
+.pat-avatar{width:92px;height:92px;border-radius:50%;background:rgba(90,150,158,.25);border:1.5px solid var(--g);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--g);flex-shrink:0;}
 .pat-name{font-size:15px;font-weight:300;color:#fff;}
 .pat-meta{font-size:10px;color:var(--grl);font-weight:300;margin-top:2px;}
 .ri{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bl);border-radius:6px;border:1px solid var(--bd);margin-bottom:5px;cursor:pointer;transition:all .12s;}

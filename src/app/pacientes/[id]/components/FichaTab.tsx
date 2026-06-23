@@ -17,13 +17,6 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
     }
   }, [pac?.id])
 
-  const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
-  const faltas = citas.filter((c:any)=>c.estado==='falta').length
-  const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
-  const total = realizadas + faltas
-  const pct = total>0 ? Math.round((realizadas/total)*100) : 0
-  const faltasRecuperables = citas.filter((c:any)=>c.estado==='falta' && c.recuperable).length
-  const proximas = citas.filter((c:any)=>['programada','clase'].includes(c.estado)).slice(0,5)
 
   return (
     <div className="g2">
@@ -150,34 +143,6 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
           </div>
         )}
 
-        {/* PRÓXIMAS CITAS */}
-        <div className="card">
-          <div className="card-title">Próximas citas</div>
-          {proximas.length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin citas programadas</div>}
-          {proximas.map((c:any)=>(
-            <div key={c.id} className="ri">
-              <div style={{flex:1}}>
-                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)}</div>
-                <div style={{fontSize:9,color:'var(--grl)'}}>Sala {c.sala} · {c.tipo}</div>
-              </div>
-              <span className={`badge ${c.estado==='realizada'?'badge-g':'badge-b'}`}>{c.estado}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* RESUMEN ASISTENCIA COMPACTO */}
-        <div className="card">
-          <div className="card-title">Asistencia</div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:8}}>
-            {[['Realizadas',realizadas,'var(--g)'],['Faltas',faltas,'var(--red)'],['% Asist.',total>0?pct+'%':'—','var(--n)']].map(([l,v,c])=>(
-              <div key={String(l)} style={{background:'var(--bl)',borderRadius:6,padding:'6px 8px',textAlign:'center'}}>
-                <div style={{fontSize:18,fontWeight:300,color:c}}>{v}</div>
-                <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>{l}</div>
-              </div>
-            ))}
-          </div>
-          {total>0&&<div style={{background:'var(--bm)',borderRadius:99,height:5,overflow:'hidden'}}><div style={{width:pct+'%',height:'100%',background:'var(--g)',borderRadius:99}}/></div>}
-        </div>
       </div>
     </div>
   )

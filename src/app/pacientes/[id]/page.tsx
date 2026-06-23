@@ -375,7 +375,7 @@ export default function FichaPacientePage() {
       <div className="pat-header">
         <div style={{position:'relative',flexShrink:0}}>
           {pac.foto_url ? (
-            <img src={pac.foto_url} alt={pac.nombre} style={{width:46,height:46,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
+            <img src={pac.foto_url} alt={pac.nombre} style={{width:92,height:92,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
           ) : (
             <div className="pat-avatar">{iniciales}</div>
           )}
@@ -403,8 +403,6 @@ export default function FichaPacientePage() {
             <span style={{fontSize:8,fontWeight:500,padding:'2px 8px',borderRadius:99,background:'rgba(255,255,255,.1)',color:estadoColor[pac.estado]||'var(--g)'}}>
               {estadoLabel[pac.estado]||'● Activo'}
             </span>
-            {bono && <span className="badge badge-b">{bonoLabel[bono.tipo]||bono.tipo}</span>}
-            {bono && <span className={`badge ${pagoBadge[bono.estado_pago]||'badge-b'}`}>{pagoLabel[bono.estado_pago]}</span>}
           </div>
         </div>
 
@@ -420,7 +418,7 @@ export default function FichaPacientePage() {
           )}
           {pac.estado==='activo' && <>
             <button className="btn btn-t btn-sm" onClick={()=>setModalPausa(true)}>⏸ Pausa</button>
-            <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>○ Dar de baja</button>
+            <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>○ Baja</button>
           </>}
           {(pac.estado==='baja'||pac.estado==='pausa') && (
             <button className="btn btn-p btn-sm" onClick={reactivar} disabled={procesando}>▶ Reactivar</button>
