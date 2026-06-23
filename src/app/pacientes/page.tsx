@@ -11,6 +11,7 @@ export default function PacientesPage() {
   const [filtroPago, setFiltroPago] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroEstado, setFiltroEstado] = useState('activo')
+  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},{valor:'pilates',icono:'🧘',nombre:'Pilates'},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación'},{valor:'individual',icono:'👤',nombre:'Individual'},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas'}])
   const [modal, setModal] = useState(false)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
@@ -27,6 +28,8 @@ export default function PacientesPage() {
     ])
     setPacientes(p || [])
     setBonos(b || [])
+    const { data: aj } = await supabase.from('ajustes').select('clave,valor').eq('clave','tipos_clase').maybeSingle()
+    if (aj?.valor) { try { setTiposClase(JSON.parse(aj.valor)) } catch {} }
     setLoading(false)
   }
 
@@ -37,7 +40,7 @@ export default function PacientesPage() {
   async function crearPaciente() {
     if (!nuevo.nombre || !nuevo.apellidos) { alert('Nombre y apellidos son obligatorios'); return }
     const { error } = await supabase.from('pacientes').insert({
-      nombre: nuevo.nombre, apellidos: nuevo.apellidos, telefono: nuevo.telefono,
+      nombre: nuevo.nombre, apellidos: nuevo.apellidos, nombre_clinica: nuevo.nombre_clinica||null, telefono: nuevo.telefono,
       email: nuevo.email, tipo_clase: nuevo.tipo_clase, dni: nuevo.dni,
       fecha_nacimiento: nuevo.fecha_nacimiento || null,
       altura_cm: nuevo.altura_cm ? parseInt(nuevo.altura_cm) : null,
@@ -46,7 +49,7 @@ export default function PacientesPage() {
     })
     if (error) { alert('Error: ' + error.message); return }
     setModal(false)
-    setNuevo({ nombre:'', apellidos:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
+    setNuevo({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
     cargar()
   }
 
@@ -57,7 +60,7 @@ export default function PacientesPage() {
 
   const filtrados = pacientes.filter(p=>{
     const q = buscar.toLowerCase()
-    const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.telefono||'').includes(q)
+    const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
     const bono = getBonoActual(p.id)
     const matchPago = filtroPago==='todos' || bono?.estado_pago===filtroPago || (!bono && filtroPago==='pendiente')
     const matchEstado = filtroEstado==='todos' || p.estado===filtroEstado
@@ -65,6 +68,7 @@ export default function PacientesPage() {
     return matchQ && matchPago && matchTipo && matchEstado
   })
 
+  const totalActivos = pacientes.filter(p=>p.estado==='activo').length
   const totalPag = bonos.filter(b=>b.estado_pago==='pagado').length
   const totalPen = bonos.filter(b=>b.estado_pago==='pendiente').length
   const totalImp = bonos.filter(b=>b.estado_pago==='impago').length
@@ -73,7 +77,7 @@ export default function PacientesPage() {
     <>
       {/* FILTROS */}
       <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
-        <input className="input" placeholder="🔍 Buscar por nombre o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="🔍 Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
         <span style={{fontSize:9,color:'var(--grl)'}}>Pago:</span>
         {['todos','pagado','pendiente','impago'].map(f=>(
           <span key={f} className={`badge ${filtroPago===f?'badge-g':''}`} style={{cursor:'pointer',border:'1px solid var(--bd)',padding:'3px 9px',borderRadius:99}} onClick={()=>setFiltroPago(f)}>
@@ -97,7 +101,7 @@ export default function PacientesPage() {
 
       {/* RESUMEN */}
       <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-        {[[pacientes.length,'activos','var(--w)','var(--bd)','var(--n)'],[totalImp,'impagos','var(--redl)','#F5C8C8','var(--red)'],[totalPen,'pendientes','var(--ambl)','var(--amb)','#7A5800'],[totalPag,'pagados','var(--gl)','var(--gm)','var(--gd)']].map(([v,l,bg,br,c])=>(
+        {[[totalActivos,'activos','var(--w)','var(--bd)','var(--n)'],[totalImp,'impagos','var(--redl)','#F5C8C8','var(--red)'],[totalPen,'pendientes','var(--ambl)','var(--amb)','#7A5800'],[totalPag,'pagados','var(--gl)','var(--gm)','var(--gd)']].map(([v,l,bg,br,c])=>(
           <div key={String(l)} style={{background:String(bg),border:`1px solid ${br}`,borderRadius:6,padding:'5px 12px',fontSize:10,fontWeight:300,color:String(c),display:'flex',alignItems:'center',gap:5}}>
             <span style={{fontSize:14,fontWeight:500}}>{v}</span> {l}
           </div>
