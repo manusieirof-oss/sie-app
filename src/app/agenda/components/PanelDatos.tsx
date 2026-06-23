@@ -79,7 +79,6 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
       </div>
       <div style={{background:'var(--bl)',borderRadius:6,padding:'8px 10px',marginBottom:12,fontSize:10,color:'var(--n)',fontWeight:300}}>
         <div>{panelPac.hora?.slice(0,5)} · Sala {panelPac.sala} · {panelPac.tipo}</div>
-        {panelPac.notas&&<div style={{marginTop:4,color:'var(--gr)'}}>{panelPac.notas}</div>}
       </div>
 
       {/* ESTADO */}

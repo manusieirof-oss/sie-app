@@ -39,10 +39,6 @@ export default function ModalEditarCita({ editandoCita, setEditandoCita, guardan
           </select>
         </div>
 
-        <div className="field"><label>Notas</label>
-          <input className="input" value={editandoCita.notas||''} onChange={e=>setEditandoCita((p:any)=>({...p,notas:e.target.value}))} placeholder="Notas sobre esta cita..." disabled={guardando}/>
-        </div>
-
         <div style={{display:'flex',gap:8,marginTop:10}}>
           <button className="btn btn-d btn-sm" onClick={()=>{if(!guardando)onCerrar()}}>Cancelar</button>
           <div style={{flex:1}}/>

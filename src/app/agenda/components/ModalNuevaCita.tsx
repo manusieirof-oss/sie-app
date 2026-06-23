@@ -128,9 +128,6 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
             )}
           </div>
         )}
-        <div className="field"><label>Notas (opcional)</label>
-          <input className="input" value={nuevaCita.notas} onChange={e=>setNuevaCita((p:any)=>({...p,notas:e.target.value}))} placeholder="ej. Molestia lumbar, precaución..." disabled={guardando}/>
-        </div>
         {nuevaCita.paciente_id && (
           <div className="field">
             <label>Sesión de entrenamiento (opcional)</label>
