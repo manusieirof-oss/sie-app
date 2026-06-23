@@ -220,7 +220,7 @@ export default function FichaPacientePage() {
     await supabase.from('pacientes').update({
       nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono,
       email:form.email, dni:form.dni, altura_cm:form.altura_cm,
-      peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas:form.notas
+      peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas:form.notas, notas_fijas:form.notas_fijas
     }).eq('id',id)
     setEditando(false); cargar()
   }
