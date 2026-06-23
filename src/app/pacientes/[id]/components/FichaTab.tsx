@@ -58,8 +58,7 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
                   <option value="embarazadas">🤰 Embarazadas</option>
                 </select>
               </div>
-              <div className="field" style={{gridColumn:'1/-1'}}><label>Notas internas</label><textarea className="input" value={form.notas||''} onChange={e=>setForm((p:any)=>({...p,notas:e.target.value}))} style={{minHeight:60}}/></div>
-              <div className="field" style={{gridColumn:'1/-1'}}><label>📌 Notas permanentes <span style={{fontWeight:300,color:'var(--grl)',textTransform:'none',letterSpacing:0}}>· silla de ruedas, preferencias fijas…</span></label><textarea className="input" value={form.notas_fijas||''} onChange={e=>setForm((p:any)=>({...p,notas_fijas:e.target.value}))} style={{minHeight:60}} placeholder="ej. Viene en silla de ruedas · Prefiere entrenar de pie"/></div>
+              <div className="field" style={{gridColumn:'1/-1'}}><label>📌 Notas <span style={{fontWeight:300,color:'var(--grl)',textTransform:'none',letterSpacing:0}}>· información del paciente</span></label><textarea className="input" value={form.notas_fijas||''} onChange={e=>setForm((p:any)=>({...p,notas_fijas:e.target.value}))} style={{minHeight:60}} placeholder="ej. Viene en silla de ruedas · Prefiere entrenar de pie"/></div>
             </div>
           ) : (
             <div>
@@ -70,7 +69,6 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
                 </div>
               ):null)}
               {pac.notas_fijas && <div style={{marginTop:8,padding:'8px 10px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:5,fontSize:10,color:'var(--n)',fontWeight:400,whiteSpace:'pre-line'}}>📌 {pac.notas_fijas}</div>}
-              {pac.notas && <div style={{marginTop:8,padding:'7px 9px',background:'var(--bl)',borderRadius:5,fontSize:10,color:'var(--n)',fontWeight:300,whiteSpace:'pre-line'}}>{pac.notas}</div>}
             </div>
           )}
         </div>

@@ -225,7 +225,7 @@ export default function FichaPacientePage() {
     await supabase.from('pacientes').update({
       nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono,
       email:form.email, dni:form.dni, altura_cm:form.altura_cm,
-      peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas:form.notas, notas_fijas:form.notas_fijas
+      peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas_fijas:form.notas_fijas
     }).eq('id',id)
     setEditando(false); cargar()
   }
@@ -325,7 +325,7 @@ export default function FichaPacientePage() {
     if (citasPausa && citasPausa.length > 0) {
       await supabase.from('citas').update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
     }
-    await supabase.from('pacientes').update({ estado:'pausa', notas:(pac.notas||'')+`\n[PAUSA: ${pausa.desde} → ${pausa.hasta}]` }).eq('id',id)
+    await supabase.from('pacientes').update({ estado:'pausa', pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
     setProcesando(false)
     setModalPausa(false)
     alert(`✓ Pausa aplicada. ${citasPausa?.length||0} citas canceladas del ${pausa.desde} al ${pausa.hasta}.\nEl paciente se reactivará automáticamente al volver.`)
@@ -334,7 +334,7 @@ export default function FichaPacientePage() {
 
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
-    await supabase.from('pacientes').update({ estado:'activo' }).eq('id',id)
+    await supabase.from('pacientes').update({ estado:'activo', pausa_desde:null, pausa_hasta:null }).eq('id',id)
     alert('✓ Paciente reactivado. Recuerda crear sus nuevas citas en la agenda.')
     cargar()
   }
