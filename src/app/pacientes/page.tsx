@@ -68,44 +68,73 @@ export default function PacientesPage() {
     return matchQ && matchPago && matchTipo && matchEstado
   })
 
-  const totalActivos = pacientes.filter(p=>p.estado==='activo').length
-  const totalPag = bonos.filter(b=>b.estado_pago==='pagado').length
-  const totalPen = bonos.filter(b=>b.estado_pago==='pendiente').length
-  const totalImp = bonos.filter(b=>b.estado_pago==='impago').length
+  // Conteo por categoria, respetando buscador y los OTROS filtros
+  function baseFiltrada(excluir: string) {
+    const q = buscar.toLowerCase()
+    return pacientes.filter(p=>{
+      const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
+      const bono = getBonoActual(p.id)
+      const matchPago = excluir==='pago' || filtroPago==='todos' || bono?.estado_pago===filtroPago || (!bono && filtroPago==='pendiente')
+      const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
+      const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
+      return matchQ && matchPago && matchEstado && matchTipo
+    })
+  }
+  function nPago(f: string) {
+    const base = baseFiltrada('pago')
+    if (f==='todos') return base.length
+    return base.filter(p=>{ const b=getBonoActual(p.id); return b?.estado_pago===f || (!b && f==='pendiente') }).length
+  }
+  function nEstado(f: string) {
+    const base = baseFiltrada('estado')
+    if (f==='todos') return base.length
+    return base.filter(p=>p.estado===f).length
+  }
+  function nTipo(f: string) {
+    const base = baseFiltrada('tipo')
+    if (f==='todos') return base.length
+    return base.filter(p=>p.tipo_clase===f).length
+  }
 
   return (
     <>
       {/* FILTROS */}
       <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
         <input className="input" placeholder="🔍 Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
-        <span style={{fontSize:9,color:'var(--grl)'}}>Pago:</span>
-        {['todos','pagado','pendiente','impago'].map(f=>(
-          <span key={f} className={`badge ${filtroPago===f?'badge-g':''}`} style={{cursor:'pointer',border:'1px solid var(--bd)',padding:'3px 9px',borderRadius:99}} onClick={()=>setFiltroPago(f)}>
-            {f==='todos'?'Todos':pagoLabel[f]}
-          </span>
-        ))}
-        <span style={{fontSize:9,color:'var(--grl)'}}>Estado:</span>
-        {['activo','baja','pausa','todos'].map(f=>(
-          <span key={f} onClick={()=>setFiltroEstado(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroEstado===f?'var(--g)':'var(--w)',color:filtroEstado===f?'#fff':'var(--gr)'}}>
-            {f==='activo'?'Activos':f==='baja'?'Bajas':f==='pausa'?'Pausas':'Todos'}
-          </span>
-        ))}
-        <span style={{fontSize:9,color:'var(--grl)'}}>Tipo:</span>
-        {['todos','entrenamiento','pilates','rehabilitacion'].map(f=>(
-          <span key={f} className={`badge ${filtroTipo===f?'badge-g':''}`} style={{cursor:'pointer',border:'1px solid var(--bd)',padding:'3px 9px',borderRadius:99}} onClick={()=>setFiltroTipo(f)}>
-            {f==='todos'?'Todos':tipoLabel[f]}
-          </span>
-        ))}
         <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo paciente</button>
       </div>
 
-      {/* RESUMEN */}
-      <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-        {[[totalActivos,'activos','var(--w)','var(--bd)','var(--n)'],[totalImp,'impagos','var(--redl)','#F5C8C8','var(--red)'],[totalPen,'pendientes','var(--ambl)','var(--amb)','#7A5800'],[totalPag,'pagados','var(--gl)','var(--gm)','var(--gd)']].map(([v,l,bg,br,c])=>(
-          <div key={String(l)} style={{background:String(bg),border:`1px solid ${br}`,borderRadius:6,padding:'5px 12px',fontSize:10,fontWeight:300,color:String(c),display:'flex',alignItems:'center',gap:5}}>
-            <span style={{fontSize:14,fontWeight:500}}>{v}</span> {l}
-          </div>
-        ))}
+      {/* FILTROS CON CONTADORES */}
+      <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Pago</span>
+          {[['todos','Todos'],['pagado','✓ Pagado'],['pendiente','⏳ Pendiente'],['impago','⚠ Impago']].map(([f,l])=>(
+            <span key={f} onClick={()=>setFiltroPago(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroPago===f?'var(--g)':'var(--w)',color:filtroPago===f?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
+              {l} <b style={{fontWeight:600}}>{nPago(f)}</b>
+            </span>
+          ))}
+        </div>
+        <div style={{width:1,height:18,background:'var(--bd)'}}/>
+        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Estado</span>
+          {[['activo','Activos'],['baja','Bajas'],['pausa','Pausas'],['todos','Todos']].map(([f,l])=>(
+            <span key={f} onClick={()=>setFiltroEstado(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroEstado===f?'var(--g)':'var(--w)',color:filtroEstado===f?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
+              {l} <b style={{fontWeight:600}}>{nEstado(f)}</b>
+            </span>
+          ))}
+        </div>
+        <div style={{width:1,height:18,background:'var(--bd)'}}/>
+        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Tipo</span>
+          <span onClick={()=>setFiltroTipo('todos')} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroTipo==='todos'?'var(--g)':'var(--w)',color:filtroTipo==='todos'?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
+            Todos <b style={{fontWeight:600}}>{nTipo('todos')}</b>
+          </span>
+          {tiposClase.map((t:any)=>(
+            <span key={t.valor} onClick={()=>setFiltroTipo(t.valor)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroTipo===t.valor?'var(--g)':'var(--w)',color:filtroTipo===t.valor?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
+              {t.icono} {t.nombre} <b style={{fontWeight:600}}>{nTipo(t.valor)}</b>
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* TABLA */}
