@@ -435,7 +435,7 @@ export default function FichaPacientePage() {
           )}
           {pac.estado==='activo' && <>
             <button className="btn btn-t btn-sm" onClick={()=>setModalPausa(true)}>⏸ Pausa</button>
-            <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>○ Baja</button>
+            <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>Baja</button>
           </>}
           {(pac.estado==='baja'||pac.estado==='pausa') && (
             <button className="btn btn-p btn-sm" onClick={reactivar} disabled={procesando}>▶ Reactivar</button>
@@ -455,7 +455,7 @@ export default function FichaPacientePage() {
               {pac.estado==='baja'?'Paciente dado de baja':'Paciente en pausa temporal'}
             </div>
             <div style={{fontSize:10,color:pac.estado==='baja'?'var(--red)':'#7A5800',fontWeight:300}}>
-              {pac.estado==='baja'?'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.':'Sus citas del periodo de pausa fueron canceladas.'}
+              {pac.estado==='baja'?'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.':(pac.pausa_desde&&pac.pausa_hasta?`En pausa del ${new Date(pac.pausa_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} al ${new Date(pac.pausa_hasta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}. Sus citas de ese periodo fueron canceladas.`:'Sus citas del periodo de pausa fueron canceladas.')}
             </div>
           </div>
           <button className="btn btn-p btn-sm" onClick={reactivar}>▶ Reactivar</button>
