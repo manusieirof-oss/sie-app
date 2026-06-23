@@ -211,9 +211,7 @@ export default function PacientesPage() {
             </div>
             <div className="field"><label>Tipo de clase</label>
               <select className="input" value={nuevo.tipo_clase} onChange={e=>setNuevo(p=>({...p,tipo_clase:e.target.value}))}>
-                <option value="entrenamiento">🏋 Entrenamiento</option>
-                <option value="pilates">🧘 Pilates</option>
-                <option value="rehabilitacion">🏥 Rehabilitación</option>
+                {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.icono} {t.nombre}</option>)}
               </select>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
