@@ -6,6 +6,7 @@ import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
 import ResultadosTab from './components/ResultadosTab'
 import EntrenoTab from './components/EntrenoTab'
+import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import { useParams, useRouter } from 'next/navigation'
 
 
@@ -21,6 +22,8 @@ export default function FichaPacientePage() {
   const [escalas, setEscalas] = useState<any[]>([])
   const [tests, setTests] = useState<any[]>([])
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
+  const [alertas, setAlertas] = useState<any[]>([])
+  const [modalAlertas, setModalAlertas] = useState(false)
   const [testsDisp, setTestsDisp] = useState<any[]>([])
   const [citas, setCitas] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
@@ -212,6 +215,8 @@ export default function FichaPacientePage() {
     setTests(t||[]); setTestsDisp(td||[])
     const { data: rec } = await supabase.from('recuperaciones').select('id,estado,fecha_falta,fecha_limite,cita_recuperacion_id').eq('paciente_id',id).order('fecha_falta',{ascending:false})
     setRecuperaciones(rec||[])
+    const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
+    setAlertas(al||[])
     setForm(p||{})
     setLoading(false)
   }
@@ -342,6 +347,18 @@ export default function FichaPacientePage() {
     router.push('/pacientes')
   }
 
+  async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
+    await supabase.from('alertas_paciente').insert({paciente_id:pacienteId,tipo,afecta_sesion:afectaSesion,descripcion,activa:true})
+    const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
+    setAlertas(al||[])
+  }
+
+  async function cerrarAlerta(alertaId:string) {
+    await supabase.from('alertas_paciente').update({activa:false,fecha_cierre:new Date().toISOString()}).eq('id',alertaId)
+    const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
+    setAlertas(al||[])
+  }
+
   async function toggleMolestia(molId: string, activa: boolean) {
     await supabase.from('molestias').update({ activa:!activa }).eq('id',molId); cargar()
   }
@@ -466,6 +483,9 @@ export default function FichaPacientePage() {
           bonoLabel={bonoLabel}
           mes={mes}
           anio={anio}
+          alertas={alertas}
+          abrirAlertas={()=>setModalAlertas(true)}
+          cerrarAlerta={cerrarAlerta}
         />
       )}
 
@@ -583,6 +603,16 @@ export default function FichaPacientePage() {
       )}
 
       {/* MODAL BONO */}
+      {modalAlertas && (
+        <ModalAlertasCita
+          verAlertasCita={{paciente_id:pac.id, pacientes:{nombre:pac.nombre, apellidos:pac.apellidos}}}
+          alertasPaciente={alertas}
+          crearAlerta={crearAlerta}
+          cerrarAlerta={cerrarAlerta}
+          onCerrar={()=>setModalAlertas(false)}
+        />
+      )}
+
       {modalBono && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalBono(false)}}>
           <div className="modal">

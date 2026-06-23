@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function FichaTab({ pac, bono, citas, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio }: any) {
+export default function FichaTab({ pac, bono, citas, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, abrirAlertas, cerrarAlerta }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
+  const TIPOS_AL: Record<string,string> = {dolor:'🤕 Dolor / molestia',lesion:'🩹 Lesión',cita_medica:'🏥 Cita médica',personal:'💬 Situación personal',duda:'❓ Duda / consulta',otro:'📌 Otro'}
 
   useEffect(() => {
     if (pac?.id) {
@@ -21,6 +22,23 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
   return (
     <div className="g2">
       <div>
+        {/* ALERTAS */}
+        <div className="card">
+          <div className="card-title">⚠️ Alertas activas <button className="btn btn-p btn-sm" onClick={abrirAlertas}>+ Alerta</button></div>
+          {(!alertas||alertas.length===0) ? (
+            <div style={{fontSize:10,color:'var(--grl)'}}>Sin alertas activas</div>
+          ) : alertas.map((a:any)=>(
+            <div key={a.id} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'8px 10px',borderRadius:6,border:`1px solid ${a.afecta_sesion?'#F5C8C8':'var(--bd)'}`,background:a.afecta_sesion?'var(--redl)':'var(--bl)',marginBottom:5}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--n)'}}>{TIPOS_AL[a.tipo]||a.tipo}{a.afecta_sesion&&<span style={{fontSize:8,color:'var(--red)',marginLeft:5}}>afecta sesión</span>}</div>
+                <div style={{fontSize:10,color:'var(--gr)',marginTop:2}}>{a.descripcion}</div>
+                {a.fecha_inicio&&<div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>desde {a.fecha_inicio}</div>}
+              </div>
+              <button onClick={()=>cerrarAlerta(a.id)} style={{fontSize:9,color:'var(--g)',background:'none',border:'1px solid var(--g)',borderRadius:5,padding:'3px 8px',cursor:'pointer',flexShrink:0}}>Cerrar</button>
+            </div>
+          ))}
+        </div>
+
         {/* DATOS PERSONALES */}
         <div className="card">
           <div className="card-title">Datos personales</div>
