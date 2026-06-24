@@ -222,11 +222,16 @@ export default function FichaPacientePage() {
   }
 
   async function guardarEdicion() {
+    const tipoAnterior = pac.tipo_clase
     await supabase.from('pacientes').update({
       nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono,
       email:form.email, dni:form.dni, altura_cm:form.altura_cm,
       peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas_fijas:form.notas_fijas
     }).eq('id',id)
+    if (form.tipo_clase && form.tipo_clase !== tipoAnterior) {
+      const lbl = (v:string) => (v||'—').charAt(0).toUpperCase()+(v||'').slice(1)
+      await registrarEvento('cambio_tipo_clase', `Cambio de clase: ${lbl(tipoAnterior)} → ${lbl(form.tipo_clase)}`, null)
+    }
     setEditando(false); cargar()
   }
 

@@ -12,7 +12,7 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
     <div className="g2">
       <div>
         <div className="card">
-          <div className="card-title">Molestias y dolores <button className="btn btn-s btn-sm" onClick={async()=>{const zona=prompt('Zona / localización:');if(!zona)return;const eva=prompt('Intensidad EVA (0-10):');await supabase.from('molestias').insert({paciente_id:id,zona,tipo:'molestia',eva:parseInt(eva||'5'),activa:true});cargar()}}>+ Añadir</button></div>
+          <div className="card-title">Molestias y dolores <button className="btn btn-s btn-sm" onClick={async()=>{const zona=prompt('Zona / localización:');if(!zona)return;const eva=prompt('Intensidad EVA (0-10):');await supabase.from('molestias').insert({paciente_id:id,zona,tipo:'molestia',eva:parseInt(eva||'5'),activa:true});await supabase.from('eventos_paciente').insert({paciente_id:id,tipo:'molestia',titulo:`Molestia: ${zona} (EVA ${eva||'5'}/10)`,fecha:new Date().toISOString().split('T')[0]});cargar()}}>+ Añadir</button></div>
           {molestias.length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin molestias registradas</div>}
           {molestias.map((m:any)=>(
             <div key={m.id} style={{borderRadius:7,padding:'8px 10px',marginBottom:5,border:'1px solid',borderColor:m.activa?'#F5C8C8':'var(--gm)',backgroundColor:m.activa?'var(--redl)':'var(--gl)'}}>
@@ -30,7 +30,7 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
           ))}
         </div>
         <div className="card">
-          <div className="card-title">Patologías <button className="btn btn-s btn-sm" onClick={async()=>{const nombre=prompt('Nombre de la patología:');if(!nombre)return;await supabase.from('patologias').insert({paciente_id:id,nombre,estado:'activa'});cargar()}}>+ Añadir</button></div>
+          <div className="card-title">Patologías <button className="btn btn-s btn-sm" onClick={async()=>{const nombre=prompt('Nombre de la patología:');if(!nombre)return;await supabase.from('patologias').insert({paciente_id:id,nombre,estado:'activa'});await supabase.from('eventos_paciente').insert({paciente_id:id,tipo:'patologia',titulo:`Patología: ${nombre}`,fecha:new Date().toISOString().split('T')[0]});cargar()}}>+ Añadir</button></div>
           {patologias.length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin patologías registradas</div>}
           {patologias.map((p:any)=>(
             <div key={p.id} className="ri">
@@ -66,7 +66,7 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
           ))}
         </div>
         <div className="card">
-          <div className="card-title">Medicamentos <button className="btn btn-s btn-sm" onClick={async()=>{const nombre=prompt('Medicamento:');if(!nombre)return;const freq=prompt('Frecuencia:');await supabase.from('medicamentos').insert({paciente_id:id,nombre,frecuencia:freq||''});cargar()}}>+ Añadir</button></div>
+          <div className="card-title">Medicamentos <button className="btn btn-s btn-sm" onClick={async()=>{const nombre=prompt('Medicamento:');if(!nombre)return;const freq=prompt('Frecuencia:');await supabase.from('medicamentos').insert({paciente_id:id,nombre,frecuencia:freq||''});await supabase.from('eventos_paciente').insert({paciente_id:id,tipo:'medicamento',titulo:`Medicamento: ${nombre}`,descripcion:freq?`Frecuencia: ${freq}`:null,fecha:new Date().toISOString().split('T')[0]});cargar()}}>+ Añadir</button></div>
           {medicamentos.length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin medicamentos registrados</div>}
           {medicamentos.map((m:any)=>(
             <div key={m.id} className="ri">
