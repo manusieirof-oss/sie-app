@@ -312,6 +312,7 @@ export default function FichaPacientePage() {
     const hoy = new Date().toISOString().split('T')[0]
     await supabase.from('citas').delete().eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
     await supabase.from('pacientes').update({ estado:'baja' }).eq('id',id)
+    await registrarEvento('baja', 'Baja del servicio', 'Sus citas futuras programadas fueron eliminadas.')
     setProcesando(false)
     alert('✓ Paciente dado de baja. Sus citas futuras han sido eliminadas.')
     router.push('/pacientes')
@@ -326,6 +327,7 @@ export default function FichaPacientePage() {
       await supabase.from('citas').update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
     }
     await supabase.from('pacientes').update({ estado:'pausa', pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
+    await registrarEvento('pausa', `Pausa del ${pausa.desde} al ${pausa.hasta}`, `${citasPausa?.length||0} citas canceladas en ese periodo.`)
     setProcesando(false)
     setModalPausa(false)
     alert(`✓ Pausa aplicada. ${citasPausa?.length||0} citas canceladas del ${pausa.desde} al ${pausa.hasta}.\nEl paciente se reactivará automáticamente al volver.`)
@@ -335,6 +337,7 @@ export default function FichaPacientePage() {
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
     await supabase.from('pacientes').update({ estado:'activo', pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    await registrarEvento('reactivacion', 'Reactivación del servicio', null)
     alert('✓ Paciente reactivado. Recuerda crear sus nuevas citas en la agenda.')
     cargar()
   }
@@ -347,14 +350,23 @@ export default function FichaPacientePage() {
     router.push('/pacientes')
   }
 
+  async function registrarEvento(tipo:string, titulo:string, descripcion:string|null=null, pacId:any=id) {
+    await supabase.from('eventos_paciente').insert({ paciente_id:pacId, tipo, titulo, descripcion, fecha:new Date().toISOString().split('T')[0] })
+  }
+
+  const LBL_ALERTA: Record<string,string> = { dolor:'Dolor / molestia', lesion:'Lesión', cita_medica:'Cita médica', personal:'Situación personal', duda:'Duda / consulta', otro:'Otro' }
+
   async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
     await supabase.from('alertas_paciente').insert({paciente_id:pacienteId,tipo,afecta_sesion:afectaSesion,descripcion,activa:true})
+    await registrarEvento('alerta_abierta', `${LBL_ALERTA[tipo]||tipo}${afectaSesion?' · afecta sesión':''}`, descripcion, pacienteId)
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])
   }
 
   async function cerrarAlerta(alertaId:string) {
+    const alerta = alertas.find(a=>a.id===alertaId)
     await supabase.from('alertas_paciente').update({activa:false,fecha_cierre:new Date().toISOString()}).eq('id',alertaId)
+    if (alerta) await registrarEvento('alerta_cerrada', `${LBL_ALERTA[alerta.tipo]||alerta.tipo}`, alerta.descripcion)
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])
   }
@@ -367,12 +379,18 @@ export default function FichaPacientePage() {
     if (bono) await supabase.from('bonos').update({ activo:false }).eq('id',bono.id)
     const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
     await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasMap[nuevoBono.tipo], estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true })
+    await registrarEvento('cambio_bono', `Bono asignado: ${LBL_BONO[nuevoBono.tipo]||nuevoBono.tipo}`, `Estado de pago: ${LBL_PAGO[nuevoBono.estado_pago]||nuevoBono.estado_pago}`)
     setModalBono(false); cargar()
   }
 
+  const LBL_BONO: Record<string,string> = { reducido:'Reducido', esencial:'Esencial', progreso:'Progreso', avanzado:'Avanzado', individual:'Individual', bono4:'Bono 4 sesiones' }
+  const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
+
   async function cambiarPago(estado: string) {
     if (!bono) return
-    await supabase.from('bonos').update({ estado_pago:estado }).eq('id',bono.id); cargar()
+    await supabase.from('bonos').update({ estado_pago:estado }).eq('id',bono.id)
+    await registrarEvento('pago_bono', `Cuota marcada como: ${LBL_PAGO[estado]||estado}`, `Bono ${LBL_BONO[bono.tipo]||bono.tipo}`)
+    cargar()
   }
 
   const edad = pac?.fecha_nacimiento ? Math.floor((Date.now()-new Date(pac.fecha_nacimiento).getTime())/(1000*60*60*24*365.25)) : null
