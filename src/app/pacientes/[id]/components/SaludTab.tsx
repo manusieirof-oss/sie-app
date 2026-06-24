@@ -18,6 +18,13 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
 
   async function toggleMolestia(mid: string, activa: boolean) {
     await supabase.from('molestias').update({ activa: !activa }).eq('id', mid)
+    const mol = (molestias||[]).find((m:any)=>m.id===mid)
+    const zona = mol?.zona || 'Molestia'
+    if (activa) {
+      await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia_resuelta', titulo:`Molestia resuelta: ${zona}`, fecha:new Date().toISOString().split('T')[0] })
+    } else {
+      await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia reactivada: ${zona}`, fecha:new Date().toISOString().split('T')[0] })
+    }
     cargar()
   }
 

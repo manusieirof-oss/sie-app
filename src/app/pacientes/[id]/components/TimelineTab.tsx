@@ -8,6 +8,7 @@ const TIPOS: Record<string,{icono:string,color:string,label:string,familia:strin
   revaloracion:       {icono:'🔄', color:'var(--g)',   label:'Revaloración',       familia:'clinico'},
   patologia:          {icono:'🩺', color:'#B05A5A',    label:'Patología',          familia:'clinico'},
   molestia:           {icono:'🤕', color:'#B05A5A',    label:'Molestia',           familia:'clinico'},
+  molestia_resuelta:  {icono:'✅', color:'var(--g)',   label:'Molestia resuelta',  familia:'clinico'},
   medicamento:        {icono:'💊', color:'#6B7FC4',    label:'Medicamento',        familia:'clinico'},
   alerta_abierta:     {icono:'⚠️', color:'var(--red)', label:'Alerta abierta',     familia:'alertas'},
   alerta_cerrada:     {icono:'✅', color:'var(--g)',   label:'Alerta cerrada',     familia:'alertas'},
