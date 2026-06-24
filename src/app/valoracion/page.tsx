@@ -103,6 +103,7 @@ export default function ValoracionPage() {
           await supabase.from('resultados_tests').insert({ test_id:t.test_id, paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], resultado:d.resultado, observaciones:d.observaciones, fecha_repeticion:d.fecha_repeticion||null, lado:ladoKey, items_resultado:d.items_resultado })
         }
       }
+      await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:'valoracion_inicial', titulo:'Valoración inicial', descripcion:form.anamnesis||null, fecha:new Date().toISOString().split('T')[0] })
       setExito(true)
       setTimeout(()=>router.push(`/pacientes/${pacienteId}`), 2000)
     } catch(e) { alert('Error al guardar: '+String(e)) }
