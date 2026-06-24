@@ -77,6 +77,7 @@ export default function ValoracionPage() {
   async function finalizar() {
     setGuardando(true)
     try {
+      const esRevaloracion = !!form.paciente_id
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
@@ -87,7 +88,7 @@ export default function ValoracionPage() {
       const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
       await Promise.all([
         supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true }),
-        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
+        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         ...form.molestias.filter((m:any)=>m.zona).map((m:any)=>supabase.from('molestias').insert({ paciente_id:pacienteId, zona:m.zona, tipo:m.tipo, eva:m.eva, lado:m.lado||null, sensacion:m.cuando||null, observaciones:m.observaciones, activa:true })),
         ...form.patologias.map((p:any)=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p.nombre, lado:p.lado||null, estado:p.estado, descripcion:p.observaciones||'', informe_url:p.tiene_informe?'pendiente':null })),
         ...form.medicacion.map((m:any)=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m.nombre, frecuencia:m.frecuencia||'', observaciones:m.observaciones||'' })),
@@ -103,7 +104,7 @@ export default function ValoracionPage() {
           await supabase.from('resultados_tests').insert({ test_id:t.test_id, paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], resultado:d.resultado, observaciones:d.observaciones, fecha_repeticion:d.fecha_repeticion||null, lado:ladoKey, items_resultado:d.items_resultado })
         }
       }
-      await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:'valoracion_inicial', titulo:'Valoración inicial', descripcion:form.anamnesis||null, fecha:new Date().toISOString().split('T')[0] })
+      await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:esRevaloracion?'revaloracion':'valoracion_inicial', titulo:esRevaloracion?'Revaloración':'Valoración inicial', descripcion:form.anamnesis||null, fecha:new Date().toISOString().split('T')[0] })
       setExito(true)
       setTimeout(()=>router.push(`/pacientes/${pacienteId}`), 2000)
     } catch(e) { alert('Error al guardar: '+String(e)) }
