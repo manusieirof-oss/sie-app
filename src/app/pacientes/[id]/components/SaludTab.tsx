@@ -9,11 +9,15 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
   const [buscarPat, setBuscarPat] = useState('')
   const [molConfig, setMolConfig] = useState<any>(null)
   const [patConfig, setPatConfig] = useState<any>(null)
+  const [medsBiblio, setMedsBiblio] = useState<any[]>([])
+  const [buscarMed, setBuscarMed] = useState('')
+  const [medConfig, setMedConfig] = useState<any>(null)
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
+    supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
   }, [])
 
   async function toggleMolestia(mid: string, activa: boolean) {
@@ -33,6 +37,14 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
     const lbl: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:nuevoEstado==='resuelta'?'patologia_resuelta':'patologia', titulo:`Patología ${nombre}: ${lbl[nuevoEstado]||nuevoEstado}`, fecha:new Date().toISOString().split('T')[0] })
     cargar()
+  }
+
+  async function guardarMedicamento() {
+    if (!medConfig) return
+    setGuardando(true)
+    await supabase.from('medicamentos').insert({ paciente_id:id, nombre:medConfig.nombre, frecuencia:medConfig.frecuencia||'', observaciones:medConfig.observaciones||'' })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Medicamento: ${medConfig.nombre}`, descripcion:medConfig.frecuencia?`Frecuencia: ${medConfig.frecuencia}`:null, fecha:new Date().toISOString().split('T')[0] })
+    setMedConfig(null); setBuscarMed(''); setGuardando(false); cargar()
   }
 
   async function guardarMolestia() {
@@ -118,7 +130,9 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
           ))}
         </div>
         <div className="card">
-          <div className="card-title">Medicamentos <button className="btn btn-s btn-sm" onClick={async()=>{const nombre=prompt('Medicamento:');if(!nombre)return;const freq=prompt('Frecuencia:');await supabase.from('medicamentos').insert({paciente_id:id,nombre,frecuencia:freq||''});await supabase.from('eventos_paciente').insert({paciente_id:id,tipo:'medicamento',titulo:`Medicamento: ${nombre}`,descripcion:freq?`Frecuencia: ${freq}`:null,fecha:new Date().toISOString().split('T')[0]});cargar()}}>+ Añadir</button></div>
+          <div className="card-title">Medicamentos</div>
+          <input className="input" placeholder="🔍 Buscar para añadir... ej. ibuprofeno" value={buscarMed} onChange={e=>setBuscarMed(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+          {buscarMed&&<div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:160,overflowY:'auto',marginBottom:8}}>{medsBiblio.filter((m:any)=>m.nombre.toLowerCase().includes(buscarMed.toLowerCase())).slice(0,10).map((m:any)=><div key={m.id} onClick={()=>{setMedConfig({nombre:m.nombre,frecuencia:'',observaciones:''});setBuscarMed('')}} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}><div>{m.nombre}</div>{m.categoria&&<div style={{fontSize:8,color:'var(--grl)'}}>{m.categoria}</div>}</div>)}{medsBiblio.filter((m:any)=>m.nombre.toLowerCase().includes(buscarMed.toLowerCase())).length===0&&<div onClick={()=>{setMedConfig({nombre:buscarMed,frecuencia:'',observaciones:''});setBuscarMed('')}} style={{padding:'6px 10px',fontSize:10,color:'var(--g)',cursor:'pointer'}}>+ Añadir "{buscarMed}" como nuevo</div>}</div>}
           {medicamentos.length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin medicamentos registrados</div>}
           {medicamentos.map((m:any)=>(
             <div key={m.id} className="ri">
@@ -188,6 +202,9 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
           })()}
         </div>
       </div>
+
+      {/* MODAL CONFIGURAR MEDICAMENTO */}
+      {medConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMedConfig(null)}}><div className="modal"><div className="modal-title">{medConfig.nombre}<button className="modal-close" onClick={()=>setMedConfig(null)}>✕</button></div><div className="field"><label>Frecuencia</label><input className="input" value={medConfig.frecuencia} onChange={e=>setMedConfig((p:any)=>({...p,frecuencia:e.target.value}))} placeholder="ej. 1 cada 8h, Diario, Solo si dolor..."/></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={medConfig.observaciones} onChange={e=>setMedConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Dosis, pauta, motivo..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMedConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMedicamento} disabled={guardando}>{guardando?'⏳':'✓ Añadir'}</button></div></div></div>}
 
       {/* MODAL CONFIGURAR MOLESTIA */}
       {molConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMolConfig(null)}}><div className="modal"><div className="modal-title">{molConfig.nombre}<button className="modal-close" onClick={()=>setMolConfig(null)}>✕</button></div><div className="g2"><div className="field"><label>Tipo</label><select className="input" value={molConfig.tipo} onChange={e=>setMolConfig((p:any)=>({...p,tipo:e.target.value}))}><option value="molestia">Molestia</option><option value="dolor_agudo">Dolor agudo</option><option value="dolor_cronico">Dolor crónico</option><option value="rigidez">Rigidez</option></select></div><div className="field"><label>Lado</label><select className="input" value={molConfig.lado} onChange={e=>setMolConfig((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select></div></div><div className="field"><label>EVA ({molConfig.eva}/10)</label><input type="range" min={0} max={10} value={molConfig.eva} onChange={e=>setMolConfig((p:any)=>({...p,eva:parseInt(e.target.value)}))} style={{width:'100%',accentColor:'var(--red)'}}/><div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--grl)'}}><span>0</span><span style={{fontWeight:500,color:'var(--red)'}}>{molConfig.eva}</span><span>10</span></div></div><div className="field"><label>¿Cuándo aparece?</label><div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>{['En reposo','Al moverse','Con carga','Al caminar','Siempre','Al despertar'].map(c=><span key={c} onClick={()=>setMolConfig((p:any)=>({...p,cuando:c}))} style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${molConfig.cuando===c?'var(--g)':'var(--bd)'}`,background:molConfig.cuando===c?'var(--g)':'var(--w)',color:molConfig.cuando===c?'#fff':'var(--gr)',cursor:'pointer'}}>{c}</span>)}</div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={molConfig.observaciones} onChange={e=>setMolConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Sensación, qué lo provoca..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMolConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMolestia} disabled={guardando}>{guardando?'⏳':'✓ Añadir'}</button></div></div></div>}
