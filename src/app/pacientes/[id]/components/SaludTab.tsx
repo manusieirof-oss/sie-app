@@ -67,6 +67,11 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
   const [haceDeporte, setHaceDeporte] = useState(false)
   const [deportes, setDeportes] = useState('')
   const [guardandoSalud, setGuardandoSalud] = useState(false)
+  const [detalle, setDetalle] = useState<any>(null)
+
+  const LBL_TIPO_MOL: Record<string,string> = { molestia:'Molestia', dolor_agudo:'Dolor agudo', dolor_cronico:'Dolor crónico', rigidez:'Rigidez' }
+  const LBL_EST_PAT: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
+  const cap = (v:string) => v ? v.charAt(0).toUpperCase()+v.slice(1) : ''
 
   useEffect(() => {
     if (pac) {
@@ -127,9 +132,9 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
           {molestias.map((m:any)=>(
             <div key={m.id} style={{borderRadius:7,padding:'8px 10px',marginBottom:5,border:'1px solid',borderColor:m.activa?'#F5C8C8':'var(--gm)',backgroundColor:m.activa?'var(--redl)':'var(--gl)'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{flex:1}}>
+                <div style={{flex:1,cursor:'pointer'}} onClick={()=>setDetalle({tipo:'molestia',datos:m})}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.zona}</div>
-                  <div style={{fontSize:9,color:'var(--grl)'}}>EVA {m.eva}/10 · {m.tipo?.replace('_',' ')}</div>
+                  <div style={{fontSize:9,color:'var(--grl)'}}>EVA {m.eva}/10 · {m.tipo?.replace('_',' ')} · <span style={{color:'var(--g)'}}>ver detalle</span></div>
                 </div>
                 <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:m.activa?'var(--redl)':'var(--gl)',color:m.activa?'var(--red)':'var(--gd)'}}>
                   {m.activa?'● Activa':'✓ Resuelta'}
@@ -147,9 +152,9 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
           {patologias.map((p:any)=>(
             <div key={p.id} className="ri">
               <div style={{width:7,height:7,borderRadius:'50%',background:p.estado==='activa'?'var(--red)':p.estado==='cronica'?'var(--amb)':'var(--g)',flexShrink:0}}/>
-              <div style={{flex:1}}>
+              <div style={{flex:1,cursor:'pointer'}} onClick={()=>setDetalle({tipo:'patologia',datos:p})}>
                 <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{p.nombre}</div>
-                {(p.lado&&p.lado!=='no_aplica')&&<div style={{fontSize:9,color:'var(--grl)'}}>{p.lado}</div>}
+                <div style={{fontSize:9,color:'var(--grl)'}}>{(p.lado&&p.lado!=='no_aplica')?p.lado+' · ':''}<span style={{color:'var(--g)'}}>ver detalle</span></div>
               </div>
               <select value={p.estado} onChange={e=>cambiarEstadoPatologia(p.id,p.nombre,e.target.value)} style={{fontSize:9,padding:'3px 6px',borderRadius:5,border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)',cursor:'pointer',fontFamily:'system-ui'}}>
                 <option value="activa">Activa</option>
@@ -204,9 +209,9 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
           {buscarMed&&<div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:160,overflowY:'auto',marginBottom:8}}>{medsBiblio.filter((m:any)=>m.nombre.toLowerCase().includes(buscarMed.toLowerCase())).slice(0,10).map((m:any)=><div key={m.id} onClick={()=>{setMedConfig({nombre:m.nombre,frecuencia:'',observaciones:''});setBuscarMed('')}} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}><div>{m.nombre}</div>{m.categoria&&<div style={{fontSize:8,color:'var(--grl)'}}>{m.categoria}</div>}</div>)}{medsBiblio.filter((m:any)=>m.nombre.toLowerCase().includes(buscarMed.toLowerCase())).length===0&&<div onClick={()=>{setMedConfig({nombre:buscarMed,frecuencia:'',observaciones:''});setBuscarMed('')}} style={{padding:'6px 10px',fontSize:10,color:'var(--g)',cursor:'pointer'}}>+ Añadir "{buscarMed}" como nuevo</div>}</div>}
           {medicamentos.length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin medicamentos registrados</div>}
           {medicamentos.map((m:any)=>(
-            <div key={m.id} className="ri">
+            <div key={m.id} className="ri" style={{cursor:'pointer'}} onClick={()=>setDetalle({tipo:'medicamento',datos:m})}>
               <div style={{width:7,height:7,borderRadius:'50%',background:'var(--g)',flexShrink:0}}/>
-              <div><div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.nombre}</div><div style={{fontSize:9,color:'var(--grl)'}}>{m.frecuencia}</div></div>
+              <div><div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.nombre}</div><div style={{fontSize:9,color:'var(--grl)'}}>{m.frecuencia||'ver detalle'}</div></div>
             </div>
           ))}
         </div>
@@ -287,6 +292,37 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
           })()}
         </div>
       </div>
+
+      {/* MODAL DETALLE */}
+      {detalle&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setDetalle(null)}}><div className="modal"><div className="modal-title">{detalle.tipo==='molestia'?'🤕 '+(detalle.datos.zona||'Molestia'):detalle.tipo==='patologia'?'🩺 '+(detalle.datos.nombre||'Patología'):'💊 '+(detalle.datos.nombre||'Medicamento')}<button className="modal-close" onClick={()=>setDetalle(null)}>✕</button></div>
+        {detalle.tipo==='molestia'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:detalle.datos.activa?'var(--redl)':'var(--gl)',color:detalle.datos.activa?'var(--red)':'var(--gd)',border:`1px solid ${detalle.datos.activa?'#F5C8C8':'var(--gm)'}`}}>{detalle.datos.activa?'● Activa':'✓ Resuelta'}</span>
+            <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>EVA {detalle.datos.eva}/10</span>
+            {detalle.datos.tipo&&<span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{LBL_TIPO_MOL[detalle.datos.tipo]||detalle.datos.tipo}</span>}
+            {detalle.datos.lado&&detalle.datos.lado!=='bilateral'&&<span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{cap(detalle.datos.lado)}</span>}
+          </div>
+          {detalle.datos.sensacion&&<div><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',marginBottom:2}}>Cuándo aparece</div><div style={{fontSize:11,color:'var(--n)'}}>{detalle.datos.sensacion}</div></div>}
+          {detalle.datos.observaciones&&<div><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',marginBottom:2}}>Observaciones</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.5,whiteSpace:'pre-line'}}>{detalle.datos.observaciones}</div></div>}
+          <div style={{fontSize:9,color:'var(--grl)'}}>Registrada el {new Date(detalle.datos.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</div>
+        </div>}
+        {detalle.tipo==='patologia'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:detalle.datos.estado==='activa'?'var(--redl)':detalle.datos.estado==='cronica'?'var(--ambl)':'var(--gl)',color:detalle.datos.estado==='activa'?'var(--red)':detalle.datos.estado==='cronica'?'#7A5800':'var(--gd)'}}>{LBL_EST_PAT[detalle.datos.estado]||detalle.datos.estado}</span>
+            {detalle.datos.lado&&detalle.datos.lado!=='no_aplica'&&<span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{cap(detalle.datos.lado)}</span>}
+            {detalle.datos.informe_url&&<span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>📄 Informe {detalle.datos.informe_url==='pendiente'?'pendiente':'disponible'}</span>}
+          </div>
+          {detalle.datos.descripcion&&<div><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',marginBottom:2}}>Descripción / observaciones</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.5,whiteSpace:'pre-line'}}>{detalle.datos.descripcion}</div></div>}
+          <div style={{fontSize:9,color:'var(--grl)'}}>Registrada el {new Date(detalle.datos.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</div>
+        </div>}
+        {detalle.tipo==='medicamento'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {detalle.datos.frecuencia&&<div><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',marginBottom:2}}>Frecuencia</div><div style={{fontSize:11,color:'var(--n)'}}>{detalle.datos.frecuencia}</div></div>}
+          {detalle.datos.observaciones&&<div><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',marginBottom:2}}>Observaciones</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.5,whiteSpace:'pre-line'}}>{detalle.datos.observaciones}</div></div>}
+          {!detalle.datos.frecuencia&&!detalle.datos.observaciones&&<div style={{fontSize:10,color:'var(--grl)'}}>Sin información adicional registrada.</div>}
+          <div style={{fontSize:9,color:'var(--grl)'}}>Registrado el {new Date(detalle.datos.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</div>
+        </div>}
+        <div style={{display:'flex',marginTop:12}}><div style={{flex:1}}/><button className="btn btn-d btn-sm" onClick={()=>setDetalle(null)}>Cerrar</button></div>
+      </div></div>}
 
       {/* MODAL CONFIGURAR MEDICAMENTO */}
       {medConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMedConfig(null)}}><div className="modal"><div className="modal-title">{medConfig.nombre}<button className="modal-close" onClick={()=>setMedConfig(null)}>✕</button></div><div className="field"><label>Frecuencia</label><input className="input" value={medConfig.frecuencia} onChange={e=>setMedConfig((p:any)=>({...p,frecuencia:e.target.value}))} placeholder="ej. 1 cada 8h, Diario, Solo si dolor..."/></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={medConfig.observaciones} onChange={e=>setMedConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Dosis, pauta, motivo..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMedConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMedicamento} disabled={guardando}>{guardando?'⏳':'✓ Añadir'}</button></div></div></div>}
