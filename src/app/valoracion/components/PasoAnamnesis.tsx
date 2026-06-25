@@ -67,14 +67,20 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
             ))}
           </div>
           {form.plantillas===true&&(
-            <>
-              <div style={{fontSize:9,color:'var(--grl)',marginBottom:6}}>Tipo de plantilla</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                {tiposPlantilla.map((t:string)=>(
-                  <span key={t} onClick={()=>up('tipo_plantilla',t)} style={{fontSize:10,padding:'4px 10px',borderRadius:99,border:`1px solid ${form.tipo_plantilla===t?'var(--g)':'var(--bd)'}`,background:form.tipo_plantilla===t?'var(--g)':'var(--w)',color:form.tipo_plantilla===t?'#fff':'var(--gr)',cursor:'pointer'}}>{t}</span>
-                ))}
+            <div className="g2">
+              <div className="field"><label>Pie izquierdo</label>
+                <select className="input" value={form.plantilla_izq||''} onChange={e=>up('plantilla_izq',e.target.value)}>
+                  <option value="">—</option>
+                  {tiposPlantilla.map((t:string)=><option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
-            </>
+              <div className="field"><label>Pie derecho</label>
+                <select className="input" value={form.plantilla_der||''} onChange={e=>up('plantilla_der',e.target.value)}>
+                  <option value="">—</option>
+                  {tiposPlantilla.map((t:string)=><option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
           )}
         </div>
       </div>

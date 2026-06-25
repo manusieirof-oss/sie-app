@@ -41,7 +41,7 @@ export default function ValoracionPage() {
     paciente_id:'',nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
     anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
     hace_deporte:false as boolean,deportes:[] as string[],
-    plantillas:false as boolean,tipo_plantilla:'' as string,
+    plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
     medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
     patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
     tipo_clase_def:'entrenamiento',bono:'reducido',dias_asistencia:'',franja:'manana',notas_plan:'',
@@ -58,6 +58,8 @@ export default function ValoracionPage() {
     supabase.from('operaciones_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setOpsBiblio(data||[]))
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlergiasBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
+    supabase.from('deportes_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setDeportesOpts(data.map((d:any)=>d.nombre)) })
+    supabase.from('plantillas_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setTiposPlantilla(data.map((t:any)=>t.nombre)) })
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
     supabase.from('etiquetas').select('*').order('nombre').then(({data})=>setEtiquetasLib(data||[]))
     supabase.from('ajustes').select('clave,valor').then(({data})=>{
@@ -66,8 +68,6 @@ export default function ValoracionPage() {
         data.forEach((a:any)=>{map[a.clave]=a.valor||''})
         if(map.como_nos_conocio) setComoNosConocioOpts(JSON.parse(map.como_nos_conocio))
         if(map.tipos_jornada) setTiposJornada(JSON.parse(map.tipos_jornada))
-        if(map.tipos_plantilla) setTiposPlantilla(JSON.parse(map.tipos_plantilla))
-        if(map.deportes_lista) setDeportesOpts(JSON.parse(map.deportes_lista))
         if(map.tipos_clase) setTiposClaseOpts(JSON.parse(map.tipos_clase))
         if(map.bonos_lista) setBonosOpts(JSON.parse(map.bonos_lista))
       }
@@ -81,18 +81,19 @@ export default function ValoracionPage() {
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
-        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, estado:'activo' }).select().single()
+        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
       }
       const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
       await Promise.all([
         supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true }),
-        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
+        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         ...form.molestias.filter((m:any)=>m.zona).map((m:any)=>supabase.from('molestias').insert({ paciente_id:pacienteId, zona:m.zona, tipo:m.tipo, eva:m.eva, lado:m.lado||null, sensacion:m.cuando||null, observaciones:m.observaciones, activa:true })),
         ...form.patologias.map((p:any)=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p.nombre, lado:p.lado||null, estado:p.estado, descripcion:p.observaciones||'', informe_url:p.tiene_informe?'pendiente':null })),
         ...form.medicacion.map((m:any)=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m.nombre, frecuencia:m.frecuencia||'', observaciones:m.observaciones||'' })),
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
+        ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
       for (const t of testsValoracion) {
         const lados = t.lados || {}
