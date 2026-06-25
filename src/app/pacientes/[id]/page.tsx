@@ -494,7 +494,7 @@ export default function FichaPacientePage() {
 
       {/* TABS */}
       <div className="tabs">
-        {[['ficha','📋 Ficha'],['timeline','🕐 Historial'],['salud','❤️ Salud'],['entreno','🏋 Entrenamiento'],['resultados','📊 Resultados']].map(([k,l])=>(
+        {[['ficha','📋 Ficha'],['timeline','🕐 Historial'],['salud','❤️ Salud'],['entreno','🏋 Citas y sesiones'],['resultados','📊 Resultados']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
