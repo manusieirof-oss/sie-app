@@ -10,6 +10,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
   const [sesionAsignar, setSesionAsignar] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [verSesion, setVerSesion] = useState<any>(null)
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -20,7 +21,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
-    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
+    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
     setSesionesHistorial(hist||[])
   }
 
@@ -142,11 +143,12 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
         <div>
           {sesionesHistorial.length===0?<div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Sin historial aún</div>:sesionesHistorial.map((c:any,i:number)=>{
             const badgeColor=c.estado==='realizada'?{bg:'var(--gl)',color:'var(--gd)',txt:'✓ Realizada'}:c.estado==='cancelada'?{bg:'var(--bm)',color:'var(--gr)',txt:'Cancelada'}:{bg:'var(--redl)',color:'var(--red)',txt:'Falta'}
+            const tieneSes=!!c.sesiones
             return (
-              <div key={c.id} className="card">
+              <div key={c.id} className="card" onClick={()=>tieneSes&&setVerSesion(c.sesiones)} style={{cursor:tieneSes?'pointer':'default'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1}}>
-                    {c.sesiones?.nombre&&<div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2}}>📋 {c.sesiones.nombre}</div>}
+                    {c.sesiones?.nombre?<div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2}}>📋 {c.sesiones.nombre} <span style={{fontSize:9,color:'var(--g)'}}>· ver sesión</span></div>:<div style={{fontSize:11,fontWeight:300,color:'var(--grl)',marginBottom:2}}>Sin sesión</div>}
                     <div style={{fontSize:9,color:'var(--grl)'}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                   </div>
                   <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:badgeColor.bg,color:badgeColor.color,fontWeight:500}}>{badgeColor.txt}</span>
@@ -154,6 +156,28 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
               </div>
             )
           })}
+        </div>
+      )}
+
+      {verSesion&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setVerSesion(null)}}>
+          <div className="modal" style={{maxHeight:'85vh',overflowY:'auto'}}>
+            <div className="modal-title">📋 {verSesion.nombre}<button className="modal-close" onClick={()=>setVerSesion(null)}>✕</button></div>
+            {verSesion.descripcion&&<div style={{fontSize:10,color:'var(--grl)',fontWeight:300,marginBottom:10,lineHeight:1.5}}>{verSesion.descripcion}</div>}
+            {(verSesion.partes||[]).length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Esta sesión no tiene ejercicios registrados.</div>}
+            {(verSesion.partes||[]).map((parte:any,pi:number)=>(
+              <div key={pi} style={{marginBottom:12}}>
+                <div style={{fontSize:10,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.4,marginBottom:5,paddingBottom:3,borderBottom:'1px solid var(--bl)'}}>{parte.nombre||`Parte ${pi+1}`}</div>
+                {(parte.ejercicios||[]).length===0?<div style={{fontSize:10,color:'var(--grl)'}}>Sin ejercicios</div>:(parte.ejercicios||[]).map((ej:any,ei:number)=>(
+                  <div key={ei} style={{fontSize:10,color:'var(--n)',padding:'3px 0',display:'flex',gap:6}}>
+                    <span style={{color:'var(--grl)'}}>{ei+1}.</span>
+                    <span>{typeof ej==='string'?ej:(ej.nombre||ej.ejercicio||JSON.stringify(ej))}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div style={{display:'flex',marginTop:8}}><div style={{flex:1}}/><button className="btn btn-d btn-sm" onClick={()=>setVerSesion(null)}>Cerrar</button></div>
+          </div>
         </div>
       )}
     </div>
