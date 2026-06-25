@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function SaludTab({ id, molestias, patologias, escalas, medicamentos, tests, cargar, setModalRegistrarTest }: any) {
+export default function SaludTab({ id, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [buscarMol, setBuscarMol] = useState('')
@@ -12,12 +12,18 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [buscarMed, setBuscarMed] = useState('')
   const [medConfig, setMedConfig] = useState<any>(null)
+  const [algBiblio, setAlgBiblio] = useState<any[]>([])
+  const [intolBiblio, setIntolBiblio] = useState<any[]>([])
+  const [buscarAlg, setBuscarAlg] = useState('')
+  const [buscarIntol, setBuscarIntol] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
+    supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlgBiblio(data||[]))
+    supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
   }, [])
 
   async function toggleMolestia(mid: string, activa: boolean) {
@@ -37,6 +43,23 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
     const lbl: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:nuevoEstado==='resuelta'?'patologia_resuelta':'patologia', titulo:`Patología ${nombre}: ${lbl[nuevoEstado]||nuevoEstado}`, fecha:new Date().toISOString().split('T')[0] })
     cargar()
+  }
+
+  async function addAlergia(nombre: string) {
+    if (!nombre.trim()) return
+    await supabase.from('alergias_paciente').insert({ paciente_id:id, nombre })
+    setBuscarAlg(''); cargar()
+  }
+  async function delAlergia(aid: string) {
+    await supabase.from('alergias_paciente').delete().eq('id', aid); cargar()
+  }
+  async function addIntolerancia(nombre: string) {
+    if (!nombre.trim()) return
+    await supabase.from('intolerancias_paciente').insert({ paciente_id:id, nombre })
+    setBuscarIntol(''); cargar()
+  }
+  async function delIntolerancia(iid: string) {
+    await supabase.from('intolerancias_paciente').delete().eq('id', iid); cargar()
   }
 
   async function guardarMedicamento() {
@@ -140,6 +163,22 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
               <div><div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.nombre}</div><div style={{fontSize:9,color:'var(--grl)'}}>{m.frecuencia}</div></div>
             </div>
           ))}
+        </div>
+
+        {/* ALERGIAS */}
+        <div className="card">
+          <div className="card-title">🌿 Alergias</div>
+          {(alergias||[]).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>{alergias.map((a:any)=><div key={a.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--redl)',border:'1px solid #F5C8C8'}}><span style={{fontSize:10,color:'var(--red)'}}>{a.nombre}</span><button onClick={()=>delAlergia(a.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <input className="input" placeholder="🔍 Buscar para añadir..." value={buscarAlg} onChange={e=>setBuscarAlg(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+          {buscarAlg&&<div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:140,overflowY:'auto'}}>{algBiblio.filter((a:any)=>a.nombre.toLowerCase().includes(buscarAlg.toLowerCase())).slice(0,8).map((a:any)=><div key={a.id} onClick={()=>addAlergia(a.nombre)} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{a.nombre}</div>)}{algBiblio.filter((a:any)=>a.nombre.toLowerCase().includes(buscarAlg.toLowerCase())).length===0&&<div onClick={()=>addAlergia(buscarAlg)} style={{padding:'6px 10px',fontSize:10,color:'var(--g)',cursor:'pointer'}}>+ Añadir "{buscarAlg}"</div>}</div>}
+        </div>
+
+        {/* INTOLERANCIAS */}
+        <div className="card">
+          <div className="card-title">⚠️ Intolerancias</div>
+          {(intolerancias||[]).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>{intolerancias.map((it:any)=><div key={it.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--ambl)',border:'1px solid var(--amb)'}}><span style={{fontSize:10,color:'#7A5800'}}>{it.nombre}</span><button onClick={()=>delIntolerancia(it.id)} style={{fontSize:10,color:'#7A5800',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <input className="input" placeholder="🔍 Buscar para añadir..." value={buscarIntol} onChange={e=>setBuscarIntol(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+          {buscarIntol&&<div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:140,overflowY:'auto'}}>{intolBiblio.filter((a:any)=>a.nombre.toLowerCase().includes(buscarIntol.toLowerCase())).slice(0,8).map((a:any)=><div key={a.id} onClick={()=>addIntolerancia(a.nombre)} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{a.nombre}</div>)}{intolBiblio.filter((a:any)=>a.nombre.toLowerCase().includes(buscarIntol.toLowerCase())).length===0&&<div onClick={()=>addIntolerancia(buscarIntol)} style={{padding:'6px 10px',fontSize:10,color:'var(--g)',cursor:'pointer'}}>+ Añadir "{buscarIntol}"</div>}</div>}
         </div>
         <div className="card">
           <div className="card-title">Tests funcionales <button className="btn btn-s btn-sm" onClick={()=>setModalRegistrarTest(true)}>+ Registrar test</button></div>
