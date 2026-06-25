@@ -11,6 +11,8 @@ const TIPOS: Record<string,{icono:string,color:string,label:string,familia:strin
   molestia:           {icono:'🤕', color:'#B05A5A',    label:'Molestia',           familia:'clinico'},
   molestia_resuelta:  {icono:'✅', color:'var(--g)',   label:'Molestia resuelta',  familia:'clinico'},
   medicamento:        {icono:'💊', color:'#6B7FC4',    label:'Medicamento',        familia:'clinico'},
+  plantillas:         {icono:'🦶', color:'#6B7FC4',    label:'Plantillas',         familia:'clinico'},
+  deporte:            {icono:'🏃', color:'#3E7179',    label:'Deporte',            familia:'clinico'},
   alerta_abierta:     {icono:'⚠️', color:'var(--red)', label:'Alerta abierta',     familia:'alertas'},
   alerta_cerrada:     {icono:'✅', color:'var(--g)',   label:'Alerta cerrada',     familia:'alertas'},
   nota:               {icono:'📝', color:'var(--amb)', label:'Nota',               familia:'notas'},

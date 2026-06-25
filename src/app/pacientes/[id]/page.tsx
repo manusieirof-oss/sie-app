@@ -522,7 +522,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='salud' && (
-        <SaludTab id={id} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest}/>
+        <SaludTab id={id} pac={pac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest}/>
       )}
 
       {/* TAB ENTRENAMIENTO */}
