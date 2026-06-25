@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 
 export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'>('activo')
@@ -11,6 +12,9 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
   const [sesionAsignar, setSesionAsignar] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [verSesion, setVerSesion] = useState<any>(null)
+  const [editandoCita, setEditandoCita] = useState<any>(null)
+  const [tiposClase, setTiposClase] = useState<any[]>([])
+  const [horas, setHoras] = useState<string[]>([])
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -21,6 +25,8 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
+    const { data: aj } = await supabase.from('ajustes').select('clave,valor')
+    if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); if(map.tipos_clase){try{setTiposClase(JSON.parse(map.tipos_clase))}catch{}} if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
     setSesionesHistorial(hist||[])
   }
@@ -30,6 +36,41 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
     setGuardando(true)
     for (const citaId of seleccionadas) await supabase.from('citas').update({sesion_id:sesionAsignar}).eq('id',citaId)
     setSeleccionadas([]); setSesionAsignar(''); setGuardando(false); cargarDatos(); onRefresh()
+  }
+
+  async function guardarEdicionCita() {
+    if (!editandoCita) return
+    setGuardando(true)
+    const original = citasFuturas.find((c:any)=>c.id===editandoCita.id)
+    await supabase.from('citas').update({fecha:editandoCita.fecha,hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
+    if (original) {
+      const registros:any[]=[]
+      if (editandoCita.fecha && original.fecha && editandoCita.fecha!==original.fecha) registros.push({cita_id:editandoCita.id,paciente_id:pacienteId,campo_cambiado:'fecha',valor_anterior:original.fecha,valor_nuevo:editandoCita.fecha})
+      const hAnt=(original.hora||'').slice(0,5), hNue=(editandoCita.hora||'').slice(0,5)
+      if (hNue && hAnt && hNue!==hAnt) registros.push({cita_id:editandoCita.id,paciente_id:pacienteId,campo_cambiado:'hora',valor_anterior:hAnt,valor_nuevo:hNue})
+      if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
+    }
+    setEditandoCita(null); setGuardando(false); cargarDatos(); onRefresh()
+  }
+
+  async function cambiarEstadoCita(cita:any, estado:string) {
+    await supabase.from('citas').update({estado}).eq('id',cita.id)
+    if (estado==='cancelada') {
+      const fechaFalta=new Date(cita.fecha+'T12:00:00')
+      const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
+      const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()
+      if (!existing) await supabase.from('recuperaciones').insert({paciente_id:cita.paciente_id||pacienteId,cita_falta_id:cita.id,fecha_falta:cita.fecha,fecha_limite:fechaLimite.toISOString().split('T')[0],estado:'pendiente'})
+    }
+    if (estado==='falta') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
+    if (estado==='realizada'||estado==='programada') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
+    setEditandoCita(null); cargarDatos(); onRefresh()
+  }
+
+  async function eliminarCita(cita:any) {
+    if (!confirm('⚠️ Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
+    await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
+    await supabase.from('citas').delete().eq('id',cita.id)
+    setEditandoCita(null); cargarDatos(); onRefresh()
   }
 
   function toggleCita(id: string) { setSeleccionadas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
@@ -97,6 +138,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
                       </div>
                     ):<div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Sin sesión asignada</div>}
                   </div>
+                  <button onClick={e=>{e.stopPropagation();setEditandoCita({...c,paciente_id:pacienteId})}} style={{fontSize:11,background:'none',border:'1px solid var(--bd)',borderRadius:5,padding:'3px 7px',cursor:'pointer',color:'var(--gr)',flexShrink:0}}>✎</button>
                   <div style={{width:8,height:8,borderRadius:'50%',background:tieneSesion?'var(--g)':'var(--bm)',flexShrink:0}}/>
                 </div>
               )
@@ -180,6 +222,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
           </div>
         </div>
       )}
+    {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
     </div>
   )
 }
