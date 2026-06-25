@@ -28,6 +28,13 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
     cargar()
   }
 
+  async function cambiarEstadoPatologia(pid: string, nombre: string, nuevoEstado: string) {
+    await supabase.from('patologias').update({ estado:nuevoEstado }).eq('id', pid)
+    const lbl: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:nuevoEstado==='resuelta'?'patologia_resuelta':'patologia', titulo:`Patología ${nombre}: ${lbl[nuevoEstado]||nuevoEstado}`, fecha:new Date().toISOString().split('T')[0] })
+    cargar()
+  }
+
   async function guardarMolestia() {
     if (!molConfig) return
     setGuardando(true)
@@ -77,8 +84,13 @@ export default function SaludTab({ id, molestias, patologias, escalas, medicamen
               <div style={{width:7,height:7,borderRadius:'50%',background:p.estado==='activa'?'var(--red)':p.estado==='cronica'?'var(--amb)':'var(--g)',flexShrink:0}}/>
               <div style={{flex:1}}>
                 <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{p.nombre}</div>
-                <div style={{fontSize:9,color:'var(--grl)'}}>{p.estado}</div>
+                {(p.lado&&p.lado!=='no_aplica')&&<div style={{fontSize:9,color:'var(--grl)'}}>{p.lado}</div>}
               </div>
+              <select value={p.estado} onChange={e=>cambiarEstadoPatologia(p.id,p.nombre,e.target.value)} style={{fontSize:9,padding:'3px 6px',borderRadius:5,border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)',cursor:'pointer',fontFamily:'system-ui'}}>
+                <option value="activa">Activa</option>
+                <option value="cronica">Crónica</option>
+                <option value="resuelta">Resuelta</option>
+              </select>
             </div>
           ))}
         </div>
