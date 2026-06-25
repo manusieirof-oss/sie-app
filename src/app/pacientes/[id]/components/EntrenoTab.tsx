@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
+import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 
-export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
+export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
@@ -15,6 +16,8 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
   const [editandoCita, setEditandoCita] = useState<any>(null)
   const [tiposClase, setTiposClase] = useState<any[]>([])
   const [horas, setHoras] = useState<string[]>([])
+  const [sesionEditando, setSesionEditando] = useState<any>(null)
+  const [ejerciciosBib, setEjerciciosBib] = useState<any[]>([])
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -25,6 +28,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
+    supabase.from('ejercicios').select('*').order('nombre').then(({data})=>setEjerciciosBib(data||[]))
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
     if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); if(map.tipos_clase){try{setTiposClase(JSON.parse(map.tipos_clase))}catch{}} if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
@@ -74,6 +78,15 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
   }
 
   function toggleCita(id: string) { setSeleccionadas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
+
+  async function crearSesionNueva() {
+    const fechaTxt = new Date().toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+    const nombreAuto = `Sesión ${nombrePaciente||''} · ${fechaTxt}`.replace('  ',' ').trim()
+    const { data, error } = await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:nombreAuto, descripcion:'', partes:[{nombre:'Parte 1',ejercicios:[]}], estado:'lista' }).select().single()
+    if (error || !data) { alert('Error al crear la sesión'); return }
+    await cargarDatos()
+    setSesionEditando(data)
+  }
 
   async function duplicarSesion(s: any) {
     await supabase.from('sesiones').insert({paciente_id:pacienteId,nombre:s.nombre+' (copia)',descripcion:s.descripcion,partes:s.partes||[],estado:'lista'})
@@ -150,7 +163,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
       {seccion==='sesiones'&&(
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <button className="btn btn-p btn-sm" onClick={onNuevaSesion}>+ Nueva sesión</button>
+            <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>
           </div>
           {sesionesDisp.length===0?<div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas.</div>:sesionesDisp.map(s=>{
             const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
@@ -171,7 +184,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
                   </div>
                 ))}
                 <div style={{display:'flex',gap:5,marginTop:8}}>
-                  <button className="btn btn-s btn-sm" onClick={()=>window.location.href=`/entrenamiento?nueva_sesion=1&paciente_id=${pacienteId}`}>✏️ Editar</button>
+                  <button className="btn btn-s btn-sm" onClick={()=>setSesionEditando(s)}>✏️ Editar</button>
                   <button className="btn btn-t btn-sm" onClick={()=>duplicarSesion(s)}>⧉ Duplicar</button>
                   <button className="btn btn-d btn-sm" onClick={()=>eliminarSesion(s.id)}>🗑</button>
                 </div>
@@ -222,6 +235,7 @@ export default function EntrenoTab({ pacienteId, sesiones, onRefresh, onNuevaSes
           </div>
         </div>
       )}
+    {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
     </div>
   )

@@ -529,7 +529,7 @@ export default function FichaPacientePage() {
 
       {/* TAB ENTRENAMIENTO */}
       {tab==='entreno' && (
-        <EntrenoTab pacienteId={String(id)} sesiones={sesiones} onRefresh={cargar} onNuevaSesion={()=>router.push(`/entrenamiento?nueva_sesion=1&paciente_id=${id}`)}/>
+        <EntrenoTab pacienteId={String(id)} nombrePaciente={pac?.nombre||''} sesiones={sesiones} onRefresh={cargar} onNuevaSesion={()=>router.push(`/entrenamiento?nueva_sesion=1&paciente_id=${id}`)}/>
       )}
 
       {tab==='resultados' && (
