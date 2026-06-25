@@ -271,15 +271,6 @@ export default function AgendaPage() {
     setGuardando(false); cargar()
   }
 
-  async function registrarCitaRealizada(citaId:string) {
-    const { data: cita } = await supabase.from('citas').select('paciente_id,fecha,sesion_id, sesiones:sesion_id(nombre)').eq('id',citaId).maybeSingle()
-    if (cita && cita.sesion_id && cita.paciente_id) {
-      const fechaTxt = new Date(cita.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})
-      const nombreSes = (cita.sesiones as any)?.nombre || 'sesión'
-      await supabase.from('eventos_paciente').insert({ paciente_id:cita.paciente_id, tipo:'entrenamiento', titulo:`Cita ${fechaTxt} · sesión: ${nombreSes}`, fecha:cita.fecha })
-    }
-  }
-
   async function cambiarEstado(id:string,estado:string) {
     await supabase.from('citas').update({estado}).eq('id',id)
     if (estado==='cancelada') await supabase.from('recuperaciones').update({estado:'pendiente',cita_recuperacion_id:null}).eq('cita_recuperacion_id',id)
@@ -290,7 +281,6 @@ export default function AgendaPage() {
       if (!existing) await supabase.from('recuperaciones').insert({paciente_id:panelPac.paciente_id,cita_falta_id:id,fecha_falta:panelPac.fecha,fecha_limite:fechaLimite.toISOString().split('T')[0],estado:'pendiente'})
     }
     if (estado==='realizada' && panelPac) await supabase.from('recuperaciones').delete().eq('cita_falta_id',id).eq('estado','pendiente')
-    if (estado==='realizada') await registrarCitaRealizada(id)
     setPanelPac((prev:any)=>prev?{...prev,estado}:null)
     cargar()
   }
@@ -308,7 +298,6 @@ export default function AgendaPage() {
     if (estado==='falta') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
     // Volver a realizada/programada -> quitar recuperacion pendiente
     if (estado==='realizada'||estado==='programada') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
-    if (estado==='realizada') await registrarCitaRealizada(cita.id)
     setEditandoCita(null); cargar()
   }
 
