@@ -21,6 +21,7 @@ export default function FichaPacientePage() {
   const [medicamentos, setMedicamentos] = useState<any[]>([])
   const [alergias, setAlergias] = useState<any[]>([])
   const [intolerancias, setIntolerancias] = useState<any[]>([])
+  const [deportesPac, setDeportesPac] = useState<any[]>([])
   const [escalas, setEscalas] = useState<any[]>([])
   const [tests, setTests] = useState<any[]>([])
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
@@ -208,13 +209,14 @@ export default function FichaPacientePage() {
       supabase.from('citas').select('id,fecha,hora,sala,tipo,estado,sesion_id,notas').eq('paciente_id',id).order('fecha',{ascending:false}).limit(50),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
     ])
-    const [{ data: t }, { data: td }, { data: alg }, { data: intol }] = await Promise.all([
+    const [{ data: t }, { data: td }, { data: alg }, { data: intol }, { data: dep }] = await Promise.all([
       supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
       supabase.from('tests').select('*').order('nombre'),
       supabase.from('alergias_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('intolerancias_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
+      supabase.from('deportes_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
     ])
-    setAlergias(alg||[]); setIntolerancias(intol||[])
+    setAlergias(alg||[]); setIntolerancias(intol||[]); setDeportesPac(dep||[])
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
     setTests(t||[]); setTestsDisp(td||[])
@@ -522,7 +524,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='salud' && (
-        <SaludTab id={id} pac={pac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest}/>
+        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest}/>
       )}
 
       {/* TAB ENTRENAMIENTO */}

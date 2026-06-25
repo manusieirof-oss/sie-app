@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function SaludTab({ id, pac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest }: any) {
+export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [buscarMol, setBuscarMol] = useState('')
@@ -16,6 +16,9 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
   const [intolBiblio, setIntolBiblio] = useState<any[]>([])
   const [buscarAlg, setBuscarAlg] = useState('')
   const [buscarIntol, setBuscarIntol] = useState('')
+  const [depBiblio, setDepBiblio] = useState<any[]>([])
+  const [plantBiblio, setPlantBiblio] = useState<any[]>([])
+  const [buscarDep, setBuscarDep] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
@@ -24,6 +27,8 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlgBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
+    supabase.from('deportes_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setDepBiblio(data||[]))
+    supabase.from('plantillas_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPlantBiblio(data||[]))
   }, [])
 
   async function toggleMolestia(mid: string, activa: boolean) {
@@ -45,6 +50,20 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
     cargar()
   }
 
+  async function addDeporte(nombre: string) {
+    if (!nombre.trim()) return
+    const yaTiene = (deportesPac||[]).length>0
+    await supabase.from('deportes_paciente').insert({ paciente_id:id, nombre })
+    if (!yaTiene) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Empieza a practicar deporte: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
+    else await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Nuevo deporte: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
+    setBuscarDep(''); cargar()
+  }
+  async function delDeporte(did: string, nombre: string) {
+    await supabase.from('deportes_paciente').delete().eq('id', did)
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Deja el deporte: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
+    cargar()
+  }
+
   async function addAlergia(nombre: string) {
     if (!nombre.trim()) return
     await supabase.from('alergias_paciente').insert({ paciente_id:id, nombre })
@@ -63,9 +82,8 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
   }
 
   const [usaPlantillas, setUsaPlantillas] = useState(false)
-  const [tipoPlantilla, setTipoPlantilla] = useState('')
-  const [haceDeporte, setHaceDeporte] = useState(false)
-  const [deportes, setDeportes] = useState('')
+  const [plantIzq, setPlantIzq] = useState('')
+  const [plantDer, setPlantDer] = useState('')
   const [guardandoSalud, setGuardandoSalud] = useState(false)
   const [detalle, setDetalle] = useState<any>(null)
 
@@ -76,24 +94,20 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
   useEffect(() => {
     if (pac) {
       setUsaPlantillas(!!pac.usa_plantillas)
-      setTipoPlantilla(pac.tipo_plantilla||'')
-      setHaceDeporte(!!pac.hace_deporte)
-      setDeportes(pac.deportes||'')
+      setPlantIzq(pac.plantilla_izq||'')
+      setPlantDer(pac.plantilla_der||'')
     }
-  }, [pac?.id, pac?.usa_plantillas, pac?.hace_deporte])
+  }, [pac?.id, pac?.usa_plantillas, pac?.plantilla_izq, pac?.plantilla_der])
 
   async function guardarSalud() {
     setGuardandoSalud(true)
     const antesPlant = !!pac.usa_plantillas
-    const antesDep = !!pac.hace_deporte
-    const antesDeportes = pac.deportes||''
-    await supabase.from('pacientes').update({ usa_plantillas:usaPlantillas, tipo_plantilla:tipoPlantilla||null, hace_deporte:haceDeporte, deportes:deportes||null }).eq('id', id)
+    await supabase.from('pacientes').update({ usa_plantillas:usaPlantillas, plantilla_izq:usaPlantillas?(plantIzq||null):null, plantilla_der:usaPlantillas?(plantDer||null):null }).eq('id', id)
     const hoy = new Date().toISOString().split('T')[0]
-    if (usaPlantillas && !antesPlant) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'plantillas', titulo:'Empieza a usar plantillas', descripcion:tipoPlantilla||null, fecha:hoy })
+    const detalle = [plantIzq?`Izq: ${plantIzq}`:'', plantDer?`Der: ${plantDer}`:''].filter(Boolean).join(' · ')||null
+    if (usaPlantillas && !antesPlant) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'plantillas', titulo:'Empieza a usar plantillas', descripcion:detalle, fecha:hoy })
     if (!usaPlantillas && antesPlant) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'plantillas', titulo:'Deja de usar plantillas', fecha:hoy })
-    if (haceDeporte && !antesDep) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:'Empieza a practicar deporte', descripcion:deportes||null, fecha:hoy })
-    if (!haceDeporte && antesDep) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:'Deja de practicar deporte', fecha:hoy })
-    if (haceDeporte && antesDep && deportes!==antesDeportes && deportes) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Deportes actualizados: ${deportes}`, fecha:hoy })
+    if (usaPlantillas && antesPlant && (plantIzq!==(pac.plantilla_izq||'')||plantDer!==(pac.plantilla_der||''))) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'plantillas', titulo:'Plantillas actualizadas', descripcion:detalle, fecha:hoy })
     setGuardandoSalud(false); cargar()
   }
 
@@ -165,20 +179,26 @@ export default function SaludTab({ id, pac, molestias, patologias, escalas, medi
           ))}
         </div>
 
-        {/* PLANTILLAS Y DEPORTE */}
+        {/* PLANTILLAS */}
         <div className="card">
-          <div className="card-title">🦶 Plantillas y deporte</div>
+          <div className="card-title">🦶 Plantillas</div>
           <div onClick={()=>setUsaPlantillas(!usaPlantillas)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1px solid ${usaPlantillas?'var(--g)':'var(--bd)'}`,background:usaPlantillas?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:8}}>
             <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${usaPlantillas?'var(--g)':'var(--bd)'}`,background:usaPlantillas?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{usaPlantillas&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div>
             <span style={{fontSize:10,color:'var(--n)'}}>Usa plantillas</span>
           </div>
-          {usaPlantillas&&<div className="field"><label>Tipo de plantilla</label><input className="input" value={tipoPlantilla} onChange={e=>setTipoPlantilla(e.target.value)} placeholder="ej. personalizadas, genéricas..."/></div>}
-          <div onClick={()=>setHaceDeporte(!haceDeporte)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1px solid ${haceDeporte?'var(--g)':'var(--bd)'}`,background:haceDeporte?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:8}}>
-            <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${haceDeporte?'var(--g)':'var(--bd)'}`,background:haceDeporte?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{haceDeporte&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div>
-            <span style={{fontSize:10,color:'var(--n)'}}>Practica deporte</span>
-          </div>
-          {haceDeporte&&<div className="field"><label>¿Qué deportes?</label><input className="input" value={deportes} onChange={e=>setDeportes(e.target.value)} placeholder="ej. pádel, natación, running..."/></div>}
-          <button className="btn btn-p btn-sm" onClick={guardarSalud} disabled={guardandoSalud} style={{marginTop:4}}>{guardandoSalud?'⏳':'💾 Guardar'}</button>
+          {usaPlantillas&&<div className="g2">
+            <div className="field"><label>Pie izquierdo</label><select className="input" value={plantIzq} onChange={e=>setPlantIzq(e.target.value)}><option value="">—</option>{plantBiblio.map((t:any)=><option key={t.id} value={t.nombre}>{t.nombre}</option>)}</select></div>
+            <div className="field"><label>Pie derecho</label><select className="input" value={plantDer} onChange={e=>setPlantDer(e.target.value)}><option value="">—</option>{plantBiblio.map((t:any)=><option key={t.id} value={t.nombre}>{t.nombre}</option>)}</select></div>
+          </div>}
+          <button className="btn btn-p btn-sm" onClick={guardarSalud} disabled={guardandoSalud} style={{marginTop:4}}>{guardandoSalud?'⏳':'💾 Guardar plantillas'}</button>
+        </div>
+
+        {/* DEPORTES */}
+        <div className="card">
+          <div className="card-title">🏃 Deportes</div>
+          {(deportesPac||[]).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>{deportesPac.map((d:any)=><div key={d.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--gl)',border:'1px solid var(--gm)'}}><span style={{fontSize:10,color:'var(--gd)'}}>{d.nombre}</span><button onClick={()=>delDeporte(d.id,d.nombre)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <input className="input" placeholder="🔍 Buscar para añadir... ej. pádel, natación" value={buscarDep} onChange={e=>setBuscarDep(e.target.value)} style={{marginBottom:6,fontSize:11}}/>
+          {buscarDep&&<div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:140,overflowY:'auto'}}>{depBiblio.filter((d:any)=>d.nombre.toLowerCase().includes(buscarDep.toLowerCase())).slice(0,8).map((d:any)=><div key={d.id} onClick={()=>addDeporte(d.nombre)} style={{padding:'6px 10px',cursor:'pointer',fontSize:10,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{d.nombre}</div>)}{depBiblio.filter((d:any)=>d.nombre.toLowerCase().includes(buscarDep.toLowerCase())).length===0&&<div onClick={()=>addDeporte(buscarDep)} style={{padding:'6px 10px',fontSize:10,color:'var(--g)',cursor:'pointer'}}>+ Añadir "{buscarDep}"</div>}</div>}
         </div>
       </div>
       <div>
