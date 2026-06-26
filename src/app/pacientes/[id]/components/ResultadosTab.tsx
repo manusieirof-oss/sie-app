@@ -1,6 +1,8 @@
 'use client'
+import { useState } from 'react'
 
 export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, generarPDF }: any) {
+  const [vista, setVista] = useState<'analisis'|'paciente'>('analisis')
   const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
   const faltas = citas.filter((c:any)=>c.estado==='falta').length
   const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
@@ -20,9 +22,16 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
 
   return (
     <div>
-      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-        <button className="btn btn-p btn-sm" onClick={generarPDF}>📄 Imprimir / Guardar PDF</button>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+        <div style={{display:'flex',gap:4,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,flex:1}}>
+          {([['analisis','📊 Análisis'],['paciente','😊 Para el paciente']] as const).map(([k,l])=>(
+            <button key={k} onClick={()=>setVista(k)} style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:300,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>{l}</button>
+          ))}
+        </div>
+        <button className="btn btn-p btn-sm" onClick={generarPDF}>📄 PDF</button>
       </div>
+
+      {vista==='analisis'&&(<div>
 
       {/* DONUT ASISTENCIA */}
       <div className="g2" style={{marginBottom:16}}>
@@ -182,6 +191,80 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
               )
             })
           })()}
+        </div>
+      )}
+      </div>)}
+
+      {vista==='paciente'&&(
+        <div style={{padding:'10px 4px'}}>
+          <div style={{textAlign:'center',marginBottom:24}}>
+            <div style={{fontSize:13,color:'var(--grl)',fontWeight:300}}>Tu progreso</div>
+            <div style={{fontSize:15,fontWeight:400,color:'var(--n)',marginTop:2}}>{pac?.nombre} {pac?.apellidos}</div>
+          </div>
+
+          {/* ASISTENCIA GRANDE */}
+          <div style={{textAlign:'center',marginBottom:30}}>
+            <div style={{position:'relative',width:160,height:160,margin:'0 auto'}}>
+              <svg viewBox="0 0 36 36" style={{width:160,height:160,transform:'rotate(-90deg)'}}>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bm)" strokeWidth="2.5"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--g)" strokeWidth="2.5" strokeDasharray={`${pctAsistencia} ${100-pctAsistencia}`} strokeLinecap="round"/>
+              </svg>
+              <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center'}}>
+                <div style={{fontSize:34,fontWeight:300,color:'var(--g)'}}>{pctAsistencia}%</div>
+                <div style={{fontSize:10,color:'var(--grl)'}}>asistencia</div>
+              </div>
+            </div>
+            <div style={{fontSize:12,color:'var(--n)',fontWeight:300,marginTop:14}}>
+              {pctAsistencia>=80?'¡Excelente constancia! 💪':pctAsistencia>=60?'¡Buen ritmo, sigue así! 👏':'Cada sesión cuenta, ¡a por ello! 🌱'}
+            </div>
+          </div>
+
+          {/* SESIONES REALIZADAS GRANDE */}
+          <div style={{display:'flex',justifyContent:'center',gap:30,marginBottom:30,flexWrap:'wrap'}}>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:40,fontWeight:200,color:'var(--g)'}}>{realizadas}</div>
+              <div style={{fontSize:10,color:'var(--grl)'}}>sesiones completadas</div>
+            </div>
+            {recuperaciones.filter((r:any)=>r.estado==='recuperada').length>0&&(
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:40,fontWeight:200,color:'var(--amb)'}}>{recuperaciones.filter((r:any)=>r.estado==='recuperada').length}</div>
+                <div style={{fontSize:10,color:'var(--grl)'}}>clases recuperadas</div>
+              </div>
+            )}
+          </div>
+
+          {/* DATOS FISICOS */}
+          {pac?.peso_kg&&(
+            <div style={{display:'flex',justifyContent:'center',gap:24,marginBottom:30,flexWrap:'wrap'}}>
+              {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm'],['IMC',pac.peso_kg&&pac.altura_cm?Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10:null,'']].map(([l,v,u])=>v?(
+                <div key={String(l)} style={{textAlign:'center'}}>
+                  <div style={{fontSize:26,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:11,color:'var(--grl)'}}>{u as string}</span></div>
+                  <div style={{fontSize:10,color:'var(--grl)'}}>{l}</div>
+                </div>
+              ):null)}
+            </div>
+          )}
+
+          {/* PROGRESO MENSUAL SIMPLE */}
+          {meses.length>0&&(
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:11,color:'var(--grl)',textAlign:'center',marginBottom:12,fontWeight:300}}>Tu asistencia mes a mes</div>
+              <div style={{display:'flex',alignItems:'flex-end',gap:10,height:90,justifyContent:'center'}}>
+                {meses.map(([mes,datos])=>{
+                  const alturaR=Math.round((datos.realizadas/maxMes)*70)
+                  const [anio,m]=mes.split('-')
+                  const nombreMes=new Date(parseInt(anio),parseInt(m)-1,1).toLocaleDateString('es-ES',{month:'short'})
+                  return (
+                    <div key={mes} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                      <div style={{fontSize:10,color:'var(--g)',fontWeight:400}}>{datos.realizadas}</div>
+                      <div style={{width:32,height:alturaR,background:'var(--g)',borderRadius:'4px 4px 0 0',minHeight:4}}/>
+                      <div style={{fontSize:9,color:'var(--grl)',textTransform:'capitalize'}}>{nombreMes}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
