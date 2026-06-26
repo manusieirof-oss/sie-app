@@ -325,9 +325,10 @@ export default function FichaPacientePage() {
     const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
     if (error) { alert('Error al subir foto: ' + error.message); setSubiendoFoto(false); return }
     const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
-    await supabase.from('pacientes').update({ foto_url: `${publicUrl}?v=${Date.now()}` }).eq('id', id)
+    const nuevaUrl = `${publicUrl}?v=${Date.now()}`
+    await supabase.from('pacientes').update({ foto_url: nuevaUrl }).eq('id', id)
+    setPac((prev:any)=>prev?{...prev, foto_url:nuevaUrl}:prev)
     setSubiendoFoto(false)
-    cargar()
   }
 
   async function darDeBaja() {
