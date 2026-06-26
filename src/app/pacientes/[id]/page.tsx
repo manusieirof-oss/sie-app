@@ -305,15 +305,27 @@ export default function FichaPacientePage() {
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    let file = e.target.files?.[0]
     if (!file) return
     setSubiendoFoto(true)
-    const ext = file.name.split('.').pop()
+    // Convertir HEIC/HEIF (fotos de iPhone) a JPG para que se vean en todos los navegadores
+    const esHeic = /\.(heic|heif)$/i.test(file.name) || file.type==='image/heic' || file.type==='image/heif'
+    if (esHeic) {
+      try {
+        const heic2any = (await import('heic2any')).default
+        const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 }) as Blob
+        file = new File([blob], 'foto.jpg', { type: 'image/jpeg' })
+      } catch (err) {
+        alert('No se pudo convertir la imagen HEIC. Prueba con una foto en formato JPG.')
+        setSubiendoFoto(false); return
+      }
+    }
+    const ext = esHeic ? 'jpg' : (file.name.split('.').pop() || 'jpg')
     const path = `${id}/foto.${ext}`
     const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
     if (error) { alert('Error al subir foto: ' + error.message); setSubiendoFoto(false); return }
     const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
-    await supabase.from('pacientes').update({ foto_url: publicUrl }).eq('id', id)
+    await supabase.from('pacientes').update({ foto_url: `${publicUrl}?v=${Date.now()}` }).eq('id', id)
     setSubiendoFoto(false)
     cargar()
   }
