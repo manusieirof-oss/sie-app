@@ -1,10 +1,10 @@
 'use client'
 import { useState } from 'react'
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
+import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 
-export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, generarPDF }: any) {
+export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, molestias=[], patologias=[], deportesPac=[], generarPDF }: any) {
   const [vista, setVista] = useState<'analisis'|'paciente'>('analisis')
   const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
   const faltas = citas.filter((c:any)=>c.estado==='falta').length
@@ -34,6 +34,28 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
 
   const imc = pac?.peso_kg&&pac?.altura_cm ? Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10 : null
   const dataDonut = [{ name:'Asistencia', value:pctAsistencia, fill:G }]
+
+  // EVA molestias en el tiempo (ordenado por fecha de registro)
+  const dataEva = [...molestias]
+    .filter((m:any)=>typeof m.eva==='number')
+    .sort((a:any,b:any)=>(a.created_at||'').localeCompare(b.created_at||''))
+    .map((m:any)=>({ fecha:new Date(m.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'}), zona:m.zona, EVA:m.eva }))
+
+  // Patologias por estado
+  const patEstados = { activa:0, cronica:0, resuelta:0 } as Record<string,number>
+  patologias.forEach((p:any)=>{ if(patEstados[p.estado]!==undefined) patEstados[p.estado]++ })
+  const dataPat = [
+    { estado:'Activas', n:patEstados.activa, fill:RED },
+    { estado:'Crónicas', n:patEstados.cronica, fill:AMB },
+    { estado:'Resueltas', n:patEstados.resuelta, fill:G },
+  ].filter(d=>d.n>0)
+  const totalPat = patEstados.activa+patEstados.cronica+patEstados.resuelta
+
+  // Distribucion por tipo de clase (de las citas)
+  const tipoMap: Record<string,number> = {}
+  citas.forEach((c:any)=>{ const t=c.tipo||'otro'; tipoMap[t]=(tipoMap[t]||0)+1 })
+  const dataTipo = Object.entries(tipoMap).sort(([,a],[,b])=>b-a).map(([t,n])=>({ tipo:t.charAt(0).toUpperCase()+t.slice(1), n }))
+  const maxTipo = Math.max(...dataTipo.map(d=>d.n), 1)
 
   return (
     <div>
@@ -113,6 +135,65 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
               <div style={{display:'flex',gap:16,justifyContent:'center',marginTop:4}}>
                 <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:G}}/><span style={{fontSize:9,color:'var(--grl)'}}>Borg (bienestar)</span></div>
                 <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:AMB}}/><span style={{fontSize:9,color:'var(--grl)'}}>Estrés</span></div>
+              </div>
+            </div>
+          )}
+
+          {/* EVA MOLESTIAS */}
+          {dataEva.length>0&&(
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Dolor percibido (EVA) en molestias</div>
+              <ResponsiveContainer width="100%" height={170}>
+                <LineChart data={dataEva} margin={{top:5,right:10,left:-20,bottom:0}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
+                  <XAxis dataKey="fecha" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
+                  <YAxis domain={[0,10]} tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}} formatter={(v:any,n:any,o:any)=>[`EVA ${v}`, o?.payload?.zona||'']}/>
+                  <Line type="monotone" dataKey="EVA" stroke={RED} strokeWidth={2} dot={{r:3}}/>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* PATOLOGIAS POR ESTADO */}
+          {totalPat>0&&(
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Patologías por estado</div>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {dataPat.map(d=>(
+                  <div key={d.estado} style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{fontSize:10,color:'var(--grl)',width:64,textAlign:'right'}}>{d.estado}</div>
+                    <div style={{flex:1,height:18,background:'var(--bl)',borderRadius:99,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${Math.round((d.n/totalPat)*100)}%`,background:d.fill,borderRadius:99,minWidth:18,transition:'width .4s'}}/>
+                    </div>
+                    <div style={{fontSize:11,fontWeight:500,color:'var(--n)',width:20}}>{d.n}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TIPOS DE CLASE */}
+          {dataTipo.length>0&&(
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Distribución por tipo de clase</div>
+              <ResponsiveContainer width="100%" height={Math.max(120, dataTipo.length*38)}>
+                <BarChart data={dataTipo} layout="vertical" margin={{top:0,right:20,left:10,bottom:0}}>
+                  <XAxis type="number" hide allowDecimals={false}/>
+                  <YAxis type="category" dataKey="tipo" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false} width={80}/>
+                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}} cursor={{fill:'#F7F7F7'}}/>
+                  <Bar dataKey="n" fill={G} radius={[0,6,6,0]} barSize={18}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* DEPORTES */}
+          {deportesPac.length>0&&(
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Deportes que practica</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {deportesPac.map((d:any)=><span key={d.id} style={{fontSize:11,padding:'5px 12px',borderRadius:99,background:GL,color:GD,fontWeight:400}}>{d.nombre}</span>)}
               </div>
             </div>
           )}

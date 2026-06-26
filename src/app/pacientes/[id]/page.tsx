@@ -533,7 +533,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='resultados' && (
-        <ResultadosTab citas={citas} escalas={escalas} tests={tests} recuperaciones={recuperaciones} pac={pac} generarPDF={generarPDF}/>
+        <ResultadosTab citas={citas} escalas={escalas} tests={tests} recuperaciones={recuperaciones} pac={pac} molestias={molestias} patologias={patologias} deportesPac={deportesPac} generarPDF={generarPDF}/>
       )}
 
       {/* MODAL REGISTRAR TEST */}
