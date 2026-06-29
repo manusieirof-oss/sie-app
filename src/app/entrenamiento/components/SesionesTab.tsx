@@ -27,6 +27,7 @@ const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resis
 export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial }: any) {
   const [modalSes, setModalSes] = useState(false)
   const [buscarSes, setBuscarSes] = useState('')
+  const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
   const [sesionVista, setSesionVista] = useState<any>(null)
   const [guardando, setGuardando] = useState(false)
   const [modalBiblioteca, setModalBiblioteca] = useState<{parteIdx:number}|null>(null)
@@ -98,9 +99,11 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     return (objetivos||[]).filter((o:any)=>ids.includes(o.id))
   }
   const sesionesFiltradas = sesiones.filter((s:any)=>{
-    if(!buscarSes) return true
     const q = buscarSes.toLowerCase()
-    return (s.nombre||'').toLowerCase().includes(q) || (s.descripcion||'').toLowerCase().includes(q)
+    const matchQ = !buscarSes || (s.nombre||'').toLowerCase().includes(q) || (s.descripcion||'').toLowerCase().includes(q)
+    const idsObj = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
+    const matchObj = filtroObjetivos.length===0 || filtroObjetivos.some(fid=>idsObj.includes(fid))
+    return matchQ && matchObj
   })
 
   return (
@@ -111,6 +114,21 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} sesiones</span>
         <button className="btn btn-p btn-sm" onClick={()=>setModalSes(true)}>+ Nueva sesión</button>
       </div>
+      {(objetivos||[]).length>0&&(
+        <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
+          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>🎯 Objetivo:</span>
+          {(objetivos||[]).map((o:any)=>{
+            const sel = filtroObjetivos.includes(o.id)
+            return (
+              <span key={o.id} onClick={()=>setFiltroObjetivos(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
+                style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',border:`1.5px solid ${sel?(o.color||'var(--g)'):'var(--bd)'}`,background:sel?(o.color||'var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
+                {sel?'✓ ':''}{o.nombre}
+              </span>
+            )
+          })}
+          {filtroObjetivos.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroObjetivos([])}>✕ Limpiar</button>}
+        </div>
+      )}
 
       {sesionesFiltradas.length===0?(
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>
