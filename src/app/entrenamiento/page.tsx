@@ -54,7 +54,7 @@ function EntrenamientoContent() {
     const [{ data: e },{ data: p },{ data: s },{ data: et },{ data: tl }] = await Promise.all([
       supabase.from('ejercicios').select('*').order('nombre'),
       supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre'),
-      supabase.from('sesiones').select('*, pacientes(nombre,apellidos)').order('created_at',{ascending:false}).limit(20),
+      supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id)').order('created_at',{ascending:false}).limit(20),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
       supabase.from('tests').select('*').order('nombre'),
     ])
@@ -188,7 +188,7 @@ function EntrenamientoContent() {
       {loading?<div className="loading">Cargando...</div>:(
         <>
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
-          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
+          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} cargar={cargar}/>}
           {tab==='listas'&&<ListasTab medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}

@@ -24,7 +24,7 @@ type Parte = {
 const VARIANTES = ['Bilateral','Unilateral','Alterno','Unipodal','Supino','Prono','Decúbito lateral']
 const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resistencia','Propiocepción','Coordinación']
 
-export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, cargar, getNombre, pacienteIdInicial }: any) {
+export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial }: any) {
   const [modalSes, setModalSes] = useState(false)
   const [buscarSes, setBuscarSes] = useState('')
   const [sesionVista, setSesionVista] = useState<any>(null)
@@ -93,6 +93,10 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     cargar()
   }
 
+  function objsDeSesion(s:any) {
+    const ids = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
+    return (objetivos||[]).filter((o:any)=>ids.includes(o.id))
+  }
   const sesionesFiltradas = sesiones.filter((s:any)=>{
     if(!buscarSes) return true
     const q = buscarSes.toLowerCase()
@@ -129,6 +133,11 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{nPartes} {nPartes===1?'parte':'partes'}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
                 </div>
+                {objsDeSesion(s).length>0&&(
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -143,6 +152,11 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
               <div style={{flex:1}}>
                 <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>{sesionVista.nombre}</div>
                 {sesionVista.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionVista.descripcion}</div>}
+                {objsDeSesion(sesionVista).length>0&&(
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
+                    {objsDeSesion(sesionVista).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                  </div>
+                )}
               </div>
               <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}>✏️ Editar</button>
               <button onClick={()=>setSesionVista(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>

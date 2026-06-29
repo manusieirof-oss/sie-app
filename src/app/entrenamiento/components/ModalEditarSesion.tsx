@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCerrar }: {
@@ -16,6 +16,17 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
   const [parteActiva, setParteActiva] = useState(0)
   const [buscarEj, setBuscarEj] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [objetivosDisp, setObjetivosDisp] = useState<any[]>([])
+  const [objetivosSel, setObjetivosSel] = useState<string[]>([])
+
+  useEffect(() => {
+    (async () => {
+      const { data: objs } = await supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre')
+      setObjetivosDisp(objs||[])
+      const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id').eq('sesion_id', sesion.id)
+      setObjetivosSel((rel||[]).map((r:any)=>r.objetivo_id))
+    })()
+  }, [sesion.id])
 
   const ejFiltrados = ejercicios.filter(e => !buscarEj || e.nombre.toLowerCase().includes(buscarEj.toLowerCase()))
 
@@ -40,6 +51,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
     if (!formSesion.nombre) { alert('El nombre es obligatorio'); return }
     setGuardando(true)
     await supabase.from('sesiones').update({ nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes:formSesion.partes }).eq('id', sesion.id)
+    // sincronizar objetivos (borrar + reinsertar)
+    await supabase.from('sesiones_objetivos').delete().eq('sesion_id', sesion.id)
+    if (objetivosSel.length>0) {
+      await supabase.from('sesiones_objetivos').insert(objetivosSel.map(oid=>({ sesion_id:sesion.id, objetivo_id:oid })))
+    }
     setGuardando(false)
     onGuardado()
     onCerrar()
@@ -57,6 +73,24 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'⏳':'💾 Guardar'}</button>
           <button onClick={onCerrar} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
         </div>
+
+        {/* OBJETIVOS DE LA SESIÓN */}
+        {objetivosDisp.length>0&&(
+          <div style={{padding:'8px 18px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>🎯 Objetivos que cubre</div>
+            <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+              {objetivosDisp.map((o:any)=>{
+                const sel = objetivosSel.includes(o.id)
+                return (
+                  <span key={o.id} onClick={()=>setObjetivosSel(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
+                    style={{fontSize:10,padding:'3px 10px',borderRadius:99,cursor:'pointer',border:`1.5px solid ${sel?(o.color||'var(--g)'):'var(--bd)'}`,background:sel?(o.color||'var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
+                    {sel?'✓ ':''}{o.nombre}
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 320px',flex:1,overflow:'hidden'}}>
           {/* IZQUIERDA — PARTES */}
