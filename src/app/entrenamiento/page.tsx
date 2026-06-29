@@ -176,7 +176,7 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Biblioteca'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias']].map(([k,l])=>(
+        {[['biblioteca','📚 Ejercicios'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
