@@ -12,6 +12,9 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
   const [subiendoImg, setSubiendoImg] = useState(false)
   const [modalSelEt, setModalSelEt] = useState(false)
   const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null })
+  const [editando, setEditando] = useState(false)
+  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null })
+  const [modalSelEtEdit, setModalSelEtEdit] = useState(false)
 
   const filtrados = ejercicios.filter((e:any) => {
     const matchQ = !buscar || e.nombre.toLowerCase().includes(buscar.toLowerCase()) || (e.descripcion||'').toLowerCase().includes(buscar.toLowerCase())
@@ -23,6 +26,39 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
     const file = e.target.files?.[0]
     if (!file) return
     setNuevoEj(p=>({...p, imagen_file: file, imagen_url: URL.createObjectURL(file)}))
+  }
+
+  function handleImagenEdit(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEditEj(p=>({...p, imagen_file: file, imagen_url: URL.createObjectURL(file)}))
+  }
+
+  function abrirEdicion() {
+    if (!ejSeleccionado) return
+    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null })
+    setEditando(true)
+  }
+
+  async function actualizarEjercicio() {
+    if (guardando) return
+    if (!editEj.nombre) { alert('El nombre es obligatorio'); return }
+    setGuardando(true); setSubiendoImg(true)
+    let imagenUrlFinal = editEj.imagen_url
+    if (editEj.imagen_file) {
+      const ext = editEj.imagen_file.name.split('.').pop()
+      const path = `ejercicios/${editEj.id}/foto.${ext}`
+      const { error: upErr } = await supabase.storage.from('fotos').upload(path, editEj.imagen_file, { upsert: true })
+      if (!upErr) {
+        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+        imagenUrlFinal = `${publicUrl}?t=${Date.now()}`
+      }
+    }
+    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal }).eq('id', editEj.id)
+    setSubiendoImg(false); setGuardando(false)
+    if (error) { alert('Error al actualizar'); return }
+    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal })
+    setEditando(false); cargar()
   }
 
   async function crearEjercicio() {
@@ -86,50 +122,105 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
         </div>
       )}
 
-      {/* PANEL LATERAL EJERCICIO */}
+      {/* MODAL EJERCICIO (vista / edición) */}
       {ejSeleccionado&&(
-        <>
-          <div onClick={()=>setEjSeleccionado(null)} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.16)',zIndex:48}}/>
-          <div style={{position:'fixed',top:0,right:0,width:360,height:'100vh',background:'var(--w)',borderLeft:'1px solid var(--bd)',zIndex:49,display:'flex',flexDirection:'column',boxShadow:'-4px 0 20px rgba(38,40,37,.08)'}}>
-            <div style={{padding:'12px 14px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:8}}>
-              <div style={{flex:1,fontSize:13,fontWeight:400,color:'var(--n)'}}>{ejSeleccionado.nombre}</div>
-              <button onClick={()=>setEjSeleccionado(null)} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando){setEjSeleccionado(null);setEditando(false)}}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'94vw',maxWidth:880,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            {/* cabecera */}
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
+              <div style={{flex:1,fontSize:14,fontWeight:400,color:'var(--n)'}}>{editando?'Editar ejercicio':ejSeleccionado.nombre}</div>
+              {!editando&&<button className="btn btn-s btn-sm" onClick={abrirEdicion}>✎ Editar</button>}
+              <button onClick={()=>{setEjSeleccionado(null);setEditando(false)}} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}} disabled={guardando}>✕</button>
             </div>
+
             <div style={{flex:1,overflowY:'auto'}}>
-              {ejSeleccionado.imagen_url?<img src={ejSeleccionado.imagen_url} alt={ejSeleccionado.nombre} style={{width:'100%',height:200,objectFit:'contain',background:'var(--bm)'}}/>:<div style={{height:160,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>💪</div>}
-              <div style={{padding:14}}>
-                {ejSeleccionado.descripcion&&<div style={{marginBottom:12}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Descripción</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{ejSeleccionado.descripcion}</div></div>}
-                {ejSeleccionado.video_url&&<a href={ejSeleccionado.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:12,display:'inline-flex'}}>🎥 Ver vídeo</a>}
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Etiquetas</div>
-                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {(ejSeleccionado.etiquetas||[]).map((id:string)=>{const et=etiquetas.find((e:any)=>e.id===id);return et?<span key={id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{et.nombre}</span>:null})}
-                    {!(ejSeleccionado.etiquetas||[]).length&&<span style={{fontSize:10,color:'var(--grl)'}}>Sin etiquetas</span>}
+              {editando?(
+                /* ===== MODO EDICIÓN ===== */
+                <div style={{padding:16}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                    <div>
+                      <label style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',display:'block',marginBottom:6}}>Imagen</label>
+                      {editEj.imagen_url?<img src={editEj.imagen_url} alt="preview" style={{width:'100%',height:240,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:240,background:'var(--bm)',borderRadius:8,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40}}>💪</div>}
+                      <div style={{display:'flex',gap:6,marginTop:8}}>
+                        <label style={{cursor:'pointer',flex:1}}><div className="btn btn-s btn-sm" style={{width:'100%',justifyContent:'center'}}>📷 Cambiar imagen</div><input type="file" accept="image/*" onChange={handleImagenEdit} style={{display:'none'}} disabled={guardando}/></label>
+                        {editEj.imagen_url&&<button className="btn btn-d btn-sm" onClick={()=>setEditEj(p=>({...p,imagen_url:'',imagen_file:null}))} disabled={guardando}>✕</button>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="field"><label>Nombre *</label><input className="input" value={editEj.nombre} onChange={e=>setEditEj(p=>({...p,nombre:e.target.value}))} disabled={guardando}/></div>
+                      <div className="field"><label>Descripción</label><textarea className="input" value={editEj.descripcion} onChange={e=>setEditEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
+                      <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
+                      <div className="field">
+                        <label>Etiquetas</label>
+                        {editEj.etiquetas_ids.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>{editEj.etiquetas_ids.map(id=><span key={id} onClick={()=>setEditEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer'}}>{getNombre(id)} ✕</span>)}</div>}
+                        <button className="btn btn-s btn-sm" onClick={()=>setModalSelEtEdit(true)} style={{width:'100%',justifyContent:'center'}}>🏷 {editEj.etiquetas_ids.length>0?`${editEj.etiquetas_ids.length} seleccionadas · Cambiar`:'Seleccionar etiquetas'}</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:8,marginTop:16,paddingTop:14,borderTop:'1px solid var(--bd)'}}>
+                    <button className="btn btn-d btn-sm" onClick={()=>setEditando(false)} disabled={guardando}>Cancelar</button>
+                    <div style={{flex:1}}/>
+                    <button className="btn btn-p" onClick={actualizarEjercicio} disabled={guardando}>{guardando?(subiendoImg?'⏳ Subiendo...':'⏳ Guardando...'):'💾 Guardar cambios'}</button>
                   </div>
                 </div>
-                {(()=>{
-                  const variantes = ejercicios.filter((e:any)=>e.id!==ejSeleccionado.id&&(e.etiquetas||[]).some((et:string)=>(ejSeleccionado.etiquetas||[]).includes(et))).slice(0,5)
-                  return variantes.length>0?(
+              ):(
+                /* ===== MODO VISTA ===== */
+                <div style={{padding:16}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1.1fr 1fr',gap:18}}>
                     <div>
-                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:8}}>Ejercicios similares</div>
-                      {variantes.map((v:any)=>(
-                        <div key={v.id} onClick={()=>setEjSeleccionado(v)} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer',background:'var(--bl)'}}
-                          onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
-                          onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-                          <div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
-                            {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span>💪</span>}
-                          </div>
-                          <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:300}}>{v.nombre}</span>
-                          <span style={{fontSize:12,color:'var(--grl)'}}>›</span>
-                        </div>
-                      ))}
+                      {ejSeleccionado.imagen_url?<img src={ejSeleccionado.imagen_url} alt={ejSeleccionado.nombre} style={{width:'100%',height:300,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:300,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>💪</div>}
                     </div>
-                  ):null
-                })()}
-              </div>
+                    <div>
+                      {ejSeleccionado.descripcion&&<div style={{marginBottom:14}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Descripción</div><div style={{fontSize:12,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{ejSeleccionado.descripcion}</div></div>}
+                      {ejSeleccionado.video_url&&<a href={ejSeleccionado.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}>🎥 Ver vídeo ↗</a>}
+                      <div>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Etiquetas</div>
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                          {(ejSeleccionado.etiquetas||[]).map((id:string)=>{const et=etiquetas.find((e:any)=>e.id===id);return et?<span key={id} style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{et.nombre}</span>:null})}
+                          {!(ejSeleccionado.etiquetas||[]).length&&<span style={{fontSize:10,color:'var(--grl)'}}>Sin etiquetas</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {(()=>{
+                    const variantes = ejercicios.filter((e:any)=>e.id!==ejSeleccionado.id&&(e.etiquetas||[]).some((et:string)=>(ejSeleccionado.etiquetas||[]).includes(et))).slice(0,6)
+                    return variantes.length>0?(
+                      <div style={{marginTop:18,paddingTop:14,borderTop:'1px solid var(--bd)'}}>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:8}}>Ejercicios similares</div>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:6}}>
+                          {variantes.map((v:any)=>(
+                            <div key={v.id} onClick={()=>{setEjSeleccionado(v);setEditando(false)}} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',borderRadius:6,border:'1px solid var(--bd)',cursor:'pointer',background:'var(--bl)'}}
+                              onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
+                              onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
+                              <div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
+                                {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span>💪</span>}
+                              </div>
+                              <span style={{fontSize:10,color:'var(--n)',flex:1,fontWeight:300}}>{v.nombre}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ):null
+                  })()}
+                </div>
+              )}
             </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* MODAL SELECTOR ETIQUETAS (edición) */}
+      {modalSelEtEdit&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSelEtEdit(false)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1200,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
+              <div style={{flex:1,fontSize:13,fontWeight:400,color:'var(--n)'}}>Etiquetas del ejercicio</div>
+              {editEj.etiquetas_ids.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setEditEj(p=>({...p,etiquetas_ids:[]}))}>✕ Limpiar</button>}
+              <button onClick={()=>setModalSelEtEdit(false)} style={{background:'var(--g)',color:'#fff',border:'none',borderRadius:'var(--r)',padding:'6px 16px',fontSize:11,cursor:'pointer',fontFamily:'system-ui'}}>Confirmar{editEj.etiquetas_ids.length>0?` (${editEj.etiquetas_ids.length})`:''}</button>
+            </div>
+            <div style={{flex:1,overflow:'hidden',padding:1}}><SelectorColumnas seleccionadas={editEj.etiquetas_ids} onChange={(ids:string[])=>setEditEj(p=>({...p,etiquetas_ids:ids}))}/></div>
+          </div>
+        </div>
       )}
 
       {/* MODAL FILTRO */}
