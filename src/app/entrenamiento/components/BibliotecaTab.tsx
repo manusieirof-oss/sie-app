@@ -63,14 +63,14 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
           {ejercicios.length===0?'No hay ejercicios aún.':'Sin resultados.'}
         </div>
       ):(
-        <div className="g3">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:9}}>
           {filtrados.map((e:any)=>{
             const etsDelEj = (e.etiquetas||[]).map((id:string)=>etiquetas.find((et:any)=>et.id===id)).filter(Boolean)
             return (
               <div key={e.id} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer'}}
                 onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                 onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} onClick={()=>setEjSeleccionado(e)} style={{width:'100%',height:120,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div onClick={()=>setEjSeleccionado(e)} style={{height:120,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>💪</div>}
+                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} onClick={()=>setEjSeleccionado(e)} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div onClick={()=>setEjSeleccionado(e)} style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>💪</div>}
                 <div style={{padding:'8px 10px'}}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
                   {e.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginBottom:5,fontWeight:300,lineHeight:1.4}}>{e.descripcion.slice(0,80)}{e.descripcion.length>80?'...':''}</div>}
@@ -96,7 +96,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
               <button onClick={()=>setEjSeleccionado(null)} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto'}}>
-              {ejSeleccionado.imagen_url?<img src={ejSeleccionado.imagen_url} alt={ejSeleccionado.nombre} style={{width:'100%',height:200,objectFit:'cover'}}/>:<div style={{height:160,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>💪</div>}
+              {ejSeleccionado.imagen_url?<img src={ejSeleccionado.imagen_url} alt={ejSeleccionado.nombre} style={{width:'100%',height:200,objectFit:'contain',background:'var(--bm)'}}/>:<div style={{height:160,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>💪</div>}
               <div style={{padding:14}}>
                 {ejSeleccionado.descripcion&&<div style={{marginBottom:12}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Descripción</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{ejSeleccionado.descripcion}</div></div>}
                 {ejSeleccionado.video_url&&<a href={ejSeleccionado.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:12,display:'inline-flex'}}>🎥 Ver vídeo</a>}
@@ -117,7 +117,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                           onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                           onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
                           <div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
-                            {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span>💪</span>}
+                            {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span>💪</span>}
                           </div>
                           <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:300}}>{v.nombre}</span>
                           <span style={{fontSize:12,color:'var(--grl)'}}>›</span>
