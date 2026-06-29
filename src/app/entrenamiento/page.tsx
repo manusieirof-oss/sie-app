@@ -9,6 +9,7 @@ import EtiquetasTab from './components/EtiquetasTab'
 import ListasTab from './components/ListasTab'
 import PatologiasTab from './components/PatologiasTab'
 import MolestiasBibTab from './components/MolestiasBibTab'
+import ObjetivosTab from './components/ObjetivosTab'
 
 const CATEGORIAS = [
   { key: 'musculo', label: '💪 Músculo' },
@@ -35,6 +36,7 @@ function EntrenamientoContent() {
   const [opsBiblioLib, setOpsBiblioLib] = useState<any[]>([])
   const [patologiasBiblio, setPatologiasBiblio] = useState<any[]>([])
   const [molestiasBiblio, setMolestiasBiblio] = useState<any[]>([])
+  const [objetivos, setObjetivos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pacienteIdParam, setPacienteIdParam] = useState('')
   const [subsubAbiertas, setSubsubAbiertas] = useState<string[]>([])
@@ -57,16 +59,18 @@ function EntrenamientoContent() {
       supabase.from('tests').select('*').order('nombre'),
     ])
     setEjercicios(e||[]); setPacientes(p||[]); setSesiones(s||[]); setEtiquetas(et||[]); setTestsLib(tl||[])
-    const [{ data: meds },{ data: alerg },{ data: intol },{ data: ops },{ data: pats },{ data: mols }] = await Promise.all([
+    const [{ data: meds },{ data: alerg },{ data: intol },{ data: ops },{ data: pats },{ data: mols },{ data: objs }] = await Promise.all([
       supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
       supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
       supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
       supabase.from('operaciones_biblioteca').select('*').eq('activo',true).order('zona').order('nombre'),
       supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre'),
       supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('zona').order('nombre'),
+      supabase.from('objetivos').select('*').eq('activo',true).order('nombre'),
     ])
     setMedsBiblio(meds||[]); setAlergiasBiblio(alerg||[]); setIntolBiblio(intol||[])
     setOpsBiblioLib(ops||[]); setPatologiasBiblio(pats||[]); setMolestiasBiblio(mols||[])
+    setObjetivos(objs||[])
     setLoading(false)
   }
 
@@ -176,7 +180,7 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Ejercicios'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias']].map(([k,l])=>(
+        {[['biblioteca','📚 Ejercicios'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias'],['objetivos','🎯 Objetivos']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -190,6 +194,7 @@ function EntrenamientoContent() {
           {tab==='listas'&&<ListasTab medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}
           {tab==='patologias_bib'&&<PatologiasTab patologiasBiblio={patologiasBiblio}/>}
           {tab==='molestias_bib'&&<MolestiasBibTab molestiasBiblio={molestiasBiblio}/>}
+          {tab==='objetivos'&&<ObjetivosTab objetivos={objetivos} testsLib={testsLib} cargar={cargar}/>}
         </>
       )}
     </>
