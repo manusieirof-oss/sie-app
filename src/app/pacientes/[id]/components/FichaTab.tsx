@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function FichaTab({ pac, bono, citas, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, abrirAlertas, cerrarAlerta }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
+  const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
   const TIPOS_AL: Record<string,string> = {dolor:'🤕 Dolor / molestia',lesion:'🩹 Lesión',cita_medica:'🏥 Cita médica',personal:'💬 Situación personal',duda:'❓ Duda / consulta',otro:'📌 Otro'}
 
   useEffect(() => {
@@ -14,6 +15,9 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
           const eg = v.estado_general ? JSON.parse(v.estado_general) : {}
           setValoracion({...v, ...eg})
         }
+      })
+      supabase.from('pacientes_objetivos').select('origen, objetivos(id,nombre,color,descripcion)').eq('paciente_id', pac.id).then(({data}) => {
+        setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen})).filter((o:any)=>o.id))
       })
     }
   }, [pac?.id])
@@ -78,7 +82,7 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
           <>
             {(valoracion.objetivos?.length>0||valoracion.deseo) && (
               <div className="card">
-                <div className="card-title">🎯 Objetivos</div>
+                <div className="card-title">🎯 Objetivos del paciente <span style={{fontWeight:300,fontSize:9,color:'var(--grl)'}}>· lo que pide</span></div>
                 {(valoracion.objetivos||[]).map((o:string,i:number)=>(
                   <div key={i} style={{display:'flex',alignItems:'flex-start',gap:6,padding:'4px 7px',background:'var(--gl)',borderRadius:5,marginBottom:3,fontSize:10}}>
                     <div style={{width:15,height:15,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:8,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{i+1}</div>{o}
@@ -87,6 +91,21 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
                 {valoracion.deseo&&<div style={{marginTop:6,padding:'6px 8px',background:'var(--ambl)',borderRadius:5,border:'1px solid var(--amb)',fontSize:9,color:'#7A5800'}}>⭐ {valoracion.deseo}</div>}
               </div>
             )}
+            {objetivosTrabajo.length>0 && (
+              <div className="card">
+                <div className="card-title">📊 Objetivos de trabajo <span style={{fontWeight:300,fontSize:9,color:'var(--grl)'}}>· lo que prescribimos</span></div>
+                {objetivosTrabajo.map((o:any)=>(
+                  <div key={o.id} style={{display:'flex',alignItems:'flex-start',gap:7,padding:'6px 8px',borderRadius:5,marginBottom:4,background:'var(--bl)',borderLeft:`3px solid ${o.color||'var(--g)'}`}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:10,fontWeight:500,color:'var(--n)'}}>{o.nombre}</div>
+                      {o.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:1,fontWeight:300,lineHeight:1.4}}>{o.descripcion}</div>}
+                    </div>
+                    {o.origen==='test'&&<span style={{fontSize:8,padding:'2px 6px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',flexShrink:0}}>🔍 test</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {valoracion.anamnesis && (
               <div className="card">
                 <div className="card-title">📋 Anamnesis</div>

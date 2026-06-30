@@ -18,6 +18,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [horas, setHoras] = useState<string[]>([])
   const [sesionEditando, setSesionEditando] = useState<any>(null)
   const [ejerciciosBib, setEjerciciosBib] = useState<any[]>([])
+  const [objetivosLib, setObjetivosLib] = useState<any[]>([])
+  const [sesionDetalle, setSesionDetalle] = useState<any>(null)
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -25,10 +27,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const hoy = new Date().toISOString().split('T')[0]
     const [{ data: c },{ data: s }] = await Promise.all([
       supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
-      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
+      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
     supabase.from('ejercicios').select('*').order('nombre').then(({data})=>setEjerciciosBib(data||[]))
+    supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
     if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); if(map.tipos_clase){try{setTiposClase(JSON.parse(map.tipos_clase))}catch{}} if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
@@ -98,6 +101,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     await supabase.from('sesiones').delete().eq('id',id); cargarDatos()
   }
 
+  function objsDeSesion(s:any) {
+    const ids = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
+    return (objetivosLib||[]).filter((o:any)=>ids.includes(o.id))
+  }
+
   return (
     <div>
       <div style={{display:'flex',gap:4,marginBottom:12,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3}}>
@@ -165,32 +173,38 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
             <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>
           </div>
-          {sesionesDisp.length===0?<div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas.</div>:sesionesDisp.map(s=>{
-            const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
-            return (
-              <div key={s.id} className="card">
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
-                    {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{s.descripcion}</div>}
+          {sesionesDisp.length===0?<div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>No hay sesiones creadas.</div>:(
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
+              {sesionesDisp.map(s=>{
+                const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
+                const nEj=(s.partes||[]).reduce((a:number,p:any)=>a+(p.ejercicios||[]).length,0); const nP=(s.partes||[]).length
+                return (
+                  <div key={s.id} onClick={()=>setSesionDetalle(s)} className="card" style={{margin:0,display:'flex',flexDirection:'column',gap:8,cursor:'pointer'}}
+                    onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
+                    onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:6}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:500,color:'var(--n)'}}>{s.nombre}</div>
+                        {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2,lineHeight:1.4}}>{s.descripcion.slice(0,70)}{s.descripcion.length>70?'...':''}</div>}
+                      </div>
+                      <span style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:asignada?'var(--gl)':'var(--ambl)',color:asignada?'var(--gd)':'#7A5800',fontWeight:500,whiteSpace:'nowrap',flexShrink:0}}>
+                        {asignada?`✓ ${citasAsignadas.length} cita${citasAsignadas.length>1?'s':''}`:'Sin asignar'}
+                      </span>
+                    </div>
+                    <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                      <span style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{nP} {nP===1?'parte':'partes'}</span>
+                      <span style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ej':'ejs'}</span>
+                    </div>
+                    {objsDeSesion(s).length>0&&(
+                      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                        {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                      </div>
+                    )}
                   </div>
-                  <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:asignada?'var(--gl)':'var(--ambl)',color:asignada?'var(--gd)':'#7A5800',fontWeight:500,whiteSpace:'nowrap'}}>
-                    {asignada?`✓ ${citasAsignadas.length} cita${citasAsignadas.length>1?'s':''} asignada${citasAsignadas.length>1?'s':''}`:' Sin asignar'}
-                  </span>
-                </div>
-                {(s.partes||[]).slice(0,2).map((p:any,pi:number)=>(
-                  <div key={pi} style={{fontSize:9,color:'var(--grl)',marginBottom:2}}>
-                    <span style={{fontWeight:500,color:'var(--gr)'}}>{p.nombre}:</span> {(p.ejercicios||[]).slice(0,2).join(' · ')}{(p.ejercicios||[]).length>2?` +${(p.ejercicios||[]).length-2} más`:''}
-                  </div>
-                ))}
-                <div style={{display:'flex',gap:5,marginTop:8}}>
-                  <button className="btn btn-s btn-sm" onClick={()=>setSesionEditando(s)}>✏️ Editar</button>
-                  <button className="btn btn-t btn-sm" onClick={()=>duplicarSesion(s)}>⧉ Duplicar</button>
-                  <button className="btn btn-d btn-sm" onClick={()=>eliminarSesion(s.id)}>🗑</button>
-                </div>
-              </div>
-            )
-          })}
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -211,6 +225,58 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
               </div>
             )
           })}
+        </div>
+      )}
+
+      {sesionDetalle&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setSesionDetalle(null)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:720,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>{sesionDetalle.nombre}</div>
+                {sesionDetalle.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionDetalle.descripcion}</div>}
+                {objsDeSesion(sesionDetalle).length>0&&(
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
+                    {objsDeSesion(sesionDetalle).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                  </div>
+                )}
+              </div>
+              <button onClick={()=>setSesionDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)',flexShrink:0}}>✕</button>
+            </div>
+            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--bd)',display:'flex',gap:6}}>
+              <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionDetalle;setSesionDetalle(null);setSesionEditando(s)}}>✏️ Editar</button>
+              <button className="btn btn-t btn-sm" onClick={()=>{duplicarSesion(sesionDetalle);setSesionDetalle(null)}}>⧉ Duplicar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-d btn-sm" onClick={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}>🗑 Eliminar</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:16}}>
+              {(sesionDetalle.partes||[]).length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Esta sesión no tiene ejercicios.</div>}
+              {(sesionDetalle.partes||[]).map((parte:any,pi:number)=>(
+                <div key={pi} style={{marginBottom:10,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
+                  <div style={{padding:'6px 12px',borderBottom:'1px solid var(--bm)',fontSize:11,fontWeight:500,color:'var(--n)'}}>{parte.nombre||`Parte ${pi+1}`}</div>
+                  {(parte.ejercicios||[]).length===0?<div style={{padding:'6px 12px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>:(parte.ejercicios||[]).map((ej:any,ei:number)=>(
+                    <div key={ei} style={{padding:'8px 12px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
+                      {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:40,height:40,objectFit:'contain',background:'var(--bm)',borderRadius:4,flexShrink:0}}/>}
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{typeof ej==='string'?ej:(ej.nombre||'')}</div>
+                        {typeof ej!=='string'&&(
+                          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                            {ej.variante&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
+                            {ej.capacidad&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
+                            {ej.series&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
+                            {ej.reps&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.reps} reps</span>}
+                            {ej.peso&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
+                            {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
+                          </div>
+                        )}
+                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
