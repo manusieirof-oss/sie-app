@@ -283,6 +283,16 @@ export default function FichaPacientePage() {
       lado: ladoTest,
       items_resultado: itemsTest.map(i=>({nombre:i.nombre,marcado:i.marcado,grados:i.grados,tiene_grados:i.tiene_grados})),
     })
+    // Test positivo -> activar objetivos vinculados a ese test en la ficha del paciente
+    if (resultado==='positivo') {
+      const { data: objs } = await supabase.from('objetivos').select('id').eq('test_id', testSeleccionado).eq('activo', true)
+      if (objs && objs.length>0) {
+        await supabase.from('pacientes_objetivos').upsert(
+          objs.map((o:any)=>({ paciente_id:id, objetivo_id:o.id, origen:'test' })),
+          { onConflict:'paciente_id,objetivo_id', ignoreDuplicates:true }
+        )
+      }
+    }
     setModalRegistrarTest(false)
     setTestSeleccionado(''); setResultadoTest('positivo'); setObsTest(''); setFechaRevTest('')
     setItemsTest([]); setLadoTest('bilateral'); setTestSeleccionadoObj(null)

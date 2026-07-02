@@ -74,13 +74,13 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
         <div style={{fontSize:11,color:'var(--grl)',fontWeight:300}}>{testsLib.length} tests</div>
         <button className="btn btn-p btn-sm" onClick={()=>setModalTest(true)}>+ Nuevo test</button>
       </div>
-      <div className="g3">
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:9}}>
         {testsLib.length===0&&<div style={{gridColumn:'1/-1',padding:30,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin tests.</div>}
         {testsLib.map((t:any)=>(
           <div key={t.id} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}
             onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
             onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-            {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:120,objectFit:'cover',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div style={{height:120,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>}
+            {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>}
             <div style={{padding:'9px 11px'}}>
               <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{t.nombre}</div>
               {t.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300,lineHeight:1.4,marginBottom:5}}>{t.descripcion.slice(0,80)}{t.descripcion.length>80?'...':''}</div>}
