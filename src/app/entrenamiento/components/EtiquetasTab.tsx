@@ -34,7 +34,7 @@ export default function EtiquetasTab({ etiquetas, cargar }: any) {
         <button className="btn btn-p btn-sm" onClick={()=>setModalEtiqueta(true)}>+ Nueva etiqueta</button>
       </div>
       <div style={{overflowX:'auto'}}>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(8,minmax(160px,1fr))',gap:8,minWidth:1100}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(9,minmax(160px,1fr))',gap:8,minWidth:1250}}>
           {CATEGORIAS.map(cat=>{
             const nivel1 = getNivel1(cat.key)
             return (

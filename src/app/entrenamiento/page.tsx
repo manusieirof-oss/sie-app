@@ -98,7 +98,7 @@ function EntrenamientoContent() {
   function SelectorColumnas({ seleccionadas, onChange }: { seleccionadas: string[], onChange: (v:string[])=>void }) {
     return (
       <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'65vh'}}>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(8,minmax(140px,1fr))',gap:1,background:'var(--bm)',minWidth:1100}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(9,minmax(140px,1fr))',gap:1,background:'var(--bm)',minWidth:1250}}>
           {CATEGORIAS.map(cat=>{
             const nivel1 = getNivel1(cat.key)
             const selCount = etiquetas.filter(e=>e.categoria===cat.key && seleccionadas.includes(e.id)).length
