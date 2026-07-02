@@ -11,6 +11,7 @@ const CATEGORIAS = [
   { key: 'apoyo', label: '🦶 Apoyo' },
   { key: 'agarre', label: '✋ Agarre' },
   { key: 'patologia', label: '🏥 Patología' },
+  { key: 'plano_eje', label: '🧭 Plano y eje' },
 ]
 
 export default function EtiquetasTab({ etiquetas, cargar }: any) {

@@ -11,10 +11,12 @@ const CATEGORIAS = [
   { key: 'apoyo', label: '🦶 Apoyo' },
   { key: 'agarre', label: '✋ Agarre' },
   { key: 'patologia', label: '🏥 Patología' },
+  { key: 'plano_eje', label: '🧭 Plano y eje' },
 ]
 
 export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorColumnas }: any) {
   const [modalTest, setModalTest] = useState(false)
+  const [testDetalle, setTestDetalle] = useState<any>(null)
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
@@ -77,7 +79,7 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:9}}>
         {testsLib.length===0&&<div style={{gridColumn:'1/-1',padding:30,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin tests.</div>}
         {testsLib.map((t:any)=>(
-          <div key={t.id} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}
+          <div key={t.id} onClick={()=>setTestDetalle(t)} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer'}}
             onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
             onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
             {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>}
@@ -91,18 +93,45 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
                   {(t.items||[]).length>3&&<div style={{fontSize:8,color:'var(--grl)'}}>+{(t.items||[]).length-3} más</div>}
                 </div>
               )}
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{fontSize:9,color:'var(--g)'}}>Revisión cada {t.frecuencia_meses} meses</div>
-                <div style={{display:'flex',gap:4}}>
-                  {t.video_url&&<a href={t.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11}}>🎥</a>}
-                  <button onClick={()=>{setTestEditando({...t});setModalEditarTest(true)}} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>✏️</button>
-                  <button onClick={()=>eliminarTest(t.id)} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
-                </div>
-              </div>
+              <div style={{fontSize:9,color:'var(--g)'}}>Revisión cada {t.frecuencia_meses} meses</div>
             </div>
           </div>
         ))}
       </div>
+
+      {testDetalle&&(
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setTestDetalle(null)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'94vw',maxWidth:820,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{flex:1,fontSize:14,fontWeight:400,color:'var(--n)'}}>{testDetalle.nombre}</div>
+              <button className="btn btn-s btn-sm" onClick={()=>{setTestEditando({...testDetalle});setModalEditarTest(true);setTestDetalle(null)}}>✏️ Editar</button>
+              <button className="btn btn-d btn-sm" onClick={()=>{eliminarTest(testDetalle.id);setTestDetalle(null)}}>🗑</button>
+              <button onClick={()=>setTestDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:16}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
+                <div>
+                  {testDetalle.imagen_url?<img src={testDetalle.imagen_url} alt={testDetalle.nombre} style={{width:'100%',height:240,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:240,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>🔍</div>}
+                </div>
+                <div>
+                  {testDetalle.descripcion&&<div style={{marginBottom:12}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Descripción</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{testDetalle.descripcion}</div></div>}
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12}}>
+                    <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>Revisión cada {testDetalle.frecuencia_meses} meses</span>
+                    <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{testDetalle.tipo_lado==='lateral'?'Izq / Der':'Bilateral'}</span>
+                    {testDetalle.video_url&&<a href={testDetalle.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',textDecoration:'none'}}>🎥 Vídeo</a>}
+                  </div>
+                  {(testDetalle.items||[]).length>0&&(
+                    <div>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {testDetalle.logica==='cualquiera'?'Cualquiera = positivo':'Todos = positivo'}</div>
+                      {(testDetalle.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:11,color:'var(--n)',fontWeight:300,padding:'2px 0'}}>☐ {item.nombre}{item.tiene_grados?' (mide °)':''}</div>)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalTest&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalTest(false)}}>
