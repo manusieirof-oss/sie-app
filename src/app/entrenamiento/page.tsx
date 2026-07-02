@@ -6,9 +6,7 @@ import BibliotecaTab from './components/BibliotecaTab'
 import SesionesTab from './components/SesionesTab'
 import TestsTab from './components/TestsTab'
 import EtiquetasTab from './components/EtiquetasTab'
-import ListasTab from './components/ListasTab'
-import PatologiasTab from './components/PatologiasTab'
-import MolestiasBibTab from './components/MolestiasBibTab'
+import ClinicoTab from './components/ClinicoTab'
 import ObjetivosTab from './components/ObjetivosTab'
 
 const CATEGORIAS = [
@@ -181,7 +179,7 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Ejercicios'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['listas','💊 Listas'],['patologias_bib','🏥 Patologías'],['molestias_bib','🤕 Molestias'],['objetivos','🎯 Objetivos']].map(([k,l])=>(
+        {[['biblioteca','📚 Ejercicios'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['objetivos','🎯 Objetivos'],['clinico','🏥 Clínico']].map(([k,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -192,9 +190,7 @@ function EntrenamientoContent() {
           {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} cargar={cargar}/>}
-          {tab==='listas'&&<ListasTab medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}
-          {tab==='patologias_bib'&&<PatologiasTab patologiasBiblio={patologiasBiblio}/>}
-          {tab==='molestias_bib'&&<MolestiasBibTab molestiasBiblio={molestiasBiblio}/>}
+          {tab==='clinico'&&<ClinicoTab patologiasBiblio={patologiasBiblio} molestiasBiblio={molestiasBiblio} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}
           {tab==='objetivos'&&<ObjetivosTab objetivos={objetivos} testsLib={testsLib} cargar={cargar}/>}
         </>
       )}
