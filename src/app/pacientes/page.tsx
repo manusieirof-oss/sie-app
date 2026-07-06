@@ -41,14 +41,6 @@ export default function PacientesPage() {
     return bonos.find(b=>b.paciente_id===pacienteId)
   }
 
-  async function ciclarPago(e: React.MouseEvent, bono: any) {
-    e.preventDefault(); e.stopPropagation()
-    if (!bono) return
-    const orden: Record<string,string> = { pagado:'pendiente', pendiente:'impago', impago:'pagado' }
-    const nuevoEstado = orden[bono.estado_pago] || 'pendiente'
-    await cambiarEstadoPago(bono, nuevoEstado)
-    setBonos(prev=>prev.map(b=>b.id===bono.id?{...b,estado_pago:nuevoEstado}:b))
-  }
 
   async function crearPaciente() {
     if (!nuevo.nombre || !nuevo.apellidos) { alert('Nombre y apellidos son obligatorios'); return }
@@ -187,7 +179,7 @@ export default function PacientesPage() {
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
-                    <span onClick={e=>ciclarPago(e,bono)} className={`badge ${pagoBadge[pago]||'badge-b'}`} style={{cursor:'pointer'}} title="Clic para cambiar estado de pago">{pagoLabel[pago]||'—'}</span>
+                    <span className={`badge ${pagoBadge[pago]||'badge-b'}`}>{pagoLabel[pago]||'—'}</span>
                   ) : (
                     <span style={{fontSize:10,color:'var(--grl)'}}>Sin cuota</span>
                   )}
