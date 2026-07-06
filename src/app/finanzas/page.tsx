@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import PlanesTab from './components/PlanesTab'
 import GastosTab from './components/GastosTab'
 import ResumenTab from './components/ResumenTab'
+import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
 export default function FinanzasPage() {
   const [tab, setTab] = useState<'resumen'|'planes'|'gastos'>('resumen')
@@ -12,6 +13,7 @@ export default function FinanzasPage() {
   const [gastos, setGastos] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
   const [bonosHist, setBonosHist] = useState<any[]>([])
+  const [bonosTipos, setBonosTipos] = useState<BonoTipo[]>([])
   const [loading, setLoading] = useState(true)
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
   const router = useRouter()
@@ -39,6 +41,7 @@ export default function FinanzasPage() {
     setGastos(g || [])
     setBonos(b || [])
     setBonosHist(bh || [])
+    setBonosTipos(await cargarBonosTipos(false))
     setLoading(false)
   }
 
@@ -72,7 +75,7 @@ export default function FinanzasPage() {
       ) : (
         <>
           {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonos} bonosHist={bonosHist}/>}
-          {tab==='planes' && <PlanesTab planes={planes} recargar={cargar}/>}
+          {tab==='planes' && <PlanesTab planes={planes} bonos={bonos} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
         </>
       )}
