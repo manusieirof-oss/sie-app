@@ -11,6 +11,7 @@ export default function FinanzasPage() {
   const [planes, setPlanes] = useState<any[]>([])
   const [gastos, setGastos] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
+  const [bonosHist, setBonosHist] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
   const router = useRouter()
@@ -28,14 +29,16 @@ export default function FinanzasPage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p }, { data: g }, { data: b }] = await Promise.all([
+    const [{ data: p }, { data: g }, { data: b }, { data: bh }] = await Promise.all([
       supabase.from('planes').select('*').eq('activo', true).order('precio_base'),
       supabase.from('gastos').select('*').order('fecha', { ascending: false }),
       supabase.from('bonos').select('*').eq('activo', true),
+      supabase.from('bonos').select('tipo,estado_pago,mes,anio,created_at,activo').order('created_at'),
     ])
     setPlanes(p || [])
     setGastos(g || [])
     setBonos(b || [])
+    setBonosHist(bh || [])
     setLoading(false)
   }
 
@@ -68,7 +71,7 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonos}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonos} bonosHist={bonosHist}/>}
           {tab==='planes' && <PlanesTab planes={planes} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
         </>
