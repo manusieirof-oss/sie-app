@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import PlanesTab from './components/PlanesTab'
 import GastosTab from './components/GastosTab'
 import ResumenTab from './components/ResumenTab'
+import ImpuestosTab from './components/ImpuestosTab'
 import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
 export default function FinanzasPage() {
-  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'>('resumen')
+  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'>('resumen')
   const [planes, setPlanes] = useState<any[]>([])
   const [gastos, setGastos] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
@@ -62,7 +63,7 @@ export default function FinanzasPage() {
   return (
     <div>
       <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3,marginBottom:12,width:'fit-content'}}>
-        {([['resumen','📊 Resumen'],['planes','💶 Planes'],['gastos','🧾 Gastos']] as const).map(([k,l])=>(
+        {([['resumen','📊 Resumen'],['planes','💶 Planes'],['gastos','🧾 Gastos'],['impuestos','🏛 Impuestos']] as const).map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{fontSize:10,padding:'7px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:300,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
             {l}
@@ -77,6 +78,7 @@ export default function FinanzasPage() {
           {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonos} bonosHist={bonosHist}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonos} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
+          {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} bonosHist={bonosHist}/>}
         </>
       )}
     </div>

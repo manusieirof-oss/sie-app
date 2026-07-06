@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function GastosTab({ gastos, recargar }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
 
   // Cálculo en vivo del desglose a partir del total (importe con IVA incluido)
   const total = parseFloat(form.importe) || 0
@@ -24,13 +24,14 @@ export default function GastosTab({ gastos, recargar }: any) {
       base_imponible: Math.round(base*100)/100,
       iva_pct: ivaPct,
       irpf_pct: irpfPct,
+      irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
       tipo: form.tipo,
       categoria: form.categoria || null,
       fecha: form.fecha,
       tiene_factura: form.tiene_factura,
       notas: form.notas || null,
     })
-    setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+    setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
     setModal(false)
     setGuardando(false)
     recargar()
@@ -116,6 +117,14 @@ export default function GastosTab({ gastos, recargar }: any) {
               </div>
               <div className="field"><label>IRPF (%)</label><input className="input" type="number" value={form.irpf_pct} onChange={e=>setForm(p=>({...p,irpf_pct:e.target.value}))} placeholder="0"/></div>
             </div>
+            {irpfPct > 0 && (
+              <div className="field"><label>¿Qué retención es? (modelo)</label>
+                <select className="input" value={form.irpf_modelo} onChange={e=>setForm(p=>({...p,irpf_modelo:e.target.value}))}>
+                  <option value="111">111 · Profesional / trabajador</option>
+                  <option value="115">115 · Alquiler del local</option>
+                </select>
+              </div>
+            )}
 
             {total > 0 && (
               <div style={{display:'flex',gap:12,padding:'8px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
