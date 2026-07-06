@@ -46,6 +46,19 @@ export default function GastosTab({ gastos, recargar }: any) {
   const totalMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===new Date().toISOString().slice(0,7)).reduce((acc:number,g:any)=>acc+Number(g.importe),0)
   const totalFijos = gastos.filter((g:any)=>g.tipo==='fijo').reduce((acc:number,g:any)=>acc+Number(g.importe),0)
 
+  // Media mensual de los últimos 3 meses (excluyendo el mes actual incompleto)
+  const hoy = new Date()
+  const mesesRef: string[] = []
+  for (let i=1; i<=3; i++) { const d=new Date(hoy.getFullYear(), hoy.getMonth()-i, 1); mesesRef.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`) }
+  const totalUlt3 = gastos.filter((g:any)=>mesesRef.includes(g.fecha?.slice(0,7))).reduce((a:number,g:any)=>a+Number(g.importe),0)
+  const mediaMensual = totalUlt3/3
+
+  // Desglose por categoría (todos los gastos)
+  const porCat: Record<string, number> = {}
+  gastos.forEach((g:any)=>{ const c=g.categoria||'Sin categoría'; porCat[c]=(porCat[c]||0)+Number(g.importe) })
+  const catList = Object.entries(porCat).map(([cat,total]:any)=>({cat,total})).sort((a,b)=>b.total-a.total)
+  const maxCat = catList.length ? catList[0].total : 1
+
   return (
     <div className="card">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
@@ -62,6 +75,36 @@ export default function GastosTab({ gastos, recargar }: any) {
           <div style={{fontSize:20,fontWeight:300,color:'#7A5800'}}>{totalFijos.toFixed(2)}€</div>
           <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>Total gastos fijos</div>
         </div>
+      </div>
+
+      {/* ESTADÍSTICAS */}
+      <div style={{background:'var(--bl)',borderRadius:8,padding:'12px 14px',marginBottom:14}}>
+        <div style={{display:'flex',gap:16,marginBottom:catList.length?12:0,flexWrap:'wrap'}}>
+          <div>
+            <div style={{fontSize:18,fontWeight:300,color:'var(--n)'}}>{mediaMensual.toFixed(0)}€</div>
+            <div style={{fontSize:8,color:'var(--grl)'}}>Media mensual (últ. 3 meses)</div>
+          </div>
+          <div>
+            <div style={{fontSize:18,fontWeight:300,color:'#7A5800'}}>{totalFijos.toFixed(0)}€</div>
+            <div style={{fontSize:8,color:'var(--grl)'}}>Fijos esperados/mes</div>
+          </div>
+        </div>
+        {catList.length>0 && (
+          <div>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:8}}>Por categoría</div>
+            {catList.map(({cat,total})=>(
+              <div key={cat} style={{marginBottom:7}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:2}}>
+                  <span style={{color:'var(--n)'}}>{cat}</span>
+                  <span style={{fontWeight:600,color:'var(--gd)'}}>{total.toFixed(2)}€</span>
+                </div>
+                <div style={{height:6,borderRadius:99,background:'var(--bm)',overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${(total/maxCat)*100}%`,background:'#5A969E',borderRadius:99}}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {gastos.length===0 ? (
