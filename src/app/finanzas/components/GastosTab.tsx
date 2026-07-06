@@ -5,21 +5,32 @@ import { supabase } from '@/lib/supabase'
 export default function GastosTab({ gastos, recargar }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState({ concepto:'', importe:'', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+
+  // Cálculo en vivo del desglose a partir del total (importe con IVA incluido)
+  const total = parseFloat(form.importe) || 0
+  const ivaPct = parseFloat(form.iva_pct) || 0
+  const irpfPct = parseFloat(form.irpf_pct) || 0
+  const base = ivaPct > 0 ? total / (1 + ivaPct/100) : total
+  const ivaImporte = total - base
+  const irpfImporte = base * (irpfPct/100)
 
   async function crear() {
     if (!form.concepto || !form.importe) { alert('Concepto e importe son obligatorios'); return }
     setGuardando(true)
     await supabase.from('gastos').insert({
       concepto: form.concepto,
-      importe: parseFloat(form.importe),
+      importe: total,
+      base_imponible: Math.round(base*100)/100,
+      iva_pct: ivaPct,
+      irpf_pct: irpfPct,
       tipo: form.tipo,
       categoria: form.categoria || null,
       fecha: form.fecha,
       tiene_factura: form.tiene_factura,
       notas: form.notas || null,
     })
-    setForm({ concepto:'', importe:'', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+    setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
     setModal(false)
     setGuardando(false)
     recargar()
@@ -64,8 +75,15 @@ export default function GastosTab({ gastos, recargar }: any) {
                 {new Date(g.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
                 {g.categoria && ' · '+g.categoria}
                 {' · '+(g.tipo==='fijo'?'Fijo':'Variable')}
-                {g.tiene_factura && ' · 📄 Con factura'}
+                {g.tiene_factura && ' · 📄'}
               </div>
+              {(g.iva_pct>0 || g.irpf_pct>0) && (
+                <div style={{fontSize:8,color:'var(--grl)',marginTop:1}}>
+                  Base {Number(g.base_imponible||0).toFixed(2)}€
+                  {g.iva_pct>0 && ` · IVA ${g.iva_pct}% (${(Number(g.importe)-Number(g.base_imponible||0)).toFixed(2)}€)`}
+                  {g.irpf_pct>0 && ` · IRPF ${g.irpf_pct}%`}
+                </div>
+              )}
             </div>
             <div style={{fontSize:13,fontWeight:600,color:'var(--red)'}}>{Number(g.importe).toFixed(2)}€</div>
             <button onClick={()=>eliminar(g.id)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>🗑</button>
@@ -79,7 +97,7 @@ export default function GastosTab({ gastos, recargar }: any) {
             <div className="modal-title">Nuevo gasto<button className="modal-close" onClick={()=>setModal(false)}>✕</button></div>
             <div className="field"><label>Concepto *</label><input className="input" value={form.concepto} onChange={e=>setForm(p=>({...p,concepto:e.target.value}))} placeholder="ej. Alquiler local" autoFocus/></div>
             <div className="g2">
-              <div className="field"><label>Importe (€) *</label><input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/></div>
+              <div className="field"><label>Total (€, con IVA) *</label><input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/></div>
               <div className="field"><label>Tipo</label>
                 <select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}>
                   <option value="variable">Variable</option>
@@ -87,6 +105,26 @@ export default function GastosTab({ gastos, recargar }: any) {
                 </select>
               </div>
             </div>
+            <div className="g2">
+              <div className="field"><label>IVA (%)</label>
+                <select className="input" value={form.iva_pct} onChange={e=>setForm(p=>({...p,iva_pct:e.target.value}))}>
+                  <option value="21">21%</option>
+                  <option value="10">10%</option>
+                  <option value="4">4%</option>
+                  <option value="0">Sin IVA (0%)</option>
+                </select>
+              </div>
+              <div className="field"><label>IRPF (%)</label><input className="input" type="number" value={form.irpf_pct} onChange={e=>setForm(p=>({...p,irpf_pct:e.target.value}))} placeholder="0"/></div>
+            </div>
+
+            {total > 0 && (
+              <div style={{display:'flex',gap:12,padding:'8px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
+                <div><span style={{color:'var(--grl)'}}>Base: </span><span style={{fontWeight:500}}>{base.toFixed(2)}€</span></div>
+                <div><span style={{color:'var(--grl)'}}>IVA: </span><span style={{fontWeight:500}}>{ivaImporte.toFixed(2)}€</span></div>
+                {irpfPct>0 && <div><span style={{color:'var(--grl)'}}>IRPF: </span><span style={{fontWeight:500}}>−{irpfImporte.toFixed(2)}€</span></div>}
+              </div>
+            )}
+
             <div className="g2">
               <div className="field"><label>Categoría</label><input className="input" value={form.categoria} onChange={e=>setForm(p=>({...p,categoria:e.target.value}))} placeholder="ej. Suministros"/></div>
               <div className="field"><label>Fecha</label><input className="input" type="date" value={form.fecha} onChange={e=>setForm(p=>({...p,fecha:e.target.value}))}/></div>
