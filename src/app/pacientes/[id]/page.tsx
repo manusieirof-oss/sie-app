@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 import FichaTab from './components/FichaTab'
 import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
@@ -35,7 +36,8 @@ export default function FichaPacientePage() {
   const [form, setForm] = useState<any>({})
   const [modalBono, setModalBono] = useState(false)
   const [modalPausa, setModalPausa] = useState(false)
-  const [nuevoBono, setNuevoBono] = useState({ tipo:'reducido', estado_pago:'pendiente' })
+  const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
+  const [nuevoBono, setNuevoBono] = useState({ tipo:'', estado_pago:'pendiente' })
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   const [modalRegistrarTest, setModalRegistrarTest] = useState(false)
@@ -195,6 +197,12 @@ export default function FichaPacientePage() {
   const anio = new Date().getFullYear()
 
   useEffect(() => { if(id) cargar() }, [id])
+  useEffect(() => {
+    cargarBonosTipos().then(data => {
+      setBonosOpts(data)
+      if (data.length) setNuevoBono(b => ({ ...b, tipo: b.tipo || data[0].id }))
+    })
+  }, [])
 
   async function cargar() {
     setLoading(true)
@@ -412,13 +420,13 @@ export default function FichaPacientePage() {
 
   async function crearBono() {
     if (bono) await supabase.from('bonos').update({ activo:false }).eq('id',bono.id)
-    const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
-    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasMap[nuevoBono.tipo], estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true })
+    const diasSemana = bonosOpts.find(b=>b.id===nuevoBono.tipo)?.dias_semana || 1
+    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasSemana, estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true })
     await registrarEvento('cambio_bono', `Bono asignado: ${LBL_BONO[nuevoBono.tipo]||nuevoBono.tipo}`, `Estado de pago: ${LBL_PAGO[nuevoBono.estado_pago]||nuevoBono.estado_pago}`)
     setModalBono(false); cargar()
   }
 
-  const LBL_BONO: Record<string,string> = { reducido:'Reducido', esencial:'Esencial', progreso:'Progreso', avanzado:'Avanzado', individual:'Individual', bono4:'Bono 4 sesiones' }
+  const LBL_BONO: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
   const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
 
   async function cambiarPago(estado: string) {
@@ -430,7 +438,7 @@ export default function FichaPacientePage() {
 
   const edad = pac?.fecha_nacimiento ? Math.floor((Date.now()-new Date(pac.fecha_nacimiento).getTime())/(1000*60*60*24*365.25)) : null
   const iniciales = pac ? `${pac.nombre?.[0]||''}${pac.apellidos?.[0]||''}`.toUpperCase() : ''
-  const bonoLabel: Record<string,string> = { reducido:'Reducido · 2d/sem', esencial:'Esencial · 3d/sem', progreso:'Progreso · 4d/sem', avanzado:'Avanzado · 5d/sem', individual:'Individual', bono4:'Bono 4 sesiones' }
+  const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id, b.dias_semana>1?`${b.nombre} · ${b.dias_semana}d/sem`:b.nombre]))
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
   const estadoColor: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)' }
@@ -672,12 +680,9 @@ export default function FichaPacientePage() {
             <div className="modal-title">Asignar bono<button className="modal-close" onClick={()=>setModalBono(false)}>✕</button></div>
             <div className="field"><label>Tipo de bono</label>
               <select className="input" value={nuevoBono.tipo} onChange={e=>setNuevoBono(p=>({...p,tipo:e.target.value}))}>
-                <option value="reducido">Reducido · 2 días/semana</option>
-                <option value="esencial">Esencial · 3 días/semana</option>
-                <option value="progreso">Progreso · 4 días/semana</option>
-                <option value="avanzado">Avanzado · 5 días/semana</option>
-                <option value="individual">Individual · sesiones sueltas</option>
-                <option value="bono4">Bono 4 sesiones</option>
+                {bonosOpts.map(b=>(
+                  <option key={b.id} value={b.id}>{b.nombre}{b.descripcion?` · ${b.descripcion}`:''}</option>
+                ))}
               </select>
             </div>
             <div className="field"><label>Estado de pago</label>

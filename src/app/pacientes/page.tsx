@@ -1,11 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 import Link from 'next/link'
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
+  const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
   const [loading, setLoading] = useState(true)
   const [buscar, setBuscar] = useState('')
   const [filtroPago, setFiltroPago] = useState('todos')
@@ -18,7 +20,7 @@ export default function PacientesPage() {
   const mesActual = new Date().getMonth()+1
   const anioActual = new Date().getFullYear()
 
-  useEffect(() => { cargar() }, [])
+  useEffect(() => { cargar(); cargarBonosTipos(false).then(setBonosOpts) }, [])
 
   async function cargar() {
     setLoading(true)
@@ -67,7 +69,7 @@ export default function PacientesPage() {
   const estadoBadge: Record<string,{txt:string,bg:string,col:string}> = { activo:{txt:'● Activo',bg:'var(--gl)',col:'var(--gd)'}, baja:{txt:'○ Baja',bg:'var(--redl)',col:'var(--red)'}, pausa:{txt:'⏸ Pausa',bg:'var(--ambl)',col:'#7A5800'} }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
-  const bonoLabel: Record<string,string> = { reducido:'Reducido', esencial:'Esencial', progreso:'Progreso', avanzado:'Avanzado', individual:'Individual', bono4:'Bono 4 sesiones' }
+  const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
 
   const filtrados = pacientes.filter(p=>{
     const q = buscar.toLowerCase()

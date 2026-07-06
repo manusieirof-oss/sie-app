@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
 export default function NuevoPacientePage() {
   
@@ -11,9 +12,17 @@ export default function NuevoPacientePage() {
     telefono: '', email: '', altura_cm: '', peso_kg: '',
     como_nos_conocio: 'Recomendación', tipo_clase: 'entrenamiento', notas: ''
   })
-  const [bono, setBono] = useState({ tipo: 'esencial', estado_pago: 'pendiente' })
+  const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
+  const [bono, setBono] = useState({ tipo: '', estado_pago: 'pendiente' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    cargarBonosTipos().then(data => {
+      setBonosOpts(data)
+      if (data.length) setBono(b => ({ ...b, tipo: data[0].id }))
+    })
+  }, [])
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
 
@@ -22,7 +31,6 @@ export default function NuevoPacientePage() {
     if (!form.nombre || !form.apellidos) { setError('Nombre y apellidos son obligatorios'); return }
     setSaving(true)
     setError('')
-    const dias = { reducido: 2, esencial: 3, progreso: 4, avanzado: 5, individual: 1, bono4: 1 }
     const { data: pat, error: err } = await supabase.from('pacientes').insert({
       nombre: form.nombre, apellidos: form.apellidos, dni: form.dni || null,
       fecha_nacimiento: form.fecha_nacimiento || null, telefono: form.telefono || null,
@@ -34,7 +42,7 @@ export default function NuevoPacientePage() {
     if (err || !pat) { setError('Error al guardar: ' + err?.message); setSaving(false); return }
     await supabase.from('bonos').insert({
       paciente_id: pat.id, tipo: bono.tipo,
-      dias_semana: dias[bono.tipo as keyof typeof dias],
+      dias_semana: bonosOpts.find(b => b.id === bono.tipo)?.dias_semana || 1,
       estado_pago: bono.estado_pago, activo: true,
       mes: new Date().getMonth() + 1, anio: new Date().getFullYear(),
       fecha_inicio: new Date().toISOString().split('T')[0]
@@ -91,11 +99,11 @@ export default function NuevoPacientePage() {
               </div>
               <div className="card">
                 <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--grl)', letterSpacing: '.7px', textTransform: 'uppercase', marginBottom: 12 }}>Bono</div>
-                {[['reducido','Reducido','2 días/semana'],['esencial','Esencial','3 días/semana'],['progreso','Progreso','4 días/semana'],['avanzado','Avanzado','5 días/semana'],['individual','Individual','Sesiones sueltas'],['bono4','Bono 4 sesiones','4 sesiones']].map(([v,l,d]) => (
-                  <div key={v} onClick={() => setBono(b => ({ ...b, tipo: v }))}
-                    style={{ border: `1.5px solid ${bono.tipo === v ? 'var(--g)' : 'var(--bd)'}`, background: bono.tipo === v ? 'var(--gl)' : 'var(--w)', borderRadius: 6, padding: '8px 11px', cursor: 'pointer', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 11, fontWeight: 400, color: 'var(--n)' }}>{l}</div><div style={{ fontSize: 9, color: 'var(--grl)' }}>{d}</div></div>
-                    <div style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${bono.tipo === v ? 'var(--g)' : 'var(--bd)'}`, background: bono.tipo === v ? 'var(--g)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{bono.tipo === v ? '✓' : ''}</div>
+                {bonosOpts.map((b) => (
+                  <div key={b.id} onClick={() => setBono(bo => ({ ...bo, tipo: b.id }))}
+                    style={{ border: `1.5px solid ${bono.tipo === b.id ? 'var(--g)' : 'var(--bd)'}`, background: bono.tipo === b.id ? 'var(--gl)' : 'var(--w)', borderRadius: 6, padding: '8px 11px', cursor: 'pointer', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1 }}><div style={{ fontSize: 11, fontWeight: 400, color: 'var(--n)' }}>{b.nombre}</div><div style={{ fontSize: 9, color: 'var(--grl)' }}>{b.descripcion}</div></div>
+                    <div style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${bono.tipo === b.id ? 'var(--g)' : 'var(--bd)'}`, background: bono.tipo === b.id ? 'var(--g)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{bono.tipo === b.id ? '✓' : ''}</div>
                   </div>
                 ))}
                 <div className="field" style={{ marginTop: 10 }}>

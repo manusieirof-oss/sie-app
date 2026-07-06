@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
 export default function StatsPage() {
   const [loading, setLoading] = useState(true)
@@ -10,8 +11,9 @@ export default function StatsPage() {
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
   const [molestias, setMolestias] = useState<any[]>([])
   const [tests, setTests] = useState<any[]>([])
+  const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
 
-  useEffect(() => { cargar() }, [])
+  useEffect(() => { cargar(); cargarBonosTipos(false).then(setBonosOpts) }, [])
 
   async function cargar() {
     setLoading(true)
@@ -92,7 +94,7 @@ export default function StatsPage() {
   // BONOS POR TIPO
   const bonosMap: Record<string,number> = {}
   bonos.forEach(b=>{ bonosMap[b.tipo]=(bonosMap[b.tipo]||0)+1 })
-  const bonoLabel: Record<string,string> = {reducido:'Reducido',esencial:'Esencial',progreso:'Progreso',avanzado:'Avanzado',individual:'Individual',bono4:'Bono 4 sesiones'}
+  const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
 
   return (
     <div>

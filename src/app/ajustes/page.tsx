@@ -19,7 +19,6 @@ export default function AjustesPage() {
   const [tiposJornada, setTiposJornada] = useState<string[]>([])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>([])
   const [deportesLista, setDeportesLista] = useState<string[]>([])
-  const [bonos, setBonos] = useState([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
   const [nuevoComoNos, setNuevoComoNos] = useState('')
   const [nuevoJornada, setNuevoJornada] = useState('')
   const [nuevoPlantilla, setNuevoPlantilla] = useState('')
@@ -49,7 +48,6 @@ export default function AjustesPage() {
       else setTiposPlantilla(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
       if (map.deportes_lista) setDeportesLista(JSON.parse(map.deportes_lista))
       else setDeportesLista(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
-      if (map.bonos_lista) setBonos(JSON.parse(map.bonos_lista))
     }
   }
 
@@ -66,7 +64,6 @@ export default function AjustesPage() {
       tipos_jornada: JSON.stringify(tiposJornada),
       tipos_plantilla: JSON.stringify(tiposPlantilla),
       deportes_lista: JSON.stringify(deportesLista),
-      bonos_lista: JSON.stringify(bonos),
     }
     for (const [clave, valor] of Object.entries(datos)) {
       await supabase.from('ajustes').upsert({ clave, valor: String(valor) }, { onConflict: 'clave' })
@@ -94,7 +91,7 @@ export default function AjustesPage() {
 
       {tab==='clinica'&&<ClinicaTab ajustes={ajustes} set={set}/>}
       {tab==='valoracion'&&<ValoracionTab ajustes={ajustes} set={set} comoNosConocio={comoNosConocio} setComoNosConocio={setComoNosConocio} tiposClase={tiposClase} setTiposClase={setTiposClase} tiposJornada={tiposJornada} setTiposJornada={setTiposJornada} tiposPlantilla={tiposPlantilla} setTiposPlantilla={setTiposPlantilla} deportesLista={deportesLista} setDeportesLista={setDeportesLista} nuevoComoNos={nuevoComoNos} setNuevoComoNos={setNuevoComoNos} nuevoJornada={nuevoJornada} setNuevoJornada={setNuevoJornada} nuevoPlantilla={nuevoPlantilla} setNuevoPlantilla={setNuevoPlantilla} nuevoDeporte={nuevoDeporte} setNuevoDeporte={setNuevoDeporte}/>}
-      {tab==='bonos'&&<BonosTab bonos={bonos} setBonos={setBonos}/>}
+      {tab==='bonos'&&<BonosTab/>}
       {tab==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
       {tab==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
       {tab==='cuenta'&&<CuentaTab perfilActual={perfilActual}/>}
