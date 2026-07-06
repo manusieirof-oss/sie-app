@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import AvisoRenovacion from './AvisoRenovacion'
+import { renovarCuotas } from '@/lib/bonos'
 
 const NAV = [
   { href: '/agenda', icon: '📅', label: 'Agenda' },
@@ -36,6 +38,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (user?.id) {
       supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
         setPerfil(data)
+        if (data?.rol==='admin' || data?.permisos?.finanzas===true) {
+          renovarCuotas().then(r => { if (r.ejecutado && r.renovados>0) console.log(`Cuotas renovadas: ${r.renovados}`) })
+        }
       })
     }
   }, [user])
@@ -65,8 +70,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
   const currentTitle = Object.entries(pageTitle).find(([k])=>pathname.startsWith(k))?.[1] ?? 'SIE'
 
+  const veFinanzas = perfil?.rol==='admin' || perfil?.permisos?.finanzas===true
+
   return (
     <div className="shell">
+      <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
         <div className="sb-logo">SIE</div>
         {NAV.map(n=>(
