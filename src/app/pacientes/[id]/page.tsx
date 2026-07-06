@@ -37,7 +37,7 @@ export default function FichaPacientePage() {
   const [modalBono, setModalBono] = useState(false)
   const [modalPausa, setModalPausa] = useState(false)
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
-  const [nuevoBono, setNuevoBono] = useState({ tipo:'', estado_pago:'pendiente' })
+  const [nuevoBono, setNuevoBono] = useState({ tipo:'', estado_pago:'pendiente', descuento_tipo:'', descuento_valor:'', descuento_motivo:'' })
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   const [modalRegistrarTest, setModalRegistrarTest] = useState(false)
@@ -421,8 +421,11 @@ export default function FichaPacientePage() {
   async function crearBono() {
     if (bono) await supabase.from('bonos').update({ activo:false }).eq('id',bono.id)
     const diasSemana = bonosOpts.find(b=>b.id===nuevoBono.tipo)?.dias_semana || 1
-    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasSemana, estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true })
-    await registrarEvento('cambio_bono', `Bono asignado: ${LBL_BONO[nuevoBono.tipo]||nuevoBono.tipo}`, `Estado de pago: ${LBL_PAGO[nuevoBono.estado_pago]||nuevoBono.estado_pago}`)
+    const descTipo = nuevoBono.descuento_tipo || null
+    const descValor = descTipo ? (parseFloat(nuevoBono.descuento_valor) || 0) : 0
+    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasSemana, estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true, descuento_tipo:descTipo, descuento_valor:descValor, descuento_motivo:descTipo?(nuevoBono.descuento_motivo||null):null })
+    const txtDesc = descTipo ? ` · Descuento: ${descTipo==='porcentaje'?descValor+'%':descValor+'€'}${nuevoBono.descuento_motivo?' ('+nuevoBono.descuento_motivo+')':''}` : ''
+    await registrarEvento('cambio_bono', `Bono asignado: ${LBL_BONO[nuevoBono.tipo]||nuevoBono.tipo}`, `Estado de pago: ${LBL_PAGO[nuevoBono.estado_pago]||nuevoBono.estado_pago}${txtDesc}`)
     setModalBono(false); cargar()
   }
 
@@ -546,7 +549,7 @@ export default function FichaPacientePage() {
           anio={anio}
           alertas={alertas}
           abrirAlertas={()=>setModalAlertas(true)}
-          cerrarAlerta={cerrarAlerta}
+          cerrarAlerta={cerrarAlerta} cambiarPago={cambiarPago}
         />
       )}
 
@@ -692,6 +695,23 @@ export default function FichaPacientePage() {
                 <option value="impago">⚠ Impago</option>
               </select>
             </div>
+            <div className="field"><label>Descuento (opcional)</label>
+              <div style={{display:'flex',gap:6}}>
+                <select className="input" style={{flex:'0 0 110px'}} value={nuevoBono.descuento_tipo} onChange={e=>setNuevoBono(p=>({...p,descuento_tipo:e.target.value}))}>
+                  <option value="">Sin descuento</option>
+                  <option value="porcentaje">% Porcentaje</option>
+                  <option value="fijo">€ Importe fijo</option>
+                </select>
+                {nuevoBono.descuento_tipo && (
+                  <input className="input" type="number" style={{flex:1}} placeholder={nuevoBono.descuento_tipo==='porcentaje'?'ej. 10':'ej. 15'} value={nuevoBono.descuento_valor} onChange={e=>setNuevoBono(p=>({...p,descuento_valor:e.target.value}))}/>
+                )}
+              </div>
+            </div>
+            {nuevoBono.descuento_tipo && (
+              <div className="field"><label>Motivo del descuento (opcional)</label>
+                <input className="input" placeholder="ej. familiar, promo, estudiante" value={nuevoBono.descuento_motivo} onChange={e=>setNuevoBono(p=>({...p,descuento_motivo:e.target.value}))}/>
+              </div>
+            )}
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalBono(false)}>Cancelar</button>
               <div style={{flex:1}}/>

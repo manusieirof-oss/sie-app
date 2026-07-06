@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function FichaTab({ pac, bono, citas, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, abrirAlertas, cerrarAlerta }: any) {
+export default function FichaTab({ pac, bono, citas, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, abrirAlertas, cerrarAlerta, cambiarPago }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
   const TIPOS_AL: Record<string,string> = {dolor:'🤕 Dolor / molestia',lesion:'🩹 Lesión',cita_medica:'🏥 Cita médica',personal:'💬 Situación personal',duda:'❓ Duda / consulta',otro:'📌 Otro'}
@@ -156,9 +156,14 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
             <div style={{background:'var(--bl)',border:'1px solid var(--bm)',borderRadius:7,padding:'9px 11px'}}>
               <div style={{fontSize:12,fontWeight:400,color:'var(--n)',marginBottom:2}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
               <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>Mes {mes}/{anio}</div>
+              {bono.descuento_tipo && bono.descuento_valor > 0 && (
+                <div style={{fontSize:9,color:'#7A5800',background:'var(--ambl)',borderRadius:5,padding:'3px 7px',marginBottom:8,display:'inline-block'}}>
+                  🏷 Descuento {bono.descuento_tipo==='porcentaje'?`${bono.descuento_valor}%`:`${bono.descuento_valor}€`}{bono.descuento_motivo?` · ${bono.descuento_motivo}`:''}
+                </div>
+              )}
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {[['pagado','✓ Pagado','btn-p'],['pendiente','⏳ Pendiente','btn-amb'],['impago','⚠ Impago','btn-d']].map(([v,l,cls])=>(
-                  <button key={v} className={`btn btn-sm ${bono.estado_pago===v?cls:'btn-t'}`} onClick={async()=>{await supabase.from('bonos').update({estado_pago:v}).eq('id',bono.id)}}>
+                  <button key={v} className={`btn btn-sm ${bono.estado_pago===v?cls:'btn-t'}`} onClick={()=>cambiarPago(v)}>
                     {l}
                   </button>
                 ))}

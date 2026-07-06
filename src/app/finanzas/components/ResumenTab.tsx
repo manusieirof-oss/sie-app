@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { precioConDescuento } from '@/lib/bonos'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
@@ -16,11 +17,13 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
   planes.forEach((p: any) => { nombrePorTipo[p.bono_tipo] = p.nombre || p.bono_tipo })
 
   const bonosActivos = bonos.filter((b: any) => b.activo)
+  const precioBono = (b: any) => precioConDescuento(precioPorTipo[b.tipo] || 0, b)
 
-  const ingresosPrevistos = bonosActivos.reduce((a: number, b: any) => a + (precioPorTipo[b.tipo] || 0), 0)
-  const ingresosCobrados = bonosActivos.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + (precioPorTipo[b.tipo] || 0), 0)
-  const pendiente = bonosActivos.filter((b: any) => b.estado_pago === 'pendiente').reduce((a: number, b: any) => a + (precioPorTipo[b.tipo] || 0), 0)
-  const impago = bonosActivos.filter((b: any) => b.estado_pago === 'impago').reduce((a: number, b: any) => a + (precioPorTipo[b.tipo] || 0), 0)
+  const ingresosPrevistos = bonosActivos.reduce((a: number, b: any) => a + precioBono(b), 0)
+  const totalDescuentos = bonosActivos.reduce((a: number, b: any) => a + ((precioPorTipo[b.tipo] || 0) - precioBono(b)), 0)
+  const ingresosCobrados = bonosActivos.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + precioBono(b), 0)
+  const pendiente = bonosActivos.filter((b: any) => b.estado_pago === 'pendiente').reduce((a: number, b: any) => a + precioBono(b), 0)
+  const impago = bonosActivos.filter((b: any) => b.estado_pago === 'impago').reduce((a: number, b: any) => a + precioBono(b), 0)
 
   const mesActual = new Date().toISOString().slice(0, 7)
   const gastosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual).reduce((a: number, g: any) => a + Number(g.importe), 0)
@@ -35,7 +38,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
   bonosActivos.forEach((b: any) => {
     if (!desglose[b.tipo]) desglose[b.tipo] = { count: 0, total: 0 }
     desglose[b.tipo].count++
-    desglose[b.tipo].total += precioPorTipo[b.tipo] || 0
+    desglose[b.tipo].total += precioBono(b)
   })
   const dataTipo = Object.entries(desglose)
     .map(([tipo, d]: any) => ({ tipo: nombrePorTipo[tipo] || tipo, total: Math.round(d.total), pacientes: d.count }))
@@ -107,6 +110,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
               <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Previsto / mes</div>
               <div style={{fontSize:28,fontWeight:300,color:G}}>{eur(ingresosPrevistos)}</div>
               <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>{bonosActivos.length} bonos activos</div>
+              {totalDescuentos > 0 && <div style={{fontSize:9,color:'#7A5800',marginTop:2}}>🏷 −{totalDescuentos.toFixed(0)}€ en descuentos</div>}
             </div>
             <div className="card" style={{textAlign:'center',margin:0}}>
               <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Beneficio previsto</div>

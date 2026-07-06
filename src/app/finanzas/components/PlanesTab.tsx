@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { precioConDescuento } from '@/lib/bonos'
 
 const G='#5A969E', GD='#3E7179'
 
@@ -11,12 +12,19 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
   const [ivaEdit, setIvaEdit] = useState('21')
   const [guardando, setGuardando] = useState(false)
 
-  // Bonos activos por tipo: nº de pacientes
-  const activosPorTipo: Record<string, number> = {}
-  bonos.filter((b:any)=>b.activo).forEach((b:any)=>{ activosPorTipo[b.tipo] = (activosPorTipo[b.tipo]||0)+1 })
-
   const planPorTipo: Record<string, any> = {}
   planes.forEach((p:any)=>{ planPorTipo[p.bono_tipo] = p })
+
+  const finalDePlan = (p:any) => p ? (p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100) : 0
+
+  // Por cada tipo: nº de pacientes activos e ingreso real (con descuentos aplicados)
+  const activosPorTipo: Record<string, number> = {}
+  const ingresoPorTipo: Record<string, number> = {}
+  bonos.filter((b:any)=>b.activo).forEach((b:any)=>{
+    activosPorTipo[b.tipo] = (activosPorTipo[b.tipo]||0)+1
+    const base = finalDePlan(planPorTipo[b.tipo])
+    ingresoPorTipo[b.tipo] = (ingresoPorTipo[b.tipo]||0) + precioConDescuento(base, b)
+  })
 
   const finalDe = (p:any) => p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
 
@@ -98,7 +106,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
         }
 
         const final = finalDe(p)
-        const ingreso = nPac * final
+        const ingreso = ingresoPorTipo[bt.id] || 0
         const enEdicion = editando === p.id
         const preview = enEdicion ? calcularPreview() : null
 

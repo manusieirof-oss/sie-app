@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
+import { cargarBonosTipos, BonoTipo, cambiarEstadoPago } from '@/lib/bonos'
 import Link from 'next/link'
 
 export default function PacientesPage() {
@@ -44,7 +44,7 @@ export default function PacientesPage() {
     if (!bono) return
     const orden: Record<string,string> = { pagado:'pendiente', pendiente:'impago', impago:'pagado' }
     const nuevoEstado = orden[bono.estado_pago] || 'pendiente'
-    await supabase.from('bonos').update({ estado_pago:nuevoEstado }).eq('id',bono.id)
+    await cambiarEstadoPago(bono, nuevoEstado)
     setBonos(prev=>prev.map(b=>b.id===bono.id?{...b,estado_pago:nuevoEstado}:b))
   }
 
