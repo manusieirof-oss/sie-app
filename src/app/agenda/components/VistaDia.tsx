@@ -51,7 +51,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
               <div style={{fontSize:9,color:'var(--grl)',padding:'6px 3px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:300}}>{h}</div>
               {(['A','B'] as const).map(sala=>{
                 const scAll=getCitasSlot(h,sala)
-                const sc=scAll.filter((c:any)=>c.estado!=='cancelada')
+                const sc=scAll.filter((c:any)=>c.estado!=='cancelada').sort((a:any,b:any)=>(a.estado==='falta'?1:0)-(b.estado==='falta'?1:0))
                 const scCanceladas=scAll.filter((c:any)=>c.estado==='cancelada')
                 const tipo=sc[0]?.tipo
                 const renderCancelada=(c:any)=>(
@@ -80,11 +80,11 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                         </div>
                         {sc.map(c=>(
                           <div key={c.id} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)}
-                            style={{display:'flex',alignItems:'center',gap:3,padding:'4px 6px',borderRadius:4,cursor:'pointer',marginBottom:2,minHeight:28,background:(tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E')+'33'}}
+                            style={{display:'flex',alignItems:'center',gap:3,padding:'4px 6px',borderRadius:4,cursor:'pointer',marginBottom:2,minHeight:28,background:c.estado==='falta'?'var(--redl)':(tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E')+'33',border:c.estado==='falta'?'1px solid #F5C8C8':'none'}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.opacity='0.8'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
                             {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{fontSize:10,flexShrink:0}} title="Tiene alertas activas">⚠️</span>}
-                            <span style={{fontSize:11,color:'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
+                            <span style={{fontSize:11,color:c.estado==='falta'?'var(--red)':'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center'}}>{c.estado==='falta'&&<span style={{fontWeight:600,marginRight:3}}>✗</span>}{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
                             <span onClick={e=>{e.stopPropagation();abrirEntrenoCita&&abrirEntrenoCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Entrenamiento" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>🏋</span>
                             <span onClick={e=>{e.stopPropagation();abrirDatosCita&&abrirDatosCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Ver datos" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>👤</span>
                             <span onClick={e=>{e.stopPropagation();setEditandoCita&&setEditandoCita({...c})}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Editar cita" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>✎</span>
