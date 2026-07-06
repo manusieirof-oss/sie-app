@@ -8,6 +8,7 @@ import SaludTab from './components/SaludTab'
 import ResultadosTab from './components/ResultadosTab'
 import EntrenoTab from './components/EntrenoTab'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
+import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
 
 
@@ -37,7 +38,6 @@ export default function FichaPacientePage() {
   const [modalBono, setModalBono] = useState(false)
   const [modalPausa, setModalPausa] = useState(false)
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
-  const [nuevoBono, setNuevoBono] = useState({ tipo:'', estado_pago:'pendiente', descuento_tipo:'', descuento_valor:'', descuento_motivo:'' })
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   const [modalRegistrarTest, setModalRegistrarTest] = useState(false)
@@ -200,7 +200,6 @@ export default function FichaPacientePage() {
   useEffect(() => {
     cargarBonosTipos().then(data => {
       setBonosOpts(data)
-      if (data.length) setNuevoBono(b => ({ ...b, tipo: b.tipo || data[0].id }))
     })
   }, [])
 
@@ -418,16 +417,6 @@ export default function FichaPacientePage() {
     await supabase.from('molestias').update({ activa:!activa }).eq('id',molId); cargar()
   }
 
-  async function crearBono() {
-    if (bono) await supabase.from('bonos').update({ activo:false }).eq('id',bono.id)
-    const diasSemana = bonosOpts.find(b=>b.id===nuevoBono.tipo)?.dias_semana || 1
-    const descTipo = nuevoBono.descuento_tipo || null
-    const descValor = descTipo ? (parseFloat(nuevoBono.descuento_valor) || 0) : 0
-    await supabase.from('bonos').insert({ paciente_id:id, tipo:nuevoBono.tipo, dias_semana:diasSemana, estado_pago:nuevoBono.estado_pago, mes, anio, fecha_inicio:new Date().toISOString().split('T')[0], activo:true, descuento_tipo:descTipo, descuento_valor:descValor, descuento_motivo:descTipo?(nuevoBono.descuento_motivo||null):null })
-    const txtDesc = descTipo ? ` · Descuento: ${descTipo==='porcentaje'?descValor+'%':descValor+'€'}${nuevoBono.descuento_motivo?' ('+nuevoBono.descuento_motivo+')':''}` : ''
-    await registrarEvento('cambio_bono', `Bono asignado: ${LBL_BONO[nuevoBono.tipo]||nuevoBono.tipo}`, `Estado de pago: ${LBL_PAGO[nuevoBono.estado_pago]||nuevoBono.estado_pago}${txtDesc}`)
-    setModalBono(false); cargar()
-  }
 
   const LBL_BONO: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
   const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -678,47 +667,13 @@ export default function FichaPacientePage() {
       )}
 
       {modalBono && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalBono(false)}}>
-          <div className="modal">
-            <div className="modal-title">Asignar bono<button className="modal-close" onClick={()=>setModalBono(false)}>✕</button></div>
-            <div className="field"><label>Tipo de bono</label>
-              <select className="input" value={nuevoBono.tipo} onChange={e=>setNuevoBono(p=>({...p,tipo:e.target.value}))}>
-                {bonosOpts.map(b=>(
-                  <option key={b.id} value={b.id}>{b.nombre}{b.descripcion?` · ${b.descripcion}`:''}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field"><label>Estado de pago</label>
-              <select className="input" value={nuevoBono.estado_pago} onChange={e=>setNuevoBono(p=>({...p,estado_pago:e.target.value}))}>
-                <option value="pendiente">⏳ Pendiente</option>
-                <option value="pagado">✓ Pagado</option>
-                <option value="impago">⚠ Impago</option>
-              </select>
-            </div>
-            <div className="field"><label>Descuento (opcional)</label>
-              <div style={{display:'flex',gap:6}}>
-                <select className="input" style={{flex:'0 0 110px'}} value={nuevoBono.descuento_tipo} onChange={e=>setNuevoBono(p=>({...p,descuento_tipo:e.target.value}))}>
-                  <option value="">Sin descuento</option>
-                  <option value="porcentaje">% Porcentaje</option>
-                  <option value="fijo">€ Importe fijo</option>
-                </select>
-                {nuevoBono.descuento_tipo && (
-                  <input className="input" type="number" style={{flex:1}} placeholder={nuevoBono.descuento_tipo==='porcentaje'?'ej. 10':'ej. 15'} value={nuevoBono.descuento_valor} onChange={e=>setNuevoBono(p=>({...p,descuento_valor:e.target.value}))}/>
-                )}
-              </div>
-            </div>
-            {nuevoBono.descuento_tipo && (
-              <div className="field"><label>Motivo del descuento (opcional)</label>
-                <input className="input" placeholder="ej. familiar, promo, estudiante" value={nuevoBono.descuento_motivo} onChange={e=>setNuevoBono(p=>({...p,descuento_motivo:e.target.value}))}/>
-              </div>
-            )}
-            <div style={{display:'flex',gap:8,marginTop:8}}>
-              <button className="btn btn-d btn-sm" onClick={()=>setModalBono(false)}>Cancelar</button>
-              <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearBono}>✓ Asignar bono</button>
-            </div>
-          </div>
-        </div>
+        <ModalBono
+          pacienteId={id as string}
+          bonoActual={bono}
+          bonosOpts={bonosOpts}
+          onCerrar={()=>setModalBono(false)}
+          onGuardado={cargar}
+        />
       )}
 
       {/* MODAL PAUSA */}

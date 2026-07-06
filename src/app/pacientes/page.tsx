@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, BonoTipo, cambiarEstadoPago } from '@/lib/bonos'
 import Link from 'next/link'
+import ModalBono from './components/ModalBono'
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -15,6 +16,7 @@ export default function PacientesPage() {
   const [filtroEstado, setFiltroEstado] = useState('activo')
   const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},{valor:'pilates',icono:'🧘',nombre:'Pilates'},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación'},{valor:'individual',icono:'👤',nombre:'Individual'},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas'}])
   const [modal, setModal] = useState(false)
+  const [modalBonoPac, setModalBonoPac] = useState<any>(null)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
   const mesActual = new Date().getMonth()+1
@@ -178,7 +180,9 @@ export default function PacientesPage() {
                   <span style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:estadoBadge[p.estado]?.bg||'var(--bl)',color:estadoBadge[p.estado]?.col||'var(--gr)'}}>{estadoBadge[p.estado]?.txt||p.estado}</span>
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
-                  {bono ? <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span> : <span style={{fontSize:10,color:'var(--grl)'}}>Sin bono</span>}
+                  <span onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono })}} style={{cursor:'pointer'}} title="Clic para gestionar el bono">
+                    {bono ? <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span> : <span style={{fontSize:10,color:'var(--g)',textDecoration:'underline'}}>+ Asignar</span>}
+                  </span>
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
@@ -223,6 +227,16 @@ export default function PacientesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {modalBonoPac && (
+        <ModalBono
+          pacienteId={modalBonoPac.paciente_id}
+          bonoActual={modalBonoPac.bono}
+          bonosOpts={bonosOpts}
+          onCerrar={()=>setModalBonoPac(null)}
+          onGuardado={cargar}
+        />
       )}
     </>
   )
