@@ -30,6 +30,7 @@ export default function TallerPage() {
   const [tab, setTab] = useState<'individual'|'clase'>('individual')
   const autosaveTimers = useRef<Record<number, any>>({})
   const [modoAccion, setModoAccion] = useState<''|'registrar'|'editar'|'duplicar'|'eliminar'>('')
+  const [busquedaPac, setBusquedaPac] = useState('')
 
   function ejecutarAccion(s: any) {
     const a = modoAccion
@@ -299,10 +300,30 @@ export default function TallerPage() {
           </div>
         )}
         <div style={{flex:1}}/>
-        <select className="input" style={{maxWidth:260}} value={pacienteId} onChange={e=>setPacienteId(e.target.value)}>
-          <option value="">Seleccionar paciente...</option>
-          {pacientes.map(p=><option key={p.id} value={p.id}>{p.nombre_clinica||p.nombre} {p.apellidos}</option>)}
-        </select>
+        <div style={{position:'relative',width:260}}>
+          {pacienteId ? (
+            <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',border:'1px solid var(--bd)',borderRadius:'var(--rl)',background:'var(--w)',fontSize:11}}>
+              <span style={{flex:1,color:'var(--n)'}}>{pacSel?.nombre} {pacSel?.apellidos}{pacSel?.nombre_clinica?<span style={{color:'var(--grl)',fontSize:9}}> · {pacSel.nombre_clinica}</span>:null}</span>
+              <button onClick={()=>{setPacienteId('');setModoAccion('')}} style={{fontSize:12,color:'var(--gr)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+            </div>
+          ) : (
+            <>
+              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Buscar paciente..." style={{fontSize:11}}/>
+              {busquedaPac && (
+                <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:20,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:240,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
+                  {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).slice(0,30).map((p:any)=>(
+                    <div key={p.id} onClick={()=>{setPacienteId(p.id);setBusquedaPac('')}} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                      {p.nombre} {p.apellidos}{p.nombre_clinica?<span style={{color:'var(--grl)',fontSize:9}}> · {p.nombre_clinica}</span>:null}
+                    </div>
+                  ))}
+                  {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).length===0 && (
+                    <div style={{padding:'8px 11px',fontSize:10,color:'var(--grl)'}}>Sin pacientes que coincidan</div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
         {pacienteId && (
           <a href={`/entrenamiento?nueva_sesion=1&paciente_id=${pacienteId}&paciente_nombre=${encodeURIComponent((pacSel?.nombre_clinica||pacSel?.nombre||'')+' '+(pacSel?.apellidos||''))}`}
             className="btn btn-p btn-sm">+ Nueva sesión</a>
@@ -327,7 +348,7 @@ export default function TallerPage() {
               <br/><button className="btn btn-p btn-sm" style={{marginTop:10}} onClick={abrirNueva}>+ Crear primera sesión</button>
             </div>
           ) : (
-            <div className="g2">
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>
               {sesiones.map(s=>{
                 const totalEj = (s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)
                 return (
