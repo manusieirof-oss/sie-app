@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import ModoClase from './ModoClase'
 
 export default function TallerPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -22,6 +23,11 @@ export default function TallerPage() {
   })
   const [parteActiva, setParteActiva] = useState(0)
   const [configEj, setConfigEj] = useState<any>(null)
+  const [registrando, setRegistrando] = useState<any>(null)
+  const [datosReg, setDatosReg] = useState<any[]>([])
+  const [ultimos, setUltimos] = useState<Record<string,any>>({})
+  const [guardandoReg, setGuardandoReg] = useState(false)
+  const [tab, setTab] = useState<'individual'|'clase'>('individual')
 
   useEffect(() => { cargar() }, [])
   useEffect(() => { if (pacienteId) cargarSesiones() }, [pacienteId])
@@ -55,6 +61,104 @@ export default function TallerPage() {
   async function duplicarSesion(s: any) {
     await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:s.nombre+' (copia)', descripcion:s.descripcion, partes:s.partes||[], estado:'lista' })
     cargarSesiones()
+  }
+
+  async function abrirRegistro(s: any) {
+    // aplanar todos los ejercicios de todas las partes
+    const ejs: any[] = []
+    ;(s.partes||[]).forEach((parte: any) => {
+      ;(parte.ejercicios||[]).forEach((ej: any) => {
+        const nSeries = parseInt(ej.series) || 3
+        ejs.push({
+          ejercicio_id: ej.ejercicio_id || null,
+          nombre: ej.nombre,
+          imagen_url: ej.imagen_url || '',
+          variante: ej.variante || '',
+          plan: { series: ej.series, reps: ej.reps, peso: ej.peso, tiempo: ej.tiempo },
+          series: Array.from({length: nSeries}, () => ({ peso: '', reps: '' })),
+          comentario: '',
+        })
+      })
+    })
+    setDatosReg(ejs)
+    setRegistrando(s)
+    // cargar ultimo registro por ejercicio para este paciente
+    const ids = ejs.map(e => e.ejercicio_id).filter(Boolean)
+    if (ids.length) {
+      const { data } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,fecha')
+        .eq('paciente_id', pacienteId)
+        .in('ejercicio_id', ids)
+        .order('fecha', { ascending: false })
+      const map: Record<string,any> = {}
+      ;(data||[]).forEach((r: any) => { if (!map[r.ejercicio_id]) map[r.ejercicio_id] = r })
+      setUltimos(map)
+    } else {
+      setUltimos({})
+    }
+  }
+
+  function setSerie(ejIdx: number, serIdx: number, campo: string, val: string) {
+    setDatosReg(prev => {
+      const d = [...prev]
+      const series = [...d[ejIdx].series]
+      series[serIdx] = { ...series[serIdx], [campo]: val }
+      d[ejIdx] = { ...d[ejIdx], series }
+      return d
+    })
+  }
+
+  function addSerie(ejIdx: number) {
+    setDatosReg(prev => {
+      const d = [...prev]
+      d[ejIdx] = { ...d[ejIdx], series: [...d[ejIdx].series, { peso:'', reps:'' }] }
+      return d
+    })
+  }
+
+  function quitarSerie(ejIdx: number, serIdx: number) {
+    setDatosReg(prev => {
+      const d = [...prev]
+      d[ejIdx] = { ...d[ejIdx], series: d[ejIdx].series.filter((_:any,i:number)=>i!==serIdx) }
+      return d
+    })
+  }
+
+  function setComentarioReg(ejIdx: number, val: string) {
+    setDatosReg(prev => {
+      const d = [...prev]
+      d[ejIdx] = { ...d[ejIdx], comentario: val }
+      return d
+    })
+  }
+
+  async function guardarRegistro() {
+    setGuardandoReg(true)
+    const filas = datosReg
+      .map(ej => {
+        const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '')
+        if (seriesLlenas.length === 0) return null
+        return {
+          paciente_id: pacienteId,
+          ejercicio_id: ej.ejercicio_id,
+          ejercicio_nombre: ej.nombre,
+          sesion_id: registrando.id,
+          series: seriesLlenas,
+          comentario: ej.comentario || null,
+        }
+      })
+      .filter(Boolean)
+    if (filas.length === 0) { alert('No has anotado ninguna serie'); setGuardandoReg(false); return }
+    const { error } = await supabase.from('registros_ejercicio').insert(filas)
+    setGuardandoReg(false)
+    if (error) { alert('Error al guardar: ' + error.message); return }
+    setRegistrando(null); setDatosReg([]); setUltimos({})
+  }
+
+  function resumenUltimo(ejercicio_id: string) {
+    const u = ultimos[ejercicio_id]
+    if (!u || !Array.isArray(u.series)) return null
+    return u.series.map((x:any) => `${x.peso||'—'}${x.reps?'×'+x.reps:''}`).join(', ')
   }
 
   async function eliminarSesion(id: string) {
@@ -105,6 +209,18 @@ export default function TallerPage() {
 
   return (
     <>
+      {/* SELECTOR DE MODO */}
+      <div style={{display:'flex',gap:6,marginBottom:12}}>
+        {[['individual','🔧 Individual'],['clase','👥 Día de fuerza']].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k as any)}
+            style={{fontSize:11,padding:'6px 14px',borderRadius:99,cursor:'pointer',fontFamily:'system-ui',
+              border:`1.5px solid ${tab===k?'var(--g)':'var(--bd)'}`,
+              background:tab===k?'var(--g)':'var(--w)',color:tab===k?'#fff':'var(--gr)'}}>{l}</button>
+        ))}
+      </div>
+
+      {tab==='clase' ? <ModoClase pacientes={pacientes}/> : (
+      <>
       {/* CABECERA */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px'}}>
         <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>🔧 Taller de sesiones</span>
@@ -157,6 +273,7 @@ export default function TallerPage() {
                       )
                     ))}
                     <div style={{display:'flex',gap:5,marginTop:8,borderTop:'1px solid var(--bl)',paddingTop:8}}>
+                      <button className="btn btn-p btn-sm" onClick={()=>abrirRegistro(s)} disabled={totalEj===0} style={{opacity:totalEj===0?.4:1}}>▶ Registrar</button>
                       <button className="btn btn-s btn-sm" onClick={()=>abrirEditar(s)}>✏️ Editar</button>
                       <button className="btn btn-t btn-sm" onClick={()=>duplicarSesion(s)}>⧉ Duplicar</button>
                       <button className="btn btn-d btn-sm" onClick={()=>eliminarSesion(s.id)}>🗑</button>
@@ -167,6 +284,8 @@ export default function TallerPage() {
             </div>
           )}
         </>
+      )}
+      </>
       )}
 
       {/* MODAL CONSTRUCTOR */}
@@ -310,6 +429,55 @@ export default function TallerPage() {
               <button className="btn btn-d btn-sm" onClick={()=>setConfigEj(null)}>Cancelar</button>
               <div style={{flex:1}}/>
               <button className="btn btn-p" onClick={confirmarEjercicio}>✓ Añadir a la sesión</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL REGISTRO (anotacion dia de fuerza) */}
+      {registrando && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setRegistrando(null)}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:640,maxHeight:'92vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>▶ {registrando.nombre}</div>
+                <div style={{fontSize:10,color:'var(--grl)',marginTop:2}}>{pacSel?.nombre_clinica||pacSel?.nombre} · anota carga y repeticiones reales</div>
+              </div>
+              <button className="btn btn-p" onClick={guardarRegistro} disabled={guardandoReg}>{guardandoReg?'⏳':'💾 Guardar registro'}</button>
+              <button onClick={()=>setRegistrando(null)} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
+            </div>
+            <div style={{overflowY:'auto',padding:14}}>
+              {datosReg.length===0 ? (
+                <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:11}}>Esta sesión no tiene ejercicios.</div>
+              ) : datosReg.map((ej,ei)=>{
+                const ult = ej.ejercicio_id ? resumenUltimo(ej.ejercicio_id) : null
+                return (
+                  <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:'1px solid var(--bd)',marginBottom:8,padding:'9px 11px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
+                      {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>💪</div>}
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
+                        {ult
+                          ? <div style={{fontSize:9,color:'var(--g)',marginTop:2}}>Última vez: {ult}</div>
+                          : <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                      </div>
+                    </div>
+                    {ej.series.map((ser:any,si:number)=>(
+                      <div key={si} style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                        <span style={{fontSize:9,color:'var(--grl)',width:18}}>{si+1}</span>
+                        <input type="number" value={ser.peso} onChange={e=>setSerie(ei,si,'peso',e.target.value)} placeholder="kg" style={{width:60,fontSize:11,padding:'4px 6px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center',fontFamily:'system-ui'}}/>
+                        <span style={{fontSize:10,color:'var(--grl)'}}>×</span>
+                        <input type="number" value={ser.reps} onChange={e=>setSerie(ei,si,'reps',e.target.value)} placeholder="reps" style={{width:60,fontSize:11,padding:'4px 6px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center',fontFamily:'system-ui'}}/>
+                        {ej.series.length>1&&<button onClick={()=>quitarSerie(ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
+                      </div>
+                    ))}
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:5}}>
+                      <button onClick={()=>addSerie(ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 0'}}>+ serie</button>
+                      <input value={ej.comentario} onChange={e=>setComentarioReg(ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'3px 7px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui'}}/>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
