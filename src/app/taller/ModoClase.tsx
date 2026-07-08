@@ -1,30 +1,29 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const hoy = () => new Date().toISOString().slice(0,10)
 
 export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const [fecha, setFecha] = useState(hoy())
-  const [seleccion, setSeleccion] = useState<any[]>([]) // [{paciente, sesionId, sesiones:[], datos:[], cargado}]
-  const [activo, setActivo] = useState<string>('') // paciente_id activo
-  const [addOpen, setAddOpen] = useState(false)
-  const [buscarPac, setBuscarPac] = useState('')
+  const [seleccion, setSeleccion] = useState<any[]>([])
+  const [activo, setActivo] = useState<string>('')
+  const [busquedaPac, setBusquedaPac] = useState('')
+  const timers = useRef<Record<string, any>>({})
 
-  const pacFiltrados = pacientes.filter(p => {
-    if (seleccion.some(s => s.paciente.id === p.id)) return false
-    const nom = ((p.nombre_clinica||p.nombre)+' '+(p.apellidos||'')).toLowerCase()
-    return !buscarPac || nom.includes(buscarPac.toLowerCase())
+  const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
+  const yaElegido = (id:string) => seleccion.some(s => s.paciente.id === id)
+  const pacFiltrados = pacientes.filter((p:any)=>{
+    if (yaElegido(p.id)) return false
+    return `${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())
   })
-
-  const nombrePac = (p:any) => (p.nombre_clinica||p.nombre)+' '+(p.apellidos||'')
 
   async function addPaciente(p: any) {
     const { data: ses } = await supabase.from('sesiones')
       .select('*').eq('paciente_id', p.id).order('created_at',{ascending:false})
-    setSeleccion(prev => [...prev, { paciente:p, sesionId:'', sesiones:ses||[], datos:[], cargado:false }])
+    setSeleccion(prev => [...prev, { paciente:p, sesionId:'', sesiones:ses||[], datos:[], cargado:false, finalizado:false }])
     setActivo(p.id)
-    setAddOpen(false); setBuscarPac('')
+    setBusquedaPac('')
   }
 
   function quitarPaciente(pid: string) {
@@ -32,9 +31,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     if (activo === pid) setActivo('')
   }
 
-  // cargar ejercicios de la sesion elegida + ultimos registros
   async function elegirSesion(pid: string, sesionId: string) {
-    setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId} : s))
+    setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId, finalizado:false} : s))
     if (!sesionId) return
     const item = seleccion.find(s => s.paciente.id===pid)
     const ses = item?.sesiones.find((x:any)=>x.id===sesionId)
@@ -42,7 +40,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     const ejs: any[] = []
     ;(ses.partes||[]).forEach((parte:any)=>{
       ;(parte.ejercicios||[]).forEach((ej:any)=>{
-        const n = parseInt(ej.series)||3
+        const n = parseInt(ej.series)||4
         ejs.push({
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
@@ -52,80 +50,53 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         })
       })
     })
-    // cargar ultimos + lo ya registrado hoy (por si vuelve)
     const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data: prev } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,comentario')
-        .eq('paciente_id', pid).in('ejercicio_id', ids)
-        .order('fecha',{ascending:false})
-      const ultMap:Record<string,any>={}, hoyMap:Record<string,any>={}
-      ;(prev||[]).forEach((r:any)=>{
-        if (r.fecha===fecha) { if(!hoyMap[r.ejercicio_id]) hoyMap[r.ejercicio_id]=r }
-        else if (!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r
-      })
+      // ultimo finalizado (referencia)
+      const { data: fin } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,fecha,created_at')
+        .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
+        .order('fecha',{ascending:false}).order('created_at',{ascending:false})
+      const ultMap:Record<string,any>={}
+      ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
+      // borrador en curso de esta sesion
+      const { data: curso } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,comentario')
+        .eq('paciente_id', pid).eq('sesion_id', sesionId).eq('finalizado', false).in('ejercicio_id', ids)
+      const cursoMap:Record<string,any>={}
+      ;(curso||[]).forEach((r:any)=>{ cursoMap[r.ejercicio_id]=r })
       ejs.forEach(e=>{
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
-          const ya = hoyMap[e.ejercicio_id]
-          if (ya && Array.isArray(ya.series)) { e.series = ya.series; e.comentario = ya.comentario||''; e.guardado = true }
+          const c = cursoMap[e.ejercicio_id]
+          if (c && Array.isArray(c.series)) { e.series = c.series; e.comentario = c.comentario||''; e.guardado = true }
         }
       })
     }
     setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, datos:ejs, cargado:true} : s))
   }
 
-  function setSerie(pid:string, ei:number, si:number, campo:string, val:string){
-    setSeleccion(prev => prev.map(s=>{
-      if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; const series=[...datos[ei].series]
-      series[si]={...series[si],[campo]:val}
-      datos[ei]={...datos[ei],series,guardado:false}
-      return {...s,datos}
-    }))
-  }
-  function addSerie(pid:string, ei:number){
-    setSeleccion(prev => prev.map(s=>{
-      if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],series:[...datos[ei].series,{peso:'',reps:''}],guardado:false}
-      return {...s,datos}
-    }))
-  }
-  function quitarSerie(pid:string, ei:number, si:number){
-    setSeleccion(prev => prev.map(s=>{
-      if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],series:datos[ei].series.filter((_:any,i:number)=>i!==si),guardado:false}
-      return {...s,datos}
-    }))
-  }
-  function setComent(pid:string, ei:number, val:string){
-    setSeleccion(prev => prev.map(s=>{
-      if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],comentario:val,guardado:false}
-      return {...s,datos}
-    }))
+  function programarAutosave(pid:string, ei:number, ejData:any, sesionId:string){
+    const key = `${pid}_${ei}`
+    if (timers.current[key]) clearTimeout(timers.current[key])
+    timers.current[key] = setTimeout(()=>{ autoguardar(pid, ei, ejData, sesionId) }, 700)
   }
 
-  // guardado incremental por ejercicio (upsert paciente+ejercicio+fecha)
-  async function guardarEj(pid:string, ei:number){
-    const item = seleccion.find(s=>s.paciente.id===pid); if(!item) return
-    const ej = item.datos[ei]
+  async function autoguardar(pid:string, ei:number, ej:any, sesionId:string){
     const seriesLlenas = ej.series.filter((x:any)=>x.peso!==''||x.reps!=='')
-    if (seriesLlenas.length===0){ alert('Sin series que guardar'); return }
+    if (seriesLlenas.length===0) return
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
-      fecha, series: seriesLlenas, comentario: ej.comentario||null,
+      sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, finalizado:false,
     }
     let error
-    if (ej.ejercicio_id) {
-      // buscar si ya existe registro para paciente+ejercicio+fecha
+    if (ej.ejercicio_id){
       const { data: existe } = await supabase.from('registros_ejercicio')
-        .select('id')
-        .eq('paciente_id', pid).eq('ejercicio_id', ej.ejercicio_id).eq('fecha', fecha)
-        .maybeSingle()
-      if (existe) {
+        .select('id').eq('paciente_id',pid).eq('ejercicio_id',ej.ejercicio_id)
+        .eq('sesion_id',sesionId).eq('finalizado',false).maybeSingle()
+      if (existe){
         ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series: seriesLlenas, comentario: ej.comentario||null, ejercicio_nombre: ej.nombre })
+          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre })
           .eq('id', existe.id))
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))
@@ -133,12 +104,68 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     } else {
       ({ error } = await supabase.from('registros_ejercicio').insert(fila))
     }
-    if (error){ alert('Error: '+error.message); return }
+    if (error){ console.error('autoguardar clase', error.message); return }
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],guardado:true}
+      const datos=[...s.datos]; if(datos[ei]) datos[ei]={...datos[ei],guardado:true}
       return {...s,datos}
     }))
+  }
+
+  function mutarSerie(pid:string, ei:number, si:number, campo:string, val:string){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; const series=[...datos[ei].series]
+      series[si]={...series[si],[campo]:val}
+      datos[ei]={...datos[ei],series,guardado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+  function addSerie(pid:string, ei:number){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; datos[ei]={...datos[ei],series:[...datos[ei].series,{peso:'',reps:''}]}
+      return {...s,datos}
+    }))
+  }
+  function quitarSerie(pid:string, ei:number, si:number){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; datos[ei]={...datos[ei],series:datos[ei].series.filter((_:any,i:number)=>i!==si),guardado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+  function setComent(pid:string, ei:number, val:string){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; datos[ei]={...datos[ei],comentario:val,guardado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
+  async function finalizarPaciente(pid:string){
+    const item = seleccion.find(s=>s.paciente.id===pid); if(!item) return
+    // forzar guardado de todo lo lleno
+    Object.keys(timers.current).forEach(k=>{ if(k.startsWith(pid+'_')){ clearTimeout(timers.current[k]); delete timers.current[k] } })
+    for (let i=0;i<item.datos.length;i++){
+      const ej=item.datos[i]
+      const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!=='')
+      if (llenas.length>0) await autoguardar(pid,i,ej,item.sesionId)
+    }
+    // limpiar finalizados previos del dia y marcar
+    const ids = item.datos.map((e:any)=>e.ejercicio_id).filter(Boolean)
+    if (ids.length){
+      await supabase.from('registros_ejercicio').delete()
+        .eq('paciente_id',pid).eq('fecha',fecha).eq('finalizado',true).in('ejercicio_id',ids)
+    }
+    const { error } = await supabase.from('registros_ejercicio')
+      .update({ finalizado:true })
+      .eq('paciente_id',pid).eq('sesion_id',item.sesionId).eq('finalizado',false)
+    if (error){ alert('Error al finalizar: '+error.message); return }
+    setSeleccion(prev => prev.map(s=>s.paciente.id===pid?{...s,finalizado:true}:s))
   }
 
   const act = seleccion.find(s=>s.paciente.id===activo)
@@ -151,7 +178,19 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>👥 Día de fuerza</span>
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
         <div style={{flex:1}}/>
-        <button className="btn btn-p btn-sm" onClick={()=>setAddOpen(true)}>+ Añadir paciente</button>
+        <div style={{position:'relative',width:260}}>
+          <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Añadir paciente..." style={{fontSize:11}}/>
+          {busquedaPac && (
+            <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:20,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:240,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
+              {pacFiltrados.slice(0,30).map((p:any)=>(
+                <div key={p.id} onClick={()=>addPaciente(p)} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                  {p.nombre} {p.apellidos}{p.nombre_clinica?<span style={{color:'var(--grl)',fontSize:9}}> · {p.nombre_clinica}</span>:null}
+                </div>
+              ))}
+              {pacFiltrados.length===0 && <div style={{padding:'8px 11px',fontSize:10,color:'var(--grl)'}}>Sin pacientes que coincidan</div>}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* CHIPS PACIENTES */}
@@ -163,8 +202,9 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                 border:`1.5px solid ${activo===s.paciente.id?'var(--g)':'var(--bd)'}`,
                 background:activo===s.paciente.id?'var(--g)':'var(--w)',
                 color:activo===s.paciente.id?'#fff':'var(--gr)'}}>
+              {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
               <span style={{fontSize:10}}>{nombrePac(s.paciente)}</span>
-              {progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
+              {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
               <span onClick={(e)=>{e.stopPropagation();quitarPaciente(s.paciente.id)}} style={{fontSize:11,opacity:.7}}>✕</span>
             </div>
           ))}
@@ -179,11 +219,14 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       ) : (
         <div className="card">
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-            <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>{nombrePac(act.paciente)}</div>
-            <select className="input" style={{maxWidth:260,fontSize:11}} value={act.sesionId} onChange={e=>elegirSesion(act.paciente.id, e.target.value)}>
+            <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>{nombrePac(act.paciente)}{act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}</div>
+            <select className="input" style={{maxWidth:240,fontSize:11}} value={act.sesionId} onChange={e=>elegirSesion(act.paciente.id, e.target.value)}>
               <option value="">Elegir sesión de fuerza...</option>
               {act.sesiones.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
+            {act.sesionId && act.datos.length>0 && (
+              <button className="btn btn-p btn-sm" onClick={()=>finalizarPaciente(act.paciente.id)}>✓ Guardar y finalizar</button>
+            )}
           </div>
 
           {!act.sesionId ? (
@@ -196,47 +239,32 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                 {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>💪</div>}
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
-                  {ej.ultimo
-                    ? <div style={{fontSize:9,color:'var(--g)',marginTop:2}}>Última vez: {ej.ultimo.map((x:any)=>`${x.peso||'—'}${x.reps?'×'+x.reps:''}`).join(', ')}</div>
-                    : <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                  {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
                 </div>
                 {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
               </div>
-              {ej.series.map((ser:any,si:number)=>(
-                <div key={si} style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-                  <span style={{fontSize:9,color:'var(--grl)',width:18}}>{si+1}</span>
-                  <input type="number" value={ser.peso} onChange={e=>setSerie(act.paciente.id,ei,si,'peso',e.target.value)} placeholder="kg" style={{width:60,fontSize:11,padding:'4px 6px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center'}}/>
-                  <span style={{fontSize:10,color:'var(--grl)'}}>×</span>
-                  <input type="number" value={ser.reps} onChange={e=>setSerie(act.paciente.id,ei,si,'reps',e.target.value)} placeholder="reps" style={{width:60,fontSize:11,padding:'4px 6px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center'}}/>
-                  {ej.series.length>1&&<button onClick={()=>quitarSerie(act.paciente.id,ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
-                </div>
-              ))}
-              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:5}}>
+              {ej.series.map((ser:any,si:number)=>{
+                const prev = ej.ultimo && ej.ultimo[si] ? `${ej.ultimo[si].peso||'—'}${ej.ultimo[si].reps?'×'+ej.ultimo[si].reps:''}` : null
+                return (
+                  <div key={si} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                    <span style={{fontSize:10,color:'var(--grl)',width:16,textAlign:'center'}}>{si+1}</span>
+                    <input inputMode="decimal" value={ser.peso} onChange={e=>mutarSerie(act.paciente.id,ei,si,'peso',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                    <span style={{fontSize:9,color:'var(--grl)'}}>kg</span>
+                    <span style={{fontSize:11,color:'var(--bm)'}}>×</span>
+                    <input inputMode="numeric" value={ser.reps} onChange={e=>mutarSerie(act.paciente.id,ei,si,'reps',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                    <span style={{fontSize:9,color:'var(--grl)'}}>reps</span>
+                    <div style={{flex:1}}/>
+                    {prev&&<span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>ant: {prev}</span>}
+                    {ej.series.length>1&&<button onClick={()=>quitarSerie(act.paciente.id,ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
+                  </div>
+                )
+              })}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
                 <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>+ serie</button>
-                <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'3px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
-                <button className="btn btn-p btn-sm" onClick={()=>guardarEj(act.paciente.id,ei)}>{ej.guardado?'✓':'💾'}</button>
+                <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* MODAL AÑADIR PACIENTE */}
-      {addOpen && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setAddOpen(false)}}>
-          <div className="modal" style={{width:360}}>
-            <div className="modal-title">Añadir paciente<button className="modal-close" onClick={()=>setAddOpen(false)}>✕</button></div>
-            <input className="input" placeholder="🔍 Buscar..." value={buscarPac} onChange={e=>setBuscarPac(e.target.value)} style={{marginBottom:8,fontSize:11}} autoFocus/>
-            <div style={{maxHeight:300,overflowY:'auto'}}>
-              {pacFiltrados.map(p=>(
-                <div key={p.id} onClick={()=>addPaciente(p)}
-                  style={{padding:'7px 9px',background:'var(--bl)',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer',fontSize:11,color:'var(--n)'}}>
-                  {nombrePac(p)}
-                </div>
-              ))}
-              {pacFiltrados.length===0 && <div style={{textAlign:'center',padding:20,color:'var(--grl)',fontSize:10}}>Sin resultados</div>}
-            </div>
-          </div>
         </div>
       )}
     </>
