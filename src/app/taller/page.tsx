@@ -128,6 +128,15 @@ export default function TallerPage() {
     })
     setRegistrando(s)
     const ids = ejs.map(e => e.ejercicio_id).filter(Boolean)
+    // cargar tipo_medida real de cada ejercicio (opcion A: siempre actualizado)
+    if (ids.length) {
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida').in('id', ids)
+      const tipoMap: Record<string,string> = {}
+      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id] = t.tipo_medida||'peso_reps' })
+      ejs.forEach(e=>{ e.tipo_medida = e.ejercicio_id ? (tipoMap[e.ejercicio_id]||'peso_reps') : 'peso_reps' })
+    } else {
+      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps' })
+    }
     if (ids.length) {
       // ultimo registro FINALIZADO por ejercicio (referencia "ultima vez")
       const { data: fin } = await supabase.from('registros_ejercicio')
@@ -207,7 +216,7 @@ export default function TallerPage() {
   async function autoguardar(ei: number, ejData: any) {
     if (!registrando) return
     const ej = ejData
-    const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '')
+    const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '' || (x.segundos !== '' && x.segundos !== undefined))
     if (seriesLlenas.length === 0) return
     const fila:any = {
       paciente_id: pacienteId, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
@@ -240,7 +249,7 @@ export default function TallerPage() {
     autosaveTimers.current = {}
     for (let i=0;i<datosReg.length;i++){
       const ej=datosReg[i]
-      const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!=='')
+      const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
       if (llenas.length>0) { await autoguardar(i, ej) }
     }
     // borrar finalizados previos del mismo dia para estos ejercicios (evita choque con indice)
@@ -601,15 +610,31 @@ export default function TallerPage() {
                       {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
                     </div>
                     {ej.series.map((ser:any,si:number)=>{
-                      const prev = ult && ult[si] ? `${ult[si].peso||'—'}${ult[si].reps?'×'+ult[si].reps:''}` : null
+                      const tm = ej.tipo_medida || 'peso_reps'
+                      const fmtPrev = (x:any) => {
+                        if (!x) return null
+                        if (tm==='tiempo') return x.segundos?`${x.segundos}s`:null
+                        if (tm==='peso_tiempo') return (x.peso||x.segundos)?`${x.peso||'—'}kg·${x.segundos||'—'}s`:null
+                        return (x.peso||x.reps)?`${x.peso||'—'}${x.reps?'×'+x.reps:''}`:null
+                      }
+                      const prev = ult && ult[si] ? fmtPrev(ult[si]) : null
                       return (
                         <div key={si} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
                           <span style={{fontSize:10,color:'var(--grl)',width:16,textAlign:'center'}}>{si+1}</span>
-                          <input inputMode="decimal" value={ser.peso} onChange={e=>setSerie(ei,si,'peso',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
-                          <span style={{fontSize:9,color:'var(--grl)'}}>kg</span>
-                          <span style={{fontSize:11,color:'var(--bm)'}}>×</span>
-                          <input inputMode="numeric" value={ser.reps} onChange={e=>setSerie(ei,si,'reps',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
-                          <span style={{fontSize:9,color:'var(--grl)'}}>reps</span>
+                          {tm!=='tiempo' && <>
+                            <input inputMode="decimal" value={ser.peso||''} onChange={e=>setSerie(ei,si,'peso',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                            <span style={{fontSize:9,color:'var(--grl)'}}>kg</span>
+                          </>}
+                          {tm==='peso_reps' && <>
+                            <span style={{fontSize:11,color:'var(--bm)'}}>×</span>
+                            <input inputMode="numeric" value={ser.reps||''} onChange={e=>setSerie(ei,si,'reps',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                            <span style={{fontSize:9,color:'var(--grl)'}}>reps</span>
+                          </>}
+                          {(tm==='tiempo'||tm==='peso_tiempo') && <>
+                            {tm==='peso_tiempo' && <span style={{fontSize:11,color:'var(--bm)'}}>·</span>}
+                            <input inputMode="numeric" value={ser.segundos||''} onChange={e=>setSerie(ei,si,'segundos',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                            <span style={{fontSize:9,color:'var(--grl)'}}>seg</span>
+                          </>}
                           <div style={{flex:1}}/>
                           {prev&&<span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>ant: {prev}</span>}
                           {ej.series.length>1&&<button onClick={()=>quitarSerie(ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
