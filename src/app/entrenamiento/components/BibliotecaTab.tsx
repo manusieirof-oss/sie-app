@@ -4,10 +4,23 @@ import { supabase } from '@/lib/supabase'
 
 const LATERALIDADES = ['Bilateral','Unilateral','Alterno','Unipodal','Bipodal','Contralateral']
 
-function EditorVariantes({ variantes, onChange, disabled }: any) {
+function EditorVariantes({ variantes, onChange, disabled, ejercicioId }: any) {
+  const [subiendo, setSubiendo] = useState(-1)
   const add = () => onChange([...(variantes||[]), { nombre:'Unilateral', descripcion:'' }])
   const upd = (i:number, campo:string, val:string) => onChange(variantes.map((v:any,idx:number)=>idx===i?{...v,[campo]:val}:v))
   const del = (i:number) => onChange(variantes.filter((_:any,idx:number)=>idx!==i))
+  const subirImg = async (i:number, file:File) => {
+    if (!ejercicioId) { alert('Guarda el ejercicio primero para subir imágenes de variante'); return }
+    setSubiendo(i)
+    const ext = file.name.split('.').pop()
+    const path = `ejercicios/${ejercicioId}/variante-${i}-${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert:true })
+    if (!error) {
+      const { data:{ publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+      upd(i, 'imagen_url', publicUrl)
+    } else { alert('Error al subir imagen') }
+    setSubiendo(-1)
+  }
   return (
     <div className="field">
       <label>Variantes</label>
@@ -22,7 +35,21 @@ function EditorVariantes({ variantes, onChange, disabled }: any) {
           </div>
           {!LATERALIDADES.includes(v.nombre) && <input className="input" value={v.nombre} onChange={e=>upd(i,'nombre',e.target.value)} placeholder="Nombre de la variante" disabled={disabled} style={{fontSize:11,marginBottom:5}}/>}
           <textarea className="input" value={v.descripcion||''} onChange={e=>upd(i,'descripcion',e.target.value)} placeholder="Descripción / ejecución de esta variante" disabled={disabled} style={{fontSize:11,minHeight:48,marginBottom:5}}/>
-          <input className="input" value={v.video_url||''} onChange={e=>upd(i,'video_url',e.target.value)} placeholder="🎥 Enlace vídeo (opcional)" disabled={disabled} style={{fontSize:11}}/>
+          <input className="input" value={v.video_url||''} onChange={e=>upd(i,'video_url',e.target.value)} placeholder="🎥 Enlace vídeo (opcional)" disabled={disabled} style={{fontSize:11,marginBottom:5}}/>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {v.imagen_url ? (
+              <>
+                <img src={v.imagen_url} alt="" style={{width:44,height:44,objectFit:'cover',borderRadius:5,border:'1px solid var(--bd)'}}/>
+                <button className="btn btn-d btn-sm" onClick={()=>upd(i,'imagen_url','')} disabled={disabled}>✕ Quitar imagen</button>
+              </>
+            ) : (
+              <label className="btn btn-s btn-sm" style={{cursor:ejercicioId?'pointer':'not-allowed',opacity:ejercicioId?1:.5}}>
+                {subiendo===i?'⏳ Subiendo...':'🖼 Subir imagen'}
+                <input type="file" accept="image/*" style={{display:'none'}} disabled={disabled||!ejercicioId||subiendo===i} onChange={e=>{const file=e.target.files?.[0]; if(file) subirImg(i,file)}}/>
+              </label>
+            )}
+            {!ejercicioId && <span style={{fontSize:8,color:'var(--grl)'}}>Guarda primero para subir imagen</span>}
+          </div>
         </div>
       ))}
       <button className="btn btn-s btn-sm" onClick={add} disabled={disabled} style={{width:'100%',justifyContent:'center'}}>+ Añadir variante</button>
@@ -181,7 +208,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                       <div className="field"><label>Descripción</label><textarea className="input" value={editEj.descripcion} onChange={e=>setEditEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
-                      <EditorVariantes variantes={editEj.variantes} onChange={(v:any[])=>setEditEj(p=>({...p,variantes:v}))} disabled={guardando}/>
+                      <EditorVariantes variantes={editEj.variantes} onChange={(v:any[])=>setEditEj(p=>({...p,variantes:v}))} disabled={guardando} ejercicioId={editEj.id}/>
                       <div className="field">
                         <label>Etiquetas</label>
                         {editEj.etiquetas_ids.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>{editEj.etiquetas_ids.map(id=><span key={id} onClick={()=>setEditEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer'}}>{getNombre(id)} ✕</span>)}</div>}
@@ -200,7 +227,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                 <div style={{padding:16}}>
                   <div style={{display:'grid',gridTemplateColumns:'1.1fr 1fr',gap:18}}>
                     <div>
-                      {ejSeleccionado.imagen_url?<img src={ejSeleccionado.imagen_url} alt={ejSeleccionado.nombre} style={{width:'100%',height:300,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:300,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>💪</div>}
+                      {(() => {
+                        const img = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.imagen_url || ejSeleccionado.imagen_url) : ejSeleccionado.imagen_url
+                        return img?<img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',height:300,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:300,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>💪</div>
+                      })()}
                     </div>
                     <div>
                       {(ejSeleccionado.variantes||[]).length>0 && (
