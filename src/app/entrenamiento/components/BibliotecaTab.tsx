@@ -11,9 +11,9 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
   const [guardando, setGuardando] = useState(false)
   const [subiendoImg, setSubiendoImg] = useState(false)
   const [modalSelEt, setModalSelEt] = useState(false)
-  const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null })
+  const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps' })
   const [editando, setEditando] = useState(false)
-  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null })
+  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps' })
   const [modalSelEtEdit, setModalSelEtEdit] = useState(false)
 
   const filtrados = ejercicios.filter((e:any) => {
@@ -36,7 +36,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
 
   function abrirEdicion() {
     if (!ejSeleccionado) return
-    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null })
+    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps' })
     setEditando(true)
   }
 
@@ -54,10 +54,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
         imagenUrlFinal = `${publicUrl}?t=${Date.now()}`
       }
     }
-    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal }).eq('id', editEj.id)
+    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida }).eq('id', editEj.id)
     setSubiendoImg(false); setGuardando(false)
     if (error) { alert('Error al actualizar'); return }
-    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal })
+    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida })
     setEditando(false); cargar()
   }
 
@@ -65,7 +65,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
     if (guardando) return
     if (!nuevoEj.nombre) { alert('El nombre es obligatorio'); return }
     setGuardando(true); setSubiendoImg(true)
-    const { data: ejData, error } = await supabase.from('ejercicios').insert({ nombre:nuevoEj.nombre, descripcion:nuevoEj.descripcion, video_url:nuevoEj.video_url, etiquetas:nuevoEj.etiquetas_ids, imagen_url:'' }).select().single()
+    const { data: ejData, error } = await supabase.from('ejercicios').insert({ nombre:nuevoEj.nombre, descripcion:nuevoEj.descripcion, video_url:nuevoEj.video_url, etiquetas:nuevoEj.etiquetas_ids, imagen_url:'', tipo_medida:nuevoEj.tipo_medida }).select().single()
     if (error || !ejData) { alert('Error al crear ejercicio'); setGuardando(false); setSubiendoImg(false); return }
     if (nuevoEj.imagen_file) {
       const ext = nuevoEj.imagen_file.name.split('.').pop()
@@ -77,7 +77,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
       }
     }
     setSubiendoImg(false); setModalEj(false)
-    setNuevoEj({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[], imagen_file:null })
+    setNuevoEj({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[], imagen_file:null, tipo_medida:'peso_reps' })
     setGuardando(false); cargar()
   }
 
@@ -150,6 +150,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                       <div className="field"><label>Nombre *</label><input className="input" value={editEj.nombre} onChange={e=>setEditEj(p=>({...p,nombre:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Descripción</label><textarea className="input" value={editEj.descripcion} onChange={e=>setEditEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
+                      <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
                       <div className="field">
                         <label>Etiquetas</label>
                         {editEj.etiquetas_ids.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>{editEj.etiquetas_ids.map(id=><span key={id} onClick={()=>setEditEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer'}}>{getNombre(id)} ✕</span>)}</div>}
@@ -173,6 +174,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                     <div>
                       {ejSeleccionado.descripcion&&<div style={{marginBottom:14}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Descripción</div><div style={{fontSize:12,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{ejSeleccionado.descripcion}</div></div>}
                       {ejSeleccionado.video_url&&<a href={ejSeleccionado.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}>🎥 Ver vídeo ↗</a>}
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Se mide en</div>
+                        <span style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>{ejSeleccionado.tipo_medida==='tiempo'?'⏱ Tiempo (segundos)':ejSeleccionado.tipo_medida==='peso_tiempo'?'🏋️⏱ Peso y tiempo':'🏋️ Peso y repeticiones'}</span>
+                      </div>
                       <div>
                         <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Etiquetas</div>
                         <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
@@ -245,6 +250,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
             <div className="field"><label>Nombre *</label><input className="input" value={nuevoEj.nombre} onChange={e=>setNuevoEj(p=>({...p,nombre:e.target.value}))} autoFocus disabled={guardando}/></div>
             <div className="field"><label>Descripción</label><textarea className="input" value={nuevoEj.descripcion} onChange={e=>setNuevoEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
+            <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
             <div className="field">
               <label>Imagen</label>
               <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
