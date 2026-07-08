@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import ModoClase from './ModoClase'
 
@@ -28,6 +28,7 @@ export default function TallerPage() {
   const [ultimos, setUltimos] = useState<Record<string,any>>({})
   const [guardandoReg, setGuardandoReg] = useState(false)
   const [tab, setTab] = useState<'individual'|'clase'>('individual')
+  const autosaveTimers = useRef<Record<number, any>>({})
 
   useEffect(() => { cargar() }, [])
   useEffect(() => { if (pacienteId) cargarSesiones() }, [pacienteId])
@@ -68,7 +69,7 @@ export default function TallerPage() {
     const ejs: any[] = []
     ;(s.partes||[]).forEach((parte: any) => {
       ;(parte.ejercicios||[]).forEach((ej: any) => {
-        const nSeries = parseInt(ej.series) || 3
+        const nSeries = parseInt(ej.series) || 4
         ejs.push({
           ejercicio_id: ej.ejercicio_id || null,
           nombre: ej.nombre,
@@ -76,26 +77,44 @@ export default function TallerPage() {
           variante: ej.variante || '',
           plan: { series: ej.series, reps: ej.reps, peso: ej.peso, tiempo: ej.tiempo },
           series: Array.from({length: nSeries}, () => ({ peso: '', reps: '' })),
-          comentario: '',
+          comentario: '', guardado: false,
         })
       })
     })
-    setDatosReg(ejs)
     setRegistrando(s)
-    // cargar ultimo registro por ejercicio para este paciente
     const ids = ejs.map(e => e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha')
-        .eq('paciente_id', pacienteId)
+      // ultimo registro FINALIZADO por ejercicio (referencia "ultima vez")
+      const { data: fin } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,fecha,created_at')
+        .eq('paciente_id', pacienteId).eq('finalizado', true)
         .in('ejercicio_id', ids)
-        .order('fecha', { ascending: false })
-      const map: Record<string,any> = {}
-      ;(data||[]).forEach((r: any) => { if (!map[r.ejercicio_id]) map[r.ejercicio_id] = r })
-      setUltimos(map)
+        .order('fecha', { ascending: false }).order('created_at', { ascending: false })
+      const ultMap: Record<string,any> = {}
+      ;(fin||[]).forEach((r: any) => { if (!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id] = r })
+      setUltimos(ultMap)
+      // borrador EN CURSO (no finalizado) de esta sesion -> precargar
+      const { data: curso } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,comentario')
+        .eq('paciente_id', pacienteId).eq('sesion_id', s.id).eq('finalizado', false)
+        .in('ejercicio_id', ids)
+      const cursoMap: Record<string,any> = {}
+      ;(curso||[]).forEach((r: any) => { cursoMap[r.ejercicio_id] = r })
+      ejs.forEach(e => {
+        if (e.ejercicio_id && cursoMap[e.ejercicio_id]) {
+          const r = cursoMap[e.ejercicio_id]
+          if (Array.isArray(r.series)) { e.series = r.series; e.comentario = r.comentario||''; e.guardado = true }
+        }
+      })
     } else {
       setUltimos({})
     }
+    setDatosReg(ejs)
+  }
+
+  function programarAutosave(ejIdx: number, ejData: any) {
+    if (autosaveTimers.current[ejIdx]) clearTimeout(autosaveTimers.current[ejIdx])
+    autosaveTimers.current[ejIdx] = setTimeout(() => { autoguardar(ejIdx, ejData) }, 700)
   }
 
   function setSerie(ejIdx: number, serIdx: number, campo: string, val: string) {
@@ -104,6 +123,7 @@ export default function TallerPage() {
       const series = [...d[ejIdx].series]
       series[serIdx] = { ...series[serIdx], [campo]: val }
       d[ejIdx] = { ...d[ejIdx], series }
+      programarAutosave(ejIdx, d[ejIdx])
       return d
     })
   }
@@ -120,6 +140,7 @@ export default function TallerPage() {
     setDatosReg(prev => {
       const d = [...prev]
       d[ejIdx] = { ...d[ejIdx], series: d[ejIdx].series.filter((_:any,i:number)=>i!==serIdx) }
+      programarAutosave(ejIdx, d[ejIdx])
       return d
     })
   }
@@ -128,30 +149,65 @@ export default function TallerPage() {
     setDatosReg(prev => {
       const d = [...prev]
       d[ejIdx] = { ...d[ejIdx], comentario: val }
+      programarAutosave(ejIdx, d[ejIdx])
       return d
     })
   }
 
-  async function guardarRegistro() {
+  // autoguardado silencioso por ejercicio (buscar-y-decidir, finalizado=false)
+  async function autoguardar(ei: number, ejData: any) {
+    if (!registrando) return
+    const ej = ejData
+    const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '')
+    if (seriesLlenas.length === 0) return
+    const fila:any = {
+      paciente_id: pacienteId, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
+      sesion_id: registrando.id, series: seriesLlenas, comentario: ej.comentario||null, finalizado: false,
+    }
+    let error
+    if (ej.ejercicio_id) {
+      const { data: existe } = await supabase.from('registros_ejercicio')
+        .select('id').eq('paciente_id', pacienteId).eq('ejercicio_id', ej.ejercicio_id)
+        .eq('sesion_id', registrando.id).eq('finalizado', false).maybeSingle()
+      if (existe) {
+        ({ error } = await supabase.from('registros_ejercicio')
+          .update({ series: seriesLlenas, comentario: ej.comentario||null, ejercicio_nombre: ej.nombre })
+          .eq('id', existe.id))
+      } else {
+        ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+      }
+    } else {
+      ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+    }
+    if (error) { console.error('autoguardar', error.message); return }
+    setDatosReg(prev => { const d=[...prev]; if(d[ei]) d[ei]={...d[ei],guardado:true}; return d })
+  }
+
+  // finalizar: marca todo el borrador en curso como finalizado y cierra
+  async function finalizarRegistro() {
     setGuardandoReg(true)
-    const filas = datosReg
-      .map(ej => {
-        const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '')
-        if (seriesLlenas.length === 0) return null
-        return {
-          paciente_id: pacienteId,
-          ejercicio_id: ej.ejercicio_id,
-          ejercicio_nombre: ej.nombre,
-          sesion_id: registrando.id,
-          series: seriesLlenas,
-          comentario: ej.comentario || null,
-        }
-      })
-      .filter(Boolean)
-    if (filas.length === 0) { alert('No has anotado ninguna serie'); setGuardandoReg(false); return }
-    const { error } = await supabase.from('registros_ejercicio').insert(filas)
+    // cancelar autosaves pendientes y forzar guardado de todo lo lleno
+    Object.values(autosaveTimers.current).forEach((t:any)=>clearTimeout(t))
+    autosaveTimers.current = {}
+    for (let i=0;i<datosReg.length;i++){
+      const ej=datosReg[i]
+      const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!=='')
+      if (llenas.length>0) { await autoguardar(i, ej) }
+    }
+    // borrar finalizados previos del mismo dia para estos ejercicios (evita choque con indice)
+    const hoy = new Date().toISOString().slice(0,10)
+    const ids = datosReg.map((e:any)=>e.ejercicio_id).filter(Boolean)
+    if (ids.length) {
+      await supabase.from('registros_ejercicio')
+        .delete()
+        .eq('paciente_id', pacienteId).eq('fecha', hoy).eq('finalizado', true)
+        .in('ejercicio_id', ids)
+    }
+    const { error } = await supabase.from('registros_ejercicio')
+      .update({ finalizado: true })
+      .eq('paciente_id', pacienteId).eq('sesion_id', registrando.id).eq('finalizado', false)
     setGuardandoReg(false)
-    if (error) { alert('Error al guardar: ' + error.message); return }
+    if (error) { alert('Error al finalizar: '+error.message); return }
     setRegistrando(null); setDatosReg([]); setUltimos({})
   }
 
@@ -434,46 +490,52 @@ export default function TallerPage() {
         </div>
       )}
 
-      {/* MODAL REGISTRO (anotacion dia de fuerza) */}
+      {/* MODAL REGISTRO (individual) */}
       {registrando && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setRegistrando(null)}}>
-          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:640,maxHeight:'92vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:680,maxHeight:'92vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
             <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>▶ {registrando.nombre}</div>
-                <div style={{fontSize:10,color:'var(--grl)',marginTop:2}}>{pacSel?.nombre_clinica||pacSel?.nombre} · anota carga y repeticiones reales</div>
+                <div style={{fontSize:10,color:'var(--grl)',marginTop:2}}>{pacSel?.nombre_clinica||pacSel?.nombre} · guarda cada ejercicio; al salir queda como borrador</div>
               </div>
-              <button className="btn btn-p" onClick={guardarRegistro} disabled={guardandoReg}>{guardandoReg?'⏳':'💾 Guardar registro'}</button>
+              <button className="btn btn-p" onClick={finalizarRegistro} disabled={guardandoReg}>{guardandoReg?'⏳':'✓ Guardar y finalizar'}</button>
               <button onClick={()=>setRegistrando(null)} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{overflowY:'auto',padding:14}}>
               {datosReg.length===0 ? (
                 <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:11}}>Esta sesión no tiene ejercicios.</div>
-              ) : datosReg.map((ej,ei)=>{
-                const ult = ej.ejercicio_id ? resumenUltimo(ej.ejercicio_id) : null
+              ) : datosReg.map((ej:any,ei:number)=>{
+                const ult = ej.ejercicio_id ? (ultimos[ej.ejercicio_id]?.series || null) : null
                 return (
-                  <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:'1px solid var(--bd)',marginBottom:8,padding:'9px 11px'}}>
+                  <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'9px 11px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
                       {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>💪</div>}
                       <div style={{flex:1}}>
                         <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
-                        {ult
-                          ? <div style={{fontSize:9,color:'var(--g)',marginTop:2}}>Última vez: {ult}</div>
-                          : <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                        {!ult&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
                       </div>
+                      {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
                     </div>
-                    {ej.series.map((ser:any,si:number)=>(
-                      <div key={si} style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-                        <span style={{fontSize:9,color:'var(--grl)',width:18}}>{si+1}</span>
-                        <input type="number" value={ser.peso} onChange={e=>setSerie(ei,si,'peso',e.target.value)} placeholder="kg" style={{width:60,fontSize:11,padding:'4px 6px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center',fontFamily:'system-ui'}}/>
-                        <span style={{fontSize:10,color:'var(--grl)'}}>×</span>
-                        <input type="number" value={ser.reps} onChange={e=>setSerie(ei,si,'reps',e.target.value)} placeholder="reps" style={{width:60,fontSize:11,padding:'4px 6px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center',fontFamily:'system-ui'}}/>
-                        {ej.series.length>1&&<button onClick={()=>quitarSerie(ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
-                      </div>
-                    ))}
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:5}}>
+                    {ej.series.map((ser:any,si:number)=>{
+                      const prev = ult && ult[si] ? `${ult[si].peso||'—'}${ult[si].reps?'×'+ult[si].reps:''}` : null
+                      return (
+                        <div key={si} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                          <span style={{fontSize:10,color:'var(--grl)',width:16,textAlign:'center'}}>{si+1}</span>
+                          <input inputMode="decimal" value={ser.peso} onChange={e=>setSerie(ei,si,'peso',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                          <span style={{fontSize:9,color:'var(--grl)'}}>kg</span>
+                          <span style={{fontSize:11,color:'var(--bm)'}}>×</span>
+                          <input inputMode="numeric" value={ser.reps} onChange={e=>setSerie(ei,si,'reps',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
+                          <span style={{fontSize:9,color:'var(--grl)'}}>reps</span>
+                          <div style={{flex:1}}/>
+                          {prev&&<span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>ant: {prev}</span>}
+                          {ej.series.length>1&&<button onClick={()=>quitarSerie(ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
+                        </div>
+                      )
+                    })}
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
                       <button onClick={()=>addSerie(ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 0'}}>+ serie</button>
-                      <input value={ej.comentario} onChange={e=>setComentarioReg(ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'3px 7px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui'}}/>
+                      <input value={ej.comentario} onChange={e=>setComentarioReg(ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
                     </div>
                   </div>
                 )
