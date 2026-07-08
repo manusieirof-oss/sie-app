@@ -21,7 +21,8 @@ function EditorVariantes({ variantes, onChange, disabled }: any) {
             <button className="btn btn-d btn-sm" onClick={()=>del(i)} disabled={disabled}>✕</button>
           </div>
           {!LATERALIDADES.includes(v.nombre) && <input className="input" value={v.nombre} onChange={e=>upd(i,'nombre',e.target.value)} placeholder="Nombre de la variante" disabled={disabled} style={{fontSize:11,marginBottom:5}}/>}
-          <textarea className="input" value={v.descripcion||''} onChange={e=>upd(i,'descripcion',e.target.value)} placeholder="Descripción / ejecución de esta variante" disabled={disabled} style={{fontSize:11,minHeight:48}}/>
+          <textarea className="input" value={v.descripcion||''} onChange={e=>upd(i,'descripcion',e.target.value)} placeholder="Descripción / ejecución de esta variante" disabled={disabled} style={{fontSize:11,minHeight:48,marginBottom:5}}/>
+          <input className="input" value={v.video_url||''} onChange={e=>upd(i,'video_url',e.target.value)} placeholder="🎥 Enlace vídeo (opcional)" disabled={disabled} style={{fontSize:11}}/>
         </div>
       ))}
       <button className="btn btn-s btn-sm" onClick={add} disabled={disabled} style={{width:'100%',justifyContent:'center'}}>+ Añadir variante</button>
@@ -214,7 +215,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                         const desc = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.descripcion||'') : (ejSeleccionado.descripcion||'')
                         return desc ? <div style={{marginBottom:14}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Descripción{varianteActiva>=0?` · ${ejSeleccionado.variantes[varianteActiva]?.nombre||''}`:''}</div><div style={{fontSize:12,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{desc}</div></div> : null
                       })()}
-                      {ejSeleccionado.video_url&&<a href={ejSeleccionado.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}>🎥 Ver vídeo ↗</a>}
+                      {(() => {
+                        const vurl = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.video_url||'') : (ejSeleccionado.video_url||'')
+                        return vurl ? <a href={vurl} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}>🎥 Ver vídeo{varianteActiva>=0?` · ${ejSeleccionado.variantes[varianteActiva]?.nombre||''}`:''} ↗</a> : null
+                      })()}
                       <div style={{marginBottom:14}}>
                         <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Se mide en</div>
                         <span style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>{ejSeleccionado.tipo_medida==='tiempo'?'⏱ Tiempo (segundos)':ejSeleccionado.tipo_medida==='peso_tiempo'?'🏋️⏱ Peso y tiempo':'🏋️ Peso y repeticiones'}</span>
