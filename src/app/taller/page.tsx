@@ -29,6 +29,16 @@ export default function TallerPage() {
   const [guardandoReg, setGuardandoReg] = useState(false)
   const [tab, setTab] = useState<'individual'|'clase'>('individual')
   const autosaveTimers = useRef<Record<number, any>>({})
+  const [modoAccion, setModoAccion] = useState<''|'registrar'|'editar'|'duplicar'|'eliminar'>('')
+
+  function ejecutarAccion(s: any) {
+    const a = modoAccion
+    setModoAccion('')
+    if (a==='registrar') { if ((s.partes||[]).reduce((n:number,p:any)=>n+(p.ejercicios||[]).length,0)===0){alert('Esta sesión no tiene ejercicios');return} abrirRegistro(s) }
+    else if (a==='editar') abrirEditar(s)
+    else if (a==='duplicar') duplicarSesion(s)
+    else if (a==='eliminar') eliminarSesion(s.id)
+  }
 
   useEffect(() => { cargar() }, [])
   useEffect(() => { if (pacienteId) cargarSesiones() }, [pacienteId])
@@ -278,8 +288,16 @@ export default function TallerPage() {
       {tab==='clase' ? <ModoClase pacientes={pacientes}/> : (
       <>
       {/* CABECERA */}
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
         <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>🔧 Taller de sesiones</span>
+        {pacienteId && sesiones.length>0 && (
+          <div style={{display:'flex',gap:5}}>
+            {([['registrar','▶ Registrar','btn-p'],['editar','✏️ Editar','btn-s'],['duplicar','⧉ Duplicar','btn-t'],['eliminar','🗑 Eliminar','btn-d']] as any[]).map(([k,l,cls])=>(
+              <button key={k} className={`btn ${cls} btn-sm`} onClick={()=>setModoAccion(modoAccion===k?'':k)}
+                style={{outline:modoAccion===k?'2px solid var(--n)':'none',outlineOffset:1}}>{l}</button>
+            ))}
+          </div>
+        )}
         <div style={{flex:1}}/>
         <select className="input" style={{maxWidth:260}} value={pacienteId} onChange={e=>setPacienteId(e.target.value)}>
           <option value="">Seleccionar paciente...</option>
@@ -290,6 +308,14 @@ export default function TallerPage() {
             className="btn btn-p btn-sm">+ Nueva sesión</a>
         )}
       </div>
+
+      {modoAccion && (
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,padding:'8px 13px',borderRadius:'var(--rl)',background:'var(--gl)',border:'1px solid var(--g)',fontSize:11,color:'var(--gd)'}}>
+          <span>👉 Selecciona una sesión para <b>{modoAccion}</b></span>
+          <div style={{flex:1}}/>
+          <button className="btn btn-d btn-sm" onClick={()=>setModoAccion('')}>Cancelar</button>
+        </div>
+      )}
 
       {!pacienteId ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>Selecciona un paciente para ver y crear sus sesiones</div>
@@ -305,7 +331,9 @@ export default function TallerPage() {
               {sesiones.map(s=>{
                 const totalEj = (s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)
                 return (
-                  <div key={s.id} className="card">
+                  <div key={s.id} className="card"
+                    onClick={()=>{ if(modoAccion) ejecutarAccion(s) }}
+                    style={modoAccion?{cursor:'pointer',outline:'2px dashed var(--g)',outlineOffset:2,transition:'all .1s'}:undefined}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                       <div style={{flex:1}}>
                         <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
@@ -328,12 +356,6 @@ export default function TallerPage() {
                         </div>
                       )
                     ))}
-                    <div style={{display:'flex',gap:5,marginTop:8,borderTop:'1px solid var(--bl)',paddingTop:8}}>
-                      <button className="btn btn-p btn-sm" onClick={()=>abrirRegistro(s)} disabled={totalEj===0} style={{opacity:totalEj===0?.4:1}}>▶ Registrar</button>
-                      <button className="btn btn-s btn-sm" onClick={()=>abrirEditar(s)}>✏️ Editar</button>
-                      <button className="btn btn-t btn-sm" onClick={()=>duplicarSesion(s)}>⧉ Duplicar</button>
-                      <button className="btn btn-d btn-sm" onClick={()=>eliminarSesion(s.id)}>🗑</button>
-                    </div>
                   </div>
                 )
               })}
