@@ -41,8 +41,42 @@ export default function TallerPage() {
     else if (a==='eliminar') eliminarSesion(s.id)
   }
 
+  const restaurarInd = useRef<{done:boolean, pid?:string, regId?:string}>({done:false})
+  const IKEY = 'taller_individual'
+
   useEffect(() => { cargar() }, [])
   useEffect(() => { if (pacienteId) cargarSesiones() }, [pacienteId])
+
+  // aplicar restauracion una sola vez cuando hay pacientes cargados
+  useEffect(() => {
+    if (restaurarInd.current.done) return
+    if (!pacientes.length) return
+    let intencion: any = null
+    try { const raw = sessionStorage.getItem(IKEY); if (raw) intencion = JSON.parse(raw) } catch {}
+    if (intencion?.pid && pacientes.some(p=>p.id===intencion.pid)) {
+      restaurarInd.current = { done:true, pid:intencion.pid, regId:intencion.regId||'' }
+      setPacienteId(intencion.pid)
+    } else {
+      restaurarInd.current = { done:true }
+    }
+  }, [pacientes])
+
+  // cuando cargan las sesiones del paciente restaurado, reabrir modal si procede
+  useEffect(() => {
+    const r = restaurarInd.current
+    if (r.done && r.regId && pacienteId===r.pid && sesiones.length) {
+      const ses = sesiones.find((x:any)=>x.id===r.regId)
+      if (ses) abrirRegistro(ses)
+      restaurarInd.current = { done:true } // limpiar intencion de modal para no reabrir de nuevo
+    }
+  }, [sesiones, pacienteId])
+
+  // guardar intencion (solo cuando ya restauramos y hay paciente)
+  useEffect(() => {
+    if (!restaurarInd.current.done) return
+    if (!pacienteId) { try { sessionStorage.removeItem(IKEY) } catch {}; return }
+    try { sessionStorage.setItem(IKEY, JSON.stringify({ pid: pacienteId, regId: registrando?.id||'' })) } catch {}
+  }, [pacienteId, registrando])
 
   async function cargar() {
     setLoading(true)
@@ -114,7 +148,11 @@ export default function TallerPage() {
       ejs.forEach(e => {
         if (e.ejercicio_id && cursoMap[e.ejercicio_id]) {
           const r = cursoMap[e.ejercicio_id]
-          if (Array.isArray(r.series)) { e.series = r.series; e.comentario = r.comentario||''; e.guardado = true }
+          if (Array.isArray(r.series)) {
+            const merged = e.series.map((orig:any, idx:number) => r.series[idx] || orig)
+            for (let k=e.series.length; k<r.series.length; k++) merged.push(r.series[k])
+            e.series = merged; e.comentario = r.comentario||''; e.guardado = true
+          }
         }
       })
     } else {
@@ -286,8 +324,11 @@ export default function TallerPage() {
         ))}
       </div>
 
-      {tab==='clase' ? <ModoClase pacientes={pacientes}/> : (
-      <>
+      <div style={{display: tab==='clase' ? 'block' : 'none'}}>
+        <ModoClase pacientes={pacientes}/>
+      </div>
+
+      <div style={{display: tab==='individual' ? 'block' : 'none'}}>
       {/* CABECERA */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
         <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>🔧 Taller de sesiones</span>
@@ -384,8 +425,7 @@ export default function TallerPage() {
           )}
         </>
       )}
-      </>
-      )}
+      </div>
 
       {/* MODAL CONSTRUCTOR */}
       {modalSesion && (

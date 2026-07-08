@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -10,6 +10,89 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const [activo, setActivo] = useState<string>('')
   const [busquedaPac, setBusquedaPac] = useState('')
   const timers = useRef<Record<string, any>>({})
+  const restaurado = useRef(false)
+  const SKEY = 'taller_clase'
+
+  // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
+  async function cargarDatosSesion(pid: string, ses: any) {
+    const ejs: any[] = []
+    ;(ses.partes||[]).forEach((parte:any)=>{
+      ;(parte.ejercicios||[]).forEach((ej:any)=>{
+        const n = parseInt(ej.series)||4
+        ejs.push({
+          ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
+          imagen_url: ej.imagen_url||'', variante: ej.variante||'',
+          plan:{peso:ej.peso,reps:ej.reps},
+          series: Array.from({length:n},()=>({peso:'',reps:''})),
+          comentario:'', ultimo:null, guardado:false,
+        })
+      })
+    })
+    const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
+    if (ids.length) {
+      const { data: fin } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,fecha,created_at')
+        .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
+        .order('fecha',{ascending:false}).order('created_at',{ascending:false})
+      const ultMap:Record<string,any>={}
+      ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
+      const { data: curso } = await supabase.from('registros_ejercicio')
+        .select('ejercicio_id,series,comentario')
+        .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).in('ejercicio_id', ids)
+      const cursoMap:Record<string,any>={}
+      ;(curso||[]).forEach((r:any)=>{ cursoMap[r.ejercicio_id]=r })
+      ejs.forEach(e=>{
+        if (e.ejercicio_id){
+          e.ultimo = ultMap[e.ejercicio_id]?.series || null
+          const c = cursoMap[e.ejercicio_id]
+          if (c && Array.isArray(c.series)) {
+            // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
+            const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
+            // si el borrador tenia mas series que la plantilla, añadirlas
+            for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
+            e.series = merged; e.comentario = c.comentario||''; e.guardado = true
+          }
+        }
+      })
+    }
+    return ejs
+  }
+
+  // RESTAURAR al montar
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = sessionStorage.getItem(SKEY)
+        if (!raw) { restaurado.current = true; return }
+        const saved = JSON.parse(raw)
+        if (saved.fecha) setFecha(saved.fecha)
+        const nueva: any[] = []
+        for (const it of (saved.items||[])) {
+          const pac = pacientes.find((p:any)=>p.id===it.pid)
+          if (!pac) continue
+          const { data: ses } = await supabase.from('sesiones')
+            .select('*').eq('paciente_id', pac.id).order('created_at',{ascending:false})
+          const sesElegida = (ses||[]).find((x:any)=>x.id===it.sesionId)
+          let datos: any[] = []
+          if (sesElegida) datos = await cargarDatosSesion(pac.id, sesElegida)
+          nueva.push({ paciente:pac, sesionId:it.sesionId||'', sesiones:ses||[], datos, cargado:!!sesElegida, finalizado:!!it.finalizado })
+        }
+        setSeleccion(nueva)
+        if (saved.activo) setActivo(saved.activo)
+      } catch(e) { console.error('restaurar clase', e) }
+      restaurado.current = true
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // GUARDAR cuando cambia (solo lo minimo)
+  useEffect(() => {
+    if (!restaurado.current) return
+    try {
+      const items = seleccion.map((s:any)=>({ pid:s.paciente.id, sesionId:s.sesionId, finalizado:s.finalizado }))
+      sessionStorage.setItem(SKEY, JSON.stringify({ fecha, activo, items }))
+    } catch(e) {}
+  }, [seleccion, activo, fecha])
 
   const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
   const yaElegido = (id:string) => seleccion.some(s => s.paciente.id === id)
@@ -29,6 +112,11 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   function quitarPaciente(pid: string) {
     setSeleccion(prev => prev.filter(s => s.paciente.id !== pid))
     if (activo === pid) setActivo('')
+  }
+
+  function limpiarTodo() {
+    if (!confirm('¿Quitar todos los pacientes de la clase? (lo guardado no se borra)')) return
+    setSeleccion([]); setActivo('')
   }
 
   async function elegirSesion(pid: string, sesionId: string) {
@@ -69,7 +157,13 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
           const c = cursoMap[e.ejercicio_id]
-          if (c && Array.isArray(c.series)) { e.series = c.series; e.comentario = c.comentario||''; e.guardado = true }
+          if (c && Array.isArray(c.series)) {
+            // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
+            const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
+            // si el borrador tenia mas series que la plantilla, añadirlas
+            for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
+            e.series = merged; e.comentario = c.comentario||''; e.guardado = true
+          }
         }
       })
     }
@@ -178,6 +272,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>👥 Día de fuerza</span>
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
         <div style={{flex:1}}/>
+        {seleccion.length>0 && <button className="btn btn-d btn-sm" onClick={limpiarTodo}>🧹 Limpiar</button>}
         <div style={{position:'relative',width:260}}>
           <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Añadir paciente..." style={{fontSize:11}}/>
           {busquedaPac && (
