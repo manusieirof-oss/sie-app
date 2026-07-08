@@ -58,8 +58,10 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     return ejs
   }
 
-  // RESTAURAR al montar
+  // RESTAURAR: espera a que 'pacientes' este cargado (viene async por props)
   useEffect(() => {
+    if (restaurado.current) return
+    if (!pacientes.length) return
     (async () => {
       try {
         const raw = sessionStorage.getItem(SKEY)
@@ -77,17 +79,18 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
           if (sesElegida) datos = await cargarDatosSesion(pac.id, sesElegida)
           nueva.push({ paciente:pac, sesionId:it.sesionId||'', sesiones:ses||[], datos, cargado:!!sesElegida, finalizado:!!it.finalizado })
         }
+        restaurado.current = true
         setSeleccion(nueva)
         if (saved.activo) setActivo(saved.activo)
-      } catch(e) { console.error('restaurar clase', e) }
-      restaurado.current = true
+      } catch(e) { console.error('restaurar clase', e); restaurado.current = true }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [pacientes])
 
   // GUARDAR cuando cambia (solo lo minimo)
   useEffect(() => {
     if (!restaurado.current) return
+    if (seleccion.length===0) { try { sessionStorage.removeItem(SKEY) } catch {}; return }
     try {
       const items = seleccion.map((s:any)=>({ pid:s.paciente.id, sesionId:s.sesionId, finalizado:s.finalizado }))
       sessionStorage.setItem(SKEY, JSON.stringify({ fecha, activo, items }))
