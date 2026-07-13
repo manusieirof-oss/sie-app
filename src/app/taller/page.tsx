@@ -140,7 +140,7 @@ export default function TallerPage() {
     if (ids.length) {
       // ultimo registro FINALIZADO por ejercicio (referencia "ultima vez")
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,created_at')
+        .select('ejercicio_id,series,fecha,created_at,comentario')
         .eq('paciente_id', pacienteId).eq('finalizado', true)
         .in('ejercicio_id', ids)
         .order('fecha', { ascending: false }).order('created_at', { ascending: false })
@@ -217,7 +217,8 @@ export default function TallerPage() {
     if (!registrando) return
     const ej = ejData
     const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '' || (x.segundos !== '' && x.segundos !== undefined))
-    if (seriesLlenas.length === 0) return
+    const hayComent = (ej.comentario||'').trim() !== ''
+    if (seriesLlenas.length === 0 && !hayComent) return
     const fila:any = {
       paciente_id: pacienteId, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: registrando.id, series: seriesLlenas, comentario: ej.comentario||null, finalizado: false,
@@ -250,7 +251,8 @@ export default function TallerPage() {
     for (let i=0;i<datosReg.length;i++){
       const ej=datosReg[i]
       const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
-      if (llenas.length>0) { await autoguardar(i, ej) }
+      const hayComent=(ej.comentario||'').trim()!==''
+      if (llenas.length>0 || hayComent) { await autoguardar(i, ej) }
     }
     // borrar finalizados previos del mismo dia para estos ejercicios (evita choque con indice)
     const hoy = new Date().toISOString().slice(0,10)
@@ -600,6 +602,7 @@ export default function TallerPage() {
                 <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:11}}>Esta sesión no tiene ejercicios.</div>
               ) : datosReg.map((ej:any,ei:number)=>{
                 const ult = ej.ejercicio_id ? (ultimos[ej.ejercicio_id]?.series || null) : null
+                const ultComent = ej.ejercicio_id ? (ultimos[ej.ejercicio_id]?.comentario || '') : ''
                 return (
                   <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'9px 11px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
@@ -607,6 +610,7 @@ export default function TallerPage() {
                       <div style={{flex:1}}>
                         <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
                         {!ult&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                        {ultComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic'}}>💬 última vez: {ultComent}</div>}
                       </div>
                       {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
                     </div>

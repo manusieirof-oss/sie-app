@@ -39,7 +39,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     }
     if (ids.length) {
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,created_at')
+        .select('ejercicio_id,series,fecha,created_at,comentario')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
@@ -52,6 +52,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       ejs.forEach(e=>{
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
+          e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
           const c = cursoMap[e.ejercicio_id]
           if (c && Array.isArray(c.series)) {
             // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
@@ -161,7 +162,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     if (ids.length) {
       // ultimo finalizado (referencia)
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,created_at')
+        .select('ejercicio_id,series,fecha,created_at,comentario')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
@@ -175,6 +176,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       ejs.forEach(e=>{
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
+          e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
           const c = cursoMap[e.ejercicio_id]
           if (c && Array.isArray(c.series)) {
             // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
@@ -197,7 +199,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
 
   async function autoguardar(pid:string, ei:number, ej:any, sesionId:string){
     const seriesLlenas = ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
-    if (seriesLlenas.length===0) return
+    const hayComent = (ej.comentario||'').trim()!==''
+    if (seriesLlenas.length===0 && !hayComent) return
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, finalizado:false,
@@ -266,7 +269,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     for (let i=0;i<item.datos.length;i++){
       const ej=item.datos[i]
       const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
-      if (llenas.length>0) await autoguardar(pid,i,ej,item.sesionId)
+      const hayComent=(ej.comentario||'').trim()!==''
+      if (llenas.length>0 || hayComent) await autoguardar(pid,i,ej,item.sesionId)
     }
     // limpiar finalizados previos del dia y marcar
     const ids = item.datos.map((e:any)=>e.ejercicio_id).filter(Boolean)
@@ -354,6 +358,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
                   {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                  {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic'}}>💬 última vez: {ej.ultimoComent}</div>}
                 </div>
                 {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
               </div>
