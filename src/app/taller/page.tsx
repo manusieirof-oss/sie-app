@@ -297,7 +297,7 @@ export default function TallerPage() {
   }
 
   function addEjercicio(ej: any) {
-    setConfigEj({ ejercicio_id:ej.id, nombre:ej.nombre, imagen_url:ej.imagen_url||'', video_url:ej.video_url||'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'' })
+    setConfigEj({ ejercicio_id:ej.id, nombre:ej.nombre, imagen_url:ej.imagen_url||'', video_url:ej.video_url||'', variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'', variantes_disp:ej.variantes||[] })
   }
 
   function confirmarEjercicio() {
@@ -559,7 +559,8 @@ export default function TallerPage() {
             <div className="g2">
               <div className="field"><label>Variante</label>
                 <select className="input" value={configEj.variante} onChange={e=>setConfigEj((p:any)=>({...p,variante:e.target.value}))}>
-                  {['Bilateral','Unilateral','Alterno','Unipodal'].map(v=><option key={v}>{v}</option>)}
+                  <option value="Bilateral">Bilateral (principal)</option>
+                  {(configEj.variantes_disp||[]).map((v:any,i:number)=><option key={i} value={v.nombre}>{v.nombre}</option>)}
                 </select>
               </div>
               <div className="field"><label>Capacidad</label>

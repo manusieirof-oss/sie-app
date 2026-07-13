@@ -33,7 +33,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
   function addEjercicio(ej: any) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
-      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'' }
+      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[] }
       partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
       return { ...prev, partes }
     })
@@ -135,6 +135,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                     <button onClick={()=>quitarEjercicio(parteActiva,ei)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
                   </div>
                   <div style={{padding:'5px 9px 8px',borderTop:'1px solid var(--bm)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                    {(ej.variantes_disp||[]).length>0 && (
+                      <div style={{display:'flex',alignItems:'center',gap:3}}>
+                        <span style={{fontSize:9,color:'var(--grl)'}}>Variante</span>
+                        <select value={ej.variante||'Bilateral'} onChange={e=>{
+                          setFormSesion(prev=>{
+                            const partes=[...prev.partes]
+                            const ejercicios=[...partes[parteActiva].ejercicios]
+                            ejercicios[ei]={...ejercicios[ei],variante:e.target.value}
+                            partes[parteActiva]={...partes[parteActiva],ejercicios}
+                            return{...prev,partes}
+                          })
+                        }} style={{fontSize:11,padding:'2px 4px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui'}}>
+                          <option value="Bilateral">Bilateral</option>
+                          {(ej.variantes_disp||[]).map((v:any,vi:number)=><option key={vi} value={v.nombre}>{v.nombre}</option>)}
+                        </select>
+                      </div>
+                    )}
                     {[['series','Series',40],['reps','Reps',40],['peso','Kg',40],['tiempo','Seg',40]].map(([k,l,w]:any)=>(
                       <div key={k} style={{display:'flex',alignItems:'center',gap:3}}>
                         <span style={{fontSize:9,color:'var(--grl)'}}>{l}</span>
