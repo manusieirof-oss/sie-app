@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad } from '@/lib/capacidades'
 
 export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCerrar }: {
   sesion: any
@@ -23,8 +24,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
     (async () => {
       const { data: objs } = await supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre')
       setObjetivosDisp(objs||[])
-      const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id').eq('sesion_id', sesion.id)
-      setObjetivosSel((rel||[]).map((r:any)=>r.objetivo_id))
+      if (sesion.id) {
+        const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id').eq('sesion_id', sesion.id)
+        setObjetivosSel((rel||[]).map((r:any)=>r.objetivo_id))
+      }
     })()
   }, [sesion.id])
 
@@ -33,7 +36,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
   function addEjercicio(ej: any) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
-      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'Fuerza', series:'3', reps:'10', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[] }
+      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'', regimen:'', series:'3', reps:'', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[] }
       partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
       return { ...prev, partes }
     })
@@ -49,12 +52,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
 
   async function guardarSesion() {
     if (!formSesion.nombre) { alert('El nombre es obligatorio'); return }
+    const esNueva = !sesion.id
+    if (esNueva && !sesion.paciente_id) { alert('Falta el paciente'); return }
     setGuardando(true)
-    await supabase.from('sesiones').update({ nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes:formSesion.partes }).eq('id', sesion.id)
+    let sesionId = sesion.id
+    if (esNueva) {
+      const { data, error } = await supabase.from('sesiones')
+        .insert({ paciente_id:sesion.paciente_id, nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes:formSesion.partes, estado:'lista' })
+        .select('id').single()
+      if (error || !data) { alert('Error al crear la sesión'); setGuardando(false); return }
+      sesionId = data.id
+    } else {
+      await supabase.from('sesiones').update({ nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes:formSesion.partes }).eq('id', sesionId)
+    }
     // sincronizar objetivos (borrar + reinsertar)
-    await supabase.from('sesiones_objetivos').delete().eq('sesion_id', sesion.id)
+    await supabase.from('sesiones_objetivos').delete().eq('sesion_id', sesionId)
     if (objetivosSel.length>0) {
-      await supabase.from('sesiones_objetivos').insert(objetivosSel.map(oid=>({ sesion_id:sesion.id, objetivo_id:oid })))
+      await supabase.from('sesiones_objetivos').insert(objetivosSel.map(oid=>({ sesion_id:sesionId, objetivo_id:oid })))
     }
     setGuardando(false)
     onGuardado()
@@ -130,6 +144,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                       <div style={{display:'flex',gap:3,marginTop:2}}>
                         {ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
                         {ej.capacidad&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
+                        {ej.regimen&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{ej.regimen}</span>}
                       </div>
                     </div>
                     <button onClick={()=>quitarEjercicio(parteActiva,ei)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
@@ -152,7 +167,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                         </select>
                       </div>
                     )}
-                    {[['series','Series',40],['reps','Reps',40],['peso','Kg',40],['tiempo','Seg',40]].map(([k,l,w]:any)=>(
+                    {[['series','Series',40],['peso','Kg',40],['tiempo','Seg',40]].map(([k,l,w]:any)=>(
                       <div key={k} style={{display:'flex',alignItems:'center',gap:3}}>
                         <span style={{fontSize:9,color:'var(--grl)'}}>{l}</span>
                         <input type="number" value={(ej as any)[k]||''} onChange={e=>{
@@ -166,6 +181,56 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                         }} style={{width:w,fontSize:11,padding:'2px 4px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center',fontFamily:'system-ui'}} placeholder="—"/>
                       </div>
                     ))}
+                    {/* Reps con logica bidireccional */}
+                    <div style={{display:'flex',alignItems:'center',gap:3}}>
+                      <span style={{fontSize:9,color:'var(--grl)'}}>Reps</span>
+                      <input type="number" value={ej.reps||''} onChange={e=>{
+                        const val=e.target.value
+                        const cap=capacidadPorReps(val)
+                        setFormSesion(prev=>{
+                          const partes=[...prev.partes]
+                          const ejercicios=[...partes[parteActiva].ejercicios]
+                          ejercicios[ei]={...ejercicios[ei],reps:val,...(cap?{capacidad:cap}:{})}
+                          partes[parteActiva]={...partes[parteActiva],ejercicios}
+                          return{...prev,partes}
+                        })
+                      }} style={{width:40,fontSize:11,padding:'2px 4px',border:'1px solid var(--bd)',borderRadius:4,textAlign:'center',fontFamily:'system-ui'}} placeholder="—"/>
+                    </div>
+                    {/* Capacidad: sugiere reps */}
+                    <div style={{display:'flex',alignItems:'center',gap:3}}>
+                      <span style={{fontSize:9,color:'var(--grl)'}}>Capacidad</span>
+                      <select value={ej.capacidad||''} onChange={e=>{
+                        const cap=e.target.value
+                        const rep=repsPorCapacidad(cap)
+                        setFormSesion(prev=>{
+                          const partes=[...prev.partes]
+                          const ejercicios=[...partes[parteActiva].ejercicios]
+                          ejercicios[ei]={...ejercicios[ei],capacidad:cap,...(rep?{reps:rep}:{})}
+                          partes[parteActiva]={...partes[parteActiva],ejercicios}
+                          return{...prev,partes}
+                        })
+                      }} style={{fontSize:11,padding:'2px 4px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui'}}>
+                        <option value="">—</option>
+                        {CAPACIDADES.map(c=><option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
+                      </select>
+                    </div>
+                    {/* Regimen */}
+                    <div style={{display:'flex',alignItems:'center',gap:3}}>
+                      <span style={{fontSize:9,color:'var(--grl)'}}>Régimen</span>
+                      <select value={ej.regimen||''} onChange={e=>{
+                        const val=e.target.value
+                        setFormSesion(prev=>{
+                          const partes=[...prev.partes]
+                          const ejercicios=[...partes[parteActiva].ejercicios]
+                          ejercicios[ei]={...ejercicios[ei],regimen:val}
+                          partes[parteActiva]={...partes[parteActiva],ejercicios}
+                          return{...prev,partes}
+                        })
+                      }} style={{fontSize:11,padding:'2px 4px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui'}}>
+                        <option value="">—</option>
+                        {REGIMENES.map(r=><option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
                     <input value={ej.nota||''} onChange={e=>{
                       setFormSesion(prev=>{
                         const partes=[...prev.partes]
