@@ -4,6 +4,25 @@ import { supabase } from '@/lib/supabase'
 
 const LATERALIDADES = ['Bilateral','Unilateral','Alterno','Unipodal','Bipodal','Contralateral']
 
+function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
+  const add = () => onChange([...(items||[]), { texto:'' }])
+  const upd = (i:number, val:string) => onChange(items.map((v:any,idx:number)=>idx===i?{...v,texto:val}:v))
+  const del = (i:number) => onChange(items.filter((_:any,idx:number)=>idx!==i))
+  return (
+    <div className="field">
+      <label>{label}</label>
+      {(items||[]).map((it:any,i:number)=>(
+        <div key={i} style={{display:'flex',gap:6,alignItems:'center',marginBottom:5}}>
+          <span style={{fontSize:11}}>{icono}</span>
+          <input className="input" value={it.texto||''} onChange={e=>upd(i,e.target.value)} placeholder={placeholder} disabled={disabled} style={{flex:1,fontSize:11}}/>
+          <button className="btn btn-d btn-sm" onClick={()=>del(i)} disabled={disabled}>✕</button>
+        </div>
+      ))}
+      <button className="btn btn-s btn-sm" onClick={add} disabled={disabled} style={{width:'100%',justifyContent:'center'}}>+ Añadir</button>
+    </div>
+  )
+}
+
 function EditorVariantes({ variantes, onChange, disabled, ejercicioId }: any) {
   const [subiendo, setSubiendo] = useState(-1)
   const add = () => onChange([...(variantes||[]), { nombre:'Unilateral', descripcion:'' }])
@@ -68,9 +87,9 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
   const [modalSelEt, setModalSelEt] = useState(false)
   const [varianteActiva, setVarianteActiva] = useState(-1) // -1 = principal
   useEffect(() => { setVarianteActiva(-1) }, [ejSeleccionado?.id])
-  const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[] })
+  const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[] })
   const [editando, setEditando] = useState(false)
-  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[] })
+  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[] })
   const [modalSelEtEdit, setModalSelEtEdit] = useState(false)
 
   const filtrados = ejercicios.filter((e:any) => {
@@ -93,7 +112,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
 
   function abrirEdicion() {
     if (!ejSeleccionado) return
-    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps', variantes:ejSeleccionado.variantes||[] })
+    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps', variantes:ejSeleccionado.variantes||[], items_ejecucion:ejSeleccionado.items_ejecucion||[], feedbacks:ejSeleccionado.feedbacks||[] })
     setEditando(true)
   }
 
@@ -111,10 +130,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
         imagenUrlFinal = `${publicUrl}?t=${Date.now()}`
       }
     }
-    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes }).eq('id', editEj.id)
+    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks }).eq('id', editEj.id)
     setSubiendoImg(false); setGuardando(false)
     if (error) { alert('Error al actualizar'); return }
-    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes })
+    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks })
     setEditando(false); cargar()
   }
 
@@ -122,7 +141,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
     if (guardando) return
     if (!nuevoEj.nombre) { alert('El nombre es obligatorio'); return }
     setGuardando(true); setSubiendoImg(true)
-    const { data: ejData, error } = await supabase.from('ejercicios').insert({ nombre:nuevoEj.nombre, descripcion:nuevoEj.descripcion, video_url:nuevoEj.video_url, etiquetas:nuevoEj.etiquetas_ids, imagen_url:'', tipo_medida:nuevoEj.tipo_medida, variantes:nuevoEj.variantes }).select().single()
+    const { data: ejData, error } = await supabase.from('ejercicios').insert({ nombre:nuevoEj.nombre, descripcion:nuevoEj.descripcion, video_url:nuevoEj.video_url, etiquetas:nuevoEj.etiquetas_ids, imagen_url:'', tipo_medida:nuevoEj.tipo_medida, variantes:nuevoEj.variantes, items_ejecucion:nuevoEj.items_ejecucion, feedbacks:nuevoEj.feedbacks }).select().single()
     if (error || !ejData) { alert('Error al crear ejercicio'); setGuardando(false); setSubiendoImg(false); return }
     if (nuevoEj.imagen_file) {
       const ext = nuevoEj.imagen_file.name.split('.').pop()
@@ -134,7 +153,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
       }
     }
     setSubiendoImg(false); setModalEj(false)
-    setNuevoEj({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[], imagen_file:null, tipo_medida:'peso_reps', variantes:[] })
+    setNuevoEj({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[], imagen_file:null, tipo_medida:'peso_reps', variantes:[], items_ejecucion:[], feedbacks:[] })
     setGuardando(false); cargar()
   }
 
@@ -209,6 +228,8 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                       <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
                       <EditorVariantes variantes={editEj.variantes} onChange={(v:any[])=>setEditEj(p=>({...p,variantes:v}))} disabled={guardando} ejercicioId={editEj.id}/>
+                      <EditorLista items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} label="Ítems de ejecución correcta" placeholder="ej. Rodillas alineadas con los pies" icono="✅"/>
+                      <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="💬"/>
                       <div className="field">
                         <label>Etiquetas</label>
                         {editEj.etiquetas_ids.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>{editEj.etiquetas_ids.map(id=><span key={id} onClick={()=>setEditEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer'}}>{getNombre(id)} ✕</span>)}</div>}
@@ -260,6 +281,22 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                           {!(ejSeleccionado.etiquetas||[]).length&&<span style={{fontSize:10,color:'var(--grl)'}}>Sin etiquetas</span>}
                         </div>
                       </div>
+                      {(ejSeleccionado.items_ejecucion||[]).length>0 && (
+                        <div style={{marginTop:14}}>
+                          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Ejecución correcta</div>
+                          {(ejSeleccionado.items_ejecucion||[]).map((it:any,i:number)=>(
+                            <div key={i} style={{fontSize:11,color:'var(--n)',marginBottom:3,display:'flex',gap:6}}><span>✅</span><span>{it.texto}</span></div>
+                          ))}
+                        </div>
+                      )}
+                      {(ejSeleccionado.feedbacks||[]).length>0 && (
+                        <div style={{marginTop:14}}>
+                          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Feedbacks</div>
+                          {(ejSeleccionado.feedbacks||[]).map((fb:any,i:number)=>(
+                            <div key={i} style={{fontSize:11,color:'var(--n)',marginBottom:3,display:'flex',gap:6}}><span>💬</span><span>{fb.texto}</span></div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {(()=>{
@@ -327,6 +364,8 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
             <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
             <EditorVariantes variantes={nuevoEj.variantes} onChange={(v:any[])=>setNuevoEj(p=>({...p,variantes:v}))} disabled={guardando}/>
+            <EditorLista items={nuevoEj.items_ejecucion} onChange={(v:any[])=>setNuevoEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} label="Ítems de ejecución correcta" placeholder="ej. Rodillas alineadas con los pies" icono="✅"/>
+            <EditorLista items={nuevoEj.feedbacks} onChange={(v:any[])=>setNuevoEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="💬"/>
             <div className="field">
               <label>Imagen</label>
               <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
