@@ -30,12 +30,18 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     })
     const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida').in('id', ids)
-      const tipoMap:Record<string,string>={}
-      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t.tipo_medida||'peso_reps' })
-      ejs.forEach(e=>{ e.tipo_medida = e.ejercicio_id ? (tipoMap[e.ejercicio_id]||'peso_reps') : 'peso_reps' })
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks').in('id', ids)
+      const tipoMap:Record<string,any>={}
+      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
+      ejs.forEach(e=>{
+        const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
+        e.tipo_medida = t?.tipo_medida || 'peso_reps'
+        e.items = t?.items_ejecucion || []
+        e.feedbacks = t?.feedbacks || []
+        if (!e.items_evaluados) e.items_evaluados = {}
+      })
     } else {
-      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps' })
+      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; if(!e.items_evaluados) e.items_evaluados = {} })
     }
     if (ids.length) {
       const { data: fin } = await supabase.from('registros_ejercicio')
@@ -45,7 +51,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       const ultMap:Record<string,any>={}
       ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,comentario')
+        .select('ejercicio_id,series,comentario,items_evaluados')
         .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).in('ejercicio_id', ids)
       const cursoMap:Record<string,any>={}
       ;(curso||[]).forEach((r:any)=>{ cursoMap[r.ejercicio_id]=r })
@@ -61,6 +67,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
             for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
             e.series = merged; e.comentario = c.comentario||''; e.guardado = true
           }
+          if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
         }
       })
     }
@@ -152,12 +159,18 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     })
     const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida').in('id', ids)
-      const tipoMap:Record<string,string>={}
-      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t.tipo_medida||'peso_reps' })
-      ejs.forEach(e=>{ e.tipo_medida = e.ejercicio_id ? (tipoMap[e.ejercicio_id]||'peso_reps') : 'peso_reps' })
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks').in('id', ids)
+      const tipoMap:Record<string,any>={}
+      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
+      ejs.forEach(e=>{
+        const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
+        e.tipo_medida = t?.tipo_medida || 'peso_reps'
+        e.items = t?.items_ejecucion || []
+        e.feedbacks = t?.feedbacks || []
+        if (!e.items_evaluados) e.items_evaluados = {}
+      })
     } else {
-      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps' })
+      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; if(!e.items_evaluados) e.items_evaluados = {} })
     }
     if (ids.length) {
       // ultimo finalizado (referencia)
@@ -169,7 +182,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
       // borrador en curso de esta sesion
       const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,comentario')
+        .select('ejercicio_id,series,comentario,items_evaluados')
         .eq('paciente_id', pid).eq('sesion_id', sesionId).eq('finalizado', false).in('ejercicio_id', ids)
       const cursoMap:Record<string,any>={}
       ;(curso||[]).forEach((r:any)=>{ cursoMap[r.ejercicio_id]=r })
@@ -185,6 +198,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
             for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
             e.series = merged; e.comentario = c.comentario||''; e.guardado = true
           }
+          if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
         }
       })
     }
@@ -200,10 +214,12 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   async function autoguardar(pid:string, ei:number, ej:any, sesionId:string){
     const seriesLlenas = ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
     const hayComent = (ej.comentario||'').trim()!==''
-    if (seriesLlenas.length===0 && !hayComent) return
+    const iv = ej.items_evaluados || {}
+    const hayItems = Object.values(iv).some((v:any)=>v===true)
+    if (seriesLlenas.length===0 && !hayComent && !hayItems) return
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
-      sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, finalizado:false,
+      sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
     }
     let error
     if (ej.ejercicio_id){
@@ -212,7 +228,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         .eq('sesion_id',sesionId).eq('finalizado',false).maybeSingle()
       if (existe){
         ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre })
+          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv })
           .eq('id', existe.id))
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))
@@ -257,6 +273,17 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; datos[ei]={...datos[ei],comentario:val,guardado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
+  function toggleItem(pid:string, ei:number, ii:number){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]
+      const iv={...(datos[ei].items_evaluados||{})}; iv[ii]=!iv[ii]
+      datos[ei]={...datos[ei],items_evaluados:iv,guardado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
@@ -398,6 +425,24 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                 <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>+ serie</button>
                 <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
               </div>
+              {(ej.items||[]).length>0 && (
+                <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
+                  <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
+                  {(ej.items||[]).map((it:any,ii:number)=>(
+                    <div key={ii} onClick={()=>toggleItem(act.paciente.id,ei,ii)} style={{display:'flex',alignItems:'center',gap:7,padding:'3px 0',cursor:'pointer'}}>
+                      <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${ej.items_evaluados?.[ii]?'var(--g)':'var(--bd)'}`,background:ej.items_evaluados?.[ii]?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{ej.items_evaluados?.[ii]?'✓':''}</span>
+                      <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(ej.feedbacks||[]).length>0 && (
+                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
+                  {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
+                    <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>💬 {fb.texto}</span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

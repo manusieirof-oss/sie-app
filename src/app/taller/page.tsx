@@ -105,14 +105,20 @@ export default function TallerPage() {
     })
     setRegistrando(s)
     const ids = ejs.map(e => e.ejercicio_id).filter(Boolean)
-    // cargar tipo_medida real de cada ejercicio (opcion A: siempre actualizado)
+    // cargar tipo_medida, items y feedbacks reales de cada ejercicio (opcion A: siempre actualizado)
     if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida').in('id', ids)
-      const tipoMap: Record<string,string> = {}
-      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id] = t.tipo_medida||'peso_reps' })
-      ejs.forEach(e=>{ e.tipo_medida = e.ejercicio_id ? (tipoMap[e.ejercicio_id]||'peso_reps') : 'peso_reps' })
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks').in('id', ids)
+      const tipoMap: Record<string,any> = {}
+      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id] = t })
+      ejs.forEach(e=>{
+        const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
+        e.tipo_medida = t?.tipo_medida || 'peso_reps'
+        e.items = t?.items_ejecucion || []
+        e.feedbacks = t?.feedbacks || []
+        e.items_evaluados = {}
+      })
     } else {
-      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps' })
+      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; e.items_evaluados = {} })
     }
     if (ids.length) {
       // ultimo registro FINALIZADO por ejercicio (referencia "ultima vez")
@@ -126,7 +132,7 @@ export default function TallerPage() {
       setUltimos(ultMap)
       // borrador EN CURSO (no finalizado) de esta sesion -> precargar
       const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,comentario')
+        .select('ejercicio_id,series,comentario,items_evaluados')
         .eq('paciente_id', pacienteId).eq('sesion_id', s.id).eq('finalizado', false)
         .in('ejercicio_id', ids)
       const cursoMap: Record<string,any> = {}
@@ -139,6 +145,7 @@ export default function TallerPage() {
             for (let k=e.series.length; k<r.series.length; k++) merged.push(r.series[k])
             e.series = merged; e.comentario = r.comentario||''; e.guardado = true
           }
+          if (r.items_evaluados && typeof r.items_evaluados==='object') e.items_evaluados = r.items_evaluados
         }
       })
     } else {
@@ -189,16 +196,29 @@ export default function TallerPage() {
     })
   }
 
+  function toggleItem(ejIdx: number, itemIdx: number) {
+    setDatosReg(prev => {
+      const d = [...prev]
+      const iv = { ...(d[ejIdx].items_evaluados||{}) }
+      iv[itemIdx] = !iv[itemIdx]
+      d[ejIdx] = { ...d[ejIdx], items_evaluados: iv }
+      programarAutosave(ejIdx, d[ejIdx])
+      return d
+    })
+  }
+
   // autoguardado silencioso por ejercicio (buscar-y-decidir, finalizado=false)
   async function autoguardar(ei: number, ejData: any) {
     if (!registrando) return
     const ej = ejData
     const seriesLlenas = ej.series.filter((x:any) => x.peso !== '' || x.reps !== '' || (x.segundos !== '' && x.segundos !== undefined))
     const hayComent = (ej.comentario||'').trim() !== ''
-    if (seriesLlenas.length === 0 && !hayComent) return
+    const iv = ej.items_evaluados || {}
+    const hayItems = Object.values(iv).some((v:any)=>v===true)
+    if (seriesLlenas.length === 0 && !hayComent && !hayItems) return
     const fila:any = {
       paciente_id: pacienteId, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
-      sesion_id: registrando.id, series: seriesLlenas, comentario: ej.comentario||null, finalizado: false,
+      sesion_id: registrando.id, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado: false,
     }
     let error
     if (ej.ejercicio_id) {
@@ -207,7 +227,7 @@ export default function TallerPage() {
         .eq('sesion_id', registrando.id).eq('finalizado', false).maybeSingle()
       if (existe) {
         ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series: seriesLlenas, comentario: ej.comentario||null, ejercicio_nombre: ej.nombre })
+          .update({ series: seriesLlenas, comentario: ej.comentario||null, ejercicio_nombre: ej.nombre, items_evaluados: iv })
           .eq('id', existe.id))
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))
@@ -451,6 +471,24 @@ export default function TallerPage() {
                       <button onClick={()=>addSerie(ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 0'}}>+ serie</button>
                       <input value={ej.comentario} onChange={e=>setComentarioReg(ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
                     </div>
+                    {(ej.items||[]).length>0 && (
+                      <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
+                        <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
+                        {(ej.items||[]).map((it:any,ii:number)=>(
+                          <div key={ii} onClick={()=>toggleItem(ei,ii)} style={{display:'flex',alignItems:'center',gap:7,padding:'3px 0',cursor:'pointer'}}>
+                            <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${ej.items_evaluados?.[ii]?'var(--g)':'var(--bd)'}`,background:ej.items_evaluados?.[ii]?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{ej.items_evaluados?.[ii]?'✓':''}</span>
+                            <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(ej.feedbacks||[]).length>0 && (
+                      <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
+                        {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
+                          <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>💬 {fb.texto}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}
