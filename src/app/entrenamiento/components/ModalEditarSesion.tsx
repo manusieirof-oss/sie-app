@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad } from '@/lib/capacidades'
 
-export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCerrar }: {
+export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCerrar, pacientes }: {
   sesion: any
   ejercicios: any[]
   onGuardado: () => void
   onCerrar: () => void
+  pacientes?: any[]
 }) {
+  const [pacienteSel, setPacienteSel] = useState(sesion.paciente_id || '')
   const [formSesion, setFormSesion] = useState({
     nombre: sesion.nombre || '',
     descripcion: sesion.descripcion || '',
@@ -53,12 +55,13 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
   async function guardarSesion() {
     if (!formSesion.nombre) { alert('El nombre es obligatorio'); return }
     const esNueva = !sesion.id
-    if (esNueva && !sesion.paciente_id) { alert('Falta el paciente'); return }
+    const pid = sesion.paciente_id || pacienteSel
+    if (esNueva && !pid) { alert('Selecciona un paciente'); return }
     setGuardando(true)
     let sesionId = sesion.id
     if (esNueva) {
       const { data, error } = await supabase.from('sesiones')
-        .insert({ paciente_id:sesion.paciente_id, nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes:formSesion.partes, estado:'lista' })
+        .insert({ paciente_id:pid, nombre:formSesion.nombre, descripcion:formSesion.descripcion, partes:formSesion.partes, estado:'lista' })
         .select('id').single()
       if (error || !data) { alert('Error al crear la sesión'); setGuardando(false); return }
       sesionId = data.id
@@ -81,6 +84,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
         {/* CABECERA */}
         <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
+            {!sesion.id && !sesion.paciente_id && pacientes && (
+              <select className="input" value={pacienteSel} onChange={e=>setPacienteSel(e.target.value)} style={{fontSize:11,marginBottom:6,width:'100%'}}>
+                <option value="">Seleccionar paciente... *</option>
+                {pacientes.map((p:any)=><option key={p.id} value={p.id}>{p.nombre} {p.apellidos}{p.nombre_clinica?` · ${p.nombre_clinica}`:''}</option>)}
+              </select>
+            )}
             <input className="input" value={formSesion.nombre} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%'}} autoFocus/>
             <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / objetivo (opcional)" style={{fontSize:11,color:'var(--grl)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>

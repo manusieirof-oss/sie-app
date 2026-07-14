@@ -112,7 +112,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
         <input className="input" placeholder="🔍 Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
         <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} sesiones</span>
-        <button className="btn btn-p btn-sm" onClick={()=>setModalSes(true)}>+ Nueva sesión</button>
+        <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
       {(objetivos||[]).length>0&&(
         <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
@@ -284,6 +284,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         <ModalEditarSesion
           sesion={sesionEditando}
           ejercicios={ejercicios}
+          pacientes={pacientes}
           onGuardado={cargar}
           onCerrar={()=>setSesionEditando(null)}
         />
