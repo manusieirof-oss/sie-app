@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
+import EvaluacionEjecucion from './EvaluacionEjecucion'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
-  const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'>('activo')
+  const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
   const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
@@ -109,7 +110,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   return (
     <div>
       <div style={{display:'flex',gap:4,marginBottom:12,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3}}>
-        {([['activo','📋 Plan activo',citasFuturas.length],['sesiones','📋 Sesiones',sesionesDisp.length],['historial','📂 Historial de entrenamiento',sesionesHistorial.length]] as const).map(([k,l,n])=>(
+        {([['activo','📋 Plan activo',citasFuturas.length],['sesiones','📋 Sesiones',sesionesDisp.length],['historial','📂 Historial',sesionesHistorial.length],['ejecucion','✅ Ejecución',0]] as const).map(([k,l,n])=>(
           <button key={k} onClick={()=>setSeccion(k)}
             style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:seccion===k?'var(--w)':'transparent',color:seccion===k?'var(--n)':'var(--grl)',fontWeight:seccion===k?500:300,boxShadow:seccion===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
             {l} <span style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:seccion===k?'var(--g)':'var(--bm)',color:seccion===k?'#fff':'var(--grl)'}}>{n}</span>
@@ -301,6 +302,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           </div>
         </div>
       )}
+      {seccion==='ejecucion'&&(
+        <EvaluacionEjecucion pacienteId={pacienteId}/>
+      )}
+
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
     </div>
