@@ -12,6 +12,35 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const timers = useRef<Record<string, any>>({})
   const restaurado = useRef(false)
   const SKEY = 'taller_clase'
+  const [objetivosLib, setObjetivosLib] = useState<any[]>([])
+  const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre')
+      setObjetivosLib(data||[])
+    })()
+  }, [])
+
+  async function cargarObjsPaciente(pid: string) {
+    const { data } = await supabase.from('pacientes_objetivos').select('objetivo_id,origen').eq('paciente_id', pid)
+    setObjsPorPaciente(prev => ({ ...prev, [pid]: data||[] }))
+  }
+
+  async function toggleObjetivo(pid: string, objetivoId: string) {
+    const actuales = objsPorPaciente[pid] || []
+    const existe = actuales.find((o:any)=>o.objetivo_id===objetivoId)
+    if (existe) {
+      const { error } = await supabase.from('pacientes_objetivos')
+        .delete().eq('paciente_id', pid).eq('objetivo_id', objetivoId)
+      if (error) { alert('Error: '+error.message); return }
+    } else {
+      const { error } = await supabase.from('pacientes_objetivos')
+        .insert({ paciente_id: pid, objetivo_id: objetivoId, origen: 'ejecucion' })
+      if (error) { alert('Error: '+error.message); return }
+    }
+    await cargarObjsPaciente(pid)
+  }
 
   // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
   async function cargarDatosSesion(pid: string, ses: any) {
@@ -94,6 +123,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
           let datos: any[] = []
           if (sesElegida) datos = await cargarDatosSesion(pac.id, sesElegida)
           nueva.push({ paciente:pac, sesionId:it.sesionId||'', sesiones:ses||[], datos, cargado:!!sesElegida, finalizado:!!it.finalizado })
+          cargarObjsPaciente(pac.id)
         }
         restaurado.current = true
         setSeleccion(nueva)
@@ -126,6 +156,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     setSeleccion(prev => [...prev, { paciente:p, sesionId:'', sesiones:ses||[], datos:[], cargado:false, finalizado:false }])
     setActivo(p.id)
     setBusquedaPac('')
+    cargarObjsPaciente(p.id)
   }
 
   function quitarPaciente(pid: string) {
@@ -428,12 +459,33 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
               {(ej.items||[]).length>0 && (
                 <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
                   <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
-                  {(ej.items||[]).map((it:any,ii:number)=>(
-                    <div key={ii} onClick={()=>toggleItem(act.paciente.id,ei,ii)} style={{display:'flex',alignItems:'center',gap:7,padding:'3px 0',cursor:'pointer'}}>
-                      <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${ej.items_evaluados?.[ii]?'var(--g)':'var(--bd)'}`,background:ej.items_evaluados?.[ii]?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{ej.items_evaluados?.[ii]?'✓':''}</span>
-                      <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
-                    </div>
-                  ))}
+                  {(ej.items||[]).map((it:any,ii:number)=>{
+                    const cumple = ej.items_evaluados?.[ii]
+                    const objs = (it.objetivos||[]).map((oid:string)=>objetivosLib.find((o:any)=>o.id===oid)).filter(Boolean)
+                    const objsPac = objsPorPaciente[act.paciente.id] || []
+                    return (
+                      <div key={ii} style={{padding:'3px 0'}}>
+                        <div onClick={()=>toggleItem(act.paciente.id,ei,ii)} style={{display:'flex',alignItems:'center',gap:7,cursor:'pointer'}}>
+                          <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${cumple?'var(--g)':'var(--bd)'}`,background:cumple?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{cumple?'✓':''}</span>
+                          <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
+                        </div>
+                        {!cumple && objs.length>0 && (
+                          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginLeft:23,marginTop:3}}>
+                            {objs.map((o:any)=>{
+                              const yaActivo = objsPac.some((po:any)=>po.objetivo_id===o.id)
+                              return (
+                                <span key={o.id} onClick={()=>toggleObjetivo(act.paciente.id,o.id)}
+                                  title={yaActivo?'Quitar objetivo del paciente':'Activar este objetivo'}
+                                  style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:`1px solid ${o.color||'var(--g)'}`,background:yaActivo?(o.color||'var(--g)'):'var(--w)',color:yaActivo?'#fff':(o.color||'var(--gd)')}}>
+                                  {yaActivo?'✓ ':'+ '}{o.nombre}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {(ej.feedbacks||[]).length>0 && (

@@ -7,6 +7,7 @@ import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 export default function TallerPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
   const [ejercicios, setEjercicios] = useState<any[]>([])
+  const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pacienteId, setPacienteId] = useState('')
@@ -33,7 +34,7 @@ export default function TallerPage() {
   const IKEY = 'taller_individual'
 
   useEffect(() => { cargar() }, [])
-  useEffect(() => { if (pacienteId) cargarSesiones() }, [pacienteId])
+  useEffect(() => { if (pacienteId) { cargarSesiones(); cargarObjetivosPaciente(pacienteId) } }, [pacienteId])
 
   // aplicar restauracion una sola vez cuando hay pacientes cargados
   useEffect(() => {
@@ -68,11 +69,12 @@ export default function TallerPage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p }, { data: e }] = await Promise.all([
+    const [{ data: p }, { data: e }, { data: o }] = await Promise.all([
       supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').eq('estado','activo').order('nombre'),
       supabase.from('ejercicios').select('*').order('nombre'),
+      supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre'),
     ])
-    setPacientes(p||[]); setEjercicios(e||[])
+    setPacientes(p||[]); setEjercicios(e||[]); setObjetivosLib(o||[])
     setLoading(false)
   }
 
@@ -194,6 +196,30 @@ export default function TallerPage() {
       programarAutosave(ejIdx, d[ejIdx])
       return d
     })
+  }
+
+  const [objetivosPaciente, setObjetivosPaciente] = useState<any[]>([])
+
+  async function cargarObjetivosPaciente(pid: string) {
+    if (!pid) { setObjetivosPaciente([]); return }
+    const { data } = await supabase.from('pacientes_objetivos').select('objetivo_id,origen').eq('paciente_id', pid)
+    setObjetivosPaciente(data||[])
+  }
+
+  async function activarObjetivo(objetivoId: string) {
+    if (!pacienteId) return
+    const existe = objetivosPaciente.find((o:any)=>o.objetivo_id===objetivoId)
+    if (existe) {
+      // toggle: quitar el objetivo del paciente
+      const { error } = await supabase.from('pacientes_objetivos')
+        .delete().eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
+      if (error) { alert('Error: '+error.message); return }
+    } else {
+      const { error } = await supabase.from('pacientes_objetivos')
+        .insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen: 'ejecucion' })
+      if (error) { alert('Error: '+error.message); return }
+    }
+    await cargarObjetivosPaciente(pacienteId)
   }
 
   function toggleItem(ejIdx: number, itemIdx: number) {
@@ -474,12 +500,32 @@ export default function TallerPage() {
                     {(ej.items||[]).length>0 && (
                       <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
                         <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
-                        {(ej.items||[]).map((it:any,ii:number)=>(
-                          <div key={ii} onClick={()=>toggleItem(ei,ii)} style={{display:'flex',alignItems:'center',gap:7,padding:'3px 0',cursor:'pointer'}}>
-                            <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${ej.items_evaluados?.[ii]?'var(--g)':'var(--bd)'}`,background:ej.items_evaluados?.[ii]?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{ej.items_evaluados?.[ii]?'✓':''}</span>
-                            <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
-                          </div>
-                        ))}
+                        {(ej.items||[]).map((it:any,ii:number)=>{
+                          const cumple = ej.items_evaluados?.[ii]
+                          const objs = (it.objetivos||[]).map((oid:string)=>objetivosLib.find((o:any)=>o.id===oid)).filter(Boolean)
+                          return (
+                            <div key={ii} style={{padding:'3px 0'}}>
+                              <div onClick={()=>toggleItem(ei,ii)} style={{display:'flex',alignItems:'center',gap:7,cursor:'pointer'}}>
+                                <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${cumple?'var(--g)':'var(--bd)'}`,background:cumple?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{cumple?'✓':''}</span>
+                                <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
+                              </div>
+                              {!cumple && objs.length>0 && (
+                                <div style={{display:'flex',flexWrap:'wrap',gap:4,marginLeft:23,marginTop:3}}>
+                                  {objs.map((o:any)=>{
+                                    const yaActivo = objetivosPaciente.some((po:any)=>po.objetivo_id===o.id)
+                                    return (
+                                      <span key={o.id} onClick={()=>activarObjetivo(o.id)}
+                                        title={yaActivo?'Quitar objetivo del paciente':'Activar este objetivo'}
+                                        style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:`1px solid ${o.color||'var(--g)'}`,background:yaActivo?(o.color||'var(--g)'):'var(--w)',color:yaActivo?'#fff':(o.color||'var(--gd)')}}>
+                                        {yaActivo?'✓ ':'+ '}{o.nombre}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                     {(ej.feedbacks||[]).length>0 && (
