@@ -23,6 +23,45 @@ function EditorLista({ items, onChange, disabled, label, placeholder, icono }: a
   )
 }
 
+function EditorItems({ items, onChange, disabled, objetivos }: any) {
+  const add = () => onChange([...(items||[]), { texto:'', objetivos:[] }])
+  const upd = (i:number, campo:string, val:any) => onChange(items.map((v:any,idx:number)=>idx===i?{...v,[campo]:val}:v))
+  const del = (i:number) => onChange(items.filter((_:any,idx:number)=>idx!==i))
+  const toggleObj = (i:number, oid:string) => {
+    const actuales = items[i].objetivos || []
+    const nuevos = actuales.includes(oid) ? actuales.filter((x:string)=>x!==oid) : [...actuales, oid]
+    upd(i, 'objetivos', nuevos)
+  }
+  return (
+    <div className="field">
+      <label>Ítems de ejecución correcta</label>
+      {(items||[]).map((it:any,i:number)=>(
+        <div key={i} style={{border:'1px solid var(--bd)',borderRadius:6,padding:8,marginBottom:6,background:'var(--bl)'}}>
+          <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+            <span style={{fontSize:11}}>✅</span>
+            <input className="input" value={it.texto||''} onChange={e=>upd(i,'texto',e.target.value)} placeholder="ej. Rodillas alineadas con los pies" disabled={disabled} style={{flex:1,fontSize:11}}/>
+            <button className="btn btn-d btn-sm" onClick={()=>del(i)} disabled={disabled}>✕</button>
+          </div>
+          <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>Si no lo cumple, trabajar:</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+            {(objetivos||[]).length===0 && <span style={{fontSize:9,color:'var(--grl)'}}>No hay objetivos creados</span>}
+            {(objetivos||[]).map((o:any)=>{
+              const sel = (it.objetivos||[]).includes(o.id)
+              return (
+                <span key={o.id} onClick={()=>!disabled&&toggleObj(i,o.id)}
+                  style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:`1px solid ${sel?(o.color||'var(--g)'):'var(--bd)'}`,background:sel?(o.color||'var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
+                  {o.nombre}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <button className="btn btn-s btn-sm" onClick={add} disabled={disabled} style={{width:'100%',justifyContent:'center'}}>+ Añadir ítem</button>
+    </div>
+  )
+}
+
 function EditorVariantes({ variantes, onChange, disabled, ejercicioId }: any) {
   const [subiendo, setSubiendo] = useState(-1)
   const add = () => onChange([...(variantes||[]), { nombre:'Unilateral', descripcion:'' }])
@@ -76,7 +115,7 @@ function EditorVariantes({ variantes, onChange, disabled, ejercicioId }: any) {
   )
 }
 
-export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre, SelectorColumnas }: any) {
+export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar, getNombre, SelectorColumnas }: any) {
   const [buscar, setBuscar] = useState('')
   const [filtroEtiquetas, setFiltroEtiquetas] = useState<string[]>([])
   const [modalFiltro, setModalFiltro] = useState(false)
@@ -228,7 +267,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
                       <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
                       <EditorVariantes variantes={editEj.variantes} onChange={(v:any[])=>setEditEj(p=>({...p,variantes:v}))} disabled={guardando} ejercicioId={editEj.id}/>
-                      <EditorLista items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} label="Ítems de ejecución correcta" placeholder="ej. Rodillas alineadas con los pies" icono="✅"/>
+                      <EditorItems items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
                       <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="💬"/>
                       <div className="field">
                         <label>Etiquetas</label>
@@ -364,7 +403,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, cargar, getNombre
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
             <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
             <EditorVariantes variantes={nuevoEj.variantes} onChange={(v:any[])=>setNuevoEj(p=>({...p,variantes:v}))} disabled={guardando}/>
-            <EditorLista items={nuevoEj.items_ejecucion} onChange={(v:any[])=>setNuevoEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} label="Ítems de ejecución correcta" placeholder="ej. Rodillas alineadas con los pies" icono="✅"/>
+            <EditorItems items={nuevoEj.items_ejecucion} onChange={(v:any[])=>setNuevoEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
             <EditorLista items={nuevoEj.feedbacks} onChange={(v:any[])=>setNuevoEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="💬"/>
             <div className="field">
               <label>Imagen</label>
