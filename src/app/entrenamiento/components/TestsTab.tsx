@@ -14,7 +14,25 @@ const CATEGORIAS = [
   { key: 'plano_eje', label: '🧭 Plano y eje' },
 ]
 
-export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorColumnas }: any) {
+function PildorasObjetivos({ seleccionados, objetivos, onToggle }: any) {
+  if (!objetivos || objetivos.length===0) return null
+  return (
+    <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:4,marginLeft:2}}>
+      <span style={{fontSize:8,color:'var(--grl)',alignSelf:'center'}}>Objetivos:</span>
+      {objetivos.map((o:any)=>{
+        const sel = (seleccionados||[]).includes(o.id)
+        return (
+          <span key={o.id} onClick={()=>onToggle(o.id)}
+            style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:'1px solid '+(sel?(o.color||'var(--g)'):'var(--bd)'),background:sel?(o.color||'var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
+            {o.nombre}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, SelectorColumnas }: any) {
   const [modalTest, setModalTest] = useState(false)
   const [testDetalle, setTestDetalle] = useState<any>(null)
   const [modalEditarTest, setModalEditarTest] = useState(false)
@@ -170,13 +188,21 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
                   <option value="todos">Todos los ítems = positivo</option>
                 </select>
               </div>
-              {nuevoTest.items.map((item,i)=>(
-                <div key={i} style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
-                  <input className="input" value={item.nombre} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],nombre:e.target.value};setNuevoTest(p=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
-                  <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
-                    <input type="checkbox" checked={item.tiene_grados} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],tiene_grados:e.target.checked};setNuevoTest(p=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
-                  </label>
-                  <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+              {nuevoTest.items.map((item:any,i:number)=>(
+                <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}>
+                    <input className="input" value={item.nombre} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],nombre:e.target.value};setNuevoTest(p=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
+                    <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
+                      <input type="checkbox" checked={item.tiene_grados} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],tiene_grados:e.target.checked};setNuevoTest(p=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
+                    </label>
+                    <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                  </div>
+                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
+                    const its=[...nuevoTest.items] as any[]
+                    const act = its[i].objetivos||[]
+                    its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
+                    setNuevoTest(p=>({...p,items:its}))
+                  }}/>
                 </div>
               ))}
               <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',tiene_grados:false}]}))}>+ Añadir ítem</button>
@@ -230,12 +256,20 @@ export default function TestsTab({ testsLib, etiquetas, setTestsLib, SelectorCol
                 <label style={{margin:0}}>Ítems</label>
               </div>
               {(testEditando.items||[]).map((item:any,i:number)=>(
-                <div key={i} style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
-                  <input className="input" value={item.nombre} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],nombre:e.target.value};setTestEditando((p:any)=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
-                  <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
-                    <input type="checkbox" checked={!!item.tiene_grados} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],tiene_grados:e.target.checked};setTestEditando((p:any)=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
-                  </label>
-                  <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}>
+                    <input className="input" value={item.nombre} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],nombre:e.target.value};setTestEditando((p:any)=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
+                    <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
+                      <input type="checkbox" checked={!!item.tiene_grados} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],tiene_grados:e.target.checked};setTestEditando((p:any)=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
+                    </label>
+                    <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
+                  </div>
+                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
+                    const its=[...(testEditando.items||[])] as any[]
+                    const act = its[i].objetivos||[]
+                    its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
+                    setTestEditando((p:any)=>({...p,items:its}))
+                  }}/>
                 </div>
               ))}
               <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',tiene_grados:false}]}))}>+ Añadir ítem</button>

@@ -188,7 +188,7 @@ function EntrenamientoContent() {
         <>
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
           {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
-          {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
+          {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} cargar={cargar}/>}
           {tab==='clinico'&&<ClinicoTab patologiasBiblio={patologiasBiblio} molestiasBiblio={molestiasBiblio} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}
           {tab==='objetivos'&&<ObjetivosTab objetivos={objetivos} testsLib={testsLib} cargar={cargar}/>}

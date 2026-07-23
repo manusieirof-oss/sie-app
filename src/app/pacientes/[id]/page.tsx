@@ -309,6 +309,44 @@ export default function FichaPacientePage() {
         }
       }
     }
+    // Objetivos por ITEM marcado del test
+    for (let ii=0; ii<itemsTest.length; ii++) {
+      const it:any = itemsTest[ii]
+      const objIds:string[] = it.objetivos || []
+      if (objIds.length===0) continue
+      const refItem = testSeleccionado + ':' + ii
+      const etiquetaItem = 'Test: ' + (testSeleccionadoObj?.nombre||'test') + ' · ' + (it.nombre||('ítem '+(ii+1)))
+      for (const oid of objIds) {
+        const { data: exist } = await supabase.from('pacientes_objetivos')
+          .select('vias,origen').eq('paciente_id', id).eq('objetivo_id', oid).maybeSingle()
+        if (it.marcado) {
+          const nuevaVia = { tipo:'test_item', ref:refItem, etiqueta:etiquetaItem, resuelto:false, fecha_resuelto:null }
+          if (exist) {
+            const vias = Array.isArray(exist.vias) ? exist.vias : []
+            const yaEsta = vias.some((v:any)=>v.tipo==='test_item' && v.ref===refItem)
+            const nuevasVias = yaEsta
+              ? vias.map((v:any)=>(v.tipo==='test_item'&&v.ref===refItem)?{...v,resuelto:false,fecha_resuelto:null}:v)
+              : [...vias, nuevaVia]
+            const origen = (exist.origen||'').includes('test') ? exist.origen : (exist.origen? exist.origen+'+test':'test')
+            await supabase.from('pacientes_objetivos').update({ vias:nuevasVias, origen, logrado:false, fecha_logrado:null }).eq('paciente_id', id).eq('objetivo_id', oid)
+          } else {
+            await supabase.from('pacientes_objetivos').insert({ paciente_id:id, objetivo_id:oid, origen:'test', vias:[nuevaVia] })
+          }
+        } else if (exist) {
+          // item NO marcado -> si existia esa via, se resuelve
+          const vias = Array.isArray(exist.vias) ? exist.vias : []
+          let cambio = false
+          const nuevas = vias.map((v:any)=>{
+            if (v.tipo==='test_item' && v.ref===refItem && !v.resuelto) { cambio=true; return {...v, resuelto:true, fecha_resuelto:new Date().toISOString().slice(0,10)} }
+            return v
+          })
+          if (cambio) {
+            const todas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
+            await supabase.from('pacientes_objetivos').update({ vias:nuevas, logrado:todas, fecha_logrado: todas?new Date().toISOString().slice(0,10):null }).eq('paciente_id', id).eq('objetivo_id', oid)
+          }
+        }
+      }
+    }
     setModalRegistrarTest(false)
     setTestSeleccionado(''); setResultadoTest('positivo'); setObsTest(''); setFechaRevTest('')
     setItemsTest([]); setLadoTest('bilateral'); setTestSeleccionadoObj(null)
