@@ -52,7 +52,7 @@ function EntrenamientoContent() {
     setLoading(true)
     const [{ data: e },{ data: p },{ data: s },{ data: et },{ data: tl }] = await Promise.all([
       supabase.from('ejercicios').select('*').order('nombre'),
-      supabase.from('pacientes').select('id,nombre,apellidos').eq('estado','activo').order('nombre'),
+      supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').eq('estado','activo').order('nombre'),
       supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id)').order('created_at',{ascending:false}).limit(20),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
       supabase.from('tests').select('*').order('nombre'),

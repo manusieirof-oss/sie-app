@@ -135,6 +135,29 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     setPatConfig(null); setBuscarPat(''); setGuardando(false); cargar()
   }
 
+  async function resolverTestNegativo(t:any) {
+    await supabase.from('resultados_tests').update({resultado:'negativo'}).eq('id',t.id)
+    // resolver la via 'test' con ref = t.test_id en los objetivos del paciente
+    const { data: pos } = await supabase.from('pacientes_objetivos').select('objetivo_id,vias').eq('paciente_id', id)
+    for (const po of (pos||[])) {
+      const vias = Array.isArray(po.vias) ? po.vias : []
+      let cambio = false
+      const nuevas = vias.map((v:any)=>{
+        if (v.tipo==='test' && v.ref===t.test_id && !v.resuelto) { cambio=true; return {...v, resuelto:true, fecha_resuelto:new Date().toISOString().slice(0,10)} }
+        return v
+      })
+      if (cambio) {
+        const todasResueltas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
+        await supabase.from('pacientes_objetivos').update({
+          vias:nuevas,
+          logrado: todasResueltas,
+          fecha_logrado: todasResueltas ? new Date().toISOString().slice(0,10) : null,
+        }).eq('paciente_id', id).eq('objetivo_id', po.objetivo_id)
+      }
+    }
+    cargar()
+  }
+
   return (
     <div className="g2">
       <div>
@@ -275,7 +298,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                             <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})} · {grupo.length} {grupo.length===1?'registro':'registros'}</div>
                           </div>
                           <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid var(--red)'}}>+ Positivo</span>
-                          <button onClick={async()=>{await supabase.from('resultados_tests').update({resultado:'negativo'}).eq('id',t.id);cargar()}} style={{fontSize:8,padding:'2px 6px',borderRadius:3,border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui'}}>→ Negativo</button>
+                          <button onClick={()=>resolverTestNegativo(t)} style={{fontSize:8,padding:'2px 6px',borderRadius:3,border:'1px solid var(--g)',background:'var(--gl)',color:'var(--gd)',cursor:'pointer',fontFamily:'system-ui'}}>→ Negativo</button>
                         </div>
                         {(t.items_resultado||[]).filter((i:any)=>i.marcado).map((item:any,ii:number)=>(
                           <div key={ii} style={{fontSize:9,color:'var(--red)',marginTop:3,display:'flex',alignItems:'center',gap:5}}><span>☑</span><span>{item.nombre}{item.grados?' · '+item.grados+'°':''}</span></div>

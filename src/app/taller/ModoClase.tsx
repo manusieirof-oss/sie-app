@@ -23,23 +23,57 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   }, [])
 
   async function cargarObjsPaciente(pid: string) {
-    const { data } = await supabase.from('pacientes_objetivos').select('objetivo_id,origen').eq('paciente_id', pid)
+    const { data } = await supabase.from('pacientes_objetivos').select('objetivo_id,origen,vias').eq('paciente_id', pid)
     setObjsPorPaciente(prev => ({ ...prev, [pid]: data||[] }))
   }
 
-  async function toggleObjetivo(pid: string, objetivoId: string) {
+  async function toggleObjetivo(pid: string, objetivoId: string, ejercicioId?: string, ejercicioNombre?: string) {
     const actuales = objsPorPaciente[pid] || []
     const existe = actuales.find((o:any)=>o.objetivo_id===objetivoId)
+    const ref = ejercicioId || ''
+    const etiqueta = ejercicioNombre ? ('Ejercicio: ' + ejercicioNombre) : 'Ejecucion'
     if (existe) {
-      const { error } = await supabase.from('pacientes_objetivos')
-        .delete().eq('paciente_id', pid).eq('objetivo_id', objetivoId)
-      if (error) { alert('Error: '+error.message); return }
+      const vias = Array.isArray(existe.vias) ? existe.vias : []
+      const restantes = vias.filter((v:any)=>!(v.tipo==='ejecucion' && v.ref===ref))
+      if (restantes.length===0) {
+        const { error } = await supabase.from('pacientes_objetivos')
+          .delete().eq('paciente_id', pid).eq('objetivo_id', objetivoId)
+        if (error) { alert('Error: '+error.message); return }
+      } else {
+        const todasResueltas = restantes.every((v:any)=>v.resuelto)
+        const { error } = await supabase.from('pacientes_objetivos')
+          .update({ vias:restantes, logrado:todasResueltas, fecha_logrado: todasResueltas?new Date().toISOString().slice(0,10):null })
+          .eq('paciente_id', pid).eq('objetivo_id', objetivoId)
+        if (error) { alert('Error: '+error.message); return }
+      }
     } else {
+      const nuevaVia = { tipo:'ejecucion', ref, etiqueta, resuelto:false, fecha_resuelto:null }
       const { error } = await supabase.from('pacientes_objetivos')
-        .insert({ paciente_id: pid, objetivo_id: objetivoId, origen: 'ejecucion' })
+        .insert({ paciente_id: pid, objetivo_id: objetivoId, origen: 'ejecucion', vias:[nuevaVia] })
       if (error) { alert('Error: '+error.message); return }
     }
     await cargarObjsPaciente(pid)
+  }
+
+  async function resolverViaEjecucionClase(pid: string, objetivoIds: string[], ejercicioId: string, resuelto: boolean) {
+    for (const oid of objetivoIds) {
+      const { data: po } = await supabase.from('pacientes_objetivos')
+        .select('vias').eq('paciente_id', pid).eq('objetivo_id', oid).maybeSingle()
+      if (!po) continue
+      const vias = Array.isArray(po.vias) ? po.vias : []
+      let cambio = false
+      const nuevas = vias.map((v:any)=>{
+        if (v.tipo==='ejecucion' && v.ref===ejercicioId && v.resuelto!==resuelto) { cambio=true; return {...v, resuelto, fecha_resuelto: resuelto?new Date().toISOString().slice(0,10):null} }
+        return v
+      })
+      if (cambio) {
+        const todasResueltas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
+        await supabase.from('pacientes_objetivos').update({
+          vias:nuevas, logrado:todasResueltas, fecha_logrado: todasResueltas?new Date().toISOString().slice(0,10):null,
+        }).eq('paciente_id', pid).eq('objetivo_id', oid)
+      }
+    }
+    cargarObjsPaciente(pid)
   }
 
   // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
@@ -316,6 +350,12 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       const iv={...(datos[ei].items_evaluados||{})}; iv[ii]=!iv[ii]
       datos[ei]={...datos[ei],items_evaluados:iv,guardado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
+      const ej = datos[ei]
+      const item = (ej.items||[])[ii]
+      const cumplido = iv[ii]===true
+      if (item && (item.objetivos||[]).length>0 && ej.ejercicio_id) {
+        resolverViaEjecucionClase(pid, item.objetivos, ej.ejercicio_id, cumplido)
+      }
       return {...s,datos}
     }))
   }
@@ -474,7 +514,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                             {objs.map((o:any)=>{
                               const yaActivo = objsPac.some((po:any)=>po.objetivo_id===o.id)
                               return (
-                                <span key={o.id} onClick={()=>toggleObjetivo(act.paciente.id,o.id)}
+                                <span key={o.id} onClick={()=>toggleObjetivo(act.paciente.id,o.id,ej.ejercicio_id,ej.nombre)}
                                   title={yaActivo?'Quitar objetivo del paciente':'Activar este objetivo'}
                                   style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:`1px solid ${o.color||'var(--g)'}`,background:yaActivo?(o.color||'var(--g)'):'var(--w)',color:yaActivo?'#fff':(o.color||'var(--gd)')}}>
                                   {yaActivo?'✓ ':'+ '}{o.nombre}

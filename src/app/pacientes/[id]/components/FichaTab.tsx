@@ -16,8 +16,8 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
           setValoracion({...v, ...eg})
         }
       })
-      supabase.from('pacientes_objetivos').select('origen, objetivos(id,nombre,color,descripcion)').eq('paciente_id', pac.id).then(({data}) => {
-        setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen})).filter((o:any)=>o.id))
+      supabase.from('pacientes_objetivos').select('origen, vias, logrado, fecha_logrado, objetivos(id,nombre,color,descripcion)').eq('paciente_id', pac.id).then(({data}) => {
+        setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado})).filter((o:any)=>o.id))
       })
     }
   }, [pac?.id])
@@ -94,15 +94,34 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
             {objetivosTrabajo.length>0 && (
               <div className="card">
                 <div className="card-title">📊 Objetivos de trabajo <span style={{fontWeight:300,fontSize:9,color:'var(--grl)'}}>· lo que prescribimos</span></div>
-                {objetivosTrabajo.map((o:any)=>(
-                  <div key={o.id} style={{display:'flex',alignItems:'flex-start',gap:7,padding:'6px 8px',borderRadius:5,marginBottom:4,background:'var(--bl)',borderLeft:`3px solid ${o.color||'var(--g)'}`}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:10,fontWeight:500,color:'var(--n)'}}>{o.nombre}</div>
-                      {o.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:1,fontWeight:300,lineHeight:1.4}}>{o.descripcion}</div>}
+                {objetivosTrabajo.map((o:any)=>{
+                  const vias = Array.isArray(o.vias)?o.vias:[]
+                  const pendientes = vias.filter((v:any)=>!v.resuelto).length
+                  return (
+                  <div key={o.id} style={{padding:'6px 8px',borderRadius:5,marginBottom:4,background:o.logrado?'var(--gl)':'var(--bl)',borderLeft:`3px solid ${o.logrado?'var(--g)':(o.color||'var(--g)')}`,opacity:o.logrado?.85:1}}>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:10,fontWeight:500,color:'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
+                        {o.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:1,fontWeight:300,lineHeight:1.4}}>{o.descripcion}</div>}
+                      </div>
+                      {o.logrado
+                        ? <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:'var(--g)',color:'#fff',flexShrink:0}}>✓ Logrado</span>
+                        : (vias.length>0 && <span style={{fontSize:8,padding:'2px 6px',borderRadius:99,background:'var(--bm)',color:'var(--gr)',flexShrink:0}}>{pendientes}/{vias.length}</span>)
+                      }
                     </div>
-                    {o.origen==='test'&&<span style={{fontSize:8,padding:'2px 6px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',flexShrink:0}}>🔍 test</span>}
+                    {vias.length>0 && (
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:5}}>
+                        {vias.map((v:any,vi:number)=>(
+                          <span key={vi} title={v.resuelto?('Resuelto '+(v.fecha_resuelto||'')):'Pendiente'}
+                            style={{fontSize:8,padding:'2px 7px',borderRadius:99,border:`1px solid ${v.resuelto?'var(--g)':'var(--bd)'}`,background:v.resuelto?'var(--gl)':'var(--w)',color:v.resuelto?'var(--gd)':'var(--gr)',textDecoration:v.resuelto?'line-through':'none'}}>
+                            {v.resuelto?'✓ ':(v.tipo==='test'?'🔍 ':'💪 ')}{v.etiqueta||v.tipo}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {vias.length===0 && o.origen==='test' && <span style={{fontSize:8,padding:'2px 6px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>🔍 test</span>}
                   </div>
-                ))}
+                )})}
               </div>
             )}
 

@@ -290,14 +290,23 @@ export default function FichaPacientePage() {
       lado: ladoTest,
       items_resultado: itemsTest.map(i=>({nombre:i.nombre,marcado:i.marcado,grados:i.grados,tiene_grados:i.tiene_grados})),
     })
-    // Test positivo -> activar objetivos vinculados a ese test en la ficha del paciente
+    // Test positivo -> activar objetivos vinculados, añadiendo la via 'test'
     if (resultado==='positivo') {
       const { data: objs } = await supabase.from('objetivos').select('id').eq('test_id', testSeleccionado).eq('activo', true)
-      if (objs && objs.length>0) {
-        await supabase.from('pacientes_objetivos').upsert(
-          objs.map((o:any)=>({ paciente_id:id, objetivo_id:o.id, origen:'test' })),
-          { onConflict:'paciente_id,objetivo_id', ignoreDuplicates:true }
-        )
+      const etiqueta = 'Test: ' + (testSeleccionadoObj?.nombre || 'test')
+      for (const o of (objs||[])) {
+        const { data: exist } = await supabase.from('pacientes_objetivos')
+          .select('vias,origen').eq('paciente_id', id).eq('objetivo_id', o.id).maybeSingle()
+        const nuevaVia = { tipo:'test', ref:testSeleccionado, etiqueta, resuelto:false, fecha_resuelto:null }
+        if (exist) {
+          const vias = Array.isArray(exist.vias) ? exist.vias : []
+          const yaEsta = vias.some((v:any)=>v.tipo==='test' && v.ref===testSeleccionado)
+          const nuevasVias = yaEsta ? vias.map((v:any)=>(v.tipo==='test'&&v.ref===testSeleccionado)?{...v,resuelto:false,fecha_resuelto:null}:v) : [...vias, nuevaVia]
+          const origen = (exist.origen||'').includes('test') ? exist.origen : ((exist.origen? exist.origen+'+test':'test'))
+          await supabase.from('pacientes_objetivos').update({ vias:nuevasVias, origen, logrado:false, fecha_logrado:null }).eq('paciente_id', id).eq('objetivo_id', o.id)
+        } else {
+          await supabase.from('pacientes_objetivos').insert({ paciente_id:id, objetivo_id:o.id, origen:'test', vias:[nuevaVia] })
+        }
       }
     }
     setModalRegistrarTest(false)
