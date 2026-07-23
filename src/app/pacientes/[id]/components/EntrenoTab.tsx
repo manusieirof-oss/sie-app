@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
+import { Ic } from '@/lib/icons'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -75,7 +76,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   }
 
   async function eliminarCita(cita:any) {
-    if (!confirm('⚠️ Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
+    if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     setEditandoCita(null); cargarDatos(); onRefresh()
@@ -110,10 +111,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   return (
     <div>
       <div style={{display:'flex',gap:4,marginBottom:12,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3}}>
-        {([['activo','📋 Plan activo',citasFuturas.length],['sesiones','📋 Sesiones',sesionesDisp.length],['historial','📂 Historial',sesionesHistorial.length],['ejecucion','✅ Ejecución',0]] as const).map(([k,l,n])=>(
+        {([['activo','valoracion','Plan activo',citasFuturas.length],['sesiones','lista','Sesiones',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',0]] as const).map(([k,ic,l,n])=>(
           <button key={k} onClick={()=>setSeccion(k)}
-            style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:seccion===k?'var(--w)':'transparent',color:seccion===k?'var(--n)':'var(--grl)',fontWeight:seccion===k?500:300,boxShadow:seccion===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
-            {l} <span style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:seccion===k?'var(--g)':'var(--bm)',color:seccion===k?'#fff':'var(--grl)'}}>{n}</span>
+            style={{flex:1,fontSize:11,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:seccion===k?'var(--w)':'transparent',color:seccion===k?'var(--n)':'var(--grl)',fontWeight:seccion===k?500:400,boxShadow:seccion===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+            <Ic name={ic} size={13}/> {l} <span style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:seccion===k?'var(--g)':'var(--bm)',color:seccion===k?'#fff':'var(--grl)'}}>{n}</span>
           </button>
         ))}
       </div>
@@ -134,7 +135,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 <option value="">Seleccionar sesión...</option>
                 {sesionesDisp.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}
               </select>
-              <button className="btn btn-p btn-sm" onClick={asignarEnBloque} disabled={guardando}>{guardando?'⏳':'✓ Asignar'}</button>
+              <button className="btn btn-p btn-sm" onClick={asignarEnBloque} disabled={guardando}>{guardando?'…':'✓ Asignar'}</button>
               <button className="btn btn-d btn-sm" onClick={()=>setSeleccionadas([])}>✕</button>
             </div>
           )}
@@ -155,12 +156,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                     <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                     {tieneSesion?(
                       <div style={{display:'flex',alignItems:'center',gap:5,marginTop:1}}>
-                        <span style={{fontSize:9,color:'var(--g)'}}>📋 {c.sesiones.nombre}</span>
+                        <span style={{fontSize:9,color:'var(--g)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="valoracion" size={10}/> {c.sesiones.nombre}</span>
                         <button onClick={e=>{e.stopPropagation();supabase.from('citas').update({sesion_id:null}).eq('id',c.id).then(()=>cargarDatos())}} style={{fontSize:8,color:'var(--grl)',background:'none',border:'none',cursor:'pointer',padding:'0 3px'}}>✕</button>
                       </div>
                     ):<div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Sin sesión asignada</div>}
                   </div>
-                  <button onClick={e=>{e.stopPropagation();setEditandoCita({...c,paciente_id:pacienteId})}} style={{fontSize:11,background:'none',border:'1px solid var(--bd)',borderRadius:5,padding:'3px 7px',cursor:'pointer',color:'var(--gr)',flexShrink:0}}>✎</button>
+                  <button onClick={e=>{e.stopPropagation();setEditandoCita({...c,paciente_id:pacienteId})}} style={{background:'none',border:'1px solid var(--bd)',borderRadius:6,padding:'4px 7px',cursor:'pointer',color:'var(--gr)',flexShrink:0,display:'inline-flex',alignItems:'center'}}><Ic name="editar" size={13}/></button>
                   <div style={{width:8,height:8,borderRadius:'50%',background:tieneSesion?'var(--g)':'var(--bm)',flexShrink:0}}/>
                 </div>
               )
@@ -198,7 +199,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                     </div>
                     {objsDeSesion(s).length>0&&(
                       <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                        {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                        {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                       </div>
                     )}
                   </div>
@@ -218,7 +219,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
               <div key={c.id} className="card" onClick={()=>tieneSes&&setVerSesion(c.sesiones)} style={{cursor:tieneSes?'pointer':'default'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1}}>
-                    {c.sesiones?.nombre?<div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2}}>📋 {c.sesiones.nombre} <span style={{fontSize:9,color:'var(--g)'}}>· ver sesión</span></div>:<div style={{fontSize:11,fontWeight:300,color:'var(--grl)',marginBottom:2}}>Sin sesión</div>}
+                    {c.sesiones?.nombre?<div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2,display:'flex',alignItems:'center',gap:5}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre} <span style={{fontSize:9,color:'var(--g)'}}>· ver sesión</span></div>:<div style={{fontSize:11,fontWeight:400,color:'var(--grl)',marginBottom:2}}>Sin sesión</div>}
                     <div style={{fontSize:9,color:'var(--grl)'}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                   </div>
                   <span style={{fontSize:8,padding:'2px 8px',borderRadius:99,background:badgeColor.bg,color:badgeColor.color,fontWeight:500}}>{badgeColor.txt}</span>
@@ -238,17 +239,17 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 {sesionDetalle.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionDetalle.descripcion}</div>}
                 {objsDeSesion(sesionDetalle).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
-                    {objsDeSesion(sesionDetalle).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                    {objsDeSesion(sesionDetalle).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
                 )}
               </div>
               <button onClick={()=>setSesionDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)',flexShrink:0}}>✕</button>
             </div>
             <div style={{padding:'10px 16px',borderBottom:'1px solid var(--bd)',display:'flex',gap:6}}>
-              <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionDetalle;setSesionDetalle(null);setSesionEditando(s)}}>✏️ Editar</button>
+              <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionDetalle;setSesionDetalle(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>
               <button className="btn btn-t btn-sm" onClick={()=>{duplicarSesion(sesionDetalle);setSesionDetalle(null)}}>⧉ Duplicar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-d btn-sm" onClick={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}>🗑 Eliminar</button>
+              <button className="btn btn-d btn-sm" onClick={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}><Ic name="papelera" size={12}/> Eliminar</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:16}}>
               {(sesionDetalle.partes||[]).length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Esta sesión no tiene ejercicios.</div>}
@@ -270,7 +271,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                             {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
                           </div>
                         )}
-                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="nota" size={10}/> {ej.nota}</div>}
                       </div>
                     </div>
                   ))}
@@ -284,7 +285,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {verSesion&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setVerSesion(null)}}>
           <div className="modal" style={{maxHeight:'85vh',overflowY:'auto'}}>
-            <div className="modal-title">📋 {verSesion.nombre}<button className="modal-close" onClick={()=>setVerSesion(null)}>✕</button></div>
+            <div className="modal-title"><span className="ct-l"><Ic name="valoracion" size={16}/> {verSesion.nombre}</span><button className="modal-close" onClick={()=>setVerSesion(null)}>✕</button></div>
             {verSesion.descripcion&&<div style={{fontSize:10,color:'var(--grl)',fontWeight:300,marginBottom:10,lineHeight:1.5}}>{verSesion.descripcion}</div>}
             {(verSesion.partes||[]).length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Esta sesión no tiene ejercicios registrados.</div>}
             {(verSesion.partes||[]).map((parte:any,pi:number)=>(

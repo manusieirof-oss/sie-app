@@ -1,17 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 const CATEGORIAS = [
-  { key: 'musculo', label: '💪 Músculo' },
-  { key: 'articulacion', label: '🦴 Articulación' },
-  { key: 'movimiento', label: '🔄 Movimiento' },
-  { key: 'posicion', label: '📍 Posición' },
-  { key: 'material', label: '🏋 Material' },
-  { key: 'apoyo', label: '🦶 Apoyo' },
-  { key: 'agarre', label: '✋ Agarre' },
-  { key: 'patologia', label: '🏥 Patología' },
-  { key: 'plano_eje', label: '🧭 Plano y eje' },
+  { key: 'musculo', label: 'Músculo' },
+  { key: 'articulacion', label: 'Articulación' },
+  { key: 'movimiento', label: 'Movimiento' },
+  { key: 'posicion', label: 'Posición' },
+  { key: 'material', label: 'Material' },
+  { key: 'apoyo', label: 'Apoyo' },
+  { key: 'agarre', label: 'Agarre' },
+  { key: 'patologia', label: 'Patología' },
+  { key: 'plano_eje', label: 'Plano y eje' },
 ]
 
 function PildorasObjetivos({ seleccionados, objetivos, onToggle }: any) {
@@ -100,7 +101,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
           <div key={t.id} onClick={()=>setTestDetalle(t)} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer'}}
             onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
             onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-            {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>🔍</div>}
+            {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',borderBottom:'1px solid var(--bd)'}}><Ic name="test" size={28}/></div>}
             <div style={{padding:'9px 11px'}}>
               <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{t.nombre}</div>
               {t.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300,lineHeight:1.4,marginBottom:5}}>{t.descripcion.slice(0,80)}{t.descripcion.length>80?'...':''}</div>}
@@ -122,21 +123,21 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
           <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'94vw',maxWidth:820,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
             <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
               <div style={{flex:1,fontSize:14,fontWeight:400,color:'var(--n)'}}>{testDetalle.nombre}</div>
-              <button className="btn btn-s btn-sm" onClick={()=>{setTestEditando({...testDetalle});setModalEditarTest(true);setTestDetalle(null)}}>✏️ Editar</button>
-              <button className="btn btn-d btn-sm" onClick={()=>{eliminarTest(testDetalle.id);setTestDetalle(null)}}>🗑</button>
+              <button className="btn btn-s btn-sm" onClick={()=>{setTestEditando({...testDetalle});setModalEditarTest(true);setTestDetalle(null)}}><Ic name="editar" size={12}/> Editar</button>
+              <button className="btn btn-d btn-sm" onClick={()=>{eliminarTest(testDetalle.id);setTestDetalle(null)}}><Ic name="papelera" size={12}/></button>
               <button onClick={()=>setTestDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:16}}>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
                 <div>
-                  {testDetalle.imagen_url?<img src={testDetalle.imagen_url} alt={testDetalle.nombre} style={{width:'100%',height:240,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:240,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>🔍</div>}
+                  {testDetalle.imagen_url?<img src={testDetalle.imagen_url} alt={testDetalle.nombre} style={{width:'100%',height:240,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:240,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="test" size={48}/></div>}
                 </div>
                 <div>
                   {testDetalle.descripcion&&<div style={{marginBottom:12}}><div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Descripción</div><div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.6}}>{testDetalle.descripcion}</div></div>}
                   <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12}}>
                     <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>Revisión cada {testDetalle.frecuencia_meses} meses</span>
                     <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{testDetalle.tipo_lado==='lateral'?'Izq / Der':'Bilateral'}</span>
-                    {testDetalle.video_url&&<a href={testDetalle.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',textDecoration:'none'}}>🎥 Vídeo</a>}
+                    {testDetalle.video_url&&<a href={testDetalle.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="play" size={10}/> Vídeo</a>}
                   </div>
                   {(testDetalle.items||[]).length>0&&(
                     <div>
@@ -176,8 +177,8 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div className="field">
               <label>Imagen</label>
               <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
-                {nuevoTest.imagen_url?<div style={{position:'relative'}}><img src={nuevoTest.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setNuevoTest(p=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>🔍</div>}
-                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm">📷 Subir</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setNuevoTest(p=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
+                {nuevoTest.imagen_url?<div style={{position:'relative'}}><img src={nuevoTest.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setNuevoTest(p=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="test" size={24}/></div>}
+                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm"><Ic name="camara" size={12}/> Subir</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setNuevoTest(p=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
               </div>
             </div>
             <div className="field">
@@ -214,7 +215,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearTest} disabled={subiendoImgTest}>{subiendoImgTest?'⏳':'💾 Guardar'}</button>
+              <button className="btn btn-p" onClick={crearTest} disabled={subiendoImgTest}>{subiendoImgTest?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
             </div>
           </div>
         </div>
@@ -247,8 +248,8 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div className="field">
               <label>Imagen</label>
               <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
-                {testEditando.imagen_url?<div style={{position:'relative'}}><img src={testEditando.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setTestEditando((p:any)=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>🔍</div>}
-                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm">📷 Cambiar</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setTestEditando((p:any)=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
+                {testEditando.imagen_url?<div style={{position:'relative'}}><img src={testEditando.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setTestEditando((p:any)=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="test" size={24}/></div>}
+                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm"><Ic name="camara" size={12}/> Cambiar</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setTestEditando((p:any)=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
               </div>
             </div>
             <div className="field">
@@ -281,7 +282,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalEditarTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardarEditTest} disabled={subiendoImgTest}>{subiendoImgTest?'⏳':'💾 Guardar'}</button>
+              <button className="btn btn-p" onClick={guardarEditTest} disabled={subiendoImgTest}>{subiendoImgTest?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
             </div>
           </div>
         </div>

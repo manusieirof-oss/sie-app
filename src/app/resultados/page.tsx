@@ -56,7 +56,7 @@ export default function ResultadosPage() {
             <div className="stat-card"><div className="stat-val">{sesiones.length}</div><div className="stat-label">Sesiones totales</div></div>
             <div className="stat-card"><div className="stat-val">{sesRealizadas}</div><div className="stat-label">Realizadas</div><div style={{fontSize:9,marginTop:3,color:'var(--g)'}}>{sesiones.length>0?Math.round((sesRealizadas/sesiones.length)*100):0}% asistencia</div></div>
             <div className="stat-card"><div className="stat-val">{escalas[escalas.length-1]?.borg??'—'}/10</div><div className="stat-label">Borg actual</div><div style={{fontSize:9,marginTop:3,color:escalas.length>1&&escalas[escalas.length-1]?.borg>escalas[0]?.borg?'var(--g)':'var(--grl)'}}>{escalas.length>1?`Inicio: ${escalas[0]?.borg}/10`:''}</div></div>
-            <div className="stat-card"><div className="stat-val">{molActivas}</div><div className="stat-label">Molestias activas</div><div style={{fontSize:9,marginTop:3,color:molActivas===0?'var(--g)':'var(--red)'}}>{molActivas===0?'✓ Sin molestias activas':'⚠ Requiere atención'}</div></div>
+            <div className="stat-card"><div className="stat-val">{molActivas}</div><div className="stat-label">Molestias activas</div><div style={{fontSize:9,marginTop:3,color:molActivas===0?'var(--g)':'var(--red)'}}>{molActivas===0?'✓ Sin molestias activas':'Requiere atención'}</div></div>
           </div>
 
           <div className="g2">

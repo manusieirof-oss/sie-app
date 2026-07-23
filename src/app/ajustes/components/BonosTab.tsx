@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
 function slugify(nombre: string) {
@@ -70,7 +71,7 @@ export default function BonosTab() {
     <div>
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div className="card-title" style={{ margin: 0 }}>🎫 Tipos de bono</div>
+          <div className="card-title" style={{ margin: 0 }}><span className="ct-l"><Ic name="etiqueta"/> Tipos de bono</span></div>
           <button className="btn btn-p btn-sm" onClick={() => setModalBono(true)}>+ Nuevo bono</button>
         </div>
 
@@ -85,7 +86,7 @@ export default function BonosTab() {
                 <div className="field"><label>Descripción</label><input className="input" value={formEdit.descripcion} onChange={e => setFormEdit(p => ({ ...p, descripcion: e.target.value }))} /></div>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8 }}>
                   <button className="btn btn-d btn-sm" onClick={() => setEditando(null)}>Cancelar</button>
-                  <button className="btn btn-p btn-sm" onClick={() => guardarEdicion(b.id)} disabled={guardando}>{guardando ? '⏳' : '💾 Guardar'}</button>
+                  <button className="btn btn-p btn-sm" onClick={() => guardarEdicion(b.id)} disabled={guardando}>{guardando ? '…' : <><Ic name="guardar" size={12}/> Guardar</>}</button>
                 </div>
               </div>
             )
@@ -97,8 +98,8 @@ export default function BonosTab() {
                 <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--n)' }}>{b.nombre}{!b.activo && ' (inactivo)'}</div>
                 <div style={{ fontSize: 9, color: 'var(--grl)' }}>{b.descripcion} · {b.dias_semana} día{b.dias_semana !== 1 ? 's' : ''}/semana</div>
               </div>
-              <button onClick={() => iniciarEdicion(b)} style={{ fontSize: 10, color: 'var(--grl)', background: 'none', border: 'none', cursor: 'pointer' }}>✏️</button>
-              <button onClick={() => toggleActivo(b)} style={{ fontSize: 10, color: b.activo ? 'var(--red)' : 'var(--g)', background: 'none', border: 'none', cursor: 'pointer' }}>{b.activo ? '🗑' : '↺'}</button>
+              <button onClick={() => iniciarEdicion(b)} style={{ color: 'var(--grl)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex' }}><Ic name="editar" size={13}/></button>
+              <button onClick={() => toggleActivo(b)} style={{ color: b.activo ? 'var(--red)' : 'var(--g)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex' }}>{b.activo ? <Ic name="papelera" size={13}/> : '↺'}</button>
             </div>
           )
         })}
@@ -116,7 +117,7 @@ export default function BonosTab() {
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button className="btn btn-d btn-sm" onClick={() => setModalBono(false)}>Cancelar</button>
               <div style={{ flex: 1 }} />
-              <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando ? '⏳' : '💾 Añadir bono'}</button>
+              <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando ? '…' : <><Ic name="guardar" size={13}/> Añadir bono</>}</button>
             </div>
           </div>
         </div>

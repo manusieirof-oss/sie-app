@@ -1,4 +1,5 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita }: {
   fecha: string
@@ -72,7 +73,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--n)'}>
                             <span style={{width:5,height:5,borderRadius:'50%',background:tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E',flexShrink:0}}/>
-                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{fontSize:7,flexShrink:0}} title="Tiene alertas">⚠️</span>}
+                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={10}/></span>}
                             <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
                           </div>
                         ))}
@@ -86,7 +87,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--n)'}>
                             <span style={{width:5,height:5,borderRadius:'50%',background:tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E',flexShrink:0}}/>
-                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{fontSize:7,flexShrink:0}} title="Tiene alertas">⚠️</span>}
+                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={10}/></span>}
                             <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
                           </div>
                         ))}

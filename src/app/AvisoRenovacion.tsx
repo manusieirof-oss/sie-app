@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 // Aviso informativo que aparece a partir del día 27 de cada mes,
 // recordando que las cuotas se renovarán al empezar el mes siguiente.
@@ -34,7 +35,7 @@ export default function AvisoRenovacion({ visible }: { visible: boolean }) {
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:20}}>
       <div style={{background:'var(--w)',borderRadius:14,maxWidth:440,width:'100%',padding:'26px 26px 20px',boxShadow:'0 10px 40px rgba(0,0,0,.25)'}}>
-        <div style={{fontSize:34,textAlign:'center',marginBottom:10}}>🔄</div>
+        <div style={{textAlign:'center',marginBottom:10,color:'var(--g)',display:'flex',justifyContent:'center'}}><Ic name="recuperar" size={34} strokeWidth={1.5}/></div>
         <div style={{fontSize:16,fontWeight:600,color:'var(--n)',textAlign:'center',marginBottom:12}}>Renovación de cuotas próxima</div>
         <div style={{fontSize:12,color:'var(--gr)',lineHeight:1.7,marginBottom:18}}>
           El <strong>{finMesStr}</strong>, al terminar el mes, las cuotas de todos los bonos activos se renovarán automáticamente para el mes siguiente y volverán a quedar como <strong>pendientes de pago</strong>.

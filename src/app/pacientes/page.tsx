@@ -14,7 +14,7 @@ export default function PacientesPage() {
   const [filtroPago, setFiltroPago] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroEstado, setFiltroEstado] = useState('activo')
-  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},{valor:'pilates',icono:'🧘',nombre:'Pilates'},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación'},{valor:'individual',icono:'👤',nombre:'Individual'},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas'}])
+  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento'},{valor:'pilates',icono:'',nombre:'Pilates'},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación'},{valor:'individual',icono:'',nombre:'Individual'},{valor:'embarazadas',icono:'',nombre:'Embarazadas'}])
   const [modal, setModal] = useState(false)
   const [modalBonoPac, setModalBonoPac] = useState<any>(null)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
@@ -58,10 +58,10 @@ export default function PacientesPage() {
     cargar()
   }
 
-  const tipoLabel: Record<string,string> = { entrenamiento:'🏋 Entrenamiento', pilates:'🧘 Pilates', rehabilitacion:'🏥 Rehabilitación' }
-  const labelTipo = (v:string) => { const t = tiposClase.find((x:any)=>x.valor===v); return t ? `${t.icono} ${t.nombre}` : (tipoLabel[v]||'—') }
-  const estadoBadge: Record<string,{txt:string,bg:string,col:string}> = { activo:{txt:'● Activo',bg:'var(--gl)',col:'var(--gd)'}, baja:{txt:'○ Baja',bg:'var(--redl)',col:'var(--red)'}, pausa:{txt:'⏸ Pausa',bg:'var(--ambl)',col:'#7A5800'} }
-  const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
+  const tipoLabel: Record<string,string> = { entrenamiento:'Entrenamiento', pilates:'Pilates', rehabilitacion:'Rehabilitación' }
+  const labelTipo = (v:string) => { const t = tiposClase.find((x:any)=>x.valor===v); return t ? t.nombre : (tipoLabel[v]||'—') }
+  const estadoBadge: Record<string,{txt:string,bg:string,col:string}> = { activo:{txt:'● Activo',bg:'var(--gl)',col:'var(--gd)'}, baja:{txt:'○ Baja',bg:'var(--redl)',col:'var(--red)'}, pausa:{txt:'Pausa',bg:'var(--ambl)',col:'#8A6410'} }
+  const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'Pendiente', impago:'Impago' }
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
 
@@ -107,7 +107,7 @@ export default function PacientesPage() {
     <>
       {/* FILTROS */}
       <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
-        <input className="input" placeholder="🔍 Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
         <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo paciente</button>
       </div>
 
@@ -115,7 +115,7 @@ export default function PacientesPage() {
       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
         <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
           <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Pago</span>
-          {[['todos','Todos'],['pagado','✓ Pagado'],['pendiente','⏳ Pendiente'],['impago','⚠ Impago']].map(([f,l])=>(
+          {[['todos','Todos'],['pagado','✓ Pagado'],['pendiente','Pendiente'],['impago','Impago']].map(([f,l])=>(
             <span key={f} onClick={()=>setFiltroPago(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroPago===f?'var(--g)':'var(--w)',color:filtroPago===f?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
               {l} <b style={{fontWeight:600}}>{nPago(f)}</b>
             </span>
@@ -138,7 +138,7 @@ export default function PacientesPage() {
           </span>
           {tiposClase.map((t:any)=>(
             <span key={t.valor} onClick={()=>setFiltroTipo(t.valor)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroTipo===t.valor?'var(--g)':'var(--w)',color:filtroTipo===t.valor?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
-              {t.icono} {t.nombre} <b style={{fontWeight:600}}>{nTipo(t.valor)}</b>
+              {t.nombre} <b style={{fontWeight:600}}>{nTipo(t.valor)}</b>
             </span>
           ))}
         </div>
@@ -209,7 +209,7 @@ export default function PacientesPage() {
             </div>
             <div className="field"><label>Tipo de clase</label>
               <select className="input" value={nuevo.tipo_clase} onChange={e=>setNuevo(p=>({...p,tipo_clase:e.target.value}))}>
-                {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.icono} {t.nombre}</option>)}
+                {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}
               </select>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>

@@ -51,7 +51,7 @@ export default function AgendaPage() {
   const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
   const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
   const [tiposCita, setTiposCita] = useState<any[]>([{id:'clase',nombre:'Clase grupal',color:'#5A969E',duracion:50,cuenta_clase:true},{id:'individual',nombre:'Individual / Pareja',color:'#3E7179',duracion:50,cuenta_clase:false},{id:'valoracion',nombre:'Valoración inicial',color:'#C9A84C',duracion:60,cuenta_clase:false},{id:'revaloracion',nombre:'Revaloración',color:'#C9A84C',duracion:60,cuenta_clase:false}])
-  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'🧘',nombre:'Pilates',color:'#A8CDD1',duracion:50},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'👤',nombre:'Individual',color:'#3E7179',duracion:50},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas',color:'#B05A5A',duracion:50}])
+  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'',nombre:'Pilates',color:'#A8CDD1',duracion:50},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'',nombre:'Individual',color:'#3E7179',duracion:50},{valor:'embarazadas',icono:'',nombre:'Embarazadas',color:'#B05A5A',duracion:50}])
   const [pausaInicio, setPausaInicio] = useState('12:30')
   const [pausaFin, setPausaFin] = useState('15:30')
   const [descanso, setDescanso] = useState(10)
@@ -302,7 +302,7 @@ export default function AgendaPage() {
   }
 
   async function eliminarCita(cita:any) {
-    if (!confirm('⚠️ Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
+    if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     setEditandoCita(null); cargar()
@@ -385,7 +385,7 @@ export default function AgendaPage() {
         {fecha!==hoy&&<button className="btn btn-t btn-sm" onClick={()=>setFecha(hoy)}>Hoy</button>}
         <button className="btn btn-s btn-sm" onClick={nextPeriodo}>›</button>
         <div style={{position:'relative'}}>
-          <input className="input" placeholder="🔍 Buscar paciente..." value={buscarPac} onChange={e=>buscarPacienteDirecto(e.target.value)} style={{width:180,fontSize:11}}/>
+          <input className="input" placeholder="Buscar paciente..." value={buscarPac} onChange={e=>buscarPacienteDirecto(e.target.value)} style={{width:180,fontSize:11}}/>
           {buscarPac && resultadosBusqueda.length>0 && (
             <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'0 4px 12px rgba(0,0,0,.1)',zIndex:50,maxHeight:280,overflowY:'auto',marginTop:3}}>
               {resultadosBusqueda.map(c=>(

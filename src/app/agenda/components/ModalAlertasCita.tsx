@@ -1,13 +1,14 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 const TIPOS_ALERTA = [
-  ['dolor','🤕 Dolor / molestia',true],
-  ['lesion','🩹 Lesión',true],
-  ['cita_medica','🏥 Cita médica',false],
-  ['personal','💬 Situación personal',false],
-  ['duda','❓ Duda / consulta',false],
-  ['otro','📌 Otro',false],
+  ['dolor','Dolor / molestia',true],
+  ['lesion','Lesión',true],
+  ['cita_medica','Cita médica',false],
+  ['personal','Situación personal',false],
+  ['duda','Duda / consulta',false],
+  ['otro','Otro',false],
 ] as const
 
 export default function ModalAlertasCita({ verAlertasCita, alertasPaciente, crearAlerta, cerrarAlerta, onCerrar }: any) {
@@ -73,7 +74,7 @@ export default function ModalAlertasCita({ verAlertasCita, alertasPaciente, crea
         <div style={{display:'flex',gap:8,marginTop:8}}>
           <button className="btn btn-d btn-sm" onClick={onCerrar}>Cerrar</button>
           <div style={{flex:1}}/>
-          <button className="btn btn-p" onClick={guardar} disabled={creando||!descripcion.trim()}>{creando?'Guardando...':'⚠️ Activar alerta'}</button>
+          <button className="btn btn-p" onClick={guardar} disabled={creando||!descripcion.trim()}>{creando?'Guardando…':<><Ic name="alerta" size={13}/> Activar alerta</>}</button>
         </div>
       </div>
     </div>

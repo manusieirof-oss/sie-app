@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 export default function GastosTab({ gastos, recargar }: any) {
   const [modal, setModal] = useState(false)
@@ -62,7 +63,7 @@ export default function GastosTab({ gastos, recargar }: any) {
   return (
     <div className="card">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div className="card-title" style={{margin:0}}>🧾 Gastos</div>
+        <div className="card-title" style={{margin:0}}><span className="ct-l"><Ic name="recibo"/> Gastos</span></div>
         <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo gasto</button>
       </div>
 
@@ -119,7 +120,7 @@ export default function GastosTab({ gastos, recargar }: any) {
                 {new Date(g.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
                 {g.categoria && ' · '+g.categoria}
                 {' · '+(g.tipo==='fijo'?'Fijo':'Variable')}
-                {g.tiene_factura && ' · 📄'}
+                {g.tiene_factura && ' · con factura'}
               </div>
               {(g.iva_pct>0 || g.irpf_pct>0) && (
                 <div style={{fontSize:8,color:'var(--grl)',marginTop:1}}>
@@ -130,7 +131,7 @@ export default function GastosTab({ gastos, recargar }: any) {
               )}
             </div>
             <div style={{fontSize:13,fontWeight:600,color:'var(--red)'}}>{Number(g.importe).toFixed(2)}€</div>
-            <button onClick={()=>eliminar(g.id)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>🗑</button>
+            <button onClick={()=>eliminar(g.id)} style={{color:'var(--red)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}><Ic name="papelera" size={13}/></button>
           </div>
         ))
       )}
@@ -185,13 +186,13 @@ export default function GastosTab({ gastos, recargar }: any) {
               <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${form.tiene_factura?'var(--g)':'var(--bd)'}`,background:form.tiene_factura?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 {form.tiene_factura && <span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}
               </div>
-              <span style={{fontSize:10,color:'var(--n)'}}>📄 Tiene factura</span>
+              <span style={{fontSize:10,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={12}/> Tiene factura</span>
             </div>
             <div className="field"><label>Notas</label><textarea className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} style={{minHeight:50}}/></div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModal(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando?'⏳':'💾 Guardar'}</button>
+              <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
             </div>
           </div>
         </div>

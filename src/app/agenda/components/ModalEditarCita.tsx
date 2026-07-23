@@ -1,4 +1,5 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function ModalEditarCita({ editandoCita, setEditandoCita, guardando, guardarEdicionCita, onCerrar, horas, tiposCita=[], tiposClase=[], cambiarEstadoCita, eliminarCita }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -35,14 +36,14 @@ export default function ModalEditarCita({ editandoCita, setEditandoCita, guardan
 
         <div className="field"><label>Tipo</label>
           <select className="input" value={editandoCita.tipo||''} onChange={e=>setEditandoCita((p:any)=>({...p,tipo:e.target.value}))} disabled={guardando}>
-            {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.icono} {t.nombre} ({t.duracion} min)</option>)}
+            {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.nombre} ({t.duracion} min)</option>)}
           </select>
         </div>
 
         <div style={{display:'flex',gap:8,marginTop:10}}>
           <button className="btn btn-d btn-sm" onClick={()=>{if(!guardando)onCerrar()}}>Cancelar</button>
           <div style={{flex:1}}/>
-          <button className="btn btn-p" onClick={guardarEdicionCita} disabled={guardando}>{guardando?'Guardando...':'💾 Guardar cambios'}</button>
+          <button className="btn btn-p" onClick={guardarEdicionCita} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar cambios</>}</button>
         </div>
 
         <div style={{borderTop:'1px solid var(--bd)',marginTop:14,paddingTop:12}}>
@@ -65,7 +66,7 @@ export default function ModalEditarCita({ editandoCita, setEditandoCita, guardan
           )}
           <button onClick={()=>eliminarCita&&eliminarCita(editandoCita)} disabled={guardando}
             style={{width:'100%',marginTop:8,padding:'7px',borderRadius:6,border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontFamily:'system-ui',fontSize:10,color:'var(--red)'}}>
-            🗑 Eliminar cita
+<Ic name="papelera" size={12}/> Eliminar cita
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
+import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 
 type EjercicioSesion = {
@@ -60,13 +61,13 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     <>
       {/* CABECERA: buscador + nueva */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
-        <input className="input" placeholder="🔍 Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
         <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} sesiones</span>
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
       {(objetivos||[]).length>0&&(
         <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
-          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>🎯 Objetivo:</span>
+          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="objetivo" size={11}/> Objetivo:</span>
           {(objetivos||[]).map((o:any)=>{
             const sel = filtroObjetivos.includes(o.id)
             return (
@@ -103,7 +104,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 </div>
                 {objsDeSesion(s).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:8,padding:'2px 7px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                    {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
                 )}
               </div>
@@ -122,11 +123,11 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 {sesionVista.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionVista.descripcion}</div>}
                 {objsDeSesion(sesionVista).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
-                    {objsDeSesion(sesionVista).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>🎯 {o.nombre}</span>)}
+                    {objsDeSesion(sesionVista).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
                 )}
               </div>
-              <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}>✏️ Editar</button>
+              <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>
               <button onClick={()=>setSesionVista(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:16}}>
@@ -146,7 +147,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                           {ej.peso&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
                           {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
                         </div>
-                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic'}}>📝 {ej.nota}</div>}
+                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="nota" size={10}/> {ej.nota}</div>}
                       </div>
                     </div>
                   ))}

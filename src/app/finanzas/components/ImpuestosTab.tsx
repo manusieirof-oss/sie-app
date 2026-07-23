@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 
@@ -66,7 +67,7 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
     <div>
       {/* AVISO */}
       <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:8,padding:'10px 14px',marginBottom:16,fontSize:10,color:'#7A5800',lineHeight:1.6}}>
-        ⚠️ <strong>Estimación orientativa.</strong> Estas cifras te ayudan a anticipar los pagos trimestrales, pero no sustituyen la contabilidad oficial de tu gestoría. Los importes reales pueden variar.
+<Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/><strong>Estimación orientativa.</strong> Estas cifras te ayudan a anticipar los pagos trimestrales, pero no sustituyen la contabilidad oficial de tu gestoría. Los importes reales pueden variar.
       </div>
 
       {/* SELECTOR DE AÑO + % IRPF */}

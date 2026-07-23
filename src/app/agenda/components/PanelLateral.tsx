@@ -1,6 +1,7 @@
 'use client'
 import PanelSesion from './PanelSesion'
 import PanelDatos from './PanelDatos'
+import { Ic } from '@/lib/icons'
 
 export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDetalle, sesionesPaciente, loadingSesion, mostrarSesiones, setMostrarSesiones, anotaciones, setAnotaciones, pesos, setPesos, guardandoAnot, editandoCita, setEditandoCita, guardando, guardarAnotacion, asignarSesion, guardarEdicionCita, cambiarEstado, onCerrar, horas }: any) {
   return (
@@ -22,9 +23,9 @@ export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDe
 
         {/* TABS */}
         <div style={{display:'flex',borderBottom:'1px solid var(--bd)'}}>
-          {[['sesion','📋 Sesión'],['datos','👤 Datos']].map(([k,l])=>(
+          {[['sesion','valoracion','Sesión'],['datos','usuario','Datos']].map(([k,ic,l])=>(
             <button key={k} onClick={()=>{setPanelTab(k);setMostrarSesiones(false)}}
-              style={{flex:1,fontSize:10,padding:'7px',textAlign:'center',cursor:'pointer',color:panelTab===k?'var(--g)':'var(--grl)',borderBottom:panelTab===k?'2px solid var(--g)':'2px solid transparent',background:'none',border:'none',borderBottom:panelTab===k?'2px solid var(--g)':'2px solid transparent',fontFamily:'system-ui',fontWeight:panelTab===k?500:300}}>{l}</button>
+              style={{flex:1,fontSize:11,padding:'8px',textAlign:'center',cursor:'pointer',color:panelTab===k?'var(--g)':'var(--grl)',background:'none',border:'none',borderBottom:panelTab===k?'2px solid var(--g)':'2px solid transparent',fontFamily:'system-ui',fontWeight:panelTab===k?500:400,display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><Ic name={ic} size={13}/> {l}</button>
           ))}
         </div>
 

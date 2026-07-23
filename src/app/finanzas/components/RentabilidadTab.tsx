@@ -1,6 +1,7 @@
 'use client'
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { precioConDescuento } from '@/lib/bonos'
+import { Ic } from '@/lib/icons'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -68,7 +69,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[] }:
 
       {/* PUNTO DE EQUILIBRIO */}
       <div className="card" style={{margin:0,background:'var(--gl)',border:'1px solid var(--gm)'}}>
-        <div style={{fontSize:11,fontWeight:600,color:'var(--gd)',marginBottom:6}}>⚖️ Punto de equilibrio</div>
+        <div style={{fontSize:11,fontWeight:600,color:'var(--gd)',marginBottom:6,display:'flex',alignItems:'center',gap:5}}><Ic name="progreso" size={13}/> Punto de equilibrio</div>
         <div style={{fontSize:10,color:'var(--gr)',lineHeight:1.6}}>
           Tus gastos fijos son <strong>{gastosFijos.toFixed(0)}€/mes</strong>. Necesitas ingresar al menos esa cantidad para no perder dinero.
           {ingresoMedioBono>0 && <> Con un ingreso medio de <strong>{ingresoMedioBono.toFixed(0)}€</strong> por bono, eso equivale a unos <strong>{bonosParaEquilibrio} bonos</strong> activos.</>}

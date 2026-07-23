@@ -1,17 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 const CATEGORIAS = [
-  { key: 'musculo', label: '💪 Músculo' },
-  { key: 'articulacion', label: '🦴 Articulación' },
-  { key: 'movimiento', label: '🔄 Movimiento' },
-  { key: 'posicion', label: '📍 Posición' },
-  { key: 'material', label: '🏋 Material' },
-  { key: 'apoyo', label: '🦶 Apoyo' },
-  { key: 'agarre', label: '✋ Agarre' },
-  { key: 'patologia', label: '🏥 Patología' },
-  { key: 'plano_eje', label: '🧭 Plano y eje' },
+  { key: 'musculo', label: 'Músculo' },
+  { key: 'articulacion', label: 'Articulación' },
+  { key: 'movimiento', label: 'Movimiento' },
+  { key: 'posicion', label: 'Posición' },
+  { key: 'material', label: 'Material' },
+  { key: 'apoyo', label: 'Apoyo' },
+  { key: 'agarre', label: 'Agarre' },
+  { key: 'patologia', label: 'Patología' },
+  { key: 'plano_eje', label: 'Plano y eje' },
 ]
 
 export default function EtiquetasTab({ etiquetas, cargar }: any) {
@@ -102,7 +103,7 @@ export default function EtiquetasTab({ etiquetas, cargar }: any) {
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalEtiqueta(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearEtiqueta}>💾 Guardar</button>
+              <button className="btn btn-p" onClick={crearEtiqueta}><Ic name="guardar" size={13}/> Guardar</button>
             </div>
           </div>
         </div>

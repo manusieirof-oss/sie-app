@@ -1,9 +1,10 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function ClinicaTab({ ajustes, set }: any) {
   return (
     <div className="card">
-      <div className="card-title">🏥 Datos de la clínica</div>
+      <div className="card-title"><span className="ct-l"><Ic name="clinica"/> Datos de la clínica</span></div>
       <div className="g2">
         <div className="field" style={{gridColumn:'1/-1'}}>
           <label>Nombre de la clínica</label>

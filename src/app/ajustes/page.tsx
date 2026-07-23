@@ -7,6 +7,7 @@ import BonosTab from './components/BonosTab'
 import RecuperacionesTab from './components/RecuperacionesTab'
 import UsuariosTab from './components/UsuariosTab'
 import CuentaTab from './components/CuentaTab'
+import { Ic } from '@/lib/icons'
 
 export default function AjustesPage() {
   const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'usuarios'|'cuenta'>('clinica')
@@ -15,7 +16,7 @@ export default function AjustesPage() {
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [comoNosConocio, setComoNosConocio] = useState<string[]>(['Recomendación de un conocido','Instagram','Google','Facebook','Pasó por aquí','Otro'])
-  const [tiposClase, setTiposClase] = useState([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'🧘',nombre:'Pilates',color:'#A8CDD1',duracion:50},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'👤',nombre:'Individual',color:'#3E7179',duracion:50},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas',color:'#B05A5A',duracion:50}])
+  const [tiposClase, setTiposClase] = useState([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'',nombre:'Pilates',color:'#A8CDD1',duracion:50},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'',nombre:'Individual',color:'#3E7179',duracion:50},{valor:'embarazadas',icono:'',nombre:'Embarazadas',color:'#B05A5A',duracion:50}])
   const [tiposJornada, setTiposJornada] = useState<string[]>([])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>([])
   const [deportesLista, setDeportesLista] = useState<string[]>([])
@@ -77,15 +78,15 @@ export default function AjustesPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
-          {([['clinica','🏥 Clínica'],['valoracion','📋 Valoración'],['bonos','🎫 Bonos'],['recuperaciones','🔄 Recuperaciones'],['cuenta','🔐 Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','👥 Usuarios']]:[])] as const).map(([k,l])=>(
+          {([['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Bonos'],['recuperaciones','recuperar','Recuperaciones'],['cuenta','candado','Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','pacientes','Usuarios']]:[])] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k)}
-              style={{fontSize:10,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:300,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
-              {l}
+              style={{fontSize:11,padding:'7px 10px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
+              <Ic name={ic} size={13}/> {l}
             </button>
           ))}
         </div>
         <button className="btn btn-p" onClick={guardar} disabled={guardando}>
-          {guardando?'⏳ Guardando...':guardado?'✓ Guardado':'💾 Guardar cambios'}
+          {guardando?'Guardando…':guardado?'✓ Guardado':<><Ic name="guardar" size={13}/> Guardar cambios</>}
         </button>
       </div>
 

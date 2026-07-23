@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
 
@@ -390,12 +391,12 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     <>
       {/* CABECERA CLASE */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
-        <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>👥 Día de fuerza</span>
+        <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="pacientes" size={14}/> Día de fuerza</span>
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
         <div style={{flex:1}}/>
-        {seleccion.length>0 && <button className="btn btn-d btn-sm" onClick={limpiarTodo}>🧹 Limpiar</button>}
+        {seleccion.length>0 && <button className="btn btn-d btn-sm" onClick={limpiarTodo}><Ic name="papelera" size={12}/> Limpiar</button>}
         <div style={{position:'relative',width:260}}>
-          <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Añadir paciente..." style={{fontSize:11}}/>
+          <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="Añadir paciente..." style={{fontSize:11}}/>
           {busquedaPac && (
             <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:20,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:240,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
               {pacFiltrados.slice(0,30).map((p:any)=>(
@@ -452,11 +453,11 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
           ) : act.datos.map((ej:any,ei:number)=>(
             <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'9px 11px'}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
-                {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>💪</div>}
+                {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={14}/></div>}
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
                   {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
-                  {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic'}}>💬 última vez: {ej.ultimoComent}</div>}
+                  {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="mensaje" size={10}/> última vez: {ej.ultimoComent}</div>}
                 </div>
                 {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
               </div>
@@ -494,7 +495,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
               })}
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
                 <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>+ serie</button>
-                <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
+                <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="Comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
               </div>
               {(ej.items||[]).length>0 && (
                 <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
@@ -531,7 +532,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
               {(ej.feedbacks||[]).length>0 && (
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
                   {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
-                    <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>💬 {fb.texto}</span>
+                    <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="mensaje" size={9}/> {fb.texto}</span>
                   ))}
                 </div>
               )}

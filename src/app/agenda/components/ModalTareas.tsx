@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 export default function ModalTareas({ tareas, perfiles, pacientes, userId, crearTarea, completarTarea, borrarTarea, onCerrar }: any) {
   const [titulo, setTitulo] = useState('')
@@ -108,12 +109,12 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
               <div style={{flex:1}}>
                 <div style={{fontSize:11,color:'var(--n)',fontWeight:400,textDecoration:t.completada?'line-through':'none',opacity:t.completada?.6:1}}>{t.titulo}</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:3,fontSize:8,color:'var(--grl)'}}>
-                  {t.asignado_a&&<span>👤 {nombreTrab(t.asignado_a)}</span>}
-                  {t.fecha_limite&&<span style={{color:est.color,fontWeight:est.label==='vencida'||est.label==='hoy'?600:400}}>📅 {t.fecha_limite}{est.label==='vencida'?' · vencida':est.label==='hoy'?' · hoy':''}</span>}
-                  {t.paciente_id&&<span>🔗 {nombrePac(t.paciente_id)}</span>}
+                  {t.asignado_a&&<span style={{display:'inline-flex',alignItems:'center',gap:3}}><Ic name="usuario" size={11}/> {nombreTrab(t.asignado_a)}</span>}
+                  {t.fecha_limite&&<span style={{color:est.color,fontWeight:est.label==='vencida'||est.label==='hoy'?600:400,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="calendario" size={11}/> {t.fecha_limite}{est.label==='vencida'?' · vencida':est.label==='hoy'?' · hoy':''}</span>}
+                  {t.paciente_id&&<span style={{display:'inline-flex',alignItems:'center',gap:3}}><Ic name="usuario" size={11}/> {nombrePac(t.paciente_id)}</span>}
                 </div>
               </div>
-              <button onClick={()=>borrarTarea(t.id)} style={{fontSize:10,color:'var(--grl)',background:'none',border:'none',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Eliminar" onMouseOver={e=>(e.currentTarget).style.color='var(--red)'} onMouseOut={e=>(e.currentTarget).style.color='var(--grl)'}>🗑</button>
+              <button onClick={()=>borrarTarea(t.id)} style={{fontSize:10,color:'var(--grl)',background:'none',border:'none',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Eliminar" onMouseOver={e=>(e.currentTarget).style.color='var(--red)'} onMouseOut={e=>(e.currentTarget).style.color='var(--grl)'}><Ic name="papelera" size={13}/></button>
             </div>
           )
         })}

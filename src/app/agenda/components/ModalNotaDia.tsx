@@ -1,4 +1,5 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function ModalNotaDia({ fechaDisplay, nuevaNota, setNuevaNota, onGuardar, onCerrar }: {
   fechaDisplay: string
@@ -11,7 +12,7 @@ export default function ModalNotaDia({ fechaDisplay, nuevaNota, setNuevaNota, on
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
       <div className="modal" style={{width:380}}>
         <div className="modal-title">
-          📝 Nueva nota del día
+          <span className="ct-l"><Ic name="nota" size={16}/> Nueva nota del día</span>
           <button className="modal-close" onClick={onCerrar}>✕</button>
         </div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,fontWeight:300}}>{fechaDisplay}</div>
@@ -24,7 +25,7 @@ export default function ModalNotaDia({ fechaDisplay, nuevaNota, setNuevaNota, on
         <div style={{display:'flex',gap:8,marginTop:8}}>
           <button className="btn btn-d btn-sm" onClick={onCerrar}>Cancelar</button>
           <div style={{flex:1}}/>
-          <button className="btn btn-p" onClick={onGuardar} disabled={!nuevaNota.trim()}>💾 Guardar nota</button>
+          <button className="btn btn-p" onClick={onGuardar} disabled={!nuevaNota.trim()}><Ic name="guardar" size={13}/> Guardar nota</button>
         </div>
       </div>
     </div>

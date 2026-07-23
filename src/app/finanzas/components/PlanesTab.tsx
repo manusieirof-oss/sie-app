@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 import { precioConDescuento } from '@/lib/bonos'
 
 const G='#5A969E', GD='#3E7179'
@@ -81,7 +82,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
 
   return (
     <div className="card">
-      <div className="card-title">💶 Planes y precios</div>
+      <div className="card-title"><span className="ct-l"><Ic name="euro"/> Planes y precios</span></div>
       <div style={{fontSize:10,color:'var(--grl)',marginBottom:14}}>Cada plan corresponde a un tipo de bono. Introduce el precio con IVA o el precio base; el IVA es configurable. Se muestra cuántos pacientes tienen cada bono activo y el ingreso que genera.</div>
 
       {bonosTipos.length===0 && (
@@ -139,7 +140,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
 
               <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
                 <button className="btn btn-d btn-sm" onClick={()=>setEditando(null)}>Cancelar</button>
-                <button className="btn btn-p btn-sm" onClick={()=>guardar(p)} disabled={guardando}>{guardando?'⏳':'💾 Guardar'}</button>
+                <button className="btn btn-p btn-sm" onClick={()=>guardar(p)} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={12}/> Guardar</>}</button>
               </div>
             </div>
           )
@@ -156,7 +157,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
                 <div style={{fontSize:16,fontWeight:600,color:G}}>{eur(final)}</div>
                 <div style={{fontSize:9,color:'var(--grl)'}}>base {p.precio_base.toFixed(2)}€ · IVA {p.iva}%</div>
               </div>
-              <button className="btn btn-s btn-sm" onClick={()=>iniciarEdicion(p)}>✏️</button>
+              <button className="btn btn-s btn-sm" onClick={()=>iniciarEdicion(p)}><Ic name="editar" size={12}/></button>
             </div>
             <div style={{display:'flex',gap:8,marginTop:10,paddingTop:10,borderTop:'1px solid var(--bd)'}}>
               <div style={{flex:1,textAlign:'center'}}>

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 const COLORES = ['#7C9A6B','#6B8F9A','#9A6B8F','#9A8F6B','#C17A54','#54A0A0','#A05454','#6B6B9A']
 
@@ -47,7 +48,7 @@ export default function ObjetivosTab({ objetivos, testsLib, cargar }: any) {
   return (
     <>
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
-        <input className="input" placeholder="🔍 Buscar objetivo..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="Buscar objetivo..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
         <span style={{fontSize:10,color:'var(--grl)'}}>{filtrados.length} objetivos</span>
         <button className="btn btn-p btn-sm" onClick={abrirNuevo}>+ Nuevo objetivo</button>
       </div>
@@ -66,10 +67,10 @@ export default function ObjetivosTab({ objetivos, testsLib, cargar }: any) {
                   {o.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,lineHeight:1.4}}>{o.descripcion}</div>}
                 </div>
               </div>
-              {o.test_id&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)',alignSelf:'flex-start'}}>🔍 {nombreTest(o.test_id)}</span>}
+              {o.test_id&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)',alignSelf:'flex-start',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="buscar" size={9}/> {nombreTest(o.test_id)}</span>}
               <div style={{display:'flex',gap:5,justifyContent:'flex-end',marginTop:'auto'}}>
-                <button className="btn btn-s btn-sm" onClick={()=>abrirEditar(o)}>✏️ Editar</button>
-                <button className="btn btn-d btn-sm" onClick={()=>eliminar(o)}>🗑</button>
+                <button className="btn btn-s btn-sm" onClick={()=>abrirEditar(o)}><Ic name="editar" size={12}/> Editar</button>
+                <button className="btn btn-d btn-sm" onClick={()=>eliminar(o)}><Ic name="papelera" size={12}/></button>
               </div>
             </div>
           ))}
@@ -103,7 +104,7 @@ export default function ObjetivosTab({ objetivos, testsLib, cargar }: any) {
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModal(false)} disabled={guardando}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardar} disabled={guardando}>{guardando?'⏳ Guardando...':'💾 Guardar'}</button>
+              <button className="btn btn-p" onClick={guardar} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
             </div>
           </div>
         </div>

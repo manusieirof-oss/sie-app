@@ -1,9 +1,10 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function RecuperacionesTab({ ajustes, set }: any) {
   return (
     <div className="card">
-      <div className="card-title">🔄 Política de recuperaciones</div>
+      <div className="card-title"><span className="ct-l"><Ic name="recuperar"/> Política de recuperaciones</span></div>
       <div style={{marginBottom:12}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',background:'var(--bl)',borderRadius:'var(--rl)',border:'1px solid var(--bd)'}}>
           <div>

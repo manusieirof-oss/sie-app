@@ -34,7 +34,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
             })()
           ) : (
             <>
-              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Buscar paciente por nombre..." disabled={guardando} autoFocus/>
+              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="Buscar paciente por nombre..." disabled={guardando} autoFocus/>
               {busquedaPac && (
                 <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:200,overflowY:'auto',marginTop:4}}>
                   {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).slice(0,30).map((p:any)=>(
@@ -66,7 +66,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
         </div>
         <div className="field"><label>Tipo</label>
           <select className="input" value={nuevaCita.tipo} onChange={e=>setNuevaCita((p:any)=>({...p,tipo:e.target.value}))} disabled={guardando}>
-            {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.icono} {t.nombre} ({t.duracion} min)</option>)}
+            {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.nombre} ({t.duracion} min)</option>)}
           </select>
         </div>
         <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px 12px',marginBottom:10}}>
@@ -138,7 +138,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
           <button className="btn btn-d btn-sm" onClick={()=>{if(!guardando)onCerrar()}} disabled={guardando}>Cancelar</button>
           <div style={{flex:1}}/>
           <button className="btn btn-p" onClick={crearCita} disabled={guardando}>
-            {guardando?'⏳ Creando...':'✓ Crear cita'}
+            {guardando?'Creando…':'✓ Crear cita'}
           </button>
         </div>
       </div>

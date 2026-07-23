@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { TEXTO_DATOS, TEXTO_IMAGENES } from '@/lib/textosLegales'
+import { Ic } from '@/lib/icons'
 
 export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, dibujando, setDibujando }: any) {
   const [docAbierto, setDocAbierto] = useState<null|'datos'|'imagenes'>(null)
@@ -57,13 +58,13 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
             />
             {!firmaCanvas&&<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:10,color:'var(--grl)',pointerEvents:'none'}}>Firma aquí con el dedo o ratón</div>}
           </div>
-          {firmaCanvas&&<button className="btn btn-t btn-sm" style={{marginTop:5}} onClick={()=>{const c=document.getElementById('firma-canvas') as HTMLCanvasElement;c.getContext('2d')!.clearRect(0,0,c.width,c.height);setFirmaCanvas('')}}>🗑 Borrar firma</button>}
+          {firmaCanvas&&<button className="btn btn-t btn-sm" style={{marginTop:5}} onClick={()=>{const c=document.getElementById('firma-canvas') as HTMLCanvasElement;c.getContext('2d')!.clearRect(0,0,c.width,c.height);setFirmaCanvas('')}}><Ic name="papelera" size={12}/> Borrar firma</button>}
         </div>
 
         {/* CONSENTIMIENTO DATOS (obligatorio) */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
           <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Protección de datos *</span>
-          <button className="btn btn-t btn-sm" onClick={()=>setDocAbierto('datos')}>📄 Leer documento</button>
+          <button className="btn btn-t btn-sm" onClick={()=>setDocAbierto('datos')}><Ic name="informe" size={12}/> Leer documento</button>
         </div>
         <div onClick={()=>setFirmaAceptada((p:boolean)=>!p)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,border:`1.5px solid ${firmaAceptada?'var(--g)':'var(--bd)'}`,background:firmaAceptada?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:12}}>
           <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${firmaAceptada?'var(--g)':'var(--bd)'}`,background:firmaAceptada?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -75,7 +76,7 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
         {/* CONSENTIMIENTO IMÁGENES (opcional) */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
           <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Imágenes para seguimiento de la readaptación (opcional)</span>
-          <button className="btn btn-t btn-sm" onClick={()=>setDocAbierto('imagenes')}>📄 Leer documento</button>
+          <button className="btn btn-t btn-sm" onClick={()=>setDocAbierto('imagenes')}><Ic name="informe" size={12}/> Leer documento</button>
         </div>
         <div onClick={()=>setImagenesAceptada((p:boolean)=>!p)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,border:`1.5px solid ${imagenesAceptada?'var(--g)':'var(--bd)'}`,background:imagenesAceptada?'var(--gl)':'var(--w)',cursor:'pointer'}}>
           <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${imagenesAceptada?'var(--g)':'var(--bd)'}`,background:imagenesAceptada?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>

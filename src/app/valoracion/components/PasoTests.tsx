@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, setTestsValoracion, testActivo, setTestActivo }: any) {
   const [busqueda, setBusqueda] = useState('')
@@ -55,7 +56,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 {testLib?.imagen_url
                   ? <img src={testLib.imagen_url} alt={tv.nombre} style={{width:isActivo?54:38,height:isActivo?54:38,objectFit:'cover',borderRadius:6,flexShrink:0}}/>
-                  : <div style={{width:isActivo?54:38,height:isActivo?54:38,borderRadius:6,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🧪</div>}
+                  : <div style={{width:isActivo?54:38,height:isActivo?54:38,borderRadius:6,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="test" size={18}/></div>}
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:500,color:'var(--n)'}}>{tv.nombre}</div>
                   {isActivo && testLib?.descripcion && <div style={{fontSize:10,color:'var(--grl)',marginTop:2,lineHeight:1.4}}>{testLib.descripcion}</div>}
@@ -66,7 +67,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                   )}
                   {isActivo && testLib?.video_url && <a href={testLib.video_url} target="_blank" rel="noreferrer" style={{fontSize:10,color:'var(--g)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:3,marginTop:3}}>▶ Ver vídeo del test</a>}
                 </div>
-                <button className="btn btn-t btn-sm" onClick={()=>setTestActivo(isActivo?null:ti)}>{isActivo?'▲ Cerrar':'✎ Realizar'}</button>
+                <button className="btn btn-t btn-sm" onClick={()=>setTestActivo(isActivo?null:ti)}>{isActivo?'▲ Cerrar':<><Ic name="editar" size={12}/> Realizar</>}</button>
                 <button onClick={()=>setTestsValoracion((prev:any[])=>prev.filter((_:any,i:number)=>i!==ti))} style={{fontSize:12,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>
               </div>
 
@@ -139,7 +140,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
         {/* AÑADIR TEST · BUSCADOR CON FILTROS */}
         <div style={{background:'var(--bl)',border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)',padding:'11px 13px',marginTop:6}}>
           <div style={{fontSize:10,fontWeight:500,color:'var(--n)',marginBottom:8}}>+ Añadir test de la biblioteca</div>
-          <input className="input" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="🔍 Buscar test por nombre..." style={{marginBottom:8}}/>
+          <input className="input" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar test por nombre..." style={{marginBottom:8}}/>
           {/* CHIPS DE ETIQUETAS (las que tienen los tests) */}
           {(() => {
             const idsUsados = Array.from(new Set(testsLib.flatMap((t:any)=>t.etiquetas_relacionadas||[])))
@@ -175,7 +176,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                   setTestActivo(testsValoracion.length)
                   setBusqueda('')
                 }} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 9px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer',background:'var(--w)'}}>
-                  {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:28,height:28,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:28,height:28,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>🧪</div>}
+                  {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:28,height:28,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:28,height:28,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="test" size={13}/></div>}
                   <span style={{flex:1,fontSize:11,color:'var(--n)'}}>{t.nombre}</span>
                   {t.tipo_lado==='lateral'&&<span style={{fontSize:8,color:'var(--grl)'}}>I/D</span>}
                   <span style={{fontSize:14,color:'var(--g)'}}>+</span>
@@ -211,7 +212,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                 const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
                 setTestActivo(testsValoracion.length)
               }} style={{display:'flex',alignItems:'center',gap:7,padding:'7px 8px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:5,cursor:'pointer',background:'var(--w)'}}>
-                {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:26,height:26,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0}}>🧪</div>}
+                {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:26,height:26,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="test" size={12}/></div>}
                 <span style={{fontSize:10,color:'var(--n)',flex:1}}>{t.nombre}</span>
                 <span style={{fontSize:13,color:'var(--g)'}}>+</span>
               </div>

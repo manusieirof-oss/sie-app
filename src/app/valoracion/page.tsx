@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { Ic } from '@/lib/icons'
 import PasoPaciente from './components/PasoPaciente'
 import PasoAnamnesis from './components/PasoAnamnesis'
 import PasoHistorial from './components/PasoHistorial'
@@ -25,7 +26,7 @@ export default function ValoracionPage() {
   const [tiposJornada, setTiposJornada] = useState<string[]>(['Sentado','Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
   const [deportesOpts, setDeportesOpts] = useState<string[]>(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
-  const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>([{valor:'entrenamiento',icono:'🏋',nombre:'Entrenamiento'},{valor:'pilates',icono:'🧘',nombre:'Pilates'},{valor:'rehabilitacion',icono:'🏥',nombre:'Rehabilitación'},{valor:'individual',icono:'👤',nombre:'Individual'},{valor:'embarazadas',icono:'🤰',nombre:'Embarazadas'}])
+  const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento'},{valor:'pilates',icono:'',nombre:'Pilates'},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación'},{valor:'individual',icono:'',nombre:'Individual'},{valor:'embarazadas',icono:'',nombre:'Embarazadas'}])
   const [bonosOpts, setBonosOpts] = useState<any[]>([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
@@ -116,7 +117,7 @@ export default function ValoracionPage() {
 
   if (exito) return (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'60vh',gap:12}}>
-      <div style={{fontSize:48}}>✅</div>
+      <div style={{color:'var(--g)'}}><Ic name="ok" size={48} strokeWidth={1.5}/></div>
       <div style={{fontSize:16,fontWeight:400,color:'var(--n)'}}>Valoración guardada correctamente</div>
       <div style={{fontSize:11,color:'var(--grl)'}}>Redirigiendo a la ficha del paciente...</div>
     </div>

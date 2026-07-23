@@ -1,5 +1,6 @@
 'use client'
 import PanelSesion from './PanelSesion'
+import { Ic } from '@/lib/icons'
 
 export default function ModalEntrenoCita({ verEntrenoCita, sesionDetalle, sesionesPaciente, loadingSesion, mostrarSesiones, setMostrarSesiones, anotaciones, setAnotaciones, pesos, setPesos, guardandoAnot, guardarAnotacion, asignarSesion, alertasPaciente=[], onCerrar }: any) {
   if (!verEntrenoCita) return null
@@ -13,7 +14,7 @@ export default function ModalEntrenoCita({ verEntrenoCita, sesionDetalle, sesion
         </div>
         {alertasSesion.length>0&&(
           <div style={{background:'var(--redl)',border:'1px solid #F5C8C8',borderRadius:8,padding:'10px 12px',marginBottom:12}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--red)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5,display:'flex',alignItems:'center',gap:5}}>⚠️ A tener en cuenta en la sesión</div>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--red)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5,display:'flex',alignItems:'center',gap:5}}><Ic name="alerta" size={12}/> A tener en cuenta en la sesión</div>
             {alertasSesion.map((a:any)=>(
               <div key={a.id} style={{fontSize:10,color:'var(--n)',marginBottom:3}}>· {a.descripcion}<span style={{fontSize:8,color:'var(--grl)',marginLeft:5}}>({a.fecha_inicio})</span></div>
             ))}

@@ -88,7 +88,7 @@ export default function NuevoPacientePage() {
             <div>
               <div className="card" style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--grl)', letterSpacing: '.7px', textTransform: 'uppercase', marginBottom: 12 }}>Tipo de clase</div>
-                {[['entrenamiento','🏋 Entrenamiento','Fuerza, funcional'],['pilates','🧘 Pilates','Control motor'],['rehabilitacion','🏥 Rehabilitación','Recuperación']].map(([v,l,d]) => (
+                {[['entrenamiento','Entrenamiento','Fuerza, funcional'],['pilates','Pilates','Control motor'],['rehabilitacion','Rehabilitación','Recuperación']].map(([v,l,d]) => (
                   <div key={v} onClick={() => set('tipo_clase', v)}
                     style={{ border: `1.5px solid ${form.tipo_clase === v ? 'var(--g)' : 'var(--bd)'}`, background: form.tipo_clase === v ? 'var(--gl)' : 'var(--w)', borderRadius: 7, padding: '9px 12px', cursor: 'pointer', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 18 }}>{l.split(' ')[0]}</span>
@@ -109,9 +109,9 @@ export default function NuevoPacientePage() {
                 <div className="field" style={{ marginTop: 10 }}>
                   <label>Estado de pago inicial</label>
                   <select value={bono.estado_pago} onChange={e => setBono(b => ({ ...b, estado_pago: e.target.value }))}>
-                    <option value="pendiente">⏳ Pendiente</option>
-                    <option value="pagado">✓ Pagado</option>
-                    <option value="impago">⚠ Impago</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="pagado">Pagado</option>
+                    <option value="impago">Impago</option>
                   </select>
                 </div>
               </div>

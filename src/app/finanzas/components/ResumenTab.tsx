@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { precioConDescuento } from '@/lib/bonos'
+import { Ic } from '@/lib/icons'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
@@ -73,8 +74,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
     <div>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
         <div style={{display:'flex',gap:4,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,flex:1,maxWidth:340}}>
-          {([['general','📊 General'],['evolucion','📈 Evolución']] as const).map(([k,l])=>(
-            <button key={k} onClick={()=>setVista(k)} style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:300,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>{l}</button>
+          {([['general','progreso','General'],['evolucion','sube','Evolución']] as const).map(([k,ic,l])=>(
+            <button key={k} onClick={()=>setVista(k)} style={{flex:1,fontSize:11,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><Ic name={ic} size={13}/> {l}</button>
           ))}
         </div>
       </div>
@@ -96,7 +97,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
               </div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              {([['✓ Cobrado',ingresosCobrados,G],['⏳ Pendiente',pendiente,AMB],['⚠ Impago',impago,RED],['🧾 Gastos mes',gastosMes,GREY]] as const).map(([l,v,c])=>(
+              {([['✓ Cobrado',ingresosCobrados,G],['Pendiente',pendiente,AMB],['Impago',impago,RED],['Gastos mes',gastosMes,GREY]] as const).map(([l,v,c])=>(
                 <div key={l} style={{textAlign:'center',padding:'4px 0'}}>
                   <div style={{fontSize:24,fontWeight:200,color:c}}>{eur(v)}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{l}</div>
@@ -110,7 +111,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
               <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Previsto / mes</div>
               <div style={{fontSize:28,fontWeight:300,color:G}}>{eur(ingresosPrevistos)}</div>
               <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>{bonosActivos.length} bonos activos</div>
-              {totalDescuentos > 0 && <div style={{fontSize:9,color:'#7A5800',marginTop:2}}>🏷 −{totalDescuentos.toFixed(0)}€ en descuentos</div>}
+              {totalDescuentos > 0 && <div style={{fontSize:9,color:'#8A6410',marginTop:2,display:'flex',alignItems:'center',gap:4}}><Ic name="etiqueta" size={10}/> −{totalDescuentos.toFixed(0)}€ en descuentos</div>}
             </div>
             <div className="card" style={{textAlign:'center',margin:0}}>
               <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Beneficio previsto</div>

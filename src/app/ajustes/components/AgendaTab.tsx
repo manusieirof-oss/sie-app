@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 export default function AgendaTab({ tiposCita, setTiposCita }: any) {
   const [modal, setModal] = useState(false)
@@ -13,7 +14,7 @@ export default function AgendaTab({ tiposCita, setTiposCita }: any) {
     <div>
       <div className="card">
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-          <div className="card-title" style={{margin:0}}>📅 Tipos de cita</div>
+          <div className="card-title" style={{margin:0}}><span className="ct-l"><Ic name="agenda"/> Tipos de cita</span></div>
           <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo tipo</button>
         </div>
         <div style={{fontSize:9,color:'var(--grl)',marginBottom:10}}>Define los tipos de cita (clases, consultas, llamadas...), su color en la agenda y su duración.</div>
@@ -34,7 +35,7 @@ export default function AgendaTab({ tiposCita, setTiposCita }: any) {
                 </label>
               </div>
             </div>
-            <button onClick={()=>setTiposCita((p:any)=>p.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer',flexShrink:0}}>🗑</button>
+            <button onClick={()=>setTiposCita((p:any)=>p.filter((_:any,j:number)=>j!==i))} style={{color:'var(--red)',background:'none',border:'none',cursor:'pointer',flexShrink:0,display:'inline-flex'}}><Ic name="papelera" size={13}/></button>
           </div>
         ))}
       </div>
@@ -59,7 +60,7 @@ export default function AgendaTab({ tiposCita, setTiposCita }: any) {
                 setTiposCita((p:any)=>[...p,{id:nuevo.nombre.toLowerCase().replace(/\s/g,'_')+'_'+Date.now(),nombre:nuevo.nombre,color:nuevo.color,duracion:nuevo.duracion,cuenta_clase:nuevo.cuenta_clase}])
                 setNuevo({nombre:'',color:'#5A969E',duracion:50,cuenta_clase:false})
                 setModal(false)
-              }}>💾 Añadir tipo</button>
+              }}><Ic name="guardar" size={13}/> Añadir tipo</button>
             </div>
           </div>
         </div>

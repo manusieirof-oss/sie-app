@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 export default function CuentaTab({ perfilActual }: any) {
   const [nueva, setNueva] = useState('')
@@ -45,7 +46,7 @@ export default function CuentaTab({ perfilActual }: any) {
 
   return (
     <div className="card" style={{maxWidth:480}}>
-      <div className="card-title">🔐 Mi cuenta</div>
+      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Mi cuenta</span></div>
       <div style={{fontSize:11,color:'var(--n)',marginBottom:4}}>{perfilActual?.nombre || 'Usuario'}</div>
       <div style={{fontSize:10,color:'var(--grl)',marginBottom:16}}>{perfilActual?.rol==='admin'?'Administrador':'Usuario'}</div>
 
@@ -54,7 +55,7 @@ export default function CuentaTab({ perfilActual }: any) {
       <div className="field"><label>Nueva contraseña</label>
         <div style={{position:'relative'}}>
           <input className="input" type={verNueva?'text':'password'} value={nueva} onChange={e=>setNueva(e.target.value)} placeholder="••••••••" autoComplete="new-password" style={{paddingRight:38}}/>
-          <button type="button" onClick={()=>setVerNueva(v=>!v)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,padding:0}}>{verNueva?'🙈':'👁'}</button>
+          <button type="button" onClick={()=>setVerNueva(v=>!v)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',padding:0,display:'inline-flex',color:'var(--grl)'}}><Ic name="ojo" size={15}/></button>
         </div>
       </div>
 
@@ -73,7 +74,7 @@ export default function CuentaTab({ perfilActual }: any) {
       <div className="field"><label>Repetir contraseña</label>
         <div style={{position:'relative'}}>
           <input className="input" type={verRepetir?'text':'password'} value={repetir} onChange={e=>setRepetir(e.target.value)} placeholder="••••••••" autoComplete="new-password" style={{paddingRight:38}}/>
-          <button type="button" onClick={()=>setVerRepetir(v=>!v)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,padding:0}}>{verRepetir?'🙈':'👁'}</button>
+          <button type="button" onClick={()=>setVerRepetir(v=>!v)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',padding:0,display:'inline-flex',color:'var(--grl)'}}><Ic name="ojo" size={15}/></button>
         </div>
       </div>
 
@@ -88,7 +89,7 @@ export default function CuentaTab({ perfilActual }: any) {
       )}
 
       <button className="btn btn-p" onClick={cambiarPassword} disabled={guardando||!todosCumplidos||!coinciden}>
-        {guardando?'⏳ Guardando...':'💾 Cambiar contraseña'}
+        {guardando?'Guardando…':<><Ic name="guardar" size={13}/> Cambiar contraseña</>}
       </button>
     </div>
   )

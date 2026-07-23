@@ -67,9 +67,9 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
 
         <div className="field"><label>Estado de pago</label>
           <select className="input" value={form.estado_pago} onChange={e=>setForm(p=>({...p,estado_pago:e.target.value}))}>
-            <option value="pendiente">⏳ Pendiente</option>
-            <option value="pagado">✓ Pagado</option>
-            <option value="impago">⚠ Impago</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="pagado">Pagado</option>
+            <option value="impago">Impago</option>
           </select>
         </div>
 
@@ -94,7 +94,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         <div style={{display:'flex',gap:8,marginTop:8}}>
           <button className="btn btn-d btn-sm" onClick={onCerrar}>Cancelar</button>
           <div style={{flex:1}}/>
-          <button className="btn btn-p" onClick={guardar} disabled={guardando}>{guardando?'⏳':'✓ Guardar bono'}</button>
+          <button className="btn btn-p" onClick={guardar} disabled={guardando}>{guardando?'…':'✓ Guardar bono'}</button>
         </div>
       </div>
     </div>

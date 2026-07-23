@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 export default function UsuariosTab({ perfilActual }: any) {
   const [usuarios, setUsuarios] = useState<any[]>([])
@@ -38,7 +39,7 @@ export default function UsuariosTab({ perfilActual }: any) {
     return (
       <div className="card">
         <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:12}}>
-          🔒 Solo los administradores pueden gestionar usuarios
+<Ic name="candado" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> Solo los administradores pueden gestionar usuarios
         </div>
       </div>
     )
@@ -46,7 +47,7 @@ export default function UsuariosTab({ perfilActual }: any) {
 
   return (
     <div className="card">
-      <div className="card-title">👥 Usuarios del sistema</div>
+      <div className="card-title"><span className="ct-l"><Ic name="pacientes"/> Usuarios del sistema</span></div>
       <div style={{fontSize:10,color:'var(--grl)',marginBottom:14}}>Gestiona los roles y permisos de acceso de cada usuario</div>
 
       {loading ? (
@@ -72,7 +73,7 @@ export default function UsuariosTab({ perfilActual }: any) {
 
             {/* TOGGLE FINANZAS */}
             <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:10,color:'var(--grl)'}}>💰 Finanzas</span>
+              <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="finanzas" size={11}/> Finanzas</span>
               <button onClick={()=>togglePermiso(u.id, u.permisos)} disabled={guardando===u.id||u.rol==='admin'}
                 style={{width:38,height:21,borderRadius:99,background:u.permisos?.finanzas?'var(--g)':'var(--bm)',border:'none',cursor:u.rol==='admin'?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:u.rol==='admin'?0.5:1}}>
                 <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:u.permisos?.finanzas?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
@@ -83,7 +84,7 @@ export default function UsuariosTab({ perfilActual }: any) {
       )}
 
       <div style={{marginTop:14,padding:'10px 12px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,fontSize:9,color:'var(--gd)'}}>
-        ℹ️ Para añadir un nuevo usuario, créalo primero en Supabase → Authentication → Users, y luego aparecerá aquí para asignarle rol y permisos. Los administradores tienen acceso completo a finanzas automáticamente.
+<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> Para añadir un nuevo usuario, créalo primero en Supabase → Authentication → Users, y luego aparecerá aquí para asignarle rol y permisos. Los administradores tienen acceso completo a finanzas automáticamente.
       </div>
     </div>
   )

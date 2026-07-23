@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 
@@ -21,7 +22,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
   async function guardarNotaRapida() {
     if (!textoNota.trim()) return
     setGuardandoNota(true)
-    const texto = tipoNota==='molestia' ? `🤕 Molestia (EVA ${evaRapido}/10): ${textoNota}` : textoNota
+    const texto = tipoNota==='molestia' ? `Molestia (EVA ${evaRapido}/10): ${textoNota}` : textoNota
     await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto, tipo: 'info', fecha: new Date().toISOString().split('T')[0], visible_agenda: false })
     setTextoNota(''); setModalNota(false); setGuardandoNota(false)
     alert('✓ Nota guardada en el historial del paciente')
@@ -30,7 +31,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
   async function guardarAviso() {
     if (!textoAviso.trim() || !fechaAviso) return
     setGuardandoNota(true)
-    await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto: `🔔 ${textoAviso}`, tipo: 'urgente', fecha: fechaAviso, visible_agenda: true })
+    await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto: textoAviso, tipo: 'urgente', fecha: fechaAviso, visible_agenda: true })
     setTextoAviso(''); setFechaAviso(''); setModalAviso(false); setGuardandoNota(false)
     alert('✓ Aviso guardado')
   }
@@ -41,14 +42,14 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
   return (
     <div style={{padding:11}}>
       {/* DATOS CONTACTO */}
-      {panelPac.pacientes?.telefono&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>📞 {panelPac.pacientes.telefono}</div>}
-      {panelPac.pacientes?.email&&<div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:6}}>✉️ {panelPac.pacientes.email}</div>}
-      <div style={{fontSize:11,color:'var(--n)',fontWeight:300,marginBottom:12}}>🏷 {panelPac.pacientes?.tipo_clase||'—'}</div>
+      {panelPac.pacientes?.telefono&&<div style={{fontSize:11,color:'var(--n)',marginBottom:6,display:'flex',alignItems:'center',gap:6}}><Ic name="telefono" size={12}/> {panelPac.pacientes.telefono}</div>}
+      {panelPac.pacientes?.email&&<div style={{fontSize:11,color:'var(--n)',marginBottom:6,display:'flex',alignItems:'center',gap:6}}><Ic name="mail" size={12}/> {panelPac.pacientes.email}</div>}
+      <div style={{fontSize:11,color:'var(--n)',marginBottom:12,display:'flex',alignItems:'center',gap:6}}><Ic name="etiqueta" size={12}/> {panelPac.pacientes?.tipo_clase||'—'}</div>
 
       {/* NOTAS PERMANENTES (lectura) */}
       {panelPac.pacientes?.notas_fijas && (
         <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 10px',marginBottom:12,fontSize:10,color:'var(--n)',fontWeight:400,whiteSpace:'pre-line'}}>
-          📌 {panelPac.pacientes.notas_fijas}
+<Ic name="pin" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{panelPac.pacientes.notas_fijas}
         </div>
       )}
 
@@ -58,7 +59,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>Bono</div>
           <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{bonoLabel[panelPac.bono_info.tipo]||panelPac.bono_info.tipo}</div>
           <div style={{fontSize:10,fontWeight:500,color:pagoColor[panelPac.bono_info.estado_pago]||'var(--grl)',marginTop:2}}>
-            {panelPac.bono_info.estado_pago==='pagado'?'✓ Pagado':panelPac.bono_info.estado_pago==='pendiente'?'⚠ Pendiente':'◑ Parcial'}
+            {panelPac.bono_info.estado_pago==='pagado'?'✓ Pagado':panelPac.bono_info.estado_pago==='pendiente'?'Pendiente':'Parcial'}
           </div>
         </div>
       )}
@@ -66,10 +67,10 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
       {/* BOTONES NOTA RÁPIDA Y AVISO */}
       <div style={{display:'flex',gap:6,marginBottom:12}}>
         <button onClick={()=>setModalNota(true)} style={{flex:1,fontSize:10,padding:'7px 8px',borderRadius:'var(--r)',border:'1px solid var(--bd)',background:'var(--bl)',color:'var(--n)',cursor:'pointer',fontFamily:'system-ui',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-          📝 Nota rápida
+<Ic name="nota" size={12}/> Nota rápida
         </button>
         <button onClick={()=>setModalAviso(true)} style={{flex:1,fontSize:10,padding:'7px 8px',borderRadius:'var(--r)',border:'1px solid var(--amb)',background:'var(--ambl)',color:'#7A5800',cursor:'pointer',fontFamily:'system-ui',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-          🔔 Aviso
+<Ic name="campana" size={12}/> Aviso
         </button>
       </div>
 
@@ -85,7 +86,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
       <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:7}}>Estado de la cita</div>
       <div style={{marginBottom:12}}>
         <div style={{padding:'6px 10px',borderRadius:5,marginBottom:8,background:estado==='realizada'?'var(--gl)':estado==='falta'?'var(--redl)':estado==='cancelada'?'var(--bm)':'var(--ambl)',border:`1px solid ${estado==='realizada'?'var(--gm)':estado==='falta'?'#F5C8C8':estado==='cancelada'?'var(--bd)':'var(--amb)'}`,fontSize:10,fontWeight:500,color:estado==='realizada'?'var(--gd)':estado==='falta'?'var(--red)':estado==='cancelada'?'var(--gr)':'#7A5800'}}>
-          {estado==='realizada'?'✓ Realizada':estado==='falta'?'✗ Falta':estado==='cancelada'?'Cancelada':'⏳ Programada'}
+          {estado==='realizada'?'✓ Realizada':estado==='falta'?'✗ Falta':estado==='cancelada'?'Cancelada':'Programada'}
         </div>
         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
           {esPasada&&estado!=='falta'&&estado!=='cancelada'&&<button onClick={()=>cambiarEstado(panelPac.id,'falta')} style={{fontSize:10,padding:'5px 12px',borderRadius:'var(--r)',border:'1px solid var(--red)',background:'var(--redl)',color:'var(--red)',cursor:'pointer',fontFamily:'system-ui',fontWeight:500}}>✗ Marcar falta</button>}
@@ -99,11 +100,11 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
       {modalNota&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNota(false)}}>
           <div className="modal">
-            <div className="modal-title">📝 Nota rápida · {panelPac.pacientes?.nombre}<button className="modal-close" onClick={()=>setModalNota(false)}>✕</button></div>
+            <div className="modal-title"><span className="ct-l"><Ic name="nota" size={16}/> Nota rápida · {panelPac.pacientes?.nombre}</span><button className="modal-close" onClick={()=>setModalNota(false)}>✕</button></div>
             <div className="field"><label>Tipo</label>
               <div style={{display:'flex',gap:6,marginTop:4}}>
-                {[['info','📋 General'],['molestia','🤕 Molestia']].map(([v,l])=>(
-                  <span key={v} onClick={()=>setTipoNota(v)} style={{flex:1,padding:'6px',borderRadius:6,border:`1.5px solid ${tipoNota===v?'var(--g)':'var(--bd)'}`,background:tipoNota===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,color:tipoNota===v?'var(--gd)':'var(--gr)'}}>{l}</span>
+                {[['info','anamnesis','General'],['molestia','molestia','Molestia']].map(([v,ic,l])=>(
+                  <span key={v} onClick={()=>setTipoNota(v)} style={{flex:1,padding:'7px',borderRadius:8,border:`1.5px solid ${tipoNota===v?'var(--g)':'var(--bd)'}`,background:tipoNota===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:11,color:tipoNota===v?'var(--gd)':'var(--gr)',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><Ic name={ic} size={12}/> {l}</span>
                 ))}
               </div>
             </div>
@@ -120,7 +121,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalNota(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardarNotaRapida} disabled={guardandoNota||!textoNota.trim()}>{guardandoNota?'⏳':'💾 Guardar'}</button>
+              <button className="btn btn-p" onClick={guardarNotaRapida} disabled={guardandoNota||!textoNota.trim()}>{guardandoNota?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
             </div>
           </div>
         </div>
@@ -130,18 +131,18 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
       {modalAviso&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalAviso(false)}}>
           <div className="modal">
-            <div className="modal-title">🔔 Aviso · {panelPac.pacientes?.nombre}<button className="modal-close" onClick={()=>setModalAviso(false)}>✕</button></div>
+            <div className="modal-title"><span className="ct-l"><Ic name="campana" size={16}/> Aviso · {panelPac.pacientes?.nombre}</span><button className="modal-close" onClick={()=>setModalAviso(false)}>✕</button></div>
             <div className="field"><label>Fecha del aviso *</label>
               <input type="date" className="input" value={fechaAviso} onChange={e=>setFechaAviso(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
             </div>
             <div className="field"><label>Descripción *</label>
               <textarea className="input" style={{minHeight:70}} value={textoAviso} onChange={e=>setTextoAviso(e.target.value)} autoFocus placeholder="ej. Cita con traumatólogo, posible cambio de entreno..."/>
             </div>
-            <div style={{fontSize:9,color:'var(--grl)',marginBottom:8}}>⚡ El aviso aparecerá en la agenda ese día y en el historial del paciente.</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:8,display:'flex',alignItems:'center',gap:4}}><Ic name="rayo" size={11}/> El aviso aparecerá en la agenda ese día y en el historial del paciente.</div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalAviso(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardarAviso} disabled={guardandoNota||!textoAviso.trim()||!fechaAviso}>{guardandoNota?'⏳':'💾 Guardar aviso'}</button>
+              <button className="btn btn-p" onClick={guardarAviso} disabled={guardandoNota||!textoAviso.trim()||!fechaAviso}>{guardandoNota?'…':<><Ic name="guardar" size={13}/> Guardar aviso</>}</button>
             </div>
           </div>
         </div>

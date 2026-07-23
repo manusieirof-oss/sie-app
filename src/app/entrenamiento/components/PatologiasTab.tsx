@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 export default function PatologiasTab({ patologiasBiblio }: any) {
   const [buscarPat, setBuscarPat] = useState('')
@@ -10,14 +11,14 @@ export default function PatologiasTab({ patologiasBiblio }: any) {
   return (
     <>
       <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
-        <input className="input" placeholder="🔍 Buscar patología..." value={buscarPat} onChange={e=>setBuscarPat(e.target.value)} style={{flex:1}}/>
+        <input className="input" placeholder="Buscar patología..." value={buscarPat} onChange={e=>setBuscarPat(e.target.value)} style={{flex:1}}/>
         <span style={{fontSize:10,color:'var(--grl)'}}>{filtradas.length} patologías</span>
       </div>
       {zonas.map((zona:any)=>{
         const items = filtradas.filter((p:any)=>p.zona===zona)
         return (
           <div key={zona} className="card" style={{marginBottom:8}}>
-            <div className="card-title">📍 {zona}</div>
+            <div className="card-title"><span className="ct-l"><Ic name="ubicacion"/> {zona}</span></div>
             <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
               {items.map((p:any)=>(
                 <div key={p.id} onClick={()=>setPatSeleccionada(patSeleccionada?.id===p.id?null:p)}
@@ -37,7 +38,7 @@ export default function PatologiasTab({ patologiasBiblio }: any) {
                 {patSeleccionada.descripcion&&<div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.5,marginBottom:6}}>{patSeleccionada.descripcion}</div>}
                 {patSeleccionada.precauciones&&(
                   <div style={{padding:'6px 9px',background:'var(--ambl)',borderRadius:5,border:'1px solid var(--amb)',fontSize:9,color:'#7A5800'}}>
-                    ⚠️ <strong>Precauciones:</strong> {patSeleccionada.precauciones}
+<Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/><strong>Precauciones:</strong> {patSeleccionada.precauciones}
                   </div>
                 )}
               </div>

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Ic } from '@/lib/icons'
 
 export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas }: {
   fecha: string
@@ -83,11 +84,11 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                             style={{display:'flex',alignItems:'center',gap:3,padding:'4px 6px',borderRadius:4,cursor:'pointer',marginBottom:2,minHeight:28,background:c.estado==='falta'?'var(--redl)':(tiposClase.find((t:any)=>t.valor===c.tipo)?.color||'#5A969E')+'33',border:c.estado==='falta'?'1px solid #F5C8C8':'none'}}
                             onMouseOver={e=>(e.currentTarget as HTMLElement).style.opacity='0.8'}
                             onMouseOut={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
-                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{fontSize:10,flexShrink:0}} title="Tiene alertas activas">⚠️</span>}
+                            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas activas"><Ic name="alerta" size={12}/></span>}
                             <span style={{fontSize:11,color:c.estado==='falta'?'var(--red)':'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',textAlign:'center'}}>{c.estado==='falta'&&<span style={{fontWeight:600,marginRight:3}}>✗</span>}{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
-                            <span onClick={e=>{e.stopPropagation();abrirEntrenoCita&&abrirEntrenoCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Entrenamiento" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>🏋</span>
-                            <span onClick={e=>{e.stopPropagation();abrirDatosCita&&abrirDatosCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Ver datos" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>👤</span>
-                            <span onClick={e=>{e.stopPropagation();setEditandoCita&&setEditandoCita({...c})}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Editar cita" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}>✎</span>
+                            <span onClick={e=>{e.stopPropagation();abrirEntrenoCita&&abrirEntrenoCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Entrenamiento" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}><Ic name="entreno" size={13}/></span>
+                            <span onClick={e=>{e.stopPropagation();abrirDatosCita&&abrirDatosCita(c)}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Ver datos" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}><Ic name="usuario" size={13}/></span>
+                            <span onClick={e=>{e.stopPropagation();setEditandoCita&&setEditandoCita({...c})}} style={{fontSize:10,color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Editar cita" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}><Ic name="editar" size={13}/></span>
                           </div>
                         ))}
                         {sc.length<MAX&&(
@@ -132,7 +133,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
             const nombrePac=(pid:string)=>{const c=citas.find((x:any)=>x.paciente_id===pid);return c?.pacientes?`${c.pacientes.nombre} ${c.pacientes.apellidos||''}`:''}
             return (
               <>
-                <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>⚠️ Alertas de hoy</div>
+                <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:5,display:'flex',alignItems:'center',gap:4}}><Ic name="alerta" size={11}/> Alertas de hoy</div>
                 {(alertasExpand?alertasHoy:alertasHoy.slice(0,5)).map((a:any)=>(
                   <div key={a.id} style={{borderRadius:5,padding:'5px 8px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)',marginBottom:4}}>
                     <div style={{fontSize:8,color:a.afecta_sesion?'var(--red)':'var(--gd)',marginBottom:1,fontWeight:500}}>{nombrePac(a.paciente_id)}{a.afecta_sesion&&' · afecta sesión'}</div>
@@ -163,7 +164,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 <div onClick={()=>completarTarea&&completarTarea(t.id,true)} style={{width:14,height:14,borderRadius:3,border:'2px solid var(--bm)',background:'transparent',cursor:'pointer',flexShrink:0,marginTop:1}} title="Marcar hecha"/>
                 <div style={{flex:1}}>
                   <div style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.3}}>{t.titulo}</div>
-                  {t.fecha_limite&&<div style={{fontSize:8,color:venc?'var(--red)':esHoy?'#7A5800':'var(--grl)',marginTop:1,fontWeight:venc||esHoy?600:400}}>📅 {t.fecha_limite}{venc?' · vencida':esHoy?' · hoy':''}</div>}
+                  {t.fecha_limite&&<div style={{fontSize:8,color:venc?'var(--red)':esHoy?'#7A5800':'var(--grl)',marginTop:1,fontWeight:venc||esHoy?600:400,display:'flex',alignItems:'center',gap:3}}><Ic name="calendario" size={10}/> {t.fecha_limite}{venc?' · vencida':esHoy?' · hoy':''}</div>}
                 </div>
               </div>
             )

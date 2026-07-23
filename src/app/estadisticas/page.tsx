@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts'
+import { Ic } from '@/lib/icons'
 
 const PAL = { g:'#5A969E', gd:'#3E7179', bg:'#EBF4F5', red:'#C25B5B', amb:'#D4A24E' }
 const GREY='#9CA3AF'
@@ -148,7 +149,7 @@ export default function StatsPage() {
     const t=p.tipo_clase||'sin_definir'
     claseMap[t]=(claseMap[t]||0)+1
   })
-  const CLASE_LABEL: Record<string,string> = {entrenamiento:'🏋 Entrenamiento',pilates:'🧘 Pilates',rehabilitacion:'🏥 Rehabilitación',sin_definir:'Sin definir'}
+  const CLASE_LABEL: Record<string,string> = {entrenamiento:'Entrenamiento',pilates:'Pilates',rehabilitacion:'Rehabilitación',sin_definir:'Sin definir'}
   const dataClases = Object.entries(claseMap).sort(([,a],[,b])=>b-a).map(([t,n])=>({ clase:CLASE_LABEL[t]||t, n }))
 
   // Patologías más frecuentes (top 8)
@@ -218,12 +219,13 @@ export default function StatsPage() {
     <div>
       {/* PESTAÑAS */}
       <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:'1px solid var(--bd)'}}>
-        {([['actividad','📅 Actividad'],['pacientes','👥 Pacientes'],['clinico','🩺 Clínico']] as [Tab,string][]).map(([id,label])=>(
+        {([['actividad','agenda','Actividad'],['pacientes','pacientes','Pacientes'],['clinico','patologia','Clínico']] as [Tab,string,string][]).map(([id,ic,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{
             background:'none',border:'none',padding:'8px 14px',fontSize:12,cursor:'pointer',
+            display:'flex',alignItems:'center',gap:5,
             color: tab===id?PAL.gd:'var(--grl)', fontWeight: tab===id?600:400,
             borderBottom: tab===id?`2px solid ${PAL.g}`:'2px solid transparent', marginBottom:-1
-          }}>{label}</button>
+          }}><Ic name={ic} size={14}/> {label}</button>
         ))}
       </div>
 

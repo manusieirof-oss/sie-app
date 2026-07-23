@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 // Catálogo genérico: medicamentos, alergias, intolerancias, operaciones
 export default function CatalogoTab({ items, tipo, tabla, campoGrupo, tema, cargar }: any) {
@@ -26,7 +27,7 @@ export default function CatalogoTab({ items, tipo, tabla, campoGrupo, tema, carg
   return (
     <>
       <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
-        <input className="input" placeholder="🔍 Buscar..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1}}/>
+        <input className="input" placeholder="Buscar..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1}}/>
         <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Añadir</button>
       </div>
 
@@ -53,7 +54,7 @@ export default function CatalogoTab({ items, tipo, tabla, campoGrupo, tema, carg
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModal(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardar}>💾 Guardar</button>
+              <button className="btn btn-p" onClick={guardar}><Ic name="guardar" size={13}/> Guardar</button>
             </div>
           </div>
         </div>

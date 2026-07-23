@@ -8,17 +8,18 @@ import TestsTab from './components/TestsTab'
 import EtiquetasTab from './components/EtiquetasTab'
 import ClinicoTab from './components/ClinicoTab'
 import ObjetivosTab from './components/ObjetivosTab'
+import { Ic } from '@/lib/icons'
 
 const CATEGORIAS = [
-  { key: 'musculo', label: '💪 Músculo' },
-  { key: 'articulacion', label: '🦴 Articulación' },
-  { key: 'movimiento', label: '🔄 Movimiento' },
-  { key: 'posicion', label: '📍 Posición' },
-  { key: 'material', label: '🏋 Material' },
-  { key: 'apoyo', label: '🦶 Apoyo' },
-  { key: 'agarre', label: '✋ Agarre' },
-  { key: 'patologia', label: '🏥 Patología' },
-  { key: 'plano_eje', label: '🧭 Plano y eje' },
+  { key: 'musculo', label: 'Músculo' },
+  { key: 'articulacion', label: 'Articulación' },
+  { key: 'movimiento', label: 'Movimiento' },
+  { key: 'posicion', label: 'Posición' },
+  { key: 'material', label: 'Material' },
+  { key: 'apoyo', label: 'Apoyo' },
+  { key: 'agarre', label: 'Agarre' },
+  { key: 'patologia', label: 'Patología' },
+  { key: 'plano_eje', label: 'Plano y eje' },
 ]
 
 function EntrenamientoContent() {
@@ -179,8 +180,8 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','📚 Ejercicios'],['sesiones','📋 Sesiones'],['tests','🔍 Tests'],['etiquetas','🏷 Etiquetas'],['objetivos','🎯 Objetivos'],['clinico','🏥 Clínico']].map(([k,l])=>(
-          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
+        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['tests','test','Tests'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']].map(([k,ic,l])=>(
+          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
 

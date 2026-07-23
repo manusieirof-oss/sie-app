@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
+import { Ic } from '@/lib/icons'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 
@@ -61,11 +62,11 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
     <div>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
         <div style={{display:'flex',gap:4,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,flex:1}}>
-          {([['analisis','📊 Análisis'],['paciente','😊 Para el paciente']] as const).map(([k,l])=>(
-            <button key={k} onClick={()=>setVista(k)} style={{flex:1,fontSize:10,padding:'6px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:300,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>{l}</button>
+          {([['analisis','progreso','Análisis'],['paciente','usuario','Para el paciente']] as const).map(([k,ic,l])=>(
+            <button key={k} onClick={()=>setVista(k)} style={{flex:1,fontSize:11,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><Ic name={ic} size={13}/> {l}</button>
           ))}
         </div>
-        <button className="btn btn-p btn-sm" onClick={generarPDF}>📄 PDF</button>
+        <button className="btn btn-p btn-sm" onClick={generarPDF}><Ic name="informe" size={12}/> PDF</button>
       </div>
 
       {vista==='analisis'&&(
@@ -234,7 +235,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                           <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{sorted.length} {sorted.length===1?'registro':'registros'}</div>
                         </div>
                         {mejoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:GL,color:GD,fontWeight:500}}>✓ Mejorado</span>}
-                        {empeoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'#FBEAEA',color:RED,fontWeight:500}}>⚠ Empeorado</span>}
+                        {empeoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'#FBEAEA',color:RED,fontWeight:500,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="baja" size={10}/> Empeorado</span>}
                         <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:ultimo.resultado==='positivo'?'#FBEAEA':GL,color:ultimo.resultado==='positivo'?RED:GD,fontWeight:500}}>
                           {ultimo.resultado==='positivo'?'+ Positivo':'− Negativo'}
                         </span>
@@ -257,7 +258,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             )
           })()}
 
-          <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:300}}>ℹ️ Las citas se actualizan a las 00:00</div>
+          <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:400,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><Ic name="info" size={11}/> Las citas se actualizan a las 00:00</div>
         </div>
       )}
 
@@ -281,7 +282,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
               </div>
             </div>
             <div style={{fontSize:12,color:'var(--n)',fontWeight:300,marginTop:14}}>
-              {pctAsistencia>=80?'¡Excelente constancia! 💪':pctAsistencia>=60?'¡Buen ritmo, sigue así! 👏':'Cada sesión cuenta, ¡a por ello! 🌱'}
+              {pctAsistencia>=80?'¡Excelente constancia!':pctAsistencia>=60?'¡Buen ritmo, sigue así!':'Cada sesión cuenta, ¡a por ello!'}
             </div>
           </div>
           <div style={{display:'flex',justifyContent:'center',gap:30,marginBottom:30,flexWrap:'wrap'}}>

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad } from '@/lib/capacidades'
 
 export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCerrar, pacientes }: {
@@ -96,7 +97,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                   )
                 })() : (
                   <>
-                    <input className="input" value={busquedaPacModal} onChange={e=>setBusquedaPacModal(e.target.value)} placeholder="🔍 Paciente (opcional · vacío = plantilla)" style={{fontSize:11,width:'100%'}}/>
+                    <input className="input" value={busquedaPacModal} onChange={e=>setBusquedaPacModal(e.target.value)} placeholder="Paciente (opcional · vacío = plantilla)" style={{fontSize:11,width:'100%'}}/>
                     {busquedaPacModal && (
                       <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:30,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:200,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
                         {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPacModal.toLowerCase())).slice(0,20).map((p:any)=>(
@@ -116,14 +117,14 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
             <input className="input" value={formSesion.nombre} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%'}} autoFocus/>
             <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / objetivo (opcional)" style={{fontSize:11,color:'var(--grl)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>
-          <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'⏳':'💾 Guardar'}</button>
+          <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
           <button onClick={onCerrar} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
         </div>
 
         {/* OBJETIVOS DE LA SESIÓN */}
         {objetivosDisp.length>0&&(
           <div style={{padding:'8px 18px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>🎯 Objetivos que cubre</div>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:4}}><Ic name="objetivo" size={11}/> Objetivos que cubre</div>
             <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
               {objetivosDisp.map((o:any)=>{
                 const sel = objetivosSel.includes(o.id)
@@ -159,7 +160,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                 style={{fontWeight:500,fontSize:12}}/>
               {formSesion.partes.length>1&&(
                 <button onClick={()=>{setFormSesion(prev=>({...prev,partes:prev.partes.filter((_:any,i:number)=>i!==parteActiva)}));setParteActiva(Math.max(0,parteActiva-1))}}
-                  className="btn btn-d btn-sm">🗑 Eliminar parte</button>
+                  className="btn btn-d btn-sm"><Ic name="papelera" size={12}/> Eliminar parte</button>
               )}
             </div>
             {(formSesion.partes[parteActiva]?.ejercicios||[]).length===0?(
@@ -170,7 +171,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
               (formSesion.partes[parteActiva]?.ejercicios||[]).map((ej:any,ei:number)=>(
                 <div key={ei} style={{background:'var(--bl)',borderRadius:7,border:'1px solid var(--bd)',marginBottom:6,overflow:'hidden'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7,padding:'7px 9px'}}>
-                    {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:36,height:36,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>💪</div>}
+                    {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:36,height:36,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={16}/></div>}
                     <div style={{flex:1}}>
                       <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}</div>
                       <div style={{display:'flex',gap:3,marginTop:2}}>
@@ -271,7 +272,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                         partes[parteActiva]={...partes[parteActiva],ejercicios}
                         return{...prev,partes}
                       })
-                    }} style={{flex:1,fontSize:10,padding:'2px 6px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui',minWidth:80}} placeholder="📝 Nota..."/>
+                    }} style={{flex:1,fontSize:10,padding:'2px 6px',border:'1px solid var(--bd)',borderRadius:4,fontFamily:'system-ui',minWidth:80}} placeholder="Nota..."/>
                   </div>
                 </div>
               ))
@@ -281,13 +282,13 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
           {/* DERECHA — BIBLIOTECA */}
           <div style={{overflowY:'auto',padding:10,background:'var(--bl)'}}>
             <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:7}}>Biblioteca de ejercicios</div>
-            <input className="input" placeholder="🔍 Buscar..." value={buscarEj} onChange={e=>setBuscarEj(e.target.value)} style={{marginBottom:8,fontSize:11}}/>
+            <input className="input" placeholder="Buscar..." value={buscarEj} onChange={e=>setBuscarEj(e.target.value)} style={{marginBottom:8,fontSize:11}}/>
             {ejFiltrados.map((e:any)=>(
               <div key={e.id} onClick={()=>addEjercicio(e)}
                 style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',background:'var(--w)',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer'}}
                 onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                 onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} style={{width:28,height:28,objectFit:'cover',borderRadius:3,flexShrink:0}}/>:<div style={{width:28,height:28,background:'var(--bm)',borderRadius:3,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13}}>💪</div>}
+                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} style={{width:28,height:28,objectFit:'cover',borderRadius:3,flexShrink:0}}/>:<div style={{width:28,height:28,background:'var(--bm)',borderRadius:3,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={13}/></div>}
                 <span style={{fontSize:10,color:'var(--n)',flex:1,fontWeight:300}}>{e.nombre}</span>
                 <span style={{fontSize:12,color:'var(--g)'}}>+</span>
               </div>

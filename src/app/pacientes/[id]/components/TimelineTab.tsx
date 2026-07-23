@@ -1,37 +1,38 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 // Definicion de tipos de evento: icono, color, etiqueta y familia para el filtro
 const TIPOS: Record<string,{icono:string,color:string,label:string,familia:string}> = {
-  valoracion_inicial: {icono:'📋', color:'var(--g)',   label:'Valoración inicial', familia:'clinico'},
-  revaloracion:       {icono:'🔄', color:'var(--g)',   label:'Revaloración',       familia:'clinico'},
-  patologia:          {icono:'🩺', color:'#B05A5A',    label:'Patología',          familia:'clinico'},
-  patologia_resuelta: {icono:'✅', color:'var(--g)',   label:'Patología resuelta', familia:'clinico'},
-  molestia:           {icono:'🤕', color:'#B05A5A',    label:'Molestia',           familia:'clinico'},
-  molestia_resuelta:  {icono:'✅', color:'var(--g)',   label:'Molestia resuelta',  familia:'clinico'},
-  medicamento:        {icono:'💊', color:'#6B7FC4',    label:'Medicamento',        familia:'clinico'},
-  plantillas:         {icono:'🦶', color:'#6B7FC4',    label:'Plantillas',         familia:'clinico'},
-  deporte:            {icono:'🏃', color:'#3E7179',    label:'Deporte',            familia:'clinico'},
-  alerta_abierta:     {icono:'⚠️', color:'var(--red)', label:'Alerta abierta',     familia:'alertas'},
-  alerta_cerrada:     {icono:'✅', color:'var(--g)',   label:'Alerta cerrada',     familia:'alertas'},
-  nota:               {icono:'📝', color:'var(--amb)', label:'Nota',               familia:'notas'},
-  pausa:              {icono:'⏸', color:'var(--amb)', label:'Pausa',              familia:'admin'},
-  baja:               {icono:'○', color:'var(--red)', label:'Baja',               familia:'admin'},
-  reactivacion:       {icono:'▶', color:'var(--g)',   label:'Reactivación',       familia:'admin'},
-  cambio_tipo_clase:  {icono:'🔀', color:'#6B7FC4',    label:'Cambio de clase',    familia:'admin'},
-  pago_bono:          {icono:'💶', color:'var(--gd)',  label:'Pago de bono',       familia:'pagos'},
-  cambio_bono:        {icono:'🎟', color:'var(--gd)',  label:'Cambio de bono',     familia:'pagos'},
-  entrenamiento:      {icono:'🏋', color:'#3E7179',    label:'Entrenamiento',      familia:'entreno'},
+  valoracion_inicial: {icono:'valoracion', color:'var(--g)',   label:'Valoración inicial', familia:'clinico'},
+  revaloracion:       {icono:'recuperar',  color:'var(--g)',   label:'Revaloración',       familia:'clinico'},
+  patologia:          {icono:'patologia',  color:'#B05A5A',    label:'Patología',          familia:'clinico'},
+  patologia_resuelta: {icono:'ok',         color:'var(--g)',   label:'Patología resuelta', familia:'clinico'},
+  molestia:           {icono:'molestia',   color:'#B05A5A',    label:'Molestia',           familia:'clinico'},
+  molestia_resuelta:  {icono:'ok',         color:'var(--g)',   label:'Molestia resuelta',  familia:'clinico'},
+  medicamento:        {icono:'medicamento',color:'#6B7FC4',    label:'Medicamento',        familia:'clinico'},
+  plantillas:         {icono:'plantillas', color:'#6B7FC4',    label:'Plantillas',         familia:'clinico'},
+  deporte:            {icono:'deporte',    color:'#3E7179',    label:'Deporte',            familia:'clinico'},
+  alerta_abierta:     {icono:'alerta',     color:'var(--red)', label:'Alerta abierta',     familia:'alertas'},
+  alerta_cerrada:     {icono:'ok',         color:'var(--g)',   label:'Alerta cerrada',     familia:'alertas'},
+  nota:               {icono:'nota',       color:'var(--amb)', label:'Nota',               familia:'notas'},
+  pausa:              {icono:'pausa',      color:'var(--amb)', label:'Pausa',              familia:'admin'},
+  baja:               {icono:'altabaja',   color:'var(--red)', label:'Baja',               familia:'admin'},
+  reactivacion:       {icono:'play',       color:'var(--g)',   label:'Reactivación',       familia:'admin'},
+  cambio_tipo_clase:  {icono:'cambio',     color:'#6B7FC4',    label:'Cambio de clase',    familia:'admin'},
+  pago_bono:          {icono:'euro',       color:'var(--gd)',  label:'Pago de bono',       familia:'pagos'},
+  cambio_bono:        {icono:'etiqueta',   color:'var(--gd)',  label:'Cambio de bono',     familia:'pagos'},
+  entrenamiento:      {icono:'entreno',    color:'#3E7179',    label:'Entrenamiento',      familia:'entreno'},
 }
 
-const FAMILIAS: Record<string,{label:string,color:string}> = {
-  clinico: {label:'🩺 Clínico', color:'#B05A5A'},
-  alertas: {label:'⚠️ Alertas', color:'var(--red)'},
-  notas:   {label:'📝 Notas',   color:'var(--amb)'},
-  admin:   {label:'⚙️ Gestión', color:'#6B7FC4'},
-  pagos:   {label:'💶 Pagos',   color:'var(--gd)'},
-  entreno: {label:'🏋 Entreno', color:'#3E7179'},
+const FAMILIAS: Record<string,{icono:string,label:string,color:string}> = {
+  clinico: {icono:'patologia', label:'Clínico', color:'#B05A5A'},
+  alertas: {icono:'alerta',    label:'Alertas', color:'var(--red)'},
+  notas:   {icono:'nota',      label:'Notas',   color:'var(--amb)'},
+  admin:   {icono:'ajustes',   label:'Gestión', color:'#6B7FC4'},
+  pagos:   {icono:'euro',      label:'Pagos',   color:'var(--gd)'},
+  entreno: {icono:'entreno',   label:'Entreno', color:'#3E7179'},
 }
 
 export default function TimelineTab({ pacienteId }: { pacienteId: string }) {
@@ -81,7 +82,7 @@ export default function TimelineTab({ pacienteId }: { pacienteId: string }) {
           const n = nFamilia(fam)
           return (
             <span key={fam} onClick={()=>toggleFamilia(fam)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:`1px solid ${oculta?'var(--bd)':info.color}`,cursor:'pointer',background:oculta?'var(--w)':info.color,color:oculta?'var(--grl)':'#fff',display:'flex',alignItems:'center',gap:4,opacity:oculta?.55:1,textDecoration:oculta?'line-through':'none'}}>
-              {info.label} <b style={{fontWeight:600}}>{n}</b>
+<Ic name={info.icono} size={11}/> {info.label} <b style={{fontWeight:600}}>{n}</b>
             </span>
           )
         })}
@@ -107,7 +108,7 @@ export default function TimelineTab({ pacienteId }: { pacienteId: string }) {
                 <div onClick={()=>ev.descripcion&&toggle(ev.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 12px',cursor:ev.descripcion?'pointer':'default'}}
                   onMouseOver={e=>{if(ev.descripcion)(e.currentTarget as HTMLElement).style.background='var(--bl)'}}
                   onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                  <span style={{fontSize:14}}>{t.icono}</span>
+                  <span style={{color:t.color,display:'inline-flex',flexShrink:0}}><Ic name={t.icono} size={16}/></span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ev.titulo || t.label}</div>
                     <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{t.label} · {formatFecha(ev.fecha)}</div>

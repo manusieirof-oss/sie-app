@@ -1,10 +1,11 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNosConocio, tiposClase, setTiposClase, tiposJornada, setTiposJornada, tiposPlantilla, setTiposPlantilla, deportesLista, setDeportesLista, nuevoComoNos, setNuevoComoNos, nuevoJornada, setNuevoJornada, nuevoPlantilla, setNuevoPlantilla, nuevoDeporte, setNuevoDeporte }: any) {
   return (
     <div>
       <div className="card" style={{marginBottom:12}}>
-        <div className="card-title">🔍 ¿Cómo nos conoció?</div>
+        <div className="card-title"><span className="ct-l"><Ic name="buscar"/> ¿Cómo nos conoció?</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones que aparecen en el paso 1 de la valoración</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
           {comoNosConocio.map((op:string,i:number)=>(
@@ -22,7 +23,7 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
       </div>
 
       <div className="card" style={{marginBottom:12}}>
-        <div className="card-title">🏋 Tipos de clase</div>
+        <div className="card-title"><span className="ct-l"><Ic name="entreno"/> Tipos de clase</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones de clase/entreno. El color y la duración se usan en la agenda.</div>
         <div style={{marginBottom:10}}>
           {tiposClase.map((tc:any,i:number)=>(
@@ -43,13 +44,13 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
           <button className="btn btn-p btn-sm" onClick={()=>{
             const ic=(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value
             const nm=(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value
-            if(nm){setTiposClase((p:any[])=>[...p,{valor:nm.toLowerCase().replace(/\s/g,'_'),icono:ic||'📌',nombre:nm,color:'#5A969E',duracion:50}]);(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value='';(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value=''}
+            if(nm){setTiposClase((p:any[])=>[...p,{valor:nm.toLowerCase().replace(/\s/g,'_'),icono:ic||'',nombre:nm,color:'#5A969E',duracion:50}]);(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value='';(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value=''}
           }}>+ Añadir</button>
         </div>
       </div>
 
       <div className="card" style={{marginBottom:12}}>
-        <div className="card-title">🏃 Tipos de jornada laboral</div>
+        <div className="card-title"><span className="ct-l"><Ic name="trabajo"/> Tipos de jornada laboral</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones del selector de tipo de jornada en la valoración</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
           {tiposJornada.map((op:string,i:number)=>(
@@ -67,7 +68,7 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
       </div>
 
       <div className="card" style={{marginBottom:12}}>
-        <div className="card-title">🦶 Tipos de plantilla</div>
+        <div className="card-title"><span className="ct-l"><Ic name="plantillas"/> Tipos de plantilla</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Opciones del selector de tipo de plantilla</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
           {tiposPlantilla.map((op:string,i:number)=>(
@@ -85,7 +86,7 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
       </div>
 
       <div className="card" style={{marginBottom:12}}>
-        <div className="card-title">🏃 Deportes</div>
+        <div className="card-title"><span className="ct-l"><Ic name="deporte"/> Deportes</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Lista de deportes disponibles en la valoración</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
           {deportesLista.map((op:string,i:number)=>(
@@ -103,7 +104,7 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
       </div>
 
       <div className="card">
-        <div className="card-title">✍️ Consentimiento y firma</div>
+        <div className="card-title"><span className="ct-l"><Ic name="editar"/> Consentimiento y firma</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Configura cómo se recoge el consentimiento en la valoración</div>
         {(['firma_canvas','firma_checkbox'] as const).map((clave)=>(
           <div key={clave} onClick={()=>set(clave,ajustes[clave]==='true'?'false':'true')}

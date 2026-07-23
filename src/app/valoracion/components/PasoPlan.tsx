@@ -1,11 +1,14 @@
 'use client'
+import { Ic } from '@/lib/icons'
+
+const CLASE_IC: Record<string,string> = { entrenamiento:'entreno', pilates:'pilates', rehabilitacion:'rehab', individual:'usuario', embarazadas:'bebe' }
 
 export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
   const hp = form.horario_pref || {modo:'general',franja_general:'manana',franjas_dia:{},alterno:'manana_tarde',hora_exacta:'',notas_horario:''}
   const upHp = (k:string, v:any) => up('horario_pref', {...hp, [k]:v})
 
   const DIAS = ['Lu','Ma','Mi','Ju','Vi','Sa','Do']
-  const FRANJAS = [['manana','☀️ Mañana'],['tarde','🌤 Tarde'],['noche','🌙 Noche'],['flexible','🔄 Flexible']] as const
+  const FRANJAS = [['manana','Mañana'],['tarde','Tarde'],['noche','Noche'],['flexible','Flexible']] as const
 
   return (
     <div className="g2">
@@ -15,8 +18,8 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
           <div className="g3">
             {tiposClaseOpts.map((tc:any)=>(
               <div key={tc.valor} onClick={()=>up('tipo_clase_def',tc.valor)} style={{border:`1.5px solid ${form.tipo_clase_def===tc.valor?'var(--g)':'var(--bd)'}`,borderRadius:'var(--rl)',padding:10,textAlign:'center',cursor:'pointer',background:form.tipo_clase_def===tc.valor?'var(--gl)':'var(--w)',transition:'all .15s'}}>
-                <div style={{fontSize:20,marginBottom:4}}>{tc.icono}</div>
-                <div style={{fontSize:10,fontWeight:400}}>{tc.nombre}</div>
+                <div style={{marginBottom:5,display:'flex',justifyContent:'center',color:form.tipo_clase_def===tc.valor?'var(--gd)':'var(--gr)'}}><Ic name={CLASE_IC[tc.valor]||'etiqueta'} size={22}/></div>
+                <div style={{fontSize:11,fontWeight:400}}>{tc.nombre}</div>
               </div>
             ))}
           </div>

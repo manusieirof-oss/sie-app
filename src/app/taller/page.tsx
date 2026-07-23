@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import ModoClase from './ModoClase'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
+import { Ic } from '@/lib/icons'
 
 export default function TallerPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -362,11 +363,11 @@ export default function TallerPage() {
     <>
       {/* SELECTOR DE MODO */}
       <div style={{display:'flex',gap:6,marginBottom:12}}>
-        {[['individual','🔧 Individual'],['clase','👥 Día de fuerza']].map(([k,l])=>(
+        {[['individual','taller','Individual'],['clase','pacientes','Día de fuerza']].map(([k,ic,l])=>(
           <button key={k} onClick={()=>setTab(k as any)}
             style={{fontSize:11,padding:'6px 14px',borderRadius:99,cursor:'pointer',fontFamily:'system-ui',
               border:`1.5px solid ${tab===k?'var(--g)':'var(--bd)'}`,
-              background:tab===k?'var(--g)':'var(--w)',color:tab===k?'#fff':'var(--gr)'}}>{l}</button>
+              background:tab===k?'var(--g)':'var(--w)',color:tab===k?'#fff':'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name={ic} size={13}/> {l}</button>
         ))}
       </div>
 
@@ -377,10 +378,10 @@ export default function TallerPage() {
       <div style={{display: tab==='individual' ? 'block' : 'none'}}>
       {/* CABECERA */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
-        <span style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>🔧 Taller de sesiones</span>
+        <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="taller" size={14}/> Taller de sesiones</span>
         {pacienteId && sesiones.length>0 && (
           <div style={{display:'flex',gap:5}}>
-            {([['registrar','▶ Registrar','btn-p'],['editar','✏️ Editar','btn-s'],['duplicar','⧉ Duplicar','btn-t'],['eliminar','🗑 Eliminar','btn-d']] as any[]).map(([k,l,cls])=>(
+            {([['registrar','▶ Registrar','btn-p'],['editar','Editar','btn-s'],['duplicar','⧉ Duplicar','btn-t'],['eliminar','Eliminar','btn-d']] as any[]).map(([k,l,cls])=>(
               <button key={k} className={`btn ${cls} btn-sm`} onClick={()=>setModoAccion(modoAccion===k?'':k)}
                 style={{outline:modoAccion===k?'2px solid var(--n)':'none',outlineOffset:1}}>{l}</button>
             ))}
@@ -395,7 +396,7 @@ export default function TallerPage() {
             </div>
           ) : (
             <>
-              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="🔍 Buscar paciente..." style={{fontSize:11}}/>
+              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="Buscar paciente..." style={{fontSize:11}}/>
               {busquedaPac && (
                 <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:20,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:240,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
                   {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).slice(0,30).map((p:any)=>(
@@ -418,7 +419,7 @@ export default function TallerPage() {
 
       {modoAccion && (
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,padding:'8px 13px',borderRadius:'var(--rl)',background:'var(--gl)',border:'1px solid var(--g)',fontSize:11,color:'var(--gd)'}}>
-          <span>👉 Selecciona una sesión para <b>{modoAccion}</b></span>
+          <span>Selecciona una sesión para <b>{modoAccion}</b></span>
           <div style={{flex:1}}/>
           <button className="btn btn-d btn-sm" onClick={()=>setModoAccion('')}>Cancelar</button>
         </div>
@@ -454,7 +455,7 @@ export default function TallerPage() {
                           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>{parte.nombre}</div>
                           {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
                             <div key={ei} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 7px',background:'var(--bl)',borderRadius:4,marginBottom:2}}>
-                              {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:24,height:24,objectFit:'cover',borderRadius:3,flexShrink:0}}/>:<span style={{fontSize:14}}>💪</span>}
+                              {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:24,height:24,objectFit:'cover',borderRadius:3,flexShrink:0}}/>:<span style={{color:'var(--grl)',display:'inline-flex'}}><Ic name="fuerza" size={14}/></span>}
                               <span style={{fontSize:10,color:'var(--n)',flex:1}}>{ej.nombre}</span>
                               {ej.series&&<span style={{fontSize:9,color:'var(--grl)'}}>{ej.series}x{ej.reps}</span>}
                               {ej.peso&&<span style={{fontSize:9,color:'var(--g)',fontWeight:500}}>{ej.peso}kg</span>}
@@ -483,7 +484,7 @@ export default function TallerPage() {
                 <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>▶ {registrando.nombre}</div>
                 <div style={{fontSize:10,color:'var(--grl)',marginTop:2}}>{pacSel?.nombre_clinica||pacSel?.nombre} · guarda cada ejercicio; al salir queda como borrador</div>
               </div>
-              <button className="btn btn-p" onClick={finalizarRegistro} disabled={guardandoReg}>{guardandoReg?'⏳':'✓ Guardar y finalizar'}</button>
+              <button className="btn btn-p" onClick={finalizarRegistro} disabled={guardandoReg}>{guardandoReg?'…':'✓ Guardar y finalizar'}</button>
               <button onClick={()=>setRegistrando(null)} style={{width:24,height:24,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:12,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{overflowY:'auto',padding:14}}>
@@ -495,11 +496,11 @@ export default function TallerPage() {
                 return (
                   <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'9px 11px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
-                      {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>💪</div>}
+                      {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={14}/></div>}
                       <div style={{flex:1}}>
                         <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
                         {!ult&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
-                        {ultComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic'}}>💬 última vez: {ultComent}</div>}
+                        {ultComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="mensaje" size={10}/> última vez: {ultComent}</div>}
                       </div>
                       {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
                     </div>
@@ -537,7 +538,7 @@ export default function TallerPage() {
                     })}
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
                       <button onClick={()=>addSerie(ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer',padding:'2px 0'}}>+ serie</button>
-                      <input value={ej.comentario} onChange={e=>setComentarioReg(ei,e.target.value)} placeholder="📝 comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
+                      <input value={ej.comentario} onChange={e=>setComentarioReg(ei,e.target.value)} placeholder="Comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
                     </div>
                     {(ej.items||[]).length>0 && (
                       <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
@@ -573,7 +574,7 @@ export default function TallerPage() {
                     {(ej.feedbacks||[]).length>0 && (
                       <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
                         {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
-                          <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>💬 {fb.texto}</span>
+                          <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="mensaje" size={9}/> {fb.texto}</span>
                         ))}
                       </div>
                     )}

@@ -1,4 +1,5 @@
 'use client'
+import { Ic } from '@/lib/icons'
 
 export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, tiposPlantilla }: any) {
   return (
@@ -41,7 +42,7 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
       </div>
       <div className="g2">
         <div className="card">
-          <div className="card-title">🏃 ¿Practica algún deporte?</div>
+          <div className="card-title"><span className="ct-l"><Ic name="deporte"/> ¿Practica algún deporte?</span></div>
           <div style={{display:'flex',gap:8,marginBottom:form.hace_deporte?10:0}}>
             {([['No',false],['Sí',true]] as const).map(([l,v])=>(
               <span key={String(l)} onClick={()=>up('hace_deporte',v)} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${form.hace_deporte===v?'var(--g)':'var(--bd)'}`,background:form.hace_deporte===v?'var(--gl)':'var(--w)',color:form.hace_deporte===v?'var(--gd)':'var(--gr)',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:form.hace_deporte===v?500:300}}>{l}</span>
@@ -60,7 +61,7 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
           )}
         </div>
         <div className="card">
-          <div className="card-title">🦶 ¿Usa plantillas?</div>
+          <div className="card-title"><span className="ct-l"><Ic name="plantillas"/> ¿Usa plantillas?</span></div>
           <div style={{display:'flex',gap:8,marginBottom:form.plantillas?10:0}}>
             {([['No',false],['Sí',true]] as const).map(([l,v])=>(
               <span key={String(l)} onClick={()=>up('plantillas',v)} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${form.plantillas===v?'var(--g)':'var(--bd)'}`,background:form.plantillas===v?'var(--gl)':'var(--w)',color:form.plantillas===v?'var(--gd)':'var(--gr)',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:form.plantillas===v?500:300}}>{l}</span>

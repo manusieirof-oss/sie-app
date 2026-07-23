@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 const LATERALIDADES = ['Bilateral','Unilateral','Alterno','Unipodal','Bipodal','Contralateral']
 
@@ -13,7 +14,7 @@ function EditorLista({ items, onChange, disabled, label, placeholder, icono }: a
       <label>{label}</label>
       {(items||[]).map((it:any,i:number)=>(
         <div key={i} style={{display:'flex',gap:6,alignItems:'center',marginBottom:5}}>
-          <span style={{fontSize:11}}>{icono}</span>
+          <span style={{display:'inline-flex',color:'var(--grl)',flexShrink:0}}><Ic name={icono||'mensaje'} size={13}/></span>
           <input className="input" value={it.texto||''} onChange={e=>upd(i,e.target.value)} placeholder={placeholder} disabled={disabled} style={{flex:1,fontSize:11}}/>
           <button className="btn btn-d btn-sm" onClick={()=>del(i)} disabled={disabled}>✕</button>
         </div>
@@ -38,7 +39,7 @@ function EditorItems({ items, onChange, disabled, objetivos }: any) {
       {(items||[]).map((it:any,i:number)=>(
         <div key={i} style={{border:'1px solid var(--bd)',borderRadius:6,padding:8,marginBottom:6,background:'var(--bl)'}}>
           <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
-            <span style={{fontSize:11}}>✅</span>
+            <span style={{display:'inline-flex',color:'var(--g)',flexShrink:0}}><Ic name="ok" size={13}/></span>
             <input className="input" value={it.texto||''} onChange={e=>upd(i,'texto',e.target.value)} placeholder="ej. Rodillas alineadas con los pies" disabled={disabled} style={{flex:1,fontSize:11}}/>
             <button className="btn btn-d btn-sm" onClick={()=>del(i)} disabled={disabled}>✕</button>
           </div>
@@ -93,7 +94,7 @@ function EditorVariantes({ variantes, onChange, disabled, ejercicioId }: any) {
           </div>
           {!LATERALIDADES.includes(v.nombre) && <input className="input" value={v.nombre} onChange={e=>upd(i,'nombre',e.target.value)} placeholder="Nombre de la variante" disabled={disabled} style={{fontSize:11,marginBottom:5}}/>}
           <textarea className="input" value={v.descripcion||''} onChange={e=>upd(i,'descripcion',e.target.value)} placeholder="Descripción / ejecución de esta variante" disabled={disabled} style={{fontSize:11,minHeight:48,marginBottom:5}}/>
-          <input className="input" value={v.video_url||''} onChange={e=>upd(i,'video_url',e.target.value)} placeholder="🎥 Enlace vídeo (opcional)" disabled={disabled} style={{fontSize:11,marginBottom:5}}/>
+          <input className="input" value={v.video_url||''} onChange={e=>upd(i,'video_url',e.target.value)} placeholder="Enlace vídeo (opcional)" disabled={disabled} style={{fontSize:11,marginBottom:5}}/>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {v.imagen_url ? (
               <>
@@ -102,7 +103,7 @@ function EditorVariantes({ variantes, onChange, disabled, ejercicioId }: any) {
               </>
             ) : (
               <label className="btn btn-s btn-sm" style={{cursor:ejercicioId?'pointer':'not-allowed',opacity:ejercicioId?1:.5}}>
-                {subiendo===i?'⏳ Subiendo...':'🖼 Subir imagen'}
+                {subiendo===i?'Subiendo…':<><Ic name="imagen" size={12}/> Subir imagen</>}
                 <input type="file" accept="image/*" style={{display:'none'}} disabled={disabled||!ejercicioId||subiendo===i} onChange={e=>{const file=e.target.files?.[0]; if(file) subirImg(i,file)}}/>
               </label>
             )}
@@ -199,9 +200,9 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
   return (
     <>
       <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center',flexWrap:'wrap'}}>
-        <input className="input" placeholder="🔍 Buscar ejercicio..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="Buscar ejercicio..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
         <button className="btn btn-s" onClick={()=>setModalFiltro(true)} style={{position:'relative'}}>
-          🏷 Filtrar
+<Ic name="etiqueta" size={12}/> Filtrar
           {filtroEtiquetas.length>0&&<span style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:9,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center'}}>{filtroEtiquetas.length}</span>}
         </button>
         {filtroEtiquetas.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroEtiquetas([])}>✕ Limpiar</button>}
@@ -221,7 +222,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
               <div key={e.id} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer'}}
                 onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                 onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} onClick={()=>setEjSeleccionado(e)} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div onClick={()=>setEjSeleccionado(e)} style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,borderBottom:'1px solid var(--bd)'}}>💪</div>}
+                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} onClick={()=>setEjSeleccionado(e)} style={{width:'100%',height:100,objectFit:'contain',background:'var(--bm)',borderBottom:'1px solid var(--bd)',display:'block'}}/>:<div onClick={()=>setEjSeleccionado(e)} style={{height:100,background:'var(--bm)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',borderBottom:'1px solid var(--bd)'}}><Ic name="fuerza" size={28}/></div>}
                 <div style={{padding:'8px 10px'}}>
                   <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:4}}>{e.nombre}</div>
                   {e.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginBottom:5,fontWeight:300,lineHeight:1.4}}>{e.descripcion.slice(0,80)}{e.descripcion.length>80?'...':''}</div>}
@@ -229,7 +230,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                     {etsDelEj.slice(0,4).map((et:any)=><span key={et.id} style={{fontSize:8,padding:'1px 6px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{et.nombre}</span>)}
                     {etsDelEj.length>4&&<span style={{fontSize:8,color:'var(--grl)'}}>+{etsDelEj.length-4}</span>}
                   </div>
-                  {e.video_url&&<a href={e.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:'var(--g)',display:'block',marginTop:5}}>🎥 Ver vídeo ↗</a>}
+                  {e.video_url&&<a href={e.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:'var(--g)',display:'inline-flex',alignItems:'center',gap:4,marginTop:5}}><Ic name="play" size={10}/> Ver vídeo ↗</a>}
                 </div>
               </div>
             )
@@ -244,7 +245,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
             {/* cabecera */}
             <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'var(--bl)'}}>
               <div style={{flex:1,fontSize:14,fontWeight:400,color:'var(--n)'}}>{editando?'Editar ejercicio':ejSeleccionado.nombre}</div>
-              {!editando&&<button className="btn btn-s btn-sm" onClick={abrirEdicion}>✎ Editar</button>}
+              {!editando&&<button className="btn btn-s btn-sm" onClick={abrirEdicion}><Ic name="editar" size={12}/> Editar</button>}
               <button onClick={()=>{setEjSeleccionado(null);setEditando(false)}} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}} disabled={guardando}>✕</button>
             </div>
 
@@ -255,9 +256,9 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                     <div>
                       <label style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',display:'block',marginBottom:6}}>Imagen</label>
-                      {editEj.imagen_url?<img src={editEj.imagen_url} alt="preview" style={{width:'100%',height:240,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:240,background:'var(--bm)',borderRadius:8,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40}}>💪</div>}
+                      {editEj.imagen_url?<img src={editEj.imagen_url} alt="preview" style={{width:'100%',height:240,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:240,background:'var(--bm)',borderRadius:8,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={40}/></div>}
                       <div style={{display:'flex',gap:6,marginTop:8}}>
-                        <label style={{cursor:'pointer',flex:1}}><div className="btn btn-s btn-sm" style={{width:'100%',justifyContent:'center'}}>📷 Cambiar imagen</div><input type="file" accept="image/*" onChange={handleImagenEdit} style={{display:'none'}} disabled={guardando}/></label>
+                        <label style={{cursor:'pointer',flex:1}}><div className="btn btn-s btn-sm" style={{width:'100%',justifyContent:'center'}}><Ic name="camara" size={12}/> Cambiar imagen</div><input type="file" accept="image/*" onChange={handleImagenEdit} style={{display:'none'}} disabled={guardando}/></label>
                         {editEj.imagen_url&&<button className="btn btn-d btn-sm" onClick={()=>setEditEj(p=>({...p,imagen_url:'',imagen_file:null}))} disabled={guardando}>✕</button>}
                       </div>
                     </div>
@@ -268,18 +269,18 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
                       <EditorVariantes variantes={editEj.variantes} onChange={(v:any[])=>setEditEj(p=>({...p,variantes:v}))} disabled={guardando} ejercicioId={editEj.id}/>
                       <EditorItems items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
-                      <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="💬"/>
+                      <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
                       <div className="field">
                         <label>Etiquetas</label>
                         {editEj.etiquetas_ids.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>{editEj.etiquetas_ids.map(id=><span key={id} onClick={()=>setEditEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer'}}>{getNombre(id)} ✕</span>)}</div>}
-                        <button className="btn btn-s btn-sm" onClick={()=>setModalSelEtEdit(true)} style={{width:'100%',justifyContent:'center'}}>🏷 {editEj.etiquetas_ids.length>0?`${editEj.etiquetas_ids.length} seleccionadas · Cambiar`:'Seleccionar etiquetas'}</button>
+                        <button className="btn btn-s btn-sm" onClick={()=>setModalSelEtEdit(true)} style={{width:'100%',justifyContent:'center'}}><Ic name="etiqueta" size={12}/> {editEj.etiquetas_ids.length>0?`${editEj.etiquetas_ids.length} seleccionadas · Cambiar`:'Seleccionar etiquetas'}</button>
                       </div>
                     </div>
                   </div>
                   <div style={{display:'flex',gap:8,marginTop:16,paddingTop:14,borderTop:'1px solid var(--bd)'}}>
                     <button className="btn btn-d btn-sm" onClick={()=>setEditando(false)} disabled={guardando}>Cancelar</button>
                     <div style={{flex:1}}/>
-                    <button className="btn btn-p" onClick={actualizarEjercicio} disabled={guardando}>{guardando?(subiendoImg?'⏳ Subiendo...':'⏳ Guardando...'):'💾 Guardar cambios'}</button>
+                    <button className="btn btn-p" onClick={actualizarEjercicio} disabled={guardando}>{guardando?(subiendoImg?'Subiendo…':'Guardando…'):<><Ic name="guardar" size={13}/> Guardar cambios</>}</button>
                   </div>
                 </div>
               ):(
@@ -289,7 +290,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                     <div>
                       {(() => {
                         const img = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.imagen_url || ejSeleccionado.imagen_url) : ejSeleccionado.imagen_url
-                        return img?<img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',height:300,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:300,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>💪</div>
+                        return img?<img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',height:300,objectFit:'contain',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:300,background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={56}/></div>
                       })()}
                     </div>
                     <div>
@@ -307,11 +308,11 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       })()}
                       {(() => {
                         const vurl = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.video_url||'') : (ejSeleccionado.video_url||'')
-                        return vurl ? <a href={vurl} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}>🎥 Ver vídeo{varianteActiva>=0?` · ${ejSeleccionado.variantes[varianteActiva]?.nombre||''}`:''} ↗</a> : null
+                        return vurl ? <a href={vurl} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}><Ic name="play" size={12}/> Ver vídeo{varianteActiva>=0?` · ${ejSeleccionado.variantes[varianteActiva]?.nombre||''}`:''} ↗</a> : null
                       })()}
                       <div style={{marginBottom:14}}>
                         <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Se mide en</div>
-                        <span style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>{ejSeleccionado.tipo_medida==='tiempo'?'⏱ Tiempo (segundos)':ejSeleccionado.tipo_medida==='peso_tiempo'?'🏋️⏱ Peso y tiempo':'🏋️ Peso y repeticiones'}</span>
+                        <span style={{fontSize:10,padding:'3px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>{ejSeleccionado.tipo_medida==='tiempo'?'Tiempo (segundos)':ejSeleccionado.tipo_medida==='peso_tiempo'?'Peso y tiempo':'Peso y repeticiones'}</span>
                       </div>
                       <div>
                         <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Etiquetas</div>
@@ -324,7 +325,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                         <div style={{marginTop:14}}>
                           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Ejecución correcta</div>
                           {(ejSeleccionado.items_ejecucion||[]).map((it:any,i:number)=>(
-                            <div key={i} style={{fontSize:11,color:'var(--n)',marginBottom:3,display:'flex',gap:6}}><span>✅</span><span>{it.texto}</span></div>
+                            <div key={i} style={{fontSize:11,color:'var(--n)',marginBottom:3,display:'flex',gap:6,alignItems:'center'}}><span style={{color:'var(--g)',display:'inline-flex'}}><Ic name="ok" size={13}/></span><span>{it.texto}</span></div>
                           ))}
                         </div>
                       )}
@@ -332,7 +333,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                         <div style={{marginTop:14}}>
                           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>Feedbacks</div>
                           {(ejSeleccionado.feedbacks||[]).map((fb:any,i:number)=>(
-                            <div key={i} style={{fontSize:11,color:'var(--n)',marginBottom:3,display:'flex',gap:6}}><span>💬</span><span>{fb.texto}</span></div>
+                            <div key={i} style={{fontSize:11,color:'var(--n)',marginBottom:3,display:'flex',gap:6,alignItems:'center'}}><span style={{color:'var(--grl)',display:'inline-flex'}}><Ic name="mensaje" size={13}/></span><span>{fb.texto}</span></div>
                           ))}
                         </div>
                       )}
@@ -349,7 +350,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                               onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
                               onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
                               <div style={{width:36,height:36,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
-                                {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span>💪</span>}
+                                {v.imagen_url?<img src={v.imagen_url} alt={v.nombre} style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span style={{color:'var(--grl)',display:'inline-flex'}}><Ic name="fuerza" size={18}/></span>}
                               </div>
                               <span style={{fontSize:10,color:'var(--n)',flex:1,fontWeight:300}}>{v.nombre}</span>
                             </div>
@@ -404,23 +405,23 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
             <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
             <EditorVariantes variantes={nuevoEj.variantes} onChange={(v:any[])=>setNuevoEj(p=>({...p,variantes:v}))} disabled={guardando}/>
             <EditorItems items={nuevoEj.items_ejecucion} onChange={(v:any[])=>setNuevoEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
-            <EditorLista items={nuevoEj.feedbacks} onChange={(v:any[])=>setNuevoEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="💬"/>
+            <EditorLista items={nuevoEj.feedbacks} onChange={(v:any[])=>setNuevoEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
             <div className="field">
               <label>Imagen</label>
               <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
-                {nuevoEj.imagen_url?<div style={{position:'relative'}}><img src={nuevoEj.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setNuevoEj(p=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>💪</div>}
-                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm">📷 Subir imagen</div><input type="file" accept="image/*" onChange={handleImagenEjercicio} style={{display:'none'}} disabled={guardando}/></label>
+                {nuevoEj.imagen_url?<div style={{position:'relative'}}><img src={nuevoEj.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setNuevoEj(p=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={24}/></div>}
+                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm"><Ic name="camara" size={12}/> Subir imagen</div><input type="file" accept="image/*" onChange={handleImagenEjercicio} style={{display:'none'}} disabled={guardando}/></label>
               </div>
             </div>
             <div className="field">
               <label>Etiquetas</label>
               {nuevoEj.etiquetas_ids.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>{nuevoEj.etiquetas_ids.map(id=><span key={id} onClick={()=>setNuevoEj(p=>({...p,etiquetas_ids:p.etiquetas_ids.filter(x=>x!==id)}))} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',cursor:'pointer'}}>{getNombre(id)} ✕</span>)}</div>}
-              <button className="btn btn-s btn-sm" onClick={()=>setModalSelEt(true)} style={{width:'100%',justifyContent:'center'}}>🏷 {nuevoEj.etiquetas_ids.length>0?`${nuevoEj.etiquetas_ids.length} seleccionadas · Cambiar`:'Seleccionar etiquetas'}</button>
+              <button className="btn btn-s btn-sm" onClick={()=>setModalSelEt(true)} style={{width:'100%',justifyContent:'center'}}><Ic name="etiqueta" size={12}/> {nuevoEj.etiquetas_ids.length>0?`${nuevoEj.etiquetas_ids.length} seleccionadas · Cambiar`:'Seleccionar etiquetas'}</button>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalEj(false)} disabled={guardando}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crearEjercicio} disabled={guardando}>{guardando?(subiendoImg?'⏳ Subiendo...':'⏳ Guardando...'):'💾 Guardar'}</button>
+              <button className="btn btn-p" onClick={crearEjercicio} disabled={guardando}>{guardando?(subiendoImg?'Subiendo…':'Guardando…'):<><Ic name="guardar" size={13}/> Guardar</>}</button>
             </div>
           </div>
         </div>

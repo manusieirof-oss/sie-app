@@ -5,18 +5,19 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import AvisoRenovacion from './AvisoRenovacion'
 import { renovarCuotas } from '@/lib/bonos'
+import { Ic } from '@/lib/icons'
 
 const NAV = [
-  { href: '/agenda', icon: '📅', label: 'Agenda' },
-  { href: '/pacientes', icon: '👥', label: 'Pacientes' },
-  { href: '/entrenamiento', icon: '📚', label: 'Biblioteca' },
-  { href: '/taller', icon: '🔧', label: 'Taller' },
-  { href: '/valoracion', icon: '📋', label: 'Valorac.' },
-  { href: '/estadisticas', icon: '📊', label: 'Stats' },
-  { href: '/ajustes', icon: '⚙️', label: 'Ajustes' },
+  { href: '/agenda', icon: 'agenda', label: 'Agenda' },
+  { href: '/pacientes', icon: 'pacientes', label: 'Pacientes' },
+  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca' },
+  { href: '/taller', icon: 'taller', label: 'Taller' },
+  { href: '/valoracion', icon: 'valoracion', label: 'Valorac.' },
+  { href: '/estadisticas', icon: 'stats', label: 'Stats' },
+  { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' },
 ]
 
-const NAV_FINANZAS = { href: '/finanzas', icon: '💰', label: 'Finanzas' }
+const NAV_FINANZAS = { href: '/finanzas', icon: 'finanzas', label: 'Finanzas' }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined)
@@ -79,19 +80,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <div className="sb-logo">SIE</div>
         {NAV.map(n=>(
           <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href)?'active':''}`}>
-            <span>{n.icon}</span>
+            <Ic name={n.icon} size={20} strokeWidth={2}/>
             <span className="nav-label">{n.label}</span>
           </Link>
         ))}
         {(perfil?.rol==='admin' || perfil?.permisos?.finanzas===true) && (
           <Link href={NAV_FINANZAS.href} className={`nav-item ${pathname.startsWith(NAV_FINANZAS.href)?'active':''}`}>
-            <span>{NAV_FINANZAS.icon}</span>
+            <Ic name={NAV_FINANZAS.icon} size={20} strokeWidth={2}/>
             <span className="nav-label">{NAV_FINANZAS.label}</span>
           </Link>
         )}
         <div style={{marginTop:'auto'}}>
           <button className="nav-item" onClick={handleLogout}>
-            <span>🚪</span>
+            <Ic name="salir" size={20} strokeWidth={2}/>
             <span className="nav-label">Salir</span>
           </button>
         </div>

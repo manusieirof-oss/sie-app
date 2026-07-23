@@ -7,6 +7,7 @@ import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
 import ResultadosTab from './components/ResultadosTab'
 import EntrenoTab from './components/EntrenoTab'
+import { Ic } from '@/lib/icons'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
@@ -479,9 +480,9 @@ export default function FichaPacientePage() {
   const iniciales = pac ? `${pac.nombre?.[0]||''}${pac.apellidos?.[0]||''}`.toUpperCase() : ''
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id, b.dias_semana>1?`${b.nombre} · ${b.dias_semana}d/sem`:b.nombre]))
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
-  const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'⏳ Pendiente', impago:'⚠ Impago' }
+  const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'Pendiente', impago:'Impago' }
   const estadoColor: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)' }
-  const estadoLabel: Record<string,string> = { activo:'● Activo', baja:'○ Baja', pausa:'⏸ Pausa' }
+  const estadoLabel: Record<string,string> = { activo:'● Activo', baja:'○ Baja', pausa:'Pausa' }
 
   if (loading) return <div className="loading">Cargando ficha...</div>
   if (!pac) return <div className="loading">Paciente no encontrado</div>
@@ -497,7 +498,7 @@ export default function FichaPacientePage() {
             <div className="pat-avatar">{iniciales}</div>
           )}
           <label style={{position:'absolute',bottom:-4,right:-4,width:20,height:20,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid var(--n)'}}>
-            {subiendoFoto?'⏳':'📷'}
+            {subiendoFoto?'…':<Ic name="camara" size={12}/>}
             <input type="file" accept="image/*" onChange={subirFoto} style={{display:'none'}}/>
           </label>
         </div>
@@ -528,20 +529,20 @@ export default function FichaPacientePage() {
           {editando ? (
             <>
               <button className="btn btn-d btn-sm" onClick={()=>setEditando(false)}>Cancelar</button>
-              <button className="btn btn-p btn-sm" onClick={guardarEdicion}>💾 Guardar</button>
+              <button className="btn btn-p btn-sm" onClick={guardarEdicion}><Ic name="guardar" size={12}/> Guardar</button>
             </>
           ) : (
-            <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}>✎ Editar</button>
+            <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}><Ic name="editar" size={12}/> Editar</button>
           )}
           {pac.estado==='activo' && <>
-            <button className="btn btn-t btn-sm" onClick={()=>setModalPausa(true)}>⏸ Pausa</button>
+            <button className="btn btn-t btn-sm" onClick={()=>setModalPausa(true)}><Ic name="pausa" size={12}/> Pausa</button>
             <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>Baja</button>
           </>}
           {(pac.estado==='baja'||pac.estado==='pausa') && (
             <button className="btn btn-p btn-sm" onClick={reactivar} disabled={procesando}>▶ Reactivar</button>
           )}
           <button className="btn btn-d btn-sm" onClick={eliminarPaciente} disabled={procesando} style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}}>
-            {procesando?'⏳':'🗑 Eliminar'}
+            {procesando?'…':<><Ic name="papelera" size={12}/> Eliminar</>}
           </button>
         </div>
       </div>
@@ -549,7 +550,7 @@ export default function FichaPacientePage() {
       {/* AVISO BAJA/PAUSA */}
       {pac.estado!=='activo' && (
         <div style={{background:pac.estado==='baja'?'var(--redl)':'var(--ambl)',border:`1px solid ${pac.estado==='baja'?'var(--red)':'var(--amb)'}`,borderRadius:'var(--rl)',padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:16}}>{pac.estado==='baja'?'○':'⏸'}</span>
+          <span style={{display:'inline-flex',color:pac.estado==='baja'?'var(--red)':'var(--amb)'}}><Ic name={pac.estado==='baja'?'altabaja':'pausa'} size={17}/></span>
           <div style={{flex:1}}>
             <div style={{fontSize:11,fontWeight:500,color:pac.estado==='baja'?'var(--red)':'#7A5800'}}>
               {pac.estado==='baja'?'Paciente dado de baja':'Paciente en pausa temporal'}
@@ -564,8 +565,8 @@ export default function FichaPacientePage() {
 
       {/* TABS */}
       <div className="tabs">
-        {[['ficha','📋 Ficha'],['timeline','🕐 Historial'],['salud','❤️ Salud'],['entreno','🏋 Entrenamiento'],['resultados','📊 Resultados']].map(([k,l])=>(
-          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>
+        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['salud','salud','Salud'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados']].map(([k,ic,l])=>(
+          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
 
@@ -633,7 +634,7 @@ export default function FichaPacientePage() {
                 {testSeleccionadoObj.imagen_url&&<img src={testSeleccionadoObj.imagen_url} alt={testSeleccionadoObj.nombre} style={{width:60,height:60,objectFit:'cover',borderRadius:5,flexShrink:0}}/>}
                 <div style={{flex:1}}>
                   {testSeleccionadoObj.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,lineHeight:1.4}}>{testSeleccionadoObj.descripcion}</div>}
-                  {testSeleccionadoObj.video_url&&<a href={testSeleccionadoObj.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:'var(--g)',display:'block',marginTop:4}}>🎥 Ver vídeo del test ↗</a>}
+                  {testSeleccionadoObj.video_url&&<a href={testSeleccionadoObj.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:'var(--g)',display:'inline-flex',alignItems:'center',gap:4,marginTop:4}}><Ic name="play" size={11}/> Ver vídeo del test ↗</a>}
                 </div>
               </div>
             )}
@@ -696,7 +697,7 @@ export default function FichaPacientePage() {
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalRegistrarTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={registrarTest}>💾 Guardar resultado</button>
+              <button className="btn btn-p" onClick={registrarTest}><Ic name="guardar" size={13}/> Guardar resultado</button>
             </div>
           </div>
         </div>
@@ -727,7 +728,7 @@ export default function FichaPacientePage() {
       {modalPausa && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalPausa(false)}}>
           <div className="modal">
-            <div className="modal-title">⏸ Pausa temporal<button className="modal-close" onClick={()=>setModalPausa(false)}>✕</button></div>
+            <div className="modal-title"><span className="ct-l"><Ic name="pausa" size={16}/> Pausa temporal</span><button className="modal-close" onClick={()=>setModalPausa(false)}>✕</button></div>
             <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,fontWeight:300}}>
               Las citas del periodo seleccionado se cancelarán automáticamente. El paciente podrá reactivarse cuando vuelva.
             </div>
@@ -736,13 +737,13 @@ export default function FichaPacientePage() {
               <div className="field"><label>Hasta (fecha de vuelta)</label><input type="date" className="input" value={pausa.hasta} onChange={e=>setPausa(p=>({...p,hasta:e.target.value}))}/></div>
             </div>
             <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,padding:'8px 11px',fontSize:10,color:'#7A5800',marginBottom:12}}>
-              ⚠ Se cancelarán todas las citas programadas entre esas fechas. Para reactivar al paciente entra en su ficha y pulsa ▶ Reactivar.
+              Se cancelarán todas las citas programadas entre esas fechas. Para reactivar al paciente entra en su ficha y pulsa Reactivar.
             </div>
             <div style={{display:'flex',gap:8}}>
               <button className="btn btn-s btn-sm" onClick={()=>setModalPausa(false)}>Cancelar</button>
               <div style={{flex:1}}/>
               <button className="btn btn-p" onClick={aplicarPausa} disabled={procesando}>
-                {procesando?'⏳ Aplicando...':'⏸ Aplicar pausa'}
+                {procesando?'Aplicando…':'Aplicar pausa'}
               </button>
             </div>
           </div>
