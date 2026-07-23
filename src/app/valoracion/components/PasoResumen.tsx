@@ -1,7 +1,8 @@
 'use client'
 import { Ic } from '@/lib/icons'
+import { iconTipoClase, colorTipoClase, nombreTipoClase } from '@/lib/tipos'
 
-export default function PasoResumen({ form, testsValoracion, guardando, finalizar, firmaAceptada, imagenesAceptada, firmaCanvas }: any) {
+export default function PasoResumen({ form, testsValoracion, guardando, finalizar, firmaAceptada, imagenesAceptada, firmaCanvas, tiposClaseOpts=[] }: any) {
   const hp = form.horario_pref || {}
   const FR:Record<string,string> = {manana:'Mañana',tarde:'Tarde',noche:'Noche',flexible:'Flexible'}
   const edad = form.fecha_nacimiento ? Math.floor((Date.now()-new Date(form.fecha_nacimiento).getTime())/(365.25*24*3600*1000)) : null
@@ -28,7 +29,7 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
         <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:5}}><Ic name="usuario" size={11}/> Paciente</div>
           <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{form.nombre||'(existente)'} {form.apellidos}</div>
-          <div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>{form.tipo_clase_def} · Bono {form.bono?.replace('_',' ')}</div>
+          <div style={{fontSize:10,color:'var(--grl)',fontWeight:300,display:'flex',alignItems:'center',gap:5}}>{form.tipo_clase_def&&<span style={{display:'inline-flex',color:colorTipoClase(tiposClaseOpts,form.tipo_clase_def)}}><Ic name={iconTipoClase(form.tipo_clase_def,tiposClaseOpts.find((x:any)=>x.valor===form.tipo_clase_def)?.icono)} size={12}/></span>}{form.tipo_clase_def?nombreTipoClase(tiposClaseOpts,form.tipo_clase_def):'—'} · Bono {form.bono?.replace('_',' ')}</div>
           {(form.telefono||form.email)&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>{form.telefono}{form.telefono&&form.email&&' · '}{form.email}</div>}
           {(edad!=null||form.altura_cm||form.peso_kg)&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{edad!=null&&`${edad} años`}{edad!=null&&(form.altura_cm||form.peso_kg)&&' · '}{form.altura_cm&&`${form.altura_cm} cm`}{form.altura_cm&&form.peso_kg&&' · '}{form.peso_kg&&`${form.peso_kg} kg`}</div>}
           {form.dni&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>DNI: {form.dni}</div>}

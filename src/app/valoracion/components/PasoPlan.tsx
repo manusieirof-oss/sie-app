@@ -1,7 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
-
-const CLASE_IC: Record<string,string> = { entrenamiento:'entreno', pilates:'pilates', rehabilitacion:'rehab', individual:'usuario', embarazadas:'bebe' }
+import { iconTipoClase } from '@/lib/tipos'
 
 export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
   const hp = form.horario_pref || {modo:'general',franja_general:'manana',franjas_dia:{},alterno:'manana_tarde',hora_exacta:'',notas_horario:''}
@@ -16,12 +15,16 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
         <div className="card">
           <div className="card-title">Tipo de clase definitivo</div>
           <div className="g3">
-            {tiposClaseOpts.map((tc:any)=>(
-              <div key={tc.valor} onClick={()=>up('tipo_clase_def',tc.valor)} style={{border:`1.5px solid ${form.tipo_clase_def===tc.valor?'var(--g)':'var(--bd)'}`,borderRadius:'var(--rl)',padding:10,textAlign:'center',cursor:'pointer',background:form.tipo_clase_def===tc.valor?'var(--gl)':'var(--w)',transition:'all .15s'}}>
-                <div style={{marginBottom:5,display:'flex',justifyContent:'center',color:form.tipo_clase_def===tc.valor?'var(--gd)':'var(--gr)'}}><Ic name={CLASE_IC[tc.valor]||'etiqueta'} size={22}/></div>
-                <div style={{fontSize:11,fontWeight:400}}>{tc.nombre}</div>
-              </div>
-            ))}
+            {tiposClaseOpts.map((tc:any)=>{
+              const sel=form.tipo_clase_def===tc.valor
+              const col=tc.color||'#5A969E'
+              return (
+                <div key={tc.valor} onClick={()=>up('tipo_clase_def',tc.valor)} style={{border:`1.5px solid ${sel?col:'var(--bd)'}`,borderRadius:'var(--rl)',padding:10,textAlign:'center',cursor:'pointer',background:sel?(col+'22'):'var(--w)',transition:'all .15s'}}>
+                  <div style={{marginBottom:5,display:'flex',justifyContent:'center',color:col}}><Ic name={iconTipoClase(tc.valor,tc.icono)} size={22}/></div>
+                  <div style={{fontSize:11,fontWeight:sel?500:400}}>{tc.nombre}</div>
+                </div>
+              )
+            })}
           </div>
         </div>
         <div className="card">

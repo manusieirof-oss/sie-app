@@ -1,7 +1,7 @@
 'use client'
 import { Ic } from '@/lib/icons'
 
-export default function ModalEditarCita({ editandoCita, setEditandoCita, guardando, guardarEdicionCita, onCerrar, horas, tiposCita=[], tiposClase=[], cambiarEstadoCita, eliminarCita }: any) {
+export default function ModalEditarCita({ editandoCita, setEditandoCita, guardando, guardarEdicionCita, onCerrar, horas, tiposCita=[], tiposClase=[], cambiarEstadoCita, eliminarCita, salas=['A','B'] }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   if (!editandoCita) return null
   const nombrePac = editandoCita.pacientes ? `${editandoCita.pacientes.nombre} ${editandoCita.pacientes.apellidos||''}` : 'Paciente'
@@ -28,8 +28,7 @@ export default function ModalEditarCita({ editandoCita, setEditandoCita, guardan
           </div>
           <div className="field"><label>Sala</label>
             <select className="input" value={editandoCita.sala||''} onChange={e=>setEditandoCita((p:any)=>({...p,sala:e.target.value}))} disabled={guardando}>
-              <option value="A">Sala A</option>
-              <option value="B">Sala B</option>
+              {(editandoCita.sala&&!salas.includes(editandoCita.sala)?[editandoCita.sala,...salas]:salas).map((s:string)=><option key={s} value={s}>Sala {s}</option>)}
             </select>
           </div>
         </div>

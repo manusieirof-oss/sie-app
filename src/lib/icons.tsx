@@ -109,6 +109,9 @@ const MAP: Record<string, any> = {
   altabaja: UserMinus,
 }
 
+export const ICON_NAMES = Object.keys(MAP)
+export const isIcon = (n?: string) => !!n && Object.prototype.hasOwnProperty.call(MAP, n)
+
 export function Ic({ name, size = 14, strokeWidth = 1.75, className = '', style = {} }: any) {
   const C = MAP[name] || Circle
   return <C size={size} strokeWidth={strokeWidth} className={className} style={{ flexShrink: 0, ...style }} aria-hidden />

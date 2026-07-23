@@ -1,5 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
+import { iconTipoClase, ICON_OPCIONES } from '@/lib/tipos'
 
 export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNosConocio, tiposClase, setTiposClase, tiposJornada, setTiposJornada, tiposPlantilla, setTiposPlantilla, deportesLista, setDeportesLista, nuevoComoNos, setNuevoComoNos, nuevoJornada, setNuevoJornada, nuevoPlantilla, setNuevoPlantilla, nuevoDeporte, setNuevoDeporte }: any) {
   return (
@@ -29,7 +30,11 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
           {tiposClase.map((tc:any,i:number)=>(
             <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,background:'var(--bl)',border:'1px solid var(--bd)',marginBottom:5}}>
               <input type="color" value={tc.color||'#5A969E'} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,color:e.target.value}:x))} style={{width:24,height:24,border:'none',borderRadius:6,cursor:'pointer',background:'none',flexShrink:0}} title="Color en la agenda"/>
-              <span style={{fontSize:14}}>{tc.icono}</span>
+              <span style={{display:'inline-flex',color:tc.color||'#5A969E',flexShrink:0}} title="Icono del tipo"><Ic name={iconTipoClase(tc.valor,tc.icono)} size={16}/></span>
+              <select className="input" value={tc.icono||''} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,icono:e.target.value}:x))} style={{width:96,fontSize:10,padding:'3px 6px',flexShrink:0}} title="Icono del tipo">
+                <option value="">Auto</option>
+                {ICON_OPCIONES.map(o=><option key={o.name} value={o.name}>{o.label}</option>)}
+              </select>
               <input className="input" value={tc.nombre} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,nombre:e.target.value}:x))} style={{flex:1,fontSize:11,padding:'4px 8px'}}/>
               <label style={{fontSize:9,color:'var(--grl)',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
                 <input className="input" type="number" value={tc.duracion||50} onChange={e=>setTiposClase((p:any[])=>p.map((x,j)=>j===i?{...x,duracion:parseInt(e.target.value)||0}:x))} style={{width:50,fontSize:9,padding:'2px 5px'}}/>min
@@ -39,12 +44,15 @@ export default function ValoracionTab({ ajustes, set, comoNosConocio, setComoNos
           ))}
         </div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          <input className="input" placeholder="Icono" style={{width:60,fontSize:11}} id="nuevo-tipo-icono"/>
           <input className="input" placeholder="Nombre ej. Mayores" style={{flex:1,fontSize:11}} id="nuevo-tipo-nombre"/>
+          <select className="input" id="nuevo-tipo-icono" defaultValue="" style={{width:110,fontSize:10}} title="Icono del tipo">
+            <option value="">Icono auto</option>
+            {ICON_OPCIONES.map(o=><option key={o.name} value={o.name}>{o.label}</option>)}
+          </select>
           <button className="btn btn-p btn-sm" onClick={()=>{
-            const ic=(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value
             const nm=(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value
-            if(nm){setTiposClase((p:any[])=>[...p,{valor:nm.toLowerCase().replace(/\s/g,'_'),icono:ic||'',nombre:nm,color:'#5A969E',duracion:50}]);(document.getElementById('nuevo-tipo-icono') as HTMLInputElement).value='';(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value=''}
+            const ic=(document.getElementById('nuevo-tipo-icono') as HTMLSelectElement).value
+            if(nm){setTiposClase((p:any[])=>[...p,{valor:nm.toLowerCase().replace(/\s/g,'_'),icono:ic||'',nombre:nm,color:'#5A969E',duracion:50}]);(document.getElementById('nuevo-tipo-nombre') as HTMLInputElement).value='';(document.getElementById('nuevo-tipo-icono') as HTMLSelectElement).value=''}
           }}>+ Añadir</button>
         </div>
       </div>

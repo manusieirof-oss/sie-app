@@ -4,7 +4,7 @@ import { useState } from 'react'
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
-export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[] }: any) {
+export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[], salas=['A','B'] }: any) {
   const [busquedaPac, setBusquedaPac] = useState('')
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   function toggleDia(dia: string) {
@@ -22,7 +22,21 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
           <input type="date" className="input" value={nuevaCita.fecha||''} onChange={e=>setNuevaCita((p:any)=>({...p,fecha:e.target.value}))} disabled={guardando}/>
         </div>
         <div className="field"><label>Paciente *</label>
-          {nuevaCita.paciente_id ? (
+          <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:2,marginBottom:7,width:'fit-content'}}>
+            {[{v:false,l:'Existente'},{v:true,l:'Nuevo'}].map(({v,l})=>(
+              <button key={String(v)} onClick={()=>setNuevaCita((p:any)=>({...p,nuevo:v,...(v?{paciente_id:'',es_recuperacion:false,recuperacion_id:''}:{nuevo_nombre:'',nuevo_telefono:''})}))} disabled={guardando}
+                style={{fontSize:10,padding:'4px 12px',borderRadius:4,border:'none',cursor:'pointer',fontFamily:'system-ui',background:!!nuevaCita.nuevo===v?'var(--g)':'transparent',color:!!nuevaCita.nuevo===v?'#fff':'var(--grl)',fontWeight:!!nuevaCita.nuevo===v?500:300}}>{l}</button>
+            ))}
+          </div>
+          {nuevaCita.nuevo ? (
+            <>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <input className="input" value={nuevaCita.nuevo_nombre||''} onChange={e=>setNuevaCita((p:any)=>({...p,nuevo_nombre:e.target.value}))} placeholder="Nombre y apellidos" disabled={guardando} autoFocus/>
+                <input className="input" value={nuevaCita.nuevo_telefono||''} onChange={e=>setNuevaCita((p:any)=>({...p,nuevo_telefono:e.target.value}))} placeholder="Teléfono" disabled={guardando}/>
+              </div>
+              <div style={{fontSize:9,color:'var(--gd)',background:'var(--gl)',borderRadius:5,padding:'6px 9px',marginTop:6,display:'flex',alignItems:'center',gap:5}}><span>ℹ</span> Se crea como <b style={{fontWeight:600}}>pendiente de valoración</b>; completas sus datos al hacer la valoración.</div>
+            </>
+          ) : nuevaCita.paciente_id ? (
             (() => {
               const sel = pacientes.find((p:any)=>p.id===nuevaCita.paciente_id)
               return (
@@ -59,8 +73,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
           </div>
           <div className="field"><label>Sala</label>
             <select className="input" value={nuevaCita.sala} onChange={e=>setNuevaCita((p:any)=>({...p,sala:e.target.value}))} disabled={guardando}>
-              <option value="A">Sala A</option>
-              <option value="B">Sala B</option>
+              {salas.map((s:string)=><option key={s} value={s}>Sala {s}</option>)}
             </select>
           </div>
         </div>

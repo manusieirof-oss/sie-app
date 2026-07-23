@@ -10,10 +10,31 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
     <div className="g2">
       <div className="card">
         <div className="card-title">¿Es un paciente existente o nuevo?</div>
+        {(() => {
+          const pendientes = (pacientes||[]).filter((p:any)=>p.pendiente_valoracion)
+          if (pendientes.length===0) return null
+          const elegir = (p:any) => { up('paciente_id',p.id); up('desde_pendiente',true); up('nombre',p.nombre||''); up('apellidos',p.apellidos||''); up('telefono',p.telefono||'') }
+          return (
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:9,fontWeight:600,color:'#8A6410',letterSpacing:.4,textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}><Ic name="alerta" size={11}/> Pendientes de valoración ({pendientes.length})</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {pendientes.map((p:any)=>{
+                  const sel = form.paciente_id===p.id
+                  return (
+                    <button key={p.id} onClick={()=>elegir(p)} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:11,border:`1px solid ${sel?'var(--amb)':'var(--bd)'}`,background:sel?'var(--ambl)':'var(--w)',color:sel?'#8A6410':'var(--n)',fontWeight:sel?500:400}}>
+                      {p.nombre} {p.apellidos}{p.telefono?<span style={{color:'var(--grl)',fontSize:9}}> · {p.telefono}</span>:null}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:6}}>Selecciona uno para completar su valoración; se le quitará el aviso de pendiente al terminar.</div>
+            </div>
+          )
+        })()}
         <div className="field"><label>Paciente existente (opcional)</label>
-          <select className="input" value={form.paciente_id} onChange={e=>up('paciente_id',e.target.value)}>
+          <select className="input" value={form.paciente_id} onChange={e=>{up('paciente_id',e.target.value);up('desde_pendiente',false)}}>
             <option value="">— Paciente nuevo —</option>
-            {pacientes.map((p:any)=>(<option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>))}
+            {pacientes.map((p:any)=>(<option key={p.id} value={p.id}>{p.nombre} {p.apellidos}{p.pendiente_valoracion?' · pendiente':''}</option>))}
           </select>
         </div>
         <div className="g2">
