@@ -9,6 +9,7 @@ import VistaSemana from './components/VistaSemana'
 import VistaMes from './components/VistaMes'
 import ModalNuevaCita from './components/ModalNuevaCita'
 import ModalEditarCita from './components/ModalEditarCita'
+import ModalEditarCitas from './components/ModalEditarCitas'
 import ModalDatosCita from './components/ModalDatosCita'
 import ModalEntrenoCita from './components/ModalEntrenoCita'
 import ModalAlertasCita from './components/ModalAlertasCita'
@@ -40,6 +41,7 @@ export default function AgendaPage() {
   const [pesos, setPesos] = useState<Record<string,string>>({})
   const [guardandoAnot, setGuardandoAnot] = useState<string|null>(null)
   const [editandoCita, setEditandoCita] = useState<any>(null)
+  const [editandoMulti, setEditandoMulti] = useState<any>(null)
   const [verDatosCita, setVerDatosCita] = useState<any>(null)
   const [verEntrenoCita, setVerEntrenoCita] = useState<any>(null)
   const [verAlertasCita, setVerAlertasCita] = useState<any>(null)
@@ -48,6 +50,7 @@ export default function AgendaPage() {
   const [salaFiltro, setSalaFiltro] = useState<string>('ambas')
   const [tiposFiltro, setTiposFiltro] = useState<string[]>([])
   const [salas, setSalas] = useState<string[]>(['A','B'])
+  const [soloHueco, setSoloHueco] = useState(false)
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'entrenamiento', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:'',
@@ -186,10 +189,10 @@ export default function AgendaPage() {
   async function buscarPacienteDirecto(q: string) {
     setBuscarPac(q)
     if (!q.trim()) { setResultadosBusqueda([]); return }
-    const matchingPacs = pacientes.filter(p => `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q.toLowerCase()))
+    const matchingPacs = pacientes.filter(p => `${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(q.toLowerCase()))
     if (matchingPacs.length === 0) { setResultadosBusqueda([]); return }
     const ids = matchingPacs.map(p => p.id)
-    const { data } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos)').in('paciente_id', ids).gte('fecha', new Date().toISOString().split('T')[0]).neq('estado','cancelada').order('fecha').limit(15)
+    const { data } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica)').in('paciente_id', ids).gte('fecha', new Date().toISOString().split('T')[0]).neq('estado','cancelada').order('fecha').limit(15)
     setResultadosBusqueda(data||[])
   }
 
@@ -234,6 +237,23 @@ export default function AgendaPage() {
       if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
     }
     setEditandoCita(null); setGuardando(false); cargar()
+  }
+
+  async function guardarCitasMultiple(editados:any[]) {
+    if (!editados || editados.length===0) { setEditandoMulti(null); return }
+    setGuardando(true)
+    const registros:any[]=[]
+    for (const e of editados) {
+      const orig = citas.find((c:any)=>c.id===e.id)
+      await supabase.from('citas').update({fecha:e.fecha,hora:e.hora,sala:e.sala,tipo:e.tipo}).eq('id',e.id)
+      if (orig) {
+        if (orig.fecha && e.fecha && orig.fecha!==e.fecha) registros.push({cita_id:e.id,paciente_id:e.paciente_id,campo_cambiado:'fecha',valor_anterior:orig.fecha,valor_nuevo:e.fecha})
+        const hA=(orig.hora||'').slice(0,5), hN=(e.hora||'').slice(0,5)
+        if (hN&&hA&&hN!==hA) registros.push({cita_id:e.id,paciente_id:e.paciente_id,campo_cambiado:'hora',valor_anterior:hA,valor_nuevo:hN})
+      }
+    }
+    if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
+    setEditandoMulti(null); setGuardando(false); cargar()
   }
 
   async function crearCita() {
@@ -414,6 +434,13 @@ export default function AgendaPage() {
             ))}
           </div>
         )}
+        {vista==='semana'&&(
+          <button onClick={()=>setSoloHueco(v=>!v)} title="Mostrar solo clases con hueco"
+            style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'5px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${soloHueco?'var(--g)':'var(--bd)'}`,background:soloHueco?'var(--gl)':'var(--w)',color:soloHueco?'var(--gd)':'var(--gr)',fontWeight:soloHueco?500:400}}>
+            <span className={`toggle ${soloHueco?'on':''}`} style={{pointerEvents:'none'}}/>
+            Solo con hueco
+          </button>
+        )}
         <div style={{position:'relative'}}>
           <input className="input" placeholder="Buscar paciente..." value={buscarPac} onChange={e=>buscarPacienteDirecto(e.target.value)} style={{width:180,fontSize:11}}/>
           {buscarPac && resultadosBusqueda.length>0 && (
@@ -423,7 +450,7 @@ export default function AgendaPage() {
                   style={{padding:'8px 11px',cursor:'pointer',borderBottom:'1px solid var(--bl)'}}
                   onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
                   onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                  <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</div>
+                  <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}{c.pacientes?.nombre_clinica?<span style={{color:'var(--grl)'}}> · "{c.pacientes.nombre_clinica}"</span>:null}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                 </div>
               ))}
@@ -457,8 +484,8 @@ export default function AgendaPage() {
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
           {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas}/>}
-          {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita}/>}
-          {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista}/>}
+          {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita} soloHueco={soloHueco} salas={salas}/>}
+          {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string)=>setEditandoMulti({citas:cts,nombre})}/>}
         </>
       )}
 
@@ -466,6 +493,7 @@ export default function AgendaPage() {
 
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} salas={salas}/>}
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}
+      {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} horas={horas} salas={salas} tiposClase={tiposClase} guardando={guardando} onGuardar={guardarCitasMultiple} onCerrar={()=>setEditandoMulti(null)}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} alertasPaciente={alertasPaciente} onCerrar={()=>setVerEntrenoCita(null)}/>}
       {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}
