@@ -51,6 +51,7 @@ export default function AgendaPage() {
   const [tiposFiltro, setTiposFiltro] = useState<string[]>([])
   const [salas, setSalas] = useState<string[]>(['A','B'])
   const [soloHueco, setSoloHueco] = useState(false)
+  const [eventos, setEventos] = useState<any[]>([])
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'entrenamiento', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:'',
@@ -91,12 +92,13 @@ export default function AgendaPage() {
       if (map.tipos_cita) setTiposCita(JSON.parse(map.tipos_cita))
       if (map.tipos_clase) setTiposClase(JSON.parse(map.tipos_clase))
       if (map.clinica_salas) { try { const s = JSON.parse(map.clinica_salas); if (Array.isArray(s) && s.length) setSalas(s) } catch {} }
+      if (map.eventos_calendario) { try { const ev = JSON.parse(map.eventos_calendario); if (Array.isArray(ev)) setEventos(ev) } catch {} }
     }
   }
   useEffect(() => { cargar() }, [fecha, vista])
 
   async function cargarPacientes() {
-    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').eq('estado','activo').order('nombre')
+    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,fecha_nacimiento').eq('estado','activo').order('nombre')
     setPacientes(data||[])
   }
 
@@ -485,7 +487,7 @@ export default function AgendaPage() {
         <>
           {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita} soloHueco={soloHueco} salas={salas}/>}
-          {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string)=>setEditandoMulti({citas:cts,nombre})}/>}
+          {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string)=>setEditandoMulti({citas:cts,nombre})} maxPersonas={maxPersonas} eventos={eventos}/>}
         </>
       )}
 
