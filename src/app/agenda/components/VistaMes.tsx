@@ -27,10 +27,14 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
   const citasPac = pacSel ? citas.filter((c:any)=>c.paciente_id===pacSel.id) : []
   const abrirMulti = () => { if (pacSel && onEditarMulti) onEditarMulti(citasPac, pacSel.nombre) }
 
+  const dias = getDiasMes()
+  const nRows = Math.max(1, Math.ceil(dias.length/7))
+  const padded = [...dias, ...Array(nRows*7 - dias.length).fill(null)]
+
   return (
-    <div>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 150px)'}}>
       {/* Buscador / filtro por paciente */}
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap',flexShrink:0}}>
         {!pacSel ? (
           <div style={{position:'relative',width:260}}>
             <input className="input" value={q} onChange={e=>setQ(e.target.value)} placeholder="Filtrar por paciente en el mes..." style={{fontSize:12,paddingLeft:30}}/>
@@ -59,15 +63,15 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
         )}
       </div>
 
-      <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',background:'var(--w)'}}>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+      <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',background:'var(--w)',flex:1,display:'flex',flexDirection:'column'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:'var(--bl)',borderBottom:'1px solid var(--bd)',flexShrink:0}}>
           {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>(
             <div key={d} style={{fontSize:9,fontWeight:600,color:'var(--grl)',padding:'7px',textAlign:'center',letterSpacing:.3}}>{d}</div>
           ))}
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
-          {getDiasMes().map((f,i)=>{
-            if (!f) return <div key={i} style={{minHeight:82,borderRight:'1px solid var(--bl)',borderBottom:'1px solid var(--bl)',background:'var(--bl)'}}/>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:`repeat(${nRows},1fr)`,flex:1,overflowY:'auto'}}>
+          {padded.map((f,i)=>{
+            if (!f) return <div key={i} style={{borderRight:'1px solid var(--bl)',borderBottom:'1px solid var(--bl)',background:'var(--bl)'}}/>
             const isH=f===hoy,d=new Date(f+'T12:00:00')
             const cdAll=citas.filter(c=>c.fecha===f&&c.estado!=='cancelada')
             const cd = pacSel ? cdAll.filter((c:any)=>c.paciente_id===pacSel.id) : cdAll
@@ -78,16 +82,16 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
             }
             return (
               <div key={f} onClick={onClickDia}
-                style={{minHeight:82,padding:'4px 5px',borderRight:'1px solid var(--bl)',borderBottom:'1px solid var(--bl)',cursor:'pointer',background:isH?'var(--gl)':'var(--w)',opacity:atenuar?0.4:1,transition:'background .1s'}}
+                style={{minHeight:0,padding:'4px 5px',borderRight:'1px solid var(--bl)',borderBottom:'1px solid var(--bl)',cursor:'pointer',background:isH?'var(--gl)':'var(--w)',opacity:atenuar?0.4:1,transition:'background .1s',overflowY:'auto',display:'flex',flexDirection:'column'}}
                 onMouseOver={e=>{if(!isH&&!atenuar)(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.05)'}}
                 onMouseOut={e=>{if(!isH)(e.currentTarget as HTMLElement).style.background=isH?'var(--gl)':'var(--w)'}}>
-                <div style={{fontSize:11,fontWeight:isH?600:400,color:isH?'var(--g)':'var(--n)',marginBottom:3}}>{d.getDate()}</div>
-                {cd.slice(0,3).map((c:any)=>(
-                  <div key={c.id} style={{fontSize:8,padding:'2px 5px',borderRadius:3,marginBottom:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',background:tint(colorTipo(c.tipo),0.2),border:pacSel?`1.5px solid ${colorTipo(c.tipo)}`:'none',color:'var(--n)'}}>
+                <div style={{fontSize:12,fontWeight:isH?600:400,color:isH?'var(--g)':'var(--n)',marginBottom:3,flexShrink:0}}>{d.getDate()}</div>
+                {cd.slice(0,8).map((c:any)=>(
+                  <div key={c.id} style={{fontSize:9,padding:'2px 6px',borderRadius:3,marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',background:tint(colorTipo(c.tipo),0.2),border:pacSel?`1.5px solid ${colorTipo(c.tipo)}`:'none',color:'var(--n)',flexShrink:0}}>
                     {c.hora?.slice(0,5)} {pacSel?`· Sala ${c.sala}`:c.pacientes?.nombre}
                   </div>
                 ))}
-                {cd.length>3&&<div style={{fontSize:8,color:'var(--g)',fontWeight:500}}>+{cd.length-3} más</div>}
+                {cd.length>8&&<div style={{fontSize:9,color:'var(--g)',fontWeight:500,flexShrink:0}}>+{cd.length-8} más</div>}
               </div>
             )
           })}
