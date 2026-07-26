@@ -157,6 +157,10 @@ details[open] .det-sum::before{content:'▾ ';}
 .pill-soft{background:var(--bm);color:var(--gr);}
 .pill-o{border:1px solid var(--bd);background:var(--w);color:var(--gr);}
 .pill-o.on{border-color:var(--g);background:var(--gl);color:var(--gd);}
+/* Píldora accionable: se pulsa para resolver o reabrir una vía de objetivo. */
+.pill-b{cursor:pointer;font-family:inherit;line-height:inherit;transition:border-color .15s,background .15s;}
+.pill-b:hover:not(:disabled){border-color:var(--g);background:var(--gl);}
+.pill-b:disabled{opacity:.5;cursor:default;}
 .num{width:18px;height:18px;border-radius:50%;background:var(--g);color:#fff;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .toggle{width:30px;height:17px;border-radius:9px;background:var(--bm);position:relative;cursor:pointer;transition:background .18s;border:none;flex-shrink:0;}
 .toggle.on{background:var(--g);}

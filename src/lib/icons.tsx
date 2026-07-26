@@ -10,7 +10,7 @@ import {
   Receipt, Banknote, Folder, Euro, Percent, Building2, GraduationCap, Info, Zap,
   Flag, MapPin, Camera, Image as ImageIcon, Download, Upload, Play, ListChecks,
   CalendarDays, Droplet, Utensils, Cross, Pause, Shuffle, UserMinus, ChevronDown,
-  MoreHorizontal, ArrowLeft, IdCard, PersonStanding,
+  MoreHorizontal, ArrowLeft, IdCard, PersonStanding, Copy,
 } from 'lucide-react'
 
 const MAP: Record<string, any> = {
@@ -54,6 +54,7 @@ const MAP: Record<string, any> = {
   mas: Plus,
   guardar: Save,
   cerrar: X,
+  copiar: Copy,
   firmar: PenLine,
   punto: Circle,
   test: ClipboardCheck,

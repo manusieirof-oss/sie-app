@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -41,41 +42,24 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
           .delete().eq('paciente_id', pid).eq('objetivo_id', objetivoId)
         if (error) { alert('Error: '+error.message); return }
       } else {
-        const todasResueltas = restantes.every((v:any)=>v.resuelto)
-        const { error } = await supabase.from('pacientes_objetivos')
-          .update({ vias:restantes, logrado:todasResueltas, fecha_logrado: todasResueltas?new Date().toISOString().slice(0,10):null })
-          .eq('paciente_id', pid).eq('objetivo_id', objetivoId)
-        if (error) { alert('Error: '+error.message); return }
+        const r = await guardarVias(pid, objetivoId, restantes, { logradoAntes: !!existe.logrado, contexto: 'la ejecución' })
+        if (!r.ok) { alert('Error: '+r.error); return }
       }
     } else {
       const nuevaVia = { tipo:'ejecucion', ref, etiqueta, resuelto:false, fecha_resuelto:null }
-      const { error } = await supabase.from('pacientes_objetivos')
-        .insert({ paciente_id: pid, objetivo_id: objetivoId, origen: 'ejecucion', vias:[nuevaVia] })
-      if (error) { alert('Error: '+error.message); return }
+      const r = await abrirObjetivo(pid, objetivoId, nuevaVia, 'ejecucion')
+      if (!r.ok) { alert('Error: '+r.error); return }
     }
     await cargarObjsPaciente(pid)
   }
 
   async function resolverViaEjecucionClase(pid: string, objetivoIds: string[], ejercicioId: string, resuelto: boolean) {
     for (const oid of objetivoIds) {
-      const { data: po } = await supabase.from('pacientes_objetivos')
-        .select('vias').eq('paciente_id', pid).eq('objetivo_id', oid).maybeSingle()
-      if (!po) continue
-      const vias = Array.isArray(po.vias) ? po.vias : []
-      let cambio = false
-      const nuevas = vias.map((v:any)=>{
-        if (v.tipo==='ejecucion' && v.ref===ejercicioId && v.resuelto!==resuelto) { cambio=true; return {...v, resuelto, fecha_resuelto: resuelto?new Date().toISOString().slice(0,10):null} }
-        return v
-      })
-      if (cambio) {
-        const todasResueltas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
-        await supabase.from('pacientes_objetivos').update({
-          vias:nuevas, logrado:todasResueltas, fecha_logrado: todasResueltas?new Date().toISOString().slice(0,10):null,
-        }).eq('paciente_id', pid).eq('objetivo_id', oid)
-      }
+      await resolverVia(pid, oid, 'ejecucion', ejercicioId, resuelto, 'la ejecución')
     }
     cargarObjsPaciente(pid)
   }
+
 
   // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
   async function cargarDatosSesion(pid: string, ses: any) {

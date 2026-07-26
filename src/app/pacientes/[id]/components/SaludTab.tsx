@@ -6,6 +6,7 @@ import Silueta, { MarcaCuerpo } from './Silueta'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import Sparkline from './Sparkline'
 import Documentos from './Documentos'
+import { resolverViasDeTest } from '@/lib/objetivos'
 
 export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -202,31 +203,25 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
       titulo: `Test negativo: ${t.tests?.nombre || 'Test'}${t.lado && t.lado !== 'bilateral' ? ' · ' + t.lado : ''}`,
       fecha: new Date().toISOString().split('T')[0],
     })
-    // resolver la via 'test' con ref = t.test_id en los objetivos del paciente
-    const { data: pos } = await supabase.from('pacientes_objetivos').select('objetivo_id,vias').eq('paciente_id', id)
-    for (const po of (pos||[])) {
-      const vias = Array.isArray(po.vias) ? po.vias : []
-      let cambio = false
-      const nuevas = vias.map((v:any)=>{
-        if (v.tipo==='test' && v.ref===t.test_id && !v.resuelto) { cambio=true; return {...v, resuelto:true, fecha_resuelto:new Date().toISOString().slice(0,10)} }
-        return v
-      })
-      if (cambio) {
-        const todasResueltas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
-        await supabase.from('pacientes_objetivos').update({
-          vias:nuevas,
-          logrado: todasResueltas,
-          fecha_logrado: todasResueltas ? new Date().toISOString().slice(0,10) : null,
-        }).eq('paciente_id', id).eq('objetivo_id', po.objetivo_id)
-      }
-    }
+    // Resolver las vías de este test en todos los objetivos: la del test completo
+    // y las de sus ítems, que antes se quedaban colgadas.
+    const r = await resolverViasDeTest(id, t.test_id, 'un test')
     cargar()
+    if (r.logrados > 0) {
+      alert(r.logrados === 1
+        ? 'Test resuelto. Un objetivo ha pasado a logrado.'
+        : `Test resuelto. ${r.logrados} objetivos han pasado a logrados.`)
+    }
   }
 
   // Agrupación de tests por test+lado. La usan la vista lista y la del mapa.
+  // El primero de cada grupo es "el resultado de hoy" y el resto el historial, así
+  // que el orden no puede quedar al azar: se ordena aquí y no solo en la consulta.
   const gruposTests: any[][] = (()=>{
     const g: Record<string,any[]> = {}
     ;(tests||[]).forEach((t:any)=>{const k=`${t.test_id}_${t.lado||'bilateral'}`;(g[k]=g[k]||[]).push(t)})
+    const reciente = (x:any) => `${x.fecha||''}T${x.created_at||''}`
+    Object.values(g).forEach(lista => lista.sort((a:any,b:any)=> reciente(b).localeCompare(reciente(a))))
     return Object.values(g)
   })()
   const testsPositivos = gruposTests.filter(g=>g[0].resultado==='positivo')
@@ -424,8 +419,10 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
             const negativos = testsNegativos
             const bloque = (grupo:any, positivo:boolean) => {
               const t = grupo[0]; const anteriores = grupo.slice(1)
+              // Clave estable por test+lado: si se usa el id del registro actual, al
+              // reevaluar cambia la clave, React remonta el bloque y se cierra el historial.
               return (
-                <div key={t.id} style={{padding:'9px 11px',background:positivo?'var(--redl)':'var(--gl)',borderRadius:8,border:`1px solid ${positivo?'#F5C8C8':'var(--gm)'}`,marginBottom:7}}>
+                <div key={`${t.test_id}_${t.lado||'bilateral'}`} style={{padding:'9px 11px',background:positivo?'var(--redl)':'var(--gl)',borderRadius:8,border:`1px solid ${positivo?'#F5C8C8':'var(--gm)'}`,marginBottom:7}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={{flex:1}}>
                       <div style={{fontSize:13,color:'var(--n)'}}>{t.tests?.nombre||'Test'}{t.lado&&t.lado!=='bilateral'?' · '+cap(t.lado):''}</div>

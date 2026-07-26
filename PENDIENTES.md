@@ -35,17 +35,32 @@ cuenta de un paciente. **Decidir si la nota rápida se retira o se le da un uso 
 No confundir con `pacientes.notas_fijas` (el "viene en silla de ruedas" de la ficha) ni con
 `citas.notas`. Son tres cosas distintas con nombres parecidos.
 
-### 1.2 · Registrar sesiones en el historial
-El filtro "Entreno" del historial existe pero **nadie escribe nunca el tipo `entrenamiento`**,
-así que marca siempre 0. Se decide al revisar la pestaña Entrenamiento.
+### 1.2 · Marcar sesiones como realizadas
+Las sesiones tienen `estado` borrador/lista/realizada pero **nada las marca como realizada**.
+El cron `api/cron/actualizar-citas` solo marca *citas*. Se decide al llegar al Pilar Taller,
+que es quien sabe si una sesión se ejecutó.
 
-Contexto: las sesiones (`sesiones`) se crean desde `EntrenoTab` (nueva y duplicar) y desde el
-Pilar Taller (duplicar). Tienen `estado` borrador/lista/realizada pero **nada las marca como
-realizada**: el cron `api/cron/actualizar-citas` solo marca *citas*.
+---
 
-Propuesta sobre la mesa: registrar la **asignación** de sesión, no la asistencia. Enganchar el
-evento a las citas realizadas metería 2-3 eventos por semana y por paciente y ahogaría la
-cronología; la asistencia ya está medida en Resultados.
+## 1bis. Objetivos ✅ CERRADO
+
+`lib/objetivos.ts` es el único sitio que decide si un objetivo está logrado y el único que
+puede escribir en `pacientes_objetivos`. La regla estaba repetida siete veces en cinco
+ficheros y ya divergía (dos copias hacían `.every()` sin comprobar longitud, y `[].every()`
+devuelve `true`). Migrados taller/page, taller/ModoClase, SaludTab y las dos ramas de
+`registrarTest`.
+
+Lograr o reabrir un objetivo deja evento en el historial, con el contexto de dónde vino.
+Solo se registra el **cambio de estado**, no cada retoque de una vía.
+
+En la ficha las vías se pulsan para resolver o reabrir a mano, y los logrados se apartan a
+un desplegable "Logrados · N". Los objetivos antiguos **sin ninguna vía** no podían cerrarse
+nunca (la regla exige al menos una); tienen un botón "Dar por logrado" que crea una vía de
+cierre manual, en vez de tocar el campo `logrado` directamente.
+
+**Sesiones en el historial:** se registra el plan (`tipo: 'sesion'`), no la asistencia.
+Enganchar el evento a las citas realizadas metería 2-3 eventos por semana y por paciente y
+ahogaría la cronología; la asistencia ya está medida en Resultados.
 
 ---
 

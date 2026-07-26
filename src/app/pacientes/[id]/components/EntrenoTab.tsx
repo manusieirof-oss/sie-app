@@ -4,10 +4,12 @@ import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
+import DetalleSesion from './DetalleSesion'
 import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
+import { duplicarSesion as duplicarSesionLib, registrarSesion } from '@/lib/sesiones'
 
-export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
+export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
@@ -23,6 +25,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [ejerciciosBib, setEjerciciosBib] = useState<any[]>([])
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [sesionDetalle, setSesionDetalle] = useState<any>(null)
+  const [nEjecuciones, setNEjecuciones] = useState(0)
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -39,12 +42,24 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
     setSesionesHistorial(hist||[])
+
+    // El contador de Ejecución era un 0 literal. Se cuentan los ejercicios
+    // distintos que tienen alguna evaluación, que es lo que muestra la sección.
+    const { data: regs } = await supabase.from('registros_ejercicio')
+      .select('ejercicio_id,items_evaluados').eq('paciente_id',pacienteId)
+    const conEval = new Set((regs||[])
+      .filter((r:any)=>r.ejercicio_id && Object.keys(r.items_evaluados||{}).length>0)
+      .map((r:any)=>r.ejercicio_id))
+    setNEjecuciones(conEval.size)
   }
 
   async function asignarEnBloque() {
     if (!sesionAsignar||seleccionadas.length===0) { alert('Selecciona citas y una sesión'); return }
     setGuardando(true)
     for (const citaId of seleccionadas) await supabase.from('citas').update({sesion_id:sesionAsignar}).eq('id',citaId)
+    // Un solo evento con el total: asignar en bloque a 12 citas no son 12 hitos.
+    const nom = sesionesDisp.find((s:any)=>s.id===sesionAsignar)?.nombre || 'Sesión'
+    await registrarSesion(pacienteId, `Sesión asignada a ${seleccionadas.length} cita${seleccionadas.length>1?'s':''}: ${nom}`)
     setSeleccionadas([]); setSesionAsignar(''); setGuardando(false); cargarDatos(); onRefresh()
   }
 
@@ -90,12 +105,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const nombreAuto = `Sesión ${nombrePaciente||''} · ${fechaTxt}`.replace('  ',' ').trim()
     const { data, error } = await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:nombreAuto, descripcion:'', partes:[{nombre:'Parte 1',ejercicios:[]}], estado:'lista' }).select().single()
     if (error || !data) { alert('Error al crear la sesión'); return }
+    await registrarSesion(pacienteId, `Sesión creada: ${data.nombre}`)
     await cargarDatos()
     setSesionEditando(data)
   }
 
-  async function duplicarSesion(s: any) {
-    await supabase.from('sesiones').insert({paciente_id:pacienteId,nombre:s.nombre+' (copia)',descripcion:s.descripcion,partes:s.partes||[],estado:'lista'})
+  async function duplicar(s: any) {
+    const r = await duplicarSesionLib(s, pacienteId)
+    if (!r.ok) alert(r.error)
     cargarDatos()
   }
 
@@ -112,7 +129,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   return (
     <div>
       <div style={{display:'flex',gap:4,marginBottom:12,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3}}>
-        {([['activo','valoracion','Plan activo',citasFuturas.length],['sesiones','lista','Sesiones',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',0]] as const).map(([k,ic,l,n])=>(
+        {([['activo','valoracion','Plan activo',citasFuturas.length],['sesiones','lista','Sesiones',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',nEjecuciones]] as const).map(([k,ic,l,n])=>(
           <button key={k} onClick={()=>setSeccion(k)}
             style={{flex:1,fontSize:11,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:seccion===k?'var(--w)':'transparent',color:seccion===k?'var(--n)':'var(--grl)',fontWeight:seccion===k?500:400,boxShadow:seccion===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
             <Ic name={ic} size={13}/> {l} <span style={{fontSize:9,padding:'1px 6px',borderRadius:99,background:seccion===k?'var(--g)':'var(--bm)',color:seccion===k?'#fff':'var(--grl)'}}>{n}</span>
@@ -231,79 +248,22 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         </div>
       )}
 
-      {sesionDetalle&&(
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setSesionDetalle(null)}}>
-          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:720,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
-            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>{sesionDetalle.nombre}</div>
-                {sesionDetalle.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionDetalle.descripcion}</div>}
-                {objsDeSesion(sesionDetalle).length>0&&(
-                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
-                    {objsDeSesion(sesionDetalle).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
-                  </div>
-                )}
-              </div>
-              <button onClick={()=>setSesionDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)',flexShrink:0}}>✕</button>
-            </div>
-            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--bd)',display:'flex',gap:6}}>
-              <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionDetalle;setSesionDetalle(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>
-              <button className="btn btn-t btn-sm" onClick={()=>{duplicarSesion(sesionDetalle);setSesionDetalle(null)}}>⧉ Duplicar</button>
-              <div style={{flex:1}}/>
-              <button className="btn btn-d btn-sm" onClick={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}><Ic name="papelera" size={12}/> Eliminar</button>
-            </div>
-            <div style={{flex:1,overflowY:'auto',padding:16}}>
-              {(sesionDetalle.partes||[]).length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Esta sesión no tiene ejercicios.</div>}
-              {(sesionDetalle.partes||[]).map((parte:any,pi:number)=>(
-                <div key={pi} style={{marginBottom:10,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
-                  <div style={{padding:'6px 12px',borderBottom:'1px solid var(--bm)',fontSize:11,fontWeight:500,color:'var(--n)'}}>{parte.nombre||`Parte ${pi+1}`}</div>
-                  {(parte.ejercicios||[]).length===0?<div style={{padding:'6px 12px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>:(parte.ejercicios||[]).map((ej:any,ei:number)=>(
-                    <div key={ei} style={{padding:'8px 12px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
-                      {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:40,height:40,objectFit:'contain',background:'var(--bm)',borderRadius:4,flexShrink:0}}/>}
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{typeof ej==='string'?ej:(ej.nombre||'')}</div>
-                        {typeof ej!=='string'&&(
-                          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                            {ej.variante&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
-                            {ej.capacidad&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
-                            {ej.series&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
-                            {ej.reps&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.reps} reps</span>}
-                            {ej.peso&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
-                            {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
-                          </div>
-                        )}
-                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="nota" size={10}/> {ej.nota}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      {sesionDetalle && (
+        <DetalleSesion
+          sesion={sesionDetalle}
+          objetivos={objsDeSesion(sesionDetalle)}
+          onCerrar={()=>setSesionDetalle(null)}
+          onEditar={()=>{const x=sesionDetalle;setSesionDetalle(null);setSesionEditando(x)}}
+          onDuplicar={()=>{duplicar(sesionDetalle);setSesionDetalle(null)}}
+          onEliminar={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}
+        />
       )}
 
-      {verSesion&&(
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setVerSesion(null)}}>
-          <div className="modal" style={{maxHeight:'85vh',overflowY:'auto'}}>
-            <div className="modal-title"><span className="ct-l"><Ic name="valoracion" size={16}/> {verSesion.nombre}</span><button className="modal-close" onClick={()=>setVerSesion(null)}>✕</button></div>
-            {verSesion.descripcion&&<div style={{fontSize:10,color:'var(--grl)',fontWeight:300,marginBottom:10,lineHeight:1.5}}>{verSesion.descripcion}</div>}
-            {(verSesion.partes||[]).length===0&&<div style={{fontSize:10,color:'var(--grl)'}}>Esta sesión no tiene ejercicios registrados.</div>}
-            {(verSesion.partes||[]).map((parte:any,pi:number)=>(
-              <div key={pi} style={{marginBottom:12}}>
-                <div style={{fontSize:10,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.4,marginBottom:5,paddingBottom:3,borderBottom:'1px solid var(--bl)'}}>{parte.nombre||`Parte ${pi+1}`}</div>
-                {(parte.ejercicios||[]).length===0?<div style={{fontSize:10,color:'var(--grl)'}}>Sin ejercicios</div>:(parte.ejercicios||[]).map((ej:any,ei:number)=>(
-                  <div key={ei} style={{fontSize:10,color:'var(--n)',padding:'3px 0',display:'flex',gap:6}}>
-                    <span style={{color:'var(--grl)'}}>{ei+1}.</span>
-                    <span>{typeof ej==='string'?ej:(ej.nombre||ej.ejercicio||JSON.stringify(ej))}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-            <div style={{display:'flex',marginTop:8}}><div style={{flex:1}}/><button className="btn btn-d btn-sm" onClick={()=>setVerSesion(null)}>Cerrar</button></div>
-          </div>
-        </div>
+      {/* Desde Historial se consulta el pasado: mismo detalle, sin acciones. */}
+      {verSesion && (
+        <DetalleSesion sesion={verSesion} onCerrar={()=>setVerSesion(null)}/>
       )}
+
       {seccion==='ejecucion'&&(
         <EvaluacionEjecucion pacienteId={pacienteId}/>
       )}

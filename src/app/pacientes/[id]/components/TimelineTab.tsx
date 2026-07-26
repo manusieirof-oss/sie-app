@@ -29,7 +29,9 @@ const TIPOS: Record<string,{icono:string,color:string,label:string,familia:strin
   cambio_tipo_clase:  {icono:'cambio',     color:'#6B7FC4',    label:'Cambio de clase',    familia:'admin'},
   pago_bono:          {icono:'euro',       color:'var(--gd)',  label:'Pago de bono',       familia:'pagos'},
   cambio_bono:        {icono:'etiqueta',   color:'var(--gd)',  label:'Cambio de bono',     familia:'pagos'},
-  entrenamiento:      {icono:'entreno',    color:'#3E7179',    label:'Entrenamiento',      familia:'entreno'},
+  sesion:             {icono:'entreno',    color:'#A0689C',    label:'Sesión',             familia:'entreno'},
+  objetivo_logrado:   {icono:'trofeo',     color:'var(--g)',   label:'Objetivo logrado',   familia:'entreno'},
+  objetivo_reabierto: {icono:'objetivo',   color:'var(--amb)', label:'Objetivo reabierto', familia:'entreno'},
 }
 
 // Un tono por familia, bien separados en el círculo cromático y todos desaturados

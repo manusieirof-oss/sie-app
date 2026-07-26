@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
+import { duplicarSesion as duplicarSesionLib } from '@/lib/sesiones'
 import ModoClase from './ModoClase'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import { Ic } from '@/lib/icons'
@@ -85,7 +87,8 @@ export default function TallerPage() {
   }
 
   async function duplicarSesion(s: any) {
-    await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:s.nombre+' (copia)', descripcion:s.descripcion, partes:s.partes||[], estado:'lista' })
+    const r = await duplicarSesionLib(s, pacienteId)
+    if (!r.ok) alert(r.error)
     cargarSesiones()
   }
 
@@ -221,17 +224,13 @@ export default function TallerPage() {
           .delete().eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
         if (error) { alert('Error: '+error.message); return }
       } else {
-        const todasResueltas = restantes.every((v:any)=>v.resuelto)
-        const { error } = await supabase.from('pacientes_objetivos')
-          .update({ vias:restantes, logrado:todasResueltas, fecha_logrado: todasResueltas?new Date().toISOString().slice(0,10):null })
-          .eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
-        if (error) { alert('Error: '+error.message); return }
+        const r = await guardarVias(pacienteId, objetivoId, restantes, { logradoAntes: !!existe.logrado, contexto: 'la ejecución' })
+        if (!r.ok) { alert('Error: '+r.error); return }
       }
     } else {
       const nuevaVia = { tipo:'ejecucion', ref, etiqueta, resuelto:false, fecha_resuelto:null }
-      const { error } = await supabase.from('pacientes_objetivos')
-        .insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen: 'ejecucion', vias:[nuevaVia] })
-      if (error) { alert('Error: '+error.message); return }
+      const r = await abrirObjetivo(pacienteId, objetivoId, nuevaVia, 'ejecucion')
+      if (!r.ok) { alert('Error: '+r.error); return }
     }
     await cargarObjetivosPaciente(pacienteId)
   }
@@ -257,24 +256,11 @@ export default function TallerPage() {
   async function resolverViaEjecucion(objetivoIds: string[], ejercicioId: string, resuelto: boolean) {
     if (!pacienteId) return
     for (const oid of objetivoIds) {
-      const { data: po } = await supabase.from('pacientes_objetivos')
-        .select('vias').eq('paciente_id', pacienteId).eq('objetivo_id', oid).maybeSingle()
-      if (!po) continue
-      const vias = Array.isArray(po.vias) ? po.vias : []
-      let cambio = false
-      const nuevas = vias.map((v:any)=>{
-        if (v.tipo==='ejecucion' && v.ref===ejercicioId && v.resuelto!==resuelto) { cambio=true; return {...v, resuelto, fecha_resuelto: resuelto?new Date().toISOString().slice(0,10):null} }
-        return v
-      })
-      if (cambio) {
-        const todasResueltas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
-        await supabase.from('pacientes_objetivos').update({
-          vias:nuevas, logrado:todasResueltas, fecha_logrado: todasResueltas?new Date().toISOString().slice(0,10):null,
-        }).eq('paciente_id', pacienteId).eq('objetivo_id', oid)
-      }
+      await resolverVia(pacienteId, oid, 'ejecucion', ejercicioId, resuelto, 'la ejecución')
     }
     cargarObjetivosPaciente(pacienteId)
   }
+
 
   // autoguardado silencioso por ejercicio (buscar-y-decidir, finalizado=false)
   async function autoguardar(ei: number, ejData: any) {

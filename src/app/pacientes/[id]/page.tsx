@@ -11,6 +11,7 @@ import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
+import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
@@ -219,19 +220,21 @@ export default function FichaPacientePage() {
   // la pantalla no se desmonta, así que no se pierde el scroll ni parpadea todo.
   async function cargar() {
     if (primeraCarga.current) setLoading(true)
-    const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: _rt },{ data: c },{ data: s }] = await Promise.all([
+    const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: c },{ data: s }] = await Promise.all([
       supabase.from('pacientes').select('*').eq('id',id).single(),
       supabase.from('bonos').select('*').eq('paciente_id',id).eq('activo',true).order('created_at',{ascending:false}).limit(1).maybeSingle(),
       supabase.from('molestias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('patologias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('medicamentos').select('*').eq('paciente_id',id),
       supabase.from('escalas').select('*').eq('paciente_id',id).order('fecha',{ascending:false}).limit(12),
-      supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
       supabase.from('citas').select('id,fecha,hora,sala,tipo,estado,sesion_id,notas').eq('paciente_id',id).order('fecha',{ascending:false}).limit(50),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
     ])
     const [{ data: t }, { data: td }, { data: alg }, { data: intol }, { data: dep }] = await Promise.all([
-      supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
+      // fecha es un DATE: dos tests del mismo día empatan y Postgres los devuelve
+      // en orden arbitrario. Sin created_at, "el resultado actual" salía a suertes.
+      supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id)
+        .order('fecha',{ascending:false}).order('created_at',{ascending:false}),
       supabase.from('tests').select('*').order('nombre'),
       supabase.from('alergias_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('intolerancias_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
@@ -334,16 +337,16 @@ export default function FichaPacientePage() {
       const etiqueta = 'Test: ' + (testSeleccionadoObj?.nombre || 'test')
       for (const o of (objs||[])) {
         const { data: exist } = await supabase.from('pacientes_objetivos')
-          .select('vias,origen').eq('paciente_id', id).eq('objetivo_id', o.id).maybeSingle()
+          .select('vias,origen,logrado').eq('paciente_id', id).eq('objetivo_id', o.id).maybeSingle()
         const nuevaVia = { tipo:'test', ref:testSeleccionado, etiqueta, resuelto:false, fecha_resuelto:null }
         if (exist) {
           const vias = Array.isArray(exist.vias) ? exist.vias : []
           const yaEsta = vias.some((v:any)=>v.tipo==='test' && v.ref===testSeleccionado)
           const nuevasVias = yaEsta ? vias.map((v:any)=>(v.tipo==='test'&&v.ref===testSeleccionado)?{...v,resuelto:false,fecha_resuelto:null}:v) : [...vias, nuevaVia]
           const origen = (exist.origen||'').includes('test') ? exist.origen : ((exist.origen? exist.origen+'+test':'test'))
-          await supabase.from('pacientes_objetivos').update({ vias:nuevasVias, origen, logrado:false, fecha_logrado:null }).eq('paciente_id', id).eq('objetivo_id', o.id)
+          await guardarVias(String(id), o.id, nuevasVias, { origen, logradoAntes: !!exist.logrado, contexto: 'un test' })
         } else {
-          await supabase.from('pacientes_objetivos').insert({ paciente_id:id, objetivo_id:o.id, origen:'test', vias:[nuevaVia] })
+          await abrirObjetivo(String(id), o.id, nuevaVia, 'test')
         }
       }
     }
@@ -356,7 +359,7 @@ export default function FichaPacientePage() {
       const etiquetaItem = 'Test: ' + (testSeleccionadoObj?.nombre||'test') + ' · ' + (it.nombre||('ítem '+(ii+1)))
       for (const oid of objIds) {
         const { data: exist } = await supabase.from('pacientes_objetivos')
-          .select('vias,origen').eq('paciente_id', id).eq('objetivo_id', oid).maybeSingle()
+          .select('vias,origen,logrado').eq('paciente_id', id).eq('objetivo_id', oid).maybeSingle()
         if (it.marcado) {
           const nuevaVia = { tipo:'test_item', ref:refItem, etiqueta:etiquetaItem, resuelto:false, fecha_resuelto:null }
           if (exist) {
@@ -366,22 +369,13 @@ export default function FichaPacientePage() {
               ? vias.map((v:any)=>(v.tipo==='test_item'&&v.ref===refItem)?{...v,resuelto:false,fecha_resuelto:null}:v)
               : [...vias, nuevaVia]
             const origen = (exist.origen||'').includes('test') ? exist.origen : (exist.origen? exist.origen+'+test':'test')
-            await supabase.from('pacientes_objetivos').update({ vias:nuevasVias, origen, logrado:false, fecha_logrado:null }).eq('paciente_id', id).eq('objetivo_id', oid)
+            await guardarVias(String(id), oid, nuevasVias, { origen, logradoAntes: !!exist.logrado, contexto: 'un test' })
           } else {
-            await supabase.from('pacientes_objetivos').insert({ paciente_id:id, objetivo_id:oid, origen:'test', vias:[nuevaVia] })
+            await abrirObjetivo(String(id), oid, nuevaVia, 'test')
           }
         } else if (exist) {
-          // item NO marcado -> si existia esa via, se resuelve
-          const vias = Array.isArray(exist.vias) ? exist.vias : []
-          let cambio = false
-          const nuevas = vias.map((v:any)=>{
-            if (v.tipo==='test_item' && v.ref===refItem && !v.resuelto) { cambio=true; return {...v, resuelto:true, fecha_resuelto:new Date().toISOString().slice(0,10)} }
-            return v
-          })
-          if (cambio) {
-            const todas = nuevas.length>0 && nuevas.every((v:any)=>v.resuelto)
-            await supabase.from('pacientes_objetivos').update({ vias:nuevas, logrado:todas, fecha_logrado: todas?new Date().toISOString().slice(0,10):null }).eq('paciente_id', id).eq('objetivo_id', oid)
-          }
+          // Ítem no marcado: esa vía queda resuelta.
+          await resolverVia(String(id), oid, 'test_item', refItem, true, 'un test')
         }
       }
     }
@@ -667,7 +661,7 @@ export default function FichaPacientePage() {
 
       {/* TAB ENTRENAMIENTO */}
       {tab==='entreno' && (
-        <EntrenoTab pacienteId={String(id)} nombrePaciente={pac?.nombre||''} sesiones={sesiones} onRefresh={cargar} onNuevaSesion={()=>router.push(`/entrenamiento?nueva_sesion=1&paciente_id=${id}`)}/>
+        <EntrenoTab pacienteId={String(id)} nombrePaciente={pac?.nombre||''} sesiones={sesiones} onRefresh={cargar}/>
       )}
 
       {tab==='resultados' && (

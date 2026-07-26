@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
+import { guardarVias } from '@/lib/objetivos'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -27,6 +28,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [menuTipo, setMenuTipo] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
   const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
+  const [guardandoVia, setGuardandoVia] = useState<string|null>(null)
+
+  function cargarObjetivos() {
+    if (!pac?.id) return
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, objetivos(id,nombre,color,descripcion)').eq('paciente_id', pac.id).then(({data}) => {
+      setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado})).filter((o:any)=>o.id))
+    })
+  }
 
   useEffect(() => {
     if (pac?.id) {
@@ -37,11 +46,89 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           setValoracion({...v, ...eg})
         }
       })
-      supabase.from('pacientes_objetivos').select('origen, vias, logrado, fecha_logrado, objetivos(id,nombre,color,descripcion)').eq('paciente_id', pac.id).then(({data}) => {
-        setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado})).filter((o:any)=>o.id))
-      })
+      cargarObjetivos()
     }
   }, [pac?.id])
+
+  // Cierre manual de una vía. Lo automático (test negativo, ítem del taller) cubre
+  // el caso normal, pero hay vías que se resuelven fuera de la app —el paciente ya
+  // no tiene dolor, se decide dar por bueno el gesto— y sin esto no había forma de
+  // cerrar un objetivo. Se marca la vía, no el objetivo: así el "logrado" sigue
+  // saliendo de la misma regla y no hay dos verdades.
+  // Objetivos sin ninguna vía: filas anteriores al modelo de vías. Como "logrado"
+  // exige que todas las vías estén resueltas y no hay ninguna, jamás podrían cerrarse.
+  // Se les crea una vía de cierre manual en vez de tocar `logrado` a mano, para que
+  // la regla siga siendo la única que decide y el objetivo se pueda reabrir igual.
+  async function cerrarSinVias(o:any) {
+    const via = { tipo:'manual', ref:'', etiqueta:'Cierre manual', resuelto:true,
+      fecha_resuelto:new Date().toISOString().split('T')[0] }
+    setGuardandoVia(o.id)
+    const r = await guardarVias(pac.id, o.id, [via], { logradoAntes: !!o.logrado, contexto: 'la ficha' })
+    setGuardandoVia(null)
+    if (!r.ok) { alert('No se pudo guardar: ' + r.error); return }
+    cargarObjetivos()
+  }
+
+  async function toggleVia(o:any, vi:number) {
+    const vias = (Array.isArray(o.vias)?o.vias:[]).map((v:any,i:number)=>
+      i===vi ? {...v, resuelto:!v.resuelto, fecha_resuelto:!v.resuelto?new Date().toISOString().split('T')[0]:null} : v)
+    setGuardandoVia(o.id)
+    const r = await guardarVias(pac.id, o.id, vias, { logradoAntes: !!o.logrado, contexto: 'la ficha' })
+    setGuardandoVia(null)
+    if (!r.ok) { alert('No se pudo guardar: ' + r.error); return }
+    cargarObjetivos()
+  }
+
+  // Los logrados se apartan a un desplegable: el bloque tiene que enseñar en qué se
+  // trabaja ahora. El hito no se pierde —queda su evento en el historial— y desde
+  // aquí se puede reabrir tocando una vía.
+  const objetivosActivos = objetivosTrabajo.filter((o:any)=>!o.logrado)
+  const objetivosLogrados = objetivosTrabajo.filter((o:any)=>o.logrado)
+    .sort((a:any,b:any)=>(b.fecha_logrado||'').localeCompare(a.fecha_logrado||''))
+
+  const pintarObjetivo = (o:any) => {
+    const vias = Array.isArray(o.vias)?o.vias:[]
+    const pendientes = vias.filter((v:any)=>!v.resuelto).length
+    return (
+      <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
+            {o.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
+          </div>
+          {o.logrado
+            ? <span style={{fontSize:12,color:'var(--gd)',flexShrink:0,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="check" size={12}/>Logrado</span>
+            : (vias.length>0 && <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>{pendientes} de {vias.length}</span>)
+          }
+        </div>
+        {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
+        {vias.length===0 && !o.logrado && (
+          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
+            <span style={{fontSize:12,color:'var(--gr)'}}>Sin nada que marcar · no vino de un test ni de un ejercicio</span>
+            <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id} onClick={()=>cerrarSinVias(o)}>
+              Dar por logrado
+            </button>
+          </div>
+        )}
+        {vias.length>0 && (
+          <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
+            {vias.map((v:any,vi:number)=>(
+              <button key={vi} type="button" disabled={guardandoVia===o.id}
+                onClick={()=>toggleVia(o,vi)}
+                title={v.resuelto
+                  ? `Resuelto${v.fecha_resuelto?' el '+fmtLargo(v.fecha_resuelto):''} · pulsa para reabrir`
+                  : 'Pendiente · pulsa para darla por resuelta'}
+                className={`pill pill-o pill-b ${v.resuelto?'on':''}`}
+                style={{textDecoration:v.resuelto?'line-through':'none'}}>
+                <Ic name={v.resuelto ? 'check' : v.tipo==='test'||v.tipo==='test_item' ? 'buscar' : v.tipo==='ejecucion' ? 'fuerza' : 'editar'}
+                  size={10} style={{verticalAlign:'-1px',marginRight:3}}/>{v.etiqueta||v.tipo}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const recPendientes = (recuperaciones||[]).filter((r:any)=>r.estado==='pendiente')
   const recVence = recPendientes.map((r:any)=>r.fecha_limite).filter(Boolean).sort()[0]
@@ -122,35 +209,17 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <div>
               <div className="sec-sub">Lo que prescribimos · de tests y ejercicios</div>
               {objetivosTrabajo.length===0 && <div className="muted">Sin objetivos de trabajo</div>}
-              {objetivosTrabajo.map((o:any)=>{
-                const vias = Array.isArray(o.vias)?o.vias:[]
-                const pendientes = vias.filter((v:any)=>!v.resuelto).length
-                return (
-                  <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
-                    <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
-                        {o.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
-                      </div>
-                      {o.logrado
-                        ? <span style={{fontSize:12,color:'var(--gd)',flexShrink:0,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="check" size={12}/>Logrado</span>
-                        : (vias.length>0 && <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>{pendientes} de {vias.length}</span>)
-                      }
-                    </div>
-                    {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
-                    {!o.logrado && vias.length>0 && (
-                      <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
-                        {vias.map((v:any,vi:number)=>(
-                          <span key={vi} title={v.resuelto?('Resuelto '+(v.fecha_resuelto||'')):'Pendiente'}
-                            className={`pill pill-o ${v.resuelto?'on':''}`} style={{textDecoration:v.resuelto?'line-through':'none'}}>
-                            {v.resuelto?<Ic name="check" size={10} style={{verticalAlign:'-1px',marginRight:3}}/>:(v.tipo==='test'?<Ic name="buscar" size={10} style={{verticalAlign:'-1px',marginRight:3}}/>:<Ic name="fuerza" size={10} style={{verticalAlign:'-1px',marginRight:3}}/>)}{v.etiqueta||v.tipo}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+              {objetivosActivos.length===0 && objetivosLogrados.length>0 && <div className="muted">Todos los objetivos logrados</div>}
+              {objetivosActivos.map(pintarObjetivo)}
+              {objetivosLogrados.length>0 && (
+                <details style={{marginTop:objetivosActivos.length>0?9:0}}>
+                  <summary className="det-sum">
+                    <Ic name="trofeo" size={12} style={{verticalAlign:'-2px',marginRight:5}}/>
+                    Logrados · {objetivosLogrados.length}
+                  </summary>
+                  <div style={{marginTop:6}}>{objetivosLogrados.map(pintarObjetivo)}</div>
+                </details>
+              )}
             </div>
           </div>
         </div>
