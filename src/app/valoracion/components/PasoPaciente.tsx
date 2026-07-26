@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { TEXTO_DATOS, TEXTO_IMAGENES } from '@/lib/textosLegales'
+import { TEXTO_DATOS, TEXTO_IMAGENES, TEXTO_CLINICA } from '@/lib/textosLegales'
 import { Ic } from '@/lib/icons'
+import BuscadorPacientes from '@/components/BuscadorPacientes'
 
-export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, dibujando, setDibujando }: any) {
-  const [docAbierto, setDocAbierto] = useState<null|'datos'|'imagenes'>(null)
+export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, clinicaAceptada, setClinicaAceptada, dibujando, setDibujando }: any) {
+  const [docAbierto, setDocAbierto] = useState<null|'datos'|'imagenes'|'clinica'>(null)
 
   return (
     <div className="g2">
@@ -32,10 +33,19 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
           )
         })()}
         <div className="field"><label>Paciente existente (opcional)</label>
-          <select className="input" value={form.paciente_id} onChange={e=>{up('paciente_id',e.target.value);up('desde_pendiente',false)}}>
-            <option value="">— Paciente nuevo —</option>
-            {pacientes.map((p:any)=>(<option key={p.id} value={p.id}>{p.nombre} {p.apellidos}{p.pendiente_valoracion?' · pendiente':''}</option>))}
-          </select>
+          <BuscadorPacientes
+            pacientes={pacientes}
+            valor={form.paciente_id}
+            placeholder="Buscar por nombre, clínica o teléfono... o déjalo vacío si es nuevo"
+            etiqueta={(p:any)=>p.pendiente_valoracion?'pendiente':null}
+            onElegir={(p:any)=>{
+              up('paciente_id',p.id); up('desde_pendiente',false)
+              // Se rellena lo que ya se sabe para no volver a teclearlo.
+              up('nombre',p.nombre||''); up('apellidos',p.apellidos||'')
+              up('nombre_clinica',p.nombre_clinica||''); up('telefono',p.telefono||'')
+              up('email',p.email||''); up('dni',p.dni||'')
+            }}
+            onLimpiar={()=>{ up('paciente_id',''); up('desde_pendiente',false) }}/>
         </div>
         <div className="g2">
           <div className="field"><label>Nombre *</label><input className="input" value={form.nombre} onChange={e=>up('nombre',e.target.value)}/></div>
@@ -106,7 +116,19 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
           <span style={{fontSize:10,color:'var(--n)',fontWeight:300}}>He leído y acepto el uso de imágenes para el seguimiento de mi readaptación</span>
         </div>
 
-        {(firmaCanvas||firmaAceptada||imagenesAceptada)&&<div style={{marginTop:8,fontSize:9,color:'var(--gd)',background:'var(--gl)',borderRadius:4,padding:'4px 8px'}}>✓ Consentimiento registrado · {new Date().toLocaleDateString('es-ES')}</div>}
+        {/* CONSENTIMIENTO DATOS DE SALUD (obligatorio: categoría especial, art. 9 RGPD) */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,marginTop:10}}>
+          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Datos de salud y documentación clínica *</span>
+          <button className="btn btn-t btn-sm" onClick={()=>setDocAbierto('clinica')}><Ic name="informe" size={12}/> Leer documento</button>
+        </div>
+        <div onClick={()=>setClinicaAceptada((p:boolean)=>!p)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,border:`1.5px solid ${clinicaAceptada?'var(--g)':'var(--bd)'}`,background:clinicaAceptada?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:8}}>
+          <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${clinicaAceptada?'var(--g)':'var(--bd)'}`,background:clinicaAceptada?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            {clinicaAceptada&&<span style={{color:'#fff',fontSize:11,fontWeight:700}}>✓</span>}
+          </div>
+          <span style={{fontSize:10,color:'var(--n)',fontWeight:300}}>Consiento el tratamiento de mis datos de salud y la conservación de mis informes médicos</span>
+        </div>
+
+        {(firmaCanvas||firmaAceptada||imagenesAceptada||clinicaAceptada)&&<div style={{marginTop:8,fontSize:9,color:'var(--gd)',background:'var(--gl)',borderRadius:4,padding:'4px 8px'}}>✓ Consentimiento registrado · {new Date().toLocaleDateString('es-ES')}</div>}
       </div>
 
       {/* MODAL LECTURA DOCUMENTO */}
@@ -114,11 +136,11 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setDocAbierto(null)}}>
           <div className="modal" style={{maxWidth:620,maxHeight:'80vh',display:'flex',flexDirection:'column'}}>
             <div className="modal-title">
-              {docAbierto==='datos'?'Protección de datos':'Uso de imágenes'}
+              {docAbierto==='datos'?'Protección de datos':docAbierto==='clinica'?'Datos de salud y documentación clínica':'Uso de imágenes'}
               <button className="modal-close" onClick={()=>setDocAbierto(null)}>✕</button>
             </div>
             <div style={{overflowY:'auto',fontSize:11,lineHeight:1.7,color:'var(--n)',whiteSpace:'pre-wrap',padding:'4px 2px'}}>
-              {docAbierto==='datos'?TEXTO_DATOS:TEXTO_IMAGENES}
+              {docAbierto==='datos'?TEXTO_DATOS:docAbierto==='clinica'?TEXTO_CLINICA:TEXTO_IMAGENES}
             </div>
             <div style={{display:'flex',gap:8,marginTop:12,justifyContent:'flex-end'}}>
               <button className="btn btn-d btn-sm" onClick={()=>setDocAbierto(null)}>Cerrar</button>

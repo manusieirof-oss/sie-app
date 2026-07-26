@@ -10,6 +10,7 @@ import EntrenoTab from './components/EntrenoTab'
 import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
+import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
@@ -54,6 +55,8 @@ export default function FichaPacientePage() {
   const [procesando, setProcesando] = useState(false)
   const [menuAcc, setMenuAcc] = useState<any>(null)
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
+  // El bucket es privado: la URL se firma al vuelo y no se guarda en base.
+  const [fotoUrl, setFotoUrl] = useState<string|null>(null)
 
   const resultadosRef = useRef<HTMLDivElement>(null)
   const primeraCarga = useRef(true)
@@ -202,6 +205,10 @@ export default function FichaPacientePage() {
   const anio = new Date().getFullYear()
 
   useEffect(() => { if(id) { primeraCarga.current = true; cargar() } }, [id])
+  useEffect(() => { let vivo = true
+    urlFotoPaciente(pac?.foto_url).then(u => { if (vivo) setFotoUrl(u) })
+    return () => { vivo = false }
+  }, [pac?.foto_url])
   useEffect(() => {
     cargarBonosTipos().then(data => {
       setBonosOpts(data)
@@ -400,30 +407,14 @@ export default function FichaPacientePage() {
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    let file = e.target.files?.[0]
+    const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     setSubiendoFoto(true)
-    // Convertir HEIC/HEIF (fotos de iPhone) a JPG para que se vean en todos los navegadores
-    const esHeic = /\.(heic|heif)$/i.test(file.name) || file.type==='image/heic' || file.type==='image/heif'
-    if (esHeic) {
-      try {
-        const heic2any = (await import('heic2any')).default
-        const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 }) as Blob
-        file = new File([blob], 'foto.jpg', { type: 'image/jpeg' })
-      } catch (err) {
-        alert('No se pudo convertir la imagen HEIC. Prueba con una foto en formato JPG.')
-        setSubiendoFoto(false); return
-      }
-    }
-    const ext = esHeic ? 'jpg' : (file.name.split('.').pop() || 'jpg')
-    const path = `${id}/foto.${ext}`
-    const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
-    if (error) { alert('Error al subir foto: ' + error.message); setSubiendoFoto(false); return }
-    const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
-    const nuevaUrl = `${publicUrl}?v=${Date.now()}`
-    await supabase.from('pacientes').update({ foto_url: nuevaUrl }).eq('id', id)
-    setPac((prev:any)=>prev?{...prev, foto_url:nuevaUrl}:prev)
+    const r = await subirFotoPaciente(String(id), file)
     setSubiendoFoto(false)
+    if (!r.ok) { alert('Error al subir la foto: ' + r.error); return }
+    setPac((prev:any)=>prev?{...prev, foto_url:r.ruta}:prev)
   }
 
   async function darDeBaja() {
@@ -539,8 +530,8 @@ export default function FichaPacientePage() {
       {/* CABECERA */}
       <div className="pat-header">
         <div style={{position:'relative',flexShrink:0}}>
-          {pac.foto_url ? (
-            <img src={pac.foto_url} alt={pac.nombre} style={{width:84,height:84,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
+          {fotoUrl ? (
+            <img src={fotoUrl} alt={pac.nombre} style={{width:84,height:84,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
           ) : (
             <div className="pat-avatar">{iniciales}</div>
           )}

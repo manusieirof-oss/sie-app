@@ -164,3 +164,7 @@ details[open] .det-sum::before{content:'▾ ';}
 .toggle.on::after{left:15px;}
 .fila-p.test-clic{cursor:pointer;border-radius:0 6px 6px 0;transition:background .12s;}
 .fila-p.test-clic:hover{background:var(--bl);}
+/* Indicador sin recuadro: solo el icono. */
+.ind-ic{position:relative;background:none;border:none;padding:4px;cursor:pointer;display:inline-flex;transition:transform .12s,opacity .12s;opacity:.85;}
+.ind-ic:hover{opacity:1;transform:translateY(-1px);}
+.ind-ic.on{opacity:1;transform:translateY(-1px);}

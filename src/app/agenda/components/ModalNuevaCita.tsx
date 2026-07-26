@@ -1,11 +1,9 @@
 'use client'
-import { useState } from 'react'
+import BuscadorPacientes from '@/components/BuscadorPacientes'
 
-const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
 export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[], salas=['A','B'] }: any) {
-  const [busquedaPac, setBusquedaPac] = useState('')
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   function toggleDia(dia: string) {
     setNuevaCita((p: any) => ({...p, dias_repetir: p.dias_repetir.includes(dia) ? p.dias_repetir.filter((d: string) => d !== dia) : [...p.dias_repetir, dia]}))
@@ -36,32 +34,18 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
               </div>
               <div style={{fontSize:9,color:'var(--gd)',background:'var(--gl)',borderRadius:5,padding:'6px 9px',marginTop:6,display:'flex',alignItems:'center',gap:5}}><span>ℹ</span> Se crea como <b style={{fontWeight:600}}>pendiente de valoración</b>; completas sus datos al hacer la valoración.</div>
             </>
-          ) : nuevaCita.paciente_id ? (
-            (() => {
-              const sel = pacientes.find((p:any)=>p.id===nuevaCita.paciente_id)
-              return (
-                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 11px',borderRadius:6,border:'1.5px solid var(--g)',background:'var(--gl)'}}>
-                  <span style={{flex:1,fontSize:12,color:'var(--n)',fontWeight:500}}>{sel?`${sel.nombre} ${sel.apellidos}`:'Paciente'}</span>
-                  <button onClick={()=>{setNuevaCita((p:any)=>({...p,paciente_id:'',es_recuperacion:false,recuperacion_id:''}));setBusquedaPac('')}} disabled={guardando} style={{fontSize:10,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>Cambiar</button>
-                </div>
-              )
-            })()
           ) : (
-            <>
-              <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="Buscar paciente por nombre..." disabled={guardando} autoFocus/>
-              {busquedaPac && (
-                <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:200,overflowY:'auto',marginTop:4}}>
-                  {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).slice(0,30).map((p:any)=>(
-                    <div key={p.id} onClick={()=>{setNuevaCita((prev:any)=>({...prev,paciente_id:p.id,es_recuperacion:false,recuperacion_id:'',...(p.tipo_clase&&tiposClase.some((t:any)=>t.valor===p.tipo_clase)?{tipo:p.tipo_clase}:{})}));cargarRecuperaciones(p.id);setBusquedaPac('')}} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                      {p.nombre} {p.apellidos}{p.nombre_clinica?<span style={{color:'var(--grl)',fontSize:9}}> · {p.nombre_clinica}</span>:null}
-                    </div>
-                  ))}
-                  {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).length===0 && (
-                    <div style={{padding:'8px 11px',fontSize:10,color:'var(--grl)'}}>Sin pacientes que coincidan</div>
-                  )}
-                </div>
-              )}
-            </>
+            <BuscadorPacientes
+              pacientes={pacientes}
+              valor={nuevaCita.paciente_id}
+              disabled={guardando}
+              autoFocus
+              onElegir={(p:any)=>{
+                setNuevaCita((prev:any)=>({...prev,paciente_id:p.id,es_recuperacion:false,recuperacion_id:'',
+                  ...(p.tipo_clase&&tiposClase.some((t:any)=>t.valor===p.tipo_clase)?{tipo:p.tipo_clase}:{})}))
+                cargarRecuperaciones(p.id)
+              }}
+              onLimpiar={()=>setNuevaCita((p:any)=>({...p,paciente_id:'',es_recuperacion:false,recuperacion_id:''}))}/>
           )}
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>

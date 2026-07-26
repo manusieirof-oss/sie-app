@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import Silueta, { MarcaCuerpo } from './Silueta'
-import BuscadorBiblioteca from './BuscadorBiblioteca'
+import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import Sparkline from './Sparkline'
+import Documentos from './Documentos'
 
 export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -98,6 +99,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   const [detalle, setDetalle] = useState<any>(null)
   const [vista, setVista] = useState<'lista'|'mapa'>('lista')
   const [escalaConfig, setEscalaConfig] = useState<any>(null)
+  const [nDocs, setNDocs] = useState(0)
 
   const LBL_TIPO_MOL: Record<string,string> = { molestia:'Molestia', dolor_agudo:'Dolor agudo', dolor_cronico:'Dolor crónico', rigidez:'Rigidez' }
   const LBL_EST_PAT: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
@@ -265,23 +267,34 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
 
       {vista==='mapa' && (
         <div className="panel">
-        <div style={{display:'flex',gap:20,alignItems:'flex-start'}}>
-
-          <div style={{flex:1,minWidth:0}}>
-            <div className="sec-sub" style={{color:'var(--red)'}}>Tests sin resolver · {testsPositivos.length}</div>
-            {testsPositivos.length===0 && <div className="muted">Ninguno</div>}
-            {testsPositivos.map(g=>(
-              <div key={g[0].id} className="fila-p test-clic" style={{borderLeftColor:'var(--red)'}} onClick={()=>setDetalle({tipo:'test',datos:g})}>
-                <div style={{flex:1,fontSize:13,color:'var(--n)'}}>{nombreTest(g[0])}</div>
-                <Ic name="abajo" size={13}/>
-              </div>
-            ))}
-          </div>
-
           <Silueta
             marcas={marcasCuerpo}
             altura={pac?.altura_cm}
             peso={pac?.peso_kg}
+            flancoIzq={
+              <div>
+                <div className="sec-sub" style={{color:'var(--red)'}}>Tests sin resolver · {testsPositivos.length}</div>
+                {testsPositivos.length===0 && <div className="muted">Ninguno</div>}
+                {testsPositivos.map(g=>(
+                  <div key={g[0].id} className="fila-p test-clic" style={{borderLeftColor:'var(--red)'}} onClick={()=>setDetalle({tipo:'test',datos:g})}>
+                    <div style={{flex:1,fontSize:13,color:'var(--n)'}}>{nombreTest(g[0])}</div>
+                    <Ic name="abajo" size={13}/>
+                  </div>
+                ))}
+              </div>
+            }
+            flancoDer={
+              <div>
+                <div className="sec-sub" style={{color:'var(--gd)'}}>Tests resueltos · {testsNegativos.length}</div>
+                {testsNegativos.length===0 && <div className="muted">Ninguno</div>}
+                {testsNegativos.map(g=>(
+                  <div key={g[0].id} className="fila-p test-clic" style={{borderLeftColor:'var(--gm)'}} onClick={()=>setDetalle({tipo:'test',datos:g})}>
+                    <div style={{flex:1,fontSize:13,color:'var(--gr)'}}>{nombreTest(g[0])}</div>
+                    <Ic name="abajo" size={13}/>
+                  </div>
+                ))}
+              </div>
+            }
             izquierda={[
               { clave:'med',   icono:'medicamento',  label:'Medicación',    color:'#6B7FC4', vacio:'Sin medicación',
                 items:(medicamentos||[]).map((m:any)=>m.nombre+(m.frecuencia?` · ${m.frecuencia}`:'')) },
@@ -298,6 +311,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                   : [] },
               { clave:'dep',   icono:'deporte',  label:'Deportes', color:'#6E9457', vacio:'Sin deportes',
                 items:(deportesPac||[]).map((d:any)=>d.nombre) },
+              { clave:'doc',   icono:'carpeta',  label:'Documentos', color:'#6B6D6A', items:[], n:nDocs,
+                contenido:<Documentos pacienteId={id} patologias={patologias} compacto/> },
               { clave:'esc',   icono:'progreso', label:'Escalas',  color:'#C4703F', vacio:'Sin registros',
                 items: escalas.length>0
                   ? [`Bienestar ${escalas[0].borg}/10`, `Estrés ${escalas[0].estres}/10`,
@@ -316,18 +331,6 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
             }}
           />
 
-          <div style={{flex:1,minWidth:0}}>
-            <div className="sec-sub" style={{color:'var(--gd)'}}>Tests resueltos · {testsNegativos.length}</div>
-            {testsNegativos.length===0 && <div className="muted">Ninguno</div>}
-            {testsNegativos.map(g=>(
-              <div key={g[0].id} className="fila-p test-clic" style={{borderLeftColor:'var(--gm)'}} onClick={()=>setDetalle({tipo:'test',datos:g})}>
-                <div style={{flex:1,fontSize:13,color:'var(--gr)'}}>{nombreTest(g[0])}</div>
-                <Ic name="abajo" size={13}/>
-              </div>
-            ))}
-          </div>
-
-        </div>
         </div>
       )}
 
@@ -595,6 +598,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
             </>
           )}
         </div>
+
+        <Documentos pacienteId={id} patologias={patologias} onCambio={setNDocs}/>
 
       </div>
       )}

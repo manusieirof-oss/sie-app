@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
+import Consentimientos from './Consentimientos'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -240,6 +241,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           {valoracion.franja && <div style={{fontSize:12,color:'var(--gr)'}}>Franja: {valoracion.franja==='manana'?'Mañanas':valoracion.franja==='tarde'?'Tardes':valoracion.franja==='noche'?'Noches':'Flexible'}</div>}
         </div>
       )}
+
+      <Consentimientos pacienteId={pac.id}/>
 
       {/* MENÚ TIPO DE CLASE */}
       {menuTipo && (

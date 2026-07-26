@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { puntoDeZona } from '@/lib/anatomia'
+import { puntoDeZona, Cara } from '@/lib/anatomia'
 import { Ic } from '@/lib/icons'
 
 export type Indicador = {
@@ -11,6 +11,10 @@ export type Indicador = {
   items: string[]
   /** Texto cuando no hay nada. */
   vacio?: string
+  /** Contenido propio en lugar de la lista de textos (p. ej. los documentos). */
+  contenido?: React.ReactNode
+  /** Contador cuando no sale de items.length. */
+  n?: number
 }
 
 export type MarcaCuerpo = {
@@ -32,42 +36,64 @@ const COLOR: Record<string, string> = {
 // Prioridad al agrupar varias marcas en un mismo punto: manda la más grave.
 const RANGO: Record<string, number> = { activo: 3, cronico: 2, resuelto: 1 }
 
-export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [], derecha = [] }: {
+const oscurecer = (hex: string, f = 0.45) => {
+  const n = parseInt(hex.slice(1), 16)
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => Math.round(v * (1 - f)))
+  return `rgb(${c[0]},${c[1]},${c[2]})`
+}
+
+// Solo hay una silueta, de frente. La profundidad se sugiere con el tamaño y el
+// difuminado: lo de delante se ve grande y blando, lo de detrás pequeño y nítido,
+// como si se transparentara a través del cuerpo. Va explicado en la leyenda.
+const PROFUNDIDAD: Record<Cara, { r: number, halo: number, opacidad: number, borde: number }> = {
+  ant:  { r: 22, halo: 10, opacidad: 0.55, borde: 0 },
+  lat:  { r: 17, halo: 5,  opacidad: 0.85, borde: 2 },
+  post: { r: 12, halo: 0,  opacidad: 1,    borde: 2 },
+}
+
+export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [], derecha = [], flancoIzq, flancoDer }: {
   marcas: MarcaCuerpo[]
   onAbrir?: (m: MarcaCuerpo[]) => void
   altura?: number | null
   peso?: number | null
+  /** Indicadores de la fila superior. */
   izquierda?: Indicador[]
   derecha?: Indicador[]
+  /** Contenido libre a cada lado del cuerpo (los tests). */
+  flancoIzq?: React.ReactNode
+  flancoDer?: React.ReactNode
 }) {
   const [hover, setHover] = useState<string | null>(null)
   const [abierto, setAbierto] = useState<string | null>(null)
 
-  const columna = (inds: Indicador[], lado: 'izq' | 'der') => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, paddingTop: 8 }}>
+  // En fila y sin recuadro: el icono a pelo, con su contador y su etiqueta.
+  const fila = (inds: Indicador[]) => (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 26, flexWrap: 'wrap' }}>
       {inds.map(ind => {
         const on = abierto === ind.clave
         return (
           <div key={ind.clave} style={{ position: 'relative', textAlign: 'center' }}>
-            <button className={`ind-b ${on ? 'on' : ''}`} onClick={() => setAbierto(on ? null : ind.clave)}
+            <button className={`ind-ic ${on ? 'on' : ''}`} onClick={() => setAbierto(on ? null : ind.clave)}
               title={ind.label} style={{ color: ind.color }}>
-              <Ic name={ind.icono} size={20} />
-              {ind.items.length > 0 && (
-                <span className="ind-n" style={{ background: ind.color }}>{ind.items.length}</span>
+              <Ic name={ind.icono} size={24} />
+              {(ind.n ?? ind.items.length) > 0 && (
+                <span className="ind-n" style={{ background: ind.color }}>{ind.n ?? ind.items.length}</span>
               )}
             </button>
-            <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 3 }}>{ind.label}</div>
+            <div style={{ fontSize: 11, color: on ? 'var(--n)' : 'var(--gr)', marginTop: 2 }}>{ind.label}</div>
 
             {on && (
               <>
                 <div style={{ position: 'fixed', inset: 0, zIndex: 8 }} onClick={() => setAbierto(null)} />
-                <div className="ind-pop" style={{ [lado === 'izq' ? 'left' : 'right']: 0, textAlign: 'left' } as any}>
+                <div className="ind-pop" style={{ left: '50%', transform: 'translateX(-50%)', textAlign: 'left', minWidth: ind.contenido ? 260 : 180 }}>
                   <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>{ind.label}</div>
-                  {ind.items.length === 0
-                    ? <div style={{ fontSize: 13, color: 'var(--gr)' }}>{ind.vacio || 'Sin registros'}</div>
-                    : ind.items.map((t, i) => (
-                        <div key={i} style={{ fontSize: 13, color: 'var(--n)', padding: '3px 0 3px 9px', borderLeft: `2px solid ${ind.color}`, marginBottom: 3 }}>{t}</div>
-                      ))}
+                  {ind.contenido
+                    ? ind.contenido
+                    : ind.items.length === 0
+                      ? <div style={{ fontSize: 13, color: 'var(--gr)' }}>{ind.vacio || 'Sin registros'}</div>
+                      : ind.items.map((t, i) => (
+                          <div key={i} style={{ fontSize: 13, color: 'var(--n)', padding: '3px 0 3px 9px', borderLeft: `2px solid ${ind.color}`, marginBottom: 3 }}>{t}</div>
+                        ))}
                 </div>
               </>
             )}
@@ -78,7 +104,7 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
   )
 
   // Cada marca puede dar 0 puntos (zona sin mapear), 1 (con lado) o 2 (bilateral).
-  const situadas: { clave: string, x: number, y: number, marcas: MarcaCuerpo[] }[] = []
+  const situadas: { clave: string, x: number, y: number, cara: Cara, marcas: MarcaCuerpo[] }[] = []
   const sinSituar: MarcaCuerpo[] = []
 
   marcas.forEach(m => {
@@ -88,21 +114,29 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
       const clave = `${p.x}_${p.y}`
       const ya = situadas.find(s => s.clave === clave)
       if (ya) ya.marcas.push(m)
-      else situadas.push({ clave, x: p.x, y: p.y, marcas: [m] })
+      else situadas.push({ clave, x: p.x, y: p.y, cara: p.cara, marcas: [m] })
     })
   })
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 22 }}>
-      {izquierda.length > 0 && columna(izquierda, 'izq')}
-      <div style={{ position: 'relative', width: '100%', maxWidth: 300 }}>
+      {/* Banda propia: las etiquetas de los iconos cuelgan hacia abajo y sin este
+          aire se pegaban a los títulos de los flancos. */}
+      {(izquierda.length > 0 || derecha.length > 0) && (
+        <div style={{ marginBottom: 30 }}>
+          {fila([...izquierda, ...derecha])}
+        </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 24 }}>
+      {flancoIzq && <div style={{ flex: 1, minWidth: 0 }}>{flancoIzq}</div>}
+      <div style={{ position: 'relative', width: '100%', maxWidth: 300, flexShrink: 0 }}>
         <img src="/silueta.webp" alt="Silueta del paciente" style={{ width: '100%', display: 'block' }} />
 
         {situadas.map(s => {
           const peor = [...s.marcas].sort((a, b) => RANGO[b.estado] - RANGO[a.estado])[0]
           const color = COLOR[peor.estado]
           const activo = hover === s.clave
+          const prof = PROFUNDIDAD[s.cara]
           return (
             <div key={s.clave}
               onMouseEnter={() => setHover(s.clave)}
@@ -113,9 +147,12 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
                 transform: 'translate(-50%,-50%)', cursor: 'pointer', zIndex: activo ? 3 : 2,
               }}>
               <div style={{
-                width: activo ? 22 : 18, height: activo ? 22 : 18, borderRadius: '50%',
-                background: color, border: '2px solid var(--w)',
-                boxShadow: `0 0 0 ${activo ? 7 : 5}px ${color}26`,
+                width: prof.r + (activo ? 4 : 0), height: prof.r + (activo ? 4 : 0), borderRadius: '50%',
+                background: s.cara === 'post' ? oscurecer(color) : color,
+                opacity: prof.opacidad,
+                border: prof.borde ? `${prof.borde}px solid var(--w)` : 'none',
+                filter: prof.halo ? `blur(${s.cara === 'ant' ? 1.2 : 0.4}px)` : 'none',
+                boxShadow: prof.halo ? `0 0 ${prof.halo}px ${prof.halo / 2}px ${color}55` : 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontSize: 11, fontWeight: 600, transition: 'all .12s',
               }}>
@@ -141,7 +178,7 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
           )
         })}
       </div>
-      {derecha.length > 0 && columna(derecha, 'der')}
+      {flancoDer && <div style={{ flex: 1, minWidth: 0 }}>{flancoDer}</div>}
       </div>
 
       {(altura || peso) && (
@@ -159,9 +196,18 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
         ))}
       </div>
 
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 12, color: 'var(--gr)', marginTop: 6 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--gr)', opacity: .55, filter: 'blur(1.2px)' }} />delante
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b3b3b', border: '2px solid var(--w)' }} />detrás
+        </span>
+      </div>
+
       {/* Red de seguridad: una zona sin coordenada no puede hacer desaparecer el dato. */}
       {sinSituar.length > 0 && (
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--bd)', fontSize: 12, color: 'var(--gr)' }}>
+        <div style={{ marginTop: 20, fontSize: 12, color: 'var(--gr)' }}>
           <div style={{ marginBottom: 4 }}>Sin localizar en el cuerpo</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {sinSituar.map(m => (

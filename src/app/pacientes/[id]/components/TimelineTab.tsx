@@ -16,6 +16,8 @@ const TIPOS: Record<string,{icono:string,color:string,label:string,familia:strin
   deporte:            {icono:'deporte',    color:'#3E7179',    label:'Deporte',            familia:'clinico'},
   escala:             {icono:'progreso',   color:'#6B7FC4',    label:'Escalas',            familia:'clinico'},
   test:               {icono:'buscar',     color:'#B05A5A',    label:'Test',               familia:'clinico'},
+  documento:          {icono:'carpeta',    color:'#6B6D6A',    label:'Documento',          familia:'clinico'},
+  consentimiento:     {icono:'firmar',     color:'#3E7179',    label:'Consentimientos',    familia:'admin'},
   alergia:            {icono:'alergia',    color:'#B05A5A',    label:'Alergia',            familia:'clinico'},
   intolerancia:       {icono:'intolerancia',color:'var(--amb)',label:'Intolerancia',       familia:'clinico'},
   alerta_abierta:     {icono:'alerta',     color:'var(--red)', label:'Alerta abierta',     familia:'alertas'},

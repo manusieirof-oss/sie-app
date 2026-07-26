@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -37,6 +38,7 @@ export default function ValoracionPage() {
   const [intolBiblio, setIntolBiblio] = useState<any[]>([])
   const [firmaAceptada, setFirmaAceptada] = useState(false)
   const [imagenesAceptada, setImagenesAceptada] = useState(false)
+  const [clinicaAceptada, setClinicaAceptada] = useState(false)
   const [firmaCanvas, setFirmaCanvas] = useState<string>('')
   const [dibujando, setDibujando] = useState(false)
   const [form, setForm] = useState({
@@ -53,7 +55,7 @@ export default function ValoracionPage() {
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
 
   useEffect(() => {
-    supabase.from('pacientes').select('id,nombre,apellidos,telefono,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
@@ -101,6 +103,18 @@ export default function ValoracionPage() {
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
+      // Antes la firma y las casillas se quedaban en memoria y se perdían al terminar.
+      const aceptados: TipoConsentimiento[] = [
+        ...(firmaAceptada ? ['datos' as const] : []),
+        ...(imagenesAceptada ? ['imagenes' as const] : []),
+        ...(clinicaAceptada ? ['clinica' as const] : []),
+      ]
+      const rCons = await guardarConsentimientos(pacienteId, {
+        aceptados, firmaDataUrl: firmaCanvas || null,
+        nombre: `${form.nombre} ${form.apellidos}`.trim(), dni: form.dni || undefined,
+      })
+      if (!rCons.ok) alert('Aviso: no se pudieron registrar los consentimientos (' + rCons.error + '). El resto de la valoración sí se ha guardado.')
+
       for (const t of testsValoracion) {
         const lados = t.lados || {}
         const ladosConDato = Object.keys(lados).filter(k => lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
@@ -155,7 +169,7 @@ export default function ValoracionPage() {
         </div>
       </div>
 
-      {step===1&&<PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} dibujando={dibujando} setDibujando={setDibujando}/>}
+      {step===1&&<PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada} dibujando={dibujando} setDibujando={setDibujando}/>}
       {step===2&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla}/>}
       {step===3&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {step===4&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}

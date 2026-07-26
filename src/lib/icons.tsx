@@ -54,6 +54,7 @@ const MAP: Record<string, any> = {
   mas: Plus,
   guardar: Save,
   cerrar: X,
+  firmar: PenLine,
   punto: Circle,
   test: ClipboardCheck,
   regla: Ruler,
