@@ -219,5 +219,7 @@ alcance limitado, habrá que revisar todas las políticas, no solo estas.
 - **Tratamiento visual por pestaña.** Ficha, Historial y Salud ya usan `.panel`, secciones sin
   caja y texto 13/12px. **Faltan Entrenamiento y Resultados**, que siguen con `.card` y
   11/10/9px. Se va arreglando a medida que se toca cada pestaña, no en una pasada aparte.
-- **`tsconfig.tsbuildinfo` está en el repo.** Es un artefacto de compilación: ensucia el diff
-  de cada commit y no aporta nada. Meterlo en `.gitignore` y sacarlo del índice.
+- **Rejilla de ejercicios duplicada.** `ExploradorEjercicios` (buscador, filtros por
+  categoría y rejilla de tarjetas) se usa ya al montar una sesión, pero `BibliotecaTab`
+  mantiene su propia copia de lo mismo. **Migrarla al llegar al Pilar Biblioteca**: si no,
+  en unos meses habrán divergido y estaremos donde empezamos.
