@@ -163,6 +163,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         <ModalEditarSesion
           sesion={sesionEditando}
           ejercicios={ejercicios}
+          etiquetas={etiquetas}
           pacientes={pacientes}
           onGuardado={cargar}
           onCerrar={()=>setSesionEditando(null)}

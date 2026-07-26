@@ -23,6 +23,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [horas, setHoras] = useState<string[]>([])
   const [sesionEditando, setSesionEditando] = useState<any>(null)
   const [ejerciciosBib, setEjerciciosBib] = useState<any[]>([])
+  const [etiquetasBib, setEtiquetasBib] = useState<any[]>([])
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [sesionDetalle, setSesionDetalle] = useState<any>(null)
   const [nEjecuciones, setNEjecuciones] = useState(0)
@@ -146,8 +147,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   // montaje de la pestaña era descargarla entera para no usarla casi nunca.
   async function abrirEditor(sesion:any) {
     if (ejerciciosBib.length===0) {
-      const { data } = await supabase.from('ejercicios').select('*').order('nombre')
-      setEjerciciosBib(data||[])
+      const [{ data: ejs },{ data: ets }] = await Promise.all([
+        supabase.from('ejercicios').select('*').order('nombre'),
+        supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
+      ])
+      setEjerciciosBib(ejs||[]); setEtiquetasBib(ets||[])
     }
     setSesionEditando(sesion)
   }
@@ -384,7 +388,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         <EvaluacionEjecucion pacienteId={pacienteId}/>
       )}
 
-    {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
+    {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
     </div>
   )

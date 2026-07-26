@@ -11,6 +11,7 @@ export default function TallerPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
   const [ejercicios, setEjercicios] = useState<any[]>([])
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
+  const [etiquetasTaller, setEtiquetasTaller] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pacienteId, setPacienteId] = useState('')
@@ -72,12 +73,13 @@ export default function TallerPage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p }, { data: e }, { data: o }] = await Promise.all([
+    const [{ data: p }, { data: e }, { data: o }, { data: et }] = await Promise.all([
       supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').eq('estado','activo').order('nombre'),
       supabase.from('ejercicios').select('*').order('nombre'),
       supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre'),
+      supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
     ])
-    setPacientes(p||[]); setEjercicios(e||[]); setObjetivosLib(o||[])
+    setPacientes(p||[]); setEjercicios(e||[]); setObjetivosLib(o||[]); setEtiquetasTaller(et||[])
     setLoading(false)
   }
 
@@ -459,7 +461,7 @@ export default function TallerPage() {
       )}
       </div>
 
-      {sesionEditando && <ModalEditarSesion sesion={sesionEditando} ejercicios={ejercicios} onGuardado={()=>{cargarSesiones()}} onCerrar={()=>setSesionEditando(null)}/>}
+      {sesionEditando && <ModalEditarSesion sesion={sesionEditando} ejercicios={ejercicios} etiquetas={etiquetasTaller} onGuardado={()=>{cargarSesiones()}} onCerrar={()=>setSesionEditando(null)}/>}
 
       {/* MODAL REGISTRO (individual) */}
       {registrando && (

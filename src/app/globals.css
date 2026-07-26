@@ -178,6 +178,128 @@ details[open] .det-sum::before{content:'▾ ';}
 .fila-sel.on{background:var(--gl);}
 .fila-sel .chk{width:19px;height:19px;border-radius:5px;border:2px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;transition:all .12s;}
 .fila-sel .chk.on{border-color:var(--g);background:var(--g);}
+/* Fuera las flechas de los campos numéricos. Para poner 60 segundos o 15 reps hacen
+   falta decenas de clics, así que nadie las usa: solo roban ancho y ensucian. Se
+   mantiene type=number por el teclado numérico en móvil. */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;appearance:textfield;}
+/* Filtros por etiqueta, agrupados por categoría. Las etiquetas tienen hasta tres
+   niveles bajo nueve categorías: en una tira plana no se sabe qué cuelga de qué. */
+.filtros-et{background:var(--bl);border:1px solid var(--bd);border-radius:var(--r);padding:9px 11px;margin-bottom:14px;}
+.fil-fila{display:flex;align-items:flex-start;gap:10px;padding:3px 0;}
+.fil-cat{font-size:11px;font-weight:600;color:var(--gr);letter-spacing:.4px;text-transform:uppercase;width:96px;flex-shrink:0;padding-top:5px;}
+.fil-chips{display:flex;gap:4px;flex-wrap:wrap;flex:1;}
+/* El tamaño dice el nivel: la raíz manda, las hijas cuelgan. */
+.chip-sel.niv-1{font-size:10px;padding:3px 9px;color:var(--grl);}
+.chip-sel.niv-2{font-size:10px;padding:2px 8px;color:var(--grl);border-style:dashed;}
+.chip-sel.niv-1.on,.chip-sel.niv-2.on{color:var(--gd);}
+
+/* Rejilla del explorador de ejercicios. La misma en la Biblioteca y al montar una
+   sesión: lo único que cambia es qué pasa al pulsar una tarjeta. */
+.rej-ej{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px;}
+.tarj-ej{background:var(--w);border:1px solid var(--bd);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:border-color .12s,background .12s;}
+.tarj-ej:hover{border-color:var(--g);}
+.tarj-ej.on{border-color:var(--g);border-width:2px;background:var(--gl);}
+.tarj-img{position:relative;height:104px;background:var(--bm);display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--bd);}
+.tarj-img img{width:100%;height:100%;object-fit:contain;display:block;}
+.tarj-img .sin{color:var(--grl);display:inline-flex;}
+.tarj-img .marca{position:absolute;top:7px;right:7px;width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center;}
+/* Capa de la biblioteca sobre el editor de sesión: se abre a ráfagas, no vive ahí. */
+.capa-bib{position:absolute;inset:0;z-index:50;background:var(--w);display:flex;flex-direction:column;}
+.capa-bib-h{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--bd);flex-wrap:wrap;}
+.capa-bib-c{flex:1;overflow-y:auto;padding:14px 18px;}
+/* Buscador flotante para elegir de un catálogo largo sin pintarlo entero. */
+.pop-busca{position:absolute;top:100%;left:0;z-index:40;margin-top:5px;width:280px;background:var(--w);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--sh-md);padding:9px;}
+.pop-it{display:flex;align-items:center;gap:7px;padding:7px 9px;font-size:13px;color:var(--n);cursor:pointer;border-radius:5px;}
+.pop-it:hover{background:var(--gl);color:var(--gd);}
+/* Ficha de ejercicio dentro del editor de sesión. Sin caja propia: la separación
+   la hace una línea, no un marco, para que ocho ejercicios no sean ocho recuadros. */
+.ej-fila{padding:12px 4px;border-bottom:1px solid var(--bd2);}
+.ej-fila:last-child{border-bottom:none;}
+/* Campo sin marco: solo se dibuja al pasar por encima o al escribir. Los recuadros
+   de cada dato convertían la prescripción en una botonera. */
+.campo-in{font-family:inherit;font-size:13px;color:var(--n);background:transparent;border:1px solid transparent;border-radius:5px;padding:2px 5px;transition:all .12s;}
+.campo-in:hover{border-color:var(--bd);background:var(--w);}
+.campo-in:focus{outline:none;border-color:var(--g);background:var(--w);box-shadow:var(--ring);}
+.campo-in::placeholder{color:var(--grl);}
+
+/* Prescripción: cada dato con su nombre encima. Los números a secas no se leen —
+   hay cinco seguidos y no hay forma de saber cuál es el descanso y cuál el peso. */
+.campos{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;align-items:flex-end;}
+.campo{display:flex;flex-direction:column;gap:2px;}
+.campo > span{font-size:11px;color:var(--gr);letter-spacing:.2px;white-space:nowrap;}
+.campo > input,.campo > select{font-family:inherit;font-size:13px;color:var(--n);background:var(--w);border:1px solid var(--bd);border-radius:5px;padding:4px 6px;width:62px;transition:all .12s;}
+.campo > input{text-align:center;}
+.campo > input:hover,.campo > select:hover{border-color:var(--gm);}
+.campo > input:focus,.campo > select:focus{outline:none;border-color:var(--g);box-shadow:var(--ring);}
+.campo > input::placeholder{color:var(--grl);}
+.campo.ancho > select{width:auto;min-width:110px;}
+.campo.nota{flex:1;min-width:120px;}
+.campo.nota > input{width:100%;text-align:left;}
+
+/* Cabecera de la parte: nombre y recorrido en una línea. Eran tres filas —pestañas,
+   nombre y una caja con el modo— comiéndose el alto que necesitan los ejercicios. */
+.parte-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;margin-bottom:10px;background:var(--bl);border:1px solid var(--bd);border-radius:var(--r);}
+.parte-nom{font-family:inherit;font-size:13px;font-weight:500;color:var(--n);background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 6px;min-width:110px;max-width:210px;transition:all .12s;}
+.parte-nom:hover{border-color:var(--bd);background:var(--w);}
+.parte-nom:focus{outline:none;border-color:var(--g);background:var(--w);box-shadow:var(--ring);}
+/* Número con su unidad al lado: "3 vueltas", "90 entre ejercicios". */
+.par-in{display:inline-flex;align-items:center;gap:5px;}
+.par-in input{font-family:inherit;font-size:13px;width:52px;text-align:center;color:var(--n);background:var(--w);border:1px solid var(--bd);border-radius:5px;padding:3px 5px;}
+.par-in input:focus{outline:none;border-color:var(--g);box-shadow:var(--ring);}
+.par-in input::placeholder{color:var(--grl);}
+.par-in > span{font-size:12px;color:var(--gr);}
+
+/* EJERCICIOS EN COLUMNAS.
+   Cada ejercicio repetía sus siete etiquetas: con ocho ejercicios eran cincuenta y
+   seis rótulos diciendo lo mismo. En columnas se dicen una vez y, de paso, los
+   números quedan alineados, que es lo que se compara al repartir la carga. */
+/* Foto, nombre, cómo se hace, y después cuánto se hace. El régimen va antes que los
+   números porque describe el gesto, no la carga. */
+.tabla-ej{--cols:minmax(220px,1fr) 130px 58px 64px 58px 66px 26px;}
+.ej-cab,.ej-row{display:grid;grid-template-columns:var(--cols);gap:9px;align-items:center;}
+/* Régimen y capacidad comparten columna: los dos dicen cómo se trabaja. Van como
+   píldoras y no como selectores, para que el valor se lea de un vistazo. */
+.ej-row .celda.apilada{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
+.ej-row .celda.apilada select{width:100%;}
+.ej-cab{padding-bottom:6px;border-bottom:1px solid var(--bd);margin-bottom:2px;}
+.ej-cab > span{font-size:11px;color:var(--gr);letter-spacing:.2px;white-space:nowrap;}
+.ej-cab > span.c{text-align:center;}
+.ej-row{padding:9px 0;border-bottom:1px solid var(--bd2);}
+.ej-row:last-child{border-bottom:none;}
+.ej-row input,.ej-row select{font-family:inherit;font-size:13px;color:var(--n);background:var(--w);border:1px solid var(--bd);border-radius:5px;padding:5px 6px;width:100%;transition:all .12s;}
+.ej-row input.c{text-align:center;}
+.ej-row input:hover,.ej-row select:hover{border-color:var(--gm);}
+.ej-row input:focus,.ej-row select:focus{outline:none;border-color:var(--g);box-shadow:var(--ring);}
+.ej-row input::placeholder{color:var(--grl);}
+.ej-row .vacio{text-align:center;color:var(--grl);font-size:13px;}
+.ej-nom{display:flex;align-items:center;gap:10px;min-width:0;}
+.ej-img{width:76px;height:76px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bm);}
+.ej-img-no{display:flex;align-items:center;justify-content:center;color:var(--grl);}
+/* El nombre parte en varias líneas antes que estrujar la columna de datos. */
+.ej-txt{font-size:13px;color:var(--n);line-height:1.35;overflow-wrap:anywhere;}
+.ej-sub{display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;}
+.ej-sub select,.ej-sub input{font-size:12px;padding:3px 5px;}
+/* La nota arranca donde arranca Series, no en el margen: así no se cuela bajo la
+   foto y la columna de datos se lee como un bloque. */
+.ej-nota{grid-column:3/-1;display:flex;align-items:center;gap:8px;margin-top:6px;}
+.ej-nota > span{font-size:11px;color:var(--gr);flex-shrink:0;}
+.ej-nota > input{flex:1;font-size:12px;padding:4px 7px;}
+
+/* Cuando no caben siete columnas, cada ejercicio pasa a llevar sus datos apilados
+   con la etiqueta delante. Misma información, sin scroll horizontal. */
+@media (max-width: 1000px) {
+  .tabla-ej{--cols:1fr;}
+  .ej-cab{display:none;}
+  .ej-row{gap:5px;padding:11px 0;}
+  .ej-row .celda{display:flex;align-items:center;gap:8px;}
+  .ej-row .celda::before{content:attr(data-l);font-size:12px;color:var(--gr);width:104px;flex-shrink:0;}
+  .ej-row .celda input,.ej-row .celda select{max-width:130px;}
+  .ej-row .celda.crece input{max-width:none;}
+  .ej-nota{grid-column:auto;margin-top:2px;}
+  .ej-nota > span{width:104px;}
+}
 /* Letra de grupo de superserie: los que la comparten se hacen seguidos. */
 .grupo-ss{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:5px;background:var(--gl);border:1px solid var(--gm);color:var(--gd);font-size:11px;font-weight:600;flex-shrink:0;}
 /* Etiqueta pequeña de sección dentro de modales. */

@@ -57,11 +57,47 @@ preseleccionada en el desplegable.
      propio dato; deducirla del último registro sería repetir el error que ya arreglamos.
    - Los modos van en código, no en Ajustes: cada uno necesita su propia pantalla. Es la
      excepción consciente a la regla de "las listas mandan desde Ajustes".
-3. **Tests en las citas: descartado.** `resultados_tests.fecha_repeticion` ya dice a quién toca
+3. **El taller solo ejecuta; se edita desde la ficha.** Hoy `ModalEditarSesion` se abre
+   también desde el taller. Hay que quitarlo de ahí.
+
+   El motivo no es de orden sino de dato: si editas el plan mientras lo ejecutas,
+   pierdes la diferencia entre lo prescrito y lo que pasó, que es justo lo que quieres
+   medir. Que hoy no pudiera con 40 y hiciera 30 no es un error del plan: es
+   información. El taller tiene que poder anotar una ejecución distinta de lo prescrito
+   **sin tocar la sesión**; luego en la ficha se ve "prescrito 40, hizo 30 tres sesiones
+   seguidas" y se ajusta el plan ahí.
+
+4. **Series explícitas (pirámides y descendentes).** Pendiente, acordado el enfoque:
+   el ejercicio sigue siendo "3 series de 10 con 40kg" para el caso normal, y cuando
+   haga falta se despliega en series explícitas, una línea por serie con sus reps y su
+   peso. Aditivo: lo ya guardado sigue igual, y el taller pinta las series explícitas
+   si están y repite la misma N veces si no.
+
+   Ojo a la distinción: una pirámide **prescrita** (planeo 12-10-8-6) es plan y va en la
+   sesión; una pirámide **ejecutada** (salió así) es registro y va en el taller. Hacen
+   falta las dos.
+
+5. **Tests en las citas: descartado.** `resultados_tests.fecha_repeticion` ya dice a quién toca
    reevaluar. Convertirlo en asignación manual quita el automatismo que ya existe. En su lugar,
    que el taller avise al abrir al paciente ("toca reevaluar Thomas"). Ver 3.1.
 
-### 1.3 · Marcar sesiones como realizadas
+### 1.3 · Objetivos: filtro previo por zona o similitud
+El selector del editor de sesión ya no pinta el catálogo entero (solo los elegidos, más
+un buscador), así que aguanta. Pero buscar por nombre no basta cuando haya cientos:
+hace falta acotar antes, por zona anatómica o por parecido, como ya se hace con las
+etiquetas de los ejercicios.
+
+**Falta el dato.** `objetivos` guarda hoy nombre, descripción, color y `test_id`; no
+tiene ni zona ni etiquetas. Antes de tocar el selector hay que decidir cuál de las dos:
+
+- **Etiquetas**, reutilizando la tabla `etiquetas` que ya usan los ejercicios. Permite
+  cruzarlos ("objetivos de hombro" y "ejercicios de hombro" comparten vocabulario).
+- **Zona**, reutilizando `lib/anatomia.ts`. Más simple, pero solo sirve para objetivos
+  localizables: "mejorar la adherencia" no tiene zona.
+
+Va con el Pilar Biblioteca, junto al resto de decisiones de `*_biblioteca` (ver 3.2).
+
+### 1.4 · Marcar sesiones como realizadas
 Las sesiones tienen `estado` borrador/lista/realizada pero **nada las marca como realizada**.
 El cron `api/cron/actualizar-citas` solo marca *citas*. Se decide al llegar al Pilar Taller,
 que es quien sabe si una sesión se ejecutó.

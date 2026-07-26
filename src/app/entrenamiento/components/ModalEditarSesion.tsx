@@ -1,13 +1,64 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad } from '@/lib/capacidades'
+import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPorCapacidad, textoDescanso } from '@/lib/capacidades'
 import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion } from '@/lib/sesiones'
+import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 
-export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCerrar, pacientes }: {
+/**
+ * Valor que se lee como etiqueta y se cambia al pulsarlo. Un `select` gris pesa lo
+ * mismo esté relleno o vacío; aquí el dato se ve de un vistazo y el caret dice que
+ * se puede tocar. Es el patrón `.chip-ed` que ya usa la ficha del paciente.
+ */
+function ChipMenu({ valor, opciones, onElegir, clase = '', vacio = '—', titulo }: {
+  valor?: string
+  opciones: string[]
+  onElegir: (v: string) => void
+  clase?: string
+  vacio?: string
+  titulo?: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const caja = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    function fuera(e: MouseEvent) {
+      if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false)
+    }
+    function esc(e: KeyboardEvent) { if (e.key === 'Escape') setAbierto(false) }
+    document.addEventListener('mousedown', fuera)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc) }
+  }, [abierto])
+
+  return (
+    <div style={{ position: 'relative' }} ref={caja}>
+      <button type="button" title={titulo} onClick={() => setAbierto(v => !v)}
+        className={`chip-ed ${valor ? clase : 'chip-ed-n'}`} style={{ maxWidth: '100%' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor || vacio}</span>
+        <Ic name="abajo" size={10} />
+      </button>
+      {abierto && (
+        <div className="menu-flot" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4 }}>
+          {opciones.map(o => (
+            <button key={o} type="button" className="menu-it"
+              onClick={() => { onElegir(o); setAbierto(false) }}>
+              {valor === o && <Ic name="check" size={12} />}
+              <span style={{ marginLeft: valor === o ? 0 : 20 }}>{o}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], onGuardado, onCerrar, pacientes }: {
   sesion: any
   ejercicios: any[]
+  etiquetas?: any[]
   onGuardado: () => void
   onCerrar: () => void
   pacientes?: any[]
@@ -20,11 +71,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
     partes: sesion.partes || [],
   })
   const [parteActiva, setParteActiva] = useState(0)
-  const [buscarEj, setBuscarEj] = useState('')
+  const [abrirBib, setAbrirBib] = useState(false)
+  const [selBib, setSelBib] = useState<string[]>([])
   const [guardando, setGuardando] = useState(false)
   const [objetivosDisp, setObjetivosDisp] = useState<any[]>([])
   const [objetivosSel, setObjetivosSel] = useState<string[]>([])
   const [buscarObj, setBuscarObj] = useState('')
+  const [abrirObj, setAbrirObj] = useState(false)
+  const [verObj, setVerObj] = useState(false)
+  const refObj = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     (async () => {
@@ -37,8 +92,48 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
     })()
   }, [sesion.id])
 
-  const ejFiltrados = ejercicios.filter(e => !buscarEj || e.nombre.toLowerCase().includes(buscarEj.toLowerCase()))
+  // El buscador de objetivos se cierra al pinchar fuera o con Escape. Obligar a volver
+  // al botón para cerrarlo dejaba el panel tapando la pantalla.
+  useEffect(() => {
+    if (!abrirObj) return
+    function fuera(e: MouseEvent) {
+      if (refObj.current && !refObj.current.contains(e.target as Node)) { setAbrirObj(false); setBuscarObj('') }
+    }
+    function esc(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setAbrirObj(false); setBuscarObj('') }
+    }
+    document.addEventListener('mousedown', fuera)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc) }
+  }, [abrirObj])
+
   const parte = formSesion.partes[parteActiva]
+
+  /**
+   * Cómo se mide el ejercicio: por repeticiones, por tiempo o las dos.
+   * Lo dice la biblioteca. Las sesiones antiguas no lo guardaban, así que se busca
+   * por `ejercicio_id`; si tampoco aparece, se enseñan ambos campos y no se oculta
+   * nada que pudiera estar ya relleno.
+   */
+  function medida(ej: any): string {
+    if (ej?.tipo_medida) return ej.tipo_medida
+    const bib = ejercicios.find((e:any)=>e.id===ej?.ejercicio_id)
+    return bib?.tipo_medida || 'peso_tiempo'
+  }
+
+  // Ejercicios que comparten etiqueta con el último añadido a esta parte. Es la
+  // pregunta real al montar una sesión: "¿qué más tengo para esto?".
+  const ultimo = (parte?.ejercicios||[]).slice(-1)[0]
+  const similares = (() => {
+    if (!ultimo?.ejercicio_id) return []
+    const base = ejercicios.find((e:any)=>e.id===ultimo.ejercicio_id)
+    const ets = base?.etiquetas || []
+    if (ets.length===0) return []
+    const yaPuestos = new Set((parte?.ejercicios||[]).map((x:any)=>x.ejercicio_id))
+    return ejercicios
+      .filter((e:any)=>!yaPuestos.has(e.id) && (e.etiquetas||[]).some((id:string)=>ets.includes(id)))
+      .slice(0, 6)
+  })()
 
   function editarParte(cambios: any) {
     setFormSesion(prev => {
@@ -61,7 +156,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
   function addEjercicio(ej: any) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
-      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'', regimen:'', series:'3', reps:'', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[] }
+      // tipo_medida se copia de la biblioteca: dice si el ejercicio va por
+      // repeticiones o por tiempo, y así no se piden los dos a la vez.
+      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'', regimen:'Concéntrico', series:'3', reps:'', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[], tipo_medida:ej.tipo_medida||'peso_reps' }
       partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
       return { ...prev, partes }
     })
@@ -124,7 +221,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
 
   return (
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
-      <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'90vw',maxWidth:900,maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
+      <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'90vw',maxWidth:1100,maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
         {/* CABECERA */}
         <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
@@ -158,7 +255,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
               </div>
             )}
             <input className="input" value={formSesion.nombre} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%'}} autoFocus/>
-            <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / objetivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
+            <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / motivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
           <button className="modal-close" onClick={onCerrar} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
@@ -167,39 +264,69 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
         {/* OBJETIVOS */}
         <div style={{padding:'10px 18px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
           {objetivosDisp.length>0&&(
-            <>
-              <div className="et-mini" style={{marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:9,flexWrap:'wrap'}}>
+              {/* Plegado por defecto: los objetivos se eligen una vez y luego solo
+                  estorban mientras montas los ejercicios, que es el trabajo real. */}
+              <button type="button" className="et-mini" onClick={()=>setVerObj(v=>!v)}
+                style={{background:'none',border:'none',cursor:'pointer',padding:'5px 0 0',fontFamily:'inherit'}}>
                 <Ic name="objetivo" size={12}/> Objetivos que cubre
-                {objetivosSel.length>0 && <span style={{color:'var(--gd)',fontWeight:400}}> · {objetivosSel.length}</span>}
+                <span style={{color:'var(--gd)',fontWeight:400,textTransform:'none',letterSpacing:0}}>
+                  {' · '}{objetivosSel.length || 'ninguno'}
+                </span>
+                <Ic name="abajo" size={11} style={{transform:verObj?'rotate(180deg)':'none',transition:'transform .12s'}}/>
+              </button>
+
+              {/* Solo se pintan los elegidos. Pintar el catálogo entero funcionaba con
+                  ocho objetivos y deja de funcionar con doscientos: el resto se busca. */}
+              {verObj && (
+              <div style={{display:'flex',gap:5,flexWrap:'wrap',flex:1,minWidth:200}}>
+                {objetivosSel.map(id=>{
+                  const o = objetivosDisp.find((x:any)=>x.id===id)
+                  if (!o) return null
+                  return (
+                    <button key={id} type="button" className="chip-obj" title="Quitar"
+                      onClick={()=>setObjetivosSel(prev=>prev.filter(x=>x!==id))}
+                      style={{borderColor:o.color||'var(--g)',background:o.color||'var(--g)',color:'#fff'}}>
+                      {o.nombre}<Ic name="cerrar" size={11} style={{verticalAlign:'-1px',marginLeft:5}}/>
+                    </button>
+                  )
+                })}
+                <div style={{position:'relative'}} ref={refObj}>
+                  <button type="button" className="chip-obj" style={{borderStyle:'dashed'}}
+                    onClick={()=>setAbrirObj(v=>!v)}>+ Añadir</button>
+                  {abrirObj && (
+                    <div className="pop-busca">
+                      <input className="input" autoFocus value={buscarObj} onChange={e=>setBuscarObj(e.target.value)}
+                        placeholder="Buscar objetivo…"/>
+                      <div style={{maxHeight:190,overflowY:'auto',marginTop:6}}>
+                        {objetivosDisp
+                          .filter((o:any)=>!objetivosSel.includes(o.id))
+                          .filter((o:any)=>!buscarObj || (o.nombre||'').toLowerCase().includes(buscarObj.toLowerCase()))
+                          .slice(0,40)
+                          .map((o:any)=>(
+                            <div key={o.id} className="pop-it"
+                              onClick={()=>{setObjetivosSel(prev=>[...prev,o.id]);setBuscarObj('');setAbrirObj(false)}}>
+                              <span style={{width:9,height:9,borderRadius:'50%',background:o.color||'var(--g)',flexShrink:0}}/>
+                              {o.nombre}
+                            </div>
+                          ))}
+                        {objetivosDisp.filter((o:any)=>!objetivosSel.includes(o.id) && (!buscarObj || (o.nombre||'').toLowerCase().includes(buscarObj.toLowerCase()))).length===0 && (
+                          <div style={{padding:'7px 10px',fontSize:13,color:'var(--gr)'}}>Sin resultados</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              {/* Con muchos objetivos activos esto era un muro de chips. Se filtran
-                  al escribir y los ya elegidos se quedan siempre visibles. */}
-              {objetivosDisp.length>12 && (
-                <input className="input" value={buscarObj} onChange={e=>setBuscarObj(e.target.value)}
-                  placeholder="Filtrar objetivos…" style={{marginBottom:6,maxWidth:280}}/>
               )}
-              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                {objetivosDisp
-                  .filter((o:any)=>objetivosSel.includes(o.id) || !buscarObj || (o.nombre||'').toLowerCase().includes(buscarObj.toLowerCase()))
-                  .map((o:any)=>{
-                    const sel = objetivosSel.includes(o.id)
-                    return (
-                      <button key={o.id} type="button" className="chip-obj"
-                        onClick={()=>setObjetivosSel(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
-                        style={sel?{borderColor:o.color||'var(--g)',background:o.color||'var(--g)',color:'#fff'}:undefined}>
-                        {sel&&<Ic name="check" size={11} style={{verticalAlign:'-1px',marginRight:4}}/>}{o.nombre}
-                      </button>
-                    )
-                  })}
-              </div>
-            </>
+            </div>
           )}
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 320px',flex:1,overflow:'hidden'}}>
+        <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden',position:'relative'}}>
           {/* IZQUIERDA — PARTES */}
-          <div style={{overflowY:'auto',padding:14,borderRight:'1px solid var(--bd)'}}>
-            <div style={{display:'flex',gap:4,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+          <div style={{overflowY:'auto',padding:14,flex:1}}>
+            <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
               {formSesion.partes.map((p:any,i:number)=>(
                 <button key={i} onClick={()=>setParteActiva(i)}
                   className={`chip-obj ${parteActiva===i?'on':''}`} style={parteActiva===i?{borderColor:'var(--g)',background:'var(--g)',color:'#fff'}:undefined}>
@@ -211,218 +338,243 @@ export default function ModalEditarSesion({ sesion, ejercicios, onGuardado, onCe
                 + Parte
               </button>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
-              <input className="input" value={parte?.nombre||''}
-                onChange={e=>editarParte({nombre:e.target.value})}
-                style={{fontWeight:500,flex:1,minWidth:140}}/>
-              {formSesion.partes.length>1&&(
-                <button onClick={()=>{setFormSesion(prev=>({...prev,partes:prev.partes.filter((_:any,i:number)=>i!==parteActiva)}));setParteActiva(Math.max(0,parteActiva-1))}}
-                  className="btn btn-d btn-sm"><Ic name="papelera" size={12}/> Eliminar parte</button>
-              )}
-            </div>
 
-            {/* CÓMO SE RECORRE ESTA PARTE. El modo vive aquí y no en la sesión porque
-                un entrenamiento normal mezcla: calentamiento suelto, bloque principal
-                en circuito, accesorios sueltos otra vez. */}
+            {/* NOMBRE Y RECORRIDO DE LA PARTE, en una sola línea. Antes eran tres filas
+                —pestañas, nombre y una caja con el modo— y se comían el alto que
+                necesitan los ejercicios, que es donde de verdad se trabaja.
+                El modo vive en la parte y no en la sesión porque un entrenamiento normal
+                mezcla: calentamiento suelto, bloque principal en circuito, accesorios
+                sueltos otra vez. */}
             {formSesion.partes.length>0 && (
-              <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:'9px 11px',marginBottom:10}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                  <span className="et-mini"><Ic name="cambio" size={12}/> Cómo se recorre</span>
-                  <div className="vista-sw" style={{marginBottom:0}}>
-                    {MODOS_PARTE.map(m=>(
-                      <button key={m.id} type="button" title={m.ayuda}
-                        className={`vista-b ${(parte?.modo||'ejercicio')===m.id?'on':''}`}
-                        onClick={()=>editarParte({modo:m.id})}>
-                        <Ic name={m.icono} size={13}/> {m.nombre}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginTop:7}}>
-                  <span style={{fontSize:12,color:'var(--gr)',flex:1,minWidth:170}}>{modoParte(parte?.modo).ayuda}</span>
+              <div className="parte-bar">
+                <input value={parte?.nombre||''} onChange={e=>editarParte({nombre:e.target.value})}
+                  className="parte-nom" placeholder="Nombre de la parte"/>
 
-                  {parte?.modo==='circuito' && (
-                    <label style={{display:'flex',alignItems:'center',gap:5}}>
-                      <span style={{fontSize:12,color:'var(--gr)'}}>Vueltas</span>
-                      <input type="number" min={1} className="input" style={{width:64,textAlign:'center'}}
-                        value={parte?.vueltas||''} placeholder="—"
-                        onChange={e=>editarParte({vueltas:e.target.value})}/>
+                <ChipMenu valor={modoParte(parte?.modo).nombre}
+                  opciones={MODOS_PARTE.map(m=>m.nombre)}
+                  titulo={modoParte(parte?.modo).ayuda}
+                  onElegir={n=>{
+                    const m = MODOS_PARTE.find(x=>x.nombre===n)
+                    if (m) editarParte({modo:m.id})
+                  }}/>
+
+                {parte?.modo==='circuito' && (
+                  <label className="par-in" title="Cuántas veces se recorre el bloque entero">
+                    <input type="number" min={1} value={parte?.vueltas||''} placeholder="—"
+                      onChange={e=>editarParte({vueltas:e.target.value})}/>
+                    <span>vueltas</span>
+                  </label>
+                )}
+
+                {parte?.modo==='tiempo' && (
+                  <>
+                    <ChipMenu valor={(TIPOS_TIEMPO.find(t=>t.id===(parte?.tipo_tiempo||'emom'))||TIPOS_TIEMPO[0]).nombre}
+                      opciones={TIPOS_TIEMPO.map(t=>t.nombre)} clase="chip-ed-a"
+                      titulo="Qué manda el reloj"
+                      onElegir={n=>{
+                        const t = TIPOS_TIEMPO.find(x=>x.nombre===n)
+                        if (t) editarParte({tipo_tiempo:t.id})
+                      }}/>
+                    <label className="par-in" title="Duración total del bloque">
+                      <input type="number" min={1} value={parte?.minutos||''} placeholder="—"
+                        onChange={e=>editarParte({minutos:e.target.value})}/>
+                      <span>min</span>
                     </label>
-                  )}
-
-                  {parte?.modo==='tiempo' && (
-                    <>
-                      <select className="input" style={{width:130}} value={parte?.tipo_tiempo||'emom'}
-                        onChange={e=>editarParte({tipo_tiempo:e.target.value})}>
-                        {TIPOS_TIEMPO.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}
-                      </select>
-                      <label style={{display:'flex',alignItems:'center',gap:5}}>
-                        <span style={{fontSize:12,color:'var(--gr)'}}>Minutos</span>
-                        <input type="number" min={1} className="input" style={{width:64,textAlign:'center'}}
-                          value={parte?.minutos||''} placeholder="—"
-                          onChange={e=>editarParte({minutos:e.target.value})}/>
+                    {parte?.tipo_tiempo==='intervalos' && (
+                      <label className="par-in" title="Segundos de trabajo y de descanso, por ejemplo 40/20">
+                        <input value={parte?.intervalo||''} placeholder="40/20" style={{width:52}}
+                          onChange={e=>editarParte({intervalo:e.target.value})}/>
+                        <span>trab./desc.</span>
                       </label>
-                      {parte?.tipo_tiempo==='intervalos' && (
-                        <label style={{display:'flex',alignItems:'center',gap:5}}>
-                          <span style={{fontSize:12,color:'var(--gr)'}}>Trabajo / descanso (s)</span>
-                          <input className="input" style={{width:86,textAlign:'center'}}
-                            value={parte?.intervalo||''} placeholder="40/20"
-                            onChange={e=>editarParte({intervalo:e.target.value})}/>
-                        </label>
-                      )}
-                    </>
-                  )}
-                </div>
+                    )}
+                  </>
+                )}
 
-                {parte?.modo==='superserie' && (
-                  <div style={{fontSize:12,color:'var(--gr)',marginTop:6}}>
-                    Marca el grupo de cada ejercicio abajo. Los que compartan letra se hacen seguidos.
-                  </div>
+                {/* Descanso del RECORRIDO, distinto del de entre series de un ejercicio.
+                    Qué separa depende del modo, así que cambia la etiqueta, no el campo. */}
+                {parte?.modo!=='tiempo' && (
+                  <label className="par-in" title="Descanso del recorrido, distinto del descanso entre series de cada ejercicio">
+                    <input type="number" min={0} step={5} value={parte?.descanso||''} placeholder="seg"
+                      onChange={e=>editarParte({descanso:e.target.value})}/>
+                    <span>{parte?.modo==='circuito' ? 'entre vueltas'
+                      : parte?.modo==='superserie' ? 'entre grupos' : 'entre ejercicios'}</span>
+                  </label>
+                )}
+
+                <div style={{flex:1}}/>
+                {formSesion.partes.length>1&&(
+                  <button title="Eliminar esta parte" className="fila-x" style={{opacity:1}}
+                    onClick={()=>{setFormSesion(prev=>({...prev,partes:prev.partes.filter((_:any,i:number)=>i!==parteActiva)}));setParteActiva(Math.max(0,parteActiva-1))}}>
+                    <Ic name="papelera" size={14}/>
+                  </button>
                 )}
               </div>
             )}
+
             {(formSesion.partes[parteActiva]?.ejercicios||[]).length===0?(
               <div style={{textAlign:'center',padding:30,color:'var(--gr)',fontSize:13,border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)'}}>
-                Añade ejercicios desde la biblioteca de la derecha
+                Sin ejercicios todavía
               </div>
             ):(
-              (formSesion.partes[parteActiva]?.ejercicios||[]).map((ej:any,ei:number)=>(
-                <div key={ei} style={{background:'var(--bl)',borderRadius:7,border:'1px solid var(--bd)',marginBottom:6,overflow:'hidden'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px'}}>
-                    {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:38,height:38,objectFit:'cover',borderRadius:5,flexShrink:0}}/>:<div style={{width:38,height:38,background:'var(--bm)',borderRadius:5,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={16}/></div>}
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,color:'var(--n)'}}>{ej.nombre}</div>
-                      <div style={{display:'flex',gap:4,marginTop:3,flexWrap:'wrap'}}>
-                        {ej.variante&&<span className="pill pill-o on">{ej.variante}</span>}
-                        {ej.capacidad&&<span className="pill pill-a">{ej.capacidad}</span>}
-                        {ej.regimen&&<span className="pill pill-soft">{ej.regimen}</span>}
-                      </div>
-                    </div>
-                    <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
-                      onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
-                  </div>
-                  <div style={{padding:'5px 9px 8px',borderTop:'1px solid var(--bm)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                    {/* Grupo de superserie: los que comparten letra se hacen seguidos. */}
-                    {parte?.modo==='superserie' && (
-                      <div style={{display:'flex',alignItems:'center',gap:3}}>
-                        <span style={{fontSize:12,color:'var(--gr)'}}>Grupo</span>
+              <div className="tabla-ej">
+                <div className="ej-cab">
+                  <span>Ejercicio</span>
+                  <span>Cómo se hace</span>
+                  <span className="c">Series</span>
+                  <span className="c">Reps · s</span>
+                  <span className="c">Peso</span>
+                  <span className="c">Descanso</span>
+                  <span/>
+                </div>
+
+                {(formSesion.partes[parteActiva]?.ejercicios||[]).map((ej:any,ei:number)=>{
+                  const med = medida(ej)
+                  return (
+                  <div key={ei} className="ej-row">
+                    <div className="ej-nom">
+                      {parte?.modo==='superserie' && (
                         <select value={ej.grupo||'A'} onChange={e=>editarEjercicio(ei,{grupo:e.target.value})}
-                          className="input" style={{width:56,padding:'2px 4px'}}>
+                          style={{width:44,textAlign:'center',fontWeight:600,color:'var(--gd)',flexShrink:0}}
+                          title="Los ejercicios del mismo grupo se hacen seguidos">
                           {['A','B','C','D','E'].map(g=><option key={g} value={g}>{g}</option>)}
                         </select>
+                      )}
+                      {ej.imagen_url
+                        ? <img src={ej.imagen_url} alt={ej.nombre} className="ej-img"/>
+                        : <div className="ej-img ej-img-no"><Ic name="fuerza" size={26}/></div>}
+                      {/* Nombre y variante centrados contra la foto, y el nombre parte
+                          en varias líneas antes que estrujar la columna de datos. */}
+                      <div style={{minWidth:0}}>
+                        <div className="ej-txt">{ej.nombre}</div>
+                        {/* La ejecución la marca el EJERCICIO, no la sesión: se enseña
+                            pero no se toca. Si hace falta otra, se elige otro ejercicio
+                            de la biblioteca. Por eso es `.badge` y no `.chip-ed`, que en
+                            este sistema significa "esto se puede cambiar". */}
+                        {ej.variante && (
+                          <div className="ej-sub">
+                            <span className="badge badge-g" title="Lo define el ejercicio en la biblioteca">
+                              {ej.variante}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {(ej.variantes_disp||[]).length>0 && (
-                      <div style={{display:'flex',alignItems:'center',gap:3}}>
-                        <span style={{fontSize:12,color:'var(--gr)'}}>Variante</span>
-                        <select value={ej.variante||'Bilateral'} onChange={e=>{
-                          setFormSesion(prev=>{
-                            const partes=[...prev.partes]
-                            const ejercicios=[...partes[parteActiva].ejercicios]
-                            ejercicios[ei]={...ejercicios[ei],variante:e.target.value}
-                            partes[parteActiva]={...partes[parteActiva],ejercicios}
-                            return{...prev,partes}
-                          })
-                        }} className="input" style={{padding:'3px 5px'}}>
-                          <option value="Bilateral">Bilateral</option>
-                          {(ej.variantes_disp||[]).map((v:any,vi:number)=><option key={vi} value={v.nombre}>{v.nombre}</option>)}
-                        </select>
-                      </div>
-                    )}
-                    {[['series','Series',40],['peso','Kg',40],['tiempo','Seg',40]].map(([k,l,w]:any)=>(
-                      <div key={k} style={{display:'flex',alignItems:'center',gap:3}}>
-                        <span style={{fontSize:12,color:'var(--gr)'}}>{l}</span>
-                        <input type="number" value={(ej as any)[k]||''} onChange={e=>{
-                          setFormSesion(prev=>{
-                            const partes=[...prev.partes]
-                            const ejercicios=[...partes[parteActiva].ejercicios]
-                            ejercicios[ei]={...ejercicios[ei],[k]:e.target.value}
-                            partes[parteActiva]={...partes[parteActiva],ejercicios}
-                            return{...prev,partes}
-                          })
-                        }} className="input" style={{width:w,textAlign:'center',padding:'3px 5px'}} placeholder="—"/>
-                      </div>
-                    ))}
-                    {/* Reps con logica bidireccional */}
-                    <div style={{display:'flex',alignItems:'center',gap:3}}>
-                      <span style={{fontSize:12,color:'var(--gr)'}}>Reps</span>
-                      <input type="number" value={ej.reps||''} onChange={e=>{
-                        const val=e.target.value
-                        const cap=capacidadPorReps(val)
-                        setFormSesion(prev=>{
-                          const partes=[...prev.partes]
-                          const ejercicios=[...partes[parteActiva].ejercicios]
-                          ejercicios[ei]={...ejercicios[ei],reps:val,...(cap?{capacidad:cap}:{})}
-                          partes[parteActiva]={...partes[parteActiva],ejercicios}
-                          return{...prev,partes}
-                        })
-                      }} className="input" style={{width:52,textAlign:'center',padding:'3px 5px'}} placeholder="—"/>
                     </div>
-                    {/* Capacidad: sugiere reps */}
-                    <div style={{display:'flex',alignItems:'center',gap:3}}>
-                      <span style={{fontSize:12,color:'var(--gr)'}}>Capacidad</span>
-                      <select value={ej.capacidad||''} onChange={e=>{
-                        const cap=e.target.value
-                        const rep=repsPorCapacidad(cap)
-                        setFormSesion(prev=>{
-                          const partes=[...prev.partes]
-                          const ejercicios=[...partes[parteActiva].ejercicios]
-                          ejercicios[ei]={...ejercicios[ei],capacidad:cap,...(rep?{reps:rep}:{})}
-                          partes[parteActiva]={...partes[parteActiva],ejercicios}
-                          return{...prev,partes}
-                        })
-                      }} className="input" style={{padding:'3px 5px'}}>
-                        <option value="">—</option>
-                        {CAPACIDADES.map(c=><option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
-                      </select>
+
+                    {/* Régimen y capacidad juntos: los dos dicen cómo se trabaja,
+                        no cuánto. Van antes de los números por eso mismo. */}
+                    <div className="celda apilada" data-l="Cómo se hace">
+                      <ChipMenu valor={ej.regimen||'Concéntrico'} opciones={[...REGIMENES]}
+                        titulo="Cómo trabaja el músculo: concéntrico al acortarse, excéntrico al frenar, isométrico sin moverse"
+                        onElegir={v=>editarEjercicio(ei,{regimen:v})}/>
+                      <ChipMenu valor={ej.capacidad} opciones={CAPACIDADES.map(c=>c.nombre)}
+                        clase="chip-ed-a" vacio="Capacidad" titulo="Capacidad que se entrena"
+                        onElegir={cap=>{
+                          const rep=repsPorCapacidad(cap)
+                          const desc=descansoPorCapacidad(cap)
+                          // El descanso sugerido se recalcula mientras no lo hayas
+                          // tocado tú. Antes solo miraba si estaba vacío, así que en
+                          // cuanto se autocompletaba una vez ya no volvía a cambiar.
+                          editarEjercicio(ei,{capacidad:cap,...(rep?{reps:rep}:{}),...(desc&&!ej.descanso_manual?{descanso:desc}:{})})
+                        }}/>
                     </div>
-                    {/* Regimen */}
-                    <div style={{display:'flex',alignItems:'center',gap:3}}>
-                      <span style={{fontSize:12,color:'var(--gr)'}}>Régimen</span>
-                      <select value={ej.regimen||''} onChange={e=>{
-                        const val=e.target.value
-                        setFormSesion(prev=>{
-                          const partes=[...prev.partes]
-                          const ejercicios=[...partes[parteActiva].ejercicios]
-                          ejercicios[ei]={...ejercicios[ei],regimen:val}
-                          partes[parteActiva]={...partes[parteActiva],ejercicios}
-                          return{...prev,partes}
-                        })
-                      }} className="input" style={{padding:'3px 5px'}}>
-                        <option value="">—</option>
-                        {REGIMENES.map(r=><option key={r} value={r}>{r}</option>)}
-                      </select>
+
+                    <div className="celda" data-l="Series">
+                      <input type="number" className="c" value={ej.series||''} placeholder="3"
+                        title="Cuántas veces se repite el ejercicio"
+                        onChange={e=>editarEjercicio(ei,{series:e.target.value})}/>
                     </div>
-                    <input value={ej.nota||''} onChange={e=>{
-                      setFormSesion(prev=>{
-                        const partes=[...prev.partes]
-                        const ejercicios=[...partes[parteActiva].ejercicios]
-                        ejercicios[ei]={...ejercicios[ei],nota:e.target.value}
-                        partes[parteActiva]={...partes[parteActiva],ejercicios}
-                        return{...prev,partes}
-                      })
-                    }} className="input" style={{flex:1,minWidth:90,padding:'3px 7px'}} placeholder="Nota…"/>
+
+                    {/* Una sola columna: repeticiones o duración, según cómo se mida
+                        el ejercicio en la biblioteca. Nunca las dos. */}
+                    <div className="celda" data-l={med==='tiempo'?'Duración · s':'Repeticiones'}>
+                      {med==='tiempo'
+                        ? <input type="number" className="c" value={ej.tiempo||''} placeholder="seg"
+                            title="Lo que dura cada serie, en segundos"
+                            onChange={e=>editarEjercicio(ei,{tiempo:e.target.value})}/>
+                        : <input type="number" className="c" value={ej.reps||''} placeholder="10"
+                            title="Repeticiones en cada serie"
+                            onChange={e=>{
+                              const val=e.target.value
+                              const cap=capacidadPorReps(val)
+                              editarEjercicio(ei,{reps:val,...(cap?{capacidad:cap}:{})})
+                            }}/>}
+                    </div>
+
+                    <div className="celda" data-l="Peso · kg">
+                      {med==='tiempo'
+                        ? <span className="vacio" title="Este ejercicio no se mide con carga">—</span>
+                        : <input type="number" className="c" value={ej.peso||''} placeholder="kg"
+                            title="Carga en kilos"
+                            onChange={e=>editarEjercicio(ei,{peso:e.target.value})}/>}
+                    </div>
+
+                    <div className="celda" data-l="Descanso · s">
+                      <input type="number" step={5} className="c" value={ej.descanso||''} placeholder="seg"
+                        title="Descanso entre series, en segundos"
+                        onChange={e=>editarEjercicio(ei,{descanso:e.target.value,descanso_manual:true})}/>
+                    </div>
+
+                    <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
+                      onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
+
+                    {/* La nota, entera y debajo de todo. Metida entre los campos se
+                        quedaba en un hueco estrecho donde no cabía nada. */}
+                    <div className="ej-nota">
+                      <span>Nota</span>
+                      <input value={ej.nota||''} onChange={e=>editarEjercicio(ei,{nota:e.target.value})}
+                        placeholder="Lo que haya que recordar de este ejercicio"/>
+                    </div>
                   </div>
-                </div>
-              ))
+                  )
+                })}
+              </div>
+            )}
+
+            {/* La biblioteca se abre a ráfagas: metes cuatro ejercicios y luego pasas
+                el rato ajustando series. Como panel fijo se comía un tercio del ancho
+                todo el tiempo para algo que usas veinte segundos. */}
+            {formSesion.partes.length>0 && (
+              <button className="btn btn-s" style={{marginTop:12,width:'100%',justifyContent:'center'}}
+                onClick={()=>{setSelBib([]);setAbrirBib(true)}}>
+                <Ic name="mas" size={13}/> Añadir ejercicios desde la biblioteca
+              </button>
             )}
           </div>
 
-          {/* DERECHA — BIBLIOTECA */}
-          <div style={{overflowY:'auto',padding:10,background:'var(--bl)'}}>
-            <div className="et-mini" style={{marginBottom:7}}>Biblioteca de ejercicios</div>
-            <input className="input" placeholder="Buscar ejercicio…" value={buscarEj} onChange={e=>setBuscarEj(e.target.value)} style={{marginBottom:8}}/>
-            {ejFiltrados.map((e:any)=>(
-              <div key={e.id} onClick={()=>addEjercicio(e)}
-                style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',background:'var(--w)',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer'}}
-                onMouseOver={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--g)'}
-                onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
-                {e.imagen_url?<img src={e.imagen_url} alt={e.nombre} style={{width:28,height:28,objectFit:'cover',borderRadius:3,flexShrink:0}}/>:<div style={{width:28,height:28,background:'var(--bm)',borderRadius:3,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={13}/></div>}
-                <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
-                <span style={{color:'var(--g)',display:'inline-flex',flexShrink:0}}><Ic name="mas" size={14}/></span>
+          {abrirBib && (
+            <div className="capa-bib">
+              <div className="capa-bib-h">
+                <span style={{fontSize:14,color:'var(--n)',flex:1}}>
+                  Biblioteca
+                  <span style={{fontSize:13,color:'var(--gr)'}}> · añadir a {parte?.nombre || 'la parte'}</span>
+                </span>
+                <button className="btn btn-p" disabled={selBib.length===0}
+                  style={selBib.length===0?{opacity:.5,cursor:'default'}:undefined}
+                  onClick={()=>{
+                    // De golpe y en el orden en que se marcaron, no el del catálogo.
+                    selBib.forEach(id=>{
+                      const e = ejercicios.find((x:any)=>x.id===id)
+                      if (e) addEjercicio(e)
+                    })
+                    setSelBib([]); setAbrirBib(false)
+                  }}>
+                  <Ic name="check" size={13}/> Añadir{selBib.length>0?` ${selBib.length}`:''}
+                </button>
+                <button className="modal-close" aria-label="Cerrar biblioteca"
+                  onClick={()=>{setSelBib([]);setAbrirBib(false)}}><Ic name="cerrar" size={16}/></button>
               </div>
-            ))}
-          </div>
+              <div className="capa-bib-c">
+                <ExploradorEjercicios
+                  ejercicios={ejercicios}
+                  etiquetas={etiquetas}
+                  seleccion={selBib}
+                  onAlternar={(e:any)=>setSelBib(prev=>prev.includes(e.id)?prev.filter(x=>x!==e.id):[...prev,e.id])}
+                  sugeridos={ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
+                />
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
