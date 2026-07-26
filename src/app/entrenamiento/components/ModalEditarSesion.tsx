@@ -221,7 +221,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
   return (
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
-      <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'90vw',maxWidth:1100,maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
+      {/* Alto fijo, no "lo que ocupe el contenido". Con una sesión vacía el modal se
+          encogía a cuatro dedos y la biblioteca, que se abre dentro, salía del mismo
+          tamaño: no cabían ni dos filas de ejercicios. Además evita que el modal pegue
+          saltos según vas añadiendo. */}
+      <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'90vw',maxWidth:1100,height:'min(86vh, 860px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
         {/* CABECERA */}
         <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
