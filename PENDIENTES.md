@@ -4,6 +4,22 @@ Lista única de cosas aparcadas. Al cerrar una, se borra de aquí.
 
 ---
 
+## 0. Consentimientos ✅ CERRADO
+
+Se guardan en `consentimientos` con firma, fecha, versión del texto y **el texto literal**,
+más nombre y DNI congelados al firmar. `abrirDocumentoFirmado()` reconstruye el documento
+desde esa fila, no desde `textosLegales.ts`, así que no cambia si los textos cambian.
+
+Se pueden firmar desde la valoración y desde la ficha (`ModalConsentimientos`). Al volver a
+firmar se añade una fila nueva, nunca se sobrescribe: la ficha muestra la más reciente de cada
+tipo y el histórico queda entero.
+
+**Pendiente de tu gestoría:** los tres textos de `textosLegales.ts` son borradores. El fichero
+ya lo avisaba antes de que empezáramos. Ojo especialmente al plazo de conservación, que en
+documentación clínica tiene reglas propias. Si se cambian, subir `VERSION_TEXTOS`.
+
+---
+
 ## 1. Decisiones sin tomar
 
 ### 1.1 · `notas` vs alertas

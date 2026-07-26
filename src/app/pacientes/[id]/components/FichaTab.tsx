@@ -242,7 +242,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       )}
 
-      <Consentimientos pacienteId={pac.id}/>
+      <Consentimientos pacienteId={pac.id} nombre={`${pac.nombre} ${pac.apellidos}`.trim()} dni={pac.dni}/>
 
       {/* MENÚ TIPO DE CLASE */}
       {menuTipo && (

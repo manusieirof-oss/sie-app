@@ -5,19 +5,17 @@ import {
   Consentimiento, CONSENTIMIENTOS, consentimientosVigentes, tituloConsentimiento, urlFirma, abrirDocumentoFirmado,
 } from '@/lib/consentimientos'
 import { VERSION_TEXTOS } from '@/lib/textosLegales'
+import ModalConsentimientos from '@/components/ModalConsentimientos'
 
-export default function Consentimientos({ pacienteId }: { pacienteId: string }) {
+export default function Consentimientos({ pacienteId, nombre, dni }: { pacienteId: string, nombre?: string, dni?: string }) {
   const [items, setItems] = useState<Consentimiento[]>([])
   const [cargando, setCargando] = useState(true)
+  const [firmando, setFirmando] = useState(false)
 
-  useEffect(() => {
-    let vivo = true
-    consentimientosVigentes(pacienteId).then(r => {
-      if (!vivo) return
-      setItems(r.consentimientos); setCargando(false)
-    })
-    return () => { vivo = false }
-  }, [pacienteId])
+  function cargar() {
+    consentimientosVigentes(pacienteId).then(r => { setItems(r.consentimientos); setCargando(false) })
+  }
+  useEffect(() => { cargar() }, [pacienteId])
 
   async function verFirma(ruta: string) {
     const url = await urlFirma(ruta)
@@ -36,10 +34,17 @@ export default function Consentimientos({ pacienteId }: { pacienteId: string }) 
   if (items.length === 0) {
     return (
       <div className="sec">
-        <div className="sec-h"><span className="ct-l"><Ic name="firmar" size={13}/> Consentimientos</span></div>
-        <div style={{ background: 'var(--ambl)', borderLeft: '3px solid var(--amb)', padding: '10px 13px', fontSize: 13, color: '#7A5800' }}>
-          Sin consentimientos registrados. Se recogen al hacer la valoración.
+        <div className="sec-h">
+          <span className="sh-l">
+            <span className="ct-l"><Ic name="firmar" size={13}/> Consentimientos</span>
+            <button className="btn btn-p btn-sm" onClick={() => setFirmando(true)}>Firmar ahora</button>
+          </span>
         </div>
+        <div style={{ background: 'var(--ambl)', borderLeft: '3px solid var(--amb)', padding: '10px 13px', fontSize: 13, color: '#7A5800' }}>
+          Sin consentimientos registrados.
+        </div>
+        {firmando && <ModalConsentimientos pacienteId={pacienteId} nombre={nombre} dni={dni}
+          onCerrar={() => setFirmando(false)} onGuardado={cargar}/>}
       </div>
     )
   }
@@ -50,9 +55,14 @@ export default function Consentimientos({ pacienteId }: { pacienteId: string }) 
   return (
     <div className="sec">
       <div className="sec-h">
-        <span className="ct-l"><Ic name="firmar" size={13}/> Consentimientos</span>
-        {firma && <button className="btn btn-s btn-sm" onClick={() => verFirma(firma)}>Ver firma</button>}
+        <span className="sh-l">
+          <span className="ct-l"><Ic name="firmar" size={13}/> Consentimientos</span>
+          <button className="btn btn-s btn-sm" onClick={() => setFirmando(true)}>Volver a firmar</button>
+        </span>
+        {firma && <button className="btn btn-t btn-sm" onClick={() => verFirma(firma)}>Ver firma</button>}
       </div>
+      {firmando && <ModalConsentimientos pacienteId={pacienteId} nombre={nombre} dni={dni}
+        onCerrar={() => setFirmando(false)} onGuardado={cargar}/>}
 
       {CONSENTIMIENTOS.map(def => {
         const c = items.find(i => i.tipo === def.tipo)

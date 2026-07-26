@@ -40,7 +40,6 @@ export default function ValoracionPage() {
   const [imagenesAceptada, setImagenesAceptada] = useState(false)
   const [clinicaAceptada, setClinicaAceptada] = useState(false)
   const [firmaCanvas, setFirmaCanvas] = useState<string>('')
-  const [dibujando, setDibujando] = useState(false)
   const [form, setForm] = useState({
     paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
     anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
@@ -109,6 +108,12 @@ export default function ValoracionPage() {
         ...(imagenesAceptada ? ['imagenes' as const] : []),
         ...(clinicaAceptada ? ['clinica' as const] : []),
       ]
+      // Un consentimiento aceptado sin firma no vale como prueba: mejor avisar
+      // que guardarlo en silencio, que es lo que pasaba antes.
+      if (aceptados.length > 0 && !firmaCanvas) {
+        const seguir = confirm('Has marcado consentimientos pero no hay firma dibujada.\n\nSin firma, el consentimiento no queda acreditado. ¿Guardar de todos modos?')
+        if (!seguir) { setGuardando(false); return }
+      }
       const rCons = await guardarConsentimientos(pacienteId, {
         aceptados, firmaDataUrl: firmaCanvas || null,
         nombre: `${form.nombre} ${form.apellidos}`.trim(), dni: form.dni || undefined,
@@ -169,7 +174,7 @@ export default function ValoracionPage() {
         </div>
       </div>
 
-      {step===1&&<PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada} dibujando={dibujando} setDibujando={setDibujando}/>}
+      {step===1&&<PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>}
       {step===2&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla}/>}
       {step===3&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {step===4&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}

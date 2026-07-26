@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { TEXTO_DATOS, TEXTO_IMAGENES, TEXTO_CLINICA } from '@/lib/textosLegales'
 import { Ic } from '@/lib/icons'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
+import FirmaCanvas from '@/components/FirmaCanvas'
 
-export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, clinicaAceptada, setClinicaAceptada, dibujando, setDibujando }: any) {
+export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, clinicaAceptada, setClinicaAceptada }: any) {
   const [docAbierto, setDocAbierto] = useState<null|'datos'|'imagenes'|'clinica'>(null)
 
   return (
@@ -78,18 +79,7 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
         {/* FIRMA */}
         <div style={{marginBottom:12}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Firma del paciente</div>
-          <div style={{position:'relative',border:`2px solid ${firmaCanvas?'var(--g)':'var(--bd)'}`,borderRadius:6,background:'var(--w)',overflow:'hidden'}}>
-            <canvas id="firma-canvas" width={400} height={120} style={{display:'block',width:'100%',height:120,cursor:'crosshair',touchAction:'none'}}
-              onMouseDown={e=>{setDibujando(true);const c=e.currentTarget;const ctx=c.getContext('2d')!;const r=c.getBoundingClientRect();const sx=c.width/r.width;ctx.beginPath();ctx.moveTo((e.clientX-r.left)*sx,(e.clientY-r.top)*sx)}}
-              onMouseMove={e=>{if(!dibujando)return;const c=e.currentTarget;const ctx=c.getContext('2d')!;const r=c.getBoundingClientRect();const sx=c.width/r.width;ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#262825';ctx.lineTo((e.clientX-r.left)*sx,(e.clientY-r.top)*sx);ctx.stroke()}}
-              onMouseUp={e=>{setDibujando(false);setFirmaCanvas(e.currentTarget.toDataURL())}}
-              onTouchStart={e=>{e.preventDefault();setDibujando(true);const c=e.currentTarget;const ctx=c.getContext('2d')!;const r=c.getBoundingClientRect();const sx=c.width/r.width;const t=e.touches[0];ctx.beginPath();ctx.moveTo((t.clientX-r.left)*sx,(t.clientY-r.top)*sx)}}
-              onTouchMove={e=>{e.preventDefault();if(!dibujando)return;const c=e.currentTarget;const ctx=c.getContext('2d')!;const r=c.getBoundingClientRect();const sx=c.width/r.width;const t=e.touches[0];ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#262825';ctx.lineTo((t.clientX-r.left)*sx,(t.clientY-r.top)*sx);ctx.stroke()}}
-              onTouchEnd={e=>{setDibujando(false);setFirmaCanvas(e.currentTarget.toDataURL())}}
-            />
-            {!firmaCanvas&&<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:10,color:'var(--grl)',pointerEvents:'none'}}>Firma aquí con el dedo o ratón</div>}
-          </div>
-          {firmaCanvas&&<button className="btn btn-t btn-sm" style={{marginTop:5}} onClick={()=>{const c=document.getElementById('firma-canvas') as HTMLCanvasElement;c.getContext('2d')!.clearRect(0,0,c.width,c.height);setFirmaCanvas('')}}><Ic name="papelera" size={12}/> Borrar firma</button>}
+          <FirmaCanvas valor={firmaCanvas} onCambio={setFirmaCanvas}/>
         </div>
 
         {/* CONSENTIMIENTO DATOS (obligatorio) */}
