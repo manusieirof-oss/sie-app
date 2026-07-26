@@ -89,6 +89,9 @@ textarea.input{resize:vertical;min-height:80px;}
 .vista-b{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:500;color:var(--gr);background:none;border:none;padding:5px 13px;border-radius:7px;cursor:pointer;transition:all .12s;}
 .vista-b:hover{color:var(--n);}
 .vista-b.on{background:var(--w);color:var(--gd);box-shadow:var(--sh-sm);}
+/* Contador dentro del conmutador de vistas. */
+.vista-b .cnt{font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--bl);color:var(--gr);}
+.vista-b.on .cnt{background:var(--g);color:#fff;}
 /* Fila de problema: filete de color por estado, sin caja. */
 .fila-p{display:flex;align-items:center;gap:8px;padding:8px 0 8px 11px;border-left:2px solid var(--bd);margin-bottom:6px;}
 .fila-p .fila-x{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;color:var(--grl);background:none;border:none;cursor:pointer;flex-shrink:0;opacity:0;transition:all .12s;}
@@ -155,6 +158,7 @@ details[open] .det-sum::before{content:'▾ ';}
 .pill-g{background:var(--g);color:#fff;}
 .pill-a{background:var(--amb);color:#fff;}
 .pill-soft{background:var(--bm);color:var(--gr);}
+.pill-r{background:var(--redl);color:var(--red);}
 .pill-o{border:1px solid var(--bd);background:var(--w);color:var(--gr);}
 .pill-o.on{border-color:var(--g);background:var(--gl);color:var(--gd);}
 /* Píldora accionable: se pulsa para resolver o reabrir una vía de objetivo. */
@@ -168,6 +172,22 @@ details[open] .det-sum::before{content:'▾ ';}
 .toggle.on::after{left:15px;}
 .fila-p.test-clic{cursor:pointer;border-radius:0 6px 6px 0;transition:background .12s;}
 .fila-p.test-clic:hover{background:var(--bl);}
+/* Fila seleccionable con casilla: asignar sesiones a varias citas de una vez. */
+.fila-sel{cursor:pointer;border-radius:0 6px 6px 0;padding-right:9px;transition:background .12s;}
+.fila-sel:hover{background:var(--bl);}
+.fila-sel.on{background:var(--gl);}
+.fila-sel .chk{width:19px;height:19px;border-radius:5px;border:2px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;transition:all .12s;}
+.fila-sel .chk.on{border-color:var(--g);background:var(--g);}
+/* Atajo de selección: se pulsa para añadir o quitar un grupo de filas. */
+.chip-sel{font-family:inherit;font-size:11px;font-weight:600;padding:4px 11px;border-radius:99px;border:1px solid var(--bd);background:var(--w);color:var(--gr);cursor:pointer;white-space:nowrap;transition:all .12s;}
+.chip-sel:hover{border-color:var(--gm);color:var(--gd);}
+.chip-sel.on{border-color:var(--g);background:var(--gl);color:var(--gd);}
+/* Separador de mes en listas largas. Mismo lenguaje que el del historial clínico. */
+.sep-mes{font-size:11px;font-weight:600;color:var(--gr);letter-spacing:.6px;text-transform:uppercase;background:var(--bl);border-radius:99px;padding:2px 11px;display:inline-block;margin:10px 0 8px;}
+.sec > div:first-child > .sep-mes{margin-top:0;}
+/* Tarjeta de sesión en la rejilla de Entrenamiento. */
+.tarj-s{background:var(--bl);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:border-color .12s,background .12s;}
+.tarj-s:hover{border-color:var(--g);background:var(--w);}
 /* Indicador sin recuadro: solo el icono. */
 .ind-ic{position:relative;background:none;border:none;padding:4px;cursor:pointer;display:inline-flex;transition:transform .12s,opacity .12s;opacity:.85;}
 .ind-ic:hover{opacity:1;transform:translateY(-1px);}

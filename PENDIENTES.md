@@ -35,7 +35,33 @@ cuenta de un paciente. **Decidir si la nota rápida se retira o se le da un uso 
 No confundir con `pacientes.notas_fijas` (el "viene en silla de ruedas" de la ficha) ni con
 `citas.notas`. Son tres cosas distintas con nombres parecidos.
 
-### 1.2 · Marcar sesiones como realizadas
+### 1.2 · Taller: partir de la agenda y modos de sesión
+**El eslabón que falta en la cadena.** El taller **no lee `citas` en ningún sitio** — comprobado
+en `taller/page.tsx` y `ModoClase.tsx`. Así que la sesión que se asigna en Planificación no le
+llega: en Modo Clase se teclean los pacientes a mano ("Añade los pacientes que vienen hoy")
+cuando la agenda ya sabe quién viene a esa hora y a esa sala, y la sesión asignada no aparece
+preseleccionada en el desplegable.
+
+**Cambio acordado**, para cuando toque el Pilar Taller:
+
+1. El taller arranca de fecha + sala: trae los pacientes con cita y cada uno con su sesión ya
+   cargada. Si no tiene, se elige de las suyas; si hay un problema, se cambia sobre la marcha.
+2. **Modo de sesión como propiedad de la sesión**, no como pestaña del taller. Hoy "fuerza" es
+   una pestaña, y es un modo de trabajar, no un tipo de paciente. La sesión declara cómo se
+   ejecuta y el taller la pinta en consecuencia.
+   - `ejercicio` — todas las series de un ejercicio y se pasa al siguiente. Es lo actual.
+   - `circuito` — N ejercicios repetidos X vueltas. Mismo esquema; "serie 3" pasa a significar
+     "vuelta 3".
+   - `fases` — **no entra con los otros dos.** La fase es estado del *paciente*, sobrevive a la
+     sesión que la generó (esta semana está en fase 2, la que viene sigue o sube). Necesita su
+     propio dato; deducirla del último registro sería repetir el error que ya arreglamos.
+   - Los modos van en código, no en Ajustes: cada uno necesita su propia pantalla. Es la
+     excepción consciente a la regla de "las listas mandan desde Ajustes".
+3. **Tests en las citas: descartado.** `resultados_tests.fecha_repeticion` ya dice a quién toca
+   reevaluar. Convertirlo en asignación manual quita el automatismo que ya existe. En su lugar,
+   que el taller avise al abrir al paciente ("toca reevaluar Thomas"). Ver 3.1.
+
+### 1.3 · Marcar sesiones como realizadas
 Las sesiones tienen `estado` borrador/lista/realizada pero **nada las marca como realizada**.
 El cron `api/cron/actualizar-citas` solo marca *citas*. Se decide al llegar al Pilar Taller,
 que es quien sabe si una sesión se ejecutó.

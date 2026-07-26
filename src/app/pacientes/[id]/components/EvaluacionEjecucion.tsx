@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
 
 export default function EvaluacionEjecucion({ pacienteId }: { pacienteId: string }) {
   const [loading, setLoading] = useState(true)
@@ -52,32 +53,41 @@ export default function EvaluacionEjecucion({ pacienteId }: { pacienteId: string
     setLoading(false)
   }
 
-  if (loading) return <div className="loading">Cargando evaluaciones...</div>
-  if (evals.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--grl)', fontSize: 11 }}>Aún no hay evaluaciones de ejecución registradas.</div>
+  if (loading) return <div className="loading">Cargando evaluaciones…</div>
 
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
-      {evals.map(ev => {
-        const cumplidos = ev.items.filter((i: any) => i.ok).length
-        const total = ev.items.length
-        return (
-          <div key={ev.ejercicio_id} className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ flex: 1, fontSize: 12, fontWeight: 400, color: 'var(--n)' }}>{ev.nombre}</div>
-              <span style={{ fontSize: 9, color: 'var(--grl)' }}>últ. eval. {new Date(ev.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</span>
-              <span style={{ fontSize: 9, fontWeight: 500, color: cumplidos === total ? 'var(--g)' : 'var(--amb)' }}>{cumplidos}/{total}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div className="panel">
+      <div className="sec">
+        <div className="sec-h">
+          <span className="sh-l"><span className="ct-l"><Ic name="ok" size={13}/> Cómo ejecuta</span></span>
+          {evals.length>0 && <span className="sh-r">Última evaluación de cada ejercicio</span>}
+        </div>
+        {evals.length === 0 && <div className="muted">Aún no hay evaluaciones de ejecución registradas.</div>}
+        {evals.map(ev => {
+          const cumplidos = ev.items.filter((i: any) => i.ok).length
+          const total = ev.items.length
+          const pleno = cumplidos === total
+          return (
+            <div key={ev.ejercicio_id} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ flex: 1, fontSize: 13, color: 'var(--n)' }}>{ev.nombre}</div>
+                <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+                  {new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                <span className={`pill ${pleno ? 'pill-o on' : 'pill-a'}`}>{cumplidos} de {total}</span>
+              </div>
               {ev.items.map((it: any, i: number) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ fontSize: 12, color: it.ok ? 'var(--g)' : 'var(--red)' }}>{it.ok ? '✓' : '✗'}</span>
-                  <span style={{ fontSize: 11, color: it.ok ? 'var(--n)' : 'var(--grl)' }}>{it.texto}</span>
+                <div key={i} className="fila-p" style={{ borderLeftColor: it.ok ? 'var(--g)' : 'var(--red)', marginBottom: 4 }}>
+                  <span style={{ display: 'inline-flex', color: it.ok ? 'var(--gd)' : 'var(--red)', flexShrink: 0 }}>
+                    <Ic name={it.ok ? 'check' : 'cerrar'} size={14} />
+                  </span>
+                  <span style={{ fontSize: 13, color: it.ok ? 'var(--n)' : 'var(--gr)' }}>{it.texto}</span>
                 </div>
               ))}
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
