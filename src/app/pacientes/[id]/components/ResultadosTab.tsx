@@ -33,7 +33,6 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
     Borg:e.borg, Estrés:e.estres
   }))
 
-  const imc = pac?.peso_kg&&pac?.altura_cm ? Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10 : null
   const dataDonut = [{ name:'Asistencia', value:pctAsistencia, fill:G }]
 
   // EVA molestias en el tiempo (ordenado por fecha de registro)
@@ -204,7 +203,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             <div>
               <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Datos físicos actuales</div>
               <div style={{display:'flex',gap:30,justifyContent:'center'}}>
-                {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm'],['IMC',imc,'']].map(([l,v,u])=>v?(
+                {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm']].map(([l,v,u])=>v?(
                   <div key={String(l)} style={{textAlign:'center'}}>
                     <div style={{fontSize:24,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:11,color:'var(--grl)'}}>{u as string}</span></div>
                     <div style={{fontSize:9,color:'var(--grl)'}}>{l}</div>
@@ -299,7 +298,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           </div>
           {pac?.peso_kg&&(
             <div style={{display:'flex',justifyContent:'center',gap:24,marginBottom:30,flexWrap:'wrap'}}>
-              {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm'],['IMC',imc,'']].map(([l,v,u])=>v?(
+              {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm']].map(([l,v,u])=>v?(
                 <div key={String(l)} style={{textAlign:'center'}}>
                   <div style={{fontSize:26,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:11,color:'var(--grl)'}}>{u as string}</span></div>
                   <div style={{fontSize:10,color:'var(--grl)'}}>{l}</div>

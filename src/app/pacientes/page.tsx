@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, BonoTipo, cambiarEstadoPago } from '@/lib/bonos'
 import Link from 'next/link'
 import ModalBono from './components/ModalBono'
+import { Ic } from '@/lib/icons'
+import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase } from '@/lib/tipos'
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -14,9 +16,10 @@ export default function PacientesPage() {
   const [filtroPago, setFiltroPago] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroEstado, setFiltroEstado] = useState('activo')
-  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento'},{valor:'pilates',icono:'',nombre:'Pilates'},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación'},{valor:'individual',icono:'',nombre:'Individual'},{valor:'embarazadas',icono:'',nombre:'Embarazadas'}])
+  const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [modal, setModal] = useState(false)
   const [modalBonoPac, setModalBonoPac] = useState<any>(null)
+  const [menuPago, setMenuPago] = useState<any>(null)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
   const mesActual = new Date().getMonth()+1
@@ -32,8 +35,7 @@ export default function PacientesPage() {
     ])
     setPacientes(p || [])
     setBonos(b || [])
-    const { data: aj } = await supabase.from('ajustes').select('clave,valor').eq('clave','tipos_clase').maybeSingle()
-    if (aj?.valor) { try { setTiposClase(JSON.parse(aj.valor)) } catch {} }
+    setTiposClase(await cargarTiposClase())
     setLoading(false)
   }
 
@@ -58,11 +60,10 @@ export default function PacientesPage() {
     cargar()
   }
 
-  const tipoLabel: Record<string,string> = { entrenamiento:'Entrenamiento', pilates:'Pilates', rehabilitacion:'Rehabilitación' }
-  const labelTipo = (v:string) => { const t = tiposClase.find((x:any)=>x.valor===v); return t ? t.nombre : (tipoLabel[v]||'—') }
+  const labelTipo = (v:string) => v ? nombreTipoClase(tiposClase, v) : '—'
   const estadoBadge: Record<string,{txt:string,bg:string,col:string}> = { activo:{txt:'● Activo',bg:'var(--gl)',col:'var(--gd)'}, baja:{txt:'○ Baja',bg:'var(--redl)',col:'var(--red)'}, pausa:{txt:'Pausa',bg:'var(--ambl)',col:'#8A6410'} }
-  const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'Pendiente', impago:'Impago' }
-  const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
+  const pagoLabel: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
+  const pagoDot: Record<string,string> = { pagado:'var(--g)', pendiente:'var(--amb)', impago:'var(--red)' }
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
 
   const filtrados = pacientes.filter(p=>{
@@ -147,8 +148,8 @@ export default function PacientesPage() {
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-          <div style={{display:'grid',gridTemplateColumns:'36px 1fr 95px 100px 120px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-            {['','Paciente','Estado','Bono','Tipo clase','Cuota actual'].map((h,i)=>(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 95px 100px 120px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+            {['Paciente','Estado','Bono','Tipo clase','Cuota actual'].map((h,i)=>(
               <div key={i} style={{fontSize:9,fontWeight:500,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',padding:'7px 10px',borderLeft:i>0?'1px solid var(--bd)':'none'}}>{h}</div>
             ))}
           </div>
@@ -156,15 +157,11 @@ export default function PacientesPage() {
           {filtrados.map(p=>{
             const bono = getBonoActual(p.id)
             const pago = bono?.estado_pago || 'pendiente'
-            const iniciales = `${p.nombre?.[0]||''}${p.apellidos?.[0]||''}`.toUpperCase()
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:'36px 1fr 95px 100px 120px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
+              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:'1fr 95px 100px 120px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
-                <div style={{padding:'8px 4px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <div style={{width:26,height:26,borderRadius:'50%',background:'var(--gl)',border:'1.5px solid var(--gm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:500,color:'var(--gd)'}}>{iniciales}</div>
-                </div>
-                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
+                <div style={{padding:'8px 10px'}}>
                   <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.email || p.telefono || '—'}</div>
                 </div>
@@ -172,16 +169,24 @@ export default function PacientesPage() {
                   <span style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:estadoBadge[p.estado]?.bg||'var(--bl)',color:estadoBadge[p.estado]?.col||'var(--gr)'}}>{estadoBadge[p.estado]?.txt||p.estado}</span>
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
-                  <span onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono })}} style={{cursor:'pointer'}} title="Clic para gestionar el bono">
-                    {bono ? <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span> : <span style={{fontSize:10,color:'var(--g)',textDecoration:'underline'}}>+ Asignar</span>}
-                  </span>
+                  {bono ? (
+                    <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span>
+                  ) : (
+                    <button className="chip-ed chip-ed-n" title="Asignar un bono"
+                      onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono:null })}}>
+                      <Ic name="mas" size={12}/> Asignar
+                    </button>
+                  )}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
-                    <span className={`badge ${pagoBadge[pago]||'badge-b'}`}>{pagoLabel[pago]||'—'}</span>
+                    <button className={`chip-ed ${pago==='impago'?'chip-ed-r':pago==='pendiente'?'chip-ed-a':''}`} title="Cambiar el estado de pago"
+                      onClick={e=>{e.preventDefault();e.stopPropagation();const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ bono, x:r.left, y:r.bottom+4 })}}>
+                      {pagoLabel[pago]||'—'} <Ic name="abajo" size={12}/>
+                    </button>
                   ) : (
-                    <span style={{fontSize:10,color:'var(--grl)'}}>Sin cuota</span>
+                    <span style={{fontSize:11,color:'var(--grl)'}}>Sin cuota</span>
                   )}
                 </div>
               </Link>
@@ -219,6 +224,27 @@ export default function PacientesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MENU ESTADO DE PAGO */}
+      {menuPago && (
+        <>
+          <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuPago(null)}/>
+          <div className="menu-flot" style={{left:menuPago.x,top:menuPago.y}}>
+            {['pagado','pendiente','impago'].map(v=>(
+              <button key={v} className="menu-it" onClick={async()=>{
+                const b = menuPago.bono; setMenuPago(null)
+                const r = await cambiarEstadoPago(b, v)
+                if (!r.ok) { alert('Error: ' + r.error); return }
+                cargar()
+              }}>
+                <span style={{width:7,height:7,borderRadius:'50%',background:pagoDot[v],flexShrink:0}}/>
+                {pagoLabel[v]}
+                {menuPago.bono?.estado_pago===v && <span style={{marginLeft:'auto',color:'var(--g)',display:'inline-flex'}}><Ic name="check" size={13}/></span>}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {modalBonoPac && (

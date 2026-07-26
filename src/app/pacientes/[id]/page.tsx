@@ -8,6 +8,8 @@ import SaludTab from './components/SaludTab'
 import ResultadosTab from './components/ResultadosTab'
 import EntrenoTab from './components/EntrenoTab'
 import { Ic } from '@/lib/icons'
+import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
+import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
@@ -50,8 +52,11 @@ export default function FichaPacientePage() {
   const [ladoTest, setLadoTest] = useState('bilateral')
   const [testSeleccionadoObj, setTestSeleccionadoObj] = useState<any>(null)
   const [procesando, setProcesando] = useState(false)
+  const [menuAcc, setMenuAcc] = useState<any>(null)
+  const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
 
   const resultadosRef = useRef<HTMLDivElement>(null)
+  const primeraCarga = useRef(true)
 
   function generarPDF() {
     if (!pac) return
@@ -158,7 +163,6 @@ export default function FichaPacientePage() {
     <div class="grid4" style="max-width:300px">
       ${pac.peso_kg?`<div class="card"><div class="val">${pac.peso_kg}</div><div class="lbl">Peso (kg)</div></div>`:''}
       ${pac.altura_cm?`<div class="card"><div class="val">${pac.altura_cm}</div><div class="lbl">Altura (cm)</div></div>`:''}
-      ${pac.peso_kg&&pac.altura_cm?`<div class="card"><div class="val">${Math.round(pac.peso_kg/Math.pow(pac.altura_cm/100,2)*10)/10}</div><div class="lbl">IMC</div></div>`:''}
     </div>` : ''}
 
     ${tests.length>0 ? `<h2>Tests funcionales</h2>
@@ -197,22 +201,24 @@ export default function FichaPacientePage() {
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
 
-  useEffect(() => { if(id) cargar() }, [id])
+  useEffect(() => { if(id) { primeraCarga.current = true; cargar() } }, [id])
   useEffect(() => {
     cargarBonosTipos().then(data => {
       setBonosOpts(data)
     })
   }, [])
 
+  // Solo se muestra el "Cargando ficha…" la primera vez. En los refrescos posteriores
+  // la pantalla no se desmonta, así que no se pierde el scroll ni parpadea todo.
   async function cargar() {
-    setLoading(true)
+    if (primeraCarga.current) setLoading(true)
     const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: _rt },{ data: c },{ data: s }] = await Promise.all([
       supabase.from('pacientes').select('*').eq('id',id).single(),
       supabase.from('bonos').select('*').eq('paciente_id',id).eq('activo',true).order('created_at',{ascending:false}).limit(1).maybeSingle(),
       supabase.from('molestias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('patologias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('medicamentos').select('*').eq('paciente_id',id),
-      supabase.from('escalas').select('*').eq('paciente_id',id).order('fecha',{ascending:false}).limit(5),
+      supabase.from('escalas').select('*').eq('paciente_id',id).order('fecha',{ascending:false}).limit(12),
       supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id).order('fecha',{ascending:false}),
       supabase.from('citas').select('id,fecha,hora,sala,tipo,estado,sesion_id,notas').eq('paciente_id',id).order('fecha',{ascending:false}).limit(50),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
@@ -232,22 +238,38 @@ export default function FichaPacientePage() {
     setRecuperaciones(rec||[])
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])
+    // Los tipos de clase mandan desde Ajustes: aquí nunca se listan a mano.
+    setTiposClase(await cargarTiposClase())
     setForm(p||{})
-    setLoading(false)
+    if (primeraCarga.current) { setLoading(false); primeraCarga.current = false }
   }
 
+  // El tipo de clase NO se guarda aquí: tiene su propio control en la ficha (cambiarTipoClase).
   async function guardarEdicion() {
-    const tipoAnterior = pac.tipo_clase
     await supabase.from('pacientes').update({
       nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono,
       email:form.email, dni:form.dni, altura_cm:form.altura_cm,
-      peso_kg:form.peso_kg, tipo_clase:form.tipo_clase, notas_fijas:form.notas_fijas
+      peso_kg:form.peso_kg, notas_fijas:form.notas_fijas
     }).eq('id',id)
-    if (form.tipo_clase && form.tipo_clase !== tipoAnterior) {
-      const lbl = (v:string) => (v||'—').charAt(0).toUpperCase()+(v||'').slice(1)
-      await registrarEvento('cambio_tipo_clase', `Cambio de clase: ${lbl(tipoAnterior)} → ${lbl(form.tipo_clase)}`, null)
-    }
     setEditando(false); cargar()
+  }
+
+  // Cambio directo del tipo de clase desde la ficha (sin entrar en modo edición).
+  // No toca las citas ya programadas: solo condiciona las nuevas.
+  async function cambiarTipoClase(valor: string) {
+    if (!pac || valor === pac.tipo_clase) return
+    const anterior = pac.tipo_clase
+    await supabase.from('pacientes').update({ tipo_clase: valor }).eq('id', id)
+    await registrarEvento('cambio_tipo_clase', `Cambio de clase: ${nombreTipoClase(tiposClase, anterior)} → ${nombreTipoClase(tiposClase, valor)}`, null)
+    cargar()
+  }
+
+  // Reevaluar un test: abre el modal de registro ya preseleccionado. Así se reutiliza
+  // toda la lógica de objetivos en vez de duplicarla en SaludTab.
+  function abrirTest(testId: string, lado: string) {
+    seleccionarTest(testId)
+    setLadoTest(lado || 'bilateral')
+    setModalRegistrarTest(true)
   }
 
   function seleccionarTest(testId: string) {
@@ -291,6 +313,14 @@ export default function FichaPacientePage() {
       lado: ladoTest,
       items_resultado: itemsTest.map(i=>({nombre:i.nombre,marcado:i.marcado,grados:i.grados,tiene_grados:i.tiene_grados})),
     })
+    // Un test positivo activa objetivos automáticamente: sin este evento, eso pasaba
+    // sin dejar constancia y luego no había forma de reconstruirlo.
+    const marcados = itemsTest.filter(i=>i.marcado).map(i=>i.nombre+(i.grados?` (${i.grados}°)`:'')).join(', ')
+    await registrarEvento(
+      'test',
+      `Test ${resultado}: ${testSeleccionadoObj?.nombre||'test'}${ladoTest&&ladoTest!=='bilateral'?' · '+ladoTest:''}`,
+      [marcados||null, obsTest||null].filter(Boolean).join(' · ') || null,
+    )
     // Test positivo -> activar objetivos vinculados, añadiendo la via 'test'
     if (resultado==='positivo') {
       const { data: objs } = await supabase.from('objetivos').select('id').eq('test_id', testSeleccionado).eq('activo', true)
@@ -444,21 +474,23 @@ export default function FichaPacientePage() {
     await supabase.from('eventos_paciente').insert({ paciente_id:pacId, tipo, titulo, descripcion, fecha:new Date().toISOString().split('T')[0] })
   }
 
-  const LBL_ALERTA: Record<string,string> = { dolor:'Dolor / molestia', lesion:'Lesión', cita_medica:'Cita médica', personal:'Situación personal', duda:'Duda / consulta', otro:'Otro' }
-
-  async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
-    await supabase.from('alertas_paciente').insert({paciente_id:pacienteId,tipo,afecta_sesion:afectaSesion,descripcion,activa:true})
-    await registrarEvento('alerta_abierta', `${LBL_ALERTA[tipo]||tipo}${afectaSesion?' · afecta sesión':''}`, descripcion, pacienteId)
+  async function recargarAlertas() {
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])
   }
 
+  async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
+    const r = await abrirAlerta(pacienteId, tipo, afectaSesion, descripcion)
+    if (!r.ok) { alert('Error al crear la alerta: '+r.error); return }
+    recargarAlertas()
+  }
+
   async function cerrarAlerta(alertaId:string) {
     const alerta = alertas.find(a=>a.id===alertaId)
-    await supabase.from('alertas_paciente').update({activa:false,fecha_cierre:new Date().toISOString()}).eq('id',alertaId)
-    if (alerta) await registrarEvento('alerta_cerrada', `${LBL_ALERTA[alerta.tipo]||alerta.tipo}`, alerta.descripcion)
-    const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
-    setAlertas(al||[])
+    if (!alerta) return
+    const r = await cerrarAlertaLib(alerta)
+    if (!r.ok) { alert('Error al cerrar la alerta: '+r.error); return }
+    recargarAlertas()
   }
 
   async function toggleMolestia(molId: string, activa: boolean) {
@@ -481,19 +513,34 @@ export default function FichaPacientePage() {
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id, b.dias_semana>1?`${b.nombre} · ${b.dias_semana}d/sem`:b.nombre]))
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'Pendiente', impago:'Impago' }
-  const estadoColor: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)' }
-  const estadoLabel: Record<string,string> = { activo:'● Activo', baja:'○ Baja', pausa:'Pausa' }
+  const estadoColor: Record<string,string> = { activo:'var(--gm)', baja:'#E8A8A8', pausa:'#E6CE8A' }
+  const estadoBg: Record<string,string> = { activo:'rgba(90,150,158,.22)', baja:'rgba(176,90,90,.22)', pausa:'rgba(201,168,76,.22)' }
+  const estadoDot: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)' }
+  const estadoLabel: Record<string,string> = { activo:'Activo', baja:'Baja', pausa:'Pausa' }
+  const inputOscuro = { background:'rgba(255,255,255,.1)', color:'#fff', borderColor:'var(--gm)' }
+  const contacto: [string,string][] = ([
+    ['telefono', pac?.telefono], ['mail', pac?.email], ['dni', pac?.dni],
+  ] as [string,any][]).filter(([,v])=>!!v)
+  const metaPac: string[] = [
+    edad ? `${edad} años` : '',
+    pac?.altura_cm ? `${pac.altura_cm} cm` : '',
+    pac?.peso_kg ? `${pac.peso_kg} kg` : '',
+  ].filter(Boolean)
 
   if (loading) return <div className="loading">Cargando ficha...</div>
   if (!pac) return <div className="loading">Paciente no encontrado</div>
 
   return (
     <>
+      <button className="pat-volver" onClick={()=>router.push('/pacientes')}>
+        <Ic name="atras" size={13}/> Pacientes
+      </button>
+
       {/* CABECERA */}
       <div className="pat-header">
         <div style={{position:'relative',flexShrink:0}}>
           {pac.foto_url ? (
-            <img src={pac.foto_url} alt={pac.nombre} style={{width:92,height:92,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
+            <img src={pac.foto_url} alt={pac.nombre} style={{width:84,height:84,borderRadius:'50%',objectFit:'cover',border:'1.5px solid var(--g)'}}/>
           ) : (
             <div className="pat-avatar">{iniciales}</div>
           )}
@@ -503,49 +550,79 @@ export default function FichaPacientePage() {
           </label>
         </div>
 
-        <div style={{flex:1}}>
+        <div style={{flex:editando?1:'0 1 auto',minWidth:0}}>
           {editando ? (
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              <input className="input" value={form.nombre||''} onChange={e=>setForm((p:any)=>({...p,nombre:e.target.value}))} style={{flex:1,minWidth:120,background:'rgba(255,255,255,.1)',color:'#fff',borderColor:'var(--gm)'}} placeholder="Nombre"/>
-              <input className="input" value={form.apellidos||''} onChange={e=>setForm((p:any)=>({...p,apellidos:e.target.value}))} style={{flex:1,minWidth:120,background:'rgba(255,255,255,.1)',color:'#fff',borderColor:'var(--gm)'}} placeholder="Apellidos"/>
-              <input className="input" value={form.nombre_clinica||''} onChange={e=>setForm((p:any)=>({...p,nombre_clinica:e.target.value}))} style={{flex:1,minWidth:120,background:'rgba(255,255,255,.1)',color:'#fff',borderColor:'var(--gm)'}} placeholder="Nombre en clínica (ej. Manu)"/>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+              {[['nombre','Nombre'],['apellidos','Apellidos'],['nombre_clinica','Nombre en clínica'],['dni','DNI'],['telefono','Teléfono'],['email','Email'],['altura_cm','Altura (cm)'],['peso_kg','Peso (kg)']].map(([k,l])=>(
+                <input key={k} className="input" value={form[k]||''} onChange={e=>setForm((p:any)=>({...p,[k]:e.target.value}))} style={inputOscuro} placeholder={l}/>
+              ))}
             </div>
           ) : (
-            <>
-              <div className="pat-name">{pac.nombre} {pac.apellidos}</div>
-              {pac.nombre_clinica&&<div style={{fontSize:11,color:'var(--gm)',fontWeight:300,marginTop:1}}>"{pac.nombre_clinica}"</div>}
-            </>
+            <div className="pat-id">
+              <span className="pat-name">{pac.nombre} {pac.apellidos}</span>
+              {pac.nombre_clinica&&<span className="pat-alias">“{pac.nombre_clinica}”</span>}
+            </div>
           )}
-          <div className="pat-meta">{edad?`${edad} años · `:''}{pac.altura_cm?`${pac.altura_cm} cm · `:''}{pac.peso_kg?`${pac.peso_kg} kg`:''}</div>
-          <div style={{display:'flex',gap:5,marginTop:5,flexWrap:'wrap'}}>
-            <span style={{fontSize:8,fontWeight:500,padding:'2px 8px',borderRadius:99,background:'rgba(255,255,255,.1)',color:estadoColor[pac.estado]||'var(--g)'}}>
-              {estadoLabel[pac.estado]||'● Activo'}
+          <div className="pat-meta">
+            {metaPac.map((v,i)=><span key={i}>{i>0&&<span className="pat-sep">·</span>}{v}</span>)}
+          </div>
+          <div className="pat-tags">
+            <span className="pat-tag" style={{background:estadoBg[pac.estado]||'rgba(90,150,158,.22)',color:estadoColor[pac.estado]||'var(--gm)'}}>
+              <span className="pat-dot" style={{background:estadoDot[pac.estado]||'var(--g)'}}/>
+              {estadoLabel[pac.estado]||'Activo'}
             </span>
           </div>
         </div>
 
-        <div style={{display:'flex',gap:5,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          <button className="btn btn-s btn-sm" onClick={()=>router.push('/pacientes')}>← Listado</button>
+        {!editando && contacto.length>0 && (
+          <div className="pat-contacto">
+            {contacto.map(([ic,v]:any)=>(
+              <div key={ic} className="pat-ci"><span><Ic name={ic} size={14}/></span>{v}</div>
+            ))}
+          </div>
+        )}
+
+        <div style={{flex:1}}/>
+
+        <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
           {editando ? (
             <>
-              <button className="btn btn-d btn-sm" onClick={()=>setEditando(false)}>Cancelar</button>
+              <button className="btn btn-d btn-sm" onClick={()=>{setForm(pac);setEditando(false)}}>Cancelar</button>
               <button className="btn btn-p btn-sm" onClick={guardarEdicion}><Ic name="guardar" size={12}/> Guardar</button>
             </>
           ) : (
-            <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}><Ic name="editar" size={12}/> Editar</button>
+            <>
+              <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}><Ic name="editar" size={12}/> Editar</button>
+              <button className="btn-ico" title="Más acciones" aria-label="Más acciones"
+                onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuAcc({ x:r.right-160, y:r.bottom+5 })}}>
+                <Ic name="acciones" size={17}/>
+              </button>
+            </>
           )}
-          {pac.estado==='activo' && <>
-            <button className="btn btn-t btn-sm" onClick={()=>setModalPausa(true)}><Ic name="pausa" size={12}/> Pausa</button>
-            <button className="btn btn-d btn-sm" onClick={darDeBaja} disabled={procesando}>Baja</button>
-          </>}
-          {(pac.estado==='baja'||pac.estado==='pausa') && (
-            <button className="btn btn-p btn-sm" onClick={reactivar} disabled={procesando}>▶ Reactivar</button>
-          )}
-          <button className="btn btn-d btn-sm" onClick={eliminarPaciente} disabled={procesando} style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}}>
-            {procesando?'…':<><Ic name="papelera" size={12}/> Eliminar</>}
-          </button>
         </div>
       </div>
+
+      {/* MENU DE ACCIONES */}
+      {menuAcc && (
+        <>
+          <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuAcc(null)}/>
+          <div className="menu-flot" style={{left:menuAcc.x,top:menuAcc.y,minWidth:160}}>
+            <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalAlertas(true)}}><Ic name="alerta" size={14}/> Añadir alerta</button>
+            <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
+            {pac.estado==='activo' && <>
+              <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalPausa(true)}}><Ic name="pausa" size={14}/> Pausa temporal</button>
+              <button className="menu-it" onClick={()=>{setMenuAcc(null);darDeBaja()}} disabled={procesando}><Ic name="altabaja" size={14}/> Dar de baja</button>
+            </>}
+            {(pac.estado==='baja'||pac.estado==='pausa') && (
+              <button className="menu-it" onClick={()=>{setMenuAcc(null);reactivar()}} disabled={procesando}><Ic name="play" size={14}/> Reactivar</button>
+            )}
+            <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
+            <button className="menu-it" style={{color:'var(--red)'}} onClick={()=>{setMenuAcc(null);eliminarPaciente()}} disabled={procesando}>
+              <Ic name="papelera" size={14}/> Eliminar paciente
+            </button>
+          </div>
+        </>
+      )}
 
       {/* AVISO BAJA/PAUSA */}
       {pac.estado!=='activo' && (
@@ -575,7 +652,6 @@ export default function FichaPacientePage() {
         <FichaTab
           pac={pac}
           bono={bono}
-          citas={citas}
           recuperaciones={recuperaciones}
           editando={editando}
           form={form}
@@ -585,8 +661,8 @@ export default function FichaPacientePage() {
           mes={mes}
           anio={anio}
           alertas={alertas}
-          abrirAlertas={()=>setModalAlertas(true)}
           cerrarAlerta={cerrarAlerta} cambiarPago={cambiarPago}
+          tiposClase={tiposClase} cambiarTipoClase={cambiarTipoClase}
         />
       )}
 
@@ -595,7 +671,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='salud' && (
-        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest}/>
+        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest} abrirTest={abrirTest}/>
       )}
 
       {/* TAB ENTRENAMIENTO */}

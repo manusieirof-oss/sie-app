@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { generarHoras } from '@/lib/generarHoras'
 import { Ic } from '@/lib/icons'
-import { iconTipoClase } from '@/lib/tipos'
+import { iconTipoClase, TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
+import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import VistaDia from './components/VistaDia'
 import VistaSemana from './components/VistaSemana'
 import VistaMes from './components/VistaMes'
@@ -61,7 +62,7 @@ export default function AgendaPage() {
   const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
   const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
   const [tiposCita, setTiposCita] = useState<any[]>([{id:'clase',nombre:'Clase grupal',color:'#5A969E',duracion:50,cuenta_clase:true},{id:'individual',nombre:'Individual / Pareja',color:'#3E7179',duracion:50,cuenta_clase:false},{id:'valoracion',nombre:'Valoración inicial',color:'#C9A84C',duracion:60,cuenta_clase:false},{id:'revaloracion',nombre:'Revaloración',color:'#C9A84C',duracion:60,cuenta_clase:false}])
-  const [tiposClase, setTiposClase] = useState<any[]>([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento',color:'#5A969E',duracion:50},{valor:'pilates',icono:'',nombre:'Pilates',color:'#7EA98F',duracion:50},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación',color:'#C9A84C',duracion:50},{valor:'individual',icono:'',nombre:'Individual',color:'#6E7CA8',duracion:50},{valor:'embarazadas',icono:'',nombre:'Embarazadas',color:'#C486A0',duracion:50},{valor:'mayores',icono:'',nombre:'Mayores',color:'#C08457',duracion:50}])
+  const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [pausaInicio, setPausaInicio] = useState('12:30')
   const [pausaFin, setPausaFin] = useState('15:30')
   const [descanso, setDescanso] = useState(10)
@@ -90,7 +91,7 @@ export default function AgendaPage() {
       setMaxPersonas(parseInt(map.clinica_max_personas_sala || '6'))
       setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
       if (map.tipos_cita) setTiposCita(JSON.parse(map.tipos_cita))
-      if (map.tipos_clase) setTiposClase(JSON.parse(map.tipos_clase))
+      setTiposClase(parseTiposClase(map.tipos_clase))
       if (map.clinica_salas) { try { const s = JSON.parse(map.clinica_salas); if (Array.isArray(s) && s.length) setSalas(s) } catch {} }
       if (map.eventos_calendario) { try { const ev = JSON.parse(map.eventos_calendario); if (Array.isArray(ev)) setEventos(ev) } catch {} }
     }
@@ -98,7 +99,7 @@ export default function AgendaPage() {
   useEffect(() => { cargar() }, [fecha, vista])
 
   async function cargarPacientes() {
-    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,fecha_nacimiento').eq('estado','activo').order('nombre')
+    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,fecha_nacimiento,tipo_clase').eq('estado','activo').order('nombre')
     setPacientes(data||[])
   }
 
@@ -371,13 +372,17 @@ export default function AgendaPage() {
   }
 
   async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
-    await supabase.from('alertas_paciente').insert({paciente_id:pacienteId,tipo,afecta_sesion:afectaSesion,descripcion,activa:true})
+    const r = await abrirAlerta(pacienteId, tipo, afectaSesion, descripcion)
+    if (!r.ok) { alert('Error al crear la alerta: '+r.error); return }
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])
   }
 
   async function cerrarAlerta(alertaId:string) {
-    await supabase.from('alertas_paciente').update({activa:false,fecha_cierre:new Date().toISOString()}).eq('id',alertaId)
+    const a = alertasPaciente.find((x:any)=>x.id===alertaId)
+    if (!a) return
+    const r = await cerrarAlertaLib(a)
+    if (!r.ok) { alert('Error al cerrar la alerta: '+r.error); return }
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])
   }

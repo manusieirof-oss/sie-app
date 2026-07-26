@@ -2,11 +2,30 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 
-export default function FichaTab({ pac, bono, citas, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, abrirAlertas, cerrarAlerta, cambiarPago }: any) {
+const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
+const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
+const DOT_PAGO: Record<string,string> = { pagado:'var(--g)', pendiente:'var(--amb)', impago:'var(--red)' }
+
+const fmtDia = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+const fmtLargo = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})
+
+function haceCuanto(f:string) {
+  const meses = Math.floor((Date.now()-new Date(f+'T12:00:00').getTime())/(1000*60*60*24*30.44))
+  if (meses < 1) return 'este mes'
+  if (meses === 1) return 'hace 1 mes'
+  if (meses < 12) return `hace ${meses} meses`
+  const a = Math.floor(meses/12)
+  return a === 1 ? 'hace 1 año' : `hace ${a} años`
+}
+
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
-  const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
+  const [menuTipo, setMenuTipo] = useState<any>(null)
+  const [menuPago, setMenuPago] = useState<any>(null)
+  const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
 
   useEffect(() => {
     if (pac?.id) {
@@ -23,94 +42,102 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
     }
   }, [pac?.id])
 
+  const recPendientes = (recuperaciones||[]).filter((r:any)=>r.estado==='pendiente')
+  const recVence = recPendientes.map((r:any)=>r.fecha_limite).filter(Boolean).sort()[0]
+  const hayAtencion = (alertas?.length>0) || recPendientes.length>0 || bono?.estado_pago==='impago'
+  const objPide = valoracion?.objetivos || []
+  const hayObjetivos = objPide.length>0 || valoracion?.deseo || objetivosTrabajo.length>0
+  const anamLarga = (valoracion?.anamnesis||'').length > 260
+  // La valoración cargada es siempre la más reciente: puede ser la inicial o una revaloración.
+  const tipoVal = valoracion?.tipo==='revaloracion' ? 'Revaloración' : 'Valoración inicial'
 
   return (
-    <div className="g2">
-      <div>
-        {/* ALERTAS */}
-        <div className="card">
-          <div className="card-title"><span className="ct-l"><Ic name="alerta"/> Alertas activas</span> <button className="btn btn-p btn-sm" onClick={abrirAlertas}>+ Alerta</button></div>
-          {(!alertas||alertas.length===0) ? (
-            <div className="muted">Sin alertas activas</div>
-          ) : alertas.map((a:any)=>(
-            <div key={a.id} className={`tile ${a.afecta_sesion?'tile-r':''}`}>
+    <div className="panel">
+      {/* 1. LO QUE REQUIERE ATENCIÓN — no se pinta si el paciente está en orden */}
+      {hayAtencion && (
+        <div className="atencion">
+          <div className="at-h"><Ic name="alerta" size={16}/> Requiere atención</div>
+          {(alertas||[]).map((a:any)=>(
+            <div key={a.id} className="at-i">
               <div style={{flex:1}}>
-                <div className="tile-t">{TIPOS_AL[a.tipo]||a.tipo}{a.afecta_sesion&&<span style={{fontSize:9,color:'var(--red)',marginLeft:5}}>afecta sesión</span>}</div>
-                <div className="tile-s">{a.descripcion}</div>
-                {a.fecha_inicio&&<div className="tile-x">desde {a.fecha_inicio}</div>}
+                {TIPOS_AL[a.tipo]||a.tipo}
+                {a.afecta_sesion && <span style={{color:'var(--red)',fontSize:12,marginLeft:6}}>· afecta sesión</span>}
+                {a.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>{a.descripcion}</div>}
               </div>
-              <button onClick={()=>cerrarAlerta(a.id)} style={{fontSize:10,color:'var(--g)',background:'none',border:'1px solid var(--g)',borderRadius:6,padding:'3px 9px',cursor:'pointer',flexShrink:0}}>Cerrar</button>
+              <button onClick={()=>cerrarAlerta(a.id)} style={{fontSize:11,color:'var(--gd)',background:'none',border:'1px solid var(--g)',borderRadius:6,padding:'2px 9px',cursor:'pointer',flexShrink:0}}>Cerrar</button>
             </div>
           ))}
-        </div>
-
-        {/* DATOS PERSONALES */}
-        <div className="card">
-          <div className="card-title">Datos personales</div>
-          {editando ? (
-            <div className="g2">
-              {[['dni','DNI'],['telefono','Teléfono'],['email','Email']].map(([k,l])=>(
-                <div key={k} className="field"><label>{l}</label><input className="input" value={form[k]||''} onChange={e=>setForm((p:any)=>({...p,[k]:e.target.value}))}/></div>
-              ))}
-              <div className="field"><label>Altura (cm)</label><input className="input" type="number" value={form.altura_cm||''} onChange={e=>setForm((p:any)=>({...p,altura_cm:e.target.value}))}/></div>
-              <div className="field"><label>Peso (kg)</label><input className="input" type="number" value={form.peso_kg||''} onChange={e=>setForm((p:any)=>({...p,peso_kg:e.target.value}))}/></div>
-              <div className="field" style={{gridColumn:'1/-1'}}><label>Tipo de clase</label>
-                <select className="input" value={form.tipo_clase||''} onChange={e=>setForm((p:any)=>({...p,tipo_clase:e.target.value}))}>
-                  <option value="entrenamiento">Entrenamiento</option>
-                  <option value="pilates">Pilates</option>
-                  <option value="rehabilitacion">Rehabilitación</option>
-                  <option value="individual">Individual</option>
-                  <option value="embarazadas">Embarazadas</option>
-                </select>
-              </div>
-              <div className="field" style={{gridColumn:'1/-1'}}><label><span className="ct-l"><Ic name="pin" size={11}/> Notas</span> <span className="subt">· información del paciente</span></label><textarea className="input" value={form.notas_fijas||''} onChange={e=>setForm((p:any)=>({...p,notas_fijas:e.target.value}))} style={{minHeight:60}} placeholder="ej. Viene en silla de ruedas · Prefiere entrenar de pie"/></div>
-            </div>
-          ) : (
-            <div>
-              {[['DNI',pac.dni],['Teléfono',pac.telefono],['Email',pac.email],['Tipo clase',pac.tipo_clase],['Cómo nos conoció',pac.como_nos_conocio]].map(([l,v])=>v?(
-                <div key={l} style={{display:'flex',gap:8,marginBottom:6,fontSize:12}}>
-                  <span style={{color:'var(--grl)',minWidth:120}}>{l}</span>
-                  <span style={{fontWeight:500}}>{v}</span>
-                </div>
-              ):null)}
-              {pac.notas_fijas && <div style={{marginTop:8,padding:'9px 11px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:8,fontSize:11,color:'var(--n)',fontWeight:400,whiteSpace:'pre-line'}}><Ic name="pin" size={12} style={{verticalAlign:'-2px',marginRight:5}}/>{pac.notas_fijas}</div>}
+          {recPendientes.length>0 && (
+            <div className="at-i">
+              {recPendientes.length===1 ? '1 clase sin recuperar' : `${recPendientes.length} clases sin recuperar`}
+              {recVence && <span style={{color:'var(--gr)',fontSize:12,marginLeft:6}}>· la primera vence el {fmtDia(recVence)}</span>}
             </div>
           )}
+          {bono?.estado_pago==='impago' && (
+            <div className="at-i">Cuota de {mes}/{anio} marcada como impago</div>
+          )}
         </div>
+      )}
 
-        {/* VALORACIÓN — OBJETIVOS Y ANAMNESIS */}
-        {valoracion && (
-          <>
-            {(valoracion.objetivos?.length>0||valoracion.deseo) && (
-              <div className="card">
-                <div className="card-title"><span className="ct-l"><Ic name="objetivo"/> Objetivos del paciente <span className="subt">· lo que pide</span></span></div>
-                {(valoracion.objetivos||[]).map((o:string,i:number)=>(
-                  <div key={i} className="tile tile-g" style={{alignItems:'center',gap:8,fontSize:11}}>
-                    <div className="num">{i+1}</div>{o}
-                  </div>
-                ))}
-                {valoracion.deseo&&<div style={{marginTop:6,padding:'8px 10px',background:'var(--ambl)',borderRadius:8,border:'1px solid var(--amb)',fontSize:10,color:'#8A6410'}}><Ic name="estrella" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{valoracion.deseo}</div>}
+      {/* 2. NOTAS FIJAS — contexto que hay que saber antes de la sesión */}
+      {editando ? (
+        <div className="card">
+          <div className="field" style={{marginBottom:0}}>
+            <label><span className="ct-l"><Ic name="pin" size={11}/> Notas</span> <span className="subt">· información del paciente</span></label>
+            <textarea className="input" value={form.notas_fijas||''} onChange={e=>setForm((p:any)=>({...p,notas_fijas:e.target.value}))} style={{minHeight:60}} placeholder="ej. Viene en silla de ruedas · Prefiere entrenar de pie"/>
+          </div>
+        </div>
+      ) : pac.notas_fijas ? (
+        <div className="nota-fija">
+          <span style={{display:'inline-flex',color:'var(--g)',flexShrink:0,marginTop:1}}><Ic name="pin" size={14}/></span>
+          {pac.notas_fijas}
+        </div>
+      ) : null}
+
+      {/* 3. OBJETIVOS — el bloque principal, a ancho completo */}
+      {hayObjetivos && (
+        <div className="sec">
+          <div className="sec-h">
+            <span className="ct-l"><Ic name="objetivo" size={13}/> Objetivos</span>
+          </div>
+          <div className="g2">
+            <div>
+              <div className="sec-sub">
+                Lo que pide
+                {valoracion?.fecha && <> · {tipoVal.toLowerCase()} del {fmtLargo(valoracion.fecha)}, {haceCuanto(valoracion.fecha)}</>}
               </div>
-            )}
-            {objetivosTrabajo.length>0 && (
-              <div className="card">
-                <div className="card-title"><span className="ct-l"><Ic name="progreso"/> Objetivos de trabajo <span className="subt">· lo que prescribimos</span></span></div>
-                {objetivosTrabajo.map((o:any)=>{
-                  const vias = Array.isArray(o.vias)?o.vias:[]
-                  const pendientes = vias.filter((v:any)=>!v.resuelto).length
-                  return (
-                  <div key={o.id} style={{padding:'9px 11px',borderRadius:8,marginBottom:6,background:o.logrado?'var(--gl)':'var(--bl)',borderLeft:`3px solid ${o.logrado?'var(--g)':(o.color||'var(--g)')}`,opacity:o.logrado?.85:1}}>
+              {objPide.length===0 && !valoracion?.deseo && <div className="muted">Sin objetivos recogidos</div>}
+              {objPide.map((o:string,i:number)=>(
+                <div key={i} style={{fontSize:13,color:'var(--n)',lineHeight:1.9,display:'flex',gap:8}}>
+                  <span style={{color:'var(--gr)',flexShrink:0}}>{i+1}.</span>{o}
+                </div>
+              ))}
+              {valoracion?.deseo && (
+                <div style={{marginTop:9,padding:'8px 10px',background:'var(--ambl)',fontSize:12,color:'#7A5800',display:'flex',gap:6,alignItems:'flex-start'}}>
+                  <span style={{display:'inline-flex',flexShrink:0,marginTop:1}}><Ic name="estrella" size={12}/></span>{valoracion.deseo}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="sec-sub">Lo que prescribimos · de tests y ejercicios</div>
+              {objetivosTrabajo.length===0 && <div className="muted">Sin objetivos de trabajo</div>}
+              {objetivosTrabajo.map((o:any)=>{
+                const vias = Array.isArray(o.vias)?o.vias:[]
+                const pendientes = vias.filter((v:any)=>!v.resuelto).length
+                return (
+                  <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
                     <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:11,fontWeight:500,color:'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
-                        {o.descripcion&&<div style={{fontSize:10,color:'var(--grl)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
+                        <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
+                        {o.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
                       </div>
                       {o.logrado
-                        ? <span className="pill pill-g" style={{flexShrink:0}}>✓ Logrado</span>
-                        : (vias.length>0 && <span className="pill pill-soft" style={{flexShrink:0}}>{pendientes}/{vias.length}</span>)
+                        ? <span style={{fontSize:12,color:'var(--gd)',flexShrink:0,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="check" size={12}/>Logrado</span>
+                        : (vias.length>0 && <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>{pendientes} de {vias.length}</span>)
                       }
                     </div>
-                    {vias.length>0 && (
+                    {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
+                    {!o.logrado && vias.length>0 && (
                       <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
                         {vias.map((v:any,vi:number)=>(
                           <span key={vi} title={v.resuelto?('Resuelto '+(v.fecha_resuelto||'')):'Pendiente'}
@@ -120,90 +147,130 @@ export default function FichaTab({ pac, bono, citas, recuperaciones, editando, f
                         ))}
                       </div>
                     )}
-                    {vias.length===0 && o.origen==='test' && <span className="pill" style={{background:'var(--gl)',color:'var(--gd)'}}><Ic name="buscar" size={10} style={{verticalAlign:'-1px',marginRight:3}}/>test</span>}
                   </div>
-                )})}
-              </div>
-            )}
-
-            {valoracion.anamnesis && (
-              <div className="card">
-                <div className="card-title"><span className="ct-l"><Ic name="anamnesis"/> Anamnesis</span></div>
-                <div style={{fontSize:11,color:'var(--n)',lineHeight:1.6,whiteSpace:'pre-line'}}>{valoracion.anamnesis}</div>
-                {valoracion.trabajo&&<div style={{marginTop:6,fontSize:10,color:'var(--grl)',display:'flex',alignItems:'center',gap:5}}><Ic name="trabajo" size={12}/> {valoracion.trabajo}{valoracion.tipo_jornada&&' · '+valoracion.tipo_jornada}</div>}
-                {valoracion.hace_deporte&&valoracion.deportes?.length>0&&<div style={{marginTop:3,fontSize:10,color:'var(--grl)',display:'flex',alignItems:'center',gap:5}}><Ic name="deporte" size={12}/> Deportes: {valoracion.deportes.join(', ')}</div>}
-              </div>
-            )}
-            {valoracion.notas_plan && (
-              <div className="card">
-                <div className="card-title"><span className="ct-l"><Ic name="nota"/> Notas del plan</span></div>
-                <div style={{fontSize:11,color:'var(--n)',lineHeight:1.6,whiteSpace:'pre-line'}}>{valoracion.notas_plan}</div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* CLASES A RECUPERAR */}
-        {recuperaciones.filter((r:any)=>r.estado==='pendiente').length>0 && (
-          <div className="card">
-            <div className="card-title"><span className="ct-l"><Ic name="recuperar"/> Clases a recuperar</span></div>
-            {recuperaciones.filter((r:any)=>r.estado==='pendiente').map((r:any)=>{
-              const tieneCita = !!r.cita_recuperacion_id
-              return (
-                <div key={r.id} className={`tile ${tieneCita?'tile-g':'tile-a'}`} style={{alignItems:'center'}}>
-                  <div style={{flex:1}}>
-                    <div className="tile-t" style={{fontWeight:400}}>Falta del {new Date(r.fecha_falta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
-                    <div className="tile-x">Vence el {new Date(r.fecha_limite+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
-                  </div>
-                  <span className={`pill ${tieneCita?'pill-g':'pill-a'}`}>
-                    {tieneCita?<><Ic name="calendario" size={10} style={{verticalAlign:'-1px',marginRight:3}}/>Programada</>:'Pendiente'}
-                  </span>
-                </div>
-              )
-            })}
-            {recuperaciones.filter((r:any)=>r.estado==='recuperada').length>0&&(
-              <div style={{fontSize:10,color:'var(--grl)',marginTop:5}}>✓ {recuperaciones.filter((r:any)=>r.estado==='recuperada').length} clases recuperadas</div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div>
-        {/* BONO ACTIVO */}
-        <div className="card">
-          <div className="card-title">Bono activo <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bono?'Cambiar':'+ Asignar'}</button></div>
-          {bono ? (
-            <div style={{background:'var(--bl)',border:'1px solid var(--bm)',borderRadius:8,padding:'11px 13px'}}>
-              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:3}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
-              <div style={{fontSize:10,color:'var(--grl)',marginBottom:9}}>Mes {mes}/{anio}</div>
-              {bono.descuento_tipo && bono.descuento_valor > 0 && (
-                <div style={{fontSize:10,color:'#8A6410',background:'var(--ambl)',borderRadius:6,padding:'4px 8px',marginBottom:9,display:'inline-flex',alignItems:'center',gap:5}}>
-                  <Ic name="etiqueta" size={11}/> Descuento {bono.descuento_tipo==='porcentaje'?`${bono.descuento_valor}%`:`${bono.descuento_valor}€`}{bono.descuento_motivo?` · ${bono.descuento_motivo}`:''}
-                </div>
-              )}
-              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                {[['pagado','✓ Pagado','btn-p'],['pendiente','Pendiente','btn-amb'],['impago','Impago','btn-d']].map(([v,l,cls])=>(
-                  <button key={v} className={`btn btn-sm ${bono.estado_pago===v?cls:'btn-t'}`} onClick={()=>cambiarPago(v)}>
-                    {l}
-                  </button>
-                ))}
-              </div>
+                )
+              })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. BONO Y TIPO DE CLASE — cada cosa en su columna */}
+      <div className="g2">
+        <div className="sec">
+          <div className="sec-h"><span className="ct-l"><Ic name="finanzas" size={13}/> Bono y cuota</span></div>
+          {bono ? (
+            <>
+              <div style={{fontSize:14,color:'var(--n)'}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
+              <div style={{fontSize:12,color:'var(--gr)',marginTop:2}}>
+                Mes {mes}/{anio}
+                {bono.descuento_tipo && bono.descuento_valor > 0 && (
+                  <> · descuento {bono.descuento_tipo==='porcentaje'?`${bono.descuento_valor}%`:`${bono.descuento_valor}€`}{bono.descuento_motivo?` (${bono.descuento_motivo})`:''}</>
+                )}
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,flexWrap:'wrap'}}>
+                <button className={`chip-ed ${bono.estado_pago==='impago'?'chip-ed-r':bono.estado_pago==='pendiente'?'chip-ed-a':''}`} title="Cambiar el estado de pago"
+                  onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ x:r.left, y:r.bottom+4 })}}>
+                  {LBL_PAGO[bono.estado_pago]||'—'} <Ic name="abajo" size={12}/>
+                </button>
+                <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>Cambiar bono</button>
+              </div>
+            </>
           ) : (
-            <div className="muted">Sin bono activo</div>
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <span className="muted">Sin bono activo</span>
+              <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>+ Asignar bono</button>
+            </div>
           )}
         </div>
 
-        {/* PREFERENCIAS HORARIO */}
-        {valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
-          <div className="card">
-            <div className="card-title"><span className="ct-l"><Ic name="reloj"/> Preferencias de horario</span></div>
-            {valoracion.dias_asistencia&&<div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:6}}>{valoracion.dias_asistencia.split(',').filter(Boolean).map((d:string)=><span key={d} className="pill pill-g">{d}</span>)}</div>}
-            {valoracion.franja&&<div style={{fontSize:11,color:'var(--grl)'}}>Franja: {valoracion.franja==='manana'?'Mañanas':valoracion.franja==='tarde'?'Tardes':valoracion.franja==='noche'?'Noches':'Flexible'}</div>}
+        <div className="sec">
+          <div className="sec-h"><span className="ct-l"><Ic name="etiqueta" size={13}/> Tipo de clase</span></div>
+          <button className="chip-ed" title="Cambiar el tipo de clase"
+            onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuTipo({ x:r.left, y:r.bottom+4 })}}>
+            <Ic name={iconTipoClase(pac.tipo_clase, tiposClase.find((t:any)=>t.valor===pac.tipo_clase)?.icono)} size={12}/>
+            {pac.tipo_clase ? nombreTipoClase(tiposClase, pac.tipo_clase) : 'Sin asignar'}
+            <Ic name="abajo" size={12}/>
+          </button>
+          <div style={{fontSize:12,color:'var(--gr)',marginTop:8,lineHeight:1.5}}>
+            Se usa como tipo por defecto al darle cita nueva desde la agenda.
           </div>
-        )}
-
+        </div>
       </div>
+
+      {/* 5. ANAMNESIS */}
+      {valoracion?.anamnesis && (
+        <div className="sec">
+          <div className="sec-h">
+            <span className="ct-l"><Ic name="anamnesis" size={13}/> Anamnesis</span>
+            {valoracion.fecha && <span className="sh-r">{tipoVal} del {fmtLargo(valoracion.fecha)} · {haceCuanto(valoracion.fecha)}</span>}
+          </div>
+          <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>
+            {anamLarga && !anamnesisAbierta ? valoracion.anamnesis.slice(0,260).trimEnd()+'…' : valoracion.anamnesis}
+          </div>
+          {anamLarga && (
+            <button onClick={()=>setAnamnesisAbierta(v=>!v)} style={{fontSize:12,color:'var(--gd)',background:'none',border:'none',padding:'6px 0 0',cursor:'pointer',fontFamily:'inherit'}}>
+              {anamnesisAbierta?'Ver menos':'Ver más'}
+            </button>
+          )}
+          <div style={{fontSize:12,color:'var(--gr)',marginTop:9,display:'flex',gap:18,flexWrap:'wrap'}}>
+            {valoracion.trabajo && <span className="ct-l"><Ic name="trabajo" size={12}/> {valoracion.trabajo}{valoracion.tipo_jornada?' · '+valoracion.tipo_jornada:''}</span>}
+            {valoracion.hace_deporte && valoracion.deportes?.length>0 && <span className="ct-l"><Ic name="deporte" size={12}/> {valoracion.deportes.join(', ')}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* 6. NOTAS DEL PLAN */}
+      {valoracion?.notas_plan && (
+        <div className="sec">
+          <div className="sec-h"><span className="ct-l"><Ic name="nota" size={13}/> Notas del plan</span></div>
+          <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>{valoracion.notas_plan}</div>
+        </div>
+      )}
+
+      {/* 7. PREFERENCIAS DE HORARIO */}
+      {valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
+        <div className="sec">
+          <div className="sec-h"><span className="ct-l"><Ic name="reloj" size={13}/> Preferencias de horario</span></div>
+          {valoracion.dias_asistencia && (
+            <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:7}}>
+              {valoracion.dias_asistencia.split(',').filter(Boolean).map((d:string)=><span key={d} className="pill pill-g">{d}</span>)}
+            </div>
+          )}
+          {valoracion.franja && <div style={{fontSize:12,color:'var(--gr)'}}>Franja: {valoracion.franja==='manana'?'Mañanas':valoracion.franja==='tarde'?'Tardes':valoracion.franja==='noche'?'Noches':'Flexible'}</div>}
+        </div>
+      )}
+
+      {/* MENÚ TIPO DE CLASE */}
+      {menuTipo && (
+        <>
+          <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuTipo(null)}/>
+          <div className="menu-flot" style={{left:menuTipo.x,top:menuTipo.y}}>
+            {tiposClase.map((t:any)=>(
+              <button key={t.valor} className="menu-it" onClick={()=>{setMenuTipo(null);cambiarTipoClase?.(t.valor)}}>
+                <Ic name={iconTipoClase(t.valor,t.icono)} size={14}/>{t.nombre}
+                {pac.tipo_clase===t.valor && <span style={{marginLeft:'auto',color:'var(--g)',display:'inline-flex'}}><Ic name="check" size={13}/></span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* MENÚ ESTADO DE PAGO */}
+      {menuPago && (
+        <>
+          <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuPago(null)}/>
+          <div className="menu-flot" style={{left:menuPago.x,top:menuPago.y}}>
+            {['pagado','pendiente','impago'].map(v=>(
+              <button key={v} className="menu-it" onClick={()=>{setMenuPago(null);cambiarPago(v)}}>
+                <span style={{width:7,height:7,borderRadius:'50%',background:DOT_PAGO[v],flexShrink:0}}/>
+                {LBL_PAGO[v]}
+                {bono?.estado_pago===v && <span style={{marginLeft:'auto',color:'var(--g)',display:'inline-flex'}}><Ic name="check" size={13}/></span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

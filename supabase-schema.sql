@@ -44,7 +44,10 @@ create table if not exists citas (
   fecha date not null,
   hora time not null,
   sala text not null check (sala in ('A','B')),
-  tipo text default 'clase' check (tipo in ('clase','individual','valoracion','revaloracion')),
+  -- OJO: sin check. Los valores salen de ajustes.tipos_clase (configurable desde Ajustes:
+  -- entrenamiento, pilates, rehabilitacion, individual, embarazadas...). Un check fijo aquí
+  -- rompería en cuanto se cree un tipo nuevo. La lista válida manda desde la app.
+  tipo text default 'entrenamiento',
   duracion_min int default 50,
   estado text default 'programada' check (estado in ('programada','realizada','cancelada','falta')),
   notas text,
@@ -97,6 +100,14 @@ create table if not exists resultados_tests (
   resultado text check (resultado in ('positivo','negativo','sin_realizar')),
   observaciones text,
   fecha_repeticion date
+);
+
+-- AJUSTES (clave/valor). Guarda listas configurables serializadas en JSON:
+-- tipos_clase, tipos_jornada, tipos_plantilla, deportes_lista, ultima_renovacion...
+create table if not exists ajustes (
+  clave text primary key,
+  valor text,
+  updated_at timestamptz default now()
 );
 
 -- VALORACIONES

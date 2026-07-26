@@ -5,6 +5,7 @@ import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
 import { Ic } from '@/lib/icons'
+import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh, onNuevaSesion }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void, onNuevaSesion: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -16,7 +17,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [guardando, setGuardando] = useState(false)
   const [verSesion, setVerSesion] = useState<any>(null)
   const [editandoCita, setEditandoCita] = useState<any>(null)
-  const [tiposClase, setTiposClase] = useState<any[]>([])
+  const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [horas, setHoras] = useState<string[]>([])
   const [sesionEditando, setSesionEditando] = useState<any>(null)
   const [ejerciciosBib, setEjerciciosBib] = useState<any[]>([])
@@ -35,7 +36,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     supabase.from('ejercicios').select('*').order('nombre').then(({data})=>setEjerciciosBib(data||[]))
     supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
-    if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); if(map.tipos_clase){try{setTiposClase(JSON.parse(map.tipos_clase))}catch{}} if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
+    if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(30)
     setSesionesHistorial(hist||[])
   }

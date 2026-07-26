@@ -9,10 +9,16 @@ import {
   Lightbulb, Trophy, Bell, Mail, Phone, Home, Trash2, Pencil, Eye, Lock, Package,
   Receipt, Banknote, Folder, Euro, Percent, Building2, GraduationCap, Info, Zap,
   Flag, MapPin, Camera, Image as ImageIcon, Download, Upload, Play, ListChecks,
-  CalendarDays, Droplet, Utensils, Cross, Pause, Shuffle, UserMinus,
+  CalendarDays, Droplet, Utensils, Cross, Pause, Shuffle, UserMinus, ChevronDown,
+  MoreHorizontal, ArrowLeft, IdCard, PersonStanding,
 } from 'lucide-react'
 
 const MAP: Record<string, any> = {
+  abajo: ChevronDown,
+  acciones: MoreHorizontal,
+  cuerpo: PersonStanding,
+  atras: ArrowLeft,
+  dni: IdCard,
   alerta: AlertTriangle,
   intolerancia: AlertCircle,
   objetivo: Target,

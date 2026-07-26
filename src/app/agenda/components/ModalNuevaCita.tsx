@@ -52,7 +52,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
               {busquedaPac && (
                 <div style={{border:'1px solid var(--bd)',borderRadius:6,maxHeight:200,overflowY:'auto',marginTop:4}}>
                   {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())).slice(0,30).map((p:any)=>(
-                    <div key={p.id} onClick={()=>{setNuevaCita((prev:any)=>({...prev,paciente_id:p.id,es_recuperacion:false,recuperacion_id:''}));cargarRecuperaciones(p.id);setBusquedaPac('')}} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                    <div key={p.id} onClick={()=>{setNuevaCita((prev:any)=>({...prev,paciente_id:p.id,es_recuperacion:false,recuperacion_id:'',...(p.tipo_clase&&tiposClase.some((t:any)=>t.valor===p.tipo_clase)?{tipo:p.tipo_clase}:{})}));cargarRecuperaciones(p.id);setBusquedaPac('')}} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
                       {p.nombre} {p.apellidos}{p.nombre_clinica?<span style={{color:'var(--grl)',fontSize:9}}> · {p.nombre_clinica}</span>:null}
                     </div>
                   ))}

@@ -30,7 +30,7 @@ export default function StatsPage() {
   async function cargar() {
     setLoading(true)
     const [{ data: p },{ data: c },{ data: r },{ data: m },{ data: pat },{ data: t },{ data: o },{ data: po },{ data: s }] = await Promise.all([
-      supabase.from('pacientes').select('id,estado,tipo_clase,fecha_nacimiento,created_at').order('created_at'),
+      supabase.from('pacientes').select('id,estado,tipo_clase,fecha_nacimiento,created_at,como_nos_conocio').order('created_at'),
       supabase.from('citas').select('id,fecha,hora,estado,tipo,paciente_id,pacientes(nombre,apellidos)').order('fecha',{ascending:false}).limit(3000),
       supabase.from('recuperaciones').select('*').order('created_at',{ascending:false}),
       supabase.from('molestias').select('zona,activa,eva').eq('activa',true),
@@ -151,6 +151,21 @@ export default function StatsPage() {
   })
   const CLASE_LABEL: Record<string,string> = {entrenamiento:'Entrenamiento',pilates:'Pilates',rehabilitacion:'Rehabilitación',sin_definir:'Sin definir'}
   const dataClases = Object.entries(claseMap).sort(([,a],[,b])=>b-a).map(([t,n])=>({ clase:CLASE_LABEL[t]||t, n }))
+
+  // Cómo nos conocen. Se guarda como texto legible, así que se agrupa por el valor tal cual.
+  // Los que no lo tienen registrado se cuentan aparte: saber cuánto no capturas también informa.
+  const captMap: Record<string,number> = {}
+  let captSin = 0
+  pacientes.forEach(p=>{
+    const v = (p.como_nos_conocio||'').trim()
+    if (!v) { captSin++; return }
+    captMap[v] = (captMap[v]||0)+1
+  })
+  const captConDato = Object.values(captMap).reduce((a,b)=>a+b,0)
+  const dataCaptacion = [
+    ...Object.entries(captMap).sort(([,a],[,b])=>b-a).map(([via,n])=>({ via, n, sin:false })),
+    ...(captSin>0 ? [{ via:'Sin registrar', n:captSin, sin:true }] : []),
+  ]
 
   // Patologías más frecuentes (top 8)
   const patMap: Record<string,number> = {}
@@ -402,6 +417,26 @@ export default function StatsPage() {
                   <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}}/>
                   <Area type="monotone" dataKey="Altas" stroke={PAL.gd} strokeWidth={2.5} fill="url(#gAl)"/>
                 </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="card" style={{marginBottom:14}}>
+            <div className="card-title">
+              Cómo nos conocen
+              {captConDato>0 && <span className="subt">{captConDato} de {totalPac} con el dato registrado</span>}
+            </div>
+            {dataCaptacion.length===0 ? <div style={{fontSize:10,color:'var(--grl)'}}>Sin datos registrados</div> : (
+              <ResponsiveContainer width="100%" height={Math.max(120,dataCaptacion.length*40)}>
+                <BarChart data={dataCaptacion} layout="vertical" margin={{top:0,right:24,left:10,bottom:0}}>
+                  <XAxis type="number" hide allowDecimals={false}/>
+                  <YAxis type="category" dataKey="via" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false} width={130}/>
+                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}} cursor={{fill:'#F7F7F7'}}
+                    formatter={(v:any)=>[`${v} paciente${v===1?'':'s'}`,'']}/>
+                  <Bar dataKey="n" radius={[0,6,6,0]} barSize={20}>
+                    {dataCaptacion.map((d,i)=><Cell key={i} fill={d.sin?GREY:PAL.gd}/>)}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             )}
           </div>

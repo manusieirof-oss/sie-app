@@ -12,7 +12,6 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
 }) {
   const [form, setForm] = useState({
     tipo: bonoActual?.tipo || (bonosOpts[0]?.id || ''),
-    estado_pago: bonoActual?.estado_pago || 'pendiente',
     descuento_tipo: bonoActual?.descuento_tipo || '',
     descuento_valor: bonoActual?.descuento_valor ? String(bonoActual.descuento_valor) : '',
     descuento_motivo: bonoActual?.descuento_motivo || '',
@@ -30,11 +29,14 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     const diasSemana = bonosOpts.find(b=>b.id===form.tipo)?.dias_semana || 1
     const descTipo = form.descuento_tipo || null
     const descValor = descTipo ? (parseFloat(form.descuento_valor) || 0) : 0
+    // El estado de pago no se toca desde aquí (se cambia en la columna Cuota).
+    // Al sustituir un bono se arrastra el estado del anterior; uno nuevo nace pendiente.
+    const estadoPago = bonoActual?.estado_pago || 'pendiente'
 
     if (bonoActual) await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
     await supabase.from('bonos').insert({
       paciente_id: pacienteId, tipo: form.tipo, dias_semana: diasSemana,
-      estado_pago: form.estado_pago, mes, anio,
+      estado_pago: estadoPago, mes, anio,
       fecha_inicio: new Date().toISOString().split('T')[0], activo: true,
       descuento_tipo: descTipo, descuento_valor: descValor,
       descuento_motivo: descTipo ? (form.descuento_motivo || null) : null,
@@ -43,7 +45,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     await supabase.from('eventos_paciente').insert({
       paciente_id: pacienteId, tipo: 'cambio_bono',
       titulo: `Bono asignado: ${LBL_BONO[form.tipo]||form.tipo}`,
-      descripcion: `Estado de pago: ${LBL_PAGO[form.estado_pago]||form.estado_pago}${txtDesc}`,
+      descripcion: `Estado de pago: ${LBL_PAGO[estadoPago]||estadoPago} (se mantiene)${txtDesc}`,
       fecha: new Date().toISOString().split('T')[0],
     })
 
@@ -62,14 +64,6 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
             {bonosOpts.map(b=>(
               <option key={b.id} value={b.id}>{b.nombre}{b.descripcion?` · ${b.descripcion}`:''}</option>
             ))}
-          </select>
-        </div>
-
-        <div className="field"><label>Estado de pago</label>
-          <select className="input" value={form.estado_pago} onChange={e=>setForm(p=>({...p,estado_pago:e.target.value}))}>
-            <option value="pendiente">Pendiente</option>
-            <option value="pagado">Pagado</option>
-            <option value="impago">Impago</option>
           </select>
         </div>
 

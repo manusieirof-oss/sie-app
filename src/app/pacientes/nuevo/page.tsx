@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
+import { Ic } from '@/lib/icons'
+import { cargarTiposClase, cargarViasCaptacion, iconTipoClase, TIPOS_CLASE_FALLBACK, VIAS_CAPTACION_FALLBACK } from '@/lib/tipos'
 
 export default function NuevoPacientePage() {
   
@@ -10,9 +12,11 @@ export default function NuevoPacientePage() {
   const [form, setForm] = useState({
     nombre: '', apellidos: '', dni: '', fecha_nacimiento: '',
     telefono: '', email: '', altura_cm: '', peso_kg: '',
-    como_nos_conocio: 'Recomendación', tipo_clase: 'entrenamiento', notas: ''
+    como_nos_conocio: '', tipo_clase: 'entrenamiento', notas: ''
   })
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
+  const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
+  const [viasCaptacion, setViasCaptacion] = useState<string[]>(VIAS_CAPTACION_FALLBACK)
   const [bono, setBono] = useState({ tipo: '', estado_pago: 'pendiente' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -22,6 +26,12 @@ export default function NuevoPacientePage() {
       setBonosOpts(data)
       if (data.length) setBono(b => ({ ...b, tipo: data[0].id }))
     })
+    // Las dos listas mandan desde Ajustes; aquí no se escriben a mano.
+    cargarTiposClase().then(t => {
+      setTiposClase(t)
+      if (t.length) setForm(f => (f.tipo_clase ? f : { ...f, tipo_clase: t[0].valor }))
+    })
+    cargarViasCaptacion().then(setViasCaptacion)
   }, [])
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
@@ -79,7 +89,8 @@ export default function NuevoPacientePage() {
                 </div>
                 <div className="field"><label>¿Cómo nos conoció?</label>
                   <select value={form.como_nos_conocio} onChange={e => set('como_nos_conocio', e.target.value)}>
-                    <option>Recomendación</option><option>Redes sociales</option><option>Google</option><option>Pasó por la clínica</option><option>Médico</option><option>Otro</option>
+                    <option value="">Sin especificar</option>
+                    {viasCaptacion.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
                 <div className="field"><label>Notas iniciales</label><textarea value={form.notas} onChange={e => set('notas', e.target.value)} rows={2} placeholder="Observaciones..." /></div>
@@ -88,12 +99,12 @@ export default function NuevoPacientePage() {
             <div>
               <div className="card" style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--grl)', letterSpacing: '.7px', textTransform: 'uppercase', marginBottom: 12 }}>Tipo de clase</div>
-                {[['entrenamiento','Entrenamiento','Fuerza, funcional'],['pilates','Pilates','Control motor'],['rehabilitacion','Rehabilitación','Recuperación']].map(([v,l,d]) => (
-                  <div key={v} onClick={() => set('tipo_clase', v)}
-                    style={{ border: `1.5px solid ${form.tipo_clase === v ? 'var(--g)' : 'var(--bd)'}`, background: form.tipo_clase === v ? 'var(--gl)' : 'var(--w)', borderRadius: 7, padding: '9px 12px', cursor: 'pointer', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>{l.split(' ')[0]}</span>
-                    <div><div style={{ fontSize: 11, fontWeight: 400, color: 'var(--n)' }}>{l.split(' ').slice(1).join(' ')}</div><div style={{ fontSize: 9, color: 'var(--grl)' }}>{d}</div></div>
-                    {form.tipo_clase === v && <div style={{ marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', background: 'var(--g)', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</div>}
+                {tiposClase.map((t: any) => (
+                  <div key={t.valor} onClick={() => set('tipo_clase', t.valor)}
+                    style={{ border: `1.5px solid ${form.tipo_clase === t.valor ? 'var(--g)' : 'var(--bd)'}`, background: form.tipo_clase === t.valor ? 'var(--gl)' : 'var(--w)', borderRadius: 7, padding: '9px 12px', cursor: 'pointer', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ display: 'inline-flex', color: t.color || 'var(--g)' }}><Ic name={iconTipoClase(t.valor, t.icono)} size={17}/></span>
+                    <div><div style={{ fontSize: 12, fontWeight: 400, color: 'var(--n)' }}>{t.nombre}</div>{t.duracion ? <div style={{ fontSize: 11, color: 'var(--gr)' }}>{t.duracion} min</div> : null}</div>
+                    {form.tipo_clase === t.valor && <div style={{ marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%', background: 'var(--g)', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</div>}
                   </div>
                 ))}
               </div>

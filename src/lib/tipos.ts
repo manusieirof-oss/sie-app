@@ -3,6 +3,69 @@
 // aquí solo mapeamos el icono por 'valor' y damos fallbacks.
 
 import { isIcon } from './icons'
+import { supabase } from './supabase'
+
+export type TipoClase = {
+  valor: string
+  nombre: string
+  icono?: string
+  color: string
+  duracion: number
+}
+
+// FUENTE ÚNICA DE VERDAD del fallback. Antes cada pantalla tenía su propia lista
+// hardcodeada y no coincidían (unas con 'mayores', otras no; Pilates de dos colores
+// distintos). Si tocas esto, lo tocas para toda la app.
+// Manda siempre ajustes.tipos_clase: esto solo se usa si esa fila no existe o falla.
+export const TIPOS_CLASE_FALLBACK: TipoClase[] = [
+  { valor:'entrenamiento',  nombre:'Entrenamiento',  icono:'', color:'#5A969E', duracion:50 },
+  { valor:'pilates',        nombre:'Pilates',        icono:'', color:'#7EA98F', duracion:50 },
+  { valor:'rehabilitacion', nombre:'Rehabilitación', icono:'', color:'#C9A84C', duracion:50 },
+  { valor:'individual',     nombre:'Individual',     icono:'', color:'#6E7CA8', duracion:50 },
+  { valor:'embarazadas',    nombre:'Embarazadas',    icono:'', color:'#C486A0', duracion:50 },
+  { valor:'mayores',        nombre:'Mayores',        icono:'', color:'#C08457', duracion:50 },
+]
+
+// Parsea el valor crudo de ajustes.tipos_clase, cayendo al fallback si viene vacío o roto.
+export function parseTiposClase(valor?: string | null): TipoClase[] {
+  if (!valor) return TIPOS_CLASE_FALLBACK
+  try {
+    const p = JSON.parse(valor)
+    return Array.isArray(p) && p.length > 0 ? p : TIPOS_CLASE_FALLBACK
+  } catch {
+    return TIPOS_CLASE_FALLBACK
+  }
+}
+
+// Carga los tipos de clase para pantallas que no leen la tabla ajustes entera.
+export async function cargarTiposClase(): Promise<TipoClase[]> {
+  const { data } = await supabase.from('ajustes').select('valor').eq('clave','tipos_clase').maybeSingle()
+  return parseTiposClase(data?.valor)
+}
+
+// ---- VÍAS DE CAPTACIÓN (cómo nos conoció) --------------------------------
+// OJO: este campo guarda el TEXTO, no un código. Si dos pantallas ofrecen
+// cadenas distintas para la misma vía, en Estadísticas salen como barras
+// separadas. Por eso la lista vive aquí y nadie la escribe a mano.
+export const VIAS_CAPTACION_FALLBACK: string[] = [
+  'Recomendación de un conocido', 'Instagram', 'Google', 'Facebook', 'Pasó por aquí', 'Otro',
+]
+
+// Parser genérico para las listas de Ajustes que son un array de textos.
+export function parseListaSimple(valor: string | null | undefined, fallback: string[]): string[] {
+  if (!valor) return fallback
+  try {
+    const p = JSON.parse(valor)
+    return Array.isArray(p) && p.length > 0 ? p : fallback
+  } catch {
+    return fallback
+  }
+}
+
+export async function cargarViasCaptacion(): Promise<string[]> {
+  const { data } = await supabase.from('ajustes').select('valor').eq('clave','como_nos_conocio').maybeSingle()
+  return parseListaSimple(data?.valor, VIAS_CAPTACION_FALLBACK)
+}
 
 export const ICON_TIPO_CLASE: Record<string, string> = {
   entrenamiento: 'rayo',

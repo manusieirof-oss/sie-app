@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import PasoPaciente from './components/PasoPaciente'
@@ -22,11 +23,11 @@ export default function ValoracionPage() {
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
   const [testsValoracion, setTestsValoracion] = useState<any[]>([])
   const [testActivo, setTestActivo] = useState<number|null>(null)
-  const [comoNosConocioOpts, setComoNosConocioOpts] = useState<string[]>(['Recomendación de un conocido','Instagram','Google','Facebook','Pasó por aquí','Otro'])
+  const [comoNosConocioOpts, setComoNosConocioOpts] = useState<string[]>(VIAS_CAPTACION_FALLBACK)
   const [tiposJornada, setTiposJornada] = useState<string[]>(['Sentado','Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
   const [deportesOpts, setDeportesOpts] = useState<string[]>(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
-  const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>([{valor:'entrenamiento',icono:'',nombre:'Entrenamiento',color:'#5A969E'},{valor:'pilates',icono:'',nombre:'Pilates',color:'#7EA98F'},{valor:'rehabilitacion',icono:'',nombre:'Rehabilitación',color:'#C9A84C'},{valor:'individual',icono:'',nombre:'Individual',color:'#6E7CA8'},{valor:'embarazadas',icono:'',nombre:'Embarazadas',color:'#C486A0'},{valor:'mayores',icono:'',nombre:'Mayores',color:'#C08457'}])
+  const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [bonosOpts, setBonosOpts] = useState<any[]>([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
@@ -67,9 +68,9 @@ export default function ValoracionPage() {
       if(data){
         const map: Record<string,string> = {}
         data.forEach((a:any)=>{map[a.clave]=a.valor||''})
-        if(map.como_nos_conocio) setComoNosConocioOpts(JSON.parse(map.como_nos_conocio))
+        setComoNosConocioOpts(parseListaSimple(map.como_nos_conocio, VIAS_CAPTACION_FALLBACK))
         if(map.tipos_jornada) setTiposJornada(JSON.parse(map.tipos_jornada))
-        if(map.tipos_clase) setTiposClaseOpts(JSON.parse(map.tipos_clase))
+        setTiposClaseOpts(parseTiposClase(map.tipos_clase))
         if(map.bonos_lista) setBonosOpts(JSON.parse(map.bonos_lista))
       }
     })
