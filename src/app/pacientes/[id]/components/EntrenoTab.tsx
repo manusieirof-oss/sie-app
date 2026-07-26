@@ -7,7 +7,7 @@ import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
 import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
-import { duplicarSesion as duplicarSesionLib, registrarSesion } from '@/lib/sesiones'
+import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -305,6 +305,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:8}}>
                         <span className="pill pill-soft">{nP} {nP===1?'parte':'partes'}</span>
                         <span className="pill pill-soft">{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
+                        {/* Calculado de las partes, nunca guardado en la sesión. */}
+                        {nEj>0 && <span className="pill pill-o on">{modoDeSesion(s.partes).nombre}</span>}
                       </div>
                       {objsDeSesion(s).length>0&&(
                         <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>

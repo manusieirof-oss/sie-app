@@ -1,5 +1,20 @@
 'use client'
 import { Ic } from '@/lib/icons'
+import { modoParte, TIPOS_TIEMPO } from '@/lib/sesiones'
+
+// Modo del bloque con sus parámetros: "Circuito · 4 vueltas", "EMOM · 12 min".
+function textoModo(parte: any) {
+  const m = modoParte(parte?.modo)
+  if (m.id === 'circuito' && parte?.vueltas) return `${m.nombre} · ${parte.vueltas} vueltas`
+  if (m.id === 'tiempo') {
+    const t = TIPOS_TIEMPO.find(x => x.id === (parte?.tipo_tiempo || 'emom'))
+    const partes: string[] = [t?.nombre || m.nombre]
+    if (parte?.minutos) partes.push(`${parte.minutos} min`)
+    if (parte?.intervalo) partes.push(`${parte.intervalo}s`)
+    return partes.join(' · ')
+  }
+  return m.nombre
+}
 
 // Vista de una sesión. Antes había dos modales distintos para lo mismo:
 // desde Sesiones se veía con imágenes, series, pesos y notas; desde Historial,
@@ -52,8 +67,14 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
           {(sesion.partes || []).length === 0 && <div className="muted">Esta sesión no tiene ejercicios.</div>}
           {(sesion.partes || []).map((parte: any, pi: number) => (
             <div key={pi} style={{ marginBottom: 12, background: 'var(--bl)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--bd)' }}>
-              <div style={{ padding: '8px 13px', borderBottom: '1px solid var(--bm)', fontSize: 13, fontWeight: 500, color: 'var(--n)' }}>
-                {parte.nombre || `Parte ${pi + 1}`}
+              <div style={{ padding: '8px 13px', borderBottom: '1px solid var(--bm)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--n)', flex: 1 }}>
+                  {parte.nombre || `Parte ${pi + 1}`}
+                </span>
+                {/* Cómo se recorre el bloque. Sin esto solo se veía dentro del editor. */}
+                <span className="pill pill-o on" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Ic name={modoParte(parte.modo).icono} size={11} /> {textoModo(parte)}
+                </span>
               </div>
               {(parte.ejercicios || []).length === 0
                 ? <div style={{ padding: '8px 13px', fontSize: 12, color: 'var(--gr)' }}>Sin ejercicios</div>
@@ -63,7 +84,13 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                       <div key={ei} style={{ padding: '10px 13px', borderBottom: '1px solid var(--bl)', display: 'flex', alignItems: 'flex-start', gap: 11 }}>
                         {ej.imagen_url && <img src={ej.imagen_url} alt={nombre} style={{ width: 44, height: 44, objectFit: 'contain', background: 'var(--bm)', borderRadius: 5, flexShrink: 0 }} />}
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, color: 'var(--n)', marginBottom: 4 }}>{nombre}</div>
+                          <div style={{ fontSize: 13, color: 'var(--n)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {/* La letra solo significa algo si el bloque es superserie. */}
+                            {parte.modo === 'superserie' && ej.grupo && (
+                              <span className="grupo-ss">{ej.grupo}</span>
+                            )}
+                            {nombre}
+                          </div>
                           {typeof ej !== 'string' && (
                             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                               {dato(ej.variante, ej.variante, 'var(--gl)', 'var(--gd)')}

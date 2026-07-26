@@ -1,6 +1,61 @@
 import { supabase } from './supabase'
 
 /**
+ * Modos de ejecución. Van en la PARTE, no en la sesión.
+ *
+ * Un entrenamiento real es calentamiento suelto, bloque principal en circuito y
+ * accesorios sueltos otra vez. Con el modo en la parte eso sale solo y no hace falta
+ * inventar un modo "mixto", que además no le diría nada al taller: tendría que
+ * preguntar "mixto de qué y qué parte es cuál". La sesión no guarda modo; su etiqueta
+ * se calcula con `modoDeSesion()`.
+ *
+ * Van en código y no en Ajustes —al contrario que los tipos de clase— porque cada uno
+ * necesita su propia pantalla: añadir uno no es añadir una fila, es escribir cómo se
+ * recorre.
+ *
+ * Fuera quedan, a propósito:
+ *  - Las FASES: son estado del paciente, sobreviven a la sesión y necesitan su tabla.
+ *  - Pirámides y series descendentes: ahí no cambia el recorrido sino cada serie.
+ *    Se resuelven al anotar repeticiones y pesos, no con un modo.
+ */
+export const MODOS_PARTE = [
+  { id: 'ejercicio', nombre: 'Ejercicio a ejercicio', icono: 'lista',
+    ayuda: 'Todas las series de un ejercicio antes de pasar al siguiente.' },
+  { id: 'circuito', nombre: 'Circuito', icono: 'recuperar',
+    ayuda: 'Los ejercicios se recorren en bucle, tantas vueltas como se indique.' },
+  { id: 'superserie', nombre: 'Superseries', icono: 'altabaja',
+    ayuda: 'Los ejercicios del mismo grupo se hacen seguidos y se descansa al terminarlo.' },
+  { id: 'tiempo', nombre: 'Por tiempo', icono: 'reloj',
+    ayuda: 'Manda el reloj: EMOM, AMRAP o intervalos fijos.' },
+] as const
+
+export type ModoParte = typeof MODOS_PARTE[number]['id']
+
+export function modoParte(id?: string | null) {
+  return MODOS_PARTE.find(m => m.id === id) || MODOS_PARTE[0]
+}
+
+/** Subtipos de "por tiempo". Cambian lo que hace el cronómetro, no el recorrido. */
+export const TIPOS_TIEMPO = [
+  { id: 'emom', nombre: 'EMOM', ayuda: 'Un bloque al arrancar cada minuto.' },
+  { id: 'amrap', nombre: 'AMRAP', ayuda: 'Vueltas que dé en el tiempo total.' },
+  { id: 'intervalos', nombre: 'Intervalos', ayuda: 'Trabajo y descanso fijos que se repiten.' },
+] as const
+
+/**
+ * Etiqueta de la sesión a partir de sus partes: la que compartan todas, o "Mixta".
+ * Derivada y no guardada, para que no pueda contradecir a las partes.
+ */
+export function modoDeSesion(partes: any[]): { id: string, nombre: string } {
+  const modos = Array.from(new Set((partes||[])
+    .filter((p:any)=>(p?.ejercicios||[]).length>0)
+    .map((p:any)=>p?.modo || 'ejercicio')))
+  if (modos.length === 0) return { id:'ejercicio', nombre: modoParte('ejercicio').nombre }
+  if (modos.length === 1) { const m = modoParte(modos[0]); return { id:m.id, nombre:m.nombre } }
+  return { id: 'mixta', nombre: 'Mixta' }
+}
+
+/**
  * Duplica una sesión con sus objetivos.
  *
  * Los objetivos no viven en la fila de `sesiones` sino en `sesiones_objetivos`.

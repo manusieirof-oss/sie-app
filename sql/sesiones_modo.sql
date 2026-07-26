@@ -1,0 +1,33 @@
+-- Modo de ejecución: NO lleva columna.
+--
+-- El primer intento fue una columna `modo` en `sesiones`. Estaba mal: un entrenamiento
+-- real mezcla —calentamiento suelto, bloque principal en circuito, accesorios sueltos
+-- otra vez—, así que el modo es propiedad de la PARTE, no de la sesión. Con el modo en
+-- la parte, lo mixto sale solo y no hay que inventar un valor "mixto", que además no le
+-- diría nada al taller: tendría que preguntar "mixto de qué y qué parte es cuál".
+--
+-- Las partes ya viven en `sesiones.partes` (jsonb), así que no hace falta esquema nuevo.
+-- Cada parte puede llevar:
+--
+--   modo          'ejercicio' | 'circuito' | 'superserie' | 'tiempo'   (ausente = ejercicio)
+--   vueltas       solo en circuito
+--   tipo_tiempo   solo en tiempo: 'emom' | 'amrap' | 'intervalos'
+--   minutos       solo en tiempo
+--   intervalo     solo en tiempo/intervalos, formato "40/20"
+--
+-- Y cada ejercicio dentro de la parte puede llevar `grupo` ('A'..'E') cuando el modo es
+-- superserie: los que comparten letra se hacen seguidos.
+--
+-- La etiqueta de la sesión ("Circuito", "Mixta") se calcula con `modoDeSesion()` en
+-- src/lib/sesiones.ts. Derivada y no guardada, para que no pueda contradecir a las partes.
+--
+-- Fuera quedan a propósito:
+--   FASES        estado del paciente, no de la sesión: sobrevive a la sesión que la
+--                generó y necesita su propia tabla.
+--   PIRÁMIDES y SERIES DESCENDENTES
+--                ahí no cambia el recorrido sino cada serie. Se resuelven al anotar
+--                repeticiones y pesos, no con un modo.
+
+-- Si ya se ejecutó la versión anterior de este fichero, deshacerla:
+alter table sesiones drop constraint if exists sesiones_modo_check;
+alter table sesiones drop column if exists modo;

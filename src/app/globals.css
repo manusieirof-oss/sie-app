@@ -124,7 +124,7 @@ details[open] .det-sum::before{content:'▾ ';}
 .modal-bg{position:fixed;inset:0;background:rgba(38,40,37,.20);backdrop-filter:blur(2px);z-index:50;display:flex;align-items:center;justify-content:center;}
 .modal{background:var(--w);border:1px solid var(--bd);border-radius:14px;padding:24px;width:420px;max-height:88vh;overflow-y:auto;box-shadow:var(--sh-md);}
 .modal-title{font-size:16px;font-weight:500;color:var(--n);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
-.modal-close{cursor:pointer;color:var(--grl);font-size:20px;background:none;border:none;padding:2px;transition:color .15s;}
+.modal-close{cursor:pointer;color:var(--gr);font-size:20px;background:none;border:none;padding:2px;transition:color .15s;display:inline-flex;align-items:center;flex-shrink:0;}
 .modal-close:hover{color:var(--n);}
 .pat-header{background:var(--n);border-radius:var(--rl);padding:18px 20px;display:flex;align-items:center;gap:16px;margin-bottom:14px;}
 .pat-avatar{width:84px;height:84px;border-radius:50%;background:rgba(90,150,158,.25);border:1.5px solid var(--g);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--gm);flex-shrink:0;}
@@ -178,6 +178,13 @@ details[open] .det-sum::before{content:'▾ ';}
 .fila-sel.on{background:var(--gl);}
 .fila-sel .chk{width:19px;height:19px;border-radius:5px;border:2px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;transition:all .12s;}
 .fila-sel .chk.on{border-color:var(--g);background:var(--g);}
+/* Letra de grupo de superserie: los que la comparten se hacen seguidos. */
+.grupo-ss{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:5px;background:var(--gl);border:1px solid var(--gm);color:var(--gd);font-size:11px;font-weight:600;flex-shrink:0;}
+/* Etiqueta pequeña de sección dentro de modales. */
+.et-mini{font-size:11px;font-weight:600;color:var(--gr);letter-spacing:.5px;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;}
+/* Chip de objetivo seleccionable en el editor de sesión. */
+.chip-obj{font-family:inherit;font-size:12px;padding:4px 11px;border-radius:99px;border:1.5px solid var(--bd);background:var(--w);color:var(--gr);cursor:pointer;transition:all .12s;}
+.chip-obj:hover{border-color:var(--gm);color:var(--gd);}
 /* Atajo de selección: se pulsa para añadir o quitar un grupo de filas. */
 .chip-sel{font-family:inherit;font-size:11px;font-weight:600;padding:4px 11px;border-radius:99px;border:1px solid var(--bd);background:var(--w);color:var(--gr);cursor:pointer;white-space:nowrap;transition:all .12s;}
 .chip-sel:hover{border-color:var(--gm);color:var(--gd);}
