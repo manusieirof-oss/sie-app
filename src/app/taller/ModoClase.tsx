@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { Ic } from '@/lib/icons'
 
@@ -332,12 +333,16 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]
-      const iv={...(datos[ei].items_evaluados||{})}; iv[ii]=!iv[ii]
+      // Por TEXTO, no por posición: ver lib/ejecucion.ts.
+      const itAct=(datos[ei].items||[])[ii]
+      const texto=typeof itAct==='string'?itAct:itAct?.texto
+      if(!texto) return prev
+      const iv=alternarItem(datos[ei].items_evaluados, texto)
       datos[ei]={...datos[ei],items_evaluados:iv,guardado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       const ej = datos[ei]
       const item = (ej.items||[])[ii]
-      const cumplido = iv[ii]===true
+      const cumplido = iv[texto]===true
       if (item && (item.objetivos||[]).length>0 && ej.ejercicio_id) {
         resolverViaEjecucionClase(pid, item.objetivos, ej.ejercicio_id, cumplido)
       }
@@ -485,7 +490,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                 <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
                   <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
                   {(ej.items||[]).map((it:any,ii:number)=>{
-                    const cumple = ej.items_evaluados?.[ii]
+                    const cumple = itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, ii)
                     const objs = (it.objetivos||[]).map((oid:string)=>objetivosLib.find((o:any)=>o.id===oid)).filter(Boolean)
                     const objsPac = objsPorPaciente[act.paciente.id] || []
                     return (

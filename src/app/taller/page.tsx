@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { duplicarSesion as duplicarSesionLib } from '@/lib/sesiones'
 import ModoClase from './ModoClase'
@@ -240,14 +241,19 @@ export default function TallerPage() {
   function toggleItem(ejIdx: number, itemIdx: number) {
     setDatosReg(prev => {
       const d = [...prev]
-      const iv = { ...(d[ejIdx].items_evaluados||{}) }
-      iv[itemIdx] = !iv[itemIdx]
-      d[ejIdx] = { ...d[ejIdx], items_evaluados: iv }
+      const ejActual = d[ejIdx]
+      const itemActual = (ejActual.items||[])[itemIdx]
+      const texto = typeof itemActual==='string' ? itemActual : itemActual?.texto
+      if (!texto) return d
+      // Por TEXTO y no por posición: guardarlo por índice hacía que reordenar un
+      // criterio en la biblioteca reescribiera el significado de lo ya evaluado.
+      const iv = alternarItem(ejActual.items_evaluados, texto)
+      d[ejIdx] = { ...ejActual, items_evaluados: iv }
       programarAutosave(ejIdx, d[ejIdx])
       // resolver/desresolver via ejecucion de los objetivos de este item
       const ej = d[ejIdx]
-      const item = (ej.items||[])[itemIdx]
-      const cumplido = iv[itemIdx]===true
+      const item = itemActual
+      const cumplido = iv[texto]===true
       if (item && (item.objetivos||[]).length>0 && ej.ejercicio_id) {
         resolverViaEjecucion(item.objetivos, ej.ejercicio_id, cumplido)
       }
@@ -532,7 +538,7 @@ export default function TallerPage() {
                       <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
                         <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
                         {(ej.items||[]).map((it:any,ii:number)=>{
-                          const cumple = ej.items_evaluados?.[ii]
+                          const cumple = itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, ii)
                           const objs = (it.objetivos||[]).map((oid:string)=>objetivosLib.find((o:any)=>o.id===oid)).filter(Boolean)
                           return (
                             <div key={ii} style={{padding:'3px 0'}}>

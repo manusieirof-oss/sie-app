@@ -6,6 +6,8 @@
 // #D4A24E donde el resto de la app usa #B05A5A y #C9A84C, así que llevaban tiempo
 // pintándose en un rojo y un ámbar que no eran los de la clínica.
 //
+import { resumen } from './ejecucion'
+
 // Recharts y el HTML del PDF necesitan hex de verdad, no `var(--x)`, así que la
 // constante hace falta. Lo que no hacía falta era tenerla tres veces.
 
@@ -134,15 +136,14 @@ export function ejecucionPorEjercicio(registros: any[]) {
   const porEj: Record<string, { nombre: string, puntos: { fecha: string, pct: number, ok: number, total: number }[] }> = {}
 
   registros.forEach(r => {
-    const iv = r.items_evaluados || {}
-    const claves = Object.keys(iv)
-    if (claves.length === 0 || !r.ejercicio_id || !r.fecha) return
-    const ok = claves.filter(k => iv[k] === true).length
-    const pct = Math.round((ok / claves.length) * 100)
+    // `resumen` cuenta sobre las claves guardadas, sean índices o textos: así el
+    // porcentaje no depende del orden de los criterios en la biblioteca.
+    const { ok, total, pct } = resumen(r.items_evaluados)
+    if (total === 0 || !r.ejercicio_id || !r.fecha) return
 
     const ej = porEj[r.ejercicio_id] || (porEj[r.ejercicio_id] = { nombre: r.ejercicio_nombre || 'Ejercicio', puntos: [] })
     const ya = ej.puntos.find(p => p.fecha === r.fecha)
-    if (!ya) ej.puntos.push({ fecha: r.fecha, pct, ok, total: claves.length })
+    if (!ya) ej.puntos.push({ fecha: r.fecha, pct, ok, total })
   })
 
   return Object.entries(porEj)
