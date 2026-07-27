@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe } from '@/lib/etiquetas'
+import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 
 // Explorador del catálogo de ejercicios: buscador, filtro por etiquetas y rejilla de
 // tarjetas con foto. Es LA MISMA vista que el Pilar Entrenamiento → Biblioteca; lo que
@@ -92,7 +92,10 @@ export default function ExploradorEjercicios({
 
   function Tarjeta({ e }: { e: any }) {
     const sel = marcado(e)
-    const ets = (e.etiquetas || []).map((id: string) => etiquetas.find((x: any) => x.id === id)).filter(Boolean)
+    // Se agrupan bajo su raíz, así que las tres que caben son tres MADRES y no tres
+    // etiquetas sueltas: antes una tarjeta podía enseñar "Cuádriceps, Vasto Medial,
+    // Rodilla" y gastar dos huecos en decir lo mismo.
+    const grupos = agrupaPorRaiz(etiquetas, e.etiquetas || [])
     return (
       <div className={`tarj-ej ${sel ? 'on' : ''}`}
         onClick={() => (onAlternar ? onAlternar(e) : onAbrir?.(e))}>
@@ -108,10 +111,22 @@ export default function ExploradorEjercicios({
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {MEDIDA[e.tipo_medida] || MEDIDA.peso_reps}
           </div>
-          {ets.length > 0 && (
+          {grupos.length > 0 && (
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-              {ets.slice(0, 3).map((et: any) => <span key={et.id} className="badge badge-g">{et.nombre}</span>)}
-              {ets.length > 3 && <span style={{ fontSize: 11, color: 'var(--gr)' }}>+{ets.length - 3}</span>}
+              {grupos.slice(0, 3).map(g => {
+                // La madre se marca también cuando quien casa con el filtro es una hija:
+                // si filtras por "Vasto Medial", la tarjeta sigue diciendo "Cuádriceps"
+                // pero resaltado, y así se entiende por qué ha entrado en el resultado.
+                const marcada = filtroEt.includes(g.raiz.id) || g.hijas.some((h: any) => filtroEt.includes(h.id))
+                const detalle = g.hijas.map((h: any) => h.nombre).join(' · ')
+                return (
+                  <span key={g.raiz.id} className="badge badge-g" title={detalle || undefined}
+                    style={marcada ? { background: 'var(--g)', color: '#fff' } : undefined}>
+                    {g.raiz.nombre}{g.hijas.length > 0 && <span style={{ opacity: .7, marginLeft: 4 }}>{g.hijas.length}</span>}
+                  </span>
+                )
+              })}
+              {grupos.length > 3 && <span style={{ fontSize: 11, color: 'var(--gr)' }}>+{grupos.length - 3}</span>}
             </div>
           )}
         </div>

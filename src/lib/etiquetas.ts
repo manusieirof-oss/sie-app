@@ -59,6 +59,54 @@ export function categoriaDe(etiquetas: any[], et: any): string {
   return actual?.categoria || et?.categoria || ''
 }
 
+/** La etiqueta raíz de la que cuelga esta. Si ya es raíz, se devuelve ella misma. */
+export function raizDe(etiquetas: any[], et: any): any {
+  let actual = et
+  const vistos = new Set<string>()
+  while (actual?.padre_id && !vistos.has(actual.id)) {
+    vistos.add(actual.id)
+    const padre = etiquetas.find(e => e.id === actual.padre_id)
+    if (!padre) break
+    actual = padre
+  }
+  return actual
+}
+
+export type GrupoEtiqueta = {
+  raiz: any
+  /** Las subetiquetas que el ejercicio tiene bajo esa raíz. Puede estar vacío. */
+  hijas: any[]
+  /** true si la raíz está puesta explícitamente en el ejercicio, no solo deducida. */
+  raizPropia: boolean
+}
+
+/**
+ * Agrupa las etiquetas de un ejercicio bajo su raíz.
+ *
+ * Un ejercicio etiquetado con "Cuádriceps" y "Vasto Medial" enseñaba las dos pastillas
+ * seguidas, y a simple vista parecían dos músculos distintos. Agrupadas, se ve una sola
+ * pastilla —"Cuádriceps"— con el detalle escondido detrás.
+ *
+ * La raíz se muestra AUNQUE el ejercicio no la tenga puesta: si solo está etiquetado
+ * como "Vasto Medial", la pastilla dice "Cuádriceps" igual. Es lo que evita la
+ * confusión de ver un nombre que no sabes de qué cuelga.
+ */
+export function agrupaPorRaiz(etiquetas: any[], ids: string[]): GrupoEtiqueta[] {
+  const grupos: Record<string, GrupoEtiqueta> = {}
+  const orden: string[] = []
+
+  ;(ids || []).forEach(id => {
+    const et = etiquetas.find(e => e.id === id)
+    if (!et) return
+    const raiz = raizDe(etiquetas, et)
+    if (!grupos[raiz.id]) { grupos[raiz.id] = { raiz, hijas: [], raizPropia: false }; orden.push(raiz.id) }
+    if (raiz.id === et.id) grupos[raiz.id].raizPropia = true
+    else if (!grupos[raiz.id].hijas.some(h => h.id === et.id)) grupos[raiz.id].hijas.push(et)
+  })
+
+  return orden.map(id => grupos[id])
+}
+
 /** Profundidad de anidamiento, para pintar las hijas más pequeñas que las raíces. */
 export function nivelDe(etiquetas: any[], et: any): number {
   let n = 0

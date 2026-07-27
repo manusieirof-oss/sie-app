@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
+import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
 import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, LATERALIDADES } from '@/lib/ejercicios'
 
 
@@ -336,16 +337,6 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       </div>
                     </div>
                   </div>
-                  <div style={{display:'flex',gap:8,marginTop:16,paddingTop:14,borderTop:'1px solid var(--bd)',alignItems:'center',flexWrap:'wrap'}}>
-                    {/* El borrado vive en edición y no en la vista: es donde estás
-                        tocando el ejercicio, no donde lo consultas. */}
-                    <button className="btn btn-d btn-sm" onClick={()=>borrarEjercicio(ejSeleccionado)} disabled={guardando}>
-                      <Ic name="papelera" size={12}/> Eliminar ejercicio
-                    </button>
-                    <div style={{flex:1}}/>
-                    <button className="btn btn-t btn-sm" onClick={()=>setEditando(false)} disabled={guardando}>Cancelar</button>
-                    <button className="btn btn-p" onClick={actualizarEjercicio} disabled={guardando}>{guardando?(subiendoImg?'Subiendo…':'Guardando…'):<><Ic name="guardar" size={13}/> Guardar cambios</>}</button>
-                  </div>
                 </div>
               ):(
                 /* ===== MODO VISTA ===== */
@@ -389,7 +380,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       <div>
                         <div className="et-mini" style={{marginBottom:6}}>Etiquetas</div>
                         <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                          {(ejSeleccionado.etiquetas||[]).map((id:string)=>{const et=etiquetas.find((e:any)=>e.id===id);return et?<span key={id} style={{fontSize:12,padding:'3px 10px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{et.nombre}</span>:null})}
+                          {/* Agrupadas bajo su raíz: "Cuádriceps" con un 1 al lado en
+                              vez de "Cuádriceps" y "Vasto Medial" seguidos, que parecían
+                              dos músculos distintos. Se despliega pulsando. */}
+                          <EtiquetasEjercicio etiquetas={etiquetas} ids={ejSeleccionado.etiquetas||[]}/>
                           {!(ejSeleccionado.etiquetas||[]).length&&<span style={{fontSize:12,color:'var(--gr)'}}>Sin etiquetas</span>}
                         </div>
                       </div>
@@ -434,6 +428,22 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                 </div>
               )}
             </div>
+
+            {/* Pie fijo, fuera del área con scroll.
+                Estaba al final del formulario y había que bajar hasta abajo del todo
+                para encontrarlo, así que ni Guardar ni Eliminar se veían al abrir. */}
+            {editando&&(
+              <div style={{padding:'12px 16px',borderTop:'1px solid var(--bd)',background:'var(--bl)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                {/* El borrado vive en edición y no en la vista: es donde estás
+                    tocando el ejercicio, no donde lo consultas. */}
+                <button className="btn btn-d btn-sm" onClick={()=>borrarEjercicio(ejSeleccionado)} disabled={guardando}>
+                  <Ic name="papelera" size={12}/> Eliminar ejercicio
+                </button>
+                <div style={{flex:1}}/>
+                <button className="btn btn-t btn-sm" onClick={()=>setEditando(false)} disabled={guardando}>Cancelar</button>
+                <button className="btn btn-p" onClick={actualizarEjercicio} disabled={guardando}>{guardando?(subiendoImg?'Subiendo…':'Guardando…'):<><Ic name="guardar" size={13}/> Guardar cambios</>}</button>
+              </div>
+            )}
           </div>
         </div>
       )}

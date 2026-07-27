@@ -1,0 +1,27 @@
+# Árbol de etiquetas real, volcado de Supabase el 28/07/2026.
+# Formato: categoria | padre > nombre  (sin padre = raíz)
+# Sirve para comprobar los nombres ANTES de escribir un bloque nuevo de la semilla.
+
+musculo: Dedos > 1º Metacarpiano · Abdomen · Abductor - TFL · Aductores · Deltoides > Anterior · Bíceps · Isquiotibial > Bíceps Femoral · Bíceps > Braquial · Bíceps > Braquial Anterior · Braquioradial · Cervical · Bíceps > Coracobraquial · Aductores > Corto · Tríceps > Corto · Espalda > Cuadrado lumbar · Cuádriceps · Dedos · Hombro > Deltoides · Diafragma · Espalda > Dorsal Ancho · Cervical > ECOM · Espalda > Elevador de la Escápula · Espalda > Erectores Espinales · Cervical > Escalenos · Espalda · Extensor de Dedos · Extensor de muñecas · Dedos > Extrínseca · Flexor de Dedos · Flexor de muñeca · Tríceps Sural > Gastronécmio · Glúteo · Glúteo - Piramidal · Glúteo > Glúteo mayor · Glúteo > Glúteo medio · Aductores > Grácil · Hombro · Trapecio > Inferior · Manguito rotador > Infraespinoso · Intercostales · Pie > Intrínseca · Dedos > Intrínseca · Isquiotibial · Tríceps > Largo · Aductores > Largo · Hombro > Manguito rotador · Maxilar · Aductores > Mayor · Pectoral > Mayor · Glúteo > Mayor · Tríceps > Medio · Glúteo > Medio · Trapecio > Medio · Deltoides > Medio · Pectoral > Menor · Glúteo > Menor · Espalda > Multífidos · Abdomen > Oblicuos · Pectoral · Peroneos · Pie · Deltoides > Posterior · Psoas · Abdomen > Recto abdominal · Cuádriceps > Recto Femoral · Manguito rotador > Redondo menor · Espalda > Romboides Mayor · Espalda > Romboides Menor · Sartorio · Espalda > Semiespinoso · Isquiotibial > Semimembranoso · Isquiotibial > Semitendinoso · Espalda > Serrato Inferior · Espalda > Serrato Superior · Tríceps Sural > Sóleo · Manguito rotador > Subescapular · Trapecio > Superior · Manguito rotador > Supraespinoso · Tibial Anterior · Abdomen > Transverso · Trapecio · Tríceps · Tríceps Sural · Cuádriceps > Vasto externo · Cuádriceps > Vasto Intermedio · Cuádriceps > Vasto interno · Cuádriceps > Vasto Lateral · Cuádriceps > Vasto Medial
+
+articulacion: Cadera · Codo · Columna · Costal · Escapular · Hombro · Mano · Maxilar · Muñeca · Pie · Rodilla · Tobillo · Cadera > Coxofemoral · Cadera > Lumbosacra · Cadera > Sacroilíaca · Columna > Cervical · Columna > Dorsal · Columna > Lumbar · Escapular > Acromioclavicular · Escapular > Escápulotorácica · Escapular > Esternoclavicular · Escapular > Glenohumeral · Mano > 1º Metacarpiano · Mano > Dedos · Pie > 1º Metatarso · Pie > Dedos
+
+material: Aro · Balón medicinal · Banco · Banda elástica · Barra · Barra de dominadas · Bosu · Cajón · Cajón pliométrico · Cinchas de suspensión · Cuerda · Cuña · Deslizador · Disco · Fitball · Goma · Kettlebell · Landmine · Mancuerna · Mini band · Pared · Pelota · Plataforma · Polea · Rack · Roller · Rueda abdominal · Saco · Stick · Valla · Barra > Barra corta · Barra > Barra olímpica
+
+movimiento (raíces): Abducción · Adducción · Alcance · Anteversión · Antiextensión · Antiflexión · Antirotación · Circunducción · Eversión · Extensión · Flexión · Flexión de cadera · Inversión · Lunge · Patrón · Pronación · Protracción · Retracción · Retroversión · Rotación · Supinación
+movimiento (Alcance): Analítico · Combinado · Global
+movimiento (Patrón): creadas por el sembrador — Sentadilla, Bisagra de cadera, Zancada, Empuje horizontal, Empuje vertical, Tracción horizontal, Tracción vertical, Acarreo, Salto, Marcha
+
+apoyo: Bipodal · Cadena abierta · Cadena cerrada · Codos · Dedos · Mano · Puño · Rodilla · Unilateral · Unipodal
+agarre: Abierto · Cerrado · Giratorio · Mixto · Neutro · Prono · Supino · Unilateral
+posicion: Arrodillado · Bipedestación · Caballero · Cambiante · Cuadrupedia · Decúbito lateral · Prono · Sentado · Supino
+plano_eje: Planos (Frontal/coronal, Sagital, Transversal/axial) · Ejes (Frontal/mediolateral, Longitudinal/vertical, Sagital/anteroposterior)
+patologia: Artrosis · Cervicalgia · Ciático · Cifosis dorsal · Condropatía rotuliana · Epicondilitis · Escoliosis · Esguince de tobillo · Fascitis plantar · Hernia discal · Hombro doloroso · Lumbalgia · Manguito rotador · Menisco · Osteoporosis · Prótesis de cadera · Prótesis de rodilla · Rotura de LCA · Suelo pélvico · Tendinopatía aquílea · Trocantéritis
+
+# OJO — trampas comprobadas:
+# · "Dorsal" NO es un músculo: es una vértebra (Columna > Dorsal). El músculo es "Dorsal Ancho".
+# · "Escápula" no existe. La articulación es "Escapular"; los músculos, Trapecio y Romboides.
+# · "Core" no existe en ninguna categoría. Se usa "Abdomen" más la función (Antiextensión…).
+# · "Movilidad" no existe. Se usa el movimiento concreto: Rotación, Flexión, Extensión.
+# · "Lumbar" es una ARTICULACIÓN. El músculo es "Erectores Espinales".
+# · Isquiotibial y Mancuerna van en SINGULAR.

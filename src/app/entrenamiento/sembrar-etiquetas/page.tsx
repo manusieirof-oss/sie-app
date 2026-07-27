@@ -29,8 +29,21 @@ export default function SembrarEtiquetasPage() {
 
     const { data: todas } = await supabase.from('etiquetas').select('id,nombre,categoria,padre_id')
     const lista = todas || []
-    const buscar = (nombre: string, categoria?: string) => lista.find((e: any) =>
-      norm(e.nombre) === norm(nombre) && (!categoria || e.categoria === categoria))
+    /**
+     * Busca una etiqueta por nombre, categoría y —si se indica— madre.
+     *
+     * La madre importa de verdad: hay TRES etiquetas llamadas "Mayor" (bajo Glúteo,
+     * bajo Aductores y bajo Pectoral) y dos llamadas "Menor". Buscar solo por nombre y
+     * categoría devolvería la primera que aparezca, así que una fusión podría meter el
+     * pectoral mayor dentro del glúteo y borrar el que no toca.
+     */
+    const buscar = (nombre: string, categoria?: string, padre?: string) => lista.find((e: any) => {
+      if (norm(e.nombre) !== norm(nombre)) return false
+      if (categoria && e.categoria !== categoria) return false
+      if (!padre) return true
+      const m = lista.find((x: any) => x.id === e.padre_id)
+      return !!m && norm(m.nombre) === norm(padre)
+    })
 
     // 1. MOVER de categoría
     for (const m of MOVER) {
@@ -51,9 +64,9 @@ export default function SembrarEtiquetasPage() {
 
     // 2. RENOMBRAR
     for (const r of RENOMBRAR) {
-      const et = buscar(r.de, r.categoria)
+      const et = buscar(r.de, r.categoria, r.padre)
       if (!et) {
-        anota(buscar(r.a, r.categoria)
+        anota(buscar(r.a, r.categoria, r.padre)
           ? `"${r.a}" ya estaba renombrada`
           : `"${r.de}" no se encuentra en ${labelCategoria(r.categoria)}, se salta`, 'aviso')
         continue
@@ -66,8 +79,8 @@ export default function SembrarEtiquetasPage() {
     // 3. FUSIONAR duplicadas. Los ejercicios que usen la que sobra pasan a la que se
     //    queda ANTES de borrarla, para no dejarlos apuntando a nada.
     for (const f of FUSIONAR) {
-      const sobra = buscar(f.sobra, f.categoria)
-      const queda = buscar(f.queda, f.categoria)
+      const sobra = buscar(f.sobra, f.categoria, f.padre)
+      const queda = buscar(f.queda, f.categoria, f.padre)
       if (!sobra) { anota(`"${f.sobra}" ya no existe`, 'aviso'); continue }
       if (!queda) { anota(`No se encuentra "${f.queda}", no se fusiona`, 'error'); continue }
 

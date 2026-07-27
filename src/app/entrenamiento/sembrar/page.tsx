@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { SEMILLA } from '@/lib/semillaEjercicios'
@@ -17,17 +17,46 @@ import { subirImagenEjercicio } from '@/lib/ejercicios'
  */
 
 const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+/** Sin la marca de plural, para que "Isquiotibiales" encuentre a "Isquiotibial". */
+const raizNom = (s: string) => norm(s).replace(/(es|s)$/, '')
 
 type Linea = { texto: string, estado: 'ok' | 'aviso' | 'error' | 'info' }
+/** Etiqueta de la semilla que no existe, y en qué ejercicios se iba a usar. */
+type Huerfana = { nombre: string, ejercicios: string[] }
 
 export default function SembrarPage() {
   const [ficheros, setFicheros] = useState<File[]>([])
   const [log, setLog] = useState<Linea[]>([])
   const [corriendo, setCorriendo] = useState(false)
   const [hecho, setHecho] = useState(false)
+  const [huerfanas, setHuerfanas] = useState<Huerfana[] | null>(null)
 
   const anota = (texto: string, estado: Linea['estado'] = 'info') =>
     setLog(l => [...l, { texto, estado }])
+
+  /**
+   * Comprobación PREVIA de las etiquetas, al abrir la página.
+   *
+   * Antes esto solo se sabía después de sembrar, en una línea al final del registro que
+   * era muy fácil pasar por alto: así se crearon ocho ejercicios de isquios sin la
+   * etiqueta de isquios, porque la semilla la escribía en plural. El aviso tiene que
+   * estar donde se toma la decisión, no en el recibo.
+   */
+  useEffect(() => { comprobar() }, [])
+
+  async function comprobar() {
+    const { data } = await supabase.from('etiquetas').select('nombre')
+    const claves = new Set<string>()
+    ;(data || []).forEach((e: any) => { claves.add(norm(e.nombre)); claves.add(raizNom(e.nombre)) })
+
+
+    const faltan: Record<string, string[]> = {}
+    SEMILLA.forEach(s => s.etiquetas.forEach(nombre => {
+      if (claves.has(norm(nombre)) || claves.has(raizNom(nombre))) return
+      ;(faltan[nombre] ||= []).push(s.nombre)
+    }))
+    setHuerfanas(Object.entries(faltan).map(([nombre, ejercicios]) => ({ nombre, ejercicios })))
+  }
 
   async function sembrar() {
     setCorriendo(true); setLog([]); setHecho(false)
@@ -36,21 +65,46 @@ export default function SembrarPage() {
     ficheros.forEach(f => { porNombre[f.name] = f })
 
     // Las etiquetas se buscan por nombre: el árbol de cada instalación es distinto.
-    const { data: etiquetas } = await supabase.from('etiquetas').select('id,nombre')
-    const mapaEt: Record<string, string> = {}
-    ;(etiquetas || []).forEach((e: any) => { mapaEt[norm(e.nombre)] = e.id })
+    //
+    // La búsqueda tolera el singular y el plural. La semilla decía "Isquiotibiales" y
+    // "Mancuernas" y en la biblioteca están en singular, así que no las encontraba y las
+    // omitía en silencio: ejercicios de isquios que se creaban sin la etiqueta de
+    // isquios. Es un fallo que se repetiría con cada bloque nuevo, así que se arregla
+    // aquí y no renombrando la semilla una vez.
+    const { data: etiquetas } = await supabase.from('etiquetas').select('id,nombre,categoria')
+
+    // Hay nombres repetidos en categorías distintas: "Rodilla" está en Apoyo y en
+    // Articulación, "Dorsal" es vértebra y también músculo. La semilla solo dice el
+    // nombre, así que sin un desempate la etiqueta que acabe puesta depende del orden
+    // en que vuelvan las filas: un remo quedaría etiquetado con una vértebra.
+    const PRIORIDAD = ['musculo', 'articulacion', 'movimiento', 'material', 'posicion', 'apoyo', 'agarre']
+    const rango = (c: string) => { const i = PRIORIDAD.indexOf(c); return i < 0 ? 99 : i }
+
+    const mejor: Record<string, { id: string, r: number }> = {}
+    const poner = (clave: string, e: any) => {
+      const r = rango(e.categoria)
+      if (!mejor[clave] || r < mejor[clave].r) mejor[clave] = { id: e.id, r }
+    }
+    ;(etiquetas || []).forEach((e: any) => {
+      poner(norm(e.nombre), e)
+      // La forma sin plural va con rango peor, para que nunca gane a una exacta.
+      if (raizNom(e.nombre) !== norm(e.nombre)) poner(raizNom(e.nombre) + '~', e)
+    })
+    const buscarEt = (nombre: string) =>
+      mejor[norm(nombre)]?.id || mejor[raizNom(nombre) + '~']?.id || mejor[raizNom(nombre)]?.id
 
     const { data: existentes } = await supabase.from('ejercicios').select('id,nombre')
     const yaEstan = new Set((existentes || []).map((e: any) => norm(e.nombre)))
 
     let creados = 0, saltados = 0, sinImagen = 0
+    const sinImagenNombres: string[] = []
     const etiquetasNoEncontradas = new Set<string>()
 
     for (const s of SEMILLA) {
       const ids: string[] = []
       s.etiquetas.forEach(nombre => {
-        const id = mapaEt[norm(nombre)]
-        if (id) ids.push(id); else etiquetasNoEncontradas.add(nombre)
+        const id = buscarEt(nombre)
+        if (id) { if (!ids.includes(id)) ids.push(id) } else etiquetasNoEncontradas.add(nombre)
       })
 
       const campos = {
@@ -83,8 +137,10 @@ export default function SembrarPage() {
 
       const file = porNombre[s.archivo]
       if (!file) {
-        anota(`${s.nombre} — ${existente ? 'actualizado' : 'creado'}, pero falta la imagen "${s.archivo}"`, 'aviso')
-        sinImagen++; continue
+        // No se anota línea por línea: si siembras un bloque de la carpeta, los otros
+        // veinte llenarían el registro de avisos y taparían lo que sí ha pasado. La
+        // imagen que ya tuviera el ejercicio NO se toca.
+        sinImagen++; sinImagenNombres.push(s.nombre); continue
       }
 
       const r = await subirImagenEjercicio(id, file)
@@ -97,7 +153,10 @@ export default function SembrarPage() {
     if (etiquetasNoEncontradas.size > 0) {
       anota(`Etiquetas que no existen en tu biblioteca y se han omitido: ${Array.from(etiquetasNoEncontradas).join(', ')}`, 'aviso')
     }
-    anota(`Resumen: ${creados} creados, ${saltados} actualizados, ${sinImagen} sin imagen.`, 'info')
+    if (sinImagen > 0) {
+      anota(`${sinImagen} sin imagen en esta selección (conservan la que ya tuvieran): ${sinImagenNombres.join(', ')}`, 'aviso')
+    }
+    anota(`Resumen: ${creados} creados, ${saltados} actualizados.`, 'info')
 
     setCorriendo(false); setHecho(true)
   }
@@ -121,6 +180,30 @@ export default function SembrarPage() {
             variantes solo se ponen al crear: si el ejercicio ya existe, no se tocan ni
             ellas ni el vídeo que hayas puesto tú.
           </p>
+
+          {huerfanas !== null && (
+            huerfanas.length === 0 ? (
+              <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 14 }}>
+                <span style={{ fontSize: 13, color: 'var(--n)' }}>
+                  Todas las etiquetas de la semilla existen en tu biblioteca.
+                </span>
+              </div>
+            ) : (
+              <div className="fila-p" style={{ borderLeftColor: 'var(--amb)', marginBottom: 14 }}>
+                <div style={{ fontSize: 13, color: 'var(--n)', marginBottom: 6 }}>
+                  <b>{huerfanas.length} etiqueta{huerfanas.length === 1 ? '' : 's'} de la semilla no {huerfanas.length === 1 ? 'existe' : 'existen'}</b> en tu
+                  biblioteca. Los ejercicios se crearán sin {huerfanas.length === 1 ? 'ella' : 'ellas'}. Pasa antes
+                  por <a href="/entrenamiento/sembrar-etiquetas" style={{ color: 'var(--gd)' }}>ajustar etiquetas</a>,
+                  o créalas a mano si el nombre que uso no es el tuyo.
+                </div>
+                {huerfanas.map(h => (
+                  <div key={h.nombre} style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.6 }}>
+                    <b style={{ color: 'var(--n)' }}>{h.nombre}</b> — {h.ejercicios.join(', ')}
+                  </div>
+                ))}
+              </div>
+            )
+          )}
 
           <label className="btn btn-s" style={{ cursor: 'pointer' }}>
             <Ic name="imagen" size={13} /> Seleccionar las imágenes

@@ -20,7 +20,12 @@ export const MOVER: { nombre: string, de: string, a: string, motivo: string }[] 
  * Renombres. Abierto y Cerrado existen en Apoyo y en Agarre con significados
  * distintos —cadena cinética contra tipo de agarre— y al etiquetar no se distinguían.
  */
-export const RENOMBRAR: { de: string, a: string, categoria: string }[] = [
+export const RENOMBRAR: { de: string, a: string, categoria: string, padre?: string }[] = [
+  // "Menor" a secas, colgando de Glúteo, se lee bien en el árbol pero fatal en la
+  // pastilla de un ejercicio, donde aparece suelta y no dice de qué es. Además hay tres
+  // etiquetas llamadas "Mayor" (glúteo, aductor y pectoral) y dos "Menor".
+  { de: 'Menor', a: 'Glúteo menor', categoria: 'musculo', padre: 'Glúteo' },
+
   { de: 'Abierto', a: 'Cadena abierta', categoria: 'apoyo' },
   { de: 'Cerrado', a: 'Cadena cerrada', categoria: 'apoyo' },
   // Las listas se ordenan alfabéticamente y la minúscula la mandaba al final.
@@ -41,8 +46,22 @@ export const RENOMBRAR: { de: string, a: string, categoria: string }[] = [
  * Roller y Rodillo eran dos modelos distintos, pero se distinguen bien en la imagen
  * del ejercicio, así que no compensa tener dos etiquetas para lo mismo.
  */
-export const FUSIONAR: { sobra: string, queda: string, categoria: string }[] = [
+export const FUSIONAR: { sobra: string, queda: string, categoria: string, padre?: string }[] = [
   { sobra: 'Rodillo', queda: 'Roller', categoria: 'material' },
+
+  // Duplicados que creé yo por no haber mirado el árbol antes. Los vastos ya estaban
+  // con su nombre anatómico —Medial y Lateral— y añadí los sinónimos interno y externo.
+  // Se queda el nombre anatómico.
+  //
+  // El `padre` NO es decoración: hay tres etiquetas llamadas "Mayor" (glúteo, aductor y
+  // pectoral) y dos llamadas "Menor". Fusionar por nombre a secas podría meter el
+  // pectoral mayor dentro del glúteo.
+  { sobra: 'Vasto interno', queda: 'Vasto Medial', categoria: 'musculo', padre: 'Cuádriceps' },
+  { sobra: 'Vasto externo', queda: 'Vasto Lateral', categoria: 'musculo', padre: 'Cuádriceps' },
+  // Aquí al revés: se queda el nombre largo. "Mayor" y "Medio" sueltos, en la pastilla
+  // de un ejercicio, no dicen de qué músculo hablan.
+  { sobra: 'Mayor', queda: 'Glúteo mayor', categoria: 'musculo', padre: 'Glúteo' },
+  { sobra: 'Medio', queda: 'Glúteo medio', categoria: 'musculo', padre: 'Glúteo' },
 ]
 
 /**
@@ -101,9 +120,25 @@ export const NUEVAS: { categoria: string, nombre: string, padre?: string }[] = [
   // y quien necesite potenciar un vasto interno concreto puede llegar a los cuatro o
   // cinco ejercicios que lo buscan sin repasar la lista entera. Es ÉNFASIS, no
   // aislamiento: no hay ejercicio que trabaje un vasto y no el resto.
-  { categoria: 'musculo', nombre: 'Vasto interno', padre: 'Cuádriceps' },
-  { categoria: 'musculo', nombre: 'Vasto externo', padre: 'Cuádriceps' },
-  { categoria: 'musculo', nombre: 'Aductores' },
+  // Los vastos NO se crean: ya existen como Vasto Medial y Vasto Lateral. Tampoco
+  // Aductores. Se dejan aquí anotados para que nadie los vuelva a añadir.
+  // Mismo criterio con el glúteo. El MEDIO es el que importa de verdad tenerlo aparte:
+  // es el de la estabilidad lateral, el que se busca cuando la rodilla cae hacia dentro
+  // o la cadera duele al andar, y lo trabajan cuatro ejercicios muy concretos que sin
+  // etiqueta no hay forma de encontrar entre todos los de "Glúteo".
+  { categoria: 'musculo', nombre: 'Glúteo mayor', padre: 'Glúteo' },
+  { categoria: 'musculo', nombre: 'Glúteo medio', padre: 'Glúteo' },
+
+  // NO se crea nada de "función de core": Antiextensión, Antiflexión y Antirotación ya
+  // existen en Movimiento, y los ejercicios las usan tal cual están escritas ahí
+  // —Antirotación con una sola erre—. Iba a crear tres duplicados por no haber mirado
+  // el árbol antes.
+
+  // "Lumbar" ya existe como ARTICULACIÓN, hija de Columna, y es la región. El músculo
+  // que trabaja una extensión lumbar son los paravertebrales, así que va con su nombre:
+  // dos etiquetas iguales en categorías distintas se confundirían al buscar por nombre.
+  
+  
 
   // PATOLOGÍAS
   //

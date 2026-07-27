@@ -10,11 +10,12 @@ import {
   Receipt, Banknote, Folder, Euro, Percent, Building2, GraduationCap, Info, Zap,
   Flag, MapPin, Camera, Image as ImageIcon, Download, Upload, Play, ListChecks,
   CalendarDays, Droplet, Utensils, Cross, Pause, Shuffle, UserMinus, ChevronDown,
-  MoreHorizontal, ArrowLeft, IdCard, PersonStanding, Copy,
+  MoreHorizontal, ArrowLeft, IdCard, PersonStanding, Copy, ChevronUp,
 } from 'lucide-react'
 
 const MAP: Record<string, any> = {
   abajo: ChevronDown,
+  arriba: ChevronUp,
   acciones: MoreHorizontal,
   cuerpo: PersonStanding,
   atras: ArrowLeft,
