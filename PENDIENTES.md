@@ -249,3 +249,50 @@ alcance limitado, habrá que revisar todas las políticas, no solo estas.
   categoría y rejilla de tarjetas) se usa ya al montar una sesión, pero `BibliotecaTab`
   mantiene su propia copia de lo mismo. **Migrarla al llegar al Pilar Biblioteca**: si no,
   en unos meses habrán divergido y estaremos donde empezamos.
+
+---
+
+## 5. Biblioteca de imágenes
+
+### Para qué son las imágenes (decide el resto)
+
+Además de ilustrar la ficha del ejercicio, la idea es que **sirvan para mandar tablas de
+ejercicios a casa del paciente**. Eso cambia el listón: la imagen no la va a interpretar
+un profesional al lado del paciente, sino el paciente solo en su salón. Tiene que
+entenderse el gesto sin explicación.
+
+Consecuencias que hay que respetar al pedirlas:
+
+- El gesto manda sobre el detalle. Si hay que elegir entre postura clara y material
+  bonito, postura clara.
+- Se leen a dos tamaños muy distintos: **104 px** en la tarjeta de la biblioteca y a
+  media página en la tabla impresa. Lo que no se lea a 104 px no vale.
+- Nada de texto dentro de la imagen: la tabla llevará su propio texto, y una imagen con
+  letra no se puede reutilizar ni traducir.
+
+**Pendiente de construir:** la tabla de ejercicios para casa (selección de ejercicios →
+PDF con imagen, series, repeticiones y notas). Aún sin diseñar.
+
+### Cómo se piden
+
+- **En tandas de 10.** Más de diez y la herramienta empieza a repetirse y a mezclar
+  posturas entre ejercicios.
+- **Musculatura resaltada: de momento no.** Está decidido que si se hace, se hace en
+  TODAS —una biblioteca a medias se ve descuidada— y con tres reglas: un solo músculo, el
+  principal; tinte suave, no el dorado de acento, porque a 104 px compite con la línea; y
+  zona amplia, no anatomía fina, porque un "vasto interno" mal dibujado en una app
+  clínica es peor que nada. El texto para pedirlo está al final de
+  `ENCARGO-IMAGENES-CUADRICEPS.md`.
+
+### Lo que la IA no dibuja bien
+
+Comprobado en las dos primeras tandas:
+
+- **Sentadilla sissy.** Seis intentos, ninguno válido. La IA no entiende "cadera extendida
+  con rodillas adelante": siempre acaba flexionando la cadera y dibujando a alguien
+  apoyado en un poste. Si se reintenta, hay que describir la postura por la **línea del
+  cuerpo** ("una línea recta desde las rodillas hasta los hombros, inclinada hacia atrás")
+  y no por las articulaciones.
+- **Ejercicios cuyo sentido está en el movimiento, no en la postura** (deslizadores,
+  saltos). Una foto fija de una zancada con deslizador es indistinguible de una zancada
+  normal salvo por el disco bajo el pie. Salen, pero comunican poco.

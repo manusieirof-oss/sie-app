@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { comprimirImagen, MAX_FOTO_PACIENTE } from './imagen'
 
 // Foto del paciente. Bucket PRIVADO 'pacientes-fotos' con URL firmada.
 //
@@ -8,28 +9,9 @@ import { supabase } from './supabase'
 
 const BUCKET = 'pacientes-fotos'
 
-// La foto del banner se pinta a 84px. Una foto de móvil son 3-4 MB.
-async function comprimir(file: File): Promise<File> {
-  const esHeic = /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif'
-  if (esHeic) {
-    const heic2any = (await import('heic2any')).default
-    const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 }) as Blob
-    file = new File([blob], 'foto.jpg', { type: 'image/jpeg' })
-  }
-  const bitmap = await createImageBitmap(file)
-  const MAX = 600
-  const escala = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(bitmap.width * escala)
-  canvas.height = Math.round(bitmap.height * escala)
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  const blob: Blob = await new Promise(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.85))
-  return new File([blob], 'foto.jpg', { type: 'image/jpeg' })
-}
-
 export async function subirFotoPaciente(pacienteId: string, file: File) {
   let preparado: File
-  try { preparado = await comprimir(file) }
+  try { preparado = await comprimirImagen(file, MAX_FOTO_PACIENTE) }
   catch { return { ok: false as const, error: 'No se pudo procesar la imagen. Prueba con un JPG.' } }
 
   // Ruta fija por paciente: al cambiar la foto se sustituye y no se acumulan.

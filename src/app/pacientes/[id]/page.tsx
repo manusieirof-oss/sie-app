@@ -247,7 +247,7 @@ export default function FichaPacientePage() {
     setRecuperaciones(rec||[])
     // Lo anotado en el taller: alimenta la progresión de cargas y de ejecución.
     const { data: regsEj } = await supabase.from('registros_ejercicio')
-      .select('fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados').eq('paciente_id',id)
+      .select('fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados,variante').eq('paciente_id',id)
     setRegistrosEj(regsEj||[])
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])

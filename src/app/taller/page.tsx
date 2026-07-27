@@ -282,6 +282,8 @@ export default function TallerPage() {
     const fila:any = {
       paciente_id: pacienteId, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: registrando.id, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado: false,
+      // Sin esto, la progresión de cargas mezclaba unilateral y bilateral.
+      variante: ej.variante || null,
     }
     let error
     if (ej.ejercicio_id) {
@@ -290,7 +292,7 @@ export default function TallerPage() {
         .eq('sesion_id', registrando.id).eq('finalizado', false).maybeSingle()
       if (existe) {
         ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series: seriesLlenas, comentario: ej.comentario||null, ejercicio_nombre: ej.nombre, items_evaluados: iv })
+          .update({ series: seriesLlenas, comentario: ej.comentario||null, ejercicio_nombre: ej.nombre, items_evaluados: iv, variante: ej.variante||null })
           .eq('id', existe.id))
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))

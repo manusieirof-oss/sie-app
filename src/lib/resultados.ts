@@ -83,7 +83,7 @@ export function porMes(citas: any[], n = 6) {
  * enmascara. En ejercicios por tiempo se toma el más largo.
  */
 export function cargaPorEjercicio(registros: any[]) {
-  const porEj: Record<string, { nombre: string, puntos: { fecha: string, valor: number, unidad: string }[] }> = {}
+  const porEj: Record<string, { nombre: string, variante: string, fechaNombre: string, puntos: { fecha: string, valor: number, unidad: string }[] }> = {}
 
   registros.forEach(r => {
     const series = Array.isArray(r.series) ? r.series : []
@@ -99,7 +99,17 @@ export function cargaPorEjercicio(registros: any[]) {
     })
     if (mejor <= 0) return
 
-    const ej = porEj[r.ejercicio_id] || (porEj[r.ejercicio_id] = { nombre: r.ejercicio_nombre || 'Ejercicio', puntos: [] })
+    // Una serie por ejercicio Y VARIANTE: un unilateral no se compara con un
+    // bilateral, y antes se pintaban en la misma línea porque la variante no se
+    // guardaba en el registro.
+    const clave = `${r.ejercicio_id}|${r.variante || ''}`
+    const ej = porEj[clave] || (porEj[clave] = {
+      nombre: r.ejercicio_nombre || 'Ejercicio', variante: r.variante || '', fechaNombre: r.fecha, puntos: [],
+    })
+    // El nombre, del registro más reciente: si el ejercicio se renombró, el viejo
+    // seguiría saliendo solo por haberse procesado antes.
+    if (r.fecha >= ej.fechaNombre) { ej.nombre = r.ejercicio_nombre || ej.nombre; ej.fechaNombre = r.fecha }
+
     // Varios registros el mismo día (misma sesión repetida): se queda el mayor.
     const ya = ej.puntos.find(p => p.fecha === r.fecha)
     if (ya) { if (mejor > ya.valor) { ya.valor = mejor; ya.unidad = unidad } }
@@ -107,13 +117,14 @@ export function cargaPorEjercicio(registros: any[]) {
   })
 
   return Object.entries(porEj)
-    .map(([id, v]) => {
+    .map(([clave, v]) => {
       const puntos = v.puntos.sort((a, b) => a.fecha.localeCompare(b.fecha))
       const primero = puntos[0]?.valor || 0
       const ultimo = puntos[puntos.length - 1]?.valor || 0
       return {
-        ejercicio_id: id,
+        ejercicio_id: clave,
         nombre: v.nombre,
+        variante: v.variante,
         unidad: puntos[0]?.unidad || '',
         puntos,
         primero, ultimo,
@@ -133,7 +144,7 @@ export function cargaPorEjercicio(registros: any[]) {
  * mejor noticia que un 80% que lleva tres meses igual.
  */
 export function ejecucionPorEjercicio(registros: any[]) {
-  const porEj: Record<string, { nombre: string, puntos: { fecha: string, pct: number, ok: number, total: number }[] }> = {}
+  const porEj: Record<string, { nombre: string, fechaNombre: string, puntos: { fecha: string, pct: number, ok: number, total: number }[] }> = {}
 
   registros.forEach(r => {
     // `resumen` cuenta sobre las claves guardadas, sean índices o textos: así el
@@ -141,7 +152,8 @@ export function ejecucionPorEjercicio(registros: any[]) {
     const { ok, total, pct } = resumen(r.items_evaluados)
     if (total === 0 || !r.ejercicio_id || !r.fecha) return
 
-    const ej = porEj[r.ejercicio_id] || (porEj[r.ejercicio_id] = { nombre: r.ejercicio_nombre || 'Ejercicio', puntos: [] })
+    const ej = porEj[r.ejercicio_id] || (porEj[r.ejercicio_id] = { nombre: r.ejercicio_nombre || 'Ejercicio', fechaNombre: r.fecha, puntos: [] })
+    if (r.fecha >= ej.fechaNombre) { ej.nombre = r.ejercicio_nombre || ej.nombre; ej.fechaNombre = r.fecha }
     const ya = ej.puntos.find(p => p.fecha === r.fecha)
     if (!ya) ej.puntos.push({ fecha: r.fecha, pct, ok, total })
   })

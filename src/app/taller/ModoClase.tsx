@@ -271,6 +271,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
+      // Sin esto, la progresión de cargas mezclaba unilateral y bilateral.
+      variante: ej.variante || null,
     }
     let error
     if (ej.ejercicio_id){
@@ -279,7 +281,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         .eq('sesion_id',sesionId).eq('finalizado',false).maybeSingle()
       if (existe){
         ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv })
+          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null })
           .eq('id', existe.id))
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))

@@ -5,6 +5,7 @@ import { Ic } from '@/lib/icons'
 import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPorCapacidad, textoDescanso } from '@/lib/capacidades'
 import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
+import { similaresA } from '@/lib/ejercicios'
 
 /**
  * Valor que se lee como etiqueta y se cambia al pulsarlo. Un `select` gris pesa lo
@@ -127,12 +128,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const similares = (() => {
     if (!ultimo?.ejercicio_id) return []
     const base = ejercicios.find((e:any)=>e.id===ultimo.ejercicio_id)
-    const ets = base?.etiquetas || []
-    if (ets.length===0) return []
+    if (!base) return []
     const yaPuestos = new Set((parte?.ejercicios||[]).map((x:any)=>x.ejercicio_id))
-    return ejercicios
-      .filter((e:any)=>!yaPuestos.has(e.id) && (e.etiquetas||[]).some((id:string)=>ets.includes(id)))
-      .slice(0, 6)
+    // Por músculo y patrón, no por material: ver lib/ejercicios.ts.
+    return similaresA(ejercicios, base, 6, etiquetas).filter((e:any)=>!yaPuestos.has(e.id))
   })()
 
   function editarParte(cambios: any) {

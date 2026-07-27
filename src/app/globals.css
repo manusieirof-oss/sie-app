@@ -201,8 +201,11 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .tarj-ej{background:var(--w);border:1px solid var(--bd);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:border-color .12s,background .12s;}
 .tarj-ej:hover{border-color:var(--g);}
 .tarj-ej.on{border-color:var(--g);border-width:2px;background:var(--gl);}
-.tarj-img{position:relative;height:104px;background:var(--bm);display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--bd);}
-.tarj-img img{width:100%;height:100%;object-fit:contain;display:block;}
+/* Cuadrada y `cover`: la imagen llena la tarjeta. Con `contain` y una altura fija
+   quedaban franjas de fondo a los lados, porque las ilustraciones son 1:1 y el hueco
+   era apaisado. Al ser el mismo formato en origen y en destino, no se recorta nada. */
+.tarj-img{position:relative;aspect-ratio:1;background:var(--bm);display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--bd);overflow:hidden;}
+.tarj-img img{width:100%;height:100%;object-fit:cover;display:block;}
 .tarj-img .sin{color:var(--grl);display:inline-flex;}
 .tarj-img .marca{position:absolute;top:7px;right:7px;width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center;}
 /* Capa de la biblioteca sobre el editor de sesión: se abre a ráfagas, no vive ahí. */

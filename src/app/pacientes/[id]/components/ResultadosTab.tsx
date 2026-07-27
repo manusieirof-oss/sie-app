@@ -78,7 +78,12 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                   {cargas.map(e=>(
                     <div key={e.ejercicio_id}>
                       <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
-                        <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
+                        <span style={{fontSize:13,color:'var(--n)',flex:1}}>
+                          {e.nombre}
+                          {/* La variante, si se anotó: un unilateral no se compara con
+                              un bilateral y ahora van en gráficas separadas. */}
+                          {e.variante && <span style={{color:'var(--gr)'}}> · {e.variante}</span>}
+                        </span>
                         <span style={{fontSize:13,color:'var(--n)'}}>{e.ultimo}{e.unidad}</span>
                         {e.delta!==0 && (
                           <span className={`pill ${e.delta>0?'pill-o on':'pill-r'}`}>
