@@ -3,43 +3,33 @@ import { useState } from 'react'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
 import { Ic } from '@/lib/icons'
 
-const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
+import { COLOR, asistencia, porMes, cargaPorEjercicio, ejecucionPorEjercicio, evaPorZona } from '@/lib/resultados'
 
-export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, molestias=[], patologias=[], deportesPac=[], generarPDF }: any) {
-  const [vista, setVista] = useState<'analisis'|'paciente'>('analisis')
-  const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
-  const faltas = citas.filter((c:any)=>c.estado==='falta').length
-  const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
-  const recuperadas = recuperaciones.filter((r:any)=>r.estado==='recuperada').length
-  const total = realizadas + faltas
-  const pctAsistencia = total>0 ? Math.round((realizadas/total)*100) : 0
+// Alias cortos: las gráficas los usan mucho y `COLOR.g` en cada propiedad no se lee.
+const G = COLOR.g, GD = COLOR.gd, GL = COLOR.gl, RED = COLOR.red, AMB = COLOR.amb, GREY = COLOR.gris
 
-  // Datos mensuales
-  const mesesMap: Record<string,{realizadas:number,faltas:number}> = {}
-  citas.forEach((c:any)=>{
-    const mes = c.fecha?.slice(0,7); if (!mes) return
-    if (!mesesMap[mes]) mesesMap[mes] = {realizadas:0,faltas:0}
-    if (c.estado==='realizada') mesesMap[mes].realizadas++
-    if (c.estado==='falta') mesesMap[mes].faltas++
-  })
-  const dataMeses = Object.entries(mesesMap).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([mes,v])=>{
-    const [anio,m]=mes.split('-')
-    return { mes:new Date(parseInt(anio),parseInt(m)-1,1).toLocaleDateString('es-ES',{month:'short'}), Realizadas:v.realizadas, Faltas:v.faltas }
-  })
+export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, molestias=[], patologias=[], deportesPac=[], registros=[], generarPDF }: any) {
+  const [vista, setVista] = useState<'analisis'|'paciente'|'progreso'>('analisis')
 
-  // Datos escalas
+  // Un solo sitio calcula las cifras. Antes se repetían aquí, en la vista del paciente
+  // y en generarPDF, cada una por su cuenta.
+  const a = asistencia(citas, recuperaciones)
+  const { realizadas, faltas, canceladas, recuperadas, pctAsistencia, base } =
+    { ...a, pctAsistencia: a.pct }
+
+  const dataMeses = porMes(citas)
+  const dataDonut = [{ name:'Asistencia', value:pctAsistencia, fill:G }]
+
   const dataEscalas = [...escalas].reverse().slice(-8).map((e:any)=>({
     fecha:new Date(e.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}),
     Borg:e.borg, Estrés:e.estres
   }))
 
-  const dataDonut = [{ name:'Asistencia', value:pctAsistencia, fill:G }]
-
-  // EVA molestias en el tiempo (ordenado por fecha de registro)
-  const dataEva = [...molestias]
-    .filter((m:any)=>typeof m.eva==='number')
-    .sort((a:any,b:any)=>(a.created_at||'').localeCompare(b.created_at||''))
-    .map((m:any)=>({ fecha:new Date(m.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'}), zona:m.zona, EVA:m.eva }))
+  // Una serie POR ZONA. Antes se unían todas en una línea y enlazaba el dolor de
+  // rodilla con el de hombro, dibujando una evolución que no existía.
+  const zonasEva = evaPorZona(molestias)
+  const cargas = cargaPorEjercicio(registros)
+  const gestos = ejecucionPorEjercicio(registros)
 
   // Patologias por estado
   const patEstados = { activa:0, cronica:0, resuelta:0 } as Record<string,number>
@@ -59,14 +49,102 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
 
   return (
     <div>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
-        <div style={{display:'flex',gap:4,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,flex:1}}>
-          {([['analisis','progreso','Análisis'],['paciente','usuario','Para el paciente']] as const).map(([k,ic,l])=>(
-            <button key={k} onClick={()=>setVista(k)} style={{flex:1,fontSize:11,padding:'7px 8px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><Ic name={ic} size={13}/> {l}</button>
+      {/* Mismo conmutador que el resto de la app. Era el quinto estilo de pestañas. */}
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
+        <div className="vista-sw" style={{marginBottom:0}}>
+          {([['analisis','progreso','Análisis'],['progreso','fuerza','Progresión'],['paciente','usuario','Para el paciente']] as const).map(([k,ic,l])=>(
+            <button key={k} className={`vista-b ${vista===k?'on':''}`} onClick={()=>setVista(k)}>
+              <Ic name={ic} size={13}/> {l}
+            </button>
           ))}
         </div>
+        <div style={{flex:1}}/>
         <button className="btn btn-p btn-sm" onClick={generarPDF}><Ic name="informe" size={12}/> PDF</button>
       </div>
+
+      {vista==='progreso'&&(
+        <div className="panel">
+          {/* CARGAS. Lo que de verdad se movió, de los registros del taller. Hasta
+              ahora esos datos solo se veían sesión a sesión, nunca en conjunto. */}
+          <div className="sec">
+            <div className="sec-h">
+              <span className="sh-l"><span className="ct-l"><Ic name="fuerza" size={13}/> Evolución de la carga</span></span>
+              <span className="sh-r">La serie más pesada de cada día</span>
+            </div>
+            {cargas.length===0
+              ? <div className="muted">Aún no hay suficientes registros. Hacen falta al menos dos días con el mismo ejercicio anotado desde el taller.</div>
+              : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
+                  {cargas.map(e=>(
+                    <div key={e.ejercicio_id}>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+                        <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
+                        <span style={{fontSize:13,color:'var(--n)'}}>{e.ultimo}{e.unidad}</span>
+                        {e.delta!==0 && (
+                          <span className={`pill ${e.delta>0?'pill-o on':'pill-r'}`}>
+                            {e.delta>0?'+':''}{Math.round(e.delta*10)/10}{e.unidad}
+                          </span>
+                        )}
+                      </div>
+                      <ResponsiveContainer width="100%" height={130}>
+                        <LineChart data={e.puntos.map(p=>({...p, dia:new Date(p.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
+                          margin={{top:5,right:10,left:-22,bottom:0}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
+                          <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                          <YAxis tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
+                          <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
+                            formatter={(v:any)=>[`${v}${e.unidad}`,'Máximo']}/>
+                          <Line type="monotone" dataKey="valor" stroke={G} strokeWidth={2} dot={{r:3}}/>
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+
+          {/* GESTO. El % de criterios técnicos cumplidos a lo largo del tiempo. La
+              sección Ejecución solo enseña el último, que dice cómo está hoy pero no
+              si va a mejor: un 40% que sube vale más que un 80% estancado. */}
+          <div className="sec">
+            <div className="sec-h">
+              <span className="sh-l"><span className="ct-l"><Ic name="ok" size={13}/> Cómo ejecuta</span></span>
+              <span className="sh-r">Criterios técnicos cumplidos</span>
+            </div>
+            {gestos.length===0
+              ? <div className="muted">Sin evaluaciones repetidas todavía.</div>
+              : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
+                  {gestos.map(e=>{
+                    const dif = e.ultimo - e.primero
+                    return (
+                      <div key={e.ejercicio_id}>
+                        <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+                          <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
+                          <span style={{fontSize:13,color:'var(--n)'}}>{e.ultimo}%</span>
+                          {dif!==0 && (
+                            <span className={`pill ${dif>0?'pill-o on':'pill-r'}`}>{dif>0?'+':''}{dif} pts</span>
+                          )}
+                        </div>
+                        <ResponsiveContainer width="100%" height={130}>
+                          <LineChart data={e.puntos.map(p=>({...p, dia:new Date(p.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
+                            margin={{top:5,right:10,left:-22,bottom:0}}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
+                            <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                            <YAxis domain={[0,100]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
+                            <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
+                              formatter={(v:any,n:any,o:any)=>[`${v}% · ${o?.payload?.ok} de ${o?.payload?.total}`,'Cumple']}/>
+                            <Line type="monotone" dataKey="pct" stroke={GD} strokeWidth={2} dot={{r:3}}/>
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+          </div>
+        </div>
+      )}
 
       {vista==='analisis'&&(
         <div style={{display:'flex',flexDirection:'column',gap:30}}>
@@ -82,14 +160,16 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
               </ResponsiveContainer>
               <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center'}}>
                 <div style={{fontSize:30,fontWeight:300,color:GD}}>{pctAsistencia}%</div>
-                <div style={{fontSize:9,color:'var(--grl)'}}>asistencia</div>
+                <div style={{fontSize:12,color:'var(--gr)'}}>asistencia</div>
+                {/* El denominador, que nunca se veía: el número no dice nada sin él. */}
+                <div style={{fontSize:11,color:'var(--gr)'}}>de {base}</div>
               </div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
               {[['Realizadas',realizadas,G],['Faltas',faltas,RED],['Canceladas',canceladas,GREY],['Recuperadas',recuperadas,AMB]].map(([l,v,c])=>(
                 <div key={String(l)} style={{textAlign:'center',padding:'4px 0'}}>
                   <div style={{fontSize:26,fontWeight:200,color:c as string}}>{v}</div>
-                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{l}</div>
+                  <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>{l}</div>
                 </div>
               ))}
             </div>
@@ -98,7 +178,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           {/* ASISTENCIA POR MES - AREA */}
           {dataMeses.length>0&&(
             <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Asistencia por mes</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Asistencia por mes</div>
               <ResponsiveContainer width="100%" height={180}>
                 <AreaChart data={dataMeses} margin={{top:5,right:10,left:-20,bottom:0}}>
                   <defs>
@@ -108,9 +188,9 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                  <XAxis dataKey="mes" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false} allowDecimals={false}/>
-                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}}/>
+                  <XAxis dataKey="mes" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                  <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
                   <Area type="monotone" dataKey="Realizadas" stroke={G} strokeWidth={2} fill="url(#gR)"/>
                   <Area type="monotone" dataKey="Faltas" stroke={RED} strokeWidth={1.5} fill="none" strokeDasharray="4 3"/>
                 </AreaChart>
@@ -121,52 +201,66 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           {/* ESCALAS - LINEAS */}
           {dataEscalas.length>0&&(
             <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Evolución de escalas</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Evolución de escalas</div>
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={dataEscalas} margin={{top:5,right:10,left:-20,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                  <XAxis dataKey="fecha" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
-                  <YAxis domain={[0,10]} tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}}/>
+                  <XAxis dataKey="fecha" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                  <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
                   <Line type="monotone" dataKey="Borg" stroke={G} strokeWidth={2} dot={{r:3}}/>
                   <Line type="monotone" dataKey="Estrés" stroke={AMB} strokeWidth={2} dot={{r:3}}/>
                 </LineChart>
               </ResponsiveContainer>
               <div style={{display:'flex',gap:16,justifyContent:'center',marginTop:4}}>
-                <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:G}}/><span style={{fontSize:9,color:'var(--grl)'}}>Borg (bienestar)</span></div>
-                <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:AMB}}/><span style={{fontSize:9,color:'var(--grl)'}}>Estrés</span></div>
+                <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:G}}/><span style={{fontSize:12,color:'var(--gr)'}}>Borg (bienestar)</span></div>
+                <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:AMB}}/><span style={{fontSize:12,color:'var(--gr)'}}>Estrés</span></div>
               </div>
             </div>
           )}
 
-          {/* EVA MOLESTIAS */}
-          {dataEva.length>0&&(
-            <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Dolor percibido (EVA) en molestias</div>
-              <ResponsiveContainer width="100%" height={170}>
-                <LineChart data={dataEva} margin={{top:5,right:10,left:-20,bottom:0}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                  <XAxis dataKey="fecha" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
-                  <YAxis domain={[0,10]} tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}} formatter={(v:any,n:any,o:any)=>[`EVA ${v}`, o?.payload?.zona||'']}/>
-                  <Line type="monotone" dataKey="EVA" stroke={RED} strokeWidth={2} dot={{r:3}}/>
-                </LineChart>
-              </ResponsiveContainer>
+          {/* EVA POR ZONA. Una gráfica por zona, no una línea que las une todas:
+              cada zona es una medida distinta y juntarlas inventaba evoluciones. */}
+          {zonasEva.length>0&&(
+            <div className="sec">
+              <div className="sec-h">
+                <span className="sh-l"><span className="ct-l">Dolor percibido · EVA</span></span>
+                <span className="sh-r">Una línea por zona</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:16}}>
+                {zonasEva.map(z=>(
+                  <div key={z.zona}>
+                    <div style={{fontSize:13,color:'var(--n)',marginBottom:4}}>
+                      {z.zona}
+                      {z.puntos.length===1 && <span style={{fontSize:12,color:'var(--gr)'}}> · un solo registro</span>}
+                    </div>
+                    <ResponsiveContainer width="100%" height={140}>
+                      <LineChart data={z.puntos} margin={{top:5,right:10,left:-22,bottom:0}}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
+                        <XAxis dataKey="fecha" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                        <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                        <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
+                        <Line type="monotone" dataKey="EVA" stroke={RED} strokeWidth={2} dot={{r:3}}/>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* PATOLOGIAS POR ESTADO */}
           {totalPat>0&&(
             <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Patologías por estado</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Patologías por estado</div>
               <div style={{display:'flex',flexDirection:'column',gap:7}}>
                 {dataPat.map(d=>(
                   <div key={d.estado} style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{fontSize:10,color:'var(--grl)',width:64,textAlign:'right'}}>{d.estado}</div>
+                    <div style={{fontSize:12,color:'var(--gr)',width:64,textAlign:'right'}}>{d.estado}</div>
                     <div style={{flex:1,height:18,background:'var(--bl)',borderRadius:99,overflow:'hidden'}}>
                       <div style={{height:'100%',width:`${Math.round((d.n/totalPat)*100)}%`,background:d.fill,borderRadius:99,minWidth:18,transition:'width .4s'}}/>
                     </div>
-                    <div style={{fontSize:11,fontWeight:500,color:'var(--n)',width:20}}>{d.n}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:'var(--n)',width:20}}>{d.n}</div>
                   </div>
                 ))}
               </div>
@@ -176,12 +270,12 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           {/* TIPOS DE CLASE */}
           {dataTipo.length>0&&(
             <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Distribución por tipo de clase</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Distribución por tipo de clase</div>
               <ResponsiveContainer width="100%" height={Math.max(120, dataTipo.length*38)}>
                 <BarChart data={dataTipo} layout="vertical" margin={{top:0,right:20,left:10,bottom:0}}>
                   <XAxis type="number" hide allowDecimals={false}/>
-                  <YAxis type="category" dataKey="tipo" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false} width={80}/>
-                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}} cursor={{fill:'#F7F7F7'}}/>
+                  <YAxis type="category" dataKey="tipo" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={80}/>
+                  <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}} cursor={{fill:'#F7F7F7'}}/>
                   <Bar dataKey="n" fill={G} radius={[0,6,6,0]} barSize={18}/>
                 </BarChart>
               </ResponsiveContainer>
@@ -191,9 +285,9 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           {/* DEPORTES */}
           {deportesPac.length>0&&(
             <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Deportes que practica</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Deportes que practica</div>
               <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                {deportesPac.map((d:any)=><span key={d.id} style={{fontSize:11,padding:'5px 12px',borderRadius:99,background:GL,color:GD,fontWeight:400}}>{d.nombre}</span>)}
+                {deportesPac.map((d:any)=><span key={d.id} style={{fontSize:13,padding:'5px 12px',borderRadius:99,background:GL,color:GD,fontWeight:400}}>{d.nombre}</span>)}
               </div>
             </div>
           )}
@@ -201,12 +295,12 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           {/* DATOS FISICOS */}
           {pac?.peso_kg&&(
             <div>
-              <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Datos físicos actuales</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Datos físicos actuales</div>
               <div style={{display:'flex',gap:30,justifyContent:'center'}}>
                 {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm']].map(([l,v,u])=>v?(
                   <div key={String(l)} style={{textAlign:'center'}}>
-                    <div style={{fontSize:24,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:11,color:'var(--grl)'}}>{u as string}</span></div>
-                    <div style={{fontSize:9,color:'var(--grl)'}}>{l}</div>
+                    <div style={{fontSize:24,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:13,color:'var(--gr)'}}>{u as string}</span></div>
+                    <div style={{fontSize:12,color:'var(--gr)'}}>{l}</div>
                   </div>
                 ):null)}
               </div>
@@ -219,7 +313,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             tests.forEach((t:any)=>{const key=`${t.test_id}_${t.lado||'bilateral'}`;if(!grupos[key])grupos[key]=[];grupos[key].push(t)})
             return (
               <div>
-                <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Evolución de tests funcionales</div>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Evolución de tests funcionales</div>
                 {Object.values(grupos).map((grupo:any[],gi:number)=>{
                   const sorted=[...grupo].sort((a,b)=>a.fecha.localeCompare(b.fecha))
                   const ultimo=sorted[sorted.length-1], primero=sorted[0]
@@ -230,13 +324,13 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                     <div key={gi} style={{marginBottom:12,paddingBottom:10,borderBottom:'1px solid var(--bl)'}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ultimo.tests?.nombre||'Test'}{ladoStr}</div>
-                          <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{sorted.length} {sorted.length===1?'registro':'registros'}</div>
+                          <div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>{ultimo.tests?.nombre||'Test'}{ladoStr}</div>
+                          <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>{sorted.length} {sorted.length===1?'registro':'registros'}</div>
                         </div>
-                        {mejoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:GL,color:GD,fontWeight:500}}>✓ Mejorado</span>}
-                        {empeoro&&<span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'#FBEAEA',color:RED,fontWeight:500,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="baja" size={10}/> Empeorado</span>}
-                        <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:ultimo.resultado==='positivo'?'#FBEAEA':GL,color:ultimo.resultado==='positivo'?RED:GD,fontWeight:500}}>
-                          {ultimo.resultado==='positivo'?'+ Positivo':'− Negativo'}
+                        {mejoro&&<span style={{fontSize:12,padding:'2px 8px',borderRadius:99,background:GL,color:GD,fontWeight:500}}><Ic name='sube' size={11}/> Mejorado</span>}
+                        {empeoro&&<span style={{fontSize:12,padding:'2px 8px',borderRadius:99,background:'#FBEAEA',color:RED,fontWeight:500,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="baja" size={10}/> Empeorado</span>}
+                        <span style={{fontSize:12,padding:'2px 8px',borderRadius:99,background:ultimo.resultado==='positivo'?'#FBEAEA':GL,color:ultimo.resultado==='positivo'?RED:GD,fontWeight:500}}>
+                          {ultimo.resultado==='positivo'?'Positivo':'Negativo'}
                         </span>
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:2,overflowX:'auto',paddingBottom:2}}>
@@ -244,7 +338,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                           <div key={t.id} style={{display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
                             <div style={{textAlign:'center'}}>
                               <div style={{width:10,height:10,borderRadius:'50%',background:t.resultado==='positivo'?RED:G,margin:'0 auto 2px'}}/>
-                              <div style={{fontSize:7,color:'var(--grl)',whiteSpace:'nowrap'}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+                              <div style={{fontSize:11,color:'var(--gr)',whiteSpace:'nowrap'}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
                             </div>
                             {ti<sorted.length-1&&<div style={{width:16,height:1,background:'var(--bm)',flexShrink:0}}/>}
                           </div>
@@ -257,14 +351,14 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             )
           })()}
 
-          <div style={{fontSize:9,color:'var(--grl)',textAlign:'center',fontWeight:400,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><Ic name="info" size={11}/> Las citas se actualizan a las 00:00</div>
+          <div style={{fontSize:12,color:'var(--gr)',textAlign:'center',fontWeight:400,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><Ic name="info" size={11}/> Las citas se actualizan a las 00:00</div>
         </div>
       )}
 
       {vista==='paciente'&&(
         <div style={{padding:'10px 4px'}}>
           <div style={{textAlign:'center',marginBottom:24}}>
-            <div style={{fontSize:13,color:'var(--grl)',fontWeight:300}}>Tu progreso</div>
+            <div style={{fontSize:13,color:'var(--gr)',fontWeight:300}}>Tu progreso</div>
             <div style={{fontSize:15,fontWeight:400,color:'var(--n)',marginTop:2}}>{pac?.nombre} {pac?.apellidos}</div>
           </div>
           <div style={{textAlign:'center',marginBottom:30}}>
@@ -277,7 +371,9 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
               </ResponsiveContainer>
               <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center'}}>
                 <div style={{fontSize:36,fontWeight:300,color:G}}>{pctAsistencia}%</div>
-                <div style={{fontSize:10,color:'var(--grl)'}}>asistencia</div>
+                <div style={{fontSize:12,color:'var(--gr)'}}>asistencia</div>
+                {/* El denominador, que nunca se veía: el número no dice nada sin él. */}
+                <div style={{fontSize:11,color:'var(--gr)'}}>de {base}</div>
               </div>
             </div>
             <div style={{fontSize:12,color:'var(--n)',fontWeight:300,marginTop:14}}>
@@ -287,12 +383,12 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           <div style={{display:'flex',justifyContent:'center',gap:30,marginBottom:30,flexWrap:'wrap'}}>
             <div style={{textAlign:'center'}}>
               <div style={{fontSize:40,fontWeight:200,color:G}}>{realizadas}</div>
-              <div style={{fontSize:10,color:'var(--grl)'}}>sesiones completadas</div>
+              <div style={{fontSize:12,color:'var(--gr)'}}>sesiones completadas</div>
             </div>
             {recuperadas>0&&(
               <div style={{textAlign:'center'}}>
                 <div style={{fontSize:40,fontWeight:200,color:AMB}}>{recuperadas}</div>
-                <div style={{fontSize:10,color:'var(--grl)'}}>clases recuperadas</div>
+                <div style={{fontSize:12,color:'var(--gr)'}}>clases recuperadas</div>
               </div>
             )}
           </div>
@@ -300,15 +396,15 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             <div style={{display:'flex',justifyContent:'center',gap:24,marginBottom:30,flexWrap:'wrap'}}>
               {[['Peso',pac.peso_kg,'kg'],['Altura',pac.altura_cm,'cm']].map(([l,v,u])=>v?(
                 <div key={String(l)} style={{textAlign:'center'}}>
-                  <div style={{fontSize:26,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:11,color:'var(--grl)'}}>{u as string}</span></div>
-                  <div style={{fontSize:10,color:'var(--grl)'}}>{l}</div>
+                  <div style={{fontSize:26,fontWeight:300,color:'var(--n)'}}>{v}<span style={{fontSize:13,color:'var(--gr)'}}>{u as string}</span></div>
+                  <div style={{fontSize:12,color:'var(--gr)'}}>{l}</div>
                 </div>
               ):null)}
             </div>
           )}
           {dataMeses.length>0&&(
             <div>
-              <div style={{fontSize:11,color:'var(--grl)',textAlign:'center',marginBottom:12,fontWeight:300}}>Tu asistencia mes a mes</div>
+              <div style={{fontSize:13,color:'var(--gr)',textAlign:'center',marginBottom:12,fontWeight:300}}>Tu asistencia mes a mes</div>
               <ResponsiveContainer width="100%" height={150}>
                 <AreaChart data={dataMeses} margin={{top:5,right:20,left:-20,bottom:0}}>
                   <defs>
@@ -317,8 +413,8 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                       <stop offset="95%" stopColor={G} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="mes" tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}}/>
+                  <XAxis dataKey="mes" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
                   <Area type="monotone" dataKey="Realizadas" stroke={G} strokeWidth={2.5} fill="url(#gP)"/>
                 </AreaChart>
               </ResponsiveContainer>

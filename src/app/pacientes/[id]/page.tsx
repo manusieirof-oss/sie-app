@@ -12,6 +12,7 @@ import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/t
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
+import { asistencia } from '@/lib/resultados'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
@@ -32,6 +33,7 @@ export default function FichaPacientePage() {
   const [escalas, setEscalas] = useState<any[]>([])
   const [tests, setTests] = useState<any[]>([])
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
+  const [registrosEj, setRegistrosEj] = useState<any[]>([])
   const [alertas, setAlertas] = useState<any[]>([])
   const [modalAlertas, setModalAlertas] = useState(false)
   const [testsDisp, setTestsDisp] = useState<any[]>([])
@@ -64,12 +66,9 @@ export default function FichaPacientePage() {
 
   function generarPDF() {
     if (!pac) return
-    const realizadas = citas.filter((c:any)=>c.estado==='realizada').length
-    const faltas = citas.filter((c:any)=>c.estado==='falta').length
-    const canceladas = citas.filter((c:any)=>c.estado==='cancelada').length
-    const recuperadas = recuperaciones.filter((r:any)=>r.estado==='recuperada').length
-    const total = realizadas + faltas
-    const pct = total>0 ? Math.round((realizadas/total)*100) : 0
+    // Las cifras salen de lib/resultados: eran la tercera copia del mismo cálculo,
+    // después de la vista de análisis y la del paciente.
+    const { realizadas, faltas, canceladas, recuperadas, base: total, pct } = asistencia(citas, recuperaciones)
     const fecha = new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})
 
     // DONUT SVG
@@ -246,6 +245,10 @@ export default function FichaPacientePage() {
     setTests(t||[]); setTestsDisp(td||[])
     const { data: rec } = await supabase.from('recuperaciones').select('id,estado,fecha_falta,fecha_limite,cita_recuperacion_id').eq('paciente_id',id).order('fecha_falta',{ascending:false})
     setRecuperaciones(rec||[])
+    // Lo anotado en el taller: alimenta la progresión de cargas y de ejecución.
+    const { data: regsEj } = await supabase.from('registros_ejercicio')
+      .select('fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados').eq('paciente_id',id)
+    setRegistrosEj(regsEj||[])
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])
     // Los tipos de clase mandan desde Ajustes: aquí nunca se listan a mano.
@@ -665,7 +668,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='resultados' && (
-        <ResultadosTab citas={citas} escalas={escalas} tests={tests} recuperaciones={recuperaciones} pac={pac} molestias={molestias} patologias={patologias} deportesPac={deportesPac} generarPDF={generarPDF}/>
+        <ResultadosTab citas={citas} escalas={escalas} tests={tests} recuperaciones={recuperaciones} pac={pac} molestias={molestias} patologias={patologias} deportesPac={deportesPac} registros={registrosEj} generarPDF={generarPDF}/>
       )}
 
       {/* MODAL REGISTRAR TEST */}

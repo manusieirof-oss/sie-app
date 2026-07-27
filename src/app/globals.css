@@ -281,11 +281,23 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .ej-txt{font-size:13px;color:var(--n);line-height:1.35;overflow-wrap:anywhere;}
 .ej-sub{display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;}
 .ej-sub select,.ej-sub input{font-size:12px;padding:3px 5px;}
+/* Misma rejilla en solo lectura, para consultar la sesión. Una columna menos: sin
+   botón de eliminar. Los valores en grande, que esto se mira de lejos. */
+.tabla-ej.det{--cols:minmax(220px,1fr) 130px 58px 70px 66px 76px;}
+.tabla-ej.det .ej-row{align-items:center;}
+.tabla-ej.det .val{font-size:14px;color:var(--n);text-align:center;display:block;}
+.tabla-ej.det .celda .val{width:100%;}
+.tabla-ej.det .ej-nota{grid-column:2/-1;}
+@media (max-width: 1000px){ .tabla-ej.det .ej-nota{grid-column:auto;} }
+
 /* La nota arranca donde arranca Series, no en el margen: así no se cuela bajo la
    foto y la columna de datos se lee como un bloque. */
 .ej-nota{grid-column:3/-1;display:flex;align-items:center;gap:8px;margin-top:6px;}
 .ej-nota > span{font-size:11px;color:var(--gr);flex-shrink:0;}
 .ej-nota > input{flex:1;font-size:12px;padding:4px 7px;}
+/* Lo que de verdad se hizo, bajo lo prescrito. En verde para separarlo del plan. */
+.ej-nota.hecho{color:var(--gd);}
+.ej-nota.hecho > span{font-size:12px;color:var(--gd);}
 
 /* Cuando no caben siete columnas, cada ejercicio pasa a llevar sus datos apilados
    con la etiqueta delante. Misma información, sin scroll horizontal. */
@@ -316,8 +328,26 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .sec > div:first-child > .sep-mes{margin-top:0;}
 /* Tarjeta de sesión en la rejilla de Entrenamiento. */
 .tarj-s{background:var(--bl);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:border-color .12s,background .12s;}
-.tarj-s:hover{border-color:var(--g);background:var(--w);}
+/* El hover se distingue por el fondo, no por el borde: el borde ya lo usa el realce
+   por objetivos y si los dos hicieran lo mismo no sabrías cuál estás viendo. */
+.tarj-s:hover{border-color:var(--gm);background:var(--w);}
+/* Tira de miniaturas: lo único que distingue una sesión de otra de un vistazo. */
+.tira-ej{display:flex;gap:4px;margin-bottom:9px;}
+.tira-ej img,.tira-ej .sin,.tira-ej .mas{width:40px;height:40px;border-radius:5px;background:var(--bm);flex-shrink:0;}
+.tira-ej img{object-fit:cover;}
+.tira-ej .sin{display:flex;align-items:center;justify-content:center;color:var(--grl);}
+.tira-ej .mas{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--gr);background:var(--bd2);}
 /* Indicador sin recuadro: solo el icono. */
 .ind-ic{position:relative;background:none;border:none;padding:4px;cursor:pointer;display:inline-flex;transition:transform .12s,opacity .12s;opacity:.85;}
 .ind-ic:hover{opacity:1;transform:translateY(-1px);}
 .ind-ic.on{opacity:1;transform:translateY(-1px);}
+
+/* Estado de una sesión según los objetivos DEL PACIENTE. Resaltar lo que sigue
+   haciendo falta y apagar lo que ya cumplió su función, sin borrarlo: una sesión
+   cumplida es el registro de lo que funcionó. */
+/* El realce va por los cuatro lados. Con `border-width` la tarjeta cambiaría de
+   tamaño y la rejilla se descuadraría, así que el grosor lo pone una sombra interior
+   sobre el borde de 1px que ya tienen todas. */
+.tarj-s.est-activa{border-color:var(--g);box-shadow:inset 0 0 0 1px var(--g);}
+.tarj-s.est-cumplida{opacity:.55;}
+.tarj-s.est-cumplida:hover{opacity:1;}

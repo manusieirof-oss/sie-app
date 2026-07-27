@@ -81,7 +81,33 @@ preseleccionada en el desplegable.
    reevaluar. Convertirlo en asignación manual quita el automatismo que ya existe. En su lugar,
    que el taller avise al abrir al paciente ("toca reevaluar Thomas"). Ver 3.1.
 
-### 1.3 · Objetivos: filtro previo por zona o similitud
+### 1.3 · Avisos de asistencia: falta mucho / lleva sin venir
+Detectar al paciente que se está yendo **antes** de que se haya ido. Dos señales
+distintas: falta a las citas que tiene, o directamente lleva sin pisar la clínica.
+
+**Antes hay que arreglar el dato.** `api/cron/actualizar-citas` marca como `realizada`
+toda cita pasada que siguiera en `programada`. Una falta solo existe si alguien la
+marca a mano, así que hoy el que no viene queda registrado como que vino y ninguna
+regla saltaría nunca. Se resuelve cuando el taller arranque de la agenda (ver 1.2):
+con los pacientes del día delante, marcar quién no apareció es un toque.
+
+**Diseño acordado:**
+
+- **Reglas en Ajustes**, una clave en `ajustes` como los tipos de clase o los festivos,
+  cada regla con su número y su interruptor: faltas seguidas (2), cancelaciones al mes
+  (4), días sin venir (21). Configurable sin tocar código.
+- **No es un aviso suelto, es una alerta real.** Se abre en `alertas_paciente` con
+  `lib/alertas.ts`, que ya escribe la fila y el evento en la misma función. Con eso sale
+  en la franja de atención de la ficha, en el historial clínico y en la agenda junto a
+  su próxima cita. Y se cierra al hablar con el paciente, como cualquier otra.
+- **En el historial, el aviso sí; cada falta no.** Dos eventos por semana ahogarían la
+  cronología. Misma regla que con los objetivos: se registra el cambio de estado.
+- **Nunca en pausa ni en baja.** Quien está en pausa no falta. Si el aviso salta ahí, en
+  dos semanas dejas de mirarlo.
+- **Lo calcula el cron**, que ya corre a diario y es el único que ve pasar el tiempo.
+  Comprobando que no haya ya una alerta abierta del mismo tipo, para no duplicar.
+
+### 1.4 · Objetivos: filtro previo por zona o similitud
 El selector del editor de sesión ya no pinta el catálogo entero (solo los elegidos, más
 un buscador), así que aguanta. Pero buscar por nombre no basta cuando haya cientos:
 hace falta acotar antes, por zona anatómica o por parecido, como ya se hace con las
@@ -97,7 +123,7 @@ tiene ni zona ni etiquetas. Antes de tocar el selector hay que decidir cuál de 
 
 Va con el Pilar Biblioteca, junto al resto de decisiones de `*_biblioteca` (ver 3.2).
 
-### 1.4 · Marcar sesiones como realizadas
+### 1.5 · Marcar sesiones como realizadas
 Las sesiones tienen `estado` borrador/lista/realizada pero **nada las marca como realizada**.
 El cron `api/cron/actualizar-citas` solo marca *citas*. Se decide al llegar al Pilar Taller,
 que es quien sabe si una sesión se ejecutó.
