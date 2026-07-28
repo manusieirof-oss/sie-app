@@ -40,9 +40,14 @@ etiquetas nuevas, si hacen falta, en `src/lib/semillaEtiquetas.ts`.
 
 **4. Encargo de imágenes.** Se escribe el texto en `docs/encargos/` y se pega en Canva.
 
-**5. Elegir y renombrar.** De las tres versiones que devuelve Canva se elige una, se
+**5. Renombrar.** Llega **una imagen por ejercicio**, así que esa es la elegida: se
 renombra con el nombre exacto del campo `archivo` de la semilla y se guarda en
 `Imagenes ejercicios/elegidas/<bloque>/`.
+
+Antes se guardaban las tres o cuatro versiones que devolvía Canva y se elegía después.
+Se dejó de hacer: acumuló 15 MB de descartes en el repositorio, cuatro veces más que las
+imágenes que se usan de verdad, y revisar tres versiones de cada ejercicio costaba más
+tiempo del que ahorraba.
 
 **6. Sembrar**, en este orden:
 
@@ -77,16 +82,16 @@ Cosas que conviene saber para no llevarse sustos:
 
 ```
 Imagenes ejercicios/
-├── originales/     todo lo que devolvió Canva, por bloque, con su nombre larguísimo
-└── elegidas/       la seleccionada de cada ejercicio, renombrada. Esto es lo que se sube.
+└── elegidas/       una imagen por ejercicio, renombrada. Esto es lo que se sube.
     ├── 1-base/
     ├── 2-cuadriceps/
     ├── 3-isquios-gluteo/
-    └── 4-core-lumbar/
+    ├── 4-core-lumbar/
+    └── 5-hombro/
 ```
 
 `elegidas/` es la fuente de verdad: un archivo por ejercicio, con el nombre exacto que
-espera la semilla. `originales/` está por si alguna elección se quiere revisar.
+espera la semilla. Nada más. Las versiones descartadas no se guardan.
 
 Las reglas del estilo —fondo `#F5F3EF`, relleno plano sin sombreado, contorno `#3E7179`,
 músculo principal en `#C9A84C`— están en cualquiera de los encargos. El más completo es
