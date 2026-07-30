@@ -88,6 +88,26 @@ export function descansoDeParte(parte: any): { texto: string, cuando: string } |
 }
 
 /**
+ * El descanso que de verdad aplica a un ejercicio, y de dónde sale.
+ *
+ * En "ejercicio a ejercicio" el descanso de la parte es un GENERAL: vale para todos
+ * salvo que el ejercicio traiga el suyo, y entonces manda el suyo. Es lo natural al
+ * prescribir: pones minuto y medio para toda la parte y le subes a tres el peso muerto,
+ * sin tener que rellenar los otros cinco.
+ *
+ * En circuito y superserie no hay herencia: ahí el descanso es del recorrido y el del
+ * ejercicio no pinta nada.
+ */
+export function descansoEfectivo(parte: any, ej: any): { valor: string, heredado: boolean } {
+  const modo = modoParte(parte?.modo).id
+  if (modo === 'circuito' || modo === 'superserie') {
+    return { valor: String(parte?.descanso || ''), heredado: true }
+  }
+  if (ej?.descanso) return { valor: String(ej.descanso), heredado: false }
+  return { valor: String(parte?.descanso || ''), heredado: true }
+}
+
+/**
  * Etiqueta de la sesión a partir de sus partes: la que compartan todas, o "Mixta".
  * Derivada y no guardada, para que no pueda contradecir a las partes.
  */

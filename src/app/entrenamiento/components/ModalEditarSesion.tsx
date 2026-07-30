@@ -418,12 +418,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     Y lleva el icono de pausa delante para que un número de segundos
                     suelto entre los demás campos no se confunda con una duración. */}
                 {parte?.modo!=='tiempo' && (
-                  <label className="par-in" title="Descanso del recorrido, distinto del descanso entre series de cada ejercicio">
+                  <label className="par-in" title="En circuito y superserie es el descanso del recorrido. Con los ejercicios sueltos es el descanso general: vale para todos salvo los que traigan el suyo.">
                     <span style={{display:'inline-flex',color:'var(--gr)',marginRight:2}}><Ic name="pausa" size={11}/></span>
                     <input type="number" min={0} step={5} value={parte?.descanso||''} placeholder="seg"
                       onChange={e=>editarParte({descanso:e.target.value})}/>
                     <span>{parte?.modo==='circuito' ? 'entre vueltas'
-                      : parte?.modo==='superserie' ? 'tras cada vuelta del grupo' : 'entre series'}</span>
+                      : parte?.modo==='superserie' ? 'tras cada vuelta del grupo' : 'general entre series'}</span>
                   </label>
                 )}
 
@@ -562,8 +562,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       </div>
                     ) : (
                       <div className="celda" data-l="Descanso · s">
-                        <input type="number" step={5} className="c" value={ej.descanso||''} placeholder="seg"
-                          title="Descanso entre series, en segundos"
+                        {/* Vacío = hereda el general de la parte, que se ve como
+                            marca de agua. Escribir aquí lo pisa solo para este
+                            ejercicio: el peso muerto puede pedir tres minutos donde
+                            el resto lleva minuto y medio. */}
+                        <input type="number" step={5} className="c" value={ej.descanso||''}
+                          placeholder={parte?.descanso ? String(parte.descanso) : 'seg'}
+                          title={parte?.descanso
+                            ? `Vacío hereda el general de la parte (${parte.descanso} s). Escribe aquí para cambiarlo solo en este ejercicio.`
+                            : 'Descanso entre series, en segundos'}
                           onChange={e=>editarEjercicio(ei,{descanso:e.target.value,descanso_manual:true})}/>
                       </div>
                     )}
