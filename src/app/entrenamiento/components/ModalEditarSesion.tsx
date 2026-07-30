@@ -414,13 +414,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 )}
 
                 {/* Descanso del RECORRIDO, distinto del de entre series de un ejercicio.
-                    Qué separa depende del modo, así que cambia la etiqueta, no el campo. */}
+                    Qué separa depende del modo, así que cambia la etiqueta, no el campo.
+                    Y lleva el icono de pausa delante para que un número de segundos
+                    suelto entre los demás campos no se confunda con una duración. */}
                 {parte?.modo!=='tiempo' && (
                   <label className="par-in" title="Descanso del recorrido, distinto del descanso entre series de cada ejercicio">
+                    <span style={{display:'inline-flex',color:'var(--gr)',marginRight:2}}><Ic name="pausa" size={11}/></span>
                     <input type="number" min={0} step={5} value={parte?.descanso||''} placeholder="seg"
                       onChange={e=>editarParte({descanso:e.target.value})}/>
                     <span>{parte?.modo==='circuito' ? 'entre vueltas'
-                      : parte?.modo==='superserie' ? 'entre grupos' : 'entre ejercicios'}</span>
+                      : parte?.modo==='superserie' ? 'tras cada vuelta del grupo' : 'entre series'}</span>
                   </label>
                 )}
 
@@ -545,11 +548,25 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             onChange={e=>editarEjercicio(ei,{peso:e.target.value})}/>}
                     </div>
 
-                    <div className="celda" data-l="Descanso · s">
-                      <input type="number" step={5} className="c" value={ej.descanso||''} placeholder="seg"
-                        title="Descanso entre series, en segundos"
-                        onChange={e=>editarEjercicio(ei,{descanso:e.target.value,descanso_manual:true})}/>
-                    </div>
+                    {/* El descanso propio del ejercicio solo manda cuando los ejercicios
+                        van sueltos. En circuito y en superserie el que cuenta es el de
+                        la parte —entre vueltas o tras cada vuelta del grupo—, y tener
+                        aquí otro número editable era invitar a escribir dos descansos
+                        que se contradicen. */}
+                    {(parte?.modo==='circuito'||parte?.modo==='superserie') ? (
+                      <div className="celda" data-l="Descanso · s">
+                        <span className="c" style={{color:'var(--gr)',fontSize:12}}
+                          title={parte?.modo==='circuito' ? 'En circuito manda el descanso entre vueltas de la parte' : 'En superserie manda el descanso tras cada vuelta del grupo'}>
+                          {parte?.descanso || '—'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="celda" data-l="Descanso · s">
+                        <input type="number" step={5} className="c" value={ej.descanso||''} placeholder="seg"
+                          title="Descanso entre series, en segundos"
+                          onChange={e=>editarEjercicio(ei,{descanso:e.target.value,descanso_manual:true})}/>
+                      </div>
+                    )}
 
                     <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
                       onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
