@@ -500,7 +500,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           // El descanso sugerido se recalcula mientras no lo hayas
                           // tocado tú. Antes solo miraba si estaba vacío, así que en
                           // cuanto se autocompletaba una vez ya no volvía a cambiar.
-                          editarEjercicio(ei,{capacidad:cap,...(rep?{reps:rep}:{}),...(desc&&!ej.descanso_manual?{descanso:desc}:{})})
+                          //
+                          // Y NO se autocompleta si la parte tiene descanso general:
+                          // rellenar aquí un número dejaba el general sin efecto para
+                          // siempre y sin que se notara, que es justo lo que pasaba.
+                          const ponDesc = desc && !ej.descanso_manual && !parte?.descanso
+                          editarEjercicio(ei,{capacidad:cap,...(rep?{reps:rep}:{}),...(ponDesc?{descanso:desc}:{})})
                         }}/>
                     </div>
 
@@ -567,11 +572,17 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             ejercicio: el peso muerto puede pedir tres minutos donde
                             el resto lleva minuto y medio. */}
                         <input type="number" step={5} className="c" value={ej.descanso||''}
-                          placeholder={parte?.descanso ? String(parte.descanso) : 'seg'}
+                          placeholder={parte?.descanso ? String(parte.descanso) : '+'}
+                          style={!ej.descanso&&parte?.descanso ? {color:'var(--grl)'} : undefined}
                           title={parte?.descanso
-                            ? `Vacío hereda el general de la parte (${parte.descanso} s). Escribe aquí para cambiarlo solo en este ejercicio.`
+                            ? `Vacío hereda el general de la parte: ${parte.descanso} s. Escribe aquí solo si este ejercicio necesita otro, y bórralo para volver al general.`
                             : 'Descanso entre series, en segundos'}
                           onChange={e=>editarEjercicio(ei,{descanso:e.target.value,descanso_manual:true})}/>
+                        {/* Marca de que ese número es suyo y no el heredado: sin ella
+                            no se distingue un 90 propio de un 90 que viene de la parte. */}
+                        {ej.descanso&&parte?.descanso&&String(ej.descanso)!==String(parte.descanso)&&(
+                          <span title="Descanso propio de este ejercicio" style={{fontSize:9,color:'var(--g)',marginLeft:2}}>•</span>
+                        )}
                       </div>
                     )}
 
