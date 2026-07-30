@@ -1,6 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
-import { modoParte, TIPOS_TIEMPO, textoModo } from '@/lib/sesiones'
+import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, descansoEfectivo } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 
 /**
@@ -107,6 +107,12 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                 <span className="pill pill-o on" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Ic name={modoParte(parte.modo).icono} size={11} /> {textoModo(parte)}
                 </span>
+                {descansoDeParte(parte) && (
+                  <span className="pill pill-o" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    title={`Descanso ${descansoDeParte(parte)!.cuando}`}>
+                    <Ic name="pausa" size={11} /> {descansoDeParte(parte)!.texto} {descansoDeParte(parte)!.cuando}
+                  </span>
+                )}
               </div>
               {(parte.ejercicios || []).length === 0
                 ? <div style={{ padding: '8px 13px', fontSize: 12, color: 'var(--gr)' }}>Sin ejercicios</div>
@@ -130,7 +136,25 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                         return <div key={ei} className="ej-row"><div className="ej-nom"><span className="ej-txt">{nombre}</span></div></div>
                       }
                       const med = medidaEj(ej)
+                      // En superserie, cabecera al empezar cada grupo: sin ella la lista
+                      // es una fila de ejercicios seguidos y no se ve dónde acaba un par
+                      // y empieza el otro, que es lo único que hay que entender del modo.
+                      const ss = parte.modo === 'superserie'
+                      const g = ej.grupo || 'A'
+                      const abreGrupo = ss && (ei === 0 || ((parte.ejercicios[ei - 1]?.grupo || 'A') !== g))
                       return (
+                        <>
+                        {abreGrupo && (
+                          <div key={'g' + ei} className="ej-grupo">
+                            <span className="ej-grupo-l">Grupo {g}</span>
+                            {ej.series && <span>{ej.series} vueltas</span>}
+                            {parte.descanso && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                <Ic name="pausa" size={10} /> {textoDescanso(parte.descanso)} tras cada vuelta
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div key={ei} className="ej-row">
                           <div className="ej-nom">
                             {/* La letra solo significa algo si el bloque es superserie. */}
@@ -151,7 +175,7 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                             {ej.capacidad && <span className="chip-ed chip-ed-a" style={{ cursor: 'default' }}>{ej.capacidad}</span>}
                           </div>
 
-                          <div className="celda" data-l="Series"><span className="val">{parte.modo === 'circuito' ? (parte.vueltas || '—') : (ej.series || '—')}</span></div>
+                          <div className="celda" data-l="Series"><span className="val">{parte.modo === 'circuito' ? (parte.vueltas || '—') : parte.modo === 'superserie' ? '—' : (ej.series || '—')}</span></div>
                           <div className="celda" data-l={med === 'tiempo' ? 'Duración' : 'Repeticiones'}>
                             <span className="val">{med === 'tiempo' ? (ej.tiempo ? `${ej.tiempo} s` : '—') : (ej.reps || '—')}</span>
                           </div>
@@ -159,7 +183,15 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                             <span className="val">{med === 'tiempo' ? '—' : (ej.peso ? `${ej.peso} kg` : '—')}</span>
                           </div>
                           <div className="celda" data-l="Descanso">
-                            <span className="val">{ej.descanso ? textoDescanso(ej.descanso) : '—'}</span>
+                            {/* El de la parte es el general y el del ejercicio lo pisa:
+                                se calcula en un solo sitio para que la ficha diga lo
+                                mismo que el editor. */}
+                            {(() => { const d = descansoEfectivo(parte, ej); return (
+                              <span className="val" style={d.heredado ? { color: 'var(--gr)' } : undefined}
+                                title={d.heredado ? 'Descanso general de la parte' : 'Descanso propio de este ejercicio'}>
+                                {d.valor ? textoDescanso(d.valor) : '—'}
+                              </span>
+                            ) })()}
                           </div>
 
                           {ej.nota && (
@@ -184,6 +216,7 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                             )
                           })()}
                         </div>
+                        </>
                       )
                     })}
                   </div>
