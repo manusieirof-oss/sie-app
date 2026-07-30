@@ -1,3 +1,26 @@
+// Las horas a las que se puede poner una cita.
+//
+// Hay UNA sola forma de calcularlas y vive aquí. La agenda las calculaba con
+// `generarHoras` a partir de los ajustes de la clínica, y la ficha del paciente leía
+// una clave `horas` guardada en Ajustes que quedó de una versión anterior y que ya no
+// actualiza nadie: al cambiar la hora de una cita desde la ficha salían horas que no
+// existían en la agenda.
+
+/**
+ * Horas de cita a partir del mapa de ajustes, con los mismos valores por defecto en
+ * todas partes. Se le pasa `{clave: valor}` tal cual sale de la tabla `ajustes`.
+ */
+export function horasDeAgenda(map: Record<string, string>): string[] {
+  return generarHoras(
+    map.agenda_inicio || '08:30',
+    map.agenda_fin || '21:30',
+    map.clinica_pausa_inicio || '12:30',
+    map.clinica_pausa_fin || '15:30',
+    parseInt(map.clinica_duracion_clase || '50'),
+    parseInt(map.clinica_tiempo_cambio || '10'),
+  )
+}
+
 export function generarHoras(
   inicio: string = '08:30',
   fin: string = '21:30',

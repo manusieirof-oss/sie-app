@@ -351,7 +351,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                     <div>
                       {(ejSeleccionado.variantes||[]).length>0 && (
                         <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:12}}>
-                          <button onClick={()=>setVarianteActiva(-1)} style={{fontSize:12,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'system-ui',border:`1.5px solid ${varianteActiva===-1?'var(--g)':'var(--bd)'}`,background:varianteActiva===-1?'var(--g)':'var(--w)',color:varianteActiva===-1?'#fff':'var(--gr)'}}>Principal</button>
+                          <button onClick={()=>setVarianteActiva(-1)} style={{fontSize:12,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'system-ui',border:`1.5px solid ${varianteActiva===-1?'var(--g)':'var(--bd)'}`,background:varianteActiva===-1?'var(--g)':'var(--w)',color:varianteActiva===-1?'#fff':'var(--gr)'}} title="El ejercicio, sin variante">{ejSeleccionado.nombre}</button>
                           {(ejSeleccionado.variantes||[]).map((v:any,i:number)=>(
                             <button key={i} onClick={()=>setVarianteActiva(i)} style={{fontSize:12,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'system-ui',border:`1.5px solid ${varianteActiva===i?'var(--g)':'var(--bd)'}`,background:varianteActiva===i?'var(--g)':'var(--w)',color:varianteActiva===i?'#fff':'var(--gr)'}}>{v.nombre||'Variante'}</button>
                           ))}

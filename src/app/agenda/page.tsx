@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { generarHoras } from '@/lib/generarHoras'
+import { horasDeAgenda } from '@/lib/generarHoras'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
@@ -79,17 +79,14 @@ export default function AgendaPage() {
     if (data) {
       const map: Record<string,string> = {}
       data.forEach((a:any) => { map[a.clave] = a.valor || '' })
-      const inicio = map.agenda_inicio || '08:30'
-      const fin = map.agenda_fin || '21:30'
       const pInicio = map.clinica_pausa_inicio || '12:30'
       const pFin = map.clinica_pausa_fin || '15:30'
-      const duracion = parseInt(map.clinica_duracion_clase || '50')
       const descanso = parseInt(map.clinica_tiempo_cambio || '10')
       setPausaInicio(pInicio)
       setPausaFin(pFin)
       setDescanso(descanso)
       setMaxPersonas(parseInt(map.clinica_max_personas_sala || '6'))
-      setHoras(generarHoras(inicio, fin, pInicio, pFin, duracion, descanso))
+      setHoras(horasDeAgenda(map))
       if (map.tipos_cita) setTiposCita(JSON.parse(map.tipos_cita))
       setTiposClase(parseTiposClase(map.tipos_clase))
       if (map.clinica_salas) { try { const s = JSON.parse(map.clinica_salas); if (Array.isArray(s) && s.length) setSalas(s) } catch {} }

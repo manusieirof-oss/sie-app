@@ -83,15 +83,25 @@ Cosas que conviene saber para no llevarse sustos:
 ```
 Imagenes ejercicios/
 └── elegidas/       una imagen por ejercicio, renombrada. Esto es lo que se sube.
-    ├── 1-base/
-    ├── 2-cuadriceps/
-    ├── 3-isquios-gluteo/
-    ├── 4-core-lumbar/
-    └── 5-hombro/
+    ├── cuadriceps/       16
+    ├── core-lumbar/      12
+    ├── isquios-gluteo/   12
+    ├── espalda/           2
+    ├── hombro/            1
+    └── pectoral/          1
 ```
 
 `elegidas/` es la fuente de verdad: un archivo por ejercicio, con el nombre exacto que
 espera la semilla. Nada más. Las versiones descartadas no se guardan.
+
+**Las carpetas van por músculo, no por tanda.** Antes se llamaban `1-base`, `2-cuadriceps`
+y así, por el orden en que se fueron montando, pero "base" no era un músculo: metía en el
+mismo sitio un press de banca, un remo y dos planchas. Con el nombre del músculo se puede
+abrir la carpeta y revisar de un vistazo lo que hay de cada zona, que es para lo que
+sirve tenerlas guardadas.
+
+Por eso `hombro`, `pectoral` y `espalda` están casi vacías: son las zonas que faltan por
+montar. Es información útil, no un descuido.
 
 Las reglas del estilo —fondo `#F5F3EF`, relleno plano sin sombreado, contorno `#3E7179`,
 músculo principal en `#C9A84C`— están en cualquiera de los encargos. El más completo es

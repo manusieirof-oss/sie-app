@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { SEMILLA } from '@/lib/semillaEjercicios'
-import { subirImagenEjercicio } from '@/lib/ejercicios'
+import { subirImagenEjercicio, subirImagenVariante } from '@/lib/ejercicios'
 
 /**
  * Alta en bloque del catálogo inicial de ejercicios.
@@ -96,7 +96,7 @@ export default function SembrarPage() {
     const { data: existentes } = await supabase.from('ejercicios').select('id,nombre')
     const yaEstan = new Set((existentes || []).map((e: any) => norm(e.nombre)))
 
-    let creados = 0, saltados = 0, sinImagen = 0
+    let creados = 0, saltados = 0, sinImagen = 0, varianteImg = 0
     const sinImagenNombres: string[] = []
     const etiquetasNoEncontradas = new Set<string>()
 
@@ -147,6 +147,38 @@ export default function SembrarPage() {
       if (!r.ok) { anota(`${s.nombre} — imagen falló: ${r.error}`, 'aviso'); sinImagen++; continue }
 
       await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
+
+      // Imágenes de VARIANTE.
+      //
+      // Se emparejan por NOMBRE de variante contra las que el ejercicio tiene ahora en
+      // la base, no por posición: si las reordenaste desde la ficha, por índice le
+      // pondríamos la foto a otra. Y solo se toca la variante que trae archivo en la
+      // semilla; las demás se quedan como estén.
+      const conFoto = (s.variantes || []).filter(v => v.archivo && porNombre[v.archivo])
+      if (conFoto.length > 0 || existente) {
+        const { data: actual } = await supabase.from('ejercicios').select('variantes').eq('id', id).single()
+        const lista: any[] = Array.isArray(actual?.variantes) ? actual!.variantes : []
+        let tocadas = 0
+
+        // Variantes NUEVAS de la semilla que el ejercicio todavía no tiene. Se añaden
+        // al final; las que ya están no se tocan ni se reordenan. Es la única forma de
+        // que la semilla pueda crecer sin pisar lo que hayas escrito tú en la ficha.
+        for (const v of (s.variantes || [])) {
+          if (lista.some((x: any) => norm(x?.nombre) === norm(v.nombre))) continue
+          lista.push({ nombre: v.nombre, descripcion: v.descripcion })
+          tocadas++
+        }
+        for (const v of conFoto) {
+          const i = lista.findIndex((x: any) => norm(x?.nombre) === norm(v.nombre))
+          if (i < 0) continue
+          const rv = await subirImagenVariante(id, i, porNombre[v.archivo!])
+          if (!rv.ok) { anota(`${s.nombre} · ${v.nombre} — imagen falló: ${rv.error}`, 'aviso'); continue }
+          lista[i] = { ...lista[i], imagen_url: rv.url }; tocadas++
+        }
+        if (tocadas > 0) await supabase.from('ejercicios').update({ variantes: lista }).eq('id', id)
+        varianteImg += tocadas
+      }
+
       anota(`${s.nombre} — ${existente ? 'actualizado' : 'creado'} con imagen y ${ids.length} etiqueta${ids.length === 1 ? '' : 's'}`, 'ok')
     }
 
@@ -156,7 +188,8 @@ export default function SembrarPage() {
     if (sinImagen > 0) {
       anota(`${sinImagen} sin imagen en esta selección (conservan la que ya tuvieran): ${sinImagenNombres.join(', ')}`, 'aviso')
     }
-    anota(`Resumen: ${creados} creados, ${saltados} actualizados.`, 'info')
+    anota(`Resumen: ${creados} creados, ${saltados} actualizados`
+      + (varianteImg > 0 ? `, ${varianteImg} imagen(es) de variante` : '') + '.', 'info')
 
     setCorriendo(false); setHecho(true)
   }

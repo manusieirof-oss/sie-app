@@ -157,7 +157,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       const partes = [...prev.partes]
       // tipo_medida se copia de la biblioteca: dice si el ejercicio va por
       // repeticiones o por tiempo, y así no se piden los dos a la vez.
-      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'Bilateral', capacidad:'', regimen:'Concéntrico', series:'3', reps:'', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[], tipo_medida:ej.tipo_medida||'peso_reps' }
+      // Sin variante por defecto: el ejercicio a secas YA es su forma estándar. Antes
+      // entraba siempre como "Bilateral", que era mentira en la mitad del catálogo
+      // —un press Pallof o una marcha no son bilaterales— y además dejaba escrito en el
+      // registro el nombre de una variante que puede no existir en ese ejercicio.
+      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'', capacidad:'', regimen:'Concéntrico', series:'3', reps:'', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[], tipo_medida:ej.tipo_medida||'peso_reps' }
       partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
       return { ...prev, partes }
     })

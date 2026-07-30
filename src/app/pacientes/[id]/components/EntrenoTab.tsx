@@ -6,6 +6,7 @@ import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
 import { Ic } from '@/lib/icons'
+import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 
@@ -51,7 +52,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     supabase.from('pacientes_objetivos').select('objetivo_id,logrado').eq('paciente_id',pacienteId)
       .then(({data})=>setObjPaciente(data||[]))
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
-    if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); if(map.horas){try{setHoras(JSON.parse(map.horas))}catch{}} }
+    if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); setHoras(horasDeAgenda(map)) }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(limHist)
     setSesionesHistorial(hist||[])
 
