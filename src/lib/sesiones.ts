@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { textoDescanso } from './capacidades'
 
 /**
  * Modos de ejecución. Van en la PARTE, no en la sesión.
@@ -41,6 +42,38 @@ export const TIPOS_TIEMPO = [
   { id: 'amrap', nombre: 'AMRAP', ayuda: 'Vueltas que dé en el tiempo total.' },
   { id: 'intervalos', nombre: 'Intervalos', ayuda: 'Trabajo y descanso fijos que se repiten.' },
 ] as const
+
+/**
+ * El modo de una parte con sus parámetros, en una línea: "Circuito · 4 vueltas · 1 min
+ * entre vueltas", "EMOM · 12 min", "Superseries · 2 min entre grupos".
+ *
+ * Vive aquí y no en la vista porque lo pintan la ficha del paciente y la pestaña de
+ * sesiones, y son dos sitios donde equivocarse en el nombre del descanso —"entre
+ * vueltas" contra "entre grupos"— cambia lo que el paciente entiende que tiene que
+ * hacer.
+ */
+export function textoModo(parte: any): string {
+  const m = modoParte(parte?.modo)
+  const trozos: string[] = []
+
+  if (m.id === 'tiempo') {
+    const t = TIPOS_TIEMPO.find(x => x.id === (parte?.tipo_tiempo || 'emom'))
+    trozos.push(t?.nombre || m.nombre)
+    if (parte?.minutos) trozos.push(`${parte.minutos} min`)
+    if (parte?.intervalo) trozos.push(`${parte.intervalo}s`)
+    return trozos.join(' · ')
+  }
+
+  trozos.push(m.nombre)
+  if (m.id === 'circuito' && parte?.vueltas) trozos.push(`${parte.vueltas} vueltas`)
+  // Qué separa el descanso depende del modo: no es lo mismo descansar entre vueltas
+  // de un circuito que entre grupos de una superserie.
+  if (parte?.descanso) {
+    const etiqueta = m.id === 'circuito' ? 'entre vueltas' : m.id === 'superserie' ? 'entre grupos' : 'entre ejercicios'
+    trozos.push(`${textoDescanso(parte.descanso)} ${etiqueta}`)
+  }
+  return trozos.join(' · ')
+}
 
 /**
  * Etiqueta de la sesión a partir de sus partes: la que compartan todas, o "Mixta".

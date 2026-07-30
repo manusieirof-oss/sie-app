@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
-import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion } from '@/lib/sesiones'
+import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, modoDeSesion } from '@/lib/sesiones'
 
 type EjercicioSesion = {
   ejercicio_id: string
@@ -152,6 +152,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                     ? <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff'}}>Plantilla</span>
                     : <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{s.pacientes?.nombre || 'Paciente'}</span>}
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{nPartes} {nPartes===1?'parte':'partes'}</span>
+                  <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bl)',color:'var(--gd)',border:'1px solid var(--bd)'}}>{modoDeSesion(s.partes||[]).nombre}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
                 </div>
                 {objsDeSesion(s).length>0&&(
@@ -189,7 +190,17 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
             <div style={{flex:1,overflowY:'auto',padding:16}}>
               {(sesionVista.partes||[]).map((parte:any,pi:number)=>(
                 <div key={pi} style={{marginBottom:10,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
-                  <div style={{padding:'6px 12px',borderBottom:'1px solid var(--bm)',fontSize:11,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</div>
+                  {/* Cómo se recorre la parte y con qué descansos. Sin esto la vista
+                      enseñaba los ejercicios pero no si iban en circuito, en superserie
+                      o sueltos, que es lo que decide cómo se hace la sesión entera. */}
+                  <div style={{padding:'6px 12px',borderBottom:'1px solid var(--bm)',display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
+                    <span style={{fontSize:11,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</span>
+                    {(parte.ejercicios||[]).length>0&&(
+                      <span style={{fontSize:10,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}>
+                        <Ic name={modoParte(parte.modo).icono} size={10}/> {textoModo(parte)}
+                      </span>
+                    )}
+                  </div>
                   {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
                     <div key={ei} style={{padding:'8px 12px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
                       {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:44,height:44,objectFit:'contain',background:'var(--bm)',borderRadius:4,flexShrink:0}}/>}

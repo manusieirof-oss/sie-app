@@ -1,6 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
-import { modoParte, TIPOS_TIEMPO } from '@/lib/sesiones'
+import { modoParte, TIPOS_TIEMPO, textoModo } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 
 /**
@@ -12,27 +12,6 @@ function medidaEj(ej: any): string {
   if (ej?.tipo_medida) return ej.tipo_medida
   if (ej?.tiempo && !ej?.reps) return 'tiempo'
   return 'peso_reps'
-}
-
-// Modo del bloque con sus parámetros: "Circuito · 4 vueltas", "EMOM · 12 min".
-function textoModo(parte: any) {
-  const m = modoParte(parte?.modo)
-  const trozos: string[] = []
-  if (m.id === 'tiempo') {
-    const t = TIPOS_TIEMPO.find(x => x.id === (parte?.tipo_tiempo || 'emom'))
-    trozos.push(t?.nombre || m.nombre)
-    if (parte?.minutos) trozos.push(`${parte.minutos} min`)
-    if (parte?.intervalo) trozos.push(`${parte.intervalo}s`)
-    return trozos.join(' · ')
-  }
-  trozos.push(m.nombre)
-  if (m.id === 'circuito' && parte?.vueltas) trozos.push(`${parte.vueltas} vueltas`)
-  // Descanso del recorrido: qué separa depende del modo.
-  if (parte?.descanso) {
-    const etiqueta = m.id === 'circuito' ? 'entre vueltas' : m.id === 'superserie' ? 'entre grupos' : 'entre ejercicios'
-    trozos.push(`${textoDescanso(parte.descanso)} ${etiqueta}`)
-  }
-  return trozos.join(' · ')
 }
 
 // Vista de una sesión. Antes había dos modales distintos para lo mismo:
