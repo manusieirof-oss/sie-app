@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
-import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, modoDeSesion } from '@/lib/sesiones'
+import { textoDescanso } from '@/lib/capacidades'
+import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, modoDeSesion } from '@/lib/sesiones'
 
 type EjercicioSesion = {
   ejercicio_id: string
@@ -200,16 +201,48 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                         <Ic name={modoParte(parte.modo).icono} size={10}/> {textoModo(parte)}
                       </span>
                     )}
+                    {descansoDeParte(parte)&&(
+                      <span style={{fontSize:10,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:4}}
+                        title={`Descanso ${descansoDeParte(parte)!.cuando}`}>
+                        <Ic name="pausa" size={10}/> {descansoDeParte(parte)!.texto} {descansoDeParte(parte)!.cuando}
+                      </span>
+                    )}
                   </div>
-                  {(parte.ejercicios||[]).map((ej:any,ei:number)=>(
-                    <div key={ei} style={{padding:'8px 12px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
+                  {(parte.ejercicios||[]).map((ej:any,ei:number)=>{
+                  // En superserie, cabecera al empezar cada grupo. Sin ella la lista
+                  // era una fila de cuatro ejercicios seguidos y no se veía dónde
+                  // acababa un par y empezaba el otro, que es lo único que hay que
+                  // entender de este modo.
+                  const ss = parte.modo==='superserie'
+                  const g = ej.grupo||'A'
+                  const abreGrupo = ss && (ei===0 || (parte.ejercicios[ei-1]?.grupo||'A')!==g)
+                  const nGrupo = ss ? parte.ejercicios.filter((x:any)=>(x.grupo||'A')===g).length : 0
+                  return (
+                  <div key={ei}>
+                  {abreGrupo&&(
+                    <div style={{padding:'5px 12px',background:'var(--gl)',borderTop:ei>0?'1px solid var(--bm)':'none',display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
+                      <span style={{fontSize:10,fontWeight:600,color:'var(--gd)'}}>Grupo {g}</span>
+                      {/* Solo vueltas y descanso. Lo de "sin descanso entre ellos" se
+                          quita: si no hay descanso escrito, no hay descanso, y decirlo
+                          en cada grupo era repetir una regla que ya vale para todo. */}
+                      {ej.series&&<span style={{fontSize:10,color:'var(--gr)'}}>{ej.series} vueltas</span>}
+                      {parte.descanso&&(
+                        <span style={{fontSize:10,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}
+                          title="Una serie de cada ejercicio del grupo, seguidas, y aquí el descanso">
+                          <Ic name="pausa" size={10}/> {textoDescanso(parte.descanso)} tras cada vuelta
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div style={{padding:'8px 12px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
+                    {ss&&<span style={{flexShrink:0,fontSize:10,fontWeight:600,color:'var(--gd)',background:'var(--gl)',borderRadius:4,padding:'2px 5px',marginTop:2}}>{g}{parte.ejercicios.slice(0,ei+1).filter((x:any)=>(x.grupo||'A')===g).length}</span>}
                       {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:44,height:44,objectFit:'contain',background:'var(--bm)',borderRadius:4,flexShrink:0}}/>}
                       <div style={{flex:1}}>
                         <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{ej.nombre||ej}</div>
                         <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                           {ej.variante&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
                           {ej.capacidad&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
-                          {parte.modo!=='circuito'&&ej.series&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
+                          {parte.modo!=='circuito'&&parte.modo!=='superserie'&&ej.series&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
                           {ej.reps&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.reps} reps</span>}
                           {ej.peso&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
                           {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
@@ -217,7 +250,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                         {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="nota" size={10}/> {ej.nota}</div>}
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  )})}
                   {(parte.ejercicios||[]).length===0&&<div style={{padding:'6px 12px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>}
                 </div>
               ))}

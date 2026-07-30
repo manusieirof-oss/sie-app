@@ -25,7 +25,7 @@ export const MODOS_PARTE = [
   { id: 'circuito', nombre: 'Circuito', icono: 'recuperar',
     ayuda: 'Los ejercicios se recorren en bucle, tantas vueltas como se indique.' },
   { id: 'superserie', nombre: 'Superseries', icono: 'altabaja',
-    ayuda: 'Los ejercicios del mismo grupo se hacen seguidos y se descansa al terminarlo.' },
+    ayuda: 'Una serie de cada ejercicio del grupo, seguidas, y el descanso al acabarlas.' },
   { id: 'tiempo', nombre: 'Por tiempo', icono: 'reloj',
     ayuda: 'Manda el reloj: EMOM, AMRAP o intervalos fijos.' },
 ] as const
@@ -44,13 +44,11 @@ export const TIPOS_TIEMPO = [
 ] as const
 
 /**
- * El modo de una parte con sus parámetros, en una línea: "Circuito · 4 vueltas · 1 min
- * entre vueltas", "EMOM · 12 min", "Superseries · 2 min entre grupos".
+ * El modo de una parte con sus parámetros, en una línea: "Circuito · 4 vueltas",
+ * "EMOM · 12 min", "Superseries".
  *
- * Vive aquí y no en la vista porque lo pintan la ficha del paciente y la pestaña de
- * sesiones, y son dos sitios donde equivocarse en el nombre del descanso —"entre
- * vueltas" contra "entre grupos"— cambia lo que el paciente entiende que tiene que
- * hacer.
+ * El descanso NO va aquí: lo devuelve `descansoDeParte`, para que la vista pueda
+ * ponerle su icono delante y no quede un número de minutos suelto sin decir de qué es.
  */
 export function textoModo(parte: any): string {
   const m = modoParte(parte?.modo)
@@ -66,13 +64,27 @@ export function textoModo(parte: any): string {
 
   trozos.push(m.nombre)
   if (m.id === 'circuito' && parte?.vueltas) trozos.push(`${parte.vueltas} vueltas`)
-  // Qué separa el descanso depende del modo: no es lo mismo descansar entre vueltas
-  // de un circuito que entre grupos de una superserie.
-  if (parte?.descanso) {
-    const etiqueta = m.id === 'circuito' ? 'entre vueltas' : m.id === 'superserie' ? 'entre grupos' : 'entre ejercicios'
-    trozos.push(`${textoDescanso(parte.descanso)} ${etiqueta}`)
-  }
   return trozos.join(' · ')
+}
+
+/**
+ * El descanso de una parte: cuánto y de qué. Devuelve null si no hay ninguno escrito,
+ * y eso significa que NO HAY descanso —solo el tiempo de cambiar de ejercicio—, no que
+ * esté sin rellenar.
+ *
+ * Va aparte de `textoModo` para que la vista pueda ponerle su icono delante: un número
+ * suelto de minutos en medio de una línea no dice si es descanso, duración o qué.
+ */
+export function descansoDeParte(parte: any): { texto: string, cuando: string } | null {
+  if (!parte?.descanso) return null
+  const m = modoParte(parte?.modo)
+  // De qué son esos minutos depende del modo, y el mismo número significa cosas
+  // distintas en cada uno.
+  const cuando = m.id === 'circuito' ? 'entre vueltas'
+    : m.id === 'superserie' ? 'tras cada vuelta del grupo'
+    : m.id === 'tiempo' ? 'entre bloques'
+    : 'entre series'
+  return { texto: textoDescanso(parte.descanso), cuando }
 }
 
 /**
