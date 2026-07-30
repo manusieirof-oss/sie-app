@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
 import { Ic } from '@/lib/icons'
+import ResumenVolumen from '@/components/ResumenVolumen'
 
 import { COLOR, asistencia, porMes, cargaPorEjercicio, ejecucionPorEjercicio, evaPorZona } from '@/lib/resultados'
 
@@ -221,6 +222,19 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                 <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:G}}/><span style={{fontSize:12,color:'var(--gr)'}}>Borg (bienestar)</span></div>
                 <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:2,background:AMB}}/><span style={{fontSize:12,color:'var(--gr)'}}>Estrés</span></div>
               </div>
+            </div>
+          )}
+
+          {/* QUÉ HA ENTRENADO. Va antes que las gráficas de dolor y de carga porque es
+              la pregunta con la que se llega a revalorar: no cómo va lo que hace, sino
+              qué se está quedando sin hacer. */}
+          {pac?.id && (
+            <div className="sec">
+              <div className="sec-h">
+                <span className="sh-l"><span className="ct-l">Trabajo realizado</span></span>
+                <span className="sh-r">series por zona y por patrón</span>
+              </div>
+              <ResumenVolumen pacienteId={pac.id} />
             </div>
           )}
 
