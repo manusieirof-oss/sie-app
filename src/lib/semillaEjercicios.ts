@@ -54,6 +54,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'Baja al menos hasta muslos paralelos',
     ],
     feedbacks: ['Rodillas hacia fuera', 'Empuja el suelo con todo el pie', 'Pecho arriba'],
+    variantes: [
+      { nombre: 'Talones en cuña', descripcion: 'Cuña bajo los talones. Menos exigencia de tobillo, más de cuádriceps.' },
+      { nombre: 'Al cajón', descripcion: 'Tocando un cajón abajo. Da referencia constante de profundidad.' },
+      { nombre: 'Con pausa', descripcion: 'Dos segundos parado abajo. Quita el rebote.' },
+    ],
   },
   {
     archivo: 'peso-muerto-rumano.jpg',
@@ -68,6 +73,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'Las rodillas quedan ligeramente flexionadas, no bloqueadas',
     ],
     feedbacks: ['Lleva la cadera atrás', 'Barra pegada a la pierna', 'Para cuando notes el tirón detrás'],
+    variantes: [
+      { nombre: 'Con mancuernas', descripcion: 'Una en cada mano. Más libertad para la muñeca y el hombro.' },
+      { nombre: 'Desde déficit', descripcion: 'De pie sobre un disco. Más rango, solo con espalda que aguante.' },
+      { nombre: 'A una pierna', descripcion: 'Suma equilibrio y corrige diferencias entre lados.' },
+    ],
   },
   {
     archivo: 'zancada-bulgara.jpg',
@@ -82,6 +92,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'La cadera queda estable, sin bascular a un lado',
     ],
     feedbacks: ['Peso en el pie de delante', 'Baja recto', 'No dejes caer la cadera'],
+    variantes: [
+      { nombre: 'Peso corporal', descripcion: 'Sin carga. Para aprender a mantener la cadera estable.' },
+      { nombre: 'Con mancuernas', descripcion: 'Una en cada mano, brazos colgando. La versión cargable.' },
+      { nombre: 'Con barra', descripcion: 'Barra en la espalda alta. Más carga, menos margen de equilibrio.' },
+    ],
   },
   {
     archivo: 'puente-de-gluteo-musculos.jpg',
@@ -96,6 +111,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'Hombro, cadera y rodilla quedan alineados',
     ],
     feedbacks: ['Aprieta el glúteo arriba', 'No arquees la lumbar', 'Empuja con el talón'],
+    variantes: [
+      { nombre: 'A una pierna', descripcion: 'Un solo pie apoyado. Bastante más exigente de glúteo y control.' },
+      { nombre: 'Con banda en rodillas', descripcion: 'Empujando las rodillas hacia fuera. Suma glúteo medio.' },
+      { nombre: 'Con pies elevados', descripcion: 'Talones sobre un cajón. Más recorrido de cadera.' },
+    ],
   },
   {
     archivo: 'press-banca.jpg',
@@ -110,6 +130,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'Los pies siguen apoyados en el suelo',
     ],
     feedbacks: ['Junta las escápulas', 'Codos algo cerrados', 'Baja controlando'],
+    variantes: [
+      { nombre: 'Agarre cerrado', descripcion: 'Manos a la anchura de los hombros. Más tríceps, hombro más protegido.' },
+      { nombre: 'Con pausa en el pecho', descripcion: 'Un segundo parado abajo. Quita el rebote.' },
+      { nombre: 'Con banco inclinado', descripcion: 'Respaldo a 30°. Carga la parte alta del pecho.' },
+    ],
   },
   {
     archivo: 'remo-con-barra-musculos.jpg',
@@ -124,6 +149,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'El tronco no se incorpora para ayudar al tirón',
     ],
     feedbacks: ['Junta las escápulas', 'Codos atrás', 'No subas el cuerpo'],
+    variantes: [
+      { nombre: 'Agarre prono', descripcion: 'Palmas hacia abajo. Más dorsal alto y trapecio medio.' },
+      { nombre: 'Agarre supino', descripcion: 'Palmas hacia arriba. Suma bíceps y permite más carga.' },
+      { nombre: 'Con apoyo de pecho', descripcion: 'Tumbado sobre un banco inclinado. Descarga la lumbar.' },
+    ],
   },
   {
     archivo: 'press-militar.jpg',
@@ -138,6 +168,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'Arriba, la cabeza pasa por delante de la barra',
     ],
     feedbacks: ['Aprieta el abdomen', 'No arquees la espalda', 'Barra pegada a la cara'],
+    variantes: [
+      { nombre: 'Con mancuernas', descripcion: 'Más libertad de hombro. Primera opción si el press con barra molesta.' },
+      { nombre: 'Sentado con respaldo', descripcion: 'Quita la lumbar de la ecuación.' },
+      { nombre: 'A una mano', descripcion: 'Suma trabajo antiflexión lateral de core.' },
+    ],
   },
   {
     archivo: 'plancha-frontal.jpg',
@@ -152,6 +187,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'La respiración se mantiene, no se aguanta el aire',
     ],
     feedbacks: ['Mete el ombligo', 'Cadera en línea', 'Sigue respirando'],
+    variantes: [
+      { nombre: 'Con rodillas apoyadas', descripcion: 'Reduce la palanca. El punto de partida.' },
+      { nombre: 'Con pies elevados', descripcion: 'Sobre un cajón. Más carga sobre el abdomen.' },
+      { nombre: 'Con toques de hombro', descripcion: 'Alternando toques al hombro contrario. Suma antirrotación.' },
+    ],
   },
   {
     archivo: 'plancha-lateral.jpg',
@@ -166,6 +206,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'La cadera no rota hacia delante ni atrás',
     ],
     feedbacks: ['Sube la cadera', 'No rotes el tronco', 'Codo bajo el hombro'],
+    variantes: [
+      { nombre: 'Con rodillas apoyadas', descripcion: 'Apoyo en la rodilla de abajo. Reduce la palanca.' },
+      { nombre: 'Con elevación de cadera', descripcion: 'Bajando y subiendo la cadera. Deja de ser isométrico.' },
+      { nombre: 'Con pierna elevada', descripcion: 'La de arriba separada. Suma glúteo medio.' },
+    ],
   },
   {
     archivo: 'movilidad-toracica.jpg',
@@ -180,6 +225,11 @@ export const SEMILLA: SemillaEjercicio[] = [
       'El movimiento es lento y controlado',
     ],
     feedbacks: ['Abre el pecho, no la cadera', 'Mira al codo', 'Despacio'],
+    variantes: [
+      { nombre: 'Mano en la nuca', descripcion: 'La versión con más palanca de rotación.' },
+      { nombre: 'Brazo extendido', descripcion: 'Pasando el brazo por debajo del cuerpo y abriendo. Más alcance.' },
+      { nombre: 'Sentado sobre los talones', descripcion: 'Bloquea la cadera y obliga a que gire el tórax.' },
+    ],
   },
 
   // ─────────────────────────────────────────────────────────────────────────────

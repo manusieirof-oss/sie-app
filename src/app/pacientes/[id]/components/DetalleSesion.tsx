@@ -172,7 +172,7 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                             {ej.capacidad && <span className="chip-ed chip-ed-a" style={{ cursor: 'default' }}>{ej.capacidad}</span>}
                           </div>
 
-                          <div className="celda" data-l="Series"><span className="val">{ej.series || '—'}</span></div>
+                          <div className="celda" data-l="Series"><span className="val">{parte.modo === 'circuito' ? (parte.vueltas || '—') : (ej.series || '—')}</span></div>
                           <div className="celda" data-l={med === 'tiempo' ? 'Duración' : 'Repeticiones'}>
                             <span className="val">{med === 'tiempo' ? (ej.tiempo ? `${ej.tiempo} s` : '—') : (ej.reps || '—')}</span>
                           </div>

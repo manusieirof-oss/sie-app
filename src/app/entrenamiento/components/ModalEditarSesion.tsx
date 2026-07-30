@@ -145,9 +145,25 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   function editarEjercicio(ei: number, cambios: any) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
-      const ejercicios = [...(partes[parteActiva].ejercicios||[])]
+      const p = partes[parteActiva]
+      let ejercicios = [...(p.ejercicios||[])]
       ejercicios[ei] = { ...ejercicios[ei], ...cambios }
-      partes[parteActiva] = { ...partes[parteActiva], ejercicios }
+
+      // En SUPERSERIE las series son del grupo, no del ejercicio: los del mismo grupo
+      // se hacen seguidos, así que uno no puede llevar tres vueltas y su pareja cuatro
+      // —a partir de la tercera ya no habría con quién emparejarlo—. Al cambiar las
+      // series de uno, se ponen las mismas en todo su grupo.
+      if (p.modo === 'superserie' && cambios.series !== undefined) {
+        const g = ejercicios[ei].grupo || 'A'
+        ejercicios = ejercicios.map(x => (x.grupo || 'A') === g ? { ...x, series: cambios.series } : x)
+      }
+      // Y al mover un ejercicio de grupo, hereda las series del grupo al que entra.
+      if (p.modo === 'superserie' && cambios.grupo !== undefined) {
+        const hermano = ejercicios.find((x, i) => i !== ei && (x.grupo || 'A') === cambios.grupo)
+        if (hermano?.series) ejercicios[ei] = { ...ejercicios[ei], series: hermano.series }
+      }
+
+      partes[parteActiva] = { ...p, ejercicios }
       return { ...prev, partes }
     })
   }
@@ -485,11 +501,25 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                         }}/>
                     </div>
 
-                    <div className="celda" data-l="Series">
-                      <input type="number" className="c" value={ej.series||''} placeholder="3"
-                        title="Cuántas veces se repite el ejercicio"
-                        onChange={e=>editarEjercicio(ei,{series:e.target.value})}/>
-                    </div>
+                    {/* En CIRCUITO no hay series por ejercicio: las vueltas de la parte
+                        son las series de todos. Tenerlo editable invitaba a poner un 3
+                        aquí y un 1 allá dentro del mismo circuito, que no significa
+                        nada: o das la vuelta entera o no la das. */}
+                    {parte?.modo === 'circuito' ? (
+                      <div className="celda" data-l="Series">
+                        <span className="c" style={{color:'var(--gr)',fontSize:12}} title="En circuito manda el número de vueltas de la parte">
+                          {parte?.vueltas || '—'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="celda" data-l="Series">
+                        <input type="number" className="c" value={ej.series||''} placeholder="3"
+                          title={parte?.modo==='superserie'
+                            ? 'Series del grupo: cambiarlas aquí las cambia en todo el grupo'
+                            : 'Cuántas veces se repite el ejercicio'}
+                          onChange={e=>editarEjercicio(ei,{series:e.target.value})}/>
+                      </div>
+                    )}
 
                     {/* Una sola columna: repeticiones o duración, según cómo se mida
                         el ejercicio en la biblioteca. Nunca las dos. */}

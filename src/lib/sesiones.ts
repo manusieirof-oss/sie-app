@@ -63,12 +63,16 @@ export function modoDeSesion(partes: any[]): { id: string, nombre: string } {
  * la copia salía sin ningún objetivo y sin avisar. Aquí se leen de la base en vez
  * de confiar en que la consulta de origen los haya traído.
  */
-export async function duplicarSesion(sesion: any, pacienteId: string) {
+export async function duplicarSesion(sesion: any, pacienteId: string, opciones?: { sufijo?: string, motivo?: string }) {
+  const sufijo = opciones?.sufijo ?? ' (copia)'
   const { data: nueva, error } = await supabase.from('sesiones').insert({
     paciente_id: pacienteId,
-    nombre: (sesion.nombre || 'Sesión') + ' (copia)',
+    nombre: (sesion.nombre || 'Sesión') + sufijo,
     descripcion: sesion.descripcion,
-    partes: sesion.partes || [],
+    // COPIA, no referencia. `partes` es JSON y se guarda entero en la fila nueva, así
+    // que a partir de aquí las dos sesiones son independientes: tocar la del paciente
+    // no cambia la plantilla, y tocar la plantilla no cambia lo ya prescrito a nadie.
+    partes: JSON.parse(JSON.stringify(sesion.partes || [])),
     estado: 'lista',
   }).select().single()
   if (error || !nueva) return { ok: false as const, error: error?.message || 'No se pudo crear la copia' }
@@ -84,10 +88,51 @@ export async function duplicarSesion(sesion: any, pacienteId: string) {
     if (errObj) return { ok: false as const, error: 'La sesión se duplicó pero sus objetivos no: ' + errObj.message, sesion: nueva }
   }
 
+  const motivo = opciones?.motivo ?? 'Duplicada'
   await registrarSesion(pacienteId, `Sesión creada: ${nueva.nombre}`,
-    ids.length > 0 ? `Duplicada · ${ids.length} objetivo${ids.length>1?'s':''}` : 'Duplicada')
+    ids.length > 0 ? `${motivo} · ${ids.length} objetivo${ids.length>1?'s':''}` : motivo)
 
   return { ok: true as const, sesion: nueva, nObjetivos: ids.length }
+}
+
+/** true si la sesión es una plantilla: existe sin dueño y sirve de molde. */
+export const esPlantilla = (s: any) => !s?.paciente_id
+
+/**
+ * Asigna una plantilla a un paciente creando una COPIA suya.
+ *
+ * No se cambia el `paciente_id` de la plantilla ni se enlaza: se copia. A partir de
+ * ahí la sesión es del paciente y lo que se toque en ella no afecta a nadie más,
+ * que es justo lo que hace útil tener plantillas. Y sin sufijo en el nombre: en la
+ * ficha del paciente "Core (copia)" no significa nada, ahí solo hay una.
+ */
+export async function asignarPlantilla(plantilla: any, pacienteId: string) {
+  if (!pacienteId) return { ok: false as const, error: 'Falta el paciente' }
+  return duplicarSesion(plantilla, pacienteId, { sufijo: '', motivo: `Desde la plantilla "${plantilla.nombre}"` })
+}
+
+/**
+ * Qué hay colgando de una sesión, para avisar antes de borrarla.
+ *
+ * Las citas guardan `sesion_id`: si se borra, esas citas se quedan sin sesión y el
+ * historial deja de contar qué se hizo ese día. Los registros de ejercicio no se
+ * miran porque van por paciente y fecha, no por sesión: sobreviven igual.
+ */
+export async function usosDeSesion(sesionId: string) {
+  const { count } = await supabase.from('citas')
+    .select('id', { count: 'exact', head: true }).eq('sesion_id', sesionId)
+  return count || 0
+}
+
+/**
+ * Borra una sesión. Sus objetivos se van con ella por la clave foránea; las citas
+ * que la usaran se quedan sin sesión, y por eso conviene avisar antes con
+ * `usosDeSesion`.
+ */
+export async function eliminarSesion(sesionId: string) {
+  const { error } = await supabase.from('sesiones').delete().eq('id', sesionId)
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const }
 }
 
 /**
