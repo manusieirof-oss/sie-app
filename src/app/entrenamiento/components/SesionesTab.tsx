@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
+import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 import { textoDescanso } from '@/lib/capacidades'
@@ -271,12 +272,18 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 en su sesión no afecta a nadie m&aacute;s.
               </div>
             </div>
-            <div style={{flex:1,overflowY:'auto',padding:8}}>
-              {(pacientes||[]).map((pa:any)=>(
-                <div key={pa.id} className="pop-it" onClick={()=>asignarA(pa.id)} style={{opacity:ocupado?.5:1}}>
-                  {pa.nombre} {pa.apellidos||''}
-                </div>
-              ))}
+            {/* El mismo buscador de la agenda: por nombre, apellidos, apodo de clínica
+                o teléfono. Antes era la lista entera de pacientes en un desplegable, que
+                con más de veinte deja de servir. */}
+            <div style={{flex:1,overflowY:'auto',padding:12}}>
+              <BuscadorPacientes
+                pacientes={pacientes||[]}
+                valor=""
+                onElegir={(pa:any)=>asignarA(pa.id)}
+                onLimpiar={()=>{}}
+                placeholder="Buscar por nombre, apodo o teléfono…"
+                autoFocus
+                disabled={ocupado}/>
               {(pacientes||[]).length===0&&<div style={{padding:12,fontSize:13,color:'var(--gr)'}}>No hay pacientes.</div>}
             </div>
             <div style={{padding:'10px 16px',borderTop:'1px solid var(--bd)',textAlign:'right'}}>
