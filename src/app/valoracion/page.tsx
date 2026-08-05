@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
+import { registrarResultadoTest } from '@/lib/tests'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -120,6 +121,9 @@ export default function ValoracionPage() {
       })
       if (!rCons.ok) alert('Aviso: no se pudieron registrar los consentimientos (' + rCons.error + '). El resto de la valoración sí se ha guardado.')
 
+      // Antes esto solo insertaba la fila: un test positivo en la valoración inicial no
+      // abría sus objetivos ni dejaba evento, y como la fila sí se guardaba nadie se
+      // enteraba. Ahora pasa por la misma función que la ficha.
       for (const t of testsValoracion) {
         const lados = t.lados || {}
         const ladosConDato = Object.keys(lados).filter(k => lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
@@ -127,7 +131,13 @@ export default function ValoracionPage() {
         for (const ladoKey of aGuardar) {
           const d = lados[ladoKey]
           if (!d) continue
-          await supabase.from('resultados_tests').insert({ test_id:t.test_id, paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], resultado:d.resultado, observaciones:d.observaciones, fecha_repeticion:d.fecha_repeticion||null, lado:ladoKey, items_resultado:d.items_resultado })
+          const r = await registrarResultadoTest(pacienteId, { id: t.test_id, nombre: t.nombre, logica: t.logica }, {
+            resultado: d.resultado, items: d.items_resultado || [],
+            observaciones: d.observaciones, lado: ladoKey,
+            fechaRepeticion: d.fecha_repeticion || null,
+            contexto: esRevaloracion ? 'la revaloración' : 'la valoración inicial',
+          })
+          if (!r.ok) alert(`Aviso: no se pudo guardar el test "${t.nombre || ''}" (${r.error}). El resto de la valoración sí se ha guardado.`)
         }
       }
       await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:esRevaloracion?'revaloracion':'valoracion_inicial', titulo:esRevaloracion?'Revaloración':'Valoración inicial', descripcion:form.anamnesis||null, fecha:new Date().toISOString().split('T')[0] })

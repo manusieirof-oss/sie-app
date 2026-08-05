@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { resultadoDeItems } from '@/lib/tests'
 
 export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, setTestsValoracion, testActivo, setTestActivo }: any) {
   const [busqueda, setBusqueda] = useState('')
@@ -10,11 +11,10 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
   const LADOS_LATERAL = [['izquierdo','Izquierdo'],['derecho','Derecho']] as const
   function ladosDeTest(testLib:any){ return (testLib?.tipo_lado==='lateral') ? LADOS_LATERAL : LADOS_BILATERAL }
 
-  function calcularResultado(items:any[], logica:string):string {
-    const marcados = items.filter(i=>i.marcado).length
-    if (logica==='todos') return marcados===items.length && items.length>0?'positivo':'negativo'
-    return marcados>0?'positivo':'negativo'
-  }
+  // La regla es la de lib/tests.ts: era la cuarta copia y ya divergía —esta exigía
+  // items.length>0 y la de la ficha no—, así que un test sin ítems daba resultados
+  // distintos según dónde se registrara.
+  const calcularResultado = (items:any[], logica:string) => resultadoDeItems(items, logica)
 
   // Asegura que un test tenga la estructura de lados
   function ladoData(tv:any, lado:string){
@@ -172,7 +172,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                   const fechaRev=hoy.toISOString().split('T')[0]
                   const ladoVacio=()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
                   const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral'
-                  setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
+                  setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,logica:t.logica,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
                   setTestActivo(testsValoracion.length)
                   setBusqueda('')
                 }} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 9px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:4,cursor:'pointer',background:'var(--w)'}}>
@@ -209,7 +209,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                 const hoy=new Date();hoy.setMonth(hoy.getMonth()+(t.frecuencia_meses||3))
                 const fechaRev=hoy.toISOString().split('T')[0]
                 const ladoVacio=()=>({items_resultado:(t.items||[]).map((item:any)=>({...item,marcado:false,grados:''})),resultado:'sin_realizar',observaciones:'',fecha_repeticion:fechaRev})
-                const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
+                const ladoIni=t.tipo_lado==='lateral'?'izquierdo':'bilateral';setTestsValoracion((prev:any[])=>[...prev,{test_id:t.id,nombre:t.nombre,logica:t.logica,ladoActivo:ladoIni,frecuencia_meses:t.frecuencia_meses||3,lados:{[ladoIni]:ladoVacio()}}])
                 setTestActivo(testsValoracion.length)
               }} style={{display:'flex',alignItems:'center',gap:7,padding:'7px 8px',borderRadius:6,border:'1px solid var(--bd)',marginBottom:5,cursor:'pointer',background:'var(--w)'}}>
                 {t.imagen_url?<img src={t.imagen_url} alt={t.nombre} style={{width:26,height:26,objectFit:'cover',borderRadius:4,flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:4,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="test" size={12}/></div>}

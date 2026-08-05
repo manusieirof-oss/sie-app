@@ -6,7 +6,7 @@ import Silueta, { MarcaCuerpo } from './Silueta'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import Sparkline from './Sparkline'
 import Documentos from './Documentos'
-import { resolverViasDeTest } from '@/lib/objetivos'
+import { registrarResultadoTest } from '@/lib/tests'
 
 export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -193,19 +193,15 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function resolverTestNegativo(t:any) {
     // Registro NUEVO con fecha de hoy: así queda cuándo se resolvió y el positivo
     // anterior se conserva en el historial del test. Antes se sobrescribía el viejo.
-    await supabase.from('resultados_tests').insert({
-      paciente_id: id, test_id: t.test_id, fecha: new Date().toISOString().split('T')[0],
-      resultado: 'negativo', lado: t.lado || 'bilateral',
-      observaciones: 'Resuelto desde la ficha', items_resultado: [],
+    //
+    // Pasa por `registrarResultadoTest` como los demás caminos: guardar el resultado y
+    // cerrar las vías del test es una sola operación, y tenerla escrita aparte aquí es
+    // lo que hizo que la ficha registrara negativos sin cerrar nada.
+    const r = await registrarResultadoTest(String(id), { id: t.test_id, nombre: t.tests?.nombre }, {
+      resultado: 'negativo', items: [], lado: t.lado || 'bilateral',
+      observaciones: 'Resuelto desde la ficha', contexto: 'la ficha',
     })
-    await supabase.from('eventos_paciente').insert({
-      paciente_id: id, tipo: 'test',
-      titulo: `Test negativo: ${t.tests?.nombre || 'Test'}${t.lado && t.lado !== 'bilateral' ? ' · ' + t.lado : ''}`,
-      fecha: new Date().toISOString().split('T')[0],
-    })
-    // Resolver las vías de este test en todos los objetivos: la del test completo
-    // y las de sus ítems, que antes se quedaban colgadas.
-    const r = await resolverViasDeTest(id, t.test_id, 'un test')
+    if (!r.ok) { alert('No se pudo registrar: ' + r.error); return }
     cargar()
     if (r.logrados > 0) {
       alert(r.logrados === 1

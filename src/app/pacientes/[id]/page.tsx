@@ -11,7 +11,7 @@ import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
-import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
+import { registrarResultadoTest, resultadoDeItems } from '@/lib/tests'
 import { asistencia } from '@/lib/resultados'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
@@ -304,103 +304,39 @@ export default function FichaPacientePage() {
     }
   }
 
+  // La regla vive en lib/tests.ts: la usan también la valoración y la vista de Salud.
   function calcularResultado(): string {
-    if (itemsTest.length===0) return resultadoTest
-    const marcados = itemsTest.filter(i=>i.marcado).length
-    if (testSeleccionadoObj?.logica==='todos') {
-      return marcados===itemsTest.length?'positivo':'negativo'
-    }
-    return marcados>0?'positivo':'negativo'
+    return resultadoDeItems(itemsTest, testSeleccionadoObj?.logica, resultadoTest as any)
   }
 
+  /**
+   * Registrar un resultado desde la ficha. Toda la lógica —fila, evento y objetivos—
+   * está en `lib/tests.ts`, que es también lo que usan la valoración y la vista de Salud.
+   */
   async function registrarTest() {
     if (!testSeleccionado) { alert('Selecciona un test'); return }
-    const resultado = itemsTest.length>0 ? calcularResultado() : resultadoTest
-    await supabase.from('resultados_tests').insert({
-      paciente_id: id,
-      test_id: testSeleccionado,
-      fecha: new Date().toISOString().split('T')[0],
-      resultado,
+    const test = testSeleccionadoObj || { id: testSeleccionado }
+    const r = await registrarResultadoTest(String(id), test, {
+      resultado: resultadoTest as any,
+      items: itemsTest,
       observaciones: obsTest,
-      fecha_repeticion: fechaRevTest || null,
       lado: ladoTest,
-      items_resultado: itemsTest.map(i=>({nombre:i.nombre,marcado:i.marcado,grados:i.grados,tiene_grados:i.tiene_grados})),
+      fechaRepeticion: fechaRevTest || null,
+      contexto: 'la ficha',
     })
-    // Un test positivo activa objetivos automáticamente: sin este evento, eso pasaba
-    // sin dejar constancia y luego no había forma de reconstruirlo.
-    const marcados = itemsTest.filter(i=>i.marcado).map(i=>i.nombre+(i.grados?` (${i.grados}°)`:'')).join(', ')
-    await registrarEvento(
-      'test',
-      `Test ${resultado}: ${testSeleccionadoObj?.nombre||'test'}${ladoTest&&ladoTest!=='bilateral'?' · '+ladoTest:''}`,
-      [marcados||null, obsTest||null].filter(Boolean).join(' · ') || null,
-    )
-    // Test positivo -> activar objetivos vinculados, añadiendo la via 'test'
-    if (resultado==='positivo') {
-      const { data: objs } = await supabase.from('objetivos').select('id').eq('test_id', testSeleccionado).eq('activo', true)
-      const etiqueta = 'Test: ' + (testSeleccionadoObj?.nombre || 'test')
-      for (const o of (objs||[])) {
-        const { data: exist } = await supabase.from('pacientes_objetivos')
-          .select('vias,origen,logrado').eq('paciente_id', id).eq('objetivo_id', o.id).maybeSingle()
-        const nuevaVia = { tipo:'test', ref:testSeleccionado, etiqueta, resuelto:false, fecha_resuelto:null }
-        if (exist) {
-          const vias = Array.isArray(exist.vias) ? exist.vias : []
-          const yaEsta = vias.some((v:any)=>v.tipo==='test' && v.ref===testSeleccionado)
-          const nuevasVias = yaEsta ? vias.map((v:any)=>(v.tipo==='test'&&v.ref===testSeleccionado)?{...v,resuelto:false,fecha_resuelto:null}:v) : [...vias, nuevaVia]
-          const origen = (exist.origen||'').includes('test') ? exist.origen : ((exist.origen? exist.origen+'+test':'test'))
-          await guardarVias(String(id), o.id, nuevasVias, { origen, logradoAntes: !!exist.logrado, contexto: 'un test' })
-        } else {
-          await abrirObjetivo(String(id), o.id, nuevaVia, 'test')
-        }
-      }
-    }
-    // Objetivos por ITEM marcado del test
-    for (let ii=0; ii<itemsTest.length; ii++) {
-      const it:any = itemsTest[ii]
-      const objIds:string[] = it.objetivos || []
-      if (objIds.length===0) continue
-      const refItem = testSeleccionado + ':' + ii
-      const etiquetaItem = 'Test: ' + (testSeleccionadoObj?.nombre||'test') + ' · ' + (it.nombre||('ítem '+(ii+1)))
-      for (const oid of objIds) {
-        const { data: exist } = await supabase.from('pacientes_objetivos')
-          .select('vias,origen,logrado').eq('paciente_id', id).eq('objetivo_id', oid).maybeSingle()
-        if (it.marcado) {
-          const nuevaVia = { tipo:'test_item', ref:refItem, etiqueta:etiquetaItem, resuelto:false, fecha_resuelto:null }
-          if (exist) {
-            const vias = Array.isArray(exist.vias) ? exist.vias : []
-            const yaEsta = vias.some((v:any)=>v.tipo==='test_item' && v.ref===refItem)
-            const nuevasVias = yaEsta
-              ? vias.map((v:any)=>(v.tipo==='test_item'&&v.ref===refItem)?{...v,resuelto:false,fecha_resuelto:null}:v)
-              : [...vias, nuevaVia]
-            const origen = (exist.origen||'').includes('test') ? exist.origen : (exist.origen? exist.origen+'+test':'test')
-            await guardarVias(String(id), oid, nuevasVias, { origen, logradoAntes: !!exist.logrado, contexto: 'un test' })
-          } else {
-            await abrirObjetivo(String(id), oid, nuevaVia, 'test')
-          }
-        } else if (exist) {
-          // Ítem no marcado: esa vía queda resuelta.
-          await resolverVia(String(id), oid, 'test_item', refItem, true, 'un test')
-        }
-      }
-    }
+    if (!r.ok) { alert('No se pudo guardar el resultado: ' + r.error); return }
+
     setModalRegistrarTest(false)
     setTestSeleccionado(''); setResultadoTest('positivo'); setObsTest(''); setFechaRevTest('')
     setItemsTest([]); setLadoTest('bilateral'); setTestSeleccionadoObj(null)
     cargar()
-  }
-
-  async function registrarTestAntiguo() {
-    if (!testSeleccionado) { alert('Selecciona un test'); return }
-    await supabase.from('resultados_tests').insert({
-      paciente_id: id,
-      test_id: testSeleccionado,
-      fecha: new Date().toISOString().split('T')[0],
-      resultado: resultadoTest,
-      observaciones: obsTest,
-      fecha_repeticion: fechaRevTest || null,
-    })
-    setModalRegistrarTest(false)
-    setTestSeleccionado(''); setResultadoTest('positivo'); setObsTest(''); setFechaRevTest('')
-    cargar()
+    // Que un test cierre objetivos es la consecuencia que más interesa y antes pasaba
+    // en silencio: solo se veía entrando en la pestaña de objetivos.
+    if (r.logrados > 0) {
+      alert(r.logrados === 1
+        ? 'Resultado guardado. Un objetivo ha pasado a logrado.'
+        : `Resultado guardado. ${r.logrados} objetivos han pasado a logrados.`)
+    }
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {

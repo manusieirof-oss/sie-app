@@ -2,6 +2,76 @@
 
 Lista única de cosas aparcadas. Al cerrar una, se borra de aquí.
 
+**Cómo se ordena a partir de ahora:** por **Pilar** y, dentro, por **pestaña**. Las secciones
+numeradas de abajo son de antes de acordar esto y se van migrando a medida que se toque cada
+pilar; no se reordenan de golpe, que solo serviría para perder el rastro de lo decidido.
+
+---
+
+# Pilar Biblioteca
+
+## Tests
+
+### Registro de resultados ✅ HECHO
+`lib/tests.ts` es el único sitio que registra el resultado de un test. Guardar la fila, dejar
+el evento y mover los objetivos van en la misma función, como en `lib/objetivos.ts` y
+`lib/alertas.ts`, para que no se pueda hacer una cosa sin la otra.
+
+Estaba escrito en cuatro sitios y los cuatro hacían cosas distintas:
+
+- **La valoración solo guardaba la fila.** Ni evento ni objetivos. Un positivo detectado en la
+  valoración inicial —que es cuando se detectan— no abría nada, y como la fila sí se guardaba
+  nadie se enteraba. Era el peor de los cuatro.
+- **La ficha, al registrar un negativo, no cerraba la vía del test.** Se quedaba abierta para
+  siempre; solo la cerraba el botón "resolver" de Salud, que era otro camino aparte.
+- **`PasoTests` tenía su propia copia del cálculo** y ya divergía: exigía `items.length>0` y la
+  de la ficha no, así que un test sin ítems daba resultados distintos según dónde se registrara.
+- **`registrarTestAntiguo`** era código muerto en la ficha. Borrado.
+
+Dos decisiones que conviene no deshacer:
+
+- **"Sin realizar" no se pisa.** Un test con ítems y ninguno marcado podría calcularse como
+  negativo, pero "no se lo hice" y "se lo hice y salió limpio" no son lo mismo: lo segundo es un
+  hallazgo y lo primero un hueco. La valoración deja marcar una u otra a propósito.
+- **El evento se registra también cuando el test sale negativo.** Que un test diera negativo en
+  marzo es información clínica, no ausencia de ella.
+
+### Bloqueo de ejercicios por test positivo — PENDIENTE
+**`tests.etiquetas_bloquea` existe desde el principio y no la lee nadie.** Cero usos en toda la
+app. La idea era clara: un test positivo bloquea ciertas etiquetas de ejercicio. Hoy nada
+impide meter en una sesión un ejercicio contraindicado por un test que dio positivo la semana
+pasada.
+
+Ahora por fin se puede hacer de verdad, porque la biblioteca ya está etiquetada. Sin decidir:
+
+- **Bloquear o avisar.** Impedir el ejercicio es tentador y probablemente equivocado: hay
+  motivos para prescribirlo igual y un bloqueo duro se acaba esquivando por fuera de la app.
+  Apuesta: avisar en el editor de sesión, con el nombre del test y su fecha, y dejar decidir.
+- **Cuándo caduca.** Un positivo de hace un año no debería bloquear nada. ¿Vale hasta que haya
+  un negativo posterior, o hasta la `fecha_repeticion`?
+- **Dónde se ve.** En el editor de sesión al elegir el ejercicio, seguro. ¿También como filtro
+  en el explorador, que esconda lo contraindicado de ese paciente?
+
+Ojo al cruce con el Pilar Taller: si el bloqueo se aplica al prescribir, el taller tiene que
+poder ejecutar igualmente lo ya prescrito. Bloquear lo que ya está en marcha deja la sesión a
+medias con el paciente delante.
+
+### Avisos de reevaluación — PENDIENTE
+`resultados_tests.fecha_repeticion` se calcula sola con `frecuencia_meses` y **solo se pinta**
+en la ficha. Nada te dice a quién le toca reevaluar.
+
+Va con el punto 3.1 de más abajo, que es el mismo problema para las revaloraciones: calcularlo
+derivado, sin tabla de pendientes. Sin decidir dónde se ve — la apuesta sigue siendo la franja
+"Requiere atención" de la ficha, y que el taller avise al abrir al paciente.
+
+### Repaso de la pestaña — PENDIENTE
+`TestsTab`: crear y editar tests, ítems, lógica, lados. Sigue con `.card` y tipografía
+11/10/9px, así que le toca el tratamiento visual pendiente (ver 4).
+
+Y `supabase-schema.sql` se quedó atrás: la tabla `tests` real tiene `items`, `logica`,
+`tipo_lado`, `etiquetas_relacionadas` e `imagen_url`, y `resultados_tests` tiene `lado` e
+`items_resultado`. El fichero no los recoge.
+
 ---
 
 ## 0. Consentimientos ✅ CERRADO
