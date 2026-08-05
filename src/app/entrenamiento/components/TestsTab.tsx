@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { UNIDADES, unidadDe } from '@/lib/tests'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -39,7 +40,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
-  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as {nombre:string,tiene_grados:boolean}[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], tipo_lado:'bilateral' })
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], tipo_lado:'bilateral' })
 
   async function crearTest() {
     if (!nuevoTest.nombre) { alert('El nombre es obligatorio'); return }
@@ -108,7 +109,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
               {(t.items||[]).length>0&&(
                 <div style={{marginBottom:5}}>
                   <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:3}}>Ítems · {t.logica==='cualquiera'?'Cualquiera = +':'Todos = +'}</div>
-                  {(t.items||[]).slice(0,3).map((item:any,i:number)=><div key={i} style={{fontSize:9,color:'var(--n)',fontWeight:300}}>☐ {item.nombre}{item.tiene_grados?' (°)':''}</div>)}
+                  {(t.items||[]).slice(0,3).map((item:any,i:number)=><div key={i} style={{fontSize:9,color:'var(--n)',fontWeight:300}}>☐ {item.nombre}{unidadDe(item).simbolo?` (${unidadDe(item).nombre.toLowerCase()})`:''}</div>)}
                   {(t.items||[]).length>3&&<div style={{fontSize:8,color:'var(--grl)'}}>+{(t.items||[]).length-3} más</div>}
                 </div>
               )}
@@ -142,7 +143,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   {(testDetalle.items||[]).length>0&&(
                     <div>
                       <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {testDetalle.logica==='cualquiera'?'Cualquiera = positivo':'Todos = positivo'}</div>
-                      {(testDetalle.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:11,color:'var(--n)',fontWeight:300,padding:'2px 0'}}>☐ {item.nombre}{item.tiene_grados?' (mide °)':''}</div>)}
+                      {(testDetalle.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:11,color:'var(--n)',fontWeight:300,padding:'2px 0'}}>☐ {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}</div>)}
                     </div>
                   )}
                 </div>
@@ -193,9 +194,13 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                 <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7}}>
                     <input className="input" value={item.nombre} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],nombre:e.target.value};setNuevoTest(p=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
-                    <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
-                      <input type="checkbox" checked={item.tiene_grados} onChange={e=>{const its=[...nuevoTest.items];its[i]={...its[i],tiene_grados:e.target.checked};setNuevoTest(p=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
-                    </label>
+                    {/* La unidad va por ítem: un mismo test tiene ítems cualitativos y
+                        medidos, y partirlo en dos por eso sería partir lo que en la
+                        camilla es un solo test. */}
+                    <select className="input" value={unidadDe(item).id} style={{width:118,fontSize:11,flexShrink:0}}
+                      onChange={e=>{const its=[...nuevoTest.items] as any[];its[i]={...its[i],unidad:e.target.value};setNuevoTest(p=>({...p,items:its}))}}>
+                      {UNIDADES.map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+                    </select>
                     <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
                   <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
@@ -206,7 +211,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   }}/>
                 </div>
               ))}
-              <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',tiene_grados:false}]}))}>+ Añadir ítem</button>
+              <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',unidad:''}]}))}>+ Añadir ítem</button>
             </div>
             <div className="field">
               <label>Etiquetas relacionadas</label>
@@ -260,9 +265,10 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                 <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7}}>
                     <input className="input" value={item.nombre} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],nombre:e.target.value};setTestEditando((p:any)=>({...p,items:its}))}} placeholder="ej. La rodilla no llega a 90°" style={{flex:1,fontSize:11}}/>
-                    <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:9,color:'var(--grl)',flexShrink:0}}>
-                      <input type="checkbox" checked={!!item.tiene_grados} onChange={e=>{const its=[...(testEditando.items||[])];its[i]={...its[i],tiene_grados:e.target.checked};setTestEditando((p:any)=>({...p,items:its}))}} style={{accentColor:'var(--g)'}}/>Mide °
-                    </label>
+                    <select className="input" value={unidadDe(item).id} style={{width:118,fontSize:11,flexShrink:0}}
+                      onChange={e=>{const its=[...(testEditando.items||[])] as any[];its[i]={...its[i],unidad:e.target.value};setTestEditando((p:any)=>({...p,items:its}))}}>
+                      {UNIDADES.map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+                    </select>
                     <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
                   <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
@@ -273,7 +279,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   }}/>
                 </div>
               ))}
-              <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',tiene_grados:false}]}))}>+ Añadir ítem</button>
+              <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',unidad:''}]}))}>+ Añadir ítem</button>
             </div>
             <div className="field">
               <label>Etiquetas relacionadas</label>

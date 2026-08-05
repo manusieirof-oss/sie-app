@@ -6,7 +6,7 @@ import Silueta, { MarcaCuerpo } from './Silueta'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import Sparkline from './Sparkline'
 import Documentos from './Documentos'
-import { registrarResultadoTest } from '@/lib/tests'
+import { registrarResultadoTest, textoMedida } from '@/lib/tests'
 
 export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -428,7 +428,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                     {positivo && <button className="btn btn-t btn-sm" onClick={()=>resolverTestNegativo(t)}>Pasar a negativo</button>}
                   </div>
                   {(t.items_resultado||[]).filter((i:any)=>i.marcado).map((item:any,ii:number)=>(
-                    <div key={ii} style={{fontSize:12,color:'var(--red)',marginTop:4,display:'flex',alignItems:'center',gap:5}}><Ic name="checkbox" size={12}/><span>{item.nombre}{item.grados?' · '+item.grados+'°':''}</span></div>
+                    <div key={ii} style={{fontSize:12,color:'var(--red)',marginTop:4,display:'flex',alignItems:'center',gap:5}}><Ic name="checkbox" size={12}/><span>{item.nombre}{textoMedida(item)?' · '+textoMedida(item):''}</span></div>
                   ))}
                   {t.observaciones && <div style={{fontSize:12,color:'var(--gr)',marginTop:5,fontStyle:'italic'}}>{t.observaciones}</div>}
                   {t.fecha_repeticion && <div style={{fontSize:12,color:'#8A6410',marginTop:4,display:'flex',alignItems:'center',gap:5}}><Ic name="alarma" size={12}/> Revisión: {new Date(t.fecha_repeticion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
@@ -643,7 +643,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                   <div style={{fontSize:12,color:'var(--gr)',marginBottom:3}}>Ítems marcados</div>
                   {(t.items_resultado||[]).filter((i:any)=>i.marcado).map((it:any,ii:number)=>(
                     <div key={ii} style={{fontSize:13,color:'var(--n)',display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-                      <Ic name="checkbox" size={12}/>{it.nombre}{it.grados?` · ${it.grados}°`:''}
+                      <Ic name="checkbox" size={12}/>{it.nombre}{textoMedida(it)?` · ${textoMedida(it)}`:''}
                     </div>
                   ))}
                 </div>

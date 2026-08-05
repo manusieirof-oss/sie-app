@@ -11,7 +11,7 @@ import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
-import { registrarResultadoTest, resultadoDeItems } from '@/lib/tests'
+import { registrarResultadoTest, resultadoDeItems, mide, unidadDe, valorDe, textoMedida } from '@/lib/tests'
 import { asistencia } from '@/lib/resultados'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
@@ -52,7 +52,7 @@ export default function FichaPacientePage() {
   const [resultadoTest, setResultadoTest] = useState('positivo')
   const [obsTest, setObsTest] = useState('')
   const [fechaRevTest, setFechaRevTest] = useState('')
-  const [itemsTest, setItemsTest] = useState<{nombre:string,tiene_grados:boolean,marcado:boolean,grados:string}[]>([])
+  const [itemsTest, setItemsTest] = useState<any[]>([])
   const [ladoTest, setLadoTest] = useState('bilateral')
   const [testSeleccionadoObj, setTestSeleccionadoObj] = useState<any>(null)
   const [procesando, setProcesando] = useState(false)
@@ -175,7 +175,7 @@ export default function FichaPacientePage() {
         <span class="${t.resultado==='positivo'?'pos':'neg'}">${t.resultado==='positivo'?'+ Positivo':'− Negativo'}</span>
         &nbsp;·&nbsp;${new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
         ${(t.items_resultado||[]).filter((i:any)=>i.marcado).map((i:any)=>
-          `<br>☑ ${i.nombre}${i.grados?' · <strong>'+i.grados+'°</strong>':''}`
+          `<br>☑ ${i.nombre}${textoMedida(i)?' · <strong>'+textoMedida(i)+'</strong>':''}`
         ).join('')}
       </div>
     </div>`).join('')}` : ''}
@@ -290,7 +290,7 @@ export default function FichaPacientePage() {
     const t = testsDisp.find((t:any)=>t.id===testId)
     setTestSeleccionadoObj(t||null)
     if (t && t.items && t.items.length>0) {
-      setItemsTest(t.items.map((item:any)=>({...item,marcado:false,grados:''})))
+      setItemsTest(t.items.map((item:any)=>({...item,marcado:false,valor:''})))
     } else {
       setItemsTest([])
     }
@@ -651,12 +651,12 @@ export default function FichaPacientePage() {
                   <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:item.marcado?'var(--redl)':'var(--bl)',borderRadius:6,border:`1px solid ${item.marcado?'#F5C8C8':'var(--bd)'}`,marginBottom:4,transition:'all .15s'}}>
                     <input type="checkbox" checked={item.marcado} onChange={e=>{const its=[...itemsTest];its[i]={...its[i],marcado:e.target.checked};setItemsTest(its)}} style={{width:16,height:16,accentColor:'var(--red)',flexShrink:0,cursor:'pointer'}}/>
                     <span style={{flex:1,fontSize:11,fontWeight:item.marcado?400:300,color:'var(--n)'}}>{item.nombre}</span>
-                    {item.tiene_grados && item.marcado && (
+                    {mide(item) && item.marcado && (
                       <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-                        <input type="number" value={item.grados} onChange={e=>{const its=[...itemsTest];its[i]={...its[i],grados:e.target.value};setItemsTest(its)}}
+                        <input type="number" value={valorDe(item)} onChange={e=>{const its=[...itemsTest];its[i]={...its[i],valor:e.target.value};setItemsTest(its)}}
                           style={{width:52,fontSize:11,padding:'2px 5px',border:'1px solid var(--red)',borderRadius:4,background:'var(--redl)',color:'var(--red)',textAlign:'center',fontFamily:'system-ui'}}
                           placeholder="0"/>
-                        <span style={{fontSize:10,color:'var(--red)',fontWeight:500}}>°</span>
+                        <span style={{fontSize:10,color:'var(--red)',fontWeight:500}}>{unidadDe(item).simbolo.trim()}</span>
                       </div>
                     )}
                   </div>

@@ -362,4 +362,148 @@ export const SESIONES: SesionPlantilla[] = [
       },
     ],
   },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Sesiones que abren los tests de valoración.
+  //
+  // No se inventaron por completar el catálogo: cada una es la que trabaja el objetivo
+  // que abre un test concreto de `semillaTests.ts`. Sin ellas, esos tests dan positivo,
+  // abren su objetivo y dejan al objetivo sin nada con que entrenarse.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── 11 ────────────────────────────────────────────────────────────────────
+  {
+    nombre: 'Cadera · movilidad y control',
+    descripcion: 'La que abren Thomas y Ober. Primero se suelta lo que está corto —flexor y tensor de la fascia lata— y después se refuerza lo que no está sujetando, que casi siempre es el glúteo medio. Soltar sin reforzar dura una semana.',
+    partes: [
+      {
+        nombre: 'Calentamiento', modo: 'circuito', vueltas: '2', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Gato-camello', tiempo: '45', capacidad: 'Movilidad' },
+          { ejercicio: 'Rotación interna en cuadrupedia', reps: '10', capacidad: 'Movilidad' },
+          { ejercicio: 'Sentadilla profunda sostenida', tiempo: '45', capacidad: 'Movilidad' },
+        ],
+      },
+      {
+        nombre: 'Soltar', modo: 'ejercicio', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Estiramiento del piramidal', tiempo: '40', series: '2', capacidad: 'Movilidad' },
+          { ejercicio: 'Zancada con rotación', reps: '8', series: '2', capacidad: 'Movilidad',
+            nota: 'Buscar la extensión de la cadera de atrás, no la profundidad' },
+        ],
+      },
+      {
+        nombre: 'Sujetar', modo: 'superserie', descanso: '90',
+        ejercicios: [
+          { ejercicio: 'Abducción de cadera de pie', grupo: 'A', series: '3', reps: '12', capacidad: 'Fuerza-resistencia' },
+          { ejercicio: 'Copenhagen', grupo: 'A', series: '3', tiempo: '20', regimen: 'Isométrico' },
+          { ejercicio: 'Puente con banda en rodillas', grupo: 'B', series: '3', reps: '12', capacidad: 'Fuerza-resistencia' },
+          { ejercicio: 'Rotación externa de cadera', grupo: 'B', series: '3', reps: '12', capacidad: 'Fuerza-resistencia' },
+        ],
+      },
+    ],
+  },
+
+  // ── 12 ────────────────────────────────────────────────────────────────────
+  {
+    nombre: 'Tobillo y pie',
+    descripcion: 'La que abre el test del lunge. La dorsiflexión se gana empujando contra el final del recorrido, no estirando el gemelo de pie: por eso el trabajo va con la rodilla flexionada, que es donde manda el sóleo.',
+    partes: [
+      {
+        nombre: 'Preparar el pie', modo: 'ejercicio', descanso: '30',
+        ejercicios: [
+          { ejercicio: 'Rodillo plantar', tiempo: '60', series: '2', capacidad: 'Movilidad' },
+        ],
+      },
+      {
+        nombre: 'Movilidad', modo: 'circuito', vueltas: '2', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Dorsiflexión con banda', reps: '12', capacidad: 'Movilidad',
+            nota: 'La rodilla por delante del dedo gordo, sin levantar el talón' },
+          { ejercicio: 'Inversión con banda', reps: '12', capacidad: 'Movilidad' },
+          { ejercicio: 'Eversión con banda', reps: '12', capacidad: 'Movilidad' },
+        ],
+      },
+      {
+        nombre: 'Fuerza', modo: 'ejercicio', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Elevación de talones sentado', series: '4', reps: '15', capacidad: 'Fuerza-resistencia',
+            nota: 'Sentado es sóleo: es el que limita la dorsiflexión' },
+          { ejercicio: 'Excéntrico de Aquiles', series: '3', reps: '10', regimen: 'Excéntrico' },
+          { ejercicio: 'Elevación de talones de pie', series: '3', reps: '12', capacidad: 'Fuerza-resistencia' },
+        ],
+      },
+      {
+        nombre: 'Control', modo: 'ejercicio', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Equilibrio unipodal en bosu', tiempo: '30', series: '3' },
+        ],
+      },
+    ],
+  },
+
+  // ── 13 ────────────────────────────────────────────────────────────────────
+  {
+    nombre: 'Equilibrio y marcha',
+    descripcion: 'La que abren el equilibrio unipodal y el sentarse-levantarse. En mayores el equilibrio no se entrena solo con equilibrio: se cae quien no tiene fuerza para recuperar el paso, así que la mitad de la sesión es tren inferior.',
+    partes: [
+      {
+        nombre: 'Calentamiento', modo: 'circuito', vueltas: '2', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Marcha', tiempo: '60', capacidad: 'Movilidad' },
+          { ejercicio: 'Gato-camello', tiempo: '45', capacidad: 'Movilidad' },
+        ],
+      },
+      {
+        nombre: 'Fuerza', modo: 'ejercicio', descanso: '90',
+        ejercicios: [
+          { ejercicio: 'Sentarse y levantarse de la silla', series: '3', reps: '10', capacidad: 'Fuerza',
+            nota: 'Sin ayudarse con los brazos mientras pueda' },
+          { ejercicio: 'Subida al cajón', series: '3', reps: '8', capacidad: 'Fuerza' },
+          { ejercicio: 'Peso muerto a una pierna', series: '3', reps: '8', capacidad: 'Fuerza' },
+        ],
+      },
+      {
+        nombre: 'Equilibrio', modo: 'circuito', vueltas: '3', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Equilibrio unipodal en bosu', tiempo: '30' },
+          { ejercicio: 'Abducción de cadera de pie', reps: '12', capacidad: 'Fuerza-resistencia' },
+          { ejercicio: 'Saltos suaves en el sitio', tiempo: '20', capacidad: 'Fuerza-resistencia',
+            nota: 'Quitar si hay dolor articular o poca confianza' },
+        ],
+      },
+    ],
+  },
+
+  // ── 14 ────────────────────────────────────────────────────────────────────
+  {
+    nombre: 'Suelo pélvico y pared abdominal',
+    descripcion: 'La que abre el test de diástasis. Va de dentro afuera: respiración, transverso y después carga. No lleva plancha ni rueda abdominal a propósito: en una pared abdominal que todavía se abomba, la antiextensión empuja justo donde no aguanta.',
+    partes: [
+      {
+        nombre: 'Respiración', modo: 'ejercicio', descanso: '30',
+        ejercicios: [
+          { ejercicio: 'Respiración diafragmática', tiempo: '60', series: '3', capacidad: 'Movilidad',
+            nota: 'Costillas a los lados, sin subir el pecho' },
+        ],
+      },
+      {
+        nombre: 'Activación', modo: 'ejercicio', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Activación abdominal profunda', reps: '10', series: '3', regimen: 'Isométrico',
+            nota: 'Exhalar al activar; que la línea media no se abombe' },
+          { ejercicio: 'Aducción isométrica con pelota', tiempo: '20', series: '3', regimen: 'Isométrico' },
+        ],
+      },
+      {
+        nombre: 'Control con carga', modo: 'circuito', vueltas: '3', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Dead bug', reps: '10', capacidad: 'Fuerza-resistencia',
+            nota: 'Bajar solo hasta donde la lumbar siga pegada al suelo' },
+          { ejercicio: 'Bird dog', reps: '10', capacidad: 'Fuerza-resistencia' },
+          { ejercicio: 'Puente de glúteo', reps: '12', capacidad: 'Fuerza-resistencia' },
+        ],
+      },
+    ],
+  },
 ]

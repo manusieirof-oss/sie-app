@@ -27,10 +27,57 @@ export type ResultadoTest = 'positivo' | 'negativo' | 'sin_realizar'
 export type ItemTest = {
   nombre: string
   marcado?: boolean
-  grados?: string
+  /** Unidad en la que se mide, si se mide. Vacío = cualitativo, solo la casilla. */
+  unidad?: string
+  /** Lo medido. Se lee de `grados` en lo guardado antes de que hubiera unidades. */
+  valor?: string
+  /** @deprecated Booleano anterior: solo permitía grados. Se sigue leyendo. */
   tiene_grados?: boolean
+  /** @deprecated Valor anterior. Se sigue leyendo. */
+  grados?: string
   /** Objetivos que abre ESTE ítem al quedar marcado. Vienen del test de la biblioteca. */
   objetivos?: string[]
+}
+
+/**
+ * En qué se puede medir un ítem.
+ *
+ * Antes solo había grados: `tiene_grados`, un booleano, y el símbolo `°` escrito a mano
+ * en la valoración, la ficha, Salud y la biblioteca. Con eso, media biblioteca de tests
+ * no se podía escribir: la sentadilla a una pierna se mide en segundos, el sit-and-reach
+ * en centímetros y el sentarse-levantarse en repeticiones. Anotarlos en una casilla que
+ * pinta un grado no es un apaño, es un dato falso.
+ *
+ * La unidad va por ÍTEM y no por test: un mismo test tiene ítems cualitativos —"hay dolor
+ * en el arco medio"— y medidos, y forzar a elegir una de las dos naturalezas por test
+ * obligaría a partir en dos tests lo que en la camilla es uno.
+ */
+export const UNIDADES = [
+  { id: '', nombre: 'Sin medida', simbolo: '' },
+  { id: 'grados', nombre: 'Grados', simbolo: '°' },
+  { id: 'cm', nombre: 'Centímetros', simbolo: ' cm' },
+  { id: 'segundos', nombre: 'Segundos', simbolo: ' s' },
+  { id: 'repeticiones', nombre: 'Repeticiones', simbolo: ' reps' },
+  { id: 'kg', nombre: 'Kilos', simbolo: ' kg' },
+] as const
+
+/** La unidad de un ítem. Lo guardado con el booleano antiguo se lee como grados. */
+export function unidadDe(item: any) {
+  const id = item?.unidad ?? (item?.tiene_grados ? 'grados' : '')
+  return UNIDADES.find(u => u.id === id) || UNIDADES[0]
+}
+
+/** true si el ítem lleva un número al lado de la casilla. */
+export const mide = (item: any) => unidadDe(item).id !== ''
+
+/** Lo medido, tolerando el nombre de campo anterior. */
+export const valorDe = (item: any): string => String(item?.valor ?? item?.grados ?? '')
+
+/** "35°", "12 cm", o vacío si no se midió. Es lo que se pinta en todas partes. */
+export function textoMedida(item: any): string {
+  const v = valorDe(item)
+  if (!v) return ''
+  return v + unidadDe(item).simbolo
 }
 
 /**
@@ -107,8 +154,12 @@ export async function registrarResultadoTest(
     observaciones: datos.observaciones || null,
     fecha_repeticion: datos.fechaRepeticion || null,
     lado,
+    // Se congela la unidad con el resultado, igual que la sesión congela el nombre del
+    // ejercicio: si mañana el test pasa a medirse en centímetros, el registro de marzo
+    // tiene que seguir diciendo los grados que se anotaron aquel día.
     items_resultado: items.map(i => ({
-      nombre: i.nombre, marcado: !!i.marcado, grados: i.grados || '', tiene_grados: !!i.tiene_grados,
+      nombre: i.nombre, marcado: !!i.marcado,
+      unidad: unidadDe(i).id, valor: valorDe(i),
     })),
   })
   if (error) return { ok: false, error: error.message }
@@ -116,7 +167,7 @@ export async function registrarResultadoTest(
   // El evento va SIEMPRE, también cuando el test es negativo: que un test haya dado
   // negativo en marzo es información clínica, no ausencia de ella.
   const marcados = items.filter(i => i.marcado)
-    .map(i => i.nombre + (i.grados ? ` (${i.grados}°)` : '')).join(', ')
+    .map(i => { const m = textoMedida(i); return i.nombre + (m ? ` (${m})` : '') }).join(', ')
   await supabase.from('eventos_paciente').insert({
     paciente_id: pacienteId, tipo: 'test',
     titulo: `Test ${resultado}: ${test.nombre || 'test'}${lado && lado !== 'bilateral' ? ' · ' + lado : ''}`,

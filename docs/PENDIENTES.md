@@ -36,6 +36,26 @@ Dos decisiones que conviene no deshacer:
 - **El evento se registra también cuando el test sale negativo.** Que un test diera negativo en
   marzo es información clínica, no ausencia de ella.
 
+### Catálogo inicial de 10 tests ✅ HECHO
+`lib/semillaTests.ts` + `/entrenamiento/sembrar-tests`. Diez tests de los cuatro perfiles de
+la clínica, con sus diez objetivos y el enlace a las sesiones que los trabajan.
+
+**La unidad va por ÍTEM.** `tiene_grados` era un booleano y el `°` estaba escrito a mano en
+ocho sitios, así que media biblioteca no se podía escribir: el lunge de tobillo se mide en
+centímetros, el equilibrio en segundos y el sentarse-levantarse en repeticiones. Ahora hay
+`UNIDADES` en `lib/tests.ts` y lo guardado con el booleano antiguo se sigue leyendo como
+grados. La unidad se **congela con el resultado**, igual que la sesión congela el nombre del
+ejercicio: si el test cambia de unidad, el registro de marzo sigue diciendo lo que se anotó.
+
+**Algunos ítems abren su propio objetivo**, no el del test. Si en la sentadilla profunda se
+levantan los talones, eso abre "ganar dorsiflexión de tobillo" aunque el test vaya de
+sentadilla. Es lo que hace que un test global sirva para algo más que decir "algo va mal".
+
+Cuatro sesiones nuevas en `semillaSesiones.ts` porque los objetivos las necesitaban: Cadera ·
+movilidad y control, Tobillo y pie, Equilibrio y marcha, y Suelo pélvico y pared abdominal.
+Esta última **no lleva plancha ni rueda abdominal a propósito**: en una pared abdominal que
+todavía se abomba, la antiextensión empuja justo donde no aguanta.
+
 ### Bloqueo de ejercicios por test positivo — PENDIENTE
 **`tests.etiquetas_bloquea` existe desde el principio y no la lee nadie.** Cero usos en toda la
 app. La idea era clara: un test positivo bloquea ciertas etiquetas de ejercicio. Hoy nada
