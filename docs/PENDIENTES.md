@@ -56,6 +56,29 @@ movilidad y control, Tobillo y pie, Equilibrio y marcha, y Suelo pélvico y pare
 Esta última **no lleva plancha ni rueda abdominal a propósito**: en una pared abdominal que
 todavía se abomba, la antiextensión empuja justo donde no aguanta.
 
+### Tests del otro programa · lo que falta por resolver
+Sembrados 29 tests (ver `PROPUESTA-TESTS.md` para el mapa entrada por entrada). Pendiente:
+
+- **Tres que no sé qué exploran** y quedaron fuera: "Tobillo - fuera de extensión",
+  "Rodilla - Información - rótula" y "Cervical - Presión arterial en cervical". Este último,
+  si es el test de arteria vertebral, no debería abrir objetivo de entrenamiento sino avisar
+  y derivar.
+- **Dos nombres leídos a mi criterio:** "Shoto-Hall" → Soto-Hall, "O Don" → O'Donoghue.
+  Confirmar. Los dos ítems de O'Donoghue los interpreté como pasivo y resistido.
+- **"Control motor y fascias de espalda"**: sembrado como ítem cualitativo, sin criterio de
+  positivo. Falta saber qué se observa.
+- **La lista venía cortada**: del 71 al 124 y del 136 al 154 faltan ~70 entradas. Hombro,
+  codo y muñeca están claramente infrarrepresentados.
+- **Senior Fitness Test**: hoy solo existe el sentarse-levantarse en 30 s. Decidir si se monta
+  la batería completa (6 ítems medidos) para poder comparar con los baremos por edad.
+- **VALD**: los tests de fuerza con dinamómetro se miden en su aplicación. Decidir si el
+  número se copia a mano aquí o si en la app solo consta el positivo/negativo.
+
+**Los tests de exploración no abren objetivo, a propósito.** Meniscos, ligamentos y
+provocación cervical no son un déficit que se entrene: son información para decidir la carga
+y, a veces, para derivar. Colgarles un objetivo haría que la ficha propusiera entrenar una
+rotura. Ese dato es el que alimentará el bloqueo por etiquetas de aquí abajo.
+
 ### Bloqueo de ejercicios por test positivo — PENDIENTE
 **`tests.etiquetas_bloquea` existe desde el principio y no la lee nadie.** Cero usos en toda la
 app. La idea era clara: un test positivo bloquea ciertas etiquetas de ejercicio. Hoy nada
