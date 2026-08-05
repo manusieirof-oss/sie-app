@@ -5,6 +5,7 @@ import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
+import ModalRepartir from './ModalRepartir'
 import { Ic } from '@/lib/icons'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
@@ -38,6 +39,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [limHist, setLimHist] = useState(30)
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
   const [versionesAbiertas, setVersionesAbiertas] = useState<string[]>([])
+  // El recibo de la última tanda. Recargar en silencio deja sin saber si reasignó las
+  // citas o ninguna, que es justo lo que se quiere comprobar.
+  const [reciboTanda, setReciboTanda] = useState<{texto:string, mal:boolean}|null>(null)
+  const [repartiendo, setRepartiendo] = useState(false)
 
   useEffect(() => { cargarDatos() }, [limHist])
 
@@ -131,7 +136,17 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     setGuardando(true)
     const r = await evolucionarPrograma(pacienteId)
     setGuardando(false)
-    if (!r.ok) { alert(r.error); return }
+    if (!r.ok) { setReciboTanda({texto:r.error, mal:true}); return }
+
+    // Que reasigne cero citas no es un error de base de datos —nada falla— pero deja el
+    // programa a medias: sesiones nuevas que nadie va a entrenar. Hay que decirlo.
+    setReciboTanda({
+      mal: r.nCitas===0,
+      texto: r.nCitas===0
+        ? `Se crearon ${r.nuevas.length} sesión${r.nuevas.length>1?'es':''} pero NINGUNA cita cambió a la tanda nueva. Las citas siguen con la anterior.`
+        : `${r.nuevas.length} sesión${r.nuevas.length>1?'es':''} nueva${r.nuevas.length>1?'s':''} · ${r.nCitas} cita${r.nCitas>1?'s':''} reasignada${r.nCitas>1?'s':''}`
+          + (r.fijas.length>0 ? ` · sin tocar por fijas: ${r.fijas.join(', ')}` : ''),
+    })
     cargarDatos(); onRefresh()
   }
 
@@ -488,6 +503,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>
                 {/* Solo tiene sentido si hay programa en marcha: sin citas futuras con
                     sesión, no hay nada de lo que hacer una versión siguiente. */}
+                {citasFuturas.length>0 && sesionesDisp.length>0 && (
+                  <button className="btn btn-sm" onClick={()=>setRepartiendo(true)} disabled={guardando}
+                    title="Coloca las sesiones en las citas futuras siguiendo una rotación">
+                    <Ic name="calendario" size={12}/> Repartir en las citas
+                  </button>
+                )}
                 {citasFuturas.some((c:any)=>c.sesion_id) && (
                   <button className="btn btn-sm" onClick={nuevaTanda} disabled={guardando}
                     title="Crea una versión nueva de cada sesión de la agenda futura y reasigna esas citas">
@@ -503,6 +524,15 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 </button>
               )}
             </div>
+            {reciboTanda && (
+              <div className="fila-p" style={{borderLeftColor:reciboTanda.mal?'var(--amb)':'var(--g)',marginBottom:12,display:'flex',alignItems:'flex-start',gap:8}}>
+                <span style={{flex:1,fontSize:13,color:'var(--n)',lineHeight:1.5}}>{reciboTanda.texto}</span>
+                <button onClick={()=>setReciboTanda(null)} aria-label="Cerrar"
+                  style={{background:'none',border:'none',cursor:'pointer',color:'var(--gr)',flexShrink:0}}>
+                  <Ic name="cerrar" size={13}/>
+                </button>
+              </div>
+            )}
             {sesionesDisp.length===0?<div className="muted">No hay sesiones creadas.</div>:(
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:10}}>
                 {/* Agrupadas por linaje: se ve la versión vigente de cada sesión y las
@@ -802,6 +832,22 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           textoPartir={`Partir de esta · sale la ${linajeDe(sesionesDisp, sesionDetalle).length+1}ª`}
           onDuplicar={()=>{duplicar(sesionDetalle);setSesionDetalle(null)}}
           onEliminar={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}
+        />
+      )}
+
+      {/* Solo se ofrecen las vigentes: repartir una tanda antigua sería prescribir el
+          programa viejo sin enterarse. */}
+      {repartiendo && (
+        <ModalRepartir
+          pacienteId={pacienteId}
+          sesiones={agrupaPorLinaje(sesionesDisp).map(l=>l.vigente)}
+          citas={citasFuturas}
+          onCerrar={()=>setRepartiendo(false)}
+          onHecho={(n)=>{
+            setRepartiendo(false)
+            setReciboTanda({texto:`${n} cita${n===1?'':'s'} asignada${n===1?'':'s'}.`, mal:n===0})
+            cargarDatos(); onRefresh()
+          }}
         />
       )}
 

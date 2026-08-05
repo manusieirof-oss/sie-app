@@ -349,15 +349,35 @@ apagadas y con su número; en los desplegables de elegir sesión no salen (`solo
 **Vigente = la última creada del linaje**, no "de la que nadie ha evolucionado": al poder
 partir de cualquier tanda hay ramas, y con la definición vieja habría dos vigentes a la vez.
 
+### 6.2bis · Repartir sesiones en las citas ✅ HECHO
+`lib/rotacion.ts` + `ModalRepartir`. Botón "Repartir en las citas" en Entrenamiento → Sesiones.
+
+**Los 2, 3, 4 o 5 días no se modelan.** No son cuatro reglas sino una: se cogen las citas
+futuras en orden de fecha y se reparten las sesiones en bucle. Que a uno le toque una cada
+tres días naturales y a otro una cada dos ya lo decide la agenda, que es la única que sabe qué
+días viene cada uno. Por eso **no hay un ajuste de "frecuencia" en el paciente**: sería un
+tercer sitio donde guardar algo que la agenda ya sabe y la contradiría al primer cambio de día.
+
+`cicloDe` deduce la rotación en curso de las citas ya asignadas ([A,B,A,B,A] → [A,B]), así que
+añadir tres meses de citas y rellenarlas es abrir y dar a repartir. Si la secuencia no es
+periódica devuelve la secuencia entera en vez de inventarse un ciclo.
+
+El plan se calcula aparte de escribirlo (`planDeReparto` / `aplicarReparto`) para que la
+previsualización salga de la misma función que ejecuta y no pueda mentir.
+
 ### 6.3 · Propuesta de cambio ejercicio a ejercicio — PENDIENTE
 Que al crear la tanda nueva se propongan sustituciones **con el motivo escrito al lado**
 ("tracción vertical a cero", "lleva ocho semanas con este"), y se acepten o rechacen una a una.
 
-**Faltan tres datos que hoy no existen:**
+**Faltan dos datos que hoy no existen:**
 
 - **Favorito del paciente.** Qué ejercicios no se le tocan porque le funcionan o le gustan.
-- **Partes intocables.** Qué bloques no entran en el cambio automático.
-- El tercero, la vigencia de cada versión, ya está resuelto por 6.2: lo dicen las citas.
+- **Partes intocables.** Qué bloques no entran en el cambio automático. Ojo: no es lo mismo
+  que `sesiones.fija`, que deja fuera la sesión ENTERA de la tanda. Esto es más fino, dentro
+  de una sesión que sí evoluciona.
+
+El tercero que faltaba —la vigencia de cada versión— ya está resuelto por 6.2: lo dicen las
+citas, no hace falta columna.
 
 ### 6.4 · Cambio masivo — PENDIENTE, y solo accesorios
 El botón de "cámbiame todos los ejercicios". Limitado a accesorios a propósito: si el bloque
