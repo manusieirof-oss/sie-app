@@ -5,10 +5,15 @@ import { Ic } from '@/lib/icons'
  * Las páginas de montaje del catálogo, reunidas.
  *
  * Existían desde el principio pero sin ningún enlace: había que escribir la dirección
- * a mano cada vez, y con cuatro páginas eso ya era pedir que te acuerdes de cuatro
+ * a mano cada vez, y con cinco páginas eso ya era pedir que te acuerdes de cinco
  * rutas. No son ajustes de la clínica, así que van en su propia pestaña y con el orden
- * a la vista: **etiquetas antes que ejercicios, y ejercicios antes que sesiones**, que
- * es lo único que hay que respetar.
+ * a la vista, que es lo único que hay que respetar:
+ *
+ *   etiquetas → ejercicios → sesiones → tests
+ *
+ * Cada paso se apoya en el anterior y ninguno avisa si se hace al revés más allá de su
+ * propia comprobación previa: los tests buscan sus sesiones por nombre igual que las
+ * sesiones buscan los ejercicios.
  */
 
 const PASOS = [
@@ -26,6 +31,11 @@ const PASOS = [
     n: '3', href: '/entrenamiento/sembrar-sesiones', icono: 'lista',
     titulo: 'Sembrar sesiones genéricas',
     texto: 'Crea las plantillas de sesión, sin paciente. Necesita los ejercicios ya sembrados, porque los busca por nombre. Las sesiones ya asignadas a alguien no se tocan nunca.',
+  },
+  {
+    n: '4', href: '/entrenamiento/sembrar-tests', icono: 'test',
+    titulo: 'Sembrar tests y objetivos',
+    texto: 'Crea los tests de valoración, los objetivos que abren al dar positivo y el enlace de cada objetivo con las sesiones que lo trabajan. Va detrás de las sesiones: si no existen, el objetivo se queda sin nada con que entrenarse.',
   },
   {
     n: '·', href: '/entrenamiento/limpiar', icono: 'papelera',
