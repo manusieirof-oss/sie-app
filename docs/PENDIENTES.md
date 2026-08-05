@@ -296,3 +296,56 @@ Comprobado en las dos primeras tandas:
 - **Ejercicios cuyo sentido está en el movimiento, no en la postura** (deslizadores,
   saltos). Una foto fija de una zancada con deslizador es indistinguible de una zancada
   normal salvo por el disco bajo el pie. Salen, pero comunican poco.
+
+---
+
+## 6. Programa de entrenamiento
+
+Que crear la siguiente tanda de sesiones deje de ser trabajo manual. Se hace por partes,
+en este orden, porque cada una decide sobre la anterior.
+
+### 6.1 · Trabajo por zonas y patrones ✅ HECHO
+`lib/volumen.ts` + `ResumenVolumen`, en Pacientes → Resultados. Cuenta lo **asistido**, no lo
+prescrito, y mide en **series**. Un ejercicio cuenta entero en cada zona que trabaja, así que
+los totales por zona no suman el total de series. Va primero porque todo lo demás decide
+sobre estos números.
+
+**Es el examen del etiquetado.** Si los números chirrían, el problema está en cómo están
+etiquetados los ejercicios, no en el informe.
+
+**Mapa de calor corporal: descartado por ahora.** La lista ya dice lo que hay que saber.
+
+### 6.2 · Linaje de sesiones ✅ HECHO
+`sesiones.evolucion_de` (ver `sql/sesiones_linaje.sql`) y `lib/linaje.ts`. La **versión no se
+guarda, se cuenta** recorriendo la cadena.
+
+**La unidad que evoluciona es el programa, no la sesión.** `evolucionarPrograma()` copia todas
+las sesiones que están en la agenda futura y repunta esas citas a las copias. El orden —qué
+toca el lunes y qué el miércoles— se conserva solo, porque cada cita mantiene su hueco y solo
+cambia a qué versión apunta. Las citas pasadas no se tocan nunca: son lo que hace que 6.1
+siga siendo cierto meses después.
+
+Dónde se ve: botón "Nueva tanda" en Pacientes → Entrenamiento → Sesiones. Las versiones
+viejas se pliegan tras la vigente; en el taller salen apagadas y con su número; en los
+desplegables de elegir sesión no salen (`soloVigentes`).
+
+### 6.3 · Propuesta de cambio ejercicio a ejercicio — PENDIENTE
+Que al crear la tanda nueva se propongan sustituciones **con el motivo escrito al lado**
+("tracción vertical a cero", "lleva ocho semanas con este"), y se acepten o rechacen una a una.
+
+**Faltan tres datos que hoy no existen:**
+
+- **Favorito del paciente.** Qué ejercicios no se le tocan porque le funcionan o le gustan.
+- **Partes intocables.** Qué bloques no entran en el cambio automático.
+- El tercero, la vigencia de cada versión, ya está resuelto por 6.2: lo dicen las citas.
+
+### 6.4 · Cambio masivo — PENDIENTE, y solo accesorios
+El botón de "cámbiame todos los ejercicios". Limitado a accesorios a propósito: si el bloque
+principal se cambia solo, deja de ser un programa.
+
+### 6.5 · Fusionar sesiones — probablemente nunca
+La que menos aporta y la que más puede romper.
+
+### 6.6 · Grupos de perfil — SIN DECIDIR
+Pilates, recuperación, embarazadas. Antes de tocar nada hay que decidir si son una etiqueta
+del paciente o algo con entidad propia, y esa decisión condiciona el resto.

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { duplicarSesion as duplicarSesionLib } from '@/lib/sesiones'
+import { versionDe, esUltima } from '@/lib/linaje'
 import ModoClase from './ModoClase'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import { Ic } from '@/lib/icons'
@@ -434,13 +435,25 @@ export default function TallerPage() {
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>
               {sesiones.map(s=>{
                 const totalEj = (s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)
+                // Las versiones antiguas no se esconden —aquí se editan y se borran— pero
+                // se apagan y llevan su número: registrar sobre la de hace tres meses es
+                // el error caro, y con ocho tarjetas iguales pasa solo.
+                const v = versionDe(sesiones, s)
+                const vigente = esUltima(sesiones, s)
                 return (
                   <div key={s.id} className="card"
                     onClick={()=>{ if(modoAccion) ejecutarAccion(s) }}
-                    style={modoAccion?{cursor:'pointer',outline:'2px dashed var(--g)',outlineOffset:2,transition:'all .1s'}:undefined}>
+                    style={{...(modoAccion?{cursor:'pointer',outline:'2px dashed var(--g)',outlineOffset:2,transition:'all .1s'}:{}), ...(vigente?{}:{opacity:.55})}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{s.nombre}</div>
+                        <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:5}}>
+                          {s.nombre}
+                          {v>1 && (
+                            <span className="pill pill-soft" title={vigente?`Versión ${v}, la vigente`:`Versión ${v}, sustituida por otra`}>
+                              v{v}{vigente?'':' · antigua'}
+                            </span>
+                          )}
+                        </div>
                         {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{s.descripcion}</div>}
                       </div>
                       <span style={{fontSize:9,color:'var(--grl)'}}>{totalEj} ejercicios</span>

@@ -128,12 +128,24 @@ export function modoDeSesion(partes: any[]): { id: string, nombre: string } {
  * la copia salía sin ningún objetivo y sin avisar. Aquí se leen de la base en vez
  * de confiar en que la consulta de origen los haya traído.
  */
-export async function duplicarSesion(sesion: any, pacienteId: string, opciones?: { sufijo?: string, motivo?: string }) {
+export async function duplicarSesion(sesion: any, pacienteId: string, opciones?: {
+  sufijo?: string
+  motivo?: string
+  /**
+   * Id de la sesión de la que esta es la SIGUIENTE VERSIÓN. Solo lo pone
+   * `evolucionarPrograma`: una copia suelta no es una versión nueva, es otra sesión.
+   * Ver src/lib/linaje.ts y sql/sesiones_linaje.sql.
+   */
+  evolucionDe?: string
+  /** No registrar evento propio: quien llama va a poner uno con el total. */
+  sinEvento?: boolean
+}) {
   const sufijo = opciones?.sufijo ?? ' (copia)'
   const { data: nueva, error } = await supabase.from('sesiones').insert({
     paciente_id: pacienteId,
     nombre: (sesion.nombre || 'Sesión') + sufijo,
     descripcion: sesion.descripcion,
+    evolucion_de: opciones?.evolucionDe || null,
     // COPIA, no referencia. `partes` es JSON y se guarda entero en la fila nueva, así
     // que a partir de aquí las dos sesiones son independientes: tocar la del paciente
     // no cambia la plantilla, y tocar la plantilla no cambia lo ya prescrito a nadie.
@@ -153,9 +165,13 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
     if (errObj) return { ok: false as const, error: 'La sesión se duplicó pero sus objetivos no: ' + errObj.message, sesion: nueva }
   }
 
-  const motivo = opciones?.motivo ?? 'Duplicada'
-  await registrarSesion(pacienteId, `Sesión creada: ${nueva.nombre}`,
-    ids.length > 0 ? `${motivo} · ${ids.length} objetivo${ids.length>1?'s':''}` : motivo)
+  // Ocho copias seguidas son ocho eventos que tapan la cronología: cuando la copia es
+  // parte de una operación mayor, el evento lo pone quien la dirige, con el total.
+  if (!opciones?.sinEvento) {
+    const motivo = opciones?.motivo ?? 'Duplicada'
+    await registrarSesion(pacienteId, `Sesión creada: ${nueva.nombre}`,
+      ids.length > 0 ? `${motivo} · ${ids.length} objetivo${ids.length>1?'s':''}` : motivo)
+  }
 
   return { ok: true as const, sesion: nueva, nObjetivos: ids.length }
 }

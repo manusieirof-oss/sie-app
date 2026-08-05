@@ -9,6 +9,7 @@ import { Ic } from '@/lib/icons'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
+import { agrupaPorLinaje, evolucionarPrograma } from '@/lib/linaje'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -36,6 +37,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [filtroHist, setFiltroHist] = useState('')
   const [limHist, setLimHist] = useState(30)
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
+  const [versionesAbiertas, setVersionesAbiertas] = useState<string[]>([])
 
   useEffect(() => { cargarDatos() }, [limHist])
 
@@ -43,7 +45,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const hoy = new Date().toISOString().split('T')[0]
     const [{ data: c },{ data: s }] = await Promise.all([
       supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
-      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
+      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
     supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
@@ -93,6 +95,36 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const nom = sesionesDisp.find((s:any)=>s.id===sesionId)?.nombre || 'Sesión'
     await registrarSesion(pacienteId, `Sesión asignada a ${ids.length} cita${ids.length>1?'s':''}: ${nom}`)
     setGuardando(false); cargarDatos(); onRefresh()
+  }
+
+  /**
+   * Siguiente tanda del programa: una versión nueva de cada sesión que esté en la
+   * agenda futura, y esas citas pasan a las versiones nuevas.
+   *
+   * El aviso dice EXACTAMENTE qué va a pasar antes de que pase, con los nombres y el
+   * número de citas. Toca varias sesiones y varias citas de golpe, así que un "¿seguro?"
+   * genérico no le da a nadie la información para decir que no.
+   */
+  async function nuevaTanda() {
+    const conSesion = citasFuturas.filter((c:any)=>c.sesion_id)
+    const nombres = Array.from(new Set(conSesion
+      .map((c:any)=>sesionesDisp.find((s:any)=>s.id===c.sesion_id)?.nombre)
+      .filter(Boolean)))
+    if (nombres.length===0) {
+      alert('No hay citas futuras con sesión asignada: no hay programa que evolucionar.')
+      return
+    }
+    const ok = confirm(
+      `Se crea una versión nueva de: ${nombres.join(', ')}.\n\n`+
+      `Las ${conSesion.length} citas futuras pasan a la versión nueva, cada una en su mismo día y hora.\n\n`+
+      `Las citas pasadas no se tocan: siguen apuntando a la versión que se hizo ese día.`)
+    if (!ok) return
+
+    setGuardando(true)
+    const r = await evolucionarPrograma(pacienteId)
+    setGuardando(false)
+    if (!r.ok) { alert(r.error); return }
+    cargarDatos(); onRefresh()
   }
 
   async function asignarEnBloque() {
@@ -420,6 +452,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
               <span className="sh-l">
                 <span className="ct-l"><Ic name="lista" size={13}/> Sesiones del paciente</span>
                 <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>
+                {/* Solo tiene sentido si hay programa en marcha: sin citas futuras con
+                    sesión, no hay nada de lo que hacer una versión siguiente. */}
+                {citasFuturas.some((c:any)=>c.sesion_id) && (
+                  <button className="btn btn-sm" onClick={nuevaTanda} disabled={guardando}
+                    title="Crea una versión nueva de cada sesión de la agenda futura y reasigna esas citas">
+                    <Ic name="cambio" size={12}/> Nueva tanda
+                  </button>
+                )}
               </span>
               {/* Las cumplidas se apagan pero siguen ahí, porque son el historial de lo
                   que funcionó. Este filtro es para cuando estorban. */}
@@ -431,8 +471,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             </div>
             {sesionesDisp.length===0?<div className="muted">No hay sesiones creadas.</div>:(
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:10}}>
-                {sesionesDisp.filter(s=>!soloActivas || estadoSesion(s)!=='cumplida').map(s=>{
+                {/* Agrupadas por linaje: se ve la versión vigente de cada sesión y las
+                    anteriores se despliegan desde ella. Sin esto, a los tres meses hay
+                    ocho tarjetas llamadas "Empujes" y ninguna dice cuál manda. */}
+                {agrupaPorLinaje(sesionesDisp)
+                  .filter(l=>!soloActivas || estadoSesion(l.ultima)!=='cumplida')
+                  .map(({ultima:s, anteriores, version})=>{
                   const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
+                  const abierta=versionesAbiertas.includes(s.id)
                   const nEj=(s.partes||[]).reduce((a:number,p:any)=>a+(p.ejercicios||[]).length,0); const nP=(s.partes||[]).length
                   return (
                     <div key={s.id} onClick={()=>setSesionDetalle(s)}
@@ -468,6 +514,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         {/* Calculado de las partes, nunca guardado en la sesión. */}
                         {nEj>0 && <span className="pill pill-o on">{modoDeSesion(s.partes).nombre}</span>}
                         <span className="pill pill-soft">{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
+                        {/* La versión se cuenta de la cadena, no se guarda: ver lib/linaje.ts. */}
+                        {version>1 && (
+                          <button className="pill pill-soft" onClick={e=>{e.stopPropagation();setVersionesAbiertas(v=>abierta?v.filter(x=>x!==s.id):[...v,s.id])}}
+                            title={`Versión ${version} · ${anteriores.length} anterior${anteriores.length>1?'es':''}`}
+                            style={{border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3}}>
+                            v{version} <Ic name={abierta?'arriba':'abajo'} size={10}/>
+                          </button>
+                        )}
                         {/* Con diez sesiones acumuladas, cuál es la reciente importa más
                             que cuántas partes tiene. */}
                         {s.created_at && (
@@ -482,6 +536,22 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                             <span key={o.id} className="pill" style={{background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4}}>
                               <Ic name="objetivo" size={10}/> {o.nombre}
                             </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* Las versiones anteriores no se borran: son lo que se hizo, y las
+                          citas pasadas siguen apuntando a ellas. Aquí solo se consultan. */}
+                      {abierta && anteriores.length>0 && (
+                        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bl)',display:'grid',gap:3}}>
+                          {anteriores.map((a:any,i:number)=>(
+                            <button key={a.id} onClick={e=>{e.stopPropagation();setSesionDetalle(a)}}
+                              style={{display:'flex',alignItems:'center',gap:6,background:'none',border:'none',padding:'2px 0',cursor:'pointer',textAlign:'left',fontSize:12,color:'var(--gr)'}}>
+                              <span className="pill pill-soft" style={{flexShrink:0}}>v{version-1-i}</span>
+                              <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nombre}</span>
+                              {a.created_at && (
+                                <span style={{flexShrink:0}}>{new Date(a.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
+                              )}
+                            </button>
                           ))}
                         </div>
                       )}

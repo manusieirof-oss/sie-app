@@ -5,6 +5,7 @@ import { horasDeAgenda } from '@/lib/generarHoras'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
+import { soloVigentes } from '@/lib/linaje'
 import VistaDia from './components/VistaDia'
 import VistaSemana from './components/VistaSemana'
 import VistaMes from './components/VistaMes'
@@ -163,8 +164,10 @@ export default function AgendaPage() {
         setAnotaciones(am); setPesos(pm)
       }
     }
-    const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
-    setSesionesPaciente(sp||[])
+    // Solo las versiones vigentes: elegir aquí la de hace tres meses sería prescribir
+    // el programa antiguo sin enterarse. La ya asignada se conserva aunque sea vieja.
+    const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes,evolucion_de').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
+    setSesionesPaciente(soloVigentes(sp||[], c.sesion_id))
     setLoadingSesion(false)
   }
 
@@ -181,8 +184,10 @@ export default function AgendaPage() {
         setAnotaciones(am); setPesos(pm)
       }
     }
-    const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
-    setSesionesPaciente(sp||[])
+    // Solo las versiones vigentes: elegir aquí la de hace tres meses sería prescribir
+    // el programa antiguo sin enterarse. La ya asignada se conserva aunque sea vieja.
+    const { data: sp } = await supabase.from('sesiones').select('id,nombre,descripcion,partes,evolucion_de').eq('paciente_id',c.paciente_id).order('created_at',{ascending:false})
+    setSesionesPaciente(soloVigentes(sp||[], c.sesion_id))
     setLoadingSesion(false)
   }
 
@@ -394,13 +399,16 @@ export default function AgendaPage() {
     const [sesiones, setSesiones] = useState<any[]>([])
     useEffect(() => {
       if (!pacienteId) return
-      supabase.from('sesiones').select('id,nombre,descripcion,partes').eq('paciente_id',pacienteId).order('created_at',{ascending:false}).then(({data})=>setSesiones(data||[]))
+      supabase.from('sesiones').select('id,nombre,descripcion,partes,evolucion_de').eq('paciente_id',pacienteId).order('created_at',{ascending:false})
+        .then(({data})=>setSesiones(data||[]))
     }, [pacienteId])
     if (sesiones.length===0) return <div style={{fontSize:10,color:'var(--grl)',padding:'6px 0'}}>Sin sesiones creadas aún</div>
+    // El filtro va al pintar y no al traer: así la ya elegida sigue en la lista aunque
+    // sea una versión vieja, sin tener que volver a la base cada vez que se cambia.
     return (
       <select className="input" value={sesionId} onChange={e=>onChange(e.target.value)}>
         <option value="">— Sin sesión —</option>
-        {sesiones.map(s=><option key={s.id} value={s.id}>{s.nombre} · {(s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)} ejercicios</option>)}
+        {soloVigentes(sesiones, sesionId).map(s=><option key={s.id} value={s.id}>{s.nombre} · {(s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)} ejercicios</option>)}
       </select>
     )
   }
