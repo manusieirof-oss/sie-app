@@ -7,12 +7,13 @@ import ValoracionTab from './components/ValoracionTab'
 import BonosTab from './components/BonosTab'
 import RecuperacionesTab from './components/RecuperacionesTab'
 import MantenimientoTab from './components/MantenimientoTab'
+import RondasTab from './components/RondasTab'
 import UsuariosTab from './components/UsuariosTab'
 import CuentaTab from './components/CuentaTab'
 import { Ic } from '@/lib/icons'
 
 export default function AjustesPage() {
-  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'mantenimiento'|'usuarios'|'cuenta'>('clinica')
+  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'rondas'|'mantenimiento'|'usuarios'|'cuenta'>('clinica')
   const [perfilActual, setPerfilActual] = useState<any>(null)
   const [ajustes, setAjustes] = useState<Record<string,string>>({})
   const [guardando, setGuardando] = useState(false)
@@ -80,7 +81,7 @@ export default function AjustesPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
-          {([['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Bonos'],['recuperaciones','recuperar','Recuperaciones'],['mantenimiento','ajustes','Mantenimiento'],['cuenta','candado','Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','pacientes','Usuarios']]:[])] as const).map(([k,ic,l])=>(
+          {([['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Bonos'],['recuperaciones','recuperar','Recuperaciones'],['rondas','checkbox','Rondas'],['mantenimiento','ajustes','Mantenimiento'],['cuenta','candado','Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','pacientes','Usuarios']]:[])] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:11,padding:'7px 10px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
               <Ic name={ic} size={13}/> {l}
@@ -97,6 +98,7 @@ export default function AjustesPage() {
       {tab==='bonos'&&<BonosTab/>}
       {tab==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
       {tab==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
+      {tab==='rondas'&&<RondasTab/>}
       {tab==='mantenimiento'&&<MantenimientoTab/>}
       {tab==='cuenta'&&<CuentaTab perfilActual={perfilActual}/>}
     </div>

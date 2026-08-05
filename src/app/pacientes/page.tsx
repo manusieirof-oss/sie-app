@@ -6,6 +6,7 @@ import Link from 'next/link'
 import ModalBono from './components/ModalBono'
 import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase } from '@/lib/tipos'
+import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -20,6 +21,11 @@ export default function PacientesPage() {
   const [modal, setModal] = useState(false)
   const [modalBonoPac, setModalBonoPac] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
+  // Ronda de preguntas abierta, si la hay. Ver lib/rondas.ts.
+  const [ronda, setRonda] = useState<Ronda|null>(null)
+  const [respuestas, setRespuestas] = useState<Record<string,Respuesta>>({})
+  const [soloFaltan, setSoloFaltan] = useState(false)
+  const [editRonda, setEditRonda] = useState<any>(null)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
   const mesActual = new Date().getMonth()+1
@@ -36,7 +42,29 @@ export default function PacientesPage() {
     setPacientes(p || [])
     setBonos(b || [])
     setTiposClase(await cargarTiposClase())
+
+    const r = await rondaAbierta()
+    setRonda(r)
+    setRespuestas(r ? await respuestasDe(r.id) : {})
     setLoading(false)
+  }
+
+  /**
+   * Marca a un paciente en la ronda y refresca solo su casilla.
+   *
+   * Sin recargar la lista entera: se marcan cien seguidos y esperar a que vuelva la
+   * consulta en cada clic convierte la tarea en algo que nadie termina.
+   */
+  async function marcarEnRonda(pacienteId: string, estado: EstadoRonda|null, respuesta?: string) {
+    if (!ronda) return
+    setRespuestas(prev => {
+      const s = { ...prev }
+      if (!estado) delete s[pacienteId]
+      else s[pacienteId] = { paciente_id: pacienteId, estado, respuesta: respuesta ?? s[pacienteId]?.respuesta ?? '' }
+      return s
+    })
+    const r = await marcar(ronda.id, pacienteId, estado, respuesta)
+    if (!r.ok) { alert('No se pudo guardar: ' + r.error); cargar() }
   }
 
   function getBonoActual(pacienteId: string) {
@@ -73,8 +101,16 @@ export default function PacientesPage() {
     const matchPago = filtroPago==='todos' || bono?.estado_pago===filtroPago || (!bono && filtroPago==='pendiente')
     const matchEstado = filtroEstado==='todos' || p.estado===filtroEstado
     const matchTipo = filtroTipo==='todos' || p.tipo_clase===filtroTipo
-    return matchQ && matchPago && matchTipo && matchEstado
+    // "Los que faltan" es lo que hace que la ronda se termine: recorrer cien filas con la
+    // vista buscando huecos es la hoja de Excel otra vez.
+    const matchRonda = !soloFaltan || !ronda || !respuestas[p.id]
+    return matchQ && matchPago && matchTipo && matchEstado && matchRonda
   })
+
+  // El denominador son los ACTIVOS, no todos: preguntarle el horario de septiembre a
+  // alguien de baja no es una tarea pendiente, y metido en la cuenta haría que la ronda
+  // no llegara nunca al final.
+  const cuenta = contar(pacientes.filter(p=>p.estado==='activo'), respuestas)
 
   // Conteo por categoria, respetando buscador y los OTROS filtros
   function baseFiltrada(excluir: string) {
@@ -145,11 +181,31 @@ export default function PacientesPage() {
         </div>
       </div>
 
+      {/* RONDA ABIERTA · el contador es lo que hace que la tarea se acabe */}
+      {ronda && (
+        <div className="fila-p" style={{borderLeftColor:cuenta.pendientes===0?'var(--g)':'var(--amb)',marginBottom:10,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <span style={{fontSize:13,color:'var(--n)'}}>
+            <b style={{fontWeight:500}}>{ronda.nombre}</b>
+            {ronda.descripcion && <span style={{color:'var(--gr)'}}> · {ronda.descripcion}</span>}
+          </span>
+          <span style={{fontSize:13,color:'var(--gr)'}}>
+            {cuenta.pendientes===0
+              ? `Preguntados los ${cuenta.total}`
+              : `Faltan ${cuenta.pendientes} de ${cuenta.total}`}
+            {cuenta.preguntados>0 && <> · {cuenta.preguntados} sin contestar</>}
+          </span>
+          <button className={`chip-sel ${soloFaltan?'on':''}`} style={{marginLeft:'auto'}}
+            onClick={()=>setSoloFaltan(v=>!v)}>
+            Solo los que faltan
+          </button>
+        </div>
+      )}
+
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 95px 100px 120px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-            {['Paciente','Estado','Bono','Tipo clase','Cuota actual'].map((h,i)=>(
+          <div style={{display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 105px 170px':'1fr 95px 100px 120px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+            {['Paciente','Estado','Bono','Tipo clase','Cuota actual',...(ronda?[ronda.nombre]:[])].map((h,i)=>(
               <div key={i} style={{fontSize:9,fontWeight:500,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',padding:'7px 10px',borderLeft:i>0?'1px solid var(--bd)':'none'}}>{h}</div>
             ))}
           </div>
@@ -158,7 +214,7 @@ export default function PacientesPage() {
             const bono = getBonoActual(p.id)
             const pago = bono?.estado_pago || 'pendiente'
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:'1fr 95px 100px 120px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
+              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 105px 170px':'1fr 95px 100px 120px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
                 <div style={{padding:'8px 10px'}}>
@@ -189,10 +245,75 @@ export default function PacientesPage() {
                     <span style={{fontSize:11,color:'var(--grl)'}}>Sin cuota</span>
                   )}
                 </div>
+                {ronda && (()=>{
+                  const r = respuestas[p.id]
+                  const col = r?.estado==='respondido' ? 'var(--g)'
+                    : r?.estado==='preguntado' ? 'var(--amb)'
+                    : r?.estado==='no_procede' ? 'var(--grl)' : ''
+                  return (
+                    <div style={{padding:'6px 8px',borderLeft:'1px solid var(--bl)',minWidth:0}}>
+                      <button className={`chip-ed ${r?.estado==='preguntado'?'chip-ed-a':r?'':'chip-ed-n'}`}
+                        title={r?.respuesta || 'Marcar y anotar lo que diga'}
+                        style={{width:'100%',justifyContent:'flex-start',color:col||undefined}}
+                        onClick={e=>{e.preventDefault();e.stopPropagation()
+                          const b=(e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setEditRonda({ paciente:p, estado:r?.estado||null, texto:r?.respuesta||'', x:Math.min(b.left, window.innerWidth-300), y:b.bottom+4 })}}>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {r?.respuesta ? r.respuesta
+                            : r?.estado==='respondido' ? 'Respondido'
+                            : r?.estado==='preguntado' ? 'Sin contestar'
+                            : r?.estado==='no_procede' ? 'No procede'
+                            : 'Pendiente'}
+                        </span>
+                      </button>
+                    </div>
+                  )
+                })()}
               </Link>
             )
           })}
         </div>
+      )}
+
+      {/* MARCAR EN LA RONDA · junto a la fila, no en un modal a pantalla completa:
+          se marcan cien seguidos y abrir y cerrar un modal cada vez cansa a los diez. */}
+      {editRonda && ronda && (
+        <>
+          <div onClick={()=>setEditRonda(null)} style={{position:'fixed',inset:0,zIndex:60}}/>
+          <div style={{position:'fixed',left:editRonda.x,top:editRonda.y,zIndex:61,width:288,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'var(--sh-md)',padding:'11px 12px'}}>
+            <div style={{fontSize:13,color:'var(--n)',marginBottom:8}}>
+              {editRonda.paciente.nombre} {editRonda.paciente.apellidos}
+            </div>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:8}}>
+              {ESTADOS_RONDA.map(e=>(
+                <button key={e.id} className={`chip-sel ${editRonda.estado===e.id?'on':''}`} title={e.ayuda}
+                  onClick={()=>setEditRonda((p:any)=>({...p,estado:p.estado===e.id?null:e.id}))}>
+                  {e.nombre}
+                </button>
+              ))}
+            </div>
+            <textarea className="input" value={editRonda.texto} autoFocus
+              onChange={e=>setEditRonda((p:any)=>({...p,texto:e.target.value}))}
+              placeholder="Lo que te dijo. Ej: martes y jueves a las 19"
+              style={{minHeight:52,fontSize:13}}/>
+            <div style={{display:'flex',gap:6,alignItems:'center',marginTop:8}}>
+              {editRonda.estado && (
+                <button className="btn btn-t btn-sm" title="Vuelve a pendiente"
+                  onClick={async()=>{await marcarEnRonda(editRonda.paciente.id,null);setEditRonda(null)}}>
+                  Quitar
+                </button>
+              )}
+              <button className="btn btn-t btn-sm" style={{marginLeft:'auto'}} onClick={()=>setEditRonda(null)}>Cancelar</button>
+              <button className="btn btn-p btn-sm" onClick={async()=>{
+                // Escribir la respuesta ya significa que contestó: obligar a marcar
+                // además el estado sería pedir dos clics para decir una sola cosa.
+                const estado = editRonda.texto.trim() ? 'respondido' : (editRonda.estado || 'preguntado')
+                await marcarEnRonda(editRonda.paciente.id, estado, editRonda.texto.trim())
+                setEditRonda(null)
+              }}>Guardar</button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* MODAL NUEVO PACIENTE */}
