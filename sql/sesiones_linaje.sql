@@ -30,6 +30,18 @@ alter table sesiones add column if not exists evolucion_de uuid
 -- saber si una versión es la última de su cadena.
 create index if not exists idx_sesiones_evolucion_de on sesiones(evolucion_de);
 
+-- SESIONES FIJAS: las que no entran en la tanda nueva.
+--
+-- El caso real: una sesión de descarga de gemelo que al paciente le va bien y se repite
+-- tal cual mes tras mes. Versionarla cada vez crearía copias idénticas y ensuciaría el
+-- linaje con seis versiones que nunca cambiaron.
+--
+-- Se marca lo que se queda FIJO, no lo que se versiona. Lo normal es que todo evolucione
+-- y la excepción es esta; si hubiera que marcar las versionables, cada tanda habría que
+-- volver a marcar cuatro sesiones para conseguir el comportamiento por defecto, y la que
+-- se olvide se queda congelada sin que nadie se entere.
+alter table sesiones add column if not exists fija boolean default false;
+
 -- Fuera queda, a propósito:
 --
 --   PLANTILLA DE ORIGEN. De qué plantilla salió una sesión no es linaje: la plantilla

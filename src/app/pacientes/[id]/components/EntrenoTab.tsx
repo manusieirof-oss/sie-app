@@ -9,7 +9,7 @@ import { Ic } from '@/lib/icons'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
-import { agrupaPorLinaje, evolucionarPrograma } from '@/lib/linaje'
+import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -45,7 +45,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const hoy = new Date().toISOString().split('T')[0]
     const [{ data: c },{ data: s }] = await Promise.all([
       supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
-      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
+      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
     supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
@@ -107,17 +107,25 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
    */
   async function nuevaTanda() {
     const conSesion = citasFuturas.filter((c:any)=>c.sesion_id)
-    const nombres = Array.from(new Set(conSesion
-      .map((c:any)=>sesionesDisp.find((s:any)=>s.id===c.sesion_id)?.nombre)
-      .filter(Boolean)))
-    if (nombres.length===0) {
+    const enAgenda = Array.from(new Set(conSesion.map((c:any)=>c.sesion_id)))
+      .map((id:any)=>sesionesDisp.find((s:any)=>s.id===id)).filter(Boolean)
+    if (enAgenda.length===0) {
       alert('No hay citas futuras con sesión asignada: no hay programa que evolucionar.')
       return
     }
+    const versionar = enAgenda.filter((s:any)=>!s.fija)
+    const fijas = enAgenda.filter((s:any)=>s.fija)
+    if (versionar.length===0) {
+      alert('Todas las sesiones del programa están marcadas como fijas: no hay nada que versionar.')
+      return
+    }
+    const nCitas = conSesion.filter((c:any)=>versionar.some((s:any)=>s.id===c.sesion_id)).length
+
     const ok = confirm(
-      `Se crea una versión nueva de: ${nombres.join(', ')}.\n\n`+
-      `Las ${conSesion.length} citas futuras pasan a la versión nueva, cada una en su mismo día y hora.\n\n`+
-      `Las citas pasadas no se tocan: siguen apuntando a la versión que se hizo ese día.`)
+      `Se crea una tanda nueva de: ${versionar.map((s:any)=>s.nombre).join(', ')}.\n\n`+
+      (fijas.length>0 ? `Se quedan como están, por estar marcadas como fijas: ${fijas.map((s:any)=>s.nombre).join(', ')}.\n\n` : '')+
+      `Las ${nCitas} citas futuras que las llevan pasan a la tanda nueva, cada una en su mismo día y hora.\n\n`+
+      `Las citas pasadas no se tocan: siguen apuntando a la sesión que se hizo ese día.`)
     if (!ok) return
 
     setGuardando(true)
@@ -125,6 +133,32 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     setGuardando(false)
     if (!r.ok) { alert(r.error); return }
     cargarDatos(); onRefresh()
+  }
+
+  /**
+   * Siguiente tanda partiendo de una versión concreta, que puede no ser la vigente.
+   *
+   * El caso: vas por la 6ª, los últimos cambios no cuajaron y quieres retomar desde la
+   * 1ª. Sale la 7ª —la séptima que existe— y la 1ª se queda intacta, que es lo que
+   * permite volver a hacerlo mañana desde otra.
+   */
+  async function partirDe(sesion:any) {
+    const n = versionDe(sesionesDisp, sesion)
+    const ok = confirm(
+      `Se crea una tanda nueva de "${sesion.nombre}" con el contenido de la ${n}ª.\n\n`+
+      `La ${n}ª no se toca. Las citas futuras que lleven cualquier tanda de esta sesión pasan a la nueva.`)
+    if (!ok) return
+    setGuardando(true)
+    const r = await evolucionarDesde(sesion, pacienteId)
+    setGuardando(false)
+    if (!r.ok) { alert(r.error); return }
+    setSesionDetalle(null); cargarDatos(); onRefresh()
+  }
+
+  async function alternarFija(sesion:any) {
+    const r = await marcarFija(sesion.id, !sesion.fija)
+    if (!r.ok) { alert(r.error); return }
+    cargarDatos()
   }
 
   async function asignarEnBloque() {
@@ -475,8 +509,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                     anteriores se despliegan desde ella. Sin esto, a los tres meses hay
                     ocho tarjetas llamadas "Empujes" y ninguna dice cuál manda. */}
                 {agrupaPorLinaje(sesionesDisp)
-                  .filter(l=>!soloActivas || estadoSesion(l.ultima)!=='cumplida')
-                  .map(({ultima:s, anteriores, version})=>{
+                  .filter(l=>!soloActivas || estadoSesion(l.vigente)!=='cumplida')
+                  .map(({vigente:s, anteriores, version})=>{
                   const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
                   const abierta=versionesAbiertas.includes(s.id)
                   const nEj=(s.partes||[]).reduce((a:number,p:any)=>a+(p.ejercicios||[]).length,0); const nP=(s.partes||[]).length
@@ -514,14 +548,26 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         {/* Calculado de las partes, nunca guardado en la sesión. */}
                         {nEj>0 && <span className="pill pill-o on">{modoDeSesion(s.partes).nombre}</span>}
                         <span className="pill pill-soft">{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
-                        {/* La versión se cuenta de la cadena, no se guarda: ver lib/linaje.ts. */}
+                        {/* "Tanda" y no "versión": un número junto al nombre se lee como
+                            un nivel, y que suba no dice que haya progresado, dice que le
+                            montaste una programación nueva. Se cuenta del linaje. */}
                         {version>1 && (
                           <button className="pill pill-soft" onClick={e=>{e.stopPropagation();setVersionesAbiertas(v=>abierta?v.filter(x=>x!==s.id):[...v,s.id])}}
-                            title={`Versión ${version} · ${anteriores.length} anterior${anteriores.length>1?'es':''}`}
+                            title={`${anteriores.length} tanda${anteriores.length>1?'s':''} anterior${anteriores.length>1?'es':''}`}
                             style={{border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3}}>
-                            v{version} <Ic name={abierta?'arriba':'abajo'} size={10}/>
+                            {version}ª tanda <Ic name={abierta?'arriba':'abajo'} size={10}/>
                           </button>
                         )}
+                        {/* Fija = fuera de las tandas nuevas. Se marca la excepción, no
+                            la norma: lo habitual es que todo evolucione. */}
+                        <button className={`pill ${s.fija?'pill-o on':'pill-soft'}`}
+                          onClick={e=>{e.stopPropagation();alternarFija(s)}}
+                          title={s.fija
+                            ? 'Fija: no entra en las tandas nuevas. Pulsa para que vuelva a evolucionar.'
+                            : 'Pulsa para fijarla: se quedará fuera de las tandas nuevas.'}
+                          style={{border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3,opacity:s.fija?1:.5}}>
+                          <Ic name="pin" size={10}/> {s.fija?'Fija':''}
+                        </button>
                         {/* Con diez sesiones acumuladas, cuál es la reciente importa más
                             que cuántas partes tiene. */}
                         {s.created_at && (
@@ -539,14 +585,15 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                           ))}
                         </div>
                       )}
-                      {/* Las versiones anteriores no se borran: son lo que se hizo, y las
-                          citas pasadas siguen apuntando a ellas. Aquí solo se consultan. */}
+                      {/* Las tandas anteriores no se borran: son lo que se hizo, y las
+                          citas pasadas siguen apuntando a ellas. Se consultan, y desde
+                          cada una se puede arrancar la siguiente. */}
                       {abierta && anteriores.length>0 && (
                         <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bl)',display:'grid',gap:3}}>
                           {anteriores.map((a:any,i:number)=>(
                             <button key={a.id} onClick={e=>{e.stopPropagation();setSesionDetalle(a)}}
                               style={{display:'flex',alignItems:'center',gap:6,background:'none',border:'none',padding:'2px 0',cursor:'pointer',textAlign:'left',fontSize:12,color:'var(--gr)'}}>
-                              <span className="pill pill-soft" style={{flexShrink:0}}>v{version-1-i}</span>
+                              <span className="pill pill-soft" style={{flexShrink:0}}>{version-1-i}ª</span>
                               <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nombre}</span>
                               {a.created_at && (
                                 <span style={{flexShrink:0}}>{new Date(a.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
@@ -732,6 +779,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         </div>
       )}
 
+      {/* Solo se edita la tanda vigente. Editar una vieja reescribiría lo que dicen las
+          citas ya pasadas, y con ellas el resumen de trabajo por zonas: junio pasaría a
+          contar series que nunca se hicieron. Para avanzar desde una antigua está
+          "Partir de esta", que la deja intacta y crea la siguiente del linaje. */}
       {sesionDetalle && (
         <DetalleSesion
           sesion={sesionDetalle}
@@ -744,7 +795,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             setAsignando(sesionDetalle); setSesionDetalle(null)
           }}
           onCerrar={()=>setSesionDetalle(null)}
-          onEditar={()=>{const x=sesionDetalle;setSesionDetalle(null);abrirEditor(x)}}
+          onEditar={esVigente(sesionesDisp, sesionDetalle)
+            ? ()=>{const x=sesionDetalle;setSesionDetalle(null);abrirEditor(x)}
+            : undefined}
+          onPartir={()=>partirDe(sesionDetalle)}
+          textoPartir={`Partir de esta · sale la ${linajeDe(sesionesDisp, sesionDetalle).length+1}ª`}
           onDuplicar={()=>{duplicar(sesionDetalle);setSesionDetalle(null)}}
           onEliminar={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}
         />

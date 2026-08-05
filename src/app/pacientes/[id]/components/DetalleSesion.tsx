@@ -18,13 +18,24 @@ function medidaEj(ej: any): string {
 // desde Sesiones se veía con imágenes, series, pesos y notas; desde Historial,
 // solo una lista de nombres. Ahora es el mismo, y lo único que cambia son las
 // acciones: en Historial estás consultando el pasado, no editándolo.
-export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, nCitas, ejecutado }: {
+export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, onPartir, textoPartir, nCitas, ejecutado }: {
   sesion: any
   objetivos?: any[]
   onCerrar: () => void
+  /** Ausente en las tandas que ya no son la vigente: editarlas reescribiría el pasado. */
   onEditar?: () => void
   onDuplicar?: () => void
   onEliminar?: () => void
+  /**
+   * Crear la siguiente tanda partiendo de ESTA, sin tocarla.
+   *
+   * Es lo que sustituye a editar una tanda vieja: si los últimos cambios no cuajaron y
+   * quieres retomar el hilo desde la primera, sale una nueva con aquel contenido y la
+   * vieja se queda intacta, que es lo que permite volver a hacerlo desde otra mañana.
+   */
+  onPartir?: () => void
+  /** Texto del botón, que dice qué número va a salir. */
+  textoPartir?: string
   /** Asignar esta sesión a citas. Solo desde la ficha: el historial no se reprograma. */
   onAsignar?: () => void
   /** Citas futuras que ya la tienen, para decirlo antes de abrir el selector. */
@@ -52,7 +63,7 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
     }).filter(Boolean).join(', ')
     return { texto, comentario: reg?.comentario || '' }
   }
-  const hayAcciones = !!(onEditar || onDuplicar || onEliminar || onAsignar)
+  const hayAcciones = !!(onEditar || onDuplicar || onEliminar || onAsignar || onPartir)
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -84,7 +95,20 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
               </button>
             )}
             {onEditar && <button className="btn btn-s btn-sm" onClick={onEditar}><Ic name="editar" size={12} /> Editar</button>}
+            {onPartir && (
+              <button className="btn btn-s btn-sm" onClick={onPartir}
+                title="Crea una sesión nueva con este contenido. Esta se queda como está.">
+                <Ic name="cambio" size={12} /> {textoPartir || 'Partir de esta'}
+              </button>
+            )}
             {onDuplicar && <button className="btn btn-t btn-sm" onClick={onDuplicar}><Ic name="copiar" size={12} /> Duplicar</button>}
+            {/* Si no se puede editar es porque es una tanda pasada, y hay que decir por
+                qué: si no, parece que la app se ha roto. */}
+            {!onEditar && onPartir && (
+              <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+                Tanda anterior: se consulta, no se edita
+              </span>
+            )}
             {typeof nCitas === 'number' && (
               <span style={{ fontSize: 12, color: 'var(--gr)' }}>
                 {nCitas === 0 ? 'Sin citas asignadas' : `En ${nCitas} cita${nCitas > 1 ? 's' : ''} por delante`}

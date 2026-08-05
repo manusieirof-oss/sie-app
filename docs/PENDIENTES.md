@@ -316,8 +316,25 @@ etiquetados los ejercicios, no en el informe.
 **Mapa de calor corporal: descartado por ahora.** La lista ya dice lo que hay que saber.
 
 ### 6.2 · Linaje de sesiones ✅ HECHO
-`sesiones.evolucion_de` (ver `sql/sesiones_linaje.sql`) y `lib/linaje.ts`. La **versión no se
-guarda, se cuenta** recorriendo la cadena.
+`sesiones.evolucion_de` y `sesiones.fija` (ver `sql/sesiones_linaje.sql`) y `lib/linaje.ts`.
+
+**El número no se guarda, se cuenta, y cuenta cuántas van en el linaje**, no saltos de cadena.
+La diferencia importa porque se puede partir de cualquier tanda: si vas por la 6ª y decides
+retomar desde la 1ª, lo que sale es la **7ª** —la séptima que existe—, no la 2ª. Contar saltos
+diría 2ª y no significaría nada.
+
+Se llama **tanda** y no versión a propósito: un número junto al nombre se lee como un nivel, y
+que suba no dice que el paciente haya progresado, dice que se le montó una programación nueva.
+El progreso lo miden 6.1 y los objetivos.
+
+**Las tandas anteriores son de solo lectura.** Editar una reescribiría lo que dicen las citas ya
+pasadas y con ellas el informe de 6.1. Para avanzar desde una antigua está "Partir de esta"
+(`evolucionarDesde`), que la deja intacta y crea la siguiente del linaje.
+
+**Sesiones fijas** (`fija`): las que no entran en la tanda nueva, como una descarga de gemelo
+que se repite igual mes tras mes. Se marca **la excepción, no la norma**: si hubiera que marcar
+las versionables, cada tanda habría que volver a marcar cuatro sesiones para conseguir el
+comportamiento por defecto, y la que se olvidara quedaría congelada sin que nadie se entere.
 
 **La unidad que evoluciona es el programa, no la sesión.** `evolucionarPrograma()` copia todas
 las sesiones que están en la agenda futura y repunta esas citas a las copias. El orden —qué
@@ -325,9 +342,12 @@ toca el lunes y qué el miércoles— se conserva solo, porque cada cita mantien
 cambia a qué versión apunta. Las citas pasadas no se tocan nunca: son lo que hace que 6.1
 siga siendo cierto meses después.
 
-Dónde se ve: botón "Nueva tanda" en Pacientes → Entrenamiento → Sesiones. Las versiones
-viejas se pliegan tras la vigente; en el taller salen apagadas y con su número; en los
-desplegables de elegir sesión no salen (`soloVigentes`).
+Dónde se ve: botón "Nueva tanda" en Pacientes → Entrenamiento → Sesiones, y la chincheta de
+cada tarjeta para fijarla. Las tandas viejas se pliegan tras la vigente; en el taller salen
+apagadas y con su número; en los desplegables de elegir sesión no salen (`soloVigentes`).
+
+**Vigente = la última creada del linaje**, no "de la que nadie ha evolucionado": al poder
+partir de cualquier tanda hay ramas, y con la definición vieja habría dos vigentes a la vez.
 
 ### 6.3 · Propuesta de cambio ejercicio a ejercicio — PENDIENTE
 Que al crear la tanda nueva se propongan sustituciones **con el motivo escrito al lado**

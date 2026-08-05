@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { duplicarSesion as duplicarSesionLib } from '@/lib/sesiones'
-import { versionDe, esUltima } from '@/lib/linaje'
+import { versionDe, esVigente } from '@/lib/linaje'
 import ModoClase from './ModoClase'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import { Ic } from '@/lib/icons'
@@ -439,7 +439,7 @@ export default function TallerPage() {
                 // se apagan y llevan su número: registrar sobre la de hace tres meses es
                 // el error caro, y con ocho tarjetas iguales pasa solo.
                 const v = versionDe(sesiones, s)
-                const vigente = esUltima(sesiones, s)
+                const vigente = esVigente(sesiones, s)
                 return (
                   <div key={s.id} className="card"
                     onClick={()=>{ if(modoAccion) ejecutarAccion(s) }}
@@ -449,8 +449,8 @@ export default function TallerPage() {
                         <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:5}}>
                           {s.nombre}
                           {v>1 && (
-                            <span className="pill pill-soft" title={vigente?`Versión ${v}, la vigente`:`Versión ${v}, sustituida por otra`}>
-                              v{v}{vigente?'':' · antigua'}
+                            <span className="pill pill-soft" title={vigente?`${v}ª tanda, la que manda ahora`:`${v}ª tanda, sustituida por otra posterior`}>
+                              {v}ª tanda{vigente?'':' · antigua'}
                             </span>
                           )}
                         </div>
