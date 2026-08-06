@@ -107,13 +107,21 @@ Decisiones tomadas contigo:
 Probada la evaluación con los tres tipos de meta, el umbral, los huecos sin medir, el
 resultado más reciente y el campo `grados` antiguo.
 
+### Catálogo y biblioteca ✅ HECHO
+`lib/semillaObjetivos.ts` + `/entrenamiento/sembrar-objetivos` (paso 4 de Mantenimiento).
+Las ~160 fichas métricas del otro programa quedan en **20 espacios** (articulación ×
+métrica) con sus movimientos dentro; los de fases, de 30 fichas a 9 con las fases escritas;
+más 7 cualitativos. El sembrador crea antes las etiquetas de movimiento que faltaban:
+rotación interna y externa, flexión lateral, flexión plantar, dorsiflexión y las
+desviaciones radial y cubital.
+
+`ObjetivosTab` distingue las tres familias, filtra por zona en orden anatómico y dice
+**cuántos pacientes tienen cada objetivo abierto**, que es lo que revela si una ficha sobra.
+
 ### Lo que falta — PENDIENTE
-1. **Interfaz de metas en la ficha del paciente**: crear y ver metas, con su progreso.
-2. **ObjetivosTab**: pasar la biblioteca al modelo nuevo (tipo, métrica, articulación) y
-   filtrar por zona con las etiquetas.
-3. **Etiquetas de movimiento fino**: no existen "rotación interna" ni "externa", solo
-   "Rotación", y son media lista de VALD. Van como hijas, ya se pueden crear desde la pestaña.
-4. **Avance de fase al crear la tanda nueva**, enganchado a `evolucionarPrograma`.
+1. **Interfaz de metas en la ficha del paciente**: crear y ver metas, con su progreso. Es lo
+   que falta para que todo lo anterior sirva de algo.
+2. **Avance de fase al crear la tanda nueva**, enganchado a `evolucionarPrograma`.
 5. **Sustituir los diez objetivos sembrados**, que son de la familia métrica mal hechos: sin
    métrica, sin movimiento y sin lado.
 6. **VALD**: decidir si el número se copia a mano o solo consta el positivo/negativo.
