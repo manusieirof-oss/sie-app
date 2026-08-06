@@ -34,6 +34,30 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [resultadosTests, setResultadosTests] = useState<any[]>([])
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
+  const [modalAnadir, setModalAnadir] = useState(false)
+  const [catalogo, setCatalogo] = useState<any[]>([])
+  const [buscarObj, setBuscarObj] = useState('')
+
+  /**
+   * Asigna un objetivo de la biblioteca al paciente.
+   *
+   * Nace SIN vías y sin metas: un objetivo métrico se cierra por sus metas, y ponerle una
+   * vía de relleno haría que `estaLogrado` lo diera por cumplido en cuanto se marcara, sin
+   * haber medido nada.
+   */
+  async function anadirObjetivo(o:any) {
+    if (objetivosTrabajo.some((x:any)=>x.id===o.id)) { alert('Ya lo tiene asignado'); return }
+    const { error } = await supabase.from('pacientes_objetivos')
+      .insert({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
+        fase_actual: o.tipo==='fase' ? 1 : null })
+    if (error) { alert(error.message); return }
+    await supabase.from('eventos_paciente').insert({
+      paciente_id: pac.id, tipo: 'objetivo',
+      titulo: `Objetivo abierto: ${o.nombre}`, descripcion: 'Añadido desde la ficha',
+      fecha: new Date().toISOString().split('T')[0],
+    })
+    setModalAnadir(false); setBuscarObj(''); cargarObjetivos()
+  }
 
   function cargarObjetivos() {
     if (!pac?.id) return
@@ -48,6 +72,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       .then(({data}) => setResultadosTests(data||[]))
     supabase.from('tests').select('id,nombre,items').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
+    supabase.from('objetivos').select('id,nombre,descripcion,color,tipo,metrica,movimientos,fases,articulacion_id')
+      .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
   }
 
   useEffect(() => {
@@ -175,7 +201,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const recVence = recPendientes.map((r:any)=>r.fecha_limite).filter(Boolean).sort()[0]
   const hayAtencion = (alertas?.length>0) || recPendientes.length>0 || bono?.estado_pago==='impago'
   const objPide = valoracion?.objetivos || []
-  const hayObjetivos = objPide.length>0 || valoracion?.deseo || objetivosTrabajo.length>0
+  // El bloque se pinta SIEMPRE, aunque esté vacío. Antes se escondía si no había nada, y
+  // desde que se pueden añadir a mano eso dejaba sin salida al paciente sin objetivos, que
+  // es justo al que hay que ponérselos. Los estados vacíos ya dicen lo suyo.
+  const hayObjetivos = true
   const anamLarga = (valoracion?.anamnesis||'').length > 260
   // La valoración cargada es siempre la más reciente: puede ser la inicial o una revaloración.
   const tipoVal = valoracion?.tipo==='revaloracion' ? 'Revaloración' : 'Valoración inicial'
@@ -248,7 +277,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               )}
             </div>
             <div>
-              <div className="sec-sub">Lo que prescribimos · de tests y ejercicios</div>
+              <div className="sec-sub" style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{flex:1}}>Lo que prescribimos · de tests y ejercicios</span>
+                {/* Hasta ahora solo llegaban solos, cuando un test daba positivo. Los
+                    métricos casi nunca vienen de ahí: se deciden mirando una medición. */}
+                <button className="btn btn-t btn-sm" onClick={()=>setModalAnadir(true)}>
+                  <Ic name="mas" size={12}/> Añadir
+                </button>
+              </div>
               {objetivosTrabajo.length===0 && <div className="muted">Sin objetivos de trabajo</div>}
               {objetivosActivos.length===0 && objetivosLogrados.length>0 && <div className="muted">Todos los objetivos logrados</div>}
               {objetivosActivos.map(pintarObjetivo)}
@@ -261,6 +297,56 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                   <div style={{marginTop:6}}>{objetivosLogrados.map(pintarObjetivo)}</div>
                 </details>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AÑADIR OBJETIVO · hasta ahora solo llegaban solos, desde un test o desde el taller */}
+      {modalAnadir && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalAnadir(false)}}>
+          <div className="modal">
+            <div className="modal-title">
+              Añadir objetivo
+              <button className="modal-close" onClick={()=>setModalAnadir(false)}><Ic name="cerrar" size={15}/></button>
+            </div>
+            <input className="input" autoFocus value={buscarObj} placeholder="Buscar en la biblioteca…"
+              onChange={e=>setBuscarObj(e.target.value)} style={{marginBottom:10}}/>
+            <div style={{maxHeight:'52vh',overflowY:'auto',display:'grid',gap:3}}>
+              {(() => {
+                const q = buscarObj.trim().toLowerCase()
+                const yaTiene = new Set(objetivosTrabajo.map((o:any)=>o.id))
+                const lista = catalogo.filter((o:any)=>
+                  !q || o.nombre.toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q))
+                if (lista.length===0) return <div className="muted">Ninguno coincide.</div>
+                return lista.map((o:any)=>{
+                  const tiene = yaTiene.has(o.id)
+                  return (
+                    <button key={o.id} disabled={tiene} onClick={()=>anadirObjetivo(o)}
+                      className="fila-p"
+                      style={{borderLeftColor:o.color||'var(--g)',display:'flex',alignItems:'center',gap:8,
+                        background:'none',border:'none',borderLeft:`2px solid ${o.color||'var(--g)'}`,
+                        textAlign:'left',cursor:tiene?'default':'pointer',opacity:tiene?.5:1,width:'100%'}}>
+                      <span style={{flex:1,minWidth:0}}>
+                        <span style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:'var(--n)'}}>
+                          {o.nombre}
+                          {o.tipo==='metrico' && o.metrica && <span className="pill pill-o on">{o.metrica==='fuerza'?'Fuerza':'Movilidad'}</span>}
+                          {o.tipo==='fase' && <span className="pill pill-soft">{o.fases} fases</span>}
+                        </span>
+                        {o.descripcion && (
+                          <span style={{display:'block',fontSize:12,color:'var(--gr)',lineHeight:1.4,marginTop:2}}>
+                            {o.descripcion.slice(0,110)}{o.descripcion.length>110?'…':''}
+                          </span>
+                        )}
+                      </span>
+                      {tiene && <span style={{fontSize:12,color:'var(--gd)',flexShrink:0}}>Ya lo tiene</span>}
+                    </button>
+                  )
+                })
+              })()}
+            </div>
+            <div style={{fontSize:12,color:'var(--gr)',marginTop:10,lineHeight:1.5}}>
+              Los medibles se abren sin metas: las pones después, sobre el objetivo ya asignado.
             </div>
           </div>
         </div>
