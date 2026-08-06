@@ -8,7 +8,7 @@ import { Ic } from '@/lib/icons'
  * a mano cada vez. No son ajustes de la clínica, así que van en su propia pestaña y con
  * el orden a la vista, que es lo único que hay que respetar:
  *
- *   ejercicios → sesiones → tests
+ *   ejercicios → sesiones → tests → objetivos
  *
  * Cada paso se apoya en el anterior y ninguno avisa si se hace al revés más allá de su
  * propia comprobación previa: los tests buscan sus sesiones por nombre igual que las
@@ -34,8 +34,13 @@ const PASOS = [
   },
   {
     n: '3', href: '/entrenamiento/sembrar-tests', icono: 'test',
-    titulo: 'Sembrar tests y objetivos',
-    texto: 'Crea los tests de valoración, los objetivos que abren al dar positivo y el enlace de cada objetivo con las sesiones que lo trabajan. Va detrás de las sesiones: si no existen, el objetivo se queda sin nada con que entrenarse.',
+    titulo: 'Sembrar tests',
+    texto: 'Crea los tests de valoración y el enlace de sus objetivos con las sesiones que los trabajan. Va detrás de las sesiones: si no existen, el objetivo se queda sin nada con que entrenarse.',
+  },
+  {
+    n: '4', href: '/entrenamiento/sembrar-objetivos', icono: 'objetivo',
+    titulo: 'Sembrar objetivos',
+    texto: 'Crea el catálogo de objetivos: los métricos por articulación con sus movimientos, los de fases y los cualitativos. Antes crea las etiquetas de movimiento que falten, como rotación interna y externa.',
   },
   {
     n: '·', href: '/entrenamiento/limpiar', icono: 'papelera',

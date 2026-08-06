@@ -37,6 +37,12 @@ alter table objetivos add column if not exists metrica text
 -- que hoy no se sabe. Se reutiliza el árbol en vez de crear una segunda taxonomía.
 alter table objetivos add column if not exists articulacion_id uuid references etiquetas(id) on delete set null;
 
+-- Los movimientos que ofrece el espacio, por id de etiqueta. "Fuerza de hombro" ofrece
+-- flexión, extensión, abducción, aducción y las dos rotaciones. Sin esto, al crear una meta
+-- habría que buscar el movimiento en un árbol de veinte, y elegir "Inversión" para un hombro
+-- sería posible.
+alter table objetivos add column if not exists movimientos jsonb default '[]';
+
 -- Cuántas fases tiene, solo en los de tipo 'fase'. Antes eran cuatro fichas distintas
 -- —"Suelo pélvico F1", "F2"…—; así es una sola y el progreso se ve de un vistazo.
 alter table objetivos add column if not exists fases int;

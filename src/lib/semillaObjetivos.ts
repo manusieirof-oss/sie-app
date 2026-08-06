@@ -1,0 +1,252 @@
+// Catálogo de objetivos, traído de la lista del otro programa.
+//
+// Allí eran ~160 fichas métricas porque el tipo de meta iba pegado al nombre: "Rotación
+// interna hombro F=", "F+", "M=", "M+". Aquí el tipo es un campo, así que la biblioteca
+// guarda el ESPACIO —articulación × métrica— y el movimiento, el lado y la meta se eligen
+// al asignarlo a un paciente. De 160 fichas a 20.
+//
+// TRES FAMILIAS, Y SOLO UNA LLEVA NÚMERO:
+//
+//   metrico      Fuerza o movilidad. Lo cierra una medición de un test.
+//   fase         Progresión de una tanda del programa a la siguiente. La avanza el
+//                entrenador, no un número.
+//   cualitativo  "Aprender a hacer el puente de glúteo". Se cumple o no.
+//
+// Ver docs/propuestas/PROPUESTA-OBJETIVOS.md.
+
+/**
+ * Movimientos que hacen falta y NO están en el árbol de etiquetas.
+ *
+ * Hoy existe "Rotación" pero no rotación interna ni externa, que son media lista de VALD.
+ * Se crean como hijas del movimiento raíz que les corresponde para no ensuciar el primer
+ * nivel: buscar "Rotación" tiene que seguir encontrando las dos.
+ */
+export const MOVIMIENTOS_NUEVOS: { nombre: string, padre: string }[] = [
+  { nombre: 'Rotación interna', padre: 'Rotación' },
+  { nombre: 'Rotación externa', padre: 'Rotación' },
+  { nombre: 'Flexión lateral', padre: 'Flexión' },
+  { nombre: 'Flexión plantar', padre: 'Flexión' },
+  { nombre: 'Dorsiflexión', padre: 'Flexión' },
+  { nombre: 'Desviación radial', padre: 'Abducción' },
+  { nombre: 'Desviación cubital', padre: 'Adducción' },
+]
+
+export type EspacioSemilla = {
+  /** Articulación o zona, tal cual está en el árbol de etiquetas. */
+  articulacion: string
+  metrica: 'fuerza' | 'movilidad'
+  nombre: string
+  descripcion: string
+  /** Movimientos que ofrece al crear una meta. Por nombre de etiqueta. */
+  movimientos: string[]
+}
+
+/**
+ * Los movimientos de cada articulación, sacados de tu lista.
+ *
+ * Se definen una vez y sirven para las dos métricas: los movimientos de un hombro son los
+ * mismos midas fuerza o recorrido. Escribirlos dos veces era garantizar que un día uno de
+ * los dos se quedara corto.
+ */
+const MOVIMIENTOS: Record<string, string[]> = {
+  'Hombro': ['Flexión', 'Extensión', 'Abducción', 'Adducción', 'Rotación interna', 'Rotación externa'],
+  'Escapular': ['Retracción', 'Protracción'],
+  'Codo': ['Flexión', 'Extensión'],
+  'Muñeca': ['Flexión', 'Extensión', 'Pronación', 'Supinación', 'Desviación radial', 'Desviación cubital'],
+  'Mano': ['Flexión', 'Extensión'],
+  'Cervical': ['Rotación', 'Flexión lateral', 'Flexión', 'Extensión'],
+  'Columna': ['Flexión', 'Extensión', 'Flexión lateral', 'Rotación'],
+  'Cadera': ['Flexión', 'Extensión', 'Abducción', 'Adducción', 'Rotación interna', 'Rotación externa'],
+  'Rodilla': ['Flexión', 'Extensión'],
+  'Tobillo': ['Dorsiflexión', 'Flexión plantar', 'Inversión', 'Eversión'],
+}
+
+/** Cómo se lee cada zona en el nombre del objetivo. "Fuerza de Escapular" no es castellano. */
+const COMO_SE_DICE: Record<string, string> = {
+  'Hombro': 'de hombro',
+  'Escapular': 'escapular',
+  'Codo': 'de codo',
+  'Muñeca': 'de muñeca',
+  'Mano': 'de mano y dedos',
+  'Cervical': 'cervical',
+  'Columna': 'de tronco',
+  'Cadera': 'de cadera',
+  'Rodilla': 'de rodilla',
+  'Tobillo': 'de tobillo',
+}
+
+const PORQUE: Record<string, { f: string, m: string }> = {
+  'Hombro': {
+    f: 'Las rotaciones son las que más se pierden y las que menos se entrenan: la flexión y la abducción suelen estar bien mientras el manguito está flojo.',
+    m: 'La rotación interna es la primera que se va y la que más molesta en el día a día: abrocharse, rascarse la espalda.',
+  },
+  'Escapular': {
+    f: 'La retracción sostiene el hombro en todo lo demás. Un desequilibrio entre lados aquí se paga arriba, en el gesto por encima de la cabeza.',
+    m: 'Sin recorrido escapular, el hombro pide prestado al cuello.',
+  },
+  'Codo': {
+    f: 'Suele salir en epicondilitis y tras inmovilizaciones. Interesa sobre todo la diferencia entre lados.',
+    m: 'Los últimos grados de extensión son los que cuesta recuperar y los que más se notan.',
+  },
+  'Muñeca': {
+    f: 'Pronación y supinación son las que fallan tras una fractura y las que nadie entrena.',
+    m: 'La extensión limitada aparece en todo lo que se apoya en el suelo con las manos.',
+  },
+  'Mano': {
+    f: 'La fuerza de agarre es de las medidas más fiables que existen y predice bastante más que la mano.',
+    m: 'Recorrido de los dedos, tras inmovilización o en artrosis.',
+  },
+  'Cervical': {
+    f: 'Lo que sostiene la cabeza ocho horas no es fuerza máxima, es resistencia. Aun así el desequilibrio entre lados orienta.',
+    m: 'La rotación es la que más limita: mirar al ángulo muerto al conducir es el ejemplo que entiende cualquiera.',
+  },
+  'Columna': {
+    f: 'Lo habitual es lumbar fuerte y abdomen que no aguanta. Los dos números juntos dicen más que cualquiera suelto.',
+    m: 'Flexión y extensión medidas con Schober y OTT, que son de los pocos números fiables que hay en columna.',
+  },
+  'Cadera': {
+    f: 'El desequilibrio entre aductor y abductor está detrás de buena parte de las pubalgias y las trocanteritis.',
+    m: 'La rotación interna es la primera que se pierde en una cadera que empieza a artrosarse.',
+  },
+  'Rodilla': {
+    f: 'Un isquiotibial por debajo del 60% del cuádriceps es factor de riesgo conocido, aunque los dos números sean altos.',
+    m: 'Los últimos grados de extensión permiten caminar sin gastar cuádriceps en cada paso, y son los primeros que se pierden.',
+  },
+  'Tobillo': {
+    f: 'Tras un esguince la movilidad vuelve antes que la capacidad de frenar la supinación, y es esa la que evita el segundo.',
+    m: 'La dorsiflexión limitada se paga arriba: la sentadilla se va hacia delante y la rodilla al valgo.',
+  },
+}
+
+/** Los 20 espacios: cada articulación, en fuerza y en movilidad. */
+export const ESPACIOS: EspacioSemilla[] = Object.keys(MOVIMIENTOS).flatMap(art => {
+  const como = COMO_SE_DICE[art] || art.toLowerCase()
+  const movs = MOVIMIENTOS[art]
+  return [
+    { articulacion: art, metrica: 'fuerza' as const, nombre: `Fuerza ${como}`,
+      descripcion: PORQUE[art]?.f || '', movimientos: movs },
+    { articulacion: art, metrica: 'movilidad' as const, nombre: `Movilidad ${como}`,
+      descripcion: PORQUE[art]?.m || '', movimientos: movs },
+  ]
+})
+
+export type FaseSemilla = {
+  nombre: string
+  descripcion: string
+  articulacion?: string
+  /** Qué significa cada fase, en orden. El paciente avanza de una a la siguiente. */
+  fases: string[]
+}
+
+/**
+ * Los de progresión. Antes eran una ficha por fase —"Suelo pélvico F1", "F2"…—; aquí es una
+ * sola con la fase dentro, y el progreso se ve de un vistazo en vez de repartido en cuatro
+ * objetivos que hay que ir cerrando y abriendo a mano.
+ */
+export const FASES: FaseSemilla[] = [
+  {
+    nombre: 'Suelo pélvico',
+    descripcion: 'De notar la musculatura a usarla sin pensar. Se avanza cuando la fase anterior sale sin compensar con abdomen o glúteo.',
+    fases: [
+      'Conciencia y activación básica',
+      'Control y fortalecimiento',
+      'Funcionalidad y uso dinámico',
+      'Mantenimiento y prevención',
+    ],
+  },
+  {
+    nombre: 'Recuperar la funcionalidad del hombro',
+    articulacion: 'Hombro',
+    descripcion: 'Del hombro que duele al hombro que vuelve a servir para todo. La fase la marca lo que tolera, no el tiempo transcurrido.',
+    fases: [
+      'Alivio del dolor y movilidad básica',
+      'Estabilidad escapular y fuerza inicial',
+      'Fuerza funcional y rango completo',
+      'Retorno funcional',
+    ],
+  },
+  {
+    nombre: 'Recuperar la escápula alada',
+    articulacion: 'Escapular',
+    descripcion: 'Primero que note dónde está la escápula, luego que la sostenga moviéndose, y al final que aguante bajo carga.',
+    fases: [
+      'Activación neuromuscular y control escapular',
+      'Estabilidad escapular en movimiento',
+      'Fuerza funcional y resistencia',
+      'Reintegración al movimiento',
+    ],
+  },
+  {
+    nombre: 'Escápula alada con escoliosis',
+    articulacion: 'Escapular',
+    descripcion: 'El mismo recorrido que la escápula alada, pero con la asimetría de base: el objetivo no es simetría perfecta sino control de la asimetría.',
+    fases: [
+      'Toma de conciencia y autocorrección',
+      'Activación escapular unilateral',
+      'Control dinámico y reeducación funcional',
+      'Funcionalidad asimétrica controlada',
+    ],
+  },
+  {
+    nombre: 'Escoliosis funcional',
+    articulacion: 'Columna',
+    descripcion: 'Educación postural, trabajo unilateral y consolidación. No busca corregir la curva sino que deje de doler y de limitar.',
+    fases: [
+      'Educación postural',
+      'Cuadrupedia y trabajo unilateral',
+      'Consolidar, prevenir y equilibrar',
+    ],
+  },
+  {
+    nombre: 'Reducir la cifosis dorsal',
+    articulacion: 'Columna',
+    descripcion: 'La dorsal que no extiende la paga el cuello arriba y la lumbar abajo. Percepción primero, fuerza después.',
+    fases: [
+      'Percepción y control postural',
+      'Fortalecer la musculatura posterior',
+      'Trabajo funcional e integrado',
+    ],
+  },
+  {
+    nombre: 'Recuperar de trocanteritis',
+    articulacion: 'Cadera',
+    descripcion: 'Bajar la irritación y devolverle al glúteo medio el trabajo que estaba haciendo el tensor de la fascia lata.',
+    fases: ['Calmar y descargar', 'Activar el glúteo medio', 'Carga progresiva y marcha'],
+  },
+  {
+    nombre: 'Recuperar la función del glúteo medio',
+    articulacion: 'Cadera',
+    descripcion: 'Que sostenga la pelvis al apoyar en una pierna. Es lo que hay detrás del valgo de rodilla y de medio dolor lateral de cadera.',
+    fases: ['Activación aislada', 'Control en carga', 'Función en marcha y carrera'],
+  },
+  {
+    nombre: 'Disociar trapecio superior y deltoides',
+    articulacion: 'Hombro',
+    descripcion: 'Que levante el brazo sin subir el hombro a la oreja. Primero que lo note, luego que lo controle, después que aguante.',
+    fases: ['Notar la diferencia', 'Controlarlo en movimiento lento', 'Mantenerlo bajo carga'],
+  },
+]
+
+export type CualitativoSemilla = {
+  nombre: string
+  descripcion: string
+  articulacion?: string
+}
+
+/** Los que se cumplen o no. Sin número y sin fases: aprender algo o corregir un hábito. */
+export const CUALITATIVOS: CualitativoSemilla[] = [
+  { nombre: 'Aprender a hacer el puente de glúteo', articulacion: 'Cadera',
+    descripcion: 'Subir con el glúteo y no con la lumbar ni con el isquiotibial. Es la puerta a media biblioteca de ejercicios.' },
+  { nombre: 'Aprender los movimientos cervicales', articulacion: 'Cervical',
+    descripcion: 'Distinguir flexión, extensión, rotación e inclinación, y hacerlos sin arrastrar el resto.' },
+  { nombre: 'Aprender la anteversión y retroversión de cadera', articulacion: 'Cadera',
+    descripcion: 'Mover la pelvis a voluntad sin mover las costillas. Sin esto no hay control lumbopélvico posible.' },
+  { nombre: 'Fortalecer el core para la estabilidad lumbopélvica',
+    descripcion: 'Iniciación al control lumbopélvico: sostener la posición mientras se mueven brazos y piernas.' },
+  { nombre: 'Corregir la postura corporal',
+    descripcion: 'Objetivo de acompañamiento, no de medición. Se da por cumplido cuando la corrección aparece sola sin recordárselo.' },
+  { nombre: 'Mejorar el retorno venoso de las piernas',
+    descripcion: 'Para quien pasa el día de pie o sentado. Se valora por síntomas al final del día, no por una medida.' },
+  { nombre: 'Mejorar el equilibrio', articulacion: 'Tobillo',
+    descripcion: 'Iniciación: aguantar a una pierna sin apoyar la otra. Cuando ya se sostiene, pasa a medirse con el test de equilibrio unipodal.' },
+]
