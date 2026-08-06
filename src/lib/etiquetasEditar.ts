@@ -4,7 +4,7 @@ import { conDescendientes } from './etiquetas'
 /**
  * Editar el árbol de etiquetas: renombrar, mover, fusionar y borrar.
  *
- * Hasta ahora esto solo se podía hacer escribiendo `semillaEtiquetas.ts` y desplegando.
+ * Hasta ahora esto solo se podía hacer escribiendo `semillaEtiquetas.ts` y desplegando; ese sembrador ya se retiró.
  * Arreglar un duplicado —"Vasto interno" contra "Vasto Medial"— era tocar código, y eso
  * significa que el dato de la clínica dependía de un despliegue.
  *
@@ -46,6 +46,21 @@ export function contarUsos(ejercicios: any[], tests: any[]): Record<string, Usos
   ;(ejercicios || []).forEach((e: any) => (e.etiquetas || []).forEach((id: string) => suma(id, 'ejercicios')))
   ;(tests || []).forEach((t: any) => (t.etiquetas_relacionadas || []).forEach((id: string) => suma(id, 'tests')))
   return mapa
+}
+
+/**
+ * Cambia de categoría una etiqueta RAÍZ y arrastra su rama entera.
+ *
+ * La categoría solo la lleva de verdad la raíz —`categoriaDe` la busca subiendo por los
+ * padres, las hijas no la repiten—, pero la columna existe en todas las filas y las
+ * hijas la tienen puesta desde que se crearon. Si se cambiara solo la raíz, la columna de
+ * las hijas se quedaría mintiendo, y cualquier consulta que filtre por `categoria` en vez
+ * de recorrer el árbol devolvería cosas raras. Se actualizan todas.
+ */
+export async function cambiarCategoria(etiquetas: any[], id: string, categoria: string) {
+  const rama = conDescendientes(etiquetas, id)
+  const { error } = await supabase.from('etiquetas').update({ categoria }).in('id', rama)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const, movidas: rama.length }
 }
 
 export async function renombrar(id: string, nombre: string) {

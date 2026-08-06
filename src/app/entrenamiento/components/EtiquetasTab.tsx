@@ -5,7 +5,7 @@ import { CATEGORIAS_ETIQUETA, conDescendientes } from '@/lib/etiquetas'
 import { ordenAnatomico } from '@/lib/anatomia'
 import {
   contarUsos, renombrar, moverEtiqueta, fusionar, eliminarEtiqueta,
-  crearEtiqueta, impactoDeBorrar, mismasConNombre, type Usos,
+  crearEtiqueta, impactoDeBorrar, mismasConNombre, cambiarCategoria, type Usos,
 } from '@/lib/etiquetasEditar'
 
 /**
@@ -13,7 +13,7 @@ import {
  *
  * Antes era un póster: nueve columnas de 160px con scroll horizontal, solo se podían
  * crear, y no decía a cuántos ejercicios afectaba ninguna. Renombrar o fusionar un
- * duplicado había que hacerlo escribiendo `semillaEtiquetas.ts` y desplegando.
+ * duplicado había que hacerlo escribiendo `semillaEtiquetas.ts` y desplegando; ese sembrador ya se retiró.
  *
  * EL NÚMERO DE USOS ES EL DATO QUE DECIDE. Antes de fusionar "Vasto interno" con "Vasto
  * Medial" lo primero que se quiere saber es cuántos ejercicios se van a mover; y una
@@ -70,7 +70,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
     setModo({ tipo: 'nueva' })
   }
   function abrirEditar(et: any) {
-    setForm({ nombre: et.nombre, categoria: cat, padre_id: et.padre_id || '', destino: '' })
+    setForm({ nombre: et.nombre, categoria: et.categoria || cat, padre_id: et.padre_id || '', destino: '' })
     setModo({ tipo: 'editar', et })
   }
   function abrirFusionar(et: any) {
@@ -87,6 +87,10 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
       r = await renombrar(modo.et.id, form.nombre)
       if (r.ok && (form.padre_id || '') !== (modo.et.padre_id || '')) {
         r = await moverEtiqueta(etiquetas, modo.et.id, form.padre_id || null)
+      }
+      // Solo si queda como raíz: colgada de otra, la categoría la manda su madre.
+      if (r.ok && !form.padre_id && form.categoria !== modo.et.categoria) {
+        r = await cambiarCategoria(etiquetas, modo.et.id, form.categoria)
       }
     } else if (modo?.tipo === 'fusionar') {
       const destino = etiquetas.find((e: any) => e.id === form.destino)
@@ -250,15 +254,21 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
               </>
             ) : (
               <>
-                {modo.tipo === 'nueva' && (
-                  <div className="field"><label>Categoría</label>
-                    <select className="input" value={form.categoria} disabled={!!form.padre_id}
-                      onChange={e => setForm((p: any) => ({ ...p, categoria: e.target.value, padre_id: '' }))}>
-                      {CATEGORIAS_ETIQUETA.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                    </select>
-                    {form.padre_id && <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>La hereda de su etiqueta madre.</div>}
-                  </div>
-                )}
+                {/* La categoría solo se elige si la etiqueta queda como raíz: colgada de
+                    otra, la hereda de su madre. Al cambiarla se lleva la rama entera. */}
+                <div className="field"><label>Categoría</label>
+                  <select className="input" value={form.categoria} disabled={!!form.padre_id}
+                    onChange={e => setForm((p: any) => ({ ...p, categoria: e.target.value }))}>
+                    {CATEGORIAS_ETIQUETA.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                  {form.padre_id
+                    ? <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>La hereda de su etiqueta madre.</div>
+                    : modo.tipo === 'editar' && form.categoria !== modo.et.categoria
+                      ? <div style={{ fontSize: 12, color: '#8A6410', marginTop: 3 }}>
+                          Se moverán también sus {conDescendientes(etiquetas, modo.et.id).length - 1} subetiquetas.
+                        </div>
+                      : null}
+                </div>
                 <div className="field"><label>Nombre</label>
                   <input className="input" value={form.nombre} autoFocus
                     onChange={e => setForm((p: any) => ({ ...p, nombre: e.target.value }))}

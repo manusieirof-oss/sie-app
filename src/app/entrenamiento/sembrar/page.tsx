@@ -225,9 +225,8 @@ export default function SembrarPage() {
               <div className="fila-p" style={{ borderLeftColor: 'var(--amb)', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, color: 'var(--n)', marginBottom: 6 }}>
                   <b>{huerfanas.length} etiqueta{huerfanas.length === 1 ? '' : 's'} de la semilla no {huerfanas.length === 1 ? 'existe' : 'existen'}</b> en tu
-                  biblioteca. Los ejercicios se crearán sin {huerfanas.length === 1 ? 'ella' : 'ellas'}. Pasa antes
-                  por <a href="/entrenamiento/sembrar-etiquetas" style={{ color: 'var(--gd)' }}>ajustar etiquetas</a>,
-                  o créalas a mano si el nombre que uso no es el tuyo.
+                  biblioteca. Los ejercicios se crearán sin {huerfanas.length === 1 ? 'ella' : 'ellas'}. Créalas
+                  antes en Biblioteca → Etiquetas, o cámbiales aquí el nombre si el que uso no es el tuyo.
                 </div>
                 {huerfanas.map(h => (
                   <div key={h.nombre} style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.6 }}>
