@@ -5,6 +5,7 @@ import { Ic } from '@/lib/icons'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
+import MetasObjetivo from './MetasObjetivo'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -29,12 +30,24 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [menuPago, setMenuPago] = useState<any>(null)
   const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
   const [guardandoVia, setGuardandoVia] = useState<string|null>(null)
+  const [metas, setMetas] = useState<any[]>([])
+  const [resultadosTests, setResultadosTests] = useState<any[]>([])
+  const [testsLib, setTestsLib] = useState<any[]>([])
+  const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, objetivos(id,nombre,color,descripcion)').eq('paciente_id', pac.id).then(({data}) => {
-      setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado})).filter((o:any)=>o.id))
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,color,descripcion,tipo,metrica,movimientos,fases)').eq('paciente_id', pac.id).then(({data}) => {
+      setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
+    // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
+    // necesita las dos y traerlas por separado abriría la puerta a pintar con datos viejos.
+    supabase.from('objetivos_metas').select('*').eq('paciente_id', pac.id).order('created_at')
+      .then(({data}) => setMetas(data||[]))
+    supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
+      .then(({data}) => setResultadosTests(data||[]))
+    supabase.from('tests').select('id,nombre,items').order('nombre').then(({data}) => setTestsLib(data||[]))
+    supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
   }
 
   useEffect(() => {
@@ -102,7 +115,35 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           }
         </div>
         {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
-        {vias.length===0 && !o.logrado && (
+        {/* Los métricos se cierran con metas, no con vías: el número lo pone una medición.
+            Por eso no se les ofrece "dar por logrado" a secas. */}
+        {o.tipo==='metrico' && !o.logrado && (
+          <MetasObjetivo
+            pacienteId={pac.id}
+            objetivo={o}
+            metas={metas.filter((m:any)=>m.objetivo_id===o.id)}
+            resultados={resultadosTests}
+            tests={testsLib}
+            etiquetas={etiquetasLib}
+            onCambio={cargarObjetivos}
+          />
+        )}
+        {/* Los de fase enseñan por dónde va. Se avanza al montar la tanda nueva, que es
+            cuando ya lo estás decidiendo, así que aquí solo se consulta. */}
+        {o.tipo==='fase' && o.fases > 0 && (
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
+            {Array.from({length:o.fases}).map((_,i)=>(
+              <span key={i} title={`Fase ${i+1}`} style={{
+                flex:1,height:5,borderRadius:3,
+                background: i < (o.fase_actual||0) ? (o.color||'var(--g)') : 'var(--bm)',
+              }}/>
+            ))}
+            <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>
+              {o.fase_actual ? `Fase ${o.fase_actual} de ${o.fases}` : 'Sin empezar'}
+            </span>
+          </div>
+        )}
+        {vias.length===0 && !o.logrado && o.tipo!=='metrico' && o.tipo!=='fase' && (
           <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
             <span style={{fontSize:12,color:'var(--gr)'}}>Sin nada que marcar · no vino de un test ni de un ejercicio</span>
             <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id} onClick={()=>cerrarSinVias(o)}>

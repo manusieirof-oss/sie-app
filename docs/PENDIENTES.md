@@ -118,10 +118,26 @@ desviaciones radial y cubital.
 `ObjetivosTab` distingue las tres familias, filtra por zona en orden anatómico y dice
 **cuántos pacientes tienen cada objetivo abierto**, que es lo que revela si una ficha sobra.
 
+### Metas en la ficha ✅ HECHO
+`MetasObjetivo` dentro de `FichaTab`. Los objetivos métricos muestran sus metas con el
+progreso, y se crean eligiendo movimiento, lado, tipo, punto de partida y meta.
+
+**Toda meta nace atada a un ítem de test, y el selector es obligatorio.** Una meta que nadie
+mide es una intención con un número al lado. Solo se ofrecen ítems con unidad: una casilla de
+sí/no no puede cerrar un "+20%".
+
+Dos detalles que evitan errores: el punto de partida se propone con lo último medido en ese
+ítem y lado —teclearlo a mano teniendo el dato delante es pedir una errata—, y en las metas
+de antagonista se sugiere el ítem contrario buscando por el nombre del movimiento opuesto.
+
+La barra de progreso solo aparece si hay con qué calcularla: una barra a cero cuando aún no
+se ha medido nada diría algo falso.
+
 ### Lo que falta — PENDIENTE
-1. **Interfaz de metas en la ficha del paciente**: crear y ver metas, con su progreso. Es lo
-   que falta para que todo lo anterior sirva de algo.
-2. **Avance de fase al crear la tanda nueva**, enganchado a `evolucionarPrograma`.
+1. **Avance de fase al crear la tanda nueva**, enganchado a `evolucionarPrograma`. Hoy la
+   ficha enseña por dónde va la fase pero no hay forma de avanzarla.
+2. **Asignar objetivos al paciente desde la ficha.** Hoy solo llegan solos, cuando un test da
+   positivo. Falta poder añadirlos a mano, que es como se pondrán casi todos los métricos.
 5. **Sustituir los diez objetivos sembrados**, que son de la familia métrica mal hechos: sin
    métrica, sin movimiento y sin lado.
 6. **VALD**: decidir si el número se copia a mano o solo consta el positivo/negativo.
