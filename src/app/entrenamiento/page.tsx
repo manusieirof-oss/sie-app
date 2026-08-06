@@ -190,7 +190,9 @@ function EntrenamientoContent() {
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
           {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
-          {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} cargar={cargar}/>}
+          {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,
+              que es el dato con el que se decide si sobra, se fusiona o se borra. */}
+          {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} ejercicios={ejercicios} testsLib={testsLib} cargar={cargar}/>}
           {tab==='clinico'&&<ClinicoTab patologiasBiblio={patologiasBiblio} molestiasBiblio={molestiasBiblio} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}
           {tab==='objetivos'&&<ObjetivosTab objetivos={objetivos} testsLib={testsLib} cargar={cargar}/>}
         </>
