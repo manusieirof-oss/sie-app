@@ -110,44 +110,42 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
     cargar()
   }
 
-  function Fila({ et, nivel }: { et: any, nivel: number }) {
+  function Fila({ et }: { et: any }) {
     const hijas = hijasDe(et.id).sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
     const u = usos[et.id]?.total || 0
     const abierta = abiertas.includes(et.id)
+    const plegable = hijas.length > 0
     return (
       <div>
-        <div className="fila-p" style={{
-          borderLeftColor: u === 0 ? 'var(--bd)' : 'var(--g)',
-          marginLeft: nivel * 18, display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px', marginBottom: 2,
-        }}>
-          {hijas.length > 0 ? (
-            <button onClick={() => setAbiertas(v => abierta ? v.filter(x => x !== et.id) : [...v, et.id])}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gr)', display: 'inline-flex', flexShrink: 0 }}
-              aria-label={abierta ? 'Plegar' : 'Desplegar'}>
-              <Ic name={abierta ? 'arriba' : 'abajo'} size={12} />
+        <div className="fila-et">
+          {plegable ? (
+            <button className="et-b" style={{ width: 16, height: 16 }} aria-label={abierta ? 'Plegar' : 'Desplegar'}
+              onClick={() => setAbiertas(v => abierta ? v.filter(x => x !== et.id) : [...v, et.id])}>
+              <Ic name={abierta ? 'arriba' : 'abajo'} size={11} />
             </button>
-          ) : <span style={{ width: 12, flexShrink: 0 }} />}
+          ) : <span style={{ width: 16, flexShrink: 0 }} />}
 
-          <span style={{ flex: 1, fontSize: 13, color: 'var(--n)', minWidth: 0 }}>
+          <span onClick={() => plegable && setAbiertas(v => abierta ? v.filter(x => x !== et.id) : [...v, et.id])}
+            style={{ flex: 1, fontSize: 13, color: 'var(--n)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: plegable ? 'pointer' : 'default' }}>
             {et.nombre}
-            {hijas.length > 0 && <span style={{ fontSize: 12, color: 'var(--gr)' }}> · {hijas.length}</span>}
+            {plegable && <span style={{ fontSize: 12, color: 'var(--grl)' }}> · {hijas.length}</span>}
           </span>
 
-          {/* El contador es lo que convierte esto en una herramienta: sin él no se sabe
-              qué se rompe al tocar nada, ni qué sobra. */}
-          <span className={`pill ${u === 0 ? 'pill-soft' : 'pill-o on'}`} style={{ flexShrink: 0 }}
+          <span className="et-acc">
+            <button className="et-b" title="Añadir subetiqueta" onClick={() => abrirNueva(et)}><Ic name="mas" size={13} /></button>
+            <button className="et-b" title="Renombrar o cambiar de sitio" onClick={() => abrirEditar(et)}><Ic name="editar" size={13} /></button>
+            <button className="et-b" title="Fusionar con otra" onClick={() => abrirFusionar(et)}><Ic name="cambio" size={13} /></button>
+            <button className="et-b et-b-r" title="Borrar" onClick={() => borrar(et)}><Ic name="papelera" size={13} /></button>
+          </span>
+
+          {/* El número se ve siempre: es el dato con el que se decide si sobra, se fusiona
+              o se borra. Las acciones no, que serían mil doscientos botones a la vista. */}
+          <span className={`et-n ${u === 0 ? 'et-n0' : ''}`}
             title={u === 0 ? 'No la usa ningún ejercicio ni test' : `${usos[et.id]?.ejercicios || 0} ejercicios · ${usos[et.id]?.tests || 0} tests`}>
-            {u}
-          </span>
-
-          <span style={{ display: 'inline-flex', gap: 3, flexShrink: 0 }}>
-            <button className="chip-ed" title="Añadir subetiqueta" onClick={() => abrirNueva(et)}><Ic name="mas" size={12} /></button>
-            <button className="chip-ed" title="Renombrar o cambiar de sitio" onClick={() => abrirEditar(et)}><Ic name="editar" size={12} /></button>
-            <button className="chip-ed" title="Fusionar con otra" onClick={() => abrirFusionar(et)}><Ic name="cambio" size={12} /></button>
-            <button className="chip-ed chip-ed-r" title="Borrar" onClick={() => borrar(et)}><Ic name="papelera" size={12} /></button>
+            {u === 0 ? '—' : u}
           </span>
         </div>
-        {abierta && hijas.map((h: any) => <Fila key={h.id} et={h} nivel={nivel + 1} />)}
+        {abierta && <div className="et-rama">{hijas.map((h: any) => <Fila key={h.id} et={h} />)}</div>}
       </div>
     )
   }
@@ -176,7 +174,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
             : (
               <div>
                 <div className="et-mini" style={{ marginBottom: 6 }}>{resultados.length} coincidencias</div>
-                {resultados.map((e: any) => <Fila key={e.id} et={e} nivel={0} />)}
+                {resultados.map((e: any) => <Fila key={e.id} et={e} />)}
               </div>
             )
         ) : (
@@ -190,7 +188,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
             </div>
             {raices.length === 0
               ? <div className="muted">No hay etiquetas en esta categoría.</div>
-              : raices.map((e: any) => <Fila key={e.id} et={e} nivel={0} />)}
+              : raices.map((e: any) => <Fila key={e.id} et={e} />)}
           </>
         )}
       </div>

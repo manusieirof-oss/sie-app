@@ -97,6 +97,21 @@ textarea.input{resize:vertical;min-height:80px;}
 .fila-p .fila-x{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;color:var(--grl);background:none;border:none;cursor:pointer;flex-shrink:0;opacity:0;transition:all .12s;}
 .fila-p:hover .fila-x{opacity:1;}
 .fila-p .fila-x:hover{background:var(--redl);color:var(--red);}
+/* Árbol de etiquetas. Se lee como un árbol de ficheros: sangría y una guía fina, sin una
+   caja por fila. Con trescientas etiquetas, una caja con borde por cada una convierte la
+   lista en un muro. Las acciones aparecen al pasar por encima —son cuatro por fila y a la
+   vista serían mil doscientos botones— salvo el número de usos, que se ve siempre porque
+   es el dato con el que se decide. */
+.fila-et{display:flex;align-items:center;gap:7px;padding:3px 7px;border-radius:5px;}
+.fila-et:hover{background:var(--bl);}
+.fila-et .et-acc{display:inline-flex;gap:1px;flex-shrink:0;opacity:0;transition:opacity .12s;}
+.fila-et:hover .et-acc{opacity:1;}
+.et-rama{margin-left:10px;padding-left:10px;border-left:1px solid var(--bm);}
+.et-n{font-size:12px;color:var(--gr);font-variant-numeric:tabular-nums;flex-shrink:0;min-width:24px;text-align:right;}
+.et-n0{color:var(--grl);}
+.et-b{width:23px;height:23px;border-radius:5px;border:none;background:none;color:var(--grl);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;}
+.et-b:hover{background:var(--w);color:var(--gd);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.et-b-r:hover{color:var(--red);}
 /* Indicadores que flanquean la silueta: lo que no se puede pintar sobre el cuerpo. */
 .ind-b{position:relative;width:46px;height:46px;border-radius:12px;background:var(--w);border:1px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;}
 .ind-b:hover{border-color:var(--gm);background:var(--gl);}
