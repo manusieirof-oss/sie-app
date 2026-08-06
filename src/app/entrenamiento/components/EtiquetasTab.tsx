@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { CATEGORIAS_ETIQUETA, conDescendientes } from '@/lib/etiquetas'
+import { ordenAnatomico } from '@/lib/anatomia'
 import {
   contarUsos, renombrar, moverEtiqueta, fusionar, eliminarEtiqueta,
   crearEtiqueta, impactoDeBorrar, mismasConNombre, type Usos,
@@ -32,6 +33,16 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
   const [form, setForm] = useState<any>({ nombre: '', categoria: 'musculo', padre_id: '', destino: '' })
   const [guardando, setGuardando] = useState(false)
   const [abiertas, setAbiertas] = useState<string[]>([])
+  const [anatomico, setAnatomico] = useState(true)
+
+  // El orden anatómico solo tiene sentido donde las etiquetas están en un cuerpo. Una
+  // barra y una goma no están más arriba ni más abajo que nada.
+  const CATS_CORPORALES = ['musculo', 'articulacion']
+  const porCuerpo = anatomico && CATS_CORPORALES.includes(cat) && !buscar.trim()
+
+  /** De la cabeza a los pies, o alfabético. Lo usan las raíces y cada rama. */
+  const ordena = (lista: any[]) => [...lista].sort((a, b) =>
+    porCuerpo ? ordenAnatomico(a.nombre, b.nombre) : a.nombre.localeCompare(b.nombre))
 
   const usos: Record<string, Usos> = useMemo(() => contarUsos(ejercicios, testsLib), [ejercicios, testsLib])
   const hijasDe = (id: string) => etiquetas.filter((e: any) => e.padre_id === id)
@@ -43,8 +54,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
     ? etiquetas.filter((e: any) => (e.nombre || '').toLowerCase().includes(q))
     : []
 
-  const raices = etiquetas.filter((e: any) => e.categoria === cat && !e.padre_id)
-    .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+  const raices = ordena(etiquetas.filter((e: any) => e.categoria === cat && !e.padre_id))
 
   const totalCat = (c: string) =>
     etiquetas.filter((e: any) => {
@@ -110,8 +120,8 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
     cargar()
   }
 
-  function Fila({ et }: { et: any }) {
-    const hijas = hijasDe(et.id).sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+  function Fila({ et, nivel = 0 }: { et: any, nivel?: number }) {
+    const hijas = ordena(hijasDe(et.id))
     const u = usos[et.id]?.total || 0
     const abierta = abiertas.includes(et.id)
     const plegable = hijas.length > 0
@@ -125,10 +135,16 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
             </button>
           ) : <span style={{ width: 16, flexShrink: 0 }} />}
 
+          {/* La jerarquía se marca con PESO, que es como la marca el resto de la app: los
+              títulos a 500 y el cuerpo a 400. Con todos los niveles al mismo peso el ojo
+              no tiene dónde agarrarse y la lista se lee más plana de lo que es. */}
           <span onClick={() => plegable && setAbiertas(v => abierta ? v.filter(x => x !== et.id) : [...v, et.id])}
-            style={{ flex: 1, fontSize: 13, color: 'var(--n)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: plegable ? 'pointer' : 'default' }}>
+            style={{ flex: 1, fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              cursor: plegable ? 'pointer' : 'default',
+              fontWeight: nivel === 0 ? 500 : 400,
+              color: nivel >= 2 ? 'var(--gr)' : 'var(--n)' }}>
             {et.nombre}
-            {plegable && <span style={{ fontSize: 12, color: 'var(--grl)' }}> · {hijas.length}</span>}
+            {plegable && <span style={{ fontSize: 12, color: 'var(--grl)', fontWeight: 400 }}> · {hijas.length}</span>}
           </span>
 
           <span className="et-acc">
@@ -145,7 +161,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
             {u === 0 ? '—' : u}
           </span>
         </div>
-        {abierta && <div className="et-rama">{hijas.map((h: any) => <Fila key={h.id} et={h} />)}</div>}
+        {abierta && <div className="et-rama">{hijas.map((h: any) => <Fila key={h.id} et={h} nivel={nivel + 1} />)}</div>}
       </div>
     )
   }
@@ -179,12 +195,24 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
             )
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
               {CATEGORIAS_ETIQUETA.map(c => (
                 <button key={c.key} className={`chip-sel ${cat === c.key ? 'on' : ''}`} onClick={() => setCat(c.key)}>
                   {c.label} · {totalCat(c.key)}
                 </button>
               ))}
+              {/* Solo donde significa algo: una barra y una goma no están más arriba ni
+                  más abajo que nada. La altura sale de lib/anatomia.ts, el mismo dato con
+                  el que se pintan las molestias sobre la silueta. */}
+              {CATS_CORPORALES.includes(cat) && (
+                <button className={`chip-sel ${anatomico ? 'on' : ''}`} style={{ marginLeft: 'auto' }}
+                  title={anatomico
+                    ? 'De la cabeza a los pies. Recorrer el cuerpo enseña los huecos: si entre rodilla y tobillo no hay nada, se ve.'
+                    : 'Ahora mismo en orden alfabético'}
+                  onClick={() => setAnatomico(v => !v)}>
+                  <Ic name="cuerpo" size={12} /> De la cabeza a los pies
+                </button>
+              )}
             </div>
             {raices.length === 0
               ? <div className="muted">No hay etiquetas en esta categoría.</div>

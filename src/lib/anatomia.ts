@@ -109,3 +109,99 @@ export function zonaEstaMapeada(zona: string): boolean {
 }
 
 export const ZONAS_DISPONIBLES = Object.keys(ZONAS)
+
+/**
+ * Nombres de etiqueta que no coinciden con ninguna clave de ZONAS pero sí caen en una.
+ *
+ * No es un mapa anatómico: es lo justo para poder ORDENAR de la cabeza a los pies. Que el
+ * trapecio se coloque a la altura de la escápula no dice dónde empieza y dónde acaba,
+ * dice dónde ponerlo en una lista. Para pintar sobre la silueta se usa ZONAS, que sí es
+ * el mapa.
+ */
+const SINONIMOS_ALTURA: Record<string, string> = {
+  'maxilar': 'mandibula',
+  'trapecio': 'escapula',
+  'escapular': 'escapula',
+  'deltoides': 'hombro',
+  'manguito rotador': 'hombro',
+  'columna': 'dorsal',
+  'espalda': 'dorsal',
+  'diafragma': 'torax',
+  'intercostales': 'costillas',
+  'triceps': 'brazo',
+  'braquioradial': 'antebrazo',
+  'extensor de munecas': 'antebrazo',
+  'extensor de muneca': 'antebrazo',
+  'flexor de muneca': 'antebrazo',
+  'extensor de dedos': 'antebrazo',
+  'flexor de dedos': 'antebrazo',
+  'dedos': 'mano',
+  'metacarpiano': 'mano',
+  'psoas': 'cadera',
+  'abductor tfl': 'cadera',
+  'gluteo piramidal': 'gluteo',
+  'sartorio': 'muslo',
+  'isquiotibial': 'isquiotibiales',
+  'peroneos': 'pierna',
+  'triceps sural': 'gemelo',
+  'tibial anterior': 'tibia',
+  'metatarso': 'pie',
+}
+
+/**
+ * A qué altura del cuerpo cae un nombre: 0 la coronilla, 100 los pies. null si no se sabe.
+ *
+ * Sirve para ordenar listas en sentido anatómico en vez de alfabético. Buscar "gemelo"
+ * entre la eme y la ge no tiene nada que ver con cómo se piensa un cuerpo; recorrerlo de
+ * arriba abajo, sí, y además enseña los huecos: si entre rodilla y tobillo no hay nada,
+ * se ve.
+ */
+export function alturaDeZona(nombre: string): number | null {
+  const n = norm(nombre)
+  if (ZONAS[n]) return ZONAS[n].y
+  const sin = SINONIMOS_ALTURA[n]
+  if (sin && ZONAS[sin]) return ZONAS[sin].y
+  // Por contención, igual que `puntoDeZona`: "Glúteo mayor" cae en "gluteo".
+  const clave = Object.keys(ZONAS).find(k => n.includes(k) || k.includes(n))
+  if (clave) return ZONAS[clave].y
+  const claveSin = Object.keys(SINONIMOS_ALTURA).find(k => n.includes(k))
+  if (claveSin) return ZONAS[SINONIMOS_ALTURA[claveSin]]?.y ?? null
+  return null
+}
+
+/**
+ * La posición de una zona en el recorrido del cuerpo, no su altura.
+ *
+ * Ordenar solo por altura tiene una pega real: el brazo cuelga a la altura del tronco y
+ * la mano a la del muslo, así que el bíceps caía entre el pectoral y la espalda, y los
+ * dedos entre el cuádriceps y el isquiotibial. Es anatómicamente cierto y en una lista se
+ * lee fatal.
+ *
+ * Se usa el ORDEN EN QUE ESTÁN ESCRITAS en ZONAS, que ya va por segmentos: cabeza y
+ * cuello, tronco, miembro superior, miembro inferior, y cada uno de arriba abajo. El
+ * orden de declaración es el dato, así que basta con no desordenar ese objeto.
+ */
+const ORDEN = Object.keys(ZONAS)
+
+function posicionDeZona(nombre: string): number | null {
+  const n = norm(nombre)
+  const clave = ZONAS[n] ? n
+    : (SINONIMOS_ALTURA[n] && ZONAS[SINONIMOS_ALTURA[n]]) ? SINONIMOS_ALTURA[n]
+    : ORDEN.find(k => n.includes(k) || k.includes(n))
+    || (() => { const s = Object.keys(SINONIMOS_ALTURA).find(k => n.includes(k)); return s ? SINONIMOS_ALTURA[s] : undefined })()
+  if (!clave) return null
+  const i = ORDEN.indexOf(clave)
+  return i < 0 ? null : i
+}
+
+/**
+ * Comparador para recorrer el cuerpo. Lo que no se sabe dónde cae va al final y en
+ * alfabético, que es mejor que colocarlo a ojo en medio y que nadie lo encuentre.
+ */
+export function ordenAnatomico(a: string, b: string): number {
+  const pa = posicionDeZona(a), pb = posicionDeZona(b)
+  if (pa == null && pb == null) return a.localeCompare(b)
+  if (pa == null) return 1
+  if (pb == null) return -1
+  return pa - pb || a.localeCompare(b)
+}
