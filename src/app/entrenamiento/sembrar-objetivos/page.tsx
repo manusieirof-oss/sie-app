@@ -25,6 +25,7 @@ export default function SembrarObjetivosPage() {
   const [corriendo, setCorriendo] = useState(false)
   const [faltan, setFaltan] = useState<string[] | null>(null)
   const [viejos, setViejos] = useState<number | null>(null)
+  const [sinSql, setSinSql] = useState<string | null>(null)
 
   const anota = (texto: string, estado: Linea['estado'] = 'info') => setLog(l => [...l, { texto, estado }])
 
@@ -36,6 +37,13 @@ export default function SembrarObjetivosPage() {
    * no lo podrá filtrar ni contar.
    */
   async function comprobar() {
+    // Antes que nada: ¿existen las columnas? Si no, TODOS los objetivos fallan con el
+    // mismo error y la pantalla se llena de líneas rojas idénticas que no dicen qué hacer.
+    // Una frase antes vale más que treinta y seis mensajes después.
+    const { error: errCol } = await supabase.from('objetivos')
+      .select('tipo,metrica,articulacion_id,movimientos,fases').limit(1)
+    setSinSql(errCol ? errCol.message : null)
+
     const { data: ets } = await supabase.from('etiquetas').select('nombre,categoria')
     const arts = new Set((ets || []).filter((e: any) => e.categoria === 'articulacion').map((e: any) => norm(e.nombre)))
     const pedidas = new Set<string>()
@@ -155,6 +163,17 @@ export default function SembrarObjetivosPage() {
             movimiento que faltan, como rotación interna y externa.
           </p>
 
+          {sinSql && (
+            <div className="fila-p" style={{ borderLeftColor: 'var(--red)', marginBottom: 10 }}>
+              <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.6 }}>
+                <b>Falta ejecutar el SQL.</b> La tabla <code>objetivos</code> todavía no tiene las
+                columnas nuevas, así que ningún objetivo se puede guardar. Ejecuta
+                <code> sql/objetivos_medibles.sql</code> en Supabase y recarga.
+                <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>Dice: {sinSql}</div>
+              </div>
+            </div>
+          )}
+
           {viejos !== null && viejos > 0 && (
             <div className="fila-p" style={{ borderLeftColor: 'var(--amb)', marginBottom: 10 }}>
               <span style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.6 }}>
@@ -183,8 +202,8 @@ export default function SembrarObjetivosPage() {
             )
           )}
 
-          <button className="btn btn-p" onClick={sembrar} disabled={corriendo}>
-            {corriendo ? 'Sembrando…' : 'Sembrar objetivos'}
+          <button className="btn btn-p" onClick={sembrar} disabled={corriendo || !!sinSql}>
+            {corriendo ? 'Sembrando…' : sinSql ? 'Falta el SQL' : 'Sembrar objetivos'}
           </button>
 
           {log.length > 0 && (
