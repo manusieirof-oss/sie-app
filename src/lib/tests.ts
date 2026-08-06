@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
+import { revisarMetas } from './metas'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -125,6 +126,8 @@ export type ResultadoRegistro = {
   resultado: ResultadoTest
   /** Objetivos que han pasado a logrados al cerrarse sus vías. */
   logrados: number
+  /** Metas medibles que este resultado ha dado por alcanzadas. */
+  metasCerradas: number
 } | {
   ok: false
   error: string
@@ -189,7 +192,12 @@ export async function registrarResultadoTest(
   }
   // 'sin_realizar' no toca ningún objetivo: no haber hecho el test no dice nada.
 
-  return { ok: true, resultado, logrados }
+  // Y las metas medibles, que es lo que cierra los objetivos con número. Un test es el
+  // único momento en que un valor puede haber cambiado, así que se revisan aquí y no en
+  // un proceso aparte que habría que acordarse de lanzar.
+  const { cerradas } = await revisarMetas(pacienteId)
+
+  return { ok: true, resultado, logrados, metasCerradas: cerradas.length }
 }
 
 /** Objetivos vinculados al test entero (`objetivos.test_id`). */

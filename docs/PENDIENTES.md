@@ -79,6 +79,52 @@ provocación cervical no son un déficit que se entrene: son información para d
 y, a veces, para derivar. Colgarles un objetivo haría que la ficha propusiera entrenar una
 rotura. Ese dato es el que alimentará el bloqueo por etiquetas de aquí abajo.
 
+---
+
+## Objetivos medibles
+
+Ver `docs/propuestas/PROPUESTA-OBJETIVOS.md` para el modelo completo.
+
+### Base y evaluación ✅ HECHO
+`sql/objetivos_medibles.sql` y `lib/metas.ts`. **Todavía no hay interfaz: nada de esto se ve
+en la app.** El SQL es aditivo y se puede ejecutar sin romper nada.
+
+Decisiones tomadas contigo:
+
+- **Tres familias y solo una lleva número.** `metrico` lo cierra una medición; `fase` la
+  avanza el entrenador al montar la tanda nueva; `cualitativo` se cumple o no. Forzar un
+  porcentaje a "conciencia y activación básica" sería inventarse precisión.
+- **Sin "+" ni "=" en los nombres.** En el otro programa el tipo de meta iba pegado al
+  nombre porque no había dónde guardarlo. Aquí es un campo.
+- **La biblioteca guarda el espacio, el paciente las metas.** ~20 fichas ("Fuerza de
+  hombro") en vez de 160 combinaciones. Un hombro con la rotación interna y la externa
+  flojas es UN objetivo con DOS metas.
+- **Umbral de igualdad: 10%**, en código y no por meta, para que dos metas idénticas de dos
+  pacientes no se cierren con criterios distintos.
+- **El valor actual no se guarda**, se lee del último resultado. Copiarlo sería una segunda
+  verdad que discreparía en cuanto se corrija un test.
+
+Probada la evaluación con los tres tipos de meta, el umbral, los huecos sin medir, el
+resultado más reciente y el campo `grados` antiguo.
+
+### Lo que falta — PENDIENTE
+1. **Interfaz de metas en la ficha del paciente**: crear y ver metas, con su progreso.
+2. **ObjetivosTab**: pasar la biblioteca al modelo nuevo (tipo, métrica, articulación) y
+   filtrar por zona con las etiquetas.
+3. **Etiquetas de movimiento fino**: no existen "rotación interna" ni "externa", solo
+   "Rotación", y son media lista de VALD. Van como hijas, ya se pueden crear desde la pestaña.
+4. **Avance de fase al crear la tanda nueva**, enganchado a `evolucionarPrograma`.
+5. **Sustituir los diez objetivos sembrados**, que son de la familia métrica mal hechos: sin
+   métrica, sin movimiento y sin lado.
+6. **VALD**: decidir si el número se copia a mano o solo consta el positivo/negativo.
+7. Duplicado en la lista de origen: "Flexión lateral cuello" y "Flexión lateral cervical".
+
+---
+
+# Pilar Biblioteca (continuación)
+
+## Tests
+
 ### Bloqueo de ejercicios por test positivo — PENDIENTE
 **`tests.etiquetas_bloquea` existe desde el principio y no la lee nadie.** Cero usos en toda la
 app. La idea era clara: un test positivo bloquea ciertas etiquetas de ejercicio. Hoy nada
