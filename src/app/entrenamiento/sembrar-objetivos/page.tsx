@@ -94,10 +94,37 @@ export default function SembrarObjetivosPage() {
       return id
     }).filter(Boolean)
 
+    /** Lo que ya hay en cada objetivo, para no pisarlo al actualizar. */
+    const { data: objCompletos } = await supabase.from('objetivos')
+      .select('id,descripcion,color,etiquetas,articulacion_id,tipo,metrica,fases')
+    const actual: Record<string, any> = {}
+    ;(objCompletos || []).forEach((o: any) => { actual[o.id] = o })
+
+    /**
+     * Al ACTUALIZAR solo se rellena lo que esté vacío.
+     *
+     * El sembrador está para dar de alta el catálogo, no para deshacer lo que hayas
+     * cambiado después en la pestaña. Si una descripción, un color o unas etiquetas ya
+     * tienen contenido, se respetan; si están vacías, se completan. Así se puede
+     * relanzar sin miedo cuando la semilla añade un campo nuevo.
+     */
+    const soloHuecos = (campos: any, ya: string) => {
+      const hay = actual[ya] || {}
+      const vacio = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
+      const salida: any = {}
+      for (const [k, v] of Object.entries(campos)) {
+        if (k === 'nombre' || k === 'activo') continue
+        if (vacio(hay[k])) salida[k] = v
+      }
+      return salida
+    }
+
     const guardar = async (campos: any, etiqueta: string) => {
       const ya = idObj[norm(campos.nombre)]
       if (ya) {
-        const { error } = await supabase.from('objetivos').update(campos).eq('id', ya)
+        const cambios = soloHuecos(campos, ya)
+        if (Object.keys(cambios).length === 0) { anota(`${campos.nombre} — ya estaba completo`, 'info'); return }
+        const { error } = await supabase.from('objetivos').update(cambios).eq('id', ya)
         if (error) { anota(`${campos.nombre} — error: ${error.message}`, 'error'); return }
         actualizados++
       } else {

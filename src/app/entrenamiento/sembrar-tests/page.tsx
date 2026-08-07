@@ -61,9 +61,11 @@ export default function SembrarTestsPage() {
     setCorriendo(true); setLog([])
 
     // ── 1. Objetivos ────────────────────────────────────────────────────────
-    const { data: objExist } = await supabase.from('objetivos').select('id,nombre')
+    const { data: objExist } = await supabase.from('objetivos')
+      .select('id,nombre,descripcion,color,etiquetas,articulacion_id,tipo,metrica,fases')
     const idObjetivo: Record<string, string> = {}
-    ;(objExist || []).forEach((o: any) => { idObjetivo[norm(o.nombre)] = o.id })
+    const actualObj: Record<string, any> = {}
+    ;(objExist || []).forEach((o: any) => { idObjetivo[norm(o.nombre)] = o.id; actualObj[o.id] = o })
 
     // Las etiquetas hacen falta antes que los objetivos: los objetivos guardan sus ids.
     const { data: etsPrev } = await supabase.from('etiquetas').select('id,nombre')
@@ -90,7 +92,17 @@ export default function SembrarTestsPage() {
       }
       const ya = idObjetivo[norm(o.nombre)]
       if (ya) {
-        const { error } = await supabase.from('objetivos').update(campos).eq('id', ya)
+        // Solo se rellena lo que esté vacío: lo que hayas editado en la pestaña se
+        // respeta. Un sembrador está para dar de alta, no para deshacer.
+        const hay = actualObj[ya] || {}
+        const vacio = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
+        const cambios: any = {}
+        for (const [k, v] of Object.entries(campos)) {
+          if (k === 'nombre' || k === 'activo') continue
+          if (vacio(hay[k])) cambios[k] = v
+        }
+        if (Object.keys(cambios).length === 0) { objActualizados++; continue }
+        const { error } = await supabase.from('objetivos').update(cambios).eq('id', ya)
         if (error) { anota(`Objetivo "${o.nombre}" — error: ${error.message}`, 'error'); continue }
         objActualizados++
       } else {
