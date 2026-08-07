@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { UNIDADES, unidadDe } from '@/lib/tests'
+import { ordenAnatomico } from '@/lib/anatomia'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -40,6 +41,8 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
+  const [buscar, setBuscar] = useState('')
+  const [zona, setZona] = useState('')
   const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
 
   async function crearTest() {
@@ -90,15 +93,57 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
     setTestsLib(tl||[])
   }
 
+  const nombreEt = (id:string) => (etiquetas||[]).find((e:any)=>e.id===id)?.nombre || ''
+
+  /** Las zonas que algún test usa, de la cabeza a los pies. */
+  const zonas = (() => {
+    const arts = new Set((etiquetas||[]).filter((e:any)=>e.categoria==='articulacion').map((e:any)=>e.id))
+    const ids = Array.from(new Set(
+      testsLib.flatMap((t:any)=>(t.etiquetas_relacionadas||[]).filter((id:string)=>arts.has(id)))
+    )) as string[]
+    return ids.map(id=>({id,nombre:nombreEt(id)})).filter(z=>z.nombre)
+      .sort((a,b)=>ordenAnatomico(a.nombre,b.nombre))
+  })()
+
+  const filtrados = testsLib.filter((t:any)=>{
+    const q = buscar.trim().toLowerCase()
+    // Busca también en los ítems: "McMurray" está dentro de "Rodilla · meniscos", y
+    // buscar por el nombre de la maniobra es lo natural.
+    const enItems = (t.items||[]).some((i:any)=>(i.nombre||'').toLowerCase().includes(q))
+    const matchQ = !q || t.nombre.toLowerCase().includes(q) || (t.descripcion||'').toLowerCase().includes(q) || enItems
+    const matchZ = !zona || (t.etiquetas_relacionadas||[]).includes(zona)
+    return matchQ && matchZ
+  })
+
   return (
     <>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <div style={{fontSize:11,color:'var(--grl)',fontWeight:300}}>{testsLib.length} tests</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8}}>
+        <div style={{fontSize:11,color:'var(--grl)',fontWeight:300}}>
+          {filtrados.length===testsLib.length ? `${testsLib.length} tests` : `${filtrados.length} de ${testsLib.length}`}
+        </div>
         <button className="btn btn-p btn-sm" onClick={()=>setModalTest(true)}>+ Nuevo test</button>
       </div>
+
+      <input className="input" placeholder="Buscar test…" value={buscar}
+        onChange={e=>setBuscar(e.target.value)} style={{marginBottom:8}}/>
+
+      {/* Por zona y en orden anatómico, como en etiquetas y objetivos: un solo criterio
+          para recorrer la app. Solo salen las zonas que algún test usa de verdad. */}
+      {zonas.length>0 && (
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:10}}>
+          <button className={`chip-sel ${!zona?'on':''}`} onClick={()=>setZona('')}>Todas</button>
+          {zonas.map((z:any)=>(
+            <button key={z.id} className={`chip-sel ${zona===z.id?'on':''}`}
+              onClick={()=>setZona(zona===z.id?'':z.id)}>{z.nombre}</button>
+          ))}
+        </div>
+      )}
+
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:9}}>
-        {testsLib.length===0&&<div style={{gridColumn:'1/-1',padding:30,textAlign:'center',fontSize:11,color:'var(--grl)'}}>Sin tests.</div>}
-        {testsLib.map((t:any)=>(
+        {filtrados.length===0&&<div style={{gridColumn:'1/-1',padding:30,textAlign:'center',fontSize:11,color:'var(--grl)'}}>
+          {testsLib.length===0?'Sin tests.':'Ninguno coincide.'}
+        </div>}
+        {filtrados.map((t:any)=>(
           <div key={t.id} onClick={()=>setTestDetalle(t)} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',cursor:'pointer'}}
             onMouseOver={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--g)'}
             onMouseOut={e=>(e.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
