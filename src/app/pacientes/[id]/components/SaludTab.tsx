@@ -185,7 +185,10 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function guardarPatologia() {
     if (!patConfig) return
     setGuardando(true)
-    await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
+    // La ZONA se copia de la biblioteca al asignarla. Antes no se guardaba y el mapa
+    // corporal tenía que deducirla del nombre —"Condropatía rotuliana" no contiene
+    // "rodilla"—, así que media lista caía en "sin localizar".
+    await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, zona:patConfig.zona||null, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'patologia', titulo:`Patología: ${patConfig.nombre}`, descripcion:patConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
     setPatConfig(null); setGuardando(false); cargar()
   }
@@ -224,8 +227,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   const testsNegativos = gruposTests.filter(g=>g[0].resultado==='negativo')
   const nombreTest = (t:any) => (t.tests?.nombre||'Test') + (t.lado && t.lado!=='bilateral' ? ' · '+cap(t.lado) : '')
 
-  // Molestias y patologías llevadas al cuerpo. Las patologías aún no guardan zona
-  // propia (solo la biblioteca la tiene), así que de momento se intenta deducir del nombre.
+  // Molestias y patologías llevadas al cuerpo. La patología guarda su zona desde que se
+  // asigna; el `|| p.nombre` es solo para las filas anteriores a ese cambio.
   const marcasCuerpo: MarcaCuerpo[] = [
     ...(molestias||[]).map((m:any)=>({
       id: 'mol_'+m.id, zona: m.zona, lado: m.lado,

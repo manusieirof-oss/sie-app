@@ -1,12 +1,16 @@
 'use client'
 import { Ic } from '@/lib/icons'
 
-export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, tiposPlantilla }: any) {
+export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, tiposPlantilla, modo='inicial', previo=null }: any) {
+  // En la revaloración el deporte y las plantillas se preguntan en el paso de
+  // completar, junto al resto del historial: aquí solo estarían por segunda vez.
+  const esRevaloracion = modo === 'revaloracion'
+  const anterior = previo?.valoracion || null
   return (
     <div>
       <div className="card" style={{marginBottom:8}}>
-        <div className="card-title">Anamnesis inicial · motivo de consulta</div>
-        <textarea className="input" style={{minHeight:110,fontSize:13,lineHeight:1.6}} placeholder="¿Por qué empieza en SIE? Situación actual, historial, expectativas..." value={form.anamnesis} onChange={e=>up('anamnesis',e.target.value)}/>
+        <div className="card-title">{esRevaloracion?'Anamnesis de hoy · cómo se encuentra':'Anamnesis inicial · motivo de consulta'}</div>
+        <textarea className="input" style={{minHeight:110,fontSize:13,lineHeight:1.6}} placeholder={esRevaloracion?'¿Cómo está desde la última valoración? Qué ha mejorado, qué sigue igual, qué ha aparecido...':'¿Por qué empieza en SIE? Situación actual, historial, expectativas...'} value={form.anamnesis} onChange={e=>up('anamnesis',e.target.value)}/>
         <div className="g2" style={{marginTop:8}}>
           <div className="field"><label>Trabajo / profesión</label><input className="input" value={form.trabajo} onChange={e=>up('trabajo',e.target.value)} placeholder="ej. Administrativo, enfermera..."/></div>
           <div className="field"><label>Tipo de jornada</label>
@@ -21,6 +25,16 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
       <div className="g2" style={{marginBottom:8}}>
         <div className="card">
           <div className="card-title">Objetivos del paciente</div>
+          {/* Lo que se marcó la vez anterior, para escribir los de hoy sabiendo de
+              dónde se viene. Es una copia visual: no se arrastra a la nueva ficha. */}
+          {esRevaloracion && (anterior?.objetivos||[]).length>0 && (
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:9,color:'var(--grl)',marginBottom:4}}>Se marcó entonces</div>
+              {(anterior.objetivos||[]).map((o:string,i:number)=>(
+                <div key={i} style={{fontSize:10,color:'var(--grl)',padding:'3px 8px',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:5,marginBottom:3}}>{o}</div>
+              ))}
+            </div>
+          )}
           <div className="field"><label>Objetivo 1</label><input className="input" value={form.objetivo1} onChange={e=>up('objetivo1',e.target.value)} placeholder="ej. Reducir dolor de espalda"/></div>
           <div className="field"><label>Objetivo 2</label><input className="input" value={form.objetivo2} onChange={e=>up('objetivo2',e.target.value)} placeholder="ej. Ganar fuerza"/></div>
           <div className="field"><label>Objetivo 3</label><input className="input" value={form.objetivo3} onChange={e=>up('objetivo3',e.target.value)} placeholder="ej. Perder peso"/></div>
@@ -38,9 +52,14 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
             <input type="range" min={0} max={10} value={form.estres} onChange={e=>up('estres',parseInt(e.target.value))} style={{width:'100%',accentColor:'var(--red)'}}/>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--grl)'}}><span>0 Sin estrés</span><span style={{fontWeight:500,color:'var(--red)'}}>{form.estres}</span><span>10 Máximo</span></div>
           </div>
+          {esRevaloracion && anterior && (anterior.borg!=null||anterior.estres!=null) && (
+            <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
+              En la valoración anterior: bienestar {anterior.borg}/10 · estrés {anterior.estres}/10
+            </div>
+          )}
         </div>
       </div>
-      <div className="g2">
+      {!esRevaloracion && (<div className="g2">
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="deporte"/> ¿Practica algún deporte?</span></div>
           <div style={{display:'flex',gap:8,marginBottom:form.hace_deporte?10:0}}>
@@ -84,7 +103,7 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
             </div>
           )}
         </div>
-      </div>
+      </div>)}
     </div>
   )
 }

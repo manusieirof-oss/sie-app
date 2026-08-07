@@ -2,7 +2,11 @@
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, colorTipoClase, nombreTipoClase } from '@/lib/tipos'
 
-export default function PasoResumen({ form, testsValoracion, guardando, finalizar, firmaAceptada, imagenesAceptada, firmaCanvas, tiposClaseOpts=[] }: any) {
+export default function PasoResumen({ form, testsValoracion, guardando, finalizar, firmaAceptada, imagenesAceptada, firmaCanvas, tiposClaseOpts=[], modo='inicial' }: any) {
+  // La revaloración no elige bono, ni horario, ni plan, ni vuelve a firmar: eso se
+  // decidió en la valoración inicial y sigue vigente. Enseñarlo aquí daría a entender
+  // que se está volviendo a guardar.
+  const esRevaloracion = modo === 'revaloracion'
   const hp = form.horario_pref || {}
   const FR:Record<string,string> = {manana:'Mañana',tarde:'Tarde',noche:'Noche',flexible:'Flexible'}
   const edad = form.fecha_nacimiento ? Math.floor((Date.now()-new Date(form.fecha_nacimiento).getTime())/(365.25*24*3600*1000)) : null
@@ -29,18 +33,18 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
         <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:5}}><Ic name="usuario" size={11}/> Paciente</div>
           <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{form.nombre||'(existente)'} {form.apellidos}</div>
-          <div style={{fontSize:10,color:'var(--grl)',fontWeight:300,display:'flex',alignItems:'center',gap:5}}>{form.tipo_clase_def&&<span style={{display:'inline-flex',color:colorTipoClase(tiposClaseOpts,form.tipo_clase_def)}}><Ic name={iconTipoClase(form.tipo_clase_def,tiposClaseOpts.find((x:any)=>x.valor===form.tipo_clase_def)?.icono)} size={12}/></span>}{form.tipo_clase_def?nombreTipoClase(tiposClaseOpts,form.tipo_clase_def):'—'} · Bono {form.bono?.replace('_',' ')}</div>
+          <div style={{fontSize:10,color:'var(--grl)',fontWeight:300,display:'flex',alignItems:'center',gap:5}}>{form.tipo_clase_def&&<span style={{display:'inline-flex',color:colorTipoClase(tiposClaseOpts,form.tipo_clase_def)}}><Ic name={iconTipoClase(form.tipo_clase_def,tiposClaseOpts.find((x:any)=>x.valor===form.tipo_clase_def)?.icono)} size={12}/></span>}{form.tipo_clase_def?nombreTipoClase(tiposClaseOpts,form.tipo_clase_def):'—'}{!esRevaloracion&&` · Bono ${form.bono?.replace('_',' ')}`}</div>
           {(form.telefono||form.email)&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>{form.telefono}{form.telefono&&form.email&&' · '}{form.email}</div>}
           {(edad!=null||form.altura_cm||form.peso_kg)&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{edad!=null&&`${edad} años`}{edad!=null&&(form.altura_cm||form.peso_kg)&&' · '}{form.altura_cm&&`${form.altura_cm} cm`}{form.altura_cm&&form.peso_kg&&' · '}{form.peso_kg&&`${form.peso_kg} kg`}</div>}
           {form.dni&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>DNI: {form.dni}</div>}
           {form.como_nos_conocio&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Nos conoció por: {form.como_nos_conocio}</div>}
         </div>
 
-        <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
+        {!esRevaloracion&&<div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:5}}><Ic name="calendario" size={11}/> Horario preferido</div>
           <div style={{fontSize:10,color:'var(--n)',fontWeight:300}}>{resumenHorario()}</div>
           {hp.notas_horario&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3,display:'flex',alignItems:'center',gap:4}}><Ic name="nota" size={10}/> {hp.notas_horario}</div>}
-        </div>
+        </div>}
 
         <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:5}}><Ic name="objetivo" size={11}/> Objetivos</div>
@@ -119,20 +123,33 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
           </div>
         </div>
 
-        <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
+        {!esRevaloracion&&<div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:7,padding:'10px 12px',marginBottom:7}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:.5,textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:5}}><Ic name="editar" size={11}/> Consentimientos</div>
           <div style={{display:'flex',flexDirection:'column',gap:3,fontSize:10}}>
             <div style={{color:firmaAceptada?'var(--gd)':'var(--grl)'}}>{firmaAceptada?'✓':'○'} Datos personales</div>
             <div style={{color:imagenesAceptada?'var(--gd)':'var(--grl)'}}>{imagenesAceptada?'✓':'○'} Uso de imágenes (seguimiento)</div>
             <div style={{color:'var(--grl)'}}>Firma: {firmaCanvas?'✓ registrada':'pendiente'}</div>
           </div>
-        </div>
+        </div>}
+
+        {/* Los tests que se trajeron por estar abiertos y no se han pasado no se
+            registran. Se dice aquí, antes de guardar, no después. */}
+        {esRevaloracion&&(()=>{
+          const sinPasar = testsValoracion.filter((tv:any)=>tv.previo && !Object.keys(tv.lados||{}).some((k:string)=>tv.lados[k]?.resultado&&tv.lados[k].resultado!=='sin_realizar'))
+          if (!sinPasar.length) return null
+          return (
+            <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:7,padding:'10px 12px',marginBottom:7,fontSize:10,color:'#8A6410'}}>
+              <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:4}}><Ic name="alerta" size={11}/> {sinPasar.length} test{sinPasar.length>1?'s':''} sin pasar</div>
+              <div style={{fontWeight:300,lineHeight:1.5}}>{sinPasar.map((t:any)=>t.nombre).join(', ')}. Seguirán abiertos: no se guarda nada de ellos.</div>
+            </div>
+          )
+        })()}
 
         <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:7,padding:'10px 12px',marginBottom:12,fontSize:10,color:'var(--gd)'}}>
           ✓ Todos los datos quedarán guardados en la ficha del paciente.
         </div>
         <button className="btn btn-p" style={{width:'100%',justifyContent:'center',padding:'11px',fontSize:13}} onClick={finalizar} disabled={guardando}>
-          {guardando?'Guardando...':'✓ Guardar valoración completa'}
+          {guardando?'Guardando...':esRevaloracion?'✓ Guardar revaloración':'✓ Guardar valoración completa'}
         </button>
       </div>
     </div>

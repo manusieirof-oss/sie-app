@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { ESPACIOS, FASES, CUALITATIVOS, MOVIMIENTOS_NUEVOS } from '@/lib/semillaObjetivos'
+import { ESPACIOS, FASES, CUALITATIVOS, MOVIMIENTOS_NUEVOS, PATOLOGIAS_NUEVAS } from '@/lib/semillaObjetivos'
 
 /**
  * Alta del catálogo de objetivos.
@@ -77,6 +77,21 @@ export default function SembrarObjetivosPage() {
       etsCreadas++
     }
     anota(`Etiquetas de movimiento creadas: ${etsCreadas}.`, 'ok')
+
+    // Patologías que faltan. Mismo trato que los movimientos: si no existen, los objetivos
+    // y los tests que las nombran se crean sin ellas y el aviso se pierde entre líneas.
+    let patsCreadas = 0
+    for (const p of PATOLOGIAS_NUEVAS) {
+      if (idEt[norm(p.nombre)]) continue
+      const padre = p.padre ? idEt[norm(p.padre)] : null
+      if (p.padre && !padre) { anota(`No existe "${p.padre}", así que "${p.nombre}" se queda sin crear.`, 'aviso'); continue }
+      const { data, error } = await supabase.from('etiquetas')
+        .insert({ nombre: p.nombre, categoria: 'patologia', padre_id: padre }).select('id').single()
+      if (error || !data) { anota(`Etiqueta "${p.nombre}" — error: ${error?.message}`, 'error'); continue }
+      idEt[norm(p.nombre)] = data.id
+      patsCreadas++
+    }
+    anota(`Patologías creadas: ${patsCreadas}.`, 'ok')
 
     // ── 2. Objetivos ────────────────────────────────────────────────────────
     const { data: objs } = await supabase.from('objetivos').select('id,nombre')

@@ -60,6 +60,11 @@ export const UNIDADES = [
   { id: 'segundos', nombre: 'Segundos', simbolo: ' s' },
   { id: 'repeticiones', nombre: 'Repeticiones', simbolo: ' reps' },
   { id: 'kg', nombre: 'Kilos', simbolo: ' kg' },
+  // Las escalas clínicas puntúan, no miden: Ashworth va de 0 a 4, Berg de 0 a 56. Sin esto
+  // habría que anotarlas en "repeticiones", que es escribir un dato falso en un campo que
+  // luego se pinta como "3 reps" en el historial.
+  { id: 'puntos', nombre: 'Puntos', simbolo: ' pts' },
+  { id: 'metros', nombre: 'Metros', simbolo: ' m' },
 ] as const
 
 /** La unidad de un ítem. Lo guardado con el booleano antiguo se lee como grados. */
@@ -198,6 +203,57 @@ export async function registrarResultadoTest(
   const { cerradas } = await revisarMetas(pacienteId)
 
   return { ok: true, resultado, logrados, metasCerradas: cerradas.length }
+}
+
+/**
+ * Los tests que el paciente tiene abiertos: los que dieron POSITIVO la última vez.
+ *
+ * Un positivo no se cierra solo. Deja vías de objetivo abiertas y etiquetas de
+ * ejercicio desaconsejadas, y ahí se queda hasta que otro test lo levante. Por eso
+ * es exactamente lo que hay que volver a pasar en una revaloración.
+ *
+ * Se mira POR TEST Y POR LADO: una rodilla derecha positiva y la izquierda limpia
+ * son dos historias distintas, y quedarse con "el último resultado del test" haría
+ * desaparecer una de las dos según cuál se registrara después.
+ *
+ * Lo derivado no se guarda: esto se calcula al abrir la revaloración, no hay una
+ * columna `tiene_test_pendiente` que mantener en su sitio.
+ */
+export type UltimoResultado = {
+  test_id: string
+  lado: string
+  fecha: string
+  resultado: ResultadoTest
+  observaciones: string | null
+  items_resultado: ItemTest[]
+}
+
+export async function ultimosResultadosDe(pacienteId: string): Promise<UltimoResultado[]> {
+  if (!pacienteId) return []
+  const { data } = await supabase.from('resultados_tests')
+    .select('test_id,lado,fecha,resultado,observaciones,items_resultado,created_at')
+    .eq('paciente_id', pacienteId)
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+  const visto = new Set<string>()
+  const ultimos: UltimoResultado[] = []
+  for (const r of (data || [])) {
+    const lado = r.lado || 'bilateral'
+    const clave = r.test_id + '|' + lado
+    // Viene ordenado de más nuevo a más viejo: el primero de cada clave es el vigente.
+    if (visto.has(clave)) continue
+    visto.add(clave)
+    ultimos.push({
+      test_id: r.test_id, lado, fecha: r.fecha, resultado: r.resultado,
+      observaciones: r.observaciones, items_resultado: Array.isArray(r.items_resultado) ? r.items_resultado : [],
+    })
+  }
+  return ultimos
+}
+
+/** Los que siguen positivos. Es lo que precarga la revaloración. */
+export async function testsPositivosDe(pacienteId: string): Promise<UltimoResultado[]> {
+  return (await ultimosResultadosDe(pacienteId)).filter(r => r.resultado === 'positivo')
 }
 
 /** Objetivos vinculados al test entero (`objetivos.test_id`). */

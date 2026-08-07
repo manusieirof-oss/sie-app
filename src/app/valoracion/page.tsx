@@ -2,20 +2,55 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
-import { registrarResultadoTest } from '@/lib/tests'
+import { registrarResultadoTest, testsPositivosDe } from '@/lib/tests'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import PasoPaciente from './components/PasoPaciente'
+import PasoPacienteRevaloracion from './components/PasoPacienteRevaloracion'
 import PasoAnamnesis from './components/PasoAnamnesis'
 import PasoHistorial from './components/PasoHistorial'
+import PasoCompletar from './components/PasoCompletar'
 import PasoTests from './components/PasoTests'
 import PasoPlan from './components/PasoPlan'
 import PasoResumen from './components/PasoResumen'
 
-const STEPS = ['Paciente','Anamnesis','Historial','Tests','Plan','Resumen']
+/**
+ * Valoración y revaloración.
+ *
+ * Son el mismo acto —anamnesis, tests, y lo que salga de ahí mueve objetivos—
+ * hecho en dos momentos distintos, así que comparten pasos y comparten el
+ * `finalizar` que los guarda. Lo único que cambia es de dónde se parte:
+ *
+ *  - INICIAL: el paciente puede no existir todavía. Hay que crearlo, firmar los
+ *    consentimientos, elegir bono y plan. Se pregunta todo porque no se sabe nada.
+ *  - REVALORACIÓN: el paciente ya está, con su historial y sus tests abiertos. Ni
+ *    se vuelve a firmar ni se abre otro bono; se pregunta qué ha cambiado.
+ *
+ * Partirlo en dos páginas habría duplicado el guardado, que es la parte que de
+ * verdad importa: la que registra los tests y mueve los objetivos.
+ */
+
+type Modo = 'inicial' | 'revaloracion'
+
+const STEPS_POR_MODO: Record<Modo, string[]> = {
+  inicial: ['Paciente', 'Anamnesis', 'Historial', 'Tests', 'Plan', 'Resumen'],
+  revaloracion: ['Paciente', 'Anamnesis', 'Completar', 'Tests', 'Resumen'],
+}
+
+const FORM_VACIO = {
+  paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
+  anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
+  hace_deporte:false as boolean,deportes:[] as string[],
+  plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
+  medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
+  patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
+  tipo_clase_def:'entrenamiento',bono:'reducido',dias_asistencia:'',franja:'manana',notas_plan:'',
+  horario_pref:{modo:'general',franja_general:'manana',franjas_dia:{} as Record<string,string>,alterno:'manana_tarde',hora_exacta:'',notas_horario:''},
+}
 
 export default function ValoracionPage() {
+  const [modo, setModo] = useState<Modo>('inicial')
   const [step, setStep] = useState(1)
   const [pacientes, setPacientes] = useState<any[]>([])
   const [guardando, setGuardando] = useState(false)
@@ -41,21 +76,19 @@ export default function ValoracionPage() {
   const [imagenesAceptada, setImagenesAceptada] = useState(false)
   const [clinicaAceptada, setClinicaAceptada] = useState(false)
   const [firmaCanvas, setFirmaCanvas] = useState<string>('')
-  const [form, setForm] = useState({
-    paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
-    anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
-    hace_deporte:false as boolean,deportes:[] as string[],
-    plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
-    medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
-    patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
-    tipo_clase_def:'entrenamiento',bono:'reducido',dias_asistencia:'',franja:'manana',notas_plan:'',
-    horario_pref:{modo:'general',franja_general:'manana',franjas_dia:{} as Record<string,string>,alterno:'manana_tarde',hora_exacta:'',notas_horario:''},
-  })
+  // Lo que el paciente ya trae a la revaloración. Se lee al elegirlo y solo se
+  // usa para enseñarlo: nada de esto se vuelve a guardar.
+  const [previo, setPrevio] = useState<any>(null)
+  const [cargandoPrevio, setCargandoPrevio] = useState(false)
+  const [form, setForm] = useState({...FORM_VACIO})
 
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
 
+  const STEPS = STEPS_POR_MODO[modo]
+  const esRevaloracion = modo === 'revaloracion'
+
   useEffect(() => {
-    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,fecha_nacimiento,altura_cm,peso_kg,usa_plantillas,plantilla_izq,plantilla_der,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
@@ -78,16 +111,108 @@ export default function ValoracionPage() {
     })
   }, [])
 
+  /**
+   * Cambiar de pestaña vacía lo escrito. Es a propósito: media valoración inicial
+   * arrastrada a una revaloración es peor que volver a empezar, porque no se ve.
+   */
+  function cambiarModo(m: Modo) {
+    if (m === modo) return
+    const algoEscrito = form.paciente_id || form.nombre || form.anamnesis || testsValoracion.length > 0
+    if (algoEscrito && !confirm('Se perderá lo que llevas escrito en esta pestaña. ¿Cambiar?')) return
+    setModo(m); setStep(1); setForm({...FORM_VACIO}); setTestsValoracion([]); setTestActivo(null)
+    setPrevio(null); setFirmaCanvas(''); setFirmaAceptada(false); setImagenesAceptada(false); setClinicaAceptada(false)
+  }
+
+  function limpiarPaciente() {
+    up('paciente_id',''); up('desde_pendiente',false)
+    setPrevio(null); setTestsValoracion([]); setTestActivo(null)
+  }
+
+  /**
+   * Elegir paciente en la revaloración: se trae su historial y sus tests abiertos.
+   *
+   * Los positivos se cargan EN BLANCO, con la nota de cuándo dieron positivo. Copiar
+   * el resultado anterior como si fuera el de hoy sería inventarse una exploración.
+   */
+  async function elegirParaRevaloracion(p: any) {
+    setForm(f=>({...f, paciente_id:p.id, desde_pendiente:false,
+      nombre:p.nombre||'', apellidos:p.apellidos||'', nombre_clinica:p.nombre_clinica||'',
+      telefono:p.telefono||'', email:p.email||'', dni:p.dni||'', fecha_nacimiento:p.fecha_nacimiento||'',
+      altura_cm:p.altura_cm?String(p.altura_cm):'', peso_kg:p.peso_kg?String(p.peso_kg):'',
+      plantillas:!!p.usa_plantillas, plantilla_izq:p.plantilla_izq||'', plantilla_der:p.plantilla_der||'',
+    }))
+    setCargandoPrevio(true)
+    setTestsValoracion([]); setTestActivo(null)
+    try {
+      const [vals, pats, mols, meds, deps, positivos] = await Promise.all([
+        supabase.from('valoraciones').select('*').eq('paciente_id',p.id).order('fecha',{ascending:false}).limit(1),
+        supabase.from('patologias').select('nombre,lado,estado').eq('paciente_id',p.id),
+        supabase.from('molestias').select('zona,eva,lado,activa').eq('paciente_id',p.id).eq('activa',true),
+        supabase.from('medicamentos').select('nombre,frecuencia').eq('paciente_id',p.id),
+        supabase.from('deportes_paciente').select('nombre').eq('paciente_id',p.id),
+        testsPositivosDe(p.id),
+      ])
+      const val = vals.data?.[0] || null
+      // Alergias, intolerancias y operaciones no tienen tabla propia: viven en el
+      // JSON de la valoración. Se leen de la última que haya.
+      let extra: any = {}
+      try { extra = val?.estado_general ? JSON.parse(val.estado_general) : {} } catch { extra = {} }
+
+      // Sin la biblioteca de tests no hay nombres que enseñar. Al elegir paciente
+      // nada más entrar puede no haber llegado todavía, así que se pide.
+      let lib = testsLib
+      if (!lib.length) { const { data } = await supabase.from('tests').select('*'); lib = data || []; setTestsLib(lib) }
+
+      const conNombre = positivos.map(r => {
+        const t = lib.find((x:any)=>x.id===r.test_id)
+        return { ...r, nombre: t?.nombre || 'Test', test: t }
+      })
+      setPrevio({
+        valoracion: val,
+        positivos: conNombre,
+        patologias: (pats.data||[]).map((x:any)=>x.nombre + (x.lado&&x.lado!=='no_aplica'?` · ${x.lado}`:'') + (x.estado?` · ${x.estado}`:'')),
+        molestias: (mols.data||[]).map((x:any)=>`${x.zona} · EVA ${x.eva}`),
+        medicacion: (meds.data||[]).map((x:any)=>x.nombre + (x.frecuencia?` · ${x.frecuencia}`:'')),
+        deportes: (deps.data||[]).map((x:any)=>x.nombre),
+        alergias: Array.isArray(extra.alergias)?extra.alergias:[],
+        intolerancias: Array.isArray(extra.intolerancias)?extra.intolerancias:[],
+        operaciones: Array.isArray(extra.operaciones)?extra.operaciones.map((o:any)=>o.nombre+(o.anio?` · ${o.anio}`:'')):[],
+      })
+
+      setTestsValoracion(conNombre.map((r:any) => {
+        const t = r.test
+        const rev = new Date(); rev.setMonth(rev.getMonth() + (t?.frecuencia_meses || 3))
+        return {
+          test_id: r.test_id, nombre: r.nombre, logica: t?.logica,
+          ladoActivo: r.lado, frecuencia_meses: t?.frecuencia_meses || 3,
+          previo: { fecha: r.fecha, lado: r.lado },
+          lados: { [r.lado]: {
+            items_resultado: (t?.items||[]).map((it:any)=>({...it,marcado:false,valor:''})),
+            resultado: 'sin_realizar', observaciones: '',
+            fecha_repeticion: rev.toISOString().split('T')[0],
+          } },
+        }
+      }))
+    } catch (e) {
+      alert('No se pudo cargar el historial del paciente: ' + String(e))
+    }
+    setCargandoPrevio(false)
+  }
+
   async function finalizar() {
     setGuardando(true)
     try {
-      const esRevaloracion = !!form.paciente_id && !form.desde_pendiente
+      if (esRevaloracion && !form.paciente_id) { alert('Elige el paciente que se revalora'); setGuardando(false); return }
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
         const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
+      } else if (esRevaloracion) {
+        // De la ficha solo se tocan las plantillas, que es lo único que el paso de
+        // completar deja cambiar. Lo demás se edita en su ficha.
+        await supabase.from('pacientes').update({ usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null }).eq('id',pacienteId)
       } else {
         const upd: any = { pendiente_valoracion:false }
         if (form.desde_pendiente) Object.assign(upd, { nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null })
@@ -95,7 +220,9 @@ export default function ValoracionPage() {
       }
       const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
       await Promise.all([
-        supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true }),
+        // El bono es cosa de la valoración inicial. Una revaloración abría uno nuevo
+        // en paralelo al que el paciente ya estaba pagando.
+        ...(esRevaloracion ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true })]),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         ...form.molestias.filter((m:any)=>m.zona).map((m:any)=>supabase.from('molestias').insert({ paciente_id:pacienteId, zona:m.zona, tipo:m.tipo, eva:m.eva, lado:m.lado||null, sensacion:m.cuando||null, observaciones:m.observaciones, activa:true })),
         ...form.patologias.map((p:any)=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p.nombre, lado:p.lado||null, estado:p.estado, descripcion:p.observaciones||'', informe_url:p.tiene_informe?'pendiente':null })),
@@ -104,22 +231,26 @@ export default function ValoracionPage() {
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
       // Antes la firma y las casillas se quedaban en memoria y se perdían al terminar.
-      const aceptados: TipoConsentimiento[] = [
-        ...(firmaAceptada ? ['datos' as const] : []),
-        ...(imagenesAceptada ? ['imagenes' as const] : []),
-        ...(clinicaAceptada ? ['clinica' as const] : []),
-      ]
-      // Un consentimiento aceptado sin firma no vale como prueba: mejor avisar
-      // que guardarlo en silencio, que es lo que pasaba antes.
-      if (aceptados.length > 0 && !firmaCanvas) {
-        const seguir = confirm('Has marcado consentimientos pero no hay firma dibujada.\n\nSin firma, el consentimiento no queda acreditado. ¿Guardar de todos modos?')
-        if (!seguir) { setGuardando(false); return }
+      // En la revaloración no hay nada que firmar: los consentimientos se dieron una vez
+      // y siguen vigentes; volver a pedirlos crearía un segundo registro del mismo acto.
+      if (!esRevaloracion) {
+        const aceptados: TipoConsentimiento[] = [
+          ...(firmaAceptada ? ['datos' as const] : []),
+          ...(imagenesAceptada ? ['imagenes' as const] : []),
+          ...(clinicaAceptada ? ['clinica' as const] : []),
+        ]
+        // Un consentimiento aceptado sin firma no vale como prueba: mejor avisar
+        // que guardarlo en silencio, que es lo que pasaba antes.
+        if (aceptados.length > 0 && !firmaCanvas) {
+          const seguir = confirm('Has marcado consentimientos pero no hay firma dibujada.\n\nSin firma, el consentimiento no queda acreditado. ¿Guardar de todos modos?')
+          if (!seguir) { setGuardando(false); return }
+        }
+        const rCons = await guardarConsentimientos(pacienteId, {
+          aceptados, firmaDataUrl: firmaCanvas || null,
+          nombre: `${form.nombre} ${form.apellidos}`.trim(), dni: form.dni || undefined,
+        })
+        if (!rCons.ok) alert('Aviso: no se pudieron registrar los consentimientos (' + rCons.error + '). El resto de la valoración sí se ha guardado.')
       }
-      const rCons = await guardarConsentimientos(pacienteId, {
-        aceptados, firmaDataUrl: firmaCanvas || null,
-        nombre: `${form.nombre} ${form.apellidos}`.trim(), dni: form.dni || undefined,
-      })
-      if (!rCons.ok) alert('Aviso: no se pudieron registrar los consentimientos (' + rCons.error + '). El resto de la valoración sí se ha guardado.')
 
       // Antes esto solo insertaba la fila: un test positivo en la valoración inicial no
       // abría sus objetivos ni dejaba evento, y como la fila sí se guardaba nadie se
@@ -127,7 +258,9 @@ export default function ValoracionPage() {
       for (const t of testsValoracion) {
         const lados = t.lados || {}
         const ladosConDato = Object.keys(lados).filter(k => lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
-        const aGuardar = ladosConDato.length ? ladosConDato : Object.keys(lados)
+        // Un test que se trajo por estar abierto y no se ha llegado a pasar no se
+        // registra: 'sin_realizar' no dice nada y ensucia el historial.
+        const aGuardar = ladosConDato.length ? ladosConDato : (t.previo ? [] : Object.keys(lados))
         for (const ladoKey of aGuardar) {
           const d = lados[ladoKey]
           if (!d) continue
@@ -148,17 +281,36 @@ export default function ValoracionPage() {
   }
 
   const pct = Math.round((step/STEPS.length)*100)
+  const paso = STEPS[step-1]
+  // En la revaloración no se avanza sin paciente: los pasos siguientes se apoyan
+  // en su historial, y el aviso va aquí y no al guardar.
+  const bloqueado = esRevaloracion && step === 1 && !form.paciente_id
 
   if (exito) return (
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'60vh',gap:12}}>
       <div style={{color:'var(--g)'}}><Ic name="ok" size={48} strokeWidth={1.5}/></div>
-      <div style={{fontSize:16,fontWeight:400,color:'var(--n)'}}>Valoración guardada correctamente</div>
+      <div style={{fontSize:16,fontWeight:400,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada correctamente':'Valoración guardada correctamente'}</div>
       <div style={{fontSize:11,color:'var(--grl)'}}>Redirigiendo a la ficha del paciente...</div>
     </div>
   )
 
   return (
     <>
+      {/* PESTAÑAS · valoración inicial o revaloración */}
+      <div style={{display:'flex',gap:3,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,marginBottom:10,width:'fit-content'}}>
+        {([['inicial','Valoración','valoracion'],['revaloracion','Revaloración','recuperar']] as const).map(([m,label,icono])=>(
+          <button key={m} onClick={()=>cambiarModo(m)}
+            style={{fontSize:11,padding:'7px 16px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,background:modo===m?'var(--w)':'transparent',color:modo===m?'var(--n)':'var(--grl)',fontWeight:modo===m?500:300,boxShadow:modo===m?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
+            <Ic name={icono} size={13}/> {label}
+          </button>
+        ))}
+      </div>
+      <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,marginTop:-4}}>
+        {esRevaloracion
+          ? 'Paciente que ya tiene valoración: se anota cómo está ahora y se repasan los tests que siguen abiertos. Ni firma ni bono nuevo.'
+          : 'Primera valoración: se crea el paciente si no existe, se firman los consentimientos y se elige bono y plan.'}
+      </div>
+
       {/* BARRA PROGRESO */}
       <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'12px 16px',marginBottom:12}}>
         <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:8}}>
@@ -184,17 +336,22 @@ export default function ValoracionPage() {
         </div>
       </div>
 
-      {step===1&&<PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>}
-      {step===2&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla}/>}
-      {step===3&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
-      {step===4&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
-      {step===5&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
-      {step===6&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts}/>}
+      {paso==='Paciente'&&(esRevaloracion
+        ? <PasoPacienteRevaloracion form={form} pacientes={pacientes} previo={previo} cargando={cargandoPrevio} onElegir={elegirParaRevaloracion} onLimpiar={limpiarPaciente}/>
+        : <PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>)}
+      {paso==='Anamnesis'&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} modo={modo} previo={previo}/>}
+      {paso==='Historial'&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
+      {paso==='Completar'&&<PasoCompletar form={form} up={up} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
+      {paso==='Tests'&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
+      {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
+      {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo}/>}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'1px solid var(--bd)'}}>
         <button className="btn btn-s" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?'hidden':'visible'}}>← Atrás</button>
         <span style={{fontSize:10,color:'var(--grl)'}}>Paso {step} de {STEPS.length} · {STEPS[step-1]}</span>
-        {step<STEPS.length?<button className="btn btn-p" onClick={()=>setStep(s=>Math.min(STEPS.length,s+1))}>Continuar →</button>:<div/>}
+        {step<STEPS.length
+          ? <button className="btn btn-p" onClick={()=>setStep(s=>Math.min(STEPS.length,s+1))} disabled={bloqueado} title={bloqueado?'Elige antes el paciente':undefined}>Continuar →</button>
+          : <div/>}
       </div>
     </>
   )

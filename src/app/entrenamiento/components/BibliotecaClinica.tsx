@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { CATEGORIAS_ETIQUETA } from '@/lib/etiquetas'
-import { ordenAnatomico } from '@/lib/anatomia'
+import { ordenAnatomico, zonaEstaMapeada, ZONAS_DISPONIBLES } from '@/lib/anatomia'
 
 /**
  * Las seis listas del Pilar Clínico, en un solo componente.
@@ -60,6 +60,13 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
   const grupos = Array.from(new Set(filtrados.map((i: any) => i[g] || 'Otros')))
     .sort((a: any, b: any) => g === 'zona' ? ordenAnatomico(a, b) : String(a).localeCompare(String(b)))
 
+  /** Zonas usadas que la silueta no sabe dónde pintar. Ver lib/anatomia.ts. */
+  const sinMapear = g === 'zona'
+    ? Array.from(new Set((items || []).map((i: any) => i[g]).filter(Boolean)))
+        .filter((z: any) => !zonaEstaMapeada(z))
+        .sort((a: any, b: any) => String(a).localeCompare(String(b)))
+    : []
+
   function abrirNuevo() {
     setEditando({ nombre: '', [g]: '', descripcion: '', etiquetas: [] })
   }
@@ -96,6 +103,23 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
         <button className="btn btn-p btn-sm" onClick={abrirNuevo}>+ Añadir</button>
       </div>
 
+      {/* LAS ZONAS QUE EL MAPA NO SABE COLOCAR.
+          En la ficha del paciente, lo que no encuentra coordenada cae en "Sin localizar"
+          y ahí no se puede hacer nada. El sitio para arreglarlo es este, que es donde se
+          escriben las zonas: se avisa aquí y se corrige aquí. */}
+      {g === 'zona' && sinMapear.length > 0 && (
+        <div className="fila-p" style={{ borderLeftColor: 'var(--amb)', marginBottom: 10 }}>
+          <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.6 }}>
+            <b>{sinMapear.length} zona{sinMapear.length > 1 ? 's' : ''} que el mapa corporal no sabe colocar:</b>{' '}
+            {sinMapear.join(', ')}.
+            <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
+              Lo que use esa zona saldrá en "Sin localizar" al ver el cuerpo del paciente.
+              Renómbrala a una de las que el mapa conoce o dímelo para añadirla.
+            </div>
+          </div>
+        </div>
+      )}
+
       {grupos.length === 0 && <div className="muted">Sin elementos.</div>}
 
       {grupos.map((grupo: any) => {
@@ -103,7 +127,14 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
         return (
           <div key={grupo} className="sec">
             <div className="sec-h">
-              <span className="sh-l"><span className="ct-l"><Ic name="ubicacion" size={13} /> {grupo}</span></span>
+              <span className="sh-l">
+                <span className="ct-l"><Ic name="ubicacion" size={13} /> {grupo}</span>
+                {g === 'zona' && !zonaEstaMapeada(grupo) && (
+                  <span className="pill pill-soft" title="El mapa corporal no sabe dónde pintar esta zona">
+                    sin sitio en el mapa
+                  </span>
+                )}
+              </span>
               <span className="sh-r">{its.length}</span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -190,10 +221,19 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
               <input className="input" list={`grupos-${config.tabla}`} value={editando[g] || ''} disabled={guardando}
                 onChange={e => setEditando((p: any) => ({ ...p, [g]: e.target.value }))}
                 placeholder="Otros" />
+              {/* Se ofrecen también las zonas que el mapa conoce, aunque todavía no las
+                  use nadie: es lo que evita escribir una que luego no se pueda pintar. */}
               <datalist id={`grupos-${config.tabla}`}>
-                {Array.from(new Set((items || []).map((i: any) => i[g]).filter(Boolean)))
-                  .map((v: any) => <option key={v} value={v} />)}
+                {Array.from(new Set([
+                  ...(items || []).map((i: any) => i[g]).filter(Boolean),
+                  ...(g === 'zona' ? ZONAS_DISPONIBLES : []),
+                ])).map((v: any) => <option key={v} value={v} />)}
               </datalist>
+              {g === 'zona' && editando[g] && !zonaEstaMapeada(editando[g]) && (
+                <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
+                  El mapa corporal no conoce esta zona: lo que la use saldrá en "Sin localizar".
+                </div>
+              )}
             </div>
 
             <div className="field"><label>Descripción</label>

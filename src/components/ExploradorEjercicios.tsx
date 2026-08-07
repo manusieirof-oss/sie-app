@@ -11,8 +11,8 @@ import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorR
 //   Biblioteca  -> `onAbrir`, para ver y editar el ejercicio.
 //   Sesión      -> `seleccion` + `onAlternar`, para marcar varios y añadirlos de golpe.
 //
-// Pendiente: migrar BibliotecaTab a este componente cuando se toque ese pilar. Hoy
-// mantiene su propia copia de la rejilla.
+// Lo usan los dos: la Biblioteca y el editor de sesión. Antes eran dos copias de la
+// misma rejilla y ya habían empezado a divergir en qué campos buscaban.
 
 const MEDIDA: Record<string, string> = {
   peso_reps: 'Peso y reps',

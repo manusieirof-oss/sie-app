@@ -140,8 +140,18 @@ export function estadoDeMeta(meta: Meta, resultados: any[]): Estado {
     if (objetivo == null) return vacio('Pendiente de la primera medición')
     if (actual == null) return { actual: null, referencia: objetivo, cumplida: !!meta.cumplida, texto: `Objetivo ${redondea(objetivo)}${u}, sin medir todavía`, progreso: null }
     const desde = base ?? 0
+    // MEJORAR NO SIEMPRE ES SUBIR. Esto comparaba siempre `actual >= objetivo`, y con eso
+    // media biblioteca de mediciones no tenía meta posible: el Timed up and go, los 10
+    // metros, el Ashworth y cualquier escala de dolor mejoran BAJANDO. Una meta de "bajar
+    // el TUG de 22 a 14 segundos" se quedaba abierta para siempre por muy bien que fuera,
+    // y la barra de progreso marcaba cero.
+    //
+    // El sentido no hace falta preguntarlo ni guardarlo: sale de comparar el objetivo con
+    // el punto de partida. Si la meta está por debajo de donde empezó, se baja. Guardarlo
+    // en una columna sería una segunda verdad que podría contradecir a los dos números.
+    const baja = objetivo < desde
     const progreso = objetivo === desde ? 1 : Math.max(0, Math.min(1, (actual - desde) / (objetivo - desde)))
-    return { actual, referencia: objetivo, cumplida: actual >= objetivo, progreso,
+    return { actual, referencia: objetivo, cumplida: baja ? actual <= objetivo : actual >= objetivo, progreso,
       texto: `${redondea(actual)}${u} de ${redondea(objetivo)}${u}` }
   }
 

@@ -31,6 +31,27 @@ export const MOVIMIENTOS_NUEVOS: { nombre: string, padre: string }[] = [
   { nombre: 'Desviación cubital', padre: 'Adducción' },
 ]
 
+/**
+ * Patologías que faltan en el árbol.
+ *
+ * El árbol entero es musculoesquelético: 21 patologías y ninguna neurológica. Sin estas
+ * cinco, un paciente que ha tenido un ictus no se puede ni etiquetar, y por tanto no
+ * aparece en ningún filtro, ni le propone objetivos la ficha, ni le desaconseja nada un
+ * test. Van sueltas y no colgando de "Ictus" a propósito: la hemiparesia, la espasticidad
+ * y el riesgo de caída también vienen de un traumatismo, de una esclerosis o de la edad, y
+ * colgarlas del ictus obligaría a duplicarlas el día que entre el primer Parkinson.
+ *
+ * "Riesgo de caída" no es un diagnóstico, pero es la etiqueta que hace falta para que un
+ * test positivo pueda desaconsejar los saltos y el equilibrio sin apoyo.
+ */
+export const PATOLOGIAS_NUEVAS: { nombre: string, padre?: string }[] = [
+  { nombre: 'Ictus' },
+  { nombre: 'Hemiparesia' },
+  { nombre: 'Espasticidad' },
+  { nombre: 'Riesgo de caída' },
+  { nombre: 'Subluxación de hombro' },
+]
+
 export type EspacioSemilla = {
   /** Articulación o zona, tal cual está en el árbol de etiquetas. */
   articulacion: string
@@ -166,6 +187,35 @@ export type FaseSemilla = {
  * objetivos que hay que ir cerrando y abriendo a mano.
  */
 export const FASES: FaseSemilla[] = [
+  // Las dos del ictus van por separado —una para andar y otra para el brazo— porque
+  // avanzan a velocidades muy distintas y casi nunca a la vez. Lo normal es alguien que
+  // ya camina por la calle y sigue sin poder abrir la mano; con un solo objetivo por
+  // fases habría que elegir cuál de las dos verdades se enseña.
+  {
+    nombre: 'Recuperar la marcha tras el ictus',
+    etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída'],
+    descripcion: 'De sostenerse sentado a andar por la calle. La fase la marca lo que hace con seguridad, no el tiempo desde el ictus. No se salta una fase porque el paciente tenga prisa: la caída es el suceso que más retrasa todo lo demás.',
+    fases: [
+      'Control de tronco y sedestación',
+      'Bipedestación y transferencias',
+      'Marcha asistida',
+      'Marcha autónoma en interior',
+      'Marcha en comunidad y escaleras',
+    ],
+  },
+  {
+    nombre: 'Recuperar el miembro superior tras el ictus',
+    articulacion: 'Hombro',
+    etiquetas: ['Ictus', 'Hemiparesia', 'Subluxación de hombro'],
+    descripcion: 'Del brazo que cuelga al brazo que sirve. La primera fase no entrena: protege el hombro y mantiene el recorrido, porque una vez que duele se acaba la rehabilitación del brazo.',
+    fases: [
+      'Movilidad pasiva y cuidado del hombro',
+      'Movimiento activo asistido',
+      'Movimiento activo contra gravedad',
+      'Agarre y manipulación',
+      'Uso en tareas cotidianas',
+    ],
+  },
   {
     nombre: 'Suelo pélvico',
     etiquetas: ['Suelo pélvico'],
@@ -282,4 +332,12 @@ export const CUALITATIVOS: CualitativoSemilla[] = [
     descripcion: 'Para quien pasa el día de pie o sentado. Se valora por síntomas al final del día, no por una medida.' },
   { nombre: 'Mejorar el equilibrio', articulacion: 'Tobillo', etiquetas: ['Glúteo medio'],
     descripcion: 'Iniciación: aguantar a una pierna sin apoyar la otra. Cuando ya se sostiene, pasa a medirse con el test de equilibrio unipodal.' },
+
+  // ── Tras un ictus ─────────────────────────────────────────────────────────
+  { nombre: 'Usar el lado afecto en el día a día', etiquetas: ['Ictus', 'Hemiparesia'],
+    descripcion: 'Contra el no-uso aprendido: si el brazo afecto cuesta, se deja de usar, y el que no se usa pierde más. Se da por cumplido cuando lo mete en tareas de casa sin que se le recuerde, no cuando mejora un número.' },
+  { nombre: 'Aprender las transferencias con seguridad', etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída'],
+    descripcion: 'Pasar de tumbado a sentado, de sentado a de pie, y entrar y salir de la cama y del coche sin ayuda y sin desequilibrarse. Es lo que decide si vive solo.' },
+  { nombre: 'Cuidar el hombro del lado afecto', articulacion: 'Hombro', etiquetas: ['Ictus', 'Subluxación de hombro', 'Hombro doloroso'],
+    descripcion: 'Con el deltoides sin tono, el peso del brazo separa la cabeza humeral. Va de manejo, no de fuerza: cómo se coge el brazo, cómo se sienta, qué no se hace. El hombro doloroso post-ictus frena la rehabilitación entera.' },
 ]

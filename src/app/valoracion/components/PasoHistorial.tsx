@@ -4,7 +4,28 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 
-export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, intolBiblio, opsBiblio, patsBiblio, molsBiblio, setMedsBiblio, setAlergiasBiblio, setIntolBiblio, setOpsBiblio, setPatsBiblio, setMolsBiblio }: any) {
+/**
+ * Lo que el paciente ya tiene registrado, en gris y sin poder tocarlo.
+ *
+ * Va pegado al buscador de cada lista y no en un panel aparte: el momento en que
+ * hace falta saber que la artrosis ya está apuntada es justo antes de volver a
+ * apuntarla. En la valoración inicial no hay nada que enseñar y no se pinta.
+ */
+function Ya({ lista }: { lista?: string[] }) {
+  if (!lista || lista.length === 0) return null
+  return (
+    <div style={{marginBottom:8}}>
+      <div style={{fontSize:9,color:'var(--grl)',marginBottom:4}}>Ya en su ficha</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+        {lista.map((t:string,i:number)=>(
+          <span key={i} style={{fontSize:10,padding:'3px 8px',borderRadius:99,background:'var(--bl)',border:'1px solid var(--bd)',color:'var(--grl)'}}>{t}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, intolBiblio, opsBiblio, patsBiblio, molsBiblio, setMedsBiblio, setAlergiasBiblio, setIntolBiblio, setOpsBiblio, setPatsBiblio, setMolsBiblio, yaTiene = {} }: any) {
   const [opConfigurando, setOpConfigurando] = useState<any>(null)
   const [patConfigurando, setPatConfigurando] = useState<any>(null)
   const [molConfigurando, setMolConfigurando] = useState<any>(null)
@@ -23,6 +44,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="medicamento"/> Medicación</span></div>
           {form.medicacion.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>{form.medicacion.map((m:any,i:number)=><div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--gl)',border:'1px solid var(--gm)'}}><span style={{fontSize:10,color:'var(--n)'}}>{m.nombre}</span>{m.frecuencia&&<span style={{fontSize:9,color:'var(--grl)'}}>· {m.frecuencia}</span>}<button onClick={()=>up('medicacion',form.medicacion.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <Ya lista={yaTiene.medicacion}/>
           <BuscadorBiblioteca items={medsBiblio} placeholder="Buscar medicación..." max={8}
             subtitulo={(m:any)=>m.categoria}
             onElegir={(m:any)=>up('medicacion',[...form.medicacion,{nombre:m.nombre,frecuencia:''}])}
@@ -32,6 +54,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="alergia"/> Alergias</span></div>
           {form.alergias.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>{form.alergias.map((a:string,i:number)=><div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--redl)',border:'1px solid #F5C8C8'}}><span style={{fontSize:10,color:'var(--red)'}}>{a}</span><button onClick={()=>up('alergias',form.alergias.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <Ya lista={yaTiene.alergias}/>
           <BuscadorBiblioteca items={alergiasBiblio} placeholder="Buscar alergia..." max={8}
             onElegir={(a:any)=>{if(!form.alergias.includes(a.nombre))up('alergias',[...form.alergias,a.nombre])}}
             onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaAlerg(true)}}/>
@@ -40,6 +63,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="intolerancia"/> Intolerancias</span></div>
           {form.intolerancias.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>{form.intolerancias.map((a:string,i:number)=><div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:99,background:'var(--ambl)',border:'1px solid var(--amb)'}}><span style={{fontSize:10,color:'#7A5800'}}>{a}</span><button onClick={()=>up('intolerancias',form.intolerancias.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'#7A5800',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <Ya lista={yaTiene.intolerancias}/>
           <BuscadorBiblioteca items={intolBiblio} placeholder="Buscar intolerancia..." max={8}
             onElegir={(a:any)=>{if(!form.intolerancias.includes(a.nombre))up('intolerancias',[...form.intolerancias,a.nombre])}}
             onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaIntol(true)}}/>
@@ -50,6 +74,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="cruz"/> Operaciones</span></div>
           {form.operaciones.length>0&&<div style={{marginBottom:8}}>{form.operaciones.map((op:any,i:number)=><div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderRadius:6,background:'var(--bl)',border:'1px solid var(--bd)',marginBottom:4}}><div style={{flex:1}}><div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>{op.nombre}</div><div style={{fontSize:8,color:'var(--grl)'}}>{op.lado&&op.lado!=='no_aplica'?op.lado+' · ':''}{op.anio&&op.anio+' · '}{op.tiene_informe&&'· con informe'}</div></div><button onClick={()=>up('operaciones',form.operaciones.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <Ya lista={yaTiene.operaciones}/>
           <BuscadorBiblioteca items={opsBiblio} placeholder="Buscar operación..." max={8}
             buscarEn={(o:any)=>[o.nombre,o.zona]} subtitulo={(o:any)=>o.zona}
             onElegir={(op:any)=>setOpConfigurando({...op,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}
@@ -59,6 +84,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="patologia"/> Patologías</span></div>
           {form.patologias.length>0&&<div style={{marginBottom:8}}>{form.patologias.map((p:any,i:number)=><div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderRadius:6,background:p.estado==='activa'?'var(--redl)':p.estado==='cronica'?'var(--ambl)':'var(--gl)',border:`1px solid ${p.estado==='activa'?'#F5C8C8':p.estado==='cronica'?'var(--amb)':'var(--gm)'}`,marginBottom:4}}><div style={{flex:1}}><div style={{fontSize:10,fontWeight:400,color:'var(--n)'}}>{p.nombre}</div><div style={{fontSize:8,color:'var(--grl)'}}>{p.lado} · {p.estado}{p.tiene_informe&&' · con informe'}</div></div><button onClick={()=>up('patologias',form.patologias.filter((_:any,j:number)=>j!==i))} style={{fontSize:10,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button></div>)}</div>}
+          <Ya lista={yaTiene.patologias}/>
           <BuscadorBiblioteca items={patsBiblio} placeholder="Buscar patología..." max={8}
             buscarEn={(p:any)=>[p.nombre,p.zona,p.sistema]} subtitulo={(p:any)=>[p.zona,p.sistema].filter(Boolean).join(' · ')}
             onElegir={(p:any)=>setPatConfigurando({...p,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}
@@ -69,6 +95,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
       <div className="card">
         <div className="card-title"><span className="ct-l"><Ic name="molestia"/> Molestias</span></div>
         {form.molestias.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:8}}>{form.molestias.map((m:any,i:number)=>{const color=m.eva>=7?'var(--red)':m.eva>=4?'#7A5800':'var(--gd)';const bg=m.eva>=7?'var(--redl)':m.eva>=4?'var(--ambl)':'var(--gl)';const border=m.eva>=7?'#F5C8C8':m.eva>=4?'var(--amb)':'var(--gm)';return <div key={i} style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:99,background:bg,border:`1px solid ${border}`}}><span style={{fontSize:10,color,fontWeight:400}}>{m.zona}</span><span style={{fontSize:8,color}}>EVA {m.eva}</span>{m.lado&&m.lado!=='bilateral'&&<span style={{fontSize:8,color}}>· {m.lado}</span>}<button onClick={()=>up('molestias',form.molestias.filter((_:any,j:number)=>j!==i))} style={{fontSize:9,color,background:'none',border:'none',cursor:'pointer'}}>✕</button></div>})}</div>}
+        <Ya lista={yaTiene.molestias}/>
         <BuscadorBiblioteca items={molsBiblio} placeholder="ej. Dolor lumbar, rodilla..." max={10}
           buscarEn={(m:any)=>[m.nombre,m.zona]} subtitulo={(m:any)=>m.zona}
           onElegir={(m:any)=>setMolConfigurando({nombre:m.nombre,zona:m.zona,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}

@@ -59,6 +59,14 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
                   : <div style={{width:isActivo?54:38,height:isActivo?54:38,borderRadius:6,background:'var(--bl)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="test" size={18}/></div>}
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:500,color:'var(--n)'}}>{tv.nombre}</div>
+                  {/* De dónde sale este test cuando no lo has añadido tú. El dato de
+                      entonces se enseña, pero no se rellena: el resultado de hoy se
+                      marca hoy o no existe. */}
+                  {tv.previo && (
+                    <div style={{fontSize:9,color:'var(--red)',marginTop:2,display:'flex',alignItems:'center',gap:4}}>
+                      <Ic name="alerta" size={10}/> Positivo el {new Date(tv.previo.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}{tv.previo.lado&&tv.previo.lado!=='bilateral'?' · '+tv.previo.lado:''} · sigue abierto
+                    </div>
+                  )}
                   {isActivo && testLib?.descripcion && <div style={{fontSize:10,color:'var(--grl)',marginTop:2,lineHeight:1.4}}>{testLib.descripcion}</div>}
                   {!isActivo && (
                     <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
