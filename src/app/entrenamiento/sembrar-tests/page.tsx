@@ -168,11 +168,14 @@ export default function SembrarTestsPage() {
       const ya = idTest[norm(t.nombre)]
       let testId = ya
       if (ya) {
+        // Al ACTUALIZAR no se escribe `etiquetas_bloquea`: eso se marca a mano en la
+        // pestaña y la semilla no lo trae. Un sembrador que borre trabajo hecho a mano es
+        // una trampa; solo debe rellenar lo que él mismo aporta.
         const { error } = await supabase.from('tests').update(campos).eq('id', ya)
         if (error) { anota(`${t.nombre} — error: ${error.message}`, 'error'); continue }
         actualizados++
       } else {
-        const { data, error } = await supabase.from('tests').insert({ ...campos, video_url: '', imagen_url: '' }).select('id').single()
+        const { data, error } = await supabase.from('tests').insert({ ...campos, etiquetas_bloquea: [], video_url: '', imagen_url: '' }).select('id').single()
         if (error || !data) { anota(`${t.nombre} — error: ${error?.message}`, 'error'); continue }
         testId = data.id
         creados++
