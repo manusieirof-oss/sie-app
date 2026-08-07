@@ -193,7 +193,7 @@ function EntrenamientoContent() {
           {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,
               que es el dato con el que se decide si sobra, se fusiona o se borra. */}
           {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} ejercicios={ejercicios} testsLib={testsLib} cargar={cargar}/>}
-          {tab==='clinico'&&<ClinicoTab patologiasBiblio={patologiasBiblio} molestiasBiblio={molestiasBiblio} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} cargar={cargar}/>}
+          {tab==='clinico'&&<ClinicoTab patologiasBiblio={patologiasBiblio} molestiasBiblio={molestiasBiblio} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblioLib={opsBiblioLib} etiquetas={etiquetas} cargar={cargar}/>}
           {/* Necesita las etiquetas para la zona de cada objetivo y para los movimientos
               que ofrece cada espacio métrico. */}
           {tab==='objetivos'&&<ObjetivosTab objetivos={objetivos} testsLib={testsLib} etiquetas={etiquetas} cargar={cargar}/>}
