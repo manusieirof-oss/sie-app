@@ -6,6 +6,7 @@ import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
 import MetasObjetivo from './MetasObjetivo'
+import { cambiarFase } from '@/lib/metas'
 import { ordenAnatomico } from '@/lib/anatomia'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
@@ -169,19 +170,33 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             onCambio={cargarObjetivos}
           />
         )}
-        {/* Los de fase enseñan por dónde va. Se avanza al montar la tanda nueva, que es
-            cuando ya lo estás decidiendo, así que aquí solo se consulta. */}
-        {o.tipo==='fase' && o.fases > 0 && (
+        {/* La barra se pulsa para cambiar de fase. Antes solo se pintaba: era un
+            indicador de progreso que no se podía mover. Lo normal es decidirlo al montar
+            la tanda nueva, y desde allí se avisa, pero el gesto vive aquí. */}
+        {o.tipo==='fase' && o.fases > 0 && !o.logrado && (
           <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
             {Array.from({length:o.fases}).map((_,i)=>(
-              <span key={i} title={`Fase ${i+1}`} style={{
-                flex:1,height:5,borderRadius:3,
-                background: i < (o.fase_actual||0) ? (o.color||'var(--g)') : 'var(--bm)',
-              }}/>
+              <button key={i} disabled={guardandoVia===o.id}
+                title={`Pasar a la fase ${i+1}${i+1===o.fase_actual?' (es la actual)':''}`}
+                onClick={async()=>{
+                  setGuardandoVia(o.id)
+                  await cambiarFase(pac.id, o.id, i+1, o.nombre)
+                  setGuardandoVia(null); cargarObjetivos()
+                }}
+                style={{
+                  flex:1,height:7,borderRadius:3,border:'none',padding:0,cursor:'pointer',
+                  background: i < (o.fase_actual||0) ? (o.color||'var(--g)') : 'var(--bm)',
+                }}/>
             ))}
             <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>
               {o.fase_actual ? `Fase ${o.fase_actual} de ${o.fases}` : 'Sin empezar'}
             </span>
+            {/* La última fase no cierra el objetivo sola: "mantenimiento y prevención" no
+                se acaba nunca. Cerrarlo es una decisión, no una consecuencia. */}
+            {o.fase_actual >= o.fases && (
+              <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id}
+                onClick={()=>cerrarSinVias(o)}>Dar por logrado</button>
+            )}
           </div>
         )}
         {vias.length===0 && !o.logrado && o.tipo!=='metrico' && o.tipo!=='fase' && (

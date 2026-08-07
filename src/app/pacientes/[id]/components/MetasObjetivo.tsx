@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { unidadDe, valorDe } from '@/lib/tests'
-import { estadoDeMeta, cerrarMetaAMano, TIPOS_META, antagonistaDe, type Meta } from '@/lib/metas'
+import { estadoDeMeta, cerrarMetaAMano, revisarMetas, revisarObjetivos, TIPOS_META, antagonistaDe, type Meta } from '@/lib/metas'
 
 /**
  * Las metas medibles de un objetivo, dentro de la ficha del paciente.
@@ -126,12 +126,19 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     })
     setGuardando(false)
     if (error) { alert(error.message); return }
+    // `revisarMetas` y no `revisarObjetivos`: la meta acaba de nacer con la marca de
+    // cumplida a false, así que hay que EVALUARLA contra las mediciones. Si se crea sobre
+    // un valor que ya la cumple, tiene que cerrarse ahora y no esperar al siguiente test.
+    await revisarMetas(pacienteId)
     setModal(false); onCambio()
   }
 
   async function borrar(m: Meta) {
     if (!confirm('¿Quitar esta meta?')) return
     await supabase.from('objetivos_metas').delete().eq('id', m.id)
+    // Quitar la única meta abierta puede dejar el objetivo cumplido, o quitar la última
+    // de todas puede dejarlo sin nada que lo cierre. Las dos hay que recalcularlas.
+    await revisarObjetivos(pacienteId)
     onCambio()
   }
 
@@ -164,7 +171,11 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                   </span>
                 )}
                 <button className="et-b" title={cumplida ? 'Reabrir' : 'Dar por cumplida'} style={{ flexShrink: 0 }}
-                  onClick={async () => { await cerrarMetaAMano(m.id, !cumplida); onCambio() }}>
+                  onClick={async () => {
+                    await cerrarMetaAMano(m.id, !cumplida)
+                    await revisarObjetivos(pacienteId)
+                    onCambio()
+                  }}>
                   <Ic name={cumplida ? 'check' : 'checkbox'} size={13} />
                 </button>
                 <button className="et-b et-b-r" title="Quitar" style={{ flexShrink: 0 }} onClick={() => borrar(m)}>

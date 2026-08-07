@@ -195,9 +195,82 @@ export async function revisarMetas(pacienteId: string) {
     if (!e.cumplida) continue
     const { error } = await supabase.from('objetivos_metas')
       .update({ cumplida: true, fecha_cumplida: new Date().toISOString().split('T')[0] }).eq('id', m.id)
-    if (!error) cerradas.push(m)
+    if (!error) { m.cumplida = true; cerradas.push(m) }
   }
-  return { ok: true as const, cerradas }
+
+  const logrados = await revisarObjetivos(pacienteId, metas)
+  return { ok: true as const, cerradas, logrados }
+}
+
+/**
+ * Marca logrado el objetivo métrico al que no le queda ninguna meta abierta. Y lo reabre
+ * si alguna vuelve a abrirse.
+ *
+ * Cerrar la meta y dejar el objetivo abierto era resolver el problema a medias: se
+ * partía de que los objetivos no se podían cerrar, y sin esto seguían acumulándose en la
+ * lista de activos con todas sus metas en verde.
+ *
+ * La regla es la misma que para los de vías —todas resueltas— y por eso también reabre:
+ * `logrado` no es una decisión que se tome una vez, es el resultado de mirar sus partes.
+ */
+export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
+  const todas = metas || await metasDe(pacienteId)
+  const porObjetivo: Record<string, Meta[]> = {}
+  todas.forEach(m => { (porObjetivo[m.objetivo_id] ||= []).push(m) })
+
+  const ids = Object.keys(porObjetivo)
+  if (ids.length === 0) return []
+
+  const { data: filas } = await supabase.from('pacientes_objetivos')
+    .select('objetivo_id,logrado,objetivos(nombre)')
+    .eq('paciente_id', pacienteId).in('objetivo_id', ids)
+
+  const logrados: string[] = []
+  for (const fila of (filas || []) as any[]) {
+    const suyas = porObjetivo[fila.objetivo_id] || []
+    const debe = suyas.length > 0 && suyas.every(m => m.cumplida)
+    if (debe === !!fila.logrado) continue
+
+    await supabase.from('pacientes_objetivos').update({
+      logrado: debe,
+      fecha_logrado: debe ? new Date().toISOString().split('T')[0] : null,
+    }).eq('paciente_id', pacienteId).eq('objetivo_id', fila.objetivo_id)
+
+    const obj: any = Array.isArray(fila.objetivos) ? fila.objetivos[0] : fila.objetivos
+    const nombre = obj?.nombre || 'Objetivo'
+    await supabase.from('eventos_paciente').insert({
+      paciente_id: pacienteId, tipo: 'objetivo',
+      titulo: debe ? `Objetivo logrado: ${nombre}` : `Objetivo reabierto: ${nombre}`,
+      descripcion: debe
+        ? `Sus ${suyas.length} meta${suyas.length > 1 ? 's están cumplidas' : ' está cumplida'}`
+        : 'Una de sus metas ha vuelto a abrirse',
+      fecha: new Date().toISOString().split('T')[0],
+    })
+    if (debe) logrados.push(nombre)
+  }
+  return logrados
+}
+
+export const FASE_MAX = 8
+
+/**
+ * Sube o baja de fase un objetivo de progresión.
+ *
+ * Al llegar a la última NO se da por logrado solo: la última fase de "suelo pélvico" es
+ * "mantenimiento y prevención", que por definición no se acaba. Que el objetivo se cierre
+ * lo decide el entrenador.
+ */
+export async function cambiarFase(pacienteId: string, objetivoId: string, fase: number, nombre?: string) {
+  const n = Math.max(1, Math.min(FASE_MAX, Math.round(fase)))
+  const { error } = await supabase.from('pacientes_objetivos')
+    .update({ fase_actual: n }).eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
+  if (error) return { ok: false as const, error: error.message }
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: pacienteId, tipo: 'objetivo',
+    titulo: `${nombre || 'Objetivo'}: pasa a la fase ${n}`,
+    fecha: new Date().toISOString().split('T')[0],
+  })
+  return { ok: true as const }
 }
 
 /** Cierra o reabre una meta a mano. Queda marcado para poder distinguirlas después. */

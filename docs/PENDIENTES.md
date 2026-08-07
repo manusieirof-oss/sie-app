@@ -133,11 +133,26 @@ de antagonista se sugiere el ítem contrario buscando por el nombre del movimien
 La barra de progreso solo aparece si hay con qué calcularla: una barra a cero cuando aún no
 se ha medido nada diría algo falso.
 
+### Cierre del objetivo y fases ✅ HECHO
+**El objetivo métrico se cierra cuando no le queda ninguna meta abierta**, y se reabre si
+alguna vuelve a abrirse. Antes solo se cerraba la meta y el objetivo se quedaba en activos
+para siempre: era el problema de partida resuelto a medias. Se recalcula al registrar un
+test y también al crear, borrar o cerrar a mano una meta —crear una meta sobre una medición
+que ya la cumple tiene que cerrarla en el momento, no esperar al siguiente test.
+
+**La barra de fases se pulsa para cambiar de fase.** Antes era un indicador que no se podía
+mover. La última fase **no cierra el objetivo sola**: "mantenimiento y prevención" no se
+acaba nunca, así que cerrarlo es una decisión y no una consecuencia. Al montar la tanda
+nueva, el recibo recuerda qué objetivos por fases pueden avanzar.
+
 ### Lo que falta — PENDIENTE
-1. **Avance de fase al crear la tanda nueva**, enganchado a `evolucionarPrograma`. Hoy la
-   ficha enseña por dónde va la fase pero no hay forma de avanzarla.
-2. **Asignar objetivos al paciente desde la ficha.** Hoy solo llegan solos, cuando un test da
-   positivo. Falta poder añadirlos a mano, que es como se pondrán casi todos los métricos.
+- **Clasificar los diez objetivos "sin clasificar"**, los que se sembraron con los tests.
+  **No borrarlos**: son los que abren los tests al dar positivo (`objetivos.test_id`), y si
+  desaparecen los tests dejan de abrir nada en silencio. Hay que ponerles familia.
+- **Proponer objetivos por patología.** El dato ya está —las fases y los cualitativos llevan
+  su etiqueta de patología—; falta que al registrarle una patología a un paciente se le
+  ofrezcan.
+- **VALD**: decidir si el número se copia a mano o si en la app solo consta el resultado.
 5. **Sustituir los diez objetivos sembrados**, que son de la familia métrica mal hechos: sin
    métrica, sin movimiento y sin lado.
 6. **VALD**: decidir si el número se copia a mano o solo consta el positivo/negativo.
