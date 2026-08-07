@@ -65,9 +65,29 @@ export default function SembrarTestsPage() {
     const idObjetivo: Record<string, string> = {}
     ;(objExist || []).forEach((o: any) => { idObjetivo[norm(o.nombre)] = o.id })
 
+    // Las etiquetas hacen falta antes que los objetivos: los objetivos guardan sus ids.
+    const { data: etsPrev } = await supabase.from('etiquetas').select('id,nombre')
+    const idEtPrev: Record<string, string> = {}
+    ;(etsPrev || []).forEach((e: any) => { idEtPrev[norm(e.nombre)] = e.id })
+    const sinEtiqueta = new Set<string>()
+    const resolverEts = (nombres?: string[]) => (nombres || []).map(n => {
+      const id = idEtPrev[norm(n)]
+      if (!id) sinEtiqueta.add(n)
+      return id
+    }).filter(Boolean)
+
     let objCreados = 0, objActualizados = 0
     for (const o of OBJETIVOS) {
-      const campos = { nombre: o.nombre, descripcion: o.descripcion, color: o.color, activo: true }
+      // CUALITATIVOS, no métricos. Son el resultado que se busca —"que el hombro deje de
+      // doler"— y los abre un test al dar positivo. Los métricos son otra cosa: el espacio
+      // donde se ponen metas con número. Sin esta familia salían "sin clasificar" y no se
+      // podían filtrar con el resto.
+      const campos = {
+        nombre: o.nombre, descripcion: o.descripcion, color: o.color, activo: true,
+        tipo: 'cualitativo', metrica: null, movimientos: [], fases: null,
+        articulacion_id: o.zona ? (idEtPrev[norm(o.zona)] || null) : null,
+        etiquetas: resolverEts(o.etiquetas),
+      }
       const ya = idObjetivo[norm(o.nombre)]
       if (ya) {
         const { error } = await supabase.from('objetivos').update(campos).eq('id', ya)
@@ -81,6 +101,9 @@ export default function SembrarTestsPage() {
       }
     }
     anota(`Objetivos: ${objCreados} creados, ${objActualizados} actualizados.`, 'ok')
+    if (sinEtiqueta.size > 0) {
+      anota(`Etiquetas de objetivo que no existen y se han omitido: ${Array.from(sinEtiqueta).join(', ')}.`, 'aviso')
+    }
 
     // ── 2. Objetivos ↔ sesiones ─────────────────────────────────────────────
     const { data: sesiones } = await supabase.from('sesiones').select('id,nombre').is('paciente_id', null)

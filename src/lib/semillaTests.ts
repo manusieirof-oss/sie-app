@@ -52,6 +52,13 @@ export type ObjetivoSemilla = {
   color: string
   /** Sesiones que lo trabajan, por nombre. El sembrador avisa de las que no existan. */
   sesiones: string[]
+  /**
+   * Zona, del árbol de etiquetas. Para que la pestaña los pueda filtrar por zona igual que
+   * a los demás.
+   */
+  zona?: string
+  /** Músculo y patología. Ver el comentario en semillaObjetivos.ts. */
+  etiquetas?: string[]
 }
 
 const C = {
@@ -73,72 +80,72 @@ export const OBJETIVOS: ObjetivoSemilla[] = [
   // derivar. Colgarles un objetivo de entrenamiento haría que la ficha propusiera entrenar
   // una rotura. Ese dato es el que alimentará el bloqueo por etiquetas, que sigue pendiente.
 
-  { nombre: 'Recuperar el hombro sin dolor', color: C.hombro,
+  { nombre: 'Recuperar el hombro sin dolor', zona: 'Hombro', etiquetas: ['Hombro doloroso', 'Manguito rotador'], color: C.hombro,
     descripcion: 'Que el gesto por encima de la cabeza deje de doler y recupere el control escapular.',
     sesiones: ['Hombro · manguito y escápula'] },
-  { nombre: 'Ganar movilidad de hombro', color: C.hombro,
+  { nombre: 'Ganar movilidad de hombro', zona: 'Hombro', etiquetas: ['Manguito rotador'], color: C.hombro,
     descripcion: 'Recuperar rotación y recorrido, sobre todo la mano a la espalda.',
     sesiones: ['Hombro · manguito y escápula', 'Espalda y cuello · trabajo de oficina'] },
-  { nombre: 'Ganar extensión de cadera', color: C.cadera,
+  { nombre: 'Ganar extensión de cadera', zona: 'Cadera', etiquetas: ['Psoas'], color: C.cadera,
     descripcion: 'Soltar el flexor y que la cadera llegue atrás sin compensar con la lumbar.',
     sesiones: ['Cadera · movilidad y control'] },
-  { nombre: 'Ganar movilidad lateral de cadera', color: C.cadera,
+  { nombre: 'Ganar movilidad lateral de cadera', zona: 'Cadera', etiquetas: ['Abductor - TFL', 'Trocantéritis'], color: C.cadera,
     descripcion: 'Reducir la tensión del tensor de la fascia lata y ganar aducción.',
     sesiones: ['Cadera · movilidad y control'] },
-  { nombre: 'Mejorar el patrón de sentadilla', color: C.rodilla,
+  { nombre: 'Mejorar el patrón de sentadilla', zona: 'Rodilla', etiquetas: ['Cuádriceps'], color: C.rodilla,
     descripcion: 'Bajar con los talones apoyados, las rodillas alineadas y el tronco erguido.',
     sesiones: ['Tren inferior', 'Rodilla · vuelta a la carga'] },
-  { nombre: 'Ganar dorsiflexión de tobillo', color: C.tobillo,
+  { nombre: 'Ganar dorsiflexión de tobillo', zona: 'Tobillo', etiquetas: ['Sóleo'], color: C.tobillo,
     descripcion: 'Que la rodilla pase por delante del pie sin levantar el talón.',
     sesiones: ['Tobillo y pie'] },
-  { nombre: 'Mejorar el equilibrio', color: C.tobillo,
+  { nombre: 'Mejorar el equilibrio', zona: 'Tobillo', etiquetas: ['Glúteo medio'], color: C.tobillo,
     descripcion: 'Aguantar a una pierna sin apoyar la otra ni oscilar.',
     sesiones: ['Equilibrio y marcha'] },
-  { nombre: 'Ganar fuerza en el tren inferior', color: C.rodilla,
+  { nombre: 'Ganar fuerza en el tren inferior', zona: 'Rodilla', etiquetas: ['Cuádriceps', 'Glúteo'], color: C.rodilla,
     descripcion: 'Levantarse de la silla sin ayuda de los brazos y repetirlo sin fatiga.',
     sesiones: ['Tren inferior', 'Equilibrio y marcha'] },
-  { nombre: 'Ganar resistencia de core', color: C.core,
+  { nombre: 'Ganar resistencia de core', zona: 'Columna', etiquetas: ['Abdomen', 'Transverso', 'Lumbalgia'], color: C.core,
     descripcion: 'Sostener la posición sin que la cadera caiga ni aparezca dolor lumbar.',
     sesiones: ['Core'] },
-  { nombre: 'Recuperar la pared abdominal', color: C.core,
+  { nombre: 'Recuperar la pared abdominal', zona: 'Columna', etiquetas: ['Recto abdominal', 'Transverso', 'Suelo pélvico'], color: C.core,
     descripcion: 'Cerrar la separación y recuperar la tensión del transverso.',
     sesiones: ['Suelo pélvico y pared abdominal'] },
 
   // ── Los que abren el catálogo traído del otro programa ────────────────────
-  { nombre: 'Estabilizar el tobillo', color: C.tobillo,
+  { nombre: 'Estabilizar el tobillo', zona: 'Tobillo', etiquetas: ['Peroneos', 'Esguince de tobillo'], color: C.tobillo,
     descripcion: 'Recuperar la fuerza de peroneos y tibial y la respuesta a la supinación forzada.',
     sesiones: ['Tobillo y pie', 'Equilibrio y marcha'] },
-  { nombre: 'Recuperar el arco del pie', color: C.tobillo,
+  { nombre: 'Recuperar el arco del pie', zona: 'Tobillo', etiquetas: ['Pie', 'Fascitis plantar'], color: C.tobillo,
     descripcion: 'Que la musculatura intrínseca sostenga el arco sin depender de la fascia.',
     sesiones: ['Tobillo y pie'] },
-  { nombre: 'Ganar movilidad de rodilla', color: C.rodilla,
+  { nombre: 'Ganar movilidad de rodilla', zona: 'Rodilla', etiquetas: [], color: C.rodilla,
     descripcion: 'Recuperar el recorrido completo de flexión y, sobre todo, la extensión final.',
     sesiones: ['Rodilla · vuelta a la carga'] },
-  { nombre: 'Calmar la rótula', color: C.rodilla,
+  { nombre: 'Calmar la rótula', zona: 'Rodilla', etiquetas: ['Condropatía rotuliana', 'Cuádriceps'], color: C.rodilla,
     descripcion: 'Bajar la irritación femoropatelar y volver a cargar sin dolor anterior.',
     sesiones: ['Rodilla · vuelta a la carga'] },
-  { nombre: 'Recuperar la fuerza de la rodilla', color: C.rodilla,
+  { nombre: 'Recuperar la fuerza de la rodilla', zona: 'Rodilla', etiquetas: ['Cuádriceps', 'Isquiotibial'], color: C.rodilla,
     descripcion: 'Cerrar la diferencia entre lados en cuádriceps e isquiotibial.',
     sesiones: ['Tren inferior', 'Rodilla · vuelta a la carga'] },
-  { nombre: 'Ganar rotación de cadera', color: C.cadera,
+  { nombre: 'Ganar rotación de cadera', zona: 'Cadera', etiquetas: ['Artrosis'], color: C.cadera,
     descripcion: 'Recuperar rotación interna y externa, que es lo que se pierde antes en cadera.',
     sesiones: ['Cadera · movilidad y control'] },
-  { nombre: 'Recuperar la fuerza de la cadera', color: C.cadera,
+  { nombre: 'Recuperar la fuerza de la cadera', zona: 'Cadera', etiquetas: ['Glúteo', 'Aductores', 'Psoas'], color: C.cadera,
     descripcion: 'Glúteo, abductores, aductores y psoas, con la comparación entre lados delante.',
     sesiones: ['Cadera · movilidad y control', 'Tren inferior'] },
-  { nombre: 'Ganar movilidad lumbar', color: C.core,
+  { nombre: 'Ganar movilidad lumbar', zona: 'Columna', etiquetas: ['Erectores Espinales', 'Lumbalgia'], color: C.core,
     descripcion: 'Recuperar el recorrido de flexión y extensión lumbar sin dolor.',
     sesiones: ['Core', 'Espalda y cuello · trabajo de oficina'] },
-  { nombre: 'Ganar movilidad dorsal', color: C.core,
+  { nombre: 'Ganar movilidad dorsal', zona: 'Columna', etiquetas: ['Cifosis dorsal'], color: C.core,
     descripcion: 'Devolver extensión y rotación a la dorsal, que es de donde tiran el cuello y el hombro.',
     sesiones: ['Espalda y cuello · trabajo de oficina'] },
-  { nombre: 'Ganar movilidad cervical', color: C.general,
+  { nombre: 'Ganar movilidad cervical', zona: 'Cervical', etiquetas: ['Cervicalgia'], color: C.general,
     descripcion: 'Recuperar rotación cervical sin provocación ni bloqueo.',
     sesiones: ['Espalda y cuello · trabajo de oficina'] },
-  { nombre: 'Ganar fuerza y control cervical', color: C.general,
+  { nombre: 'Ganar fuerza y control cervical', zona: 'Cervical', etiquetas: ['Cervical', 'Cervicalgia'], color: C.general,
     descripcion: 'Flexores profundos y resistencia, que es lo que sostiene la cabeza el resto del día.',
     sesiones: ['Espalda y cuello · trabajo de oficina'] },
-  { nombre: 'Mejorar el control a una pierna', color: C.rodilla,
+  { nombre: 'Mejorar el control a una pierna', zona: 'Rodilla', etiquetas: ['Glúteo medio'], color: C.rodilla,
     descripcion: 'Que la rodilla no caiga hacia dentro ni la cadera se descuelgue al apoyar en una.',
     sesiones: ['Tren inferior', 'Equilibrio y marcha'] },
 ]

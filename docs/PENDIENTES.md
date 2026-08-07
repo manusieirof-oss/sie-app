@@ -164,7 +164,29 @@ nueva, el recibo recuerda qué objetivos por fases pueden avanzar.
 
 ## Tests
 
-### Bloqueo de ejercicios por test positivo — PENDIENTE
+### Bloqueo de ejercicios por test positivo ✅ HECHO
+`lib/contraindicaciones.ts`. `tests.etiquetas_bloquea` existía desde el primer día y no la
+leía nadie; ahora se edita en el test ("Si sale positivo, desaconseja") y **avisa en el
+editor de sesión** con una píldora ámbar en el ejercicio: qué etiqueta, qué test y de cuándo.
+
+**Avisa, no impide.** Hay motivos para prescribirlo igual —carga baja, rango parcial,
+isométrico— y un bloqueo duro se acaba esquivando por fuera de la app, que es peor porque
+entonces no queda registrado.
+
+**Un negativo posterior lo levanta solo.** Manda el resultado más reciente de cada test y
+lado. Sin esa regla el paciente acumularía contraindicaciones para siempre y a los seis
+meses el aviso saldría en todo y se dejaría de leer.
+
+**Alcanza a las subetiquetas**: bloquear "Hombro" cubre "Manguito rotador". Enumerarlas una
+a una habría dejado fuera la primera que se añadiera al árbol.
+
+Probado: positivo bloquea, negativo no, negativo posterior levanta, positivo posterior
+vuelve a bloquear, un lado no levanta el otro, y "sin realizar" no bloquea.
+
+**Pendiente aquí:** el aviso está en el editor de sesión pero no en el explorador al elegir
+el ejercicio, que sería el momento más temprano.
+
+### Bloqueo de ejercicios · lo que quedó fuera
 **`tests.etiquetas_bloquea` existe desde el principio y no la lee nadie.** Cero usos en toda la
 app. La idea era clara: un test positivo bloquea ciertas etiquetas de ejercicio. Hoy nada
 impide meter en una sesión un ejercicio contraindicado por un test que dio positivo la semana

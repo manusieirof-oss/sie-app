@@ -42,6 +42,30 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [selObj, setSelObj] = useState<string[]>([])
   const [famObj, setFamObj] = useState('')
   const [zonaObj, setZonaObj] = useState('')
+  const [patologiasPac, setPatologiasPac] = useState<any[]>([])
+
+  /**
+   * Objetivos que corresponden a las patologías del paciente.
+   *
+   * El cruce va por etiqueta: las fases y los cualitativos llevan su patología —"Recuperar
+   * de trocanteritis" lleva Trocantéritis— y el paciente tiene las suyas por nombre. Se
+   * marcan en el selector en vez de filtrar, porque son una sugerencia y no una regla: hay
+   * objetivos que se ponen sin patología detrás.
+   */
+  const porPatologia = (() => {
+    const activas = patologiasPac.filter((p:any)=>p.estado!=='resuelta')
+    if (activas.length===0) return {} as Record<string,string>
+    const norm = (x:string)=>(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()
+    const idsPorNombre: Record<string,string> = {}
+    etiquetasLib.forEach((e:any)=>{ idsPorNombre[norm(e.nombre)] = e.id })
+    const mapa: Record<string,string> = {}
+    activas.forEach((p:any)=>{
+      const id = idsPorNombre[norm(p.nombre)]
+      if (!id) return
+      catalogo.forEach((o:any)=>{ if ((o.etiquetas||[]).includes(id)) mapa[o.id] = p.nombre })
+    })
+    return mapa
+  })()
 
   /**
    * Asigna varios objetivos de golpe.
@@ -88,8 +112,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       .then(({data}) => setResultadosTests(data||[]))
     supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
-    supabase.from('objetivos').select('id,nombre,descripcion,color,tipo,metrica,movimientos,fases,articulacion_id')
+    supabase.from('objetivos').select('id,nombre,descripcion,color,tipo,metrica,movimientos,fases,articulacion_id,etiquetas')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
+    supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
+      .then(({data}) => setPatologiasPac(data||[]))
   }
 
   useEffect(() => {
@@ -376,6 +402,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                   (!q || o.nombre.toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q)) &&
                   (!famObj || (o.tipo||'cualitativo')===famObj) &&
                   (!zonaObj || o.articulacion_id===zonaObj))
+                  // Los de sus patologías arriba: es lo que se busca al abrir esto tras
+                  // registrarle una lesión.
+                  .sort((a:any,b:any)=>(porPatologia[b.id]?1:0)-(porPatologia[a.id]?1:0))
                 if (lista.length===0) return <div className="muted">Ninguno coincide.</div>
                 return lista.map((o:any)=>{
                   const tiene = yaTiene.has(o.id)

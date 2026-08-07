@@ -6,6 +6,7 @@ import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPor
 import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import { similaresA } from '@/lib/ejercicios'
+import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 
 /**
  * Valor que se lee como etiqueta y se cambia al pulsarlo. Un `select` gris pesa lo
@@ -65,6 +66,18 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   pacientes?: any[]
 }) {
   const [pacienteSel, setPacienteSel] = useState(sesion.paciente_id || '')
+
+  /**
+   * Lo que este paciente tiene desaconsejado por sus tests positivos.
+   *
+   * Se carga con el paciente y no con la sesión: una plantilla sin paciente no tiene
+   * contraindicaciones que mirar, y al asignarla a alguien es cuando aparecen.
+   */
+  const [contra, setContra] = useState<Record<string, Contraindicacion>>({})
+  useEffect(() => {
+    if (!pacienteSel) { setContra({}); return }
+    contraindicacionesDe(pacienteSel).then(setContra)
+  }, [pacienteSel])
   const [busquedaPacModal, setBusquedaPacModal] = useState('')
   const [formSesion, setFormSesion] = useState({
     nombre: sesion.nombre || '',
@@ -472,6 +485,22 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           en varias líneas antes que estrujar la columna de datos. */}
                       <div style={{minWidth:0}}>
                         <div className="ej-txt">{ej.nombre}</div>
+                        {/* AVISA, NO IMPIDE. Hay motivos para prescribirlo igual —carga
+                            baja, rango parcial— y un bloqueo duro se esquiva fuera de la
+                            app, que es peor porque entonces no queda registrado. */}
+                        {(() => {
+                          const bib = ejercicios.find((e:any)=>e.id===ej.ejercicio_id)
+                          const m = bib ? motivoDe(bib, contra, etiquetas) : null
+                          if (!m) return null
+                          return (
+                            <div className="ej-sub">
+                              <span style={{fontSize:12,color:'#8A6410',background:'var(--ambl)',borderRadius:99,padding:'1px 8px',display:'inline-flex',alignItems:'center',gap:4}}
+                                title={`Desaconsejado por ${m.test}, positivo el ${m.fecha}${m.otros>0?`. Y por ${m.otros} etiqueta${m.otros>1?'s':''} más`:''}`}>
+                                <Ic name="alerta" size={10}/> Desaconsejado · {m.texto}
+                              </span>
+                            </div>
+                          )
+                        })()}
                         {/* La ejecución la marca el EJERCICIO, no la sesión: se enseña
                             pero no se toca. Si hace falta otra, se elige otro ejercicio
                             de la biblioteca. Por eso es `.badge` y no `.chip-ed`, que en

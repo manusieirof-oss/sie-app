@@ -40,12 +40,12 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
-  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], tipo_lado:'bilateral' })
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
 
   async function crearTest() {
     if (!nuevoTest.nombre) { alert('El nombre es obligatorio'); return }
     setSubiendoImgTest(true)
-    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
+    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], etiquetas_bloquea:nuevoTest.etiquetas_bloquea||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
     if (!error && t && nuevoTest.imagen_file) {
       const ext = nuevoTest.imagen_file.name.split('.').pop()
       const path = `tests/${t.id}/foto.${ext}`
@@ -57,7 +57,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
     }
     setSubiendoImgTest(false)
     setModalTest(false)
-    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', etiquetas_relacionadas:[], tipo_lado:'bilateral' })
+    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', etiquetas_relacionadas:[], etiquetas_bloquea:[], tipo_lado:'bilateral' })
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
     setTestsLib(tl||[])
   }
@@ -75,7 +75,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
         imagenUrl = publicUrl + '?t=' + Date.now()
       }
     }
-    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
+    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
     setSubiendoImgTest(false)
     setModalEditarTest(false); setTestEditando(null)
     const { data: tl } = await supabase.from('tests').select('*').order('nombre')
@@ -217,6 +217,18 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
               <label>Etiquetas relacionadas</label>
               <div style={{marginTop:5}}><SelectorColumnas seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/></div>
             </div>
+            {/* Lo que este test DESACONSEJA si sale positivo. Avisa al montar la sesión;
+                no impide nada, porque hay motivos para prescribirlo igual —carga baja,
+                rango parcial— y un bloqueo duro se acaba esquivando fuera de la app.
+                Un negativo posterior lo levanta solo. */}
+            <div className="field">
+              <label>Si sale positivo, desaconseja</label>
+              <div style={{marginTop:5}}><SelectorColumnas seleccionadas={nuevoTest.etiquetas_bloquea||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_bloquea:ids}))}/></div>
+              <div style={{fontSize:12,color:'var(--gr)',marginTop:4}}>
+                Los ejercicios con estas etiquetas saldrán avisados en el editor de sesión de
+                quien dé positivo. Alcanza también a sus subetiquetas.
+              </div>
+            </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalTest(false)}>Cancelar</button>
               <div style={{flex:1}}/>
@@ -284,6 +296,18 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div className="field">
               <label>Etiquetas relacionadas</label>
               <div style={{marginTop:5}}><SelectorColumnas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>
+            </div>
+            {/* Lo que este test DESACONSEJA si sale positivo. Avisa al montar la sesión;
+                no impide nada, porque hay motivos para prescribirlo igual —carga baja,
+                rango parcial— y un bloqueo duro se acaba esquivando fuera de la app.
+                Un negativo posterior lo levanta solo. */}
+            <div className="field">
+              <label>Si sale positivo, desaconseja</label>
+              <div style={{marginTop:5}}><SelectorColumnas seleccionadas={testEditando.etiquetas_bloquea||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_bloquea:ids}))}/></div>
+              <div style={{fontSize:12,color:'var(--gr)',marginTop:4}}>
+                Los ejercicios con estas etiquetas saldrán avisados en el editor de sesión de
+                quien dé positivo. Alcanza también a sus subetiquetas.
+              </div>
             </div>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setModalEditarTest(false)}>Cancelar</button>
