@@ -6,6 +6,7 @@ import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
 import MetasObjetivo from './MetasObjetivo'
+import { ordenAnatomico } from '@/lib/anatomia'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -37,26 +38,40 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [modalAnadir, setModalAnadir] = useState(false)
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
+  const [selObj, setSelObj] = useState<string[]>([])
+  const [famObj, setFamObj] = useState('')
+  const [zonaObj, setZonaObj] = useState('')
 
   /**
-   * Asigna un objetivo de la biblioteca al paciente.
+   * Asigna varios objetivos de golpe.
    *
-   * Nace SIN vías y sin metas: un objetivo métrico se cierra por sus metas, y ponerle una
-   * vía de relleno haría que `estaLogrado` lo diera por cumplido en cuanto se marcara, sin
-   * haber medido nada.
+   * De uno en uno obligaba a abrir y cerrar el modal por cada uno, y lo normal es poner
+   * tres o cuatro a la vez: al valorar un hombro salen fuerza, movilidad y algún
+   * cualitativo del mismo tirón.
+   *
+   * Nacen SIN vías y sin metas: un objetivo métrico se cierra por sus metas, y ponerle una
+   * vía de relleno haría que `estaLogrado` lo diera por cumplido en cuanto alguien la
+   * marcara, sin haber medido nada.
    */
-  async function anadirObjetivo(o:any) {
-    if (objetivosTrabajo.some((x:any)=>x.id===o.id)) { alert('Ya lo tiene asignado'); return }
-    const { error } = await supabase.from('pacientes_objetivos')
-      .insert({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
-        fase_actual: o.tipo==='fase' ? 1 : null })
+  async function anadirObjetivos(lista:any[]) {
+    if (lista.length===0) return
+    setGuardandoVia('anadir')
+    const { error } = await supabase.from('pacientes_objetivos').insert(
+      lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
+        fase_actual: o.tipo==='fase' ? 1 : null })))
+    setGuardandoVia(null)
     if (error) { alert(error.message); return }
+    // Un solo evento con el total: abrir cuatro objetivos a la vez es una decisión, no
+    // cuatro hitos en la cronología.
     await supabase.from('eventos_paciente').insert({
       paciente_id: pac.id, tipo: 'objetivo',
-      titulo: `Objetivo abierto: ${o.nombre}`, descripcion: 'Añadido desde la ficha',
+      titulo: lista.length===1
+        ? `Objetivo abierto: ${lista[0].nombre}`
+        : `${lista.length} objetivos abiertos`,
+      descripcion: lista.length===1 ? 'Añadido desde la ficha' : lista.map((o:any)=>o.nombre).join(', '),
       fecha: new Date().toISOString().split('T')[0],
     })
-    setModalAnadir(false); setBuscarObj(''); cargarObjetivos()
+    setModalAnadir(false); setBuscarObj(''); setSelObj([]); cargarObjetivos()
   }
 
   function cargarObjetivos() {
@@ -281,7 +296,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 <span style={{flex:1}}>Lo que prescribimos · de tests y ejercicios</span>
                 {/* Hasta ahora solo llegaban solos, cuando un test daba positivo. Los
                     métricos casi nunca vienen de ahí: se deciden mirando una medición. */}
-                <button className="btn btn-t btn-sm" onClick={()=>setModalAnadir(true)}>
+                <button className="btn btn-t btn-sm" onClick={()=>{setSelObj([]);setBuscarObj('');setFamObj('');setZonaObj('');setModalAnadir(true)}}>
                   <Ic name="mas" size={12}/> Añadir
                 </button>
               </div>
@@ -311,22 +326,55 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               <button className="modal-close" onClick={()=>setModalAnadir(false)}><Ic name="cerrar" size={15}/></button>
             </div>
             <input className="input" autoFocus value={buscarObj} placeholder="Buscar en la biblioteca…"
-              onChange={e=>setBuscarObj(e.target.value)} style={{marginBottom:10}}/>
-            <div style={{maxHeight:'52vh',overflowY:'auto',display:'grid',gap:3}}>
+              onChange={e=>setBuscarObj(e.target.value)} style={{marginBottom:8}}/>
+
+            {/* Los filtros a la vista, no escondidos tras el buscador: con 36 fichas lo
+                normal es no saber cómo se llama la que buscas pero sí de qué zona es. */}
+            <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>
+              {[['metrico','Medibles'],['fase','Por fases'],['cualitativo','Cualitativos']].map(([v,l])=>(
+                <button key={v} className={`chip-sel ${famObj===v?'on':''}`}
+                  onClick={()=>setFamObj(famObj===v?'':v)}>{l}</button>
+              ))}
+            </div>
+            {(() => {
+              const zonas = Array.from(new Set(catalogo.map((o:any)=>o.articulacion_id).filter(Boolean)))
+                .map((id:any)=>({ id, nombre: etiquetasLib.find((e:any)=>e.id===id)?.nombre || '' }))
+                .filter((z:any)=>z.nombre)
+                .sort((a:any,b:any)=>ordenAnatomico(a.nombre,b.nombre))
+              if (zonas.length===0) return null
+              return (
+                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:10}}>
+                  <button className={`chip-sel ${!zonaObj?'on':''}`} onClick={()=>setZonaObj('')}>Todas</button>
+                  {zonas.map((z:any)=>(
+                    <button key={z.id} className={`chip-sel ${zonaObj===z.id?'on':''}`}
+                      onClick={()=>setZonaObj(zonaObj===z.id?'':z.id)}>{z.nombre}</button>
+                  ))}
+                </div>
+              )
+            })()}
+
+            <div style={{maxHeight:'46vh',overflowY:'auto',display:'grid',gap:3}}>
               {(() => {
                 const q = buscarObj.trim().toLowerCase()
                 const yaTiene = new Set(objetivosTrabajo.map((o:any)=>o.id))
                 const lista = catalogo.filter((o:any)=>
-                  !q || o.nombre.toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q))
+                  (!q || o.nombre.toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q)) &&
+                  (!famObj || (o.tipo||'cualitativo')===famObj) &&
+                  (!zonaObj || o.articulacion_id===zonaObj))
                 if (lista.length===0) return <div className="muted">Ninguno coincide.</div>
                 return lista.map((o:any)=>{
                   const tiene = yaTiene.has(o.id)
+                  const sel = selObj.includes(o.id)
                   return (
-                    <button key={o.id} disabled={tiene} onClick={()=>anadirObjetivo(o)}
+                    <div key={o.id}
+                      onClick={()=>{ if(!tiene) setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]) }}
                       className="fila-p"
                       style={{borderLeftColor:o.color||'var(--g)',display:'flex',alignItems:'center',gap:8,
-                        background:'none',border:'none',borderLeft:`2px solid ${o.color||'var(--g)'}`,
-                        textAlign:'left',cursor:tiene?'default':'pointer',opacity:tiene?.5:1,width:'100%'}}>
+                        textAlign:'left',cursor:tiene?'default':'pointer',opacity:tiene?.5:1,
+                        background:sel?'var(--gl)':'transparent'}}>
+                      <span className={`chk ${sel?'on':''}`} style={{flexShrink:0,visibility:tiene?'hidden':'visible'}}>
+                        {sel&&<Ic name="check" size={12}/>}
+                      </span>
                       <span style={{flex:1,minWidth:0}}>
                         <span style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:'var(--n)'}}>
                           {o.nombre}
@@ -340,13 +388,23 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                         )}
                       </span>
                       {tiene && <span style={{fontSize:12,color:'var(--gd)',flexShrink:0}}>Ya lo tiene</span>}
-                    </button>
+                    </div>
                   )
                 })
               })()}
             </div>
-            <div style={{fontSize:12,color:'var(--gr)',marginTop:10,lineHeight:1.5}}>
-              Los medibles se abren sin metas: las pones después, sobre el objetivo ya asignado.
+
+            <div style={{display:'flex',gap:7,alignItems:'center',marginTop:10}}>
+              <span style={{flex:1,fontSize:12,color:'var(--gr)',lineHeight:1.5}}>
+                {selObj.length===0
+                  ? 'Los medibles se abren sin metas: las pones después.'
+                  : `${selObj.length} seleccionado${selObj.length>1?'s':''}`}
+              </span>
+              <button className="btn btn-t btn-sm" onClick={()=>setModalAnadir(false)}>Cancelar</button>
+              <button className="btn btn-p" disabled={selObj.length===0||guardandoVia==='anadir'}
+                onClick={()=>anadirObjetivos(catalogo.filter((o:any)=>selObj.includes(o.id)))}>
+                {guardandoVia==='anadir' ? 'Añadiendo…' : `Añadir${selObj.length>0?' '+selObj.length:''}`}
+              </button>
             </div>
           </div>
         </div>
