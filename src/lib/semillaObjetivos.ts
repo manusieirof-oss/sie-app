@@ -177,6 +177,14 @@ export type FaseSemilla = {
    * trocanteritis puede ver sus objetivos sin buscarlos.
    */
   etiquetas?: string[]
+  /**
+   * Sesiones de la biblioteca que lo trabajan, por nombre.
+   *
+   * Es el enlace que hace que un objetivo abierto tenga con qué entrenarse. Los métricos
+   * no lo llevan —los cubren las sesiones de la zona— pero una fase o un cualitativo sin
+   * sesión asociada es un objetivo que se abre y no propone nada.
+   */
+  sesiones?: string[]
   /** Qué significa cada fase, en orden. El paciente avanza de una a la siguiente. */
   fases: string[]
 }
@@ -194,6 +202,7 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Recuperar la marcha tras el ictus',
     etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída'],
+    sesiones: ['Ictus · control de tronco y transferencias', 'Ictus · marcha y miembro superior', 'Equilibrio y marcha'],
     descripcion: 'De sostenerse sentado a andar por la calle. La fase la marca lo que hace con seguridad, no el tiempo desde el ictus. No se salta una fase porque el paciente tenga prisa: la caída es el suceso que más retrasa todo lo demás.',
     fases: [
       'Control de tronco y sedestación',
@@ -207,6 +216,7 @@ export const FASES: FaseSemilla[] = [
     nombre: 'Recuperar el miembro superior tras el ictus',
     articulacion: 'Hombro',
     etiquetas: ['Ictus', 'Hemiparesia', 'Subluxación de hombro'],
+    sesiones: ['Ictus · control de tronco y transferencias', 'Ictus · marcha y miembro superior'],
     descripcion: 'Del brazo que cuelga al brazo que sirve. La primera fase no entrena: protege el hombro y mantiene el recorrido, porque una vez que duele se acaba la rehabilitación del brazo.',
     fases: [
       'Movilidad pasiva y cuidado del hombro',
@@ -314,6 +324,14 @@ export type CualitativoSemilla = {
   articulacion?: string
   /** Músculo y patología. Ver el comentario en FaseSemilla. */
   etiquetas?: string[]
+  /**
+   * Sesiones de la biblioteca que lo trabajan, por nombre.
+   *
+   * Es el enlace que hace que un objetivo abierto tenga con qué entrenarse. Los métricos
+   * no lo llevan —los cubren las sesiones de la zona— pero una fase o un cualitativo sin
+   * sesión asociada es un objetivo que se abre y no propone nada.
+   */
+  sesiones?: string[]
 }
 
 /** Los que se cumplen o no. Sin número y sin fases: aprender algo o corregir un hábito. */
@@ -334,10 +352,10 @@ export const CUALITATIVOS: CualitativoSemilla[] = [
     descripcion: 'Iniciación: aguantar a una pierna sin apoyar la otra. Cuando ya se sostiene, pasa a medirse con el test de equilibrio unipodal.' },
 
   // ── Tras un ictus ─────────────────────────────────────────────────────────
-  { nombre: 'Usar el lado afecto en el día a día', etiquetas: ['Ictus', 'Hemiparesia'],
+  { nombre: 'Usar el lado afecto en el día a día', sesiones: ['Ictus · marcha y miembro superior'], etiquetas: ['Ictus', 'Hemiparesia'],
     descripcion: 'Contra el no-uso aprendido: si el brazo afecto cuesta, se deja de usar, y el que no se usa pierde más. Se da por cumplido cuando lo mete en tareas de casa sin que se le recuerde, no cuando mejora un número.' },
-  { nombre: 'Aprender las transferencias con seguridad', etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída'],
+  { nombre: 'Aprender las transferencias con seguridad', sesiones: ['Ictus · control de tronco y transferencias'], etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída'],
     descripcion: 'Pasar de tumbado a sentado, de sentado a de pie, y entrar y salir de la cama y del coche sin ayuda y sin desequilibrarse. Es lo que decide si vive solo.' },
-  { nombre: 'Cuidar el hombro del lado afecto', articulacion: 'Hombro', etiquetas: ['Ictus', 'Subluxación de hombro', 'Hombro doloroso'],
+  { nombre: 'Cuidar el hombro del lado afecto', sesiones: ['Ictus · control de tronco y transferencias', 'Ictus · marcha y miembro superior'], articulacion: 'Hombro', etiquetas: ['Ictus', 'Subluxación de hombro', 'Hombro doloroso'],
     descripcion: 'Con el deltoides sin tono, el peso del brazo separa la cabeza humeral. Va de manejo, no de fuerza: cómo se coge el brazo, cómo se sienta, qué no se hace. El hombro doloroso post-ictus frena la rehabilitación entera.' },
 ]

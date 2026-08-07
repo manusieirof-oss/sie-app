@@ -41,6 +41,14 @@ export type TestSemilla = {
   frecuencia_meses: number
   /** Nombres tal cual están en el árbol de etiquetas. */
   etiquetas: string[]
+  /**
+   * Etiquetas de EJERCICIO que este test desaconseja mientras esté positivo.
+   *
+   * Se avisa, no se impide: el editor de sesión marca el ejercicio y dice por qué, y sigue
+   * dejando ponerlo. Un bloqueo duro se esquiva por fuera de la app y entonces no queda
+   * registrado en ninguna parte.
+   */
+  bloquea?: string[]
   items: ItemSemilla[]
   /** Objetivos que abre el test ENTERO al dar positivo, por nombre. */
   objetivos: string[]
@@ -591,5 +599,146 @@ export const TESTS: TestSemilla[] = [
       { nombre: 'La cadera del lado libre desciende (Trendelenburg)' },
       { nombre: 'Pierde el equilibrio antes de bajar' },
     ],
+  },
+
+  // ── Tras un ictus ─────────────────────────────────────────────────────────
+  //
+  // Los 49 anteriores buscan una estructura que duele. Aquí lo que falla es el control:
+  // el músculo puede estar entero y no responder. Por eso ninguno de estos mide una
+  // articulación —eso ya lo hacen los 20 de medición, y son los que alimentan las metas de
+  // "igualar lados", que es exactamente el problema de una hemiparesia— sino lo que la
+  // persona CONSIGUE HACER.
+  //
+  // Son escalas conocidas y no inventadas a propósito: Ashworth, Berg, los 10 metros y el
+  // Timed up and go están validadas, tienen puntos de corte publicados y, sobre todo, las
+  // entiende cualquier fisio o neurólogo al que haya que mandarle un informe.
+
+  {
+    nombre: 'Ictus · cribado inicial',
+    descripcion: 'La primera visita. No mide nada que se entrene: recoge lo que decide si se puede entrenar y con qué cuidado, y lo que obliga a derivar antes de tocar nada. Se pasa entero aunque el paciente venga andando.',
+    logica: 'cualquiera', tipo_lado: 'bilateral', frecuencia_meses: 6,
+    etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída'],
+    // Marcar cualquiera de estas casillas desaconseja lo que no se puede hacer con un
+    // equilibrio comprometido o con un hombro que se subluxa.
+    bloquea: ['Salto', 'Unipodal', 'Barra', 'Kettlebell', 'Barra de dominadas'],
+    items: [
+      { nombre: 'Hemicuerpo afecto: derecho' },
+      { nombre: 'Hemicuerpo afecto: izquierdo' },
+      { nombre: 'Tiempo desde el ictus', unidad: 'meses' },
+      { nombre: 'Dificultad para entender o expresar la consigna (afasia)' },
+      { nombre: 'No mira ni usa el lado afecto aunque pueda moverlo (negligencia)' },
+      { nombre: 'Pérdida de campo visual hacia el lado afecto' },
+      { nombre: 'Se atraganta con líquidos — DERIVAR antes de dar de beber' },
+      { nombre: 'Sensibilidad alterada en el lado afecto' },
+      { nombre: 'Dolor en el hombro del lado afecto' },
+      { nombre: 'Hueco palpable bajo el acromion (subluxación)', unidad: 'cm' },
+      { nombre: 'Anticoagulado' },
+      { nombre: 'Crisis epiléptica desde el ictus' },
+      { nombre: 'Tensión arterial sin control médico' },
+      { nombre: 'Ha caído en los últimos seis meses' },
+      { nombre: 'Usa bastón, andador o silla' },
+    ],
+    // Ninguno. Mismo criterio que con los meniscos: esto es información para decidir la
+    // carga y para derivar, no un déficit que se entrene. Colgarle un objetivo haría que
+    // la ficha propusiera entrenar una disfagia.
+    objetivos: [],
+  },
+
+  {
+    nombre: 'Ashworth modificada · espasticidad',
+    descripcion: 'Se mueve el segmento deprisa y de forma pasiva, y se puntúa la resistencia que aparece: 0 ninguna, 1 un enganche al final, 1+ enganche en menos de la mitad del recorrido, 2 resistencia en todo el recorrido pero se mueve fácil, 3 se mueve con dificultad, 4 rígido. El 1+ se anota como 1,5.',
+    logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
+    etiquetas: ['Espasticidad', 'Ictus', 'Hemiparesia'],
+    bloquea: ['Salto'],
+    items: [
+      { nombre: 'Flexores de codo', unidad: 'puntos' },
+      { nombre: 'Pronadores del antebrazo', unidad: 'puntos' },
+      { nombre: 'Flexores de muñeca y dedos', unidad: 'puntos' },
+      { nombre: 'Aductores de cadera', unidad: 'puntos' },
+      { nombre: 'Extensores de rodilla', unidad: 'puntos' },
+      { nombre: 'Flexores plantares', unidad: 'puntos' },
+    ],
+    objetivos: [],
+  },
+
+  {
+    nombre: 'Berg · equilibrio',
+    descripcion: 'Catorce tareas puntuadas de 0 a 4, sobre 56. Por debajo de 45 hay riesgo de caída y por debajo de 20 la marcha es de silla de ruedas. Se anota la suma en el último ítem: es el número que se compara entre tandas.',
+    logica: 'cualquiera', tipo_lado: 'bilateral', frecuencia_meses: 3,
+    etiquetas: ['Riesgo de caída', 'Ictus', 'Hemiparesia', 'Glúteo medio'],
+    bloquea: ['Salto', 'Unipodal', 'Bosu'],
+    items: [
+      { nombre: 'De sentado a de pie', unidad: 'puntos' },
+      { nombre: 'De pie sin apoyo', unidad: 'puntos' },
+      { nombre: 'Sentado sin apoyo', unidad: 'puntos' },
+      { nombre: 'De pie a sentado', unidad: 'puntos' },
+      { nombre: 'Transferencias entre sillas', unidad: 'puntos' },
+      { nombre: 'De pie con los ojos cerrados', unidad: 'puntos' },
+      { nombre: 'De pie con los pies juntos', unidad: 'puntos' },
+      { nombre: 'Alcanzar hacia delante con el brazo estirado', unidad: 'puntos' },
+      { nombre: 'Recoger un objeto del suelo', unidad: 'puntos' },
+      { nombre: 'Girarse a mirar atrás', unidad: 'puntos' },
+      { nombre: 'Girar 360°', unidad: 'puntos' },
+      { nombre: 'Subir los pies alternos a un escalón', unidad: 'puntos' },
+      { nombre: 'De pie con un pie delante del otro', unidad: 'puntos' },
+      { nombre: 'De pie sobre una pierna', unidad: 'puntos' },
+      { nombre: 'TOTAL sobre 56', unidad: 'puntos' },
+    ],
+    objetivos: ['Mejorar el equilibrio', 'Recuperar la marcha tras el ictus'],
+  },
+
+  {
+    nombre: 'Marcha · velocidad, giro y resistencia',
+    descripcion: 'Los tres números que dicen si sale de casa. Diez metros a ritmo cómodo: por debajo de 0,4 m/s solo anda por casa, entre 0,4 y 0,8 sale acompañado, por encima de 0,8 anda por la calle. Timed up and go por encima de 13,5 s es riesgo de caída. Los seis minutos son la resistencia, que es lo que falla cuando la velocidad ya está bien.',
+    logica: 'cualquiera', tipo_lado: 'bilateral', frecuencia_meses: 3,
+    etiquetas: ['Ictus', 'Hemiparesia', 'Riesgo de caída', 'Marcha', 'Cadera', 'Tobillo'],
+    bloquea: [],
+    items: [
+      { nombre: 'Diez metros a ritmo cómodo', unidad: 'segundos' },
+      { nombre: 'Diez metros a ritmo rápido', unidad: 'segundos' },
+      { nombre: 'Timed up and go', unidad: 'segundos' },
+      { nombre: 'Levantarse cinco veces de la silla', unidad: 'segundos' },
+      { nombre: 'Distancia en seis minutos', unidad: 'metros' },
+      { nombre: 'Necesita bastón o andador para el recorrido' },
+      { nombre: 'Arrastra o engancha el pie afecto' },
+    ],
+    objetivos: ['Recuperar la marcha tras el ictus', 'Ganar fuerza en el tren inferior'],
+  },
+
+  {
+    nombre: 'Miembro superior · función tras ictus',
+    descripcion: 'Qué hace el brazo, no cuánta fuerza tiene. Se pasa en los dos lados aunque parezca absurdo: el lado sano da la referencia con la que se compara, y sin él no hay forma de saber si 40 bloques son pocos o son los suyos.',
+    logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
+    etiquetas: ['Ictus', 'Hemiparesia', 'Hombro', 'Mano', 'Deltoides', 'Flexor de Dedos'],
+    bloquea: [],
+    items: [
+      { nombre: 'Bloques trasladados en un minuto', unidad: 'repeticiones' },
+      { nombre: 'Fuerza de agarre', unidad: 'kg' },
+      { nombre: 'Alcance funcional hacia delante sentado', unidad: 'cm' },
+      { nombre: 'Lleva la mano a la boca' },
+      { nombre: 'Abre la mano voluntariamente' },
+      { nombre: 'Coge un vaso y lo suelta donde quiere' },
+      { nombre: 'Levanta el brazo por encima del hombro' },
+      { nombre: 'Aparece sinergia: al flexionar el codo se le sube el hombro' },
+    ],
+    objetivos: ['Recuperar el miembro superior tras el ictus', 'Usar el lado afecto en el día a día'],
+  },
+
+  {
+    nombre: 'Control de tronco y transferencias',
+    descripcion: 'Lo que hay antes de poder ponerse de pie. Cada tarea se puntúa 0 si no la hace, 1 si la hace con ayuda o compensando, 2 si la hace sola y con normalidad. Es el test que dice si la sesión se hace en la camilla o de pie.',
+    logica: 'cualquiera', tipo_lado: 'bilateral', frecuencia_meses: 3,
+    etiquetas: ['Ictus', 'Hemiparesia', 'Columna', 'Abdomen', 'Riesgo de caída'],
+    bloquea: [],
+    items: [
+      { nombre: 'Voltea hacia el lado afecto', unidad: 'puntos' },
+      { nombre: 'Voltea hacia el lado sano', unidad: 'puntos' },
+      { nombre: 'Pasa de tumbado a sentado', unidad: 'puntos' },
+      { nombre: 'Se mantiene sentado al borde de la camilla', unidad: 'segundos' },
+      { nombre: 'Pasa de sentado a de pie sin ayuda de las manos', unidad: 'puntos' },
+      { nombre: 'Entra y sale de la cama solo', unidad: 'puntos' },
+      { nombre: 'Se escora hacia el lado sano al estar sentado' },
+    ],
+    objetivos: ['Aprender las transferencias con seguridad', 'Recuperar la marcha tras el ictus'],
   },
 ]

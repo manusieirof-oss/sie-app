@@ -506,4 +506,97 @@ export const SESIONES: SesionPlantilla[] = [
       },
     ],
   },
+
+  // ── Tras un ictus ─────────────────────────────────────────────────────────
+  //
+  // Dos sesiones y no una porque la distancia entre ellas es enorme: la primera se hace
+  // en la camilla y en una silla, la segunda de pie. Meterlas juntas obligaría a tachar
+  // media sesión cada día.
+  //
+  // Ninguna de las dos lleva carga externa ni series de diez. En la fase en la que se
+  // usan, la dosis no la pone el peso: la pone cuánto rato sale el gesto antes de que
+  // empiece a salir compensado.
+  {
+    nombre: 'Ictus · control de tronco y transferencias',
+    descripcion: 'La primera. Va de recuperar el tronco y de moverse: voltearse, sentarse, ponerse de pie. Empieza y acaba cuidando el hombro afecto, que es lo que más rehabilitaciones frena. Se para cuando el gesto deja de salir limpio, no cuando se acaban las repeticiones.',
+    partes: [
+      {
+        nombre: 'Cuidado del hombro', modo: 'ejercicio', descanso: '30',
+        ejercicios: [
+          { ejercicio: 'Autoasistido de hombro con bastón', variante: 'Elevación tumbado', series: '2', tiempo: '90', capacidad: 'Movilidad',
+            nota: 'Hasta donde no duela. Si duele, se para y se avisa' },
+          { ejercicio: 'Estiramiento mantenido de muñeca y dedos', variante: 'Con la otra mano', series: '2', tiempo: '90', capacidad: 'Movilidad' },
+          { ejercicio: 'Respiración diafragmática', tiempo: '60', capacidad: 'Movilidad' },
+        ],
+      },
+      {
+        nombre: 'Tronco en la camilla', modo: 'circuito', vueltas: '3', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Volteo en la camilla', variante: 'Hacia el lado afecto', tiempo: '60' },
+          { ejercicio: 'Puente de glúteo', reps: '8', capacidad: 'Fuerza',
+            nota: 'Con los dos pies. Que la cadera suba recta, sin caer al lado afecto' },
+          { ejercicio: 'Incorporarse a sentado', variante: 'Por el lado sano', tiempo: '90' },
+        ],
+      },
+      {
+        nombre: 'Sentado', modo: 'circuito', vueltas: '3', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Sedestación al borde de la camilla', variante: 'Sin apoyo', tiempo: '45' },
+          { ejercicio: 'Alcance funcional sentado', variante: 'Hacia delante', reps: '8' },
+          { ejercicio: 'Deslizamiento de la mano sobre la mesa', variante: 'Activo hacia delante', tiempo: '60' },
+        ],
+      },
+      {
+        nombre: 'De pie', modo: 'ejercicio', descanso: '90',
+        ejercicios: [
+          { ejercicio: 'Levantarse y sentarse con apoyo', variante: 'Desde silla alta', series: '3', reps: '6', capacidad: 'Fuerza',
+            nota: 'Bajar despacio cuenta tanto como subir' },
+          { ejercicio: 'Traslado de peso en bipedestación', variante: 'Con las dos manos apoyadas', series: '3', tiempo: '60',
+            nota: 'Con el entrenador en el lado afecto' },
+        ],
+      },
+    ],
+  },
+
+  {
+    nombre: 'Ictus · marcha y miembro superior',
+    descripcion: 'La segunda, para quien ya se pone de pie solo. La pierna se entrena andando y subiendo, no en máquina, porque lo que falla no es la fuerza sino el control. El bloque de brazo va al final a propósito: es el que más se abandona y el primero que se cae de la sesión cuando falta tiempo.',
+    partes: [
+      {
+        nombre: 'Preparación', modo: 'circuito', vueltas: '2', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Autoasistido de hombro con bastón', variante: 'Elevación sentado', tiempo: '60', capacidad: 'Movilidad' },
+          { ejercicio: 'Dorsiflexión con banda', reps: '12', capacidad: 'Fuerza-resistencia',
+            nota: 'El pie que se arrastra al andar sale de aquí' },
+          { ejercicio: 'Gato-camello', tiempo: '45', capacidad: 'Movilidad' },
+        ],
+      },
+      {
+        nombre: 'Fuerza de pierna', modo: 'ejercicio', descanso: '90',
+        ejercicios: [
+          { ejercicio: 'Levantarse y sentarse con apoyo', variante: 'Con los brazos cruzados', series: '3', reps: '8', capacidad: 'Fuerza' },
+          { ejercicio: 'Subir y bajar un escalón con barandilla', variante: 'Subiendo con el lado afecto', series: '3', reps: '8', capacidad: 'Fuerza' },
+          { ejercicio: 'Puente de glúteo', series: '3', reps: '12', capacidad: 'Fuerza' },
+        ],
+      },
+      {
+        nombre: 'Equilibrio y marcha', modo: 'circuito', vueltas: '3', descanso: '60',
+        ejercicios: [
+          { ejercicio: 'Traslado de peso en bipedestación', variante: 'Sin apoyo', tiempo: '45' },
+          { ejercicio: 'Paso lateral con apoyo', variante: 'Rozando la pared', tiempo: '60' },
+          { ejercicio: 'Marcha con obstáculos y giros', variante: 'Con obstáculo bajo', tiempo: '90',
+            nota: 'Sin doble tarea hasta que el recorrido salga solo' },
+        ],
+      },
+      {
+        nombre: 'Brazo y mano', modo: 'circuito', vueltas: '3', descanso: '45',
+        ejercicios: [
+          { ejercicio: 'Deslizamiento de la mano sobre la mesa', variante: 'Persiguiendo un objetivo', tiempo: '60' },
+          { ejercicio: 'Agarrar y soltar objetos', variante: 'Objetos grandes', tiempo: '90',
+            nota: 'Lo que cuesta es soltar, no coger' },
+          { ejercicio: 'Agarre y apertura con goma', reps: '15', capacidad: 'Fuerza-resistencia' },
+        ],
+      },
+    ],
+  },
 ]

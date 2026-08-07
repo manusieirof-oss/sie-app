@@ -2279,4 +2279,273 @@ export const SEMILLA: SemillaEjercicio[] = [
       { nombre: 'Con movimiento de pierna', descripcion: 'Manteniendo la activación mientras se mueve una pierna.' },
     ],
   },
+
+  // ── Tras un ictus ─────────────────────────────────────────────────────────
+  //
+  // Los 113 anteriores dan por hecho a alguien que ya se pone de pie y que puede repetir
+  // el gesto que se le enseña. Tras un ictus eso no se puede dar por hecho: el trabajo
+  // empieza en la camilla, se mide en si consigue hacerlo y no en cuánto peso mueve, y la
+  // mitad de lo que hay que entrenar —voltearse, sentarse, trasladar el peso a la pierna
+  // afecta— no aparecía en la biblioteca porque nadie sano necesita entrenarlo.
+  //
+  // Casi todos van en TIEMPO aunque se cuenten repeticiones: lo que se busca no es una
+  // serie de diez, es que el gesto salga y se repita mientras salga bien. En cuanto
+  // aparece la compensación, se para.
+
+  {
+    archivo: 'volteo-en-camilla.jpg',
+    nombre: 'Volteo en la camilla',
+    descripcion: 'Tumbado boca arriba, se gira hasta quedar de lado. El brazo afecto se lleva con la otra mano, entrelazando los dedos, y la rodilla del lado afecto se flexiona antes de empezar. Se hace hacia los dos lados: girar hacia el lado sano cuesta más porque hay que empujar con la mitad que no responde.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Abdomen', 'Oblicuos', 'Columna', 'Supino', 'Decúbito lateral', 'Rotación', 'Ictus', 'Hemiparesia', 'Global'],
+    items_ejecucion: [
+      'Los dedos van entrelazados: el brazo afecto nunca se queda atrás ni se tira de él',
+      'La cabeza inicia el giro y la mirada acompaña',
+      'La rodilla flexionada del lado que gira da el impulso',
+      'Se llega hasta el lado, sin quedarse a medias',
+    ],
+    feedbacks: ['Mira hacia donde vas', 'Lleva el brazo con la otra mano', 'Empuja con el pie'],
+    variantes: [
+      { nombre: 'Hacia el lado sano', descripcion: 'El difícil: hay que empujar con el lado afecto.' },
+      { nombre: 'Hacia el lado afecto', descripcion: 'El fácil, y el que se usa para salir de la cama.' },
+      { nombre: 'Con ayuda en la pelvis', descripcion: 'El entrenador acompaña la cadera. Se retira en cuanto salga solo.' },
+    ],
+  },
+  {
+    archivo: 'incorporarse-a-sentado.jpg',
+    nombre: 'Incorporarse a sentado',
+    descripcion: 'Desde tumbado, se voltea de lado, se dejan caer las piernas fuera de la camilla y se empuja con el codo y después con la mano de abajo hasta quedar sentado. Es una secuencia, no un abdominal: no se sube de frente.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Abdomen', 'Oblicuos', 'Tríceps', 'Columna', 'Decúbito lateral', 'Sentado', 'Ictus', 'Hemiparesia', 'Global'],
+    items_ejecucion: [
+      'Primero de lado, después las piernas fuera, y solo entonces empujar',
+      'Las piernas bajando hacen de contrapeso: no se quedan en la camilla',
+      'Se empuja con el codo antes que con la mano',
+      'Al llegar arriba se para y se comprueba que no hay mareo',
+    ],
+    feedbacks: ['De lado primero', 'Deja caer las piernas', 'Empuja con el codo'],
+    variantes: [
+      { nombre: 'Por el lado sano', descripcion: 'Empuja el brazo bueno. Es como saldrá de la cama en casa.' },
+      { nombre: 'Por el lado afecto', descripcion: 'Carga el lado afecto. Solo cuando el hombro lo tolere.' },
+      { nombre: 'Con barandilla', descripcion: 'Tirando de un asidero. Puente hacia el gesto completo.' },
+    ],
+  },
+  {
+    archivo: 'sedestacion-al-borde.jpg',
+    nombre: 'Sedestación al borde de la camilla',
+    descripcion: 'Sentado en el borde, con los dos pies apoyados en el suelo y sin respaldo. Se mantiene la posición erguida, con el peso repartido en los dos glúteos. Es el primer ejercicio que se puede hacer y la base de todos los demás.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Abdomen', 'Erectores Espinales', 'Multífidos', 'Columna', 'Sentado', 'Antiflexión', 'Ictus', 'Hemiparesia', 'Global'],
+    items_ejecucion: [
+      'Los dos pies planos en el suelo, a la anchura de la cadera',
+      'El peso repartido: no se escora al lado sano',
+      'El tronco erguido sin agarrarse con las manos',
+      'La cabeza en el centro, no inclinada',
+    ],
+    feedbacks: ['Peso en los dos lados', 'Crece hacia arriba', 'Suelta las manos'],
+    variantes: [
+      { nombre: 'Con apoyo de manos', descripcion: 'Manos en la camilla. El punto de partida.' },
+      { nombre: 'Sin apoyo', descripcion: 'Brazos en el regazo.' },
+      { nombre: 'Con los ojos cerrados', descripcion: 'Quita la vista y obliga a usar la sensibilidad.' },
+      { nombre: 'Sobre superficie inestable', descripcion: 'Cojín o disco bajo el glúteo.' },
+    ],
+  },
+  {
+    archivo: 'alcance-funcional-sentado.jpg',
+    nombre: 'Alcance funcional sentado',
+    descripcion: 'Sentado al borde, se estira el brazo para alcanzar un objeto que está fuera de la base de apoyo: delante, al lado y cruzando hacia el otro lado. Se trata de salir de la vertical y volver sin apoyarse.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Abdomen', 'Oblicuos', 'Deltoides', 'Columna', 'Hombro', 'Sentado', 'Alcance', 'Ictus', 'Hemiparesia', 'Combinado'],
+    items_ejecucion: [
+      'Los pies no se despegan del suelo',
+      'Se vuelve al centro con control, sin dejarse caer',
+      'El glúteo del lado contrario no se levanta',
+      'Se alcanza de verdad el objeto, no se hace el gesto en el aire',
+    ],
+    feedbacks: ['Pies quietos', 'Vuelve despacio', 'Toca el objeto'],
+    variantes: [
+      { nombre: 'Hacia delante', descripcion: 'El más seguro. Por aquí se empieza.' },
+      { nombre: 'Hacia el lado afecto', descripcion: 'Carga el lado que no responde.' },
+      { nombre: 'Cruzando la línea media', descripcion: 'Lo que más cuesta si hay negligencia.' },
+      { nombre: 'Recogiendo del suelo', descripcion: 'El objeto en el suelo. Gesto de casa.' },
+    ],
+  },
+  {
+    archivo: 'traslado-de-peso-de-pie.jpg',
+    nombre: 'Traslado de peso en bipedestación',
+    descripcion: 'De pie con apoyo delante, se pasa el peso de una pierna a la otra sin levantar los pies. Es el paso previo a dar un paso: no se puede avanzar una pierna si la otra no aguanta todo el cuerpo.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Glúteo medio', 'Cuádriceps', 'Cadera', 'Tobillo', 'Bipedestación', 'Bipodal', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    items_ejecucion: [
+      'El peso llega de verdad al lado afecto: se nota el pie apretando el suelo',
+      'La cadera no se rompe hacia el lado, el tronco se mantiene vertical',
+      'Los pies no se mueven del sitio',
+      'Se aguanta unos segundos en cada lado, no es un balanceo',
+    ],
+    feedbacks: ['Pasa el peso a esa pierna', 'Tronco recto', 'Aguanta ahí'],
+    variantes: [
+      { nombre: 'Con las dos manos apoyadas', descripcion: 'En la barra o el respaldo. El inicio.' },
+      { nombre: 'Con una mano', descripcion: 'Menos ayuda.' },
+      { nombre: 'Sin apoyo', descripcion: 'Manos libres, entrenador al lado afecto.' },
+      { nombre: 'En una báscula', descripcion: 'Un pie en cada báscula. El número dice lo que la vista no.' },
+    ],
+  },
+  {
+    archivo: 'levantarse-con-apoyo.jpg',
+    nombre: 'Levantarse y sentarse con apoyo',
+    descripcion: 'De sentado a de pie, con las manos apoyadas en un asidero delante o en los reposabrazos. Se adelantan los pies, se lleva la nariz por delante de las rodillas y se sube. Bajar controlado cuenta tanto como subir.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Cuádriceps', 'Glúteo mayor', 'Cadera', 'Rodilla', 'Sentado', 'Bipedestación', 'Sentadilla', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    items_ejecucion: [
+      'Los pies atrasados y el pie afecto en línea con el otro, no adelantado',
+      'El tronco se inclina adelante antes de subir: la nariz pasa las rodillas',
+      'El peso se reparte en las dos piernas al subir',
+      'Se baja despacio hasta sentarse, sin dejarse caer',
+    ],
+    feedbacks: ['Nariz por delante de las rodillas', 'Empuja con las dos piernas', 'Siéntate despacio'],
+    variantes: [
+      { nombre: 'Desde silla alta', descripcion: 'Menos recorrido. Se va bajando la altura.' },
+      { nombre: 'Con una sola mano', descripcion: 'Retirando la ayuda.' },
+      { nombre: 'Con los brazos cruzados', descripcion: 'Sin manos. Es ya el test de sentarse-levantarse.' },
+      { nombre: 'Hacia un lado', descripcion: 'Levantarse y girar. Es lo que se hace en casa de verdad.' },
+    ],
+  },
+  {
+    archivo: 'paso-lateral-con-apoyo.jpg',
+    nombre: 'Paso lateral con apoyo',
+    descripcion: 'De pie frente a la barra, se dan pasos hacia un lado y hacia el otro, apoyando las manos. Es el gesto de moverse por la cocina agarrado a la encimera.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Glúteo medio', 'Aductores', 'Cadera', 'Bipedestación', 'Abducción', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    items_ejecucion: [
+      'El pie sale y apoya entero, no de puntillas',
+      'El tronco se mantiene de frente, no gira',
+      'Se va y se vuelve el mismo número de pasos',
+      'No se arrastra el pie afecto',
+    ],
+    feedbacks: ['Pie plano', 'De frente', 'Levanta ese pie'],
+    variantes: [
+      { nombre: 'Con las dos manos', descripcion: 'El inicio.' },
+      { nombre: 'Rozando la pared', descripcion: 'Sin agarrar, la pared solo da referencia.' },
+      { nombre: 'Sin apoyo', descripcion: 'Manos libres.' },
+    ],
+  },
+  {
+    archivo: 'escalon-con-barandilla.jpg',
+    nombre: 'Subir y bajar un escalón con barandilla',
+    descripcion: 'Un escalón bajo, con la barandilla al alcance. Se sube con una pierna y se baja con la otra. En casa la regla es la de siempre: sube el pie bueno, baja el malo.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Cuádriceps', 'Glúteo mayor', 'Glúteo medio', 'Cadera', 'Rodilla', 'Cajón', 'Bipedestación', 'Unipodal', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    items_ejecucion: [
+      'La rodilla que sube no cae hacia dentro',
+      'Se sube empujando con la pierna de arriba, no impulsándose con la de abajo',
+      'Al bajar se apoya el pie entero, con control',
+      'La barandilla acompaña, no tira',
+    ],
+    feedbacks: ['Empuja con la de arriba', 'Rodilla en línea', 'Baja despacio'],
+    variantes: [
+      { nombre: 'Escalón de 10 cm', descripcion: 'El de empezar.' },
+      { nombre: 'Escalón de escalera normal', descripcion: 'Altura real de casa.' },
+      { nombre: 'Subiendo con el lado afecto', descripcion: 'Carga la pierna que no responde.' },
+      { nombre: 'Alternando pies', descripcion: 'Un pie por escalón. Marcha en escalera de verdad.' },
+    ],
+  },
+  {
+    archivo: 'marcha-con-obstaculos.jpg',
+    nombre: 'Marcha con obstáculos y giros',
+    descripcion: 'Recorrido con conos, un obstáculo bajo que pasar y un giro de 180° al final. Andar en línea recta por el pasillo de la clínica no se parece a andar por la calle: lo que hace caer es el giro y el bordillo.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Cuádriceps', 'Glúteo medio', 'Tibial Anterior', 'Cadera', 'Tobillo', 'Bipedestación', 'Marcha', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    items_ejecucion: [
+      'El pie afecto pasa el obstáculo levantando, no rodeándolo',
+      'El giro se hace con pasos, sin pivotar sobre un pie',
+      'La mirada va al frente, no a los pies',
+      'El paso mantiene la longitud: el lado afecto no acorta',
+    ],
+    feedbacks: ['Levanta el pie', 'Gira con pasitos', 'Mira al frente'],
+    variantes: [
+      { nombre: 'Solo conos', descripcion: 'Sin levantar el pie. El inicio.' },
+      { nombre: 'Con obstáculo bajo', descripcion: 'Un listón de 5 cm.' },
+      { nombre: 'Con doble tarea', descripcion: 'Contando hacia atrás mientras anda. Es lo que pasa en la calle.' },
+      { nombre: 'Cambiando de superficie', descripcion: 'De suelo a colchoneta.' },
+    ],
+  },
+  {
+    archivo: 'autoasistido-hombro-con-stick.jpg',
+    nombre: 'Autoasistido de hombro con bastón',
+    descripcion: 'Tumbado o sentado, se coge un bastón con las dos manos y el brazo sano lleva al afecto: elevación, rotación y separación. Mantiene el recorrido del hombro mientras el brazo no tiene fuerza propia.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Deltoides', 'Manguito rotador', 'Hombro', 'Escapular', 'Stick', 'Supino', 'Sentado', 'Flexión', 'Rotación', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Subluxación de hombro', 'Analítico'],
+    items_ejecucion: [
+      'La escápula acompaña: si el hombro se encoge hacia la oreja, se ha pasado el recorrido',
+      'Se para donde aparece la resistencia, no donde aparece el dolor',
+      'El movimiento es lento y sin rebotes',
+      'La mano afecta va sujeta al bastón, no colgando',
+    ],
+    feedbacks: ['Hombro abajo', 'Hasta donde no duela', 'Despacio'],
+    variantes: [
+      { nombre: 'Elevación tumbado', descripcion: 'La gravedad ayuda menos. Por aquí se empieza.' },
+      { nombre: 'Elevación sentado', descripcion: 'Contra gravedad, más exigente.' },
+      { nombre: 'Rotación con el codo pegado', descripcion: 'Codo a 90° al costado.' },
+      { nombre: 'Manos entrelazadas sin bastón', descripcion: 'Sin material. Es lo que hará en casa.' },
+    ],
+  },
+  {
+    archivo: 'deslizamiento-mano-en-mesa.jpg',
+    nombre: 'Deslizamiento de la mano sobre la mesa',
+    descripcion: 'Sentado ante una mesa, con la mano afecta sobre un paño o un deslizador, se empuja hacia delante y a los lados. La mesa sostiene el peso del brazo, así que se puede trabajar el alcance mucho antes de que el hombro aguante el brazo en el aire.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Deltoides', 'Tríceps', 'Trapecio', 'Hombro', 'Escapular', 'Codo', 'Deslizador', 'Sentado', 'Alcance', 'Extensión', 'Ictus', 'Hemiparesia', 'Analítico'],
+    items_ejecucion: [
+      'El tronco no se va detrás de la mano: el que alcanza es el brazo',
+      'El codo se estira de verdad al final del recorrido',
+      'El hombro no se encoge',
+      'Se vuelve con control, sin dejar caer el brazo',
+    ],
+    feedbacks: ['Estira el codo', 'Tronco quieto', 'Hombro abajo'],
+    variantes: [
+      { nombre: 'Empujando con la otra mano encima', descripcion: 'Asistido del todo. El primer paso.' },
+      { nombre: 'Activo hacia delante', descripcion: 'Solo, en línea recta.' },
+      { nombre: 'Hacia los lados y en diagonal', descripcion: 'Cambia la dirección.' },
+      { nombre: 'Persiguiendo un objetivo', descripcion: 'Hasta una marca en la mesa. Da meta y medida.' },
+    ],
+  },
+  {
+    archivo: 'agarrar-y-soltar-objetos.jpg',
+    nombre: 'Agarrar y soltar objetos',
+    descripcion: 'Pasar objetos de un lado a otro de la mesa: vasos, cubos, una botella. Abrir la mano cuesta más que cerrarla, así que lo que se entrena de verdad es soltar.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Flexor de Dedos', 'Extensor de Dedos', 'Dedos', 'Mano', 'Muñeca', 'Pelota', 'Sentado', 'Alcance', 'Ictus', 'Hemiparesia', 'Espasticidad', 'Analítico'],
+    items_ejecucion: [
+      'La muñeca se mantiene recta o algo extendida, no caída',
+      'Se abre la mano del todo para soltar, sin sacudirla',
+      'Se coge con los dedos, no aplastando contra la palma',
+      'El hombro y el codo hacen el traslado, la mano solo agarra',
+    ],
+    feedbacks: ['Muñeca arriba', 'Abre la mano', 'Sin prisa'],
+    variantes: [
+      { nombre: 'Objetos grandes', descripcion: 'Vaso o botella. Agarre de toda la mano.' },
+      { nombre: 'Objetos pequeños', descripcion: 'Cubos o fichas. Pinza.' },
+      { nombre: 'Cambiando de altura', descripcion: 'De la mesa a un estante. Suma hombro.' },
+      { nombre: 'Contrarreloj', descripcion: 'Cuántos en un minuto. Es el test de bloques.' },
+    ],
+  },
+  {
+    archivo: 'estiramiento-mantenido-mano.jpg',
+    nombre: 'Estiramiento mantenido de muñeca y dedos',
+    descripcion: 'Con la otra mano se abre la mano afecta —muñeca y dedos extendidos— y se mantiene un minuto o más. Es tensión sostenida y suave: en la espasticidad, lo que gana recorrido es el tiempo, no la fuerza.',
+    tipo_medida: 'tiempo',
+    etiquetas: ['Flexor de Dedos', 'Flexor de muñeca', 'Dedos', 'Mano', 'Muñeca', 'Extensión', 'Sentado', 'Ictus', 'Espasticidad', 'Analítico'],
+    items_ejecucion: [
+      'Se estira despacio: si se tira de golpe el músculo responde apretando más',
+      'Se mantiene un mínimo de un minuto, no unos segundos',
+      'El pulgar se abre también, no se deja dentro',
+      'No debe doler ni dejar la piel marcada',
+    ],
+    feedbacks: ['Despacio', 'Aguanta ahí', 'Saca el pulgar'],
+    variantes: [
+      { nombre: 'Con la otra mano', descripcion: 'Lo básico, sin material.' },
+      { nombre: 'Apoyando la palma en la mesa', descripcion: 'El peso del cuerpo mantiene la apertura.' },
+      { nombre: 'Con una férula o cuña', descripcion: 'Para mantenerlo más rato en casa.' },
+    ],
+  },
 ]

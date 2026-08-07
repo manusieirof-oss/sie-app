@@ -169,6 +169,7 @@ export default function SembrarTestsPage() {
 
     let creados = 0, actualizados = 0
     const etQueFaltan = new Set<string>()
+    const objQueFaltan = new Set<string>()
 
     for (const t of TESTS) {
       const etIds = t.etiquetas.map(n => {
@@ -188,6 +189,14 @@ export default function SembrarTestsPage() {
         logica: t.logica, tipo_lado: t.tipo_lado,
         frecuencia_meses: t.frecuencia_meses,
         etiquetas_relacionadas: etIds,
+        // Lo que el test DESACONSEJA si sale positivo. Iba vacío en el alta y había que
+        // marcarlo test por test a mano, así que en la práctica el aviso no saltaba nunca.
+        // Al actualizar lo protege `soloHuecos`: lo que ya hayas marcado no se toca.
+        etiquetas_bloquea: (t.bloquea || []).map(n => {
+          const id = idEtiqueta[norm(n)]
+          if (!id) etQueFaltan.add(n)
+          return id
+        }).filter(Boolean),
         items,
       }
 
@@ -200,7 +209,7 @@ export default function SembrarTestsPage() {
         if (error) { anota(`${t.nombre} — error: ${error.message}`, 'error'); continue }
         actualizados++
       } else {
-        const { data, error } = await supabase.from('tests').insert({ ...campos, etiquetas_bloquea: [], video_url: '', imagen_url: '' }).select('id').single()
+        const { data, error } = await supabase.from('tests').insert({ ...campos, video_url: '', imagen_url: '' }).select('id').single()
         if (error || !data) { anota(`${t.nombre} — error: ${error?.message}`, 'error'); continue }
         testId = data.id
         creados++
@@ -210,13 +219,17 @@ export default function SembrarTestsPage() {
       // aquí porque hasta ahora no existía el id del test.
       for (const nombreObj of t.objetivos) {
         const oid = idObjetivo[norm(nombreObj)]
-        if (oid && testId) await supabase.from('objetivos').update({ test_id: testId }).eq('id', oid)
+        if (!oid) { objQueFaltan.add(nombreObj); continue }
+        if (testId) await supabase.from('objetivos').update({ test_id: testId }).eq('id', oid)
       }
 
       const medidos = items.filter(i => i.unidad).length
       anota(`${t.nombre} — ${ya ? 'actualizado' : 'creado'} · ${items.length} ítems (${medidos} medidos) · ${etIds.length} etiquetas · ${t.tipo_lado}`, 'ok')
     }
 
+    if (objQueFaltan.size > 0) {
+      anota(`Estos objetivos todavía no existen, así que su test no los abrirá: ${Array.from(objQueFaltan).join(', ')}. Los crea el sembrador de objetivos; pásalo y vuelve a lanzar este.`, 'aviso')
+    }
     if (etQueFaltan.size > 0) {
       anota(`Etiquetas que no existen y se han omitido: ${Array.from(etQueFaltan).join(', ')}.`, 'aviso')
     }

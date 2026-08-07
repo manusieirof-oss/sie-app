@@ -224,6 +224,88 @@ Y `supabase-schema.sql` se quedó atrás: la tabla `tests` real tiene `items`, `
 
 ---
 
+# Pilar Valoración
+
+## Firma ✅ HECHO
+
+`FirmaCanvas` tiene dos lienzos y **un solo dato**: el hueco embebido (200 px, antes 130) y uno
+a pantalla completa que se abre con "Ampliar". El grande no es otro campo, es el mismo escrito
+con más sitio — en la tablet el hueco pequeño obligaba a firmar apretado.
+
+Tres detalles que no conviene deshacer:
+
+- **El lienzo grande trabaja sobre un borrador** y solo "Hecho" lo sube. Cerrar sin querer una
+  pantalla completa no puede llevarse por delante una firma que ya estaba.
+- **La firma se escala sin deformar** al pasar de un lienzo a otro: tienen proporciones
+  distintas y una firma estirada a lo ancho no es la firma de nadie.
+- **El grosor del trazo va con la resolución del lienzo.** Fijarlo en 2 px dejaba un hilo
+  invisible en un canvas de pantalla completa.
+
+Lo usa también `ModalConsentimientos` desde la ficha, que es el mismo componente.
+
+## Revaloración ✅ HECHO
+
+Dos pestañas en `/valoracion`, un solo `finalizar`. Son el mismo acto —anamnesis, tests, y lo
+que salga mueve objetivos— en dos momentos, así que partirlo en dos páginas habría duplicado
+justo la parte que importa. Lo que cambia es de dónde se parte:
+
+- **Inicial**: Paciente · Anamnesis · Historial · Tests · Plan · Resumen. El paciente puede no
+  existir; hay que crearlo, firmar y elegir bono.
+- **Revaloración**: Paciente · Anamnesis · Completar · Tests · Resumen. Ya está todo; se
+  pregunta qué ha cambiado.
+
+Decisiones tomadas:
+
+- **Se traen los tests con último resultado POSITIVO, por test y por lado** (`testsPositivosDe`
+  en `lib/tests.ts`). Un positivo no se cierra solo: deja vías de objetivo abiertas y etiquetas
+  desaconsejadas hasta que otro test lo levante, así que es exactamente lo que hay que repetir.
+  Mirarlo por test y no por lado haría desaparecer una rodilla según cuál se registrara después.
+- **Se cargan en blanco, con la nota de cuándo dieron positivo.** Copiar el resultado anterior
+  como resultado de hoy sería inventarse una exploración.
+- **Un test traído y no pasado no se registra.** `sin_realizar` no dice nada y ensucia el
+  historial; el Resumen avisa de cuántos quedan antes de guardar, no después.
+- **Ni bono ni consentimientos.** `finalizar` abría un bono nuevo también en revaloración, en
+  paralelo al que el paciente ya pagaba, y volvía a pedir una firma vigente. Los dos atados
+  ahora al modo inicial.
+- **El paso Completar solo añade.** Lo que ya está se enseña en gris **dentro de cada
+  buscador** —el momento en que hace falta saber que la artrosis ya está apuntada es justo
+  antes de volver a apuntarla, no en el resumen— y los deportes que ya practica ni se ofrecen.
+  Editar o dar de baja se hace en la ficha: un segundo camino para lo mismo acabaría
+  discrepando.
+- **Cambiar de pestaña vacía lo escrito**, con confirmación. Media valoración inicial
+  arrastrada a una revaloración es peor que volver a empezar, porque no se ve.
+
+Nada de esto necesitó esquema nuevo.
+
+## Alergias, intolerancias y operaciones no tienen tabla propia — PENDIENTE
+
+Salió al construir el paso Completar. Patologías, molestias, medicación y deportes tienen su
+tabla (`patologias`, `molestias`, `medicamentos`, `deportes_paciente`); **estas tres solo
+existen dentro del JSON `estado_general` de `valoraciones`**.
+
+Consecuencias, hoy:
+
+- El "ya en su ficha" de esas tres se lee de la **última valoración**, así que solo refleja lo
+  que se apuntó aquel día. Si se añadió una alergia desde Salud, aquí no aparece y se duplica.
+- `SaludTab` sí registra eventos de alergias e intolerancias (ver punto 2), o sea que se
+  gestionan desde la ficha aunque no tengan dónde vivir. Son dos verdades del mismo dato: el
+  JSON congelado de la valoración y lo que el entrenador cree que hay en la ficha.
+- Una alergia es del **paciente**, no de la valoración en que se apuntó. Guardarla dentro de un
+  acto fechado es el mismo error que guardar el valor actual de una meta.
+
+**El arreglo es el evidente** —tres tablas con `paciente_id`, `nombre`, `observaciones` y
+`activa`, iguales a `medicamentos`— y no se hace ahora por dos motivos: hay que **migrar** lo
+que ya está en los JSON de las valoraciones existentes (leerlos, insertar filas, sin duplicar
+si el mismo nombre aparece en varias valoraciones del mismo paciente), y hay que decidir si
+`estado_general` **deja de guardarlas** o las sigue guardando como foto de aquel día. Lo
+segundo es defendible para un consentimiento, no para una alergia.
+
+Va con el resto de decisiones de `*_biblioteca` (ver 3.2), que es cuando toca abrir el esquema
+clínico. Al hacerlo, el paso Completar y `PasoHistorial` leen de las tablas nuevas y el `yaTiene`
+deja de depender de la última valoración.
+
+---
+
 ## 0. Consentimientos ✅ CERRADO
 
 Se guardan en `consentimientos` con firma, fecha, versión del texto y **el texto literal**,

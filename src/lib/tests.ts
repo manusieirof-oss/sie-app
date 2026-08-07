@@ -65,6 +65,7 @@ export const UNIDADES = [
   // luego se pinta como "3 reps" en el historial.
   { id: 'puntos', nombre: 'Puntos', simbolo: ' pts' },
   { id: 'metros', nombre: 'Metros', simbolo: ' m' },
+  { id: 'meses', nombre: 'Meses', simbolo: ' meses' },
 ] as const
 
 /** La unidad de un ítem. Lo guardado con el booleano antiguo se lee como grados. */

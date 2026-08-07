@@ -97,6 +97,23 @@ prescrito, y mide en series.
 Preguntar lo mismo a todos y saber a quién falta. Columna en la lista, con respuesta escrita
 y contador de pendientes. Se abre y cierra desde Ajustes.
 
+### Valoración
+Dos pestañas y **un solo guardado**: valoración inicial (6 pasos, crea el paciente, firma y
+bono) y revaloración (Paciente · Anamnesis · Completar · Tests · Resumen). Son el mismo acto
+en dos momentos; duplicar la página habría duplicado la parte que registra los tests y mueve
+los objetivos.
+
+La revaloración trae los tests con **último resultado positivo, por test y por lado** —los que
+siguen abiertos— y los carga **en blanco**, con la nota de cuándo dieron positivo. El que no se
+llegue a pasar no se registra, y el resumen avisa antes de guardar. Ni bono nuevo ni firma:
+eso se decidió en la inicial.
+
+El paso **Completar** solo añade. Lo que ya está se enseña en gris dentro de cada buscador; se
+edita en la ficha, no aquí.
+
+**Firma**: hueco de 200 px con botón "Ampliar" que abre un lienzo a pantalla completa para la
+tablet. Un solo dato, dos tamaños; el grande trabaja sobre un borrador y solo "Hecho" lo sube.
+
 ---
 
 ## Orden de los sembradores
@@ -120,3 +137,6 @@ Ver `docs/PENDIENTES.md`, organizado por Pilar y pestaña. Lo gordo:
 - **VALD** — decidir si el número se copia a mano o solo consta el resultado.
 - **Grupos de perfil** (Pilates, recuperación, embarazadas) — sin decidir si son una etiqueta
   del paciente o algo con entidad propia.
+- **Alergias, intolerancias y operaciones no tienen tabla propia**: viven en el JSON
+  `estado_general` de `valoraciones`, aunque se gestionen desde Salud. Dos verdades del mismo
+  dato. Hace falta migrar lo ya guardado, así que va con el esquema clínico.

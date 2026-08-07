@@ -152,6 +152,32 @@ export default function SembrarObjetivosPage() {
 
     const COLOR = { fuerza: '#9A6B8F', movilidad: '#6B8F9A', fase: '#C17A54', cualitativo: '#7C9A6B' }
 
+    // ── Objetivos ↔ sesiones ────────────────────────────────────────────────
+    // Un objetivo abierto sin sesión que lo trabaje es un aviso sin salida: la ficha dice
+    // qué hay que mejorar y no propone con qué. Los métricos no lo necesitan —los cubren
+    // las sesiones de su zona— pero las fases y los cualitativos sí.
+    const { data: sesLib } = await supabase.from('sesiones').select('id,nombre').is('paciente_id', null)
+    const idSesion: Record<string, string> = {}
+    ;(sesLib || []).forEach((s: any) => { idSesion[norm(s.nombre)] = s.id })
+    const sesionesQueFaltan = new Set<string>()
+    let enlaces = 0
+
+    const enlazar = async (nombre: string, sesiones?: string[]) => {
+      const oid = idObj[norm(nombre)]
+      if (!oid) return
+      for (const n of sesiones || []) {
+        const sid = idSesion[norm(n)]
+        if (!sid) { sesionesQueFaltan.add(n); continue }
+        // Se comprueba antes de insertar: la tabla no tiene clave única y un segundo
+        // sembrado duplicaría la fila.
+        const { data: yaHay } = await supabase.from('sesiones_objetivos')
+          .select('sesion_id').eq('sesion_id', sid).eq('objetivo_id', oid).maybeSingle()
+        if (yaHay) continue
+        const { error } = await supabase.from('sesiones_objetivos').insert({ sesion_id: sid, objetivo_id: oid })
+        if (!error) enlaces++
+      }
+    }
+
     for (const e of ESPACIOS) {
       const movIds = e.movimientos.map(n => {
         const id = idEt[norm(n)]
@@ -190,6 +216,18 @@ export default function SembrarObjetivosPage() {
         etiquetas: resolver(c.etiquetas),
         color: COLOR.cualitativo,
       }, 'cualitativo')
+    }
+
+    // Se releen los ids DESPUÉS de crear: los objetivos nuevos no estaban en la lectura
+    // inicial, y sin esto los que se acaban de crear serían justo los que se quedan sin
+    // sesión enlazada.
+    const { data: objsFin } = await supabase.from('objetivos').select('id,nombre')
+    ;(objsFin || []).forEach((o: any) => { idObj[norm(o.nombre)] = o.id })
+    for (const f of FASES) await enlazar(f.nombre, f.sesiones)
+    for (const c of CUALITATIVOS) await enlazar(c.nombre, c.sesiones)
+    anota(`Sesiones enlazadas a objetivos: ${enlaces}.`, 'ok')
+    if (sesionesQueFaltan.size > 0) {
+      anota(`Estas sesiones no existen en la biblioteca, así que el objetivo se queda sin nada que lo trabaje: ${Array.from(sesionesQueFaltan).join(', ')}. Pasa el sembrador de sesiones y vuelve aquí.`, 'aviso')
     }
 
     if (sinEtiqueta.size > 0) {
