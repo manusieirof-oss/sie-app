@@ -21,6 +21,24 @@ const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[�
 
 type Linea = { texto: string, estado: 'ok' | 'aviso' | 'error' | 'info' }
 
+/**
+ * REGLA DE TODOS LOS SEMBRADORES: no se pisa nada que ya tenga contenido.
+ *
+ * Un sembrador está para dar de alta lo que falta, no para deshacer lo que se haya hecho
+ * después a mano. Si un campo ya tiene valor, se respeta; si está vacío, se rellena. Así
+ * se puede relanzar sin miedo cuando la semilla añade algo nuevo.
+ */
+const vacio = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
+function soloHuecos(campos: any, actual: any, nuncaTocar: string[] = []) {
+  const salida: any = {}
+  for (const [k, v] of Object.entries(campos)) {
+    if (nuncaTocar.includes(k)) continue
+    if (vacio((actual || {})[k])) salida[k] = v
+  }
+  return salida
+}
+
+
 export default function SembrarTestsPage() {
   const [log, setLog] = useState<Linea[]>([])
   const [corriendo, setCorriendo] = useState(false)
@@ -94,13 +112,7 @@ export default function SembrarTestsPage() {
       if (ya) {
         // Solo se rellena lo que esté vacío: lo que hayas editado en la pestaña se
         // respeta. Un sembrador está para dar de alta, no para deshacer.
-        const hay = actualObj[ya] || {}
-        const vacio = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
-        const cambios: any = {}
-        for (const [k, v] of Object.entries(campos)) {
-          if (k === 'nombre' || k === 'activo') continue
-          if (vacio(hay[k])) cambios[k] = v
-        }
+        const cambios = soloHuecos(campos, actualObj[ya], ['nombre', 'activo'])
         if (Object.keys(cambios).length === 0) { objActualizados++; continue }
         const { error } = await supabase.from('objetivos').update(cambios).eq('id', ya)
         if (error) { anota(`Objetivo "${o.nombre}" — error: ${error.message}`, 'error'); continue }
@@ -149,9 +161,11 @@ export default function SembrarTestsPage() {
     const idEtiqueta: Record<string, string> = {}
     ;(etiquetas || []).forEach((e: any) => { idEtiqueta[norm(e.nombre)] = e.id })
 
-    const { data: testsExist } = await supabase.from('tests').select('id,nombre')
+    const { data: testsExist } = await supabase.from('tests')
+      .select('id,nombre,descripcion,logica,tipo_lado,frecuencia_meses,etiquetas_relacionadas,items')
     const idTest: Record<string, string> = {}
-    ;(testsExist || []).forEach((t: any) => { idTest[norm(t.nombre)] = t.id })
+    const actualTest: Record<string, any> = {}
+    ;(testsExist || []).forEach((t: any) => { idTest[norm(t.nombre)] = t.id; actualTest[t.id] = t })
 
     let creados = 0, actualizados = 0
     const etQueFaltan = new Set<string>()
@@ -180,10 +194,9 @@ export default function SembrarTestsPage() {
       const ya = idTest[norm(t.nombre)]
       let testId = ya
       if (ya) {
-        // Al ACTUALIZAR no se escribe `etiquetas_bloquea`: eso se marca a mano en la
-        // pestaña y la semilla no lo trae. Un sembrador que borre trabajo hecho a mano es
-        // una trampa; solo debe rellenar lo que él mismo aporta.
-        const { error } = await supabase.from('tests').update(campos).eq('id', ya)
+        const cambios = soloHuecos(campos, actualTest[ya], ['nombre'])
+        if (Object.keys(cambios).length === 0) { actualizados++; continue }
+        const { error } = await supabase.from('tests').update(cambios).eq('id', ya)
         if (error) { anota(`${t.nombre} — error: ${error.message}`, 'error'); continue }
         actualizados++
       } else {

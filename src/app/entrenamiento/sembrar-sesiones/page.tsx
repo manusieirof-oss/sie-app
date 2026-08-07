@@ -22,6 +22,24 @@ const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[�
 type Linea = { texto: string, estado: 'ok' | 'aviso' | 'error' | 'info' }
 type Problema = { sesion: string, que: string }
 
+/**
+ * REGLA DE TODOS LOS SEMBRADORES: no se pisa nada que ya tenga contenido.
+ *
+ * Un sembrador está para dar de alta lo que falta, no para deshacer lo que se haya hecho
+ * después a mano. Si un campo ya tiene valor, se respeta; si está vacío, se rellena. Así
+ * se puede relanzar sin miedo cuando la semilla añade algo nuevo.
+ */
+const vacio = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
+function soloHuecos(campos: any, actual: any, nuncaTocar: string[] = []) {
+  const salida: any = {}
+  for (const [k, v] of Object.entries(campos)) {
+    if (nuncaTocar.includes(k)) continue
+    if (vacio((actual || {})[k])) salida[k] = v
+  }
+  return salida
+}
+
+
 export default function SembrarSesionesPage() {
   const [log, setLog] = useState<Linea[]>([])
   const [corriendo, setCorriendo] = useState(false)
@@ -63,7 +81,7 @@ export default function SembrarSesionesPage() {
     // Solo se miran las que NO tienen paciente: una sesión con el mismo nombre asignada
     // a alguien es suya, no la plantilla, y machacarla sería borrarle el trabajo.
     const { data: existentes } = await supabase.from('sesiones')
-      .select('id,nombre').is('paciente_id', null)
+      .select('id,nombre,descripcion,partes').is('paciente_id', null)
 
     let creadas = 0, actualizadas = 0
     const faltan = new Set<string>()
@@ -107,7 +125,9 @@ export default function SembrarSesionesPage() {
       const ya = (existentes || []).find((x: any) => norm(x.nombre) === norm(s.nombre))
 
       if (ya) {
-        const { error } = await supabase.from('sesiones').update(campos).eq('id', ya.id)
+        const cambios = soloHuecos(campos, ya, ['nombre'])
+        if (Object.keys(cambios).length === 0) { anota(`${s.nombre} — ya existe, no se toca`, 'info'); continue }
+        const { error } = await supabase.from('sesiones').update(cambios).eq('id', ya.id)
         if (error) { anota(`${s.nombre} — error: ${error.message}`, 'error'); continue }
         actualizadas++
       } else {

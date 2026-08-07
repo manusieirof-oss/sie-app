@@ -17,6 +17,23 @@ import { subirImagenEjercicio, subirImagenVariante } from '@/lib/ejercicios'
  */
 
 const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+/**
+ * REGLA DE TODOS LOS SEMBRADORES: no se pisa nada que ya tenga contenido.
+ *
+ * Un sembrador está para dar de alta lo que falta, no para deshacer lo que se haya hecho
+ * después a mano. Si un campo ya tiene valor, se respeta; si está vacío, se rellena.
+ */
+const vacio = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0)
+function soloHuecos(campos: any, actual: any, nuncaTocar: string[] = []) {
+  const salida: any = {}
+  for (const [k, v] of Object.entries(campos)) {
+    if (nuncaTocar.includes(k)) continue
+    if (vacio((actual || {})[k])) salida[k] = v
+  }
+  return salida
+}
+
 /** Sin la marca de plural, para que "Isquiotibiales" encuentre a "Isquiotibial". */
 const raizNom = (s: string) => norm(s).replace(/(es|s)$/, '')
 
@@ -93,7 +110,8 @@ export default function SembrarPage() {
     const buscarEt = (nombre: string) =>
       mejor[norm(nombre)]?.id || mejor[raizNom(nombre) + '~']?.id || mejor[raizNom(nombre)]?.id
 
-    const { data: existentes } = await supabase.from('ejercicios').select('id,nombre')
+    const { data: existentes } = await supabase.from('ejercicios')
+      .select('id,nombre,descripcion,etiquetas,tipo_medida,items_ejecucion,feedbacks')
     const yaEstan = new Set((existentes || []).map((e: any) => norm(e.nombre)))
 
     let creados = 0, saltados = 0, sinImagen = 0, varianteImg = 0
@@ -117,16 +135,17 @@ export default function SembrarPage() {
         feedbacks: s.feedbacks.map(texto => ({ texto })),
       }
 
-      // Si ya está, se ACTUALIZA en vez de saltarse. Así corregir la semilla y volver
-      // a lanzar arregla lo ya creado, en lugar de obligar a borrarlo a mano.
-      // No se tocan `variantes` ni `video_url`: eso lo pones tú desde la ficha y la
-      // semilla no tiene por qué pisarlo.
+      // Si ya está, solo se rellenan sus HUECOS. Lo que tenga contenido —porque lo
+      // escribiste tú o porque ya lo puso la semilla— se respeta.
       const existente = (existentes || []).find((e: any) => norm(e.nombre) === norm(s.nombre))
       let id: string
 
       if (existente) {
-        const { error } = await supabase.from('ejercicios').update(campos).eq('id', existente.id)
-        if (error) { anota(`${s.nombre} — error al actualizar: ${error.message}`, 'error'); continue }
+        const cambios = soloHuecos(campos, existente, ['nombre'])
+        if (Object.keys(cambios).length > 0) {
+          const { error } = await supabase.from('ejercicios').update(cambios).eq('id', existente.id)
+          if (error) { anota(`${s.nombre} — error al actualizar: ${error.message}`, 'error'); continue }
+        }
         id = existente.id; saltados++
       } else {
         const { data, error } = await supabase.from('ejercicios')
