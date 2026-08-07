@@ -85,7 +85,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       .then(({data}) => setMetas(data||[]))
     supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
       .then(({data}) => setResultadosTests(data||[]))
-    supabase.from('tests').select('id,nombre,items').order('nombre').then(({data}) => setTestsLib(data||[]))
+    supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
     supabase.from('objetivos').select('id,nombre,descripcion,color,tipo,metrica,movimientos,fases,articulacion_id')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))

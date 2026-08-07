@@ -48,7 +48,7 @@ export type EspacioSemilla = {
  * mismos midas fuerza o recorrido. Escribirlos dos veces era garantizar que un día uno de
  * los dos se quedara corto.
  */
-const MOVIMIENTOS: Record<string, string[]> = {
+export const MOVIMIENTOS: Record<string, string[]> = {
   'Hombro': ['Flexión', 'Extensión', 'Abducción', 'Adducción', 'Rotación interna', 'Rotación externa'],
   'Escapular': ['Retracción', 'Protracción'],
   'Codo': ['Flexión', 'Extensión'],
@@ -59,6 +59,19 @@ const MOVIMIENTOS: Record<string, string[]> = {
   'Cadera': ['Flexión', 'Extensión', 'Abducción', 'Adducción', 'Rotación interna', 'Rotación externa'],
   'Rodilla': ['Flexión', 'Extensión'],
   'Tobillo': ['Dorsiflexión', 'Flexión plantar', 'Inversión', 'Eversión'],
+}
+
+/** El título de cada zona, para nombrar los tests que la miden: "Hombro · fuerza". */
+export const ZONA_TITULO: Record<string, string> = {
+  'Hombro': 'Hombro', 'Escapular': 'Escápula', 'Codo': 'Codo', 'Muñeca': 'Muñeca',
+  'Mano': 'Mano y dedos', 'Cervical': 'Cervical', 'Columna': 'Tronco',
+  'Cadera': 'Cadera', 'Rodilla': 'Rodilla', 'Tobillo': 'Tobillo',
+}
+
+/** Zonas que se miden por separado en cada lado. El tronco y el cuello, no. */
+export const ZONA_LATERAL: Record<string, boolean> = {
+  'Hombro': true, 'Escapular': true, 'Codo': true, 'Muñeca': true, 'Mano': true,
+  'Cervical': false, 'Columna': false, 'Cadera': true, 'Rodilla': true, 'Tobillo': true,
 }
 
 /** Cómo se lee cada zona en el nombre del objetivo. "Fuerza de Escapular" no es castellano. */

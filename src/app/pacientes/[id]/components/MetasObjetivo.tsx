@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { unidadDe, valorDe } from '@/lib/tests'
@@ -29,10 +29,41 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 }) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [f, setF] = useState<any>({ movimiento_id: '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '' })
+  const [f, setF] = useState<any>({ movimiento_id: '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '', manual: false })
 
   const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || ''
   const movimientos = (objetivo.movimientos || []).map((id: string) => ({ id, nombre: nombreEt(id) })).filter((m: any) => m.nombre)
+
+  const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+  /**
+   * Qué test e ítem miden este movimiento, resuelto solo.
+   *
+   * Desde que los tests de medición espejan a los espacios métricos —"Fuerza de hombro"
+   * tiene su "Hombro · fuerza" con los mismos movimientos como ítems— no hay nada que
+   * elegir: el objetivo dice la zona y la métrica, el movimiento dice el ítem.
+   *
+   * Preguntarlo era pedirle al usuario que resolviera a mano una correspondencia que la
+   * app conoce, y en una lista que además ofrecía tests de otras zonas.
+   */
+  const sugerida = useMemo(() => {
+    const mov = f.movimiento_id ? nombreEt(f.movimiento_id) : ''
+    if (!mov) return null
+    const deLaZona = tests.filter((t: any) => (t.etiquetas_relacionadas || []).includes(objetivo.articulacion_id))
+    const conMetrica = deLaZona.filter((t: any) => norm(t.nombre).includes(norm(objetivo.metrica || '')))
+    for (const t of (conMetrica.length ? conMetrica : deLaZona)) {
+      const i = (t.items || []).findIndex((it: any) => norm(it.nombre) === norm(mov))
+      if (i >= 0) return { test_id: t.id, item_indice: i, nombre: t.nombre, item: t.items[i] }
+    }
+    return null
+  }, [f.movimiento_id, tests, objetivo, etiquetas])
+
+  // La sugerencia se aplica sola al cambiar de movimiento, salvo que se haya pedido
+  // elegir a mano. Sin esto habría que confirmarla en cada meta.
+  useEffect(() => {
+    if (f.manual || !sugerida) return
+    setF((p: any) => ({ ...p, test_id: sugerida.test_id, item_indice: String(sugerida.item_indice) }))
+  }, [sugerida, f.manual])
 
   const testSel = tests.find((t: any) => t.id === f.test_id)
   /** Solo los ítems que se miden: una casilla de sí/no no puede cerrar un "+20%". */
@@ -71,7 +102,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   }, [f.tipo, f.movimiento_id, itemsMedibles, etiquetas])
 
   function abrir() {
-    setF({ movimiento_id: movimientos[0]?.id || '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '' })
+    setF({ movimiento_id: movimientos[0]?.id || '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '', manual: false })
     setModal(true)
   }
 
@@ -166,14 +197,19 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               </div>
             )}
 
-            <div className="field"><label>Lado</label>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {LADOS.map(([v, l]) => (
-                  <button key={v} className={`chip-sel ${f.lado === v ? 'on' : ''}`}
-                    onClick={() => setF((p: any) => ({ ...p, lado: v }))}>{l}</button>
-                ))}
+            {/* En "igualar lados" el lado no significa nada: la comparación es simétrica,
+                mide la diferencia entre los dos. Pedir un dato que no cambia el resultado
+                hace pensar que sí lo cambia. */}
+            {f.tipo !== 'igualar_lados' && (
+              <div className="field"><label>Lado</label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {LADOS.map(([v, l]) => (
+                    <button key={v} className={`chip-sel ${f.lado === v ? 'on' : ''}`}
+                      onClick={() => setF((p: any) => ({ ...p, lado: v }))}>{l}</button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="field"><label>Qué se busca</label>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -187,27 +223,55 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               </div>
             </div>
 
-            {/* Obligatorio: una meta que nadie mide es una intención con un número. */}
-            <div className="field"><label>De qué medición sale *</label>
-              <select className="input" value={f.test_id}
-                onChange={e => setF((p: any) => ({ ...p, test_id: e.target.value, item_indice: '', item_par_indice: '' }))}>
-                <option value="">— Elige el test —</option>
-                {tests.filter((t: any) => (t.items || []).some((i: any) => unidadDe(i).id !== ''))
-                  .map((t: any) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
-              {f.test_id && (
-                <select className="input" style={{ marginTop: 5 }} value={f.item_indice}
-                  onChange={e => setF((p: any) => ({ ...p, item_indice: e.target.value }))}>
-                  <option value="">— Qué ítem —</option>
-                  {itemsMedibles.map(it => (
-                    <option key={it.i} value={it.i}>{it.nombre} ({unidadDe(it).nombre.toLowerCase()})</option>
-                  ))}
-                </select>
-              )}
-              {f.test_id && itemsMedibles.length === 0 && (
-                <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
-                  Este test no tiene ningún ítem con unidad, así que no puede medir una meta.
+            {/* Obligatorio: una meta que nadie mide es una intención con un número.
+                Pero ya no se pregunta si la app puede resolverlo sola. */}
+            <div className="field"><label>Se mide con</label>
+              {sugerida && !f.manual ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--gl)', borderRadius: 'var(--r)' }}>
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--n)' }}>
+                    {sugerida.nombre} <span style={{ color: 'var(--gr)' }}>›</span> {sugerida.item.nombre}
+                    <span style={{ color: 'var(--gr)' }}> · {unidadDe(sugerida.item).nombre.toLowerCase()}</span>
+                  </span>
+                  <button className="btn btn-t btn-sm" onClick={() => setF((p: any) => ({ ...p, manual: true }))}>
+                    Cambiar
+                  </button>
                 </div>
+              ) : (
+                <>
+                  {!sugerida && f.movimiento_id && (
+                    <div style={{ fontSize: 12, color: '#8A6410', marginBottom: 5 }}>
+                      No hay ningún test de esta zona con un ítem que mida ese movimiento. Elígelo a mano
+                      o crea la medición en Biblioteca → Tests.
+                    </div>
+                  )}
+                  <select className="input" value={f.test_id}
+                    onChange={e => setF((p: any) => ({ ...p, test_id: e.target.value, item_indice: '', item_par_indice: '' }))}>
+                    <option value="">— Elige el test —</option>
+                    {tests.filter((t: any) => (t.items || []).some((i: any) => unidadDe(i).id !== ''))
+                      // Los de la zona del objetivo primero: ofrecer "Cadera · fuerza" para
+                      // un hombro es ruido que además invita a equivocarse.
+                      .sort((a: any, b: any) => {
+                        const za = (a.etiquetas_relacionadas || []).includes(objetivo.articulacion_id) ? 0 : 1
+                        const zb = (b.etiquetas_relacionadas || []).includes(objetivo.articulacion_id) ? 0 : 1
+                        return za - zb || a.nombre.localeCompare(b.nombre)
+                      })
+                      .map((t: any) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                  </select>
+                  {f.test_id && (
+                    <select className="input" style={{ marginTop: 5 }} value={f.item_indice}
+                      onChange={e => setF((p: any) => ({ ...p, item_indice: e.target.value }))}>
+                      <option value="">— Qué ítem —</option>
+                      {itemsMedibles.map(it => (
+                        <option key={it.i} value={it.i}>{it.nombre} ({unidadDe(it).nombre.toLowerCase()})</option>
+                      ))}
+                    </select>
+                  )}
+                  {f.test_id && itemsMedibles.length === 0 && (
+                    <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
+                      Este test no tiene ningún ítem con unidad, así que no puede medir una meta.
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -259,7 +323,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             {f.tipo !== 'mejorar' && (
               <div className="fila-p" style={{ borderLeftColor: 'var(--bd)' }}>
                 <span style={{ fontSize: 13, color: 'var(--gr)' }}>
-                  Se dará por cumplida cuando la diferencia baje del 10%.
+                  Compara las dos mediciones y se da por cumplida cuando la diferencia baja del 10%. No hace falta decir cuál es la más débil: eso lo dicen los números.
                 </span>
               </div>
             )}

@@ -21,6 +21,8 @@
 // ejercicios: nombres en plural que no existían y se perdían en silencio.
 // Comprobadas contra datos/etiquetas-arbol.txt.
 
+import { MOVIMIENTOS, ZONA_TITULO, ZONA_LATERAL } from './semillaObjetivos'
+
 export type ItemSemilla = {
   nombre: string
   /** '' = cualitativo. Si no, 'grados' | 'cm' | 'segundos' | 'repeticiones' | 'kg'. */
@@ -141,7 +143,40 @@ export const OBJETIVOS: ObjetivoSemilla[] = [
     sesiones: ['Tren inferior', 'Equilibrio y marcha'] },
 ]
 
+/**
+ * TESTS DE MEDICIÓN: el espejo de los espacios métricos de `semillaObjetivos.ts`.
+ *
+ * Por cada "Fuerza de hombro" existe su "Hombro · fuerza", con exactamente los mismos
+ * movimientos como ítems. Sin esto, una meta de rotación interna de hombro no tenía de
+ * dónde salir y había que elegir el test a mano de una lista que no encajaba con nada.
+ *
+ * SE GENERAN DEL MISMO MAPA que los objetivos, no de una lista copiada. Si mañana se añade
+ * un movimiento al hombro, aparece en el objetivo y en el test a la vez. Dos listas
+ * paralelas escritas a mano habrían divergido a la primera.
+ *
+ * NO ABREN OBJETIVOS. Un test de medición no dice "esto va mal", da un número; quien decide
+ * si ese número cumple algo es la meta. Por eso su lista de objetivos va vacía.
+ */
+const MEDICIONES: TestSemilla[] = Object.keys(MOVIMIENTOS).flatMap(zona => {
+  const titulo = ZONA_TITULO[zona] || zona
+  const lateral = ZONA_LATERAL[zona]
+  const movs = MOVIMIENTOS[zona]
+  return ([['fuerza', 'kg'], ['movilidad', 'grados']] as const).map(([metrica, unidad]) => ({
+    nombre: `${titulo} · ${metrica}`,
+    descripcion: metrica === 'fuerza'
+      ? `Fuerza de ${titulo.toLowerCase()} movimiento a movimiento, con dinamómetro. Lo que decide no suele ser el número absoluto sino la diferencia entre lados y entre un movimiento y su contrario.`
+      : `Recorrido de ${titulo.toLowerCase()} movimiento a movimiento, en grados. Es la medición con la que se cierran los objetivos de movilidad de esta zona.`,
+    logica: 'cualquiera' as const,
+    tipo_lado: (lateral ? 'lateral' : 'bilateral') as 'lateral' | 'bilateral',
+    frecuencia_meses: 3,
+    etiquetas: [zona],
+    objetivos: [],
+    items: movs.map(m => ({ nombre: m, unidad })),
+  }))
+})
+
 export const TESTS: TestSemilla[] = [
+  ...MEDICIONES,
 
   // ── Hombro ────────────────────────────────────────────────────────────────
   {
