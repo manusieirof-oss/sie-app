@@ -13,6 +13,7 @@ import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
 import { registrarResultadoTest, resultadoDeItems, mide, unidadDe, valorDe, textoMedida } from '@/lib/tests'
 import { asistencia } from '@/lib/resultados'
+import { leerLista } from '@/lib/listasPaciente'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { useParams, useRouter } from 'next/navigation'
@@ -29,6 +30,7 @@ export default function FichaPacientePage() {
   const [medicamentos, setMedicamentos] = useState<any[]>([])
   const [alergias, setAlergias] = useState<any[]>([])
   const [intolerancias, setIntolerancias] = useState<any[]>([])
+  const [operaciones, setOperaciones] = useState<any[]>([])
   const [deportesPac, setDeportesPac] = useState<any[]>([])
   const [escalas, setEscalas] = useState<any[]>([])
   const [tests, setTests] = useState<any[]>([])
@@ -229,7 +231,7 @@ export default function FichaPacientePage() {
       supabase.from('citas').select('id,fecha,hora,sala,tipo,estado,sesion_id,notas').eq('paciente_id',id).order('fecha',{ascending:false}).limit(50),
       supabase.from('sesiones').select('*').eq('paciente_id',id).order('created_at',{ascending:false}).limit(5),
     ])
-    const [{ data: t }, { data: td }, { data: alg }, { data: intol }, { data: dep }] = await Promise.all([
+    const [{ data: t }, { data: td }, { data: alg }, { data: intol }, { data: dep }, oper] = await Promise.all([
       // fecha es un DATE: dos tests del mismo día empatan y Postgres los devuelve
       // en orden arbitrario. Sin created_at, "el resultado actual" salía a suertes.
       supabase.from('resultados_tests').select('*, tests(nombre,descripcion)').eq('paciente_id',id)
@@ -238,8 +240,11 @@ export default function FichaPacientePage() {
       supabase.from('alergias_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('intolerancias_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('deportes_paciente').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
+      // Por `leerLista` y no por consulta directa: la tabla es nueva y hasta que no se
+      // ejecute su SQL devuelve lista vacía en vez de tumbar la carga de la ficha entera.
+      leerLista(id as string,'operaciones'),
     ])
-    setAlergias(alg||[]); setIntolerancias(intol||[]); setDeportesPac(dep||[])
+    setAlergias(alg||[]); setIntolerancias(intol||[]); setDeportesPac(dep||[]); setOperaciones(oper||[])
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
     setTests(t||[]); setTestsDisp(td||[])
@@ -595,7 +600,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='salud' && (
-        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest} abrirTest={abrirTest}/>
+        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest} abrirTest={abrirTest}/>
       )}
 
       {/* TAB ENTRENAMIENTO */}

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
 import { registrarResultadoTest, testsPositivosDe } from '@/lib/tests'
+import { anadirALista, leerLista } from '@/lib/listasPaciente'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -144,19 +145,20 @@ export default function ValoracionPage() {
     setCargandoPrevio(true)
     setTestsValoracion([]); setTestActivo(null)
     try {
-      const [vals, pats, mols, meds, deps, positivos] = await Promise.all([
+      // Todo sale de las tablas del paciente, no del JSON de su última valoración: lo que
+      // vale es lo que hay hoy en su ficha, no lo que se apuntó el día de la valoración.
+      const [vals, pats, mols, meds, deps, alerg, intol, opers, positivos] = await Promise.all([
         supabase.from('valoraciones').select('*').eq('paciente_id',p.id).order('fecha',{ascending:false}).limit(1),
         supabase.from('patologias').select('nombre,lado,estado').eq('paciente_id',p.id),
         supabase.from('molestias').select('zona,eva,lado,activa').eq('paciente_id',p.id).eq('activa',true),
         supabase.from('medicamentos').select('nombre,frecuencia').eq('paciente_id',p.id),
         supabase.from('deportes_paciente').select('nombre').eq('paciente_id',p.id),
+        leerLista(p.id,'alergias'),
+        leerLista(p.id,'intolerancias'),
+        leerLista(p.id,'operaciones'),
         testsPositivosDe(p.id),
       ])
       const val = vals.data?.[0] || null
-      // Alergias, intolerancias y operaciones no tienen tabla propia: viven en el
-      // JSON de la valoración. Se leen de la última que haya.
-      let extra: any = {}
-      try { extra = val?.estado_general ? JSON.parse(val.estado_general) : {} } catch { extra = {} }
 
       // Sin la biblioteca de tests no hay nombres que enseñar. Al elegir paciente
       // nada más entrar puede no haber llegado todavía, así que se pide.
@@ -174,9 +176,9 @@ export default function ValoracionPage() {
         molestias: (mols.data||[]).map((x:any)=>`${x.zona} · EVA ${x.eva}`),
         medicacion: (meds.data||[]).map((x:any)=>x.nombre + (x.frecuencia?` · ${x.frecuencia}`:'')),
         deportes: (deps.data||[]).map((x:any)=>x.nombre),
-        alergias: Array.isArray(extra.alergias)?extra.alergias:[],
-        intolerancias: Array.isArray(extra.intolerancias)?extra.intolerancias:[],
-        operaciones: Array.isArray(extra.operaciones)?extra.operaciones.map((o:any)=>o.nombre+(o.anio?` · ${o.anio}`:'')):[],
+        alergias: alerg.map((x:any)=>x.nombre),
+        intolerancias: intol.map((x:any)=>x.nombre),
+        operaciones: opers.map((x:any)=>x.nombre+(x.anio?` · ${x.anio}`:'')+(x.lado?` · ${x.lado}`:'')),
       })
 
       setTestsValoracion(conNombre.map((r:any) => {
@@ -230,6 +232,23 @@ export default function ValoracionPage() {
         supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
+      // Alergias, intolerancias y operaciones van a SUS TABLAS, no solo al JSON de la
+      // valoración. Antes se guardaban únicamente dentro de `estado_general` y por eso una
+      // alergia apuntada aquí no aparecía en Salud: quedaba escrita donde nadie mira.
+      // `anadirALista` no duplica lo que el paciente ya tenía, así que la revaloración puede
+      // pasar por el mismo formulario sin repetirle nada.
+      for (const [lista, entradas] of [
+        ['alergias', form.alergias],
+        ['intolerancias', form.intolerancias],
+        ['operaciones', form.operaciones],
+      ] as const) {
+        if (!entradas || entradas.length === 0) continue
+        const r = await anadirALista(pacienteId, lista, entradas as any)
+        // Un fallo aquí no puede tumbar el resto: la valoración entera ya está guardada y
+        // volver a lanzarla duplicaría todo lo demás. Se avisa y se sigue.
+        if (!r.ok) alert(`Aviso: no se pudieron guardar las ${lista} (${r.error}). El resto de la valoración sí se ha guardado.`)
+      }
+
       // Antes la firma y las casillas se quedaban en memoria y se perdían al terminar.
       // En la revaloración no hay nada que firmar: los consentimientos se dieron una vez
       // y siguen vigentes; volver a pedirlos crearía un segundo registro del mismo acto.

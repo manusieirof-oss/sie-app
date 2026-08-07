@@ -7,14 +7,17 @@ import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import Sparkline from './Sparkline'
 import Documentos from './Documentos'
 import { registrarResultadoTest, textoMedida } from '@/lib/tests'
+import { anadirALista, quitarDeLista, type ListaClinica } from '@/lib/listasPaciente'
 
-export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
+export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [molConfig, setMolConfig] = useState<any>(null)
   const [patConfig, setPatConfig] = useState<any>(null)
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [medConfig, setMedConfig] = useState<any>(null)
+  const [opsBiblio, setOpsBiblio] = useState<any[]>([])
+  const [opConfig, setOpConfig] = useState<any>(null)
   const [algBiblio, setAlgBiblio] = useState<any[]>([])
   const [intolBiblio, setIntolBiblio] = useState<any[]>([])
   const [depBiblio, setDepBiblio] = useState<any[]>([])
@@ -25,6 +28,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
+    supabase.from('operaciones_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setOpsBiblio(data||[]))
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlgBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
     supabase.from('deportes_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setDepBiblio(data||[]))
@@ -72,25 +76,26 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     cargar()
   }
 
-  // Alergias e intolerancias comparten forma: misma función para no duplicar el evento.
-  async function addSensibilidad(tabla: string, tipo: string, etiqueta: string, nombre: string) {
-    if (!nombre.trim()) return
-    const { error } = await supabase.from(tabla).insert({ paciente_id:id, nombre })
-    if (error) { alert('Error: '+error.message); return }
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo, titulo:`${etiqueta}: ${nombre}`, fecha:hoy() })
+  // Alergias, intolerancias y operaciones van por `lib/listasPaciente`, que es el único
+  // sitio que escribe en esas tres tablas. La copia que había aquí no la compartía la
+  // valoración, y por eso la valoración acabó guardándolas en un JSON donde nadie mira.
+  async function addLista(lista: ListaClinica, entrada: any) {
+    const r = await anadirALista(id, lista, [entrada])
+    if (!r.ok) { alert('Error: '+r.error); return }
+    if (r.anadidas === 0 && r.repetidas.length) { alert(`Ya consta: ${r.repetidas.join(', ')}`); return }
     cargar()
   }
-  async function delSensibilidad(tabla: string, tipo: string, etiqueta: string, rid: string, nombre: string) {
-    const { error } = await supabase.from(tabla).delete().eq('id', rid)
-    if (error) { alert('Error: '+error.message); return }
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo, titulo:`Deja de constar ${etiqueta.toLowerCase()}: ${nombre}`, fecha:hoy() })
+  async function delLista(lista: ListaClinica, rid: string, nombre: string) {
+    const r = await quitarDeLista(id, lista, rid, nombre)
+    if (!r.ok) { alert('Error: '+r.error); return }
     cargar()
   }
 
-  const addAlergia = (n:string) => addSensibilidad('alergias_paciente','alergia','Alergia',n)
-  const delAlergia = (aid:string, n:string) => delSensibilidad('alergias_paciente','alergia','Alergia',aid,n)
-  const addIntolerancia = (n:string) => addSensibilidad('intolerancias_paciente','intolerancia','Intolerancia',n)
-  const delIntolerancia = (iid:string, n:string) => delSensibilidad('intolerancias_paciente','intolerancia','Intolerancia',iid,n)
+  const addAlergia = (n:string) => addLista('alergias', { nombre:n })
+  const delAlergia = (aid:string, n:string) => delLista('alergias', aid, n)
+  const addIntolerancia = (n:string) => addLista('intolerancias', { nombre:n })
+  const delIntolerancia = (iid:string, n:string) => delLista('intolerancias', iid, n)
+  const delOperacion = (oid:string, n:string) => delLista('operaciones', oid, n)
 
   const [usaPlantillas, setUsaPlantillas] = useState(false)
   const [plantIzq, setPlantIzq] = useState('')
@@ -305,6 +310,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                   : [] },
               { clave:'dep',   icono:'deporte',  label:'Deportes', color:'#6E9457', vacio:'Sin deportes',
                 items:(deportesPac||[]).map((d:any)=>d.nombre) },
+              { clave:'oper',  icono:'cruz',     label:'Operaciones', color:'#6B6D6A', vacio:'Sin operaciones',
+                items:(operaciones||[]).map((o:any)=>o.nombre+(o.anio?` · ${o.anio}`:'')) },
               { clave:'doc',   icono:'carpeta',  label:'Documentos', color:'#6B6D6A', items:[], n:nDocs,
                 contenido:<Documentos pacienteId={id} patologias={patologias} compacto/> },
               { clave:'esc',   icono:'progreso', label:'Escalas',  color:'#C4703F', vacio:'Sin registros',
@@ -334,7 +341,9 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
         {/* 1. QUÉ LE PASA */}
         <div className="sec">
           <div className="sec-h"><span className="ct-l"><Ic name="patologia" size={13}/> Problemas</span></div>
-          <div className="g2">
+          {/* Las operaciones van aquí y no en Contexto: una prótesis o un ligamento
+              reconstruido condiciona la carga igual que una patología activa. */}
+          <div className="g3">
             <div>
               <div className="sec-sub">Molestias y dolores</div>
               <BuscadorBiblioteca items={molsBiblio} placeholder="Buscar para añadir... ej. lumbar, rodilla"
@@ -400,6 +409,28 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                   ))}
                 </details>
               )}
+            </div>
+
+            <div>
+              <div className="sec-sub">Operaciones</div>
+              <BuscadorBiblioteca items={opsBiblio} placeholder="Buscar para añadir... ej. menisco, prótesis"
+                buscarEn={(o:any)=>[o.nombre,o.zona]} subtitulo={(o:any)=>o.zona} etiquetaNuevo="Añadir"
+                onElegir={(o:any)=>setOpConfig({nombre:o.nombre,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}
+                onNuevo={(t:string)=>setOpConfig({nombre:t,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}/>
+              {(operaciones||[]).length===0 && <div className="muted">Sin operaciones</div>}
+              {(operaciones||[]).map((o:any)=>(
+                <div key={o.id} className="fila-p" style={{borderLeftColor:'#6B6D6A'}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,color:'var(--n)'}}>{o.nombre}</div>
+                    {(o.anio||o.lado||o.tiene_informe) && (
+                      <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>
+                        {[o.anio||null, o.lado?cap(o.lado):null, o.tiene_informe?'con informe':null].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                  <button className="fila-x" title="Quitar" onClick={()=>delOperacion(o.id,o.nombre)}><Ic name="cerrar" size={13}/></button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -702,6 +733,9 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
 
       {/* MODAL CONFIGURAR MEDICAMENTO */}
       {medConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMedConfig(null)}}><div className="modal"><div className="modal-title">{medConfig.nombre}<button className="modal-close" onClick={()=>setMedConfig(null)}>✕</button></div><div className="field"><label>Frecuencia</label><input className="input" value={medConfig.frecuencia} onChange={e=>setMedConfig((p:any)=>({...p,frecuencia:e.target.value}))} placeholder="ej. 1 cada 8h, Diario, Solo si dolor..."/></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={medConfig.observaciones} onChange={e=>setMedConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Dosis, pauta, motivo..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMedConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMedicamento} disabled={guardando}>{guardando?'…':'✓ Añadir'}</button></div></div></div>}
+
+      {/* MODAL CONFIGURAR OPERACIÓN */}
+      {opConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setOpConfig(null)}}><div className="modal"><div className="modal-title">{opConfig.nombre}<button className="modal-close" onClick={()=>setOpConfig(null)}>✕</button></div><div className="g2"><div className="field"><label>Año</label><input className="input" value={opConfig.anio} onChange={e=>setOpConfig((p:any)=>({...p,anio:e.target.value}))} placeholder="ej. 2019"/></div><div className="field"><label>Lado</label><select className="input" value={opConfig.lado} onChange={e=>setOpConfig((p:any)=>({...p,lado:e.target.value}))}><option value="no_aplica">No aplica</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option><option value="bilateral">Bilateral</option></select></div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={opConfig.observaciones} onChange={e=>setOpConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Técnica, secuelas, limitaciones..."/></div><div onClick={()=>setOpConfig((p:any)=>({...p,tiene_informe:!p.tiene_informe}))} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1px solid ${opConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:opConfig.tiene_informe?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}><div style={{width:16,height:16,borderRadius:3,border:`2px solid ${opConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:opConfig.tiene_informe?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{opConfig.tiene_informe&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div><span style={{fontSize:13,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={13}/> Tiene informe</span></div><div style={{display:'flex',gap:8}}><button className="btn btn-d btn-sm" onClick={()=>setOpConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{const o=opConfig;setOpConfig(null);await addLista('operaciones',o)}}>✓ Añadir</button></div></div></div>}
 
       {/* MODAL CONFIGURAR MOLESTIA */}
       {molConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMolConfig(null)}}><div className="modal"><div className="modal-title">{molConfig.nombre}<button className="modal-close" onClick={()=>setMolConfig(null)}>✕</button></div><div className="g2"><div className="field"><label>Tipo</label><select className="input" value={molConfig.tipo} onChange={e=>setMolConfig((p:any)=>({...p,tipo:e.target.value}))}><option value="molestia">Molestia</option><option value="dolor_agudo">Dolor agudo</option><option value="dolor_cronico">Dolor crónico</option><option value="rigidez">Rigidez</option></select></div><div className="field"><label>Lado</label><select className="input" value={molConfig.lado} onChange={e=>setMolConfig((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select></div></div><div className="field"><label>EVA ({molConfig.eva}/10)</label><input type="range" min={0} max={10} value={molConfig.eva} onChange={e=>setMolConfig((p:any)=>({...p,eva:parseInt(e.target.value)}))} style={{width:'100%',accentColor:'var(--red)'}}/><div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'var(--grl)'}}><span>0</span><span style={{fontWeight:500,color:'var(--red)'}}>{molConfig.eva}</span><span>10</span></div></div><div className="field"><label>¿Cuándo aparece?</label><div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>{['En reposo','Al moverse','Con carga','Al caminar','Siempre','Al despertar'].map(c=><span key={c} onClick={()=>setMolConfig((p:any)=>({...p,cuando:c}))} style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${molConfig.cuando===c?'var(--g)':'var(--bd)'}`,background:molConfig.cuando===c?'var(--g)':'var(--w)',color:molConfig.cuando===c?'#fff':'var(--gr)',cursor:'pointer'}}>{c}</span>)}</div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={molConfig.observaciones} onChange={e=>setMolConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Sensación, qué lo provoca..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMolConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMolestia} disabled={guardando}>{guardando?'…':'✓ Añadir'}</button></div></div></div>}

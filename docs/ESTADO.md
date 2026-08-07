@@ -63,8 +63,15 @@ con el resultado. `lib/tests.ts` es el único sitio que registra un resultado: g
 deja el evento y mueve los objetivos.
 
 `etiquetas_bloquea` ya funciona: un test positivo desaconseja etiquetas de ejercicio y avisa
-en el editor de sesión. Un negativo posterior lo levanta. **Están todas vacías: hay que
-marcarlas a mano** en cada test.
+en el editor de sesión. Un negativo posterior lo levanta. Ya se puede sembrar (campo
+`bloquea` en la semilla), pero **solo los tres del ictus lo traen puesto**: en los 49
+anteriores sigue vacío y hay que marcarlo a mano.
+
+**Neurología.** El árbol era 100% musculoesquelético. Tras el ictus hay 5 patologías nuevas
+(Ictus, Hemiparesia, Espasticidad, Riesgo de caída, Subluxación de hombro), 6 tests
+—cribado, Ashworth, Berg, marcha, miembro superior, control de tronco—, 5 objetivos, 13
+ejercicios y 2 sesiones. Ver `docs/propuestas/PROPUESTA-ICTUS.md`, que termina con tres
+decisiones tuyas pendientes.
 
 ### Biblioteca · Objetivos
 Tres familias y **solo una lleva número**:
@@ -111,6 +118,11 @@ eso se decidió en la inicial.
 El paso **Completar** solo añade. Lo que ya está se enseña en gris dentro de cada buscador; se
 edita en la ficha, no aquí.
 
+**Alergias, intolerancias y operaciones** van por `lib/listasPaciente.ts`, único sitio que
+escribe en esas tres tablas. La valoración las metía solo en el JSON `estado_general`, así que
+una alergia apuntada allí no aparecía en Salud; las operaciones ni tenían tabla
+(`sql/operaciones_paciente.sql`). No se duplica lo que el paciente ya tiene.
+
 **Firma**: hueco de 200 px con botón "Ampliar" que abre un lienzo a pantalla completa para la
 tablet. Un solo dato, dos tamaños; el grande trabaja sobre un borrador y solo "Hecho" lo sube.
 
@@ -120,7 +132,12 @@ tablet. Un solo dato, dos tamaños; el grande trabaja sobre un borrador y solo "
 
 **Ajustes → Mantenimiento.** Cada uno se apoya en el anterior:
 
-    1 ejercicios → 2 sesiones → 3 tests → 4 objetivos
+    1 ejercicios → 2 sesiones → 4 objetivos → 3 tests
+
+Los objetivos van ANTES que los tests aunque el botón esté numerado al revés: hay tests que
+enganchan objetivos que crea el sembrador de objetivos. En el orden viejo se crean igual,
+pero el enlace se pierde y hay que relanzar el de tests. Los dos avisan por escrito de lo
+que no encuentran.
 
 ---
 
@@ -137,6 +154,6 @@ Ver `docs/PENDIENTES.md`, organizado por Pilar y pestaña. Lo gordo:
 - **VALD** — decidir si el número se copia a mano o solo consta el resultado.
 - **Grupos de perfil** (Pilates, recuperación, embarazadas) — sin decidir si son una etiqueta
   del paciente o algo con entidad propia.
-- **Alergias, intolerancias y operaciones no tienen tabla propia**: viven en el JSON
-  `estado_general` de `valoraciones`, aunque se gestionen desde Salud. Dos verdades del mismo
-  dato. Hace falta migrar lo ya guardado, así que va con el esquema clínico.
+- **Migrar las alergias, intolerancias y operaciones de los JSON viejos**. Ya tienen tabla y
+  `lib/listasPaciente.ts`, pero lo apuntado en valoraciones anteriores sigue dentro de
+  `estado_general`. Necesita un sembrador que agrupe por paciente y nombre para no duplicar.

@@ -277,32 +277,47 @@ Decisiones tomadas:
 
 Nada de esto necesitó esquema nuevo.
 
-## Alergias, intolerancias y operaciones no tienen tabla propia — PENDIENTE
+## Alergias, intolerancias y operaciones ✅ HECHO
 
-Salió al construir el paso Completar. Patologías, molestias, medicación y deportes tienen su
-tabla (`patologias`, `molestias`, `medicamentos`, `deportes_paciente`); **estas tres solo
-existen dentro del JSON `estado_general` de `valoraciones`**.
+Salió al construir el paso Completar, y el primer diagnóstico fue **equivocado**: se anotó que
+las tres carecían de tabla. Lo real eran dos problemas distintos.
 
-Consecuencias, hoy:
+**Alergias e intolerancias: la valoración escribía donde nadie mira.** `alergias_paciente` e
+`intolerancias_paciente` existen desde el principio y son lo que lee Salud. La valoración no
+insertaba en ellas: metía la lista dentro del JSON `estado_general` de `valoraciones` y ahí se
+quedaba. Una alergia apuntada en la valoración inicial **no aparecía en la ficha**. Guardada,
+pero fuera de circulación.
 
-- El "ya en su ficha" de esas tres se lee de la **última valoración**, así que solo refleja lo
-  que se apuntó aquel día. Si se añadió una alergia desde Salud, aquí no aparece y se duplica.
-- `SaludTab` sí registra eventos de alergias e intolerancias (ver punto 2), o sea que se
-  gestionan desde la ficha aunque no tengan dónde vivir. Son dos verdades del mismo dato: el
-  JSON congelado de la valoración y lo que el entrenador cree que hay en la ficha.
-- Una alergia es del **paciente**, no de la valoración en que se apuntó. Guardarla dentro de un
-  acto fechado es el mismo error que guardar el valor actual de una meta.
+**Operaciones: no había tabla.** Solo `operaciones_biblioteca`, el catálogo. Lo que se apuntaba
+del paciente vivía únicamente en ese JSON: no se podía ver en Salud, ni dar de baja, ni
+preguntar quién lleva prótesis. `sql/operaciones_paciente.sql` la crea.
 
-**El arreglo es el evidente** —tres tablas con `paciente_id`, `nombre`, `observaciones` y
-`activa`, iguales a `medicamentos`— y no se hace ahora por dos motivos: hay que **migrar** lo
-que ya está en los JSON de las valoraciones existentes (leerlos, insertar filas, sin duplicar
-si el mismo nombre aparece en varias valoraciones del mismo paciente), y hay que decidir si
-`estado_general` **deja de guardarlas** o las sigue guardando como foto de aquel día. Lo
-segundo es defendible para un consentimiento, no para una alergia.
+`lib/listasPaciente.ts` es ahora el único sitio que escribe en las tres. Fila y evento en la
+misma función, como en `lib/tests.ts`. Migradas la valoración y `SaludTab`, que tenía su propia
+copia — copia que la valoración no compartía, y de ahí venía todo.
 
-Va con el resto de decisiones de `*_biblioteca` (ver 3.2), que es cuando toca abrir el esquema
-clínico. Al hacerlo, el paso Completar y `PasoHistorial` leen de las tablas nuevas y el `yaTiene`
-deja de depender de la última valoración.
+Decisiones:
+
+- **No duplica.** Lo que ya consta con el mismo nombre se devuelve como `repetidas` y no se
+  toca. Misma regla que los sembradores: rellenar huecos, nunca deshacer. Importa el doble
+  aquí, porque la revaloración vuelve a pasar por el mismo formulario que la inicial.
+- **Una alergia es del PACIENTE, no de la valoración en que se apuntó.** Guardarla dentro de un
+  acto fechado es el mismo error que guardar el valor actual de una meta: con dos valoraciones
+  hay dos listas y ninguna manda.
+- **Las operaciones se ven en Problemas, no en Contexto.** Una prótesis condiciona la carga
+  igual que una patología activa.
+- **`estado_general` las sigue guardando** como foto de aquel día. Es inofensivo mientras nadie
+  las lea de ahí para decidir: la lista viva es la tabla. El `yaTiene` de la revaloración ya
+  lee de las tablas.
+
+### Lo que queda — PENDIENTE
+
+**Migrar lo que está en los JSON viejos.** Las alergias, intolerancias y operaciones apuntadas
+en valoraciones anteriores siguen solo ahí. Una migración a ciegas duplicaría: el mismo
+paciente puede tenerlas repetidas en varias valoraciones. Se hace desde la app, con una página
+de mantenimiento que lea, agrupe por paciente y nombre, e inserte solo lo que falte —
+`anadirALista` ya no duplica, así que el sembrador es corto—. Va como paso 5 del orden de
+sembradores.
 
 ---
 
