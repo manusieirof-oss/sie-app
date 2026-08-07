@@ -147,6 +147,15 @@ export type FaseSemilla = {
   nombre: string
   descripcion: string
   articulacion?: string
+  /**
+   * Músculo y patología, del árbol de etiquetas.
+   *
+   * La articulación va en su campo porque tiene un papel —es la zona— y los métricos la
+   * usan para resolver qué test los mide. Estas son las que NO tienen papel: describen de
+   * qué va el objetivo. Con la patología puesta, un paciente al que se le registra una
+   * trocanteritis puede ver sus objetivos sin buscarlos.
+   */
+  etiquetas?: string[]
   /** Qué significa cada fase, en orden. El paciente avanza de una a la siguiente. */
   fases: string[]
 }
@@ -159,6 +168,7 @@ export type FaseSemilla = {
 export const FASES: FaseSemilla[] = [
   {
     nombre: 'Suelo pélvico',
+    etiquetas: ['Suelo pélvico'],
     descripcion: 'De notar la musculatura a usarla sin pensar. Se avanza cuando la fase anterior sale sin compensar con abdomen o glúteo.',
     fases: [
       'Conciencia y activación básica',
@@ -170,6 +180,7 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Recuperar la funcionalidad del hombro',
     articulacion: 'Hombro',
+    etiquetas: ['Hombro doloroso', 'Manguito rotador'],
     descripcion: 'Del hombro que duele al hombro que vuelve a servir para todo. La fase la marca lo que tolera, no el tiempo transcurrido.',
     fases: [
       'Alivio del dolor y movilidad básica',
@@ -181,6 +192,7 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Recuperar la escápula alada',
     articulacion: 'Escapular',
+    etiquetas: ['Trapecio', 'Espalda'],
     descripcion: 'Primero que note dónde está la escápula, luego que la sostenga moviéndose, y al final que aguante bajo carga.',
     fases: [
       'Activación neuromuscular y control escapular',
@@ -192,6 +204,7 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Escápula alada con escoliosis',
     articulacion: 'Escapular',
+    etiquetas: ['Escoliosis', 'Trapecio'],
     descripcion: 'El mismo recorrido que la escápula alada, pero con la asimetría de base: el objetivo no es simetría perfecta sino control de la asimetría.',
     fases: [
       'Toma de conciencia y autocorrección',
@@ -203,6 +216,7 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Escoliosis funcional',
     articulacion: 'Columna',
+    etiquetas: ['Escoliosis', 'Erectores Espinales'],
     descripcion: 'Educación postural, trabajo unilateral y consolidación. No busca corregir la curva sino que deje de doler y de limitar.',
     fases: [
       'Educación postural',
@@ -213,6 +227,7 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Reducir la cifosis dorsal',
     articulacion: 'Columna',
+    etiquetas: ['Cifosis dorsal', 'Espalda'],
     descripcion: 'La dorsal que no extiende la paga el cuello arriba y la lumbar abajo. Percepción primero, fuerza después.',
     fases: [
       'Percepción y control postural',
@@ -223,18 +238,21 @@ export const FASES: FaseSemilla[] = [
   {
     nombre: 'Recuperar de trocanteritis',
     articulacion: 'Cadera',
+    etiquetas: ['Trocantéritis', 'Glúteo medio', 'Abductor - TFL'],
     descripcion: 'Bajar la irritación y devolverle al glúteo medio el trabajo que estaba haciendo el tensor de la fascia lata.',
     fases: ['Calmar y descargar', 'Activar el glúteo medio', 'Carga progresiva y marcha'],
   },
   {
     nombre: 'Recuperar la función del glúteo medio',
     articulacion: 'Cadera',
+    etiquetas: ['Glúteo medio'],
     descripcion: 'Que sostenga la pelvis al apoyar en una pierna. Es lo que hay detrás del valgo de rodilla y de medio dolor lateral de cadera.',
     fases: ['Activación aislada', 'Control en carga', 'Función en marcha y carrera'],
   },
   {
     nombre: 'Disociar trapecio superior y deltoides',
     articulacion: 'Hombro',
+    etiquetas: ['Trapecio', 'Deltoides'],
     descripcion: 'Que levante el brazo sin subir el hombro a la oreja. Primero que lo note, luego que lo controle, después que aguante.',
     fases: ['Notar la diferencia', 'Controlarlo en movimiento lento', 'Mantenerlo bajo carga'],
   },
@@ -244,22 +262,24 @@ export type CualitativoSemilla = {
   nombre: string
   descripcion: string
   articulacion?: string
+  /** Músculo y patología. Ver el comentario en FaseSemilla. */
+  etiquetas?: string[]
 }
 
 /** Los que se cumplen o no. Sin número y sin fases: aprender algo o corregir un hábito. */
 export const CUALITATIVOS: CualitativoSemilla[] = [
-  { nombre: 'Aprender a hacer el puente de glúteo', articulacion: 'Cadera',
+  { nombre: 'Aprender a hacer el puente de glúteo', articulacion: 'Cadera', etiquetas: ['Glúteo mayor'],
     descripcion: 'Subir con el glúteo y no con la lumbar ni con el isquiotibial. Es la puerta a media biblioteca de ejercicios.' },
-  { nombre: 'Aprender los movimientos cervicales', articulacion: 'Cervical',
+  { nombre: 'Aprender los movimientos cervicales', articulacion: 'Cervical', etiquetas: ['Cervicalgia'],
     descripcion: 'Distinguir flexión, extensión, rotación e inclinación, y hacerlos sin arrastrar el resto.' },
-  { nombre: 'Aprender la anteversión y retroversión de cadera', articulacion: 'Cadera',
+  { nombre: 'Aprender la anteversión y retroversión de cadera', articulacion: 'Cadera', etiquetas: ['Psoas', 'Abdomen'],
     descripcion: 'Mover la pelvis a voluntad sin mover las costillas. Sin esto no hay control lumbopélvico posible.' },
-  { nombre: 'Fortalecer el core para la estabilidad lumbopélvica',
+  { nombre: 'Fortalecer el core para la estabilidad lumbopélvica', etiquetas: ['Abdomen', 'Transverso', 'Lumbalgia'],
     descripcion: 'Iniciación al control lumbopélvico: sostener la posición mientras se mueven brazos y piernas.' },
-  { nombre: 'Corregir la postura corporal',
+  { nombre: 'Corregir la postura corporal', etiquetas: ['Cifosis dorsal', 'Espalda'],
     descripcion: 'Objetivo de acompañamiento, no de medición. Se da por cumplido cuando la corrección aparece sola sin recordárselo.' },
   { nombre: 'Mejorar el retorno venoso de las piernas',
     descripcion: 'Para quien pasa el día de pie o sentado. Se valora por síntomas al final del día, no por una medida.' },
-  { nombre: 'Mejorar el equilibrio', articulacion: 'Tobillo',
+  { nombre: 'Mejorar el equilibrio', articulacion: 'Tobillo', etiquetas: ['Glúteo medio'],
     descripcion: 'Iniciación: aguantar a una pierna sin apoyar la otra. Cuando ya se sostiene, pasa a medirse con el test de equilibrio unipodal.' },
 ]

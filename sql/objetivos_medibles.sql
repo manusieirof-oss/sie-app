@@ -43,6 +43,17 @@ alter table objetivos add column if not exists articulacion_id uuid references e
 -- sería posible.
 alter table objetivos add column if not exists movimientos jsonb default '[]';
 
+-- Etiquetas libres: MÚSCULO y PATOLOGÍA. Lo que describe de qué va el objetivo.
+--
+-- La articulación y los movimientos NO se meten aquí y siguen en sus columnas, porque
+-- tienen un papel: los métricos resuelven con ellos qué test los mide. En una bolsa donde
+-- todo va mezclado esa distinción se pierde y habría que volver a elegir el test a mano.
+--
+-- Lo que esto desbloquea: registrarle una trocanteritis a un paciente y poder proponerle
+-- los objetivos de esa patología sin buscarlos. El vocabulario ya existe —`patologia` es
+-- una de las nueve categorías del árbol— y las patologías de biblioteca usan esos nombres.
+alter table objetivos add column if not exists etiquetas jsonb default '[]';
+
 -- Cuántas fases tiene, solo en los de tipo 'fase'. Antes eran cuatro fichas distintas
 -- —"Suelo pélvico F1", "F2"…—; así es una sola y el progreso se ve de un vistazo.
 alter table objetivos add column if not exists fases int;

@@ -41,7 +41,7 @@ export default function SembrarObjetivosPage() {
     // mismo error y la pantalla se llena de líneas rojas idénticas que no dicen qué hacer.
     // Una frase antes vale más que treinta y seis mensajes después.
     const { error: errCol } = await supabase.from('objetivos')
-      .select('tipo,metrica,articulacion_id,movimientos,fases').limit(1)
+      .select('tipo,metrica,articulacion_id,movimientos,fases,etiquetas').limit(1)
     setSinSql(errCol ? errCol.message : null)
 
     const { data: ets } = await supabase.from('etiquetas').select('nombre,categoria')
@@ -86,6 +86,14 @@ export default function SembrarObjetivosPage() {
     let creados = 0, actualizados = 0
     const sinMovimiento = new Set<string>()
 
+    /** Etiquetas libres por nombre, avisando de las que no existan en el árbol. */
+    const sinEtiqueta = new Set<string>()
+    const resolver = (nombres?: string[]) => (nombres || []).map(n => {
+      const id = idEt[norm(n)]
+      if (!id) sinEtiqueta.add(n)
+      return id
+    }).filter(Boolean)
+
     const guardar = async (campos: any, etiqueta: string) => {
       const ya = idObj[norm(campos.nombre)]
       if (ya) {
@@ -113,6 +121,9 @@ export default function SembrarObjetivosPage() {
         tipo: 'metrico', metrica: e.metrica,
         articulacion_id: idEt[norm(e.articulacion)] || null,
         movimientos: movIds, fases: null,
+        // Los métricos no llevan etiquetas libres: su articulación y sus movimientos ya
+        // los describen, y repetirlos aquí serían dos verdades para lo mismo.
+        etiquetas: [],
         color: COLOR[e.metrica],
       }, `${movIds.length} movimientos`)
     }
@@ -123,6 +134,7 @@ export default function SembrarObjetivosPage() {
         tipo: 'fase', metrica: null,
         articulacion_id: f.articulacion ? (idEt[norm(f.articulacion)] || null) : null,
         movimientos: [], fases: f.fases.length,
+        etiquetas: resolver(f.etiquetas),
         color: COLOR.fase,
       }, `${f.fases.length} fases`)
     }
@@ -133,10 +145,14 @@ export default function SembrarObjetivosPage() {
         tipo: 'cualitativo', metrica: null,
         articulacion_id: c.articulacion ? (idEt[norm(c.articulacion)] || null) : null,
         movimientos: [], fases: null,
+        etiquetas: resolver(c.etiquetas),
         color: COLOR.cualitativo,
       }, 'cualitativo')
     }
 
+    if (sinEtiqueta.size > 0) {
+      anota(`Etiquetas de músculo o patología que no existen y se han omitido: ${Array.from(sinEtiqueta).join(', ')}.`, 'aviso')
+    }
     if (sinMovimiento.size > 0) {
       anota(`Movimientos que no existen en el árbol y se han omitido: ${Array.from(sinMovimiento).join(', ')}.`, 'aviso')
     }

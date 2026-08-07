@@ -34,7 +34,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'' })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[] })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -52,7 +52,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
   /** Las zonas que de verdad se usan, en orden de la cabeza a los pies. */
   const zonas = useMemo(() => {
-    const ids = Array.from(new Set((objetivos || []).map((o: any) => o.articulacion_id).filter(Boolean))) as string[]
+    const ids = Array.from(new Set([
+      ...(objetivos || []).map((o: any) => o.articulacion_id),
+      ...(objetivos || []).flatMap((o: any) => o.etiquetas || []),
+    ].filter(Boolean))) as string[]
     return ids.map(id => ({ id, nombre: nombreEt(id) }))
       .filter(z => z.nombre)
       .sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
@@ -62,7 +65,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     const q = buscar.toLowerCase()
     const matchQ = !q || o.nombre.toLowerCase().includes(q) || (o.descripcion || '').toLowerCase().includes(q)
     const matchF = !familia || (o.tipo || 'cualitativo') === familia
-    const matchZ = !zona || o.articulacion_id === zona
+    // Por articulación O por etiqueta libre: buscar "Trocantéritis" tiene que encontrar
+    // el objetivo de trocanteritis, que la lleva como patología y no como zona.
+    const matchZ = !zona || o.articulacion_id === zona || (o.etiquetas || []).includes(zona)
     return matchQ && matchF && matchZ
   })
 
@@ -71,14 +76,14 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'' })
+    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'', color:o.color||COLORES[0],
       test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
-      articulacion_id:o.articulacion_id||'', fases:o.fases||'',
+      articulacion_id:o.articulacion_id||'', fases:o.fases||'', etiquetas:o.etiquetas||[],
     })
     setModal(true)
   }
@@ -95,6 +100,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       metrica: form.tipo === 'metrico' ? (form.metrica || null) : null,
       fases: form.tipo === 'fase' ? (parseInt(form.fases) || null) : null,
       articulacion_id: form.articulacion_id || null,
+      // Solo en fases y cualitativos: los métricos ya se describen con su articulación y
+      // sus movimientos, y repetirlo aquí serían dos verdades para lo mismo.
+      etiquetas: form.tipo === 'metrico' ? [] : (form.etiquetas || []),
     }
     const r = form.id
       ? await supabase.from('objetivos').update(payload).eq('id', form.id)
@@ -194,6 +202,13 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                           {movs.join(' · ')}
                         </div>
                       )}
+                      {(o.etiquetas || []).length > 0 && (
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                          {(o.etiquetas || []).map((id: string) => (
+                            <span key={id} className="pill pill-soft">{nombreEt(id)}</span>
+                          ))}
+                        </div>
+                      )}
                       {o.test_id && (
                         <div style={{ fontSize: 12, color: 'var(--gd)', marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Ic name="test" size={11} /> Lo abre: {nombreTest(o.test_id)}
@@ -271,6 +286,34 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 {articulaciones.map((a: any) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
             </div>
+
+            {/* Solo en fases y cualitativos. Los métricos se describen con su articulación
+                y sus movimientos, que además tienen un papel: con ellos la app resuelve
+                sola qué test mide cada meta. */}
+            {form.tipo !== 'metrico' && (
+              <div className="field"><label>Músculo y patología</label>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 132, overflowY: 'auto' }}>
+                  {etiquetas
+                    .filter((e: any) => e.categoria === 'musculo' || e.categoria === 'patologia')
+                    .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+                    .map((e: any) => {
+                      const sel = (form.etiquetas || []).includes(e.id)
+                      return (
+                        <button key={e.id} className={`chip-sel ${sel ? 'on' : ''}`}
+                          onClick={() => setForm((p: any) => ({
+                            ...p, etiquetas: sel
+                              ? (p.etiquetas || []).filter((x: string) => x !== e.id)
+                              : [...(p.etiquetas || []), e.id],
+                          }))}>{e.nombre}</button>
+                      )
+                    })}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
+                  Con la patología puesta, a un paciente al que le registres esa patología se le
+                  podrán proponer estos objetivos sin buscarlos.
+                </div>
+              </div>
+            )}
 
             <div className="field"><label>Descripción</label>
               <textarea className="input" value={form.descripcion} disabled={guardando}
