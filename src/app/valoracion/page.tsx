@@ -229,7 +229,9 @@ export default function ValoracionPage() {
         ...form.molestias.filter((m:any)=>m.zona).map((m:any)=>supabase.from('molestias').insert({ paciente_id:pacienteId, zona:m.zona, tipo:m.tipo, eva:m.eva, lado:m.lado||null, sensacion:m.cuando||null, observaciones:m.observaciones, activa:true })),
         ...form.patologias.map((p:any)=>supabase.from('patologias').insert({ paciente_id:pacienteId, nombre:p.nombre, lado:p.lado||null, estado:p.estado, descripcion:p.observaciones||'', informe_url:p.tiene_informe?'pendiente':null })),
         ...form.medicacion.map((m:any)=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m.nombre, frecuencia:m.frecuencia||'', observaciones:m.observaciones||'' })),
-        supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres }),
+        // Si no ha contestado a ninguna de las dos no se abre fila: una escala con los
+        // dos huecos vacíos no dice nada y ensucia la evolución con un punto muerto.
+        ...((form.borg!=null||form.estres!=null) ? [supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres })] : []),
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
       // Alergias, intolerancias y operaciones van a SUS TABLAS, no solo al JSON de la

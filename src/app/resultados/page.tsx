@@ -55,7 +55,7 @@ export default function ResultadosPage() {
           <div className="g4" style={{marginBottom:12}}>
             <div className="stat-card"><div className="stat-val">{sesiones.length}</div><div className="stat-label">Sesiones totales</div></div>
             <div className="stat-card"><div className="stat-val">{sesRealizadas}</div><div className="stat-label">Realizadas</div><div style={{fontSize:9,marginTop:3,color:'var(--g)'}}>{sesiones.length>0?Math.round((sesRealizadas/sesiones.length)*100):0}% asistencia</div></div>
-            <div className="stat-card"><div className="stat-val">{escalas[escalas.length-1]?.borg??'—'}/10</div><div className="stat-label">Borg actual</div><div style={{fontSize:9,marginTop:3,color:escalas.length>1&&escalas[escalas.length-1]?.borg>escalas[0]?.borg?'var(--g)':'var(--grl)'}}>{escalas.length>1?`Inicio: ${escalas[0]?.borg}/10`:''}</div></div>
+            <div className="stat-card"><div className="stat-val">{escalas[escalas.length-1]?.borg==null?'—':`${escalas[escalas.length-1].borg}/10`}</div><div className="stat-label">Borg actual</div><div style={{fontSize:9,marginTop:3,color:escalas.length>1&&escalas[escalas.length-1]?.borg>escalas[0]?.borg?'var(--g)':'var(--grl)'}}>{escalas.length>1&&escalas[0]?.borg!=null?`Inicio: ${escalas[0].borg}/10`:''}</div></div>
             <div className="stat-card"><div className="stat-val">{molActivas}</div><div className="stat-label">Molestias activas</div><div style={{fontSize:9,marginTop:3,color:molActivas===0?'var(--g)':'var(--red)'}}>{molActivas===0?'✓ Sin molestias activas':'Requiere atención'}</div></div>
           </div>
 
@@ -70,13 +70,13 @@ export default function ResultadosPage() {
                   <div style={{flex:1}}>
                     <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
                       <span style={{fontSize:9,color:'var(--grl)',width:36}}>Borg</span>
-                      <div style={{flex:1,height:5,background:'var(--bm)',borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:'var(--g)',width:`${(e.borg/10)*100}%`,transition:'width .4s'}}/></div>
-                      <span style={{fontSize:9,fontWeight:500,width:28,textAlign:'right'}}>{e.borg}/10</span>
+                      <div style={{flex:1,height:5,background:'var(--bm)',borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:'var(--g)',width:e.borg==null?'0%':`${(e.borg/10)*100}%`,transition:'width .4s'}}/></div>
+                      <span style={{fontSize:9,fontWeight:500,width:28,textAlign:'right',color:e.borg==null?'var(--grl)':undefined}}>{e.borg==null?'—':`${e.borg}/10`}</span>
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:5}}>
                       <span style={{fontSize:9,color:'var(--grl)',width:36}}>Estrés</span>
-                      <div style={{flex:1,height:5,background:'var(--bm)',borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:e.estres>6?'var(--red)':e.estres>4?'var(--amb)':'var(--g)',width:`${(e.estres/10)*100}%`,transition:'width .4s'}}/></div>
-                      <span style={{fontSize:9,fontWeight:500,width:28,textAlign:'right'}}>{e.estres}/10</span>
+                      <div style={{flex:1,height:5,background:'var(--bm)',borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',borderRadius:3,background:e.estres>6?'var(--red)':e.estres>4?'var(--amb)':'var(--g)',width:e.estres==null?'0%':`${(e.estres/10)*100}%`,transition:'width .4s'}}/></div>
+                      <span style={{fontSize:9,fontWeight:500,width:28,textAlign:'right',color:e.estres==null?'var(--grl)':undefined}}>{e.estres==null?'—':`${e.estres}/10`}</span>
                     </div>
                   </div>
                 </div>
@@ -91,7 +91,7 @@ export default function ResultadosPage() {
                 <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',borderRadius:6,marginBottom:4,background:m.activa?'var(--redl)':'var(--gl)',border:`1px solid ${m.activa?'#F5C8C8':'var(--gm)'}`}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{m.zona}</div>
-                    <div style={{fontSize:9,color:'var(--grl)'}}>EVA {m.eva}/10 · {m.tipo?.replace('_',' ')}</div>
+                    <div style={{fontSize:9,color:'var(--grl)'}}>EVA {m.eva==null?'sin respuesta':m.eva+'/10'} · {m.tipo?.replace('_',' ')}</div>
                   </div>
                   <span style={{fontSize:8,fontWeight:500,padding:'2px 7px',borderRadius:99,background:m.activa?'var(--redl)':'var(--gl)',color:m.activa?'var(--red)':'var(--gd)',border:`1px solid ${m.activa?'var(--red)':'var(--gm)'}`}}>{m.activa?'● Activa':'✓ Resuelta'}</span>
                 </div>

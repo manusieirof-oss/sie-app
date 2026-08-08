@@ -1,5 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
+import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 
 export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, tiposPlantilla, modo='inicial', previo=null }: any) {
   // En la revaloración el deporte y las plantillas se preguntan en el paso de
@@ -42,19 +43,13 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
         </div>
         <div className="card">
           <div className="card-title">Escalas</div>
-          <div className="field">
-            <label>Borg · bienestar general ({form.borg}/10)</label>
-            <input type="range" min={0} max={10} value={form.borg} onChange={e=>up('borg',parseInt(e.target.value))} style={{width:'100%',accentColor:'var(--g)'}}/>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--grl)'}}><span>0 Mal</span><span style={{fontWeight:500,color:'var(--g)'}}>{form.borg}</span><span>10 Perfecto</span></div>
-          </div>
-          <div className="field">
-            <label>Nivel de estrés ({form.estres}/10)</label>
-            <input type="range" min={0} max={10} value={form.estres} onChange={e=>up('estres',parseInt(e.target.value))} style={{width:'100%',accentColor:'var(--red)'}}/>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--grl)'}}><span>0 Sin estrés</span><span style={{fontWeight:500,color:'var(--red)'}}>{form.estres}</span><span>10 Máximo</span></div>
-          </div>
+          <EscalaSlider label="Borg · bienestar general" valor={form.borg} onCambio={v=>up('borg',v)}
+            izquierda="0 Mal" derecha="10 Perfecto"/>
+          <EscalaSlider label="Nivel de estrés" valor={form.estres} onCambio={v=>up('estres',v)} color="var(--red)"
+            izquierda="0 Sin estrés" derecha="10 Máximo"/>
           {esRevaloracion && anterior && (anterior.borg!=null||anterior.estres!=null) && (
             <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
-              En la valoración anterior: bienestar {anterior.borg}/10 · estrés {anterior.estres}/10
+              En la valoración anterior: bienestar {textoEscala(anterior.borg)} · estrés {textoEscala(anterior.estres)}
             </div>
           )}
         </div>

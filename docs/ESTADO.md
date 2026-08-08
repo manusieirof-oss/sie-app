@@ -123,6 +123,13 @@ escribe en esas tres tablas. La valoración las metía solo en el JSON `estado_g
 una alergia apuntada allí no aparecía en Salud; las operaciones ni tenían tabla
 (`sql/operaciones_paciente.sql`). No se duplica lo que el paciente ya tiene.
 
+**Escalas**: bienestar, estrés y EVA admiten "No contesta" (`EscalaSlider`), que guarda `null`.
+El slider sigue arrancando en 5 y es la excepción la que se marca. Donde se pinta se dice "Sin
+respuesta"; una molestia sin EVA sale en gris, no en verde.
+
+**Pasar un test**: `ModalRealizarTest`, la ficha de la biblioteca con los ítems convertidos en
+casillas. Imagen grande y texto a 13 px, para leerlo en la tablet con el paciente delante.
+
 **Elegir tests**: `ExploradorTests`, compartido con la biblioteca. Filtro por zona en orden
 anatómico —solo etiquetas de articulación—, búsqueda que entra en los ítems ("McMurray"
 encuentra "Rodilla · meniscos") y rejilla de tarjetas con imagen. En la valoración se abre a

@@ -8,6 +8,7 @@ import Sparkline from './Sparkline'
 import Documentos from './Documentos'
 import { registrarResultadoTest, textoMedida } from '@/lib/tests'
 import { anadirALista, quitarDeLista, type ListaClinica } from '@/lib/listasPaciente'
+import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 
 export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -124,7 +125,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     })
     await supabase.from('eventos_paciente').insert({
       paciente_id:id, tipo:'escala',
-      titulo:`Escalas: bienestar ${escalaConfig.borg}/10 · estrés ${escalaConfig.estres}/10`,
+      titulo:`Escalas: bienestar ${textoEscala(escalaConfig.borg)} · estrés ${textoEscala(escalaConfig.estres)}`,
       fecha:escalaConfig.fecha,
     })
     setEscalaConfig(null); setGuardando(false); cargar()
@@ -237,7 +238,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   const marcasCuerpo: MarcaCuerpo[] = [
     ...(molestias||[]).map((m:any)=>({
       id: 'mol_'+m.id, zona: m.zona, lado: m.lado,
-      titulo: m.zona, detalle: `EVA ${m.eva}/10`,
+      titulo: m.zona, detalle: m.eva==null ? 'Sin EVA' : `EVA ${m.eva}/10`,
       estado: (m.activa ? 'activo' : 'resuelto') as MarcaCuerpo['estado'],
       origen: 'molestia' as const,
     })),
@@ -316,7 +317,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                 contenido:<Documentos pacienteId={id} patologias={patologias} compacto/> },
               { clave:'esc',   icono:'progreso', label:'Escalas',  color:'#C4703F', vacio:'Sin registros',
                 items: escalas.length>0
-                  ? [`Bienestar ${escalas[0].borg}/10`, `Estrés ${escalas[0].estres}/10`,
+                  ? [`Bienestar ${textoEscala(escalas[0].borg)}`, `Estrés ${textoEscala(escalas[0].estres)}`,
                      `el ${new Date(escalas[0].fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'})}`]
                   : [] },
             ]}
@@ -355,7 +356,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                 <div key={m.id} className="fila-p" style={{borderLeftColor:'var(--red)'}}>
                   <div style={{flex:1,cursor:'pointer'}} onClick={()=>setDetalle({tipo:'molestia',datos:m})}>
                     <div style={{fontSize:13,color:'var(--n)'}}>{m.zona}</div>
-                    <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>EVA {m.eva}/10 · {LBL_TIPO_MOL[m.tipo]||m.tipo?.replace('_',' ')}</div>
+                    <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>{m.eva==null?'Sin EVA':`EVA ${m.eva}/10`} · {LBL_TIPO_MOL[m.tipo]||m.tipo?.replace('_',' ')}</div>
                   </div>
                   <button className="btn btn-t btn-sm" onClick={()=>toggleMolestia(m.id,m.activa)}>Resolver</button>
                 </div>
@@ -639,17 +640,10 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
             <div className="field"><label>Fecha</label>
               <input type="date" className="input" value={escalaConfig.fecha} onChange={e=>setEscalaConfig((p:any)=>({...p,fecha:e.target.value}))}/>
             </div>
-            {([['borg','Bienestar','0 = fatal · 10 = estupendo',colorBienestar],['estres','Estrés','0 = ninguno · 10 = máximo',colorEstres]] as const).map(([k,lbl,ayuda,fn]:any)=>(
-              <div className="field" key={k}>
-                <label style={{display:'flex',justifyContent:'space-between'}}>
-                  <span>{lbl}</span>
-                  <span style={{fontSize:16,fontWeight:500,color:fn(escalaConfig[k]),textTransform:'none',letterSpacing:0}}>{escalaConfig[k]}/10</span>
-                </label>
-                <input type="range" min={0} max={10} step={1} value={escalaConfig[k]}
-                  onChange={e=>setEscalaConfig((p:any)=>({...p,[k]:parseInt(e.target.value)}))}
-                  style={{width:'100%',accentColor:fn(escalaConfig[k])}}/>
-                <div style={{fontSize:12,color:'var(--gr)',marginTop:2}}>{ayuda}</div>
-              </div>
+            {([['borg','Bienestar','0 = fatal · 10 = estupendo',colorBienestar,'0 Fatal','10 Estupendo'],['estres','Estrés','0 = ninguno · 10 = máximo',colorEstres,'0 Ninguno','10 Máximo']] as const).map(([k,lbl,ayuda,fn,izq,der]:any)=>(
+              <EscalaSlider key={k} label={lbl} ayuda={ayuda} izquierda={izq} derecha={der}
+                valor={escalaConfig[k]} color={fn(escalaConfig[k] ?? 5)}
+                onCambio={v=>setEscalaConfig((p:any)=>({...p,[k]:v}))}/>
             ))}
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <button className="btn btn-d btn-sm" onClick={()=>setEscalaConfig(null)}>Cancelar</button>
@@ -738,7 +732,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
       {opConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setOpConfig(null)}}><div className="modal"><div className="modal-title">{opConfig.nombre}<button className="modal-close" onClick={()=>setOpConfig(null)}>✕</button></div><div className="g2"><div className="field"><label>Año</label><input className="input" value={opConfig.anio} onChange={e=>setOpConfig((p:any)=>({...p,anio:e.target.value}))} placeholder="ej. 2019"/></div><div className="field"><label>Lado</label><select className="input" value={opConfig.lado} onChange={e=>setOpConfig((p:any)=>({...p,lado:e.target.value}))}><option value="no_aplica">No aplica</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option><option value="bilateral">Bilateral</option></select></div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={opConfig.observaciones} onChange={e=>setOpConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Técnica, secuelas, limitaciones..."/></div><div onClick={()=>setOpConfig((p:any)=>({...p,tiene_informe:!p.tiene_informe}))} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1px solid ${opConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:opConfig.tiene_informe?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}><div style={{width:16,height:16,borderRadius:3,border:`2px solid ${opConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:opConfig.tiene_informe?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{opConfig.tiene_informe&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div><span style={{fontSize:13,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={13}/> Tiene informe</span></div><div style={{display:'flex',gap:8}}><button className="btn btn-d btn-sm" onClick={()=>setOpConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{const o=opConfig;setOpConfig(null);await addLista('operaciones',o)}}>✓ Añadir</button></div></div></div>}
 
       {/* MODAL CONFIGURAR MOLESTIA */}
-      {molConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMolConfig(null)}}><div className="modal"><div className="modal-title">{molConfig.nombre}<button className="modal-close" onClick={()=>setMolConfig(null)}>✕</button></div><div className="g2"><div className="field"><label>Tipo</label><select className="input" value={molConfig.tipo} onChange={e=>setMolConfig((p:any)=>({...p,tipo:e.target.value}))}><option value="molestia">Molestia</option><option value="dolor_agudo">Dolor agudo</option><option value="dolor_cronico">Dolor crónico</option><option value="rigidez">Rigidez</option></select></div><div className="field"><label>Lado</label><select className="input" value={molConfig.lado} onChange={e=>setMolConfig((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select></div></div><div className="field"><label>EVA ({molConfig.eva}/10)</label><input type="range" min={0} max={10} value={molConfig.eva} onChange={e=>setMolConfig((p:any)=>({...p,eva:parseInt(e.target.value)}))} style={{width:'100%',accentColor:'var(--red)'}}/><div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'var(--grl)'}}><span>0</span><span style={{fontWeight:500,color:'var(--red)'}}>{molConfig.eva}</span><span>10</span></div></div><div className="field"><label>¿Cuándo aparece?</label><div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>{['En reposo','Al moverse','Con carga','Al caminar','Siempre','Al despertar'].map(c=><span key={c} onClick={()=>setMolConfig((p:any)=>({...p,cuando:c}))} style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${molConfig.cuando===c?'var(--g)':'var(--bd)'}`,background:molConfig.cuando===c?'var(--g)':'var(--w)',color:molConfig.cuando===c?'#fff':'var(--gr)',cursor:'pointer'}}>{c}</span>)}</div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={molConfig.observaciones} onChange={e=>setMolConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Sensación, qué lo provoca..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMolConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMolestia} disabled={guardando}>{guardando?'…':'✓ Añadir'}</button></div></div></div>}
+      {molConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMolConfig(null)}}><div className="modal"><div className="modal-title">{molConfig.nombre}<button className="modal-close" onClick={()=>setMolConfig(null)}>✕</button></div><div className="g2"><div className="field"><label>Tipo</label><select className="input" value={molConfig.tipo} onChange={e=>setMolConfig((p:any)=>({...p,tipo:e.target.value}))}><option value="molestia">Molestia</option><option value="dolor_agudo">Dolor agudo</option><option value="dolor_cronico">Dolor crónico</option><option value="rigidez">Rigidez</option></select></div><div className="field"><label>Lado</label><select className="input" value={molConfig.lado} onChange={e=>setMolConfig((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select></div></div><EscalaSlider label="EVA · intensidad" valor={molConfig.eva} color="var(--red)" izquierda="0 Nada" derecha="10 Insoportable" onCambio={v=>setMolConfig((p:any)=>({...p,eva:v}))}/><div className="field"><label>¿Cuándo aparece?</label><div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>{['En reposo','Al moverse','Con carga','Al caminar','Siempre','Al despertar'].map(c=><span key={c} onClick={()=>setMolConfig((p:any)=>({...p,cuando:c}))} style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${molConfig.cuando===c?'var(--g)':'var(--bd)'}`,background:molConfig.cuando===c?'var(--g)':'var(--w)',color:molConfig.cuando===c?'#fff':'var(--gr)',cursor:'pointer'}}>{c}</span>)}</div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={molConfig.observaciones} onChange={e=>setMolConfig((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Sensación, qué lo provoca..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMolConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarMolestia} disabled={guardando}>{guardando?'…':'✓ Añadir'}</button></div></div></div>}
 
       {/* MODAL CONFIGURAR PATOLOGÍA */}
       {patConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setPatConfig(null)}}><div className="modal"><div className="modal-title">{patConfig.nombre}<button className="modal-close" onClick={()=>setPatConfig(null)}>✕</button></div>{patConfig.precauciones&&<div style={{padding:'8px 10px',background:'var(--ambl)',borderRadius:8,border:'1px solid var(--amb)',fontSize:10,color:'#8A6410',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}><Ic name="alerta" size={13} style={{marginTop:1}}/> {patConfig.precauciones}</div>}<div className="g2"><div className="field"><label>Lado</label><select className="input" value={patConfig.lado} onChange={e=>setPatConfig((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option><option value="no_aplica">No aplica</option></select></div><div className="field"><label>Estado</label><select className="input" value={patConfig.estado} onChange={e=>setPatConfig((p:any)=>({...p,estado:e.target.value}))}><option value="activa">Activa</option><option value="cronica">Crónica</option><option value="resuelta">Resuelta</option></select></div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={patConfig.observaciones} onChange={e=>setPatConfig((p:any)=>({...p,observaciones:e.target.value}))}/></div><div onClick={()=>setPatConfig((p:any)=>({...p,tiene_informe:!p.tiene_informe}))} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:`1px solid ${patConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:patConfig.tiene_informe?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}><div style={{width:16,height:16,borderRadius:3,border:`2px solid ${patConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:patConfig.tiene_informe?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{patConfig.tiene_informe&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div><span style={{fontSize:11,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={13}/> Tiene informe médico</span></div><div style={{display:'flex',gap:8}}><button className="btn btn-d btn-sm" onClick={()=>setPatConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarPatologia} disabled={guardando}>{guardando?'…':'✓ Añadir'}</button></div></div></div>}

@@ -304,6 +304,49 @@ Lo que queda, para las dos:
 Fuera queda la columna "Tests relacionados" que había a la derecha del paso: sugería por
 etiquetas compartidas y ocupaba 200 px de ancho. Con un filtro por zona que funciona, sobra.
 
+## Pasar el test ✅ HECHO
+
+`components/ModalRealizarTest.tsx`. Era un acordeón dentro del paso 4: el test se desplegaba
+bajo su fila con la letra a 9-11 px y los ítems en cajas de 8 px. Con el paciente en la camilla
+y la tablet en la mano, ilegible.
+
+Ahora es **la ficha de la biblioteca con los ítems convertidos en casillas**: a la izquierda qué
+es el test —imagen de 240 px, descripción a 13 px, frecuencia, lados, vídeo—, a la derecha qué
+salió. El paso 4 se queda solo con la lista de lo que llevas, que es lo único que hay que ver
+de un vistazo mientras se trabaja.
+
+**No guarda nada**: devuelve el estado y decide quien lo abre. La valoración lo acumula hasta el
+final y la ficha lo registra en el momento. Que el formulario escribiera por su cuenta sería un
+segundo camino de escritura.
+
+**Pendiente:** la ficha del paciente tiene todavía SU PROPIO formulario de registrar test
+(`pacientes/[id]/page.tsx`, el bloque `modalRegistrarTest`, unas 90 líneas). Es la cuarta copia
+y ya no hace falta: al migrarla, `ModalRealizarTest` se queda con el `pie` de botones que
+guarda con `registrarResultadoTest`. No se hizo a la vez para poder probar una cosa cada vez.
+
+## Escalas sin respuesta ✅ HECHO
+
+`components/EscalaSlider.tsx` para bienestar, estrés y el EVA de las molestias.
+
+El problema no era que faltara una casilla: **el slider arrancaba en 5**, así que el paciente
+que no contestaba quedaba registrado con un 5 indistinguible de un 5 dicho de verdad, y ese 5
+inventado entraba en la gráfica, en la media y en el informe.
+
+Es la misma distinción que en los tests entre `negativo` y `sin_realizar`: "salió limpio" es un
+hallazgo y "no se lo hice" es un hueco. Aquí el hueco es `null`, que las tres columnas ya
+admitían — **no hizo falta SQL**.
+
+- **El slider sigue arrancando en 5**, decidido así: preguntar es lo normal y no contestar la
+  excepción, y es la excepción la que se marca. Al marcarla el slider se apaga en vez de
+  desaparecer, para que no parezca que el dato se ha perdido.
+- **Un solo estado.** No se distingue "no sabe" de "no quiere": ni la gráfica, ni la media, ni
+  el informe hacen nada distinto según el motivo.
+- **Donde se pinta, se dice.** "Sin respuesta" en las fichas, "—" en tablas e informe, la barra
+  a cero pero con el guion al lado, y **la molestia sin EVA sale en gris** en vez de en verde —
+  pintarla de verde diría "leve", que es justo lo que no sabemos.
+- **Sin las dos escalas no se abre fila** en `escalas`: un registro con los dos huecos vacíos no
+  dice nada y mete un punto muerto en la evolución.
+
 ## Alergias, intolerancias y operaciones ✅ HECHO
 
 Salió al construir el paso Completar, y el primer diagnóstico fue **equivocado**: se anotó que

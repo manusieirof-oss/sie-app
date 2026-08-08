@@ -187,8 +187,8 @@ export default function FichaPacientePage() {
       <tr style="background:#f5f3ef"><th style="padding:6px 10px;text-align:left">Fecha</th><th style="padding:6px 10px">Borg</th><th style="padding:6px 10px">Estrés</th></tr>
       ${[...escalas].slice(0,5).map((e:any)=>`<tr style="border-bottom:1px solid #f0ede8">
         <td style="padding:5px 10px">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</td>
-        <td style="padding:5px 10px;text-align:center">${e.borg}/10</td>
-        <td style="padding:5px 10px;text-align:center">${e.estres}/10</td>
+        <td style="padding:5px 10px;text-align:center">${e.borg==null?'—':e.borg+'/10'}</td>
+        <td style="padding:5px 10px;text-align:center">${e.estres==null?'—':e.estres+'/10'}</td>
       </tr>`).join('')}
     </table>` : ''}
 

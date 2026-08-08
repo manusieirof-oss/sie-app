@@ -1,6 +1,7 @@
 'use client'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, colorTipoClase, nombreTipoClase } from '@/lib/tipos'
+import { textoEscala } from '@/components/EscalaSlider'
 
 export default function PasoResumen({ form, testsValoracion, guardando, finalizar, firmaAceptada, imagenesAceptada, firmaCanvas, tiposClaseOpts=[], modo='inicial' }: any) {
   // La revaloración no elige bono, ni horario, ni plan, ni vuelve a firmar: eso se
@@ -95,7 +96,7 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
           {form.molestias.length===0?<div style={{fontSize:10,color:'var(--grl)'}}>Sin molestias</div>:form.molestias.map((m:any,i:number)=>(
             <div key={i} style={{display:'flex',gap:7,marginBottom:4,fontSize:10}}>
               <span style={{color:'var(--red)',fontWeight:500}}>{m.zona}</span>
-              <span style={{color:'var(--grl)'}}>EVA {m.eva}/10</span>
+              <span style={{color:'var(--grl)'}}>{textoEscala(m.eva)}{m.eva!=null&&' EVA'}</span>
               {m.lado&&m.lado!=='bilateral'&&<span style={{color:'var(--grl)'}}>· {m.lado}</span>}
             </div>
           ))}
