@@ -152,12 +152,12 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
     const html = `<html><head><meta charset="utf-8"><title></title><style>
       @page{margin:14mm}
       body{font-family:Arial,Helvetica,sans-serif;color:#262825;padding:0;max-width:760px;margin:0 auto;font-size:12px;line-height:1.6}
-      .cab{text-align:center;border-bottom:2px solid #5A969E;padding-bottom:14px;margin-bottom:20px}
-      .cab img{max-height:64px;max-width:220px;object-fit:contain;margin-bottom:8px}
+      .cab{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;border-bottom:2px solid #5A969E;padding-bottom:12px;margin-bottom:20px}
+      .cab img{max-height:64px;max-width:230px;object-fit:contain;display:block}
       .cab .n{font-size:19px;font-weight:600;color:#5A969E;letter-spacing:.5px}
-      .cab .t{font-size:11px;color:#888;margin-top:3px;text-transform:uppercase;letter-spacing:1.5px}
-      h1{font-size:17px;font-weight:400;margin:0 0 2px;text-align:center}
-      .meta{font-size:11px;color:#888;margin-bottom:24px;text-align:center}
+      .cab .t{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1.5px;text-align:right;white-space:nowrap}
+      h1{font-size:17px;font-weight:400;margin:0 0 2px}
+      .meta{font-size:11px;color:#888;margin-bottom:24px}
       h2{font-size:10px;font-weight:700;color:#5A969E;margin:20px 0 7px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #EBF4F5;padding-bottom:4px}
       table{width:100%;border-collapse:collapse;margin:0}
       th{text-align:left;font-weight:400;color:#888;width:34%;padding:3px 10px 3px 0;vertical-align:top}
@@ -168,8 +168,9 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
       .aviso{margin-top:30px;padding-top:12px;border-top:1px solid #e6e2dc;font-size:9.5px;color:#777;line-height:1.55}
     </style></head><body>
       <div class="cab">
-        ${clinica.logo ? `<div><img src="${esc(clinica.logo)}" alt=""></div>` : ''}
-        <div class="n">${esc(clinica.nombre || 'SIE')}</div>
+        ${clinica.logo
+          ? `<img src="${esc(clinica.logo)}" alt="">`
+          : `<div class="n">${esc(clinica.nombre || 'SIE')}</div>`}
         <div class="t">Informe de ${esRevaloracion ? 'revaloración' : 'valoración inicial'}</div>
       </div>
       <h1>${esc(nombre)}</h1>
