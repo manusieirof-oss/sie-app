@@ -197,10 +197,10 @@ export async function asignarSesionACita(citaId: string, sesionId: string | null
  * nada no es un problema —no se cubre nada— y el estado se pone después desde la agenda.
  */
 
-/** Cuántos vienen y a cuántos les falta sesión. Para el encabezado, sin recorrer la lista fuera. */
-export function resumenDelDia(lista: PacienteDelDia[]) {
-  return {
-    total: lista.length,
-    sinSesion: lista.filter(p => !p.sesion).length,
-  }
-}
+/*
+ * NO HAY RESUMEN AQUÍ. Lo hubo —`resumenDelDia`, con el total y cuántos sin sesión— y se
+ * ha retirado: contaba lo que devolvía la agenda en ese instante y el número se quedaba
+ * congelado, así que al ponerle la sesión a alguien la pantalla seguía diciendo que le
+ * faltaba a uno. El recuento se calcula en el render sobre la lista viva, que es la única
+ * que sabe lo que acabas de tocar.
+ */

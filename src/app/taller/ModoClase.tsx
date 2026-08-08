@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
-import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita, resumenDelDia } from '@/lib/taller'
+import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita } from '@/lib/taller'
+import ModalElegirSesion from './ModalElegirSesion'
 import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -33,6 +34,7 @@ export default function ModoClase() {
   const [horasListas, setHorasListas] = useState(false)
   const [trayendo, setTrayendo] = useState(false)
   const [avisoAgenda, setAvisoAgenda] = useState('')
+  const [eligiendo, setEligiendo] = useState<any>(null)
 
   /**
    * Las franjas del día, y la de ahora puesta sola.
@@ -110,15 +112,13 @@ export default function ModoClase() {
       // Si el que estaba abierto ya no está en la franja, no se deja un panel colgado.
       setActivo(a => final.some((x:any) => x.paciente.id === a) ? a : (final[0]?.paciente.id || ''))
 
-      const r = resumenDelDia(delDia)
-      // El aviso va aquí, donde se toma la decisión, y no en un recibo posterior: si a
-      // alguien le falta sesión hay que verlo ANTES de empezar la clase.
+      // AQUÍ NO SE CUENTA NADA. El recuento de "a X les falta sesión" se calcula en el
+      // render a partir de la lista viva. Antes se congelaba en este texto y, al ponerle
+      // la sesión a alguien, seguía diciendo que le faltaba a uno: el aviso hablaba de un
+      // momento que ya había pasado. Mismo motivo por el que la versión de una sesión sale
+      // de la cadena y no de una columna.
       const donde = (hora ? 'a las ' + hora : 'todo el día') + (sala ? ' · sala ' + sala : '')
-      setAvisoAgenda(
-        delDia.length === 0 ? `Nadie citado ${donde}.`
-        : r.sinSesion > 0 ? `${delDia.length} ${donde} · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta sesión.`
-        : `${delDia.length} ${donde}.`
-      )
+      setAvisoAgenda(delDia.length === 0 ? `Nadie citado ${donde}.` : '')
     } catch (e: any) {
       // Antes esto no existía y el fallo salía como "no hay citas", que es mentira y manda
       // a buscar el problema al sitio equivocado.
@@ -289,75 +289,36 @@ export default function ModoClase() {
    * Si alguien se pasa sin avisar, se le pone la cita en la agenda y aparece aquí.
    */
 
-  async function elegirSesion(pid: string, sesionId: string) {
-    setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId, finalizado:false} : s))
-    // Si viene de una cita, el cambio se guarda EN LA CITA. Así mañana la agenda y la
-    // ficha siguen diciendo qué se entrenó ese día, en vez de quedarse con lo planificado.
-    const conCita = seleccion.find(s => s.paciente.id===pid)
-    if (conCita?.citaId) asignarSesionACita(conCita.citaId, sesionId || null)
-    if (!sesionId) return
-    const item = seleccion.find(s => s.paciente.id===pid)
-    const ses = item?.sesiones.find((x:any)=>x.id===sesionId)
-    if (!ses) return
-    const ejs: any[] = []
-    ;(ses.partes||[]).forEach((parte:any)=>{
-      ;(parte.ejercicios||[]).forEach((ej:any)=>{
-        const n = parseInt(ej.series)||4
-        ejs.push({
-          ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
-          imagen_url: ej.imagen_url||'', variante: ej.variante||'',
-          plan:{peso:ej.peso,reps:ej.reps},
-          series: Array.from({length:n},()=>({peso:'',reps:''})),
-          comentario:'', ultimo:null, guardado:false,
-        })
-      })
-    })
-    const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
-    if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks').in('id', ids)
-      const tipoMap:Record<string,any>={}
-      ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
-      ejs.forEach(e=>{
-        const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
-        e.tipo_medida = t?.tipo_medida || 'peso_reps'
-        e.items = t?.items_ejecucion || []
-        e.feedbacks = t?.feedbacks || []
-        if (!e.items_evaluados) e.items_evaluados = {}
-      })
-    } else {
-      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; if(!e.items_evaluados) e.items_evaluados = {} })
+  /**
+   * Poner una sesión a alguien, desde el taller.
+   *
+   * SE GUARDA EN LA CITA. El taller, la agenda y Planificación mandan por igual sobre qué
+   * sesión toca ese día: los tres escriben `citas.sesion_id`. Si lo cambias aquí, mañana
+   * la agenda y la ficha dicen lo mismo, porque es el mismo dato y no tres copias.
+   *
+   * Los datos se rellenan con `cargarDatosSesion`, la misma que usa la carga de la franja.
+   * Antes esto tenía su propia copia de esas sesenta líneas —tipos de medida, último
+   * registro, borrador en curso— y bastaba tocar una para que las dos dejaran de coincidir.
+   */
+  async function elegirSesion(pid: string, ses: any) {
+    const sesionId = ses?.id || ''
+    const item = seleccionRef.current.find((s:any) => s.paciente.id === pid)
+    if (item?.citaId) {
+      const r = await asignarSesionACita(item.citaId, sesionId || null)
+      if (!r.ok) { alert('No se ha podido guardar la sesión en la cita: ' + r.error); return }
     }
-    if (ids.length) {
-      // ultimo finalizado (referencia)
-      const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,created_at,comentario')
-        .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
-        .order('fecha',{ascending:false}).order('created_at',{ascending:false})
-      const ultMap:Record<string,any>={}
-      ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
-      // borrador en curso de esta sesion
-      const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,comentario,items_evaluados')
-        .eq('paciente_id', pid).eq('sesion_id', sesionId).eq('finalizado', false).in('ejercicio_id', ids)
-      const cursoMap:Record<string,any>={}
-      ;(curso||[]).forEach((r:any)=>{ cursoMap[r.ejercicio_id]=r })
-      ejs.forEach(e=>{
-        if (e.ejercicio_id){
-          e.ultimo = ultMap[e.ejercicio_id]?.series || null
-          e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
-          const c = cursoMap[e.ejercicio_id]
-          if (c && Array.isArray(c.series)) {
-            // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
-            const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
-            // si el borrador tenia mas series que la plantilla, añadirlas
-            for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
-            e.series = merged; e.comentario = c.comentario||''; e.guardado = true
-          }
-          if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
-        }
-      })
+    if (!sesionId) {
+      setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId:'', datos:[], cargado:false, finalizado:false} : s))
+      return
     }
-    setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, datos:ejs, cargado:true} : s))
+    const datos = await cargarDatosSesion(pid, ses)
+    setSeleccion(prev => prev.map(s => {
+      if (s.paciente.id !== pid) return s
+      // La recién elegida entra en su lista aunque venga de la biblioteca, para que se
+      // vea como puesta y se pueda volver a ella sin reabrir el buscador.
+      const sesiones = s.sesiones.some((x:any) => x.id === sesionId) ? s.sesiones : [ses, ...s.sesiones]
+      return { ...s, sesionId, sesiones, datos, cargado:true, finalizado:false }
+    }))
   }
 
   function programarAutosave(pid:string, ei:number, ejData:any, sesionId:string){
@@ -480,6 +441,8 @@ export default function ModoClase() {
   }
 
   const act = seleccion.find(s=>s.paciente.id===activo)
+  // Derivado de la lista, no guardado: al poner una sesión, el número baja solo.
+  const sinSesion = seleccion.filter(s=>!s.sesionId).length
   const progreso = (s:any)=> s.datos.length ? `${s.datos.filter((e:any)=>e.guardado).length}/${s.datos.length}` : ''
 
   return (
@@ -498,9 +461,24 @@ export default function ModoClase() {
           <option value="">Todo el día</option>
           {horas.map(h=><option key={h.hora} value={h.hora}>{h.hora} · {h.n}</option>)}
         </select>
-        <span style={{fontSize:10,color:'var(--grl)'}}>{trayendo ? 'Cargando…' : avisoAgenda}</span>
+        <span style={{fontSize:10,color:sinSesion>0?'var(--gd)':'var(--grl)'}}>
+          {trayendo ? 'Cargando…' : avisoAgenda || (seleccion.length
+            ? `${seleccion.length} ${hora ? 'a las '+hora : 'hoy'}${sala?' · sala '+sala:''}` +
+              (sinSesion>0 ? ` · a ${sinSesion} le${sinSesion>1?'s':''} falta sesión` : '')
+            : '')}
+        </span>
         <div style={{flex:1}}/>
       </div>
+
+      {eligiendo && (
+        <ModalElegirSesion
+          pacienteId={eligiendo.paciente.id}
+          nombrePaciente={nombrePac(eligiendo.paciente)}
+          sesionActualId={eligiendo.sesionId}
+          onCerrar={()=>setEligiendo(null)}
+          onElegir={async (ses:any)=>{ setEligiendo(null); await elegirSesion(eligiendo.paciente.id, ses) }}
+        />
+      )}
 
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && (
@@ -513,6 +491,7 @@ export default function ModoClase() {
                 color:activo===s.paciente.id?'#fff':'var(--gr)'}}>
               {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
               {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
+              {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
               <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
             </div>
@@ -535,10 +514,12 @@ export default function ModoClase() {
               {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
               {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
             </div>
-            <select className="input" style={{maxWidth:240,fontSize:11}} value={act.sesionId} onChange={e=>elegirSesion(act.paciente.id, e.target.value)}>
-              <option value="">Elegir sesión de fuerza...</option>
-              {act.sesiones.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}
-            </select>
+            <button className={act.sesionId ? 'btn btn-s btn-sm' : 'btn btn-p btn-sm'}
+              onClick={()=>setEligiendo(act)} style={{fontSize:11,maxWidth:280}}>
+              <Ic name="fuerza" size={12}/> {act.sesionId
+                ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') + ' · cambiar'
+                : 'Elegir sesión'}
+            </button>
             {act.sesionId && act.datos.length>0 && (
               <button className="btn btn-p btn-sm" onClick={()=>finalizarPaciente(act.paciente.id)}>✓ Guardar y finalizar</button>
             )}
@@ -551,7 +532,7 @@ export default function ModoClase() {
           )}
 
           {!act.sesionId ? (
-            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Elige la sesión que va a hacer este paciente.</div>
+            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Sin sesión para hoy. Elígela arriba: de las suyas o de la biblioteca.</div>
           ) : act.datos.length===0 ? (
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Esta sesión no tiene ejercicios.</div>
           ) : act.datos.map((ej:any,ei:number)=>(
