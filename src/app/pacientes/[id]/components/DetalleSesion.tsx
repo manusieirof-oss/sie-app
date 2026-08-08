@@ -18,7 +18,7 @@ function medidaEj(ej: any): string {
 // desde Sesiones se veía con imágenes, series, pesos y notas; desde Historial,
 // solo una lista de nombres. Ahora es el mismo, y lo único que cambia son las
 // acciones: en Historial estás consultando el pasado, no editándolo.
-export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, onPartir, textoPartir, nCitas, ejecutado }: {
+export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, textoAsignar, onPartir, textoPartir, nCitas, ejecutado }: {
   sesion: any
   objetivos?: any[]
   onCerrar: () => void
@@ -38,6 +38,8 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
   textoPartir?: string
   /** Asignar esta sesión a citas. Solo desde la ficha: el historial no se reprograma. */
   onAsignar?: () => void
+  /** Texto del botón de asignar. Cambia cuando se viene a resolver una cita concreta. */
+  textoAsignar?: string
   /** Citas futuras que ya la tienen, para decirlo antes de abrir el selector. */
   nCitas?: number
   /**
@@ -91,7 +93,7 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
           <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--bd)', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             {onAsignar && (
               <button className="btn btn-p btn-sm" onClick={onAsignar}>
-                <Ic name="calendario" size={12} /> Asignar a citas
+                <Ic name="calendario" size={12} /> {textoAsignar || 'Asignar a citas'}
               </button>
             )}
             {onEditar && <button className="btn btn-s btn-sm" onClick={onEditar}><Ic name="editar" size={12} /> Editar</button>}

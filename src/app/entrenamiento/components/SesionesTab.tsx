@@ -233,7 +233,14 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   </div>
                 )}
               </div>
-              {esPlantilla(sesionVista)
+              {/* Con un encargo, el paciente YA SE SABE: preguntarlo otra vez es hacer
+                  elegir dos veces lo mismo, y encima deja elegir a otro distinto del de la
+                  cita, que es un error silencioso esperando a pasar. */}
+              {encargo
+                ? <button className="btn btn-p btn-sm" onClick={()=>asignarYVolver(sesionVista)} disabled={ocupado}>
+                    Traer para {encargo.etiqueta || 'el paciente'}
+                  </button>
+                : esPlantilla(sesionVista)
                 ? <button className="btn btn-p btn-sm" onClick={()=>setAsignando(sesionVista)} disabled={ocupado}><Ic name="usuario" size={12}/> Asignar a paciente</button>
                 : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}
               <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>

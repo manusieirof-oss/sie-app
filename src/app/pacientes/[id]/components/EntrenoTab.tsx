@@ -866,12 +866,18 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           sesion={sesionDetalle}
           objetivos={objsDeSesion(sesionDetalle)}
           nCitas={citasFuturas.filter((c:any)=>c.sesion_id===sesionDetalle.id).length}
-          onAsignar={()=>{
-            // Vienen premarcadas las que ya la tienen: así se ve el estado actual y
-            // desmarcar una la quita, en vez de tener que ir a Planificación.
-            setSelAsig(citasFuturas.filter((c:any)=>c.sesion_id===sesionDetalle.id).map((c:any)=>c.id))
-            setAsignando(sesionDetalle); setSesionDetalle(null)
-          }}
+          // Con un encargo, la cita YA SE SABE. Abrir el selector de citas obligaría a
+          // buscarla otra vez en la lista, y deja marcar otra distinta de la que se venía
+          // a resolver. Se asigna y se vuelve.
+          onAsignar={encargo
+            ? ()=>{ const x=sesionDetalle; setSesionDetalle(null); asignarYVolver(x) }
+            : ()=>{
+              // Vienen premarcadas las que ya la tienen: así se ve el estado actual y
+              // desmarcar una la quita, en vez de tener que ir a Planificación.
+              setSelAsig(citasFuturas.filter((c:any)=>c.sesion_id===sesionDetalle.id).map((c:any)=>c.id))
+              setAsignando(sesionDetalle); setSesionDetalle(null)
+            }}
+          textoAsignar={encargo ? `Traer para ${encargo.etiqueta || 'el paciente'}` : undefined}
           onCerrar={()=>setSesionDetalle(null)}
           onEditar={esVigente(sesionesDisp, sesionDetalle)
             ? ()=>{const x=sesionDetalle;setSesionDetalle(null);abrirEditor(x)}
