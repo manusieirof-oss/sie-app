@@ -366,8 +366,12 @@ export default function ValoracionPage() {
           : 'Primera valoración: se crea el paciente si no existe, se firman los consentimientos y se elige bono y plan.'}
       </div>
 
-      {/* BARRA PROGRESO */}
-      <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'12px 16px',marginBottom:12}}>
+      {/* BARRA PROGRESO Y NAVEGACIÓN.
+          Los botones van AQUÍ y no al final del paso: abajo cambiaban de sitio según lo
+          largo que fuera cada pestaña, y con el paciente delante se busca el botón en
+          vez de mirarlo. Arriba a la derecha están siempre en el mismo punto. */}
+      <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'12px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:18}}>
+       <div style={{flex:1,minWidth:0}}>
         <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:8}}>
           {STEPS.map((s,i)=>{
             const idx=i+1; const cls=idx<step?'done':idx===step?'active':'pending'
@@ -389,6 +393,13 @@ export default function ValoracionPage() {
         <div style={{height:3,background:'var(--bm)',borderRadius:2,overflow:'hidden',marginTop:8}}>
           <div style={{height:'100%',borderRadius:2,background:'var(--g)',width:`${pct}%`,transition:'width .3s'}}/>
         </div>
+       </div>
+       <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+         <button className="btn btn-s" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?'hidden':'visible'}}>← Atrás</button>
+         {step<STEPS.length
+           ? <button className="btn btn-p" onClick={()=>setStep(s=>Math.min(STEPS.length,s+1))} disabled={bloqueado} title={bloqueado?'Elige antes el paciente':undefined}>Continuar →</button>
+           : <span style={{fontSize:11,color:'var(--grl)',padding:'0 6px'}}>Último paso</span>}
+       </div>
       </div>
 
       {paso==='Paciente'&&(esRevaloracion
@@ -401,13 +412,6 @@ export default function ValoracionPage() {
       {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
       {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo} clinica={clinica}/>}
 
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'1px solid var(--bd)'}}>
-        <button className="btn btn-s" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?'hidden':'visible'}}>← Atrás</button>
-        <span style={{fontSize:10,color:'var(--grl)'}}>Paso {step} de {STEPS.length} · {STEPS[step-1]}</span>
-        {step<STEPS.length
-          ? <button className="btn btn-p" onClick={()=>setStep(s=>Math.min(STEPS.length,s+1))} disabled={bloqueado} title={bloqueado?'Elige antes el paciente':undefined}>Continuar →</button>
-          : <div/>}
-      </div>
     </>
   )
 }
