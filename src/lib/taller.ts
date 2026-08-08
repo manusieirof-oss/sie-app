@@ -44,6 +44,8 @@ export type PacienteDelDia = {
   disponibles: any[]
   /** true si la sesión de la cita pertenece a una tanda ya superada. */
   sesionVieja: boolean
+  /** El paciente tal cual, del propio join. Ver el porqué en `pacientesDelDia`. */
+  paciente: any
 }
 
 const nombreDe = (p: any) =>
@@ -151,6 +153,15 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
       // el desplegable tiene que poder volver a elegirse tras haber mirado otra.
       disponibles: sesion && !vigentes.some(v => v.id === sesion.id) ? [sesion, ...vigentes] : vigentes,
       sesionVieja: !!(deLaCita && !vigentes.some(v => v.id === deLaCita.id)),
+      // EL PACIENTE VIENE DE AQUÍ Y NO SE BUSCA FUERA.
+      //
+      // La primera versión cruzaba esto contra la lista de pacientes activos que ya tenía
+      // el taller cargada, y al que no estuviera en ella lo saltaba sin decir nada. Si un
+      // paciente no está marcado como activo —o acaba de darse de alta y la lista se cargó
+      // antes— tenía cita, salía en la agenda, y en el taller simplemente no aparecía.
+      // Un filtro que borra filas en silencio es el peor fallo posible: no hay nada que
+      // mirar para entender por qué falta alguien.
+      paciente: p || { id: c.paciente_id, nombre: 'Paciente', apellidos: '' },
     }
   })
 }

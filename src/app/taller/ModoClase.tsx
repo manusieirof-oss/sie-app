@@ -19,7 +19,9 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
   const [sala, setSala] = useState('')
-  const [salas, setSalas] = useState<string[]>([])
+  // A y B por defecto, igual que la agenda: si `clinica_salas` no está puesto en Ajustes,
+  // antes se quedaba en lista vacía y el selector de sala no llegaba a pintarse nunca.
+  const [salas, setSalas] = useState<string[]>(['A','B'])
   const [hora, setHora] = useState('')
   const [horas, setHoras] = useState<{hora:string,n:number}[]>([])
   const [trayendo, setTrayendo] = useState(false)
@@ -65,13 +67,12 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     try {
       const delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
       const nuevos: any[] = []
+      let repetidos = 0
       for (const d of delDia) {
-        if (seleccion.some(s => s.paciente.id === d.pacienteId)) continue
-        const pac = pacientes.find((p:any) => p.id === d.pacienteId)
-        if (!pac) continue   // dado de baja o inactivo: no se entrena, no se pinta
+        if (seleccion.some(s => s.paciente.id === d.pacienteId)) { repetidos++; continue }
         const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, d.sesion) : []
         nuevos.push({
-          paciente: pac,
+          paciente: d.paciente,
           sesionId: d.sesion?.id || '',
           sesiones: d.disponibles,
           datos, cargado: !!d.sesion, finalizado: false,
@@ -86,7 +87,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       const donde = (hora ? 'a las ' + hora : 'ese día') + (sala ? ' en la sala ' + sala : '')
       setAvisoAgenda(
         delDia.length === 0 ? `No hay citas ${donde}.`
-        : nuevos.length === 0 ? `Los ${delDia.length} de ${hora||'ese día'} ya estaban en la lista.`
+        : nuevos.length === 0 ? `Los ${repetidos} de ${hora||'ese día'} ya estaban en la lista.`
         : r.sinSesion > 0 ? `${delDia.length} ${donde} · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta elegir sesión.`
         : `${delDia.length} ${donde}, todos con su sesión.`
       )
