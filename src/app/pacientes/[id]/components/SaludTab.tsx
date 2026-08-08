@@ -184,7 +184,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     if (!molConfig) return
     setGuardando(true)
     await supabase.from('molestias').insert({ paciente_id:id, zona:molConfig.zona, tipo:molConfig.tipo, eva:molConfig.eva, lado:molConfig.lado||null, sensacion:molConfig.cuando||null, observaciones:molConfig.observaciones||null, activa:true })
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia: ${molConfig.zona} (EVA ${molConfig.eva}/10)`, descripcion:molConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia: ${molConfig.zona}${molConfig.eva==null?'':` (EVA ${molConfig.eva}/10)`}`, descripcion:molConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
     setMolConfig(null); setGuardando(false); cargar()
   }
 
@@ -699,7 +699,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
         {detalle.tipo==='molestia'&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:detalle.datos.activa?'var(--redl)':'var(--gl)',color:detalle.datos.activa?'var(--red)':'var(--gd)',border:`1px solid ${detalle.datos.activa?'#F5C8C8':'var(--gm)'}`}}>{detalle.datos.activa?'● Activa':'✓ Resuelta'}</span>
-            <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>EVA {detalle.datos.eva}/10</span>
+            <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{detalle.datos.eva==null?'Sin EVA':`EVA ${detalle.datos.eva}/10`}</span>
             {detalle.datos.tipo&&<span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{LBL_TIPO_MOL[detalle.datos.tipo]||detalle.datos.tipo}</span>}
             {detalle.datos.lado&&detalle.datos.lado!=='bilateral'&&<span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--bl)',color:'var(--gr)'}}>{cap(detalle.datos.lado)}</span>}
           </div>

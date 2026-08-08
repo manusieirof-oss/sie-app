@@ -173,7 +173,7 @@ export default function ValoracionPage() {
         valoracion: val,
         positivos: conNombre,
         patologias: (pats.data||[]).map((x:any)=>x.nombre + (x.lado&&x.lado!=='no_aplica'?` · ${x.lado}`:'') + (x.estado?` · ${x.estado}`:'')),
-        molestias: (mols.data||[]).map((x:any)=>`${x.zona} · EVA ${x.eva}`),
+        molestias: (mols.data||[]).map((x:any)=>`${x.zona}${x.eva==null?'':` · EVA ${x.eva}`}`),
         medicacion: (meds.data||[]).map((x:any)=>x.nombre + (x.frecuencia?` · ${x.frecuencia}`:'')),
         deportes: (deps.data||[]).map((x:any)=>x.nombre),
         alergias: alerg.map((x:any)=>x.nombre),
