@@ -277,6 +277,33 @@ Decisiones tomadas:
 
 Nada de esto necesitó esquema nuevo.
 
+## Elegir tests ✅ HECHO
+
+`components/ExploradorTests.tsx`, compartido por la biblioteca y la valoración. Misma idea que
+`ExploradorEjercicios`: una vista, distintas acciones —`onAbrir` en la biblioteca,
+`seleccion` + `onAlternar` en la valoración—.
+
+Era **la tercera copia del mismo buscador y la peor**. La valoración metía el catálogo entero
+en una caja de 220 px con scroll, que con 49 tests enseñaba cuatro, y filtraba por TODAS las
+etiquetas del test mezcladas —músculos, patologías, articulaciones—, así que el filtro estorbaba
+más de lo que ayudaba. La biblioteca ya hacía lo correcto y nadie lo estaba aprovechando.
+
+Lo que queda, para las dos:
+
+- **Filtro por zona, solo etiquetas de categoría `articulacion`**, en orden anatómico de
+  `lib/anatomia.ts`. Un criterio único para recorrer la app, igual que en etiquetas y objetivos.
+- **La búsqueda entra en los ítems.** "McMurray" vive dentro de "Rodilla · meniscos": buscar por
+  el nombre de la maniobra es lo natural en la camilla, y es la única forma de encontrar las 31
+  maniobras de rodilla que están agrupadas en 6 fichas.
+- **Chip "Sin zona"**, con su contador. Un test sin etiqueta de articulación desaparecería al
+  filtrar; así se ve que existe y, de paso, que le falta etiquetar.
+- **En la valoración se elige a pantalla completa**, con selección múltiple y "Añadir N". Los
+  que ya están se ven apagados con "Ya añadido" en vez de desaparecer: si desaparecen, se
+  buscan dos veces.
+
+Fuera queda la columna "Tests relacionados" que había a la derecha del paso: sugería por
+etiquetas compartidas y ocupaba 200 px de ancho. Con un filtro por zona que funciona, sobra.
+
 ## Alergias, intolerancias y operaciones ✅ HECHO
 
 Salió al construir el paso Completar, y el primer diagnóstico fue **equivocado**: se anotó que

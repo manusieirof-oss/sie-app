@@ -123,6 +123,11 @@ escribe en esas tres tablas. La valoración las metía solo en el JSON `estado_g
 una alergia apuntada allí no aparecía en Salud; las operaciones ni tenían tabla
 (`sql/operaciones_paciente.sql`). No se duplica lo que el paciente ya tiene.
 
+**Elegir tests**: `ExploradorTests`, compartido con la biblioteca. Filtro por zona en orden
+anatómico —solo etiquetas de articulación—, búsqueda que entra en los ítems ("McMurray"
+encuentra "Rodilla · meniscos") y rejilla de tarjetas con imagen. En la valoración se abre a
+pantalla completa, con selección múltiple.
+
 **Firma**: hueco de 200 px con botón "Ampliar" que abre un lienzo a pantalla completa para la
 tablet. Un solo dato, dos tamaños; el grande trabaja sobre un borrador y solo "Hecho" lo sube.
 
