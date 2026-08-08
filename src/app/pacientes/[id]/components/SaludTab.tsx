@@ -10,7 +10,7 @@ import { registrarResultadoTest, textoMedida } from '@/lib/tests'
 import { anadirALista, quitarDeLista, type ListaClinica } from '@/lib/listasPaciente'
 import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 
-export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, setModalRegistrarTest, abrirTest }: any) {
+export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, onNuevoTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [molConfig, setMolConfig] = useState<any>(null)
@@ -441,7 +441,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
           <div className="sec-h">
             <span className="sh-l">
               <span className="ct-l"><Ic name="buscar" size={13}/> Tests funcionales</span>
-              <button className="btn btn-s btn-sm" onClick={()=>setModalRegistrarTest(true)}>+ Registrar test</button>
+              <button className="btn btn-s btn-sm" onClick={()=>onNuevoTest?.()}>+ Registrar test</button>
             </span>
           </div>
           {tests.length===0 && <div className="muted">Sin tests registrados</div>}

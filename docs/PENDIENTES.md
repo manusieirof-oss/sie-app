@@ -319,10 +319,14 @@ de un vistazo mientras se trabaja.
 final y la ficha lo registra en el momento. Que el formulario escribiera por su cuenta sería un
 segundo camino de escritura.
 
-**Pendiente:** la ficha del paciente tiene todavía SU PROPIO formulario de registrar test
-(`pacientes/[id]/page.tsx`, el bloque `modalRegistrarTest`, unas 90 líneas). Es la cuarta copia
-y ya no hace falta: al migrarla, `ModalRealizarTest` se queda con el `pie` de botones que
-guarda con `registrarResultadoTest`. No se hizo a la vez para poder probar una cosa cada vez.
+**La ficha ya usa lo mismo.** Tenía su propio formulario —95 líneas en `pacientes/[id]/page.tsx`,
+con un desplegable de los 49 tests— y era la cuarta copia. Ahora elige con `ExploradorTests` y
+lo pasa con `ModalRealizarTest`, cambiando solo la botonera: aquí se guarda en el momento y en
+la valoración se acumula hasta el final.
+
+De paso se arregló algo que se perdía en silencio: la ficha registraba **solo un lado**, el que
+estuviera seleccionado. Ahora guarda todos los que tengan resultado, así que pasar izquierdo y
+derecho de una vez ya no pierde uno de los dos.
 
 ## Citar al terminar la valoración ✅ HECHO
 

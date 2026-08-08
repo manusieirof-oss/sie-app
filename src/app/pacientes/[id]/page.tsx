@@ -11,7 +11,9 @@ import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
-import { registrarResultadoTest, resultadoDeItems, mide, unidadDe, valorDe, textoMedida } from '@/lib/tests'
+import { registrarResultadoTest, textoMedida } from '@/lib/tests'
+import ExploradorTests from '@/components/ExploradorTests'
+import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
@@ -55,14 +57,12 @@ export default function FichaPacientePage() {
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
-  const [modalRegistrarTest, setModalRegistrarTest] = useState(false)
-  const [testSeleccionado, setTestSeleccionado] = useState('')
-  const [resultadoTest, setResultadoTest] = useState('positivo')
-  const [obsTest, setObsTest] = useState('')
-  const [fechaRevTest, setFechaRevTest] = useState('')
-  const [itemsTest, setItemsTest] = useState<any[]>([])
-  const [ladoTest, setLadoTest] = useState('bilateral')
-  const [testSeleccionadoObj, setTestSeleccionadoObj] = useState<any>(null)
+  // Pasar un test es la misma pantalla que en la valoración (`ModalRealizarTest`) y
+  // elegirlo el mismo explorador (`ExploradorTests`). Aquí había un formulario propio de
+  // 95 líneas con un desplegable de 49 tests: la cuarta copia, y la peor de ver.
+  const [eligiendoTest, setEligiendoTest] = useState(false)
+  const [testEnCurso, setTestEnCurso] = useState<{test:any,tv:any}|null>(null)
+  const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
   const [procesando, setProcesando] = useState(false)
   const [menuAcc, setMenuAcc] = useState<any>(null)
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
@@ -254,6 +254,9 @@ export default function FichaPacientePage() {
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
     setTests(t||[]); setTestsDisp(td||[])
+    // Las etiquetas son las que dan el filtro por zona del explorador de tests.
+    const { data: et } = await supabase.from('etiquetas').select('*')
+    setEtiquetasLib(et||[])
     const { data: rec } = await supabase.from('recuperaciones').select('id,estado,fecha_falta,fecha_limite,cita_recuperacion_id').eq('paciente_id',id).order('fecha_falta',{ascending:false})
     setRecuperaciones(rec||[])
     // Lo anotado en el taller: alimenta la progresión de cargas y de ejecución.
@@ -288,65 +291,52 @@ export default function FichaPacientePage() {
     cargar()
   }
 
-  // Reevaluar un test: abre el modal de registro ya preseleccionado. Así se reutiliza
-  // toda la lógica de objetivos en vez de duplicarla en SaludTab.
+  /**
+   * Reevaluar un test concreto, desde Salud o desde el detalle de un resultado.
+   * Se abre ya en el lado que se venía mirando: es el que se va a repetir.
+   */
   function abrirTest(testId: string, lado: string) {
-    seleccionarTest(testId)
-    setLadoTest(lado || 'bilateral')
-    setModalRegistrarTest(true)
-  }
-
-  function seleccionarTest(testId: string) {
-    setTestSeleccionado(testId)
-    const t = testsDisp.find((t:any)=>t.id===testId)
-    setTestSeleccionadoObj(t||null)
-    if (t && t.items && t.items.length>0) {
-      setItemsTest(t.items.map((item:any)=>({...item,marcado:false,valor:''})))
-    } else {
-      setItemsTest([])
-    }
-    // Calcular fecha de revisión automáticamente
-    if (t && t.frecuencia_meses) {
-      const hoy = new Date()
-      hoy.setMonth(hoy.getMonth() + t.frecuencia_meses)
-      setFechaRevTest(hoy.toISOString().split('T')[0])
-    } else {
-      setFechaRevTest('')
-    }
-  }
-
-  // La regla vive en lib/tests.ts: la usan también la valoración y la vista de Salud.
-  function calcularResultado(): string {
-    return resultadoDeItems(itemsTest, testSeleccionadoObj?.logica, resultadoTest as any)
+    const test = testsDisp.find((t:any)=>t.id===testId)
+    if (!test) { alert('Ese test ya no está en la biblioteca'); return }
+    const l = lado || (test.tipo_lado==='lateral' ? 'izquierdo' : 'bilateral')
+    setTestEnCurso({ test, tv: { ladoActivo:l, frecuencia_meses:test.frecuencia_meses, lados:{ [l]: ladoVacio(test) } } })
   }
 
   /**
-   * Registrar un resultado desde la ficha. Toda la lógica —fila, evento y objetivos—
-   * está en `lib/tests.ts`, que es también lo que usan la valoración y la vista de Salud.
+   * Guardar lo pasado. Toda la lógica —fila, evento y objetivos— está en `lib/tests.ts`,
+   * que es lo que usan también la valoración y Salud.
+   *
+   * Se guardan TODOS los lados con resultado, no solo el que está a la vista: el modal
+   * deja pasar izquierdo y derecho de una vez, y perder uno de los dos por no haber
+   * vuelto a su pestaña sería un dato que se pierde en silencio.
    */
   async function registrarTest() {
-    if (!testSeleccionado) { alert('Selecciona un test'); return }
-    const test = testSeleccionadoObj || { id: testSeleccionado }
-    const r = await registrarResultadoTest(String(id), test, {
-      resultado: resultadoTest as any,
-      items: itemsTest,
-      observaciones: obsTest,
-      lado: ladoTest,
-      fechaRepeticion: fechaRevTest || null,
-      contexto: 'la ficha',
-    })
-    if (!r.ok) { alert('No se pudo guardar el resultado: ' + r.error); return }
-
-    setModalRegistrarTest(false)
-    setTestSeleccionado(''); setResultadoTest('positivo'); setObsTest(''); setFechaRevTest('')
-    setItemsTest([]); setLadoTest('bilateral'); setTestSeleccionadoObj(null)
+    if (!testEnCurso) return
+    const { test, tv } = testEnCurso
+    const conDato = Object.keys(tv.lados||{}).filter(k => tv.lados[k]?.resultado && tv.lados[k].resultado!=='sin_realizar')
+    if (conDato.length===0) { alert('Marca el resultado antes de guardar'); return }
+    setProcesando(true)
+    let logrados = 0
+    for (const lado of conDato) {
+      const d = tv.lados[lado]
+      const r = await registrarResultadoTest(String(id), test, {
+        resultado: d.resultado, items: d.items_resultado || [],
+        observaciones: d.observaciones, lado,
+        fechaRepeticion: d.fecha_repeticion || null,
+        contexto: 'la ficha',
+      })
+      if (!r.ok) { alert('No se pudo guardar el resultado: ' + r.error); setProcesando(false); return }
+      logrados += r.logrados
+    }
+    setProcesando(false)
+    setTestEnCurso(null)
     cargar()
     // Que un test cierre objetivos es la consecuencia que más interesa y antes pasaba
     // en silencio: solo se veía entrando en la pestaña de objetivos.
-    if (r.logrados > 0) {
-      alert(r.logrados === 1
+    if (logrados > 0) {
+      alert(logrados === 1
         ? 'Resultado guardado. Un objetivo ha pasado a logrado.'
-        : `Resultado guardado. ${r.logrados} objetivos han pasado a logrados.`)
+        : `Resultado guardado. ${logrados} objetivos han pasado a logrados.`)
     }
   }
 
@@ -606,7 +596,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='salud' && (
-        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} cargar={cargar} setModalRegistrarTest={setModalRegistrarTest} abrirTest={abrirTest}/>
+        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} cargar={cargar} onNuevoTest={()=>setEligiendoTest(true)} abrirTest={abrirTest}/>
       )}
 
       {/* TAB ENTRENAMIENTO */}
@@ -619,100 +609,35 @@ export default function FichaPacientePage() {
       )}
 
       {/* MODAL REGISTRAR TEST */}
-      {modalRegistrarTest && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalRegistrarTest(false)}}>
-          <div className="modal" style={{width:460}}>
-            <div className="modal-title">Registrar test<button className="modal-close" onClick={()=>setModalRegistrarTest(false)}>✕</button></div>
-            <div className="g2">
-              <div className="field"><label>Test *</label>
-                <select className="input" value={testSeleccionado} onChange={e=>seleccionarTest(e.target.value)}>
-                  <option value="">Seleccionar test...</option>
-                  {testsDisp.map((t:any)=><option key={t.id} value={t.id}>{t.nombre}</option>)}
-                </select>
-              </div>
-              <div className="field"><label>Lado</label>
-                <select className="input" value={ladoTest} onChange={e=>setLadoTest(e.target.value)}>
-                  <option value="bilateral">Bilateral</option>
-                  <option value="derecho">Derecho</option>
-                  <option value="izquierdo">Izquierdo</option>
-                </select>
-              </div>
-            </div>
-
-            {/* IMAGEN Y VIDEO DEL TEST */}
-            {testSeleccionadoObj && (testSeleccionadoObj.imagen_url||testSeleccionadoObj.descripcion) && (
-              <div style={{background:'var(--bl)',borderRadius:7,padding:'9px 11px',marginBottom:10,display:'flex',gap:10,alignItems:'flex-start'}}>
-                {testSeleccionadoObj.imagen_url&&<img src={testSeleccionadoObj.imagen_url} alt={testSeleccionadoObj.nombre} style={{width:60,height:60,objectFit:'cover',borderRadius:5,flexShrink:0}}/>}
-                <div style={{flex:1}}>
-                  {testSeleccionadoObj.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,lineHeight:1.4}}>{testSeleccionadoObj.descripcion}</div>}
-                  {testSeleccionadoObj.video_url&&<a href={testSeleccionadoObj.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:'var(--g)',display:'inline-flex',alignItems:'center',gap:4,marginTop:4}}><Ic name="play" size={11}/> Ver vídeo del test ↗</a>}
-                </div>
-              </div>
-            )}
-
-            {/* ÍTEMS CON CHECKBOXES */}
-            {itemsTest.length>0 ? (
-              <div className="field">
-                <label>Ítems de evaluación
-                  <span style={{fontSize:9,fontWeight:300,color:'var(--grl)',marginLeft:6,textTransform:'none',letterSpacing:0}}>
-                    {testSeleccionadoObj?.logica==='todos'?'Todos marcados = Positivo':'Cualquier ítem marcado = Positivo'}
-                  </span>
-                </label>
-                {itemsTest.map((item,i)=>(
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:item.marcado?'var(--redl)':'var(--bl)',borderRadius:6,border:`1px solid ${item.marcado?'#F5C8C8':'var(--bd)'}`,marginBottom:4,transition:'all .15s'}}>
-                    <input type="checkbox" checked={item.marcado} onChange={e=>{const its=[...itemsTest];its[i]={...its[i],marcado:e.target.checked};setItemsTest(its)}} style={{width:16,height:16,accentColor:'var(--red)',flexShrink:0,cursor:'pointer'}}/>
-                    <span style={{flex:1,fontSize:11,fontWeight:item.marcado?400:300,color:'var(--n)'}}>{item.nombre}</span>
-                    {mide(item) && item.marcado && (
-                      <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-                        <input type="number" value={valorDe(item)} onChange={e=>{const its=[...itemsTest];its[i]={...its[i],valor:e.target.value};setItemsTest(its)}}
-                          style={{width:52,fontSize:11,padding:'2px 5px',border:'1px solid var(--red)',borderRadius:4,background:'var(--redl)',color:'var(--red)',textAlign:'center',fontFamily:'system-ui'}}
-                          placeholder="0"/>
-                        <span style={{fontSize:10,color:'var(--red)',fontWeight:500}}>{unidadDe(item).simbolo.trim()}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {/* RESULTADO CALCULADO */}
-                <div style={{marginTop:8,padding:'7px 11px',borderRadius:6,background:calcularResultado()==='positivo'?'var(--redl)':'var(--gl)',border:`1px solid ${calcularResultado()==='positivo'?'var(--red)':'var(--gm)'}`,display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:11,fontWeight:500,color:calcularResultado()==='positivo'?'var(--red)':'var(--gd)'}}>
-                    {calcularResultado()==='positivo'?'+ Resultado: Positivo':'− Resultado: Negativo'}
-                  </span>
-                  <span style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>calculado automáticamente</span>
-                </div>
-              </div>
-            ) : testSeleccionado ? (
-              <div className="field"><label>Resultado</label>
-                <div style={{display:'flex',gap:8,marginTop:4}}>
-                  {[['positivo','+ Positivo','var(--red)','var(--redl)'],['negativo','− Negativo','var(--g)','var(--gl)']].map(([v,l,c,bg])=>(
-                    <div key={v} onClick={()=>setResultadoTest(v)} style={{flex:1,padding:'10px',borderRadius:'var(--rl)',border:`2px solid ${resultadoTest===v?c:'var(--bd)'}`,background:resultadoTest===v?bg:'var(--w)',cursor:'pointer',textAlign:'center',transition:'all .15s'}}>
-                      <div style={{fontSize:12,fontWeight:500,color:resultadoTest===v?c:'var(--grl)'}}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="field"><label>Observaciones libres</label>
-              <textarea className="input" value={obsTest} onChange={e=>setObsTest(e.target.value)} placeholder="Notas adicionales sobre el resultado..." style={{minHeight:50}}/>
-            </div>
-            <div className="field">
-              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <span>Fecha de revisión</span>
-                {testSeleccionadoObj?.frecuencia_meses && <span style={{fontSize:9,color:'var(--g)',fontWeight:300}}>Predeterminada: {testSeleccionadoObj.frecuencia_meses} meses</span>}
-              </label>
-              <input type="date" className="input" value={fechaRevTest} onChange={e=>setFechaRevTest(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
-              {fechaRevTest && <div style={{fontSize:9,color:'var(--grl)',marginTop:3,fontWeight:300}}>
-                Revisión el {new Date(fechaRevTest+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
-              </div>}
-            </div>
-            <div style={{display:'flex',gap:8,marginTop:8}}>
-              <button className="btn btn-d btn-sm" onClick={()=>setModalRegistrarTest(false)}>Cancelar</button>
-              <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={registrarTest}><Ic name="guardar" size={13}/> Guardar resultado</button>
-            </div>
+      {/* ELEGIR TEST · el mismo explorador que la biblioteca y la valoración */}
+      {eligiendoTest && (
+        <div style={{position:'fixed',inset:0,zIndex:200,background:'var(--w)',display:'flex',flexDirection:'column'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 18px',borderBottom:'1px solid var(--bd)',flexShrink:0}}>
+            <div style={{fontSize:15,fontWeight:500,color:'var(--n)'}}>Qué test se le pasa</div>
+            <button className="modal-close" onClick={()=>setEligiendoTest(false)}><Ic name="cerrar" size={18}/></button>
+          </div>
+          <div style={{flex:1,minHeight:0,overflowY:'auto',padding:'14px 18px'}}>
+            <ExploradorTests tests={testsDisp} etiquetas={etiquetasLib} autoFocus
+              onAbrir={(t:any)=>{ setEligiendoTest(false); abrirTest(t.id,'bilateral') }}/>
           </div>
         </div>
       )}
+
+      {/* PASARLO · la misma pantalla que en la valoración. Aquí se guarda en el momento;
+          allí se acumula hasta el final. Lo único que cambia es esta botonera. */}
+      {testEnCurso && (
+        <ModalRealizarTest
+          test={testEnCurso.test} tv={testEnCurso.tv}
+          onCambiar={(tv:any)=>setTestEnCurso((p:any)=>({...p,tv}))}
+          onCerrar={()=>setTestEnCurso(null)}
+          pie={<>
+            <button className="btn btn-d" onClick={()=>setTestEnCurso(null)} disabled={procesando}>Cancelar</button>
+            <button className="btn btn-p" onClick={registrarTest} disabled={procesando}>
+              {procesando ? 'Guardando…' : <><Ic name="guardar" size={13}/> Guardar resultado</>}
+            </button>
+          </>}/>
+      )}
+
 
       {/* MODAL BONO */}
       {modalAlertas && (
