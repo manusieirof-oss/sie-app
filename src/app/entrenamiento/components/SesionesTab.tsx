@@ -33,6 +33,15 @@ const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resis
 
 export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial }: any) {
   const [buscarSes, setBuscarSes] = useState('')
+  /**
+   * De quién es la sesión. Por defecto, PLANTILLAS.
+   *
+   * Aquí salían mezcladas las plantillas y las sesiones ya prescritas a pacientes, con el
+   * mismo aspecto salvo una píldora, y solo las plantillas se pueden asignar. Así que la
+   * mitad de la lista "se veía distinta y no dejaba asignar" sin que hubiera forma de
+   * saber por qué. Son dos cosas distintas y ahora se eligen.
+   */
+  const [origen, setOrigen] = useState<'plantillas'|'pacientes'|'todas'>('plantillas')
   const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
   const [sesionVista, setSesionVista] = useState<any>(null)
   const [buscarBiblio, setBuscarBiblio] = useState('')
@@ -52,7 +61,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     if (!encargo) return
     const r = await asignarSesionYVolver(ses, encargo)
     if (!r.ok) { alert('No se ha podido asignar: ' + r.error); return }
-    routerAsig.push('/taller')
+    routerAsig.push(encargo.volver)
   }
   const [ocupado, setOcupado] = useState(false)
 
@@ -116,6 +125,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     return (objetivos||[]).filter((o:any)=>ids.includes(o.id))
   }
   const sesionesFiltradas = sesiones.filter((s:any)=>{
+    if (origen==='plantillas' && !esPlantilla(s)) return false
+    if (origen==='pacientes' && esPlantilla(s)) return false
     const q = buscarSes.toLowerCase()
     const matchQ = !buscarSes || (s.nombre||'').toLowerCase().includes(q) || (s.descripcion||'').toLowerCase().includes(q)
     const idsObj = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
@@ -129,7 +140,21 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
       {/* CABECERA: buscador + nueva */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
         <input className="input" placeholder="Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
-        <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} sesiones</span>
+        <div style={{display:'flex',gap:5}}>
+          {([['plantillas','Plantillas'],['pacientes','De pacientes'],['todas','Todas']] as const).map(([k,l])=>{
+            const n = k==='todas' ? sesiones.length
+              : sesiones.filter((s:any)=>k==='plantillas' ? esPlantilla(s) : !esPlantilla(s)).length
+            return (
+              <span key={k} onClick={()=>setOrigen(k as any)}
+                style={{fontSize:9,padding:'3px 10px',borderRadius:99,cursor:'pointer',
+                  border:`1.5px solid ${origen===k?'var(--g)':'var(--bd)'}`,
+                  background:origen===k?'var(--g)':'var(--w)',color:origen===k?'#fff':'var(--gr)'}}>
+                {l} {n}
+              </span>
+            )
+          })}
+        </div>
+        <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} en pantalla</span>
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
       {(objetivos||[]).length>0&&(
@@ -150,7 +175,9 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
 
       {sesionesFiltradas.length===0?(
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>
-          {sesiones.length===0?'Sin sesiones. Crea la primera con + Nueva sesión.':'Sin resultados.'}
+          {sesiones.length===0 ? 'Sin sesiones. Crea la primera con + Nueva sesión.'
+            : origen==='plantillas' ? 'No hay plantillas que coincidan. Las sesiones ya prescritas están en "De pacientes".'
+            : 'Sin resultados.'}
         </div>
       ):(
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
@@ -170,7 +197,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                       sesión ya prescrita, que es la diferencia que más importa aquí. */}
                   {esPlantilla(s)
                     ? <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff'}}>Plantilla</span>
-                    : <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{s.pacientes?.nombre || 'Paciente'}</span>}
+                    : <span title="Ya es de un paciente: no se asigna, se duplica" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>De {s.pacientes?.nombre || 'un paciente'}</span>}
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{nPartes} {nPartes===1?'parte':'partes'}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bl)',color:'var(--gd)',border:'1px solid var(--bd)'}}>{modoDeSesion(s.partes||[]).nombre}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
@@ -183,7 +210,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 {encargo && (
                   <button className="btn btn-p btn-sm" style={{width:'100%',fontSize:11}}
                     onClick={e=>{e.stopPropagation();asignarYVolver(s)}}>
-                    Asignar y volver al taller
+                    Traer esta y volver
                   </button>
                 )}
               </div>

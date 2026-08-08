@@ -17,12 +17,13 @@ export default function BarraAsignacion({ encargo }: { encargo: Encargo }) {
       borderRadius: 'var(--rl)', background: 'var(--gl)', border: '1px solid var(--g)', fontSize: 11, color: 'var(--gd)' }}>
       <Ic name="taller" size={14} />
       <span>
-        Eligiendo la sesión de <b>{encargo.etiqueta || 'la cita'}</b>. Pulsa
-        {' '}<b>Asignar</b> en la que quieras y volverás al taller.
+        {encargo.citaId
+          ? <>Eligiendo la sesión de <b>{encargo.etiqueta || 'la cita'}</b>. Pulsa <b>Traer</b> en la que quieras y se le asigna a esa cita.</>
+          : <>Eligiendo una sesión para <b>{encargo.etiqueta || 'el paciente'}</b>. Pulsa <b>Traer</b> y se le queda copiada.</>}
       </span>
       <div style={{ flex: 1 }} />
-      <button className="btn btn-t btn-sm" onClick={() => router.push('/taller')} style={{ fontSize: 10 }}>
-        Volver sin asignar
+      <button className="btn btn-t btn-sm" onClick={() => router.push(encargo.volver)} style={{ fontSize: 10 }}>
+        Volver sin traer
       </button>
     </div>
   )

@@ -527,6 +527,7 @@ export default function ModoClase() {
                       router.push(rutaDeAsignacion(d as any, {
                         citaId: act.citaId, pacienteId: act.paciente.id,
                         etiqueta: nombrePac(act.paciente) + (act.hora ? ' · ' + act.hora : ''),
+                        volver: '/taller',
                       }))
                     }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}}
                       onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}

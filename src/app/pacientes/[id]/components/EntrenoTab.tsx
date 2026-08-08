@@ -8,7 +8,7 @@ import DetalleSesion from './DetalleSesion'
 import ModalRepartir from './ModalRepartir'
 import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
-import { encargoDeLaUrl, asignarSesionYVolver, type Encargo } from '@/lib/asignarCita'
+import { encargoDeLaUrl, asignarSesionYVolver, rutaDeAsignacion, type Encargo } from '@/lib/asignarCita'
 import { useRouter } from 'next/navigation'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
@@ -50,7 +50,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     if (!encargo) return
     const r = await asignarSesionYVolver(ses, encargo)
     if (!r.ok) { alert('No se ha podido asignar: ' + r.error); return }
-    routerAsig.push('/taller')
+    routerAsig.push(encargo.volver)
   }
   const [nEjecuciones, setNEjecuciones] = useState(0)
   const [objPaciente, setObjPaciente] = useState<any[]>([])
@@ -537,6 +537,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             <div className="sec-h">
               <span className="sh-l">
                 <span className="ct-l"><Ic name="lista" size={13}/> Sesiones del paciente</span>
+                <button className="btn btn-s btn-sm" onClick={()=>routerAsig.push(rutaDeAsignacion('biblioteca', {
+                  pacienteId, etiqueta: nombrePaciente || 'este paciente',
+                  volver: `/pacientes/${pacienteId}?tab=entreno`,
+                }))}>Traer de la biblioteca</button>
                 <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>
                 {/* Solo tiene sentido si hay programa en marcha: sin citas futuras con
                     sesión, no hay nada de lo que hacer una versión siguiente. */}
@@ -606,7 +610,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       {encargo && (
                         <button className="btn btn-p btn-sm" style={{width:'100%',marginBottom:7,fontSize:11}}
                           onClick={e=>{e.stopPropagation();asignarYVolver(s)}}>
-                          Asignar y volver al taller
+                          Traer esta y volver
                         </button>
                       )}
                       <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
