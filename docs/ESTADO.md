@@ -154,6 +154,3 @@ Ver `docs/PENDIENTES.md`, organizado por Pilar y pestaña. Lo gordo:
 - **VALD** — decidir si el número se copia a mano o solo consta el resultado.
 - **Grupos de perfil** (Pilates, recuperación, embarazadas) — sin decidir si son una etiqueta
   del paciente o algo con entidad propia.
-- **Migrar las alergias, intolerancias y operaciones de los JSON viejos**. Ya tienen tabla y
-  `lib/listasPaciente.ts`, pero lo apuntado en valoraciones anteriores sigue dentro de
-  `estado_general`. Necesita un sembrador que agrupe por paciente y nombre para no duplicar.

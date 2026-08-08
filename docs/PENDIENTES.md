@@ -310,14 +310,16 @@ Decisiones:
   las lea de ahí para decidir: la lista viva es la tabla. El `yaTiene` de la revaloración ya
   lee de las tablas.
 
-### Lo que queda — PENDIENTE
+### Migrar los JSON viejos — DESCARTADO
 
-**Migrar lo que está en los JSON viejos.** Las alergias, intolerancias y operaciones apuntadas
-en valoraciones anteriores siguen solo ahí. Una migración a ciegas duplicaría: el mismo
-paciente puede tenerlas repetidas en varias valoraciones. Se hace desde la app, con una página
-de mantenimiento que lea, agrupe por paciente y nombre, e inserte solo lo que falte —
-`anadirALista` ya no duplica, así que el sembrador es corto—. Va como paso 5 del orden de
-sembradores.
+Las valoraciones anteriores al arreglo guardan esas tres listas solo dentro de
+`estado_general`. **No se migran: todo lo de antes son datos de prueba.** Montar un sembrador
+para rescatar pacientes inventados es trabajo que solo sirve para tener otro sembrador que
+mantener.
+
+A partir de aquí cada valoración escribe en las tablas, así que el hueco no vuelve a crecer.
+Si algún día aparece un paciente real de aquella época, se le añaden a mano desde Salud, que es
+más rápido que la migración.
 
 ---
 
