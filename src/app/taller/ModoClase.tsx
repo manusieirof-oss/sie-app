@@ -27,6 +27,10 @@ export default function ModoClase() {
   const [salas, setSalas] = useState<string[]>(['A','B'])
   const [hora, setHora] = useState('')
   const [horas, setHoras] = useState<{hora:string,n:number}[]>([])
+  // Si las franjas todavía no se han leído, `hora` vale '' y '' significa TODO EL DÍA. Sin
+  // esta bandera el taller cargaba la clínica entera en cuanto abría y se corregía un
+  // instante después, que es exactamente lo que se veía.
+  const [horasListas, setHorasListas] = useState(false)
   const [trayendo, setTrayendo] = useState(false)
   const [avisoAgenda, setAvisoAgenda] = useState('')
 
@@ -41,11 +45,16 @@ export default function ModoClase() {
    * la franja anterior a propósito, cambiar de sala no debe devolverte al presente.
    */
   useEffect(() => {
-    (async () => {
+    let vigente = true
+    setHorasListas(false)
+    ;(async () => {
       const hs = await horasDelDia(fecha, sala || undefined)
+      if (!vigente) return   // cambió de día o de sala mientras se leía: manda lo último
       setHoras(hs)
       setHora(prev => (prev && hs.some(h => h.hora === prev)) ? prev : horaActual(hs))
+      setHorasListas(true)
     })()
+    return () => { vigente = false }
   }, [fecha, sala])
 
   // Las salas se leen de Ajustes, igual que en la agenda: si mañana hay una tercera sala,
@@ -121,11 +130,14 @@ export default function ModoClase() {
   useEffect(() => { seleccionRef.current = seleccion }, [seleccion])
 
   // Cargar sola al abrir y cada vez que cambia el día, la sala o la franja.
+  //
+  // Se esperan las DOS cosas: los filtros recuperados y las franjas del día leídas. Con
+  // solo la primera, `hora` seguía vacía y la primera carga se traía el día entero.
   useEffect(() => {
-    if (!listo) return   // primero se recupera lo que estuviera a medias
+    if (!listo || !horasListas) return
     traerDeAgenda()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fecha, sala, hora, listo])
+  }, [fecha, sala, hora, listo, horasListas])
 
   useEffect(() => {
     (async () => {
@@ -256,10 +268,13 @@ export default function ModoClase() {
     setListo(true)
   }, [])
 
+  // `listo` y no `restaurado.current`: el ref ya vale true en el mismo ciclo en que se
+  // recupera, así que este efecto llegaba a correr con los valores por defecto todavía
+  // puestos y machacaba en disco lo que se acababa de leer.
   useEffect(() => {
-    if (!restaurado.current) return
+    if (!listo) return
     try { sessionStorage.setItem(SKEY, JSON.stringify({ fecha, sala, hora, activo })) } catch {}
-  }, [fecha, sala, hora, activo])
+  }, [listo, fecha, sala, hora, activo])
 
   const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
 
