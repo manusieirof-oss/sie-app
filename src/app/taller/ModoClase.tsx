@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
-import { pacientesDelDia, marcarAsistencia, asignarSesionACita, resumenDelDia } from '@/lib/taller'
+import { pacientesDelDia, asignarSesionACita, resumenDelDia } from '@/lib/taller'
 import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -233,15 +233,6 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     setActivo(p.id)
     setBusquedaPac('')
     cargarObjsPaciente(p.id)
-  }
-
-  /** Vino / no vino. Ver el porqué en lib/taller.ts: es lo que arregla el dato de faltas. */
-  async function marcar(pid: string, estado: 'programada'|'realizada'|'falta') {
-    const item = seleccion.find(s => s.paciente.id===pid)
-    if (!item?.citaId) return
-    setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, estado} : s))
-    const r = await marcarAsistencia(item.citaId, estado)
-    if (!r.ok) alert('No se ha podido guardar la asistencia: ' + r.error)
   }
 
   function quitarPaciente(pid: string) {
@@ -514,17 +505,6 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
               {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
               {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
             </div>
-            {act.citaId && (
-              <div style={{display:'flex',gap:4}}>
-                {[{id:'realizada',l:'Vino'},{id:'falta',l:'No vino'}].map(o=>(
-                  <button key={o.id} className="btn btn-sm"
-                    onClick={()=>marcar(act.paciente.id, act.estado===o.id ? 'programada' : o.id as any)}
-                    style={{fontSize:10,background:act.estado===o.id?'var(--g)':'var(--w)',color:act.estado===o.id?'#fff':'var(--gr)',border:'1px solid var(--bd)'}}>
-                    {o.l}
-                  </button>
-                ))}
-              </div>
-            )}
             <select className="input" style={{maxWidth:240,fontSize:11}} value={act.sesionId} onChange={e=>elegirSesion(act.paciente.id, e.target.value)}>
               <option value="">Elegir sesión de fuerza...</option>
               {act.sesiones.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}

@@ -535,15 +535,11 @@ No confundir con `pacientes.notas_fijas` (el "viene en silla de ruedas" de la fi
 Detectar al paciente que se está yendo **antes** de que se haya ido. Dos señales
 distintas: falta a las citas que tiene, o directamente lleva sin pisar la clínica.
 
-**El sitio donde marcarlo ya existe** (hecho con 1.2): en Modo Clase, con los pacientes del
-día delante, cada uno tiene "Vino / No vino" y escribe `citas.estado`. Volver a pulsar
-desmarca, porque el que llega tarde tiene que poder volver a la lista.
-
-**Queda el cron.** `api/cron/actualizar-citas` sigue marcando como `realizada` toda cita
-pasada que siguiera en `programada`, así que pisa la ausencia de marca con un "vino" falso.
-Hay que decidir qué hace ahora: dejarlas en `programada` (y que "sin marcar" signifique
-justo eso), o marcarlas solo si hubo registros de ejercicio ese día. Hasta que se decida,
-las reglas de "falta mucho" seguirán sin poder saltar.
+**El estado de la cita se pone en la AGENDA y solo ahí.** Decidido y en funcionamiento. Se
+llegó a montar un "Vino / No vino" en el taller y se retiró: dos sitios escribiendo el mismo
+dato acaban discrepando. El taller lee el estado y lo pinta; no lo escribe. Que traiga a
+alguien y no se le anote nada no es un problema —no se cubre nada— y el estado se pone
+después desde la agenda.
 
 **Diseño acordado:**
 

@@ -129,35 +129,22 @@ export async function asignarSesionACita(citaId: string, sesionId: string | null
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 
-export const ESTADOS_ASISTENCIA = [
-  { id: 'programada', nombre: 'Sin marcar' },
-  { id: 'realizada', nombre: 'Vino' },
-  { id: 'falta', nombre: 'No vino' },
-] as const
-
 /**
- * Marcar si vino o no.
+ * EL ESTADO DE LA CITA NO SE TOCA DESDE AQUÍ.
  *
- * ESTO ES LO QUE ARREGLA EL DATO DE ASISTENCIA. `api/cron/actualizar-citas` marca como
- * `realizada` toda cita pasada que siguiera en `programada`, así que hoy el que no viene
- * queda registrado como que vino y ninguna regla de "falta mucho" puede saltar nunca.
+ * Vino, no vino, canceló: eso se pone en la AGENDA y solo en la agenda. El taller lo lee
+ * para pintarlo y nada más.
  *
- * No se arregla cambiando el cron —alguien tiene que decir quién faltó, y el cron no lo
- * sabe— sino teniendo un sitio donde marcarlo sin esfuerzo. Con los pacientes del día
- * delante es un toque, y es la única pantalla del día donde se sabe la respuesta.
+ * Hubo una versión de esto con botones de "Vino / No vino" en el taller. Estaba mal por la
+ * razón de siempre: dos sitios escribiendo el mismo dato acaban discrepando, y entonces no
+ * hay forma de saber cuál manda. Que el taller traiga a alguien y no se le llegue a anotar
+ * nada no es un problema —no se cubre nada— y el estado se pone después desde la agenda.
  */
-export async function marcarAsistencia(citaId: string, estado: 'programada' | 'realizada' | 'falta') {
-  const { error } = await supabase.from('citas').update({ estado }).eq('id', citaId)
-  return error ? { ok: false as const, error: error.message } : { ok: true as const }
-}
 
-/** Cuántos vienen, cuántos marcados. Para el encabezado, sin recorrer la lista fuera. */
+/** Cuántos vienen y a cuántos les falta sesión. Para el encabezado, sin recorrer la lista fuera. */
 export function resumenDelDia(lista: PacienteDelDia[]) {
   return {
     total: lista.length,
-    vinieron: lista.filter(p => p.estado === 'realizada').length,
-    faltaron: lista.filter(p => p.estado === 'falta').length,
-    sinMarcar: lista.filter(p => p.estado === 'programada').length,
     sinSesion: lista.filter(p => !p.sesion).length,
   }
 }
