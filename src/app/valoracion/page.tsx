@@ -81,6 +81,8 @@ export default function ValoracionPage() {
   // usa para enseñarlo: nada de esto se vuelve a guardar.
   const [previo, setPrevio] = useState<any>(null)
   const [cargandoPrevio, setCargandoPrevio] = useState(false)
+  /** El paciente recién guardado: a dónde llevan los botones del final. */
+  const [guardado, setGuardado] = useState<{id:string,nombre:string}|null>(null)
   const [form, setForm] = useState({...FORM_VACIO})
 
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
@@ -295,8 +297,12 @@ export default function ValoracionPage() {
         }
       }
       await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:esRevaloracion?'revaloracion':'valoracion_inicial', titulo:esRevaloracion?'Revaloración':'Valoración inicial', descripcion:form.anamnesis||null, fecha:new Date().toISOString().split('T')[0] })
+      // Ya no se salta solo a la ficha. Lo que toca justo después de valorar es ponerle
+      // las citas y repartirle las sesiones, y si se encadenan dos valoraciones seguidas
+      // hay que poder dejarlo para luego sin perder al paciente: no se marca nada, la
+      // lista de pacientes ya avisa de quién se quedó sin citas.
+      setGuardado({ id: pacienteId, nombre: `${form.nombre} ${form.apellidos}`.trim() })
       setExito(true)
-      setTimeout(()=>router.push(`/pacientes/${pacienteId}`), 2000)
     } catch(e) { alert('Error al guardar: '+String(e)) }
     setGuardando(false)
   }
@@ -308,10 +314,35 @@ export default function ValoracionPage() {
   const bloqueado = esRevaloracion && step === 1 && !form.paciente_id
 
   if (exito) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'60vh',gap:12}}>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',gap:14,padding:20}}>
       <div style={{color:'var(--g)'}}><Ic name="ok" size={48} strokeWidth={1.5}/></div>
-      <div style={{fontSize:16,fontWeight:400,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada correctamente':'Valoración guardada correctamente'}</div>
-      <div style={{fontSize:11,color:'var(--grl)'}}>Redirigiendo a la ficha del paciente...</div>
+      <div style={{fontSize:17,fontWeight:400,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada':'Valoración guardada'}</div>
+      <div style={{fontSize:13,color:'var(--gr)',textAlign:'center',maxWidth:440,lineHeight:1.6}}>
+        {guardado?.nombre ? <><strong style={{fontWeight:500}}>{guardado.nombre}</strong> ya tiene su ficha al día. </> : null}
+        Lo que falta es ponerle las citas y repartirle las sesiones.
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',maxWidth:360,marginTop:6}}>
+        <button className="btn btn-p" style={{justifyContent:'center',padding:'12px'}}
+          onClick={()=>router.push(`/agenda?nuevaCitaPara=${guardado?.id||''}`)}>
+          <Ic name="calendario" size={14}/> Ponerle las citas
+        </button>
+        <button className="btn btn-s" style={{justifyContent:'center',padding:'12px'}}
+          onClick={()=>router.push(`/pacientes/${guardado?.id}?tab=entreno`)}>
+          <Ic name="entreno" size={14}/> Asignarle las sesiones
+        </button>
+        <button className="btn btn-t" style={{justifyContent:'center',padding:'10px'}}
+          onClick={()=>router.push(`/pacientes/${guardado?.id}`)}>
+          Ver su ficha
+        </button>
+      </div>
+
+      {/* Encadenar valoraciones es lo normal en un día de altas: se sale sin hacer nada
+          más y el paciente queda avisado como "Sin citas" en la lista. */}
+      <button className="btn btn-t btn-sm" style={{marginTop:4,color:'var(--grl)'}}
+        onClick={()=>router.push('/pacientes')}>
+        Ahora no · queda marcado como "Sin citas" en la lista
+      </button>
     </div>
   )
 

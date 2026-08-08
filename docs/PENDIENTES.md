@@ -324,6 +324,37 @@ segundo camino de escritura.
 y ya no hace falta: al migrarla, `ModalRealizarTest` se queda con el `pie` de botones que
 guarda con `registrarResultadoTest`. No se hizo a la vez para poder probar una cosa cada vez.
 
+## Citar al terminar la valoración ✅ HECHO
+
+`lib/citas.ts` es el único sitio que crea citas. Estaba escrito a mano dentro del botón de
+guardar de `agenda/page.tsx` —recorrer días, montar filas, trocear de 50 en 50— mezclado con
+la validación del formulario. **El plan se calcula aparte de escribirlo** (`planDeFechas` /
+`crearCitas`), igual que en `lib/rotacion.ts`, para que la previsualización salga de la misma
+función que ejecuta.
+
+**No se puede agendar durante la valoración**: si el paciente es nuevo no existe hasta que se
+guarda, así que no hay `paciente_id` al que colgar la cita. Por eso el encadenado va al final:
+la pantalla de guardado ofrece *ponerle las citas* —lleva a la agenda con el modal abierto y el
+paciente puesto—, *asignarle las sesiones* —a su pestaña de entreno, donde ya está "Repartir en
+las citas"— o *ahora no*.
+
+**No hay lista de pendientes ni pestaña nueva en el taller.** Se valoró y se descartó: un
+paciente está pendiente por definición mientras no tenga citas por delante, así que el aviso se
+calcula y sale como píldora en la lista de pacientes, donde ya se mira. Un flag manual habría
+que acordarse de quitarlo al citarle desde la agenda, y una lista que miente se deja de mirar.
+Mismo criterio que el punto 3.1.
+
+**La píldora dice `citas/con sesión`** —`24/24`— y se pone en rojo con `CITAS_POCAS` (5) o
+menos, o "Sin citas" si no tiene ninguna. Sale de las citas `programada` futuras, así que
+cambiar, cancelar o anular una lo recalcula solo, y las pasadas se descuentan cuando el cron las
+marca como realizadas. Solo se avisa de los pacientes **activos**: quien está en pausa no es que
+se haya quedado sin citas.
+
+**Los festivos siguen sin tenerse en cuenta** — PENDIENTE. `lib/festivos.ts` sabe qué días son
+fiesta y `planDeFechas` no lo consulta, así que marcar tres meses de lunes mete cita el 25 de
+diciembre. Se dejó como estaba a propósito para no cambiar de paso el comportamiento de la
+agenda; cuando se decida, se decide dentro de `planDeFechas` y vale para las dos.
+
 ## Escalas sin respuesta ✅ HECHO
 
 `components/EscalaSlider.tsx` para bienestar, estrés y el EVA de las molestias.

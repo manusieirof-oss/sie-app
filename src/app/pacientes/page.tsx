@@ -7,6 +7,7 @@ import ModalBono from './components/ModalBono'
 import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase } from '@/lib/tipos'
 import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
+import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -28,6 +29,8 @@ export default function PacientesPage() {
   const [editRonda, setEditRonda] = useState<any>(null)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
+  const [citasPac, setCitasPac] = useState<Record<string, ResumenCitas>>({})
+
   const mesActual = new Date().getMonth()+1
   const anioActual = new Date().getFullYear()
 
@@ -41,6 +44,9 @@ export default function PacientesPage() {
     ])
     setPacientes(p || [])
     setBonos(b || [])
+    // Una sola consulta para toda la lista: doscientos pacientes son doscientas
+    // consultas si se pide uno a uno, y se nota al abrir.
+    setCitasPac(await resumenCitasFuturas((p || []).filter((x:any)=>x.estado==='activo').map((x:any)=>x.id)))
     setTiposClase(await cargarTiposClase())
 
     const r = await rondaAbierta()
@@ -218,7 +224,26 @@ export default function PacientesPage() {
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
                 <div style={{padding:'8px 10px'}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
+                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}
+                    {/* Citas por delante / de esas, cuántas llevan sesión. Sale de las citas,
+                        no de un contador guardado: cambiar, cancelar o anular una cita lo
+                        recalcula solo. En pausa y en baja no se avisa: quien está en pausa no
+                        se queda sin citas, es que no las tiene. */}
+                    {(() => {
+                      if (p.estado!=='activo') return null
+                      const c = citasPac[p.id]
+                      if (!c || c.citas===0) return <span title="No tiene ninguna cita por delante" style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid #F5C8C8',whiteSpace:'nowrap'}}>Sin citas</span>
+                      const pocas = c.citas<=CITAS_POCAS
+                      return (
+                        <span title={`${c.citas} citas por delante · ${c.conSesion} con sesión asignada`}
+                          style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,whiteSpace:'nowrap',
+                            background:pocas?'var(--redl)':'var(--bl)',color:pocas?'var(--red)':'var(--gr)',
+                            border:`1px solid ${pocas?'#F5C8C8':'var(--bd)'}`}}>
+                          {c.citas}/{c.conSesion}
+                        </span>
+                      )
+                    })()}
+                  </div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.email || p.telefono || '—'}</div>
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>

@@ -16,6 +16,7 @@ import ModalDatosCita from './components/ModalDatosCita'
 import ModalEntrenoCita from './components/ModalEntrenoCita'
 import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
+import { crearCita as crearUnaCita, crearCitas, planDeFechas, finDePeriodo, type Periodo } from '@/lib/citas'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -74,6 +75,21 @@ export default function AgendaPage() {
   const fechaDisplay = fechaObj.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 
   useEffect(() => { cargarPacientes(); cargarAjustes() }, [])
+
+  /**
+   * Llegar desde la valoración con el paciente puesto: `/agenda?nuevaCitaPara=<id>`.
+   *
+   * Se lee de `window.location` y no con `useSearchParams` para no arrastrar el
+   * Suspense que ese hook exige al compilar. Se limpia la URL después, para que
+   * recargar la página no vuelva a abrir el modal.
+   */
+  useEffect(() => {
+    const pid = new URLSearchParams(window.location.search).get('nuevaCitaPara')
+    if (!pid) return
+    setNuevaCita(p => ({ ...p, paciente_id: pid, fecha: fecha, repetir: true }))
+    setModal(true)
+    window.history.replaceState({}, '', '/agenda')
+  }, [])
 
   async function cargarAjustes() {
     const { data } = await supabase.from('ajustes').select('clave,valor')
@@ -279,36 +295,28 @@ export default function AgendaPage() {
       if (errPac || !pac) { alert('Error al crear el paciente: '+(errPac?.message||'')); setGuardando(false); return }
       pid=pac.id
     }
+    // El cómo se crean las citas vive en `lib/citas.ts`: aquí solo se validan los datos
+    // del formulario. Estaba escrito a mano en este mismo bloque y la valoración
+    // necesitaba lo mismo, así que iba camino de ser la segunda copia.
+    const datos = {
+      pacienteId: pid, hora: nuevaCita.hora, sala: nuevaCita.sala, tipo: nuevaCita.tipo,
+      notas: nuevaCita.notas,
+      duracionMin: (tiposClase.find((t:any)=>t.valor===nuevaCita.tipo)?.duracion)||50,
+      sesionId: nuevaCita.sesion_id||null,
+    }
     if (!nuevaCita.repetir) {
-      const { data: citaCreada, error: errCita } = await supabase.from('citas').insert({paciente_id:pid,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fechaCita,duracion_min:(tiposClase.find((t:any)=>t.valor===nuevaCita.tipo)?.duracion)||50,estado:'programada',sesion_id:nuevaCita.sesion_id||null}).select().single()
-      if (errCita) { alert('Error: '+errCita.message); setGuardando(false); return }
-      if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id && citaCreada) {
-        await supabase.from('recuperaciones').update({cita_recuperacion_id:citaCreada.id}).eq('id',nuevaCita.recuperacion_id)
+      const r = await crearUnaCita(fechaCita, datos)
+      if (!r.ok) { alert('Error: '+r.error); setGuardando(false); return }
+      if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id) {
+        await supabase.from('recuperaciones').update({cita_recuperacion_id:r.cita.id}).eq('id',nuevaCita.recuperacion_id)
       }
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
-      let fechaFin=nuevaCita.fecha_fin
-      if (!fechaFin) {
-        const fd=new Date(fechaCita+'T12:00:00')
-        if (nuevaCita.periodo==='1mes') fd.setMonth(fd.getMonth()+1)
-        else if (nuevaCita.periodo==='3meses') fd.setMonth(fd.getMonth()+3)
-        else if (nuevaCita.periodo==='6meses') fd.setMonth(fd.getMonth()+6)
-        else if (nuevaCita.periodo==='1anio') fd.setFullYear(fd.getFullYear()+1)
-        fechaFin=fd.toISOString().split('T')[0]
-      }
-      const diasMap:Record<string,number>={Lun:1,Mar:2,Mié:3,Jue:4,Vie:5,Sáb:6}
-      const citasACrear:any[]=[]
-      const fa=new Date(fechaCita+'T12:00:00'),ff=new Date(fechaFin+'T12:00:00')
-      while(fa<=ff) {
-        const ds=fa.getDay()===0?7:fa.getDay()
-        const dStr=Object.entries(diasMap).find(([,v])=>v===ds)?.[0]
-        if (dStr&&nuevaCita.dias_repetir.includes(dStr)) citasACrear.push({paciente_id:pid,hora:nuevaCita.hora+':00',sala:nuevaCita.sala,tipo:nuevaCita.tipo,notas:nuevaCita.notas,fecha:fa.toISOString().split('T')[0],duracion_min:(tiposClase.find((t:any)=>t.valor===nuevaCita.tipo)?.duracion)||50,estado:'programada'})
-        fa.setDate(fa.getDate()+1)
-      }
-      if (citasACrear.length>0) {
-        for (let i=0;i<citasACrear.length;i+=50) await supabase.from('citas').insert(citasACrear.slice(i,i+50))
-        alert(`✓ ${citasACrear.length} citas creadas`)
-      }
+      const fechaFin = nuevaCita.fecha_fin || finDePeriodo(fechaCita, nuevaCita.periodo as Periodo)
+      const fechas = planDeFechas(fechaCita, fechaFin, nuevaCita.dias_repetir)
+      const r = await crearCitas(fechas, datos)
+      if (!r.ok) { alert(`Error al crear las citas (${r.error}). Se crearon ${r.creadas} de ${fechas.length}.`); setGuardando(false); return }
+      if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas`)
     }
     setModal(false)
     const eraNuevo = nuevaCita.nuevo

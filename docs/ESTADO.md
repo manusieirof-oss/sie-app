@@ -123,6 +123,12 @@ escribe en esas tres tablas. La valoración las metía solo en el JSON `estado_g
 una alergia apuntada allí no aparecía en Salud; las operaciones ni tenían tabla
 (`sql/operaciones_paciente.sql`). No se duplica lo que el paciente ya tiene.
 
+**Al terminar**: la valoración no salta a la ficha, ofrece lo que toca hacer después —ponerle
+las citas (agenda con el modal abierto), asignarle las sesiones (su pestaña de entreno) o dejarlo
+para luego—. No hay lista de pendientes: quien se queda sin citar lleva la píldora
+`citas/con sesión` en la lista de pacientes, en rojo con 5 o menos. Se calcula de las citas, no
+se guarda. `lib/citas.ts` es el único sitio que las crea.
+
 **Escalas**: bienestar, estrés y EVA admiten "No contesta" (`EscalaSlider`), que guarda `null`.
 El slider sigue arrancando en 5 y es la excepción la que se marca. Donde se pinta se dice "Sin
 respuesta"; una molestia sin EVA sale en gris, no en verde.

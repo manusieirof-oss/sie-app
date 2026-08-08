@@ -23,6 +23,12 @@ export default function FichaPacientePage() {
   const { id } = useParams()
   const router = useRouter()
   const [tab, setTab] = useState('ficha')
+  // Llegar con la pestaña puesta: `/pacientes/<id>?tab=entreno`, que es a donde manda
+  // la valoración al terminar para repartir las sesiones.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t) setTab(t)
+  }, [])
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)
   const [molestias, setMolestias] = useState<any[]>([])
