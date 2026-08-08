@@ -1,8 +1,30 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { supabase } from '@/lib/supabase'
 
 export default function ClinicaTab({ ajustes, set }: any) {
+  const [subiendoLogo, setSubiendoLogo] = useState(false)
+
+  /**
+   * El logo del membrete de los informes.
+   *
+   * Va al bucket `fotos`, que es PÚBLICO a propósito: ahí viven las imágenes de
+   * biblioteca, no datos personales. Y tiene que serlo, porque el informe se abre en una
+   * ventana suelta para imprimir y una URL firmada caducaría.
+   */
+  async function subirLogo(file: File) {
+    setSubiendoLogo(true)
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase()
+    const path = `clinica/logo.${ext}`
+    const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
+    if (error) { alert('No se pudo subir el logo: ' + error.message); setSubiendoLogo(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+    // El `?v=` obliga al navegador a recargarlo: al reemplazarlo, la ruta es la misma y
+    // si no se vería el anterior hasta vaciar la caché.
+    set('clinica_logo', `${publicUrl}?v=${Date.now()}`)
+    setSubiendoLogo(false)
+  }
   let salas: string[] = ['A','B']
   try { const s = ajustes.clinica_salas ? JSON.parse(ajustes.clinica_salas) : null; if (Array.isArray(s) && s.length) salas = s } catch {}
   const setSalas = (arr:string[]) => set('clinica_salas', JSON.stringify(arr))
@@ -39,6 +61,22 @@ export default function ClinicaTab({ ajustes, set }: any) {
         <div className="field" style={{gridColumn:'1/-1'}}>
           <label>Nombre de la clínica</label>
           <input className="input" value={ajustes.clinica_nombre||''} onChange={e=>set('clinica_nombre',e.target.value)} placeholder="SIE Clínica"/>
+        </div>
+        {/* LOGO · sale en el membrete de los informes de valoración. */}
+        <div className="field" style={{gridColumn:'1/-1'}}>
+          <label>Logo · para el membrete de los informes</label>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginTop:4}}>
+            {ajustes.clinica_logo
+              ? <img src={ajustes.clinica_logo} alt="Logo" style={{maxHeight:56,maxWidth:180,objectFit:'contain',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:6,padding:4}}/>
+              : <div style={{height:56,width:120,background:'var(--bm)',border:'1.5px dashed var(--bd)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="imagen" size={22}/></div>}
+            <label style={{cursor:'pointer'}}>
+              <div className="btn btn-s btn-sm">{subiendoLogo ? 'Subiendo…' : <><Ic name="subir" size={12}/> {ajustes.clinica_logo ? 'Cambiar' : 'Subir logo'}</>}</div>
+              <input type="file" accept="image/*" style={{display:'none'}} disabled={subiendoLogo}
+                onChange={e=>{const f=e.target.files?.[0]; e.target.value=''; if(f) subirLogo(f)}}/>
+            </label>
+            {ajustes.clinica_logo && <button className="btn btn-t btn-sm" onClick={()=>set('clinica_logo','')}>Quitar</button>}
+          </div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:5}}>Se ve en la cabecera del informe de valoración. Fondo transparente o blanco, y ancho mayor que alto.</div>
         </div>
         <div className="field"><label>Hora de apertura</label><input className="input" type="time" value={ajustes.agenda_inicio||'08:00'} onChange={e=>set('agenda_inicio',e.target.value)}/></div>
         <div className="field"><label>Hora de cierre</label><input className="input" type="time" value={ajustes.agenda_fin||'21:30'} onChange={e=>set('agenda_fin',e.target.value)}/></div>

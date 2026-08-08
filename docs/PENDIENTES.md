@@ -277,6 +277,28 @@ Decisiones tomadas:
 
 Nada de esto necesitó esquema nuevo.
 
+## Resumen e informe de valoración ✅ HECHO
+
+El resumen se había quedado con las cajas grises y la tipografía 9/10/11 px de antes, mientras
+Ficha, Historial y Salud ya usaban `.panel` y 13/12. Rehecho con el tratamiento nuevo, y de paso
+la revaloración deja de enseñar los huecos de lo que no le aplica.
+
+**El contenido se define UNA VEZ.** `secciones()` dice qué se enseña y en qué orden; la pantalla
+lo pinta con las clases de la app y el informe lo pinta como HTML para imprimir. Tenerlo dos
+veces acabaría en un informe que dice algo distinto de lo que había en pantalla, y eso no lo nota
+nadie hasta que el papel está en manos del paciente.
+
+**Informe en PDF** con el membrete de la clínica: nombre y logo salen de Ajustes → Clínica
+(`clinica_nombre` y `clinica_logo`). El logo se sube al bucket `fotos`, que es público a
+propósito —el informe se abre en una ventana suelta para imprimir y una URL firmada caducaría—.
+Se genera con `window.print()`, igual que el informe de la ficha: sin librerías y el navegador
+ya ofrece "Guardar como PDF".
+
+**El aviso del pie es un borrador**, como los textos de `textosLegales.ts`: dice que el
+documento recoge mediciones y observaciones de la clínica, que sirve para el programa de
+entrenamiento y que no es un informe médico ni tiene validez oficial fuera. Conviene que lo lea
+la gestoría antes de darle papel a nadie.
+
 ## Elegir tests ✅ HECHO
 
 `components/ExploradorTests.tsx`, compartido por la biblioteca y la valoración. Misma idea que

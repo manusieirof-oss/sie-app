@@ -79,6 +79,8 @@ export default function ValoracionPage() {
   const [firmaCanvas, setFirmaCanvas] = useState<string>('')
   // Lo que el paciente ya trae a la revaloración. Se lee al elegirlo y solo se
   // usa para enseñarlo: nada de esto se vuelve a guardar.
+  /** Nombre y logo para el membrete del informe. Vienen de Ajustes → Clínica. */
+  const [clinica, setClinica] = useState<{nombre?:string,logo?:string}>({})
   const [previo, setPrevio] = useState<any>(null)
   const [cargandoPrevio, setCargandoPrevio] = useState(false)
   /** El paciente recién guardado: a dónde llevan los botones del final. */
@@ -110,6 +112,7 @@ export default function ValoracionPage() {
         if(map.tipos_jornada) setTiposJornada(JSON.parse(map.tipos_jornada))
         setTiposClaseOpts(parseTiposClase(map.tipos_clase))
         if(map.bonos_lista) setBonosOpts(JSON.parse(map.bonos_lista))
+        setClinica({ nombre: map.clinica_nombre || '', logo: map.clinica_logo || '' })
       }
     })
   }, [])
@@ -396,7 +399,7 @@ export default function ValoracionPage() {
       {paso==='Completar'&&<PasoCompletar form={form} up={up} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {paso==='Tests'&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
       {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
-      {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo}/>}
+      {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo} clinica={clinica}/>}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:12,borderTop:'1px solid var(--bd)'}}>
         <button className="btn btn-s" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?'hidden':'visible'}}>← Atrás</button>
