@@ -482,19 +482,23 @@ No confundir con `pacientes.notas_fijas` (el "viene en silla de ruedas" de la fi
 `citas.notas`. Son tres cosas distintas con nombres parecidos.
 
 ### 1.2 · Taller: partir de la agenda y modos de sesión
-**El eslabón que falta en la cadena.** El taller **no lee `citas` en ningún sitio** — comprobado
-en `taller/page.tsx` y `ModoClase.tsx`. Así que la sesión que se asigna en Planificación no le
-llega: en Modo Clase se teclean los pacientes a mano ("Añade los pacientes que vienen hoy")
-cuando la agenda ya sabe quién viene a esa hora y a esa sala, y la sesión asignada no aparece
-preseleccionada en el desplegable.
 
-**Cambio acordado**, para cuando toque el Pilar Taller:
+1. **Arrancar de la agenda — HECHO.** `lib/taller.ts` es el único sitio que sabe quién viene:
+   `pacientesDelDia(fecha, sala)` devuelve las citas del día con el paciente y la sesión ya
+   resuelta. La regla de qué sesión toca está aparte en `sesionQueToca` para poder probarla
+   sola (7 casos, incluidas ramas de linaje): manda la de la cita; si no hay, la única
+   vigente; si tiene varias, ninguna y se elige. Botón "Traer de la agenda" en Modo Clase,
+   con selector de sala leído de Ajustes. **Es un merge, no un reemplazo**: no puede borrar
+   a nadie que ya esté en la lista con datos escritos, y el que viene sin cita se sigue
+   añadiendo a mano. Cambiar la sesión sobre la marcha se guarda en `citas.sesion_id`, para
+   que mañana la agenda diga qué se entrenó de verdad.
 
-1. El taller arranca de fecha + sala: trae los pacientes con cita y cada uno con su sesión ya
-   cargada. Si no tiene, se elige de las suyas; si hay un problema, se cambia sobre la marcha.
-2. **Modo de sesión como propiedad de la sesión**, no como pestaña del taller. Hoy "fuerza" es
-   una pestaña, y es un modo de trabajar, no un tipo de paciente. La sesión declara cómo se
-   ejecuta y el taller la pinta en consecuencia.
+   Pendiente de ver en uso: si conviene que se traiga solo al abrir la pestaña en vez de con
+   el botón.
+2. **Modo de sesión como propiedad de la sesión** — el DATO ya está hecho (`sql/sesiones_modo.sql`:
+   el modo vive en la PARTE, no en la sesión, para que lo mixto salga solo). Falta que el taller
+   lo PINTE: hoy sigue habiendo una pestaña "fuerza" y las partes en circuito se ejecutan como
+   si fueran series sueltas.
    - `ejercicio` — todas las series de un ejercicio y se pasa al siguiente. Es lo actual.
    - `circuito` — N ejercicios repetidos X vueltas. Mismo esquema; "serie 3" pasa a significar
      "vuelta 3".
@@ -531,11 +535,15 @@ preseleccionada en el desplegable.
 Detectar al paciente que se está yendo **antes** de que se haya ido. Dos señales
 distintas: falta a las citas que tiene, o directamente lleva sin pisar la clínica.
 
-**Antes hay que arreglar el dato.** `api/cron/actualizar-citas` marca como `realizada`
-toda cita pasada que siguiera en `programada`. Una falta solo existe si alguien la
-marca a mano, así que hoy el que no viene queda registrado como que vino y ninguna
-regla saltaría nunca. Se resuelve cuando el taller arranque de la agenda (ver 1.2):
-con los pacientes del día delante, marcar quién no apareció es un toque.
+**El sitio donde marcarlo ya existe** (hecho con 1.2): en Modo Clase, con los pacientes del
+día delante, cada uno tiene "Vino / No vino" y escribe `citas.estado`. Volver a pulsar
+desmarca, porque el que llega tarde tiene que poder volver a la lista.
+
+**Queda el cron.** `api/cron/actualizar-citas` sigue marcando como `realizada` toda cita
+pasada que siguiera en `programada`, así que pisa la ausencia de marca con un "vino" falso.
+Hay que decidir qué hace ahora: dejarlas en `programada` (y que "sin marcar" signifique
+justo eso), o marcarlas solo si hubo registros de ejercicio ese día. Hasta que se decida,
+las reglas de "falta mucho" seguirán sin poder saltar.
 
 **Diseño acordado:**
 

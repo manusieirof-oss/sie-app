@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
+import { pacientesDelDia, marcarAsistencia, asignarSesionACita, resumenDelDia } from '@/lib/taller'
 import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -17,6 +18,58 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const SKEY = 'taller_clase'
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
+  const [sala, setSala] = useState('')
+  const [salas, setSalas] = useState<string[]>([])
+  const [trayendo, setTrayendo] = useState(false)
+  const [avisoAgenda, setAvisoAgenda] = useState('')
+
+  // Las salas se leen de Ajustes, igual que en la agenda: si mañana hay una tercera sala,
+  // el taller se entera solo.
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('ajustes').select('clave,valor').eq('clave','clinica_salas').maybeSingle()
+      try { const v = JSON.parse((data as any)?.valor || '[]'); if (Array.isArray(v) && v.length) setSalas(v) } catch {}
+    })()
+  }, [])
+
+  /**
+   * Traer de la agenda los que vienen ese día.
+   *
+   * MERGE, NO REEMPLAZO: quien esté ya en la lista se queda como está. Si estás a media
+   * clase con datos escritos y le das al botón, no puede borrarse nada de lo que llevas.
+   * Los que aparecen sin cita —el que se pasa sin avisar— siguen añadiéndose a mano y
+   * conviven con los de la agenda.
+   */
+  async function traerDeAgenda() {
+    setTrayendo(true); setAvisoAgenda('')
+    try {
+      const delDia = await pacientesDelDia(fecha, sala || undefined)
+      const nuevos: any[] = []
+      for (const d of delDia) {
+        if (seleccion.some(s => s.paciente.id === d.pacienteId)) continue
+        const pac = pacientes.find((p:any) => p.id === d.pacienteId)
+        if (!pac) continue   // dado de baja o inactivo: no se entrena, no se pinta
+        const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, d.sesion) : []
+        nuevos.push({
+          paciente: pac,
+          sesionId: d.sesion?.id || '',
+          sesiones: d.disponibles,
+          datos, cargado: !!d.sesion, finalizado: false,
+          citaId: d.citaId, estado: d.estado, hora: d.hora, origen: d.origen, sesionVieja: d.sesionVieja,
+        })
+        cargarObjsPaciente(d.pacienteId)
+      }
+      if (nuevos.length) setSeleccion(prev => [...prev, ...nuevos])
+      const r = resumenDelDia(delDia)
+      // El aviso va aquí, donde se toma la decisión, y no en un recibo posterior: si a
+      // alguien le falta sesión hay que verlo ANTES de empezar la clase.
+      setAvisoAgenda(
+        delDia.length === 0 ? 'No hay citas ese día' + (sala ? ' en la sala ' + sala : '') + '.'
+        : r.sinSesion > 0 ? `${delDia.length} con cita · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta elegir sesión.`
+        : `${delDia.length} con cita, todos con su sesión.`
+      )
+    } finally { setTrayendo(false) }
+  }
 
   useEffect(() => {
     (async () => {
@@ -142,7 +195,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
           const sesElegida = (ses||[]).find((x:any)=>x.id===it.sesionId)
           let datos: any[] = []
           if (sesElegida) datos = await cargarDatosSesion(pac.id, sesElegida)
-          nueva.push({ paciente:pac, sesionId:it.sesionId||'', sesiones:ses||[], datos, cargado:!!sesElegida, finalizado:!!it.finalizado })
+          nueva.push({ paciente:pac, sesionId:it.sesionId||'', sesiones:ses||[], datos, cargado:!!sesElegida, finalizado:!!it.finalizado,
+            citaId:it.citaId||'', estado:it.estado||'programada', hora:it.hora||'', sala:it.sala||'', origen:it.origen||'ninguna', sesionVieja:!!it.sesionVieja })
           cargarObjsPaciente(pac.id)
         }
         restaurado.current = true
@@ -158,7 +212,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     if (!restaurado.current) return
     if (seleccion.length===0) { try { sessionStorage.removeItem(SKEY) } catch {}; return }
     try {
-      const items = seleccion.map((s:any)=>({ pid:s.paciente.id, sesionId:s.sesionId, finalizado:s.finalizado }))
+      const items = seleccion.map((s:any)=>({ pid:s.paciente.id, sesionId:s.sesionId, finalizado:s.finalizado,
+        citaId:s.citaId||'', estado:s.estado||'programada', hora:s.hora||'', sala:s.sala||'', origen:s.origen||'ninguna', sesionVieja:!!s.sesionVieja }))
       sessionStorage.setItem(SKEY, JSON.stringify({ fecha, activo, items }))
     } catch(e) {}
   }, [seleccion, activo, fecha])
@@ -173,10 +228,20 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   async function addPaciente(p: any) {
     const { data: ses } = await supabase.from('sesiones')
       .select('*').eq('paciente_id', p.id).order('created_at',{ascending:false})
-    setSeleccion(prev => [...prev, { paciente:p, sesionId:'', sesiones:ses||[], datos:[], cargado:false, finalizado:false }])
+    setSeleccion(prev => [...prev, { paciente:p, sesionId:'', sesiones:ses||[], datos:[], cargado:false, finalizado:false,
+      citaId:'', estado:'programada', hora:'', sala:'', origen:'ninguna', sesionVieja:false }])
     setActivo(p.id)
     setBusquedaPac('')
     cargarObjsPaciente(p.id)
+  }
+
+  /** Vino / no vino. Ver el porqué en lib/taller.ts: es lo que arregla el dato de faltas. */
+  async function marcar(pid: string, estado: 'programada'|'realizada'|'falta') {
+    const item = seleccion.find(s => s.paciente.id===pid)
+    if (!item?.citaId) return
+    setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, estado} : s))
+    const r = await marcarAsistencia(item.citaId, estado)
+    if (!r.ok) alert('No se ha podido guardar la asistencia: ' + r.error)
   }
 
   function quitarPaciente(pid: string) {
@@ -191,6 +256,10 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
 
   async function elegirSesion(pid: string, sesionId: string) {
     setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId, finalizado:false} : s))
+    // Si viene de una cita, el cambio se guarda EN LA CITA. Así mañana la agenda y la
+    // ficha siguen diciendo qué se entrenó ese día, en vez de quedarse con lo planificado.
+    const conCita = seleccion.find(s => s.paciente.id===pid)
+    if (conCita?.citaId) asignarSesionACita(conCita.citaId, sesionId || null)
     if (!sesionId) return
     const item = seleccion.find(s => s.paciente.id===pid)
     const ses = item?.sesiones.find((x:any)=>x.id===sesionId)
@@ -384,6 +453,16 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
         <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="pacientes" size={14}/> Día de fuerza</span>
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
+        {salas.length>1 && (
+          <select className="input" value={sala} onChange={e=>setSala(e.target.value)} style={{maxWidth:110,fontSize:11}}>
+            <option value="">Todas las salas</option>
+            {salas.map(x=><option key={x} value={x}>Sala {x}</option>)}
+          </select>
+        )}
+        <button className="btn btn-p btn-sm" onClick={traerDeAgenda} disabled={trayendo}>
+          <Ic name="agenda" size={12}/> {trayendo?'Trayendo…':'Traer de la agenda'}
+        </button>
+        {avisoAgenda && <span style={{fontSize:10,color:'var(--grl)'}}>{avisoAgenda}</span>}
         <div style={{flex:1}}/>
         {seleccion.length>0 && <button className="btn btn-d btn-sm" onClick={limpiarTodo}><Ic name="papelera" size={12}/> Limpiar</button>}
         <div style={{position:'relative',width:260}}>
@@ -411,7 +490,8 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
                 background:activo===s.paciente.id?'var(--g)':'var(--w)',
                 color:activo===s.paciente.id?'#fff':'var(--gr)'}}>
               {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
-              <span style={{fontSize:10}}>{nombrePac(s.paciente)}</span>
+              {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
+              <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
               <span onClick={(e)=>{e.stopPropagation();quitarPaciente(s.paciente.id)}} style={{fontSize:11,opacity:.7}}>✕</span>
             </div>
@@ -421,13 +501,30 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
 
       {/* CUERPO */}
       {seleccion.length===0 ? (
-        <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>Añade los pacientes que vienen hoy a la clase de fuerza.</div>
+        <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
+          Dale a <b style={{color:'var(--gr)'}}>Traer de la agenda</b> para cargar los que vienen hoy con su sesión, o añade a mano a quien venga sin cita.
+        </div>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
       ) : (
         <div className="card">
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-            <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>{nombrePac(act.paciente)}{act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}</div>
+            <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>
+              {nombrePac(act.paciente)}
+              {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
+              {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
+            </div>
+            {act.citaId && (
+              <div style={{display:'flex',gap:4}}>
+                {[{id:'realizada',l:'Vino'},{id:'falta',l:'No vino'}].map(o=>(
+                  <button key={o.id} className="btn btn-sm"
+                    onClick={()=>marcar(act.paciente.id, act.estado===o.id ? 'programada' : o.id as any)}
+                    style={{fontSize:10,background:act.estado===o.id?'var(--g)':'var(--w)',color:act.estado===o.id?'#fff':'var(--gr)',border:'1px solid var(--bd)'}}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            )}
             <select className="input" style={{maxWidth:240,fontSize:11}} value={act.sesionId} onChange={e=>elegirSesion(act.paciente.id, e.target.value)}>
               <option value="">Elegir sesión de fuerza...</option>
               {act.sesiones.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -436,6 +533,12 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
               <button className="btn btn-p btn-sm" onClick={()=>finalizarPaciente(act.paciente.id)}>✓ Guardar y finalizar</button>
             )}
           </div>
+
+          {act.sesionVieja && act.sesionId && (
+            <div style={{fontSize:10,color:'var(--gd)',background:'var(--gl)',border:'1px solid var(--bd)',borderRadius:6,padding:'6px 9px',marginBottom:8}}>
+              La sesión de esta cita es de una tanda anterior. Se ejecuta igual —es lo que se planificó para hoy—, pero si ya no toca, elige otra arriba.
+            </div>
+          )}
 
           {!act.sesionId ? (
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Elige la sesión que va a hacer este paciente.</div>
