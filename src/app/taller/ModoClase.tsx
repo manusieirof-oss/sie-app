@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
-import { pacientesDelDia, asignarSesionACita, resumenDelDia } from '@/lib/taller'
+import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita, resumenDelDia } from '@/lib/taller'
 import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -20,8 +20,28 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
   const [sala, setSala] = useState('')
   const [salas, setSalas] = useState<string[]>([])
+  const [hora, setHora] = useState('')
+  const [horas, setHoras] = useState<{hora:string,n:number}[]>([])
   const [trayendo, setTrayendo] = useState(false)
   const [avisoAgenda, setAvisoAgenda] = useState('')
+
+  /**
+   * Las franjas del día, y la de ahora puesta sola.
+   *
+   * SE TRABAJA POR FRANJA, NO POR DÍA. Por la clínica pueden pasar 110 personas en un día;
+   * traerlas todas de golpe no sirve para nada. Al abrir el taller a las 10:05 lo que hace
+   * falta es la gente de las 10:00, sin tocar nada.
+   *
+   * La hora elegida a mano se respeta mientras siga existiendo en el día: si estás mirando
+   * la franja anterior a propósito, cambiar de sala no debe devolverte al presente.
+   */
+  useEffect(() => {
+    (async () => {
+      const hs = await horasDelDia(fecha, sala || undefined)
+      setHoras(hs)
+      setHora(prev => (prev && hs.some(h => h.hora === prev)) ? prev : horaActual(hs))
+    })()
+  }, [fecha, sala])
 
   // Las salas se leen de Ajustes, igual que en la agenda: si mañana hay una tercera sala,
   // el taller se entera solo.
@@ -43,7 +63,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   async function traerDeAgenda() {
     setTrayendo(true); setAvisoAgenda('')
     try {
-      const delDia = await pacientesDelDia(fecha, sala || undefined)
+      const delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
       const nuevos: any[] = []
       for (const d of delDia) {
         if (seleccion.some(s => s.paciente.id === d.pacienteId)) continue
@@ -63,10 +83,12 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       const r = resumenDelDia(delDia)
       // El aviso va aquí, donde se toma la decisión, y no en un recibo posterior: si a
       // alguien le falta sesión hay que verlo ANTES de empezar la clase.
+      const donde = (hora ? 'a las ' + hora : 'ese día') + (sala ? ' en la sala ' + sala : '')
       setAvisoAgenda(
-        delDia.length === 0 ? 'No hay citas ese día' + (sala ? ' en la sala ' + sala : '') + '.'
-        : r.sinSesion > 0 ? `${delDia.length} con cita · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta elegir sesión.`
-        : `${delDia.length} con cita, todos con su sesión.`
+        delDia.length === 0 ? `No hay citas ${donde}.`
+        : nuevos.length === 0 ? `Los ${delDia.length} de ${hora||'ese día'} ya estaban en la lista.`
+        : r.sinSesion > 0 ? `${delDia.length} ${donde} · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta elegir sesión.`
+        : `${delDia.length} ${donde}, todos con su sesión.`
       )
     } finally { setTrayendo(false) }
   }
@@ -450,6 +472,10 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
             {salas.map(x=><option key={x} value={x}>Sala {x}</option>)}
           </select>
         )}
+        <select className="input" value={hora} onChange={e=>setHora(e.target.value)} style={{maxWidth:150,fontSize:11}}>
+          <option value="">Todo el día</option>
+          {horas.map(h=><option key={h.hora} value={h.hora}>{h.hora} · {h.n}</option>)}
+        </select>
         <button className="btn btn-p btn-sm" onClick={traerDeAgenda} disabled={trayendo}>
           <Ic name="agenda" size={12}/> {trayendo?'Trayendo…':'Traer de la agenda'}
         </button>
@@ -493,7 +519,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       {/* CUERPO */}
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
-          Dale a <b style={{color:'var(--gr)'}}>Traer de la agenda</b> para cargar los que vienen hoy con su sesión, o añade a mano a quien venga sin cita.
+          Dale a <b style={{color:'var(--gr)'}}>Traer de la agenda</b> para cargar los de esa franja con su sesión, o añade a mano a quien venga sin cita.
         </div>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>

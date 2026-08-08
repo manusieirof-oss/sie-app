@@ -62,13 +62,46 @@ export function sesionQueToca(deLaCita: any | null, vigentes: any[]): { sesion: 
 }
 
 /**
+ * Las horas que tienen gente ese día, con cuánta. Para el selector de franja.
+ *
+ * Sale de las citas y no de una rejilla de horarios fija: si un día hay una a las 07:30
+ * porque alguien lo pidió, tiene que aparecer igual.
+ */
+export async function horasDelDia(fecha: string, sala?: string): Promise<{ hora: string, n: number }[]> {
+  if (!fecha) return []
+  let q = supabase.from('citas').select('hora')
+    .eq('fecha', fecha).neq('estado', 'cancelada').not('paciente_id', 'is', null)
+  if (sala) q = q.eq('sala', sala)
+  const { data } = await q
+  const cuenta: Record<string, number> = {}
+  ;(data || []).forEach((c: any) => { const h = (c.hora || '').slice(0, 5); if (h) cuenta[h] = (cuenta[h] || 0) + 1 })
+  return Object.entries(cuenta).map(([hora, n]) => ({ hora, n })).sort((a, b) => a.hora.localeCompare(b.hora))
+}
+
+/**
+ * La franja que está corriendo ahora: la última que ya ha empezado.
+ *
+ * No hace falta configurar cuánto dura una clase. Si son las 10:05 y hay citas a las 9:00,
+ * 10:00 y 11:00, la de ahora es la de las 10:00. Antes de la primera del día se devuelve
+ * esa primera, que es lo que se quiere ver al abrir por la mañana temprano.
+ */
+export function horaActual(horas: { hora: string }[], ahora?: string): string {
+  if (horas.length === 0) return ''
+  const h = ahora || new Date().toTimeString().slice(0, 5)
+  const empezadas = horas.filter(x => x.hora <= h)
+  return empezadas.length ? empezadas[empezadas.length - 1].hora : horas[0].hora
+}
+
+/**
  * Los pacientes con cita ese día, en orden de hora.
  *
- * `sala` vacío = todas. Las canceladas no salen: no vienen, y dejarlas obligaría a
- * distinguirlas de un vistazo cada mañana. Las faltas SÍ salen, porque marcar una falta
- * es reversible y el que llega tarde tiene que poder volver a la lista.
+ * `sala` y `hora` vacíos = todas. **La hora importa**: en un día pueden pasar 110 personas
+ * por la clínica y traerlas todas de golpe no sirve de nada. Se trabaja por franja.
+ *
+ * Las canceladas no salen: no vienen, y dejarlas obligaría a distinguirlas de un vistazo
+ * cada mañana. Las faltas SÍ salen, porque el estado se pone en la agenda y puede cambiar.
  */
-export async function pacientesDelDia(fecha: string, sala?: string): Promise<PacienteDelDia[]> {
+export async function pacientesDelDia(fecha: string, sala?: string, hora?: string): Promise<PacienteDelDia[]> {
   if (!fecha) return []
 
   let q = supabase.from('citas')
@@ -78,6 +111,10 @@ export async function pacientesDelDia(fecha: string, sala?: string): Promise<Pac
     .not('paciente_id', 'is', null)
     .order('hora')
   if (sala) q = q.eq('sala', sala)
+  // `like` y no `eq` porque la columna guarda segundos ("10:00:00") y el selector maneja
+  // "10:00". Comparar en crudo no encontraría nada y la pantalla saldría vacía sin decir
+  // por qué, que es el peor de los fallos posibles.
+  if (hora) q = q.like('hora', hora + '%')
 
   const { data: citas } = await q
   if (!citas || citas.length === 0) return []
