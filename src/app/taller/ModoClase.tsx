@@ -8,11 +8,10 @@ import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
 
-export default function ModoClase({ pacientes }: { pacientes: any[] }) {
+export default function ModoClase() {
   const [fecha, setFecha] = useState(hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
-  const [busquedaPac, setBusquedaPac] = useState('')
   const timers = useRef<Record<string, any>>({})
   const restaurado = useRef(false)
   // Un `ref` no vuelve a disparar los efectos al cambiar, así que la carga automática
@@ -68,12 +67,9 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
    * hora y los de la anterior seguían ahí— y con 110 personas al día la lista se hacía
    * inútil en dos cambios: solo cambiaba el número del selector.
    *
-   * Se conservan dos cosas al cambiar de franja:
-   *   · Los añadidos A MANO. No los ha traído la agenda, así que la agenda no los quita.
-   *   · Lo ESCRITO de quien siga en la nueva franja: no se recarga su ficha, se deja tal
-   *     cual. Recargarla borraría series a medio teclear.
-   *
-   * Y quitar a alguien de la lista no pierde nada: el autoguardado ya lo ha escrito.
+   * Lo ESCRITO de quien siga en la nueva franja se conserva: no se recarga su ficha, se
+   * deja tal cual, porque recargarla borraría series a medio teclear. Y que alguien salga
+   * de la lista no pierde nada: el autoguardado ya lo ha escrito.
    *
    * Se lee la selección por REFERENCIA y no del estado. Si `seleccion` fuera dependencia
    * del efecto que llama aquí, cada paciente añadido lo dispararía otra vez y la carga se
@@ -84,8 +80,6 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     try {
       const delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
       const previos = seleccionRef.current
-      const aMano = previos.filter((s:any) => !s.citaId)
-
       const lista: any[] = []
       for (const d of delDia) {
         const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
@@ -102,8 +96,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         cargarObjsPaciente(d.pacienteId)
       }
 
-      // Los de mano al final, que es donde se han ido añadiendo.
-      const final = [...lista, ...aMano.filter((m:any) => !lista.some((x:any) => x.paciente.id === m.paciente.id))]
+      const final = lista
       setSeleccion(final)
       // Si el que estaba abierto ya no está en la franja, no se deja un panel colgado.
       setActivo(a => final.some((x:any) => x.paciente.id === a) ? a : (final[0]?.paciente.id || ''))
@@ -239,81 +232,47 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     return ejs
   }
 
-  // RESTAURAR: espera a que 'pacientes' este cargado (viene async por props)
+  /**
+   * Al recargar, solo se recuerdan los FILTROS. La lista se reconstruye de la agenda.
+   *
+   * Antes se guardaba en `sessionStorage` la lista entera de pacientes con su sesión, y al
+   * volver se rehacía uno por uno. Ya no hace falta y era una segunda copia de algo que ya
+   * está en dos sitios mejores: quién viene lo dice la agenda, y lo tecleado lo devuelve
+   * `cargarDatosSesion`, que lee el borrador de `registros_ejercicio`. Recargar la página
+   * en mitad de una clase no pierde nada.
+   */
   useEffect(() => {
-    if (restaurado.current) return
-    // Si no hay nada a medias, no hay nada que esperar. Esta salida va ANTES de la espera
-    // a `pacientes` a propósito: esa lista solo trae a los activos, y si un día viniera
-    // vacía el taller se quedaba esperándola para siempre sin cargar la agenda.
-    let hayGuardado = false
-    try { hayGuardado = !!sessionStorage.getItem(SKEY) } catch {}
-    if (!hayGuardado) { restaurado.current = true; setListo(true); return }
-    if (!pacientes.length) return
-    (async () => {
-      try {
-        const raw = sessionStorage.getItem(SKEY)
-        if (!raw) { restaurado.current = true; setListo(true); return }
-        const saved = JSON.parse(raw)
-        if (saved.fecha) setFecha(saved.fecha)
-        const nueva: any[] = []
-        for (const it of (saved.items||[])) {
-          const pac = pacientes.find((p:any)=>p.id===it.pid)
-          if (!pac) continue
-          const { data: ses } = await supabase.from('sesiones')
-            .select('*').eq('paciente_id', pac.id).order('created_at',{ascending:false})
-          const sesElegida = (ses||[]).find((x:any)=>x.id===it.sesionId)
-          let datos: any[] = []
-          if (sesElegida) datos = await cargarDatosSesion(pac.id, sesElegida)
-          nueva.push({ paciente:pac, sesionId:it.sesionId||'', sesiones:ses||[], datos, cargado:!!sesElegida, finalizado:!!it.finalizado,
-            citaId:it.citaId||'', estado:it.estado||'programada', hora:it.hora||'', sala:it.sala||'', origen:it.origen||'ninguna', sesionVieja:!!it.sesionVieja })
-          cargarObjsPaciente(pac.id)
-        }
-        restaurado.current = true
-        setSeleccion(nueva)
-        if (saved.activo) setActivo(saved.activo)
-      } catch(e) { console.error('restaurar clase', e); restaurado.current = true }
-      setListo(true)
-    })()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pacientes])
+    try {
+      const raw = sessionStorage.getItem(SKEY)
+      if (raw) {
+        const g = JSON.parse(raw)
+        if (g.fecha) setFecha(g.fecha)
+        if (g.sala) setSala(g.sala)
+        if (g.hora) setHora(g.hora)
+        if (g.activo) setActivo(g.activo)
+      }
+    } catch {}
+    restaurado.current = true
+    setListo(true)
+  }, [])
 
-  // GUARDAR cuando cambia (solo lo minimo)
   useEffect(() => {
     if (!restaurado.current) return
-    if (seleccion.length===0) { try { sessionStorage.removeItem(SKEY) } catch {}; return }
-    try {
-      const items = seleccion.map((s:any)=>({ pid:s.paciente.id, sesionId:s.sesionId, finalizado:s.finalizado,
-        citaId:s.citaId||'', estado:s.estado||'programada', hora:s.hora||'', sala:s.sala||'', origen:s.origen||'ninguna', sesionVieja:!!s.sesionVieja }))
-      sessionStorage.setItem(SKEY, JSON.stringify({ fecha, activo, items }))
-    } catch(e) {}
-  }, [seleccion, activo, fecha])
+    try { sessionStorage.setItem(SKEY, JSON.stringify({ fecha, sala, hora, activo })) } catch {}
+  }, [fecha, sala, hora, activo])
 
   const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
-  const yaElegido = (id:string) => seleccion.some(s => s.paciente.id === id)
-  const pacFiltrados = pacientes.filter((p:any)=>{
-    if (yaElegido(p.id)) return false
-    return `${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPac.toLowerCase())
-  })
 
-  async function addPaciente(p: any) {
-    const { data: ses } = await supabase.from('sesiones')
-      .select('*').eq('paciente_id', p.id).order('created_at',{ascending:false})
-    setSeleccion(prev => [...prev, { paciente:p, sesionId:'', sesiones:ses||[], datos:[], cargado:false, finalizado:false,
-      citaId:'', estado:'programada', hora:'', sala:'', origen:'ninguna', sesionVieja:false }])
-    setActivo(p.id)
-    setBusquedaPac('')
-    cargarObjsPaciente(p.id)
-  }
-
-  function quitarPaciente(pid: string) {
-    setSeleccion(prev => prev.filter(s => s.paciente.id !== pid))
-    if (activo === pid) setActivo('')
-  }
-
-  function limpiarTodo() {
-    if (!confirm('¿Quitar todos los pacientes de la clase? (lo guardado no se borra)')) return
-    setSeleccion([]); setActivo('')
-  }
+  /**
+   * NO SE AÑADE NI SE QUITA GENTE AQUÍ.
+   *
+   * Había un buscador de "añadir paciente", una ✕ en cada ficha y un "limpiar todo". Se
+   * han quitado los tres: quién entrena lo decide la AGENDA. Con dos sitios donde apuntar
+   * quién viene, el desajuste está garantizado —alguien acaba en el taller sin cita, o con
+   * cita y fuera del taller— y no hay forma de saber cuál de los dos tiene razón.
+   *
+   * Si alguien se pasa sin avisar, se le pone la cita en la agenda y aparece aquí.
+   */
 
   async function elegirSesion(pid: string, sesionId: string) {
     setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId, finalizado:false} : s))
@@ -512,7 +471,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     <>
       {/* CABECERA CLASE */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
-        <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="pacientes" size={14}/> Día de fuerza</span>
+        <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="taller" size={14}/> Taller</span>
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
         {salas.length>1 && (
           <select className="input" value={sala} onChange={e=>setSala(e.target.value)} style={{maxWidth:110,fontSize:11}}>
@@ -526,20 +485,6 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         </select>
         <span style={{fontSize:10,color:'var(--grl)'}}>{trayendo ? 'Cargando…' : avisoAgenda}</span>
         <div style={{flex:1}}/>
-        {seleccion.length>0 && <button className="btn btn-d btn-sm" onClick={limpiarTodo}><Ic name="papelera" size={12}/> Limpiar</button>}
-        <div style={{position:'relative',width:260}}>
-          <input className="input" value={busquedaPac} onChange={e=>setBusquedaPac(e.target.value)} placeholder="Añadir paciente..." style={{fontSize:11}}/>
-          {busquedaPac && (
-            <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:20,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:240,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
-              {pacFiltrados.slice(0,30).map((p:any)=>(
-                <div key={p.id} onClick={()=>addPaciente(p)} style={{padding:'8px 11px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                  {p.nombre} {p.apellidos}{p.nombre_clinica?<span style={{color:'var(--grl)',fontSize:9}}> · {p.nombre_clinica}</span>:null}
-                </div>
-              ))}
-              {pacFiltrados.length===0 && <div style={{padding:'8px 11px',fontSize:10,color:'var(--grl)'}}>Sin pacientes que coincidan</div>}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* CHIPS PACIENTES */}
@@ -555,7 +500,6 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
               {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
-              <span onClick={(e)=>{e.stopPropagation();quitarPaciente(s.paciente.id)}} style={{fontSize:11,opacity:.7}}>✕</span>
             </div>
           ))}
         </div>
@@ -564,7 +508,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       {/* CUERPO */}
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
-          No hay nadie citado en esa franja. Cambia la hora o la sala arriba, o añade a mano a quien venga sin cita.
+          No hay nadie citado en esa franja. Cambia la hora o la sala arriba. Si alguien se pasa sin avisar, ponle la cita en la agenda y aparecerá aquí.
         </div>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>

@@ -507,8 +507,13 @@ No confundir con `pacientes.notas_fijas` (el "viene en silla de ruedas" de la fi
      propio dato; deducirla del último registro sería repetir el error que ya arreglamos.
    - Los modos van en código, no en Ajustes: cada uno necesita su propia pantalla. Es la
      excepción consciente a la regla de "las listas mandan desde Ajustes".
-3. **El taller solo ejecuta; se edita desde la ficha.** Hoy `ModalEditarSesion` se abre
-   también desde el taller. Hay que quitarlo de ahí.
+3. **El taller solo ejecuta; se edita desde la ficha — HECHO.** Se ha borrado la pestaña
+   "Individual" entera (`taller/page.tsx` pasó de 599 líneas a 26) y con ella el
+   `ModalEditarSesion` del taller y los botones de crear, editar, duplicar y borrar sesión.
+   Todo eso sigue en Pacientes → Entrenamiento, que es de donde no debió salir.
+
+   Fuera también el **añadir y quitar pacientes a mano**: quién entrena lo dice la agenda y
+   solo la agenda. Con dos sitios donde apuntarlo, el desajuste está garantizado.
 
    El motivo no es de orden sino de dato: si editas el plan mientras lo ejecutas,
    pierdes la diferencia entre lo prescrito y lo que pasó, que es justo lo que quieres
