@@ -22,8 +22,15 @@ const NAV_FINANZAS = { href: '/finanzas', icon: 'finanzas', label: 'Finanzas' }
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined)
   const [perfil, setPerfil] = useState<any>(null)
+  /** El logo de Ajustes → Clínica. Sustituye al "SIE" vertical de la barra de pilares. */
+  const [logo, setLogo] = useState<string>('')
   const router = useRouter()
   const pathname = usePathname()
+
+  useEffect(() => {
+    supabase.from('ajustes').select('valor').eq('clave','clinica_logo').maybeSingle()
+      .then(({ data }) => setLogo(data?.valor || ''))
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -77,7 +84,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div className="shell">
       <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
-        <div className="sb-logo">SIE</div>
+        {/* El logo de la clínica manda; sin logo se queda el "SIE" vertical de siempre.
+            La barra es oscura, así que un logo de trazo negro no se verá: por eso el
+            ajuste avisa de subirlo con fondo transparente. */}
+        {logo
+          ? <img src={logo} alt="" className="sb-marca"/>
+          : <div className="sb-logo">SIE</div>}
         {NAV.map(n=>(
           <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href)?'active':''}`}>
             <Ic name={n.icon} size={20} strokeWidth={2}/>

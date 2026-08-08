@@ -146,14 +146,18 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
       return `<h2>${esc(s.titulo)}</h2>${cuerpo}`
     }).join('')
 
-    const html = `<html><head><meta charset="utf-8"><title>Valoración · ${esc(nombre)}</title><style>
-      body{font-family:Arial,Helvetica,sans-serif;color:#262825;padding:34px 40px;max-width:760px;margin:0 auto;font-size:12px;line-height:1.6}
-      .cab{display:flex;align-items:center;gap:16px;border-bottom:2px solid #5A969E;padding-bottom:14px;margin-bottom:18px}
-      .cab img{max-height:56px;max-width:180px;object-fit:contain}
+    // El TÍTULO VA VACÍO a propósito: es lo que el navegador imprime arriba del papel
+    // junto a la fecha. Lo que no se puede quitar desde aquí son sus propios encabezados
+    // y pies —fecha y dirección—; eso se desmarca en el diálogo de impresión.
+    const html = `<html><head><meta charset="utf-8"><title></title><style>
+      @page{margin:14mm}
+      body{font-family:Arial,Helvetica,sans-serif;color:#262825;padding:0;max-width:760px;margin:0 auto;font-size:12px;line-height:1.6}
+      .cab{text-align:center;border-bottom:2px solid #5A969E;padding-bottom:14px;margin-bottom:20px}
+      .cab img{max-height:64px;max-width:220px;object-fit:contain;margin-bottom:8px}
       .cab .n{font-size:19px;font-weight:600;color:#5A969E;letter-spacing:.5px}
-      .cab .t{font-size:11px;color:#888;margin-top:2px}
-      h1{font-size:17px;font-weight:400;margin:0 0 2px}
-      .meta{font-size:11px;color:#888;margin-bottom:22px}
+      .cab .t{font-size:11px;color:#888;margin-top:3px;text-transform:uppercase;letter-spacing:1.5px}
+      h1{font-size:17px;font-weight:400;margin:0 0 2px;text-align:center}
+      .meta{font-size:11px;color:#888;margin-bottom:24px;text-align:center}
       h2{font-size:10px;font-weight:700;color:#5A969E;margin:20px 0 7px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #EBF4F5;padding-bottom:4px}
       table{width:100%;border-collapse:collapse;margin:0}
       th{text-align:left;font-weight:400;color:#888;width:34%;padding:3px 10px 3px 0;vertical-align:top}
@@ -162,18 +166,16 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
       .txt{margin:0 0 6px;white-space:pre-line}
       .vacio{color:#aaa}
       .aviso{margin-top:30px;padding-top:12px;border-top:1px solid #e6e2dc;font-size:9.5px;color:#777;line-height:1.55}
-      .pie{margin-top:10px;font-size:9px;color:#aaa;text-align:center}
-      @media print{body{padding:0}}
     </style></head><body>
       <div class="cab">
-        ${clinica.logo ? `<img src="${esc(clinica.logo)}" alt="">` : ''}
-        <div><div class="n">${esc(clinica.nombre || 'SIE')}</div><div class="t">Informe de ${esRevaloracion ? 'revaloración' : 'valoración inicial'}</div></div>
+        ${clinica.logo ? `<div><img src="${esc(clinica.logo)}" alt=""></div>` : ''}
+        <div class="n">${esc(clinica.nombre || 'SIE')}</div>
+        <div class="t">Informe de ${esRevaloracion ? 'revaloración' : 'valoración inicial'}</div>
       </div>
       <h1>${esc(nombre)}</h1>
       <div class="meta">${[edad != null ? `${edad} años` : '', form.dni ? `DNI ${esc(form.dni)}` : '', hoy].filter(Boolean).join(' · ')}</div>
       ${bloques}
       <div class="aviso">${AVISO_INFORME}</div>
-      <div class="pie">${esc(clinica.nombre || 'SIE')} · ${hoy}</div>
     </body></html>`
 
     const v = window.open('', '_blank')
