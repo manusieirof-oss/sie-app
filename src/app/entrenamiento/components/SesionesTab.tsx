@@ -60,7 +60,35 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   async function asignarYVolver(ses: any) {
     if (!encargo) return
     const r = await asignarSesionYVolver(ses, encargo)
-    if (!r.ok) { alert('No se ha podido asignar: ' + r.error); return }
+    if (!r.ok) { alert('No se ha podido traer: ' + r.error); return }
+    routerAsig.push(encargo.volver)
+  }
+
+  /**
+   * Varias de una vez, solo cuando NO hay cita detrás.
+   *
+   * Montar el programa de alguien son tres o cuatro sesiones —empujes, tirones, tren
+   * inferior— y traerlas de una en una obliga a rehacer el viaje entero cada vez. Con una
+   * cita, en cambio, la multiselección no tiene sentido: una cita es una sesión, y dejar
+   * marcar tres solo serviría para que ganase la última sin decir cuál.
+   */
+  const multiple = !!encargo && !encargo.citaId
+  const [marcadas, setMarcadas] = useState<string[]>([])
+  const marcar = (id: string) => setMarcadas(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+
+  async function traerMarcadas() {
+    if (!encargo || marcadas.length === 0) return
+    setOcupado(true)
+    const fallos: string[] = []
+    for (const id of marcadas) {
+      const ses = sesiones.find((x: any) => x.id === id)
+      if (!ses) continue
+      const r = await asignarSesionYVolver(ses, encargo)
+      if (!r.ok) fallos.push(`${ses.nombre}: ${r.error}`)
+    }
+    setOcupado(false)
+    // Si alguna falla se dice cuál y NO se vuelve: volver dejaría creer que entraron todas.
+    if (fallos.length) { alert('No se han podido traer:\n\n' + fallos.join('\n')); return }
     routerAsig.push(encargo.volver)
   }
   const [ocupado, setOcupado] = useState(false)
@@ -137,6 +165,17 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   return (
     <>
       {encargo && <BarraAsignacion encargo={encargo}/>}
+      {multiple && marcadas.length>0 && (
+        <div style={{position:'sticky',top:0,zIndex:25,display:'flex',alignItems:'center',gap:10,marginBottom:10,
+          padding:'9px 13px',borderRadius:'var(--rl)',background:'var(--g)',color:'#fff',fontSize:11,boxShadow:'var(--sh-md)'}}>
+          <span>{marcadas.length} {marcadas.length===1?'sesión marcada':'sesiones marcadas'}</span>
+          <div style={{flex:1}}/>
+          <button className="btn btn-t btn-sm" onClick={()=>setMarcadas([])} disabled={ocupado} style={{fontSize:10}}>Quitar marcas</button>
+          <button className="btn btn-s btn-sm" onClick={traerMarcadas} disabled={ocupado} style={{fontSize:10}}>
+            {ocupado ? 'Trayendo…' : `Traer ${marcadas.length} y volver`}
+          </button>
+        </div>
+      )}
       {/* CABECERA: buscador + nueva */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
         <input className="input" placeholder="Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
@@ -207,11 +246,15 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                     {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
                 )}
-                {encargo && (
-                  <button className="btn btn-p btn-sm" style={{width:'100%',fontSize:11}}
-                    onClick={e=>{e.stopPropagation();asignarYVolver(s)}}>
-                    Traer esta y volver
-                  </button>
+                {encargo && (multiple
+                  ? <button className={marcadas.includes(s.id) ? 'btn btn-p btn-sm' : 'btn btn-s btn-sm'}
+                      style={{width:'100%',fontSize:11}} onClick={e=>{e.stopPropagation();marcar(s.id)}}>
+                      {marcadas.includes(s.id) ? '✓ Marcada' : 'Marcar'}
+                    </button>
+                  : <button className="btn btn-p btn-sm" style={{width:'100%',fontSize:11}}
+                      onClick={e=>{e.stopPropagation();asignarYVolver(s)}}>
+                      Traer esta y volver
+                    </button>
                 )}
               </div>
             )
@@ -237,9 +280,14 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   elegir dos veces lo mismo, y encima deja elegir a otro distinto del de la
                   cita, que es un error silencioso esperando a pasar. */}
               {encargo
-                ? <button className="btn btn-p btn-sm" onClick={()=>asignarYVolver(sesionVista)} disabled={ocupado}>
-                    Traer para {encargo.etiqueta || 'el paciente'}
-                  </button>
+                ? (multiple
+                  ? <button className={marcadas.includes(sesionVista.id) ? 'btn btn-p btn-sm' : 'btn btn-s btn-sm'}
+                      onClick={()=>marcar(sesionVista.id)} disabled={ocupado}>
+                      {marcadas.includes(sesionVista.id) ? '✓ Marcada' : 'Marcar para traer'}
+                    </button>
+                  : <button className="btn btn-p btn-sm" onClick={()=>asignarYVolver(sesionVista)} disabled={ocupado}>
+                      Traer para {encargo.etiqueta || 'el paciente'}
+                    </button>)
                 : esPlantilla(sesionVista)
                 ? <button className="btn btn-p btn-sm" onClick={()=>setAsignando(sesionVista)} disabled={ocupado}><Ic name="usuario" size={12}/> Asignar a paciente</button>
                 : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}

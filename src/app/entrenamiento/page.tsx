@@ -47,9 +47,10 @@ function EntrenamientoContent() {
     const nuevaSesion = searchParams.get('nueva_sesion')
     const pacienteId = searchParams.get('paciente_id')
     if (nuevaSesion && pacienteId) { setTab('sesiones'); setPacienteIdParam(pacienteId) }
-    // Viniendo del taller a asignarle una sesión a una cita, se abre directamente en
-    // Sesiones: si no, aterrizas en Ejercicios y hay que adivinar a dónde ir.
-    if (searchParams.get('asignar_cita')) setTab('sesiones')
+    // Viniendo a por una sesión —del taller, de la agenda o de la ficha— se abre en
+    // Sesiones. Miraba `asignar_cita`, que solo viene cuando hay una cita detrás, así que
+    // desde la ficha del paciente se aterrizaba en Ejercicios.
+    if (searchParams.get('asignar_paciente')) setTab('sesiones')
   }, [searchParams])
 
   async function cargar() {
