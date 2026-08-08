@@ -247,7 +247,12 @@ export default function ModoClase() {
   }
 
   /**
-   * Al recargar, solo se recuerdan los FILTROS. La lista se reconstruye de la agenda.
+   * Solo se recuerda la SALA. Ni el día ni la franja.
+   *
+   * La sala es una preferencia —trabajas en la tuya— y no cambia sola. El día y la hora
+   * sí: al volver al taller lo que hace falta es lo que está pasando AHORA, no la franja
+   * que estabas mirando hace un rato. Recordarlas hacía que entrases por la mañana y te
+   * saliera la clase de ayer por la tarde.
    *
    * Antes se guardaba en `sessionStorage` la lista entera de pacientes con su sesión, y al
    * volver se rehacía uno por uno. Ya no hace falta y era una segunda copia de algo que ya
@@ -260,10 +265,7 @@ export default function ModoClase() {
       const raw = sessionStorage.getItem(SKEY)
       if (raw) {
         const g = JSON.parse(raw)
-        if (g.fecha) setFecha(g.fecha)
         if (g.sala) setSala(g.sala)
-        if (g.hora) setHora(g.hora)
-        if (g.activo) setActivo(g.activo)
       }
     } catch {}
     restaurado.current = true
@@ -275,8 +277,8 @@ export default function ModoClase() {
   // puestos y machacaba en disco lo que se acababa de leer.
   useEffect(() => {
     if (!listo) return
-    try { sessionStorage.setItem(SKEY, JSON.stringify({ fecha, sala, hora, activo })) } catch {}
-  }, [listo, fecha, sala, hora, activo])
+    try { sessionStorage.setItem(SKEY, JSON.stringify({ sala })) } catch {}
+  }, [listo, sala])
 
   const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
 

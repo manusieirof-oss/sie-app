@@ -38,7 +38,13 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
    */
   const [encargo, setEncargo] = useState<Encargo | null>(null)
   const routerAsig = useRouter()
-  useEffect(() => { setEncargo(encargoDeLaUrl()) }, [])
+  useEffect(() => {
+    const e = encargoDeLaUrl()
+    setEncargo(e)
+    // Y a la sección de SESIONES. La pestaña abre en "Planificación" por defecto, así que
+    // veníamos a elegir una sesión y aterrizábamos en otra pantalla.
+    if (e) setSeccion('sesiones')
+  }, [])
 
   async function asignarYVolver(ses: any) {
     if (!encargo) return
