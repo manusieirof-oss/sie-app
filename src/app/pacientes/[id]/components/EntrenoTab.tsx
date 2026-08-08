@@ -7,6 +7,9 @@ import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
 import ModalRepartir from './ModalRepartir'
 import { Ic } from '@/lib/icons'
+import BarraAsignacion from '@/components/BarraAsignacion'
+import { encargoDeLaUrl, asignarSesionYVolver, type Encargo } from '@/lib/asignarCita'
+import { useRouter } from 'next/navigation'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
@@ -29,6 +32,20 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [etiquetasBib, setEtiquetasBib] = useState<any[]>([])
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [sesionDetalle, setSesionDetalle] = useState<any>(null)
+  /**
+   * Si se ha llegado desde el taller a poner la sesión de una cita, el encargo viene en la
+   * dirección. En el uso normal esto es null y no cambia nada de la pantalla.
+   */
+  const [encargo, setEncargo] = useState<Encargo | null>(null)
+  const routerAsig = useRouter()
+  useEffect(() => { setEncargo(encargoDeLaUrl()) }, [])
+
+  async function asignarYVolver(ses: any) {
+    if (!encargo) return
+    const r = await asignarSesionYVolver(ses, encargo)
+    if (!r.ok) { alert('No se ha podido asignar: ' + r.error); return }
+    routerAsig.push('/taller')
+  }
   const [nEjecuciones, setNEjecuciones] = useState(0)
   const [objPaciente, setObjPaciente] = useState<any[]>([])
   const [soloActivas, setSoloActivas] = useState(false)
@@ -547,6 +564,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 </button>
               </div>
             )}
+            {encargo && <BarraAsignacion encargo={encargo}/>}
             {sesionesDisp.length===0?<div className="muted">No hay sesiones creadas.</div>:(
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:10}}>
                 {/* Agrupadas por linaje: se ve la versión vigente de cada sesión y las
@@ -578,6 +596,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                             <span className="mas">+{nEj-fotosDeSesion(s).length}</span>
                           )}
                         </div>
+                      )}
+                      {encargo && (
+                        <button className="btn btn-p btn-sm" style={{width:'100%',marginBottom:7,fontSize:11}}
+                          onClick={e=>{e.stopPropagation();asignarYVolver(s)}}>
+                          Asignar y volver al taller
+                        </button>
                       )}
                       <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
                         <div style={{flex:1,minWidth:0}}>

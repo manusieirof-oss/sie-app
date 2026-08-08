@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { Ic } from '@/lib/icons'
+import BarraAsignacion from '@/components/BarraAsignacion'
+import { encargoDeLaUrl, asignarSesionYVolver, type Encargo } from '@/lib/asignarCita'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { textoDescanso } from '@/lib/capacidades'
 import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, modoDeSesion } from '@/lib/sesiones'
@@ -37,6 +40,20 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [sesionEditando, setSesionEditando] = useState<any>(null)
   /** Plantilla que se está asignando: abre el selector de paciente. */
   const [asignando, setAsignando] = useState<any>(null)
+  /**
+   * Encargo del taller: se ha llegado aquí a poner la sesión de una cita concreta. En el
+   * uso normal es null y la pantalla se comporta igual que siempre.
+   */
+  const [encargo, setEncargo] = useState<Encargo | null>(null)
+  const routerAsig = useRouter()
+  useEffect(() => { setEncargo(encargoDeLaUrl()) }, [])
+
+  async function asignarYVolver(ses: any) {
+    if (!encargo) return
+    const r = await asignarSesionYVolver(ses, encargo)
+    if (!r.ok) { alert('No se ha podido asignar: ' + r.error); return }
+    routerAsig.push('/taller')
+  }
   const [ocupado, setOcupado] = useState(false)
 
   /**
@@ -108,6 +125,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
 
   return (
     <>
+      {encargo && <BarraAsignacion encargo={encargo}/>}
       {/* CABECERA: buscador + nueva */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
         <input className="input" placeholder="Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
@@ -161,6 +179,12 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                     {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
+                )}
+                {encargo && (
+                  <button className="btn btn-p btn-sm" style={{width:'100%',fontSize:11}}
+                    onClick={e=>{e.stopPropagation();asignarYVolver(s)}}>
+                    Asignar y volver al taller
+                  </button>
                 )}
               </div>
             )

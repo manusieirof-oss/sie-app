@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita } from '@/lib/taller'
-import ModalElegirSesion from './ModalElegirSesion'
+import { rutaDeAsignacion } from '@/lib/asignarCita'
+import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 
 const hoy = () => new Date().toISOString().slice(0,10)
@@ -35,6 +36,7 @@ export default function ModoClase() {
   const [trayendo, setTrayendo] = useState(false)
   const [avisoAgenda, setAvisoAgenda] = useState('')
   const [eligiendo, setEligiendo] = useState<any>(null)
+  const router = useRouter()
 
   /**
    * Las franjas del día, y la de ahora puesta sola.
@@ -470,16 +472,6 @@ export default function ModoClase() {
         <div style={{flex:1}}/>
       </div>
 
-      {eligiendo && (
-        <ModalElegirSesion
-          pacienteId={eligiendo.paciente.id}
-          nombrePaciente={nombrePac(eligiendo.paciente)}
-          sesionActualId={eligiendo.sesionId}
-          onCerrar={()=>setEligiendo(null)}
-          onElegir={async (ses:any)=>{ setEligiendo(null); await elegirSesion(eligiendo.paciente.id, ses) }}
-        />
-      )}
-
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && (
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
@@ -514,12 +506,33 @@ export default function ModoClase() {
               {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
               {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
             </div>
-            <button className={act.sesionId ? 'btn btn-s btn-sm' : 'btn btn-p btn-sm'}
-              onClick={()=>setEligiendo(act)} style={{fontSize:11,maxWidth:280}}>
-              <Ic name="fuerza" size={12}/> {act.sesionId
-                ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') + ' · cambiar'
-                : 'Elegir sesión'}
-            </button>
+            {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
+                existe para eso. Al asignar allí, vuelves aquí. */}
+            <div style={{position:'relative'}}>
+              <button className={act.sesionId ? 'btn btn-s btn-sm' : 'btn btn-p btn-sm'}
+                onClick={()=>setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id)}
+                style={{fontSize:11,maxWidth:300}}>
+                <Ic name="fuerza" size={12}/> {act.sesionId
+                  ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
+                  : 'Asignar sesión'}
+              </button>
+              {eligiendo===act.paciente.id && (
+                <div style={{position:'absolute',top:'100%',right:0,zIndex:30,marginTop:4,minWidth:190,
+                  border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',overflow:'hidden'}}>
+                  {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).map(([d,l])=>(
+                    <div key={d} onClick={()=>{
+                      setEligiendo(null)
+                      router.push(rutaDeAsignacion(d as any, {
+                        citaId: act.citaId, pacienteId: act.paciente.id,
+                        etiqueta: nombrePac(act.paciente) + (act.hora ? ' · ' + act.hora : ''),
+                      }))
+                    }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{l}</div>
+                  ))}
+                </div>
+              )}
+            </div>
             {act.sesionId && act.datos.length>0 && (
               <button className="btn btn-p btn-sm" onClick={()=>finalizarPaciente(act.paciente.id)}>✓ Guardar y finalizar</button>
             )}
@@ -532,7 +545,7 @@ export default function ModoClase() {
           )}
 
           {!act.sesionId ? (
-            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Sin sesión para hoy. Elígela arriba: de las suyas o de la biblioteca.</div>
+            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Sin sesión para hoy. Dale a <b style={{color:'var(--gr)'}}>Asignar sesión</b> arriba.</div>
           ) : act.datos.length===0 ? (
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Esta sesión no tiene ejercicios.</div>
           ) : act.datos.map((ej:any,ei:number)=>(

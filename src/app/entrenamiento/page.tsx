@@ -47,6 +47,9 @@ function EntrenamientoContent() {
     const nuevaSesion = searchParams.get('nueva_sesion')
     const pacienteId = searchParams.get('paciente_id')
     if (nuevaSesion && pacienteId) { setTab('sesiones'); setPacienteIdParam(pacienteId) }
+    // Viniendo del taller a asignarle una sesión a una cita, se abre directamente en
+    // Sesiones: si no, aterrizas en Ejercicios y hay que adivinar a dónde ir.
+    if (searchParams.get('asignar_cita')) setTab('sesiones')
   }, [searchParams])
 
   async function cargar() {
