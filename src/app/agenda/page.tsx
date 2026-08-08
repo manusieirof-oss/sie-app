@@ -17,6 +17,7 @@ import ModalEntrenoCita from './components/ModalEntrenoCita'
 import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
 import { crearCita as crearUnaCita, crearCitas, planDeFechas, finDePeriodo, type Periodo } from '@/lib/citas'
+import { useRouter } from 'next/navigation'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -69,6 +70,14 @@ export default function AgendaPage() {
   const [pausaFin, setPausaFin] = useState('15:30')
   const [descanso, setDescanso] = useState(10)
   const [maxPersonas, setMaxPersonas] = useState(6)
+  const router = useRouter()
+  /**
+   * Venimos de terminar una valoración: el paciente y cuántas citas se le acaban de
+   * poner. Al guardarlas se ofrece seguir con las sesiones, que es el paso siguiente y
+   * el que se olvida — la cita sin sesión no se ve hasta que el paciente está delante.
+   */
+  const [desdeValoracion, setDesdeValoracion] = useState<string|null>(null)
+  const [ofrecerSesiones, setOfrecerSesiones] = useState<{pacienteId:string,citas:number}|null>(null)
 
   const hoy = new Date().toISOString().split('T')[0]
   const fechaObj = new Date(fecha+'T12:00:00')
@@ -87,6 +96,7 @@ export default function AgendaPage() {
     const pid = new URLSearchParams(window.location.search).get('nuevaCitaPara')
     if (!pid) return
     setNuevaCita(p => ({ ...p, paciente_id: pid, fecha: fecha, repetir: true }))
+    setDesdeValoracion(pid)
     setModal(true)
     window.history.replaceState({}, '', '/agenda')
   }, [])
@@ -310,13 +320,17 @@ export default function AgendaPage() {
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id) {
         await supabase.from('recuperaciones').update({cita_recuperacion_id:r.cita.id}).eq('id',nuevaCita.recuperacion_id)
       }
+      if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:1})
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
       const fechaFin = nuevaCita.fecha_fin || finDePeriodo(fechaCita, nuevaCita.periodo as Periodo)
       const fechas = planDeFechas(fechaCita, fechaFin, nuevaCita.dias_repetir)
       const r = await crearCitas(fechas, datos)
       if (!r.ok) { alert(`Error al crear las citas (${r.error}). Se crearon ${r.creadas} de ${fechas.length}.`); setGuardando(false); return }
-      if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas`)
+      // Viniendo de una valoración el aviso no es un alert: es la pregunta de qué toca
+      // ahora. Un alert se cierra sin leer y el paciente se queda sin sesiones.
+      if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:r.creadas})
+      else if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas`)
     }
     setModal(false)
     const eraNuevo = nuevaCita.nuevo
@@ -510,6 +524,32 @@ export default function AgendaPage() {
       )}
 
 
+
+      {/* SEGUIR CON LAS SESIONES · solo al venir de una valoración.
+          La cita sin sesión no se nota hasta que el paciente está delante, así que el
+          paso siguiente se ofrece aquí y no se deja a la memoria. */}
+      {ofrecerSesiones && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setOfrecerSesiones(null)}}>
+          <div className="modal" style={{width:420,textAlign:'center'}}>
+            <div style={{color:'var(--g)',marginBottom:8}}><Ic name="ok" size={40} strokeWidth={1.5}/></div>
+            <div style={{fontSize:16,fontWeight:400,color:'var(--n)',marginBottom:6}}>
+              {ofrecerSesiones.citas===1 ? 'Cita creada' : `${ofrecerSesiones.citas} citas creadas`}
+            </div>
+            <div style={{fontSize:13,color:'var(--gr)',lineHeight:1.6,marginBottom:16}}>
+              Le falta la sesión. Puedes repartírsela ahora en todas sus citas de una vez.
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <button className="btn btn-p" style={{justifyContent:'center',padding:'11px'}}
+                onClick={()=>router.push(`/pacientes/${ofrecerSesiones.pacienteId}?tab=entreno`)}>
+                <Ic name="entreno" size={14}/> Asignarle las sesiones
+              </button>
+              <button className="btn btn-t" onClick={()=>{setOfrecerSesiones(null);setDesdeValoracion(null)}}>
+                Ahora no · queda avisado en la lista
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} salas={salas}/>}
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}

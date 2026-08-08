@@ -210,8 +210,8 @@ export default function PacientesPage() {
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-          <div style={{display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 105px 170px':'1fr 95px 100px 120px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-            {['Paciente','Estado','Bono','Tipo clase','Cuota actual',...(ronda?[ronda.nombre]:[])].map((h,i)=>(
+          <div style={{display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 90px 105px 170px':'1fr 95px 100px 120px 90px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+            {['Paciente','Estado','Bono','Tipo clase','Citas',' Cuota actual'.trim(),...(ronda?[ronda.nombre]:[])].map((h,i)=>(
               <div key={i} style={{fontSize:9,fontWeight:500,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',padding:'7px 10px',borderLeft:i>0?'1px solid var(--bd)':'none'}}>{h}</div>
             ))}
           </div>
@@ -220,30 +220,11 @@ export default function PacientesPage() {
             const bono = getBonoActual(p.id)
             const pago = bono?.estado_pago || 'pendiente'
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 105px 170px':'1fr 95px 100px 120px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
+              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 90px 105px 170px':'1fr 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
                 <div style={{padding:'8px 10px'}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}
-                    {/* Citas por delante / de esas, cuántas llevan sesión. Sale de las citas,
-                        no de un contador guardado: cambiar, cancelar o anular una cita lo
-                        recalcula solo. En pausa y en baja no se avisa: quien está en pausa no
-                        se queda sin citas, es que no las tiene. */}
-                    {(() => {
-                      if (p.estado!=='activo') return null
-                      const c = citasPac[p.id]
-                      if (!c || c.citas===0) return <span title="No tiene ninguna cita por delante" style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid #F5C8C8',whiteSpace:'nowrap'}}>Sin citas</span>
-                      const pocas = c.citas<=CITAS_POCAS
-                      return (
-                        <span title={`${c.citas} citas por delante · ${c.conSesion} con sesión asignada`}
-                          style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,whiteSpace:'nowrap',
-                            background:pocas?'var(--redl)':'var(--bl)',color:pocas?'var(--red)':'var(--gr)',
-                            border:`1px solid ${pocas?'#F5C8C8':'var(--bd)'}`}}>
-                          {c.citas}/{c.conSesion}
-                        </span>
-                      )
-                    })()}
-                  </div>
+                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.email || p.telefono || '—'}</div>
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
@@ -260,6 +241,26 @@ export default function PacientesPage() {
                   )}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
+                {/* CITAS POR DELANTE / DE ESAS, CUÁNTAS LLEVAN SESIÓN.
+                    Sale de las citas, no de un contador guardado: cambiar, cancelar o
+                    anular una cita lo recalcula solo. En pausa y en baja no se avisa:
+                    quien está en pausa no se ha quedado sin citas. */}
+                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
+                  {(() => {
+                    if (p.estado!=='activo') return <span style={{fontSize:11,color:'var(--bm)'}}>—</span>
+                    const c = citasPac[p.id]
+                    if (!c || c.citas===0) return <span title="No tiene ninguna cita por delante" style={{fontSize:9,fontWeight:600,padding:'2px 8px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid #F5C8C8',whiteSpace:'nowrap'}}>Sin citas</span>
+                    const pocas = c.citas<=CITAS_POCAS
+                    return (
+                      <span title={`${c.citas} citas por delante · ${c.conSesion} con sesión asignada`}
+                        style={{fontSize:11,fontWeight:500,padding:'2px 8px',borderRadius:99,whiteSpace:'nowrap',
+                          background:pocas?'var(--redl)':'var(--bl)',color:pocas?'var(--red)':'var(--gr)',
+                          border:`1px solid ${pocas?'#F5C8C8':'var(--bd)'}`}}>
+                        {c.citas}/{c.conSesion}
+                      </span>
+                    )
+                  })()}
+                </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
                     <button className={`chip-ed ${pago==='impago'?'chip-ed-r':pago==='pendiente'?'chip-ed-a':''}`} title="Cambiar el estado de pago"
