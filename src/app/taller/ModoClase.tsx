@@ -64,9 +64,16 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
    * NO HAY BOTÓN. Al abrir el taller ya sabemos la fecha, la sala y la franja que está
    * corriendo: pedirle además que pulse "traer" era un paso sin decisión detrás.
    *
-   * MERGE, NO REEMPLAZO: quien esté ya en la lista se queda como está. Al cambiar de franja
-   * no puede borrarse nada de lo que lleves escrito, y el que se pasa sin cita se sigue
-   * añadiendo a mano y convive con los de la agenda.
+   * EN PANTALLA SOLO ESTÁ LA FRANJA ACTUAL. La primera versión acumulaba —cambiabas de
+   * hora y los de la anterior seguían ahí— y con 110 personas al día la lista se hacía
+   * inútil en dos cambios: solo cambiaba el número del selector.
+   *
+   * Se conservan dos cosas al cambiar de franja:
+   *   · Los añadidos A MANO. No los ha traído la agenda, así que la agenda no los quita.
+   *   · Lo ESCRITO de quien siga en la nueva franja: no se recarga su ficha, se deja tal
+   *     cual. Recargarla borraría series a medio teclear.
+   *
+   * Y quitar a alguien de la lista no pierde nada: el autoguardado ya lo ha escrito.
    *
    * Se lee la selección por REFERENCIA y no del estado. Si `seleccion` fuera dependencia
    * del efecto que llama aquí, cada paciente añadido lo dispararía otra vez y la carga se
@@ -76,30 +83,39 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
     setTrayendo(true); setAvisoAgenda('')
     try {
       const delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
-      const nuevos: any[] = []
-      let repetidos = 0
+      const previos = seleccionRef.current
+      const aMano = previos.filter((s:any) => !s.citaId)
+
+      const lista: any[] = []
       for (const d of delDia) {
-        if (seleccionRef.current.some((s:any) => s.paciente.id === d.pacienteId)) { repetidos++; continue }
+        const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
+        if (ya) { lista.push(ya); continue }        // lo suyo se queda como esté
         const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, d.sesion) : []
-        nuevos.push({
+        lista.push({
           paciente: d.paciente,
           sesionId: d.sesion?.id || '',
           sesiones: d.disponibles,
           datos, cargado: !!d.sesion, finalizado: false,
-          citaId: d.citaId, estado: d.estado, hora: d.hora, origen: d.origen, sesionVieja: d.sesionVieja,
+          citaId: d.citaId, estado: d.estado, hora: d.hora, sala: d.sala,
+          origen: d.origen, sesionVieja: d.sesionVieja,
         })
         cargarObjsPaciente(d.pacienteId)
       }
-      if (nuevos.length) setSeleccion(prev => [...prev, ...nuevos])
+
+      // Los de mano al final, que es donde se han ido añadiendo.
+      const final = [...lista, ...aMano.filter((m:any) => !lista.some((x:any) => x.paciente.id === m.paciente.id))]
+      setSeleccion(final)
+      // Si el que estaba abierto ya no está en la franja, no se deja un panel colgado.
+      setActivo(a => final.some((x:any) => x.paciente.id === a) ? a : (final[0]?.paciente.id || ''))
+
       const r = resumenDelDia(delDia)
       // El aviso va aquí, donde se toma la decisión, y no en un recibo posterior: si a
       // alguien le falta sesión hay que verlo ANTES de empezar la clase.
-      const donde = (hora ? 'a las ' + hora : 'ese día') + (sala ? ' en la sala ' + sala : '')
+      const donde = (hora ? 'a las ' + hora : 'todo el día') + (sala ? ' · sala ' + sala : '')
       setAvisoAgenda(
-        delDia.length === 0 ? `No hay citas ${donde}.`
-        : nuevos.length === 0 ? `Los ${repetidos} de ${hora||'ese día'} ya estaban en la lista.`
-        : r.sinSesion > 0 ? `${delDia.length} ${donde} · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta elegir sesión.`
-        : `${delDia.length} ${donde}, todos con su sesión.`
+        delDia.length === 0 ? `Nadie citado ${donde}.`
+        : r.sinSesion > 0 ? `${delDia.length} ${donde} · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta sesión.`
+        : `${delDia.length} ${donde}.`
       )
     } catch (e: any) {
       // Antes esto no existía y el fallo salía como "no hay citas", que es mentira y manda
