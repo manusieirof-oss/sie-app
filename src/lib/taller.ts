@@ -74,7 +74,8 @@ export async function horasDelDia(fecha: string, sala?: string): Promise<{ hora:
   let q = supabase.from('citas').select('hora')
     .eq('fecha', fecha).neq('estado', 'cancelada').not('paciente_id', 'is', null)
   if (sala) q = q.eq('sala', sala)
-  const { data } = await q
+  const { data, error } = await q
+  if (error) throw new Error('No se han podido leer las horas: ' + error.message)
   const cuenta: Record<string, number> = {}
   ;(data || []).forEach((c: any) => { const h = (c.hora || '').slice(0, 5); if (h) cuenta[h] = (cuenta[h] || 0) + 1 })
   return Object.entries(cuenta).map(([hora, n]) => ({ hora, n })).sort((a, b) => a.hora.localeCompare(b.hora))
@@ -113,24 +114,31 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
     .not('paciente_id', 'is', null)
     .order('hora')
   if (sala) q = q.eq('sala', sala)
-  // `like` y no `eq` porque la columna guarda segundos ("10:00:00") y el selector maneja
-  // "10:00". Comparar en crudo no encontraría nada y la pantalla saldría vacía sin decir
-  // por qué, que es el peor de los fallos posibles.
-  if (hora) q = q.like('hora', hora + '%')
 
-  const { data: citas } = await q
-  if (!citas || citas.length === 0) return []
+  // LA HORA SE FILTRA AQUÍ, NO EN LA CONSULTA.
+  //
+  // El primer intento fue `.like('hora', '10:30%')`, porque la columna guarda segundos
+  // ("10:30:00") y el selector maneja "10:30". Pero `like` es de textos y `hora` es de tipo
+  // `time`: Postgres no tiene ese operador, la consulta devolvía error, el error no se
+  // miraba y la pantalla decía "no hay citas". El selector de al lado contaba ocho.
+  //
+  // Recortar a HH:MM en JavaScript funciona sea cual sea el tipo de la columna, y el coste
+  // es traer las citas de ese día y esa sala, que son decenas, no miles.
+  const { data: citas, error } = await q
+  if (error) throw new Error('No se han podido leer las citas: ' + error.message)
+  const delDia = (citas || []).filter((c: any) => !hora || (c.hora || '').slice(0, 5) === hora)
+  if (delDia.length === 0) return []
 
   // Las sesiones de todos los pacientes del día en UNA consulta. Una por paciente serían
   // veinte consultas en una mañana de clase, y la pantalla se abre veinte veces al día.
-  const ids = Array.from(new Set(citas.map((c: any) => c.paciente_id).filter(Boolean)))
+  const ids = Array.from(new Set(delDia.map((c: any) => c.paciente_id).filter(Boolean)))
   const { data: todas } = await supabase.from('sesiones')
     .select('*').in('paciente_id', ids).order('created_at', { ascending: false })
 
   const porPaciente: Record<string, any[]> = {}
   ;(todas || []).forEach((s: any) => { (porPaciente[s.paciente_id] ||= []).push(s) })
 
-  return citas.map((c: any) => {
+  return delDia.map((c: any) => {
     const suyas = porPaciente[c.paciente_id] || []
     const vigentes = soloVigentes(suyas)
     const deLaCita = Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones

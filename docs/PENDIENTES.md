@@ -580,6 +580,36 @@ que es quien sabe si una sesión se ejecutó.
 
 ---
 
+### 1.6 · "En pausa" desaparece de media aplicación — PENDIENTE
+
+**Salió trabajando el taller.** Hay gente con citas puestas en la agenda que está dada de
+alta como **en pausa**, y al buscarla no aparece por ningún lado.
+
+**La causa.** Los pacientes tienen tres estados —`activo`, `pausa`, `baja`— pero cinco
+pantallas cargan su lista con `.eq('estado','activo')` a secas:
+
+    agenda/page.tsx · taller/page.tsx · entrenamiento/page.tsx
+    valoracion/page.tsx · resultados/page.tsx
+
+Así que "pausa" se comporta exactamente igual que "baja": no se puede citar, ni entrenar,
+ni valorar, ni buscar. Y sin embargo **sus citas siguen existiendo** y saliendo en la
+agenda, porque las citas no miran el estado del paciente. De ahí el desajuste: la cita está
+y la persona no.
+
+**Lo que hay que decidir antes de tocar nada:** qué significa "en pausa".
+
+- Si es *"se ha ido un tiempo pero volverá"* → tiene que poder buscarse y citarse, con una
+  marca visible, y lo que no debería es aparecer en los recuentos ni en las alertas.
+- Si es *"no viene y no cuenta"* → entonces al pausarlo hay que decir qué se hace con las
+  citas que ya tenía, porque hoy se quedan huérfanas.
+
+**Ojo, hay un tercer caso peor**: alguien que se pausa **teniendo citas futuras**. Hoy no se
+avisa de nada. Sea cual sea la decisión, ahí tiene que saltar un aviso al cambiar el estado.
+
+**Ya arreglado a medias:** el taller ya no cruza las citas contra la lista de activos —el
+paciente sale de la propia consulta de citas—, así que en Modo Clase aparece igual. Pero el
+buscador de "añadir paciente" y las otras cuatro pantallas siguen sin verlo.
+
 ## 1bis. Objetivos ✅ CERRADO
 
 `lib/objetivos.ts` es el único sitio que decide si un objetivo está logrado y el único que

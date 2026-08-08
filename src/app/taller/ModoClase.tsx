@@ -15,6 +15,10 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   const [busquedaPac, setBusquedaPac] = useState('')
   const timers = useRef<Record<string, any>>({})
   const restaurado = useRef(false)
+  // Un `ref` no vuelve a disparar los efectos al cambiar, así que la carga automática
+  // necesita saberlo por estado: si no, al terminar la restauración no se enteraba nadie y
+  // el taller se quedaba vacío hasta tocar el selector.
+  const [listo, setListo] = useState(false)
   const SKEY = 'taller_clase'
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
@@ -55,12 +59,18 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   }, [])
 
   /**
-   * Traer de la agenda los que vienen ese día.
+   * Traer de la agenda los que vienen en esa franja. Se llama sola.
    *
-   * MERGE, NO REEMPLAZO: quien esté ya en la lista se queda como está. Si estás a media
-   * clase con datos escritos y le das al botón, no puede borrarse nada de lo que llevas.
-   * Los que aparecen sin cita —el que se pasa sin avisar— siguen añadiéndose a mano y
-   * conviven con los de la agenda.
+   * NO HAY BOTÓN. Al abrir el taller ya sabemos la fecha, la sala y la franja que está
+   * corriendo: pedirle además que pulse "traer" era un paso sin decisión detrás.
+   *
+   * MERGE, NO REEMPLAZO: quien esté ya en la lista se queda como está. Al cambiar de franja
+   * no puede borrarse nada de lo que lleves escrito, y el que se pasa sin cita se sigue
+   * añadiendo a mano y convive con los de la agenda.
+   *
+   * Se lee la selección por REFERENCIA y no del estado. Si `seleccion` fuera dependencia
+   * del efecto que llama aquí, cada paciente añadido lo dispararía otra vez y la carga se
+   * repetiría en bucle.
    */
   async function traerDeAgenda() {
     setTrayendo(true); setAvisoAgenda('')
@@ -69,7 +79,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       const nuevos: any[] = []
       let repetidos = 0
       for (const d of delDia) {
-        if (seleccion.some(s => s.paciente.id === d.pacienteId)) { repetidos++; continue }
+        if (seleccionRef.current.some((s:any) => s.paciente.id === d.pacienteId)) { repetidos++; continue }
         const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, d.sesion) : []
         nuevos.push({
           paciente: d.paciente,
@@ -91,8 +101,22 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         : r.sinSesion > 0 ? `${delDia.length} ${donde} · a ${r.sinSesion} le${r.sinSesion>1?'s':''} falta elegir sesión.`
         : `${delDia.length} ${donde}, todos con su sesión.`
       )
+    } catch (e: any) {
+      // Antes esto no existía y el fallo salía como "no hay citas", que es mentira y manda
+      // a buscar el problema al sitio equivocado.
+      setAvisoAgenda(e?.message || 'No se ha podido leer la agenda')
     } finally { setTrayendo(false) }
   }
+
+  const seleccionRef = useRef<any[]>([])
+  useEffect(() => { seleccionRef.current = seleccion }, [seleccion])
+
+  // Cargar sola al abrir y cada vez que cambia el día, la sala o la franja.
+  useEffect(() => {
+    if (!listo) return   // primero se recupera lo que estuviera a medias
+    traerDeAgenda()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha, sala, hora, listo])
 
   useEffect(() => {
     (async () => {
@@ -202,11 +226,17 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
   // RESTAURAR: espera a que 'pacientes' este cargado (viene async por props)
   useEffect(() => {
     if (restaurado.current) return
+    // Si no hay nada a medias, no hay nada que esperar. Esta salida va ANTES de la espera
+    // a `pacientes` a propósito: esa lista solo trae a los activos, y si un día viniera
+    // vacía el taller se quedaba esperándola para siempre sin cargar la agenda.
+    let hayGuardado = false
+    try { hayGuardado = !!sessionStorage.getItem(SKEY) } catch {}
+    if (!hayGuardado) { restaurado.current = true; setListo(true); return }
     if (!pacientes.length) return
     (async () => {
       try {
         const raw = sessionStorage.getItem(SKEY)
-        if (!raw) { restaurado.current = true; return }
+        if (!raw) { restaurado.current = true; setListo(true); return }
         const saved = JSON.parse(raw)
         if (saved.fecha) setFecha(saved.fecha)
         const nueva: any[] = []
@@ -226,6 +256,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
         setSeleccion(nueva)
         if (saved.activo) setActivo(saved.activo)
       } catch(e) { console.error('restaurar clase', e); restaurado.current = true }
+      setListo(true)
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacientes])
@@ -477,10 +508,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
           <option value="">Todo el día</option>
           {horas.map(h=><option key={h.hora} value={h.hora}>{h.hora} · {h.n}</option>)}
         </select>
-        <button className="btn btn-p btn-sm" onClick={traerDeAgenda} disabled={trayendo}>
-          <Ic name="agenda" size={12}/> {trayendo?'Trayendo…':'Traer de la agenda'}
-        </button>
-        {avisoAgenda && <span style={{fontSize:10,color:'var(--grl)'}}>{avisoAgenda}</span>}
+        <span style={{fontSize:10,color:'var(--grl)'}}>{trayendo ? 'Cargando…' : avisoAgenda}</span>
         <div style={{flex:1}}/>
         {seleccion.length>0 && <button className="btn btn-d btn-sm" onClick={limpiarTodo}><Ic name="papelera" size={12}/> Limpiar</button>}
         <div style={{position:'relative',width:260}}>
@@ -520,7 +548,7 @@ export default function ModoClase({ pacientes }: { pacientes: any[] }) {
       {/* CUERPO */}
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
-          Dale a <b style={{color:'var(--gr)'}}>Traer de la agenda</b> para cargar los de esa franja con su sesión, o añade a mano a quien venga sin cita.
+          No hay nadie citado en esa franja. Cambia la hora o la sala arriba, o añade a mano a quien venga sin cita.
         </div>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
