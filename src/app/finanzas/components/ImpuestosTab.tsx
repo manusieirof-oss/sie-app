@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { indicePlanes, desglosePlan, precioConDescuento, precioFinalPlan } from '@/lib/bonos'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 
@@ -13,25 +14,25 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
   const [anio, setAnio] = useState(anioActual)
   const [irpfPctBeneficio, setIrpfPctBeneficio] = useState(20) // % del modelo 130
 
-  // Precio final e IVA por tipo de bono
-  const ivaIngresoPorTipo: Record<string, number> = {}
-  planes.forEach((p:any)=>{
-    const final = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base*(1+p.iva/100)*100)/100
-    const base = p.iva>0 ? final/(1+p.iva/100) : final
-    ivaIngresoPorTipo[p.bono_tipo] = final - base // IVA repercutido por bono
-  })
-  const baseIngresoPorTipo: Record<string, number> = {}
-  planes.forEach((p:any)=>{
-    const final = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base*(1+p.iva/100)*100)/100
-    baseIngresoPorTipo[p.bono_tipo] = p.iva>0 ? final/(1+p.iva/100) : final
-  })
+  const idxPlanes = indicePlanes(planes)
+
+  // Lo que factura un bono, con su descuento, partido en base e IVA repercutido.
+  // El descuento reduce las dos partes: un bono de 63€ con 10€ de descuento
+  // repercute el IVA de 53€, no el de 63€.
+  function desgloseBono(b:any) {
+    const plan = idxPlanes[b.tipo]
+    const final = precioConDescuento(precioFinalPlan(plan), b)
+    const pct = Number(plan?.iva || 0)
+    const base = pct > 0 ? final/(1+pct/100) : final
+    return { base, iva: final - base }
+  }
 
   // Calcular por trimestre
   function calcularTrimestre(t: number) {
     // Ingresos: bonos de ese trimestre y año
     const bonosT = bonosHist.filter((b:any)=> b.anio===anio && trimestreDe(b.mes)===t)
-    const ivaRepercutido = bonosT.reduce((a:number,b:any)=> a + (ivaIngresoPorTipo[b.tipo]||0), 0)
-    const baseIngresos = bonosT.reduce((a:number,b:any)=> a + (baseIngresoPorTipo[b.tipo]||0), 0)
+    const ivaRepercutido = bonosT.reduce((a:number,b:any)=> a + desgloseBono(b).iva, 0)
+    const baseIngresos = bonosT.reduce((a:number,b:any)=> a + desgloseBono(b).base, 0)
 
     // Gastos de ese trimestre y año
     const gastosT = gastos.filter((g:any)=>{
@@ -41,6 +42,10 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
     })
     const ivaSoportado = gastosT.reduce((a:number,g:any)=> a + (Number(g.importe) - Number(g.base_imponible||g.importe)), 0)
     const baseGastos = gastosT.reduce((a:number,g:any)=> a + Number(g.base_imponible||g.importe), 0)
+    // Un gasto sin base imponible aporta 0 € de IVA soportado. Puede ser correcto
+    // (nómina, seguridad social, préstamo) o puede ser una factura mal metida, y
+    // la diferencia son euros. Se cuenta para poder decirlo en vez de callarlo.
+    const sinBase = gastosT.filter((g:any)=> g.base_imponible == null && Number(g.iva_pct||0) > 0).length
 
     // Modelo 303: IVA a pagar = repercutido - soportado
     const modelo303 = ivaRepercutido - ivaSoportado
@@ -57,7 +62,7 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
     const modelo115 = gastosT.filter((g:any)=>g.irpf_modelo==='115' && g.irpf_pct>0)
       .reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(g.irpf_pct/100), 0)
 
-    return { ivaRepercutido, ivaSoportado, modelo303, beneficio, modelo130, modelo111, modelo115, nBonos: bonosT.length, nGastos: gastosT.length }
+    return { ivaRepercutido, ivaSoportado, modelo303, beneficio, modelo130, modelo111, modelo115, sinBase, nBonos: bonosT.length, nGastos: gastosT.length }
   }
 
   const trimestreActual = trimestreDe(new Date().getMonth()+1)
@@ -114,6 +119,13 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
                     <span style={{fontSize:10,fontWeight:600,color:'var(--n)'}}>Total a pagar (aprox.)</span>
                     <span style={{fontSize:15,fontWeight:700,color:RED}}>{(d.modelo303+d.modelo130+d.modelo111+d.modelo115).toFixed(2)}€</span>
                   </div>
+
+                  {d.sinBase>0 && (
+                    <div style={{fontSize:9,color:'#7A5800',display:'flex',alignItems:'flex-start',gap:4,marginTop:2}}>
+                      <Ic name="alerta" size={10}/>
+                      <span>{d.sinBase} {d.sinBase===1?'gasto lleva':'gastos llevan'} % de IVA pero no base imponible: su IVA no está entrando en el 303.</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

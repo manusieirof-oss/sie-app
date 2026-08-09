@@ -37,6 +37,50 @@ export async function cambiarEstadoPago(bono: { id: string, paciente_id: string,
   return { ok: true }
 }
 
+// ---------------------------------------------------------------------------
+// PRECIO. Único sitio donde se decide qué vale un plan y qué vale un bono.
+// Estaba escrito seis veces (ResumenTab, PlanesTab x2, ImpuestosTab x2,
+// RentabilidadTab) y ya divergía en los redondeos.
+// ---------------------------------------------------------------------------
+
+export type Plan = {
+  bono_tipo: string
+  nombre?: string | null
+  precio_base: number
+  precio_final?: number | null
+  iva: number
+}
+
+// Precio final (con IVA) de un plan. `precio_final` es un derivado guardado:
+// mientras exista en la tabla manda él, y si falta se recalcula desde la base.
+export function precioFinalPlan(plan?: Plan | null): number {
+  if (!plan) return 0
+  if (plan.precio_final != null) return Number(plan.precio_final)
+  return redondear(Number(plan.precio_base) * (1 + Number(plan.iva) / 100))
+}
+
+// Desglose fiscal de un plan: qué parte es base y qué parte es IVA repercutido.
+export function desglosePlan(plan?: Plan | null): { base: number, iva: number, final: number } {
+  const final = precioFinalPlan(plan)
+  const pct = Number(plan?.iva || 0)
+  const base = pct > 0 ? redondear(final / (1 + pct / 100)) : final
+  return { base, iva: redondear(final - base), final }
+}
+
+// Índice tipo de bono -> plan. Lo usan las cuatro pestañas.
+export function indicePlanes(planes: Plan[] = []): Record<string, Plan> {
+  const idx: Record<string, Plan> = {}
+  planes.forEach(p => { idx[p.bono_tipo] = p })
+  return idx
+}
+
+// Lo que ingresa un bono concreto: precio de su plan menos su descuento.
+export function precioBono(bono: any, idx: Record<string, Plan>): number {
+  return precioConDescuento(precioFinalPlan(idx[bono?.tipo]), bono)
+}
+
+export const redondear = (n: number) => Math.round(n * 100) / 100
+
 // Precio final de un bono aplicando su descuento (si tiene). precioBase = precio del plan.
 export function precioConDescuento(precioBase: number, bono: { descuento_tipo?: string|null, descuento_valor?: number|null }): number {
   if (!bono?.descuento_tipo || !bono?.descuento_valor) return precioBase

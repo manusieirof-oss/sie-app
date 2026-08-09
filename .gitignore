@@ -4,3 +4,6 @@ node_modules/
 .DS_Store
 *.log
 tsconfig.tsbuildinfo
+
+# Facturas reales: nóminas, NIFs y datos bancarios. Nunca al repositorio.
+Finanzas 26/

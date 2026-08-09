@@ -1,32 +1,31 @@
 'use client'
 import { useState } from 'react'
-import { precioConDescuento } from '@/lib/bonos'
+import { indicePlanes, precioBono as precioDeBono, precioFinalPlan } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any) {
+// mesRef ('YYYY-MM') existe para poder mirar un mes que no sea el de hoy, que es
+// lo que necesita el banco de pruebas. Por defecto es el mes en curso.
+export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef }: any) {
   const [vista, setVista] = useState<'general'|'evolucion'>('general')
 
-  const precioPorTipo: Record<string, number> = {}
-  planes.forEach((p: any) => {
-    precioPorTipo[p.bono_tipo] = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
-  })
+  const idxPlanes = indicePlanes(planes)
   const nombrePorTipo: Record<string, string> = {}
   planes.forEach((p: any) => { nombrePorTipo[p.bono_tipo] = p.nombre || p.bono_tipo })
 
   const bonosActivos = bonos.filter((b: any) => b.activo)
-  const precioBono = (b: any) => precioConDescuento(precioPorTipo[b.tipo] || 0, b)
+  const precioBono = (b: any) => precioDeBono(b, idxPlanes)
 
   const ingresosPrevistos = bonosActivos.reduce((a: number, b: any) => a + precioBono(b), 0)
-  const totalDescuentos = bonosActivos.reduce((a: number, b: any) => a + ((precioPorTipo[b.tipo] || 0) - precioBono(b)), 0)
+  const totalDescuentos = bonosActivos.reduce((a: number, b: any) => a + (precioFinalPlan(idxPlanes[b.tipo]) - precioBono(b)), 0)
   const ingresosCobrados = bonosActivos.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + precioBono(b), 0)
   const pendiente = bonosActivos.filter((b: any) => b.estado_pago === 'pendiente').reduce((a: number, b: any) => a + precioBono(b), 0)
   const impago = bonosActivos.filter((b: any) => b.estado_pago === 'impago').reduce((a: number, b: any) => a + precioBono(b), 0)
 
-  const mesActual = new Date().toISOString().slice(0, 7)
+  const mesActual = mesRef || new Date().toISOString().slice(0, 7)
   const gastosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual).reduce((a: number, g: any) => a + Number(g.importe), 0)
   const gastosFijosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual && g.tipo === 'fijo').reduce((a: number, g: any) => a + Number(g.importe), 0)
   const gastosVarMes = gastosMes - gastosFijosMes
@@ -56,8 +55,10 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[] }: any)
   const dataEvol = mesesOrden.map((clave) => {
     const [anio, mes] = clave.split('-').map(Number)
     const bonosMes = bonosHist.filter((b: any) => b.mes === mes && b.anio === anio)
-    const previsto = bonosMes.reduce((a: number, b: any) => a + (precioPorTipo[b.tipo] || 0), 0)
-    const cobrado = bonosMes.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + (precioPorTipo[b.tipo] || 0), 0)
+    // Con descuento, igual que la foto del mes actual. Sin esto, el mismo mes
+    // salía con dos cifras distintas en dos gráficas de esta misma pestaña.
+    const previsto = bonosMes.reduce((a: number, b: any) => a + precioBono(b), 0)
+    const cobrado = bonosMes.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + precioBono(b), 0)
     const gastoMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === clave).reduce((a: number, g: any) => a + Number(g.importe), 0)
     return {
       mes: `${MESES[mes-1]} ${String(anio).slice(2)}`,

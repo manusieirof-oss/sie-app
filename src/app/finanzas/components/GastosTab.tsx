@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 
-export default function GastosTab({ gastos, recargar }: any) {
+export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string|null>(null)
   const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
 
   // Cálculo en vivo del desglose a partir del total (importe con IVA incluido)
@@ -17,9 +18,10 @@ export default function GastosTab({ gastos, recargar }: any) {
   const irpfImporte = base * (irpfPct/100)
 
   async function crear() {
-    if (!form.concepto || !form.importe) { alert('Concepto e importe son obligatorios'); return }
+    if (!form.concepto || !form.importe) { setError('Concepto e importe son obligatorios'); return }
     setGuardando(true)
-    await supabase.from('gastos').insert({
+    setError(null)
+    const { error: errIns } = await supabase.from('gastos').insert({
       concepto: form.concepto,
       importe: total,
       base_imponible: Math.round(base*100)/100,
@@ -32,23 +34,37 @@ export default function GastosTab({ gastos, recargar }: any) {
       tiene_factura: form.tiene_factura,
       notas: form.notas || null,
     })
+    setGuardando(false)
+    // Cerrar el modal sin mirar el error daba un gasto "guardado" que no existía.
+    if (errIns) { setError(`No se ha podido guardar el gasto: ${errIns.message}`); return }
     setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
     setModal(false)
-    setGuardando(false)
     recargar()
   }
 
   async function eliminar(id: string) {
     if (!confirm('¿Eliminar este gasto?')) return
-    await supabase.from('gastos').delete().eq('id', id)
+    const { error: errDel } = await supabase.from('gastos').delete().eq('id', id)
+    if (errDel) { setError(`No se ha podido eliminar el gasto: ${errDel.message}`); return }
     recargar()
   }
 
-  const totalMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===new Date().toISOString().slice(0,7)).reduce((acc:number,g:any)=>acc+Number(g.importe),0)
+  const mesActual = mesRef || new Date().toISOString().slice(0,7)
+  const totalMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((acc:number,g:any)=>acc+Number(g.importe),0)
   const totalFijos = gastos.filter((g:any)=>g.tipo==='fijo').reduce((acc:number,g:any)=>acc+Number(g.importe),0)
 
+  // Fijos POR MES. El mismo dato se enseñaba abajo como "Fijos esperados/mes"
+  // siendo el acumulado de todo el histórico, así que con medio año cargado
+  // decía seis veces lo que toca pagar cada mes.
+  const fijosPorMes: Record<string, number> = {}
+  gastos.filter((g:any)=>g.tipo==='fijo'&&g.fecha).forEach((g:any)=>{
+    const m = g.fecha.slice(0,7); fijosPorMes[m] = (fijosPorMes[m]||0) + Number(g.importe)
+  })
+  const nMesesFijos = Object.keys(fijosPorMes).length
+  const fijosMedios = nMesesFijos ? Object.values(fijosPorMes).reduce((a,b)=>a+b,0)/nMesesFijos : 0
+
   // Media mensual de los últimos 3 meses (excluyendo el mes actual incompleto)
-  const hoy = new Date()
+  const hoy = mesRef ? new Date(`${mesRef}-01T12:00:00`) : new Date()
   const mesesRef: string[] = []
   for (let i=1; i<=3; i++) { const d=new Date(hoy.getFullYear(), hoy.getMonth()-i, 1); mesesRef.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`) }
   const totalUlt3 = gastos.filter((g:any)=>mesesRef.includes(g.fecha?.slice(0,7))).reduce((a:number,g:any)=>a+Number(g.importe),0)
@@ -66,6 +82,12 @@ export default function GastosTab({ gastos, recargar }: any) {
         <div className="card-title" style={{margin:0}}><span className="ct-l"><Ic name="recibo"/> Gastos</span></div>
         <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo gasto</button>
       </div>
+
+      {error && (
+        <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,padding:'8px 12px',marginBottom:10,fontSize:10,color:'var(--red)'}}>
+          <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>{error}
+        </div>
+      )}
 
       <div className="g2" style={{marginBottom:14}}>
         <div style={{background:'var(--redl)',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
@@ -86,8 +108,8 @@ export default function GastosTab({ gastos, recargar }: any) {
             <div style={{fontSize:8,color:'var(--grl)'}}>Media mensual (últ. 3 meses)</div>
           </div>
           <div>
-            <div style={{fontSize:18,fontWeight:300,color:'#7A5800'}}>{totalFijos.toFixed(0)}€</div>
-            <div style={{fontSize:8,color:'var(--grl)'}}>Fijos esperados/mes</div>
+            <div style={{fontSize:18,fontWeight:300,color:'#7A5800'}}>{fijosMedios.toFixed(0)}€</div>
+            <div style={{fontSize:8,color:'var(--grl)'}}>Fijos esperados/mes{nMesesFijos>1?` (media de ${nMesesFijos})`:''}</div>
           </div>
         </div>
         {catList.length>0 && (

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { precioConDescuento } from '@/lib/bonos'
+import { precioConDescuento, precioFinalPlan, redondear } from '@/lib/bonos'
 
 const G='#5A969E', GD='#3E7179'
 
@@ -12,22 +12,20 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
   const [valor, setValor] = useState('')
   const [ivaEdit, setIvaEdit] = useState('21')
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string|null>(null)
 
   const planPorTipo: Record<string, any> = {}
   planes.forEach((p:any)=>{ planPorTipo[p.bono_tipo] = p })
-
-  const finalDePlan = (p:any) => p ? (p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100) : 0
 
   // Por cada tipo: nº de pacientes activos e ingreso real (con descuentos aplicados)
   const activosPorTipo: Record<string, number> = {}
   const ingresoPorTipo: Record<string, number> = {}
   bonos.filter((b:any)=>b.activo).forEach((b:any)=>{
     activosPorTipo[b.tipo] = (activosPorTipo[b.tipo]||0)+1
-    const base = finalDePlan(planPorTipo[b.tipo])
-    ingresoPorTipo[b.tipo] = (ingresoPorTipo[b.tipo]||0) + precioConDescuento(base, b)
+    ingresoPorTipo[b.tipo] = (ingresoPorTipo[b.tipo]||0) + precioConDescuento(precioFinalPlan(planPorTipo[b.tipo]), b)
   })
 
-  const finalDe = (p:any) => p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base * (1 + p.iva/100) * 100) / 100
+  const finalDe = (p:any) => precioFinalPlan(p)
 
   function iniciarEdicion(p: any) {
     setEditando(p.id)
@@ -38,26 +36,30 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
 
   async function guardar(p: any) {
     setGuardando(true)
+    setError(null)
     const v = parseFloat(valor) || 0
     const iva = parseFloat(ivaEdit) || 0
     let base, finalP
     if (modo === 'final') {
       finalP = v
-      base = Math.round((v / (1 + iva/100)) * 100) / 100
+      base = redondear(v / (1 + iva/100))
     } else {
       base = v
-      finalP = Math.round(v * (1 + iva/100) * 100) / 100
+      finalP = redondear(v * (1 + iva/100))
     }
-    await supabase.from('planes').update({ precio_base: base, precio_final: finalP, iva }).eq('id', p.id)
-    setEditando(null)
+    const { error } = await supabase.from('planes').update({ precio_base: base, precio_final: finalP, iva }).eq('id', p.id)
     setGuardando(false)
+    if (error) { setError(`No se ha podido guardar el precio: ${error.message}`); return }
+    setEditando(null)
     recargar()
   }
 
   async function crearPlan(tipo: string) {
     setGuardando(true)
-    await supabase.from('planes').insert({ bono_tipo: tipo, nombre: nombreTipo(tipo), precio_base: 0, precio_final: 0, iva: 21, activo: true })
+    setError(null)
+    const { error } = await supabase.from('planes').insert({ bono_tipo: tipo, nombre: nombreTipo(tipo), precio_base: 0, precio_final: 0, iva: 21, activo: true })
     setGuardando(false)
+    if (error) { setError(`No se ha podido crear el plan: ${error.message}`); return }
     recargar()
   }
 
@@ -84,6 +86,12 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
     <div className="card">
       <div className="card-title"><span className="ct-l"><Ic name="euro"/> Planes y precios</span></div>
       <div style={{fontSize:10,color:'var(--grl)',marginBottom:14}}>Cada plan corresponde a un tipo de bono. Introduce el precio con IVA o el precio base; el IVA es configurable. Se muestra cuántos pacientes tienen cada bono activo y el ingreso que genera.</div>
+
+      {error && (
+        <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,padding:'8px 12px',marginBottom:10,fontSize:10,color:'var(--red)'}}>
+          <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>{error}
+        </div>
+      )}
 
       {bonosTipos.length===0 && (
         <div style={{fontSize:11,color:'var(--grl)',padding:10}}>No hay tipos de bono. Créalos en Ajustes → Bonos.</div>

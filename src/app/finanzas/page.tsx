@@ -18,6 +18,7 @@ export default function FinanzasPage() {
   const [bonosHist, setBonosHist] = useState<any[]>([])
   const [bonosTipos, setBonosTipos] = useState<BonoTipo[]>([])
   const [loading, setLoading] = useState(true)
+  const [fallos, setFallos] = useState<string[]>([])
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
   const router = useRouter()
 
@@ -34,16 +35,24 @@ export default function FinanzasPage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p }, { data: g }, { data: b }, { data: bh }] = await Promise.all([
+    setFallos([])
+    const [rp, rg, rb, rbh] = await Promise.all([
       supabase.from('planes').select('*').eq('activo', true).order('precio_base'),
       supabase.from('gastos').select('*').order('fecha', { ascending: false }),
       supabase.from('bonos').select('*').eq('activo', true),
-      supabase.from('bonos').select('tipo,estado_pago,mes,anio,created_at,activo').order('created_at'),
+      // El histórico necesita el descuento: sin él, la evolución mensual cobra
+      // de más y el mes en curso sale con dos cifras distintas según la gráfica.
+      supabase.from('bonos').select('tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor').order('created_at'),
     ])
-    setPlanes(p || [])
-    setGastos(g || [])
-    setBonos(b || [])
-    setBonosHist(bh || [])
+    // Una consulta que falla no puede pintarse como "0 €". Se dice.
+    const errores = ([['planes', rp], ['gastos', rg], ['bonos', rb], ['histórico de bonos', rbh]] as const)
+      .filter(([, r]) => r.error)
+      .map(([nombre, r]) => `${nombre}: ${r.error!.message}`)
+    setFallos(errores)
+    setPlanes(rp.data || [])
+    setGastos(rg.data || [])
+    setBonos(rb.data || [])
+    setBonosHist(rbh.data || [])
     setBonosTipos(await cargarBonosTipos(false))
     setLoading(false)
   }
@@ -72,6 +81,14 @@ export default function FinanzasPage() {
           </button>
         ))}
       </div>
+
+      {fallos.length > 0 && (
+        <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:10,color:'var(--red)',lineHeight:1.6}}>
+          <Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>
+          <strong>No se han podido leer todos los datos.</strong> Lo que ves debajo está incompleto:
+          <ul style={{margin:'4px 0 0 16px',padding:0}}>{fallos.map(f=><li key={f}>{f}</li>)}</ul>
+        </div>
+      )}
 
       {loading ? (
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>

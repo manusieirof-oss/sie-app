@@ -1,30 +1,38 @@
 'use client'
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { precioConDescuento } from '@/lib/bonos'
+import { indicePlanes, precioBono as precioDeBono } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[] }: any) {
+// mesRef ('YYYY-MM'): ver un mes distinto al de hoy. Por defecto, el mes en curso.
+export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], mesRef }: any) {
   const eur = (n:number) => `${n>=0?'':'−'}${Math.abs(n).toFixed(0)}€`
 
-  // Precio final por tipo de bono
-  const precioPorTipo: Record<string, number> = {}
-  planes.forEach((p:any)=>{ precioPorTipo[p.bono_tipo] = p.precio_final != null ? Number(p.precio_final) : Math.round(p.precio_base*(1+p.iva/100)*100)/100 })
-
+  const idxPlanes = indicePlanes(planes)
   const bonosActivos = bonos.filter((b:any)=>b.activo)
-  const precioBono = (b:any) => precioConDescuento(precioPorTipo[b.tipo]||0, b)
+  const precioBono = (b:any) => precioDeBono(b, idxPlanes)
 
   // FOTO DEL MES ACTUAL
-  const mesActual = new Date().toISOString().slice(0,7)
+  const mesActual = mesRef || new Date().toISOString().slice(0,7)
   const ingresosMes = bonosActivos.reduce((a:number,b:any)=>a+precioBono(b),0)
   const gastosMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((a:number,g:any)=>a+Number(g.importe),0)
   const beneficioMes = ingresosMes - gastosMes
   const margen = ingresosMes>0 ? (beneficioMes/ingresosMes)*100 : 0
 
-  // Gastos fijos mensuales -> punto de equilibrio
-  const gastosFijos = gastos.filter((g:any)=>g.tipo==='fijo').reduce((a:number,g:any)=>a+Number(g.importe),0)
+  // Gastos fijos MENSUALES -> punto de equilibrio.
+  // Antes esto sumaba todos los fijos del histórico entero sin filtrar mes, así
+  // que con medio año cargado el objetivo salía multiplicado por seis. Se toma
+  // la media de los meses que tienen fijos registrados, que es lo que se repite
+  // cada mes; si solo hay un mes, la media es ese mes.
+  const fijosPorMes: Record<string, number> = {}
+  gastos.filter((g:any)=>g.tipo==='fijo'&&g.fecha).forEach((g:any)=>{
+    const m = g.fecha.slice(0,7)
+    fijosPorMes[m] = (fijosPorMes[m]||0) + Number(g.importe)
+  })
+  const mesesConFijos = Object.keys(fijosPorMes).length
+  const gastosFijos = mesesConFijos ? Object.values(fijosPorMes).reduce((a,b)=>a+b,0)/mesesConFijos : 0
   // Ingreso medio por bono activo (para estimar cuántos bonos hacen falta)
   const ingresoMedioBono = bonosActivos.length ? ingresosMes/bonosActivos.length : 0
   const bonosParaEquilibrio = ingresoMedioBono>0 ? Math.ceil(gastosFijos/ingresoMedioBono) : 0
@@ -39,7 +47,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[] }:
   const dataEvol = mesesOrden.map((clave)=>{
     const [anio,mes] = clave.split('-').map(Number)
     const bonosMes = bonosHist.filter((b:any)=>b.mes===mes&&b.anio===anio)
-    const ingresos = bonosMes.reduce((a:number,b:any)=>a+(precioPorTipo[b.tipo]||0),0)
+    const ingresos = bonosMes.reduce((a:number,b:any)=>a+precioBono(b),0)
     const gastoMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===clave).reduce((a:number,g:any)=>a+Number(g.importe),0)
     return { mes:`${MESES[mes-1]} ${String(anio).slice(2)}`, Ingresos:Math.round(ingresos), Gastos:Math.round(gastoMes), Beneficio:Math.round(ingresos-gastoMes) }
   })
@@ -71,7 +79,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[] }:
       <div className="card" style={{margin:0,background:'var(--gl)',border:'1px solid var(--gm)'}}>
         <div style={{fontSize:11,fontWeight:600,color:'var(--gd)',marginBottom:6,display:'flex',alignItems:'center',gap:5}}><Ic name="progreso" size={13}/> Punto de equilibrio</div>
         <div style={{fontSize:10,color:'var(--gr)',lineHeight:1.6}}>
-          Tus gastos fijos son <strong>{gastosFijos.toFixed(0)}€/mes</strong>. Necesitas ingresar al menos esa cantidad para no perder dinero.
+          Tus gastos fijos son <strong>{gastosFijos.toFixed(0)}€/mes</strong>{mesesConFijos>1 && <span style={{color:'var(--grl)'}}> (media de {mesesConFijos} meses)</span>}. Necesitas ingresar al menos esa cantidad para no perder dinero.
           {ingresoMedioBono>0 && <> Con un ingreso medio de <strong>{ingresoMedioBono.toFixed(0)}€</strong> por bono, eso equivale a unos <strong>{bonosParaEquilibrio} bonos</strong> activos.</>}
         </div>
         <div style={{marginTop:10}}>
