@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Ic } from '@/lib/icons'
 import PlanesTab from './components/PlanesTab'
 import GastosTab from './components/GastosTab'
@@ -73,13 +74,20 @@ export default function FinanzasPage() {
 
   return (
     <div>
-      <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3,marginBottom:12,width:'fit-content'}}>
-        {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad']] as const).map(([k,ic,l])=>(
-          <button key={k} onClick={()=>setTab(k)}
-            style={{fontSize:11,padding:'7px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
-            <Ic name={ic} size={13}/> {l}
-          </button>
-        ))}
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3,width:'fit-content'}}>
+          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad']] as const).map(([k,ic,l])=>(
+            <button key={k} onClick={()=>setTab(k)}
+              style={{fontSize:11,padding:'7px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
+              <Ic name={ic} size={13}/> {l}
+            </button>
+          ))}
+        </div>
+        {/* Acceso al banco de pruebas. Va aquí y no en la navegación general
+            porque solo tiene sentido para quien ya está mirando Finanzas. */}
+        <Link href="/finanzas/prueba" style={{fontSize:10,color:'var(--grl)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}>
+          <Ic name="progreso" size={11}/> Ver con datos de 2026
+        </Link>
       </div>
 
       {fallos.length > 0 && (
