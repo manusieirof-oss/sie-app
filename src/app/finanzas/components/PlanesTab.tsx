@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { precioConDescuento, precioFinalPlan, redondear } from '@/lib/bonos'
+import { precioNeutro } from '@/lib/prevision'
 
 const G='#5A969E', GD='#3E7179'
 
@@ -176,7 +177,23 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
                 <div style={{fontSize:14,fontWeight:500,color:GD}}>{ingreso.toFixed(0)}€</div>
                 <div style={{fontSize:8,color:'var(--grl)'}}>ingreso / mes</div>
               </div>
+              {/* PRECIO NEUTRO. Hasta 2025 la actividad estaba exenta y los 63 €
+                  eran íntegros; ahora 10,93 € de cada 63 son de Hacienda. Esto
+                  dice lo que habría que cobrar para ingresar lo de antes.
+                  Se enseña, no se recomienda: subir un 21% tiene su coste en
+                  bajas y eso no lo sabe una pantalla. */}
+              {p.iva > 0 && (
+                <div style={{flex:1,textAlign:'center'}}>
+                  <div style={{fontSize:14,fontWeight:500,color:'var(--gr)'}}>{precioNeutro(final, p.iva).toFixed(2)}€</div>
+                  <div style={{fontSize:8,color:'var(--grl)'}}>para ingresar lo mismo</div>
+                </div>
+              )}
             </div>
+            {p.iva > 0 && (
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:6}}>
+                De {final.toFixed(2)} € te quedan <strong>{(final/(1+p.iva/100)).toFixed(2)} €</strong>; {(final-final/(1+p.iva/100)).toFixed(2)} € son IVA.
+              </div>
+            )}
           </div>
         )
       })}

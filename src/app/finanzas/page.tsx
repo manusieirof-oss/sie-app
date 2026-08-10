@@ -9,6 +9,7 @@ import GastosTab from './components/GastosTab'
 import ResumenTab from './components/ResumenTab'
 import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
+import PrevisionTab from './components/PrevisionTab'
 import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
 /**
@@ -42,7 +43,7 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
 }
 
 export default function FinanzasPage() {
-  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'|'rentabilidad'>('resumen')
+  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'|'rentabilidad'|'prevision'>('resumen')
   const [planes, setPlanes] = useState<any[]>([])
   const [gastos, setGastos] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
@@ -107,7 +108,7 @@ export default function FinanzasPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3,width:'fit-content'}}>
-          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad']] as const).map(([k,ic,l])=>(
+          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad'],['prevision','progreso','Previsión']] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:11,padding:'7px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
               <Ic name={ic} size={13}/> {l}
@@ -138,6 +139,7 @@ export default function FinanzasPage() {
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} bonosHist={bonosHist}/>}
           {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonos} bonosHist={bonosHist}/>}
+          {tab==='prevision' && <PrevisionTab planes={planes} bonos={bonos}/>}
         </>
       )}
     </div>
