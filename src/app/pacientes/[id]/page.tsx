@@ -13,6 +13,8 @@ import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
 import { registrarResultadoTest, textoMedida } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
+import ModalCobro from '@/components/ModalCobro'
+import { cargarTarifas } from '@/lib/tarifas'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
@@ -33,6 +35,12 @@ export default function FichaPacientePage() {
   }, [])
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)
+  // Cobro abierto desde el chip de la cuota. Mismo modal que la lista y Cobros.
+  const [cobrando, setCobrando] = useState(false)
+  const [cobrado, setCobrado] = useState(false)
+  const [planes, setPlanes] = useState<any[]>([])
+  const [servicios, setServicios] = useState<any[]>([])
+  const [descuentos, setDescuentos] = useState<any[]>([])
   const [molestias, setMolestias] = useState<any[]>([])
   const [patologias, setPatologias] = useState<any[]>([])
   const [medicamentos, setMedicamentos] = useState<any[]>([])
@@ -252,6 +260,18 @@ export default function FichaPacientePage() {
     ])
     setAlergias(alg||[]); setIntolerancias(intol||[]); setDeportesPac(dep||[]); setOperaciones(oper||[])
     setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
+
+    // Estado de pago DERIVADO del cobro, no de `bonos.estado_pago`.
+    if (b?.id) {
+      const { data: vp } = await supabase.from('v_bonos_pago').select('pagado').eq('bono_id', b.id).maybeSingle()
+      setCobrado(!!vp?.pagado)
+    } else setCobrado(false)
+
+    // Catálogos para el modal de cobro.
+    const { data: pl } = await supabase.from('planes').select('*').eq('activo', true)
+    setPlanes(pl || [])
+    const tar = await cargarTarifas()
+    setServicios(tar.servicios); setDescuentos(tar.descuentos)
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
     setTests(t||[]); setTestsDisp(td||[])
     // Las etiquetas son las que dan el filtro por zona del explorador de tests.
@@ -577,6 +597,8 @@ export default function FichaPacientePage() {
         <FichaTab
           pac={pac}
           bono={bono}
+          estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
+          onCobrar={()=>setCobrando(true)}
           recuperaciones={recuperaciones}
           editando={editando}
           form={form}
@@ -657,6 +679,18 @@ export default function FichaPacientePage() {
           bonosOpts={bonosOpts}
           onCerrar={()=>setModalBono(false)}
           onGuardado={cargar}
+        />
+      )}
+
+      {cobrando && pac && (
+        <ModalCobro
+          paciente={pac}
+          bono={bono}
+          planes={planes}
+          servicios={servicios}
+          descuentos={descuentos}
+          onCerrar={()=>setCobrando(false)}
+          onEmitida={r=>{ alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}
         />
       )}
 

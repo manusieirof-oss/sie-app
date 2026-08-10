@@ -4,10 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, BonoTipo, cambiarEstadoPago } from '@/lib/bonos'
 import Link from 'next/link'
 import ModalBono from './components/ModalBono'
+import ModalCobro from '@/components/ModalCobro'
 import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase } from '@/lib/tipos'
 import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
+import { cargarTarifas } from '@/lib/tarifas'
 
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -22,6 +24,13 @@ export default function PacientesPage() {
   const [modal, setModal] = useState(false)
   const [modalBonoPac, setModalBonoPac] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
+  // Cobro abierto desde el chip de la cuota. El modal es el mismo que usa el
+  // pilar Cobros: un solo camino de escritura, varias puertas de entrada.
+  const [cobrando, setCobrando] = useState<any>(null)
+  const [planes, setPlanes] = useState<any[]>([])
+  const [servicios, setServicios] = useState<any[]>([])
+  const [descuentos, setDescuentos] = useState<any[]>([])
+  const [pagoBono, setPagoBono] = useState<Record<string, boolean>>({})
   // Ronda de preguntas abierta, si la hay. Ver lib/rondas.ts.
   const [ronda, setRonda] = useState<Ronda|null>(null)
   const [respuestas, setRespuestas] = useState<Record<string,Respuesta>>({})
@@ -44,6 +53,21 @@ export default function PacientesPage() {
     ])
     setPacientes(p || [])
     setBonos(b || [])
+
+    // Estado de pago DERIVADO: un bono está pagado si existe un cobro que lo
+    // cubre. `bonos.estado_pago` solo se sigue leyendo para distinguir
+    // "pendiente" de "impago", que es un juicio y no un hecho.
+    const ids = (b || []).map((x:any)=>x.id)
+    if (ids.length) {
+      const { data: vp } = await supabase.from('v_bonos_pago').select('bono_id,pagado').in('bono_id', ids)
+      setPagoBono(Object.fromEntries((vp || []).map((r:any)=>[r.bono_id, !!r.pagado])))
+    } else setPagoBono({})
+
+    // Catálogos para el modal de cobro.
+    const { data: pl } = await supabase.from('planes').select('*').eq('activo', true)
+    setPlanes(pl || [])
+    const tar = await cargarTarifas()
+    setServicios(tar.servicios); setDescuentos(tar.descuentos)
     // Una sola consulta para toda la lista: doscientos pacientes son doscientas
     // consultas si se pide uno a uno, y se nota al abrir.
     setCitasPac(await resumenCitasFuturas((p || []).filter((x:any)=>x.estado==='activo').map((x:any)=>x.id)))
@@ -77,6 +101,17 @@ export default function PacientesPage() {
     return bonos.find(b=>b.paciente_id===pacienteId)
   }
 
+  /**
+   * Lo que se enseña en la columna Cuota. "Pagado" NO sale de `estado_pago`:
+   * sale de que exista un cobro. Si no lo hay, manda el juicio guardado
+   * (impago) y si no, pendiente.
+   */
+  function estadoPagoDe(bono: any): string {
+    if (!bono) return 'pendiente'
+    if (pagoBono[bono.id]) return 'pagado'
+    return bono.estado_pago === 'impago' ? 'impago' : 'pendiente'
+  }
+
 
   async function crearPaciente() {
     if (!nuevo.nombre || !nuevo.apellidos) { alert('Nombre y apellidos son obligatorios'); return }
@@ -104,7 +139,7 @@ export default function PacientesPage() {
     const q = buscar.toLowerCase()
     const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
     const bono = getBonoActual(p.id)
-    const matchPago = filtroPago==='todos' || bono?.estado_pago===filtroPago || (!bono && filtroPago==='pendiente')
+    const matchPago = filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
     const matchEstado = filtroEstado==='todos' || p.estado===filtroEstado
     const matchTipo = filtroTipo==='todos' || p.tipo_clase===filtroTipo
     // "Los que faltan" es lo que hace que la ronda se termine: recorrer cien filas con la
@@ -124,7 +159,7 @@ export default function PacientesPage() {
     return pacientes.filter(p=>{
       const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
       const bono = getBonoActual(p.id)
-      const matchPago = excluir==='pago' || filtroPago==='todos' || bono?.estado_pago===filtroPago || (!bono && filtroPago==='pendiente')
+      const matchPago = excluir==='pago' || filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
       const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
       return matchQ && matchPago && matchEstado && matchTipo
@@ -133,7 +168,7 @@ export default function PacientesPage() {
   function nPago(f: string) {
     const base = baseFiltrada('pago')
     if (f==='todos') return base.length
-    return base.filter(p=>{ const b=getBonoActual(p.id); return b?.estado_pago===f || (!b && f==='pendiente') }).length
+    return base.filter(p=>estadoPagoDe(getBonoActual(p.id))===f).length
   }
   function nEstado(f: string) {
     const base = baseFiltrada('estado')
@@ -218,7 +253,7 @@ export default function PacientesPage() {
           {filtrados.length===0 && <div className="loading">Sin resultados</div>}
           {filtrados.map(p=>{
             const bono = getBonoActual(p.id)
-            const pago = bono?.estado_pago || 'pendiente'
+            const pago = estadoPagoDe(bono)
             return (
               <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 90px 105px 170px':'1fr 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
@@ -264,7 +299,7 @@ export default function PacientesPage() {
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
                     <button className={`chip-ed ${pago==='impago'?'chip-ed-r':pago==='pendiente'?'chip-ed-a':''}`} title="Cambiar el estado de pago"
-                      onClick={e=>{e.preventDefault();e.stopPropagation();const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ bono, x:r.left, y:r.bottom+4 })}}>
+                      onClick={e=>{e.preventDefault();e.stopPropagation();const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ bono, paciente:p, x:r.left, y:r.bottom+4 })}}>
                       {pagoLabel[pago]||'—'} <Ic name="abajo" size={12}/>
                     </button>
                   ) : (
@@ -373,12 +408,23 @@ export default function PacientesPage() {
         </div>
       )}
 
-      {/* MENU ESTADO DE PAGO */}
+      {/* MENU ESTADO DE PAGO
+          "Pagado" ya no se escribe aquí: cobrar es emitir una factura, y eso
+          solo puede pasar por un sitio. El menú abre el mismo modal de cobro que
+          usa el pilar Cobros. Lo que sí se decide aquí es el juicio sobre lo que
+          sigue sin pagarse: pendiente o impago. */}
       {menuPago && (
         <>
           <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuPago(null)}/>
           <div className="menu-flot" style={{left:menuPago.x,top:menuPago.y}}>
-            {['pagado','pendiente','impago'].map(v=>(
+            <button className="menu-it" onClick={()=>{
+              const m = menuPago; setMenuPago(null)
+              setCobrando({ paciente: m.paciente, bono: m.bono })
+            }}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:pagoDot['pagado'],flexShrink:0}}/>
+              Cobrar y facturar…
+            </button>
+            {['pendiente','impago'].map(v=>(
               <button key={v} className="menu-it" onClick={async()=>{
                 const b = menuPago.bono; setMenuPago(null)
                 const r = await cambiarEstadoPago(b, v)
@@ -392,6 +438,18 @@ export default function PacientesPage() {
             ))}
           </div>
         </>
+      )}
+
+      {cobrando && (
+        <ModalCobro
+          paciente={cobrando.paciente}
+          bono={cobrando.bono}
+          planes={planes}
+          servicios={servicios}
+          descuentos={descuentos}
+          onCerrar={()=>setCobrando(null)}
+          onEmitida={r=>{ alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}
+        />
       )}
 
       {modalBonoPac && (

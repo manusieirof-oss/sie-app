@@ -21,16 +21,26 @@ export default function UsuariosTab({ perfilActual }: any) {
 
   async function cambiarRol(id: string, nuevoRol: string) {
     setGuardando(id)
-    const permisos = nuevoRol === 'admin' ? { finanzas: true } : { finanzas: false }
+    const permisos = nuevoRol === 'admin'
+      ? { finanzas: true, cobros: true }
+      : { finanzas: false, cobros: false }
     await supabase.from('perfiles').update({ rol: nuevoRol, permisos }).eq('id', id)
     await cargar()
     setGuardando(null)
   }
 
-  async function togglePermiso(id: string, permisos: any) {
+  // Dos permisos separados a propósito. COBROS es cobrar al paciente y emitir su
+  // factura; lo necesita cualquiera que atienda el mostrador. FINANZAS es ver el
+  // dinero de la clínica: ingresos, gastos, impuestos y rentabilidad.
+  // Quien tiene Finanzas puede cobrar; al revés no.
+  async function togglePermiso(id: string, permisos: any, cual: 'finanzas' | 'cobros') {
     setGuardando(id)
-    const nuevos = { ...permisos, finanzas: !permisos?.finanzas }
-    await supabase.from('perfiles').update({ permisos: nuevos }).eq('id', id)
+    const nuevos = { ...permisos, [cual]: !permisos?.[cual] }
+    // Dar Finanzas implica poder cobrar: si no, verías el dinero sin poder
+    // registrarlo, que no le sirve a nadie.
+    if (cual === 'finanzas' && nuevos.finanzas) nuevos.cobros = true
+    const { error } = await supabase.from('perfiles').update({ permisos: nuevos }).eq('id', id)
+    if (error) alert('No se ha podido cambiar el permiso: ' + error.message)
     await cargar()
     setGuardando(null)
   }
@@ -71,20 +81,28 @@ export default function UsuariosTab({ perfilActual }: any) {
               <option value="admin">Administrador</option>
             </select>
 
-            {/* TOGGLE FINANZAS */}
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="finanzas" size={11}/> Finanzas</span>
-              <button onClick={()=>togglePermiso(u.id, u.permisos)} disabled={guardando===u.id||u.rol==='admin'}
-                style={{width:38,height:21,borderRadius:99,background:u.permisos?.finanzas?'var(--g)':'var(--bm)',border:'none',cursor:u.rol==='admin'?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:u.rol==='admin'?0.5:1}}>
-                <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:u.permisos?.finanzas?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
-              </button>
-            </div>
+            {/* PERMISOS · cobrar y ver el dinero son cosas distintas */}
+            {([['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).map(([clave,icono,etiqueta])=>{
+              // Un admin los tiene siempre; con Finanzas, Cobros va implícito.
+              const activo = u.rol==='admin' || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true)
+              const fijo = u.rol==='admin' || (clave==='cobros' && u.permisos?.finanzas===true)
+              return (
+                <div key={clave} style={{display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name={icono} size={11}/> {etiqueta}</span>
+                  <button onClick={()=>togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo}
+                    title={fijo ? (u.rol==='admin' ? 'Los administradores lo tienen siempre' : 'Con Finanzas, cobrar va incluido') : undefined}
+                    style={{width:38,height:21,borderRadius:99,background:activo?'var(--g)':'var(--bm)',border:'none',cursor:fijo?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:fijo?0.5:1}}>
+                    <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:activo?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
+                  </button>
+                </div>
+              )
+            })}
           </div>
         ))
       )}
 
       <div style={{marginTop:14,padding:'10px 12px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,fontSize:9,color:'var(--gd)'}}>
-<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> Para añadir un nuevo usuario, créalo primero en Supabase → Authentication → Users, y luego aparecerá aquí para asignarle rol y permisos. Los administradores tienen acceso completo a finanzas automáticamente.
+<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Cobros</strong> permite cobrar al paciente y emitir su factura. <strong>Finanzas</strong> es el dinero de la clínica —ingresos, gastos, impuestos y rentabilidad— e incluye Cobros. Para añadir un usuario, créalo primero en Supabase → Authentication → Users y aparecerá aquí. Los administradores tienen los dos permisos siempre.
       </div>
     </div>
   )

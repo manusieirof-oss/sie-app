@@ -107,6 +107,46 @@ export default function ClinicaTab({ ajustes, set }: any) {
       </div>
     </div>
 
+    {/* DATOS FISCALES · se copian DENTRO de cada factura al emitirla.
+        Cambiarlos aquí no reescribe las facturas ya emitidas, a propósito: una
+        factura dice lo que decía el día que se expidió. */}
+    <div className="card">
+      <div className="card-title"><span className="ct-l"><Ic name="recibo"/> Datos fiscales · para las facturas</span></div>
+      <div style={{fontSize:10,color:'var(--grl)',marginBottom:12}}>
+        Son los del <strong>obligado a expedir la factura</strong>, no los del rótulo: nombre y apellidos, NIF y domicilio.
+        Se copian dentro de cada factura al emitirla, así que cambiarlos aquí no altera las que ya existan.
+      </div>
+
+      {(!ajustes.fiscal_nif || !ajustes.fiscal_nombre) && (
+        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,padding:'8px 12px',marginBottom:12,fontSize:10,color:'#7A5800',lineHeight:1.6}}>
+          <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>
+          Faltan datos. Una factura emitida con el nombre o el NIF en blanco <strong>no se puede corregir</strong>, solo rectificar. Rellénalos antes de cobrar a nadie.
+        </div>
+      )}
+
+      <div className="g2">
+        <div className="field" style={{gridColumn:'1/-1'}}>
+          <label>Nombre y apellidos (o razón social)</label>
+          <input className="input" value={ajustes.fiscal_nombre||''} onChange={e=>set('fiscal_nombre',e.target.value)} placeholder="Manuel Sieiro Filgueiras"/>
+        </div>
+        <div className="field"><label>NIF</label>
+          <input className="input" value={ajustes.fiscal_nif||''} onChange={e=>set('fiscal_nif',e.target.value)} placeholder="00000000A"/>
+        </div>
+        <div className="field"><label>Código postal</label>
+          <input className="input" value={ajustes.fiscal_cp||''} onChange={e=>set('fiscal_cp',e.target.value)} placeholder="36995"/>
+        </div>
+        <div className="field" style={{gridColumn:'1/-1'}}><label>Domicilio fiscal</label>
+          <input className="input" value={ajustes.fiscal_direccion||''} onChange={e=>set('fiscal_direccion',e.target.value)} placeholder="Avenida San Xoan 9, Bajo"/>
+        </div>
+        <div className="field"><label>Localidad</label>
+          <input className="input" value={ajustes.fiscal_localidad||''} onChange={e=>set('fiscal_localidad',e.target.value)} placeholder="Poio"/>
+        </div>
+        <div className="field"><label>Provincia</label>
+          <input className="input" value={ajustes.fiscal_provincia||''} onChange={e=>set('fiscal_provincia',e.target.value)} placeholder="Pontevedra"/>
+        </div>
+      </div>
+    </div>
+
     <div className="card">
       <div className="card-title"><span className="ct-l"><Ic name="calendario"/> Festivos, cierres y vacaciones</span></div>
       <div style={{fontSize:10,color:'var(--grl)',marginBottom:10}}>Se marcan en la vista Mes de la agenda. Los festivos nacionales y de Galicia ya vienen puestos; aquí añades los locales de Poio (o cambios), cierres de la clínica y vacaciones de trabajadores.</div>

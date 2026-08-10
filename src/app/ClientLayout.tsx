@@ -17,6 +17,10 @@ const NAV = [
   { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' },
 ]
 
+// Dos permisos distintos y a propósito: COBROS lo necesitan los empleados para
+// cobrar y facturar; FINANZAS es el dinero de la clínica y solo lo ve quien
+// deba. Tener Finanzas implica Cobros, no al revés.
+const NAV_COBROS   = { href: '/cobros',   icon: 'recibo',   label: 'Cobros' }
 const NAV_FINANZAS = { href: '/finanzas', icon: 'finanzas', label: 'Finanzas' }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -47,7 +51,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
         setPerfil(data)
         if (data?.rol==='admin' || data?.permisos?.finanzas===true) {
-          renovarCuotas().then(r => { if (r.ejecutado && r.renovados>0) console.log(`Cuotas renovadas: ${r.renovados}`) })
+          renovarCuotas().then(r => {
+            if (!r.ejecutado) return
+            if (r.renovados > 0) console.log(`Cuotas renovadas: ${r.renovados}`)
+            if (r.omitidos) console.log('Cuotas no renovadas (paciente de baja):', r.omitidos)
+            // Un bono que no se ha podido renovar deja a alguien sin cuota este
+            // mes. Que se vea, aunque de momento sea solo en la consola.
+            if (r.fallidos?.length) console.error('Cuotas que NO se han podido renovar:', r.fallidos)
+          })
         }
       })
     }
@@ -74,11 +85,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const todayStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const pageTitle: Record<string,string> = {
     '/agenda':'Agenda','/pacientes':'Pacientes','/entrenamiento':'Biblioteca','/taller':'Taller',
-    '/valoracion':'Valoración','/estadisticas':'Stats','/ajustes':'Ajustes','/finanzas':'Finanzas',
+    '/valoracion':'Valoración','/estadisticas':'Stats','/ajustes':'Ajustes','/finanzas':'Finanzas','/cobros':'Cobros',
   }
   const currentTitle = Object.entries(pageTitle).find(([k])=>pathname.startsWith(k))?.[1] ?? 'SIE'
 
   const veFinanzas = perfil?.rol==='admin' || perfil?.permisos?.finanzas===true
+  const veCobros   = veFinanzas || perfil?.permisos?.cobros===true
 
   return (
     <div className="shell">
@@ -96,7 +108,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <span className="nav-label">{n.label}</span>
           </Link>
         ))}
-        {(perfil?.rol==='admin' || perfil?.permisos?.finanzas===true) && (
+        {veCobros && (
+          <Link href={NAV_COBROS.href} className={`nav-item ${pathname.startsWith(NAV_COBROS.href)?'active':''}`}>
+            <Ic name={NAV_COBROS.icon} size={20} strokeWidth={2}/>
+            <span className="nav-label">{NAV_COBROS.label}</span>
+          </Link>
+        )}
+        {veFinanzas && (
           <Link href={NAV_FINANZAS.href} className={`nav-item ${pathname.startsWith(NAV_FINANZAS.href)?'active':''}`}>
             <Ic name={NAV_FINANZAS.icon} size={20} strokeWidth={2}/>
             <span className="nav-label">{NAV_FINANZAS.label}</span>

@@ -43,6 +43,8 @@ export async function cambiarEstadoPago(bono: { id: string, paciente_id: string,
 // RentabilidadTab) y ya divergía en los redondeos.
 // ---------------------------------------------------------------------------
 
+export const redondear = (n: number) => Math.round(n * 100) / 100
+
 export type Plan = {
   bono_tipo: string
   nombre?: string | null
@@ -79,18 +81,53 @@ export function precioBono(bono: any, idx: Record<string, Plan>): number {
   return precioConDescuento(precioFinalPlan(idx[bono?.tipo]), bono)
 }
 
-export const redondear = (n: number) => Math.round(n * 100) / 100
+export const TIPOS_DESCUENTO = [
+  { id: 'porcentaje', label: '% Porcentaje',   ayuda: 'Ej. 10 → un 10% menos' },
+  { id: 'fijo',       label: '€ Importe fijo', ayuda: 'Ej. 8 → ocho euros menos' },
+  { id: 'precio',     label: '€ Precio pactado', ayuda: 'Ej. 55 → paga 55 € y punto' },
+] as const
 
-// Precio final de un bono aplicando su descuento (si tiene). precioBase = precio del plan.
+export const LBL_DESCUENTO: Record<string, string> = {
+  porcentaje: 'Porcentaje', fijo: 'Importe fijo', precio: 'Precio pactado',
+}
+
+/**
+ * Lo que paga un bono, aplicando su descuento. precioBase = precio del plan.
+ *
+ * Tres formas de decir lo mismo, y la tercera existe por los céntimos: un
+ * porcentaje sobre 63 € deja cosas como 55,44 €, que nadie cobra. Con
+ * `precio` guardas directamente lo acordado —"a ella la cuota le queda en
+ * 55 €"— y el descuento se calcula al revés solo para enseñarlo.
+ *
+ * Es también lo más fiel a la conversación real: con un cliente se pacta un
+ * precio, no un coeficiente.
+ */
 export function precioConDescuento(precioBase: number, bono: { descuento_tipo?: string|null, descuento_valor?: number|null }): number {
-  if (!bono?.descuento_tipo || !bono?.descuento_valor) return precioBase
-  if (bono.descuento_tipo === 'porcentaje') {
-    return Math.max(0, Math.round(precioBase * (1 - bono.descuento_valor/100) * 100) / 100)
-  }
-  if (bono.descuento_tipo === 'fijo') {
-    return Math.max(0, Math.round((precioBase - bono.descuento_valor) * 100) / 100)
-  }
+  const valor = bono?.descuento_valor
+  if (!bono?.descuento_tipo || valor == null) return precioBase
+  // Ojo: el precio pactado SÍ admite 0 (una cuota regalada), así que no vale
+  // descartar por falsy como hacen los otros dos.
+  if (bono.descuento_tipo === 'precio') return Math.max(0, redondear(Number(valor)))
+  if (!valor) return precioBase
+  if (bono.descuento_tipo === 'porcentaje') return Math.max(0, redondear(precioBase * (1 - Number(valor)/100)))
+  if (bono.descuento_tipo === 'fijo')       return Math.max(0, redondear(precioBase - Number(valor)))
   return precioBase
+}
+
+/** Cuánto se le está descontando, en euros, sea cual sea la forma de decirlo. */
+export function importeDescuento(precioBase: number, bono: any): number {
+  return redondear(precioBase - precioConDescuento(precioBase, bono))
+}
+
+/** Cómo se le explica el descuento a alguien que mira la ficha. */
+export function textoDescuento(precioBase: number, bono: any): string | null {
+  if (!bono?.descuento_tipo || bono?.descuento_valor == null) return null
+  const final = precioConDescuento(precioBase, bono)
+  const ahorro = redondear(precioBase - final)
+  const motivo = bono.descuento_motivo ? ` (${bono.descuento_motivo})` : ''
+  if (bono.descuento_tipo === 'precio')     return `Precio pactado ${final.toFixed(2)} € · ${ahorro.toFixed(2)} € menos${motivo}`
+  if (bono.descuento_tipo === 'porcentaje') return `${bono.descuento_valor}% · ${ahorro.toFixed(2)} € menos${motivo}`
+  return `${Number(bono.descuento_valor).toFixed(2)} € menos${motivo}`
 }
 
 // Renueva las cuotas al entrar en un mes nuevo: por cada bono activo del mes anterior,
@@ -111,22 +148,48 @@ export async function renovarCuotas(modoPrueba = false) {
   const { data: activos, error } = await supabase.from('bonos').select('*').eq('activo', true)
   if (error) return { ejecutado: false, motivo: 'error_lectura', error: error.message, renovados: 0 }
 
-  const aRenovar = (activos || []).filter((b: any) => !(b.mes === mes && b.anio === anio))
+  // Se renueva la cuota de quien sigue siendo cliente: ACTIVO y PAUSA.
+  //
+  // Antes esto solo miraba `bonos.activo` y no el estado del paciente, así que a
+  // los de BAJA se les seguía generando cuota cada mes, inflando el "pendiente"
+  // de Finanzas con gente que ya no viene.
+  //
+  // La pausa SÍ se renueva, y es deliberado: pausa significa vacaciones o
+  // descanso, no se ha ido. Sigue pagando el mes y vuelve cuando termina el
+  // periodo. Dejar de renovarle la cuota le quitaría la plaza sin que nadie lo
+  // haya decidido.
+  const { data: pacientes, error: errPac } = await supabase.from('pacientes').select('id,estado')
+  if (errPac) return { ejecutado: false, motivo: 'error_lectura', error: errPac.message, renovados: 0 }
+  const estadoPaciente = new Map((pacientes || []).map((p: any) => [p.id, p.estado]))
+  const SIGUE_SIENDO_CLIENTE = ['activo', 'pausa']
+
+  const pendientesDeMes = (activos || []).filter((b: any) => !(b.mes === mes && b.anio === anio))
+  const aRenovar = pendientesDeMes.filter((b: any) => SIGUE_SIENDO_CLIENTE.includes(estadoPaciente.get(b.paciente_id)))
+  // Se cuentan aparte para poder decirlo, no para esconderlo.
+  const omitidos = {
+    baja:  pendientesDeMes.filter((b: any) => estadoPaciente.get(b.paciente_id) === 'baja').length,
+    sinPaciente: pendientesDeMes.filter((b: any) => !estadoPaciente.has(b.paciente_id)).length,
+  }
 
   if (modoPrueba) {
-    return { ejecutado: false, modoPrueba: true, renovados: aRenovar.length, detalle: aRenovar.map((b:any)=>({ paciente_id:b.paciente_id, tipo:b.tipo, desde:`${b.mes}/${b.anio}` })) }
+    return { ejecutado: false, modoPrueba: true, renovados: aRenovar.length, omitidos, detalle: aRenovar.map((b:any)=>({ paciente_id:b.paciente_id, tipo:b.tipo, desde:`${b.mes}/${b.anio}` })) }
   }
 
   let ok = 0
+  const fallidos: string[] = []
   for (const b of aRenovar) {
-    // Crear el bono nuevo del mes actual
+    // Crear el bono nuevo del mes actual. SIEMPRE pendiente: renovar la cuota no
+    // es cobrarla. La factura solo sale de un cobro, y esto no crea ninguno.
     const { error: errIns } = await supabase.from('bonos').insert({
       paciente_id: b.paciente_id, tipo: b.tipo, dias_semana: b.dias_semana,
       estado_pago: 'pendiente', mes, anio,
       fecha_inicio: new Date(anio, mes-1, 1).toISOString().split('T')[0], activo: true,
       descuento_tipo: b.descuento_tipo, descuento_valor: b.descuento_valor, descuento_motivo: b.descuento_motivo,
     })
-    if (errIns) continue // si falla (p.ej. duplicado), saltamos ese sin romper el resto
+    // Si falla (p.ej. duplicado), se salta ese sin romper el resto, pero se
+    // apunta: una renovación que se come tres bonos en silencio deja a tres
+    // pacientes sin cuota y nadie se entera hasta que alguien la echa en falta.
+    if (errIns) { fallidos.push(`${b.paciente_id}: ${errIns.message}`); continue }
     // Desactivar el viejo
     await supabase.from('bonos').update({ activo: false }).eq('id', b.id)
     // Registrar en el historial del paciente
@@ -141,5 +204,5 @@ export async function renovarCuotas(modoPrueba = false) {
 
   // Marcar que este mes ya se renovó
   await supabase.from('ajustes').upsert({ clave: 'ultima_renovacion', valor: claveMes }, { onConflict: 'clave' })
-  return { ejecutado: true, renovados: ok }
+  return { ejecutado: true, renovados: ok, omitidos, fallidos }
 }

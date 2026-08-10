@@ -29,5 +29,15 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ error }, { status: 500 })
 
-  return NextResponse.json({ ok: true, fecha: hoy })
+  // Devolver a activo a quien ya ha vuelto de su pausa. La ficha promete que
+  // "se reactivará automáticamente al volver" y hasta ahora no lo hacía nadie:
+  // el paciente se quedaba en pausa para siempre.
+  const { data: reactivados, error: errPausa } = await supabase.rpc('reactivar_pausas')
+  if (errPausa) {
+    // El paso de las citas ya ha ido bien; se informa del fallo sin fingir que
+    // todo salió, porque quien no vuelve de la pausa no aparece en la agenda.
+    return NextResponse.json({ ok: true, fecha: hoy, reactivados: null, error_pausas: errPausa.message }, { status: 207 })
+  }
+
+  return NextResponse.json({ ok: true, fecha: hoy, reactivados })
 }

@@ -25,7 +25,7 @@ function haceCuanto(f:string) {
   return a === 1 ? 'hace 1 año' : `hace ${a} años`
 }
 
-export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase }: any) {
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
   const [menuTipo, setMenuTipo] = useState<any>(null)
@@ -255,7 +255,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   const recPendientes = (recuperaciones||[]).filter((r:any)=>r.estado==='pendiente')
   const recVence = recPendientes.map((r:any)=>r.fecha_limite).filter(Boolean).sort()[0]
-  const hayAtencion = (alertas?.length>0) || recPendientes.length>0 || bono?.estado_pago==='impago'
+  const hayAtencion = (alertas?.length>0) || recPendientes.length>0 || estadoPago==='impago'
   const objPide = valoracion?.objetivos || []
   // El bloque se pinta SIEMPRE, aunque esté vacío. Antes se escondía si no había nada, y
   // desde que se pueden añadir a mano eso dejaba sin salida al paciente sin objetivos, que
@@ -287,7 +287,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               {recVence && <span style={{color:'var(--gr)',fontSize:12,marginLeft:6}}>· la primera vence el {fmtDia(recVence)}</span>}
             </div>
           )}
-          {bono?.estado_pago==='impago' && (
+          {estadoPago==='impago' && (
             <div className="at-i">Cuota de {mes}/{anio} marcada como impago</div>
           )}
         </div>
@@ -468,9 +468,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 )}
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,flexWrap:'wrap'}}>
-                <button className={`chip-ed ${bono.estado_pago==='impago'?'chip-ed-r':bono.estado_pago==='pendiente'?'chip-ed-a':''}`} title="Cambiar el estado de pago"
+                <button className={`chip-ed ${estadoPago==='impago'?'chip-ed-r':estadoPago==='pendiente'?'chip-ed-a':''}`} title="Cobrar o cambiar el estado"
                   onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ x:r.left, y:r.bottom+4 })}}>
-                  {LBL_PAGO[bono.estado_pago]||'—'} <Ic name="abajo" size={12}/>
+                  {LBL_PAGO[estadoPago]||'—'} <Ic name="abajo" size={12}/>
                 </button>
                 <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>Cambiar bono</button>
               </div>
@@ -562,7 +562,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         <>
           <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuPago(null)}/>
           <div className="menu-flot" style={{left:menuPago.x,top:menuPago.y}}>
-            {['pagado','pendiente','impago'].map(v=>(
+            {/* "Pagado" no se escribe aquí: cobrar es emitir una factura y eso
+                pasa por un solo sitio. Este menú abre el mismo modal de cobro
+                que el pilar Cobros y la lista de pacientes. */}
+            <button className="menu-it" onClick={()=>{setMenuPago(null); onCobrar?.()}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:DOT_PAGO['pagado'],flexShrink:0}}/>
+              Cobrar y facturar…
+            </button>
+            {['pendiente','impago'].map(v=>(
               <button key={v} className="menu-it" onClick={()=>{setMenuPago(null);cambiarPago(v)}}>
                 <span style={{width:7,height:7,borderRadius:'50%',background:DOT_PAGO[v],flexShrink:0}}/>
                 {LBL_PAGO[v]}

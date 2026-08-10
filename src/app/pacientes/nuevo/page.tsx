@@ -17,7 +17,9 @@ export default function NuevoPacientePage() {
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [viasCaptacion, setViasCaptacion] = useState<string[]>(VIAS_CAPTACION_FALLBACK)
-  const [bono, setBono] = useState({ tipo: '', estado_pago: 'pendiente' })
+  // El estado de pago no se elige al crear: un bono nace siempre pendiente y se
+  // cobra desde la ficha, que es donde se emite la factura.
+  const [bono, setBono] = useState({ tipo: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,7 +55,7 @@ export default function NuevoPacientePage() {
     await supabase.from('bonos').insert({
       paciente_id: pat.id, tipo: bono.tipo,
       dias_semana: bonosOpts.find(b => b.id === bono.tipo)?.dias_semana || 1,
-      estado_pago: bono.estado_pago, activo: true,
+      estado_pago: 'pendiente', activo: true,
       mes: new Date().getMonth() + 1, anio: new Date().getFullYear(),
       fecha_inicio: new Date().toISOString().split('T')[0]
     })
@@ -117,13 +119,12 @@ export default function NuevoPacientePage() {
                     <div style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${bono.tipo === b.id ? 'var(--g)' : 'var(--bd)'}`, background: bono.tipo === b.id ? 'var(--g)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{bono.tipo === b.id ? '✓' : ''}</div>
                   </div>
                 ))}
-                <div className="field" style={{ marginTop: 10 }}>
-                  <label>Estado de pago inicial</label>
-                  <select value={bono.estado_pago} onChange={e => setBono(b => ({ ...b, estado_pago: e.target.value }))}>
-                    <option value="pendiente">Pendiente</option>
-                    <option value="pagado">Pagado</option>
-                    <option value="impago">Impago</option>
-                  </select>
+                {/* El estado de pago ya no se elige aquí. Marcar "pagado" al crear
+                    el paciente dejaba un bono cobrado sin cobro ni factura detrás.
+                    El bono nace pendiente y se cobra desde su ficha, que es donde
+                    se emite la factura. */}
+                <div style={{ marginTop: 10, fontSize: 10, color: 'var(--grl)', lineHeight: 1.6 }}>
+                  El bono se crea <strong>pendiente de cobro</strong>. Para cobrarlo y emitir la factura, entra en la ficha del paciente.
                 </div>
               </div>
               <button type="submit" className="btn btn-p" style={{ width: '100%', justifyContent: 'center', padding: '10px 14px', fontSize: 13 }} disabled={saving}>

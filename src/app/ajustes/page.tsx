@@ -5,6 +5,7 @@ import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseLi
 import ClinicaTab from './components/ClinicaTab'
 import ValoracionTab from './components/ValoracionTab'
 import BonosTab from './components/BonosTab'
+import TarifasTab from './components/TarifasTab'
 import RecuperacionesTab from './components/RecuperacionesTab'
 import MantenimientoTab from './components/MantenimientoTab'
 import RondasTab from './components/RondasTab'
@@ -13,7 +14,7 @@ import CuentaTab from './components/CuentaTab'
 import { Ic } from '@/lib/icons'
 
 export default function AjustesPage() {
-  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'recuperaciones'|'rondas'|'mantenimiento'|'usuarios'|'cuenta'>('clinica')
+  const [tab, setTab] = useState<'clinica'|'valoracion'|'bonos'|'tarifas'|'recuperaciones'|'rondas'|'mantenimiento'|'usuarios'|'cuenta'>('clinica')
   const [perfilActual, setPerfilActual] = useState<any>(null)
   const [ajustes, setAjustes] = useState<Record<string,string>>({})
   const [guardando, setGuardando] = useState(false)
@@ -81,7 +82,7 @@ export default function AjustesPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
-          {([['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Bonos'],['recuperaciones','recuperar','Recuperaciones'],['rondas','checkbox','Rondas'],['mantenimiento','ajustes','Mantenimiento'],['cuenta','candado','Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','pacientes','Usuarios']]:[])] as const).map(([k,ic,l])=>(
+          {([['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Bonos'],['tarifas','euro','Tarifas'],['recuperaciones','recuperar','Recuperaciones'],['rondas','checkbox','Rondas'],['mantenimiento','ajustes','Mantenimiento'],['cuenta','candado','Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','pacientes','Usuarios']]:[])] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:11,padding:'7px 10px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
               <Ic name={ic} size={13}/> {l}
@@ -96,6 +97,7 @@ export default function AjustesPage() {
       {tab==='clinica'&&<ClinicaTab ajustes={ajustes} set={set}/>}
       {tab==='valoracion'&&<ValoracionTab ajustes={ajustes} set={set} comoNosConocio={comoNosConocio} setComoNosConocio={setComoNosConocio} tiposClase={tiposClase} setTiposClase={setTiposClase} tiposJornada={tiposJornada} setTiposJornada={setTiposJornada} tiposPlantilla={tiposPlantilla} setTiposPlantilla={setTiposPlantilla} deportesLista={deportesLista} setDeportesLista={setDeportesLista} nuevoComoNos={nuevoComoNos} setNuevoComoNos={setNuevoComoNos} nuevoJornada={nuevoJornada} setNuevoJornada={setNuevoJornada} nuevoPlantilla={nuevoPlantilla} setNuevoPlantilla={setNuevoPlantilla} nuevoDeporte={nuevoDeporte} setNuevoDeporte={setNuevoDeporte}/>}
       {tab==='bonos'&&<BonosTab/>}
+      {tab==='tarifas'&&<TarifasTab ajustes={ajustes} set={set}/>}
       {tab==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
       {tab==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
       {tab==='rondas'&&<RondasTab/>}
