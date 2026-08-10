@@ -11,6 +11,36 @@ import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
 import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 
+/**
+ * Un bono por paciente y mes, el más reciente.
+ *
+ * Cambiar el bono de alguien a mitad de mes deja dos filas del mismo mes: la
+ * vieja desactivada y la nueva activa. Sumarlas cobraba dos veces a esa persona
+ * en la evolución mensual y, peor, en el IVA repercutido de Impuestos.
+ *
+ * No vale filtrar por `activo`: un bono de mayo está desactivado porque lo
+ * sustituyó la renovación de junio, y sin él la gráfica perdería mayo entero.
+ * Lo que hay que resolver es la duplicidad dentro de un mismo mes.
+ *
+ * Esto desaparecerá cuando Finanzas cuente los ingresos desde `facturas`, que es
+ * lo facturado de verdad y no admite duplicados por construcción.
+ */
+function unoPorPacienteYMes(bonos: any[]): any[] {
+  const ultimo = new Map<string, any>()
+  for (const b of bonos) {
+    const clave = `${b.paciente_id}·${b.anio}-${b.mes}`
+    const previo = ultimo.get(clave)
+    // Vienen ordenados por created_at, pero no se da por hecho: manda el activo,
+    // y entre dos del mismo estado, el más nuevo.
+    if (!previo
+      || (b.activo && !previo.activo)
+      || (b.activo === previo.activo && String(b.created_at) > String(previo.created_at))) {
+      ultimo.set(clave, b)
+    }
+  }
+  return Array.from(ultimo.values())
+}
+
 export default function FinanzasPage() {
   const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'|'rentabilidad'>('resumen')
   const [planes, setPlanes] = useState<any[]>([])
@@ -43,7 +73,8 @@ export default function FinanzasPage() {
       supabase.from('bonos').select('*').eq('activo', true),
       // El histórico necesita el descuento: sin él, la evolución mensual cobra
       // de más y el mes en curso sale con dos cifras distintas según la gráfica.
-      supabase.from('bonos').select('tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor').order('created_at'),
+      // Y necesita `paciente_id` para poder quitar los duplicados de abajo.
+      supabase.from('bonos').select('paciente_id,tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor').order('created_at'),
     ])
     // Una consulta que falla no puede pintarse como "0 €". Se dice.
     const errores = ([['planes', rp], ['gastos', rg], ['bonos', rb], ['histórico de bonos', rbh]] as const)
@@ -53,7 +84,7 @@ export default function FinanzasPage() {
     setPlanes(rp.data || [])
     setGastos(rg.data || [])
     setBonos(rb.data || [])
-    setBonosHist(rbh.data || [])
+    setBonosHist(unoPorPacienteYMes(rbh.data || []))
     setBonosTipos(await cargarBonosTipos(false))
     setLoading(false)
   }
