@@ -138,7 +138,12 @@ export default function CobrosPage() {
    * salía en la lista, no se cobraba y no se facturaba. Dinero perdido en
    * silencio, que es la peor forma de perderlo.
    */
-  const filas = useMemo(() => {
+  /**
+   * Todas las filas del mes, sin filtrar por vista. De aquí salen las tres
+   * listas y los tres contadores, para que el número del botón y lo que ves al
+   * pulsarlo no puedan discrepar.
+   */
+  const base = useMemo(() => {
     const t = busca.trim().toLowerCase()
     return bonos
       .map(bono => {
@@ -162,16 +167,28 @@ export default function CobrosPage() {
       })
       .filter(f => !!f.p)
       .filter(f => !t || `${f.p.nombre} ${f.p.apellidos}`.toLowerCase().includes(t))
-      .filter(f => vista === 'todos' ? true
-                 : vista === 'vinieron' ? f.clases > 0
-                 : !f.pagado)
       // Los cobrados al final: mientras cobras te interesa lo que falta. Dentro
       // de los pendientes, primero el que más clases lleva sin pagar. Y las dos
       // filas de una misma persona, juntas: separadas parecen un error.
       .sort((a, b) => Number(a.pagado) - Number(b.pagado)
         || b.clases - a.clases
         || `${a.p.nombre} ${a.p.apellidos}`.localeCompare(`${b.p.nombre} ${b.p.apellidos}`))
-  }, [bonos, pacienteDe, pago, idx, busca, vista, clasesDe])
+  }, [bonos, pacienteDe, pago, idx, busca, clasesDe])
+
+  /** Qué entra en cada vista. Una sola definición para el contador y la lista. */
+  const DE_VISTA = {
+    pendientes: (f: any) => !f.pagado,
+    vinieron:   (f: any) => f.clases > 0,
+    todos:      () => true,
+  } as const
+
+  const cuenta = {
+    pendientes: base.filter(DE_VISTA.pendientes).length,
+    vinieron:   base.filter(DE_VISTA.vinieron).length,
+    todos:      base.length,
+  }
+
+  const filas = useMemo(() => base.filter(DE_VISTA[vista]), [base, vista])
 
   /**
    * Abre el cobro mirando antes si al paciente se le ha cobrado alguna vez.
@@ -236,11 +253,17 @@ export default function CobrosPage() {
         </select>
         <input className="input" style={{width:200}} placeholder="Buscar paciente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
+          {/* Con el número al lado se ve de un vistazo si los tres filtros dan lo
+              mismo, que es lo que pasa cuando nadie ha pagado todavía y todos
+              tienen clases: entonces no es que el filtro no haga nada, es que
+              las tres listas son la misma gente. */}
           {([['pendientes','Pendientes'],['vinieron','Han venido'],['todos','Todos']] as const).map(([k,l])=>(
             <button key={k} onClick={()=>setVista(k)}
               style={{fontSize:10,padding:'6px 11px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',
                 background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',
-                fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>{l}</button>
+                fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
+              {l} <span style={{opacity:.6}}>{cuenta[k]}</span>
+            </button>
           ))}
         </div>
         <div style={{flex:1}}/>
