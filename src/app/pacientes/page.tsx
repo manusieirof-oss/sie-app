@@ -11,6 +11,8 @@ import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, 
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 import { cargarTarifas } from '@/lib/tarifas'
 
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
 export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
@@ -49,7 +51,13 @@ export default function PacientesPage() {
     setLoading(true)
     const [{ data: p }, { data: b }] = await Promise.all([
       supabase.from('pacientes').select('*').order('nombre'),
-      supabase.from('bonos').select('*').eq('mes',mesActual).eq('anio',anioActual).eq('activo',true),
+      // Del mes en curso EN ADELANTE. Antes solo se leía el mes actual, así que
+      // una cuota dejada lista para septiembre no existía para esta lista: el
+      // paciente seguía saliendo con el botón "Asignar" y parecía que no se le
+      // había puesto nada. Justo lo contrario de lo que sirve esta columna, que
+      // es ver de un vistazo a quién le falta bono.
+      supabase.from('bonos').select('*').eq('activo',true)
+        .or(`anio.gt.${anioActual},and(anio.eq.${anioActual},mes.gte.${mesActual})`),
     ])
     setPacientes(p || [])
     setBonos(b || [])
@@ -97,9 +105,27 @@ export default function PacientesPage() {
     if (!r.ok) { alert('No se pudo guardar: ' + r.error); cargar() }
   }
 
+  /**
+   * El bono que le toca a este paciente: el de ESTE mes si lo tiene, y si no el
+   * más próximo de los que vengan.
+   *
+   * El orden importa. Alguien puede tener la cuota de agosto y además la de
+   * septiembre ya dejada lista; en la lista manda la de agosto, que es la que se
+   * está cobrando ahora. La de septiembre solo aparece cuando no hay otra.
+   *
+   * Las ventas puntuales (bonos de sesiones) se saltan: no son la cuota del
+   * paciente y enseñarlas en esa columna haría creer que tiene cuota quien solo
+   * compró ocho sesiones sueltas.
+   */
   function getBonoActual(pacienteId: string) {
-    return bonos.find(b=>b.paciente_id===pacienteId)
+    const suyos = bonos
+      .filter(b => b.paciente_id === pacienteId && b.sesiones_totales == null)
+      .sort((a,b) => (a.anio - b.anio) || (a.mes - b.mes))
+    return suyos.find(b => b.mes === mesActual && b.anio === anioActual) || suyos[0]
   }
+
+  /** true si ese bono todavía no ha empezado: es una cuota dejada preparada. */
+  const esFuturo = (b: any) => !!b && (b.anio > anioActual || (b.anio === anioActual && b.mes > mesActual))
 
   /**
    * Lo que se enseña en la columna Cuota. "Pagado" NO sale de `estado_pago`:
@@ -267,7 +293,16 @@ export default function PacientesPage() {
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
-                    <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span>
+                    <>
+                      <span className="badge badge-g">{bonoLabel[bono.tipo]||bono.tipo}</span>
+                      {/* Una cuota preparada para más adelante no es lo mismo que
+                          una vigente: se ve que tiene bono, y desde cuándo. */}
+                      {esFuturo(bono) && (
+                        <div style={{fontSize:8,color:'var(--gd)',marginTop:2,whiteSpace:'nowrap'}}>
+                          desde {MESES_CORTO[bono.mes-1]}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <button className="chip-ed chip-ed-n" title="Asignar un bono"
                       onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono:null })}}>

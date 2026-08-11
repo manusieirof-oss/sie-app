@@ -253,11 +253,35 @@ export default function FichaPacientePage() {
     setCobrando(r.bono)
   }
 
+  /**
+   * De las cuotas vigentes de un paciente, la que manda: la de ESTE mes si la
+   * tiene, y si no la más próxima de las que vengan.
+   *
+   * Antes se cogía sin más la última creada. Con la cuota de septiembre dejada
+   * lista en agosto, eso significaba que la ficha enseñaba —y ofrecía cobrar—
+   * la de septiembre mientras la de agosto seguía sin pagar. Se cobraría el mes
+   * equivocado sin que nada lo indicara.
+   *
+   * Los bonos de sesiones no son la cuota: se ven aparte, en sus tarjetas.
+   */
+  function cuotaVigente(lista: any[]) {
+    const hoy = new Date()
+    const m = hoy.getMonth()+1, a = hoy.getFullYear()
+    const cuotas = (lista||[])
+      .filter((b:any) => b.sesiones_totales == null)
+      .sort((x:any,y:any) => (x.anio - y.anio) || (x.mes - y.mes))
+    return cuotas.find((b:any) => b.mes === m && b.anio === a) || cuotas[0] || null
+  }
+
   async function cargar() {
     if (primeraCarga.current) setLoading(true)
     const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: c },{ data: s }] = await Promise.all([
       supabase.from('pacientes').select('*').eq('id',id).single(),
-      supabase.from('bonos').select('*').eq('paciente_id',id).eq('activo',true).order('created_at',{ascending:false}).limit(1).maybeSingle(),
+      // Todas sus cuotas vigentes, no solo la última creada. Cuál es "la suya"
+      // lo decide `cuotaVigente` de abajo, con la misma regla que la lista de
+      // pacientes: si las dos pantallas eligen distinto, la ficha te enseña una
+      // cuota y la lista otra para la misma persona.
+      supabase.from('bonos').select('*').eq('paciente_id',id).eq('activo',true).order('created_at',{ascending:false}),
       supabase.from('molestias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('patologias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('medicamentos').select('*').eq('paciente_id',id),
@@ -279,11 +303,13 @@ export default function FichaPacientePage() {
       leerLista(id as string,'operaciones'),
     ])
     setAlergias(alg||[]); setIntolerancias(intol||[]); setDeportesPac(dep||[]); setOperaciones(oper||[])
-    setPac(p); setBono(b); setMolestias(m||[]); setPatologias(pat||[])
+    const cuota = cuotaVigente(b||[])
+    setPac(p); setBono(cuota); setMolestias(m||[]); setPatologias(pat||[])
 
-    // Estado de pago DERIVADO del cobro, no de `bonos.estado_pago`.
-    if (b?.id) {
-      const { data: vp } = await supabase.from('v_bonos_pago').select('pagado').eq('bono_id', b.id).maybeSingle()
+    // Estado de pago DERIVADO del cobro, no de `bonos.estado_pago`. Se pregunta
+    // por la cuota que se está enseñando, no por cualquiera de las suyas.
+    if (cuota?.id) {
+      const { data: vp } = await supabase.from('v_bonos_pago').select('pagado').eq('bono_id', cuota.id).maybeSingle()
       setCobrado(!!vp?.pagado)
     } else setCobrado(false)
 
