@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BonoTipo, TIPOS_DESCUENTO } from '@/lib/bonos'
+import { BonoTipo, TIPOS_DESCUENTO, quitarBono } from '@/lib/bonos'
 import { esDeSesiones, caducidadDesde, textoModalidad } from '@/lib/bonoSesiones'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 
@@ -50,6 +50,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
+  const [confirmarQuitar, setConfirmarQuitar] = useState(false)
   // Segunda persona del bono de pareja. Se carga la lista solo si se pide: son
   // cientos de filas que no hacen falta en el caso normal.
   const [conPareja, setConPareja] = useState(false)
@@ -77,6 +78,15 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     const futuro = aa > hoy.getFullYear() || (aa === hoy.getFullYear() && mm > hoy.getMonth() + 1)
     return { valido: true, texto: `${MESES[mm-1]} de ${aa}`, futuro, dia: dd }
   })()
+
+  async function quitar() {
+    setGuardando(true); setError(null)
+    const r = await quitarBono(bonoActual)
+    setGuardando(false)
+    if (!r.ok) { setError(r.error); setConfirmarQuitar(false); return }
+    onGuardado?.()
+    onCerrar()
+  }
 
   async function guardar() {
     if (!form.tipo) return
@@ -299,6 +309,35 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
             {guardando ? '…' : conPareja && pareja ? '✓ Guardar los dos bonos' : '✓ Guardar bono'}
           </button>
         </div>
+
+        {/* QUITAR EL BONO. Va abajo, separado y en dos pasos, porque es lo único
+            de esta pantalla que destruye algo. Lo normal aquí es cambiar de
+            bono, no borrarlo, y no tiene que estar al lado de Guardar. */}
+        {bonoActual && (
+          <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid var(--bd)'}}>
+            {!confirmarQuitar ? (
+              <button className="btn btn-t btn-sm" style={{color:'var(--red)'}}
+                onClick={()=>{ setError(null); setConfirmarQuitar(true) }}>
+                Quitar este bono
+              </button>
+            ) : (
+              <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,padding:'10px 12px'}}>
+                <div style={{fontSize:10,color:'var(--red)',lineHeight:1.6,marginBottom:8}}>
+                  Se borra la cuota de <strong>{MESES[(bonoActual.mes||1)-1]} de {bonoActual.anio}</strong>.
+                  Úsalo solo si se asignó por error: si ya se cobró, no se podrá y habrá que hacer una rectificativa.
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <button className="btn btn-d btn-sm" onClick={()=>setConfirmarQuitar(false)}>No, dejarlo</button>
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-p btn-sm" style={{background:'var(--red)',borderColor:'var(--red)'}}
+                    onClick={quitar} disabled={guardando}>
+                    {guardando ? '…' : 'Sí, quitar el bono'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

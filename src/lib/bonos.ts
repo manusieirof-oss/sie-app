@@ -171,6 +171,41 @@ export function ingresoDelMes(bonos: any[] = [], mes: number, anio: number): any
     : b.activo)
 }
 
+/**
+ * Quita un bono asignado por error.
+ *
+ * SOLO SI NO SE HA COBRADO. Un bono cobrado tiene una factura detrás, y las
+ * facturas son inmutables por ley: borrarlo dejaría un documento fiscal
+ * apuntando a algo que ya no existe. Para deshacer un cobro está la
+ * rectificativa, que es lo que Hacienda espera ver.
+ *
+ * Si la comprobación falla, NO se borra. Ante la duda de si hay cobro, no
+ * tocar: equivocarse por no borrar se arregla; equivocarse borrando, no.
+ */
+export async function quitarBono(bono: { id: string, paciente_id: string, tipo?: string }) {
+  const { count, error } = await supabase.from('cobro_lineas')
+    .select('id', { count: 'exact', head: true }).eq('bono_id', bono.id)
+  if (error) {
+    return { ok: false as const, cobrado: false, error: `No se ha podido comprobar si está cobrado, así que no se ha borrado nada: ${error.message}` }
+  }
+  if ((count ?? 0) > 0) {
+    return { ok: false as const, cobrado: true, error: 'Este bono ya se ha cobrado y tiene factura. Para deshacerlo hay que emitir una factura rectificativa, no borrarlo.' }
+  }
+
+  const { error: errDel } = await supabase.from('bonos').delete().eq('id', bono.id)
+  if (errDel) return { ok: false as const, cobrado: false, error: `No se ha podido quitar el bono: ${errDel.message}` }
+
+  // Queda constancia de que alguien lo quitó. Un bono que desaparece sin rastro
+  // es indistinguible de un bono que nunca se asignó.
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: bono.paciente_id, tipo: 'cambio_bono',
+    titulo: 'Bono retirado',
+    descripcion: `Se ha quitado el bono${bono.tipo ? ` "${bono.tipo}"` : ''} sin llegar a cobrarse.`,
+    fecha: new Date().toISOString().split('T')[0],
+  })
+  return { ok: true as const }
+}
+
 // Renueva las cuotas al entrar en un mes nuevo: por cada bono activo del mes anterior,
 // crea uno nuevo del mes actual (mismo tipo y descuento, estado 'pendiente') y desactiva el viejo.
 // Se ejecuta como mucho una vez por mes (marca en ajustes: ultima_renovacion = 'YYYY-MM').
