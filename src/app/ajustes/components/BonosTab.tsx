@@ -42,9 +42,9 @@ export default function BonosTab() {
   const [bonos, setBonos] = useState<BonoTipo[]>([])
   const [loading, setLoading] = useState(true)
   const [modalBono, setModalBono] = useState(false)
-  const [nuevoBono, setNuevoBono] = useState({ nombre: '', dias_semana: 2, descripcion: '', modalidad: 'mensual', sesiones: '8', caduca_meses: '3' })
+  const [nuevoBono, setNuevoBono] = useState({ nombre: '', dias_semana: '2', descripcion: '', modalidad: 'mensual', sesiones: '8', caduca_meses: '3' })
   const [editando, setEditando] = useState<string | null>(null)
-  const [formEdit, setFormEdit] = useState({ nombre: '', dias_semana: 1, descripcion: '', modalidad: 'mensual', sesiones: '8', caduca_meses: '3' })
+  const [formEdit, setFormEdit] = useState({ nombre: '', dias_semana: '1', descripcion: '', modalidad: 'mensual', sesiones: '8', caduca_meses: '3' })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
@@ -70,7 +70,7 @@ export default function BonosTab() {
     const orden = bonos.length ? Math.max(...bonos.map(b => b.orden)) + 1 : 1
     const deSesiones = nuevoBono.modalidad === 'sesiones'
     const { error: err } = await supabase.from('bonos_tipos').insert({
-      id, nombre: nuevoBono.nombre.trim(), dias_semana: nuevoBono.dias_semana,
+      id, nombre: nuevoBono.nombre.trim(), dias_semana: parseInt(nuevoBono.dias_semana) || 1,
       descripcion: nuevoBono.descripcion || null, orden, activo: true,
       modalidad: nuevoBono.modalidad,
       // `sesiones` tiene que ir a null en los mensuales: hay un check en la base
@@ -79,7 +79,7 @@ export default function BonosTab() {
       caduca_meses: deSesiones ? (parseInt(nuevoBono.caduca_meses) || null) : null,
     })
     if (err) { setError('Error al guardar: ' + err.message); setGuardando(false); return }
-    setNuevoBono({ nombre: '', dias_semana: 2, descripcion: '', modalidad: 'mensual', sesiones: '8', caduca_meses: '3' })
+    setNuevoBono({ nombre: '', dias_semana: '2', descripcion: '', modalidad: 'mensual', sesiones: '8', caduca_meses: '3' })
     setModalBono(false)
     setGuardando(false)
     cargar()
@@ -87,7 +87,7 @@ export default function BonosTab() {
 
   function iniciarEdicion(b: BonoTipo) {
     setEditando(b.id)
-    setFormEdit({ nombre: b.nombre, dias_semana: b.dias_semana, descripcion: b.descripcion || '',
+    setFormEdit({ nombre: b.nombre, dias_semana: String(b.dias_semana ?? 1), descripcion: b.descripcion || '',
       modalidad: (b as any).modalidad || 'mensual',
       sesiones: String((b as any).sesiones ?? 8),
       caduca_meses: String((b as any).caduca_meses ?? 3) })
@@ -101,7 +101,7 @@ export default function BonosTab() {
     setGuardando(true)
     const deSesiones = formEdit.modalidad === 'sesiones'
     const { error: err } = await supabase.from('bonos_tipos').update({
-      nombre: formEdit.nombre.trim(), dias_semana: formEdit.dias_semana,
+      nombre: formEdit.nombre.trim(), dias_semana: parseInt(formEdit.dias_semana) || 1,
       descripcion: formEdit.descripcion || null,
       modalidad: formEdit.modalidad,
       sesiones: deSesiones ? (parseInt(formEdit.sesiones) || null) : null,
@@ -131,7 +131,10 @@ export default function BonosTab() {
         {bonos.map((b) => {
           if (editando === b.id) {
             return (
-              <div key={b.id} style={{ padding: 12, borderRadius: 8, background: 'var(--gl)', border: '1px solid var(--gm)', marginBottom: 6 }}>
+              // Ancho acotado. Estirado a toda la tarjeta, cada campo medía media
+              // pantalla y el ojo tenía que recorrerla entera para leer un
+              // "Días/semana" con un 3 dentro. Un formulario se lee en columna.
+              <div key={b.id} style={{ padding: 14, borderRadius: 8, background: 'var(--gl)', border: '1px solid var(--gm)', marginBottom: 6, maxWidth: 420 }}>
                 <div className="field"><label>Nombre</label><input className="input" value={formEdit.nombre} onChange={e => setFormEdit(p => ({ ...p, nombre: e.target.value }))} autoFocus /></div>
 
                 <SelectorModalidad valor={formEdit.modalidad} onChange={m => setFormEdit(p => ({ ...p, modalidad: m }))} />
@@ -142,7 +145,7 @@ export default function BonosTab() {
                     <div className="field"><label>Caduca a los (meses)</label><input className="input" type="number" value={formEdit.caduca_meses} onChange={e => setFormEdit(p => ({ ...p, caduca_meses: e.target.value }))} placeholder="vacío = no caduca" /></div>
                   </div>
                 ) : (
-                  <div className="field"><label>Días/semana</label><input className="input" type="number" value={formEdit.dias_semana} onChange={e => setFormEdit(p => ({ ...p, dias_semana: parseInt(e.target.value) || 1 }))} /></div>
+                  <div className="field"><label>Días/semana</label><input className="input" type="number" value={formEdit.dias_semana} onChange={e => setFormEdit(p => ({ ...p, dias_semana: e.target.value }))} /></div>
                 )}
 
                 <div className="field"><label>Descripción</label><input className="input" value={formEdit.descripcion} onChange={e => setFormEdit(p => ({ ...p, descripcion: e.target.value }))} /></div>
@@ -193,7 +196,7 @@ export default function BonosTab() {
                 <div className="field"><label>Caduca a los (meses)</label><input className="input" type="number" value={nuevoBono.caduca_meses} onChange={e => setNuevoBono(p => ({ ...p, caduca_meses: e.target.value }))} placeholder="vacío = no caduca" /></div>
               </div>
             ) : (
-              <div className="field"><label>Días por semana</label><input className="input" type="number" value={nuevoBono.dias_semana} onChange={e => setNuevoBono(p => ({ ...p, dias_semana: parseInt(e.target.value) || 1 }))} /></div>
+              <div className="field"><label>Días por semana</label><input className="input" type="number" value={nuevoBono.dias_semana} onChange={e => setNuevoBono(p => ({ ...p, dias_semana: e.target.value }))} /></div>
             )}
 
             <div className="field"><label>Descripción</label><input className="input" value={nuevoBono.descripcion} onChange={e => setNuevoBono(p => ({ ...p, descripcion: e.target.value }))} placeholder={nuevoBono.modalidad === 'sesiones' ? 'ej. Individual · 8 sesiones' : 'ej. 3 días/semana + 1 individual'} /></div>

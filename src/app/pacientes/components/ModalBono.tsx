@@ -3,6 +3,21 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BonoTipo, TIPOS_DESCUENTO } from '@/lib/bonos'
 import { esDeSesiones, caducidadDesde, textoModalidad } from '@/lib/bonoSesiones'
+import BuscadorPacientes from '@/components/BuscadorPacientes'
+
+/**
+ * BONOS DE PAREJA: no existe "la pareja" como cosa guardada.
+ *
+ * Se le da a cada uno su bono, con sus propias sesiones y su propia factura, y
+ * el precio del tipo "pareja" es lo que paga CADA UNO. Se decidió así porque es
+ * lo único que cuadra por los dos lados: el consumo sale solo (las citas de
+ * cada uno descuentan de su bono, sin tener que adivinar de quién era la
+ * sesión) y cada uno tiene un justificante a su nombre para deducírselo.
+ *
+ * Lo que sí resuelve esta pantalla es el trabajo doble: se asignan los dos de
+ * una vez. Si no, lo normal es asignárselo a uno, olvidarse del otro, y que
+ * las clases del segundo no descuenten de nada durante un mes.
+ */
 
 export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar, onGuardado }: {
   pacienteId: string
@@ -19,6 +34,20 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
+  // Segunda persona del bono de pareja. Se carga la lista solo si se pide: son
+  // cientos de filas que no hacen falta en el caso normal.
+  const [conPareja, setConPareja] = useState(false)
+  const [pareja, setPareja] = useState<any>(null)
+  const [lista, setLista] = useState<any[]>([])
+
+  async function activarPareja() {
+    setConPareja(true)
+    if (lista.length) return
+    const { data, error } = await supabase.from('pacientes')
+      .select('id,nombre,apellidos').in('estado',['activo','pausa']).order('nombre')
+    if (error) { setError(`No se ha podido cargar la lista de pacientes: ${error.message}`); return }
+    setLista((data || []).filter((p:any) => p.id !== pacienteId))
+  }
 
   const LBL_BONO: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
   const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -51,21 +80,28 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     // mañana el bono de 8 pasa a 10, quien compró 8 sigue teniendo 8. Mismo
     // criterio que congelar los datos dentro de la factura.
     if (esDeSesiones(tipoSel)) {
-      const { error } = await supabase.from('bonos').insert({
-        ...comun, paciente_id: pacienteId, estado_pago: 'pendiente', mes, anio,
+      const cad = caducidadDesde(hoyStr, tipoSel?.caduca_meses)
+      // Los dos de la pareja llevan bono propio, con sus sesiones y su factura.
+      const destinos = [pacienteId, ...(conPareja && pareja ? [pareja.id] : [])]
+      const filas = destinos.map(pid => ({
+        ...comun, paciente_id: pid, estado_pago: 'pendiente', mes, anio,
         fecha_inicio: hoyStr, activo: true,
         sesiones_totales: tipoSel?.sesiones || null,
-        caduca: caducidadDesde(hoyStr, tipoSel?.caduca_meses),
-      })
+        caduca: cad,
+      }))
+      const { error } = await supabase.from('bonos').insert(filas)
+      // Se insertan los dos de golpe: o entran los dos o no entra ninguno. Si
+      // fueran dos inserciones seguidas y fallara la segunda, uno se quedaría
+      // con bono y el otro no, y nadie se enteraría hasta el mes siguiente.
       if (error) { setError(`No se ha podido asignar el bono: ${error.message}`); setGuardando(false); return }
-      const cad = caducidadDesde(hoyStr, tipoSel?.caduca_meses)
-      await supabase.from('eventos_paciente').insert({
-        paciente_id: pacienteId, tipo: 'cambio_bono',
+      await supabase.from('eventos_paciente').insert(destinos.map(pid => ({
+        paciente_id: pid, tipo: 'cambio_bono',
         titulo: `Bono de sesiones: ${LBL_BONO[form.tipo]||form.tipo}`,
         descripcion: `${tipoSel?.sesiones} sesiones. Pendiente de cobro.` +
-          (cad ? ` Válido hasta ${new Date(cad+'T12:00:00').toLocaleDateString('es-ES')}.` : ''),
+          (cad ? ` Válido hasta ${new Date(cad+'T12:00:00').toLocaleDateString('es-ES')}.` : '') +
+          (destinos.length > 1 ? ' Bono de pareja: cada uno tiene sus sesiones y su factura.' : ''),
         fecha: hoyStr,
-      })
+      })))
       setGuardando(false)
       onGuardado?.()
       onCerrar()
@@ -148,6 +184,31 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
           </select>
         </div>
 
+        {esDeSesiones(tipoElegido) && (
+          <div className="field">
+            <label>¿Es un bono de pareja?</label>
+            {!conPareja ? (
+              <button className="btn btn-s btn-sm" onClick={activarPareja} style={{width:'100%'}}>
+                + Asignárselo también a otra persona
+              </button>
+            ) : (
+              <>
+                <BuscadorPacientes
+                  pacientes={lista}
+                  valor={pareja?.id || ''}
+                  onElegir={(p:any)=>setPareja(p)}
+                  onLimpiar={()=>{ setPareja(null); setConPareja(false) }}
+                  placeholder="Buscar a la otra persona..."/>
+                <div style={{fontSize:9,color:'var(--grl)',marginTop:5,lineHeight:1.6}}>
+                  Cada uno se lleva sus <strong>{tipoElegido?.sesiones} sesiones</strong> y su propia factura,
+                  y el precio del bono es lo que paga <strong>cada uno</strong>. Así las clases de cada
+                  cual descuentan de su bono y los dos tienen justificante a su nombre.
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="field"><label>Descuento (opcional) · se mantiene cada mes al renovar</label>
           <div style={{display:'flex',gap:6}}>
             <select className="input" style={{flex:'0 0 140px'}} value={form.descuento_tipo} onChange={e=>setForm(p=>({...p,descuento_tipo:e.target.value}))}>
@@ -182,7 +243,9 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         <div style={{display:'flex',gap:8,marginTop:8}}>
           <button className="btn btn-d btn-sm" onClick={onCerrar}>Cancelar</button>
           <div style={{flex:1}}/>
-          <button className="btn btn-p" onClick={guardar} disabled={guardando}>{guardando?'…':'✓ Guardar bono'}</button>
+          <button className="btn btn-p" onClick={guardar} disabled={guardando || (conPareja && !pareja)}>
+            {guardando ? '…' : conPareja && pareja ? '✓ Guardar los dos bonos' : '✓ Guardar bono'}
+          </button>
         </div>
       </div>
     </div>

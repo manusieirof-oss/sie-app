@@ -184,3 +184,58 @@ export async function atarCitaABono(citaId: string, pacienteId: string, fecha: s
   if (error) return { ok: false as const, error: error.message }
   return { ok: true as const, bonoId: r.bonoId }
 }
+
+/**
+ * Renueva un bono de sesiones: crea otro igual, listo para cobrar.
+ *
+ * Copia el TIPO, no el bono viejo: las sesiones y la caducidad se releen de
+ * `bonos_tipos` porque el nuevo se compra hoy, con las condiciones de hoy. Si
+ * mientras tanto subiste el bono de 8 a 10, el que renueva se lleva 10.
+ *
+ * El viejo NO se toca. Está agotado o caducado, que es información de lo que
+ * pasó, y desactivarlo borraría el rastro de las sesiones que sí usó.
+ *
+ * Nace 'pendiente': renovar no es cobrar. Quien llama abre el cobro después, y
+ * la factura sale de ahí y solo de ahí.
+ */
+export async function renovarBonoSesiones(bonoViejo: { bono_id: string, paciente_id: string, tipo: string }) {
+  const { data: tipo, error: errTipo } = await supabase
+    .from('bonos_tipos').select('*').eq('id', bonoViejo.tipo).maybeSingle()
+  if (errTipo) return { ok: false as const, error: errTipo.message }
+  if (!tipo) return { ok: false as const, error: `El tipo de bono "${bonoViejo.tipo}" ya no existe en Ajustes` }
+  if (!tipo.sesiones) return { ok: false as const, error: `"${tipo.nombre}" ya no es un bono de sesiones` }
+
+  // El descuento del paciente se mantiene: lo pactado con él sigue en pie.
+  const { data: viejo } = await supabase.from('bonos')
+    .select('descuento_tipo,descuento_valor,descuento_motivo,dias_semana')
+    .eq('id', bonoViejo.bono_id).maybeSingle()
+
+  const hoy = new Date()
+  const hoyStr = hoy.toISOString().split('T')[0]
+  const { data: nuevo, error } = await supabase.from('bonos').insert({
+    paciente_id: bonoViejo.paciente_id,
+    tipo: bonoViejo.tipo,
+    dias_semana: viejo?.dias_semana ?? tipo.dias_semana ?? 1,
+    estado_pago: 'pendiente',
+    mes: hoy.getMonth() + 1,
+    anio: hoy.getFullYear(),
+    fecha_inicio: hoyStr,
+    activo: true,
+    sesiones_totales: tipo.sesiones,
+    caduca: caducidadDesde(hoyStr, tipo.caduca_meses),
+    descuento_tipo: viejo?.descuento_tipo ?? null,
+    descuento_valor: viejo?.descuento_valor ?? null,
+    descuento_motivo: viejo?.descuento_motivo ?? null,
+  }).select().single()
+  if (error) return { ok: false as const, error: error.message }
+
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: bonoViejo.paciente_id,
+    tipo: 'cambio_bono',
+    titulo: `Bono renovado: ${tipo.nombre}`,
+    descripcion: `${tipo.sesiones} sesiones. Pendiente de cobro.`,
+    fecha: hoyStr,
+  })
+
+  return { ok: true as const, bono: nuevo }
+}

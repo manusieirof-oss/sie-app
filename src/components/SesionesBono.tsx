@@ -12,10 +12,12 @@ import {
 // las citas. Este componente no suma ni resta nada: si lo hiciera, sería una
 // segunda forma de contar el consumo y acabaría discrepando de la primera.
 
-export default function SesionesBono({ bono, nombre, compacto }: {
+export default function SesionesBono({ bono, nombre, compacto, onRenovar }: {
   bono: BonoSesiones
   nombre?: string
   compacto?: boolean
+  /** Renovar: crea otro bono igual y abre el cobro. Solo aparece si se acabó. */
+  onRenovar?: (bono: BonoSesiones) => void
 }) {
   const estado = estadoDe(bono)
   const color = COLOR_ESTADO[estado]
@@ -67,6 +69,16 @@ export default function SesionesBono({ bono, nombre, compacto }: {
            : estado === 'agotado' ? <span><strong>{LBL_ESTADO[estado]}.</strong> Toca ofrecerle uno nuevo.</span>
            : <span>Le quedan {bono.restantes} {bono.restantes===1?'sesión':'sesiones'}. Buen momento para hablar de la renovación.</span>}
         </div>
+      )}
+
+      {/* El botón va donde está el aviso, no en una pantalla aparte: el momento
+          de renovar es este, mirando que se acabó. También sale con "pocas",
+          porque lo que interesa es renovar ANTES de que se quede a cero y haya
+          que mandarle a casa. */}
+      {onRenovar && estado !== 'ok' && (
+        <button className="btn btn-p btn-sm" style={{marginTop:8,width:'100%'}} onClick={()=>onRenovar(bono)}>
+          <Ic name="euro" size={12}/> Renovar y cobrar
+        </button>
       )}
     </div>
   )

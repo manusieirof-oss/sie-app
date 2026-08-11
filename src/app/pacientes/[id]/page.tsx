@@ -15,7 +15,7 @@ import { registrarResultadoTest, textoMedida } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import ModalCobro from '@/components/ModalCobro'
 import { cargarTarifas } from '@/lib/tarifas'
-import { bonosDe, type BonoSesiones } from '@/lib/bonoSesiones'
+import { bonosDe, renovarBonoSesiones, type BonoSesiones } from '@/lib/bonoSesiones'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
@@ -36,8 +36,11 @@ export default function FichaPacientePage() {
   }, [])
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)
-  // Cobro abierto desde el chip de la cuota. Mismo modal que la lista y Cobros.
-  const [cobrando, setCobrando] = useState(false)
+  // Cobro abierto desde el chip de la cuota o desde "Renovar y cobrar". Guarda
+  // QUÉ bono se está cobrando, no un simple sí/no: desde esta pantalla se puede
+  // cobrar la cuota mensual o un bono de sesiones recién renovado, y el modal
+  // tiene que recibir el que toca.
+  const [cobrando, setCobrando] = useState<any>(null)
   const [cobrado, setCobrado] = useState(false)
   const [planes, setPlanes] = useState<any[]>([])
   const [servicios, setServicios] = useState<any[]>([])
@@ -236,6 +239,20 @@ export default function FichaPacientePage() {
 
   // Solo se muestra el "Cargando ficha…" la primera vez. En los refrescos posteriores
   // la pantalla no se desmonta, así que no se pierde el scroll ni parpadea todo.
+  /**
+   * Renovar un bono agotado: crea el nuevo y abre el cobro encima, en un clic.
+   *
+   * Son dos pasos y tienen que ir en este orden. La factura sale de un cobro, y
+   * un cobro necesita un bono al que engancharse: no se puede facturar algo que
+   * todavía no existe. Si la creación falla, no se abre nada y se dice por qué.
+   */
+  async function renovarSesiones(bs: BonoSesiones) {
+    const r = await renovarBonoSesiones(bs)
+    if (!r.ok) { alert(`No se ha podido renovar el bono: ${r.error}`); return }
+    await cargar()
+    setCobrando(r.bono)
+  }
+
   async function cargar() {
     if (primeraCarga.current) setLoading(true)
     const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: c },{ data: s }] = await Promise.all([
@@ -606,7 +623,8 @@ export default function FichaPacientePage() {
           bono={bono}
           estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
           bonosSesiones={bonosSesiones}
-          onCobrar={()=>setCobrando(true)}
+          onRenovarSesiones={renovarSesiones}
+          onCobrar={()=>setCobrando(bono)}
           recuperaciones={recuperaciones}
           editando={editando}
           form={form}
@@ -693,12 +711,12 @@ export default function FichaPacientePage() {
       {cobrando && pac && (
         <ModalCobro
           paciente={pac}
-          bono={bono}
+          bono={cobrando}
           planes={planes}
           servicios={servicios}
           descuentos={descuentos}
-          onCerrar={()=>setCobrando(false)}
-          onEmitida={r=>{ alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}
+          onCerrar={()=>setCobrando(null)}
+          onEmitida={r=>{ setCobrando(null); alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}
         />
       )}
 

@@ -148,13 +148,18 @@ export default function CobrosPage() {
         // Impago es un JUICIO sobre algo que sigue sin cobrarse: "vino y no paga".
         // Nunca lo contrario: "pagado" no se escribe a mano, sale del cobro.
         const impago = !pagado && bono?.estado_pago === 'impago'
-        // Las clases van en la fila de la cuota. Repetirlas en la del bono de
-        // sesiones haría leer las mismas doce clases dos veces.
-        const clases = esVentaPuntual(bono) ? 0 : (clasesDe[bono.paciente_id] || 0)
-        return { p, bono, pagado, impago, importe, clases }
+        // Las clases son del PACIENTE, no del bono, y por eso se cuentan igual
+        // en las dos filas: filtrar "han venido" y ordenar por urgencia miran a
+        // la persona, y quien tiene un bono de sesiones sin pagar ha venido
+        // exactamente igual que quien tiene la cuota sin pagar.
+        //
+        // Lo que no se puede es IMPRIMIR el número dos veces, que parecería el
+        // doble de clases. Eso lo decide `mostrarClases`, que es cosa de la
+        // vista y no del filtro. Meterlo en `clases` fue lo que se cargó el
+        // filtro "Han venido": los bonos de sesiones nunca aparecían en él.
+        const clases = clasesDe[bono.paciente_id] || 0
+        return { p, bono, pagado, impago, importe, clases, mostrarClases: !esVentaPuntual(bono) }
       })
-      // Un bono cuyo paciente no está en la lista (de baja a mitad de mes) se
-      // cae aquí, pero no en silencio: se dice abajo.
       .filter(f => !!f.p)
       .filter(f => !t || `${f.p.nombre} ${f.p.apellidos}`.toLowerCase().includes(t))
       .filter(f => vista === 'todos' ? true
@@ -187,6 +192,16 @@ export default function CobrosPage() {
     if (error) { setAviso(`No se ha podido marcar: ${error.message}`); return }
     cargar()
   }
+
+  /**
+   * Bonos de este mes cuyo paciente ya no sale en la lista porque se le dio de
+   * baja. Tienen cuota generada y puede que sin cobrar, así que desaparecer sin
+   * más sería perder dinero de vista: si alguien se da de baja el día 20 y no
+   * había pagado el mes, ese cobro sigue existiendo.
+   */
+  const sinPacienteEnLista = useMemo(
+    () => bonos.filter(b => !pacienteDe[b.paciente_id]).length,
+    [bonos, pacienteDe])
 
   const totalPendiente = filas.filter(f=>!f.pagado).reduce((a,f)=>a+f.importe, 0)
   const nPagados = Object.values(pago).filter((r:any)=>r.pagado).length
@@ -242,6 +257,16 @@ export default function CobrosPage() {
           <Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>
           <strong>Faltan datos por leer.</strong> Lo de abajo está incompleto:
           <ul style={{margin:'4px 0 0 16px',padding:0}}>{fallos.map(f=><li key={f}>{f}</li>)}</ul>
+        </div>
+      )}
+
+      {sinPacienteEnLista > 0 && (
+        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:8,padding:'9px 13px',marginBottom:12,fontSize:10,color:'#7A5800',lineHeight:1.6}}>
+          <Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>
+          {sinPacienteEnLista === 1
+            ? <>Hay <strong>1 cuota</strong> de este mes de alguien que ya está de baja, y no sale en la lista.</>
+            : <>Hay <strong>{sinPacienteEnLista} cuotas</strong> de este mes de gente que ya está de baja, y no salen en la lista.</>}
+          {' '}Si se dieron de baja sin pagar el mes, ese cobro sigue pendiente: búscalos en su ficha.
         </div>
       )}
 
@@ -317,7 +342,7 @@ export default function CobrosPage() {
            : vista==='vinieron' ? 'Nadie con cuota ha venido todavía este mes.'
            : 'Nadie tiene cuota asignada este mes.'}
         </div>
-      ) : filas.map(({ p, bono, pagado, impago, importe, clases }) => (
+      ) : filas.map(({ p, bono, pagado, impago, importe, clases, mostrarClases }) => (
         <div key={bono.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderRadius:8,
                                 border:`1px solid ${impago?'var(--red)':'var(--bd)'}`,marginBottom:6,
                                 background:pagado?'var(--gl)':impago?'var(--redl)':'var(--w)'}}>
@@ -334,7 +359,7 @@ export default function CobrosPage() {
               {esVentaPuntual(bono) && <span style={{color:'var(--gd)'}}>{' · '}{bono.sesiones_totales} sesiones</span>}
               {!p.dni && ' · sin DNI'}
               {/* Lo que ya ha entrenado sin haber pagado. Cuanto más alto, más urge. */}
-              {!pagado && clases > 0 && (
+              {!pagado && mostrarClases && clases > 0 && (
                 <span style={{color:clases>=4?'var(--red)':'#7A5800',fontWeight:600}}>
                   {' · '}{clases} {clases===1?'clase':'clases'} ya
                 </span>
