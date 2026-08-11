@@ -207,18 +207,46 @@ export async function renovarCuotas(modoPrueba = false) {
   // Los bonos POR SESIONES no se renuevan: se compran, se gastan y se acaban.
   // Sin esto, el día 1 de cada mes se le regalaría al paciente otro bono de 8
   // sesiones, y otro al mes siguiente. Se reconocen porque tienen sesiones.
+  // A QUIEN YA TIENE CUOTA DE ESTE MES NO SE LE CREA OTRA.
+  //
+  // Desde que se puede elegir cuándo empieza un bono, se puede dejar la cuota de
+  // septiembre puesta en agosto. Si esa persona conservaba además su bono de
+  // agosto, el día 1 esto veía un bono viejo sin renovar y le creaba una SEGUNDA
+  // cuota de septiembre: dos filas, dos cobros y, si alguien no se fija, dos
+  // facturas por el mismo mes.
+  //
+  // Se mira contra todos los bonos activos, no solo contra los que se van a
+  // renovar, porque el que ya existe es justamente el que no está en esa lista.
+  const yaTieneDelMes = new Set(
+    (activos || [])
+      .filter((b: any) => b.sesiones_totales == null && b.mes === mes && b.anio === anio)
+      .map((b: any) => b.paciente_id))
+
   const pendientesDeMes = (activos || [])
     .filter((b: any) => b.sesiones_totales == null)
     .filter((b: any) => !(b.mes === mes && b.anio === anio))
+    .filter((b: any) => !yaTieneDelMes.has(b.paciente_id))
   const aRenovar = pendientesDeMes.filter((b: any) => SIGUE_SIENDO_CLIENTE.includes(estadoPaciente.get(b.paciente_id)))
   // Se cuentan aparte para poder decirlo, no para esconderlo.
   const omitidos = {
     baja:  pendientesDeMes.filter((b: any) => estadoPaciente.get(b.paciente_id) === 'baja').length,
     sinPaciente: pendientesDeMes.filter((b: any) => !estadoPaciente.has(b.paciente_id)).length,
+    yaTenian: yaTieneDelMes.size,
   }
 
   if (modoPrueba) {
     return { ejecutado: false, modoPrueba: true, renovados: aRenovar.length, omitidos, detalle: aRenovar.map((b:any)=>({ paciente_id:b.paciente_id, tipo:b.tipo, desde:`${b.mes}/${b.anio}` })) }
+  }
+
+  // Retirar los bonos de meses pasados de quien ya tiene el de este mes puesto
+  // a mano. Si se dejaran activos, quedarían dos cuotas vigentes por persona y
+  // Finanzas sumaría las dos: el previsto del mes saldría al doble.
+  const superados = (activos || []).filter((b: any) =>
+    b.sesiones_totales == null
+    && yaTieneDelMes.has(b.paciente_id)
+    && (b.anio < anio || (b.anio === anio && b.mes < mes)))
+  for (const b of superados) {
+    await supabase.from('bonos').update({ activo: false }).eq('id', b.id)
   }
 
   let ok = 0
@@ -250,5 +278,5 @@ export async function renovarCuotas(modoPrueba = false) {
 
   // Marcar que este mes ya se renovó
   await supabase.from('ajustes').upsert({ clave: 'ultima_renovacion', valor: claveMes }, { onConflict: 'clave' })
-  return { ejecutado: true, renovados: ok, omitidos, fallidos }
+  return { ejecutado: true, renovados: ok, omitidos, fallidos, retirados: superados.length }
 }

@@ -88,11 +88,22 @@ export default function CobrosPage() {
     // ni en pendientes, ni en el total. Viene, entrena y no lo ve nadie.
     const desdeM = `${anio}-${String(mes).padStart(2,'0')}-01`
     const hastaM = new Date(anio, mes, 0).toISOString().split('T')[0]
+    // EL LÍMITE VA EXPLÍCITO. Supabase devuelve como mucho 1000 filas si no se
+    // le dice otra cosa, y no avisa de que ha cortado. Agosto de 2026 ya tiene
+    // 830 citas entre realizadas y programadas: en cuanto un mes pase de mil,
+    // parte de las clases dejarían de contarse y la lista diría que alguien ha
+    // venido menos veces de las que ha venido. Un recuento que se queda corto
+    // en silencio es peor que no tenerlo.
+    const TOPE_CITAS = 5000
     const rcit = await supabase.from('citas')
       .select('paciente_id, pacientes(nombre,apellidos)')
       .gte('fecha', desdeM).lte('fecha', hastaM)
       .in('estado', ['realizada','programada'])
+      .limit(TOPE_CITAS)
     if (rcit.error) errs.push(`citas del mes: ${rcit.error.message}`)
+    if ((rcit.data?.length || 0) >= TOPE_CITAS) {
+      errs.push(`hay más de ${TOPE_CITAS} clases este mes y solo se han leído las primeras: el recuento de clases se queda corto`)
+    }
 
     const cuenta: Record<string, number> = {}
     const nombreDe: Record<string, string> = {}

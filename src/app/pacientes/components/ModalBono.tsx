@@ -19,6 +19,8 @@ import BuscadorPacientes from '@/components/BuscadorPacientes'
  * las clases del segundo no descuenten de nada durante un mes.
  */
 
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
 export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar, onGuardado }: {
   pacienteId: string
   bonoActual: any
@@ -31,6 +33,20 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     descuento_tipo: bonoActual?.descuento_tipo || '',
     descuento_valor: bonoActual?.descuento_valor ? String(bonoActual.descuento_valor) : '',
     descuento_motivo: bonoActual?.descuento_motivo || '',
+    /**
+     * CUÁNDO EMPIEZA. Antes era siempre hoy, y eso obligaba a esperar al día 1
+     * para dar de alta a nadie: un bono creado el 20 de agosto era una cuota de
+     * agosto, aunque la persona fuera a empezar en septiembre.
+     *
+     * De esta fecha salen tres cosas: el MES que cubre la cuota (y por tanto en
+     * qué lista de Cobros aparece), la FRACCIÓN de alta si empieza a mitad de
+     * mes, y la CADUCIDAD si es un bono de sesiones.
+     *
+     * Sirve sobre todo para las valoraciones: alguien que se valora el 20 de
+     * agosto y empieza el 1 de septiembre se deja listo el mismo día, sin
+     * ensuciar agosto con una cuota que nadie va a cobrar.
+     */
+    empieza: new Date().toISOString().split('T')[0],
   })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
@@ -53,11 +69,24 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
   const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
   const tipoElegido = bonosOpts.find(b=>b.id===form.tipo)
 
+  /** A qué mes va a parar la cuota según la fecha escrita. Solo para enseñarlo. */
+  const mesDeLaCuota = (() => {
+    const [aa, mm, dd] = (form.empieza || '').split('-').map(Number)
+    if (!aa || !mm || !dd || mm < 1 || mm > 12) return { valido: false, texto: '', futuro: false, dia: 1 }
+    const hoy = new Date()
+    const futuro = aa > hoy.getFullYear() || (aa === hoy.getFullYear() && mm > hoy.getMonth() + 1)
+    return { valido: true, texto: `${MESES[mm-1]} de ${aa}`, futuro, dia: dd }
+  })()
+
   async function guardar() {
     if (!form.tipo) return
     setGuardando(true)
-    const hoy = new Date()
-    const mes = hoy.getMonth()+1, anio = hoy.getFullYear()
+    // El mes de la cuota sale de la fecha de inicio, no del día en que se
+    // teclea. Se parte a mano en vez de `new Date(...)` para no depender de la
+    // zona horaria: "2026-09-01" interpretado en UTC puede caer en agosto.
+    const [aa, mm, dd] = form.empieza.split('-').map(Number)
+    if (!aa || !mm || !dd) { setError('La fecha de inicio no es válida'); setGuardando(false); return }
+    const mes = mm, anio = aa
     const tipoSel = bonosOpts.find(b=>b.id===form.tipo)
     const diasSemana = tipoSel?.dias_semana || 1
     const descTipo = form.descuento_tipo || null
@@ -67,7 +96,12 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       descuento_tipo: descTipo, descuento_valor: descValor,
       descuento_motivo: descTipo ? (form.descuento_motivo || null) : null,
     }
+    const inicio = form.empieza
+    // El evento del historial lleva la fecha de HOY: la asignación ocurre
+    // ahora, aunque la cuota empiece a correr en septiembre. Fecharlo en el
+    // futuro metería el apunte fuera de sitio en la cronología del paciente.
     const hoyStr = new Date().toISOString().split('T')[0]
+    const empiezaDespues = inicio > hoyStr
 
     // UN BONO DE SESIONES NO SUSTITUYE A NADA.
     //
@@ -80,12 +114,12 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     // mañana el bono de 8 pasa a 10, quien compró 8 sigue teniendo 8. Mismo
     // criterio que congelar los datos dentro de la factura.
     if (esDeSesiones(tipoSel)) {
-      const cad = caducidadDesde(hoyStr, tipoSel?.caduca_meses)
+      const cad = caducidadDesde(inicio, tipoSel?.caduca_meses)
       // Los dos de la pareja llevan bono propio, con sus sesiones y su factura.
       const destinos = [pacienteId, ...(conPareja && pareja ? [pareja.id] : [])]
       const filas = destinos.map(pid => ({
         ...comun, paciente_id: pid, estado_pago: 'pendiente', mes, anio,
-        fecha_inicio: hoyStr, activo: true,
+        fecha_inicio: inicio, activo: true,
         sesiones_totales: tipoSel?.sesiones || null,
         caduca: cad,
       }))
@@ -99,7 +133,8 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         titulo: `Bono de sesiones: ${LBL_BONO[form.tipo]||form.tipo}`,
         descripcion: `${tipoSel?.sesiones} sesiones. Pendiente de cobro.` +
           (cad ? ` Válido hasta ${new Date(cad+'T12:00:00').toLocaleDateString('es-ES')}.` : '') +
-          (destinos.length > 1 ? ' Bono de pareja: cada uno tiene sus sesiones y su factura.' : ''),
+          (destinos.length > 1 ? ' Bono de pareja: cada uno tiene sus sesiones y su factura.' : '') +
+          (empiezaDespues ? ` Empieza el ${new Date(inicio+'T12:00:00').toLocaleDateString('es-ES')}.` : ''),
         fecha: hoyStr,
       })))
       setGuardando(false)
@@ -136,7 +171,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       // un fallo no pueda dejar al paciente sin cuota.
       const { error } = await supabase.from('bonos').insert({
         ...comun, paciente_id: pacienteId, estado_pago: 'pendiente', mes, anio,
-        fecha_inicio: hoyStr, activo: true,
+        fecha_inicio: inicio, activo: true,
       })
       if (error) { setError(`No se ha podido asignar el bono: ${error.message}`); setGuardando(false); return }
       if (sustituye) await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
@@ -148,8 +183,9 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     await supabase.from('eventos_paciente').insert({
       paciente_id: pacienteId, tipo: 'cambio_bono',
       titulo: `${mismoMes ? 'Bono corregido' : 'Bono asignado'}: ${LBL_BONO[form.tipo]||form.tipo}`,
-      descripcion: `${mismoMes ? 'Se corrige la cuota de este mes.' : 'Pendiente de cobro.'}${txtDesc}`,
-      fecha: new Date().toISOString().split('T')[0],
+      descripcion: `${mismoMes ? 'Se corrige la cuota de este mes.' : 'Pendiente de cobro.'}${txtDesc}`
+        + (empiezaDespues ? ` Cuota de ${MESES[mes-1].toLowerCase()}, empieza el ${new Date(inicio+'T12:00:00').toLocaleDateString('es-ES')}.` : ''),
+      fecha: hoyStr,
     })
 
     setGuardando(false)
@@ -182,6 +218,22 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
               <option key={b.id} value={b.id}>{b.nombre} · {textoModalidad(b)}</option>
             ))}
           </select>
+        </div>
+
+        {/* La fecha manda sobre el mes de la cuota, así que se dice a qué mes va
+            a parar. Sin eso, poner el 1 de septiembre y no ver la cuota en la
+            lista de agosto parece un fallo. */}
+        <div className="field">
+          <label>Empieza el</label>
+          <input className="input" type="date" value={form.empieza}
+            onChange={e=>setForm(p=>({...p, empieza: e.target.value}))}/>
+          <div style={{fontSize:9,color: mesDeLaCuota.futuro ? 'var(--gd)' : 'var(--grl)', marginTop:5, lineHeight:1.6}}>
+            {mesDeLaCuota.valido
+              ? <>Cuota de <strong>{mesDeLaCuota.texto}</strong>. Aparecerá en Cobros en ese mes, no antes.
+                  {mesDeLaCuota.dia > 1 && !esDeSesiones(tipoElegido) &&
+                    <> Al cobrarla podrás dejarla en la parte del mes que le corresponda.</>}</>
+              : <span style={{color:'var(--red)'}}>Fecha no válida.</span>}
+          </div>
         </div>
 
         {esDeSesiones(tipoElegido) && (
