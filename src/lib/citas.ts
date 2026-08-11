@@ -81,9 +81,35 @@ function fila(fecha: string, d: DatosCita) {
   }
 }
 
+/**
+ * A qué bono de sesiones se ata una cita de ese paciente en esa fecha, y
+ * cuántas plazas libres le quedan a ese bono.
+ *
+ * Un solo sitio para las dos formas de crear citas. Cuando esto estaba solo
+ * dentro de `crearCitas`, crear una cita suelta desde la agenda no descontaba
+ * nada: la misma clase consumía o no según por qué botón se hubiera entrado.
+ *
+ * Devuelve `{bonoId: null}` si no tiene ninguno disponible o si ha caducado, y
+ * entonces la cita se crea igual sin consumir: será de cuota mensual, o se le
+ * habrán acabado las sesiones. Se avisa, no se impide.
+ */
+async function bonoDisponible(pacienteId: string, fecha: string) {
+  const { data } = await supabase.from('v_bonos_sesiones')
+    .select('bono_id, libres, caduca')
+    .eq('paciente_id', pacienteId)
+    .gt('libres', 0)
+    .order('fecha_inicio')
+    .limit(1)
+  const b = data?.[0]
+  if (!b) return { bonoId: null as string | null, libres: 0 }
+  if (b.caduca && b.caduca < fecha) return { bonoId: null as string | null, libres: 0 }
+  return { bonoId: b.bono_id as string, libres: Number(b.libres) || 0 }
+}
+
 /** Una sola cita. Devuelve la fila creada, que hace falta para enganchar recuperaciones. */
-export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true; cita: any } | { ok: false; error: string }> {
-  const { data, error } = await supabase.from('citas').insert(fila(fecha, d)).select().single()
+export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true; cita: any; sinBono?: number } | { ok: false; error: string }> {
+  const { bonoId } = await bonoDisponible(d.pacienteId, fecha)
+  const { data, error } = await supabase.from('citas').insert({ ...fila(fecha, d), bono_id: bonoId }).select().single()
   if (error) return { ok: false, error: error.message }
   return { ok: true, cita: data }
 }
@@ -95,9 +121,22 @@ export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true
  * saber cuáles entraron. Si un lote falla se para y se dice cuántas se escribieron, que es
  * lo que hace falta para arreglarlo a mano.
  */
-export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: true; creadas: number } | { ok: false; error: string; creadas: number }> {
+export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: true; creadas: number; sinBono?: number } | { ok: false; error: string; creadas: number }> {
   if (!fechas.length) return { ok: true, creadas: 0 }
-  const filas = fechas.map(f => fila(f, d))
+
+  // ¿Tira de un bono de sesiones? Se resuelve UNA vez, antes del bucle: la
+  // función de Postgres devuelve el bono más antiguo con sesiones libres, y si
+  // se preguntara por cada cita daría el mismo hasta agotarlo. Se reparten aquí.
+  //
+  // Las citas que no encuentren bono se crean igual y no consumen nada: serán de
+  // cuota mensual, o se le habrán acabado las sesiones. Se avisa, no se impide:
+  // negarse a citar a alguien porque no le quedan sesiones es un bloqueo que se
+  // esquiva por fuera de la app y entonces la cita no queda registrada.
+  const { bonoId, libres } = await bonoDisponible(d.pacienteId, fechas[0])
+
+  const filas = fechas.map((f, i) => ({ ...fila(f, d), bono_id: i < libres ? bonoId : null }))
+  const sinBono = bonoId ? Math.max(0, fechas.length - libres) : 0
+
   let creadas = 0
   for (let i = 0; i < filas.length; i += 50) {
     const lote = filas.slice(i, i + 50)
@@ -105,7 +144,7 @@ export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: 
     if (error) return { ok: false, error: error.message, creadas }
     creadas += lote.length
   }
-  return { ok: true, creadas }
+  return { ok: true, creadas, sinBono }
 }
 
 /** Con estas o menos citas por delante, el aviso se pone en rojo. */

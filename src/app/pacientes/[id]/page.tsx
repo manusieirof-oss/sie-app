@@ -15,6 +15,7 @@ import { registrarResultadoTest, textoMedida } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import ModalCobro from '@/components/ModalCobro'
 import { cargarTarifas } from '@/lib/tarifas'
+import { bonosDe, type BonoSesiones } from '@/lib/bonoSesiones'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
@@ -41,6 +42,8 @@ export default function FichaPacientePage() {
   const [planes, setPlanes] = useState<any[]>([])
   const [servicios, setServicios] = useState<any[]>([])
   const [descuentos, setDescuentos] = useState<any[]>([])
+  // Bonos de sesiones con su consumo ya contado desde las citas.
+  const [bonosSesiones, setBonosSesiones] = useState<BonoSesiones[]>([])
   const [molestias, setMolestias] = useState<any[]>([])
   const [patologias, setPatologias] = useState<any[]>([])
   const [medicamentos, setMedicamentos] = useState<any[]>([])
@@ -272,6 +275,10 @@ export default function FichaPacientePage() {
     setPlanes(pl || [])
     const tar = await cargarTarifas()
     setServicios(tar.servicios); setDescuentos(tar.descuentos)
+
+    const bs = await bonosDe(id as string)
+    if (!bs.ok) console.error('No se han podido leer los bonos de sesiones:', bs.error)
+    setBonosSesiones(bs.bonos)
     setMedicamentos(med||[]); setEscalas(esc||[]); setCitas(c||[]); setSesiones(s||[])
     setTests(t||[]); setTestsDisp(td||[])
     // Las etiquetas son las que dan el filtro por zona del explorador de tests.
@@ -598,6 +605,7 @@ export default function FichaPacientePage() {
           pac={pac}
           bono={bono}
           estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
+          bonosSesiones={bonosSesiones}
           onCobrar={()=>setCobrando(true)}
           recuperaciones={recuperaciones}
           editando={editando}

@@ -1,10 +1,21 @@
 'use client'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
+import { AvisoBonoEnCita } from '@/components/SesionesBono'
+import { planDeFechas, finDePeriodo, type Periodo } from '@/lib/citas'
 
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
 export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[], salas=['A','B'] }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
+  // Cuántas citas se van a crear de verdad, con la misma función que las crea.
+  // Contarlas aquí por otro camino sería una segunda cuenta que podría no
+  // coincidir con la primera.
+  let nCitas = 1
+  if (nuevaCita.repetir && nuevaCita.fecha && nuevaCita.dias_repetir?.length) {
+    const fin = nuevaCita.fecha_fin || finDePeriodo(nuevaCita.fecha, nuevaCita.periodo as Periodo)
+    nCitas = planDeFechas(nuevaCita.fecha, fin, nuevaCita.dias_repetir).length
+  }
+
   function toggleDia(dia: string) {
     setNuevaCita((p: any) => ({...p, dias_repetir: p.dias_repetir.includes(dia) ? p.dias_repetir.filter((d: string) => d !== dia) : [...p.dias_repetir, dia]}))
   }
@@ -104,6 +115,10 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
             </>
           )}
         </div>
+        {/* Antes de crear, no después: si le quedan dos sesiones y estás citando
+            ocho, este es el momento de saberlo. */}
+        {!nuevaCita.nuevo && <AvisoBonoEnCita pacienteId={nuevaCita.paciente_id} nCitas={nCitas}/>}
+
         {nuevaCita.paciente_id && recuperacionesPaciente.length>0 && (
           <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:'var(--rl)',padding:'10px 12px',marginBottom:8}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:nuevaCita.es_recuperacion?8:0}}>

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BonoTipo, TIPOS_DESCUENTO } from '@/lib/bonos'
+import { esDeSesiones, caducidadDesde, textoModalidad } from '@/lib/bonoSesiones'
 
 export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar, onGuardado }: {
   pacienteId: string
@@ -21,19 +22,54 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
 
   const LBL_BONO: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
   const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
+  const tipoElegido = bonosOpts.find(b=>b.id===form.tipo)
 
   async function guardar() {
     if (!form.tipo) return
     setGuardando(true)
     const hoy = new Date()
     const mes = hoy.getMonth()+1, anio = hoy.getFullYear()
-    const diasSemana = bonosOpts.find(b=>b.id===form.tipo)?.dias_semana || 1
+    const tipoSel = bonosOpts.find(b=>b.id===form.tipo)
+    const diasSemana = tipoSel?.dias_semana || 1
     const descTipo = form.descuento_tipo || null
     const descValor = descTipo ? (parseFloat(form.descuento_valor) || 0) : 0
     const comun = {
       tipo: form.tipo, dias_semana: diasSemana,
       descuento_tipo: descTipo, descuento_valor: descValor,
       descuento_motivo: descTipo ? (form.descuento_motivo || null) : null,
+    }
+    const hoyStr = new Date().toISOString().split('T')[0]
+
+    // UN BONO DE SESIONES NO SUSTITUYE A NADA.
+    //
+    // La cuota mensual y el bono de sesiones conviven: alguien puede venir a
+    // clase tres días por semana y además comprar ocho individuales. Si aquí se
+    // aplicase la lógica de sustitución, comprar sesiones le quitaría la cuota
+    // y dejaría de facturársele el mes.
+    //
+    // Las sesiones y la caducidad se COPIAN del tipo, no se leen de él: si
+    // mañana el bono de 8 pasa a 10, quien compró 8 sigue teniendo 8. Mismo
+    // criterio que congelar los datos dentro de la factura.
+    if (esDeSesiones(tipoSel)) {
+      const { error } = await supabase.from('bonos').insert({
+        ...comun, paciente_id: pacienteId, estado_pago: 'pendiente', mes, anio,
+        fecha_inicio: hoyStr, activo: true,
+        sesiones_totales: tipoSel?.sesiones || null,
+        caduca: caducidadDesde(hoyStr, tipoSel?.caduca_meses),
+      })
+      if (error) { setError(`No se ha podido asignar el bono: ${error.message}`); setGuardando(false); return }
+      const cad = caducidadDesde(hoyStr, tipoSel?.caduca_meses)
+      await supabase.from('eventos_paciente').insert({
+        paciente_id: pacienteId, tipo: 'cambio_bono',
+        titulo: `Bono de sesiones: ${LBL_BONO[form.tipo]||form.tipo}`,
+        descripcion: `${tipoSel?.sesiones} sesiones. Pendiente de cobro.` +
+          (cad ? ` Válido hasta ${new Date(cad+'T12:00:00').toLocaleDateString('es-ES')}.` : ''),
+        fecha: hoyStr,
+      })
+      setGuardando(false)
+      onGuardado?.()
+      onCerrar()
+      return
     }
 
     // Si el bono que se sustituye YA ES DE ESTE MES, se corrige en su sitio en
@@ -48,7 +84,13 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     // Cambiar de bono a mitad de mes es corregir la cuota de ese mes, no abrir
     // una segunda. Lo que ya se haya cobrado no se toca: la factura está
     // congelada y sigue diciendo lo que decía.
-    const mismoMes = bonoActual && bonoActual.mes === mes && bonoActual.anio === anio
+    //
+    // Si el bono anterior era DE SESIONES, no se corrige ni se retira: se le
+    // está poniendo la cuota mensual además de las sesiones que compró, y esas
+    // siguen siendo suyas hasta que se las gaste.
+    const mismoMes = bonoActual && !esDeSesiones(bonoActual)
+      && bonoActual.mes === mes && bonoActual.anio === anio
+    const sustituye = bonoActual && !esDeSesiones(bonoActual)
 
     if (mismoMes) {
       const { error } = await supabase.from('bonos').update(comun).eq('id', bonoActual.id)
@@ -58,10 +100,10 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       // un fallo no pueda dejar al paciente sin cuota.
       const { error } = await supabase.from('bonos').insert({
         ...comun, paciente_id: pacienteId, estado_pago: 'pendiente', mes, anio,
-        fecha_inicio: new Date().toISOString().split('T')[0], activo: true,
+        fecha_inicio: hoyStr, activo: true,
       })
       if (error) { setError(`No se ha podido asignar el bono: ${error.message}`); setGuardando(false); return }
-      if (bonoActual) await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
+      if (sustituye) await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
     }
 
     const txtDesc = descTipo
@@ -84,7 +126,15 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       <div className="modal">
         <div className="modal-title">{bonoActual?'Cambiar bono':'Asignar bono'}<button className="modal-close" onClick={onCerrar}>✕</button></div>
 
-        {bonoActual?.estado_pago === 'pagado' && (
+        {/* El aviso va donde se toma la decisión: aquí, viendo ya el tipo
+            elegido, y no después en la ficha cuando ya no hay vuelta atrás. */}
+        {esDeSesiones(tipoElegido) ? (
+          <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 12px',marginBottom:12,fontSize:10,color:'var(--gd)',lineHeight:1.6}}>
+            Bono de <strong>{tipoElegido?.sesiones} sesiones</strong>
+            {tipoElegido?.caduca_meses ? <>, válido <strong>{tipoElegido.caduca_meses} {tipoElegido.caduca_meses===1?'mes':'meses'}</strong> desde hoy</> : ', sin caducidad'}.
+            {bonoActual && ' No sustituye a la cuota actual: se suma a ella.'} Las sesiones se descuentan solas al marcar las citas.
+          </div>
+        ) : bonoActual?.estado_pago === 'pagado' && (
           <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,padding:'8px 12px',marginBottom:12,fontSize:10,color:'#7A5800',lineHeight:1.6}}>
             El bono actual está <strong>pagado</strong>. El que asignes ahora nace <strong>pendiente de cobro</strong>: lo cobrado corresponde al anterior y se queda con él.
           </div>
@@ -93,7 +143,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         <div className="field"><label>Tipo de bono</label>
           <select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}>
             {bonosOpts.map(b=>(
-              <option key={b.id} value={b.id}>{b.nombre}{b.descripcion?` · ${b.descripcion}`:''}</option>
+              <option key={b.id} value={b.id}>{b.nombre} · {textoModalidad(b)}</option>
             ))}
           </select>
         </div>

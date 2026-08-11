@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
@@ -25,7 +26,7 @@ function haceCuanto(f:string) {
   return a === 1 ? 'hace 1 año' : `hace ${a} años`
 }
 
-export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar }: any) {
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [] }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
   const [menuTipo, setMenuTipo] = useState<any>(null)
@@ -474,6 +475,18 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 </button>
                 <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>Cambiar bono</button>
               </div>
+
+              {/* BONOS POR SESIONES.
+                  Las restantes no salen de ningún contador: se cuentan desde sus
+                  citas cada vez que se abre la ficha. Cambiar una cita de "vino"
+                  a "canceló" devuelve la sesión sola. */}
+              {bonosSesiones.length > 0 && (
+                <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
+                  {bonosSesiones.map((bs:any)=>(
+                    <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo}/>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>

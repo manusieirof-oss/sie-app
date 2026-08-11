@@ -329,8 +329,11 @@ export default function AgendaPage() {
       if (!r.ok) { alert(`Error al crear las citas (${r.error}). Se crearon ${r.creadas} de ${fechas.length}.`); setGuardando(false); return }
       // Viniendo de una valoración el aviso no es un alert: es la pregunta de qué toca
       // ahora. Un alert se cierra sin leer y el paciente se queda sin sesiones.
+      // Las que no cupieron en el bono se dicen aquí. Callarlo dejaría creer que
+      // las doce descuentan sesiones cuando solo lo hacen ocho.
+      const aviso = r.sinBono ? `\n\n${r.sinBono} no descuentan del bono de sesiones: se le habían acabado.` : ''
       if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:r.creadas})
-      else if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas`)
+      else if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas${aviso}`)
     }
     setModal(false)
     const eraNuevo = nuevaCita.nuevo

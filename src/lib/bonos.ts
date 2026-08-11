@@ -7,6 +7,11 @@ export type BonoTipo = {
   descripcion: string | null
   orden: number
   activo: boolean
+  // Modalidad y sesiones: ver lib/bonoSesiones.ts. Opcionales porque las filas
+  // creadas antes del cambio no las traen; ahí `modalidad` se lee como mensual.
+  modalidad?: string | null
+  sesiones?: number | null
+  caduca_meses?: number | null
 }
 
 export async function cargarBonosTipos(soloActivos = true): Promise<BonoTipo[]> {
@@ -163,7 +168,12 @@ export async function renovarCuotas(modoPrueba = false) {
   const estadoPaciente = new Map((pacientes || []).map((p: any) => [p.id, p.estado]))
   const SIGUE_SIENDO_CLIENTE = ['activo', 'pausa']
 
-  const pendientesDeMes = (activos || []).filter((b: any) => !(b.mes === mes && b.anio === anio))
+  // Los bonos POR SESIONES no se renuevan: se compran, se gastan y se acaban.
+  // Sin esto, el día 1 de cada mes se le regalaría al paciente otro bono de 8
+  // sesiones, y otro al mes siguiente. Se reconocen porque tienen sesiones.
+  const pendientesDeMes = (activos || [])
+    .filter((b: any) => b.sesiones_totales == null)
+    .filter((b: any) => !(b.mes === mes && b.anio === anio))
   const aRenovar = pendientesDeMes.filter((b: any) => SIGUE_SIENDO_CLIENTE.includes(estadoPaciente.get(b.paciente_id)))
   // Se cuentan aparte para poder decirlo, no para esconderlo.
   const omitidos = {
