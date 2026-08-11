@@ -10,7 +10,7 @@ import ResumenTab from './components/ResumenTab'
 import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
 import PrevisionTab from './components/PrevisionTab'
-import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
+import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes } from '@/lib/bonos'
 
 /**
  * Un bono por paciente y mes, el más reciente.
@@ -28,7 +28,14 @@ import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
  */
 function unoPorPacienteYMes(bonos: any[]): any[] {
   const ultimo = new Map<string, any>()
-  for (const b of bonos) {
+  // Las VENTAS PUNTUALES no se deduplican: cada una es una venta de verdad.
+  //
+  // Alguien puede pagar su cuota de septiembre Y comprar ocho sesiones en
+  // septiembre, y son dos ingresos distintos. Si pasaran por aquí, la clave
+  // paciente·mes las juntaría y una de las dos desaparecería de la evolución y
+  // del IVA repercutido. Peor que contar de más: contar de menos y en silencio.
+  const puntuales = bonos.filter(esVentaPuntual)
+  for (const b of bonos.filter(b => !esVentaPuntual(b))) {
     const clave = `${b.paciente_id}·${b.anio}-${b.mes}`
     const previo = ultimo.get(clave)
     // Vienen ordenados por created_at, pero no se da por hecho: manda el activo,
@@ -39,7 +46,7 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
       ultimo.set(clave, b)
     }
   }
-  return Array.from(ultimo.values())
+  return [...Array.from(ultimo.values()), ...puntuales]
 }
 
 export default function FinanzasPage() {
@@ -75,7 +82,10 @@ export default function FinanzasPage() {
       // El histórico necesita el descuento: sin él, la evolución mensual cobra
       // de más y el mes en curso sale con dos cifras distintas según la gráfica.
       // Y necesita `paciente_id` para poder quitar los duplicados de abajo.
-      supabase.from('bonos').select('paciente_id,tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor').order('created_at'),
+      // `sesiones_totales` es lo que distingue una venta puntual de una cuota.
+      // Sin traerlo, todo parecería cuota y los bonos de sesiones se sumarían
+      // como si se cobraran cada mes.
+      supabase.from('bonos').select('paciente_id,tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor,sesiones_totales').order('created_at'),
     ])
     // Una consulta que falla no puede pintarse como "0 €". Se dice.
     const errores = ([['planes', rp], ['gastos', rg], ['bonos', rb], ['histórico de bonos', rbh]] as const)
@@ -89,6 +99,18 @@ export default function FinanzasPage() {
     setBonosTipos(await cargarBonosTipos(false))
     setLoading(false)
   }
+
+  // Las dos lecturas de `bonos`, separadas donde se decide y no dentro de cada
+  // pestaña, para que las cuatro cuenten lo mismo.
+  //
+  //   bonosMes → lo que se ingresa este mes: cuotas vigentes + sesiones vendidas
+  //              este mes. Es lo que va a Resumen, Planes y Rentabilidad.
+  //   cuotas   → solo lo recurrente. Es lo único que sirve para PREVER: una
+  //              venta puntual no se repite el mes que viene y meterla en la
+  //              base de la previsión la infla a partir de la nada.
+  const hoy = new Date()
+  const bonosMes = ingresoDelMes(bonos, hoy.getMonth() + 1, hoy.getFullYear())
+  const cuotas = cuotasRecurrentes(bonos)
 
   if (autorizado === null) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'50vh'}}>
@@ -134,12 +156,12 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonos} bonosHist={bonosHist}/>}
-          {tab==='planes' && <PlanesTab planes={planes} bonos={bonos} bonosTipos={bonosTipos} recargar={cargar}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist}/>}
+          {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} bonosHist={bonosHist}/>}
-          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonos} bonosHist={bonosHist}/>}
-          {tab==='prevision' && <PrevisionTab planes={planes} bonos={bonos}/>}
+          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist}/>}
+          {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas}/>}
         </>
       )}
     </div>

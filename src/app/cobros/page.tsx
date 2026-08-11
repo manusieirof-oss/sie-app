@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
-import { indicePlanes, precioFinalPlan, precioConDescuento } from '@/lib/bonos'
+import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
 import { cargarTarifas } from '@/lib/tarifas'
 import { abrirFactura } from '@/lib/factura'
@@ -126,32 +126,47 @@ export default function CobrosPage() {
   }
 
   const idx = useMemo(() => indicePlanes(planes), [planes])
-  const bonoDe = useMemo(() => Object.fromEntries(bonos.map(b => [b.paciente_id, b])), [bonos])
+  const pacienteDe = useMemo(() => Object.fromEntries(pacientes.map(p => [p.id, p])), [pacientes])
 
+  /**
+   * UNA FILA POR BONO, no por paciente.
+   *
+   * Antes esto era un `Object.fromEntries(bonos.map(b => [b.paciente_id, b]))`,
+   * que se queda con un solo bono por persona. Con un tipo de bono al mes no se
+   * notaba; ahora alguien puede pagar su cuota de septiembre Y comprar ocho
+   * sesiones en septiembre, y el segundo bono desaparecía del mapa sin más: no
+   * salía en la lista, no se cobraba y no se facturaba. Dinero perdido en
+   * silencio, que es la peor forma de perderlo.
+   */
   const filas = useMemo(() => {
     const t = busca.trim().toLowerCase()
-    return pacientes
-      .map(p => {
-        const bono = bonoDe[p.id]
-        const pagado = bono ? !!pago[bono.id]?.pagado : false
-        const importe = bono ? precioConDescuento(precioFinalPlan(idx[bono.tipo]), bono) : 0
+    return bonos
+      .map(bono => {
+        const p = pacienteDe[bono.paciente_id]
+        const pagado = !!pago[bono.id]?.pagado
+        const importe = precioConDescuento(precioFinalPlan(idx[bono.tipo]), bono)
         // Impago es un JUICIO sobre algo que sigue sin cobrarse: "vino y no paga".
         // Nunca lo contrario: "pagado" no se escribe a mano, sale del cobro.
         const impago = !pagado && bono?.estado_pago === 'impago'
-        return { p, bono, pagado, impago, importe, clases: clasesDe[p.id] || 0 }
+        // Las clases van en la fila de la cuota. Repetirlas en la del bono de
+        // sesiones haría leer las mismas doce clases dos veces.
+        const clases = esVentaPuntual(bono) ? 0 : (clasesDe[bono.paciente_id] || 0)
+        return { p, bono, pagado, impago, importe, clases }
       })
+      // Un bono cuyo paciente no está en la lista (de baja a mitad de mes) se
+      // cae aquí, pero no en silencio: se dice abajo.
+      .filter(f => !!f.p)
       .filter(f => !t || `${f.p.nombre} ${f.p.apellidos}`.toLowerCase().includes(t))
-      // Siempre tiene que haber cuota: la lista es para cobrarla. Quien viene sin
-      // bono asignado sale arriba, en el aviso rojo, que es más visible que una
-      // fila más a cero euros.
-      .filter(f => !!f.bono)
       .filter(f => vista === 'todos' ? true
                  : vista === 'vinieron' ? f.clases > 0
                  : !f.pagado)
       // Los cobrados al final: mientras cobras te interesa lo que falta. Dentro
-      // de los pendientes, primero el que más clases lleva sin pagar.
-      .sort((a, b) => Number(a.pagado) - Number(b.pagado) || b.clases - a.clases)
-  }, [pacientes, bonoDe, pago, idx, busca, vista, clasesDe])
+      // de los pendientes, primero el que más clases lleva sin pagar. Y las dos
+      // filas de una misma persona, juntas: separadas parecen un error.
+      .sort((a, b) => Number(a.pagado) - Number(b.pagado)
+        || b.clases - a.clases
+        || `${a.p.nombre} ${a.p.apellidos}`.localeCompare(`${b.p.nombre} ${b.p.apellidos}`))
+  }, [bonos, pacienteDe, pago, idx, busca, vista, clasesDe])
 
   /**
    * Abre el cobro mirando antes si al paciente se le ha cobrado alguna vez.
@@ -303,7 +318,7 @@ export default function CobrosPage() {
            : 'Nadie tiene cuota asignada este mes.'}
         </div>
       ) : filas.map(({ p, bono, pagado, impago, importe, clases }) => (
-        <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderRadius:8,
+        <div key={bono.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderRadius:8,
                                 border:`1px solid ${impago?'var(--red)':'var(--bd)'}`,marginBottom:6,
                                 background:pagado?'var(--gl)':impago?'var(--redl)':'var(--w)'}}>
           <div style={{flex:1,minWidth:0}}>
@@ -313,7 +328,10 @@ export default function CobrosPage() {
               {impago && <span style={{fontSize:9,color:'var(--red)',marginLeft:6,fontWeight:600}}>impago</span>}
             </div>
             <div style={{fontSize:9,color:'var(--grl)'}}>
-              {bono ? (idx[bono.tipo]?.nombre || bono.tipo) : 'Sin bono este mes'}
+              {idx[bono.tipo]?.nombre || bono.tipo}
+              {/* Sin esto, las dos filas de quien tiene cuota Y sesiones se leen
+                  como una duplicada. */}
+              {esVentaPuntual(bono) && <span style={{color:'var(--gd)'}}>{' · '}{bono.sesiones_totales} sesiones</span>}
               {!p.dni && ' · sin DNI'}
               {/* Lo que ya ha entrenado sin haber pagado. Cuanto más alto, más urge. */}
               {!pagado && clases > 0 && (

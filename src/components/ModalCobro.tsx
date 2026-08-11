@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { indicePlanes, precioFinalPlan, precioConDescuento } from '@/lib/bonos'
+import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
 import {
   emitirCobro, desgloseDesdeTotal, totalesDe, fraccionDeAlta, LBL_FRACCION,
   lineaDeBono, type LineaCobro, type FormaPago,
@@ -36,7 +36,11 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
   const idx = useMemo(() => indicePlanes(planes), [planes])
   const plan = bono ? idx[bono.tipo] : undefined
 
-  const fraccionPropuesta = primerCobro && bono?.fecha_inicio ? fraccionDeAlta(bono.fecha_inicio) : 1
+  // Un bono de sesiones no se fracciona: ocho sesiones son ocho empieces cuando
+  // empieces. Ver `lineaDeBono`.
+  const ventaPuntual = esVentaPuntual(bono)
+  const fraccionPropuesta = primerCobro && bono?.fecha_inicio && !ventaPuntual
+    ? fraccionDeAlta(bono.fecha_inicio) : 1
   const [fraccion, setFraccion] = useState(fraccionPropuesta)
 
   const [lineas, setLineas] = useState<LineaCobro[]>(() =>
@@ -132,7 +136,7 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
             : <>Sin DNI en la ficha: saldrá <strong>factura simplificada</strong> (serie S), que no le sirve para deducirse el gasto.</>}
         </div>
 
-        {primerCobro && bono && (
+        {primerCobro && bono && !ventaPuntual && (
           <div style={{marginBottom:12}}>
             <label style={{fontSize:10,color:'var(--grl)',display:'block',marginBottom:5}}>
               Primer mes · se da de alta el {new Date(bono.fecha_inicio+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'})}

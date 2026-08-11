@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { precioFinalPlan, precioConDescuento, redondear, Plan } from './bonos'
+import { precioFinalPlan, precioConDescuento, redondear, Plan, esVentaPuntual } from './bonos'
 
 // ---------------------------------------------------------------------------
 // COBROS Y FACTURAS
@@ -81,9 +81,33 @@ export const LBL_FRACCION: Record<number, string> = {
  * medio descuento de más, y solo se notaría con los descuentos de importe fijo.
  */
 export function lineaDeBono(bono: any, plan: Plan | undefined, fraccion = 1, etiquetaPeriodo?: string): LineaCobro {
+  const nombre = plan?.nombre || bono?.tipo || 'Cuota'
+
+  // UN BONO DE SESIONES NO SE FRACCIONA Y NO ES UNA CUOTA.
+  //
+  // El fraccionamiento existe para quien empieza a mitad de mes y solo va a usar
+  // media cuota. Un bono de ocho sesiones son ocho vengas cuando vengas, así que
+  // partirlo por la fecha de alta le cobraría la mitad por las ocho.
+  //
+  // Y el concepto tiene que describir lo que se vende: la factura es el
+  // documento donde consta qué se cobró, y "Cuota mensual" ahí sería falso.
+  if (esVentaPuntual(bono)) {
+    const precio = precioConDescuento(precioFinalPlan(plan), bono)
+    const cad = bono?.caduca
+      ? ` · válido hasta ${new Date(bono.caduca + 'T12:00:00').toLocaleDateString('es-ES')}`
+      : ''
+    return {
+      concepto: `${nombre} · ${bono.sesiones_totales} sesiones${cad}`,
+      bono_id: bono?.id ?? null,
+      cantidad: 1,
+      total: precio,
+      precioBase: precio,
+      iva_pct: Number(plan?.iva ?? 21),
+    }
+  }
+
   const mensual = precioConDescuento(precioFinalPlan(plan), bono)
   const total = redondear(mensual * fraccion)
-  const nombre = plan?.nombre || bono?.tipo || 'Cuota'
   const sufijo = fraccion < 1 ? ` · ${LBL_FRACCION[fraccion] || `${fraccion} de mes`}` : ''
   return {
     concepto: `Cuota mensual · ${nombre}${etiquetaPeriodo ? ` · ${etiquetaPeriodo}` : ''}${sufijo}`,

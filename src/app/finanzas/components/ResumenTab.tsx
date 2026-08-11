@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { indicePlanes, precioBono as precioDeBono, precioFinalPlan } from '@/lib/bonos'
+import { indicePlanes, precioBono as precioDeBono, precioFinalPlan, esVentaPuntual } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 
@@ -18,6 +18,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
 
   const bonosActivos = bonos.filter((b: any) => b.activo)
   const precioBono = (b: any) => precioDeBono(b, idxPlanes)
+  const nVentas = bonosActivos.filter(esVentaPuntual).length
+  const nCuotas = bonosActivos.length - nVentas
 
   const ingresosPrevistos = bonosActivos.reduce((a: number, b: any) => a + precioBono(b), 0)
   const totalDescuentos = bonosActivos.reduce((a: number, b: any) => a + (precioFinalPlan(idxPlanes[b.tipo]) - precioBono(b)), 0)
@@ -111,7 +113,13 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
             <div className="card" style={{textAlign:'center',margin:0}}>
               <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Previsto / mes</div>
               <div style={{fontSize:28,fontWeight:300,color:G}}>{eur(ingresosPrevistos)}</div>
-              <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>{bonosActivos.length} bonos activos</div>
+              {/* Separadas porque no significan lo mismo: las cuotas vuelven el
+                  mes que viene, las sesiones vendidas no. Un total de 34 que
+                  mezcla las dos hace pensar que el mes que viene también son 34. */}
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
+                {nCuotas} cuota{nCuotas!==1?'s':''}
+                {nVentas > 0 && <> · {nVentas} bono{nVentas!==1?'s':''} de sesiones vendido{nVentas!==1?'s':''} este mes</>}
+              </div>
               {totalDescuentos > 0 && <div style={{fontSize:9,color:'#8A6410',marginTop:2,display:'flex',alignItems:'center',gap:4}}><Ic name="etiqueta" size={10}/> −{totalDescuentos.toFixed(0)}€ en descuentos</div>}
             </div>
             <div className="card" style={{textAlign:'center',margin:0}}>

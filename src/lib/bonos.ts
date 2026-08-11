@@ -135,6 +135,42 @@ export function textoDescuento(precioBase: number, bono: any): string | null {
   return `${Number(bono.descuento_valor).toFixed(2)} € menos${motivo}`
 }
 
+// ---------------------------------------------------------------------------
+// QUÉ CUENTA COMO INGRESO DE UN MES
+//
+// Hay dos cosas distintas metidas en la misma tabla y no se cobran igual:
+//
+//   CUOTA MENSUAL   → se repite todos los meses. Vale como ingreso recurrente.
+//   BONO DE SESIONES → se vende una vez. Vale como ingreso UNA vez, el mes que
+//                      se vendió, y luego se gasta a lo largo de dos o tres.
+//
+// Contar los de sesiones por `activo`, que es lo que hacía Finanzas, los suma
+// otra vez cada mes mientras al paciente le queden sesiones. Y como
+// `renovarCuotas` ya no los toca, nadie los desactiva nunca: seguirían sumando
+// para siempre. Ocho sesiones vendidas en septiembre aparecerían como ingreso
+// en septiembre, octubre y noviembre.
+// ---------------------------------------------------------------------------
+
+/** true si el bono es una venta puntual (sesiones) y no una cuota que se repite. */
+export const esVentaPuntual = (b: any) => b?.sesiones_totales != null
+
+/** Las cuotas que se repiten cada mes. Lo único que sirve para prever. */
+export function cuotasRecurrentes(bonos: any[] = []): any[] {
+  return bonos.filter(b => b.activo && !esVentaPuntual(b))
+}
+
+/**
+ * Lo que se ingresa en un mes: las cuotas vigentes más las ventas de ese mes.
+ *
+ * Un bono de sesiones de agosto no cuenta en septiembre aunque siga vivo: ya se
+ * cobró. Lo que le queda son sesiones, no dinero por cobrar.
+ */
+export function ingresoDelMes(bonos: any[] = [], mes: number, anio: number): any[] {
+  return bonos.filter(b => esVentaPuntual(b)
+    ? (b.mes === mes && b.anio === anio)
+    : b.activo)
+}
+
 // Renueva las cuotas al entrar en un mes nuevo: por cada bono activo del mes anterior,
 // crea uno nuevo del mes actual (mismo tipo y descuento, estado 'pendiente') y desactiva el viejo.
 // Se ejecuta como mucho una vez por mes (marca en ajustes: ultima_renovacion = 'YYYY-MM').

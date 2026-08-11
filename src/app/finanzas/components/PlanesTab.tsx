@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { precioConDescuento, precioFinalPlan, redondear } from '@/lib/bonos'
+import { precioConDescuento, precioFinalPlan, redondear, esVentaPuntual } from '@/lib/bonos'
 import { precioNeutro } from '@/lib/prevision'
 
 const G='#5A969E', GD='#3E7179'
@@ -118,6 +118,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
         const final = finalDe(p)
         const ingreso = ingresoPorTipo[bt.id] || 0
         const enEdicion = editando === p.id
+        const deSesiones = esVentaPuntual({ sesiones_totales: bt.sesiones }) || bt.modalidad === 'sesiones'
         const preview = enEdicion ? calcularPreview() : null
 
         if (enEdicion) {
@@ -169,13 +170,16 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
               <button className="btn btn-s btn-sm" onClick={()=>iniciarEdicion(p)}><Ic name="editar" size={12}/></button>
             </div>
             <div style={{display:'flex',gap:8,marginTop:10,paddingTop:10,borderTop:'1px solid var(--bd)'}}>
+              {/* Un bono de sesiones no da "ingreso / mes": se vende una vez.
+                  Poner el mismo rótulo en los dos haría leer una venta suelta
+                  como si fuera dinero que entra todos los meses. */}
               <div style={{flex:1,textAlign:'center'}}>
                 <div style={{fontSize:14,fontWeight:500,color:'var(--n)'}}>{nPac}</div>
-                <div style={{fontSize:8,color:'var(--grl)'}}>{nPac===1?'paciente activo':'pacientes activos'}</div>
+                <div style={{fontSize:8,color:'var(--grl)'}}>{deSesiones ? (nPac===1?'vendido este mes':'vendidos este mes') : (nPac===1?'paciente activo':'pacientes activos')}</div>
               </div>
               <div style={{flex:1,textAlign:'center'}}>
                 <div style={{fontSize:14,fontWeight:500,color:GD}}>{ingreso.toFixed(0)}€</div>
-                <div style={{fontSize:8,color:'var(--grl)'}}>ingreso / mes</div>
+                <div style={{fontSize:8,color:'var(--grl)'}}>{deSesiones ? 'ingreso este mes' : 'ingreso / mes'}</div>
               </div>
               {/* PRECIO NEUTRO. Hasta 2025 la actividad estaba exenta y los 63 €
                   eran íntegros; ahora 10,93 € de cada 63 son de Hacienda. Esto
