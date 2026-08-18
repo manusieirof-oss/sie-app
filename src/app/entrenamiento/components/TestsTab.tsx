@@ -238,29 +238,49 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalTest(false)}}>
           <div className="modal" style={{width:'94vw',maxWidth:900,maxHeight:'90vh'}}>
             <div className="modal-title">Nuevo test<button className="modal-close" onClick={()=>setModalTest(false)}>✕</button></div>
-            <div className="field"><label>Nombre *</label><input className="input" value={nuevoTest.nombre} onChange={e=>setNuevoTest(p=>({...p,nombre:e.target.value}))} autoFocus/></div>
-            <div className="field"><label>Descripción</label><textarea className="input" value={nuevoTest.descripcion} onChange={e=>setNuevoTest(p=>({...p,descripcion:e.target.value}))}/></div>
+            {/* CABECERA: LA IMAGEN MANDA.
+                Un test se reconoce por la foto de la posición, no por su nombre: "Lunge de
+                tobillo · con alza bajo el talón" no dice cómo se coloca al paciente. Antes
+                la imagen era un cuadrado de 80 px perdido a mitad del formulario, debajo de
+                cuatro campos de texto. Ahora abre el modal, y los LADOS van justo debajo
+                porque son parte del montaje: dónde se pone el paciente y de qué lado. */}
+            <div style={{display:'grid',gridTemplateColumns:'240px 1fr',gap:14,marginBottom:14,alignItems:'start'}}>
+              <div>
+                <div style={{position:'relative',width:'100%',aspectRatio:1,background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {nuevoTest.imagen_url
+                    ? <img src={nuevoTest.imagen_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+                    : <span style={{color:'var(--grl)'}}><Ic name="test" size={40}/></span>}
+                  {nuevoTest.imagen_url&&(
+                    <button onClick={()=>setNuevoTest(p=>({...p,imagen_url:'',imagen_file:null}))}
+                      style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:11}}>✕</button>
+                  )}
+                </div>
+                <label style={{cursor:'pointer',display:'block',marginTop:6}}>
+                  <div className="btn btn-s btn-sm" style={{width:'100%',justifyContent:'center'}}><Ic name="camara" size={12}/> Subir imagen</div>
+                  <input type="file" accept="image/*" style={{display:'none'}}
+                    onChange={e=>{const f=e.target.files?.[0];if(f)setNuevoTest(p=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}}/>
+                </label>
+                <div style={{marginTop:10}}>
+                  <label style={{fontSize:10,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>¿Tiene lados?</label>
+                  <div style={{display:'flex',flexDirection:'column',gap:5,marginTop:5}}>
+                    {([['bilateral','Bilateral / único'],['lateral','Izquierdo / Derecho']] as const).map(([v,l])=>(
+                      <div key={v} onClick={()=>setNuevoTest(p=>({...p,tipo_lado:v}))}
+                        style={{padding:'8px',borderRadius:6,border:`1.5px solid ${nuevoTest.tipo_lado===v?'var(--g)':'var(--bd)'}`,background:nuevoTest.tipo_lado===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:nuevoTest.tipo_lado===v?500:300,color:nuevoTest.tipo_lado===v?'var(--gd)':'var(--grl)'}}>{l}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="field"><label>Nombre *</label><input className="input" value={nuevoTest.nombre} onChange={e=>setNuevoTest(p=>({...p,nombre:e.target.value}))} autoFocus/></div>
+                <div className="field"><label>Descripción</label><textarea className="input" value={nuevoTest.descripcion} onChange={e=>setNuevoTest(p=>({...p,descripcion:e.target.value}))} style={{minHeight:200,lineHeight:1.6}}/></div>
+              </div>
+            </div>
             <div className="g2">
               <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoTest.video_url} onChange={e=>setNuevoTest(p=>({...p,video_url:e.target.value}))}/></div>
               <div className="field"><label>Frecuencia revisión</label>
                 <select className="input" value={nuevoTest.frecuencia_meses} onChange={e=>setNuevoTest(p=>({...p,frecuencia_meses:parseInt(e.target.value)}))}>
                   {[1,2,3,6,12].map(m=><option key={m} value={m}>{m} {m===1?'mes':'meses'}</option>)}
                 </select>
-              </div>
-            </div>
-            <div className="field">
-              <label>¿Tiene lados?</label>
-              <div style={{display:'flex',gap:6,marginTop:4}}>
-                {([['bilateral','Bilateral / único'],['lateral','Izquierdo / Derecho']] as const).map(([v,l])=>(
-                  <div key={v} onClick={()=>setNuevoTest(p=>({...p,tipo_lado:v}))} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${nuevoTest.tipo_lado===v?'var(--g)':'var(--bd)'}`,background:nuevoTest.tipo_lado===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:nuevoTest.tipo_lado===v?500:300,color:nuevoTest.tipo_lado===v?'var(--gd)':'var(--grl)'}}>{l}</div>
-                ))}
-              </div>
-            </div>
-            <div className="field">
-              <label>Imagen</label>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
-                {nuevoTest.imagen_url?<div style={{position:'relative'}}><img src={nuevoTest.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setNuevoTest(p=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="test" size={24}/></div>}
-                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm"><Ic name="camara" size={12}/> Subir</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setNuevoTest(p=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
               </div>
             </div>
             <div className="field">
@@ -327,8 +347,42 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalEditarTest(false)}}>
           <div className="modal" style={{width:'94vw',maxWidth:900,maxHeight:'90vh'}}>
             <div className="modal-title">Editar test<button className="modal-close" onClick={()=>setModalEditarTest(false)}>✕</button></div>
-            <div className="field"><label>Nombre *</label><input className="input" value={testEditando.nombre||''} onChange={e=>setTestEditando((p:any)=>({...p,nombre:e.target.value}))}/></div>
-            <div className="field"><label>Descripción</label><textarea className="input" value={testEditando.descripcion||''} onChange={e=>setTestEditando((p:any)=>({...p,descripcion:e.target.value}))}/></div>
+            {/* Misma cabecera que el de crear: imagen grande, nombre y descripción al
+                lado, lados debajo. Ver el porqué en el modal de arriba. */}
+            <div style={{display:'grid',gridTemplateColumns:'240px 1fr',gap:14,marginBottom:14,alignItems:'start'}}>
+              <div>
+                <div style={{position:'relative',width:'100%',aspectRatio:1,background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {testEditando.imagen_url
+                    ? <img src={testEditando.imagen_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+                    : <span style={{color:'var(--grl)'}}><Ic name="test" size={40}/></span>}
+                  {testEditando.imagen_url&&(
+                    <button onClick={()=>setTestEditando((p:any)=>({...p,imagen_url:'',imagen_file:null}))}
+                      style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:11}}>✕</button>
+                  )}
+                </div>
+                <label style={{cursor:'pointer',display:'block',marginTop:6}}>
+                  <div className="btn btn-s btn-sm" style={{width:'100%',justifyContent:'center'}}><Ic name="camara" size={12}/> Cambiar imagen</div>
+                  <input type="file" accept="image/*" style={{display:'none'}}
+                    onChange={e=>{const f=e.target.files?.[0];if(f)setTestEditando((p:any)=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}}/>
+                </label>
+                <div style={{marginTop:10}}>
+                  <label style={{fontSize:10,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>¿Tiene lados?</label>
+                  <div style={{display:'flex',flexDirection:'column',gap:5,marginTop:5}}>
+                    {([['bilateral','Bilateral / único'],['lateral','Izquierdo / Derecho']] as const).map(([v,l])=>{
+                      const act=(testEditando.tipo_lado||'bilateral')===v
+                      return (
+                        <div key={v} onClick={()=>setTestEditando((p:any)=>({...p,tipo_lado:v}))}
+                          style={{padding:'8px',borderRadius:6,border:`1.5px solid ${act?'var(--g)':'var(--bd)'}`,background:act?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:act?500:300,color:act?'var(--gd)':'var(--grl)'}}>{l}</div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="field"><label>Nombre *</label><input className="input" value={testEditando.nombre||''} onChange={e=>setTestEditando((p:any)=>({...p,nombre:e.target.value}))}/></div>
+                <div className="field"><label>Descripción</label><textarea className="input" value={testEditando.descripcion||''} onChange={e=>setTestEditando((p:any)=>({...p,descripcion:e.target.value}))} style={{minHeight:200,lineHeight:1.6}}/></div>
+              </div>
+            </div>
             <div className="field"><label>Enlace vídeo</label><input className="input" value={testEditando.video_url||''} onChange={e=>setTestEditando((p:any)=>({...p,video_url:e.target.value}))}/></div>
             <div className="g2">
               <div className="field"><label>Revisión (meses)</label><input className="input" type="number" value={testEditando.frecuencia_meses||3} onChange={e=>setTestEditando((p:any)=>({...p,frecuencia_meses:parseInt(e.target.value)||3}))}/></div>
@@ -337,21 +391,6 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   <option value="cualquiera">Algún ítem marcado</option>
                   <option value="todos">Todos los ítems marcados</option>
                 </select>
-              </div>
-            </div>
-            <div className="field">
-              <label>¿Tiene lados?</label>
-              <div style={{display:'flex',gap:6,marginTop:4}}>
-                {([['bilateral','Bilateral / único'],['lateral','Izquierdo / Derecho']] as const).map(([v,l])=>(
-                  <div key={v} onClick={()=>setTestEditando((p:any)=>({...p,tipo_lado:v}))} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${(testEditando.tipo_lado||'bilateral')===v?'var(--g)':'var(--bd)'}`,background:(testEditando.tipo_lado||'bilateral')===v?'var(--gl)':'var(--w)',cursor:'pointer',textAlign:'center',fontSize:10,fontWeight:(testEditando.tipo_lado||'bilateral')===v?500:300,color:(testEditando.tipo_lado||'bilateral')===v?'var(--gd)':'var(--grl)'}}>{l}</div>
-                ))}
-              </div>
-            </div>
-            <div className="field">
-              <label>Imagen</label>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4}}>
-                {testEditando.imagen_url?<div style={{position:'relative'}}><img src={testEditando.imagen_url} alt="preview" style={{width:80,height:80,objectFit:'cover',borderRadius:6}}/><button onClick={()=>setTestEditando((p:any)=>({...p,imagen_url:'',imagen_file:null}))} style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:'50%',background:'var(--red)',color:'#fff',border:'none',cursor:'pointer',fontSize:9}}>✕</button></div>:<div style={{width:80,height:80,background:'var(--bm)',borderRadius:6,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="test" size={24}/></div>}
-                <label style={{cursor:'pointer'}}><div className="btn btn-s btn-sm"><Ic name="camara" size={12}/> Cambiar</div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)setTestEditando((p:any)=>({...p,imagen_file:f,imagen_url:URL.createObjectURL(f)}))}} style={{display:'none'}}/></label>
               </div>
             </div>
             <div className="field">

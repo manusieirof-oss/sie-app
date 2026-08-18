@@ -85,9 +85,14 @@ export default function ExploradorTests({
         }}
         onMouseOver={e => { if (!yaEsta && !sel) (e.currentTarget as HTMLElement).style.borderColor = 'var(--g)' }}
         onMouseOut={e => { if (!sel) (e.currentTarget as HTMLElement).style.borderColor = 'var(--bd)' }}>
-        {t.imagen_url
-          ? <img src={t.imagen_url} alt={t.nombre} style={{ width: '100%', height: 100, objectFit: 'contain', background: 'var(--bm)', borderBottom: '1px solid var(--bd)', display: 'block' }} />
-          : <div style={{ height: 100, background: 'var(--bm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)', borderBottom: '1px solid var(--bd)' }}><Ic name="test" size={28} /></div>}
+        {/* Misma caja que la tarjeta de ejercicio: cuadrada y `cover`. Antes era de alto
+            fijo con `contain`, así que la ilustración —que ya viene cuadrada— dejaba dos
+            franjas de fondo a los lados y se veía más pequeña que las de al lado. */}
+        <div className="tarj-img">
+          {t.imagen_url
+            ? <img src={t.imagen_url} alt={t.nombre} />
+            : <span className="sin"><Ic name="test" size={28} /></span>}
+        </div>
         {(sel || yaEsta) && (
           <span style={{ position: 'absolute', top: 6, right: 6, background: yaEsta ? 'var(--gr)' : 'var(--g)', color: '#fff', borderRadius: 99, padding: yaEsta ? '2px 8px' : 4, fontSize: 9, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
             {yaEsta ? 'Ya añadido' : <Ic name="check" size={13} />}
