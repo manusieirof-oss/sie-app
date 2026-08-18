@@ -676,8 +676,8 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['No gires la cadera', 'Sube de lado, no hacia delante', 'Baja despacio'],
     variantes: [
-      { nombre: 'De pie con banda', descripcion: 'En carga, separando la pierna de pie. Más funcional.' },
-      { nombre: 'Almeja', descripcion: 'Rodillas flexionadas, se abre solo la rodilla de arriba con los pies juntos.' },
+      { nombre: 'De pie con banda', descripcion: 'En carga, separando la pierna de pie. Más funcional.', archivo: 'abduccion-cadera-de-pie.jpg' },
+      { nombre: 'Almeja', descripcion: 'Rodillas flexionadas, se abre solo la rodilla de arriba con los pies juntos.', archivo: 'abduccion-cadera-almeja.jpg' },
     ],
   },
   {
@@ -727,9 +727,9 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['Espalda plana', 'No gires la cadera', 'No subas más de la cuenta'],
     variantes: [
-      { nombre: 'Solo brazo', descripcion: 'Se extiende únicamente el brazo. Punto de partida.' },
-      { nombre: 'Solo pierna', descripcion: 'Se extiende únicamente la pierna.' },
-      { nombre: 'Completo', descripcion: 'Brazo y pierna contraria a la vez.' },
+      { nombre: 'Solo brazo', descripcion: 'Se extiende únicamente el brazo. Punto de partida.', archivo: 'bird-dog-brazo.jpg' },
+      { nombre: 'Solo pierna', descripcion: 'Se extiende únicamente la pierna.', archivo: 'bird-dog-pierna.jpg' },
+      { nombre: 'Completo', descripcion: 'Brazo y pierna contraria a la vez.', archivo: 'bird-dog-completo.jpg' },
     ],
   },
   {
@@ -802,7 +802,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['Aguanta sin girar', 'Brazos rectos', 'Sigue respirando'],
     variantes: [
-      { nombre: 'De rodillas', descripcion: 'Más exigente para el core.' },
+      { nombre: 'De rodillas', descripcion: 'Más exigente para el core.', archivo: 'antirrotacion-banda-rodillas.jpg' },
       { nombre: 'Con paso lateral', descripcion: 'Dando pasos que alejan del anclaje, aumentando la tensión.' },
     ],
   },
@@ -1164,9 +1164,9 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['El codo no cambia', 'No bajes más del pecho', 'Dibuja un arco'],
     variantes: [
-      { nombre: 'En banco plano', descripcion: 'La versión estándar.' },
-      { nombre: 'En banco inclinado', descripcion: 'Carga la parte alta del pecho.' },
-      { nombre: 'Con banda de pie', descripcion: 'Anclada detrás. Se puede hacer en casa.' },
+      { nombre: 'En banco plano', descripcion: 'La versión estándar.', archivo: 'aperturas-banco-plano.jpg' },
+      { nombre: 'En banco inclinado', descripcion: 'Carga la parte alta del pecho.', archivo: 'aperturas-banco-inclinado.jpg' },
+      { nombre: 'Con banda de pie', descripcion: 'Anclada detrás. Se puede hacer en casa.', archivo: 'aperturas-banda-de-pie.jpg' },
     ],
   },
   {
@@ -1803,9 +1803,9 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['Rodillas juntas', 'Gira el pecho, no la cadera', 'Mira la mano'],
     variantes: [
-      { nombre: 'Rodillas apoyadas', descripcion: 'Sobre el suelo o un cojín. La versión estándar.' },
-      { nombre: 'Sobre un rodillo', descripcion: 'Las rodillas sobre el cilindro. Bloquea mejor la cadera.' },
-      { nombre: 'Con pausa', descripcion: 'Manteniendo el final del recorrido varias respiraciones.' },
+      { nombre: 'Rodillas apoyadas', descripcion: 'Sobre el suelo o un cojín. La versión estándar.', archivo: 'apertura-en-libro-rodillas.jpg' },
+      { nombre: 'Sobre un rodillo', descripcion: 'Las rodillas sobre el cilindro. Bloquea mejor la cadera.', archivo: 'apertura-en-libro-rodillo.jpg' },
+      { nombre: 'Con pausa', descripcion: 'Manteniendo el final del recorrido varias respiraciones.', archivo: 'apertura-en-libro-pausa.jpg' },
     ],
   },
   {
@@ -1923,8 +1923,8 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['Aprieta sostenido', 'Lumbar en el suelo', 'Sigue respirando'],
     variantes: [
-      { nombre: 'Piernas extendidas', descripcion: 'Pelota entre los tobillos. Más exigente.' },
-      { nombre: 'Con puente', descripcion: 'Apretando la pelota con la cadera elevada.' },
+      { nombre: 'Piernas extendidas', descripcion: 'Pelota entre los tobillos. Más exigente.', archivo: 'aduccion-isometrica-extendidas.jpg' },
+      { nombre: 'Con puente', descripcion: 'Apretando la pelota con la cadera elevada.', archivo: 'aduccion-isometrica-puente.jpg' },
     ],
   },
   {
@@ -1960,8 +1960,8 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['No te inclines', 'De lado, no atrás', 'Punta al frente'],
     variantes: [
-      { nombre: 'Con banda sobre la rodilla', descripcion: 'Menos palanca. Punto de partida.' },
-      { nombre: 'Sin banda', descripcion: 'Solo el movimiento, con control.' },
+      { nombre: 'Con banda sobre la rodilla', descripcion: 'Menos palanca. Punto de partida.', archivo: 'abduccion-pie-banda-rodilla.jpg' },
+      { nombre: 'Sin banda', descripcion: 'Solo el movimiento, con control.', archivo: 'abduccion-pie-sin-banda.jpg' },
     ],
   },
   {
@@ -2189,8 +2189,8 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['Abre los cinco dedos', 'El antebrazo apoyado', 'Cierra despacio'],
     variantes: [
-      { nombre: 'Cierre con pelota', descripcion: 'Apretando una pelota blanda. Trabaja los flexores.' },
-      { nombre: 'Alternando', descripcion: 'Una serie de cada. Equilibra las dos caras del antebrazo.' },
+      { nombre: 'Cierre con pelota', descripcion: 'Apretando una pelota blanda. Trabaja los flexores.', archivo: 'agarre-goma-pelota.jpg' },
+      { nombre: 'Alternando', descripcion: 'Una serie de cada. Equilibra las dos caras del antebrazo.', archivo: 'agarre-goma-alternando.jpg' },
     ],
   },
 
@@ -2275,8 +2275,8 @@ export const SEMILLA: SemillaEjercicio[] = [
     ],
     feedbacks: ['Suave, no aprietes', 'La lumbar en su sitio', 'Sigue respirando'],
     variantes: [
-      { nombre: 'A cuatro patas', descripcion: 'Con la gravedad en contra.' },
-      { nombre: 'Con movimiento de pierna', descripcion: 'Manteniendo la activación mientras se mueve una pierna.' },
+      { nombre: 'A cuatro patas', descripcion: 'Con la gravedad en contra.', archivo: 'activacion-transverso-cuadrupedia.jpg' },
+      { nombre: 'Con movimiento de pierna', descripcion: 'Manteniendo la activación mientras se mueve una pierna.', archivo: 'activacion-transverso-pierna.jpg' },
     ],
   },
 
