@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { UNIDADES, unidadDe } from '@/lib/tests'
+import { UNIDADES, unidadDe, mide, textoRegla } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 
 const CATEGORIAS = [
@@ -16,6 +16,65 @@ const CATEGORIAS = [
   { key: 'patologia', label: 'Patología' },
   { key: 'plano_eje', label: 'Plano y eje' },
 ]
+
+/**
+ * La BARRA de un ítem medido: de dónde a dónde va y qué valor es un hallazgo.
+ *
+ * Sin esto, un ítem con unidad se rellenaba marcando una casilla y escribiendo el número
+ * al lado, o sea que el veredicto lo ponías tú cada vez. Con la regla puesta, el positivo
+ * lo decide el propio valor y siempre igual.
+ *
+ * Va en un componente y no copiado en los dos formularios —crear y editar— porque son el
+ * mismo formulario dos veces y ya se nota: el de editar arrastra diferencias del de crear.
+ */
+function ConfigBarra({ item, onCambia }: { item: any, onCambia: (campos: any) => void }) {
+  if (!mide(item)) return null
+  const u = unidadDe(item).simbolo.trim()
+  const dosUmbrales = item.regla === 'entre' || item.regla === 'fuera'
+  const num = (v: string) => v === '' ? undefined : Number(v)
+
+  return (
+    <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--bd)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>Positivo si es</span>
+        <select className="input" style={{ width: 128, fontSize: 11 }} value={item.regla || ''}
+          onChange={e => onCambia({ regla: e.target.value || undefined })}>
+          <option value="">— sin barra —</option>
+          <option value="menor">menor que</option>
+          <option value="mayor">mayor que</option>
+          <option value="entre">está entre</option>
+          <option value="fuera">está fuera de</option>
+        </select>
+        {item.regla && (
+          <>
+            <input className="input" type="number" style={{ width: 74, fontSize: 11 }} value={item.umbral ?? ''}
+              onChange={e => onCambia({ umbral: num(e.target.value) })} placeholder="valor" />
+            {dosUmbrales && (
+              <>
+                <span style={{ fontSize: 10, color: 'var(--grl)' }}>y</span>
+                <input className="input" type="number" style={{ width: 74, fontSize: 11 }} value={item.umbral2 ?? ''}
+                  onChange={e => onCambia({ umbral2: num(e.target.value) })} placeholder="valor" />
+              </>
+            )}
+            <span style={{ fontSize: 10, color: 'var(--grl)' }}>{u}</span>
+            <span style={{ fontSize: 10, color: 'var(--grl)', marginLeft: 8 }}>Barra de</span>
+            {/* El mínimo admite negativos: hay medidas que los tienen. */}
+            <input className="input" type="number" style={{ width: 66, fontSize: 11 }} value={item.min ?? ''}
+              onChange={e => onCambia({ min: num(e.target.value) })} placeholder="mín" />
+            <span style={{ fontSize: 10, color: 'var(--grl)' }}>a</span>
+            <input className="input" type="number" style={{ width: 66, fontSize: 11 }} value={item.max ?? ''}
+              onChange={e => onCambia({ max: num(e.target.value) })} placeholder="máx" />
+          </>
+        )}
+      </div>
+      {item.regla && (
+        <div style={{ fontSize: 10, color: 'var(--gd)', marginTop: 4 }}>
+          {textoRegla(item) || 'Rellena el valor para ver la regla'}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function PildorasObjetivos({ seleccionados, objetivos, onToggle }: any) {
   if (!objetivos || objetivos.length===0) return null
@@ -185,6 +244,10 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
+                  <ConfigBarra item={item} onCambia={(campos:any)=>{
+                    const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
+                    setNuevoTest(p=>({...p,items:its}))
+                  }}/>
                   <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
                     const its=[...nuevoTest.items] as any[]
                     const act = its[i].objetivos||[]
@@ -265,6 +328,10 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
+                  <ConfigBarra item={item} onCambia={(campos:any)=>{
+                    const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
+                    setTestEditando((p:any)=>({...p,items:its}))
+                  }}/>
                   <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
                     const its=[...(testEditando.items||[])] as any[]
                     const act = its[i].objetivos||[]
