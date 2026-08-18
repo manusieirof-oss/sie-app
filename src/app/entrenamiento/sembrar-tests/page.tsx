@@ -171,7 +171,7 @@ export default function SembrarTestsPage() {
     const actualTest: Record<string, any> = {}
     ;(testsExist || []).forEach((t: any) => { idTest[norm(t.nombre)] = t.id; actualTest[t.id] = t })
 
-    let creados = 0, actualizados = 0, imagenes = 0
+    let creados = 0, actualizados = 0, itemsTocados = 0, imagenes = 0
     const porNombre: Record<string, File> = {}
     ficheros.forEach(f => { porNombre[f.name] = f })
     const etQueFaltan = new Set<string>()
@@ -184,10 +184,14 @@ export default function SembrarTestsPage() {
         return id
       }).filter(Boolean)
 
-      const items = t.items.map(i => ({
+      // Los campos de la BARRA viajan con el ítem. Se quedaban fuera de este `map` y por
+      // eso los tests se creaban con la medida pero sin la regla que la interpreta: la
+      // pantalla los pintaba como una casilla más, sin barra y sin umbral.
+      const items = t.items.map((i: any) => ({
         nombre: i.nombre,
         unidad: i.unidad || '',
-        objetivos: (i.objetivos || []).map(n => idObjetivo[norm(n)]).filter(Boolean),
+        objetivos: (i.objetivos || []).map((n: string) => idObjetivo[norm(n)]).filter(Boolean),
+        ...(i.regla ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, min: i.min, max: i.max } : {}),
       }))
 
       const campos = {
