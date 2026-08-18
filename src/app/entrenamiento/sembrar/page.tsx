@@ -254,7 +254,13 @@ export default function SembrarPage() {
       anota(`Etiquetas que no existen en tu biblioteca y se han omitido: ${Array.from(etiquetasNoEncontradas).join(', ')}`, 'aviso')
     }
     if (sinImagen > 0) {
-      anota(`${sinImagen} sin imagen en esta selección (conservan la que ya tuvieran): ${sinImagenNombres.join(', ')}`, 'aviso')
+      // Con una tanda de variantes, esto son los 126 ejercicios y la lista entera tapa el
+      // resto del registro. Se dicen los primeros y cuántos quedan.
+      const muestra = sinImagenNombres.slice(0, 8).join(', ')
+      const resto = sinImagenNombres.length - 8
+      anota(`${sinImagen} sin imagen en esta selección, conservan la que ya tuvieran`
+        + (sinImagen === SEMILLA.length ? ' (normal si estás sembrando solo imágenes de variantes)' : '')
+        + `: ${muestra}${resto > 0 ? ` y ${resto} más` : ''}`, 'info')
     }
     anota(`Resumen: ${creados} creados, ${saltados} actualizados`
       + (varianteImg > 0 ? `, ${varianteImg} imagen(es) de variante` : '') + '.', 'info')
@@ -262,7 +268,14 @@ export default function SembrarPage() {
     setCorriendo(false); setHecho(true)
   }
 
+  /**
+   * El contador miraba SOLO la imagen del ejercicio, así que al sembrar una tanda de
+   * imágenes de VARIANTES decía "0 de 126 emparejan" —cierto pero alarmante— y parecía
+   * que no iba a entrar nada. Ahora cuenta las dos cosas por separado.
+   */
   const encontradas = SEMILLA.filter(s => ficheros.some(f => f.name === s.archivo)).length
+  const varConImagen = SEMILLA.flatMap(s => s.variantes || []).filter(v => v.archivo)
+  const varEncontradas = varConImagen.filter(v => ficheros.some(f => f.name === v.archivo)).length
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '20px 0' }}>
@@ -317,9 +330,10 @@ export default function SembrarPage() {
           </label>
 
           {ficheros.length > 0 && (
-            <div style={{ fontSize: 13, color: encontradas === SEMILLA.length ? 'var(--gd)' : '#7A5800', marginTop: 10 }}>
+            <div style={{ fontSize: 13, color: (encontradas + varEncontradas) > 0 ? 'var(--gd)' : '#7A5800', marginTop: 10 }}>
               {ficheros.length} archivo{ficheros.length === 1 ? '' : 's'} seleccionado{ficheros.length === 1 ? '' : 's'} ·
-              {' '}{encontradas} de {SEMILLA.length} emparejan por nombre
+              {' '}{encontradas} de {SEMILLA.length} ejercicios
+              {varConImagen.length > 0 && <> · {varEncontradas} de {varConImagen.length} variantes</>}
               {encontradas < SEMILLA.length && '. Los que no emparejen se crearán sin imagen.'}
             </div>
           )}
