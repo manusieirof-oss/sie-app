@@ -16,7 +16,7 @@ import ModalDatosCita from './components/ModalDatosCita'
 import ModalEntrenoCita from './components/ModalEntrenoCita'
 import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
-import { crearCita as crearUnaCita, crearCitas, planDeFechas, finDePeriodo, type Periodo } from '@/lib/citas'
+import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -60,7 +60,8 @@ export default function AgendaPage() {
     paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'entrenamiento', notas:'',
     repetir:false, dias_repetir:[] as string[], fecha_fin:'', periodo:'3meses', sesion_id:'',
     es_recuperacion:false, recuperacion_id:'',
-    nuevo:false, nuevo_nombre:'', nuevo_telefono:''
+    nuevo:false, nuevo_nombre:'', nuevo_telefono:'',
+    alterno:false, dias_repetir_b:[] as string[], hora_b:'', sala_b:'A'
   })
   const [recuperacionesPaciente, setRecuperacionesPaciente] = useState<any[]>([])
   const [horas, setHoras] = useState<string[]>(['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30'])
@@ -321,6 +322,21 @@ export default function AgendaPage() {
         await supabase.from('recuperaciones').update({cita_recuperacion_id:r.cita.id}).eq('id',nuevaCita.recuperacion_id)
       }
       if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:1})
+    } else if (nuevaCita.alterno) {
+      const diasA = nuevaCita.dias_repetir, diasB = nuevaCita.dias_repetir_b
+      if (diasA.length===0 || diasB.length===0) { alert('Selecciona los días de las dos semanas (inicio y alterna)'); setGuardando(false); return }
+      if (!nuevaCita.hora_b) { alert('Selecciona la hora de la semana alterna'); setGuardando(false); return }
+      const fechaFin = nuevaCita.fecha_fin || finDePeriodo(fechaCita, nuevaCita.periodo as Periodo)
+      const { fechasA, fechasB } = planDeFechasAlterno(fechaCita, fechaFin, diasA, diasB)
+      const items = [
+        ...fechasA.map(f=>({fecha:f, hora:nuevaCita.hora, sala:nuevaCita.sala})),
+        ...fechasB.map(f=>({fecha:f, hora:nuevaCita.hora_b, sala:nuevaCita.sala_b})),
+      ]
+      const r = await crearCitasPlan(items, datos)
+      if (!r.ok) { alert(`Error al crear las citas (${r.error}). Se crearon ${r.creadas} de ${items.length}.`); setGuardando(false); return }
+      const aviso = r.sinBono ? `\n\n${r.sinBono} no descuentan del bono de sesiones: se le habían acabado.` : ''
+      if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:r.creadas})
+      else if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas (horario alterno)${aviso}`)
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
       const fechaFin = nuevaCita.fecha_fin || finDePeriodo(fechaCita, nuevaCita.periodo as Periodo)
@@ -337,7 +353,7 @@ export default function AgendaPage() {
     }
     setModal(false)
     const eraNuevo = nuevaCita.nuevo
-    setNuevaCita({paciente_id:'',fecha:'',hora:'08:30',sala:'A',tipo:'entrenamiento',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:'',es_recuperacion:false,recuperacion_id:'',nuevo:false,nuevo_nombre:'',nuevo_telefono:''})
+    setNuevaCita({paciente_id:'',fecha:'',hora:'08:30',sala:'A',tipo:'entrenamiento',notas:'',repetir:false,dias_repetir:[],fecha_fin:'',periodo:'3meses',sesion_id:'',es_recuperacion:false,recuperacion_id:'',nuevo:false,nuevo_nombre:'',nuevo_telefono:'',alterno:false,dias_repetir_b:[],hora_b:'',sala_b:'A'})
     setGuardando(false); cargar(); if (eraNuevo) cargarPacientes()
   }
 

@@ -1,7 +1,7 @@
 'use client'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { AvisoBonoEnCita } from '@/components/SesionesBono'
-import { planDeFechas, finDePeriodo, type Periodo } from '@/lib/citas'
+import { planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
@@ -11,14 +11,27 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
   // Contarlas aquí por otro camino sería una segunda cuenta que podría no
   // coincidir con la primera.
   let nCitas = 1
-  if (nuevaCita.repetir && nuevaCita.fecha && nuevaCita.dias_repetir?.length) {
+  if (nuevaCita.repetir && nuevaCita.fecha) {
     const fin = nuevaCita.fecha_fin || finDePeriodo(nuevaCita.fecha, nuevaCita.periodo as Periodo)
-    nCitas = planDeFechas(nuevaCita.fecha, fin, nuevaCita.dias_repetir).length
+    if (nuevaCita.alterno) {
+      const { fechasA, fechasB } = planDeFechasAlterno(nuevaCita.fecha, fin, nuevaCita.dias_repetir||[], nuevaCita.dias_repetir_b||[])
+      nCitas = fechasA.length + fechasB.length
+    } else if (nuevaCita.dias_repetir?.length) {
+      nCitas = planDeFechas(nuevaCita.fecha, fin, nuevaCita.dias_repetir).length
+    } else nCitas = 0
   }
 
-  function toggleDia(dia: string) {
-    setNuevaCita((p: any) => ({...p, dias_repetir: p.dias_repetir.includes(dia) ? p.dias_repetir.filter((d: string) => d !== dia) : [...p.dias_repetir, dia]}))
+  function toggleDia(dia: string, key: string = 'dias_repetir') {
+    setNuevaCita((p: any) => { const arr = p[key]||[]; return {...p, [key]: arr.includes(dia) ? arr.filter((d: string) => d !== dia) : [...arr, dia]} })
   }
+  const chipsDias = (key: string) => (
+    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
+      {DIAS_SEMANA.map(d=>{ const on=(nuevaCita[key]||[]).includes(d); return (
+        <button key={d} onClick={()=>toggleDia(d,key)}
+          style={{fontSize:10,padding:'4px 9px',borderRadius:99,border:`1px solid ${on?'var(--g)':'var(--bd)'}`,background:on?'var(--g)':'var(--w)',color:on?'#fff':'var(--gr)',cursor:'pointer',fontFamily:'system-ui'}}>{d}</button>
+      )})}
+    </div>
+  )
 
   return (
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando)onCerrar()}}>
@@ -59,19 +72,21 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
               onLimpiar={()=>setNuevaCita((p:any)=>({...p,paciente_id:'',es_recuperacion:false,recuperacion_id:''}))}/>
           )}
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          <div className="field"><label>Hora</label>
-            <select className="input" value={nuevaCita.hora} onChange={e=>setNuevaCita((p:any)=>({...p,hora:e.target.value}))} disabled={guardando}>
-              <option value="">Elegir hora...</option>
-              {HORAS.map(h=><option key={h} value={h}>{h}</option>)}
-            </select>
+        {!(nuevaCita.repetir && nuevaCita.alterno) && (
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div className="field"><label>Hora</label>
+              <select className="input" value={nuevaCita.hora} onChange={e=>setNuevaCita((p:any)=>({...p,hora:e.target.value}))} disabled={guardando}>
+                <option value="">Elegir hora...</option>
+                {HORAS.map(h=><option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+            <div className="field"><label>Sala</label>
+              <select className="input" value={nuevaCita.sala} onChange={e=>setNuevaCita((p:any)=>({...p,sala:e.target.value}))} disabled={guardando}>
+                {salas.map((s:string)=><option key={s} value={s}>Sala {s}</option>)}
+              </select>
+            </div>
           </div>
-          <div className="field"><label>Sala</label>
-            <select className="input" value={nuevaCita.sala} onChange={e=>setNuevaCita((p:any)=>({...p,sala:e.target.value}))} disabled={guardando}>
-              {salas.map((s:string)=><option key={s} value={s}>Sala {s}</option>)}
-            </select>
-          </div>
-        </div>
+        )}
         <div className="field"><label>Tipo</label>
           <select className="input" value={nuevaCita.tipo} onChange={e=>setNuevaCita((p:any)=>({...p,tipo:e.target.value}))} disabled={guardando}>
             {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.nombre} ({t.duracion} min)</option>)}
@@ -87,16 +102,39 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
           </div>
           {nuevaCita.repetir&&(
             <>
-              <div className="field"><label>Días de la semana</label>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4}}>
-                  {DIAS_SEMANA.map(d=>(
-                    <button key={d} onClick={()=>toggleDia(d)}
-                      style={{fontSize:10,padding:'4px 9px',borderRadius:99,border:`1px solid ${nuevaCita.dias_repetir.includes(d)?'var(--g)':'var(--bd)'}`,background:nuevaCita.dias_repetir.includes(d)?'var(--g)':'var(--w)',color:nuevaCita.dias_repetir.includes(d)?'#fff':'var(--gr)',cursor:'pointer',fontFamily:'system-ui'}}>
-                      {d}
-                    </button>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 10px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:8,marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:11,color:'var(--n)'}}>Horario alterno</div>
+                  <div style={{fontSize:9,color:'var(--gd)'}}>Cambia hora, sala y días cada semana</div>
+                </div>
+                <button className="toggle" style={{background:nuevaCita.alterno?'var(--g)':'var(--bm)'}} onClick={()=>setNuevaCita((p:any)=>({...p,alterno:!p.alterno,...(!p.alterno?{hora_b:p.hora_b||p.hora,sala_b:p.sala_b||p.sala,dias_repetir_b:(p.dias_repetir_b&&p.dias_repetir_b.length)?p.dias_repetir_b:[...(p.dias_repetir||[])]}:{})}))}/>
+              </div>
+
+              {!nuevaCita.alterno ? (
+                <div className="field"><label>Días de la semana</label>{chipsDias('dias_repetir')}</div>
+              ) : (
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:6}}>
+                  {[
+                    {t:'Semana de inicio', kd:'dias_repetir', kh:'hora', ks:'sala'},
+                    {t:'Semana alterna', kd:'dias_repetir_b', kh:'hora_b', ks:'sala_b'},
+                  ].map(b=>(
+                    <div key={b.t} style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:8,padding:'8px 9px'}}>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',letterSpacing:.3,textTransform:'uppercase',marginBottom:5}}>{b.t}</div>
+                      {chipsDias(b.kd)}
+                      <div style={{fontSize:9,color:'var(--grl)',margin:'7px 0 2px'}}>Hora</div>
+                      <select className="input" value={nuevaCita[b.kh]||''} onChange={e=>setNuevaCita((p:any)=>({...p,[b.kh]:e.target.value}))} disabled={guardando} style={{fontSize:11,padding:'5px 7px'}}>
+                        <option value="">Elegir…</option>
+                        {HORAS.map(h=><option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <div style={{fontSize:9,color:'var(--grl)',margin:'6px 0 2px'}}>Sala</div>
+                      <select className="input" value={nuevaCita[b.ks]||''} onChange={e=>setNuevaCita((p:any)=>({...p,[b.ks]:e.target.value}))} disabled={guardando} style={{fontSize:11,padding:'5px 7px'}}>
+                        {salas.map((s:string)=><option key={s} value={s}>Sala {s}</option>)}
+                      </select>
+                    </div>
                   ))}
                 </div>
-              </div>
+              )}
+
               <div className="field"><label>Hasta cuándo</label>
                 <select className="input" value={nuevaCita.periodo} onChange={e=>setNuevaCita((p:any)=>({...p,periodo:e.target.value,fecha_fin:''}))} disabled={guardando}>
                   <option value="1mes">1 mes</option>
@@ -111,7 +149,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
                   <input type="date" className="input" value={nuevaCita.fecha_fin} onChange={e=>setNuevaCita((p:any)=>({...p,fecha_fin:e.target.value}))} disabled={guardando}/>
                 </div>
               )}
-              <div style={{background:'var(--gl)',borderRadius:5,padding:'6px 9px',fontSize:9,color:'var(--gd)'}}>✓ Se crearán todas las citas automáticamente</div>
+              <div style={{background:'var(--gl)',borderRadius:5,padding:'6px 9px',fontSize:9,color:'var(--gd)'}}>✓ Se crearán <b style={{fontWeight:600}}>{nCitas}</b> citas{nuevaCita.alterno?' · horario alterno por semanas':''}</div>
             </>
           )}
         </div>

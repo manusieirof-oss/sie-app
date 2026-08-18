@@ -55,6 +55,30 @@ export function planDeFechas(desde: string, hasta: string, dias: string[]): stri
   return fechas
 }
 
+/** El lunes (mediodía) de la semana de una fecha, en milisegundos. */
+function lunesDe(fechaISO: string): number {
+  const d = new Date(fechaISO + 'T12:00:00')
+  const n = d.getDay() === 0 ? 7 : d.getDay()
+  d.setDate(d.getDate() - (n - 1))
+  return d.getTime()
+}
+
+/**
+ * Plan para horario ALTERNO: el paciente que una semana viene de mañana y la
+ * siguiente de tarde, y que además puede venir en días distintos según la semana.
+ *
+ * La semana de la fecha de inicio es la "A" (par); la siguiente la "B" (impar); y así
+ * alternando. Cada bloque coge SUS días. Sale de `planDeFechas`, la misma función que el
+ * resto, para que la cuenta previa y la que se escribe no puedan discrepar.
+ */
+export function planDeFechasAlterno(desde: string, hasta: string, diasA: string[], diasB: string[]): { fechasA: string[]; fechasB: string[] } {
+  const base = lunesDe(desde)
+  const semana = (f: string) => Math.round((lunesDe(f) - base) / (7 * 86400000))
+  const fechasA = planDeFechas(desde, hasta, diasA).filter(f => semana(f) % 2 === 0)
+  const fechasB = planDeFechas(desde, hasta, diasB).filter(f => semana(f) % 2 === 1)
+  return { fechasA, fechasB }
+}
+
 export type DatosCita = {
   pacienteId: string
   /** 'HH:MM'. Se guarda con segundos. */
@@ -137,6 +161,30 @@ export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: 
   const filas = fechas.map((f, i) => ({ ...fila(f, d), bono_id: i < libres ? bonoId : null }))
   const sinBono = bonoId ? Math.max(0, fechas.length - libres) : 0
 
+  let creadas = 0
+  for (let i = 0; i < filas.length; i += 50) {
+    const lote = filas.slice(i, i + 50)
+    const { error } = await supabase.from('citas').insert(lote)
+    if (error) return { ok: false, error: error.message, creadas }
+    creadas += lote.length
+  }
+  return { ok: true, creadas, sinBono }
+}
+
+/**
+ * Varias citas con hora/sala PROPIAS por fecha (horario alterno).
+ *
+ * Igual que `crearCitas` pero cada fecha lleva su hora y su sala, porque la semana de
+ * mañana y la de tarde no coinciden. El bono se resuelve UNA vez sobre el conjunto
+ * ordenado, no por bloque: si se resolviera por separado, las dos semanas creerían tener
+ * las mismas sesiones libres y se descontaría de más.
+ */
+export async function crearCitasPlan(items: { fecha: string; hora: string; sala?: string }[], base: DatosCita): Promise<{ ok: true; creadas: number; sinBono?: number } | { ok: false; error: string; creadas: number }> {
+  if (!items.length) return { ok: true, creadas: 0 }
+  const orden = items.slice().sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')))
+  const { bonoId, libres } = await bonoDisponible(base.pacienteId, orden[0].fecha)
+  const filas = orden.map((it, i) => ({ ...fila(it.fecha, { ...base, hora: it.hora, sala: it.sala || base.sala }), bono_id: i < libres ? bonoId : null }))
+  const sinBono = bonoId ? Math.max(0, orden.length - libres) : 0
   let creadas = 0
   for (let i = 0; i < filas.length; i += 50) {
     const lote = filas.slice(i, i + 50)
