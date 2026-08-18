@@ -394,6 +394,12 @@ export default function AgendaPage() {
     setEditandoCita(null); cargar()
   }
 
+  async function borrarCitaDirecto(cita:any) {
+    await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
+    await supabase.from('citas').delete().eq('id',cita.id)
+    cargar()
+  }
+
   async function recargarTareas() {
     const { data: tar } = await supabase.from('tareas').select('*').order('fecha_limite',{ascending:true,nullsFirst:false})
     setTareas(tar||[])
@@ -572,7 +578,7 @@ export default function AgendaPage() {
 
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} salas={salas}/>}
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}
-      {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} horas={horas} salas={salas} tiposClase={tiposClase} guardando={guardando} onGuardar={guardarCitasMultiple} onCerrar={()=>setEditandoMulti(null)}/>}
+      {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} horas={horas} salas={salas} tiposClase={tiposClase} guardando={guardando} onGuardar={guardarCitasMultiple} onEstado={cambiarEstadoCita} onEliminar={borrarCitaDirecto} onCerrar={()=>setEditandoMulti(null)}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} alertasPaciente={alertasPaciente} onCerrar={()=>setVerEntrenoCita(null)}/>}
       {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}
