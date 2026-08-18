@@ -62,14 +62,28 @@ export default function SembrarPage() {
   useEffect(() => { comprobar() }, [])
 
   async function comprobar() {
-    const { data } = await supabase.from('etiquetas').select('nombre')
+    const { data } = await supabase.from('etiquetas').select('nombre,categoria')
     const claves = new Set<string>()
-    ;(data || []).forEach((e: any) => { claves.add(norm(e.nombre)); claves.add(raizNom(e.nombre)) })
+    ;(data || []).forEach((e: any) => {
+      claves.add(norm(e.nombre)); claves.add(raizNom(e.nombre))
+      // También con la categoría delante, que es como la semilla desambigua los nombres
+      // repetidos. Sin esto, este aviso marcaba como huérfanas las sesenta etiquetas
+      // escritas como `agarre:Supino` —que sí existen— y avisaba de todo, que es igual
+      // que no avisar de nada.
+      claves.add(e.categoria + ':' + norm(e.nombre))
+      claves.add(e.categoria + ':' + raizNom(e.nombre))
+    })
 
+    const clave = (n: string) => {
+      if (!n.includes(':')) return [norm(n), raizNom(n)]
+      const [cat, ...resto] = n.split(':')
+      const x = resto.join(':').trim()
+      return [cat.trim() + ':' + norm(x), cat.trim() + ':' + raizNom(x)]
+    }
 
     const faltan: Record<string, string[]> = {}
     SEMILLA.forEach(s => s.etiquetas.forEach(nombre => {
-      if (claves.has(norm(nombre)) || claves.has(raizNom(nombre))) return
+      if (clave(nombre).some(k => claves.has(k))) return
       ;(faltan[nombre] ||= []).push(s.nombre)
     }))
     setHuerfanas(Object.entries(faltan).map(([nombre, ejercicios]) => ({ nombre, ejercicios })))
