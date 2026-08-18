@@ -367,17 +367,23 @@ export default function PacientesPage() {
                 </div>
                 {ronda && (()=>{
                   const r = respuestas[p.id]
-                  const col = r?.estado==='respondido' ? 'var(--g)'
-                    : r?.estado==='preguntado' ? 'var(--amb)'
-                    : r?.estado==='no_procede' ? 'var(--grl)' : ''
+                  // Cada estado, su propio relleno. Ver `.chip-rd-*` en globals.css.
+                  const cls = r?.estado==='respondido' ? 'chip-rd-ok'
+                    : r?.estado==='preguntado' ? 'chip-rd-esp'
+                    : r?.estado==='no_procede' ? 'chip-rd-no'
+                    : 'chip-ed-n'
                   return (
                     <div style={{padding:'6px 8px',borderLeft:'1px solid var(--bl)',minWidth:0}}>
-                      <button className={`chip-ed ${r?.estado==='preguntado'?'chip-ed-a':r?'':'chip-ed-n'}`}
+                      <button className={`chip-ed chip-rd ${cls}`}
                         title={r?.respuesta || 'Marcar y anotar lo que diga'}
-                        style={{width:'100%',justifyContent:'flex-start',color:col||undefined}}
                         onClick={e=>{e.preventDefault();e.stopPropagation()
                           const b=(e.currentTarget as HTMLElement).getBoundingClientRect()
                           setEditRonda({ paciente:p, estado:r?.estado||null, texto:r?.respuesta||'', x:Math.min(b.left, window.innerWidth-300), y:b.bottom+4 })}}>
+                        {/* El icono dice el estado aunque el texto sea la respuesta
+                            escrita: con una respuesta larga, "respondido" desaparecía. */}
+                        <Ic name={r?.estado==='respondido' ? 'check'
+                          : r?.estado==='preguntado' ? 'reloj'
+                          : r?.estado==='no_procede' ? 'cerrar' : 'mas'} size={11}/>
                         <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           {r?.respuesta ? r.respuesta
                             : r?.estado==='respondido' ? 'Respondido'
