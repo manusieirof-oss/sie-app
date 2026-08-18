@@ -476,22 +476,33 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>Cambiar bono</button>
               </div>
 
-              {/* BONOS POR SESIONES.
-                  Las restantes no salen de ningún contador: se cuentan desde sus
-                  citas cada vez que se abre la ficha. Cambiar una cita de "vino"
-                  a "canceló" devuelve la sesión sola. */}
-              {bonosSesiones.length > 0 && (
-                <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
-                  {bonosSesiones.map((bs:any)=>(
-                    <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones}/>
-                  ))}
-                </div>
-              )}
             </>
           ) : (
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span className="muted">Sin bono activo</span>
+              <span className="muted">{bonosSesiones.length > 0 ? 'Sin cuota mensual' : 'Sin bono activo'}</span>
               <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>+ Asignar bono</button>
+            </div>
+          )}
+
+          {/* BONOS POR SESIONES. FUERA DEL `if` DE LA CUOTA.
+              Estaban dentro, y por eso quien tenía sesiones compradas pero NINGUNA cuota
+              mensual —alguien que solo viene a individuales, o que empieza el mes que
+              viene— no las veía por ningún lado: la ficha entraba por la rama de "sin
+              bono activo" y ese bloque no llegaba a pintarse. El bono estaba guardado y
+              la vista lo devolvía; simplemente no había nada que lo dibujara.
+
+              Son cosas independientes: la cuota es lo que se factura cada mes y las
+              sesiones son una compra suelta. Que una dependa de la otra para verse era
+              atarlas sin motivo.
+
+              Las restantes no salen de ningún contador: se cuentan desde sus citas cada
+              vez que se abre la ficha. Cambiar una cita de "vino" a "canceló" devuelve la
+              sesión sola. */}
+          {bonosSesiones.length > 0 && (
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
+              {bonosSesiones.map((bs:any)=>(
+                <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones}/>
+              ))}
             </div>
           )}
         </div>
