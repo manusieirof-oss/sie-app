@@ -21,6 +21,21 @@ import BuscadorPacientes from '@/components/BuscadorPacientes'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 
+/**
+ * El error de la base, en cristiano.
+ *
+ * "duplicate key value violates unique constraint idx_bono_activo_unico" es lo que Postgres
+ * tiene que decir, pero delante de un paciente no sirve de nada: no dice qué ha pasado ni
+ * qué hacer. Traducirlo aquí es más honesto que esconderlo.
+ */
+function mensajeBono(msg: string): string {
+  if (msg.includes('idx_bono_activo_unico')) {
+    return 'Este paciente ya tiene un bono activo de ese mes. Recarga la ficha para verlo: '
+      + 'si quieres cambiarlo, cámbialo sobre el que ya existe en vez de crear otro.'
+  }
+  return `No se ha podido asignar el bono: ${msg}`
+}
+
 export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar, onGuardado }: {
   pacienteId: string
   bonoActual: any
@@ -137,7 +152,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       // Se insertan los dos de golpe: o entran los dos o no entra ninguno. Si
       // fueran dos inserciones seguidas y fallara la segunda, uno se quedaría
       // con bono y el otro no, y nadie se enteraría hasta el mes siguiente.
-      if (error) { setError(`No se ha podido asignar el bono: ${error.message}`); setGuardando(false); return }
+      if (error) { setError(mensajeBono(error.message)); setGuardando(false); return }
       await supabase.from('eventos_paciente').insert(destinos.map(pid => ({
         paciente_id: pid, tipo: 'cambio_bono',
         titulo: `Bono de sesiones: ${LBL_BONO[form.tipo]||form.tipo}`,
@@ -153,7 +168,22 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       return
     }
 
-    // Si el bono que se sustituye YA ES DE ESTE MES, se corrige en su sitio en
+    // ¿YA HAY UNA CUOTA ACTIVA DE ESE MES? Se pregunta a la base, no a la pantalla.
+    //
+    // Esto miraba `bonoActual`, que es la cuota que la ficha está ENSEÑANDO —la de este
+    // mes—, y decidía con ella si el bono nuevo era del mismo mes. Pero la restricción de
+    // la base es sobre CUALQUIER cuota activa de ese mes, la esté enseñando la ficha o no.
+    //
+    // El caso que lo rompía: en agosto le dejas preparada la cuota de septiembre. La ficha
+    // sigue mostrando la de agosto, que es la que toca cobrar. Si vuelves a entrar y pones
+    // otra vez septiembre, aquí se comparaba contra agosto, salía "no es el mismo mes", se
+    // insertaba una segunda de septiembre y Postgres la rechazaba con un
+    // "duplicate key value violates unique constraint", que no le dice nada a nadie.
+    const { data: yaDelMes } = await supabase.from('bonos')
+      .select('*').eq('paciente_id', pacienteId).eq('activo', true)
+      .eq('mes', mes).eq('anio', anio).is('sesiones_totales', null).maybeSingle()
+
+    // Si el bono que se sustituye YA ES DE ESE MES, se corrige en su sitio en
     // vez de crear otro.
     //
     // Antes se desactivaba el viejo y se insertaba uno nuevo, en ese orden y sin
@@ -169,12 +199,12 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     // Si el bono anterior era DE SESIONES, no se corrige ni se retira: se le
     // está poniendo la cuota mensual además de las sesiones que compró, y esas
     // siguen siendo suyas hasta que se las gaste.
-    const mismoMes = bonoActual && !esDeSesiones(bonoActual)
-      && bonoActual.mes === mes && bonoActual.anio === anio
-    const sustituye = bonoActual && !esDeSesiones(bonoActual)
+    const aCorregir = yaDelMes
+    // El anterior solo se retira si es una cuota DISTINTA de la que acabamos de tocar.
+    const sustituye = bonoActual && !esDeSesiones(bonoActual) && bonoActual.id !== yaDelMes?.id
 
-    if (mismoMes) {
-      const { error } = await supabase.from('bonos').update(comun).eq('id', bonoActual.id)
+    if (aCorregir) {
+      const { error } = await supabase.from('bonos').update(comun).eq('id', aCorregir.id)
       if (error) { setError(`No se ha podido cambiar el bono: ${error.message}`); setGuardando(false); return }
     } else {
       // Primero se crea el nuevo. Solo si entra se retira el anterior, para que
@@ -183,7 +213,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         ...comun, paciente_id: pacienteId, estado_pago: 'pendiente', mes, anio,
         fecha_inicio: inicio, activo: true,
       })
-      if (error) { setError(`No se ha podido asignar el bono: ${error.message}`); setGuardando(false); return }
+      if (error) { setError(mensajeBono(error.message)); setGuardando(false); return }
       if (sustituye) await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
     }
 
@@ -192,8 +222,8 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       : ''
     await supabase.from('eventos_paciente').insert({
       paciente_id: pacienteId, tipo: 'cambio_bono',
-      titulo: `${mismoMes ? 'Bono corregido' : 'Bono asignado'}: ${LBL_BONO[form.tipo]||form.tipo}`,
-      descripcion: `${mismoMes ? 'Se corrige la cuota de este mes.' : 'Pendiente de cobro.'}${txtDesc}`
+      titulo: `${aCorregir ? 'Bono corregido' : 'Bono asignado'}: ${LBL_BONO[form.tipo]||form.tipo}`,
+      descripcion: `${aCorregir ? `Se corrige la cuota de ${MESES[mes-1]}.` : 'Pendiente de cobro.'}${txtDesc}`
         + (empiezaDespues ? ` Cuota de ${MESES[mes-1].toLowerCase()}, empieza el ${new Date(inicio+'T12:00:00').toLocaleDateString('es-ES')}.` : ''),
       fecha: hoyStr,
     })
