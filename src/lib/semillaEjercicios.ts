@@ -46,7 +46,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla trasera',
     descripcion: 'Barra apoyada en la espalda alta. Se baja llevando la cadera atrás y abajo hasta que los muslos queden al menos paralelos al suelo, y se sube empujando el suelo con todo el pie.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Cadera', 'Barra', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Cadera', 'Barra', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'Las rodillas siguen la dirección de los pies, sin caer hacia dentro',
       'El talón no se despega del suelo',
@@ -65,7 +65,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Peso muerto rumano',
     descripcion: 'Bisagra de cadera con las piernas casi extendidas. La barra baja pegada a la pierna hasta notar tensión en la parte posterior del muslo, y se sube empujando la cadera adelante.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Glúteo', 'Cadera', 'Barra', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Isquiotibial', 'Glúteo', 'Cadera', 'Barra', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El movimiento nace en la cadera, no en la zona lumbar',
       'La espalda se mantiene recta durante todo el recorrido',
@@ -84,7 +84,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Zancada búlgara',
     descripcion: 'Pie trasero elevado sobre un banco. Se baja en vertical hasta que la rodilla adelantada llegue a noventa grados, manteniendo el tronco erguido.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Mancuerna', 'Zancada', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Mancuerna', 'Zancada', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'La rodilla delantera no se desvía hacia dentro',
       'El tronco se mantiene erguido, sin caer adelante',
@@ -103,7 +103,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Puente de glúteo',
     descripcion: 'Tumbado boca arriba con los pies apoyados. Se eleva la cadera hasta formar una línea recta entre hombro, cadera y rodilla, apretando el glúteo arriba.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Cadera', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Glúteo', 'Cadera', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'Sube empujando con el talón, no con la punta del pie',
       'El glúteo aprieta antes que los isquiotibiales',
@@ -122,7 +122,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press de banca',
     descripcion: 'Tumbado en banco horizontal. La barra baja controlada hasta el pecho con los codos a unos cuarenta y cinco grados, y se empuja hasta extender los brazos.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Barra', 'Empuje horizontal', 'Global'],
+    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Barra', 'Empuje horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Supino'],
     items_ejecucion: [
       'Los codos quedan a unos 45°, no abiertos del todo',
       'Las escápulas se mantienen juntas y apoyadas',
@@ -141,7 +141,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Remo con barra',
     descripcion: 'Tronco inclinado unos cuarenta y cinco grados con la espalda recta. Se tracciona la barra hacia el abdomen llevando los codos atrás y juntando las escápulas.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Trapecio', 'Bíceps', 'Barra', 'Tracción horizontal', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Trapecio', 'Bíceps', 'Barra', 'Tracción horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'El tirón empieza en la escápula, no en el bíceps',
       'Los codos van hacia atrás, pegados al cuerpo',
@@ -160,7 +160,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press militar de pie',
     descripcion: 'De pie, barra a la altura de la clavícula. Se empuja sobre la cabeza hasta extender los brazos, sin arquear la zona lumbar.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Hombro', 'Tríceps', 'Barra', 'Empuje vertical', 'Global'],
+    etiquetas: ['Hombro', 'Tríceps', 'Barra', 'Empuje vertical', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'La zona lumbar no se arquea al empujar',
       'El glúteo y el abdomen se mantienen activos',
@@ -179,7 +179,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Plancha frontal',
     descripcion: 'Apoyo en antebrazos y puntas de los pies, con el cuerpo formando una línea recta. Se mantiene la posición el tiempo indicado sin perder la alineación.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Abdomen', 'Global'],
+    etiquetas: ['Abdomen', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Prono', 'Codos'],
     items_ejecucion: [
       'La cadera no cae ni se eleva',
       'Los codos quedan bajo los hombros',
@@ -198,7 +198,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Plancha lateral',
     descripcion: 'Apoyo en un antebrazo y el canto del pie, con la cadera elevada y el cuerpo alineado. Se mantiene el tiempo indicado por cada lado.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Abdomen', 'Cadera', 'Unilateral', 'Global'],
+    etiquetas: ['Abdomen', 'Cadera', 'Unilateral', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Decúbito lateral', 'Codos'],
     items_ejecucion: [
       'La cadera se mantiene elevada, sin caer al suelo',
       'El codo queda bajo el hombro',
@@ -217,7 +217,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Movilidad torácica en cuadrupedia',
     descripcion: 'A cuatro patas, una mano tras la nuca. Se rota el tronco abriendo el pecho hacia el techo y se vuelve despacio, sin mover la cadera.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Dorsal Ancho', 'Columna', 'Rotación', 'Analítico'],
+    etiquetas: ['Dorsal Ancho', 'Columna', 'Rotación', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Cuadrupedia', 'apoyo:Rodilla'],
     items_ejecucion: [
       'La rotación nace del tórax, no de la zona lumbar',
       'La cadera se mantiene quieta y cuadrada',
@@ -249,7 +249,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla frontal',
     descripcion: 'Barra apoyada delante, sobre los deltoides y la clavícula, con los codos altos. Se baja con el tronco vertical hasta al menos muslos paralelos y se sube empujando el suelo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Barra', 'Rack', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Barra', 'Rack', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'agarre:Supino'],
     items_ejecucion: [
       'Los codos se mantienen altos durante todo el recorrido',
       'El tronco queda vertical, sin caer adelante',
@@ -267,7 +267,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla goblet',
     descripcion: 'Peso sujeto contra el pecho con las dos manos. Se baja entre las rodillas manteniendo el tronco erguido y se sube empujando el suelo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Mancuerna', 'Kettlebell', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Mancuerna', 'Kettlebell', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'agarre:Neutro'],
     items_ejecucion: [
       'El peso se mantiene pegado al pecho, sin separarse',
       'Los codos bajan por dentro de las rodillas',
@@ -286,7 +286,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla al banco',
     descripcion: 'Se baja controlando hasta rozar el banco con el glúteo, sin dejarse caer, y se sube sin impulso. El banco marca la profundidad y da referencia de hasta dónde llegar.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Banco', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Banco', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'El glúteo roza el banco, no se deja caer sobre él',
       'La subida sale sin balancear el tronco para coger impulso',
@@ -305,7 +305,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla asistida en suspensión',
     descripcion: 'De pie frente a las cinchas, sujeto con los dos brazos. Se baja llevando la cadera atrás, usando los brazos solo lo justo para descargar peso, y se sube con las piernas.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Cinchas de suspensión', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Cinchas de suspensión', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'Los brazos asisten, no tiran: el trabajo lo hacen las piernas',
       'Las cinchas se mantienen tensas, sin dar tirones',
@@ -323,7 +323,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla landmine',
     descripcion: 'Un extremo de la barra anclado al suelo y el otro sujeto a la altura del pecho. El anclaje ayuda a mantener el tronco vertical, así que perdona movilidad de tobillo y de hombro.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Landmine', 'Barra', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Landmine', 'Barra', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'agarre:Neutro'],
     items_ejecucion: [
       'La barra se mantiene pegada al pecho, sin alejarse',
       'El tronco queda vertical, apoyándose en el arco de la barra',
@@ -340,7 +340,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla isométrica en pared',
     descripcion: 'Espalda apoyada en la pared y rodillas a noventa grados. Se mantiene la posición el tiempo indicado sin despegar la espalda ni dejar caer la cadera.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cuádriceps', 'Vasto Medial', 'Rodilla', 'Pared', 'Pelota', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Vasto Medial', 'Rodilla', 'Pared', 'Pelota', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'La espalda se mantiene pegada a la pared en todo momento',
       'Las rodillas quedan sobre los tobillos, no por delante de la punta',
@@ -358,7 +358,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla sissy',
     descripcion: 'De pie, se lleva la rodilla adelante y el tronco atrás manteniendo la línea de rodilla a hombro, elevando los talones. Trabaja el cuádriceps en un rango que la sentadilla normal no alcanza.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Vasto Medial', 'Rodilla', 'Stick', 'Sentadilla', 'Global'],
+    etiquetas: ['Cuádriceps', 'Vasto Medial', 'Rodilla', 'Stick', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Arrodillado'],
     items_ejecucion: [
       'La cadera no se flexiona: rodilla y hombro quedan en línea',
       'El descenso es lento y controlado, sin caídas',
@@ -375,7 +375,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Zancada',
     descripcion: 'Se da un paso y se baja en vertical hasta que la rodilla adelantada llegue a noventa grados, manteniendo el tronco erguido, y se vuelve empujando con el pie de delante.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Mancuerna', 'Zancada', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Mancuerna', 'Zancada', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'El descenso es vertical, no hacia delante',
       'La rodilla de delante no se desvía hacia dentro',
@@ -395,7 +395,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla split',
     descripcion: 'Posición de zancada mantenida, un pie delante y otro detrás sin moverlos. Se sube y baja en vertical repartiendo el peso principalmente en la pierna de delante.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Mancuerna', 'Zancada', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Mancuerna', 'Zancada', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'Los pies no se mueven entre repeticiones',
       'El descenso es vertical, no adelante y atrás',
@@ -414,7 +414,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Zancada lateral',
     descripcion: 'Paso amplio hacia un lado. Se flexiona la rodilla de ese lado llevando la cadera atrás mientras la otra pierna queda extendida, y se vuelve empujando con el pie que se flexionó.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Aductores', 'Cadera', 'Unilateral', 'Mancuerna', 'Zancada', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Aductores', 'Cadera', 'Unilateral', 'Mancuerna', 'Zancada', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Unipodal'],
     items_ejecucion: [
       'Los dos pies apuntan al frente durante todo el movimiento',
       'La cadera va hacia atrás, no solo la rodilla adelante',
@@ -433,7 +433,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Zancada con deslizador',
     descripcion: 'Un pie sobre el deslizador, que se desplaza mientras el otro sostiene el peso. El movimiento no tiene fase de impacto, así que el control lo lleva la pierna de apoyo de principio a fin.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Deslizador', 'Zancada', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Deslizador', 'Zancada', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'El deslizador se mueve despacio, sin escaparse',
       'El peso se queda en la pierna de apoyo',
@@ -451,7 +451,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Subida al cajón',
     descripcion: 'Se apoya un pie completo en el cajón y se sube empujando con esa pierna, sin impulsarse con la de abajo. La bajada se hace controlada, que es donde está el trabajo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Cajón', 'Mancuerna', 'Zancada', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Unilateral', 'Cajón', 'Mancuerna', 'Zancada', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'La subida sale de la pierna de arriba, sin impulso del pie de abajo',
       'El pie apoya completo en el cajón, no solo la punta',
@@ -470,7 +470,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Salto al cajón',
     descripcion: 'Se salta al cajón cayendo con las rodillas flexionadas y los pies completos. Se baja andando, no saltando: el impacto de la caída al suelo es lo que no interesa.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Cajón pliométrico', 'Salto', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Rodilla', 'Cajón pliométrico', 'Salto', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'La caída es silenciosa, amortiguando con la rodilla y la cadera',
       'Los dos pies apoyan completos sobre el cajón',
@@ -489,7 +489,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Extensión terminal de rodilla',
     descripcion: 'Banda anclada al frente, pasada por detrás de la rodilla ligeramente flexionada. Se extiende la rodilla contra la resistencia en los últimos grados y se vuelve despacio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Vasto Medial', 'Rodilla', 'Banda elástica', 'Analítico'],
+    etiquetas: ['Cuádriceps', 'Vasto Medial', 'Rodilla', 'Banda elástica', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación'],
     items_ejecucion: [
       'El movimiento es solo de rodilla: la cadera no se mueve',
       'Se llega a la extensión completa en cada repetición',
@@ -520,7 +520,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Peso muerto convencional',
     descripcion: 'Barra en el suelo, pies bajo ella. Se agarra con la espalda recta y se levanta extendiendo cadera y rodillas a la vez, con la barra pegada a la pierna, hasta quedar de pie.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Glúteo', 'Glúteo mayor', 'Cadera', 'Columna', 'Barra olímpica', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Isquiotibial', 'Glúteo', 'Glúteo mayor', 'Cadera', 'Columna', 'Barra olímpica', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Mixto'],
     items_ejecucion: [
       'La espalda mantiene su curva, sin redondearse en ningún momento',
       'La barra sube pegada a la pierna, sin alejarse del cuerpo',
@@ -538,7 +538,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Peso muerto a una pierna',
     descripcion: 'Sobre una pierna, se lleva la cadera atrás mientras la otra pierna sube extendida por detrás, hasta que tronco y pierna formen una línea horizontal. Se vuelve empujando la cadera adelante.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Glúteo', 'Cadera', 'Unilateral', 'Mancuerna', 'Kettlebell', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Isquiotibial', 'Glúteo', 'Cadera', 'Unilateral', 'Mancuerna', 'Kettlebell', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Unipodal'],
     items_ejecucion: [
       'Tronco y pierna de atrás forman una línea recta',
       'La cadera se mantiene cuadrada, sin abrirse hacia el lado',
@@ -557,7 +557,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Hip thrust',
     descripcion: 'Espalda alta apoyada en un banco y pies en el suelo. Se eleva la cadera hasta formar una línea recta de rodilla a hombro, apretando el glúteo arriba, y se baja controlando.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Glúteo mayor', 'Cadera', 'Banco', 'Barra', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Glúteo', 'Glúteo mayor', 'Cadera', 'Banco', 'Barra', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'Arriba, rodilla, cadera y hombro quedan alineados',
       'La zona lumbar no se arquea al llegar arriba',
@@ -576,7 +576,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Buenos días',
     descripcion: 'Barra en la espalda alta. Se inclina el tronco hacia delante llevando la cadera atrás, con las piernas casi extendidas, hasta notar tensión detrás del muslo, y se sube empujando la cadera.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Glúteo', 'Cadera', 'Columna', 'Barra', 'Rack', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Isquiotibial', 'Glúteo', 'Cadera', 'Columna', 'Barra', 'Rack', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El movimiento nace en la cadera, no en la zona lumbar',
       'La espalda se mantiene recta durante todo el recorrido',
@@ -595,7 +595,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Swing con kettlebell',
     descripcion: 'La pesa se balancea entre las piernas y sube hasta la altura del pecho por el empuje de la cadera, no por tirar con los brazos. Los brazos solo acompañan.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Glúteo mayor', 'Isquiotibial', 'Cadera', 'Kettlebell', 'Bisagra de cadera', 'Global'],
+    etiquetas: ['Glúteo', 'Glúteo mayor', 'Isquiotibial', 'Cadera', 'Kettlebell', 'Bisagra de cadera', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Neutro'],
     items_ejecucion: [
       'La pesa sube por el empuje de la cadera, no por tirar con los brazos',
       'La espalda se mantiene recta, sin redondearse abajo',
@@ -612,7 +612,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Curl femoral con deslizador',
     descripcion: 'Tumbado boca arriba con la cadera elevada y los talones sobre deslizadores. Los pies se alejan extendiendo la rodilla y vuelven arrastrando, sin dejar caer la cadera al suelo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Glúteo', 'Rodilla', 'Deslizador', 'Analítico'],
+    etiquetas: ['Isquiotibial', 'Glúteo', 'Rodilla', 'Deslizador', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'La cadera se mantiene elevada durante todo el recorrido',
       'Los pies se alejan despacio, sin escaparse',
@@ -630,7 +630,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Curl femoral en fitball',
     descripcion: 'Tumbado boca arriba con la cadera elevada y los talones sobre una pelota grande. Se arrastra la pelota hacia el cuerpo flexionando la rodilla y se vuelve controlando.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Glúteo', 'Rodilla', 'Fitball', 'Analítico'],
+    etiquetas: ['Isquiotibial', 'Glúteo', 'Rodilla', 'Fitball', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'La cadera se mantiene elevada, sin apoyarse en el suelo',
       'La pelota se mueve sin desviarse hacia un lado',
@@ -648,7 +648,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Curl nórdico',
     descripcion: 'De rodillas con los tobillos sujetos, el cuerpo cae hacia delante en línea recta, frenando con la parte posterior del muslo tanto como se pueda. Es un trabajo excéntrico: lo que importa es la bajada.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Isquiotibial', 'Rodilla', 'Banco', 'Analítico'],
+    etiquetas: ['Isquiotibial', 'Rodilla', 'Banco', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Arrodillado'],
     items_ejecucion: [
       'El cuerpo baja en línea recta: la cadera no se dobla',
       'El descenso se frena todo lo posible, no se cae de golpe',
@@ -667,7 +667,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Abducción de cadera tumbado',
     descripcion: 'Tumbado de lado con una goma alrededor de los muslos. Se separa la pierna de arriba sin rotar la cadera ni echar el cuerpo hacia atrás, y se vuelve despacio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Unilateral', 'Mini band', 'Analítico'],
+    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Unilateral', 'Mini band', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Decúbito lateral'],
     items_ejecucion: [
       'La cadera no rota hacia atrás para ayudarse',
       'El tronco se mantiene quieto, sin balancearse',
@@ -685,7 +685,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Marcha lateral con mini band',
     descripcion: 'En media sentadilla con una goma en los tobillos, se dan pasos laterales manteniendo la tensión de la goma y sin juntar los pies del todo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Rodilla', 'Mini band', 'Marcha', 'Global'],
+    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Rodilla', 'Mini band', 'Marcha', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación'],
     items_ejecucion: [
       'La goma se mantiene tensa: los pies no se juntan del todo',
       'Las rodillas no caen hacia dentro al dar el paso',
@@ -718,7 +718,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Bird dog',
     descripcion: 'A cuatro patas, se extienden a la vez un brazo y la pierna contraria hasta la altura del tronco, sin que la espalda se arquee ni la cadera bascule. Se mantiene y se vuelve despacio.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Erectores Espinales', 'Glúteo', 'Columna', 'Antirotación', 'Global'],
+    etiquetas: ['Erectores Espinales', 'Glúteo', 'Columna', 'Antirotación', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Cuadrupedia', 'apoyo:Rodilla'],
     items_ejecucion: [
       'La espalda se mantiene plana, sin arquearse ni hundirse',
       'La cadera no bascula hacia el lado de la pierna que sube',
@@ -737,7 +737,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Dead bug',
     descripcion: 'Tumbado boca arriba con brazos y rodillas arriba, se bajan a la vez un brazo y la pierna contraria hasta rozar el suelo, manteniendo la zona lumbar pegada, y se vuelve.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Abdomen', 'Antiextensión', 'Global'],
+    etiquetas: ['Abdomen', 'Antiextensión', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'La zona lumbar se mantiene pegada al suelo en todo momento',
       'El brazo y la pierna bajan a la vez y despacio',
@@ -756,7 +756,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Puente lateral con elevación',
     descripcion: 'Desde la plancha lateral, se eleva además la pierna de arriba sin flexionarla ni rotar la cadera. Suma el trabajo de glúteo medio al del costado.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Oblicuos', 'Glúteo', 'Glúteo medio', 'Cadera', 'Unilateral', 'Antiflexión', 'Global'],
+    etiquetas: ['Oblicuos', 'Glúteo', 'Glúteo medio', 'Cadera', 'Unilateral', 'Antiflexión', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Decúbito lateral'],
     items_ejecucion: [
       'La cadera se mantiene elevada, sin caer hacia el suelo',
       'La pierna sube de lado, no hacia delante',
@@ -775,7 +775,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press Pallof',
     descripcion: 'De pie y de costado a un anclaje, se empujan las manos al frente contra la tensión de la banda sin dejar que el tronco gire. Todo el trabajo es aguantar la rotación.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Oblicuos', 'Abdomen', 'Polea', 'Banda elástica', 'Antirotación', 'Global'],
+    etiquetas: ['Oblicuos', 'Abdomen', 'Polea', 'Banda elástica', 'Antirotación', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El tronco no gira hacia el anclaje al extender los brazos',
       'La cadera se mantiene cuadrada y mirando al frente',
@@ -793,7 +793,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Antirrotación con banda',
     descripcion: 'Igual que el press Pallof pero manteniendo los brazos ya extendidos el tiempo indicado. Es la versión isométrica: no hay movimiento, solo aguantar.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Oblicuos', 'Abdomen', 'Banda elástica', 'Antirotación', 'Global'],
+    etiquetas: ['Oblicuos', 'Abdomen', 'Banda elástica', 'Antirotación', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'El tronco no cede hacia el anclaje',
       'Los brazos se mantienen extendidos y a la altura del pecho',
@@ -811,7 +811,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Paseo del granjero',
     descripcion: 'Se camina erguido con un peso en cada mano, sin inclinarse a ningún lado ni encoger los hombros. Parece sencillo y es de lo que más exige al core.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Trapecio', 'Antiflexión', 'Mancuerna', 'Kettlebell', 'Acarreo', 'Global'],
+    etiquetas: ['Trapecio', 'Antiflexión', 'Mancuerna', 'Kettlebell', 'Acarreo', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El tronco se mantiene vertical, sin inclinarse a los lados',
       'Los hombros quedan atrás y abajo, sin encogerse',
@@ -829,7 +829,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rueda abdominal',
     descripcion: 'De rodillas, se rueda hacia delante estirando el cuerpo sin que la cadera se doble ni la lumbar se arquee, y se vuelve tirando con el abdomen.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Abdomen', 'Columna', 'Rueda abdominal', 'Antiextensión', 'Global'],
+    etiquetas: ['Abdomen', 'Columna', 'Rueda abdominal', 'Antiextensión', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Arrodillado', 'apoyo:Rodilla'],
     items_ejecucion: [
       'La cadera no se dobla: el cuerpo va en línea recta',
       'La zona lumbar no se arquea al estirarse',
@@ -848,7 +848,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rodillo de fitball',
     descripcion: 'De rodillas con los antebrazos sobre una pelota, se rueda hacia delante estirando el cuerpo y se vuelve. Es la versión amable de la rueda: se puede parar en cualquier punto.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Abdomen', 'Columna', 'Fitball', 'Antiextensión', 'Global'],
+    etiquetas: ['Abdomen', 'Columna', 'Fitball', 'Antiextensión', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Arrodillado', 'apoyo:Rodilla'],
     items_ejecucion: [
       'La cadera no se dobla durante el recorrido',
       'La zona lumbar no se arquea al estirarse',
@@ -867,7 +867,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Gato-camello',
     descripcion: 'A cuatro patas, la espalda se redondea hacia arriba y luego se hunde, recorriendo despacio todo el rango de la columna. Es movilidad, no fuerza: no se busca esfuerzo.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Columna', 'Erectores Espinales', 'Flexión', 'Extensión', 'Analítico'],
+    etiquetas: ['Columna', 'Erectores Espinales', 'Flexión', 'Extensión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Cuadrupedia', 'apoyo:Rodilla'],
     items_ejecucion: [
       'El movimiento recorre toda la columna, no solo la zona lumbar',
       'Va despacio y acompañado de la respiración',
@@ -886,7 +886,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Extensión lumbar en el suelo',
     descripcion: 'Tumbado boca abajo, se despega el pecho del suelo manteniendo el cuello en línea con la espalda, y se baja despacio. Rango corto: no se trata de subir mucho.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Erectores Espinales', 'Columna', 'Glúteo', 'Analítico'],
+    etiquetas: ['Erectores Espinales', 'Columna', 'Glúteo', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Prono'],
     items_ejecucion: [
       'El cuello sigue la línea de la espalda, sin levantar la cabeza',
       'El rango es corto: el pecho apenas se despega',
@@ -920,7 +920,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rotación externa con banda',
     descripcion: 'De pie, con el codo pegado al costado y flexionado a noventa grados, se gira el antebrazo hacia fuera contra la banda y se vuelve despacio. El codo no se despega del cuerpo en ningún momento.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Manguito rotador', 'Infraespinoso', 'Hombro', 'Banda elástica', 'Rotación', 'Hombro doloroso', 'Analítico'],
+    etiquetas: ['Manguito rotador', 'Infraespinoso', 'Hombro', 'Banda elástica', 'Rotación', 'Hombro doloroso', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'El codo se mantiene pegado al costado durante todo el recorrido',
       'El movimiento es solo de rotación: el hombro no se separa ni se eleva',
@@ -939,7 +939,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rotación interna con banda',
     descripcion: 'Igual que la externa pero al revés: el antebrazo gira hacia dentro, cruzando hacia el ombligo, contra la resistencia de la banda. El codo sigue pegado al costado.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Manguito rotador', 'Subescapular', 'Hombro', 'Banda elástica', 'Rotación', 'Analítico'],
+    etiquetas: ['Manguito rotador', 'Subescapular', 'Hombro', 'Banda elástica', 'Rotación', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'El codo se mantiene pegado al costado',
       'El antebrazo cruza hacia el ombligo, sin llevar el hombro adelante',
@@ -958,7 +958,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación lateral',
     descripcion: 'De pie con una mancuerna en cada mano, se separan los brazos hacia los lados hasta la altura del hombro y se baja controlando. No se sube más arriba del hombro.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Deltoides', 'Hombro', 'Mancuerna', 'Abducción', 'Analítico'],
+    etiquetas: ['Deltoides', 'Hombro', 'Mancuerna', 'Abducción', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los brazos suben hasta la altura del hombro, no más',
       'El tronco se mantiene quieto, sin balancearse para coger impulso',
@@ -976,7 +976,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación frontal',
     descripcion: 'De pie con una mancuerna en cada mano, se levantan los brazos rectos hacia delante hasta la altura del hombro y se baja despacio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Deltoides', 'Hombro', 'Mancuerna', 'Flexión', 'Analítico'],
+    etiquetas: ['Deltoides', 'Hombro', 'Mancuerna', 'Flexión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los brazos suben hasta la altura del hombro, no más',
       'La zona lumbar no se arquea al subir',
@@ -995,7 +995,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Pájaro',
     descripcion: 'Con el tronco inclinado casi hasta la horizontal y la espalda recta, se abren los brazos hacia los lados hasta la altura de la espalda, juntando las escápulas al final.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Deltoides', 'Trapecio', 'Romboides Mayor', 'Hombro', 'Mancuerna', 'Analítico'],
+    etiquetas: ['Deltoides', 'Trapecio', 'Romboides Mayor', 'Hombro', 'Mancuerna', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'La espalda se mantiene recta, sin redondearse',
       'Los brazos se abren hacia los lados, no hacia atrás',
@@ -1014,7 +1014,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Face pull',
     descripcion: 'Se tracciona una banda anclada a la altura de la cara hacia la frente, separando las manos y llevando los codos altos y abiertos. Junta las escápulas al final.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Trapecio', 'Romboides Mayor', 'Deltoides', 'Escapular', 'Polea', 'Banda elástica', 'Retracción', 'Tracción horizontal', 'Global'],
+    etiquetas: ['Trapecio', 'Romboides Mayor', 'Deltoides', 'Escapular', 'Polea', 'Banda elástica', 'Retracción', 'Tracción horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los codos quedan altos, a la altura de los hombros o por encima',
       'Las manos se separan al final del recorrido',
@@ -1033,7 +1033,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Deslizamiento en pared',
     descripcion: 'De espaldas a la pared con los antebrazos apoyados en ella y los codos a noventa grados, se suben y bajan los brazos sin despegar antebrazos, espalda ni cabeza.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Serrato Superior', 'Trapecio', 'Escapular', 'Pared', 'Protracción', 'Hombro doloroso', 'Analítico'],
+    etiquetas: ['Serrato Superior', 'Trapecio', 'Escapular', 'Pared', 'Protracción', 'Hombro doloroso', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los antebrazos y el dorso de las manos no se despegan de la pared',
       'La zona lumbar no se separa de la pared al subir',
@@ -1051,7 +1051,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Y-T-W en prono',
     descripcion: 'Tumbado boca abajo sobre un banco inclinado, se levantan los brazos dibujando una Y, una T y una W, manteniendo cada posición. Se trabaja la escápula, no el hombro.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Trapecio', 'Romboides Mayor', 'Escapular', 'Banco', 'Retracción', 'Analítico'],
+    etiquetas: ['Trapecio', 'Romboides Mayor', 'Escapular', 'Banco', 'Retracción', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Prono'],
     items_ejecucion: [
       'El movimiento nace de la escápula, no de levantar el brazo por levantarlo',
       'El cuello se mantiene en línea con la espalda, sin levantar la cabeza',
@@ -1070,7 +1070,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Flexiones',
     descripcion: 'Con las manos y las puntas de los pies apoyadas y el cuerpo en línea recta, se baja el pecho hacia el suelo con los codos a unos cuarenta y cinco grados y se empuja para subir.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Abdomen', 'Empuje horizontal', 'Global'],
+    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Abdomen', 'Empuje horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Prono', 'apoyo:Mano'],
     items_ejecucion: [
       'El cuerpo forma una línea recta: la cadera no cae ni se eleva',
       'Los codos quedan a unos 45°, no abiertos del todo',
@@ -1090,7 +1090,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Dominada asistida',
     descripcion: 'Colgado de la barra con una banda que descarga parte del peso, se tira hasta llevar el mentón por encima de la barra, empezando el tirón desde la escápula.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Bíceps', 'Trapecio', 'Escapular', 'Barra de dominadas', 'Banda elástica', 'Tracción vertical', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Bíceps', 'Trapecio', 'Escapular', 'Barra de dominadas', 'Banda elástica', 'Tracción vertical', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'apoyo:Cadena cerrada', 'agarre:Prono'],
     items_ejecucion: [
       'El tirón empieza bajando la escápula, no doblando el codo',
       'El cuerpo no se balancea para coger impulso',
@@ -1117,7 +1117,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press de banca con mancuernas',
     descripcion: 'Tumbado en banco horizontal con una mancuerna en cada mano. Se baja hasta la altura del pecho con los codos a unos cuarenta y cinco grados y se empuja hasta extender los brazos.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Banco', 'Mancuerna', 'Empuje horizontal', 'Global'],
+    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Banco', 'Mancuerna', 'Empuje horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Supino', 'agarre:Neutro'],
     items_ejecucion: [
       'Los codos quedan a unos 45°, no abiertos del todo',
       'Las escápulas se mantienen juntas y apoyadas en el banco',
@@ -1136,7 +1136,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press inclinado con mancuernas',
     descripcion: 'Igual que el press de banca pero con el respaldo inclinado unos treinta grados. La inclinación carga más la parte alta del pecho y el deltoides anterior.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Deltoides', 'Tríceps', 'Banco', 'Mancuerna', 'Empuje horizontal', 'Global'],
+    etiquetas: ['Pectoral', 'Deltoides', 'Tríceps', 'Banco', 'Mancuerna', 'Empuje horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Supino', 'agarre:Neutro'],
     items_ejecucion: [
       'La zona lumbar no se despega del respaldo',
       'Los codos quedan a unos 45°',
@@ -1155,7 +1155,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Aperturas en banco',
     descripcion: 'Tumbado en banco con los brazos casi extendidos, se abren hacia los lados hasta notar tensión en el pecho y se cierran describiendo un arco, sin doblar más el codo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Hombro', 'Banco', 'Mancuerna', 'Adducción', 'Analítico'],
+    etiquetas: ['Pectoral', 'Hombro', 'Banco', 'Mancuerna', 'Adducción', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Supino'],
     items_ejecucion: [
       'El codo mantiene siempre la misma flexión ligera',
       'Se baja solo hasta la altura del pecho, no más',
@@ -1174,7 +1174,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Fondos en banco',
     descripcion: 'Con las manos apoyadas atrás en el borde de un banco y las piernas al frente, se baja la cadera flexionando los codos hacia atrás y se sube empujando con los tríceps.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps', 'Hombro', 'Pectoral', 'Banco', 'Empuje horizontal', 'Global'],
+    etiquetas: ['Tríceps', 'Hombro', 'Pectoral', 'Banco', 'Empuje horizontal', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Sentado', 'apoyo:Mano'],
     items_ejecucion: [
       'Los codos van hacia atrás, no se abren a los lados',
       'La espalda baja pegada al banco, sin alejarse',
@@ -1193,7 +1193,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press francés',
     descripcion: 'Tumbado en banco con una barra corta sujeta con agarre prono, se baja hacia la frente flexionando solo el codo, manteniendo los brazos verticales y quietos.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps', 'Codo', 'Banco', 'Barra corta', 'Extensión', 'Analítico'],
+    etiquetas: ['Tríceps', 'Codo', 'Banco', 'Barra corta', 'Extensión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'Los brazos se mantienen verticales: solo se mueve el antebrazo',
       'Los codos no se abren hacia los lados',
@@ -1212,7 +1212,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Extensión de tríceps en polea',
     descripcion: 'De pie frente a una polea alta, con los codos pegados al costado, se extienden los antebrazos hacia abajo y se vuelve controlando sin dejar que el codo se separe.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps', 'Codo', 'Polea', 'Extensión', 'Analítico'],
+    etiquetas: ['Tríceps', 'Codo', 'Polea', 'Extensión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'Los codos se mantienen pegados al costado',
       'Solo se mueve el antebrazo: el hombro no empuja',
@@ -1231,7 +1231,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Extensión de tríceps sobre la cabeza',
     descripcion: 'De pie con una mancuerna sujeta con las dos manos por detrás de la cabeza, se extienden los brazos hacia arriba manteniendo los codos pegados a las orejas.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps', 'Hombro', 'Codo', 'Mancuerna', 'Extensión', 'Analítico'],
+    etiquetas: ['Tríceps', 'Hombro', 'Codo', 'Mancuerna', 'Extensión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los codos apuntan al techo y no se abren hacia los lados',
       'La zona lumbar no se arquea al extender',
@@ -1250,7 +1250,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Pullover con mancuerna',
     descripcion: 'Tumbado en banco con una mancuerna sujeta con las dos manos, se lleva por detrás de la cabeza con los brazos casi extendidos y se vuelve describiendo un arco.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Dorsal Ancho', 'Hombro', 'Costal', 'Banco', 'Mancuerna', 'Analítico'],
+    etiquetas: ['Pectoral', 'Dorsal Ancho', 'Hombro', 'Costal', 'Banco', 'Mancuerna', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino', 'agarre:Neutro'],
     items_ejecucion: [
       'Los codos mantienen la misma flexión ligera todo el recorrido',
       'La zona lumbar no se despega del banco',
@@ -1269,7 +1269,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Flexiones en suspensión',
     descripcion: 'Boca abajo sujetando las asas de las cinchas, con el cuerpo inclinado en línea recta, se baja el pecho flexionando los codos y se empuja. La inestabilidad suma trabajo de core.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Abdomen', 'Cinchas de suspensión', 'Empuje horizontal', 'Global'],
+    etiquetas: ['Pectoral', 'Tríceps', 'Hombro', 'Abdomen', 'Cinchas de suspensión', 'Empuje horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Prono', 'apoyo:Mano', 'agarre:Neutro'],
     items_ejecucion: [
       'El cuerpo forma una línea recta: la cadera no cae',
       'Las asas se mantienen quietas, sin bailar',
@@ -1288,7 +1288,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Press landmine a una mano',
     descripcion: 'Con un extremo de la barra anclado al suelo, se empuja el otro desde el hombro hacia arriba y adelante. El arco de la barra es más amable con el hombro que un press vertical puro.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Deltoides', 'Hombro', 'Tríceps', 'Abdomen', 'Unilateral', 'Landmine', 'Barra', 'Empuje vertical', 'Global'],
+    etiquetas: ['Deltoides', 'Hombro', 'Tríceps', 'Abdomen', 'Unilateral', 'Landmine', 'Barra', 'Empuje vertical', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal', 'agarre:Neutro'],
     items_ejecucion: [
       'La zona lumbar no se arquea al empujar',
       'El tronco no gira para acompañar al brazo',
@@ -1316,7 +1316,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Remo con mancuerna a una mano',
     descripcion: 'Con una rodilla y una mano apoyadas en un banco y la espalda horizontal, se tracciona la mancuerna hacia la cadera llevando el codo atrás y pegado al cuerpo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Bíceps', 'Escapular', 'Unilateral', 'Banco', 'Mancuerna', 'Tracción horizontal', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Bíceps', 'Escapular', 'Unilateral', 'Banco', 'Mancuerna', 'Tracción horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal', 'agarre:Neutro'],
     items_ejecucion: [
       'El tirón empieza en la escápula, no en el bíceps',
       'La espalda se mantiene horizontal y recta',
@@ -1335,7 +1335,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Remo en polea baja',
     descripcion: 'Sentado con las piernas al frente, se tracciona el cable hacia el abdomen juntando las escápulas y se vuelve sin dejar que el tronco se venga adelante.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Trapecio', 'Bíceps', 'Escapular', 'Polea', 'Tracción horizontal', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Trapecio', 'Bíceps', 'Escapular', 'Polea', 'Tracción horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Sentado', 'agarre:Prono'],
     items_ejecucion: [
       'Las escápulas se juntan al final del tirón',
       'La espalda se mantiene recta, sin redondearse al volver',
@@ -1354,7 +1354,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Jalón al pecho',
     descripcion: 'Sentado bajo una polea alta, se tracciona la barra hasta la clavícula llevando los codos hacia abajo y atrás, con el tronco ligeramente inclinado.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Bíceps', 'Escapular', 'Polea', 'Tracción vertical', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Bíceps', 'Escapular', 'Polea', 'Tracción vertical', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Sentado', 'agarre:Prono'],
     items_ejecucion: [
       'El tirón empieza bajando la escápula',
       'La barra baja por delante, hasta la clavícula, nunca por detrás de la nuca',
@@ -1373,7 +1373,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Remo invertido',
     descripcion: 'Colgado por debajo de una barra baja con el cuerpo en línea recta y los talones apoyados, se tracciona hasta llevar el pecho cerca de la barra.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Trapecio', 'Bíceps', 'Abdomen', 'Barra de dominadas', 'Tracción horizontal', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Trapecio', 'Bíceps', 'Abdomen', 'Barra de dominadas', 'Tracción horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'posicion:Supino', 'apoyo:Cadena cerrada'],
     items_ejecucion: [
       'El cuerpo forma una línea recta: la cadera no cae',
       'Las escápulas se juntan al final del tirón',
@@ -1392,7 +1392,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Remo en suspensión',
     descripcion: 'Sujetando las asas de las cinchas con el cuerpo inclinado hacia atrás y los talones apoyados, se tracciona hasta el pecho manteniendo la línea del cuerpo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Bíceps', 'Abdomen', 'Escapular', 'Cinchas de suspensión', 'Tracción horizontal', 'Global'],
+    etiquetas: ['Dorsal Ancho', 'Romboides Mayor', 'Bíceps', 'Abdomen', 'Escapular', 'Cinchas de suspensión', 'Tracción horizontal', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'apoyo:Cadena cerrada', 'agarre:Neutro'],
     items_ejecucion: [
       'El cuerpo se mantiene en línea recta, la cadera no cae',
       'Las escápulas se juntan antes de doblar el codo',
@@ -1411,7 +1411,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Encogimiento de hombros',
     descripcion: 'De pie con una mancuerna en cada mano y los brazos rectos, se elevan los hombros hacia las orejas y se baja controlando, sin doblar los codos.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Trapecio', 'Escapular', 'Mancuerna', 'Analítico'],
+    etiquetas: ['Trapecio', 'Escapular', 'Mancuerna', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los codos se mantienen extendidos: no se tira con el brazo',
       'Los hombros suben en vertical, sin rodarlos hacia atrás',
@@ -1430,7 +1430,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Pullover en polea',
     descripcion: 'De pie frente a una polea alta con los brazos casi extendidos, se tracciona la barra en arco hasta los muslos sin doblar los codos. Aísla el dorsal quitando el bíceps.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Dorsal Ancho', 'Escapular', 'Polea', 'Extensión', 'Analítico'],
+    etiquetas: ['Dorsal Ancho', 'Escapular', 'Polea', 'Extensión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'Los codos mantienen la misma flexión ligera todo el recorrido',
       'El movimiento es un arco, no un tirón hacia el abdomen',
@@ -1449,7 +1449,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Curl de bíceps con mancuernas',
     descripcion: 'De pie con los codos pegados al costado y las palmas hacia arriba, se flexionan los antebrazos y se baja controlando hasta extender casi del todo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Bíceps', 'Codo', 'Mancuerna', 'Flexión', 'Analítico'],
+    etiquetas: ['Bíceps', 'Codo', 'Mancuerna', 'Flexión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Supino'],
     items_ejecucion: [
       'Los codos se mantienen pegados al costado',
       'El tronco no se balancea para coger impulso',
@@ -1468,7 +1468,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Curl martillo',
     descripcion: 'Igual que el curl pero con las palmas mirándose, la mancuerna en vertical como un martillo. Trabaja más el braquiorradial, en el antebrazo, y menos el bíceps.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Braquioradial', 'Bíceps', 'Codo', 'Mancuerna', 'Flexión', 'Analítico'],
+    etiquetas: ['Braquioradial', 'Bíceps', 'Codo', 'Mancuerna', 'Flexión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Neutro'],
     items_ejecucion: [
       'Las palmas se mantienen mirándose todo el recorrido, sin girar',
       'Los codos quedan pegados al costado',
@@ -1486,7 +1486,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Curl con barra',
     descripcion: 'De pie con una barra con agarre supino a la anchura de los hombros, se flexionan los codos manteniéndolos pegados al costado y se baja controlando.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Bíceps', 'Codo', 'Barra', 'Flexión', 'Analítico'],
+    etiquetas: ['Bíceps', 'Codo', 'Barra', 'Flexión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Supino'],
     items_ejecucion: [
       'Los codos no se adelantan ni se separan del costado',
       'La zona lumbar no se arquea al subir',
@@ -1516,7 +1516,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación de talones de pie',
     descripcion: 'De pie con las rodillas extendidas, se elevan los talones hasta quedar sobre las puntas y se baja controlando. Con la rodilla recta manda el gemelo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps Sural', 'Gastronécmio', 'Tobillo', 'Tendinopatía aquílea', 'Analítico'],
+    etiquetas: ['Tríceps Sural', 'Gastronécmio', 'Tobillo', 'Tendinopatía aquílea', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Las rodillas se mantienen extendidas',
       'El peso queda repartido en toda la punta del pie, sin volcarse al borde externo',
@@ -1535,7 +1535,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación de talones sentado',
     descripcion: 'Sentado con las rodillas a noventa grados y un peso sobre los muslos, se elevan los talones. Con la rodilla doblada el gemelo queda corto y trabaja el sóleo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Sóleo', 'Tríceps Sural', 'Tobillo', 'Banco', 'Disco', 'Tendinopatía aquílea', 'Analítico'],
+    etiquetas: ['Sóleo', 'Tríceps Sural', 'Tobillo', 'Banco', 'Disco', 'Tendinopatía aquílea', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Sentado'],
     items_ejecucion: [
       'Las rodillas se mantienen a 90 grados',
       'Los talones suben hasta el tope',
@@ -1554,7 +1554,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación de talón en escalón',
     descripcion: 'Con la punta del pie en el borde de un escalón y el talón por fuera, se sube y se baja aprovechando todo el rango que da el desnivel.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps Sural', 'Gastronécmio', 'Tobillo', 'Unilateral', 'Plataforma', 'Tendinopatía aquílea', 'Analítico'],
+    etiquetas: ['Tríceps Sural', 'Gastronécmio', 'Tobillo', 'Unilateral', 'Plataforma', 'Tendinopatía aquílea', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Unipodal'],
     items_ejecucion: [
       'El talón baja por debajo del nivel del escalón',
       'La rodilla se mantiene extendida',
@@ -1573,7 +1573,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Excéntrico de Aquiles',
     descripcion: 'Se sube con las dos piernas y se baja con una sola, muy despacio, dejando el talón caer por debajo del escalón. La bajada es todo el ejercicio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps Sural', 'Sóleo', 'Tobillo', 'Unilateral', 'Plataforma', 'Tendinopatía aquílea', 'Analítico'],
+    etiquetas: ['Tríceps Sural', 'Sóleo', 'Tobillo', 'Unilateral', 'Plataforma', 'Tendinopatía aquílea', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Unipodal'],
     items_ejecucion: [
       'La bajada dura al menos tres segundos',
       'El talón llega hasta el máximo rango, por debajo del escalón',
@@ -1592,7 +1592,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Dorsiflexión con banda',
     descripcion: 'Sentado con la pierna extendida y una banda anclada por delante rodeando el antepié, se tira de la punta del pie hacia la espinilla y se vuelve despacio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tibial Anterior', 'Tobillo', 'Banda elástica', 'Flexión', 'Esguince de tobillo', 'Analítico'],
+    etiquetas: ['Tibial Anterior', 'Tobillo', 'Banda elástica', 'Flexión', 'Esguince de tobillo', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'El movimiento es solo de tobillo: la rodilla no se dobla',
       'Los dedos no se curvan para ayudar',
@@ -1610,7 +1610,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Eversión con banda',
     descripcion: 'Con la banda anclada hacia el lado interno, se gira el pie hacia fuera contra la resistencia. Es el gesto que protege de volver a torcerse el tobillo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Peroneos', 'Tobillo', 'Banda elástica', 'Eversión', 'Esguince de tobillo', 'Analítico'],
+    etiquetas: ['Peroneos', 'Tobillo', 'Banda elástica', 'Eversión', 'Esguince de tobillo', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'La rodilla y la pierna se mantienen quietas: solo gira el pie',
       'La cadera no rota para ayudar',
@@ -1629,7 +1629,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Inversión con banda',
     descripcion: 'Con la banda anclada hacia el lado externo, se gira el pie hacia dentro contra la resistencia, sin mover la pierna.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tibial Anterior', 'Tobillo', 'Banda elástica', 'Inversión', 'Esguince de tobillo', 'Analítico'],
+    etiquetas: ['Tibial Anterior', 'Tobillo', 'Banda elástica', 'Inversión', 'Esguince de tobillo', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'La rodilla y la pierna se mantienen quietas',
       'La cadera no rota para ayudar',
@@ -1649,7 +1649,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Equilibrio unipodal en bosu',
     descripcion: 'De pie sobre una pierna encima de una superficie inestable, se mantiene el equilibrio el tiempo indicado sin que el tobillo se venza a un lado.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Peroneos', 'Tobillo', 'Glúteo medio', 'Unilateral', 'Bosu', 'Esguince de tobillo', 'Global'],
+    etiquetas: ['Peroneos', 'Tobillo', 'Glúteo medio', 'Unilateral', 'Bosu', 'Esguince de tobillo', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Unipodal'],
     items_ejecucion: [
       'El tobillo no se vence hacia dentro ni hacia fuera',
       'La rodilla queda algo flexionada, no bloqueada',
@@ -1668,7 +1668,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rodillo plantar',
     descripcion: 'Sentado, se rueda una pelota pequeña bajo el arco del pie, despacio y recorriendo desde el talón hasta la base de los dedos.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Pie', 'Tobillo', 'Pelota', 'Fascitis plantar', 'Analítico'],
+    etiquetas: ['Pie', 'Tobillo', 'Pelota', 'Fascitis plantar', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Se recorre todo el arco, del talón a la base de los dedos',
       'La presión es firme pero no dolorosa',
@@ -1688,7 +1688,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Marcha',
     descripcion: 'Caminar modificando el apoyo o la trayectoria. Cada variante cambia lo que trabaja: de talones el tibial anterior, de puntas el gemelo, en tándem el equilibrio.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Tibial Anterior', 'Tríceps Sural', 'Peroneos', 'Tobillo', 'Marcha', 'Esguince de tobillo', 'Global'],
+    etiquetas: ['Tibial Anterior', 'Tríceps Sural', 'Peroneos', 'Tobillo', 'Marcha', 'Esguince de tobillo', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El apoyo elegido se mantiene durante todo el recorrido, sin alternarlo',
       'Los pasos son cortos y controlados',
@@ -1719,7 +1719,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Retracción cervical',
     descripcion: 'Sentado y erguido, se lleva la cabeza hacia atrás en horizontal, haciendo papada, sin inclinarla ni mirar hacia arriba. Se mantiene unos segundos y se suelta.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cervical', 'Columna', 'Sentado', 'Retracción', 'Cervicalgia', 'Analítico'],
+    etiquetas: ['Cervical', 'Columna', 'Sentado', 'Retracción', 'Cervicalgia', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La cabeza se desplaza en horizontal, no se inclina hacia abajo ni hacia arriba',
       'La mirada se mantiene al frente',
@@ -1737,7 +1737,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Isométrico cervical',
     descripcion: 'Con la mano apoyada en la cabeza, se empuja y el cuello resiste sin moverse. Se mantiene el tiempo indicado en cada dirección.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cervical', 'ECOM', 'Columna', 'Sentado', 'Cervicalgia', 'Analítico'],
+    etiquetas: ['Cervical', 'ECOM', 'Columna', 'Sentado', 'Cervicalgia', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La cabeza no se mueve: la fuerza se contrarresta',
       'La presión es suave y sostenida, no un empujón',
@@ -1756,7 +1756,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Flexión profunda de cuello',
     descripcion: 'Tumbado boca arriba, se asiente ligeramente llevando el mentón hacia el pecho sin despegar la nuca del suelo. Es un movimiento mínimo y muy específico.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cervical', 'Columna', 'Supino', 'Flexión', 'Cervicalgia', 'Analítico'],
+    etiquetas: ['Cervical', 'Columna', 'Supino', 'Flexión', 'Cervicalgia', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La nuca no se despega del suelo',
       'El movimiento es de asentir, no de levantar la cabeza',
@@ -1775,7 +1775,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Extensión torácica en roller',
     descripcion: 'Tumbado boca arriba con un cilindro cruzado bajo la espalda alta, se arquea la espalda hacia atrás sobre él manteniendo la cadera apoyada.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Espalda', 'Columna', 'Supino', 'Extensión', 'Roller', 'Cifosis dorsal', 'Analítico'],
+    etiquetas: ['Espalda', 'Columna', 'Supino', 'Extensión', 'Roller', 'Cifosis dorsal', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La cadera no se despega del suelo',
       'El arqueo ocurre en la espalda alta, no en la lumbar',
@@ -1794,7 +1794,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Apertura en libro',
     descripcion: 'Tumbado de lado con las rodillas flexionadas y juntas y los brazos extendidos al frente, se abre el brazo de arriba hacia atrás girando el tronco, sin que las rodillas se separen.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Espalda', 'Columna', 'Decúbito lateral', 'Rotación', 'Cifosis dorsal', 'Analítico'],
+    etiquetas: ['Espalda', 'Columna', 'Decúbito lateral', 'Rotación', 'Cifosis dorsal', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)'],
     items_ejecucion: [
       'Las rodillas siguen juntas y apoyadas en el suelo',
       'El giro nace del tórax, no de la cadera',
@@ -1813,7 +1813,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rotación torácica con stick',
     descripcion: 'Sentado a horcajadas con un palo apoyado por detrás de los hombros, se gira el tronco a un lado y a otro sin que la cadera se mueva.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Espalda', 'Columna', 'Sentado', 'Rotación', 'Stick', 'Banco', 'Cifosis dorsal', 'Analítico'],
+    etiquetas: ['Espalda', 'Columna', 'Sentado', 'Rotación', 'Stick', 'Banco', 'Cifosis dorsal', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'agarre:Neutro'],
     items_ejecucion: [
       'La cadera y las piernas se mantienen quietas',
       'El giro sale del tórax, no de los brazos',
@@ -1831,7 +1831,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación de brazos en pared',
     descripcion: 'De espaldas a la pared con el cuerpo pegado a ella, se suben los brazos por encima de la cabeza sin despegar el dorso de las manos ni la zona lumbar.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Trapecio', 'Serrato Superior', 'Escapular', 'Pared', 'Flexión', 'Cifosis dorsal', 'Analítico'],
+    etiquetas: ['Trapecio', 'Serrato Superior', 'Escapular', 'Pared', 'Flexión', 'Cifosis dorsal', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El dorso de las manos no se despega de la pared',
       'La zona lumbar se mantiene pegada, sin arquearse',
@@ -1849,7 +1849,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Estiramiento cervical lateral',
     descripcion: 'Sentado y erguido, se inclina la cabeza llevando la oreja al hombro y se ayuda con la mano, manteniendo el hombro contrario bajo.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cervical', 'ECOM', 'Escalenos', 'Trapecio', 'Sentado', 'Cervicalgia', 'Analítico'],
+    etiquetas: ['Cervical', 'ECOM', 'Escalenos', 'Trapecio', 'Sentado', 'Cervicalgia', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)'],
     items_ejecucion: [
       'El hombro del lado que se estira se mantiene bajo, no sube',
       'La cabeza se inclina, no gira',
@@ -1867,7 +1867,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Retracción escapular con banda',
     descripcion: 'De pie con una banda sujeta con las dos manos y los brazos extendidos al frente, se separan las manos abriendo hacia los lados y juntando las escápulas.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Romboides Mayor', 'Trapecio', 'Escapular', 'Banda elástica', 'Retracción', 'Cifosis dorsal', 'Analítico'],
+    etiquetas: ['Romboides Mayor', 'Trapecio', 'Escapular', 'Banda elástica', 'Retracción', 'Cifosis dorsal', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Bipodal', 'agarre:Prono'],
     items_ejecucion: [
       'Las escápulas se juntan: el movimiento no sale de los brazos',
       'Los brazos se mantienen a la altura del pecho',
@@ -1886,7 +1886,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Descompresión en cuadrupedia',
     descripcion: 'Desde cuatro patas, se sienta la cadera sobre los talones y se estiran los brazos al frente en el suelo, dejando caer el pecho. Se mantiene respirando.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Espalda', 'Dorsal Ancho', 'Columna', 'Cuadrupedia', 'Lumbalgia', 'Analítico'],
+    etiquetas: ['Espalda', 'Dorsal Ancho', 'Columna', 'Cuadrupedia', 'Lumbalgia', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'apoyo:Rodilla'],
     items_ejecucion: [
       'La cadera se sienta sobre los talones',
       'Los brazos quedan extendidos y las manos en el suelo',
@@ -1914,7 +1914,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Aducción isométrica con pelota',
     descripcion: 'Tumbado boca arriba con las rodillas flexionadas, se aprieta una pelota entre las rodillas y se mantiene la presión el tiempo indicado.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Aductores', 'Cadera', 'Supino', 'Pelota', 'Adducción', 'Analítico'],
+    etiquetas: ['Aductores', 'Cadera', 'Supino', 'Pelota', 'Adducción', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)'],
     items_ejecucion: [
       'La presión es sostenida, sin apretones intermitentes',
       'La zona lumbar no se despega del suelo',
@@ -1932,7 +1932,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Copenhagen',
     descripcion: 'Plancha lateral con la pierna de arriba apoyada en un banco por la cara interna del tobillo. La pierna de abajo se eleva del suelo y aguanta el aductor.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Aductores', 'Abdomen', 'Cadera', 'Unilateral', 'Banco', 'Antiflexión', 'Global'],
+    etiquetas: ['Aductores', 'Abdomen', 'Cadera', 'Unilateral', 'Banco', 'Antiflexión', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Decúbito lateral', 'Codos'],
     items_ejecucion: [
       'La cadera se mantiene elevada, en línea con hombro y rodilla',
       'La pierna de abajo queda en el aire, sin tocar el suelo',
@@ -1951,7 +1951,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Abducción de cadera de pie',
     descripcion: 'De pie con una banda en los tobillos y una mano apoyada, se separa una pierna hacia el lado manteniéndola recta y sin inclinar el tronco.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo medio', 'Abductor - TFL', 'Cadera', 'Unilateral', 'Mini band', 'Abducción', 'Trocantéritis', 'Analítico'],
+    etiquetas: ['Glúteo medio', 'Abductor - TFL', 'Cadera', 'Unilateral', 'Mini band', 'Abducción', 'Trocantéritis', 'Analítico', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El tronco se mantiene vertical, sin inclinarse al lado contrario',
       'La pierna se separa de lado, no hacia atrás',
@@ -1969,7 +1969,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rotación externa de cadera',
     descripcion: 'Sentado con una banda rodeando las dos rodillas, se separan abriendo hacia fuera contra la resistencia y se vuelve despacio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Sentado', 'Mini band', 'Rotación', 'Trocantéritis', 'Analítico'],
+    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Sentado', 'Mini band', 'Rotación', 'Trocantéritis', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)'],
     items_ejecucion: [
       'Los pies se mantienen apoyados y quietos',
       'La espalda se queda erguida, sin echarse atrás',
@@ -1987,7 +1987,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Elevación de rodilla con banda',
     descripcion: 'De pie con una banda anclada por detrás y rodeando el muslo, se eleva la rodilla hasta la altura de la cadera contra la resistencia y se baja controlando.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Psoas', 'Cadera', 'Abdomen', 'Unilateral', 'Banda elástica', 'Flexión de cadera', 'Analítico'],
+    etiquetas: ['Psoas', 'Cadera', 'Abdomen', 'Unilateral', 'Banda elástica', 'Flexión de cadera', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'La rodilla llega a la altura de la cadera',
       'La zona lumbar no se arquea ni el tronco se echa atrás',
@@ -2005,7 +2005,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Estiramiento del piramidal',
     descripcion: 'Tumbado boca arriba con un tobillo cruzado sobre la rodilla contraria, se tira del muslo de abajo hacia el pecho hasta notar tensión en el glúteo.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Glúteo - Piramidal', 'Glúteo', 'Cadera', 'Supino', 'Ciático', 'Analítico'],
+    etiquetas: ['Glúteo - Piramidal', 'Glúteo', 'Cadera', 'Supino', 'Ciático', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)'],
     items_ejecucion: [
       'La cabeza y los hombros se mantienen apoyados en el suelo',
       'La tensión se nota en el glúteo, no en la rodilla',
@@ -2023,7 +2023,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentadilla profunda sostenida',
     descripcion: 'Se baja a una sentadilla muy profunda con los pies planos y se mantiene, empujando las rodillas hacia fuera con los codos. Es movilidad de cadera y tobillo, no fuerza.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Aductores', 'Cadera', 'Tobillo', 'Erectores Espinales', 'Sentadilla', 'Global'],
+    etiquetas: ['Aductores', 'Cadera', 'Tobillo', 'Erectores Espinales', 'Sentadilla', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'Los pies quedan planos, con los talones apoyados',
       'La espalda se mantiene lo más erguida posible',
@@ -2041,7 +2041,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Rotación interna en cuadrupedia',
     descripcion: 'A cuatro patas, se lleva el talón de un lado hacia fuera girando la cadera hacia dentro, sin que la pelvis bascule. Es el rango que más se pierde en una cadera artrósica.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Cadera', 'Cuadrupedia', 'Rotación', 'Artrosis', 'Analítico'],
+    etiquetas: ['Glúteo', 'Cadera', 'Cuadrupedia', 'Rotación', 'Artrosis', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'apoyo:Rodilla'],
     items_ejecucion: [
       'La pelvis se mantiene cuadrada, sin bascular a un lado',
       'La rodilla no se despega del suelo',
@@ -2059,7 +2059,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Zancada con rotación',
     descripcion: 'Desde una zancada profunda con la rodilla de atrás en el suelo, se gira el tronco hacia la pierna adelantada. Estira el psoas de un lado y moviliza el tórax.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Psoas', 'Cadera', 'Columna', 'Unilateral', 'Zancada', 'Rotación', 'Combinado'],
+    etiquetas: ['Psoas', 'Cadera', 'Columna', 'Unilateral', 'Zancada', 'Rotación', 'Combinado', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Bipedestación', 'Unipodal'],
     items_ejecucion: [
       'La cadera se lleva adelante para que estire el psoas de atrás',
       'La zona lumbar no se arquea',
@@ -2078,7 +2078,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Puente con banda en rodillas',
     descripcion: 'Puente de glúteo con una banda rodeando las rodillas, empujándolas hacia fuera durante todo el recorrido. Suma glúteo medio al trabajo de extensión.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Mini band', 'Bisagra de cadera', 'Trocantéritis', 'Global'],
+    etiquetas: ['Glúteo', 'Glúteo medio', 'Cadera', 'Mini band', 'Bisagra de cadera', 'Trocantéritis', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'posicion:Supino'],
     items_ejecucion: [
       'Las rodillas empujan hacia fuera durante todo el recorrido',
       'Arriba, hombro, cadera y rodilla quedan alineados',
@@ -2105,7 +2105,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Extensión de muñeca',
     descripcion: 'Sentado con el antebrazo apoyado en el muslo y la mano por fuera de la rodilla, palma hacia abajo, se levanta la muñeca contra el peso y se baja despacio.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Extensor de muñecas', 'Muñeca', 'Codo', 'Mancuerna', 'Extensión', 'Epicondilitis', 'Analítico'],
+    etiquetas: ['Extensor de muñecas', 'Muñeca', 'Codo', 'Mancuerna', 'Extensión', 'Epicondilitis', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Sentado'],
     items_ejecucion: [
       'El antebrazo no se despega del muslo: solo se mueve la muñeca',
       'El peso es pequeño; lo que importa es el control, no la carga',
@@ -2124,7 +2124,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Flexión de muñeca',
     descripcion: 'Igual que la extensión pero con la palma hacia arriba: la muñeca sube llevando la palma hacia el antebrazo. Trabaja los flexores, del lado interno del codo.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Flexor de muñeca', 'Muñeca', 'Codo', 'Mancuerna', 'Flexión', 'Analítico'],
+    etiquetas: ['Flexor de muñeca', 'Muñeca', 'Codo', 'Mancuerna', 'Flexión', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Sentado', 'agarre:Supino'],
     items_ejecucion: [
       'El antebrazo no se despega del muslo',
       'El recorrido es completo, hasta el tope cómodo',
@@ -2143,7 +2143,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Excéntrico de extensores',
     descripcion: 'De pie con una barra corta sujeta en vertical por un extremo, se deja caer la muñeca despacio contra el peso. Es el trabajo con más evidencia en epicondilitis.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Extensor de muñecas', 'Braquioradial', 'Muñeca', 'Codo', 'Barra corta', 'Extensión', 'Epicondilitis', 'Analítico'],
+    etiquetas: ['Extensor de muñecas', 'Braquioradial', 'Muñeca', 'Codo', 'Barra corta', 'Extensión', 'Epicondilitis', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'La bajada dura al menos tres segundos',
       'La vuelta arriba se hace con la otra mano',
@@ -2161,7 +2161,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Supinación y pronación',
     descripcion: 'Con el codo pegado al costado y flexionado a noventa grados, se gira el antebrazo hasta poner la palma arriba y luego abajo, sujetando un peso descompensado.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Braquioradial', 'Muñeca', 'Codo', 'Mancuerna', 'Supinación', 'Pronación', 'Epicondilitis', 'Analítico'],
+    etiquetas: ['Braquioradial', 'Muñeca', 'Codo', 'Mancuerna', 'Supinación', 'Pronación', 'Epicondilitis', 'Analítico', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)', 'Sentado', 'agarre:Giratorio'],
     items_ejecucion: [
       'El codo se mantiene pegado al costado y a 90 grados',
       'El hombro no rota para acompañar al antebrazo',
@@ -2180,7 +2180,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Agarre y apertura con goma',
     descripcion: 'Con una goma rodeando los cinco dedos, se abre la mano contra ella y se cierra despacio. Trabaja los extensores de dedos, que suelen olvidarse frente al agarre.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Extensor de Dedos', 'Flexor de Dedos', 'Mano', 'Muñeca', 'Goma', 'Epicondilitis', 'Analítico'],
+    etiquetas: ['Extensor de Dedos', 'Flexor de Dedos', 'Mano', 'Muñeca', 'Goma', 'Epicondilitis', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Sentado', 'agarre:Abierto'],
     items_ejecucion: [
       'Los cinco dedos se abren a la vez, incluido el pulgar',
       'El antebrazo queda apoyado y quieto',
@@ -2209,7 +2209,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sentarse y levantarse de la silla',
     descripcion: 'Desde sentado, se levanta sin apoyar las manos y se vuelve a sentar controlando el descenso. Es el gesto que decide si alguien es autónomo en su casa.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Cuádriceps', 'Glúteo', 'Cadera', 'Rodilla', 'Sentado', 'Sentadilla', 'Artrosis', 'Osteoporosis', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo', 'Cadera', 'Rodilla', 'Sentado', 'Sentadilla', 'Artrosis', 'Osteoporosis', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'Se sube sin apoyar las manos en los muslos ni en la silla',
       'La bajada es controlada: no se deja caer en el asiento',
@@ -2229,7 +2229,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Saltos suaves en el sitio',
     descripcion: 'Pequeños saltos en el sitio con aterrizaje amortiguado. El impacto controlado es lo único que estimula al hueso; sin él, la fuerza sola no basta en osteoporosis.',
     tipo_medida: 'peso_reps',
-    etiquetas: ['Tríceps Sural', 'Cuádriceps', 'Tobillo', 'Salto', 'Osteoporosis', 'Global'],
+    etiquetas: ['Tríceps Sural', 'Cuádriceps', 'Tobillo', 'Salto', 'Osteoporosis', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipedestación', 'Bipodal'],
     items_ejecucion: [
       'El aterrizaje es silencioso, amortiguando con tobillo y rodilla',
       'Los dos pies caen a la vez',
@@ -2248,7 +2248,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Respiración diafragmática',
     descripcion: 'Tumbado boca arriba con una mano en el pecho y otra en el abdomen, se respira llevando el aire abajo: se mueve la mano del abdomen y la del pecho se queda quieta.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Diafragma', 'Abdomen', 'Costal', 'Supino', 'Suelo pélvico', 'Analítico'],
+    etiquetas: ['Diafragma', 'Abdomen', 'Costal', 'Supino', 'Suelo pélvico', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La mano del abdomen sube y la del pecho se queda quieta',
       'La espiración es más larga que la inspiración',
@@ -2266,7 +2266,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Activación abdominal profunda',
     descripcion: 'Tumbado boca arriba, se activa la capa profunda del abdomen metiendo suavemente el ombligo, acompañando la espiración. Es tensión ligera y sostenida, no un apretón.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Transverso', 'Abdomen', 'Diafragma', 'Supino', 'Suelo pélvico', 'Lumbalgia', 'Analítico'],
+    etiquetas: ['Transverso', 'Abdomen', 'Diafragma', 'Supino', 'Suelo pélvico', 'Lumbalgia', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La activación es suave: se puede seguir hablando',
       'La zona lumbar no se aplasta contra el suelo ni se arquea',
@@ -2297,7 +2297,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Volteo en la camilla',
     descripcion: 'Tumbado boca arriba, se gira hasta quedar de lado. El brazo afecto se lleva con la otra mano, entrelazando los dedos, y la rodilla del lado afecto se flexiona antes de empezar. Se hace hacia los dos lados: girar hacia el lado sano cuesta más porque hay que empujar con la mitad que no responde.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Abdomen', 'Oblicuos', 'Columna', 'Supino', 'Decúbito lateral', 'Rotación', 'Ictus', 'Hemiparesia', 'Global'],
+    etiquetas: ['Abdomen', 'Oblicuos', 'Columna', 'Supino', 'Decúbito lateral', 'Rotación', 'Ictus', 'Hemiparesia', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)'],
     items_ejecucion: [
       'Los dedos van entrelazados: el brazo afecto nunca se queda atrás ni se tira de él',
       'La cabeza inicia el giro y la mirada acompaña',
@@ -2316,7 +2316,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Incorporarse a sentado',
     descripcion: 'Desde tumbado, se voltea de lado, se dejan caer las piernas fuera de la camilla y se empuja con el codo y después con la mano de abajo hasta quedar sentado. Es una secuencia, no un abdominal: no se sube de frente.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Abdomen', 'Oblicuos', 'Tríceps', 'Columna', 'Decúbito lateral', 'Sentado', 'Ictus', 'Hemiparesia', 'Global'],
+    etiquetas: ['Abdomen', 'Oblicuos', 'Tríceps', 'Columna', 'Decúbito lateral', 'Sentado', 'Ictus', 'Hemiparesia', 'Global', 'Planos:Transversal (axial)', 'Ejes:Longitudinal (vertical)'],
     items_ejecucion: [
       'Primero de lado, después las piernas fuera, y solo entonces empujar',
       'Las piernas bajando hacen de contrapeso: no se quedan en la camilla',
@@ -2335,7 +2335,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Sedestación al borde de la camilla',
     descripcion: 'Sentado en el borde, con los dos pies apoyados en el suelo y sin respaldo. Se mantiene la posición erguida, con el peso repartido en los dos glúteos. Es el primer ejercicio que se puede hacer y la base de todos los demás.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Abdomen', 'Erectores Espinales', 'Multífidos', 'Columna', 'Sentado', 'Antiflexión', 'Ictus', 'Hemiparesia', 'Global'],
+    etiquetas: ['Abdomen', 'Erectores Espinales', 'Multífidos', 'Columna', 'Sentado', 'Antiflexión', 'Ictus', 'Hemiparesia', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'Los dos pies planos en el suelo, a la anchura de la cadera',
       'El peso repartido: no se escora al lado sano',
@@ -2355,7 +2355,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Alcance funcional sentado',
     descripcion: 'Sentado al borde, se estira el brazo para alcanzar un objeto que está fuera de la base de apoyo: delante, al lado y cruzando hacia el otro lado. Se trata de salir de la vertical y volver sin apoyarse.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Abdomen', 'Oblicuos', 'Deltoides', 'Columna', 'Hombro', 'Sentado', 'Alcance', 'Ictus', 'Hemiparesia', 'Combinado'],
+    etiquetas: ['Abdomen', 'Oblicuos', 'Deltoides', 'Columna', 'Hombro', 'Sentado', 'Alcance', 'Ictus', 'Hemiparesia', 'Combinado', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'Los pies no se despegan del suelo',
       'Se vuelve al centro con control, sin dejarse caer',
@@ -2375,7 +2375,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Traslado de peso en bipedestación',
     descripcion: 'De pie con apoyo delante, se pasa el peso de una pierna a la otra sin levantar los pies. Es el paso previo a dar un paso: no se puede avanzar una pierna si la otra no aguanta todo el cuerpo.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Glúteo medio', 'Cuádriceps', 'Cadera', 'Tobillo', 'Bipedestación', 'Bipodal', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    etiquetas: ['Glúteo medio', 'Cuádriceps', 'Cadera', 'Tobillo', 'Bipedestación', 'Bipodal', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)'],
     items_ejecucion: [
       'El peso llega de verdad al lado afecto: se nota el pie apretando el suelo',
       'La cadera no se rompe hacia el lado, el tronco se mantiene vertical',
@@ -2395,7 +2395,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Levantarse y sentarse con apoyo',
     descripcion: 'De sentado a de pie, con las manos apoyadas en un asidero delante o en los reposabrazos. Se adelantan los pies, se lleva la nariz por delante de las rodillas y se sube. Bajar controlado cuenta tanto como subir.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cuádriceps', 'Glúteo mayor', 'Cadera', 'Rodilla', 'Sentado', 'Bipedestación', 'Sentadilla', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo mayor', 'Cadera', 'Rodilla', 'Sentado', 'Bipedestación', 'Sentadilla', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'Los pies atrasados y el pie afecto en línea con el otro, no adelantado',
       'El tronco se inclina adelante antes de subir: la nariz pasa las rodillas',
@@ -2415,7 +2415,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Paso lateral con apoyo',
     descripcion: 'De pie frente a la barra, se dan pasos hacia un lado y hacia el otro, apoyando las manos. Es el gesto de moverse por la cocina agarrado a la encimera.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Glúteo medio', 'Aductores', 'Cadera', 'Bipedestación', 'Abducción', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    etiquetas: ['Glúteo medio', 'Aductores', 'Cadera', 'Bipedestación', 'Abducción', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global', 'Planos:Frontal (coronal)', 'Ejes:Sagital (anteroposterior)', 'Bipodal'],
     items_ejecucion: [
       'El pie sale y apoya entero, no de puntillas',
       'El tronco se mantiene de frente, no gira',
@@ -2434,7 +2434,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Subir y bajar un escalón con barandilla',
     descripcion: 'Un escalón bajo, con la barandilla al alcance. Se sube con una pierna y se baja con la otra. En casa la regla es la de siempre: sube el pie bueno, baja el malo.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cuádriceps', 'Glúteo mayor', 'Glúteo medio', 'Cadera', 'Rodilla', 'Cajón', 'Bipedestación', 'Unipodal', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo mayor', 'Glúteo medio', 'Cadera', 'Rodilla', 'Cajón', 'Bipedestación', 'Unipodal', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La rodilla que sube no cae hacia dentro',
       'Se sube empujando con la pierna de arriba, no impulsándose con la de abajo',
@@ -2454,7 +2454,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Marcha con obstáculos y giros',
     descripcion: 'Recorrido con conos, un obstáculo bajo que pasar y un giro de 180° al final. Andar en línea recta por el pasillo de la clínica no se parece a andar por la calle: lo que hace caer es el giro y el bordillo.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Cuádriceps', 'Glúteo medio', 'Tibial Anterior', 'Cadera', 'Tobillo', 'Bipedestación', 'Marcha', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global'],
+    etiquetas: ['Cuádriceps', 'Glúteo medio', 'Tibial Anterior', 'Cadera', 'Tobillo', 'Bipedestación', 'Marcha', 'Ictus', 'Hemiparesia', 'Riesgo de caída', 'Global', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'Bipodal'],
     items_ejecucion: [
       'El pie afecto pasa el obstáculo levantando, no rodeándolo',
       'El giro se hace con pasos, sin pivotar sobre un pie',
@@ -2474,7 +2474,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Autoasistido de hombro con bastón',
     descripcion: 'Tumbado o sentado, se coge un bastón con las dos manos y el brazo sano lleva al afecto: elevación, rotación y separación. Mantiene el recorrido del hombro mientras el brazo no tiene fuerza propia.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Deltoides', 'Manguito rotador', 'Hombro', 'Escapular', 'Stick', 'Supino', 'Sentado', 'Flexión', 'Rotación', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Subluxación de hombro', 'Analítico'],
+    etiquetas: ['Deltoides', 'Manguito rotador', 'Hombro', 'Escapular', 'Stick', 'Supino', 'Sentado', 'Flexión', 'Rotación', 'Cadena cerrada', 'Ictus', 'Hemiparesia', 'Subluxación de hombro', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'La escápula acompaña: si el hombro se encoge hacia la oreja, se ha pasado el recorrido',
       'Se para donde aparece la resistencia, no donde aparece el dolor',
@@ -2494,7 +2494,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Deslizamiento de la mano sobre la mesa',
     descripcion: 'Sentado ante una mesa, con la mano afecta sobre un paño o un deslizador, se empuja hacia delante y a los lados. La mesa sostiene el peso del brazo, así que se puede trabajar el alcance mucho antes de que el hombro aguante el brazo en el aire.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Deltoides', 'Tríceps', 'Trapecio', 'Hombro', 'Escapular', 'Codo', 'Deslizador', 'Sentado', 'Alcance', 'Extensión', 'Ictus', 'Hemiparesia', 'Analítico'],
+    etiquetas: ['Deltoides', 'Tríceps', 'Trapecio', 'Hombro', 'Escapular', 'Codo', 'Deslizador', 'Sentado', 'Alcance', 'Extensión', 'Ictus', 'Hemiparesia', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'El tronco no se va detrás de la mano: el que alcanza es el brazo',
       'El codo se estira de verdad al final del recorrido',
@@ -2514,7 +2514,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Agarrar y soltar objetos',
     descripcion: 'Pasar objetos de un lado a otro de la mesa: vasos, cubos, una botella. Abrir la mano cuesta más que cerrarla, así que lo que se entrena de verdad es soltar.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Flexor de Dedos', 'Extensor de Dedos', 'Dedos', 'Mano', 'Muñeca', 'Pelota', 'Sentado', 'Alcance', 'Ictus', 'Hemiparesia', 'Espasticidad', 'Analítico'],
+    etiquetas: ['Flexor de Dedos', 'Extensor de Dedos', 'Dedos', 'Mano', 'Muñeca', 'Pelota', 'Sentado', 'Alcance', 'Ictus', 'Hemiparesia', 'Espasticidad', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)', 'agarre:Cerrado'],
     items_ejecucion: [
       'La muñeca se mantiene recta o algo extendida, no caída',
       'Se abre la mano del todo para soltar, sin sacudirla',
@@ -2534,7 +2534,7 @@ export const SEMILLA: SemillaEjercicio[] = [
     nombre: 'Estiramiento mantenido de muñeca y dedos',
     descripcion: 'Con la otra mano se abre la mano afecta —muñeca y dedos extendidos— y se mantiene un minuto o más. Es tensión sostenida y suave: en la espasticidad, lo que gana recorrido es el tiempo, no la fuerza.',
     tipo_medida: 'tiempo',
-    etiquetas: ['Flexor de Dedos', 'Flexor de muñeca', 'Dedos', 'Mano', 'Muñeca', 'Extensión', 'Sentado', 'Ictus', 'Espasticidad', 'Analítico'],
+    etiquetas: ['Flexor de Dedos', 'Flexor de muñeca', 'Dedos', 'Mano', 'Muñeca', 'Extensión', 'Sentado', 'Ictus', 'Espasticidad', 'Analítico', 'Planos:Sagital', 'Ejes:Frontal (mediolateral)'],
     items_ejecucion: [
       'Se estira despacio: si se tira de golpe el músculo responde apretando más',
       'Se mantiene un mínimo de un minuto, no unos segundos',

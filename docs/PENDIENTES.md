@@ -762,12 +762,12 @@ PDF con imagen, series, repeticiones y notas). Aún sin diseñar.
 
 - **En tandas de 10.** Más de diez y la herramienta empieza a repetirse y a mezclar
   posturas entre ejercicios.
-- **Musculatura resaltada: de momento no.** Está decidido que si se hace, se hace en
-  TODAS —una biblioteca a medias se ve descuidada— y con tres reglas: un solo músculo, el
-  principal; tinte suave, no el dorado de acento, porque a 104 px compite con la línea; y
-  zona amplia, no anatomía fina, porque un "vasto interno" mal dibujado en una app
-  clínica es peor que nada. El texto para pedirlo está al final de
-  `ENCARGO-IMAGENES-CUADRICEPS.md`.
+- **Musculatura resaltada: SÍ, en amarillo suave.** Decidido y en uso. Se hace en TODAS
+  —una biblioteca a medias se ve descuidada— con tres reglas: un solo músculo, el
+  principal; amarillo apagado y no el dorado de acento, porque a 104 px compite con la
+  línea; y zona amplia, no anatomía fina, porque un "vasto interno" mal dibujado en una
+  app clínica es peor que nada. **Va en el bloque de instrucciones de cada encargo**; se
+  olvidó en el de variantes y hubo que añadirlo a mano.
 
 ### Lo que la IA no dibuja bien
 

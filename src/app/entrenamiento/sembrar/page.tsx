@@ -107,8 +107,28 @@ export default function SembrarPage() {
       // La forma sin plural va con rango peor, para que nunca gane a una exacta.
       if (raizNom(e.nombre) !== norm(e.nombre)) poner(raizNom(e.nombre) + '~', e)
     })
-    const buscarEt = (nombre: string) =>
-      mejor[norm(nombre)]?.id || mejor[raizNom(nombre) + '~']?.id || mejor[raizNom(nombre)]?.id
+    /**
+     * Índice aparte con la categoría delante: `agarre:supino`.
+     *
+     * Hay nombres que existen en varias categorías —Prono y Supino son posición Y agarre,
+     * Mano y Rodilla son articulación Y apoyo— y la prioridad de arriba siempre resuelve a
+     * la misma. Así "Supino" nunca podía significar el agarre. Con el prefijo se dice cuál
+     * se quiere; sin él, todo sigue funcionando igual que antes.
+     */
+    const porCategoria: Record<string, string> = {}
+    ;(etiquetas || []).forEach((e: any) => {
+      porCategoria[e.categoria + ':' + norm(e.nombre)] = e.id
+      porCategoria[e.categoria + ':' + raizNom(e.nombre)] ||= e.id
+    })
+
+    const buscarEt = (nombre: string) => {
+      if (nombre.includes(':')) {
+        const [cat, ...resto] = nombre.split(':')
+        const n = resto.join(':').trim()
+        return porCategoria[cat.trim() + ':' + norm(n)] || porCategoria[cat.trim() + ':' + raizNom(n)]
+      }
+      return mejor[norm(nombre)]?.id || mejor[raizNom(nombre) + '~']?.id || mejor[raizNom(nombre)]?.id
+    }
 
     const { data: existentes } = await supabase.from('ejercicios')
       .select('id,nombre,descripcion,etiquetas,tipo_medida,items_ejecucion,feedbacks')
@@ -141,7 +161,22 @@ export default function SembrarPage() {
       let id: string
 
       if (existente) {
-        const cambios = soloHuecos(campos, existente, ['nombre'])
+        const cambios = soloHuecos(campos, existente, ['nombre', 'etiquetas'])
+
+        /**
+         * LAS ETIQUETAS SE SUMAN, no se saltan ni se pisan.
+         *
+         * `soloHuecos` se saltaba el campo entero porque los ejercicios ya tenían
+         * etiquetas, así que ninguna etiqueta nueva de la semilla llegaba nunca a un
+         * ejercicio ya creado: categorías enteras —plano, eje, agarre— se quedaron a cero.
+         *
+         * Sustituirlas tampoco vale: borraría las que hayas puesto tú a mano, que es la
+         * regla que no se rompe. Así que se hace la UNIÓN: se conservan todas las suyas y
+         * se añaden las que falten.
+         */
+        const yaTiene: string[] = Array.isArray(existente.etiquetas) ? existente.etiquetas : []
+        const faltan = ids.filter(id => !yaTiene.includes(id))
+        if (faltan.length) cambios.etiquetas = [...yaTiene, ...faltan]
         if (Object.keys(cambios).length > 0) {
           const { error } = await supabase.from('ejercicios').update(cambios).eq('id', existente.id)
           if (error) { anota(`${s.nombre} — error al actualizar: ${error.message}`, 'error'); continue }
