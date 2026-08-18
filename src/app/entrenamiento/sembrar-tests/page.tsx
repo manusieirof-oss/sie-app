@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { subirImagenTest } from '@/lib/ejercicios'
 import { Ic } from '@/lib/icons'
 import { TESTS, OBJETIVOS } from '@/lib/semillaTests'
 
@@ -42,6 +43,9 @@ function soloHuecos(campos: any, actual: any, nuncaTocar: string[] = []) {
 export default function SembrarTestsPage() {
   const [log, setLog] = useState<Linea[]>([])
   const [corriendo, setCorriendo] = useState(false)
+  // Igual que en el sembrador de ejercicios: los ficheros los da el navegador, no salen
+  // del repositorio, así que hay que seleccionarlos aquí.
+  const [ficheros, setFicheros] = useState<File[]>([])
   const [faltanEt, setFaltanEt] = useState<string[] | null>(null)
   const [faltanSes, setFaltanSes] = useState<string[] | null>(null)
 
@@ -167,7 +171,9 @@ export default function SembrarTestsPage() {
     const actualTest: Record<string, any> = {}
     ;(testsExist || []).forEach((t: any) => { idTest[norm(t.nombre)] = t.id; actualTest[t.id] = t })
 
-    let creados = 0, actualizados = 0
+    let creados = 0, actualizados = 0, imagenes = 0
+    const porNombre: Record<string, File> = {}
+    ficheros.forEach(f => { porNombre[f.name] = f })
     const etQueFaltan = new Set<string>()
     const objQueFaltan = new Set<string>()
 
@@ -204,9 +210,14 @@ export default function SembrarTestsPage() {
       let testId = ya
       if (ya) {
         const cambios = soloHuecos(campos, actualTest[ya], ['nombre'])
-        if (Object.keys(cambios).length === 0) { actualizados++; continue }
-        const { error } = await supabase.from('tests').update(cambios).eq('id', ya)
-        if (error) { anota(`${t.nombre} — error: ${error.message}`, 'error'); continue }
+        // Sin cambios de campos NO se sale: más abajo puede haber una imagen que subir y
+        // objetivos que enlazar. Aquí había un `continue` que se saltaba las dos cosas —el
+        // mismo fallo que ya tuvimos en el sembrador de ejercicios— y el registro decía
+        // "actualizado" igualmente, así que no había forma de notarlo.
+        if (Object.keys(cambios).length > 0) {
+          const { error } = await supabase.from('tests').update(cambios).eq('id', ya)
+          if (error) { anota(`${t.nombre} — error: ${error.message}`, 'error'); continue }
+        }
         actualizados++
       } else {
         const { data, error } = await supabase.from('tests').insert({ ...campos, video_url: '', imagen_url: '' }).select('id').single()
@@ -223,8 +234,21 @@ export default function SembrarTestsPage() {
         if (testId) await supabase.from('objetivos').update({ test_id: testId }).eq('id', oid)
       }
 
+      // IMAGEN. Solo si se ha seleccionado el fichero con ese nombre. La que ya tuviera el
+      // test no se toca cuando no se da ninguno.
+      let conImagen = false
+      const file = t.archivo ? porNombre[t.archivo] : undefined
+      if (file && testId) {
+        const r = await subirImagenTest(testId, file)
+        if (!r.ok) anota(`${t.nombre} — imagen falló: ${r.error}`, 'aviso')
+        else { await supabase.from('tests').update({ imagen_url: r.url }).eq('id', testId); conImagen = true; imagenes++ }
+      }
+
       const medidos = items.filter(i => i.unidad).length
-      anota(`${t.nombre} — ${ya ? 'actualizado' : 'creado'} · ${items.length} ítems (${medidos} medidos) · ${etIds.length} etiquetas · ${t.tipo_lado}`, 'ok')
+      const conBarra = items.filter((i: any) => i.regla).length
+      anota(`${t.nombre} — ${ya ? 'actualizado' : 'creado'} · ${items.length} ítems (${medidos} medidos`
+        + (conBarra ? `, ${conBarra} con barra` : '') + `) · ${etIds.length} etiquetas · ${t.tipo_lado}`
+        + (conImagen ? ' · con imagen' : ''), 'ok')
     }
 
     if (objQueFaltan.size > 0) {
@@ -233,13 +257,16 @@ export default function SembrarTestsPage() {
     if (etQueFaltan.size > 0) {
       anota(`Etiquetas que no existen y se han omitido: ${Array.from(etQueFaltan).join(', ')}.`, 'aviso')
     }
-    anota(`Resumen: ${creados} tests creados, ${actualizados} actualizados.`, 'info')
+    anota(`Resumen: ${creados} tests creados, ${actualizados} actualizados`
+      + (imagenes > 0 ? `, ${imagenes} con imagen` : '') + '.', 'info')
     setCorriendo(false)
     comprobar()
   }
 
   const nItems = TESTS.reduce((a, t) => a + t.items.length, 0)
   const nMedidos = TESTS.reduce((a, t) => a + t.items.filter(i => i.unidad).length, 0)
+
+  const conImagen = TESTS.filter(t => t.archivo && ficheros.some(f => f.name === t.archivo)).length
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '20px 0' }}>
@@ -283,6 +310,20 @@ export default function SembrarTestsPage() {
                 </div>
               </div>
             )
+          )}
+
+          <label className="btn btn-s" style={{ cursor: 'pointer', marginBottom: 10 }}>
+            <Ic name="imagen" size={13} /> Seleccionar las imágenes
+            <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+              onChange={e => setFicheros(Array.from(e.target.files || []))} />
+          </label>
+
+          {ficheros.length > 0 && (
+            <div style={{ fontSize: 13, color: conImagen > 0 ? 'var(--gd)' : '#7A5800', marginBottom: 12 }}>
+              {ficheros.length} archivo{ficheros.length === 1 ? '' : 's'} seleccionado{ficheros.length === 1 ? '' : 's'} ·
+              {' '}{conImagen} de {TESTS.filter(t => t.archivo).length} tests emparejan por nombre.
+              {' '}Los que no, se quedan con la imagen que ya tuvieran.
+            </div>
           )}
 
           <button className="btn btn-p" onClick={sembrar} disabled={corriendo}>

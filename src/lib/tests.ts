@@ -38,6 +38,58 @@ export type ItemTest = {
   grados?: string
   /** Objetivos que abre ESTE ítem al quedar marcado. Vienen del test de la biblioteca. */
   objetivos?: string[]
+
+  // ── ÍTEM CON BARRA ────────────────────────────────────────────────────────
+  // Cuando el ítem trae `regla`, deja de ser una casilla que se marca a ojo y pasa a ser
+  // una MEDIDA que se decide sola. El lunge no es "¿hay restricción? sí/no": son los
+  // centímetros que llega, y por debajo de 10 hay restricción. Marcarlo a mano era pedir
+  // que hicieras tú la comparación cada vez, y que la hicieras igual cada vez.
+  /** Extremos de la barra. `min` admite negativos: hay medidas que los tienen. */
+  min?: number
+  max?: number
+  /** Qué valor lo hace POSITIVO (hallazgo). Sin regla, manda la casilla de siempre. */
+  regla?: 'menor' | 'mayor' | 'entre' | 'fuera'
+  umbral?: number
+  /** Segundo extremo, solo en 'entre' y 'fuera'. */
+  umbral2?: number
+}
+
+/** true si el ítem se rellena con la barra y no con la casilla. */
+export const tieneBarra = (i: any) => !!i?.regla && mide(i)
+
+/**
+ * ¿Este ítem es un hallazgo? null si todavía no se ha medido.
+ *
+ * Se separa de `resultadoDeItems` para poder pintarlo ítem a ítem mientras se rellena: hay
+ * que ver que ese número concreto está fuera de rango, no solo el veredicto del test.
+ */
+export function evaluaItem(item: any): boolean | null {
+  if (!tieneBarra(item)) return null
+  const v = parseFloat(valorDe(item))
+  if (!isFinite(v)) return null
+  const a = Number(item.umbral)
+  const b = Number(item.umbral2)
+  switch (item.regla) {
+    case 'menor': return v < a
+    case 'mayor': return v > a
+    case 'entre': return v >= Math.min(a, b) && v <= Math.max(a, b)
+    case 'fuera': return v < Math.min(a, b) || v > Math.max(a, b)
+    default: return null
+  }
+}
+
+/** La regla en una línea, para que se lea al rellenar y no haya que recordarla. */
+export function textoRegla(item: any): string {
+  if (!tieneBarra(item)) return ''
+  const u = unidadDe(item).simbolo.trim()
+  const a = item.umbral, b = item.umbral2
+  switch (item.regla) {
+    case 'menor': return `Positivo por debajo de ${a}${u}`
+    case 'mayor': return `Positivo por encima de ${a}${u}`
+    case 'entre': return `Positivo entre ${Math.min(a, b)} y ${Math.max(a, b)}${u}`
+    case 'fuera': return `Positivo fuera de ${Math.min(a, b)}–${Math.max(a, b)}${u}`
+    default: return ''
+  }
 }
 
 /**
@@ -101,7 +153,10 @@ export function textoMedida(item: any): string {
 export function resultadoDeItems(items: ItemTest[], logica?: string, aMano: ResultadoTest = 'positivo'): ResultadoTest {
   if (aMano === 'sin_realizar') return 'sin_realizar'
   if (!items || items.length === 0) return aMano
-  const marcados = items.filter(i => i.marcado).length
+  // El ítem con barra no se marca: lo decide su valor. Se traduce a marcado y a partir de
+  // ahí manda la misma lógica de siempre, para no tener dos formas de resolver un test.
+  const marcado = (i: ItemTest) => tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado
+  const marcados = items.filter(marcado).length
   if (logica === 'todos') return marcados === items.length ? 'positivo' : 'negativo'
   return marcados > 0 ? 'positivo' : 'negativo'
 }
@@ -167,8 +222,12 @@ export async function registrarResultadoTest(
     // ejercicio: si mañana el test pasa a medirse en centímetros, el registro de marzo
     // tiene que seguir diciendo los grados que se anotaron aquel día.
     items_resultado: items.map(i => ({
-      nombre: i.nombre, marcado: !!i.marcado,
+      nombre: i.nombre, marcado: tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado,
       unidad: unidadDe(i).id, valor: valorDe(i),
+      // La REGLA se congela igual que la unidad. Si mañana subes el umbral del lunge de 10
+      // a 12, el registro de marzo tiene que seguir explicando por qué salió positivo
+      // aquel día. Sin esto, el histórico cambiaría de sentido al tocar la biblioteca.
+      ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, min: i.min, max: i.max } : {}),
     })),
   })
   if (error) return { ok: false, error: error.message }

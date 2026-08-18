@@ -29,10 +29,25 @@ export type ItemSemilla = {
   unidad?: string
   /** Objetivos que abre este ítem al quedar marcado, por nombre. */
   objetivos?: string[]
+  /**
+   * BARRA. Con `regla`, el ítem deja de ser una casilla y pasa a medirse: el positivo lo
+   * decide el número y no el criterio del que rellena. Ver lib/tests.ts.
+   */
+  min?: number
+  max?: number
+  regla?: 'menor' | 'mayor' | 'entre' | 'fuera'
+  umbral?: number
+  umbral2?: number
 }
 
 export type TestSemilla = {
   nombre: string
+  /**
+   * Nombre del fichero de imagen, si tiene. Se empareja en el sembrador con lo que se
+   * seleccione, igual que en los ejercicios. Sin fichero, el test se crea sin imagen y la
+   * que ya tuviera NO se toca.
+   */
+  archivo?: string
   descripcion: string
   /** 'cualquiera' = con un ítem marcado ya es positivo. 'todos' = tienen que estarlo todos. */
   logica: 'cualquiera' | 'todos'
@@ -268,8 +283,11 @@ export const TESTS: TestSemilla[] = [
 
   // ── Tobillo y equilibrio ──────────────────────────────────────────────────
   {
+    // SUSTITUIDO por los tres de abajo, uno por posición. Se deja porque hay resultados
+    // colgando de él y borrarlo se los llevaría; la descripción lo dice para que no se
+    // vuelva a usar por error.
     nombre: 'Dorsiflexión de tobillo · test del lunge',
-    descripcion: 'De pie frente a la pared, se adelanta el pie hasta donde la rodilla la toca sin levantar el talón. Por debajo de 10 cm hay restricción, y se paga arriba: la sentadilla se va hacia delante y la rodilla al valgo. Las tres posiciones no miden lo mismo: con la rodilla en el suelo se quita el gastrocnemio y queda el sóleo solo, y con alza se distingue si el tope es de longitud o articular.',
+    descripcion: 'SUSTITUIDO: usa las tres fichas nuevas del lunge (en bipedestación, con la rodilla en el suelo y con alza). Esta se conserva solo por los resultados ya registrados. De pie frente a la pared, se adelanta el pie hasta donde la rodilla la toca sin levantar el talón. Por debajo de 10 cm hay restricción.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Sóleo', 'Flexión', 'Pared', 'Bipedestación'],
     objetivos: ['Ganar dorsiflexión de tobillo'],
@@ -740,5 +758,50 @@ export const TESTS: TestSemilla[] = [
       { nombre: 'Se escora hacia el lado sano al estar sentado' },
     ],
     objetivos: ['Aprender las transferencias con seguridad', 'Recuperar la marcha tras el ictus'],
+  },
+
+  // ── El lunge, una ficha por posición ──────────────────────────────────────
+  //
+  // Antes era un solo test con las tres posiciones como ítems. No funcionaba: las tres
+  // son montajes distintos —hay que colocar al paciente de otra manera cada vez— y en una
+  // sola ficha no cabía ni la foto de cada una ni cómo se coloca. Y sobre todo, un test
+  // se pasa entero o no se pasa: obligaba a hacer las tres o dejar huecos.
+  //
+  // Ahora cada una es un test, con su imagen y su barra. Se pasa la que haga falta: la
+  // primera siempre, y las otras dos solo cuando la primera sale corta y hay que averiguar
+  // POR QUÉ. Ese es el orden de la exploración de verdad.
+  {
+    nombre: 'Lunge de tobillo · en bipedestación', archivo: 'lunge-bipedestacion.jpg',
+    descripcion: 'De pie frente a la pared, con el pie separado de ella y el talón pegado al suelo, se lleva la rodilla adelante hasta tocar la pared. Se mide la distancia del dedo gordo a la pared en el punto más lejano en que la rodilla todavía llega. Es la referencia: mide el tobillo con el gemelo en tensión, que es como trabaja al andar y en la sentadilla. Por debajo de 10 cm hay restricción, y se paga arriba: la sentadilla se va hacia delante y la rodilla al valgo.',
+    logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
+    etiquetas: ['Tobillo', 'Sóleo', 'Tríceps Sural', 'Flexión', 'Dorsiflexión', 'Pared', 'Bipedestación', 'Cadena cerrada'],
+    objetivos: ['Ganar dorsiflexión de tobillo'],
+    items: [
+      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10 },
+      { nombre: 'El talón se levanta antes de tocar' },
+      { nombre: 'La rodilla se desvía hacia dentro para llegar' },
+    ],
+  },
+  {
+    nombre: 'Lunge de tobillo · con la rodilla en el suelo', archivo: 'lunge-rodilla-suelo.jpg',
+    descripcion: 'La misma medida en posición de caballero, con la rodilla de atrás apoyada. Al flexionar la rodilla de delante se QUITA EL GEMELO de la ecuación y queda el sóleo solo. Se pasa cuando el de bipedestación sale corto: si aquí gana bastante, el tope estaba en el gemelo y es cuestión de longitud muscular; si gana poco, el problema está más abajo.',
+    logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
+    etiquetas: ['Tobillo', 'Sóleo', 'Flexión', 'Dorsiflexión', 'Pared', 'Arrodillado', 'Caballero', 'Cadena cerrada'],
+    objetivos: ['Ganar dorsiflexión de tobillo'],
+    items: [
+      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10 },
+      { nombre: 'El talón se levanta antes de tocar' },
+    ],
+  },
+  {
+    nombre: 'Lunge de tobillo · con alza bajo el talón', archivo: 'lunge-alza-talon.jpg',
+    descripcion: 'La misma medida con una cuña que eleva el talón. Distingue si el tope es de LONGITUD o ARTICULAR: con el alza, el músculo trabaja acortado y deja de limitar, así que si aun así no gana recorrido el bloqueo está dentro de la articulación —el astrágalo no se desliza— y estirar no lo va a resolver. Es la ficha que decide si el trabajo va a ser de movilidad o de terapia manual.',
+    logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
+    etiquetas: ['Tobillo', 'Sóleo', 'Flexión', 'Dorsiflexión', 'Pared', 'Cuña', 'Bipedestación', 'Cadena cerrada'],
+    objetivos: ['Ganar dorsiflexión de tobillo'],
+    items: [
+      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10 },
+      { nombre: 'No gana recorrido respecto a la posición normal' },
+    ],
   },
 ]

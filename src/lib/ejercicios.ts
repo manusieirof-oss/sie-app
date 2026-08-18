@@ -122,6 +122,27 @@ export async function subirImagenEjercicio(ejercicioId: string, file: File) {
   return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}` }
 }
 
+/**
+ * Imagen de un TEST. Misma mecánica que la del ejercicio.
+ *
+ * Vive aquí y no en un `lib/tests.ts` propio para no tener dos formas de subir la misma
+ * clase de imagen: el bucket, la compresión y el truco del sufijo contra la caché son
+ * exactamente los mismos, y separarlos garantizaría que un día divergieran.
+ */
+export async function subirImagenTest(testId: string, file: File) {
+  let preparado: File
+  try { preparado = await comprimirImagen(file, MAX_EJERCICIO) }
+  catch { return { ok: false as const, error: 'No se pudo procesar la imagen. Prueba con un JPG.' } }
+
+  const ruta = `tests/${testId}/foto.jpg`
+  const { error } = await supabase.storage.from(BUCKET)
+    .upload(ruta, preparado, { contentType: 'image/jpeg', upsert: true })
+  if (error) return { ok: false as const, error: error.message }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta)
+  return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}` }
+}
+
 /** Imagen de una variante. Ruta fija por índice, mismo motivo. */
 export async function subirImagenVariante(ejercicioId: string, indice: number, file: File) {
   let preparado: File

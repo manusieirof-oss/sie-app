@@ -1,6 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
-import { resultadoDeItems, mide, unidadDe, valorDe } from '@/lib/tests'
+import { resultadoDeItems, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla } from '@/lib/tests'
 
 /**
  * Pasar un test, con el mismo aspecto que su ficha de la biblioteca.
@@ -115,7 +115,55 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                   <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 6 }}>
                     Ítems · {test?.logica === 'todos' ? 'todos marcados = positivo' : 'con uno basta = positivo'}
                   </div>
-                  {base.map((item: any, ii: number) => (
+                  {base.map((item: any, ii: number) => {
+                    /* ÍTEM CON BARRA: no se marca, se mide. El veredicto sale del número,
+                       así que la casilla sobra y encima invitaba a contradecirlo. */
+                    if (tieneBarra(item)) {
+                      const hallazgo = evaluaItem(item)
+                      const min = Number(item.min ?? 0), max = Number(item.max ?? 100)
+                      const v = valorDe(item)
+                      const col = hallazgo === true ? 'var(--red)' : hallazgo === false ? 'var(--g)' : 'var(--bd)'
+                      const ponValor = (x: string) => {
+                        const its = [...base]; its[ii] = { ...its[ii], valor: x }
+                        actualizar({ items_resultado: its, resultado: resultadoDeItems(its, test?.logica) })
+                      }
+                      return (
+                        <div key={ii} style={{ padding: '12px 13px', background: hallazgo === true ? 'var(--redl)' : hallazgo === false ? 'var(--gl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${col}`, marginBottom: 5 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 9 }}>
+                            <span style={{ flex: 1, fontSize: 13, color: 'var(--n)' }}>{item.nombre}</span>
+                            <span style={{ fontSize: 20, fontWeight: 300, color: v === '' ? 'var(--grl)' : col }}>
+                              {v === '' ? '—' : v}
+                            </span>
+                            <span style={{ fontSize: 12, color: 'var(--grl)' }}>{unidadDe(item).simbolo.trim()}</span>
+                          </div>
+                          <input type="range" min={min} max={max} step={item.paso ?? 1}
+                            value={v === '' ? String((min + max) / 2) : v}
+                            onChange={e => ponValor(e.target.value)}
+                            style={{ width: '100%', accentColor: hallazgo === true ? 'var(--red)' : 'var(--g)', cursor: 'pointer' }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <span style={{ fontSize: 10, color: 'var(--grl)' }}>{min}</span>
+                            <span style={{ flex: 1, textAlign: 'center', fontSize: 10, color: hallazgo === true ? 'var(--red)' : 'var(--grl)' }}>
+                              {textoRegla(item)}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--grl)' }}>{max}</span>
+                          </div>
+                          {/* Se puede teclear: con la tablet en la mano la barra es cómoda,
+                              pero un 10,5 exacto con el dedo no se acierta. */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                            <input type="number" value={v} onChange={e => ponValor(e.target.value)}
+                              placeholder="Escribir"
+                              style={{ width: 90, fontSize: 12, padding: '5px 7px', border: '1px solid var(--bd)', borderRadius: 5, textAlign: 'center', fontFamily: 'inherit' }} />
+                            {v !== '' && (
+                              <button onClick={() => ponValor('')}
+                                style={{ fontSize: 10, color: 'var(--grl)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                Borrar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    }
+                    return (
                     <label key={ii} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', background: item.marcado ? 'var(--redl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${item.marcado ? '#F5C8C8' : 'var(--bd)'}`, marginBottom: 5, cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!item.marcado} onChange={e => {
                         const its = [...base]; its[ii] = { ...its[ii], marcado: e.target.checked }
@@ -132,7 +180,8 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                         </span>
                       )}
                     </label>
-                  ))}
+                    )
+                  })}
 
                   <div style={{ padding: '9px 12px', borderRadius: 7, background: d.resultado === 'positivo' ? 'var(--redl)' : d.resultado === 'negativo' ? 'var(--gl)' : 'var(--bl)', border: `1px solid ${d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gm)' : 'var(--bd)'}`, fontSize: 12, fontWeight: 500, color: d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gd)' : 'var(--grl)', marginTop: 8 }}>
                     {d.resultado === 'positivo' ? '+ Positivo' : d.resultado === 'negativo' ? '− Negativo' : 'Marca los ítems observados'}
@@ -141,7 +190,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
 
                   {/* "No se lo hice" y "se lo hice y salió limpio" no son lo mismo: lo
                       segundo hay que decirlo a propósito. */}
-                  {base.filter((it: any) => it.marcado).length === 0 && (
+                  {base.filter((it: any) => it.marcado).length === 0 && !base.some((it: any) => tieneBarra(it)) && (
                     <div onClick={() => actualizar({ resultado: d.resultado === 'negativo' ? 'sin_realizar' : 'negativo' })}
                       style={{ marginTop: 6, padding: '9px 12px', borderRadius: 7, border: `1.5px solid ${d.resultado === 'negativo' ? 'var(--g)' : 'var(--bd)'}`, background: d.resultado === 'negativo' ? 'var(--gl)' : 'var(--w)', cursor: 'pointer', textAlign: 'center', fontSize: 12, fontWeight: 500, color: d.resultado === 'negativo' ? 'var(--gd)' : 'var(--grl)' }}>
                       {d.resultado === 'negativo' ? '✓ Marcado como negativo' : 'Sin hallazgos · marcar como − Negativo'}
