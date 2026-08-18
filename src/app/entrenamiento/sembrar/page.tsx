@@ -203,18 +203,27 @@ export default function SembrarPage() {
         id = data.id; creados++
       }
 
+      /**
+       * LA IMAGEN DEL EJERCICIO ES OPCIONAL, Y NO CORTA EL RESTO.
+       *
+       * Aquí había un `continue`: si el fichero del ejercicio no estaba en la selección,
+       * se saltaba al siguiente. Con una tanda de imágenes de VARIANTES eso significaba
+       * saltarse los 126 y no poner ni una sola, y el resumen decía "126 actualizados"
+       * sin mencionarlo. Se seguía cuadrando y no había forma de ver que faltaba algo.
+       *
+       * La imagen que ya tuviera el ejercicio NO se toca cuando no se da fichero.
+       */
+      let conImagen = false
       const file = porNombre[s.archivo]
       if (!file) {
         // No se anota línea por línea: si siembras un bloque de la carpeta, los otros
-        // veinte llenarían el registro de avisos y taparían lo que sí ha pasado. La
-        // imagen que ya tuviera el ejercicio NO se toca.
-        sinImagen++; sinImagenNombres.push(s.nombre); continue
+        // veinte llenarían el registro y taparían lo que sí ha pasado.
+        sinImagen++; sinImagenNombres.push(s.nombre)
+      } else {
+        const r = await subirImagenEjercicio(id, file)
+        if (!r.ok) { anota(`${s.nombre} — imagen falló: ${r.error}`, 'aviso'); sinImagen++ }
+        else { await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id); conImagen = true }
       }
-
-      const r = await subirImagenEjercicio(id, file)
-      if (!r.ok) { anota(`${s.nombre} — imagen falló: ${r.error}`, 'aviso'); sinImagen++; continue }
-
-      await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
 
       // Imágenes de VARIANTE.
       //
@@ -247,7 +256,10 @@ export default function SembrarPage() {
         varianteImg += tocadas
       }
 
-      anota(`${s.nombre} — ${existente ? 'actualizado' : 'creado'} con imagen y ${ids.length} etiqueta${ids.length === 1 ? '' : 's'}`, 'ok')
+      anota(`${s.nombre} — ${existente ? 'actualizado' : 'creado'}`
+        + (conImagen ? ' con imagen' : '')
+        + ` y ${ids.length} etiqueta${ids.length === 1 ? '' : 's'}`
+        + (conFoto.length > 0 ? `, ${conFoto.length} de variante` : ''), 'ok')
     }
 
     if (etiquetasNoEncontradas.size > 0) {
