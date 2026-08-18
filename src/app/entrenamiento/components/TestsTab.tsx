@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { UNIDADES, unidadDe, mide, textoRegla } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
+import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -76,20 +77,59 @@ function ConfigBarra({ item, onCambia }: { item: any, onCambia: (campos: any) =>
   )
 }
 
+/**
+ * Los objetivos que abre un ítem.
+ *
+ * Antes se pintaban LOS 22 en píldoras de 8 px debajo de cada ítem: con cuatro ítems eran
+ * ochenta y ocho píldoras minúsculas en un modal, y para saber cuáles estaban puestas
+ * había que leerlas todas buscando las de color.
+ *
+ * Ahora se ven solo los puestos, y los demás se abren con el botón. Mismo criterio que las
+ * etiquetas: primero lo que hay, lo demás se busca.
+ */
 function PildorasObjetivos({ seleccionados, objetivos, onToggle }: any) {
+  const [abierto, setAbierto] = useState(false)
+  const [busca, setBusca] = useState('')
   if (!objetivos || objetivos.length===0) return null
+
+  const sel = seleccionados || []
+  const puestos = objetivos.filter((o:any)=>sel.includes(o.id))
+  const t = busca.toLowerCase().trim()
+  const resto = objetivos.filter((o:any)=>!sel.includes(o.id) && (!t || (o.nombre||'').toLowerCase().includes(t)))
+
   return (
-    <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:4,marginLeft:2}}>
-      <span style={{fontSize:8,color:'var(--grl)',alignSelf:'center'}}>Objetivos:</span>
-      {objetivos.map((o:any)=>{
-        const sel = (seleccionados||[]).includes(o.id)
-        return (
-          <span key={o.id} onClick={()=>onToggle(o.id)}
-            style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:'1px solid '+(sel?(o.color||'var(--g)'):'var(--bd)'),background:sel?(o.color||'var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
-            {o.nombre}
+    <div style={{marginTop:5,marginLeft:2}}>
+      <div style={{display:'flex',flexWrap:'wrap',gap:4,alignItems:'center'}}>
+        <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
+        {puestos.length===0 && <span style={{fontSize:9,color:'var(--grl)'}}>ningún objetivo</span>}
+        {puestos.map((o:any)=>(
+          <span key={o.id} onClick={()=>onToggle(o.id)} title="Quitar"
+            style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4}}>
+            {o.nombre} <span style={{opacity:.7}}>✕</span>
           </span>
-        )
-      })}
+        ))}
+        <button onClick={()=>setAbierto(v=>!v)}
+          style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px dashed var(--bd)',background:'var(--w)',color:'var(--g)',fontFamily:'inherit'}}>
+          {abierto ? 'Cerrar' : '+ Objetivo'}
+        </button>
+      </div>
+
+      {abierto && (
+        <div style={{marginTop:5,border:'1px solid var(--bd)',borderRadius:6,padding:6}}>
+          <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
+            placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:5}}/>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:130,overflowY:'auto'}}>
+            {resto.length===0
+              ? <span style={{fontSize:10,color:'var(--grl)'}}>Nada que coincida.</span>
+              : resto.map((o:any)=>(
+                <span key={o.id} onClick={()=>onToggle(o.id)}
+                  style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}}>
+                  {o.nombre}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -196,7 +236,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
 
       {modalTest&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalTest(false)}}>
-          <div className="modal" style={{width:520,maxHeight:'90vh'}}>
+          <div className="modal" style={{width:'94vw',maxWidth:900,maxHeight:'90vh'}}>
             <div className="modal-title">Nuevo test<button className="modal-close" onClick={()=>setModalTest(false)}>✕</button></div>
             <div className="field"><label>Nombre *</label><input className="input" value={nuevoTest.nombre} onChange={e=>setNuevoTest(p=>({...p,nombre:e.target.value}))} autoFocus/></div>
             <div className="field"><label>Descripción</label><textarea className="input" value={nuevoTest.descripcion} onChange={e=>setNuevoTest(p=>({...p,descripcion:e.target.value}))}/></div>
@@ -260,7 +300,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             </div>
             <div className="field">
               <label>Etiquetas relacionadas</label>
-              <div style={{marginTop:5}}><SelectorColumnas seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/></div>
+              <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/></div>
             </div>
             {/* Lo que este test DESACONSEJA si sale positivo. Avisa al montar la sesión;
                 no impide nada, porque hay motivos para prescribirlo igual —carga baja,
@@ -268,7 +308,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                 Un negativo posterior lo levanta solo. */}
             <div className="field">
               <label>Si sale positivo, desaconseja</label>
-              <div style={{marginTop:5}}><SelectorColumnas seleccionadas={nuevoTest.etiquetas_bloquea||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_bloquea:ids}))}/></div>
+              <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={nuevoTest.etiquetas_bloquea||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_bloquea:ids}))}/></div>
               <div style={{fontSize:12,color:'var(--gr)',marginTop:4}}>
                 Los ejercicios con estas etiquetas saldrán avisados en el editor de sesión de
                 quien dé positivo. Alcanza también a sus subetiquetas.
@@ -285,7 +325,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
 
       {modalEditarTest&&testEditando&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalEditarTest(false)}}>
-          <div className="modal" style={{width:520,maxHeight:'90vh'}}>
+          <div className="modal" style={{width:'94vw',maxWidth:900,maxHeight:'90vh'}}>
             <div className="modal-title">Editar test<button className="modal-close" onClick={()=>setModalEditarTest(false)}>✕</button></div>
             <div className="field"><label>Nombre *</label><input className="input" value={testEditando.nombre||''} onChange={e=>setTestEditando((p:any)=>({...p,nombre:e.target.value}))}/></div>
             <div className="field"><label>Descripción</label><textarea className="input" value={testEditando.descripcion||''} onChange={e=>setTestEditando((p:any)=>({...p,descripcion:e.target.value}))}/></div>
@@ -344,7 +384,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             </div>
             <div className="field">
               <label>Etiquetas relacionadas</label>
-              <div style={{marginTop:5}}><SelectorColumnas seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>
+              <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>
             </div>
             {/* Lo que este test DESACONSEJA si sale positivo. Avisa al montar la sesión;
                 no impide nada, porque hay motivos para prescribirlo igual —carga baja,
@@ -352,7 +392,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                 Un negativo posterior lo levanta solo. */}
             <div className="field">
               <label>Si sale positivo, desaconseja</label>
-              <div style={{marginTop:5}}><SelectorColumnas seleccionadas={testEditando.etiquetas_bloquea||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_bloquea:ids}))}/></div>
+              <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={testEditando.etiquetas_bloquea||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_bloquea:ids}))}/></div>
               <div style={{fontSize:12,color:'var(--gr)',marginTop:4}}>
                 Los ejercicios con estas etiquetas saldrán avisados en el editor de sesión de
                 quien dé positivo. Alcanza también a sus subetiquetas.
