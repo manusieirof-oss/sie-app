@@ -274,12 +274,17 @@ export default function SembrarPage() {
           </div>
 
           <p style={{ fontSize: 13, color: 'var(--gr)', lineHeight: 1.6, marginBottom: 14 }}>
-            Da de alta el catálogo inicial con sus descripciones, criterios de ejecución,
-            feedbacks y etiquetas. Selecciona las imágenes de la carpeta <code>elegidas</code>:
-            se emparejan por nombre de archivo. Si un ejercicio ya existe se actualiza en
-            vez de duplicarse, así que puedes relanzarlo tras corregir la semilla. Las
-            variantes solo se ponen al crear: si el ejercicio ya existe, no se tocan ni
-            ellas ni el vídeo que hayas puesto tú.
+            {/* Este texto decía que las variantes solo se ponen al crear, y hace tiempo
+                que no es verdad: se fusionan por nombre. Una explicación desactualizada en
+                la propia pantalla es peor que no tenerla, porque se cree. */}
+            Da de alta el catálogo con sus descripciones, criterios de ejecución, feedbacks
+            y etiquetas. Selecciona las imágenes de la carpeta que toque —se emparejan por
+            nombre de archivo— y puedes relanzarlo las veces que haga falta:
+            <b> nada de lo que ya tenga contenido se pisa</b>. Los ejercicios que ya existan
+            se actualizan en vez de duplicarse, las etiquetas <b>se suman</b> a las que ya
+            tuvieran, y las variantes se fusionan <b>por nombre</b>: las nuevas se añaden al
+            final y las que ya estén conservan lo que hayas escrito tú. El vídeo no se toca
+            nunca. Un ejercicio del que no des imagen se queda con la suya.
           </p>
 
           {huerfanas !== null && (
