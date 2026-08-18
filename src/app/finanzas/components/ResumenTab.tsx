@@ -16,7 +16,10 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   const nombrePorTipo: Record<string, string> = {}
   planes.forEach((p: any) => { nombrePorTipo[p.bono_tipo] = p.nombre || p.bono_tipo })
 
-  const bonosActivos = bonos.filter((b: any) => b.activo)
+  // Ya viene filtrada por el mes elegido desde la página. Volver a filtrar por
+  // `activo` aquí dejaría vacío cualquier mes ya cerrado, porque la renovación
+  // desactiva las cuotas del mes anterior al crear las del siguiente.
+  const bonosActivos = bonos
   const precioBono = (b: any) => precioDeBono(b, idxPlanes)
   const nVentas = bonosActivos.filter(esVentaPuntual).length
   const nCuotas = bonosActivos.length - nVentas

@@ -11,7 +11,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], m
   const eur = (n:number) => `${n>=0?'':'−'}${Math.abs(n).toFixed(0)}€`
 
   const idxPlanes = indicePlanes(planes)
-  const bonosActivos = bonos.filter((b:any)=>b.activo)
+  const bonosActivos = bonos   // ya filtrados por el mes elegido
   const precioBono = (b:any) => precioDeBono(b, idxPlanes)
 
   // FOTO DEL MES ACTUAL

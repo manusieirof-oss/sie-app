@@ -160,15 +160,20 @@ export function cuotasRecurrentes(bonos: any[] = []): any[] {
 }
 
 /**
- * Lo que se ingresa en un mes: las cuotas vigentes más las ventas de ese mes.
+ * Lo que se factura en un mes: TODO lo que lleva ese mes y año, sea cuota o
+ * venta puntual. Una sola regla para los dos.
  *
- * Un bono de sesiones de agosto no cuenta en septiembre aunque siga vivo: ya se
- * cobró. Lo que le queda son sesiones, no dinero por cobrar.
+ * Antes esto tenía dos: las ventas por mes y las cuotas por `activo`. Funcionó
+ * mientras "activo" y "este mes" significaban lo mismo, y dejó de funcionar en
+ * cuanto se pudo dejar una cuota preparada para septiembre. El resultado era un
+ * previsto que sumaba las cuotas de septiembre con las ventas de agosto, y que
+ * se dejaba fuera los bonos de sesiones de cualquier mes que no fuera el de hoy.
+ *
+ * `activo` dice si un bono sigue vigente, no de qué mes es. Para preguntar por
+ * un mes hay que preguntar por el mes.
  */
 export function ingresoDelMes(bonos: any[] = [], mes: number, anio: number): any[] {
-  return bonos.filter(b => esVentaPuntual(b)
-    ? (b.mes === mes && b.anio === anio)
-    : b.activo)
+  return bonos.filter(b => b.mes === mes && b.anio === anio)
 }
 
 /**

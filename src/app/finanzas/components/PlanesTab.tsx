@@ -21,7 +21,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
   // Por cada tipo: nº de pacientes activos e ingreso real (con descuentos aplicados)
   const activosPorTipo: Record<string, number> = {}
   const ingresoPorTipo: Record<string, number> = {}
-  bonos.filter((b:any)=>b.activo).forEach((b:any)=>{
+  bonos.forEach((b:any)=>{
     activosPorTipo[b.tipo] = (activosPorTipo[b.tipo]||0)+1
     ingresoPorTipo[b.tipo] = (ingresoPorTipo[b.tipo]||0) + precioConDescuento(precioFinalPlan(planPorTipo[b.tipo]), b)
   })

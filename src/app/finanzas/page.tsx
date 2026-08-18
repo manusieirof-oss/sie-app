@@ -12,6 +12,8 @@ import RentabilidadTab from './components/RentabilidadTab'
 import PrevisionTab from './components/PrevisionTab'
 import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes } from '@/lib/bonos'
 
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
 /**
  * Un bono por paciente y mes, el más reciente.
  *
@@ -51,6 +53,8 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
 
 export default function FinanzasPage() {
   const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'|'rentabilidad'|'prevision'>('resumen')
+  // Mes que se está mirando, 'YYYY-MM'. Arranca en el actual.
+  const [mesRef, setMesRef] = useState(() => new Date().toISOString().slice(0,7))
   const [planes, setPlanes] = useState<any[]>([])
   const [gastos, setGastos] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
@@ -100,17 +104,46 @@ export default function FinanzasPage() {
     setLoading(false)
   }
 
-  // Las dos lecturas de `bonos`, separadas donde se decide y no dentro de cada
-  // pestaña, para que las cuatro cuenten lo mismo.
+  // El mes que se está mirando. Todo lo de abajo cuelga de aquí.
   //
-  //   bonosMes → lo que se ingresa este mes: cuotas vigentes + sesiones vendidas
-  //              este mes. Es lo que va a Resumen, Planes y Rentabilidad.
-  //   cuotas   → solo lo recurrente. Es lo único que sirve para PREVER: una
-  //              venta puntual no se repite el mes que viene y meterla en la
-  //              base de la previsión la infla a partir de la nada.
-  const hoy = new Date()
-  const bonosMes = ingresoDelMes(bonos, hoy.getMonth() + 1, hoy.getFullYear())
+  //   bonosMes → lo facturable de ESE mes, cuotas y ventas por igual. Va a
+  //              Resumen, Planes y Rentabilidad.
+  //   cuotas   → solo lo recurrente y vigente. Es lo único que sirve para
+  //              PREVER: una venta puntual no se repite el mes que viene y
+  //              meterla en la base de la previsión la infla a partir de la nada.
+  //
+  // `bonosMes` sale de `bonosHist` y no de `bonos`, porque `bonos` solo trae los
+  // activos: un mes ya cerrado tiene sus cuotas desactivadas por la renovación y
+  // se vería vacío.
+  const [aSel, mSel] = mesRef.split('-').map(Number)
+  const bonosMes = ingresoDelMes(bonosHist, mSel, aSel)
   const cuotas = cuotasRecurrentes(bonos)
+
+  /**
+   * Meses que se pueden mirar: desde el primero con datos hasta tres por
+   * delante del actual.
+   *
+   * Los tres de delante no son relleno: son justamente para lo que hace falta
+   * esto, que es ver lo que se va a facturar en septiembre mientras todavía
+   * estamos en agosto.
+   */
+  const mesesDisponibles = (() => {
+    const claves = new Set<string>()
+    bonosHist.forEach((b: any) => { if (b.mes && b.anio) claves.add(`${b.anio}-${String(b.mes).padStart(2,'0')}`) })
+    gastos.forEach((g: any) => { if (g.fecha) claves.add(g.fecha.slice(0,7)) })
+    const hoy = new Date()
+    for (let i = 0; i <= 3; i++) {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1)
+      claves.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
+    }
+    claves.add(mesRef)
+    return Array.from(claves).sort().reverse()
+  })()
+
+  const nombreMes = (clave: string) => {
+    const [a, m] = clave.split('-').map(Number)
+    return `${MESES[m-1]} ${a}`
+  }
 
   if (autorizado === null) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'50vh'}}>
@@ -137,6 +170,16 @@ export default function FinanzasPage() {
             </button>
           ))}
         </div>
+        {/* El mes que se mira. Solo en las tres pestañas que hablan de un mes
+            concreto: Impuestos va por trimestres, Gastos y Previsión llevan lo
+            suyo. Un selector que no hace nada es peor que no tenerlo. */}
+        {(tab === 'resumen' || tab === 'planes' || tab === 'rentabilidad') && (
+          <select className="input" style={{width:'auto',padding:'6px 10px'}}
+            value={mesRef} onChange={e=>setMesRef(e.target.value)}>
+            {mesesDisponibles.map(m=><option key={m} value={m}>{nombreMes(m)}</option>)}
+          </select>
+        )}
+
         {/* Acceso al banco de pruebas. Va aquí y no en la navegación general
             porque solo tiene sentido para quien ya está mirando Finanzas. */}
         <Link href="/finanzas/prueba" style={{fontSize:10,color:'var(--grl)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}>
@@ -156,11 +199,11 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} bonosHist={bonosHist}/>}
-          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist}/>}
+          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef}/>}
           {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas}/>}
         </>
       )}
