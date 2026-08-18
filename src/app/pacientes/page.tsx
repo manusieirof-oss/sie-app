@@ -124,6 +124,18 @@ export default function PacientesPage() {
     return suyos.find(b => b.mes === mesActual && b.anio === anioActual) || suyos[0]
   }
 
+  /**
+   * Sus bonos de SESIONES vigentes, que no son la cuota pero sí son "tener bono".
+   *
+   * La columna sigue siendo la de la cuota mensual —enseñar ahí "8 sesiones" haría creer
+   * que tiene mensualidad quien solo compró un bono suelto— pero decir "Asignar" a quien
+   * acaba de comprar cuatro sesiones es peor: parece que no tiene nada y se le asigna otro
+   * encima. Es justo lo que ha pasado.
+   */
+  function sesionesDe(pacienteId: string) {
+    return bonos.filter(b => b.paciente_id === pacienteId && b.sesiones_totales != null)
+  }
+
   /** true si ese bono todavía no ha empezado: es una cuota dejada preparada. */
   const esFuturo = (b: any) => !!b && (b.anio > anioActual || (b.anio === anioActual && b.mes > mesActual))
 
@@ -303,12 +315,24 @@ export default function PacientesPage() {
                         </div>
                       )}
                     </>
-                  ) : (
-                    <button className="chip-ed chip-ed-n" title="Asignar un bono"
-                      onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono:null })}}>
-                      <Ic name="mas" size={12}/> Asignar
-                    </button>
-                  )}
+                  ) : (()=>{
+                    const ses = sesionesDe(p.id)
+                    const nSes = ses.reduce((n:number,b:any)=>n+(b.sesiones_totales||0),0)
+                    return (
+                      <>
+                        {ses.length>0 && (
+                          <div title={`${ses.length} bono${ses.length>1?'s':''} de sesiones`}
+                            style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800',whiteSpace:'nowrap',display:'inline-block',marginBottom:3}}>
+                            {nSes} sesiones
+                          </div>
+                        )}
+                        <button className="chip-ed chip-ed-n" title={ses.length>0 ? 'Tiene sesiones sueltas. Asignar además una cuota mensual' : 'Asignar un bono'}
+                          onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono:null })}}>
+                          <Ic name="mas" size={12}/> {ses.length>0 ? 'Cuota' : 'Asignar'}
+                        </button>
+                      </>
+                    )
+                  })()}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
                 {/* CITAS POR DELANTE / DE ESAS, CUÁNTAS LLEVAN SESIÓN.
