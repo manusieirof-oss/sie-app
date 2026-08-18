@@ -12,13 +12,23 @@ import {
 // las citas. Este componente no suma ni resta nada: si lo hiciera, sería una
 // segunda forma de contar el consumo y acabaría discrepando de la primera.
 
-export default function SesionesBono({ bono, nombre, compacto, onRenovar }: {
+export default function SesionesBono({ bono, nombre, compacto, onRenovar, onRetirar }: {
   bono: BonoSesiones
   nombre?: string
   compacto?: boolean
   /** Renovar: crea otro bono igual y abre el cobro. Solo aparece si se acabó. */
   onRenovar?: (bono: BonoSesiones) => void
+  /**
+   * Retirar el bono. Solo si no está cobrado; lo comprueba `quitarBono`.
+   *
+   * Antes esto no existía: la cuota mensual sí se podía retirar y los bonos de sesiones
+   * no, así que un bono asignado por error solo se quitaba entrando a la base de datos.
+   * Y asignar uno por error es fácil justo cuando no se ven en la ficha, que es como
+   * salió esto.
+   */
+  onRetirar?: (bono: BonoSesiones) => void
 }) {
+  const [retirando, setRetirando] = useState(false)
   const estado = estadoDe(bono)
   const color = COLOR_ESTADO[estado]
   const total = bono.sesiones_totales || 0
@@ -80,6 +90,25 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar }: {
           <Ic name="euro" size={12}/> Renovar y cobrar
         </button>
       )}
+
+      {/* RETIRAR. Pide confirmación en el sitio, sin `confirm` del navegador: se explica
+          qué se va a borrar y qué no se pierde. Si el bono está cobrado no se llega aquí
+          —lo corta `quitarBono`— y se dice por qué: se deshace con una rectificativa. */}
+      {onRetirar && (retirando ? (
+        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+          <span style={{fontSize:9.5,color:'var(--gr)',flex:1,lineHeight:1.5}}>
+            ¿Retirar este bono? {gastadas > 0
+              ? `Ya tiene ${gastadas} ${gastadas===1?'sesión usada':'sesiones usadas'}: esas citas se quedarán sin bono al que descontar.`
+              : 'No se ha usado ninguna sesión.'}
+          </span>
+          <button className="btn btn-t btn-sm" style={{fontSize:10}} onClick={()=>setRetirando(false)}>No</button>
+          <button className="btn btn-d btn-sm" style={{fontSize:10}} onClick={()=>{setRetirando(false);onRetirar(bono)}}>Sí, retirar</button>
+        </div>
+      ) : (
+        <button className="btn btn-t btn-sm" style={{marginTop:6,width:'100%',fontSize:10}} onClick={()=>setRetirando(true)}>
+          <Ic name="papelera" size={11}/> Retirar
+        </button>
+      ))}
     </div>
   )
 }

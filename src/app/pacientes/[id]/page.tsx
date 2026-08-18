@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
+import { cargarBonosTipos, quitarBono, BonoTipo } from '@/lib/bonos'
 import FichaTab from './components/FichaTab'
 import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
@@ -251,6 +251,19 @@ export default function FichaPacientePage() {
     if (!r.ok) { alert(`No se ha podido renovar el bono: ${r.error}`); return }
     await cargar()
     setCobrando(r.bono)
+  }
+
+  /**
+   * Retirar un bono de sesiones asignado por error.
+   *
+   * Va por `quitarBono`, la misma que usa la cuota mensual: comprueba en `cobro_lineas`
+   * que no esté facturado, lo borra y deja el apunte en el historial. Un bono que
+   * desaparece sin rastro es indistinguible de uno que nunca se asignó.
+   */
+  async function retirarSesiones(bs: BonoSesiones) {
+    const r = await quitarBono({ id: bs.bono_id, paciente_id: id as string, tipo: bs.tipo })
+    if (!r.ok) { alert(r.error); return }
+    await cargar()
   }
 
   /**
@@ -650,6 +663,7 @@ export default function FichaPacientePage() {
           estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
           bonosSesiones={bonosSesiones}
           onRenovarSesiones={renovarSesiones}
+          onRetirarSesiones={retirarSesiones}
           onCobrar={()=>setCobrando(bono)}
           recuperaciones={recuperaciones}
           editando={editando}

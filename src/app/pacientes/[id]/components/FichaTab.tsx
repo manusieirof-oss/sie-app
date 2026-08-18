@@ -26,7 +26,7 @@ function haceCuanto(f:string) {
   return a === 1 ? 'hace 1 año' : `hace ${a} años`
 }
 
-export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones }: any) {
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
   const [menuTipo, setMenuTipo] = useState<any>(null)
@@ -501,7 +501,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           {bonosSesiones.length > 0 && (
             <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
               {bonosSesiones.map((bs:any)=>(
-                <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones}/>
+                <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones} onRetirar={onRetirarSesiones}/>
               ))}
             </div>
           )}
