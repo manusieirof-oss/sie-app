@@ -222,6 +222,13 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .chip-sel.niv-2{font-size:10px;padding:2px 8px;color:var(--grl);border-style:dashed;}
 .chip-sel.niv-1.on,.chip-sel.niv-2.on{color:var(--gd);}
 
+/* La MONEDA del objetivo en la ficha del paciente: imagen redonda con su color de aro.
+   Tamaño fijo y `flex-shrink:0` para que todos los objetivos de la lista alineen el
+   nombre en la misma vertical aunque unos tengan foto y otros no. */
+.obj-moneda{flex-shrink:0;width:42px;height:42px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;border:2px solid var(--g);}
+.obj-moneda img{width:100%;height:100%;object-fit:cover;display:block;}
+.obj-moneda b{font-size:17px;font-weight:500;}
+
 /* Tarjetas de la biblioteca de OBJETIVOS. Más grandes que las de ejercicio a propósito:
    de un objetivo cuelgan las metas de todos los pacientes, y en lista su imagen quedaba
    en un sello de 56 px que no servía para reconocer nada. */

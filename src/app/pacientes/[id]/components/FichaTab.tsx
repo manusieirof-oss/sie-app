@@ -102,7 +102,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,color,descripcion,tipo,metrica,movimientos,fases,articulacion_id)').eq('paciente_id', pac.id).then(({data}) => {
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,color,descripcion,tipo,metrica,movimientos,fases,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
     // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
@@ -173,8 +173,22 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
     return (
       <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
-        <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
-          <div style={{flex:1}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+          {/* La moneda. Redonda y no cuadrada a propósito: en la biblioteca la tarjeta es
+              la ficha del objetivo y la imagen manda, pero aquí el objetivo es una línea
+              más de la ficha del paciente y lo redondo se lee como marca, no como
+              contenido. Sin foto va la inicial sobre su color, que ya distingue fuerza de
+              movilidad; un hueco gris repetido se lee como que algo ha fallado. */}
+          <span className="obj-moneda" style={{
+            background: o.imagen_url ? 'var(--bl)' : ((o.color||'var(--g)')+'22'),
+            borderColor: o.logrado ? 'var(--gm)' : (o.color||'var(--g)'),
+            opacity: o.logrado ? .55 : 1,
+          }}>
+            {o.imagen_url
+              ? <img src={o.imagen_url} alt=""/>
+              : <b style={{color:o.color||'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
+          </span>
+          <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
             {o.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
           </div>
