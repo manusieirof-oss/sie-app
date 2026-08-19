@@ -151,46 +151,70 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle 
       </div>
 
       {abierto && (
-        <div style={{marginTop:5,border:'1px solid var(--bd)',borderRadius:6,padding:7}}>
-          <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
-            placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:6}}/>
+        <div style={{marginTop:5,border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
+          {/* FILTROS Y RESULTADOS TIENEN QUE DISTINGUIRSE.
+              Iban los dos como píldoras del mismo tamaño, uno debajo del otro, y no había
+              forma de saber qué era un filtro y qué un objetivo que ibas a añadir. Ahora
+              los filtros van sobre fondo gris y con su rótulo; los resultados, en lista
+              blanca debajo. */}
+          <div style={{background:'var(--bl)',padding:'7px 8px',borderBottom:'1px solid var(--bd)'}}>
+            <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
+              placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:6}}/>
 
-          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:5}}>
-            {FAMILIAS_OBJ.map(f=>(
-              <span key={f.id} onClick={()=>setFamilia(familia===f.id?'':f.id)}
-                style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',
-                  border:`1.5px solid ${familia===f.id?'var(--g)':'var(--bd)'}`,
-                  background:familia===f.id?'var(--g)':'var(--w)',color:familia===f.id?'#fff':'var(--gr)'}}>
-                {f.nombre}
-              </span>
-            ))}
-          </div>
-
-          {zonas.length>0 && (
-            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:6}}>
-              {zonas.map(z=>(
-                <span key={z.id} onClick={()=>setZona(zona===z.id?'':z.id)}
-                  style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',
-                    border:`1px solid ${zona===z.id?'var(--gd)':'var(--bd)'}`,
-                    background:zona===z.id?'var(--gl)':'var(--w)',color:zona===z.id?'var(--gd)':'var(--grl)'}}>
-                  {z.nombre}
+            <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:zonas.length>0?5:0}}>
+              <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42}}>Familia</span>
+              {FAMILIAS_OBJ.map(f=>(
+                <span key={f.id} onClick={()=>setFamilia(familia===f.id?'':f.id)}
+                  style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',
+                    border:`1.5px solid ${familia===f.id?'var(--g)':'var(--bd)'}`,
+                    background:familia===f.id?'var(--g)':'var(--w)',color:familia===f.id?'#fff':'var(--gr)'}}>
+                  {f.nombre}
                 </span>
               ))}
             </div>
-          )}
 
-          <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:150,overflowY:'auto'}}>
+            {zonas.length>0 && (
+              <div style={{display:'flex',alignItems:'flex-start',gap:5,flexWrap:'wrap'}}>
+                <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42,paddingTop:3}}>Zona</span>
+                <div style={{display:'flex',flexWrap:'wrap',gap:4,flex:1}}>
+                  {zonas.map(z=>(
+                    <span key={z.id} onClick={()=>setZona(zona===z.id?'':z.id)}
+                      style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',
+                        border:`1.5px solid ${zona===z.id?'var(--gd)':'var(--bd)'}`,
+                        background:zona===z.id?'var(--gd)':'var(--w)',color:zona===z.id?'#fff':'var(--gr)'}}>
+                      {z.nombre}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* LISTA VERTICAL, no píldoras sueltas. Los nombres son largos y al envolverse
+              cortaban la última fila por la mitad, sin que se viera que había más abajo.
+              Una fila por objetivo se lee y se desplaza sin sorpresas. */}
+          <div style={{maxHeight:190,overflowY:'auto',background:'var(--w)'}}>
             {resto.length===0
-              ? <span style={{fontSize:10,color:'var(--grl)'}}>
+              ? <div style={{fontSize:10,color:'var(--grl)',padding:'10px 9px'}}>
                   {puestos.length>0 && !q && !familia && !zona ? 'Ya están todos puestos.' : 'Nada que coincida.'}
-                </span>
+                </div>
               : resto.map((o:any)=>(
-                <span key={o.id} onClick={()=>onToggle(o.id)} title={o.descripcion||''}
-                  style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}}>
-                  {o.nombre}
-                </span>
+                <div key={o.id} onClick={()=>onToggle(o.id)} title={o.descripcion||''}
+                  style={{display:'flex',alignItems:'center',gap:7,padding:'6px 9px',cursor:'pointer',borderBottom:'1px solid var(--bl)'}}
+                  onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                  onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                  <span style={{width:8,height:8,borderRadius:2,background:o.color||'var(--g)',flexShrink:0}}/>
+                  <span style={{fontSize:11,color:'var(--n)',flex:1}}>{o.nombre}</span>
+                  <Ic name="mas" size={11}/>
+                </div>
               ))}
           </div>
+
+          {resto.length>6 && (
+            <div style={{fontSize:9,color:'var(--grl)',padding:'4px 9px',borderTop:'1px solid var(--bl)',background:'var(--bl)'}}>
+              {resto.length} objetivos · desplaza para ver el resto
+            </div>
+          )}
         </div>
       )}
     </div>
