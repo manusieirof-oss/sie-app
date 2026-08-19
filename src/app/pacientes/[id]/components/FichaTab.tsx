@@ -104,7 +104,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,color,descripcion,tipo,metrica,movimientos,fases,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,tipo,metrica,movimientos,fases,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
     // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
@@ -117,7 +117,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // qué columnas ofrece el formulario de meta.
     supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas,tipo_lado').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
-    supabase.from('objetivos').select('id,nombre,descripcion,color,tipo,metrica,movimientos,fases,articulacion_id,etiquetas')
+    // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
+    supabase.from('objetivos').select('id,nombre,descripcion,tipo,metrica,movimientos,fases,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))
@@ -528,35 +529,41 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                   // registrarle una lesión.
                   .sort((a:any,b:any)=>(porPatologia[b.id]?1:0)-(porPatologia[a.id]?1:0))
                 if (lista.length===0) return <div className="muted">Ninguno coincide.</div>
-                return lista.map((o:any)=>{
-                  const tiene = yaTiene.has(o.id)
-                  const sel = selObj.includes(o.id)
-                  return (
-                    <div key={o.id}
-                      onClick={()=>{ if(!tiene) setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]) }}
-                      className="fila-p"
-                      style={{borderLeftColor:'var(--g)',display:'flex',alignItems:'center',gap:8,
-                        textAlign:'left',cursor:tiene?'default':'pointer',opacity:tiene?.5:1,
-                        background:sel?'var(--gl)':'transparent'}}>
-                      <span className={`chk ${sel?'on':''}`} style={{flexShrink:0,visibility:tiene?'hidden':'visible'}}>
-                        {sel&&<Ic name="check" size={12}/>}
-                      </span>
-                      <span style={{flex:1,minWidth:0}}>
-                        <span style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:'var(--n)'}}>
-                          {o.nombre}
-                          {o.tipo==='metrico' && o.metrica && <span className="pill pill-o on">{o.metrica==='fuerza'?'Fuerza':'Movilidad'}</span>}
-                          {o.tipo==='fase' && <span className="pill pill-soft">{o.fases} fases</span>}
-                        </span>
-                        {o.descripcion && (
-                          <span style={{display:'block',fontSize:12,color:'var(--gr)',lineHeight:1.4,marginTop:2}}>
-                            {o.descripcion.slice(0,110)}{o.descripcion.length>110?'…':''}
+                /**
+                 * Tarjetas con su moneda, no una lista de renglones.
+                 *
+                 * Es el mismo catálogo que la biblioteca y en la ficha se veía distinto, así
+                 * que costaba reconocer el objetivo que acabas de mirar en Entrenamiento.
+                 */
+                return (
+                  <div className="obj-rej" style={{gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))'}}>
+                    {lista.map((o:any)=>{
+                      const tiene = yaTiene.has(o.id)
+                      const sel = selObj.includes(o.id)
+                      return (
+                        <button key={o.id} type="button"
+                          onClick={()=>{ if(!tiene) setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]) }}
+                          className={`obj-mon-b${sel?' on':''}`}
+                          title={tiene
+                            ? 'Ya lo tiene. Las metas de cada movimiento se ponen en su ficha, abriendo su moneda.'
+                            : (o.descripcion||o.nombre)}
+                          style={{cursor:tiene?'default':'pointer',opacity:tiene?.45:1}}>
+                          {monedaDe(o, true)}
+                          <span className="obj-mon-g">{o.nombre}</span>
+                          <span className="obj-mon-n">
+                            {o.tipo==='metrico' && o.metrica
+                              ? (o.metrica==='fuerza'?'Fuerza':'Movilidad')
+                              : o.tipo==='fase' ? `${o.fases||'?'} fases` : ''}
+                            {porPatologia[o.id] && <span style={{display:'block',color:'var(--gd)'}}>{porPatologia[o.id]}</span>}
                           </span>
-                        )}
-                      </span>
-                      {tiene && <span style={{fontSize:12,color:'var(--gd)',flexShrink:0}}>Ya lo tiene</span>}
-                    </div>
-                  )
-                })
+                          {/* Ya asignado: no es un error, es que sus metas se ponen en la ficha. */}
+                          {tiene && <span style={{fontSize:10,color:'var(--gd)'}}>Ya lo tiene</span>}
+                          {sel && <span style={{fontSize:10,color:'var(--gd)'}}><Ic name="check" size={11}/> Elegido</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
               })()}
             </div>
 

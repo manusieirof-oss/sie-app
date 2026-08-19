@@ -193,6 +193,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     return Math.round(Math.abs(a - b) / mayor * 100)
   }, [destinos])
 
+  /** ¿Se ha podido resolver con qué se mide? Sin eso la meta no se puede guardar. */
+  const medicionResuelta = !!(f.test_id && f.item_indice !== '')
+
   /** A qué número hay que llegar en ese lado. Es lo que luego evalúa `estadoDeMeta`. */
   const objetivoDe = (d: any): number | null => {
     const val = f.valor?.[d.lado]
@@ -259,13 +262,14 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    *   concreta, el formulario tiene que llegar con ESA medición, no con la que dedujo el
    *   origen: si no, el botón del segundo ítem editaba el primero.
    */
-  function abrir(pre?: { movimiento_id?: string, test_id?: string, item_indice?: any, lado?: string, metas?: any[] }) {
+  function abrir(pre?: { movimiento_id?: string, test_id?: string, item_indice?: any, lado?: string, elegirMov?: boolean }) {
     const o = origen
     const movValido = pre?.movimiento_id
       || (o?.mov && movimientos.some((m: any) => m.id === o.mov) ? o.mov : '')
     const conTest = pre?.test_id ? true : !!o?.conItem
     setF({
-      movimiento_id: movValido || movimientos[0]?.id || '',
+      // Con `elegirMov` se entra en blanco: es una meta de otro movimiento y hay que decir cuál.
+      movimiento_id: pre?.elegirMov ? '' : (movValido || movimientos[0]?.id || ''),
       // `soloLado` limita el formulario a una columna. Se usa al entrar desde el lado en
       // ámbar: ahí se quiere ese lado y no tocar el que ya tiene meta.
       soloLado: pre?.lado || '',
@@ -273,7 +277,8 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       test_id: pre?.test_id || (conTest ? o!.test_id : ''),
       item_indice: pre?.item_indice != null ? String(pre.item_indice) : (conTest ? String(o!.item_indice) : ''),
       tipos: ['mejorar'], item_par_indice: '',
-      manual: false, desdeTest: conTest,
+      manual: false, desdeTest: pre?.elegirMov ? false : conTest,
+      elegirMov: !!pre?.elegirMov,
       // Los valores por lado los rellena el efecto en cuanto se sepan las columnas.
       partida: {}, pct: {}, valor: {}, partidaTocada: false,
     })
@@ -571,11 +576,22 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       {/* Solo cuando no hay ninguna. Con metas puestas, lo que falta se añade desde su
           sitio —el lado en ámbar, o "Cambiar meta"— y un botón suelto abajo solo servía
           para crear metas sueltas sin saber de qué medición salían. */}
-      {metas.length === 0 && (
+      {/*
+        Sin metas: el botón normal. Con metas: la entrada para OTRO movimiento del mismo
+        objetivo. Lo quité entero y me pasé: sin él no había forma de abrirle a nadie la
+        flexión plantar si ya tenía la dorsiflexión, porque los otros dos caminos —el lápiz
+        y el lado en ámbar— solo tocan mediciones que ya existen.
+      */}
+      {metas.length === 0 ? (
         <button className="btn btn-t btn-sm" onClick={() => abrir()}>
           <Ic name="mas" size={12} /> Añadir meta
         </button>
-      )}
+      ) : movimientos.length > 1 ? (
+        <button className="btn btn-t btn-sm" style={{ fontSize: 11 }}
+          onClick={() => abrir({ elegirMov: true })}>
+          <Ic name="mas" size={11} /> Meta de otro movimiento
+        </button>
+      ) : null}
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !guardando) setModal(false) }}>
@@ -589,6 +605,30 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               {nombreEt(f.movimiento_id) && <span style={{ color: 'var(--gr)' }}> · {nombreEt(f.movimiento_id)}</span>}
               <button className="modal-close" onClick={() => setModal(false)}><Ic name="cerrar" size={15} /></button>
             </div>
+
+            {/*
+              El movimiento SOLO se pregunta al abrir una meta de otro movimiento. En el
+              camino normal lo fija la medición y no se toca. Aquí no hay medición todavía
+              —se resuelve sola al elegir—, así que es la única pregunta posible.
+            */}
+            {f.elegirMov && (
+              <div className="field"><label>Movimiento</label>
+                <select className="input" value={f.movimiento_id}
+                  onChange={e => setF((p: any) => ({ ...p, movimiento_id: e.target.value }))}>
+                  <option value="">— Elige el movimiento —</option>
+                  {movimientos.map((m: any) => {
+                    const ya = (metas as any[]).some(x => x.movimiento_id === m.id)
+                    return <option key={m.id} value={m.id}>{m.nombre}{ya ? ' · ya tiene meta' : ''}</option>
+                  })}
+                </select>
+                {f.movimiento_id && !medicionResuelta && (
+                  <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
+                    Ningún test de esta zona mide ese movimiento todavía. Créalo en Biblioteca → Tests
+                    con un ítem que se llame igual que el movimiento.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/*
               QUÉ SE BUSCA. Lo primero porque cambia todo lo de abajo: en las dos de
