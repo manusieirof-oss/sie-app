@@ -375,27 +375,58 @@ export const TESTS: TestSemilla[] = [
 
   // ── Tobillo y pie ─────────────────────────────────────────────────────────
   {
-    nombre: 'Tobillo · pronación y supinación',
-    descripcion: 'Recorrido del retropié en los dos sentidos y respuesta a la supinación forzada. Es la exploración del que se ha torcido el tobillo: la movilidad suele volver antes que la capacidad de frenar el movimiento, y es esa la que evita el segundo esguince.',
+    /**
+     * SE MIDE INVERSIÓN Y EVERSIÓN, no pronación y supinación.
+     *
+     * Pronar y supinar son triplanares —eversión + abducción + dorsiflexión, y al revés—
+     * alrededor del eje oblicuo de la subastragalina, así que no hay una dirección única
+     * contra la que medir y dos mediciones del mismo pie no se parecen entre sí. La
+     * inversión y la eversión sí tienen un eje limpio y son repetibles.
+     *
+     * Y hay un motivo de la propia app: los movimientos del espacio métrico "Movilidad de
+     * tobillo" son dorsiflexión, flexión plantar, inversión y eversión. Con los ítems
+     * llamados "pronación" y "supinación" NINGUNA meta podía resolverse sola, porque la
+     * correspondencia se busca por nombre.
+     */
+    nombre: 'Tobillo · inversión y eversión',
+    descripcion: 'Recorrido del retropié en los dos sentidos y respuesta a la supinación forzada. Es la exploración del que se ha torcido el tobillo: la movilidad suele volver antes que la capacidad de frenar el movimiento, y es esa la que evita el segundo esguince. Se mide en inversión y eversión, que son de un solo plano y por tanto repetibles; pronar y supinar son triplanares y no dan un número comparable.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Peroneos', 'Inversión', 'Eversión', 'Esguince de tobillo'],
     objetivos: ['Estabilizar el tobillo'],
     items: [
-      { nombre: 'Movilidad de pronación', unidad: 'grados' },
-      { nombre: 'Movilidad de supinación', unidad: 'grados' },
+      { nombre: 'Inversión', unidad: 'grados',
+        objetivos: ['Movilidad de tobillo'], objetivos_mov: { 'Movilidad de tobillo': 'Inversión' } },
+      { nombre: 'Eversión', unidad: 'grados',
+        objetivos: ['Movilidad de tobillo'], objetivos_mov: { 'Movilidad de tobillo': 'Eversión' } },
       { nombre: 'No resiste la supinación forzada' },
     ],
   },
   {
+    /**
+     * Los CUATRO sentidos del tobillo, con los nombres del espacio métrico.
+     *
+     * Decía "los cuatro sentidos" y solo listaba tres, dos de ellos mal: pronación y
+     * supinación no se pueden medir en kg —son triplanares y no hay eje contra el que
+     * resistir— y "Flexión" a secas no dice si es dorsal o plantar. Faltaba la
+     * dorsiflexión entera.
+     *
+     * Cada ítem se llama igual que su movimiento en "Fuerza de tobillo": así la meta del
+     * paciente se resuelve sola y llega con el movimiento puesto.
+     */
     nombre: 'Tobillo y pie · fuerza',
-    descripcion: 'Fuerza de los cuatro sentidos del tobillo y de los flexores de los dedos. Lo que interesa no es el número absoluto sino la diferencia entre lados: por debajo del 90% del lado sano hay trabajo pendiente aunque no duela nada.',
+    descripcion: 'Fuerza de los cuatro sentidos del tobillo y de los flexores de los dedos. Lo que interesa no es el número absoluto sino la diferencia entre lados: por debajo del 90% del lado sano hay trabajo pendiente aunque no duela nada. Se mide en inversión y eversión y no en supinación y pronación: las primeras son de un solo plano y dan un número que se puede repetir y comparar.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Peroneos', 'Tibial Anterior', 'Pie', 'Sentado'],
     objetivos: ['Estabilizar el tobillo'],
     items: [
-      { nombre: 'Pronación', unidad: 'kg' },
-      { nombre: 'Supinación', unidad: 'kg' },
-      { nombre: 'Flexión', unidad: 'kg' },
+      { nombre: 'Dorsiflexión', unidad: 'kg',
+        objetivos: ['Fuerza de tobillo'], objetivos_mov: { 'Fuerza de tobillo': 'Dorsiflexión' } },
+      { nombre: 'Flexión plantar', unidad: 'kg',
+        objetivos: ['Fuerza de tobillo'], objetivos_mov: { 'Fuerza de tobillo': 'Flexión plantar' } },
+      { nombre: 'Inversión', unidad: 'kg',
+        objetivos: ['Fuerza de tobillo'], objetivos_mov: { 'Fuerza de tobillo': 'Inversión' } },
+      { nombre: 'Eversión', unidad: 'kg',
+        objetivos: ['Fuerza de tobillo'], objetivos_mov: { 'Fuerza de tobillo': 'Eversión' } },
       { nombre: 'Dedos del pie', unidad: 'kg', objetivos: ['Recuperar el arco del pie'] },
     ],
   },
