@@ -21,7 +21,7 @@ import { estadoDeMeta, cerrarMetaAMano, revisarMetas, revisarObjetivos, TIPOS_ME
 /** Orden fijo de los lados. Si bailan de sitio, comparar de un vistazo deja de funcionar. */
 const ORDEN_LADO: Record<string, number> = { izquierdo: 0, derecho: 1, bilateral: 2 }
 
-export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados, tests, etiquetas, onCambio }: {
+export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados, tests, etiquetas, onCambio, pedirMeta, onPedidoMeta }: {
   pacienteId: string
   objetivo: any
   metas: Meta[]
@@ -29,6 +29,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   tests: any[]
   etiquetas: any[]
   onCambio: () => void
+  /** Lo enciende la ficha al pulsar en "Añadir" un objetivo que el paciente ya tiene. */
+  pedirMeta?: boolean
+  onPedidoMeta?: () => void
 }) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -298,6 +301,16 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     })
     setModal(true)
   }
+
+  /**
+   * El encargo que llega desde el botón "Añadir" de la ficha: abrir el formulario de una
+   * meta de otro movimiento. Se apaga en cuanto se atiende, para que no se reabra solo.
+   */
+  useEffect(() => {
+    if (!pedirMeta) return
+    abrir({ elegirMov: true })
+    onPedidoMeta?.()
+  }, [pedirMeta])
 
   async function guardar() {
     if (!f.test_id || f.item_indice === '') { alert('Elige el test y el ítem que la miden'); return }
@@ -591,19 +604,15 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
           sitio —el lado en ámbar, o "Cambiar meta"— y un botón suelto abajo solo servía
           para crear metas sueltas sin saber de qué medición salían. */}
       {/*
-        Sin metas: el botón normal. Con metas: la entrada para OTRO movimiento del mismo
-        objetivo. Lo quité entero y me pasé: sin él no había forma de abrirle a nadie la
-        flexión plantar si ya tenía la dorsiflexión, porque los otros dos caminos —el lápiz
-        y el lado en ámbar— solo tocan mediciones que ya existen.
+        Solo cuando el objetivo no tiene NINGUNA meta.
+
+        Con metas puestas, otro movimiento se pide desde el botón "Añadir" de arriba: es
+        donde se busca cualquier cosa que se le quiera poner al paciente, y tener dos
+        puertas a la misma habitación acaba en que una de las dos se queda vieja.
       */}
       {metas.length === 0 ? (
         <button className="btn btn-t btn-sm" onClick={() => abrir()}>
           <Ic name="mas" size={12} /> Añadir meta
-        </button>
-      ) : movimientos.length > 1 ? (
-        <button className="btn btn-t btn-sm" style={{ fontSize: 11 }}
-          onClick={() => abrir({ elegirMov: true })}>
-          <Ic name="mas" size={11} /> Meta de otro movimiento
         </button>
       ) : null}
 

@@ -46,6 +46,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [famObj, setFamObj] = useState('')
   const [zonaObj, setZonaObj] = useState('')
   const [patologiasPac, setPatologiasPac] = useState<any[]>([])
+  /**
+   * Objetivo al que hay que abrirle una meta nueva nada más cerrar el modal de "Añadir".
+   *
+   * Un métrico que el paciente YA tiene no se puede volver a asignar, pero sí se le puede
+   * abrir otro movimiento. Antes salía apagado con un "ya lo tiene" y era un callejón:
+   * el sitio natural para pedirlo es el mismo botón de Añadir.
+   */
+  const [pedirMetaEn, setPedirMetaEn] = useState<string|null>(null)
 
   /**
    * Objetivos que corresponden a las patologías del paciente.
@@ -316,6 +324,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             resultados={resultadosTests}
             tests={testsLib}
             etiquetas={etiquetasLib}
+            pedirMeta={pedirMetaEn===o.id}
+            onPedidoMeta={()=>setPedirMetaEn(null)}
             onCambio={cargarObjetivos}
           />
         )}
@@ -542,12 +552,22 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                       const sel = selObj.includes(o.id)
                       return (
                         <button key={o.id} type="button"
-                          onClick={()=>{ if(!tiene) setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]) }}
+                          onClick={()=>{
+                            if (!tiene) { setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]); return }
+                            // Ya asignado: si es medible, se va a su panel a ponerle otro
+                            // movimiento. Si no, no hay nada que añadir y no hace nada.
+                            if (o.tipo!=='metrico') return
+                            setModalAnadir(false); setSelObj([]); setBuscarObj('')
+                            setObjAbierto(o.id); setPedirMetaEn(o.id)
+                          }}
                           className={`obj-mon-b${sel?' on':''}`}
                           title={tiene
-                            ? 'Ya lo tiene. Las metas de cada movimiento se ponen en su ficha, abriendo su moneda.'
+                            ? (o.tipo==='metrico'
+                                ? 'Ya lo tiene. Pulsa para añadirle la meta de otro movimiento.'
+                                : 'Ya lo tiene.')
                             : (o.descripcion||o.nombre)}
-                          style={{cursor:tiene?'default':'pointer',opacity:tiene?.45:1}}>
+                          style={{cursor:(tiene && o.tipo!=='metrico')?'default':'pointer',
+                            opacity:tiene?(o.tipo==='metrico'?.8:.45):1}}>
                           {monedaDe(o, true)}
                           <span className="obj-mon-g">{o.nombre}</span>
                           <span className="obj-mon-n">
@@ -557,7 +577,11 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                             {porPatologia[o.id] && <span style={{display:'block',color:'var(--gd)'}}>{porPatologia[o.id]}</span>}
                           </span>
                           {/* Ya asignado: no es un error, es que sus metas se ponen en la ficha. */}
-                          {tiene && <span style={{fontSize:10,color:'var(--gd)'}}>Ya lo tiene</span>}
+                          {tiene && (
+                            <span style={{fontSize:10,color:'var(--gd)'}}>
+                              {o.tipo==='metrico' ? '+ otro movimiento' : 'Ya lo tiene'}
+                            </span>
+                          )}
                           {sel && <span style={{fontSize:10,color:'var(--gd)'}}><Ic name="check" size={11}/> Elegido</span>}
                         </button>
                       )
