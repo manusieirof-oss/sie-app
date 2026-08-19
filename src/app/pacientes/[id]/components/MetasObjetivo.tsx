@@ -18,6 +18,9 @@ import { estadoDeMeta, cerrarMetaAMano, revisarMetas, revisarObjetivos, TIPOS_ME
  * ítems que tengan unidad.
  */
 
+/** Orden fijo de los lados. Si bailan de sitio, comparar de un vistazo deja de funcionar. */
+const ORDEN_LADO: Record<string, number> = { izquierdo: 0, derecho: 1, bilateral: 2 }
+
 export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados, tests, etiquetas, onCambio }: {
   pacienteId: string
   objetivo: any
@@ -127,14 +130,6 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   }, [f.desdeTest, f.test_id, f.item_indice, itemsMedibles.length])
 
   /**
-   * Qué medición se enseña ya resuelta. Si el objetivo lo abrió un test, ese test es la
-   * medición: no hay nada que deducir ni que preguntar.
-   */
-  const medicion = f.desdeTest && testSel && itemElegido
-    ? { nombre: testSel.nombre, item: itemElegido }
-    : (sugerida ? { nombre: sugerida.nombre, item: sugerida.item } : null)
-
-  /**
    * Lo último medido en ese ítem, LADO A LADO.
    *
    * Un test lateral se guarda como una fila por lado, así que aquí puede haber dos
@@ -157,51 +152,53 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     return Object.entries(porLado).map(([lado, x]) => ({ lado, valor: x.valor }))
   }, [f.test_id, f.item_indice, resultados])
 
-  /** Lo medido en el lado elegido, que es el punto de partida de esta meta. */
-  const ultimoValor = ladosConDato.find(x => x.lado === f.lado)?.valor ?? null
+  /**
+   * LOS LADOS DEL FORMULARIO. No hay casilla que marcar ni selector: las columnas son los
+   * lados que se han medido de esta medición, y punto.
+   *
+   * Si se abre desde un lado concreto —el ámbar de "medido, sin meta"— solo sale ese.
+   */
+  const destinos = useMemo(() => {
+    const base = ladosConDato
+      .map(x => ({ lado: x.lado, medido: x.valor }))
+      .sort((a, b) => (ORDEN_LADO[a.lado] ?? 9) - (ORDEN_LADO[b.lado] ?? 9))
+    return f.soloLado ? base.filter(d => d.lado === f.soloLado) : base
+  }, [ladosConDato, f.soloLado])
+
+  /** A qué número hay que llegar en ese lado. Es lo que luego evalúa `estadoDeMeta`. */
+  const objetivoDe = (d: any): number | null => {
+    const val = f.valor?.[d.lado]
+    if (val !== '' && val != null) return Number(val)
+    const p = f.partida?.[d.lado]
+    const base = (p !== '' && p != null) ? Number(p) : d.medido
+    const pct = f.pct?.[d.lado]
+    if (!base || pct === '' || pct == null) return null
+    return Math.round(base * (1 + Number(pct) / 100) * 10) / 10
+  }
+
+  /**
+   * El punto de partida se rellena con lo medido de CADA lado, y el % con el 20 por
+   * defecto. Se deja de tocar en cuanto el usuario escribe algo.
+   */
+  const claveDestinos = destinos.map(d => `${d.lado}:${d.medido}`).join('|')
+  useEffect(() => {
+    if (f.partidaTocada) return
+    const partida: any = {}, pct: any = {}
+    for (const d of destinos) {
+      partida[d.lado] = d.medido != null ? String(d.medido) : ''
+      pct[d.lado] = '20'
+    }
+    setF((p: any) => ({ ...p, partida, pct, valor: {} }))
+  }, [claveDestinos, f.partidaTocada])
 
   /**
    * Si el test se pasó en los dos lados, se ofrecen las dos metas de una vez.
    *
-   * Poner una y acordarse de volver a por la otra es justo lo que no pasa: queda medio
-   * paciente con meta y medio sin ella, y el objetivo no puede cerrarse nunca porque le
-   * falta un lado. En "igualar lados" no aplica: esa meta ya compara los dos.
+   * Ya no hay casilla de "los dos lados" ni selector: el formulario enseña UNA COLUMNA
+   * POR LADO MEDIDO, así que poner los dos es lo que pasa por defecto y no hay nada que
+   * marcar. Tampoco se pregunta el movimiento: lo fija la medición, y cambiarlo dejaría la
+   * meta evaluándose contra números de otro gesto.
    */
-  const lateralesConDato = ladosConDato.filter(x => x.lado === 'izquierdo' || x.lado === 'derecho')
-  const puedeAmbos = lateralesConDato.length === 2 && f.tipo !== 'igualar_lados'
-  const creandoAmbos = puedeAmbos && f.ambos
-
-  /**
-   * El MOVIMIENTO y el LADO no se fijan igual, aunque los diga el mismo test.
-   *
-   * El movimiento es una propiedad de la MEDICIÓN: el ítem mide dorsiflexión y solo
-   * dorsiflexión. Cambiarlo a flexión plantar dejaría la meta evaluándose contra números
-   * de otro gesto, así que no es una opción sino una incoherencia. En cuanto el test lo
-   * dice, NO SE PUEDE TOCAR: ni cambiando la medición. Si hace falta otro movimiento, se
-   * arregla en la biblioteca —qué mide ese ítem— y no aquí paciente a paciente.
-   *
-   * El lado es otra cosa: la misma medida existe en los dos, y querer la meta en el otro
-   * lado —o en los dos— es una decisión clínica legítima. Ese sí se deja cambiar.
-   *
-   * Se exige además que el test lo dijera DE VERDAD: si el movimiento lo elegimos nosotros
-   * por ser el primero de la lista, eso no es una decisión del test y hay que preguntarla.
-   * Dar por fijado un dato adivinado es peor que pedirlo.
-   */
-  const movLoDijoElTest = !!origen?.mov && movimientos.some((m: any) => m.id === origen.mov)
-  const movFijado = movLoDijoElTest
-  const ladoFijado = !!origen?.lado && !f.abrirEleccion
-
-  /**
-   * El punto de partida se rellena con lo medido, no se deja en blanco.
-   *
-   * Antes iba vacío con el número puesto de gris detrás. Funcionaba —al guardar se cogía
-   * ese— pero un hueco vacío se lee como "aquí no hay dato" y obligaba a teclear a mano un
-   * número que ya estaba en pantalla. Se deja de tocar en cuanto lo cambias tú.
-   */
-  useEffect(() => {
-    if (f.partidaTocada) return
-    setF((p: any) => ({ ...p, valor_inicial: ultimoValor != null ? String(ultimoValor) : '' }))
-  }, [ultimoValor, f.partidaTocada])
 
   /** El ítem del movimiento contrario, propuesto solo. Flexión busca extensión. */
   const parSugerido = useMemo(() => {
@@ -232,15 +229,17 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     const conTest = pre?.test_id ? true : !!o?.conItem
     setF({
       movimiento_id: movValido || movimientos[0]?.id || '',
+      // `soloLado` limita el formulario a una columna. Se usa al entrar desde el lado en
+      // ámbar: ahí se quiere ese lado y no tocar el que ya tiene meta.
+      soloLado: pre?.lado || '',
       lado: pre?.lado || o?.lado || 'bilateral',
       tipo: 'mejorar',
       test_id: pre?.test_id || (conTest ? o!.test_id : ''),
       item_indice: pre?.item_indice != null ? String(pre.item_indice) : (conTest ? String(o!.item_indice) : ''),
-      item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '',
+      item_par_indice: '',
       manual: false, desdeTest: conTest,
-      // Las dos de golpe por defecto cuando hay dos lados medidos: es lo que se quiere
-      // casi siempre y desmarcarlo es un clic.
-      ambos: true, partidaTocada: false, abrirEleccion: false,
+      // Los valores por lado los rellena el efecto en cuanto se sepan las columnas.
+      partida: {}, pct: {}, valor: {}, partidaTocada: false,
     })
     setModal(true)
   }
@@ -250,27 +249,30 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     if (f.tipo === 'igualar_par' && f.item_par_indice === '') { alert('Elige el ítem del movimiento contrario'); return }
     setGuardando(true)
 
-    // Un lado o los dos. Cuando son los dos, CADA META ARRANCA DE SU PROPIA MEDICIÓN: un
-    // solo número tecleado no puede ser el punto de partida de dos lados que miden
-    // distinto, y usarlo para ambos daría por mejorado lo que no ha cambiado.
-    const destinos = creandoAmbos
-      ? lateralesConDato.map(x => ({ lado: x.lado, partida: x.valor }))
-      : [{ lado: f.lado, partida: f.valor_inicial !== '' ? Number(f.valor_inicial) : (ultimoValor ?? null) }]
-
-    const filas = destinos.map(d => ({
-      paciente_id: pacienteId,
-      objetivo_id: objetivo.id,
-      movimiento_id: f.movimiento_id || null,
-      lado: d.lado,
-      tipo: f.tipo,
-      unidad: unidad || null,
-      valor_inicial: d.partida,
-      meta_pct: f.tipo === 'mejorar' && f.meta_valor === '' && f.meta_pct !== '' ? Number(f.meta_pct) : null,
-      meta_valor: f.tipo === 'mejorar' && f.meta_valor !== '' ? Number(f.meta_valor) : null,
-      test_id: f.test_id,
-      item_indice: Number(f.item_indice),
-      item_par_indice: f.tipo === 'igualar_par' && f.item_par_indice !== '' ? Number(f.item_par_indice) : null,
-    }))
+    // UNA FILA POR COLUMNA DEL FORMULARIO, cada una con SU partida y SU meta. Un tobillo a
+    // 3 cm y el otro a 10 no comparten ni de dónde salen ni adónde van, y compartir el
+    // porcentaje daba por mejorado lo que no había cambiado.
+    const filas = destinos.map((d: any) => {
+      const p = f.partida?.[d.lado]
+      const partida = (p !== '' && p != null) ? Number(p) : (d.medido ?? null)
+      const val = f.valor?.[d.lado]
+      const pct = f.pct?.[d.lado]
+      return {
+        paciente_id: pacienteId,
+        objetivo_id: objetivo.id,
+        movimiento_id: f.movimiento_id || null,
+        lado: d.lado,
+        tipo: f.tipo,
+        unidad: unidad || null,
+        valor_inicial: partida,
+        meta_pct: f.tipo === 'mejorar' && (val === '' || val == null) && pct !== '' && pct != null ? Number(pct) : null,
+        meta_valor: f.tipo === 'mejorar' && val !== '' && val != null ? Number(val) : null,
+        test_id: f.test_id,
+        item_indice: Number(f.item_indice),
+        item_par_indice: f.tipo === 'igualar_par' && f.item_par_indice !== '' ? Number(f.item_par_indice) : null,
+      }
+    })
+    if (filas.length === 0) { setGuardando(false); alert('No hay ningún lado medido al que ponerle meta'); return }
 
     /**
      * Una sola meta por objetivo + movimiento + lado.
@@ -306,8 +308,6 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     setModal(false); onCambio()
   }
 
-  const LADOS = [['bilateral', 'Bilateral'], ['izquierdo', 'Izquierdo'], ['derecho', 'Derecho']] as const
-
   /** ¿Hay metas de más de un movimiento? Decide si la fila necesita repetirlo. */
   const variosMov = new Set(metas.map((m: any) => m.movimiento_id).filter(Boolean)).size > 1
 
@@ -321,7 +321,6 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    * El orden de los lados es fijo —izquierdo, derecho, bilateral— y no el de creación: si
    * bailan de sitio entre un objetivo y otro, comparar de un vistazo deja de funcionar.
    */
-  const ORDEN_LADO: Record<string, number> = { izquierdo: 0, derecho: 1, bilateral: 2 }
   const gruposPorMovimiento = useMemo(() => {
     const mapa: Record<string, any> = {}
     for (const m of metas as any[]) {
@@ -454,9 +453,11 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                 {/* Los botones van EN CADA BLOQUE, no en el movimiento. Arriba editaban
                     siempre la primera medición: con dos ítems, el botón del segundo tocaba
                     el del primero. Actúan sobre los dos lados de SU medición. */}
-                <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }}
+                {/* Al mismo peso que el check y la papelera: es una acción más de la fila,
+                    no la principal, y como botón grande se comía la medición. */}
+                <button className="et-b" style={{ flexShrink: 0 }} title="Cambiar la meta de esta medición"
                   onClick={() => abrir({ movimiento_id: g.clave !== 'sin' ? g.clave : '', test_id: b.test_id, item_indice: b.item_indice })}>
-                  Cambiar meta
+                  <Ic name="editar" size={13} />
                 </button>
                 <button className="et-b" style={{ flexShrink: 0 }}
                   title={b.todasCumplidas ? 'Reabrir esta medición' : 'Dar por corregida esta medición'}
@@ -492,95 +493,21 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !guardando) setModal(false) }}>
-          <div className="modal">
+          {/* Más ancho: con una columna por lado, el modal estrecho partía cada campo en
+              dos líneas y no se podían comparar los dos lados de un vistazo. */}
+          <div className="modal" style={{ maxWidth: 620, width: '100%' }}>
             <div className="modal-title">
+              {/* El movimiento va en el título. Antes iba en un bloque aparte debajo, con
+                  su texto y su botón, que es lo que sobraba. */}
               Meta de {objetivo.nombre}
+              {nombreEt(f.movimiento_id) && <span style={{ color: 'var(--gr)' }}> · {nombreEt(f.movimiento_id)}</span>}
               <button className="modal-close" onClick={() => setModal(false)}><Ic name="cerrar" size={15} /></button>
             </div>
 
             {/*
-              LO QUE EL TEST YA DECIDIÓ NO SE PREGUNTA.
-
-              El ítem abrió ESTE objetivo, para ESTE movimiento y sobre ESTE lado. Volver a
-              preguntarlo aquí no es dar opciones: es invitar a contestar distinto de lo que
-              se midió, y entonces la meta queda evaluándose contra un número que no es el
-              suyo. Se enseña lo decidido y, si de verdad hay que cambiarlo, se abre.
+              QUÉ SE BUSCA. Lo primero porque cambia todo lo de abajo: en las dos de
+              "igualar" no hay número que poner, lo pone la comparación.
             */}
-            {(movFijado || ladoFijado) && (
-              <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <b style={{ fontSize: 13, color: 'var(--n)' }}>
-                    {movFijado ? nombreEt(f.movimiento_id) : objetivo.nombre}
-                    {ladoFijado && f.tipo !== 'igualar_lados' && (creandoAmbos
-                      ? <span style={{ color: 'var(--gd)' }}> · los dos lados</span>
-                      : <span style={{ color: 'var(--gr)' }}> · {f.lado}</span>)}
-                  </b>
-                  <span style={{ display: 'block', fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
-                    Lo dijo {origen!.etiqueta}
-                    {movFijado && <> · el movimiento lo fija la medición</>}
-                  </span>
-                </span>
-                {/* Solo el lado. El movimiento se cambia soltando la medición, abajo. */}
-                {ladoFijado && f.tipo !== 'igualar_lados' && (
-                  <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }}
-                    onClick={() => setF((p: any) => ({ ...p, abrirEleccion: true }))}>
-                    Cambiar lado
-                  </button>
-                )}
-              </div>
-            )}
-
-            {!movFijado && movimientos.length > 0 && (
-              <div className="field"><label>Movimiento</label>
-                {/* Cambiar de movimiento a mano deshace lo que puso el test: el ítem que
-                    medía la dorsiflexión no mide la flexión plantar. A partir de ahí manda
-                    la correspondencia deducida, que es la que sí sigue al movimiento. */}
-                <select className="input" value={f.movimiento_id}
-                  onChange={e => setF((p: any) => ({
-                    ...p, movimiento_id: e.target.value,
-                    desdeTest: p.desdeTest && e.target.value === origen?.mov,
-                  }))}>
-                  {movimientos.map((m: any) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                </select>
-                {/* Que este selector aparezca no es normal: significa que el ítem del test
-                    no tiene dicho qué movimiento mide. Se dice UNA vez en la biblioteca y
-                    deja de preguntarse en todos los pacientes; callarlo aquí haría que se
-                    siguiera contestando a mano para siempre. */}
-                {origen && (
-                  <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
-                    {origen.etiqueta} no dice qué movimiento mide, por eso hay que elegirlo.
-                    Ponlo en Biblioteca → Tests, en ese ítem, y deja de preguntarse aquí.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* En "igualar lados" el lado no significa nada: la comparación es simétrica,
-                mide la diferencia entre los dos. Pedir un dato que no cambia el resultado
-                hace pensar que sí lo cambia. */}
-            {!ladoFijado && f.tipo !== 'igualar_lados' && (
-              <div className="field">
-                <label>Lado{origen?.lado === f.lado && <span style={{ fontWeight: 400, color: 'var(--gd)' }}> · el que se midió</span>}</label>
-                <div style={{ display: 'flex', gap: 4, opacity: creandoAmbos ? .45 : 1, pointerEvents: creandoAmbos ? 'none' : 'auto' }}>
-                  {LADOS.map(([v, l]) => (
-                    <button key={v} className={`chip-sel ${f.lado === v ? 'on' : ''}`}
-                      onClick={() => setF((p: any) => ({ ...p, lado: v }))}>{l}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* El test se pasó en los dos lados: se ofrecen las dos metas de una vez. Va
-                fuera del selector de lado porque también aplica cuando ese selector está
-                escondido, que es el caso normal. */}
-            {puedeAmbos && f.tipo !== 'igualar_lados' && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 9, fontSize: 12, color: 'var(--gr)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={!!f.ambos}
-                  onChange={e => setF((p: any) => ({ ...p, ambos: e.target.checked }))} />
-                Poner la meta en los <b>dos lados</b>, cada uno desde su medición
-              </label>
-            )}
-
             <div className="field"><label>Qué se busca</label>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {TIPOS_META.map(t => (
@@ -593,125 +520,62 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               </div>
             </div>
 
-            {/* Obligatorio: una meta que nadie mide es una intención con un número.
-                Pero ya no se pregunta si la app puede resolverlo sola. */}
-            <div className="field"><label>Se mide con</label>
-              {medicion && !f.manual ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--gl)', borderRadius: 'var(--r)' }}>
-                  <span style={{ flex: 1, fontSize: 13, color: 'var(--n)' }}>
-                    {medicion.nombre} <span style={{ color: 'var(--gr)' }}>›</span> {medicion.item.nombre}
-                    <span style={{ color: 'var(--gr)' }}> · {unidadDe(medicion.item).nombre.toLowerCase()}</span>
-                  </span>
-                  {/* Sin "Cambiar" cuando la medición viene del test que abrió el objetivo:
-                      ese test es el que se pasó y el que tiene los números. Cambiarlo sería
-                      poner la meta sobre algo que a este paciente nadie le ha medido.
-                      Solo se ofrece cuando la medición es una deducción nuestra. */}
-                  {!f.desdeTest && (
-                    <button className="btn btn-t btn-sm" onClick={() => setF((p: any) => ({ ...p, manual: true }))}>
-                      Cambiar
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {!medicion && f.movimiento_id && (
-                    <div style={{ fontSize: 12, color: '#8A6410', marginBottom: 5 }}>
-                      No hay ningún test de esta zona con un ítem que mida ese movimiento. Elígelo a mano
-                      o crea la medición en Biblioteca → Tests.
-                    </div>
-                  )}
-                  <select className="input" value={f.test_id}
-                    onChange={e => setF((p: any) => ({ ...p, test_id: e.target.value, item_indice: '', item_par_indice: '' }))}>
-                    <option value="">— Elige el test —</option>
-                    {tests.filter((t: any) => (t.items || []).some((i: any) => unidadDe(i).id !== ''))
-                      // Los de la zona del objetivo primero: ofrecer "Cadera · fuerza" para
-                      // un hombro es ruido que además invita a equivocarse.
-                      .sort((a: any, b: any) => {
-                        const za = (a.etiquetas_relacionadas || []).includes(objetivo.articulacion_id) ? 0 : 1
-                        const zb = (b.etiquetas_relacionadas || []).includes(objetivo.articulacion_id) ? 0 : 1
-                        return za - zb || a.nombre.localeCompare(b.nombre)
-                      })
-                      .map((t: any) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                  </select>
-                  {f.test_id && (
-                    <select className="input" style={{ marginTop: 5 }} value={f.item_indice}
-                      onChange={e => setF((p: any) => ({ ...p, item_indice: e.target.value }))}>
-                      <option value="">— Qué ítem —</option>
-                      {itemsMedibles.map(it => (
-                        <option key={it.i} value={it.i}>{it.nombre} ({unidadDe(it).nombre.toLowerCase()})</option>
-                      ))}
-                    </select>
-                  )}
-                  {f.test_id && itemsMedibles.length === 0 && (
-                    <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
-                      Este test no tiene ningún ítem con unidad, así que no puede medir una meta.
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            {/*
+              UNA COLUMNA POR LADO, con su punto de partida y su meta debajo.
 
-            {f.tipo === 'igualar_par' && f.test_id && (
-              <div className="field"><label>Ítem del movimiento contrario *</label>
-                <select className="input" value={f.item_par_indice}
-                  onChange={e => setF((p: any) => ({ ...p, item_par_indice: e.target.value }))}>
-                  <option value="">— Elige —</option>
-                  {itemsMedibles.filter(it => String(it.i) !== String(f.item_indice))
-                    .map(it => <option key={it.i} value={it.i}>{it.nombre}</option>)}
-                </select>
-                {parSugerido && (
-                  <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
-                    El contrario de este movimiento es <b>{parSugerido.contrario}</b>
-                    {parSugerido.nombre
-                      ? <>. Parece que es «{parSugerido.nombre}».</>
-                      : <>, pero no encuentro un ítem que lo mida en este test.</>}
+              El punto de partida y la meta son datos DEL LADO, no del objetivo: un tobillo
+              a 3 cm y el otro a 10 no comparten ni de dónde salen ni adónde van. Estaban
+              en un solo par de campos y obligaban a poner el mismo porcentaje a los dos.
+
+              Si solo se midió un lado, sale una columna. No hay nada que elegir ni casilla
+              que marcar: las columnas son los lados que existen.
+            */}
+            {f.tipo === 'mejorar' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, destinos.length)},1fr)`, gap: 10 }}>
+                {destinos.map((d: any) => (
+                  <div key={d.lado} style={{ border: '1px solid var(--bd)', borderRadius: 'var(--r)', padding: '9px 11px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--gr)', marginBottom: 7 }}>
+                      {d.lado}
+                    </div>
+
+                    <label style={{ fontSize: 11, color: 'var(--grl)' }}>Punto de partida{unidad ? ` (${unidad})` : ''}</label>
+                    <input className="input" type="number" style={{ marginTop: 2 }}
+                      value={f.partida?.[d.lado] ?? ''}
+                      placeholder={d.medido != null ? String(d.medido) : 'Sin medir'}
+                      onChange={e => setF((p: any) => ({ ...p, partida: { ...(p.partida || {}), [d.lado]: e.target.value } }))} />
+
+                    <label style={{ fontSize: 11, color: 'var(--grl)', display: 'block', marginTop: 8 }}>Meta</label>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginTop: 2 }}>
+                      <input className="input" type="number" style={{ width: 62 }}
+                        value={f.pct?.[d.lado] ?? ''}
+                        onChange={e => setF((p: any) => ({
+                          ...p,
+                          pct: { ...(p.pct || {}), [d.lado]: e.target.value },
+                          valor: { ...(p.valor || {}), [d.lado]: '' },
+                        }))} />
+                      <span style={{ fontSize: 12, color: 'var(--gr)' }}>%</span>
+                      <span style={{ fontSize: 12, color: 'var(--grl)' }}>o</span>
+                      <input className="input" type="number" style={{ width: 62 }} placeholder="valor"
+                        value={f.valor?.[d.lado] ?? ''}
+                        onChange={e => setF((p: any) => ({
+                          ...p,
+                          valor: { ...(p.valor || {}), [d.lado]: e.target.value },
+                          pct: { ...(p.pct || {}), [d.lado]: '' },
+                        }))} />
+                      <span style={{ fontSize: 12, color: 'var(--gr)' }}>{unidad}</span>
+                    </div>
+
+                    {/* A dónde llega, en el número que se va a comparar. Un "+20%" no dice
+                        nada hasta que lo ves en centímetros. */}
+                    <div style={{ fontSize: 12, color: 'var(--gd)', marginTop: 5, minHeight: 16 }}>
+                      {objetivoDe(d) != null
+                        ? <>Llegar a <b>{objetivoDe(d)}{unidad ? ' ' + unidad : ''}</b></>
+                        : <span style={{ color: 'var(--grl)' }}>Falta el punto de partida</span>}
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
-            )}
-
-            {f.tipo === 'mejorar' && (
-              <>
-                <div className="field"><label>Punto de partida{unidad ? ` (${unidad})` : ''}</label>
-                  {creandoAmbos ? (
-                    // Con dos metas no hay UN punto de partida que teclear: cada lado
-                    // arranca del suyo. Se enseñan los dos para que se vea de dónde sale.
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {lateralesConDato.map(x => (
-                        <div key={x.lado} style={{ flex: 1, padding: '7px 10px', background: 'var(--gl)', borderRadius: 'var(--r)', fontSize: 13 }}>
-                          <span style={{ color: 'var(--gr)', textTransform: 'capitalize' }}>{x.lado}</span>
-                          <b style={{ marginLeft: 6 }}>{x.valor}{unidad ? ' ' + unidad : ''}</b>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <input className="input" type="number" value={f.valor_inicial}
-                      onChange={e => setF((p: any) => ({ ...p, valor_inicial: e.target.value, partidaTocada: true }))}
-                      placeholder={ultimoValor != null ? String(ultimoValor) : 'Sin medición previa'} />
-                  )}
-                  <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
-                    {creandoAmbos
-                      ? <>Lo medido en cada lado. Si quieres cambiar alguno a mano, quita «los dos lados» y ponlos por separado.</>
-                      : ultimoValor != null
-                        ? <>Puesto lo último medido. Cámbialo si el punto de partida bueno es otro.</>
-                        : 'Todavía no hay medición de este ítem. Sin punto de partida, un porcentaje no se puede calcular y la meta quedará esperando a la primera.'}
-                  </div>
-                </div>
-                <div className="field"><label>Meta</label>
-                  <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-                    <input className="input" type="number" value={f.meta_pct} style={{ width: 90 }}
-                      onChange={e => setF((p: any) => ({ ...p, meta_pct: e.target.value, meta_valor: '' }))} />
-                    <span style={{ fontSize: 13, color: 'var(--gr)' }}>% de mejora</span>
-                    <span style={{ fontSize: 13, color: 'var(--grl)' }}>o</span>
-                    <input className="input" type="number" value={f.meta_valor} style={{ width: 90 }}
-                      placeholder="valor" onChange={e => setF((p: any) => ({ ...p, meta_valor: e.target.value, meta_pct: '' }))} />
-                    <span style={{ fontSize: 13, color: 'var(--gr)' }}>{unidad}</span>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {f.tipo !== 'mejorar' && (
+            ) : (
               <div className="fila-p" style={{ borderLeftColor: 'var(--bd)' }}>
                 <span style={{ fontSize: 13, color: 'var(--gr)' }}>
                   Compara las dos mediciones y se da por cumplida cuando la diferencia baja del 10%. No hace falta decir cuál es la más débil: eso lo dicen los números.
@@ -719,11 +583,18 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               </div>
             )}
 
+            {destinos.length === 0 && (
+              <div style={{ fontSize: 12, color: '#8A6410', marginTop: 6 }}>
+                Todavía no hay ninguna medición de este ítem, así que no hay de dónde partir.
+                Pasa el test y vuelve.
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button className="btn btn-t btn-sm" onClick={() => setModal(false)} disabled={guardando}>Cancelar</button>
               <div style={{ flex: 1 }} />
               <button className="btn btn-p" onClick={guardar} disabled={guardando}>
-                {guardando ? 'Guardando…' : (creandoAmbos ? 'Añadir las dos metas' : 'Añadir meta')}
+                {guardando ? 'Guardando…' : (destinos.length > 1 ? `Guardar las ${destinos.length} metas` : 'Guardar la meta')}
               </button>
             </div>
           </div>
