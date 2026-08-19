@@ -37,6 +37,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [resultadosTests, setResultadosTests] = useState<any[]>([])
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
+  /** Qué moneda está abierta. Solo una: dos paneles abiertos ya no son una lista. */
+  const [objAbierto, setObjAbierto] = useState<string|null>(null)
   const [modalAnadir, setModalAnadir] = useState(false)
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
@@ -168,24 +170,57 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const objetivosLogrados = objetivosTrabajo.filter((o:any)=>o.logrado)
     .sort((a:any,b:any)=>(b.fecha_logrado||'').localeCompare(a.fecha_logrado||''))
 
+  /**
+   * Los objetivos ESPECÍFICOS que este paciente tiene abiertos dentro del general.
+   *
+   * Salen de sus metas, no del catálogo: "Movilidad de tobillo" ofrece cuatro movimientos,
+   * pero de este paciente solo se está trabajando el que tiene meta. Listar los cuatro
+   * sería enseñar catálogo donde se espera tratamiento.
+   *
+   * Se quita el lado al agrupar: dorsiflexión derecha e izquierda son el mismo objetivo
+   * específico trabajado en dos sitios, y el lado ya se ve en la meta.
+   */
+  const especificosDe = (o:any): string[] => Array.from(new Set(
+    metas.filter((m:any)=>m.objetivo_id===o.id && m.movimiento_id)
+      .map((m:any)=>etiquetasLib.find((e:any)=>e.id===m.movimiento_id)?.nombre)
+      .filter(Boolean)
+  )) as string[]
+
+  /** El aro de la moneda: gris si está logrado, si no el color del objetivo. */
+  const monedaDe = (o:any, grande=false) => (
+    <span className={`obj-moneda${grande?' g':''}`} style={{
+      background: o.imagen_url ? 'var(--bl)' : ((o.color||'var(--g)')+'22'),
+      borderColor: o.logrado ? 'var(--gm)' : (o.color||'var(--g)'),
+      opacity: o.logrado ? .55 : 1,
+    }}>
+      {o.imagen_url
+        ? <img src={o.imagen_url} alt=""/>
+        : <b style={{color:o.color||'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
+    </span>
+  )
+
+  /**
+   * La moneda de la rejilla. Todo lo demás —metas, vías, fases— vive dentro y se abre
+   * al pulsarla: la ficha enseñaba diez bloques desplegados a la vez y no se veía de un
+   * vistazo en qué se está trabajando, que es justo lo que hay que ver al abrirla.
+   */
+  const pintarMoneda = (o:any) => {
+    const esp = especificosDe(o)
+    const abierto = objAbierto === o.id
+    return (
+      <button key={o.id} type="button" className={`obj-mon-b${abierto?' on':''}`}
+        title={esp.length ? `${o.nombre} · ${esp.join(' · ')}` : o.nombre}
+        onClick={()=>setObjAbierto(abierto ? null : o.id)}>
+        {monedaDe(o, true)}
+        <span className="obj-mon-n">{esp.length ? esp.join(' · ') : o.nombre}</span>
+      </button>
+    )
+  }
+
   const pintarObjetivo = (o:any) => {
     const vias = Array.isArray(o.vias)?o.vias:[]
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
-    /**
-     * Los objetivos ESPECÍFICOS que este paciente tiene abiertos dentro del general.
-     *
-     * Salen de sus metas, no del catálogo: "Movilidad de tobillo" ofrece cuatro
-     * movimientos, pero de este paciente solo se está trabajando el que tiene meta.
-     * Listar los cuatro sería enseñar catálogo donde se espera tratamiento.
-     *
-     * Se quita el lado al agrupar: dorsiflexión derecha e izquierda son el mismo objetivo
-     * específico trabajado en dos sitios, y el lado ya se ve en la meta de abajo.
-     */
-    const especificos = Array.from(new Set(
-      metas.filter((m:any)=>m.objetivo_id===o.id && m.movimiento_id)
-        .map((m:any)=>etiquetasLib.find((e:any)=>e.id===m.movimiento_id)?.nombre)
-        .filter(Boolean)
-    )) as string[]
+    const especificos = especificosDe(o)
     return (
       <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
@@ -194,15 +229,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               más de la ficha del paciente y lo redondo se lee como marca, no como
               contenido. Sin foto va la inicial sobre su color, que ya distingue fuerza de
               movilidad; un hueco gris repetido se lee como que algo ha fallado. */}
-          <span className="obj-moneda" style={{
-            background: o.imagen_url ? 'var(--bl)' : ((o.color||'var(--g)')+'22'),
-            borderColor: o.logrado ? 'var(--gm)' : (o.color||'var(--g)'),
-            opacity: o.logrado ? .55 : 1,
-          }}>
-            {o.imagen_url
-              ? <img src={o.imagen_url} alt=""/>
-              : <b style={{color:o.color||'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
-          </span>
+          {monedaDe(o)}
           <div style={{flex:1,minWidth:0}}>
             {/* El general va pequeño y encima: es la zona, el titular de verdad es lo que
                 se está trabajando. Cuando no hay específicos —fases, cualitativos, o un
@@ -386,14 +413,23 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               </div>
               {objetivosTrabajo.length===0 && <div className="muted">Sin objetivos de trabajo</div>}
               {objetivosActivos.length===0 && objetivosLogrados.length>0 && <div className="muted">Todos los objetivos logrados</div>}
-              {objetivosActivos.map(pintarObjetivo)}
+              {objetivosActivos.length>0 && (
+                <div className="obj-rej">{objetivosActivos.map(pintarMoneda)}</div>
+              )}
+              {/* El detalle va DEBAJO de la rejilla, no dentro de la moneda: así ocupa el
+                  ancho entero y no descoloca la cuadrícula al abrirse. */}
+              {objetivosActivos.filter((o:any)=>o.id===objAbierto).map(pintarObjetivo)}
+
               {objetivosLogrados.length>0 && (
                 <details style={{marginTop:objetivosActivos.length>0?9:0}}>
                   <summary className="det-sum">
                     <Ic name="trofeo" size={12} style={{verticalAlign:'-2px',marginRight:5}}/>
                     Logrados · {objetivosLogrados.length}
                   </summary>
-                  <div style={{marginTop:6}}>{objetivosLogrados.map(pintarObjetivo)}</div>
+                  <div style={{marginTop:6}}>
+                    <div className="obj-rej">{objetivosLogrados.map(pintarMoneda)}</div>
+                    {objetivosLogrados.filter((o:any)=>o.id===objAbierto).map(pintarObjetivo)}
+                  </div>
                 </details>
               )}
             </div>
