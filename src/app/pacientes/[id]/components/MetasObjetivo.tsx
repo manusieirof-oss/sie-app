@@ -115,21 +115,53 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     : (sugerida ? { nombre: sugerida.nombre, item: sugerida.item } : null)
 
   /**
-   * Lo último medido en ese ítem y lado, para proponerlo como punto de partida.
+   * Lo último medido en ese ítem, LADO A LADO.
    *
-   * Se propone, no se impone: puede que el valor de partida bueno sea el de la valoración
-   * inicial y no el de ayer. Pero teclearlo a mano teniendo el dato delante es pedir una
-   * errata.
+   * Un test lateral se guarda como una fila por lado, así que aquí puede haber dos
+   * números distintos y son dos historias distintas: un tobillo a 8 cm y el otro a 12 no
+   * se resumen en un solo punto de partida.
    */
-  const ultimoValor = useMemo(() => {
-    if (!f.test_id || f.item_indice === '') return null
-    const filas = resultados
-      .filter(r => r.test_id === f.test_id && (r.lado || 'bilateral') === f.lado)
-      .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
-    const it = (filas[0]?.items_resultado || [])[Number(f.item_indice)]
-    const v = it ? parseFloat(valorDe(it)) : NaN
-    return Number.isFinite(v) ? v : null
-  }, [f.test_id, f.item_indice, f.lado, resultados])
+  const ladosConDato = useMemo(() => {
+    if (!f.test_id || f.item_indice === '') return [] as { lado: string, valor: number }[]
+    const porLado: Record<string, { fecha: string, valor: number }> = {}
+    for (const r of resultados) {
+      if (r.test_id !== f.test_id) continue
+      const it = (r.items_resultado || [])[Number(f.item_indice)]
+      const v = it ? parseFloat(valorDe(it)) : NaN
+      if (!Number.isFinite(v)) continue
+      const lado = r.lado || 'bilateral'
+      const fecha = String(r.fecha || '')
+      // De cada lado vale la medición más reciente, no la primera que aparezca.
+      if (!porLado[lado] || fecha > porLado[lado].fecha) porLado[lado] = { fecha, valor: v }
+    }
+    return Object.entries(porLado).map(([lado, x]) => ({ lado, valor: x.valor }))
+  }, [f.test_id, f.item_indice, resultados])
+
+  /** Lo medido en el lado elegido, que es el punto de partida de esta meta. */
+  const ultimoValor = ladosConDato.find(x => x.lado === f.lado)?.valor ?? null
+
+  /**
+   * Si el test se pasó en los dos lados, se ofrecen las dos metas de una vez.
+   *
+   * Poner una y acordarse de volver a por la otra es justo lo que no pasa: queda medio
+   * paciente con meta y medio sin ella, y el objetivo no puede cerrarse nunca porque le
+   * falta un lado. En "igualar lados" no aplica: esa meta ya compara los dos.
+   */
+  const lateralesConDato = ladosConDato.filter(x => x.lado === 'izquierdo' || x.lado === 'derecho')
+  const puedeAmbos = lateralesConDato.length === 2 && f.tipo !== 'igualar_lados'
+  const creandoAmbos = puedeAmbos && f.ambos
+
+  /**
+   * El punto de partida se rellena con lo medido, no se deja en blanco.
+   *
+   * Antes iba vacío con el número puesto de gris detrás. Funcionaba —al guardar se cogía
+   * ese— pero un hueco vacío se lee como "aquí no hay dato" y obligaba a teclear a mano un
+   * número que ya estaba en pantalla. Se deja de tocar en cuanto lo cambias tú.
+   */
+  useEffect(() => {
+    if (f.partidaTocada) return
+    setF((p: any) => ({ ...p, valor_inicial: ultimoValor != null ? String(ultimoValor) : '' }))
+  }, [ultimoValor, f.partidaTocada])
 
   /** El ítem del movimiento contrario, propuesto solo. Flexión busca extensión. */
   const parSugerido = useMemo(() => {
@@ -160,6 +192,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       item_indice: conTest ? String(o!.item_indice) : '',
       item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '',
       manual: false, desdeTest: conTest,
+      // Las dos de golpe por defecto cuando hay dos lados medidos: es lo que se quiere
+      // casi siempre y desmarcarlo es un clic.
+      ambos: true, partidaTocada: false,
     })
     setModal(true)
   }
@@ -168,20 +203,30 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     if (!f.test_id || f.item_indice === '') { alert('Elige el test y el ítem que la miden'); return }
     if (f.tipo === 'igualar_par' && f.item_par_indice === '') { alert('Elige el ítem del movimiento contrario'); return }
     setGuardando(true)
-    const { error } = await supabase.from('objetivos_metas').insert({
+
+    // Un lado o los dos. Cuando son los dos, CADA META ARRANCA DE SU PROPIA MEDICIÓN: un
+    // solo número tecleado no puede ser el punto de partida de dos lados que miden
+    // distinto, y usarlo para ambos daría por mejorado lo que no ha cambiado.
+    const destinos = creandoAmbos
+      ? lateralesConDato.map(x => ({ lado: x.lado, partida: x.valor }))
+      : [{ lado: f.lado, partida: f.valor_inicial !== '' ? Number(f.valor_inicial) : (ultimoValor ?? null) }]
+
+    const filas = destinos.map(d => ({
       paciente_id: pacienteId,
       objetivo_id: objetivo.id,
       movimiento_id: f.movimiento_id || null,
-      lado: f.lado,
+      lado: d.lado,
       tipo: f.tipo,
       unidad: unidad || null,
-      valor_inicial: f.valor_inicial !== '' ? Number(f.valor_inicial) : (ultimoValor ?? null),
+      valor_inicial: d.partida,
       meta_pct: f.tipo === 'mejorar' && f.meta_valor === '' && f.meta_pct !== '' ? Number(f.meta_pct) : null,
       meta_valor: f.tipo === 'mejorar' && f.meta_valor !== '' ? Number(f.meta_valor) : null,
       test_id: f.test_id,
       item_indice: Number(f.item_indice),
       item_par_indice: f.tipo === 'igualar_par' && f.item_par_indice !== '' ? Number(f.item_par_indice) : null,
-    })
+    }))
+
+    const { error } = await supabase.from('objetivos_metas').insert(filas)
     setGuardando(false)
     if (error) { alert(error.message); return }
     // `revisarMetas` y no `revisarObjetivos`: la meta acaba de nacer con la marca de
@@ -292,12 +337,21 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             {f.tipo !== 'igualar_lados' && (
               <div className="field">
                 <label>Lado{origen?.lado === f.lado && <span style={{ fontWeight: 400, color: 'var(--gd)' }}> · el que se midió</span>}</label>
-                <div style={{ display: 'flex', gap: 4 }}>
+                <div style={{ display: 'flex', gap: 4, opacity: creandoAmbos ? .45 : 1, pointerEvents: creandoAmbos ? 'none' : 'auto' }}>
                   {LADOS.map(([v, l]) => (
                     <button key={v} className={`chip-sel ${f.lado === v ? 'on' : ''}`}
                       onClick={() => setF((p: any) => ({ ...p, lado: v }))}>{l}</button>
                   ))}
                 </div>
+                {/* El test se pasó en los dos: se ofrecen las dos metas. Marcado se ignora
+                    el selector de arriba, por eso queda apagado. */}
+                {puedeAmbos && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: 'var(--gr)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!f.ambos}
+                      onChange={e => setF((p: any) => ({ ...p, ambos: e.target.checked }))} />
+                    Poner la meta en los <b>dos lados</b>, cada uno desde su medición
+                  </label>
+                )}
               </div>
             )}
 
@@ -387,13 +441,28 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             {f.tipo === 'mejorar' && (
               <>
                 <div className="field"><label>Punto de partida{unidad ? ` (${unidad})` : ''}</label>
-                  <input className="input" type="number" value={f.valor_inicial}
-                    onChange={e => setF((p: any) => ({ ...p, valor_inicial: e.target.value }))}
-                    placeholder={ultimoValor != null ? String(ultimoValor) : 'Sin medición previa'} />
+                  {creandoAmbos ? (
+                    // Con dos metas no hay UN punto de partida que teclear: cada lado
+                    // arranca del suyo. Se enseñan los dos para que se vea de dónde sale.
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {lateralesConDato.map(x => (
+                        <div key={x.lado} style={{ flex: 1, padding: '7px 10px', background: 'var(--gl)', borderRadius: 'var(--r)', fontSize: 13 }}>
+                          <span style={{ color: 'var(--gr)', textTransform: 'capitalize' }}>{x.lado}</span>
+                          <b style={{ marginLeft: 6 }}>{x.valor}{unidad ? ' ' + unidad : ''}</b>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <input className="input" type="number" value={f.valor_inicial}
+                      onChange={e => setF((p: any) => ({ ...p, valor_inicial: e.target.value, partidaTocada: true }))}
+                      placeholder={ultimoValor != null ? String(ultimoValor) : 'Sin medición previa'} />
+                  )}
                   <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
-                    {ultimoValor != null
-                      ? <>Lo último medido es <b>{ultimoValor}{unidad ? ' ' + unidad : ''}</b>. Si lo dejas vacío se usa ese.</>
-                      : 'Todavía no hay medición de este ítem. Sin punto de partida, un porcentaje no se puede calcular y la meta quedará esperando a la primera.'}
+                    {creandoAmbos
+                      ? <>Lo medido en cada lado. Si quieres cambiar alguno a mano, quita «los dos lados» y ponlos por separado.</>
+                      : ultimoValor != null
+                        ? <>Puesto lo último medido. Cámbialo si el punto de partida bueno es otro.</>
+                        : 'Todavía no hay medición de este ítem. Sin punto de partida, un porcentaje no se puede calcular y la meta quedará esperando a la primera.'}
                   </div>
                 </div>
                 <div className="field"><label>Meta</label>
@@ -422,7 +491,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               <button className="btn btn-t btn-sm" onClick={() => setModal(false)} disabled={guardando}>Cancelar</button>
               <div style={{ flex: 1 }} />
               <button className="btn btn-p" onClick={guardar} disabled={guardando}>
-                {guardando ? 'Guardando…' : 'Añadir meta'}
+                {guardando ? 'Guardando…' : (creandoAmbos ? 'Añadir las dos metas' : 'Añadir meta')}
               </button>
             </div>
           </div>
