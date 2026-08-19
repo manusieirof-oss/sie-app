@@ -822,4 +822,37 @@ export const TESTS: TestSemilla[] = [
       { nombre: 'No gana recorrido respecto a la posición normal' },
     ],
   },
+
+  // ── Postura del pie ───────────────────────────────────────────────────────
+  {
+    /**
+     * FPI-6 · Foot Posture Index (Redmond).
+     *
+     * Seis criterios de −2 a +2 y un total de −12 a +12. El motor de tests NO SUMA: el
+     * resultado sale de qué ítems quedan marcados, no de un total. Por eso la puntuación
+     * total es un ítem más, escrito a mano, y es el único que lleva regla; los seis
+     * criterios van sin ella, solo para dejar constancia de dónde salió el número.
+     *
+     * Hacerlo al revés —seis ítems con regla— daría positivo por cada criterio suelto, y
+     * un pie con un +2 y un −2 es neutro, no dos problemas.
+     */
+    nombre: 'Índice de postura del pie · FPI-6', archivo: 'test-fpi6.jpg',
+    descripcion: 'Seis criterios observados con el paciente de pie en apoyo relajado, cada uno de −2 a +2. El total va de −12 a +12: negativo es supinado, positivo pronado y cero neutro. Se considera neutro de 0 a +5; de +6 a +9 pronado y de +10 en adelante muy pronado; de −1 a −4 supinado y de −5 hacia abajo muy supinado. No mide una articulación, describe CÓMO SE APOYA el pie entero, que es lo que explica por qué la carga sube mal por la pierna. En carga y en apoyo relajado, no corrigiendo la postura: lo que interesa es el pie que el paciente usa todo el día.',
+    logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 6,
+    etiquetas: ['Tobillo', 'Pie', 'Bipedestación', 'Cadena cerrada'],
+    // Sin objetivo enganchado todavía: decidir a qué abre un pie pronado es clínico y
+    // se pone desde la biblioteca. Dejarlo puesto a ojo abriría objetivos que no tocan.
+    objetivos: [],
+    items: [
+      // EL QUE DECIDE. `fuera` de 0 a 5 = positivo cuando el pie no es neutro, en
+      // cualquiera de los dos sentidos: un −6 es tan valorable como un +8.
+      { nombre: 'Puntuación total', unidad: 'puntos', min: -12, max: 12, regla: 'fuera', umbral: 0, umbral2: 5 },
+      { nombre: 'Palpación de la cabeza del astrágalo', unidad: 'puntos', min: -2, max: 2 },
+      { nombre: 'Curvatura supra e inframaleolar lateral', unidad: 'puntos', min: -2, max: 2 },
+      { nombre: 'Posición del calcáneo en el plano frontal', unidad: 'puntos', min: -2, max: 2 },
+      { nombre: 'Prominencia en la región astrágalo-escafoidea', unidad: 'puntos', min: -2, max: 2 },
+      { nombre: 'Congruencia del arco longitudinal interno', unidad: 'puntos', min: -2, max: 2 },
+      { nombre: 'Abducción o aducción del antepié respecto al retropié', unidad: 'puntos', min: -2, max: 2 },
+    ],
+  },
 ]
