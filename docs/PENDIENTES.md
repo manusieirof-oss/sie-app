@@ -48,8 +48,13 @@ grados. La unidad se **congela con el resultado**, igual que la sesión congela 
 ejercicio: si el test cambia de unidad, el registro de marzo sigue diciendo lo que se anotó.
 
 **Algunos ítems abren su propio objetivo**, no el del test. Si en la sentadilla profunda se
-levantan los talones, eso abre "ganar dorsiflexión de tobillo" aunque el test vaya de
+levantan los talones, eso abre "Movilidad de tobillo · dorsiflexión" aunque el test vaya de
 sentadilla. Es lo que hace que un test global sirva para algo más que decir "algo va mal".
+
+El cualitativo **"Ganar dorsiflexión de tobillo" se retiró**: decía exactamente lo mismo que
+el métrico "Movilidad de tobillo" con su movimiento dorsiflexión, y mientras existieron los
+dos el mismo trabajo se podía apuntar en dos sitios sin que ninguno contara la verdad
+completa. Los cinco ítems que lo abrían apuntan ahora al métrico, con el movimiento puesto.
 
 Cuatro sesiones nuevas en `semillaSesiones.ts` porque los objetivos las necesitaban: Cadera ·
 movilidad y control, Tobillo y pie, Equilibrio y marcha, y Suelo pélvico y pared abdominal.

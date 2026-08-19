@@ -187,12 +187,26 @@ export default function SembrarTestsPage() {
       // Los campos de la BARRA viajan con el ítem. Se quedaban fuera de este `map` y por
       // eso los tests se creaban con la medida pero sin la regla que la interpreta: la
       // pantalla los pintaba como una casilla más, sin barra y sin umbral.
-      const items = t.items.map((i: any) => ({
-        nombre: i.nombre,
-        unidad: i.unidad || '',
-        objetivos: (i.objetivos || []).map((n: string) => idObjetivo[norm(n)]).filter(Boolean),
-        ...(i.regla ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, min: i.min, max: i.max } : {}),
-      }))
+      const items = t.items.map((i: any) => {
+        // Qué movimiento mide el ítem de cada objetivo. Se guarda como
+        // `{ idObjetivo: idEtiqueta }`, que es lo que lee la ficha del paciente para que
+        // la meta nazca ya concretada. Si el objetivo o la etiqueta no existen todavía se
+        // omite el par: media pareja no dice nada y ensuciaría el ítem.
+        const movs: Record<string, string> = {}
+        for (const [nObj, nMov] of Object.entries(i.objetivos_mov || {})) {
+          const oid = idObjetivo[norm(nObj)]
+          const mid = idEtiqueta[norm(String(nMov))]
+          if (!mid) etQueFaltan.add(String(nMov))
+          if (oid && mid) movs[oid] = mid
+        }
+        return {
+          nombre: i.nombre,
+          unidad: i.unidad || '',
+          objetivos: (i.objetivos || []).map((n: string) => idObjetivo[norm(n)]).filter(Boolean),
+          ...(Object.keys(movs).length ? { objetivos_mov: movs } : {}),
+          ...(i.regla ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, min: i.min, max: i.max } : {}),
+        }
+      })
 
       const campos = {
         nombre: t.nombre, descripcion: t.descripcion,

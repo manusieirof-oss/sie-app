@@ -30,6 +30,14 @@ export type ItemSemilla = {
   /** Objetivos que abre este ítem al quedar marcado, por nombre. */
   objetivos?: string[]
   /**
+   * Qué MOVIMIENTO del objetivo mide este ítem: `{ 'Movilidad de tobillo': 'Dorsiflexión' }`.
+   *
+   * El nombre de la etiqueta, no su id: los ids los resuelve el sembrador. Sin esto el
+   * objetivo llega al paciente sin concretar y hay que elegir el movimiento a mano en cada
+   * ficha, cuando el test ya sabía cuál era desde el principio.
+   */
+  objetivos_mov?: Record<string, string>
+  /**
    * BARRA. Con `regla`, el ítem deja de ser una casilla y pasa a medirse: el positivo lo
    * decide el número y no el criterio del que rellena. Ver lib/tests.ts.
    */
@@ -118,9 +126,6 @@ export const OBJETIVOS: ObjetivoSemilla[] = [
   { nombre: 'Mejorar el patrón de sentadilla', zona: 'Rodilla', etiquetas: ['Cuádriceps'], color: C.rodilla,
     descripcion: 'Bajar con los talones apoyados, las rodillas alineadas y el tronco erguido.',
     sesiones: ['Tren inferior', 'Rodilla · vuelta a la carga'] },
-  { nombre: 'Ganar dorsiflexión de tobillo', zona: 'Tobillo', etiquetas: ['Sóleo'], color: C.tobillo,
-    descripcion: 'Que la rodilla pase por delante del pie sin levantar el talón.',
-    sesiones: ['Tobillo y pie'] },
   { nombre: 'Mejorar el equilibrio', zona: 'Tobillo', etiquetas: ['Glúteo medio'], color: C.tobillo,
     descripcion: 'Aguantar a una pierna sin apoyar la otra ni oscilar.',
     sesiones: ['Equilibrio y marcha'] },
@@ -272,7 +277,8 @@ export const TESTS: TestSemilla[] = [
     objetivos: ['Mejorar el patrón de sentadilla'],
     items: [
       { nombre: 'Los talones se levantan del suelo',
-        objetivos: ['Ganar dorsiflexión de tobillo'] },
+        objetivos: ['Movilidad de tobillo'],
+        objetivos_mov: { 'Movilidad de tobillo': 'Dorsiflexión' } },
       { nombre: 'Las rodillas caen hacia dentro' },
       { nombre: 'El tronco se inclina en exceso hacia delante' },
       { nombre: 'Los brazos caen hacia delante',
@@ -290,7 +296,9 @@ export const TESTS: TestSemilla[] = [
     descripcion: 'SUSTITUIDO: usa las tres fichas nuevas del lunge (en bipedestación, con la rodilla en el suelo y con alza). Esta se conserva solo por los resultados ya registrados. De pie frente a la pared, se adelanta el pie hasta donde la rodilla la toca sin levantar el talón. Por debajo de 10 cm hay restricción.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Sóleo', 'Flexión', 'Pared', 'Bipedestación'],
-    objetivos: ['Ganar dorsiflexión de tobillo'],
+    // Sin objetivo: está SUSTITUIDO. El enlace test → objetivo es 1 a 1 (se escribe en
+    // `objetivos.test_id`), así que si esta ficha lo reclama se lo quita a las nuevas.
+    objetivos: [],
     items: [
       { nombre: 'En bipedestación · distancia del dedo a la pared', unidad: 'cm' },
       { nombre: 'Con la rodilla en el suelo · distancia', unidad: 'cm' },
@@ -775,9 +783,15 @@ export const TESTS: TestSemilla[] = [
     descripcion: 'De pie frente a la pared, con el pie separado de ella y el talón pegado al suelo, se lleva la rodilla adelante hasta tocar la pared. Se mide la distancia del dedo gordo a la pared en el punto más lejano en que la rodilla todavía llega. Es la referencia: mide el tobillo con el gemelo en tensión, que es como trabaja al andar y en la sentadilla. Por debajo de 10 cm hay restricción, y se paga arriba: la sentadilla se va hacia delante y la rodilla al valgo.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Sóleo', 'Tríceps Sural', 'Flexión', 'Dorsiflexión', 'Pared', 'Bipedestación', 'Cadena cerrada'],
-    objetivos: ['Ganar dorsiflexión de tobillo'],
+    // El objetivo cuelga del ÍTEM que mide, no del test entero. Dos razones: solo así
+    // puede viajar el movimiento hasta la meta del paciente, y el enlace de test es 1 a 1
+    // —tres fichas de lunge reclamando el mismo objetivo se lo iban pisando entre ellas y
+    // solo la última quedaba enlazada.
+    objetivos: [],
     items: [
-      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10 },
+      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10,
+        objetivos: ['Movilidad de tobillo'],
+        objetivos_mov: { 'Movilidad de tobillo': 'Dorsiflexión' } },
       { nombre: 'El talón se levanta antes de tocar' },
       { nombre: 'La rodilla se desvía hacia dentro para llegar' },
     ],
@@ -787,9 +801,11 @@ export const TESTS: TestSemilla[] = [
     descripcion: 'La misma medida en posición de caballero, con la rodilla de atrás apoyada. Al flexionar la rodilla de delante se QUITA EL GEMELO de la ecuación y queda el sóleo solo. Se pasa cuando el de bipedestación sale corto: si aquí gana bastante, el tope estaba en el gemelo y es cuestión de longitud muscular; si gana poco, el problema está más abajo.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Sóleo', 'Flexión', 'Dorsiflexión', 'Pared', 'Arrodillado', 'Caballero', 'Cadena cerrada'],
-    objetivos: ['Ganar dorsiflexión de tobillo'],
+    objetivos: [],
     items: [
-      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10 },
+      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10,
+        objetivos: ['Movilidad de tobillo'],
+        objetivos_mov: { 'Movilidad de tobillo': 'Dorsiflexión' } },
       { nombre: 'El talón se levanta antes de tocar' },
     ],
   },
@@ -798,9 +814,11 @@ export const TESTS: TestSemilla[] = [
     descripcion: 'La misma medida con una cuña que eleva el talón. Distingue si el tope es de LONGITUD o ARTICULAR: con el alza, el músculo trabaja acortado y deja de limitar, así que si aun así no gana recorrido el bloqueo está dentro de la articulación —el astrágalo no se desliza— y estirar no lo va a resolver. Es la ficha que decide si el trabajo va a ser de movilidad o de terapia manual.',
     logica: 'cualquiera', tipo_lado: 'lateral', frecuencia_meses: 3,
     etiquetas: ['Tobillo', 'Sóleo', 'Flexión', 'Dorsiflexión', 'Pared', 'Cuña', 'Bipedestación', 'Cadena cerrada'],
-    objetivos: ['Ganar dorsiflexión de tobillo'],
+    objetivos: [],
     items: [
-      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10 },
+      { nombre: 'Distancia del dedo a la pared', unidad: 'cm', min: 0, max: 20, regla: 'menor', umbral: 10,
+        objetivos: ['Movilidad de tobillo'],
+        objetivos_mov: { 'Movilidad de tobillo': 'Dorsiflexión' } },
       { nombre: 'No gana recorrido respecto a la posición normal' },
     ],
   },
