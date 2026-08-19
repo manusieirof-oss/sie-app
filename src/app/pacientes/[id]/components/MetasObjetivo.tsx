@@ -302,6 +302,27 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     return Object.values(mapa).map((g: any) => {
       g.metas.sort((a: any, b: any) => (ORDEN_LADO[a.lado] ?? 9) - (ORDEN_LADO[b.lado] ?? 9))
       g.todasCumplidas = g.metas.every((m: any) => estadoDeMeta(m, resultados).cumplida || m.cumplida)
+
+      /**
+       * Lados MEDIDOS que todavía no tienen meta.
+       *
+       * Si el test se pasó en los dos y solo hay meta de uno, el que falta tiene que verse.
+       * Enseñar únicamente el lado que tiene meta hace pensar que el otro no se midió, y lo
+       * que pasa es lo contrario: se midió y se quedó sin objetivo, que es peor.
+       */
+      const ref = g.metas[0]
+      const conMeta = new Set(g.metas.map((m: any) => m.lado))
+      const medidos = new Set<string>()
+      if (ref?.test_id && ref.item_indice != null) {
+        for (const r of resultados) {
+          if (r.test_id !== ref.test_id) continue
+          const it = (r.items_resultado || [])[Number(ref.item_indice)]
+          const v = it ? parseFloat(valorDe(it)) : NaN
+          if (Number.isFinite(v)) medidos.add(r.lado || 'bilateral')
+        }
+      }
+      g.sinMeta = Array.from(medidos).filter(l => !conMeta.has(l))
+        .sort((a, b) => (ORDEN_LADO[a] ?? 9) - (ORDEN_LADO[b] ?? 9))
       return g
     })
   }, [metas, resultados, etiquetas])
@@ -337,7 +358,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     const pct = e.progreso != null ? Math.round(e.progreso * 100) : null
                     return (
                       <div key={m.id} style={{ minWidth: 118 }}>
-                        <div style={{ fontSize: 11, color: 'var(--grl)', textTransform: 'capitalize' }}>{m.lado}</div>
+                        {/* El lado, legible. En gris claro y a 11 px no se veía, y es lo
+                            primero que hay que distinguir de un vistazo. */}
+                        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--gr)' }}>{m.lado}</div>
                         <div style={{ fontSize: 12, color: cumplida ? 'var(--gd)' : 'var(--n)' }}>{e.texto}</div>
                         {/* La barra llevaba el porcentaje al lado desde nunca: se veía una
                             barra a medias sin decir de qué. */}
@@ -352,6 +375,15 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                       </div>
                     )
                   })}
+                  {/* Lados medidos que se quedaron sin meta. Se pulsan y se crean. */}
+                  {g.sinMeta.map((l: string) => (
+                    <button key={l} type="button" onClick={abrir}
+                      title="Se midió este lado pero no tiene meta. Pulsa para ponérsela."
+                      style={{ minWidth: 118, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--grl)' }}>{l}</div>
+                      <div style={{ fontSize: 12, color: '#8A6410' }}>Medido, sin meta</div>
+                    </button>
+                  ))}
                 </div>
               </div>
               <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }} onClick={abrir}>
