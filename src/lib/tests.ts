@@ -189,6 +189,15 @@ export type ResultadoRegistro = {
   logrados: number
   /** Metas medibles que este resultado ha dado por alcanzadas. */
   metasCerradas: number
+  /**
+   * Objetivos que este resultado ha ABIERTO.
+   *
+   * Se devuelve para poder avisar del caso mudo: test positivo que no abre ninguno. Eso
+   * casi siempre significa que el objetivo cuelga de un ítem distinto del que ha dado
+   * positivo —una casilla que nadie marcó— y hasta ahora no había forma de enterarse:
+   * el test se guardaba, decía "positivo", y en la ficha no aparecía nada.
+   */
+  abiertos: number
 } | {
   ok: false
   error: string
@@ -257,10 +266,16 @@ export async function registrarResultadoTest(
   })
 
   let logrados = 0
+  let abiertos = 0
 
   if (resultado === 'positivo') {
-    logrados += await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado)
-    logrados += await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
+    const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado)
+    abiertos += a
+    // Los ítems marcados que NO llevan objetivo colgado no abren nada. Es legítimo —hay
+    // ítems que solo describen— pero si no abre ninguno el test entero, hay que decirlo.
+    const b = await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
+    logrados += b.logrados
+    abiertos += b.abiertos
   } else if (resultado === 'negativo') {
     // Negativo = no queda nada marcado, así que se cierran la vía del test y las de sus
     // ítems de una vez. Hacerlo ítem a ítem dejaba abierta la del test entero.
@@ -274,7 +289,7 @@ export async function registrarResultadoTest(
   // un proceso aparte que habría que acordarse de lanzar.
   const { cerradas } = await revisarMetas(pacienteId)
 
-  return { ok: true, resultado, logrados, metasCerradas: cerradas.length }
+  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos }
 }
 
 /**
@@ -345,7 +360,7 @@ async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: s
       mov: null, lado: lado || null,
     }, contexto)
   }
-  return 0
+  return (objs || []).length
 }
 
 /**
@@ -354,6 +369,7 @@ async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: s
  */
 async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemTest[], contexto?: string, lado?: string) {
   let logrados = 0
+  let abiertos = 0
   for (let i = 0; i < items.length; i++) {
     const it = items[i]
     const objIds = it.objetivos || []
@@ -369,13 +385,14 @@ async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemT
           tipo: 'test_item', ref, etiqueta, resuelto: false, fecha_resuelto: null,
           mov: movs[oid] || null, lado: lado || null,
         }, contexto)
+        abiertos++
       } else {
         const r = await resolverVia(pacienteId, oid, 'test_item', ref, true, contexto || 'un test')
         if (r.ok && r.logrado) logrados++
       }
     }
   }
-  return logrados
+  return { logrados, abiertos }
 }
 
 /**

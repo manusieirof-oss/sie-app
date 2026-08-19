@@ -689,9 +689,23 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                   ))}
                 </div>
               )}
-              <div style={{display:'flex',gap:8,marginTop:2}}>
+              <div style={{display:'flex',gap:8,marginTop:2,alignItems:'center'}}>
                 <button className="btn btn-t btn-sm" onClick={()=>{setDetalle(null);abrirTest?.(t.test_id,t.lado||'bilateral')}}>Volver a evaluar</button>
                 {pos && <button className="btn btn-t btn-sm" onClick={()=>{setDetalle(null);resolverTestNegativo(t)}}>Pasar a negativo</button>}
+                <div style={{flex:1}}/>
+                {/* BORRAR el registro. No existía, y un resultado metido por error —el lado
+                    equivocado, el test que no era— se quedaba dentro para siempre falseando
+                    las metas, que se evalúan contra la última medición.
+                    Es borrar, no corregir: se quita el registro y se vuelve a pasar. */}
+                <button className="btn btn-t btn-sm" style={{color:'var(--red)'}}
+                  onClick={async()=>{
+                    if (!confirm(`¿Borrar este resultado del ${new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES')}?\n\nSe borra solo esta medición. Los objetivos que abrió siguen abiertos: ciérralos desde la ficha si ya no tocan.`)) return
+                    const { error } = await supabase.from('resultados_tests').delete().eq('id', t.id)
+                    if (error) { alert('No se pudo borrar: ' + error.message); return }
+                    setDetalle(null); cargar()
+                  }}>
+                  <Ic name="papelera" size={12}/> Borrar este resultado
+                </button>
               </div>
             </div>
           )

@@ -266,7 +266,31 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       item_par_indice: f.tipo === 'igualar_par' && f.item_par_indice !== '' ? Number(f.item_par_indice) : null,
     }))
 
-    const { error } = await supabase.from('objetivos_metas').insert(filas)
+    /**
+     * Una sola meta por objetivo + movimiento + lado.
+     *
+     * Guardar insertaba siempre, así que volver a poner la meta del izquierdo dejaba dos
+     * filas del izquierdo conviviendo: la vieja —a veces cerrada a mano, que ya no se
+     * evalúa— y la nueva. En pantalla salían las dos y parecía un fallo de pintado, pero
+     * el problema estaba en la base: dos verdades para el mismo lado del mismo gesto.
+     *
+     * Si ya existe, se REESCRIBE. Es lo que se espera al pulsar "Cambiar meta", y de paso
+     * limpia la marca de cerrada a mano: si estás poniéndole objetivo nuevo, es que ya no
+     * la das por buena.
+     */
+    let error: any = null
+    for (const fila of filas) {
+      const ya = (metas as any[]).find(m =>
+        m.objetivo_id === fila.objetivo_id &&
+        (m.movimiento_id || null) === (fila.movimiento_id || null) &&
+        m.lado === fila.lado)
+      const r = ya
+        ? await supabase.from('objetivos_metas')
+            .update({ ...fila, cumplida: false, cerrada_a_mano: false, fecha_cumplida: null })
+            .eq('id', ya.id)
+        : await supabase.from('objetivos_metas').insert(fila)
+      if (r.error) { error = r.error; break }
+    }
     setGuardando(false)
     if (error) { alert(error.message); return }
     // `revisarMetas` y no `revisarObjetivos`: la meta acaba de nacer con la marca de

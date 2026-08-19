@@ -410,6 +410,13 @@ export default function FichaPacientePage() {
       })
       if (!r.ok) { alert('No se pudo guardar el resultado: ' + r.error); setProcesando(false); return }
       logrados += r.logrados
+      // Positivo que no abre NINGÚN objetivo: el test ha detectado algo y en la ficha no
+      // va a aparecer nada. Casi siempre es que el objetivo cuelga de otro ítem —una
+      // casilla que nadie marcó— en vez del que ha dado positivo. Antes esto pasaba en
+      // silencio y parecía que la app se había tragado el resultado.
+      if (r.resultado === 'positivo' && r.abiertos === 0) {
+        alert(`El test ha salido POSITIVO en ${lado} pero no tiene ningún objetivo enganchado, así que no va a aparecer nada en la ficha.\n\nEngánchalo en Biblioteca → Tests → ${test.nombre}: en el ÍTEM que ha dado positivo, no en otro.`)
+      }
     }
     setProcesando(false)
     setTestEnCurso(null)
