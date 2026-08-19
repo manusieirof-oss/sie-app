@@ -205,7 +205,19 @@ export async function registrarResultadoTest(
 ): Promise<ResultadoRegistro> {
   if (!pacienteId || !test?.id) return { ok: false, error: 'Falta el paciente o el test' }
 
-  const items = datos.items || []
+  /**
+   * Se traduce la barra a `marcado` UNA VEZ, aquí, y a partir de ahí todo lee lo mismo.
+   *
+   * Estaba escrito en tres sitios: `resultadoDeItems`, el insert del resultado y —este se
+   * olvidó— la apertura de objetivos, que seguía mirando el `marcado` crudo. Como un ítem
+   * con barra nunca se marca a mano, para esa tercera copia SIEMPRE estaba a false: metías
+   * una distancia por debajo del umbral, el test salía positivo y aun así el objetivo no
+   * se abría. Peor: se iba por la rama del `else` y RESOLVÍA la vía, cerrando por buena
+   * una restricción que se acababa de medir.
+   */
+  const items = (datos.items || []).map(i => ({
+    ...i, marcado: tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado,
+  }))
   const resultado = resultadoDeItems(items, test.logica, datos.resultado || 'positivo')
   const lado = datos.lado || 'bilateral'
   const fecha = datos.fecha || hoy()
@@ -222,7 +234,7 @@ export async function registrarResultadoTest(
     // ejercicio: si mañana el test pasa a medirse en centímetros, el registro de marzo
     // tiene que seguir diciendo los grados que se anotaron aquel día.
     items_resultado: items.map(i => ({
-      nombre: i.nombre, marcado: tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado,
+      nombre: i.nombre, marcado: i.marcado,
       unidad: unidadDe(i).id, valor: valorDe(i),
       // La REGLA se congela igual que la unidad. Si mañana subes el umbral del lunge de 10
       // a 12, el registro de marzo tiene que seguir explicando por qué salió positivo
