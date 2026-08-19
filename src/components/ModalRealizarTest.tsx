@@ -49,7 +49,17 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
   /** Botonera propia de quien lo abre. Sin ella solo hay "Hecho". */
   pie?: React.ReactNode
 }) {
-  const ladoActivo = tv.ladoActivo || (test?.tipo_lado === 'lateral' ? 'izquierdo' : 'bilateral')
+  /**
+   * En un test LATERAL no se elige lado por ti.
+   *
+   * Esto caía en 'izquierdo' cuando no había ninguno puesto, así que se podía rellenar y
+   * guardar el test entero sin haber tocado nunca el selector: quedaba registrado como
+   * izquierdo un lado que nadie decidió, y luego la meta salía del lado equivocado. Un
+   * test de tobillo sin decir qué tobillo no es un dato incompleto, es un dato falso.
+   *
+   * Bilateral sí se resuelve solo: ahí no hay nada que elegir.
+   */
+  const ladoActivo = tv.ladoActivo || (test?.tipo_lado === 'lateral' ? '' : 'bilateral')
   const d = tv.lados?.[ladoActivo] || ladoVacio(test, tv.frecuencia_meses)
   const lados = test?.tipo_lado === 'lateral' ? LADOS_LATERAL : LADOS_BILATERAL
   const items = (test?.items || [])
@@ -110,7 +120,14 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                 })}
               </div>
 
-              {items.length > 0 ? (
+              {!ladoActivo ? (
+                <div className="fila-p" style={{ borderLeftColor: '#E0C068' }}>
+                  <span style={{ fontSize: 13, color: 'var(--gr)' }}>
+                    Elige arriba <b>qué lado</b> estás midiendo. Este test se registra por separado
+                    en cada uno, y sin decirlo el resultado no significa nada.
+                  </span>
+                </div>
+              ) : items.length > 0 ? (
                 <>
                   <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 6 }}>
                     Ítems · {test?.logica === 'todos' ? 'todos marcados = positivo' : 'con uno basta = positivo'}

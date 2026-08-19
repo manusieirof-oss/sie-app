@@ -381,8 +381,12 @@ export default function FichaPacientePage() {
   function abrirTest(testId: string, lado: string) {
     const test = testsDisp.find((t:any)=>t.id===testId)
     if (!test) { alert('Ese test ya no está en la biblioteca'); return }
-    const l = lado || (test.tipo_lado==='lateral' ? 'izquierdo' : 'bilateral')
-    setTestEnCurso({ test, tv: { ladoActivo:l, frecuencia_meses:test.frecuencia_meses, lados:{ [l]: ladoVacio(test) } } })
+    // Al REPETIR se abre en el lado que se venía mirando. Al pasarlo de cero en un test
+    // lateral no se elige por ti: se entra sin lado y hay que decirlo. Poner 'izquierdo'
+    // por defecto hacía que se guardara como izquierdo un lado que nadie había decidido.
+    const l = lado || (test.tipo_lado==='lateral' ? '' : 'bilateral')
+    setTestEnCurso({ test, tv: { ladoActivo:l, frecuencia_meses:test.frecuencia_meses,
+      lados: l ? { [l]: ladoVacio(test) } : {} } })
   }
 
   /**
@@ -396,8 +400,15 @@ export default function FichaPacientePage() {
   async function registrarTest() {
     if (!testEnCurso) return
     const { test, tv } = testEnCurso
-    const conDato = Object.keys(tv.lados||{}).filter(k => tv.lados[k]?.resultado && tv.lados[k].resultado!=='sin_realizar')
-    if (conDato.length===0) { alert('Marca el resultado antes de guardar'); return }
+    // Sin lado no se guarda. La clave vacía llegaba a la base como un resultado más y
+    // salía en el historial un test "hecho" que no se había medido en ningún sitio.
+    const conDato = Object.keys(tv.lados||{}).filter(k => k && tv.lados[k]?.resultado && tv.lados[k].resultado!=='sin_realizar')
+    if (conDato.length===0) {
+      alert(test.tipo_lado==='lateral'
+        ? 'Elige el lado y marca el resultado antes de guardar.'
+        : 'Marca el resultado antes de guardar')
+      return
+    }
     setProcesando(true)
     let logrados = 0
     for (const lado of conDato) {

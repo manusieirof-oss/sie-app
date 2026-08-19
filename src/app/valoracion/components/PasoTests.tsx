@@ -21,9 +21,11 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
 
   /** La ficha vacía de un test recién añadido. */
   function nuevoTv(t:any){
-    const ladoIni = t.tipo_lado==='lateral' ? 'izquierdo' : 'bilateral'
+    // Lateral entra SIN lado: elegirlo es parte de pasar el test, no algo que decida la
+    // app. Igual que en la ficha del paciente, para que no haya dos comportamientos.
+    const ladoIni = t.tipo_lado==='lateral' ? '' : 'bilateral'
     return { test_id:t.id, nombre:t.nombre, logica:t.logica, ladoActivo:ladoIni,
-      frecuencia_meses:t.frecuencia_meses||3, lados:{ [ladoIni]: ladoVacio(t) } }
+      frecuencia_meses:t.frecuencia_meses||3, lados: ladoIni ? { [ladoIni]: ladoVacio(t) } : {} }
   }
 
   function confirmarSeleccion(){

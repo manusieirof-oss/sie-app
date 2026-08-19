@@ -283,10 +283,11 @@ export default function ValoracionPage() {
       // enteraba. Ahora pasa por la misma función que la ficha.
       for (const t of testsValoracion) {
         const lados = t.lados || {}
-        const ladosConDato = Object.keys(lados).filter(k => lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
+        // `k &&`: la clave vacía es "todavía no se ha elegido lado", no un resultado.
+        const ladosConDato = Object.keys(lados).filter(k => k && lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
         // Un test que se trajo por estar abierto y no se ha llegado a pasar no se
         // registra: 'sin_realizar' no dice nada y ensucia el historial.
-        const aGuardar = ladosConDato.length ? ladosConDato : (t.previo ? [] : Object.keys(lados))
+        const aGuardar = ladosConDato.length ? ladosConDato : (t.previo ? [] : Object.keys(lados).filter(k => k))
         for (const ladoKey of aGuardar) {
           const d = lados[ladoKey]
           if (!d) continue
