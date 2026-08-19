@@ -99,7 +99,7 @@ const FAMILIAS_OBJ = [
  * programar, pero el test que estás editando vive solo en pantalla hasta que guardas: irse
  * a otro sitio se lleva por delante el nombre, la descripción y los ítems escritos.
  */
-function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle }: any) {
+function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle, movimientos = {}, onMovimiento }: any) {
   const [abierto, setAbierto] = useState(false)
   const [busca, setBusca] = useState('')
   const [familia, setFamilia] = useState('')
@@ -138,12 +138,30 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle 
       <div style={{display:'flex',flexWrap:'wrap',gap:4,alignItems:'center'}}>
         <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
         {puestos.length===0 && <span style={{fontSize:9,color:'var(--grl)'}}>ningún objetivo</span>}
-        {puestos.map((o:any)=>(
-          <span key={o.id} onClick={()=>onToggle(o.id)} title="Quitar"
-            style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4}}>
-            {o.nombre} <span style={{opacity:.7}}>✕</span>
-          </span>
-        ))}
+        {puestos.map((o:any)=>{
+          /* EL MOVIMIENTO SE FIJA AQUÍ, no en la ficha del paciente.
+             El test ya sabe qué mide —el lunge mide dorsiflexión, siempre—, así que
+             preguntarlo otra vez con el paciente delante es repetir un trabajo que se
+             puede hacer una vez en la biblioteca. Si se deja sin elegir, se comporta como
+             antes y el movimiento se decide al asignar la meta. */
+          const movs = (o.movimientos||[]).map((id:string)=>({ id, nombre: nombreEt(id) })).filter((m:any)=>m.nombre)
+          const elegido = movimientos?.[o.id] || ''
+          return (
+            <span key={o.id} style={{display:'inline-flex',alignItems:'center',gap:0,borderRadius:99,background:o.color||'var(--g)',color:'#fff',overflow:'hidden'}}>
+              <span style={{fontSize:9,padding:'2px 4px 2px 8px'}}>{o.nombre}</span>
+              {(o.tipo==='metrico'&&movs.length>0&&onMovimiento) && (
+                <select value={elegido} onChange={e=>onMovimiento(o.id, e.target.value)}
+                  title="Movimiento concreto que mide este ítem"
+                  style={{fontSize:9,border:'none',background:'rgba(255,255,255,.22)',color:'#fff',padding:'2px 4px',cursor:'pointer',fontFamily:'inherit',maxWidth:130}}>
+                  <option value="" style={{color:'var(--n)'}}>— sin concretar —</option>
+                  {movs.map((m:any)=><option key={m.id} value={m.id} style={{color:'var(--n)'}}>{m.nombre}</option>)}
+                </select>
+              )}
+              <span onClick={()=>onToggle(o.id)} title="Quitar"
+                style={{fontSize:10,padding:'2px 8px 2px 5px',cursor:'pointer',opacity:.75}}>✕</span>
+            </span>
+          )
+        })}
         <button onClick={()=>setAbierto(v=>!v)}
           style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px dashed var(--bd)',background:'var(--w)',color:'var(--g)',fontFamily:'inherit'}}>
           {abierto ? 'Cerrar' : '+ Objetivo'}
@@ -395,7 +413,16 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
                     setNuevoTest(p=>({...p,items:its}))
                   }}/>
-                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas} onToggle={(oid:string)=>{
+                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
+                    movimientos={item.objetivos_mov||{}}
+                    onMovimiento={(oid:string,mid:string)=>{
+                      const its=[...nuevoTest.items] as any[]
+                      const mapa={...(its[i].objetivos_mov||{})}
+                      if (mid) mapa[oid]=mid; else delete mapa[oid]
+                      its[i]={...its[i], objetivos_mov: mapa}
+                      setNuevoTest(p=>({...p,items:its}))
+                    }}
+                    onToggle={(oid:string)=>{
                     const its=[...nuevoTest.items] as any[]
                     const act = its[i].objetivos||[]
                     its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
@@ -498,7 +525,16 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
                     setTestEditando((p:any)=>({...p,items:its}))
                   }}/>
-                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas} onToggle={(oid:string)=>{
+                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
+                    movimientos={item.objetivos_mov||{}}
+                    onMovimiento={(oid:string,mid:string)=>{
+                      const its=[...(testEditando.items||[])] as any[]
+                      const mapa={...(its[i].objetivos_mov||{})}
+                      if (mid) mapa[oid]=mid; else delete mapa[oid]
+                      its[i]={...its[i], objetivos_mov: mapa}
+                      setTestEditando((p:any)=>({...p,items:its}))
+                    }}
+                    onToggle={(oid:string)=>{
                     const its=[...(testEditando.items||[])] as any[]
                     const act = its[i].objetivos||[]
                     its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
