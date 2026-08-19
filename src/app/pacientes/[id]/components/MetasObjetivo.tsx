@@ -32,7 +32,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 }) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [f, setF] = useState<any>({ movimiento_id: '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '', manual: false, desdeTest: false })
+  const [f, setF] = useState<any>({ movimiento_id: '', lado: 'bilateral', tipos: ['mejorar'], test_id: '', item_indice: '', item_par_indice: '', manual: false, desdeTest: false, partida: {}, pct: {}, valor: {} })
 
   const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || ''
   const movimientos = (objetivo.movimientos || []).map((id: string) => ({ id, nombre: nombreEt(id) })).filter((m: any) => m.nombre)
@@ -181,6 +181,18 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     return f.soloLado ? base.filter(d => d.lado === f.soloLado) : base
   }, [ladosConDato, f.soloLado, testSel])
 
+  /**
+   * Cuánto se llevan los dos lados, en %. Es el número que decide si "igualar lados" está
+   * cumplida (por debajo del 10%), así que se enseña antes de crearla.
+   */
+  const diferenciaLados = useMemo(() => {
+    const a = destinos[0]?.medido, b = destinos[1]?.medido
+    if (a == null || b == null) return null
+    const mayor = Math.max(a, b)
+    if (!mayor) return null
+    return Math.round(Math.abs(a - b) / mayor * 100)
+  }, [destinos])
+
   /** A qué número hay que llegar en ese lado. Es lo que luego evalúa `estadoDeMeta`. */
   const objetivoDe = (d: any): number | null => {
     const val = f.valor?.[d.lado]
@@ -198,14 +210,23 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    */
   const claveDestinos = destinos.map(d => `${d.lado}:${d.medido}`).join('|')
   useEffect(() => {
-    if (f.partidaTocada) return
-    // El punto de partida sí se rellena: es un dato medido. El porcentaje NO: un 20 puesto
-    // por defecto se guarda tal cual en cuanto alguien no lo mire, y entonces la meta la
-    // ha decidido la app y no el que trata al paciente.
-    const partida: any = {}
-    for (const d of destinos) partida[d.lado] = d.medido != null ? String(d.medido) : ''
-    setF((p: any) => ({ ...p, partida, pct: {}, valor: {} }))
-  }, [claveDestinos, f.partidaTocada])
+    // Solo rellena los HUECOS. Antes machacaba el objeto entero, así que pisaba lo que ya
+    // venía de la meta guardada al pulsar "Cambiar meta" y el formulario salía en blanco.
+    //
+    // El punto de partida se rellena porque es un dato medido. El porcentaje NO: un 20
+    // puesto por defecto se guarda tal cual en cuanto alguien no lo mire, y entonces la
+    // meta la ha decidido la app y no el que trata al paciente.
+    setF((p: any) => {
+      const partida = { ...(p.partida || {}) }
+      let cambia = false
+      for (const d of destinos) {
+        if (partida[d.lado] != null && partida[d.lado] !== '') continue
+        partida[d.lado] = d.medido != null ? String(d.medido) : ''
+        cambia = true
+      }
+      return cambia ? { ...p, partida } : p
+    })
+  }, [claveDestinos])
 
   /**
    * Si el test se pasó en los dos lados, se ofrecen las dos metas de una vez.
@@ -218,13 +239,13 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
   /** El ítem del movimiento contrario, propuesto solo. Flexión busca extensión. */
   const parSugerido = useMemo(() => {
-    if (f.tipo !== 'igualar_par' || !f.movimiento_id) return null
+    if (!f.tipos?.includes('igualar_par') || !f.movimiento_id) return null
     const contrario = antagonistaDe(nombreEt(f.movimiento_id))
     if (!contrario) return null
     const n = contrario.toLowerCase()
     const it = itemsMedibles.find(x => (x.nombre || '').toLowerCase().includes(n))
     return it ? { indice: it.i, nombre: it.nombre, contrario } : { indice: null, nombre: null, contrario }
-  }, [f.tipo, f.movimiento_id, itemsMedibles, etiquetas])
+  }, [f.tipos, f.movimiento_id, itemsMedibles, etiquetas])
 
   /**
    * La meta nace con todo lo que el test ya sabía: movimiento, lado, test e ítem.
@@ -238,7 +259,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    *   concreta, el formulario tiene que llegar con ESA medición, no con la que dedujo el
    *   origen: si no, el botón del segundo ítem editaba el primero.
    */
-  function abrir(pre?: { movimiento_id?: string, test_id?: string, item_indice?: any, lado?: string }) {
+  function abrir(pre?: { movimiento_id?: string, test_id?: string, item_indice?: any, lado?: string, metas?: any[] }) {
     const o = origen
     const movValido = pre?.movimiento_id
       || (o?.mov && movimientos.some((m: any) => m.id === o.mov) ? o.mov : '')
@@ -249,10 +270,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       // ámbar: ahí se quiere ese lado y no tocar el que ya tiene meta.
       soloLado: pre?.lado || '',
       lado: pre?.lado || o?.lado || 'bilateral',
-      tipo: 'mejorar',
       test_id: pre?.test_id || (conTest ? o!.test_id : ''),
       item_indice: pre?.item_indice != null ? String(pre.item_indice) : (conTest ? String(o!.item_indice) : ''),
-      item_par_indice: '',
+      tipos: ['mejorar'], item_par_indice: '',
       manual: false, desdeTest: conTest,
       // Los valores por lado los rellena el efecto en cuanto se sepan las columnas.
       partida: {}, pct: {}, valor: {}, partidaTocada: false,
@@ -262,37 +282,49 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
   async function guardar() {
     if (!f.test_id || f.item_indice === '') { alert('Elige el test y el ítem que la miden'); return }
-    if (f.tipo === 'igualar_par' && f.item_par_indice === '') { alert('Elige el ítem del movimiento contrario'); return }
+    if (!f.tipos?.length) { alert('Elige al menos qué se busca'); return }
+    if (f.tipos.includes('igualar_par') && f.item_par_indice === '') { alert('Elige el ítem del movimiento contrario'); return }
     setGuardando(true)
 
     // UNA FILA POR COLUMNA DEL FORMULARIO, cada una con SU partida y SU meta. Un tobillo a
     // 3 cm y el otro a 10 no comparten ni de dónde salen ni adónde van, y compartir el
     // porcentaje daba por mejorado lo que no había cambiado.
-    // "Igualar lados" es SIMÉTRICO: una sola meta, que ya compara los dos. Creando una por
-    // lado salían dos filas midiendo exactamente lo mismo, cada una contra la otra, y el
-    // objetivo necesitaba cerrar las dos para darse por logrado.
-    const aCrear = f.tipo === 'igualar_lados' ? destinos.slice(0, 1) : destinos
-
-    const filas = aCrear.map((d: any) => {
-      const p = f.partida?.[d.lado]
-      const partida = (p !== '' && p != null) ? Number(p) : (d.medido ?? null)
-      const val = f.valor?.[d.lado]
-      const pct = f.pct?.[d.lado]
-      return {
-        paciente_id: pacienteId,
-        objetivo_id: objetivo.id,
-        movimiento_id: f.movimiento_id || null,
-        lado: d.lado,
-        tipo: f.tipo,
-        unidad: unidad || null,
-        valor_inicial: partida,
-        meta_pct: f.tipo === 'mejorar' && (val === '' || val == null) && pct !== '' && pct != null ? Number(pct) : null,
-        meta_valor: f.tipo === 'mejorar' && val !== '' && val != null ? Number(val) : null,
-        test_id: f.test_id,
-        item_indice: Number(f.item_indice),
-        item_par_indice: f.tipo === 'igualar_par' && f.item_par_indice !== '' ? Number(f.item_par_indice) : null,
+    /**
+     * UNA TANDA POR CADA COSA QUE SE BUSCA. Se pueden pedir varias a la vez.
+     *
+     * Antes era una elección única, así que marcar "igualar lados" borraba el "mejorar"
+     * que acababas de rellenar. Son preguntas distintas y compatibles: se puede querer que
+     * el tobillo malo gane 2 cm Y que además alcance al bueno.
+     *
+     * "Igualar lados" es SIMÉTRICO: una sola fila, que ya compara los dos. Una por lado
+     * serían dos metas midiendo lo mismo, cada una contra la otra.
+     */
+    const filas: any[] = []
+    for (const tipo of f.tipos as string[]) {
+      const aCrear = tipo === 'igualar_lados' ? destinos.slice(0, 1) : destinos
+      for (const d of aCrear as any[]) {
+        const p = f.partida?.[d.lado]
+        const partida = (p !== '' && p != null) ? Number(p) : (d.medido ?? null)
+        const val = f.valor?.[d.lado]
+        const pct = f.pct?.[d.lado]
+        filas.push({
+          paciente_id: pacienteId,
+          objetivo_id: objetivo.id,
+          movimiento_id: f.movimiento_id || null,
+          lado: d.lado,
+          tipo,
+          unidad: unidad || null,
+          // El punto de partida se guarda SIEMPRE, también en las de comparar: es el
+          // número del que se sale, y sin él la ficha no puede enseñar de dónde viene.
+          valor_inicial: partida,
+          meta_pct: tipo === 'mejorar' && (val === '' || val == null) && pct !== '' && pct != null ? Number(pct) : null,
+          meta_valor: tipo === 'mejorar' && val !== '' && val != null ? Number(val) : null,
+          test_id: f.test_id,
+          item_indice: Number(f.item_indice),
+          item_par_indice: tipo === 'igualar_par' && f.item_par_indice !== '' ? Number(f.item_par_indice) : null,
+        })
       }
-    })
+    }
     if (filas.length === 0) { setGuardando(false); alert('No hay ningún lado medido al que ponerle meta'); return }
 
     /**
@@ -309,10 +341,14 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
      */
     let error: any = null
     for (const fila of filas) {
+      // El TIPO entra en la clave: "mejorar el izquierdo" e "igualar lados" son dos
+      // metas distintas del mismo lado y del mismo gesto, y sin esto la segunda pisaba
+      // a la primera.
       const ya = (metas as any[]).find(m =>
         m.objetivo_id === fila.objetivo_id &&
         (m.movimiento_id || null) === (fila.movimiento_id || null) &&
-        m.lado === fila.lado)
+        m.lado === fila.lado &&
+        m.tipo === fila.tipo)
       const r = ya
         ? await supabase.from('objetivos_metas')
             .update({ ...fila, cumplida: false, cerrada_a_mano: false, fecha_cumplida: null })
@@ -536,12 +572,18 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             <div className="field"><label>Qué se busca</label>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {TIPOS_META.map(t => (
-                  <button key={t.id} className={`chip-sel ${f.tipo === t.id ? 'on' : ''}`} title={t.ayuda}
-                    onClick={() => setF((p: any) => ({ ...p, tipo: t.id }))}>{t.nombre}</button>
+                  <button key={t.id} className={`chip-sel ${f.tipos?.includes(t.id) ? 'on' : ''}`} title={t.ayuda}
+                    onClick={() => setF((p: any) => {
+                      const yaEsta = p.tipos?.includes(t.id)
+                      return { ...p, tipos: yaEsta ? p.tipos.filter((x: string) => x !== t.id) : [...(p.tipos || []), t.id] }
+                    })}>{t.nombre}</button>
                 ))}
               </div>
               <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
-                {TIPOS_META.find(t => t.id === f.tipo)?.ayuda}
+                {/* Se pueden marcar varias: son preguntas distintas y compatibles. */}
+                {(f.tipos || []).length === 0
+                  ? 'Marca al menos una. Puedes marcar varias.'
+                  : TIPOS_META.filter(t => f.tipos.includes(t.id)).map(t => t.ayuda).join(' ')}
               </div>
             </div>
 
@@ -555,7 +597,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               Si solo se midió un lado, sale una columna. No hay nada que elegir ni casilla
               que marcar: las columnas son los lados que existen.
             */}
-            {f.tipo === 'mejorar' ? (
+            {f.tipos?.includes('mejorar') && (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, destinos.length)},1fr)`, gap: 10 }}>
                 {destinos.map((d: any) => (
                   <div key={d.lado} style={{ border: '1px solid var(--bd)', borderRadius: 'var(--r)', padding: '9px 11px' }}>
@@ -600,20 +642,42 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                   </div>
                 ))}
               </div>
-            ) : (
-              <>
+            )}
+
+            {(f.tipos?.includes('igualar_lados') || f.tipos?.includes('igualar_par')) && (
+              <div style={{ marginTop: 10 }}>
                 <div className="fila-p" style={{ borderLeftColor: 'var(--bd)' }}>
                   <span style={{ fontSize: 13, color: 'var(--gr)' }}>
                     Compara las dos mediciones y se da por cumplida cuando la diferencia baja del 10%.
                     No hace falta decir cuál es la más débil: eso lo dicen los números.
-                    {f.tipo === 'igualar_lados' && <> Se crea <b>una sola meta</b>, porque la comparación ya mira los dos lados.</>}
+                    {f.tipos?.includes('igualar_lados') && <> Se crea <b>una sola meta</b>, porque la comparación ya mira los dos lados.</>}
                   </span>
                 </div>
+
+                {/* LO MEDIDO EN CADA LADO, aquí mismo. Sin esto "igualar lados" era una
+                    casilla a ciegas: no se veía que un tobillo va a 1 cm y el otro a 6, que
+                    es justo el dato que hace falta para decidir si la meta tiene sentido. */}
+                {f.tipos?.includes('igualar_lados') && destinos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 9 }}>
+                    {destinos.map((d: any) => (
+                      <div key={d.lado} style={{ flex: 1, padding: '7px 10px', background: 'var(--gl)', borderRadius: 'var(--r)' }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--gr)' }}>{d.lado}</div>
+                        <div style={{ fontSize: 14 }}>{d.medido != null ? `${d.medido}${unidad ? ' ' + unidad : ''}` : 'Sin medir'}</div>
+                      </div>
+                    ))}
+                    {diferenciaLados != null && (
+                      <div style={{ flex: 1, padding: '7px 10px', background: 'var(--bl)', borderRadius: 'var(--r)' }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--grl)' }}>Diferencia</div>
+                        <div style={{ fontSize: 14, color: diferenciaLados <= 10 ? 'var(--gd)' : '#8A6410' }}>{diferenciaLados}%</div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* EL ÍTEM CONTRARIO. Se me quedó fuera al rehacer el modal y sin él
                     "igualar con el antagonista" no se podía configurar: al guardar saltaba
                     el aviso y no había dónde elegirlo. */}
-                {f.tipo === 'igualar_par' && (
+                {f.tipos?.includes('igualar_par') && (
                   <div className="field"><label>Ítem del movimiento contrario</label>
                     <select className="input" value={f.item_par_indice}
                       onChange={e => setF((p: any) => ({ ...p, item_par_indice: e.target.value }))}>
@@ -631,7 +695,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     )}
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {destinos.length === 0 && (
@@ -646,7 +710,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               <div style={{ flex: 1 }} />
               <button className="btn btn-p" onClick={guardar} disabled={guardando}>
                 {guardando ? 'Guardando…'
-                  : (f.tipo !== 'igualar_lados' && destinos.length > 1 ? `Guardar las ${destinos.length} metas` : 'Guardar la meta')}
+                  : 'Guardar'}
               </button>
             </div>
           </div>
