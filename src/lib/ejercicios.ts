@@ -143,6 +143,21 @@ export async function subirImagenTest(testId: string, file: File) {
   return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}` }
 }
 
+/** Imagen de un OBJETIVO. Misma mecánica que las anteriores. */
+export async function subirImagenObjetivo(objetivoId: string, file: File) {
+  let preparado: File
+  try { preparado = await comprimirImagen(file, MAX_EJERCICIO) }
+  catch { return { ok: false as const, error: 'No se pudo procesar la imagen. Prueba con un JPG.' } }
+
+  const ruta = `objetivos/${objetivoId}/foto.jpg`
+  const { error } = await supabase.storage.from(BUCKET)
+    .upload(ruta, preparado, { contentType: 'image/jpeg', upsert: true })
+  if (error) return { ok: false as const, error: error.message }
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta)
+  return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}` }
+}
+
 /** Imagen de una variante. Ruta fija por índice, mismo motivo. */
 export async function subirImagenVariante(ejercicioId: string, indice: number, file: File) {
   let preparado: File

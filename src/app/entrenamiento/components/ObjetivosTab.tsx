@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
+import { subirImagenObjetivo } from '@/lib/ejercicios'
 
 /**
  * La biblioteca de objetivos.
@@ -34,7 +35,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[], movimientos:[] as string[] })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -76,7 +77,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[], movimientos:[] })
+    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
@@ -84,7 +85,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'', color:o.color||COLORES[0],
       test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
       articulacion_id:o.articulacion_id||'', fases:o.fases||'', etiquetas:o.etiquetas||[],
-      movimientos:o.movimientos||[],
+      movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
     })
     setModal(true)
   }
@@ -108,11 +109,29 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // objetivo por fases o cualitativo no hay nada que medir por movimiento.
       movimientos: form.tipo === 'metrico' ? (form.movimientos || []) : [],
     }
-    const r = form.id
-      ? await supabase.from('objetivos').update(payload).eq('id', form.id)
-      : await supabase.from('objetivos').insert({ ...payload, activo: true })
+    // La imagen NO va en el payload: se sube al almacén y lo que se guarda es su URL.
+    // Y hace falta el id, que en un objetivo nuevo no existe hasta después de insertarlo.
+    let id = form.id
+    if (id) {
+      const r = await supabase.from('objetivos').update(payload).eq('id', id)
+      if (r.error) { setGuardando(false); alert(r.error.message); return }
+    } else {
+      const r = await supabase.from('objetivos').insert({ ...payload, activo: true }).select('id').single()
+      if (r.error || !r.data) { setGuardando(false); alert(r.error?.message || 'No se pudo crear'); return }
+      id = r.data.id
+    }
+
+    if (form.imagen_file && id) {
+      const ri = await subirImagenObjetivo(id, form.imagen_file)
+      // Si la imagen falla, el objetivo ya está guardado: se avisa y no se pierde el resto.
+      if (!ri.ok) alert('El objetivo se ha guardado, pero la imagen no: ' + ri.error)
+      else await supabase.from('objetivos').update({ imagen_url: ri.url }).eq('id', id)
+    } else if (form.id && !form.imagen_url) {
+      // Se ha quitado la imagen a propósito.
+      await supabase.from('objetivos').update({ imagen_url: null }).eq('id', id)
+    }
+
     setGuardando(false)
-    if (r.error) { alert(r.error.message); return }
     setModal(false); cargar()
   }
 
@@ -188,6 +207,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 const n = enUso[o.id] || 0
                 return (
                   <div key={o.id} className="fila-p" style={{ borderLeftColor: o.color || 'var(--g)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    {o.imagen_url && (
+                      <img src={o.imagen_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bd)', flexShrink: 0 }} />
+                    )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         {o.nombre}
@@ -336,6 +358,35 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 <option value="">— Sin zona concreta —</option>
                 {articulaciones.map((a: any) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
+            </div>
+
+            {/* UNA IMAGEN PARA EL OBJETIVO ENTERO, no una por movimiento.
+                Los específicos —dorsiflexión, inversión— comparten la del general: son el
+                mismo gesto en direcciones distintas y cuatro ilustraciones casi iguales
+                aclararían poco. Si algún día uno necesita la suya, se le pone entonces. */}
+            <div className="field">
+              <label>Imagen</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                <div style={{ position: 'relative', width: 96, height: 96, background: 'var(--bm)', borderRadius: 8, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {form.imagen_url
+                    ? <img src={form.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <span style={{ color: 'var(--grl)' }}><Ic name="objetivo" size={26} /></span>}
+                  {form.imagen_url && (
+                    <button onClick={() => setForm((p: any) => ({ ...p, imagen_url: '', imagen_file: null }))}
+                      style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'var(--red)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10 }}>✕</button>
+                  )}
+                </div>
+                <div>
+                  <label style={{ cursor: 'pointer' }}>
+                    <div className="btn btn-s btn-sm"><Ic name="camara" size={12} /> {form.imagen_url ? 'Cambiar' : 'Subir'}</div>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={guardando}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) setForm((p: any) => ({ ...p, imagen_file: f, imagen_url: URL.createObjectURL(f) })) }} />
+                  </label>
+                  <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 5, maxWidth: 260, lineHeight: 1.5 }}>
+                    La comparten todos sus movimientos.
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Solo en fases y cualitativos. Los métricos se describen con su articulación
