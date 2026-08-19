@@ -1,10 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { UNIDADES, unidadDe, mide, textoRegla } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
+import { ordenAnatomico } from '@/lib/anatomia'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -77,25 +78,60 @@ function ConfigBarra({ item, onCambia }: { item: any, onCambia: (campos: any) =>
   )
 }
 
+const FAMILIAS_OBJ = [
+  { id: 'metrico', nombre: 'Medibles' },
+  { id: 'fase', nombre: 'Por fases' },
+  { id: 'cualitativo', nombre: 'Cualitativos' },
+] as const
+
 /**
  * Los objetivos que abre un ítem.
  *
- * Antes se pintaban LOS 22 en píldoras de 8 px debajo de cada ítem: con cuatro ítems eran
- * ochenta y ocho píldoras minúsculas en un modal, y para saber cuáles estaban puestas
- * había que leerlas todas buscando las de color.
+ * Antes se pintaban LOS 22 debajo de cada ítem. Con cuatro ítems eran ochenta y ocho
+ * píldoras de 8 px, y para saber cuáles estaban puestas había que leerlas todas buscando
+ * las de color.
  *
- * Ahora se ven solo los puestos, y los demás se abren con el botón. Mismo criterio que las
- * etiquetas: primero lo que hay, lo demás se busca.
+ * Ahora se ven solo los puestos, y el buscador se abre con los mismos tres filtros que la
+ * biblioteca de objetivos —familia, zona y texto—. Es a propósito: si allí se busca así,
+ * aquí buscar de otra manera obliga a aprender dos sistemas para lo mismo.
+ *
+ * NO se sale del formulario. Llevarte a la pestaña de objetivos habría sido más cómodo de
+ * programar, pero el test que estás editando vive solo en pantalla hasta que guardas: irse
+ * a otro sitio se lleva por delante el nombre, la descripción y los ítems escritos.
  */
-function PildorasObjetivos({ seleccionados, objetivos, onToggle }: any) {
+function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle }: any) {
   const [abierto, setAbierto] = useState(false)
   const [busca, setBusca] = useState('')
-  if (!objetivos || objetivos.length===0) return null
+  const [familia, setFamilia] = useState('')
+  const [zona, setZona] = useState('')
 
   const sel = seleccionados || []
+  const nombreEt = (id: string) => (etiquetas || []).find((e: any) => e.id === id)?.nombre || ''
+
+  /** Las zonas que de verdad se usan, de la cabeza a los pies. Igual que en la biblioteca. */
+  const zonas = useMemo(() => {
+    const ids = Array.from(new Set([
+      ...(objetivos || []).map((o: any) => o.articulacion_id),
+      ...(objetivos || []).flatMap((o: any) => o.etiquetas || []),
+    ].filter(Boolean))) as string[]
+    return ids.map(id => ({ id, nombre: nombreEt(id) }))
+      .filter(z => z.nombre)
+      .sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
+  }, [objetivos, etiquetas])
+
+  if (!objetivos || objetivos.length===0) return null
+
   const puestos = objetivos.filter((o:any)=>sel.includes(o.id))
-  const t = busca.toLowerCase().trim()
-  const resto = objetivos.filter((o:any)=>!sel.includes(o.id) && (!t || (o.nombre||'').toLowerCase().includes(t)))
+  const q = busca.toLowerCase().trim()
+  const resto = objetivos.filter((o:any)=>{
+    if (sel.includes(o.id)) return false
+    const mQ = !q || (o.nombre||'').toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q)
+    const mF = !familia || (o.tipo||'cualitativo') === familia
+    // Por articulación O por etiqueta libre: "Trocantéritis" tiene que encontrar el
+    // objetivo que la lleva como patología y no como zona.
+    const mZ = !zona || o.articulacion_id === zona || (o.etiquetas||[]).includes(zona)
+    return mQ && mF && mZ
+  })
 
   return (
     <div style={{marginTop:5,marginLeft:2}}>
@@ -115,14 +151,41 @@ function PildorasObjetivos({ seleccionados, objetivos, onToggle }: any) {
       </div>
 
       {abierto && (
-        <div style={{marginTop:5,border:'1px solid var(--bd)',borderRadius:6,padding:6}}>
+        <div style={{marginTop:5,border:'1px solid var(--bd)',borderRadius:6,padding:7}}>
           <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
-            placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:5}}/>
-          <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:130,overflowY:'auto'}}>
+            placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:6}}/>
+
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:5}}>
+            {FAMILIAS_OBJ.map(f=>(
+              <span key={f.id} onClick={()=>setFamilia(familia===f.id?'':f.id)}
+                style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',
+                  border:`1.5px solid ${familia===f.id?'var(--g)':'var(--bd)'}`,
+                  background:familia===f.id?'var(--g)':'var(--w)',color:familia===f.id?'#fff':'var(--gr)'}}>
+                {f.nombre}
+              </span>
+            ))}
+          </div>
+
+          {zonas.length>0 && (
+            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:6}}>
+              {zonas.map(z=>(
+                <span key={z.id} onClick={()=>setZona(zona===z.id?'':z.id)}
+                  style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',
+                    border:`1px solid ${zona===z.id?'var(--gd)':'var(--bd)'}`,
+                    background:zona===z.id?'var(--gl)':'var(--w)',color:zona===z.id?'var(--gd)':'var(--grl)'}}>
+                  {z.nombre}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:150,overflowY:'auto'}}>
             {resto.length===0
-              ? <span style={{fontSize:10,color:'var(--grl)'}}>Nada que coincida.</span>
+              ? <span style={{fontSize:10,color:'var(--grl)'}}>
+                  {puestos.length>0 && !q && !familia && !zona ? 'Ya están todos puestos.' : 'Nada que coincida.'}
+                </span>
               : resto.map((o:any)=>(
-                <span key={o.id} onClick={()=>onToggle(o.id)}
+                <span key={o.id} onClick={()=>onToggle(o.id)} title={o.descripcion||''}
                   style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}}>
                   {o.nombre}
                 </span>
@@ -308,7 +371,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
                     setNuevoTest(p=>({...p,items:its}))
                   }}/>
-                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
+                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas} onToggle={(oid:string)=>{
                     const its=[...nuevoTest.items] as any[]
                     const act = its[i].objetivos||[]
                     its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
@@ -411,7 +474,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
                     setTestEditando((p:any)=>({...p,items:its}))
                   }}/>
-                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} onToggle={(oid:string)=>{
+                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas} onToggle={(oid:string)=>{
                     const its=[...(testEditando.items||[])] as any[]
                     const act = its[i].objetivos||[]
                     its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
