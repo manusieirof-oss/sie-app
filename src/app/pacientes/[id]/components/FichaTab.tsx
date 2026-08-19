@@ -171,6 +171,21 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const pintarObjetivo = (o:any) => {
     const vias = Array.isArray(o.vias)?o.vias:[]
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
+    /**
+     * Los objetivos ESPECÍFICOS que este paciente tiene abiertos dentro del general.
+     *
+     * Salen de sus metas, no del catálogo: "Movilidad de tobillo" ofrece cuatro
+     * movimientos, pero de este paciente solo se está trabajando el que tiene meta.
+     * Listar los cuatro sería enseñar catálogo donde se espera tratamiento.
+     *
+     * Se quita el lado al agrupar: dorsiflexión derecha e izquierda son el mismo objetivo
+     * específico trabajado en dos sitios, y el lado ya se ve en la meta de abajo.
+     */
+    const especificos = Array.from(new Set(
+      metas.filter((m:any)=>m.objetivo_id===o.id && m.movimiento_id)
+        .map((m:any)=>etiquetasLib.find((e:any)=>e.id===m.movimiento_id)?.nombre)
+        .filter(Boolean)
+    )) as string[]
     return (
       <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
@@ -189,7 +204,20 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               : <b style={{color:o.color||'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
           </span>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
+            {/* El general va pequeño y encima: es la zona, el titular de verdad es lo que
+                se está trabajando. Cuando no hay específicos —fases, cualitativos, o un
+                métrico todavía sin meta— el general vuelve a ser el titular, porque si no
+                la línea se quedaría sin nombre. */}
+            {especificos.length > 0 ? (
+              <>
+                <div style={{fontSize:12,color:'var(--gr)',lineHeight:1.3}}>{o.nombre}</div>
+                <div style={{fontSize:14,fontWeight:500,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none',lineHeight:1.35,marginTop:1}}>
+                  {especificos.join(' · ')}
+                </div>
+              </>
+            ) : (
+              <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
+            )}
             {o.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
           </div>
           {o.logrado

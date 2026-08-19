@@ -287,6 +287,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
   const LADOS = [['bilateral', 'Bilateral'], ['izquierdo', 'Izquierdo'], ['derecho', 'Derecho']] as const
 
+  /** ¿Hay metas de más de un movimiento? Decide si la fila necesita repetirlo. */
+  const variosMov = new Set(metas.map((m: any) => m.movimiento_id).filter(Boolean)).size > 1
+
   return (
     <div style={{ marginTop: 7 }}>
       {metas.length > 0 && (
@@ -296,13 +299,15 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             const cumplida = e.cumplida || m.cumplida
             const mov = m.movimiento_id ? nombreEt(m.movimiento_id) : ''
             const tipoNom = TIPOS_META.find(t => t.id === m.tipo)?.nombre || m.tipo
+            // El movimiento ya va de titular arriba, así que aquí solo se repite cuando
+            // hay más de uno y hace falta para distinguir las filas. Si no, manda el lado,
+            // que es lo que de verdad separa una meta de la otra.
+            const partes = [variosMov ? mov : '', m.lado !== 'bilateral' ? m.lado : ''].filter(Boolean)
+            const titulo = partes.length ? partes.join(' · ') : (mov || 'Meta')
             return (
               <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: 'var(--bl)', borderRadius: 4 }}>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
-                  <span style={{ color: 'var(--n)' }}>
-                    {mov || 'Meta'}
-                    {m.lado !== 'bilateral' && <span style={{ color: 'var(--gr)' }}> · {m.lado}</span>}
-                  </span>
+                  <span style={{ color: 'var(--n)', textTransform: 'capitalize' }}>{titulo}</span>
                   <span style={{ color: 'var(--grl)' }}> · {tipoNom.toLowerCase()}</span>
                   <span style={{ display: 'block', color: cumplida ? 'var(--gd)' : 'var(--gr)', marginTop: 1 }}>{e.texto}</span>
                 </span>
