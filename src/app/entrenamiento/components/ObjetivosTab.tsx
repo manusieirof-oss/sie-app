@@ -303,11 +303,11 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               {/* UNA IMAGEN PARA EL OBJETIVO ENTERO, no una por movimiento. Los específicos
                   —dorsiflexión, inversión— comparten la del general: son el mismo gesto en
                   direcciones distintas y cuatro ilustraciones casi iguales aclararían poco. */}
-              <div style={{ flexShrink: 0, width: 150 }}>
-                <div style={{ position: 'relative', width: 150, height: 150, background: 'var(--bm)', borderRadius: 10, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ flexShrink: 0, width: 260 }}>
+                <div style={{ position: 'relative', width: 260, height: 260, background: 'var(--bm)', borderRadius: 10, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {form.imagen_url
                     ? <img src={form.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <span style={{ color: 'var(--grl)' }}><Ic name="objetivo" size={38} /></span>}
+                    : <span style={{ color: 'var(--grl)' }}><Ic name="objetivo" size={56} /></span>}
                   {form.imagen_url && (
                     <button onClick={() => setForm((p: any) => ({ ...p, imagen_url: '', imagen_file: null }))}
                       style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: 'var(--red)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11 }}>✕</button>
@@ -325,7 +325,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 </div>
               </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, maxWidth: 320 }}>
                 <div className="field"><label>Nombre *</label>
                   <input className="input" value={form.nombre} autoFocus disabled={guardando}
                     onChange={e => setForm((p: any) => ({ ...p, nombre: e.target.value }))}
