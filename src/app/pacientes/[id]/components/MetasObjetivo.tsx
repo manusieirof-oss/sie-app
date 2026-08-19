@@ -268,7 +268,12 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     // UNA FILA POR COLUMNA DEL FORMULARIO, cada una con SU partida y SU meta. Un tobillo a
     // 3 cm y el otro a 10 no comparten ni de dónde salen ni adónde van, y compartir el
     // porcentaje daba por mejorado lo que no había cambiado.
-    const filas = destinos.map((d: any) => {
+    // "Igualar lados" es SIMÉTRICO: una sola meta, que ya compara los dos. Creando una por
+    // lado salían dos filas midiendo exactamente lo mismo, cada una contra la otra, y el
+    // objetivo necesitaba cerrar las dos para darse por logrado.
+    const aCrear = f.tipo === 'igualar_lados' ? destinos.slice(0, 1) : destinos
+
+    const filas = aCrear.map((d: any) => {
       const p = f.partida?.[d.lado]
       const partida = (p !== '' && p != null) ? Number(p) : (d.medido ?? null)
       const val = f.valor?.[d.lado]
@@ -596,11 +601,37 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                 ))}
               </div>
             ) : (
-              <div className="fila-p" style={{ borderLeftColor: 'var(--bd)' }}>
-                <span style={{ fontSize: 13, color: 'var(--gr)' }}>
-                  Compara las dos mediciones y se da por cumplida cuando la diferencia baja del 10%. No hace falta decir cuál es la más débil: eso lo dicen los números.
-                </span>
-              </div>
+              <>
+                <div className="fila-p" style={{ borderLeftColor: 'var(--bd)' }}>
+                  <span style={{ fontSize: 13, color: 'var(--gr)' }}>
+                    Compara las dos mediciones y se da por cumplida cuando la diferencia baja del 10%.
+                    No hace falta decir cuál es la más débil: eso lo dicen los números.
+                    {f.tipo === 'igualar_lados' && <> Se crea <b>una sola meta</b>, porque la comparación ya mira los dos lados.</>}
+                  </span>
+                </div>
+
+                {/* EL ÍTEM CONTRARIO. Se me quedó fuera al rehacer el modal y sin él
+                    "igualar con el antagonista" no se podía configurar: al guardar saltaba
+                    el aviso y no había dónde elegirlo. */}
+                {f.tipo === 'igualar_par' && (
+                  <div className="field"><label>Ítem del movimiento contrario</label>
+                    <select className="input" value={f.item_par_indice}
+                      onChange={e => setF((p: any) => ({ ...p, item_par_indice: e.target.value }))}>
+                      <option value="">— Elige —</option>
+                      {itemsMedibles.filter(it => String(it.i) !== String(f.item_indice))
+                        .map(it => <option key={it.i} value={it.i}>{it.nombre}</option>)}
+                    </select>
+                    {parSugerido && (
+                      <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
+                        El contrario de este movimiento es <b>{parSugerido.contrario}</b>
+                        {parSugerido.nombre
+                          ? <>. Parece que es «{parSugerido.nombre}».</>
+                          : <>, pero no encuentro un ítem que lo mida en este test.</>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {destinos.length === 0 && (
@@ -614,7 +645,8 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               <button className="btn btn-t btn-sm" onClick={() => setModal(false)} disabled={guardando}>Cancelar</button>
               <div style={{ flex: 1 }} />
               <button className="btn btn-p" onClick={guardar} disabled={guardando}>
-                {guardando ? 'Guardando…' : (destinos.length > 1 ? `Guardar las ${destinos.length} metas` : 'Guardar la meta')}
+                {guardando ? 'Guardando…'
+                  : (f.tipo !== 'igualar_lados' && destinos.length > 1 ? `Guardar las ${destinos.length} metas` : 'Guardar la meta')}
               </button>
             </div>
           </div>
