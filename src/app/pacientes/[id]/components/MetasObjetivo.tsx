@@ -199,12 +199,12 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   const claveDestinos = destinos.map(d => `${d.lado}:${d.medido}`).join('|')
   useEffect(() => {
     if (f.partidaTocada) return
-    const partida: any = {}, pct: any = {}
-    for (const d of destinos) {
-      partida[d.lado] = d.medido != null ? String(d.medido) : ''
-      pct[d.lado] = '20'
-    }
-    setF((p: any) => ({ ...p, partida, pct, valor: {} }))
+    // El punto de partida sí se rellena: es un dato medido. El porcentaje NO: un 20 puesto
+    // por defecto se guarda tal cual en cuanto alguien no lo mire, y entonces la meta la
+    // ha decidido la app y no el que trata al paciente.
+    const partida: any = {}
+    for (const d of destinos) partida[d.lado] = d.medido != null ? String(d.medido) : ''
+    setF((p: any) => ({ ...p, partida, pct: {}, valor: {} }))
   }, [claveDestinos, f.partidaTocada])
 
   /**
