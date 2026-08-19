@@ -415,13 +415,24 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       g.bloques = Object.values(bloques).map((b: any) => {
         b.metas.sort((x: any, y: any) => (ORDEN_LADO[x.lado] ?? 9) - (ORDEN_LADO[y.lado] ?? 9))
         /**
+         * "Igualar lados" no es de un lado: compara los dos.
+         *
+         * Se guarda con un lado cualquiera porque la fila necesita uno, pero pintarla en
+         * la columna de ese lado hace creer que el otro se ha quedado sin dato. Va aparte,
+         * en su propia línea a lo ancho.
+         */
+        b.porLado = b.metas.filter((m: any) => m.tipo !== 'igualar_lados')
+        b.comparativas = b.metas.filter((m: any) => m.tipo === 'igualar_lados')
+        /**
          * Lados MEDIDOS de ESTE ítem que todavía no tienen meta.
          *
          * Solo se proponen lados de la misma familia que los que ya hay: si las metas son
          * de izquierdo y derecho, un resultado guardado como "bilateral" es basura de un
          * registro mal hecho, y ofrecerlo como lado que falta invita a repetir el error.
          */
-        const conMeta = new Set(b.metas.map((m: any) => m.lado))
+        // Solo cuentan las de lado. Una de "igualar lados" no deja cubierto ese lado: es
+        // una comparación, no la meta de ese tobillo.
+        const conMeta = new Set(b.porLado.map((m: any) => m.lado))
         // Igual que en el formulario: manda la ficha del test, y si no lo dice, lo lateral.
         const tLado = tests.find((x: any) => x.id === b.test_id)?.tipo_lado
         const lateral = tLado
@@ -476,7 +487,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     las píldoras de abajo, que decían lo mismo peor y sin decir de cuál. */}
                 {b.titulo && <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 3 }}>{b.titulo}</div>}
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                  {b.metas.map((m: any) => {
+                  {b.porLado.map((m: any) => {
                     const e = estadoDeMeta(m, resultados)
                     const cumplida = e.cumplida || m.cumplida
                     const pct = e.progreso != null ? Math.round(e.progreso * 100) : null
@@ -510,6 +521,20 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     </button>
                   ))}
                 </div>
+
+                {/* Las de comparar, a lo ancho: no son de un lado, son de los dos. */}
+                {b.comparativas.map((m: any) => {
+                  const e = estadoDeMeta(m, resultados)
+                  const cumplida = e.cumplida || m.cumplida
+                  return (
+                    <div key={m.id} style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--gr)' }}>
+                        Igualar lados
+                      </div>
+                      <div style={{ fontSize: 12, color: cumplida ? 'var(--gd)' : 'var(--n)' }}>{e.texto}</div>
+                    </div>
+                  )
+                })}
                 </div>
                 {/* Los botones van EN CADA BLOQUE, no en el movimiento. Arriba editaban
                     siempre la primera medición: con dos ítems, el botón del segundo tocaba

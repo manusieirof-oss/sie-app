@@ -141,7 +141,13 @@ export function estadoDeMeta(meta: Meta, resultados: any[]): Estado {
     const objetivo = meta.meta_valor != null ? meta.meta_valor
       : (baseValida && meta.meta_pct != null) ? base * (1 + meta.meta_pct / 100)
       : null
-    if (objetivo == null) return vacio('Pendiente de la primera medición')
+    // Dos motivos distintos para no tener objetivo, y decir el que no es despista: puede
+    // faltar el número al que llegar, o puede faltar la medición de la que partir.
+    if (objetivo == null) {
+      return vacio(meta.meta_valor == null && meta.meta_pct == null
+        ? 'Sin meta puesta todavía'
+        : 'Pendiente de la primera medición')
+    }
     if (actual == null) return { actual: null, referencia: objetivo, cumplida: !!meta.cumplida, texto: `Objetivo ${redondea(objetivo)}${u}, sin medir todavía`, progreso: null }
     const desde = base ?? 0
     // MEJORAR NO SIEMPRE ES SUBIR. Esto comparaba siempre `actual >= objetivo`, y con eso
