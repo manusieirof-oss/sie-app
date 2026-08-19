@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
+import { categoriaDe } from '@/lib/etiquetas'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
 
 /**
@@ -21,8 +22,6 @@ import { subirImagenObjetivo } from '@/lib/ejercicios'
  * decide al asignárselo. Es lo que evita las 160 fichas del programa anterior.
  */
 
-const COLORES = ['#7C9A6B','#6B8F9A','#9A6B8F','#9A8F6B','#C17A54','#54A0A0','#A05454','#6B6B9A']
-
 const FAMILIAS = [
   { id: 'metrico', nombre: 'Medibles', ayuda: 'Fuerza o movilidad. Los cierra una medición de un test.' },
   { id: 'fase', nombre: 'Por fases', ayuda: 'Progresan de una tanda del programa a la siguiente.' },
@@ -35,7 +34,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -77,12 +76,12 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
+    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
-      id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'', color:o.color||COLORES[0],
+      id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'',
       test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
       articulacion_id:o.articulacion_id||'', fases:o.fases||'', etiquetas:o.etiquetas||[],
       movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
@@ -94,7 +93,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     if (!form.nombre) { alert('El nombre es obligatorio'); return }
     setGuardando(true)
     const payload: any = {
-      nombre: form.nombre, descripcion: form.descripcion, color: form.color,
+      nombre: form.nombre, descripcion: form.descripcion,
       test_id: form.test_id || null,
       tipo: form.tipo,
       // Cada familia guarda lo suyo y limpia lo de las otras: un objetivo que fue métrico
@@ -145,8 +144,15 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     cargar()
   }
 
-  const articulaciones = etiquetas
-    .filter((e: any) => e.categoria === 'articulacion')
+  /**
+   * La categoría vive SOLO en la etiqueta raíz: sus hijas la heredan y tienen la columna
+   * a null. Filtrar por `e.categoria` dejaba fuera todo lo que cuelga de una raíz —que es
+   * casi todo— y por eso la lista de movimientos salía sin "Dorsiflexión" y no había
+   * manera de editar los específicos de un objetivo.
+   */
+  const deCategoria = (cat: string) => etiquetas.filter((e: any) => categoriaDe(etiquetas, e) === cat)
+
+  const articulaciones = deCategoria('articulacion')
     .sort((a: any, b: any) => ordenAnatomico(a.nombre, b.nombre))
 
   return (
@@ -206,16 +212,16 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 const movs = (o.movimientos || []).map((id: string) => nombreEt(id)).filter(Boolean)
                 const n = enUso[o.id] || 0
                 return (
-                  <div key={o.id} className="obj-card" style={{ borderTopColor: o.color || 'var(--g)' }}>
+                  <div key={o.id} className="obj-card">
                     {/* La imagen manda: es lo primero que se reconoce. Sin ella, la inicial
                         sobre el color del objetivo — veinte huecos grises iguales se leen
                         como que algo ha fallado, y el color ya separa fuerza de movilidad. */}
                     {/* El tinte se hace pegando alfa al hex, así que solo vale si HAY hex:
                         con `var(--g)` saldría `var(--g)14`, que el navegador tira. */}
-                    <div className="obj-card-img" style={{ background: o.color ? `${o.color}14` : 'var(--bl)' }}>
+                    <div className="obj-card-img">
                       {o.imagen_url
                         ? <img src={o.imagen_url} alt="" />
-                        : <span style={{ color: o.color || 'var(--g)' }}>{(o.nombre || '?').trim().charAt(0).toUpperCase()}</span>}
+                        : <span style={{ color: 'var(--g)' }}>{(o.nombre || '?').trim().charAt(0).toUpperCase()}</span>}
                     </div>
                     <div className="obj-card-b">
                       <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', lineHeight: 1.3 }}>
@@ -238,10 +244,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                           "Movilidad de tobillo"—, así que parecía que faltaban fichas. */}
                       {tipo === 'metrico' && (
                         movs.length > 0 ? (
-                          <div style={{ marginTop: 5, borderLeft: `2px solid ${o.color || 'var(--g)'}33`, paddingLeft: 9 }}>
+                          <div style={{ marginTop: 5, borderLeft: '2px solid var(--gm)', paddingLeft: 9 }}>
                             {movs.map((m: string) => (
                               <div key={m} style={{ fontSize: 12, color: 'var(--gr)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ width: 4, height: 4, borderRadius: '50%', background: o.color || 'var(--g)', flexShrink: 0 }} />
+                                <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--g)', flexShrink: 0 }} />
                                 {o.metrica === 'fuerza' ? 'Fuerza' : 'Movilidad'} · {m}
                               </div>
                             ))}
@@ -391,8 +397,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                     puede fijar un ítem de test. Sin ninguno, el objetivo no se puede medir.
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 150, overflowY: 'auto' }}>
-                    {etiquetas
-                      .filter((e: any) => e.categoria === 'movimiento')
+                    {deCategoria('movimiento')
                       .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
                       .map((e: any) => {
                         const sel = (form.movimientos || []).includes(e.id)
@@ -421,11 +426,13 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             {/* Solo en fases y cualitativos. Los métricos se describen con su articulación
                 y sus movimientos, que además tienen un papel: con ellos la app resuelve
                 sola qué test mide cada meta. */}
+            {/* Solo PATOLOGÍA. El músculo estaba aquí y no lo leía nadie: no proponía
+                objetivos, no movía nada, solo salía como píldora. La zona ya dice dónde
+                está el objetivo, así que repetir el músculo era pedir un dato de más. */}
             {form.tipo !== 'metrico' && (
-              <div className="field ancho"><label>Músculo y patología</label>
+              <div className="field ancho"><label>Patología</label>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 132, overflowY: 'auto' }}>
-                  {etiquetas
-                    .filter((e: any) => e.categoria === 'musculo' || e.categoria === 'patologia')
+                  {deCategoria('patologia')
                     .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
                     .map((e: any) => {
                       const sel = (form.etiquetas || []).includes(e.id)
@@ -445,15 +452,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 </div>
               </div>
             )}
-
-            <div className="field"><label>Color</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                {COLORES.map(c => (
-                  <div key={c} onClick={() => setForm((p: any) => ({ ...p, color: c }))}
-                    style={{ width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer', border: form.color === c ? '3px solid var(--n)' : '2px solid var(--bd)' }} />
-                ))}
-              </div>
-            </div>
 
             <div className="field ancho"><label>Test que lo abre (opcional)</label>
               <select className="input" value={form.test_id} disabled={guardando}

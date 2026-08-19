@@ -191,13 +191,13 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   /** El aro de la moneda: gris si está logrado, si no el color del objetivo. */
   const monedaDe = (o:any, grande=false) => (
     <span className={`obj-moneda${grande?' g':''}`} style={{
-      background: o.imagen_url ? 'var(--bl)' : ((o.color||'var(--g)')+'22'),
-      borderColor: o.logrado ? 'var(--gm)' : (o.color||'var(--g)'),
+      background: o.imagen_url ? 'var(--bl)' : 'var(--gl)',
+      borderColor: o.logrado ? 'var(--gm)' : 'var(--g)',
       opacity: o.logrado ? .55 : 1,
     }}>
       {o.imagen_url
         ? <img src={o.imagen_url} alt=""/>
-        : <b style={{color:o.color||'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
+        : <b style={{color:'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
     </span>
   )
 
@@ -292,7 +292,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     const vias = Array.isArray(o.vias)?o.vias:[]
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
     return (
-      <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
+      <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':'var(--g)'}}>
         {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la
             moneda que se acaba de pulsar para llegar aquí: repetirlos empujaba hacia abajo
             lo único que se viene a ver, que son las metas. Solo queda el contador, que sí
@@ -333,7 +333,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 }}
                 style={{
                   flex:1,height:7,borderRadius:3,border:'none',padding:0,cursor:'pointer',
-                  background: i < (o.fase_actual||0) ? (o.color||'var(--g)') : 'var(--bm)',
+                  background: i < (o.fase_actual||0) ? 'var(--g)' : 'var(--bm)',
                 }}/>
             ))}
             <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>
@@ -535,7 +535,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                     <div key={o.id}
                       onClick={()=>{ if(!tiene) setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]) }}
                       className="fila-p"
-                      style={{borderLeftColor:o.color||'var(--g)',display:'flex',alignItems:'center',gap:8,
+                      style={{borderLeftColor:'var(--g)',display:'flex',alignItems:'center',gap:8,
                         textAlign:'left',cursor:tiene?'default':'pointer',opacity:tiene?.5:1,
                         background:sel?'var(--gl)':'transparent'}}>
                       <span className={`chk ${sel?'on':''}`} style={{flexShrink:0,visibility:tiene?'hidden':'visible'}}>
