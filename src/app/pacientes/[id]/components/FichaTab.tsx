@@ -226,7 +226,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         {/* El general se escribe SIEMPRE. Mientras los objetivos no tengan foto la moneda
             es una letra, así que sin este renglón no hay forma de saber de qué zona es. */}
         <span className="obj-mon-g">{o.nombre}</span>
-        {esp.length > 0 && <span className="obj-mon-n">{esp.join(' · ')}</span>}
+        {/* Uno por línea. Juntos con puntos se leían como una frase larga y no como lo que
+            son: objetivos distintos, cada uno con sus metas y su propio recorrido. */}
+        {esp.map((e:string) => <span key={e} className="obj-mon-n">{e}</span>)}
       </button>
     )
   }
