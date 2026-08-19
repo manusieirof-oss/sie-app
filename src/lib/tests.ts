@@ -247,7 +247,7 @@ export async function registrarResultadoTest(
   let logrados = 0
 
   if (resultado === 'positivo') {
-    logrados += await abrirObjetivosDelTest(pacienteId, test, datos.contexto)
+    logrados += await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado)
     logrados += await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
   } else if (resultado === 'negativo') {
     // Negativo = no queda nada marcado, así que se cierran la vía del test y las de sus
@@ -316,13 +316,22 @@ export async function testsPositivosDe(pacienteId: string): Promise<UltimoResult
   return (await ultimosResultadosDe(pacienteId)).filter(r => r.resultado === 'positivo')
 }
 
-/** Objetivos vinculados al test entero (`objetivos.test_id`). */
-async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string) {
+/**
+ * Objetivos vinculados al test entero (`objetivos.test_id`).
+ *
+ * El LADO viaja también por aquí. Un objetivo puede colgar del test entero y no de un
+ * ítem —es lo normal cuando la ficha mide una sola cosa— y sin esto la meta del paciente
+ * nacía sin lado justo en el caso más frecuente.
+ */
+async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string, lado?: string) {
   const { data: objs } = await supabase.from('objetivos')
     .select('id').eq('test_id', test.id).eq('activo', true)
   const etiqueta = 'Test: ' + (test.nombre || 'test')
   for (const o of (objs || [])) {
-    await abrirOReabrir(pacienteId, o.id, { tipo: 'test', ref: test.id, etiqueta, resuelto: false, fecha_resuelto: null }, contexto)
+    await abrirOReabrir(pacienteId, o.id, {
+      tipo: 'test', ref: test.id, etiqueta, resuelto: false, fecha_resuelto: null,
+      mov: null, lado: lado || null,
+    }, contexto)
   }
   return 0
 }

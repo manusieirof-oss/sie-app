@@ -70,13 +70,23 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    */
   const origen = useMemo(() => {
     const vias = Array.isArray(objetivo.vias) ? objetivo.vias : []
-    const abiertas = vias.filter((v: any) => !v.resuelto && v.tipo === 'test_item' && String(v.ref || '').includes(':'))
-    // Con varias vías abiertas manda la que además concreta el movimiento: es la que
-    // trae más información. Si ninguna lo hace, vale la primera.
-    const v = abiertas.find((x: any) => x.mov && (objetivo.movimientos || []).includes(x.mov)) || abiertas[0]
+    // Valen los DOS caminos. Un objetivo puede colgar del test entero (`tipo: 'test'`) o
+    // de un ítem suyo (`tipo: 'test_item'`). Mirar solo el segundo dejaba fuera el caso
+    // más frecuente —una ficha que mide una sola cosa— y ahí la meta nacía sin lado.
+    const abiertas = vias.filter((v: any) => !v.resuelto && (v.tipo === 'test_item' || v.tipo === 'test'))
+    // De más informativa a menos: la que concreta el movimiento, la que al menos dice qué
+    // ítem, y por último la del test entero, que ya solo aporta el lado.
+    const conItemRef = (x: any) => x.tipo === 'test_item' && String(x.ref || '').includes(':')
+    const v = abiertas.find((x: any) => x.mov && (objetivo.movimientos || []).includes(x.mov))
+      || abiertas.find(conItemRef)
+      || abiertas[0]
     if (!v) return null
+    const conItem = conItemRef(v)
     const [testId, idx] = String(v.ref).split(':')
-    return { test_id: testId, item_indice: idx, mov: v.mov || '', lado: v.lado || '', etiqueta: v.etiqueta || '' }
+    return {
+      test_id: conItem ? testId : '', item_indice: conItem ? idx : '', conItem,
+      mov: v.mov || '', lado: v.lado || '', etiqueta: v.etiqueta || '',
+    }
   }, [objetivo])
 
   // La sugerencia se aplica sola al cambiar de movimiento, salvo que se haya pedido
@@ -141,7 +151,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   function abrir() {
     const o = origen
     const movValido = o?.mov && movimientos.some((m: any) => m.id === o.mov) ? o.mov : ''
-    const conTest = !!(o?.test_id && o.item_indice !== undefined)
+    const conTest = !!o?.conItem
     setF({
       movimiento_id: movValido || movimientos[0]?.id || '',
       lado: o?.lado || 'bilateral',
@@ -249,12 +259,14 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
             {/* De dónde viene todo lo que ya está puesto. Sin esta línea, encontrarse el
                 formulario relleno parece cosa de magia y no se sabe qué se puede tocar. */}
-            {f.desdeTest && origen?.etiqueta && (
+            {origen?.etiqueta && (
               <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: 'var(--gr)' }}>
                   Sale de <b>{origen.etiqueta}</b>
-                  {origen.lado && origen.lado !== 'bilateral' && <> · se midió el lado <b>{origen.lado}</b></>}.
-                  Viene puesto lo que dijo el test; cámbialo si hace falta.
+                  {origen.lado
+                    ? <> · se midió el lado <b>{origen.lado}</b></>
+                    : <> · ese test se registró sin lado, así que hay que elegirlo</>}.
+                  Lo que dijo el test viene puesto; cámbialo si hace falta.
                 </span>
               </div>
             )}
@@ -278,7 +290,8 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                 mide la diferencia entre los dos. Pedir un dato que no cambia el resultado
                 hace pensar que sí lo cambia. */}
             {f.tipo !== 'igualar_lados' && (
-              <div className="field"><label>Lado</label>
+              <div className="field">
+                <label>Lado{origen?.lado === f.lado && <span style={{ fontWeight: 400, color: 'var(--gd)' }}> · el que se midió</span>}</label>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {LADOS.map(([v, l]) => (
                     <button key={v} className={`chip-sel ${f.lado === v ? 'on' : ''}`}
