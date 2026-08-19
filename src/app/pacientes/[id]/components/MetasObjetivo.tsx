@@ -176,9 +176,9 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    *
    * El movimiento es una propiedad de la MEDICIÓN: el ítem mide dorsiflexión y solo
    * dorsiflexión. Cambiarlo a flexión plantar dejaría la meta evaluándose contra números
-   * de otro gesto, así que no es una opción sino una incoherencia. Solo se puede tocar
-   * soltando antes la medición ("Cambiar" en «Se mide con»), que es cuando deja de haber
-   * un ítem que mande.
+   * de otro gesto, así que no es una opción sino una incoherencia. En cuanto el test lo
+   * dice, NO SE PUEDE TOCAR: ni cambiando la medición. Si hace falta otro movimiento, se
+   * arregla en la biblioteca —qué mide ese ítem— y no aquí paciente a paciente.
    *
    * El lado es otra cosa: la misma medida existe en los dos, y querer la meta en el otro
    * lado —o en los dos— es una decisión clínica legítima. Ese sí se deja cambiar.
@@ -188,7 +188,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    * Dar por fijado un dato adivinado es peor que pedirlo.
    */
   const movLoDijoElTest = !!origen?.mov && movimientos.some((m: any) => m.id === origen.mov)
-  const movFijado = movLoDijoElTest && !f.manual
+  const movFijado = movLoDijoElTest
   const ladoFijado = !!origen?.lado && !f.abrirEleccion
 
   /**
@@ -386,6 +386,16 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                   }))}>
                   {movimientos.map((m: any) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                 </select>
+                {/* Que este selector aparezca no es normal: significa que el ítem del test
+                    no tiene dicho qué movimiento mide. Se dice UNA vez en la biblioteca y
+                    deja de preguntarse en todos los pacientes; callarlo aquí haría que se
+                    siguiera contestando a mano para siempre. */}
+                {origen && (
+                  <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
+                    {origen.etiqueta} no dice qué movimiento mide, por eso hay que elegirlo.
+                    Ponlo en Biblioteca → Tests, en ese ítem, y deja de preguntarse aquí.
+                  </div>
+                )}
               </div>
             )}
 
@@ -436,9 +446,15 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     {medicion.nombre} <span style={{ color: 'var(--gr)' }}>›</span> {medicion.item.nombre}
                     <span style={{ color: 'var(--gr)' }}> · {unidadDe(medicion.item).nombre.toLowerCase()}</span>
                   </span>
-                  <button className="btn btn-t btn-sm" onClick={() => setF((p: any) => ({ ...p, manual: true }))}>
-                    Cambiar
-                  </button>
+                  {/* Sin "Cambiar" cuando la medición viene del test que abrió el objetivo:
+                      ese test es el que se pasó y el que tiene los números. Cambiarlo sería
+                      poner la meta sobre algo que a este paciente nadie le ha medido.
+                      Solo se ofrece cuando la medición es una deducción nuestra. */}
+                  {!f.desdeTest && (
+                    <button className="btn btn-t btn-sm" onClick={() => setF((p: any) => ({ ...p, manual: true }))}>
+                      Cambiar
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
