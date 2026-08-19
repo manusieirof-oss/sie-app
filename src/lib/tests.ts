@@ -248,7 +248,7 @@ export async function registrarResultadoTest(
 
   if (resultado === 'positivo') {
     logrados += await abrirObjetivosDelTest(pacienteId, test, datos.contexto)
-    logrados += await moverObjetivosDeItems(pacienteId, test, items, datos.contexto)
+    logrados += await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
   } else if (resultado === 'negativo') {
     // Negativo = no queda nada marcado, así que se cierran la vía del test y las de sus
     // ítems de una vez. Hacerlo ítem a ítem dejaba abierta la del test entero.
@@ -331,7 +331,7 @@ async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: s
  * Objetivos que cuelgan de un ítem concreto: se abren si queda marcado y se resuelven
  * si no. La referencia es `testId:índice`, que es lo que `resolverViasDeTest` sabe leer.
  */
-async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemTest[], contexto?: string) {
+async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemTest[], contexto?: string, lado?: string) {
   let logrados = 0
   for (let i = 0; i < items.length; i++) {
     const it = items[i]
@@ -339,9 +339,15 @@ async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemT
     if (objIds.length === 0) continue
     const ref = test.id + ':' + i
     const etiqueta = 'Test: ' + (test.nombre || 'test') + ' · ' + (it.nombre || `ítem ${i + 1}`)
+    // Qué movimiento del objetivo mide este ítem, si se dejó dicho en la biblioteca.
+    // Se apunta en la vía para que la meta del paciente nazca ya concretada.
+    const movs = (it as any).objetivos_mov || {}
     for (const oid of objIds) {
       if (it.marcado) {
-        await abrirOReabrir(pacienteId, oid, { tipo: 'test_item', ref, etiqueta, resuelto: false, fecha_resuelto: null }, contexto)
+        await abrirOReabrir(pacienteId, oid, {
+          tipo: 'test_item', ref, etiqueta, resuelto: false, fecha_resuelto: null,
+          mov: movs[oid] || null, lado: lado || null,
+        }, contexto)
       } else {
         const r = await resolverVia(pacienteId, oid, 'test_item', ref, true, contexto || 'un test')
         if (r.ok && r.logrado) logrados++
@@ -365,8 +371,12 @@ async function abrirOReabrir(pacienteId: string, objetivoId: string, via: Via, c
   }
   const vias: Via[] = Array.isArray(exist.vias) ? exist.vias : []
   const yaEsta = vias.some((v: any) => v.tipo === via.tipo && v.ref === via.ref)
+  // Al reabrir se refrescan movimiento y lado: manda la medición de hoy, no la de marzo.
+  // El resto de la vía se conserva por si trae datos que aquí no se calculan.
   const nuevas = yaEsta
-    ? vias.map((v: any) => (v.tipo === via.tipo && v.ref === via.ref) ? { ...v, resuelto: false, fecha_resuelto: null } : v)
+    ? vias.map((v: any) => (v.tipo === via.tipo && v.ref === via.ref)
+      ? { ...v, resuelto: false, fecha_resuelto: null, mov: via.mov ?? v.mov ?? null, lado: via.lado ?? v.lado ?? null }
+      : v)
     : [...vias, via]
   const origen = (exist.origen || '').includes('test') ? exist.origen : (exist.origen ? exist.origen + '+test' : 'test')
   await guardarVias(pacienteId, objetivoId, nuevas, { origen, logradoAntes: !!exist.logrado, contexto: contexto || 'un test' })

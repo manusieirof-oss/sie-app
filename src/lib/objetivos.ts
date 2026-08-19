@@ -16,6 +16,18 @@ export type Via = {
   etiqueta?: string
   resuelto: boolean
   fecha_resuelto?: string | null
+  /**
+   * Qué movimiento y qué lado midió el test que abrió esta vía.
+   *
+   * El test ya lo sabe —el lunge mide dorsiflexión de tobillo, y se hizo sobre una pierna
+   * concreta—, así que la ficha del paciente no tiene por qué volver a preguntarlo para
+   * ponerle una meta. Antes ese dato se perdía al cruzar de un sitio a otro y había que
+   * reconstruirlo a mano, que es donde se cuelan las metas puestas sobre el lado sano.
+   *
+   * Opcionales: las vías anteriores no los tienen y siguen valiendo igual.
+   */
+  mov?: string | null
+  lado?: string | null
 }
 
 const hoy = () => new Date().toISOString().split('T')[0]

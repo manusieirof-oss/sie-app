@@ -29,7 +29,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 }) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [f, setF] = useState<any>({ movimiento_id: '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '', manual: false })
+  const [f, setF] = useState<any>({ movimiento_id: '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '', manual: false, desdeTest: false })
 
   const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || ''
   const movimientos = (objetivo.movimientos || []).map((id: string) => ({ id, nombre: nombreEt(id) })).filter((m: any) => m.nombre)
@@ -58,12 +58,34 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     return null
   }, [f.movimiento_id, tests, objetivo, etiquetas])
 
+  /**
+   * De dónde sale el objetivo: la vía que abrió el test.
+   *
+   * El test que abrió el objetivo ya dijo QUÉ movimiento mide y sobre QUÉ lado se midió.
+   * Preguntarlo otra vez aquí era rehacer a mano un trabajo ya hecho en la biblioteca, y
+   * era además donde se colaba el error clásico: poner la meta sobre el lado sano.
+   *
+   * Se cogen solo las vías ABIERTAS: una vía resuelta describe algo que ya se cerró, y
+   * proponerla como punto de partida de una meta nueva sería mirar al pasado.
+   */
+  const origen = useMemo(() => {
+    const vias = Array.isArray(objetivo.vias) ? objetivo.vias : []
+    const abiertas = vias.filter((v: any) => !v.resuelto && v.tipo === 'test_item' && String(v.ref || '').includes(':'))
+    // Con varias vías abiertas manda la que además concreta el movimiento: es la que
+    // trae más información. Si ninguna lo hace, vale la primera.
+    const v = abiertas.find((x: any) => x.mov && (objetivo.movimientos || []).includes(x.mov)) || abiertas[0]
+    if (!v) return null
+    const [testId, idx] = String(v.ref).split(':')
+    return { test_id: testId, item_indice: idx, mov: v.mov || '', lado: v.lado || '', etiqueta: v.etiqueta || '' }
+  }, [objetivo])
+
   // La sugerencia se aplica sola al cambiar de movimiento, salvo que se haya pedido
-  // elegir a mano. Sin esto habría que confirmarla en cada meta.
+  // elegir a mano o que la medición venga ya puesta por el test que abrió el objetivo:
+  // ahí manda el test de verdad, no una correspondencia deducida por el nombre.
   useEffect(() => {
-    if (f.manual || !sugerida) return
+    if (f.manual || f.desdeTest || !sugerida) return
     setF((p: any) => ({ ...p, test_id: sugerida.test_id, item_indice: String(sugerida.item_indice) }))
-  }, [sugerida, f.manual])
+  }, [sugerida, f.manual, f.desdeTest])
 
   const testSel = tests.find((t: any) => t.id === f.test_id)
   /** Solo los ítems que se miden: una casilla de sí/no no puede cerrar un "+20%". */
@@ -73,6 +95,14 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
   const itemElegido = f.item_indice !== '' ? itemsMedibles.find(it => it.i === Number(f.item_indice)) : null
   const unidad = itemElegido ? unidadDe(itemElegido).id : ''
+
+  /**
+   * Qué medición se enseña ya resuelta. Si el objetivo lo abrió un test, ese test es la
+   * medición: no hay nada que deducir ni que preguntar.
+   */
+  const medicion = f.desdeTest && testSel && itemElegido
+    ? { nombre: testSel.nombre, item: itemElegido }
+    : (sugerida ? { nombre: sugerida.nombre, item: sugerida.item } : null)
 
   /**
    * Lo último medido en ese ítem y lado, para proponerlo como punto de partida.
@@ -101,8 +131,26 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     return it ? { indice: it.i, nombre: it.nombre, contrario } : { indice: null, nombre: null, contrario }
   }, [f.tipo, f.movimiento_id, itemsMedibles, etiquetas])
 
+  /**
+   * La meta nace con todo lo que el test ya sabía: movimiento, lado, test e ítem.
+   *
+   * Lo único que queda por decidir es CUÁNTO se quiere mejorar, que es lo único que no
+   * puede saber nadie más que quien trata al paciente. Todo lo demás se puede cambiar
+   * igual, pero viene puesto.
+   */
   function abrir() {
-    setF({ movimiento_id: movimientos[0]?.id || '', lado: 'bilateral', tipo: 'mejorar', test_id: '', item_indice: '', item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '', manual: false })
+    const o = origen
+    const movValido = o?.mov && movimientos.some((m: any) => m.id === o.mov) ? o.mov : ''
+    const conTest = !!(o?.test_id && o.item_indice !== undefined)
+    setF({
+      movimiento_id: movValido || movimientos[0]?.id || '',
+      lado: o?.lado || 'bilateral',
+      tipo: 'mejorar',
+      test_id: conTest ? o!.test_id : '',
+      item_indice: conTest ? String(o!.item_indice) : '',
+      item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '',
+      manual: false, desdeTest: conTest,
+    })
     setModal(true)
   }
 
@@ -199,10 +247,28 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               <button className="modal-close" onClick={() => setModal(false)}><Ic name="cerrar" size={15} /></button>
             </div>
 
+            {/* De dónde viene todo lo que ya está puesto. Sin esta línea, encontrarse el
+                formulario relleno parece cosa de magia y no se sabe qué se puede tocar. */}
+            {f.desdeTest && origen?.etiqueta && (
+              <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+                  Sale de <b>{origen.etiqueta}</b>
+                  {origen.lado && origen.lado !== 'bilateral' && <> · se midió el lado <b>{origen.lado}</b></>}.
+                  Viene puesto lo que dijo el test; cámbialo si hace falta.
+                </span>
+              </div>
+            )}
+
             {movimientos.length > 0 && (
               <div className="field"><label>Movimiento</label>
+                {/* Cambiar de movimiento a mano deshace lo que puso el test: el ítem que
+                    medía la dorsiflexión no mide la flexión plantar. A partir de ahí manda
+                    la correspondencia deducida, que es la que sí sigue al movimiento. */}
                 <select className="input" value={f.movimiento_id}
-                  onChange={e => setF((p: any) => ({ ...p, movimiento_id: e.target.value }))}>
+                  onChange={e => setF((p: any) => ({
+                    ...p, movimiento_id: e.target.value,
+                    desdeTest: p.desdeTest && e.target.value === origen?.mov,
+                  }))}>
                   {movimientos.map((m: any) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                 </select>
               </div>
@@ -237,11 +303,11 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             {/* Obligatorio: una meta que nadie mide es una intención con un número.
                 Pero ya no se pregunta si la app puede resolverlo sola. */}
             <div className="field"><label>Se mide con</label>
-              {sugerida && !f.manual ? (
+              {medicion && !f.manual ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--gl)', borderRadius: 'var(--r)' }}>
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--n)' }}>
-                    {sugerida.nombre} <span style={{ color: 'var(--gr)' }}>›</span> {sugerida.item.nombre}
-                    <span style={{ color: 'var(--gr)' }}> · {unidadDe(sugerida.item).nombre.toLowerCase()}</span>
+                    {medicion.nombre} <span style={{ color: 'var(--gr)' }}>›</span> {medicion.item.nombre}
+                    <span style={{ color: 'var(--gr)' }}> · {unidadDe(medicion.item).nombre.toLowerCase()}</span>
                   </span>
                   <button className="btn btn-t btn-sm" onClick={() => setF((p: any) => ({ ...p, manual: true }))}>
                     Cambiar
@@ -249,7 +315,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                 </div>
               ) : (
                 <>
-                  {!sugerida && f.movimiento_id && (
+                  {!medicion && f.movimiento_id && (
                     <div style={{ fontSize: 12, color: '#8A6410', marginBottom: 5 }}>
                       No hay ningún test de esta zona con un ítem que mida ese movimiento. Elígelo a mano
                       o crea la medición en Biblioteca → Tests.
