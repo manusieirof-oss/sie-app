@@ -324,32 +324,60 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       mapa[clave].metas.push(m)
     }
     return Object.values(mapa).map((g: any) => {
-      g.metas.sort((a: any, b: any) => (ORDEN_LADO[a.lado] ?? 9) - (ORDEN_LADO[b.lado] ?? 9))
       g.todasCumplidas = g.metas.every((m: any) => estadoDeMeta(m, resultados).cumplida || m.cumplida)
 
       /**
-       * Lados MEDIDOS que todavía no tienen meta.
+       * Dentro del movimiento, un BLOQUE por medición: test + ítem.
        *
-       * Si el test se pasó en los dos y solo hay meta de uno, el que falta tiene que verse.
-       * Enseñar únicamente el lado que tiene meta hace pensar que el otro no se midió, y lo
-       * que pasa es lo contrario: se midió y se quedó sin objetivo, que es peor.
+       * Izquierdo y derecho van juntos porque son la misma medida en los dos lados, y lo
+       * que interesa es la diferencia. Pero dos ítems distintos —el lunge en bipedestación
+       * y el lunge con alza— NO son comparables entre sí, y ponerlos en la misma fila
+       * hacía leer como pareja lo que son dos mediciones separadas. Esos van uno debajo
+       * del otro.
        */
-      const ref = g.metas[0]
-      const conMeta = new Set(g.metas.map((m: any) => m.lado))
-      const medidos = new Set<string>()
-      if (ref?.test_id && ref.item_indice != null) {
-        for (const r of resultados) {
-          if (r.test_id !== ref.test_id) continue
-          const it = (r.items_resultado || [])[Number(ref.item_indice)]
-          const v = it ? parseFloat(valorDe(it)) : NaN
-          if (Number.isFinite(v)) medidos.add(r.lado || 'bilateral')
+      const bloques: Record<string, any> = {}
+      for (const m of g.metas as any[]) {
+        const clave = `${m.test_id}:${m.item_indice}`
+        if (!bloques[clave]) {
+          const t = tests.find((x: any) => x.id === m.test_id)
+          const it = (t?.items || [])[Number(m.item_indice)]
+          bloques[clave] = {
+            clave, test_id: m.test_id, item_indice: m.item_indice,
+            titulo: [t?.nombre, it?.nombre].filter(Boolean).join(' · '),
+            metas: [],
+          }
         }
+        bloques[clave].metas.push(m)
       }
-      g.sinMeta = Array.from(medidos).filter(l => !conMeta.has(l))
-        .sort((a, b) => (ORDEN_LADO[a] ?? 9) - (ORDEN_LADO[b] ?? 9))
+
+      g.bloques = Object.values(bloques).map((b: any) => {
+        b.metas.sort((x: any, y: any) => (ORDEN_LADO[x.lado] ?? 9) - (ORDEN_LADO[y.lado] ?? 9))
+        /**
+         * Lados MEDIDOS de ESTE ítem que todavía no tienen meta.
+         *
+         * Solo se proponen lados de la misma familia que los que ya hay: si las metas son
+         * de izquierdo y derecho, un resultado guardado como "bilateral" es basura de un
+         * registro mal hecho, y ofrecerlo como lado que falta invita a repetir el error.
+         */
+        const conMeta = new Set(b.metas.map((m: any) => m.lado))
+        const lateral = b.metas.some((m: any) => m.lado === 'izquierdo' || m.lado === 'derecho')
+        const medidos = new Set<string>()
+        for (const r of resultados) {
+          if (r.test_id !== b.test_id) continue
+          const it = (r.items_resultado || [])[Number(b.item_indice)]
+          const v = it ? parseFloat(valorDe(it)) : NaN
+          if (!Number.isFinite(v)) continue
+          const l = r.lado || 'bilateral'
+          if (lateral && l === 'bilateral') continue
+          medidos.add(l)
+        }
+        b.sinMeta = Array.from(medidos).filter(l => !conMeta.has(l))
+          .sort((x, y) => (ORDEN_LADO[x] ?? 9) - (ORDEN_LADO[y] ?? 9))
+        return b
+      })
       return g
     })
-  }, [metas, resultados, etiquetas])
+  }, [metas, resultados, etiquetas, tests])
 
   /** Borrar el movimiento entero: las metas de los dos lados se van juntas. */
   async function borrarGrupo(g: any) {
@@ -367,16 +395,22 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       {metas.length > 0 && (
         <div style={{ display: 'grid', gap: 6, marginBottom: 7 }}>
           {gruposPorMovimiento.map(g => (
-            <div key={g.clave} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', background: 'var(--bl)', borderRadius: 6 }}>
+            <div key={g.clave} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 9px', background: 'var(--bl)', borderRadius: 6 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {variosMov && (
                   <div style={{ fontSize: 12, color: 'var(--n)', marginBottom: 3 }}>{g.nombre}</div>
                 )}
-                {/* Los lados, uno al lado del otro. Verlos juntos es el punto: el que
-                    interesa casi siempre es la DIFERENCIA entre ellos, y en filas separadas
-                    había que compararlos de memoria. */}
+                {/* Un bloque por medición, APILADOS. Dentro, los dos lados en horizontal:
+                    esos sí son comparables entre sí, los ítems distintos no. */}
+                {g.bloques.map((b: any, bi: number) => (
+                <div key={b.clave} style={{ marginTop: bi > 0 ? 8 : 0, paddingTop: bi > 0 ? 8 : 0, borderTop: bi > 0 ? '1px solid var(--bd)' : 'none' }}>
+                {/* De qué medición sale este bloque. Solo hace falta si hay más de una:
+                    con una sola, ya lo dice el origen de abajo. */}
+                {g.bloques.length > 1 && b.titulo && (
+                  <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 3 }}>{b.titulo}</div>
+                )}
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                  {g.metas.map((m: any) => {
+                  {b.metas.map((m: any) => {
                     const e = estadoDeMeta(m, resultados)
                     const cumplida = e.cumplida || m.cumplida
                     const pct = e.progreso != null ? Math.round(e.progreso * 100) : null
@@ -400,7 +434,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     )
                   })}
                   {/* Lados medidos que se quedaron sin meta. Se pulsan y se crean. */}
-                  {g.sinMeta.map((l: string) => (
+                  {b.sinMeta.map((l: string) => (
                     <button key={l} type="button" onClick={abrir}
                       title="Se midió este lado pero no tiene meta. Pulsa para ponérsela."
                       style={{ minWidth: 118, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
@@ -409,6 +443,8 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                     </button>
                   ))}
                 </div>
+                </div>
+                ))}
               </div>
               <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }} onClick={abrir}>
                 {g.metas.length >= 2 ? 'Cambiar meta' : 'Añadir meta'}
