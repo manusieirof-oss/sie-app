@@ -113,7 +113,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       .then(({data}) => setMetas(data||[]))
     supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
       .then(({data}) => setResultadosTests(data||[]))
-    supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas').order('nombre').then(({data}) => setTestsLib(data||[]))
+    // `tipo_lado` hace falta para saber si un test va por lados o entero: es lo que decide
+    // qué columnas ofrece el formulario de meta.
+    supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas,tipo_lado').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
     supabase.from('objetivos').select('id,nombre,descripcion,color,tipo,metrica,movimientos,fases,articulacion_id,etiquetas')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))

@@ -159,11 +159,27 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    * Si se abre desde un lado concreto —el ámbar de "medido, sin meta"— solo sale ese.
    */
   const destinos = useMemo(() => {
+    /**
+     * O BILATERAL, O IZQUIERDO Y DERECHO. Nunca los tres.
+     *
+     * Salían las tres columnas porque en los resultados hay mediciones guardadas como
+     * "bilateral" —las de cuando el test no obligaba a elegir lado— conviviendo con las
+     * buenas. Son el mismo tobillo contado dos veces, y poner meta a las tres deja al
+     * objetivo esperando a una que nadie va a volver a medir.
+     *
+     * Manda la ficha del test: si es lateral, bilateral no existe y al revés. Si la ficha
+     * no lo dice, gana lo lateral, que es lo más específico.
+     */
+    const esLateral = testSel?.tipo_lado
+      ? testSel.tipo_lado === 'lateral'
+      : ladosConDato.some(x => x.lado === 'izquierdo' || x.lado === 'derecho')
+
     const base = ladosConDato
+      .filter(x => esLateral ? x.lado !== 'bilateral' : x.lado === 'bilateral')
       .map(x => ({ lado: x.lado, medido: x.valor }))
       .sort((a, b) => (ORDEN_LADO[a.lado] ?? 9) - (ORDEN_LADO[b.lado] ?? 9))
     return f.soloLado ? base.filter(d => d.lado === f.soloLado) : base
-  }, [ladosConDato, f.soloLado])
+  }, [ladosConDato, f.soloLado, testSel])
 
   /** A qué número hay que llegar en ese lado. Es lo que luego evalúa `estadoDeMeta`. */
   const objetivoDe = (d: any): number | null => {
@@ -365,7 +381,11 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
          * registro mal hecho, y ofrecerlo como lado que falta invita a repetir el error.
          */
         const conMeta = new Set(b.metas.map((m: any) => m.lado))
-        const lateral = b.metas.some((m: any) => m.lado === 'izquierdo' || m.lado === 'derecho')
+        // Igual que en el formulario: manda la ficha del test, y si no lo dice, lo lateral.
+        const tLado = tests.find((x: any) => x.id === b.test_id)?.tipo_lado
+        const lateral = tLado
+          ? tLado === 'lateral'
+          : b.metas.some((m: any) => m.lado === 'izquierdo' || m.lado === 'derecho')
         const medidos = new Set<string>()
         for (const r of resultados) {
           if (r.test_id !== b.test_id) continue
