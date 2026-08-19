@@ -176,9 +176,23 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
 
     const base = ladosConDato
       .filter(x => esLateral ? x.lado !== 'bilateral' : x.lado === 'bilateral')
-      .map(x => ({ lado: x.lado, medido: x.valor }))
+      .map(x => ({ lado: x.lado, medido: x.valor as number | null }))
       .sort((a, b) => (ORDEN_LADO[a.lado] ?? 9) - (ORDEN_LADO[b.lado] ?? 9))
-    return f.soloLado ? base.filter(d => d.lado === f.soloLado) : base
+
+    /**
+     * SIN NINGUNA MEDICIÓN TODAVÍA, las columnas salen de la lateralidad del test.
+     *
+     * Exigir que hubiera un resultado previo dejaba sin poder ponerle meta a un objetivo
+     * recién abierto, que es justo cuando más falta hace: decides adónde quieres llegar y
+     * luego mides. La meta nace sin punto de partida y se queda esperando a la primera
+     * medición, que es lo que `estadoDeMeta` ya sabía decir.
+     */
+    const conColumnas = base.length ? base
+      : esLateral
+        ? [{ lado: 'izquierdo', medido: null }, { lado: 'derecho', medido: null }]
+        : [{ lado: 'bilateral', medido: null }]
+
+    return f.soloLado ? conColumnas.filter(d => d.lado === f.soloLado) : conColumnas
   }, [ladosConDato, f.soloLado, testSel])
 
   /**
@@ -763,10 +777,13 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               </div>
             )}
 
-            {destinos.length === 0 && (
-              <div style={{ fontSize: 12, color: '#8A6410', marginTop: 6 }}>
-                Todavía no hay ninguna medición de este ítem, así que no hay de dónde partir.
-                Pasa el test y vuelve.
+            {/* Ya no bloquea: la meta se puede poner sin haber medido nunca. Solo se avisa
+                de lo que va a pasar, que es que quede esperando a la primera medición. */}
+            {destinos.every((d: any) => d.medido == null) && f.tipos?.includes('mejorar') && (
+              <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 6 }}>
+                Todavía no se ha medido este ítem. Puedes guardar la meta igual: si pones un
+                <b> valor</b> se evalúa desde la primera medición, y si pones un <b>%</b> quedará
+                esperando a esa primera para saber de dónde parte.
               </div>
             )}
 
