@@ -222,6 +222,13 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .chip-sel.niv-2{font-size:10px;padding:2px 8px;color:var(--grl);border-style:dashed;}
 .chip-sel.niv-1.on,.chip-sel.niv-2.on{color:var(--gd);}
 
+/* Formulario del objetivo en dos columnas. Los campos cortos —nombre, zona, métrica,
+   fases, color— van de dos en dos; los que necesitan sitio de verdad ocupan las dos.
+   En una sola columna a 860 px la mitad del modal quedaba en blanco. */
+.obj-form{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;align-items:start;}
+.obj-form .ancho{grid-column:1 / -1;}
+@media (max-width:720px){.obj-form{grid-template-columns:1fr;}}
+
 /* La MONEDA del objetivo en la ficha del paciente: imagen redonda con su color de aro.
    Tamaño fijo y `flex-shrink:0` para que todos los objetivos de la lista alineen el
    nombre en la misma vertical aunque unos tengan foto y otros no. */

@@ -481,7 +481,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       {/* AÑADIR OBJETIVO · hasta ahora solo llegaban solos, desde un test o desde el taller */}
       {modalAnadir && (
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalAnadir(false)}}>
-          <div className="modal">
+          {/* Es un explorador de la biblioteca entera con filtros: en 420 px las fichas
+              salían de una en una y no se podía comparar nada. */}
+          <div className="modal" style={{ width: 'min(860px, 94vw)' }}>
             <div className="modal-title">
               Añadir objetivo
               <button className="modal-close" onClick={()=>setModalAnadir(false)}><Ic name="cerrar" size={15}/></button>

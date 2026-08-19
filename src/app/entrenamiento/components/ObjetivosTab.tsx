@@ -282,13 +282,21 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !guardando) setModal(false) }}>
-          <div className="modal">
+          {/* Ancho: aquí se edita imagen, descripción, etiquetas y movimientos. En 420 px
+              cada cosa caía en su propia línea y había que hacer scroll para ver si ya
+              habías puesto algo. */}
+          <div className="modal" style={{ width: 'min(860px, 94vw)' }}>
             <div className="modal-title">
               {form.id ? 'Editar objetivo' : 'Nuevo objetivo'}
               <button className="modal-close" onClick={() => setModal(false)}><Ic name="cerrar" size={15} /></button>
             </div>
 
-            <div className="field"><label>Familia</label>
+            {/* Dos columnas. Con el modal ancho, un solo hilo de campos dejaba media
+                pantalla vacía y obligaba a bajar para ver lo que ya habías puesto.
+                Los selectores largos —movimientos, etiquetas, descripción— ocupan las
+                dos, porque son los que de verdad necesitan el ancho. */}
+            <div className="obj-form">
+            <div className="field ancho"><label>Familia</label>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {FAMILIAS.map(f => (
                   <button key={f.id} className={`chip-sel ${form.tipo === f.id ? 'on' : ''}`} title={f.ayuda}
@@ -328,7 +336,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                     dentro y no como cuatro fichas aparte: con 38 movimientos y dos métricas
                     serían casi cien objetivos que mantener, y es de donde venimos.
                     Hasta ahora venían del sembrador y no había forma de tocarlos. */}
-                <div className="field">
+                <div className="field ancho">
                   <label>Movimientos · los específicos de este objetivo</label>
                   <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
                     Son las opciones que se ofrecen al ponerle una meta a un paciente, y las que
@@ -374,7 +382,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 Los específicos —dorsiflexión, inversión— comparten la del general: son el
                 mismo gesto en direcciones distintas y cuatro ilustraciones casi iguales
                 aclararían poco. Si algún día uno necesita la suya, se le pone entonces. */}
-            <div className="field">
+            <div className="field ancho">
               <label>Imagen</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
                 <div style={{ position: 'relative', width: 96, height: 96, background: 'var(--bm)', borderRadius: 8, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -403,7 +411,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 y sus movimientos, que además tienen un papel: con ellos la app resuelve
                 sola qué test mide cada meta. */}
             {form.tipo !== 'metrico' && (
-              <div className="field"><label>Músculo y patología</label>
+              <div className="field ancho"><label>Músculo y patología</label>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 132, overflowY: 'auto' }}>
                   {etiquetas
                     .filter((e: any) => e.categoria === 'musculo' || e.categoria === 'patologia')
@@ -427,7 +435,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               </div>
             )}
 
-            <div className="field"><label>Descripción</label>
+            <div className="field ancho"><label>Descripción</label>
               <textarea className="input" value={form.descripcion} disabled={guardando}
                 onChange={e => setForm((p: any) => ({ ...p, descripcion: e.target.value }))}
                 placeholder="Qué se busca y cuándo se da por conseguido" />
@@ -442,7 +450,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               </div>
             </div>
 
-            <div className="field"><label>Test que lo abre (opcional)</label>
+            <div className="field ancho"><label>Test que lo abre (opcional)</label>
               <select className="input" value={form.test_id} disabled={guardando}
                 onChange={e => setForm((p: any) => ({ ...p, test_id: e.target.value }))}>
                 <option value="">— Ninguno —</option>
@@ -451,6 +459,8 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
                 Si ese test da positivo, este objetivo se abre solo en el paciente.
               </div>
+            </div>
+
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
