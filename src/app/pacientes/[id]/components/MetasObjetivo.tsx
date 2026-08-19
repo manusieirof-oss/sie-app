@@ -172,16 +172,24 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   const creandoAmbos = puedeAmbos && f.ambos
 
   /**
-   * ¿Contestó el test a todo? Entonces no se vuelve a preguntar.
+   * El MOVIMIENTO y el LADO no se fijan igual, aunque los diga el mismo test.
    *
-   * Se exige que lo dijera DE VERDAD: que traiga lado, y que el movimiento sea uno de los
-   * del objetivo. Si el movimiento lo hemos elegido nosotros por ser el primero de la
-   * lista, eso no es una decisión del test y hay que preguntarla — dar por fijado un dato
-   * adivinado es peor que pedirlo.
+   * El movimiento es una propiedad de la MEDICIÓN: el ítem mide dorsiflexión y solo
+   * dorsiflexión. Cambiarlo a flexión plantar dejaría la meta evaluándose contra números
+   * de otro gesto, así que no es una opción sino una incoherencia. Solo se puede tocar
+   * soltando antes la medición ("Cambiar" en «Se mide con»), que es cuando deja de haber
+   * un ítem que mande.
+   *
+   * El lado es otra cosa: la misma medida existe en los dos, y querer la meta en el otro
+   * lado —o en los dos— es una decisión clínica legítima. Ese sí se deja cambiar.
+   *
+   * Se exige además que el test lo dijera DE VERDAD: si el movimiento lo elegimos nosotros
+   * por ser el primero de la lista, eso no es una decisión del test y hay que preguntarla.
+   * Dar por fijado un dato adivinado es peor que pedirlo.
    */
   const movLoDijoElTest = !!origen?.mov && movimientos.some((m: any) => m.id === origen.mov)
-  const fijado = !!origen && !!origen.lado && !f.abrirEleccion
-    && (movimientos.length === 0 || movLoDijoElTest)
+  const movFijado = movLoDijoElTest && !f.manual
+  const ladoFijado = !!origen?.lado && !f.abrirEleccion
 
   /**
    * El punto de partida se rellena con lo medido, no se deja en blanco.
@@ -342,27 +350,31 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               se midió, y entonces la meta queda evaluándose contra un número que no es el
               suyo. Se enseña lo decidido y, si de verdad hay que cambiarlo, se abre.
             */}
-            {fijado && (
+            {(movFijado || ladoFijado) && (
               <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <b style={{ fontSize: 13, color: 'var(--n)' }}>
-                    {nombreEt(f.movimiento_id) || objetivo.nombre}
-                    {f.tipo !== 'igualar_lados' && (creandoAmbos
+                    {movFijado ? nombreEt(f.movimiento_id) : objetivo.nombre}
+                    {ladoFijado && f.tipo !== 'igualar_lados' && (creandoAmbos
                       ? <span style={{ color: 'var(--gd)' }}> · los dos lados</span>
                       : <span style={{ color: 'var(--gr)' }}> · {f.lado}</span>)}
                   </b>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
                     Lo dijo {origen!.etiqueta}
+                    {movFijado && <> · el movimiento lo fija la medición</>}
                   </span>
                 </span>
-                <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }}
-                  onClick={() => setF((p: any) => ({ ...p, abrirEleccion: true }))}>
-                  Cambiar
-                </button>
+                {/* Solo el lado. El movimiento se cambia soltando la medición, abajo. */}
+                {ladoFijado && f.tipo !== 'igualar_lados' && (
+                  <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }}
+                    onClick={() => setF((p: any) => ({ ...p, abrirEleccion: true }))}>
+                    Cambiar lado
+                  </button>
+                )}
               </div>
             )}
 
-            {!fijado && movimientos.length > 0 && (
+            {!movFijado && movimientos.length > 0 && (
               <div className="field"><label>Movimiento</label>
                 {/* Cambiar de movimiento a mano deshace lo que puso el test: el ítem que
                     medía la dorsiflexión no mide la flexión plantar. A partir de ahí manda
@@ -380,7 +392,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             {/* En "igualar lados" el lado no significa nada: la comparación es simétrica,
                 mide la diferencia entre los dos. Pedir un dato que no cambia el resultado
                 hace pensar que sí lo cambia. */}
-            {!fijado && f.tipo !== 'igualar_lados' && (
+            {!ladoFijado && f.tipo !== 'igualar_lados' && (
               <div className="field">
                 <label>Lado{origen?.lado === f.lado && <span style={{ fontWeight: 400, color: 'var(--gd)' }}> · el que se midió</span>}</label>
                 <div style={{ display: 'flex', gap: 4, opacity: creandoAmbos ? .45 : 1, pointerEvents: creandoAmbos ? 'none' : 'auto' }}>
