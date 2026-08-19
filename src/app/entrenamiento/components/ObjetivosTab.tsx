@@ -34,7 +34,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[] })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[], movimientos:[] as string[] })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -76,7 +76,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] })
+    setForm({ id:'', nombre:'', descripcion:'', color:COLORES[0], test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[], movimientos:[] })
     setModal(true)
   }
   function abrirEditar(o: any) {
@@ -84,6 +84,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'', color:o.color||COLORES[0],
       test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
       articulacion_id:o.articulacion_id||'', fases:o.fases||'', etiquetas:o.etiquetas||[],
+      movimientos:o.movimientos||[],
     })
     setModal(true)
   }
@@ -103,6 +104,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // Solo en fases y cualitativos: los métricos ya se describen con su articulación y
       // sus movimientos, y repetirlo aquí serían dos verdades para lo mismo.
       etiquetas: form.tipo === 'metrico' ? [] : (form.etiquetas || []),
+      // Los movimientos son los específicos, y solo tienen sentido en un métrico: en un
+      // objetivo por fases o cualitativo no hay nada que medir por movimiento.
+      movimientos: form.tipo === 'metrico' ? (form.movimientos || []) : [],
     }
     const r = form.id
       ? await supabase.from('objetivos').update(payload).eq('id', form.id)
@@ -195,12 +199,26 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                       {o.descripcion && (
                         <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5, marginTop: 2 }}>{o.descripcion}</div>
                       )}
-                      {/* Los movimientos son el menú del que se elige al poner una meta.
-                          Verlos aquí es lo que dice si el espacio está bien montado. */}
-                      {movs.length > 0 && (
-                        <div style={{ fontSize: 12, color: 'var(--grl)', marginTop: 3 }}>
-                          {movs.join(' · ')}
-                        </div>
+                      {/* LOS MOVIMIENTOS SON LOS OBJETIVOS ESPECÍFICOS, y se pintan como
+                          tales: colgando del general, uno por línea. Antes iban en una
+                          sola línea gris separados por puntos, y no se leían como lo que
+                          son —"mejorar la dorsiflexión de tobillo" vive dentro de
+                          "Movilidad de tobillo"—, así que parecía que faltaban fichas. */}
+                      {tipo === 'metrico' && (
+                        movs.length > 0 ? (
+                          <div style={{ marginTop: 5, borderLeft: `2px solid ${o.color || 'var(--g)'}33`, paddingLeft: 9 }}>
+                            {movs.map((m: string) => (
+                              <div key={m} style={{ fontSize: 12, color: 'var(--gr)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ width: 4, height: 4, borderRadius: '50%', background: o.color || 'var(--g)', flexShrink: 0 }} />
+                                {o.metrica === 'fuerza' ? 'Fuerza' : 'Movilidad'} · {m}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>
+                            Sin movimientos: no se le puede poner una meta a nadie.
+                          </div>
+                        )
                       )}
                       {(o.etiquetas || []).length > 0 && (
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
@@ -262,14 +280,47 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             </div>
 
             {form.tipo === 'metrico' && (
-              <div className="field"><label>Qué se mide</label>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {[['fuerza', 'Fuerza'], ['movilidad', 'Movilidad']].map(([v, l]) => (
-                    <button key={v} className={`chip-sel ${form.metrica === v ? 'on' : ''}`}
-                      onClick={() => setForm((p: any) => ({ ...p, metrica: v }))}>{l}</button>
-                  ))}
+              <>
+                <div className="field"><label>Qué se mide</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {[['fuerza', 'Fuerza'], ['movilidad', 'Movilidad']].map(([v, l]) => (
+                      <button key={v} className={`chip-sel ${form.metrica === v ? 'on' : ''}`}
+                        onClick={() => setForm((p: any) => ({ ...p, metrica: v }))}>{l}</button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+
+                {/* LOS MOVIMIENTOS SON LOS OBJETIVOS ESPECÍFICOS.
+                    "Movilidad de tobillo" es el general; dorsiflexión, flexión plantar,
+                    inversión y eversión son lo concreto que se entrena y se mide. Van aquí
+                    dentro y no como cuatro fichas aparte: con 38 movimientos y dos métricas
+                    serían casi cien objetivos que mantener, y es de donde venimos.
+                    Hasta ahora venían del sembrador y no había forma de tocarlos. */}
+                <div className="field">
+                  <label>Movimientos · los específicos de este objetivo</label>
+                  <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
+                    Son las opciones que se ofrecen al ponerle una meta a un paciente, y las que
+                    puede fijar un ítem de test. Sin ninguno, el objetivo no se puede medir.
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 150, overflowY: 'auto' }}>
+                    {etiquetas
+                      .filter((e: any) => e.categoria === 'movimiento')
+                      .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+                      .map((e: any) => {
+                        const sel = (form.movimientos || []).includes(e.id)
+                        return (
+                          <button key={e.id} className={`chip-sel ${sel ? 'on' : ''}`}
+                            onClick={() => setForm((p: any) => ({
+                              ...p,
+                              movimientos: sel
+                                ? (p.movimientos || []).filter((x: string) => x !== e.id)
+                                : [...(p.movimientos || []), e.id],
+                            }))}>{e.nombre}</button>
+                        )
+                      })}
+                  </div>
+                </div>
+              </>
             )}
 
             {form.tipo === 'fase' && (
