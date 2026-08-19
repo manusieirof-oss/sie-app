@@ -291,12 +291,71 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               <button className="modal-close" onClick={() => setModal(false)}><Ic name="cerrar" size={15} /></button>
             </div>
 
-            {/* Dos columnas. Con el modal ancho, un solo hilo de campos dejaba media
-                pantalla vacía y obligaba a bajar para ver lo que ya habías puesto.
-                Los selectores largos —movimientos, etiquetas, descripción— ocupan las
-                dos, porque son los que de verdad necesitan el ancho. */}
-            <div className="obj-form">
-            <div className="field ancho"><label>Familia</label>
+            {/*
+              CABECERA FIJA: imagen a la izquierda; nombre, zona y descripción a la derecha.
+
+              Es lo que tiene TODO objetivo, se llame como se llame su familia. Antes la
+              familia iba arriba del todo y al cambiarla se movía el formulario entero, así
+              que perdías de vista lo que ya habías escrito. Ahora arriba no se mueve nada y
+              lo que baila queda debajo de la familia, que es donde se ha decidido.
+            */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 4 }}>
+              {/* UNA IMAGEN PARA EL OBJETIVO ENTERO, no una por movimiento. Los específicos
+                  —dorsiflexión, inversión— comparten la del general: son el mismo gesto en
+                  direcciones distintas y cuatro ilustraciones casi iguales aclararían poco. */}
+              <div style={{ flexShrink: 0, width: 150 }}>
+                <div style={{ position: 'relative', width: 150, height: 150, background: 'var(--bm)', borderRadius: 10, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {form.imagen_url
+                    ? <img src={form.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <span style={{ color: 'var(--grl)' }}><Ic name="objetivo" size={38} /></span>}
+                  {form.imagen_url && (
+                    <button onClick={() => setForm((p: any) => ({ ...p, imagen_url: '', imagen_file: null }))}
+                      style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: 'var(--red)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                  )}
+                </div>
+                <label style={{ cursor: 'pointer', display: 'block', marginTop: 6 }}>
+                  <div className="btn btn-s btn-sm" style={{ width: '100%', justifyContent: 'center' }}>
+                    <Ic name="camara" size={12} /> {form.imagen_url ? 'Cambiar' : 'Subir'}
+                  </div>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} disabled={guardando}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) setForm((p: any) => ({ ...p, imagen_file: f, imagen_url: URL.createObjectURL(f) })) }} />
+                </label>
+                <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 5, lineHeight: 1.4 }}>
+                  La comparten todos sus movimientos.
+                </div>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="field"><label>Nombre *</label>
+                  <input className="input" value={form.nombre} autoFocus disabled={guardando}
+                    onChange={e => setForm((p: any) => ({ ...p, nombre: e.target.value }))}
+                    placeholder={form.tipo === 'metrico' ? 'ej. Fuerza de hombro' : 'ej. Aprender el puente de glúteo'} />
+                  {form.tipo === 'metrico' && (
+                    <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
+                      Sin movimiento ni lado en el nombre: eso se elige al asignárselo a un paciente.
+                    </div>
+                  )}
+                </div>
+
+                <div className="field"><label>Zona</label>
+                  <select className="input" value={form.articulacion_id} disabled={guardando}
+                    onChange={e => setForm((p: any) => ({ ...p, articulacion_id: e.target.value }))}>
+                    <option value="">— Sin zona concreta —</option>
+                    {articulaciones.map((a: any) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </select>
+                </div>
+
+                <div className="field" style={{ marginBottom: 0 }}><label>Descripción</label>
+                  <textarea className="input" value={form.descripcion} disabled={guardando} rows={3}
+                    onChange={e => setForm((p: any) => ({ ...p, descripcion: e.target.value }))}
+                    placeholder="Qué se busca y cuándo se da por conseguido" />
+                </div>
+              </div>
+            </div>
+
+            {/* LA FAMILIA, y de aquí abajo cambia todo. */}
+            <div className="field" style={{ borderTop: '1px solid var(--bd)', paddingTop: 12, marginTop: 12 }}>
+              <label>Familia</label>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {FAMILIAS.map(f => (
                   <button key={f.id} className={`chip-sel ${form.tipo === f.id ? 'on' : ''}`} title={f.ayuda}
@@ -308,17 +367,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               </div>
             </div>
 
-            <div className="field"><label>Nombre *</label>
-              <input className="input" value={form.nombre} autoFocus disabled={guardando}
-                onChange={e => setForm((p: any) => ({ ...p, nombre: e.target.value }))}
-                placeholder={form.tipo === 'metrico' ? 'ej. Fuerza de hombro' : 'ej. Aprender el puente de glúteo'} />
-              {form.tipo === 'metrico' && (
-                <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
-                  Sin movimiento ni lado en el nombre: eso se elige al asignárselo a un paciente.
-                </div>
-              )}
-            </div>
-
+            <div className="obj-form">
             {form.tipo === 'metrico' && (
               <>
                 <div className="field"><label>Qué se mide</label>
@@ -334,8 +383,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                     "Movilidad de tobillo" es el general; dorsiflexión, flexión plantar,
                     inversión y eversión son lo concreto que se entrena y se mide. Van aquí
                     dentro y no como cuatro fichas aparte: con 38 movimientos y dos métricas
-                    serían casi cien objetivos que mantener, y es de donde venimos.
-                    Hasta ahora venían del sembrador y no había forma de tocarlos. */}
+                    serían casi cien objetivos que mantener, y es de donde venimos. */}
                 <div className="field ancho">
                   <label>Movimientos · los específicos de este objetivo</label>
                   <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
@@ -370,43 +418,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               </div>
             )}
 
-            <div className="field"><label>Zona</label>
-              <select className="input" value={form.articulacion_id} disabled={guardando}
-                onChange={e => setForm((p: any) => ({ ...p, articulacion_id: e.target.value }))}>
-                <option value="">— Sin zona concreta —</option>
-                {articulaciones.map((a: any) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-              </select>
-            </div>
-
-            {/* UNA IMAGEN PARA EL OBJETIVO ENTERO, no una por movimiento.
-                Los específicos —dorsiflexión, inversión— comparten la del general: son el
-                mismo gesto en direcciones distintas y cuatro ilustraciones casi iguales
-                aclararían poco. Si algún día uno necesita la suya, se le pone entonces. */}
-            <div className="field ancho">
-              <label>Imagen</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
-                <div style={{ position: 'relative', width: 96, height: 96, background: 'var(--bm)', borderRadius: 8, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {form.imagen_url
-                    ? <img src={form.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <span style={{ color: 'var(--grl)' }}><Ic name="objetivo" size={26} /></span>}
-                  {form.imagen_url && (
-                    <button onClick={() => setForm((p: any) => ({ ...p, imagen_url: '', imagen_file: null }))}
-                      style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'var(--red)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10 }}>✕</button>
-                  )}
-                </div>
-                <div>
-                  <label style={{ cursor: 'pointer' }}>
-                    <div className="btn btn-s btn-sm"><Ic name="camara" size={12} /> {form.imagen_url ? 'Cambiar' : 'Subir'}</div>
-                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={guardando}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) setForm((p: any) => ({ ...p, imagen_file: f, imagen_url: URL.createObjectURL(f) })) }} />
-                  </label>
-                  <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 5, maxWidth: 260, lineHeight: 1.5 }}>
-                    La comparten todos sus movimientos.
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Solo en fases y cualitativos. Los métricos se describen con su articulación
                 y sus movimientos, que además tienen un papel: con ellos la app resuelve
                 sola qué test mide cada meta. */}
@@ -434,12 +445,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 </div>
               </div>
             )}
-
-            <div className="field ancho"><label>Descripción</label>
-              <textarea className="input" value={form.descripcion} disabled={guardando}
-                onChange={e => setForm((p: any) => ({ ...p, descripcion: e.target.value }))}
-                placeholder="Qué se busca y cuándo se da por conseguido" />
-            </div>
 
             <div className="field"><label>Color</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
