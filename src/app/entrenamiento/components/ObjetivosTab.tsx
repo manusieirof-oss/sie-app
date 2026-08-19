@@ -198,7 +198,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             {(objetivos || []).length === 0 ? 'Sin objetivos todavía.' : 'Ninguno coincide.'}
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: 5 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(232px,1fr))', gap: 12 }}>
             {filtrados
               .filter((o: any) => familia !== 'sin' || !o.tipo)
               .map((o: any) => {
@@ -206,12 +206,19 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 const movs = (o.movimientos || []).map((id: string) => nombreEt(id)).filter(Boolean)
                 const n = enUso[o.id] || 0
                 return (
-                  <div key={o.id} className="fila-p" style={{ borderLeftColor: o.color || 'var(--g)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    {o.imagen_url && (
-                      <img src={o.imagen_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bd)', flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <div key={o.id} className="obj-card" style={{ borderTopColor: o.color || 'var(--g)' }}>
+                    {/* La imagen manda: es lo primero que se reconoce. Sin ella, la inicial
+                        sobre el color del objetivo — veinte huecos grises iguales se leen
+                        como que algo ha fallado, y el color ya separa fuerza de movilidad. */}
+                    {/* El tinte se hace pegando alfa al hex, así que solo vale si HAY hex:
+                        con `var(--g)` saldría `var(--g)14`, que el navegador tira. */}
+                    <div className="obj-card-img" style={{ background: o.color ? `${o.color}14` : 'var(--bl)' }}>
+                      {o.imagen_url
+                        ? <img src={o.imagen_url} alt="" />
+                        : <span style={{ color: o.color || 'var(--g)' }}>{(o.nombre || '?').trim().charAt(0).toUpperCase()}</span>}
+                    </div>
+                    <div className="obj-card-b">
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', lineHeight: 1.3 }}>
                         {o.nombre}
                         {tipo === 'metrico' && o.metrica && <span className="pill pill-o on">{o.metrica === 'fuerza' ? 'Fuerza' : 'Movilidad'}</span>}
                         {tipo === 'fase' && <span className="pill pill-soft">{o.fases || '?'} fases</span>}
@@ -219,7 +226,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                         {o.articulacion_id && <span style={{ fontSize: 12, color: 'var(--gr)' }}>{nombreEt(o.articulacion_id)}</span>}
                       </div>
                       {o.descripcion && (
-                        <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5, marginTop: 2 }}>{o.descripcion}</div>
+                        // Cortada a cuatro líneas: una descripción larga estiraba su
+                        // tarjeta y descolocaba toda la fila de la rejilla. Entera se lee
+                        // al abrir el objetivo.
+                        <div title={o.descripcion} style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5, marginTop: 4, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{o.descripcion}</div>
                       )}
                       {/* LOS MOVIMIENTOS SON LOS OBJETIVOS ESPECÍFICOS, y se pintan como
                           tales: colgando del general, uno por línea. Antes iban en una
@@ -255,14 +265,14 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                         </div>
                       )}
                     </div>
-                    <span style={{ fontSize: 12, color: n > 0 ? 'var(--gd)' : 'var(--grl)', flexShrink: 0, whiteSpace: 'nowrap' }}
-                      title={n > 0 ? `${n} pacientes lo tienen abierto` : 'No lo tiene abierto nadie'}>
-                      {n > 0 ? `${n} abiertos` : '—'}
-                    </span>
-                    <span style={{ display: 'inline-flex', gap: 3, flexShrink: 0 }}>
+                    <div className="obj-card-f">
+                      <span style={{ flex: 1, fontSize: 12, color: n > 0 ? 'var(--gd)' : 'var(--grl)', whiteSpace: 'nowrap' }}
+                        title={n > 0 ? `${n} pacientes lo tienen abierto` : 'No lo tiene abierto nadie'}>
+                        {n > 0 ? `${n} abiertos` : '—'}
+                      </span>
                       <button className="et-b" title="Editar" onClick={() => abrirEditar(o)}><Ic name="editar" size={13} /></button>
                       <button className="et-b et-b-r" title="Borrar" onClick={() => eliminar(o)}><Ic name="papelera" size={13} /></button>
-                    </span>
+                    </div>
                   </div>
                 )
               })}
