@@ -276,67 +276,111 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     setModal(false); onCambio()
   }
 
-  async function borrar(m: Meta) {
-    if (!confirm('¿Quitar esta meta?')) return
-    await supabase.from('objetivos_metas').delete().eq('id', m.id)
+  const LADOS = [['bilateral', 'Bilateral'], ['izquierdo', 'Izquierdo'], ['derecho', 'Derecho']] as const
+
+  /** ¿Hay metas de más de un movimiento? Decide si la fila necesita repetirlo. */
+  const variosMov = new Set(metas.map((m: any) => m.movimiento_id).filter(Boolean)).size > 1
+
+  /**
+   * Las metas agrupadas POR MOVIMIENTO, con sus lados dentro.
+   *
+   * Izquierdo y derecho del mismo gesto son dos filas en la base pero UNA sola cosa en la
+   * cabeza de quien trata: lo que se mira es la diferencia entre ellos. En filas separadas
+   * había que compararlos de memoria y se perdía justo el dato importante.
+   *
+   * El orden de los lados es fijo —izquierdo, derecho, bilateral— y no el de creación: si
+   * bailan de sitio entre un objetivo y otro, comparar de un vistazo deja de funcionar.
+   */
+  const ORDEN_LADO: Record<string, number> = { izquierdo: 0, derecho: 1, bilateral: 2 }
+  const gruposPorMovimiento = useMemo(() => {
+    const mapa: Record<string, any> = {}
+    for (const m of metas as any[]) {
+      const clave = m.movimiento_id || 'sin'
+      if (!mapa[clave]) mapa[clave] = { clave, nombre: m.movimiento_id ? nombreEt(m.movimiento_id) : 'Meta', metas: [] }
+      mapa[clave].metas.push(m)
+    }
+    return Object.values(mapa).map((g: any) => {
+      g.metas.sort((a: any, b: any) => (ORDEN_LADO[a.lado] ?? 9) - (ORDEN_LADO[b.lado] ?? 9))
+      g.todasCumplidas = g.metas.every((m: any) => estadoDeMeta(m, resultados).cumplida || m.cumplida)
+      return g
+    })
+  }, [metas, resultados, etiquetas])
+
+  /** Borrar el movimiento entero: las metas de los dos lados se van juntas. */
+  async function borrarGrupo(g: any) {
+    const n = g.metas.length
+    if (!confirm(n > 1 ? `¿Quitar las ${n} metas de ${g.nombre}?` : '¿Quitar esta meta?')) return
+    for (const m of g.metas) await supabase.from('objetivos_metas').delete().eq('id', m.id)
     // Quitar la única meta abierta puede dejar el objetivo cumplido, o quitar la última
     // de todas puede dejarlo sin nada que lo cierre. Las dos hay que recalcularlas.
     await revisarObjetivos(pacienteId)
     onCambio()
   }
 
-  const LADOS = [['bilateral', 'Bilateral'], ['izquierdo', 'Izquierdo'], ['derecho', 'Derecho']] as const
-
-  /** ¿Hay metas de más de un movimiento? Decide si la fila necesita repetirlo. */
-  const variosMov = new Set(metas.map((m: any) => m.movimiento_id).filter(Boolean)).size > 1
-
   return (
     <div style={{ marginTop: 7 }}>
       {metas.length > 0 && (
-        <div style={{ display: 'grid', gap: 3, marginBottom: 6 }}>
-          {metas.map(m => {
-            const e = estadoDeMeta(m, resultados)
-            const cumplida = e.cumplida || m.cumplida
-            const mov = m.movimiento_id ? nombreEt(m.movimiento_id) : ''
-            const tipoNom = TIPOS_META.find(t => t.id === m.tipo)?.nombre || m.tipo
-            // El movimiento ya va de titular arriba, así que aquí solo se repite cuando
-            // hay más de uno y hace falta para distinguir las filas. Si no, manda el lado,
-            // que es lo que de verdad separa una meta de la otra.
-            const partes = [variosMov ? mov : '', m.lado !== 'bilateral' ? m.lado : ''].filter(Boolean)
-            const titulo = partes.length ? partes.join(' · ') : (mov || 'Meta')
-            return (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: 'var(--bl)', borderRadius: 4 }}>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
-                  <span style={{ color: 'var(--n)', textTransform: 'capitalize' }}>{titulo}</span>
-                  <span style={{ color: 'var(--grl)' }}> · {tipoNom.toLowerCase()}</span>
-                  <span style={{ display: 'block', color: cumplida ? 'var(--gd)' : 'var(--gr)', marginTop: 1 }}>{e.texto}</span>
-                </span>
-                {/* La barra solo aparece si hay con qué calcularla. Una barra a cero cuando
-                    aún no se ha medido nada dice algo falso. */}
-                {e.progreso != null && !cumplida && (
-                  <span style={{ width: 54, height: 5, background: 'var(--bm)', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
-                    <span style={{ display: 'block', height: '100%', width: `${Math.round(e.progreso * 100)}%`, background: 'var(--g)' }} />
-                  </span>
+        <div style={{ display: 'grid', gap: 6, marginBottom: 7 }}>
+          {gruposPorMovimiento.map(g => (
+            <div key={g.clave} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', background: 'var(--bl)', borderRadius: 6 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {variosMov && (
+                  <div style={{ fontSize: 12, color: 'var(--n)', marginBottom: 3 }}>{g.nombre}</div>
                 )}
-                <button className="et-b" title={cumplida ? 'Reabrir' : 'Dar por cumplida'} style={{ flexShrink: 0 }}
-                  onClick={async () => {
-                    await cerrarMetaAMano(m.id, !cumplida)
-                    await revisarObjetivos(pacienteId)
-                    onCambio()
-                  }}>
-                  <Ic name={cumplida ? 'check' : 'checkbox'} size={13} />
-                </button>
-                <button className="et-b et-b-r" title="Quitar" style={{ flexShrink: 0 }} onClick={() => borrar(m)}>
-                  <Ic name="papelera" size={12} />
-                </button>
+                {/* Los lados, uno al lado del otro. Verlos juntos es el punto: el que
+                    interesa casi siempre es la DIFERENCIA entre ellos, y en filas separadas
+                    había que compararlos de memoria. */}
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  {g.metas.map((m: any) => {
+                    const e = estadoDeMeta(m, resultados)
+                    const cumplida = e.cumplida || m.cumplida
+                    const pct = e.progreso != null ? Math.round(e.progreso * 100) : null
+                    return (
+                      <div key={m.id} style={{ minWidth: 118 }}>
+                        <div style={{ fontSize: 11, color: 'var(--grl)', textTransform: 'capitalize' }}>{m.lado}</div>
+                        <div style={{ fontSize: 12, color: cumplida ? 'var(--gd)' : 'var(--n)' }}>{e.texto}</div>
+                        {/* La barra llevaba el porcentaje al lado desde nunca: se veía una
+                            barra a medias sin decir de qué. */}
+                        {pct != null && !cumplida && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                            <span style={{ flex: 1, height: 5, background: 'var(--bm)', borderRadius: 3, overflow: 'hidden' }}>
+                              <span style={{ display: 'block', height: '100%', width: `${pct}%`, background: 'var(--g)' }} />
+                            </span>
+                            <span style={{ fontSize: 11, color: 'var(--gr)' }}>{pct}%</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            )
-          })}
+              <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }} onClick={abrir}>
+                {g.metas.length >= 2 ? 'Cambiar meta' : 'Añadir meta'}
+              </button>
+              {/* El check y la papelera actúan sobre TODO el movimiento, los dos lados. */}
+              <button className="et-b" style={{ flexShrink: 0 }}
+                title={g.todasCumplidas ? 'Reabrir el movimiento' : 'Dar por corregido el movimiento'}
+                onClick={async () => {
+                  for (const m of g.metas) await cerrarMetaAMano(m.id, !g.todasCumplidas)
+                  await revisarObjetivos(pacienteId)
+                  onCambio()
+                }}>
+                <Ic name={g.todasCumplidas ? 'check' : 'checkbox'} size={13} />
+              </button>
+              <button className="et-b et-b-r" style={{ flexShrink: 0 }}
+                title={g.metas.length > 1 ? 'Quitar las metas de los dos lados' : 'Quitar la meta'}
+                onClick={() => borrarGrupo(g)}>
+                <Ic name="papelera" size={12} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
+
+      {/* Este añade OTRO movimiento. El de cada fila retoca el que ya está. */}
       <button className="btn btn-t btn-sm" onClick={abrir}>
-        <Ic name="mas" size={12} /> Añadir meta
+        <Ic name="mas" size={12} /> {metas.length > 0 ? 'Añadir otro movimiento' : 'Añadir meta'}
       </button>
 
       {modal && (

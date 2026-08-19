@@ -133,9 +133,13 @@ export function estadoDeMeta(meta: Meta, resultados: any[]): Estado {
   if (meta.tipo === 'mejorar') {
     // Un "+20%" necesita punto de partida. Si aún no se ha medido, se dice, en vez de
     // enseñar un porcentaje calculado sobre cero.
+    // Un porcentaje sobre CERO es cero: "mejorar un 20%" desde 0 daba objetivo 0, la meta
+    // nacía cumplida y en pantalla ponía "3 cm de 0 cm". Cero no es un punto de partida,
+    // es la ausencia de uno —normalmente porque la medición no llegó— y hay que decirlo.
     const base = meta.valor_inicial
+    const baseValida = base != null && base !== 0
     const objetivo = meta.meta_valor != null ? meta.meta_valor
-      : (base != null && meta.meta_pct != null) ? base * (1 + meta.meta_pct / 100)
+      : (baseValida && meta.meta_pct != null) ? base * (1 + meta.meta_pct / 100)
       : null
     if (objetivo == null) return vacio('Pendiente de la primera medición')
     if (actual == null) return { actual: null, referencia: objetivo, cumplida: !!meta.cumplida, texto: `Objetivo ${redondea(objetivo)}${u}, sin medir todavía`, progreso: null }

@@ -220,41 +220,88 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     )
   }
 
+  /**
+   * De dónde sale el objetivo: agrupado POR TEST, y dentro cada ítem que lo abrió.
+   *
+   * Un objetivo puede venir de varios tests a la vez —el lunge y la sentadilla profunda
+   * abren los dos "Movilidad de tobillo"— y en una tira plana de píldoras eso se leía como
+   * una lista de cosas sueltas. Agrupado se ve de un vistazo cuántas puertas quedan
+   * abiertas y por dónde.
+   *
+   * Lo RESUELTO se pliega, no se borra: dejó de estar activo pero explica el histórico, y
+   * mezclarlo con lo vigente hace parecer que hay más pendiente del que hay.
+   */
+  const pintarOrigen = (o:any, vias:any[]) => {
+    const grupos: Record<string, {titulo:string, items:{v:any, vi:number}[]}> = {}
+    vias.forEach((v:any, vi:number) => {
+      // La etiqueta es "Test: Lunge de tobillo · El talón se levanta": lo de antes del
+      // primer punto medio es el test, lo de después el ítem.
+      const et = String(v.etiqueta || v.tipo || '')
+      const corte = et.indexOf(' · ')
+      const titulo = corte > 0 ? et.slice(0, corte) : et
+      const item = corte > 0 ? et.slice(corte + 3) : ''
+      if (!grupos[titulo]) grupos[titulo] = { titulo, items: [] }
+      grupos[titulo].items.push({ v: { ...v, _item: item }, vi })
+    })
+
+    const pastilla = (x:{v:any,vi:number}) => (
+      <button key={x.vi} type="button" disabled={guardandoVia===o.id}
+        onClick={()=>toggleVia(o,x.vi)}
+        title={x.v.resuelto
+          ? `Resuelto${x.v.fecha_resuelto?' el '+fmtLargo(x.v.fecha_resuelto):''} · pulsa para reabrir`
+          : 'Pendiente · pulsa para darla por resuelta'}
+        className={`pill pill-o pill-b ${x.v.resuelto?'on':''}`}
+        style={{textDecoration:x.v.resuelto?'line-through':'none'}}>
+        <Ic name={x.v.resuelto ? 'check' : 'buscar'} size={10} style={{verticalAlign:'-1px',marginRight:3}}/>
+        {x.v._item || x.v.etiqueta || x.v.tipo}
+      </button>
+    )
+
+    return (
+      <div style={{marginTop:7,display:'grid',gap:5}}>
+        {Object.values(grupos).map(g => {
+          const activos = g.items.filter(x=>!x.v.resuelto)
+          const cerrados = g.items.filter(x=>x.v.resuelto)
+          return (
+            <div key={g.titulo}>
+              <div style={{fontSize:11,color:'var(--grl)',marginBottom:3}}>{g.titulo}</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                {activos.map(pastilla)}
+                {activos.length===0 && cerrados.length>0 && (
+                  <span style={{fontSize:12,color:'var(--gd)'}}>Nada pendiente aquí</span>
+                )}
+              </div>
+              {cerrados.length>0 && (
+                <details style={{marginTop:4}}>
+                  <summary className="det-sum" style={{fontSize:11}}>
+                    Ya resueltos · {cerrados.length}
+                  </summary>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>{cerrados.map(pastilla)}</div>
+                </details>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   const pintarObjetivo = (o:any) => {
     const vias = Array.isArray(o.vias)?o.vias:[]
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
-    const especificos = especificosDe(o)
     return (
       <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':(o.color||'var(--g)')}}>
-        <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-          {/* La moneda. Redonda y no cuadrada a propósito: en la biblioteca la tarjeta es
-              la ficha del objetivo y la imagen manda, pero aquí el objetivo es una línea
-              más de la ficha del paciente y lo redondo se lee como marca, no como
-              contenido. Sin foto va la inicial sobre su color, que ya distingue fuerza de
-              movilidad; un hueco gris repetido se lee como que algo ha fallado. */}
-          {monedaDe(o)}
-          <div style={{flex:1,minWidth:0}}>
-            {/* El general va pequeño y encima: es la zona, el titular de verdad es lo que
-                se está trabajando. Cuando no hay específicos —fases, cualitativos, o un
-                métrico todavía sin meta— el general vuelve a ser el titular, porque si no
-                la línea se quedaría sin nombre. */}
-            {especificos.length > 0 ? (
-              <>
-                <div style={{fontSize:12,color:'var(--gr)',lineHeight:1.3}}>{o.nombre}</div>
-                <div style={{fontSize:14,fontWeight:500,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none',lineHeight:1.35,marginTop:1}}>
-                  {especificos.join(' · ')}
-                </div>
-              </>
-            ) : (
-              <div style={{fontSize:13,color:o.logrado?'var(--gr)':'var(--n)',textDecoration:o.logrado?'line-through':'none'}}>{o.nombre}</div>
-            )}
-            {o.descripcion && <div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{o.descripcion}</div>}
+        {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la
+            moneda que se acaba de pulsar para llegar aquí: repetirlos empujaba hacia abajo
+            lo único que se viene a ver, que son las metas. Solo queda el contador, que sí
+            dice algo que la rejilla no dice. */}
+        {(o.logrado || vias.length>0) && (
+          <div style={{display:'flex',justifyContent:'flex-end'}}>
+            {o.logrado
+              ? <span style={{fontSize:12,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="check" size={12}/>Logrado</span>
+              : <span style={{fontSize:12,color:'var(--gr)'}}>{pendientes} de {vias.length}</span>}
           </div>
-          {o.logrado
-            ? <span style={{fontSize:12,color:'var(--gd)',flexShrink:0,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="check" size={12}/>Logrado</span>
-            : (vias.length>0 && <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>{pendientes} de {vias.length}</span>)
-          }
-        </div>
+        )}
         {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
         {/* Los métricos se cierran con metas, no con vías: el número lo pone una medición.
             Por eso no se les ofrece "dar por logrado" a secas. */}
@@ -306,22 +353,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </button>
           </div>
         )}
-        {vias.length>0 && (
-          <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
-            {vias.map((v:any,vi:number)=>(
-              <button key={vi} type="button" disabled={guardandoVia===o.id}
-                onClick={()=>toggleVia(o,vi)}
-                title={v.resuelto
-                  ? `Resuelto${v.fecha_resuelto?' el '+fmtLargo(v.fecha_resuelto):''} · pulsa para reabrir`
-                  : 'Pendiente · pulsa para darla por resuelta'}
-                className={`pill pill-o pill-b ${v.resuelto?'on':''}`}
-                style={{textDecoration:v.resuelto?'line-through':'none'}}>
-                <Ic name={v.resuelto ? 'check' : v.tipo==='test'||v.tipo==='test_item' ? 'buscar' : v.tipo==='ejecucion' ? 'fuerza' : 'editar'}
-                  size={10} style={{verticalAlign:'-1px',marginRight:3}}/>{v.etiqueta||v.tipo}
-              </button>
-            ))}
-          </div>
-        )}
+        {vias.length>0 && pintarOrigen(o, vias)}
       </div>
     )
   }
