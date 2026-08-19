@@ -220,16 +220,22 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    * puede saber nadie más que quien trata al paciente. Todo lo demás se puede cambiar
    * igual, pero viene puesto.
    */
-  function abrir() {
+  /**
+   * @param pre Bloque desde el que se abre. Al pulsar "Cambiar meta" en una medición
+   *   concreta, el formulario tiene que llegar con ESA medición, no con la que dedujo el
+   *   origen: si no, el botón del segundo ítem editaba el primero.
+   */
+  function abrir(pre?: { movimiento_id?: string, test_id?: string, item_indice?: any, lado?: string }) {
     const o = origen
-    const movValido = o?.mov && movimientos.some((m: any) => m.id === o.mov) ? o.mov : ''
-    const conTest = !!o?.conItem
+    const movValido = pre?.movimiento_id
+      || (o?.mov && movimientos.some((m: any) => m.id === o.mov) ? o.mov : '')
+    const conTest = pre?.test_id ? true : !!o?.conItem
     setF({
       movimiento_id: movValido || movimientos[0]?.id || '',
-      lado: o?.lado || 'bilateral',
+      lado: pre?.lado || o?.lado || 'bilateral',
       tipo: 'mejorar',
-      test_id: conTest ? o!.test_id : '',
-      item_indice: conTest ? String(o!.item_indice) : '',
+      test_id: pre?.test_id || (conTest ? o!.test_id : ''),
+      item_indice: pre?.item_indice != null ? String(pre.item_indice) : (conTest ? String(o!.item_indice) : ''),
       item_par_indice: '', valor_inicial: '', meta_pct: '20', meta_valor: '',
       manual: false, desdeTest: conTest,
       // Las dos de golpe por defecto cuando hay dos lados medidos: es lo que se quiere
@@ -373,6 +379,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
         }
         b.sinMeta = Array.from(medidos).filter(l => !conMeta.has(l))
           .sort((x, y) => (ORDEN_LADO[x] ?? 9) - (ORDEN_LADO[y] ?? 9))
+        b.todasCumplidas = b.metas.every((m: any) => estadoDeMeta(m, resultados).cumplida || m.cumplida)
         return b
       })
       return g
@@ -403,12 +410,11 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                 {/* Un bloque por medición, APILADOS. Dentro, los dos lados en horizontal:
                     esos sí son comparables entre sí, los ítems distintos no. */}
                 {g.bloques.map((b: any, bi: number) => (
-                <div key={b.clave} style={{ marginTop: bi > 0 ? 8 : 0, paddingTop: bi > 0 ? 8 : 0, borderTop: bi > 0 ? '1px solid var(--bd)' : 'none' }}>
-                {/* De qué medición sale este bloque. Solo hace falta si hay más de una:
-                    con una sola, ya lo dice el origen de abajo. */}
-                {g.bloques.length > 1 && b.titulo && (
-                  <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 3 }}>{b.titulo}</div>
-                )}
+                <div key={b.clave} style={{ marginTop: bi > 0 ? 8 : 0, paddingTop: bi > 0 ? 8 : 0, borderTop: bi > 0 ? '1px solid var(--bd)' : 'none', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                {/* De qué medición sale este bloque: el test y el ítem exactos. Sustituye a
+                    las píldoras de abajo, que decían lo mismo peor y sin decir de cuál. */}
+                {b.titulo && <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 3 }}>{b.titulo}</div>}
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                   {b.metas.map((m: any) => {
                     const e = estadoDeMeta(m, resultados)
@@ -435,7 +441,8 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                   })}
                   {/* Lados medidos que se quedaron sin meta. Se pulsan y se crean. */}
                   {b.sinMeta.map((l: string) => (
-                    <button key={l} type="button" onClick={abrir}
+                    <button key={l} type="button"
+                      onClick={() => abrir({ movimiento_id: g.clave !== 'sin' ? g.clave : '', test_id: b.test_id, item_indice: b.item_indice, lado: l })}
                       title="Se midió este lado pero no tiene meta. Pulsa para ponérsela."
                       style={{ minWidth: 118, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
                       <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: .4, textTransform: 'uppercase', color: 'var(--grl)' }}>{l}</div>
@@ -444,36 +451,44 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                   ))}
                 </div>
                 </div>
+                {/* Los botones van EN CADA BLOQUE, no en el movimiento. Arriba editaban
+                    siempre la primera medición: con dos ítems, el botón del segundo tocaba
+                    el del primero. Actúan sobre los dos lados de SU medición. */}
+                <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }}
+                  onClick={() => abrir({ movimiento_id: g.clave !== 'sin' ? g.clave : '', test_id: b.test_id, item_indice: b.item_indice })}>
+                  Cambiar meta
+                </button>
+                <button className="et-b" style={{ flexShrink: 0 }}
+                  title={b.todasCumplidas ? 'Reabrir esta medición' : 'Dar por corregida esta medición'}
+                  onClick={async () => {
+                    for (const m of b.metas) await cerrarMetaAMano(m.id, !b.todasCumplidas)
+                    await revisarObjetivos(pacienteId)
+                    onCambio()
+                  }}>
+                  <Ic name={b.todasCumplidas ? 'check' : 'checkbox'} size={13} />
+                </button>
+                <button className="et-b et-b-r" style={{ flexShrink: 0 }}
+                  title={b.metas.length > 1 ? 'Quitar las metas de los dos lados' : 'Quitar la meta'}
+                  onClick={() => borrarGrupo({ ...b, nombre: g.nombre })}>
+                  <Ic name="papelera" size={12} />
+                </button>
+                </div>
                 ))}
               </div>
-              <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }} onClick={abrir}>
-                {g.metas.length >= 2 ? 'Cambiar meta' : 'Añadir meta'}
-              </button>
-              {/* El check y la papelera actúan sobre TODO el movimiento, los dos lados. */}
-              <button className="et-b" style={{ flexShrink: 0 }}
-                title={g.todasCumplidas ? 'Reabrir el movimiento' : 'Dar por corregido el movimiento'}
-                onClick={async () => {
-                  for (const m of g.metas) await cerrarMetaAMano(m.id, !g.todasCumplidas)
-                  await revisarObjetivos(pacienteId)
-                  onCambio()
-                }}>
-                <Ic name={g.todasCumplidas ? 'check' : 'checkbox'} size={13} />
-              </button>
-              <button className="et-b et-b-r" style={{ flexShrink: 0 }}
-                title={g.metas.length > 1 ? 'Quitar las metas de los dos lados' : 'Quitar la meta'}
-                onClick={() => borrarGrupo(g)}>
-                <Ic name="papelera" size={12} />
-              </button>
             </div>
           ))}
         </div>
       )}
 
 
-      {/* Este añade OTRO movimiento. El de cada fila retoca el que ya está. */}
-      <button className="btn btn-t btn-sm" onClick={abrir}>
-        <Ic name="mas" size={12} /> {metas.length > 0 ? 'Añadir otro movimiento' : 'Añadir meta'}
-      </button>
+      {/* Solo cuando no hay ninguna. Con metas puestas, lo que falta se añade desde su
+          sitio —el lado en ámbar, o "Cambiar meta"— y un botón suelto abajo solo servía
+          para crear metas sueltas sin saber de qué medición salían. */}
+      {metas.length === 0 && (
+        <button className="btn btn-t btn-sm" onClick={() => abrir()}>
+          <Ic name="mas" size={12} /> Añadir meta
+        </button>
+      )}
 
       {modal && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !guardando) setModal(false) }}>

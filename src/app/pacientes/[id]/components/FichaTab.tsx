@@ -353,7 +353,11 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </button>
           </div>
         )}
-        {vias.length>0 && pintarOrigen(o, vias)}
+        {/* Las vías solo se pintan en los objetivos que se CIERRAN con ellas.
+            Un métrico se cierra con sus metas —`revisarObjetivos` mira solo eso— así que
+            ahí las píldoras no cerraban nada: repetían el test y el ítem que ya dice cada
+            bloque de meta, y encima parecían un buscador. */}
+        {vias.length>0 && o.tipo!=='metrico' && pintarOrigen(o, vias)}
       </div>
     )
   }
