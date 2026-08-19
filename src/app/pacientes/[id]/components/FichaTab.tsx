@@ -212,7 +212,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         title={esp.length ? `${o.nombre} · ${esp.join(' · ')}` : o.nombre}
         onClick={()=>setObjAbierto(abierto ? null : o.id)}>
         {monedaDe(o, true)}
-        <span className="obj-mon-n">{esp.length ? esp.join(' · ') : o.nombre}</span>
+        {/* El general se escribe SIEMPRE. Mientras los objetivos no tengan foto la moneda
+            es una letra, así que sin este renglón no hay forma de saber de qué zona es. */}
+        <span className="obj-mon-g">{o.nombre}</span>
+        {esp.length > 0 && <span className="obj-mon-n">{esp.join(' · ')}</span>}
       </button>
     )
   }

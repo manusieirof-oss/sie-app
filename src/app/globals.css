@@ -228,17 +228,20 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .obj-moneda{flex-shrink:0;width:42px;height:42px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;border:2px solid var(--g);}
 .obj-moneda img{width:100%;height:100%;object-fit:cover;display:block;}
 .obj-moneda b{font-size:17px;font-weight:500;}
-.obj-moneda.g{width:56px;height:56px;}
-.obj-moneda.g b{font-size:23px;}
+.obj-moneda.g{width:72px;height:72px;border-width:2.5px;}
+.obj-moneda.g b{font-size:29px;}
 
 /* Rejilla de monedas: es la vista por defecto de los objetivos del paciente. Todo el
    detalle —metas, vías, fases— se abre al pulsar una, debajo de la cuadrícula. Antes iban
    los diez bloques desplegados a la vez y no se veía de un vistazo en qué se trabaja. */
-.obj-rej{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;margin-bottom:4px;}
-.obj-mon-b{display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 3px;background:none;border:none;border-radius:var(--r);cursor:pointer;transition:background .12s;}
+.obj-rej{display:grid;grid-template-columns:repeat(auto-fill,minmax(106px,1fr));gap:9px;margin-bottom:4px;}
+.obj-mon-b{display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 4px;background:none;border:none;border-radius:var(--r);cursor:pointer;transition:background .12s;}
 .obj-mon-b:hover{background:var(--bl);}
 .obj-mon-b.on{background:var(--gl);}
-.obj-mon-n{font-size:11px;line-height:1.25;color:var(--gr);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+/* El general arriba y pequeño, el específico debajo: la zona sitúa, pero lo que se está
+   trabajando es el titular. Los dos cortados a dos líneas para que la rejilla no baile. */
+.obj-mon-g{font-size:10px;line-height:1.2;color:var(--grl);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.obj-mon-n{font-size:11.5px;line-height:1.25;color:var(--gr);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .obj-mon-b.on .obj-mon-n{color:var(--n);}
 
 /* Tarjetas de la biblioteca de OBJETIVOS. Más grandes que las de ejercicio a propósito:
