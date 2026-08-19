@@ -107,6 +107,26 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   const unidad = itemElegido ? unidadDe(itemElegido).id : ''
 
   /**
+   * El ítem que abrió el objetivo puede no ser el que lo mide.
+   *
+   * En el lunge, lo que abre "Movilidad de tobillo" es la casilla «el talón se levanta
+   * antes de tocar», que no tiene número. El número está en otro ítem del MISMO test: la
+   * distancia a la pared. Sin esto la meta apuntaba a una casilla, el punto de partida
+   * salía «sin medición previa» aunque el test estuviera hecho, y encima la pantalla
+   * enseñaba un test distinto del que se iba a guardar.
+   *
+   * Se busca dentro del test que abrió el objetivo, no en otro: ese test es el que se
+   * pasó, y su medida es la que existe.
+   */
+  useEffect(() => {
+    if (!f.desdeTest || !testSel) return
+    if (itemsMedibles.some(it => it.i === Number(f.item_indice))) return
+    const alt = itemsMedibles[0]
+    // Si el test entero no mide nada, se suelta y manda la correspondencia deducida.
+    setF((p: any) => ({ ...p, item_indice: alt ? String(alt.i) : '', desdeTest: !!alt }))
+  }, [f.desdeTest, f.test_id, f.item_indice, itemsMedibles.length])
+
+  /**
    * Qué medición se enseña ya resuelta. Si el objetivo lo abrió un test, ese test es la
    * medición: no hay nada que deducir ni que preguntar.
    */
@@ -152,6 +172,18 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   const creandoAmbos = puedeAmbos && f.ambos
 
   /**
+   * ¿Contestó el test a todo? Entonces no se vuelve a preguntar.
+   *
+   * Se exige que lo dijera DE VERDAD: que traiga lado, y que el movimiento sea uno de los
+   * del objetivo. Si el movimiento lo hemos elegido nosotros por ser el primero de la
+   * lista, eso no es una decisión del test y hay que preguntarla — dar por fijado un dato
+   * adivinado es peor que pedirlo.
+   */
+  const movLoDijoElTest = !!origen?.mov && movimientos.some((m: any) => m.id === origen.mov)
+  const fijado = !!origen && !!origen.lado && !f.abrirEleccion
+    && (movimientos.length === 0 || movLoDijoElTest)
+
+  /**
    * El punto de partida se rellena con lo medido, no se deja en blanco.
    *
    * Antes iba vacío con el número puesto de gris detrás. Funcionaba —al guardar se cogía
@@ -194,7 +226,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
       manual: false, desdeTest: conTest,
       // Las dos de golpe por defecto cuando hay dos lados medidos: es lo que se quiere
       // casi siempre y desmarcarlo es un clic.
-      ambos: true, partidaTocada: false,
+      ambos: true, partidaTocada: false, abrirEleccion: false,
     })
     setModal(true)
   }
@@ -302,21 +334,35 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
               <button className="modal-close" onClick={() => setModal(false)}><Ic name="cerrar" size={15} /></button>
             </div>
 
-            {/* De dónde viene todo lo que ya está puesto. Sin esta línea, encontrarse el
-                formulario relleno parece cosa de magia y no se sabe qué se puede tocar. */}
-            {origen?.etiqueta && (
-              <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: 'var(--gr)' }}>
-                  Sale de <b>{origen.etiqueta}</b>
-                  {origen.lado
-                    ? <> · se midió el lado <b>{origen.lado}</b></>
-                    : <> · ese test se registró sin lado, así que hay que elegirlo</>}.
-                  Lo que dijo el test viene puesto; cámbialo si hace falta.
+            {/*
+              LO QUE EL TEST YA DECIDIÓ NO SE PREGUNTA.
+
+              El ítem abrió ESTE objetivo, para ESTE movimiento y sobre ESTE lado. Volver a
+              preguntarlo aquí no es dar opciones: es invitar a contestar distinto de lo que
+              se midió, y entonces la meta queda evaluándose contra un número que no es el
+              suyo. Se enseña lo decidido y, si de verdad hay que cambiarlo, se abre.
+            */}
+            {fijado && (
+              <div className="fila-p" style={{ borderLeftColor: 'var(--g)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <b style={{ fontSize: 13, color: 'var(--n)' }}>
+                    {nombreEt(f.movimiento_id) || objetivo.nombre}
+                    {f.tipo !== 'igualar_lados' && (creandoAmbos
+                      ? <span style={{ color: 'var(--gd)' }}> · los dos lados</span>
+                      : <span style={{ color: 'var(--gr)' }}> · {f.lado}</span>)}
+                  </b>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
+                    Lo dijo {origen!.etiqueta}
+                  </span>
                 </span>
+                <button className="btn btn-t btn-sm" style={{ flexShrink: 0 }}
+                  onClick={() => setF((p: any) => ({ ...p, abrirEleccion: true }))}>
+                  Cambiar
+                </button>
               </div>
             )}
 
-            {movimientos.length > 0 && (
+            {!fijado && movimientos.length > 0 && (
               <div className="field"><label>Movimiento</label>
                 {/* Cambiar de movimiento a mano deshace lo que puso el test: el ítem que
                     medía la dorsiflexión no mide la flexión plantar. A partir de ahí manda
@@ -334,7 +380,7 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
             {/* En "igualar lados" el lado no significa nada: la comparación es simétrica,
                 mide la diferencia entre los dos. Pedir un dato que no cambia el resultado
                 hace pensar que sí lo cambia. */}
-            {f.tipo !== 'igualar_lados' && (
+            {!fijado && f.tipo !== 'igualar_lados' && (
               <div className="field">
                 <label>Lado{origen?.lado === f.lado && <span style={{ fontWeight: 400, color: 'var(--gd)' }}> · el que se midió</span>}</label>
                 <div style={{ display: 'flex', gap: 4, opacity: creandoAmbos ? .45 : 1, pointerEvents: creandoAmbos ? 'none' : 'auto' }}>
@@ -343,16 +389,18 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
                       onClick={() => setF((p: any) => ({ ...p, lado: v }))}>{l}</button>
                   ))}
                 </div>
-                {/* El test se pasó en los dos: se ofrecen las dos metas. Marcado se ignora
-                    el selector de arriba, por eso queda apagado. */}
-                {puedeAmbos && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: 'var(--gr)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={!!f.ambos}
-                      onChange={e => setF((p: any) => ({ ...p, ambos: e.target.checked }))} />
-                    Poner la meta en los <b>dos lados</b>, cada uno desde su medición
-                  </label>
-                )}
               </div>
+            )}
+
+            {/* El test se pasó en los dos lados: se ofrecen las dos metas de una vez. Va
+                fuera del selector de lado porque también aplica cuando ese selector está
+                escondido, que es el caso normal. */}
+            {puedeAmbos && f.tipo !== 'igualar_lados' && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 9, fontSize: 12, color: 'var(--gr)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={!!f.ambos}
+                  onChange={e => setF((p: any) => ({ ...p, ambos: e.target.checked }))} />
+                Poner la meta en los <b>dos lados</b>, cada uno desde su medición
+              </label>
             )}
 
             <div className="field"><label>Qué se busca</label>
