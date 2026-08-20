@@ -225,15 +225,37 @@ export async function resumenCitasFuturas(pacienteIds: string[]): Promise<Record
   const salida: Record<string, ResumenCitas> = {}
   if (!pacienteIds?.length) return salida
   const hoy = new Date().toISOString().split('T')[0]
-  const { data, error } = await supabase.from('citas')
-    .select('paciente_id,sesion_id')
-    .in('paciente_id', pacienteIds)
-    .gte('fecha', hoy)
-    .eq('estado', 'programada')
-  // Si la consulta falla se devuelve vacío y no se pinta nada. Es preferible a enseñar
-  // ceros, que se leerían como "no tiene ninguna cita".
-  if (error) return {}
-  ;(data || []).forEach((c: any) => {
+
+  /**
+   * SE PIDE POR PÁGINAS. Supabase corta en 1000 filas y no lo dice.
+   *
+   * Esta consulta trae las citas futuras de TODOS los pacientes de la lista a la vez. Con
+   * planes de tres o seis meses, veinte pacientes ya pasan de mil filas: a partir de ahí
+   * la respuesta llegaba recortada, sin error ninguno, y los pacientes que quedaban fuera
+   * del corte salían con menos citas de las que tienen o directamente sin ninguna.
+   *
+   * Era imposible de adivinar mirando la pantalla, porque el recorte no sigue ningún
+   * criterio que signifique nada: parecía que a unos les contaba el mes y a otros el plan
+   * entero, cuando en realidad a unos les contaba todo y a otros nada.
+   */
+  const TAM = 1000
+  const filas: any[] = []
+  for (let desde = 0; ; desde += TAM) {
+    const { data, error } = await supabase.from('citas')
+      .select('paciente_id,sesion_id')
+      .in('paciente_id', pacienteIds)
+      .gte('fecha', hoy)
+      .eq('estado', 'programada')
+      .order('fecha')
+      .range(desde, desde + TAM - 1)
+    // Si la consulta falla se devuelve vacío y no se pinta nada. Es preferible a enseñar
+    // ceros, que se leerían como "no tiene ninguna cita".
+    if (error) return {}
+    filas.push(...(data || []))
+    if (!data || data.length < TAM) break
+  }
+
+  filas.forEach((c: any) => {
     const r = salida[c.paciente_id] || (salida[c.paciente_id] = { citas: 0, conSesion: 0 })
     r.citas++
     if (c.sesion_id) r.conSesion++
