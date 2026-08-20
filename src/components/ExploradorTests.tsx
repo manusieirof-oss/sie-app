@@ -110,10 +110,10 @@ export default function ExploradorTests({
           {(t.items || []).length > 0 && (
             <div style={{ marginBottom: 5 }}>
               <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 3 }}>
-                Ítems · {t.logica === 'todos' ? 'Todos = +' : 'Cualquiera = +'}
+                Ítems · {t.logica === 'suma' ? 'Suma · manda el total' : t.logica === 'todos' ? 'Todos = +' : 'Cualquiera = +'}
               </div>
               {(t.items || []).slice(0, 3).map((item: any, i: number) => (
-                <div key={i} style={{ fontSize: 9, color: 'var(--n)', fontWeight: 300 }}>☐ {item.nombre}{unidadDe(item).simbolo ? ` (${unidadDe(item).nombre.toLowerCase()})` : ''}</div>
+                <div key={i} style={{ fontSize: 9, color: 'var(--n)', fontWeight: 300 }}>{t.logica === 'suma' ? '▤' : '☐'} {item.nombre}{unidadDe(item).simbolo ? ` (${unidadDe(item).nombre.toLowerCase()})` : ''}</div>
               ))}
               {(t.items || []).length > 3 && <div style={{ fontSize: 8, color: 'var(--grl)' }}>+{(t.items || []).length - 3} más</div>}
             </div>

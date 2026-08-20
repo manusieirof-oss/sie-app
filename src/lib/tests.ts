@@ -139,6 +139,9 @@ export function textoMedida(item: any): string {
   return v + unidadDe(item).simbolo
 }
 
+/** El nombre con el que se refiere uno a un ítem en los avisos. */
+const nombreItem = (it: any, i: number) => String(it?.nombre || '').trim() || `ítem ${i + 1}`
+
 /**
  * Los ítems con barra que todavía no se han medido.
  *
@@ -150,8 +153,88 @@ export function textoMedida(item: any): string {
  */
 export function medicionesPendientes(items: any[]): string[] {
   return (items || [])
-    .filter(i => tieneBarra(i) && valorDe(i) === '')
-    .map((i, n) => i.nombre || `ítem ${n + 1}`)
+    .map((it, i) => ({ it, nombre: nombreItem(it, i) }))
+    .filter(x => tieneBarra(x.it) && valorDe(x.it) === '')
+    .map(x => x.nombre)
+}
+
+/* ─── TESTS DE PUNTUACIÓN ───────────────────────────────────────────────────
+ *
+ * Hay tests que no se resuelven ítem a ítem sino por el TOTAL. El FPI-6 puntúa seis
+ * observaciones de -2 a +2 y lo que dice del pie sale de la suma: de -12 a -5 muy
+ * supinado, de 0 a 5 normal, 10 o más muy pronado. Los ítems por separado no significan
+ * nada, y forzarlos a "positivo si alguno está marcado" convierte una escala en un sí/no.
+ *
+ * El tipo va en `logica`, donde ya viven 'cualquiera' y 'todos', porque decide exactamente
+ * lo mismo que ellas: cómo se pasa de los ítems al veredicto.
+ *
+ * El positivo/negativo NO desaparece: es lo que mueve objetivos, vías y contraindicaciones
+ * en el resto de la app. Lo decide la BANDA en la que cae el total, y cada banda dice si
+ * caer ahí es un hallazgo. Así "Normal" sale negativo y "Pronado" positivo sin que nada
+ * más abajo tenga que enterarse de que este test es de otro tipo.
+ */
+
+export type Banda = {
+  /** Techo de la banda, incluido. Manda la primera que lo alcance. */
+  hasta: number
+  etiqueta: string
+  /** Si caer aquí cuenta como hallazgo. Es lo que se traduce a positivo/negativo. */
+  hallazgo: boolean
+}
+
+/** true si el test se resuelve por el total de sus ítems. */
+export const esSuma = (test: any) => test?.logica === 'suma'
+
+/** Las bandas ordenadas por techo. Se guardan en el orden en que se escriban. */
+export function bandasDe(test: any): Banda[] {
+  return (Array.isArray(test?.bandas) ? test.bandas : [])
+    .filter((b: any) => b && b.hasta !== '' && b.hasta !== null && isFinite(Number(b.hasta)))
+    .map((b: any) => ({ hasta: Number(b.hasta), etiqueta: String(b.etiqueta || ''), hallazgo: !!b.hallazgo }))
+    .sort((a: Banda, b: Banda) => a.hasta - b.hasta)
+}
+
+/**
+ * El total. `null` si falta algún ítem por puntuar.
+ *
+ * Una suma incompleta no es una suma más pequeña: es que no hay resultado. Aquí sí se
+ * puede ser tajante, al revés que con las barras sueltas, donde cada ítem se sostiene solo.
+ */
+export function puntuacionDe(items: any[]): number | null {
+  const lista = items || []
+  if (lista.length === 0) return null
+  const valores = lista.map(i => { const v = valorDe(i); return v === '' ? NaN : parseFloat(v) })
+  if (valores.some(v => !isFinite(v))) return null
+  return valores.reduce((a, b) => a + b, 0)
+}
+
+/** Los ítems que quedan por puntuar. Para poder decir QUÉ falta, no solo que falta. */
+export function puntuacionesPendientes(items: any[]): string[] {
+  return (items || [])
+    .map((it, i) => ({ it, nombre: nombreItem(it, i) }))
+    .filter(x => valorDe(x.it) === '')
+    .map(x => x.nombre)
+}
+
+/**
+ * En qué banda cae un total. `null` si no cae en ninguna: eso es un test mal configurado
+ * y hay que decirlo, no repartirlo al extremo más cercano y dar un veredicto inventado.
+ */
+export function bandaDe(test: any, total: number | null): Banda | null {
+  if (total === null) return null
+  return bandasDe(test).find(b => total <= b.hasta) || null
+}
+
+/** Hasta dónde puede llegar el total, según los mín/máx de los ítems. */
+export function rangoTotal(items: any[]): { min: number, max: number } | null {
+  const lista = items || []
+  if (lista.length === 0) return null
+  let min = 0, max = 0
+  for (const i of lista) {
+    const a = Number(i?.min), b = Number(i?.max)
+    if (!isFinite(a) || !isFinite(b)) return null
+    min += a; max += b
+  }
+  return { min, max }
 }
 
 /**
@@ -175,12 +258,13 @@ export function problemasDelTest(test: any): string[] {
 
   const items: any[] = test?.items || []
   items.forEach((it, i) => {
-    const como = String(it?.nombre || '').trim() ? `«${String(it.nombre).trim()}»` : `Ítem ${i + 1}`
+    const como = `«${nombreItem(it, i)}»`
 
     if (!String(it?.nombre || '').trim()) {
       p.push(`${como}: sin nombre. El nombre del ítem es lo que empareja la meta con el movimiento del objetivo, así que en blanco no resuelve nada.`)
     }
-    if (!it?.regla) return
+    // En un test de suma la regla por ítem no decide nada; se revisa en su propio bloque.
+    if (!it?.regla || esSuma(test)) return
 
     if (!mide(it)) {
       p.push(`${como}: tiene regla pero no tiene unidad, así que la regla se ignora y el ítem vuelve a ser una casilla. Ponle unidad o quítale la regla.`)
@@ -206,6 +290,36 @@ export function problemasDelTest(test: any): string[] {
     }
   })
 
+  if (esSuma(test)) {
+    if (items.length === 0) p.push('Un test de puntuación necesita ítems: el resultado es la suma de todos.')
+
+    items.forEach((it, i) => {
+      const como = `«${nombreItem(it, i)}»`
+      if (!mide(it)) {
+        p.push(`${como}: en un test de puntuación todos los ítems puntúan, así que necesita unidad. Para el FPI-6, puntos.`)
+      } else if (!isFinite(num(it.min)) || !isFinite(num(it.max))) {
+        p.push(`${como}: falta el mínimo o el máximo. Sin ellos no se sabe hasta dónde puede llegar el total ni se puede pintar el selector.`)
+      } else if (num(it.min) >= num(it.max)) {
+        p.push(`${como}: el mínimo (${it.min}) no es menor que el máximo (${it.max}).`)
+      }
+      if (it?.regla) p.push(`${como}: tiene regla propia, y en un test de puntuación el veredicto lo da el total. Quítasela para que no parezca que decide algo.`)
+      if ((it?.objetivos || []).length > 0) p.push(`${como}: tiene objetivos colgados, y en un test de puntuación no se abren: el hallazgo es del total. El objetivo se engancha al test entero desde la biblioteca de objetivos.`)
+    })
+
+    const bandas = bandasDe(test)
+    if (bandas.length === 0) {
+      p.push('No hay bandas. Sin ellas el total es un número suelto y el test no puede dar ni positivo ni negativo.')
+    } else {
+      if (bandas.some(b => !b.etiqueta.trim())) p.push('Hay bandas sin nombre. El nombre de la banda es lo que se guarda en el historial y lo que se lee luego.')
+      const techos = bandas.map(b => b.hasta)
+      if (new Set(techos).size !== techos.length) p.push('Hay dos bandas con el mismo techo: la segunda nunca se alcanzaría.')
+      const rango = rangoTotal(items)
+      if (rango && bandas[bandas.length - 1].hasta < rango.max) {
+        p.push(`La última banda llega hasta ${bandas[bandas.length - 1].hasta} y el total puede llegar a ${rango.max}. Un total por encima no caería en ninguna banda y el test se quedaría sin resultado.`)
+      }
+    }
+  }
+
   return p
 }
 
@@ -229,6 +343,24 @@ export function resultadoDeItems(items: ItemTest[], logica?: string, aMano: Resu
   const marcados = items.filter(marcado).length
   if (logica === 'todos') return marcados === items.length ? 'positivo' : 'negativo'
   return marcados > 0 ? 'positivo' : 'negativo'
+}
+
+/**
+ * El veredicto de un test entero. ES LO QUE HAY QUE LLAMAR DESDE FUERA.
+ *
+ * `resultadoDeItems` solo sabe de casillas. Quien tuviera el `logica` a mano podía
+ * llamarlo con un test de puntuación y recibir un "negativo" salido de contar casillas que
+ * en ese test no existen, sin que nada fallara. Por eso lo que se pasa aquí es el TEST, no
+ * su lógica suelta: las bandas viven en él.
+ */
+export function resultadoDeTest(test: any, items: ItemTest[], aMano: ResultadoTest = 'positivo'): ResultadoTest {
+  if (aMano === 'sin_realizar') return 'sin_realizar'
+  if (!esSuma(test)) return resultadoDeItems(items, test?.logica, aMano)
+  // Total incompleto o total que no cae en ninguna banda: NO hay veredicto. Devolver
+  // 'negativo' aquí sería exactamente el fallo que este tipo de test viene a evitar.
+  const banda = bandaDe(test, puntuacionDe(items))
+  if (!banda) return 'sin_realizar'
+  return banda.hallazgo ? 'positivo' : 'negativo'
 }
 
 /** Fecha de revisión por defecto, a partir de la frecuencia del test. Vacío si no la tiene. */
@@ -268,6 +400,9 @@ export type ResultadoRegistro = {
    * el test se guardaba, decía "positivo", y en la ficha no aparecía nada.
    */
   abiertos: number
+  /** Solo en tests de puntuación: el total y la banda en la que ha caído. */
+  puntuacion?: number | null
+  banda?: string | null
 } | {
   ok: false
   error: string
@@ -297,9 +432,15 @@ export async function registrarResultadoTest(
   const items = (datos.items || []).map(i => ({
     ...i, marcado: tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado,
   }))
-  const resultado = resultadoDeItems(items, test.logica, datos.resultado || 'positivo')
+  const resultado = resultadoDeTest(test, items, datos.resultado || 'positivo')
   const lado = datos.lado || 'bilateral'
   const fecha = datos.fecha || hoy()
+
+  // En un test de puntuación, el total se recalcula siempre de los ítems —lo derivado no
+  // se guarda— pero la BANDA sí se congela, igual que la unidad y la regla: si mañana
+  // mueves los cortes, el registro de marzo tiene que seguir diciendo "Pronado".
+  const puntuacion = esSuma(test) ? puntuacionDe(items) : null
+  const banda = esSuma(test) ? bandaDe(test, puntuacion) : null
 
   const { error } = await supabase.from('resultados_tests').insert({
     paciente_id: pacienteId,
@@ -309,28 +450,38 @@ export async function registrarResultadoTest(
     observaciones: datos.observaciones || null,
     fecha_repeticion: datos.fechaRepeticion || null,
     lado,
+    banda: banda?.etiqueta || null,
     // Se congela la unidad con el resultado, igual que la sesión congela el nombre del
     // ejercicio: si mañana el test pasa a medirse en centímetros, el registro de marzo
     // tiene que seguir diciendo los grados que se anotaron aquel día.
     items_resultado: items.map(i => ({
       nombre: i.nombre, marcado: i.marcado,
       unidad: unidadDe(i).id, valor: valorDe(i),
+      // Los extremos se congelan siempre que estén: son los que dan sentido al número
+      // guardado —un 2 sobre 4 no es un 2 sobre 10— y en un test de puntuación son además
+      // lo que permite volver a pintar el selector tal y como estaba.
+      ...(i.min !== undefined && i.min !== null ? { min: i.min } : {}),
+      ...(i.max !== undefined && i.max !== null ? { max: i.max } : {}),
       // La REGLA se congela igual que la unidad. Si mañana subes el umbral del lunge de 10
       // a 12, el registro de marzo tiene que seguir explicando por qué salió positivo
       // aquel día. Sin esto, el histórico cambiaría de sentido al tocar la biblioteca.
-      ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, min: i.min, max: i.max } : {}),
+      ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2 } : {}),
     })),
   })
   if (error) return { ok: false, error: error.message }
 
   // El evento va SIEMPRE, también cuando el test es negativo: que un test haya dado
   // negativo en marzo es información clínica, no ausencia de ella.
-  const marcados = items.filter(i => i.marcado)
-    .map(i => { const m = textoMedida(i); return i.nombre + (m ? ` (${m})` : '') }).join(', ')
+  // En un test de puntuación lo que hay que leer en la cronología es el total y su banda:
+  // la lista de ítems marcados está vacía porque ahí no se marca nada.
+  const marcados = esSuma(test)
+    ? (puntuacion === null ? null : `Total ${puntuacion}${banda ? ` · ${banda.etiqueta}` : ''}`)
+    : (items.filter(i => i.marcado)
+        .map(i => { const m = textoMedida(i); return i.nombre + (m ? ` (${m})` : '') }).join(', ') || null)
   await supabase.from('eventos_paciente').insert({
     paciente_id: pacienteId, tipo: 'test',
     titulo: `Test ${resultado}: ${test.nombre || 'test'}${lado && lado !== 'bilateral' ? ' · ' + lado : ''}`,
-    descripcion: [marcados || null, datos.observaciones || null, datos.contexto ? `Desde ${datos.contexto}` : null]
+    descripcion: [marcados, datos.observaciones || null, datos.contexto ? `Desde ${datos.contexto}` : null]
       .filter(Boolean).join(' · ') || null,
     fecha,
   })
@@ -341,11 +492,16 @@ export async function registrarResultadoTest(
   if (resultado === 'positivo') {
     const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado)
     abiertos += a
-    // Los ítems marcados que NO llevan objetivo colgado no abren nada. Es legítimo —hay
-    // ítems que solo describen— pero si no abre ninguno el test entero, hay que decirlo.
-    const b = await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
-    logrados += b.logrados
-    abiertos += b.abiertos
+    // En un test de puntuación el hallazgo es del TOTAL, así que solo cuenta el objetivo
+    // del test entero. Recorrer los ítems abriría objetivos por un ítem que por sí solo
+    // no significa nada —un +1 de un FPI-6 que suma 3 no es una pronación—.
+    if (!esSuma(test)) {
+      // Los ítems marcados que NO llevan objetivo colgado no abren nada. Es legítimo —hay
+      // ítems que solo describen— pero si no abre ninguno el test entero, hay que decirlo.
+      const b = await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
+      logrados += b.logrados
+      abiertos += b.abiertos
+    }
   } else if (resultado === 'negativo') {
     // Negativo = no queda nada marcado, así que se cierran la vía del test y las de sus
     // ítems de una vez. Hacerlo ítem a ítem dejaba abierta la del test entero.
@@ -359,7 +515,7 @@ export async function registrarResultadoTest(
   // un proceso aparte que habría que acordarse de lanzar.
   const { cerradas } = await revisarMetas(pacienteId)
 
-  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos }
+  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, puntuacion, banda: banda?.etiqueta || null }
 }
 
 /**
@@ -383,12 +539,14 @@ export type UltimoResultado = {
   resultado: ResultadoTest
   observaciones: string | null
   items_resultado: ItemTest[]
+  /** Solo en tests de puntuación: la banda congelada aquel día. */
+  banda: string | null
 }
 
 export async function ultimosResultadosDe(pacienteId: string): Promise<UltimoResultado[]> {
   if (!pacienteId) return []
   const { data } = await supabase.from('resultados_tests')
-    .select('test_id,lado,fecha,resultado,observaciones,items_resultado,created_at')
+    .select('test_id,lado,fecha,resultado,observaciones,items_resultado,banda,created_at')
     .eq('paciente_id', pacienteId)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false })
@@ -403,6 +561,7 @@ export async function ultimosResultadosDe(pacienteId: string): Promise<UltimoRes
     ultimos.push({
       test_id: r.test_id, lado, fecha: r.fecha, resultado: r.resultado,
       observaciones: r.observaciones, items_resultado: Array.isArray(r.items_resultado) ? r.items_resultado : [],
+      banda: r.banda ?? null,
     })
   }
   return ultimos

@@ -1,6 +1,9 @@
 'use client'
 import { Ic } from '@/lib/icons'
-import { resultadoDeItems, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla, medicionesPendientes } from '@/lib/tests'
+import {
+  resultadoDeTest, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla, medicionesPendientes,
+  esSuma, puntuacionDe, puntuacionesPendientes, bandaDe, rangoTotal,
+} from '@/lib/tests'
 
 /**
  * Pasar un test, con el mismo aspecto que su ficha de la biblioteca.
@@ -131,6 +134,95 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                     en cada uno, y sin decirlo el resultado no significa nada.
                   </span>
                 </div>
+              ) : esSuma(test) ? (
+                /* TEST DE PUNTUACIÓN.
+                   Aquí no se marca nada: cada ítem aporta su número y el veredicto sale
+                   del total. Va en su propia rama y no dentro de la de siempre porque lo
+                   que hay que ver es distinto —el total mandando, arriba y grande— y
+                   porque las casillas y el atajo de "sin hallazgos" no pintan nada. */
+                (() => {
+                  const total = puntuacionDe(base)
+                  const banda = bandaDe(test, total)
+                  const faltan = puntuacionesPendientes(base)
+                  const rango = rangoTotal(base)
+                  const ponValor = (ii: number, x: string) => {
+                    const its = [...base]; its[ii] = { ...its[ii], valor: x }
+                    actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its) })
+                  }
+                  return (
+                    <>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 6 }}>
+                        Puntuación · {base.length} ítem{base.length === 1 ? '' : 's'}
+                      </div>
+
+                      {base.map((item: any, ii: number) => {
+                        const min = Number(item.min ?? 0), max = Number(item.max ?? 10)
+                        const v = valorDe(item)
+                        const puesto = v !== ''
+                        /* Escalas cortas —el FPI-6 va de -2 a +2— con botones y no con una
+                           barra: con la tablet en la mano, acertar un -1 exacto arrastrando
+                           el dedo es más difícil que pulsarlo, y aquí no hay valores
+                           intermedios que buscar. */
+                        const pocos = isFinite(min) && isFinite(max) && (max - min) <= 10
+                        return (
+                          <div key={ii} style={{ padding: '10px 12px', background: puesto ? 'var(--gl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${puesto ? 'var(--gm)' : 'var(--bd)'}`, marginBottom: 5 }}>
+                            <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: puesto ? 400 : 300, marginBottom: 7 }}>{item.nombre}</div>
+                            {pocos ? (
+                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                                {Array.from({ length: max - min + 1 }, (_, k) => min + k).map(o => (
+                                  <button key={o} onClick={() => ponValor(ii, String(o))}
+                                    style={{ minWidth: 42, padding: '7px 0', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
+                                      border: `1.5px solid ${String(o) === v ? 'var(--g)' : 'var(--bd)'}`,
+                                      background: String(o) === v ? 'var(--g)' : 'var(--w)',
+                                      color: String(o) === v ? '#fff' : 'var(--gr)' }}>
+                                    {o > 0 ? '+' + o : String(o)}
+                                  </button>
+                                ))}
+                                {puesto && (
+                                  <button onClick={() => ponValor(ii, '')}
+                                    style={{ fontSize: 10, color: 'var(--grl)', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>
+                                    Borrar
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <input type="range" min={min} max={max} step={1}
+                                  value={v === '' ? String((min + max) / 2) : v}
+                                  onChange={e => ponValor(ii, e.target.value)}
+                                  style={{ flex: 1, accentColor: 'var(--g)', cursor: 'pointer' }} />
+                                <input type="number" value={v} onChange={e => ponValor(ii, e.target.value)} placeholder="—"
+                                  style={{ width: 72, fontSize: 13, padding: '5px 7px', border: '1px solid var(--bd)', borderRadius: 5, textAlign: 'center', fontFamily: 'inherit' }} />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {/* EL TOTAL, QUE ES EL RESULTADO. Sin banda no hay veredicto: un
+                          total que no cae en ninguna es un test mal configurado, y decir
+                          "negativo" ahí sería inventárselo. */}
+                      <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 8,
+                        border: `1.5px solid ${!banda ? 'var(--bd)' : banda.hallazgo ? 'var(--red)' : 'var(--gm)'}`,
+                        background: !banda ? 'var(--bl)' : banda.hallazgo ? 'var(--redl)' : 'var(--gl)' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase' }}>Total</span>
+                          <span style={{ fontSize: 28, fontWeight: 300, color: total === null ? 'var(--grl)' : !banda ? 'var(--n)' : banda.hallazgo ? 'var(--red)' : 'var(--gd)' }}>
+                            {total === null ? '—' : total}
+                          </span>
+                          {rango && <span style={{ fontSize: 11, color: 'var(--grl)' }}>de {rango.min} a {rango.max}</span>}
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 3, color: !banda ? 'var(--grl)' : banda.hallazgo ? 'var(--red)' : 'var(--gd)' }}>
+                          {faltan.length > 0
+                            ? `Falta puntuar ${faltan.length} ítem${faltan.length === 1 ? '' : 's'}: ${faltan.join(', ')}`
+                            : banda
+                              ? `${banda.etiqueta} · ${banda.hallazgo ? '+ Positivo' : '− Negativo'}`
+                              : `El total ${total} no cae en ninguna banda del test. Revísalas en la biblioteca: así no se puede registrar.`}
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()
               ) : items.length > 0 ? (
                 <>
                   <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 6 }}>
@@ -146,7 +238,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                       const col = hallazgo === true ? 'var(--red)' : hallazgo === false ? 'var(--g)' : 'var(--bd)'
                       const ponValor = (x: string) => {
                         const its = [...base]; its[ii] = { ...its[ii], valor: x }
-                        actualizar({ items_resultado: its, resultado: resultadoDeItems(its, test?.logica) })
+                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its) })
                       }
                       return (
                         <div key={ii} style={{ padding: '12px 13px', background: hallazgo === true ? 'var(--redl)' : hallazgo === false ? 'var(--gl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${col}`, marginBottom: 5 }}>
@@ -188,7 +280,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                     <label key={ii} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', background: item.marcado ? 'var(--redl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${item.marcado ? '#F5C8C8' : 'var(--bd)'}`, marginBottom: 5, cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!item.marcado} onChange={e => {
                         const its = [...base]; its[ii] = { ...its[ii], marcado: e.target.checked }
-                        actualizar({ items_resultado: its, resultado: resultadoDeItems(its, test?.logica) })
+                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its) })
                       }} style={{ width: 19, height: 19, accentColor: 'var(--red)', cursor: 'pointer', flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 13, color: 'var(--n)', fontWeight: item.marcado ? 400 : 300 }}>{item.nombre}</span>
                       {mide(item) && item.marcado && (

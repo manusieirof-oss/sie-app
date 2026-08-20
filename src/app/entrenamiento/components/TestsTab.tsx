@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest } from '@/lib/tests'
+import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest, esSuma, bandasDe, rangoTotal } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { ordenAnatomico } from '@/lib/anatomia'
@@ -29,11 +29,28 @@ const CATEGORIAS = [
  * Va en un componente y no copiado en los dos formularios —crear y editar— porque son el
  * mismo formulario dos veces y ya se nota: el de editar arrastra diferencias del de crear.
  */
-function ConfigBarra({ item, onCambia }: { item: any, onCambia: (campos: any) => void }) {
+function ConfigBarra({ item, onCambia, soloRango = false }: { item: any, onCambia: (campos: any) => void, soloRango?: boolean }) {
   if (!mide(item)) return null
   const u = unidadDe(item).simbolo.trim()
   const dosUmbrales = item.regla === 'entre' || item.regla === 'fuera'
   const num = (v: string) => v === '' ? undefined : Number(v)
+
+  /* En un test de puntuación el ítem no decide nada por su cuenta: solo aporta su número
+     al total. Enseñar aquí "Positivo si es..." invitaría a poner una regla que después se
+     ignora, que es la clase de campo que hace desconfiar de toda la pantalla. */
+  if (soloRango) {
+    return (
+      <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--bd)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>Puntúa de</span>
+        <input className="input" type="number" style={{ width: 66, fontSize: 11 }} value={item.min ?? ''}
+          onChange={e => onCambia({ min: num(e.target.value) })} placeholder="mín" />
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>a</span>
+        <input className="input" type="number" style={{ width: 66, fontSize: 11 }} value={item.max ?? ''}
+          onChange={e => onCambia({ max: num(e.target.value) })} placeholder="máx" />
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>{u}</span>
+      </div>
+    )
+  }
 
   return (
     <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--bd)' }}>
@@ -72,6 +89,81 @@ function ConfigBarra({ item, onCambia }: { item: any, onCambia: (campos: any) =>
       {item.regla && (
         <div style={{ fontSize: 10, color: 'var(--gd)', marginTop: 4 }}>
           {textoRegla(item) || 'Rellena el valor para ver la regla'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Las BANDAS de un test de puntuación: en qué se convierte el total.
+ *
+ * Un FPI-6 que suma 9 no es "positivo" a secas, es un pie pronado, y esa palabra es la que
+ * se lee luego en el historial. Cada banda dice además si caer ahí cuenta como hallazgo,
+ * que es lo que se traduce al positivo/negativo con el que trabaja el resto de la app: sin
+ * eso habría que decidirlo a mano en cada resultado, y se decidiría distinto cada vez.
+ *
+ * Se leen por TECHO, no por orden de escritura: el total cae en la primera banda cuyo
+ * techo alcanza. Así se pueden añadir en cualquier orden sin que cambie el significado.
+ */
+function EditorBandas({ bandas, items, onCambia }: { bandas: any, items: any[], onCambia: (b: any[]) => void }) {
+  const lista: any[] = Array.isArray(bandas) ? bandas : []
+  const rango = rangoTotal(items)
+  const ordenadas = bandasDe({ bandas: lista })
+  const set = (i: number, campos: any) => { const b = [...lista]; b[i] = { ...b[i], ...campos }; onCambia(b) }
+
+  return (
+    <div className="field">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <label style={{ margin: 0 }}>Bandas del total</label>
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>
+          {rango ? `El total puede ir de ${rango.min} a ${rango.max}` : 'Pon mín y máx en los ítems para saber el rango'}
+        </span>
+      </div>
+
+      {lista.length === 0 && (
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 6 }}>
+          Sin bandas el total es un número suelto: el test no podría dar ni positivo ni negativo.
+        </div>
+      )}
+
+      {lista.map((b: any, i: number) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5, background: 'var(--bl)', borderRadius: 5, padding: '6px 8px', border: '1px solid var(--bd)' }}>
+          <span style={{ fontSize: 10, color: 'var(--grl)', whiteSpace: 'nowrap' }}>Hasta</span>
+          <input className="input" type="number" style={{ width: 74, fontSize: 11 }} value={b?.hasta ?? ''}
+            onChange={e => set(i, { hasta: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="techo" />
+          <input className="input" style={{ flex: 1, fontSize: 11 }} value={b?.etiqueta || ''}
+            onChange={e => set(i, { etiqueta: e.target.value })} placeholder="ej. Normal" />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: b?.hallazgo ? 'var(--red)' : 'var(--grl)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={!!b?.hallazgo} onChange={e => set(i, { hallazgo: e.target.checked })}
+              style={{ width: 15, height: 15, accentColor: 'var(--red)', cursor: 'pointer' }} />
+            Hallazgo
+          </label>
+          <button onClick={() => onCambia(lista.filter((_, j) => j !== i))}
+            style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+        </div>
+      ))}
+
+      <button className="btn btn-t btn-sm" onClick={() => onCambia([...lista, { hasta: undefined, etiqueta: '', hallazgo: false }])}>
+        + Añadir banda
+      </button>
+
+      {/* Cómo queda leído de verdad, ordenado por techo. Escribir "hasta 5" debajo de
+          "hasta 9" no cambia nada, y verlo evita tener que fiarse de eso. */}
+      {ordenadas.length > 0 && (
+        <div style={{ marginTop: 7, fontSize: 10, color: 'var(--gr)', lineHeight: 1.7 }}>
+          {ordenadas.map((b, i) => {
+            const desde = i === 0 ? (rango ? rango.min : '−∞') : ordenadas[i - 1].hasta + 1
+            return (
+              <div key={i}>
+                <span style={{ color: b.hallazgo ? 'var(--red)' : 'var(--gd)' }}>
+                  {desde} a {b.hasta}
+                </span>
+                {' · '}{b.etiqueta || <span style={{ color: 'var(--grl)' }}>sin nombre</span>}
+                {' · '}{b.hallazgo ? '+ positivo' : '− negativo'}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -245,7 +337,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
-  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', bandas:[] as any[], etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
 
   /**
    * Todo lo de abajo miraba el resultado de Supabase de reojo o directamente no lo miraba:
@@ -280,7 +372,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   async function crearTest() {
     if (bloqueadoPorProblemas(nuevoTest)) return
     setSubiendoImgTest(true)
-    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], etiquetas_bloquea:nuevoTest.etiquetas_bloquea||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
+    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, bandas:esSuma(nuevoTest)?(nuevoTest.bandas||[]):[], etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], etiquetas_bloquea:nuevoTest.etiquetas_bloquea||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
     if (error || !t) {
       setSubiendoImgTest(false)
       alert('No se ha podido crear el test: ' + (error?.message || 'la base de datos no ha devuelto la fila creada.'))
@@ -299,7 +391,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
     }
     setSubiendoImgTest(false)
     setModalTest(false)
-    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', etiquetas_relacionadas:[], etiquetas_bloquea:[], tipo_lado:'bilateral' })
+    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', bandas:[], etiquetas_relacionadas:[], etiquetas_bloquea:[], tipo_lado:'bilateral' })
     await recargarTests()
     if (avisoImagen) alert('El test se ha creado, pero la imagen no se ha subido: ' + avisoImagen + '\n\nVuelve a subirla desde Editar.')
   }
@@ -317,7 +409,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
       // es siempre la misma y sin esto se sigue viendo la imagen anterior.
       else imagenUrl = r.url + '?t=' + Date.now()
     }
-    const { error } = await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
+    const { error } = await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], bandas:esSuma(testEditando)?(testEditando.bandas||[]):[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
     setSubiendoImgTest(false)
     if (error) { alert('No se han guardado los cambios: ' + error.message); return }
     setModalEditarTest(false); setTestEditando(null)
@@ -387,39 +479,69 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                       biblioteca es justo lo que se hace desde esta ficha. */}
                   {(testDetalle.items||[]).length>0&&(
                     <div>
-                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {testDetalle.logica==='cualquiera'?'Cualquiera = positivo':'Todos = positivo'}</div>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {esSuma(testDetalle)?'Suma · manda el total':testDetalle.logica==='todos'?'Todos = positivo':'Cualquiera = positivo'}</div>
                       {(testDetalle.items||[]).map((item:any,i:number)=>{
                         const regla = textoRegla(item)
                         const objs = (item.objetivos||[]).map((id:string)=>(objetivos||[]).find((o:any)=>o.id===id)).filter(Boolean)
                         return (
                           <div key={i} style={{padding:'5px 0',borderTop:i===0?'none':'1px solid var(--bl)'}}>
                             <div style={{fontSize:11,color:'var(--n)',fontWeight:300}}>
-                              {regla?'▭':'☐'} {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}
+                              {esSuma(testDetalle)?'▤':regla?'▭':'☐'} {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}
                             </div>
-                            {regla&&(
-                              <div style={{fontSize:10,color:'var(--gd)',marginTop:2}}>
-                                {regla} · barra {item.min ?? '?'} a {item.max ?? '?'}
+                            {esSuma(testDetalle)
+                              ? <div style={{fontSize:10,color:'var(--gd)',marginTop:2}}>Puntúa de {item.min ?? '?'} a {item.max ?? '?'}</div>
+                              : regla&&(
+                                <div style={{fontSize:10,color:'var(--gd)',marginTop:2}}>
+                                  {regla} · barra {item.min ?? '?'} a {item.max ?? '?'}
+                                </div>
+                              )}
+                            {/* En un test de puntuación los ítems no abren objetivos: lo
+                                hace el test entero. Enseñar aquí un "Abre: ninguno" haría
+                                pensar que falta engancharlos ítem a ítem. */}
+                            {!esSuma(testDetalle) && (
+                              <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3,alignItems:'center'}}>
+                                <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
+                                {objs.length===0
+                                  ? <span style={{fontSize:9,color:'var(--grl)'}}>ningún objetivo</span>
+                                  : objs.map((o:any)=>{
+                                      const movId=(item.objetivos_mov||{})[o.id]
+                                      const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
+                                      return (
+                                        <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>
+                                          {o.nombre}{mov?` · ${mov}`:''}
+                                        </span>
+                                      )
+                                    })}
                               </div>
                             )}
-                            <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3,alignItems:'center'}}>
-                              <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
-                              {objs.length===0
-                                ? <span style={{fontSize:9,color:'var(--grl)'}}>ningún objetivo</span>
-                                : objs.map((o:any)=>{
-                                    const movId=(item.objetivos_mov||{})[o.id]
-                                    const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
-                                    return (
-                                      <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>
-                                        {o.nombre}{mov?` · ${mov}`:''}
-                                      </span>
-                                    )
-                                  })}
-                            </div>
                           </div>
                         )
                       })}
                     </div>
                   )}
+                  {esSuma(testDetalle)&&(()=>{
+                    const bandas = bandasDe(testDetalle)
+                    const rango = rangoTotal(testDetalle.items||[])
+                    return (
+                      <div style={{marginTop:12}}>
+                        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>
+                          Bandas del total{rango?` · de ${rango.min} a ${rango.max}`:''}
+                        </div>
+                        {bandas.length===0
+                          ? <div style={{fontSize:10,color:'var(--grl)'}}>Sin bandas: este test no puede dar resultado.</div>
+                          : bandas.map((b,i)=>{
+                              const desde = i===0 ? (rango?rango.min:'−∞') : bandas[i-1].hasta+1
+                              return (
+                                <div key={i} style={{fontSize:11,color:'var(--n)',fontWeight:300,display:'flex',alignItems:'center',gap:6,padding:'1px 0'}}>
+                                  <span style={{width:9,height:9,borderRadius:2,background:b.hallazgo?'var(--red)':'var(--g)',flexShrink:0}}/>
+                                  <span style={{color:'var(--grl)',minWidth:64}}>{desde} a {b.hasta}</span>
+                                  <span>{b.etiqueta||'sin nombre'}</span>
+                                </div>
+                              )
+                            })}
+                      </div>
+                    )
+                  })()}
                   {/* Los mismos problemas que impiden guardar, en los tests que ya están
                       guardados: la biblioteca se ha ido montando a mano y hay ítems de
                       antes de que existiera la validación. */}
@@ -494,11 +616,22 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div className="field">
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
                 <label style={{margin:0}}>Ítems</label>
+                {/* CÓMO SE RESUELVE EL TEST. 'suma' no es una lógica más: es otro tipo de
+                    test —el veredicto sale del total y no de los ítems— y por eso cambia
+                    lo que se pide debajo. La regla está en `lib/tests.ts`. */}
                 <select style={{fontSize:9,padding:'2px 6px',border:'1px solid var(--bd)',borderRadius:3,background:'var(--bl)',fontFamily:'system-ui'}} value={nuevoTest.logica} onChange={e=>setNuevoTest(p=>({...p,logica:e.target.value}))}>
                   <option value="cualquiera">Cualquier ítem = positivo</option>
                   <option value="todos">Todos los ítems = positivo</option>
+                  <option value="suma">Puntuación · manda el total</option>
                 </select>
               </div>
+              {esSuma(nuevoTest) && (
+                <div style={{fontSize:11,color:'var(--gr)',marginBottom:7,lineHeight:1.5}}>
+                  Cada ítem aporta su puntuación y el total cae en una banda. Los objetivos no
+                  cuelgan de los ítems —un ítem suelto no significa nada— sino del test entero:
+                  se enganchan desde la biblioteca de objetivos.
+                </div>
+              )}
               {nuevoTest.items.map((item:any,i:number)=>(
                 <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7}}>
@@ -512,11 +645,11 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
-                  <ConfigBarra item={item} onCambia={(campos:any)=>{
+                  <ConfigBarra item={item} soloRango={esSuma(nuevoTest)} onCambia={(campos:any)=>{
                     const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
                     setNuevoTest(p=>({...p,items:its}))
                   }}/>
-                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
+                  {!esSuma(nuevoTest) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
                     movimientos={item.objetivos_mov||{}}
                     onMovimiento={(oid:string,mid:string)=>{
                       const its=[...nuevoTest.items] as any[]
@@ -530,11 +663,17 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const act = its[i].objetivos||[]
                     its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
                     setNuevoTest(p=>({...p,items:its}))
-                  }}/>
+                  }}/>}
                 </div>
               ))}
-              <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',unidad:''}]}))}>+ Añadir ítem</button>
+              {/* Un ítem de test de puntuación nace ya midiendo puntos: es lo único que
+                  puede ser, y dejarlo en "sin medida" solo daba un aviso de validación. */}
+              <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',unidad:esSuma(p)?'puntos':''}]}))}>+ Añadir ítem</button>
             </div>
+            {esSuma(nuevoTest) && (
+              <EditorBandas bandas={nuevoTest.bandas} items={nuevoTest.items}
+                onCambia={(b:any[])=>setNuevoTest(p=>({...p,bandas:b}))}/>
+            )}
             <div className="field">
               <label>Etiquetas relacionadas</label>
               <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/></div>
@@ -603,10 +742,11 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div className="field"><label>Enlace vídeo</label><input className="input" value={testEditando.video_url||''} onChange={e=>setTestEditando((p:any)=>({...p,video_url:e.target.value}))}/></div>
             <div className="g2">
               <div className="field"><label>Revisión (meses)</label><input className="input" type="number" value={testEditando.frecuencia_meses||3} onChange={e=>setTestEditando((p:any)=>({...p,frecuencia_meses:parseInt(e.target.value)||3}))}/></div>
-              <div className="field"><label>Positivo si</label>
+              <div className="field"><label>Se resuelve por</label>
                 <select className="input" value={testEditando.logica||'cualquiera'} onChange={e=>setTestEditando((p:any)=>({...p,logica:e.target.value}))}>
-                  <option value="cualquiera">Algún ítem marcado</option>
-                  <option value="todos">Todos los ítems marcados</option>
+                  <option value="cualquiera">Positivo si algún ítem está marcado</option>
+                  <option value="todos">Positivo si todos los ítems están marcados</option>
+                  <option value="suma">Puntuación · manda el total</option>
                 </select>
               </div>
             </div>
@@ -614,6 +754,13 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
                 <label style={{margin:0}}>Ítems</label>
               </div>
+              {esSuma(testEditando) && (
+                <div style={{fontSize:11,color:'var(--gr)',marginBottom:7,lineHeight:1.5}}>
+                  Cada ítem aporta su puntuación y el total cae en una banda. Los objetivos no
+                  cuelgan de los ítems —un ítem suelto no significa nada— sino del test entero:
+                  se enganchan desde la biblioteca de objetivos.
+                </div>
+              )}
               {(testEditando.items||[]).map((item:any,i:number)=>(
                 <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7}}>
@@ -624,11 +771,11 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
-                  <ConfigBarra item={item} onCambia={(campos:any)=>{
+                  <ConfigBarra item={item} soloRango={esSuma(testEditando)} onCambia={(campos:any)=>{
                     const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
                     setTestEditando((p:any)=>({...p,items:its}))
                   }}/>
-                  <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
+                  {!esSuma(testEditando) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
                     movimientos={item.objetivos_mov||{}}
                     onMovimiento={(oid:string,mid:string)=>{
                       const its=[...(testEditando.items||[])] as any[]
@@ -642,11 +789,15 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const act = its[i].objetivos||[]
                     its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
                     setTestEditando((p:any)=>({...p,items:its}))
-                  }}/>
+                  }}/>}
                 </div>
               ))}
-              <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',unidad:''}]}))}>+ Añadir ítem</button>
+              <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',unidad:esSuma(p)?'puntos':''}]}))}>+ Añadir ítem</button>
             </div>
+            {esSuma(testEditando) && (
+              <EditorBandas bandas={testEditando.bandas} items={testEditando.items||[]}
+                onCambia={(b:any[])=>setTestEditando((p:any)=>({...p,bandas:b}))}/>
+            )}
             <div className="field">
               <label>Etiquetas relacionadas</label>
               <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>

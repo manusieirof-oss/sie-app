@@ -291,7 +291,12 @@ export default function ValoracionPage() {
         for (const ladoKey of aGuardar) {
           const d = lados[ladoKey]
           if (!d) continue
-          const r = await registrarResultadoTest(pacienteId, { id: t.test_id, nombre: t.nombre, logica: t.logica }, {
+          // La fila ENTERA de la biblioteca, no un resumen. Con `{id, nombre, logica}`
+          // bastaba mientras el veredicto salía de contar casillas; un test de puntuación
+          // necesita además sus BANDAS, y sin ellas se habría guardado un "sin resultado"
+          // sin que nada fallara.
+          const lib = testsLib.find((x: any) => x.id === t.test_id)
+          const r = await registrarResultadoTest(pacienteId, lib || { id: t.test_id, nombre: t.nombre, logica: t.logica }, {
             resultado: d.resultado, items: d.items_resultado || [],
             observaciones: d.observaciones, lado: ladoKey,
             fechaRepeticion: d.fecha_repeticion || null,
