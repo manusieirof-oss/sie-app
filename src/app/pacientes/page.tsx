@@ -6,7 +6,7 @@ import Link from 'next/link'
 import ModalBono from './components/ModalBono'
 import ModalCobro from '@/components/ModalCobro'
 import { Ic } from '@/lib/icons'
-import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase } from '@/lib/tipos'
+import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase, iconTipoClase, colorTipoClase } from '@/lib/tipos'
 import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 import { cargarTarifas } from '@/lib/tarifas'
@@ -334,7 +334,26 @@ export default function PacientesPage() {
                     )
                   })()}
                 </div>
-                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)',fontSize:11,fontWeight:300}}>{labelTipo(p.tipo_clase)}</div>
+                {/* TIPO DE CLASE. Era la única columna en texto pelado entre chips y
+                    badges, y por eso cantaba. Va como distintivo, con el icono y el color
+                    del propio tipo —los mismos que usa la agenda—, para que se reconozca
+                    sin leerlo. No es pulsable: el tipo se cambia en su ficha, y un chip
+                    con pinta de botón que no hace nada es peor que un texto. */}
+                <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
+                  {p.tipo_clase ? (() => {
+                    const col = colorTipoClase(tiposClase, p.tipo_clase)
+                    const t = tiposClase.find((x:any)=>x.valor===p.tipo_clase)
+                    return (
+                      <span title={labelTipo(p.tipo_clase)}
+                        style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:10,fontWeight:600,
+                          padding:'3px 9px',borderRadius:99,whiteSpace:'nowrap',
+                          background:col+'1A',color:col}}>
+                        <Ic name={iconTipoClase(p.tipo_clase, t?.icono)} size={11}/>
+                        {labelTipo(p.tipo_clase)}
+                      </span>
+                    )
+                  })() : <span style={{fontSize:11,color:'var(--grl)'}}>—</span>}
+                </div>
                 {/* CITAS POR DELANTE / DE ESAS, CUÁNTAS LLEVAN SESIÓN.
                     Sale de las citas, no de un contador guardado: cambiar, cancelar o
                     anular una cita lo recalcula solo. En pausa y en baja no se avisa:
