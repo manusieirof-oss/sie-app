@@ -356,12 +356,22 @@ export default function FichaPacientePage() {
   }
 
   // El tipo de clase NO se guarda aquí: tiene su propio control en la ficha (cambiarTipoClase).
+  //
+  // `fecha_nacimiento` y `sexo` SÍ se guardan aquí. La fecha se editaba en la valoración y
+  // en ningún sitio más: si entraba mal, la ficha la enseñaba mal para siempre. Y los dos
+  // son ahora lo que decide con qué norma se compara un test de baremo, así que tienen que
+  // poder corregirse donde se mira al paciente.
   async function guardarEdicion() {
-    await supabase.from('pacientes').update({
+    const { error } = await supabase.from('pacientes').update({
       nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono,
       email:form.email, dni:form.dni, altura_cm:form.altura_cm,
-      peso_kg:form.peso_kg, notas_fijas:form.notas_fijas
+      peso_kg:form.peso_kg, notas_fijas:form.notas_fijas,
+      fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null,
     }).eq('id',id)
+    // Se cerraba el modo edición y se recargaba pasara lo que pasara, así que un guardado
+    // rechazado se veía igual que uno correcto: los campos volvían a su valor anterior y
+    // parecía que no habías escrito nada.
+    if (error) { alert('No se han guardado los cambios: ' + error.message); return }
     setEditando(false); cargar()
   }
 
@@ -601,6 +611,18 @@ export default function FichaPacientePage() {
               {[['nombre','Nombre'],['apellidos','Apellidos'],['nombre_clinica','Nombre en clínica'],['dni','DNI'],['telefono','Teléfono'],['email','Email'],['altura_cm','Altura (cm)'],['peso_kg','Peso (kg)']].map(([k,l])=>(
                 <input key={k} className="input" value={form[k]||''} onChange={e=>setForm((p:any)=>({...p,[k]:e.target.value}))} style={inputOscuro} placeholder={l}/>
               ))}
+              {/* Fecha de nacimiento y sexo van fuera del mapa porque no son cajas de
+                  texto. Los dos son lo que decide con qué norma se compara un test de
+                  baremo, y hasta ahora la fecha no se podía ni corregir desde aquí. */}
+              <input className="input" type="date" value={(form.fecha_nacimiento||'').slice(0,10)}
+                onChange={e=>setForm((p:any)=>({...p,fecha_nacimiento:e.target.value}))}
+                style={inputOscuro} title="Fecha de nacimiento"/>
+              <select className="input" value={form.sexo||''} onChange={e=>setForm((p:any)=>({...p,sexo:e.target.value}))}
+                style={inputOscuro} title="Sexo · se usa para los baremos de los tests">
+                <option value="">Sexo · sin indicar</option>
+                <option value="hombre">Hombre</option>
+                <option value="mujer">Mujer</option>
+              </select>
             </div>
           ) : (
             <div className="pat-id">
@@ -753,6 +775,7 @@ export default function FichaPacientePage() {
       {testEnCurso && (
         <ModalRealizarTest
           test={testEnCurso.test} tv={testEnCurso.tv}
+          paciente={{ sexo: pac.sexo, fecha_nacimiento: pac.fecha_nacimiento }}
           onCambiar={(tv:any)=>setTestEnCurso((p:any)=>({...p,tv}))}
           onCerrar={()=>setTestEnCurso(null)}
           pie={<>

@@ -61,6 +61,18 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
           <div className="field"><label>DNI</label><input className="input" value={form.dni} onChange={e=>up('dni',e.target.value)}/></div>
           <div className="field"><label>Fecha nacimiento</label><input className="input" type="date" value={form.fecha_nacimiento} onChange={e=>up('fecha_nacimiento',e.target.value)}/></div>
         </div>
+        {/* SEXO. No está por completar la ficha: los tests con baremo —el fitness de
+            mayores, por ejemplo— comparan cada medición con una norma que depende del sexo
+            y de la edad, y sin este dato ese test no se puede interpretar ni registrar.
+            Se dice para qué es, porque un campo sin motivo se acaba dejando en blanco. */}
+        <div className="field">
+          <label>Sexo <span className="subt">· lo usan los baremos de los tests</span></label>
+          <select className="input" value={form.sexo||''} onChange={e=>up('sexo',e.target.value)}>
+            <option value="">Sin indicar</option>
+            <option value="hombre">Hombre</option>
+            <option value="mujer">Mujer</option>
+          </select>
+        </div>
         <div className="g2">
           <div className="field"><label>Altura (cm)</label><input className="input" type="number" value={form.altura_cm} onChange={e=>up('altura_cm',e.target.value)}/></div>
           <div className="field"><label>Peso (kg)</label><input className="input" type="number" value={form.peso_kg} onChange={e=>up('peso_kg',e.target.value)}/></div>

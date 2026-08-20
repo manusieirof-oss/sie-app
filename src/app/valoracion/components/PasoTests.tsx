@@ -13,7 +13,7 @@ import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
  * queda aquí es solo la lista de lo que llevas, que es lo único que hay que ver de un
  * vistazo mientras se trabaja.
  */
-export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, setTestsValoracion, testActivo, setTestActivo }: any) {
+export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, setTestsValoracion, testActivo, setTestActivo, paciente }: any) {
   const [abierto, setAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState<string[]>([])
 
@@ -107,6 +107,7 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
         <ModalRealizarTest
           test={testActivoLib || { nombre: tvActivo.nombre, logica: tvActivo.logica }}
           tv={tvActivo}
+          paciente={paciente}
           onCambiar={(nuevo:any)=>setTestsValoracion((prev:any[])=>prev.map((x:any,i:number)=>i===testActivo?nuevo:x))}
           onCerrar={()=>setTestActivo(null)}/>
       )}

@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest, esSuma, bandasDe, rangoTotal } from '@/lib/tests'
+import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest, esSuma, esBaremo, bandasDe, baremosDe, rangoTotal, textoNorma } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { ordenAnatomico } from '@/lib/anatomia'
@@ -106,24 +106,27 @@ function ConfigBarra({ item, onCambia, soloRango = false }: { item: any, onCambi
  * Se leen por TECHO, no por orden de escritura: el total cae en la primera banda cuyo
  * techo alcanza. Así se pueden añadir en cualquier orden sin que cambie el significado.
  */
-function EditorBandas({ bandas, items, onCambia }: { bandas: any, items: any[], onCambia: (b: any[]) => void }) {
+function EditorBandas({ bandas, items, onCambia, porRecuento = false }: { bandas: any, items: any[], onCambia: (b: any[]) => void, porRecuento?: boolean }) {
   const lista: any[] = Array.isArray(bandas) ? bandas : []
-  const rango = rangoTotal(items)
+  // En un baremo el número que cae en la banda no es la suma de los ítems: es cuántos de
+  // ellos quedan por debajo de su norma, o sea de 0 a todos.
+  const rango = porRecuento ? { min: 0, max: (items || []).length } : rangoTotal(items)
+  const queEs = porRecuento ? 'Pruebas por debajo de la norma' : 'El total'
   const ordenadas = bandasDe({ bandas: lista })
   const set = (i: number, campos: any) => { const b = [...lista]; b[i] = { ...b[i], ...campos }; onCambia(b) }
 
   return (
     <div className="field">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <label style={{ margin: 0 }}>Bandas del total</label>
+        <label style={{ margin: 0 }}>{porRecuento ? 'Bandas del recuento' : 'Bandas del total'}</label>
         <span style={{ fontSize: 10, color: 'var(--grl)' }}>
-          {rango ? `El total puede ir de ${rango.min} a ${rango.max}` : 'Pon mín y máx en los ítems para saber el rango'}
+          {rango ? `${queEs} va de ${rango.min} a ${rango.max}` : 'Pon mín y máx en los ítems para saber el rango'}
         </span>
       </div>
 
       {lista.length === 0 && (
         <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 6 }}>
-          Sin bandas el total es un número suelto: el test no podría dar ni positivo ni negativo.
+          Sin bandas el número es un dato suelto: el test no podría dar ni positivo ni negativo.
         </div>
       )}
 
@@ -161,6 +164,108 @@ function EditorBandas({ bandas, items, onCambia }: { bandas: any, items: any[], 
                 </span>
                 {' · '}{b.etiqueta || <span style={{ color: 'var(--grl)' }}>sin nombre</span>}
                 {' · '}{b.hallazgo ? '+ positivo' : '− negativo'}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SEXOS_BAREMO = [['', 'Cualquiera'], ['hombre', 'Hombre'], ['mujer', 'Mujer']] as const
+
+/**
+ * Los BAREMOS de un test: contra qué se compara cada ítem.
+ *
+ * Una condición por fila —ítem, sexo, tramo de edad y el intervalo que se considera
+ * normal—. El sexo y la edad no se piden al pasar el test: ya están en la ficha del
+ * paciente, y volver a preguntarlos con él delante sería repetir un trabajo hecho y abrir
+ * la puerta a que un día se conteste distinto.
+ *
+ * El intervalo tiene mínimo y máximo POR SEPARADO, y los dos son opcionales: hay pruebas
+ * donde más es mejor —repeticiones en 30 segundos, normal a partir de 14— y otras donde
+ * menos lo es —levantarse y andar 2,4 m, normal hasta 5,6 segundos—. Obligar a rellenar
+ * los dos haría inventarse el extremo que no existe.
+ *
+ * Se empareja por NOMBRE del ítem y no por su posición, para que reordenarlos no mueva la
+ * tabla debajo. El precio es que renombrar un ítem deja su baremo huérfano, y por eso la
+ * validación lo mira.
+ */
+function EditorBaremos({ baremos, items, onCambia }: { baremos: any, items: any[], onCambia: (b: any[]) => void }) {
+  const lista: any[] = Array.isArray(baremos) ? baremos : []
+  const nombres = (items || []).map((it: any, i: number) => String(it?.nombre || '').trim() || `ítem ${i + 1}`)
+  const num = (v: string) => v === '' ? undefined : Number(v)
+  const set = (i: number, campos: any) => { const b = [...lista]; b[i] = { ...b[i], ...campos }; onCambia(b) }
+
+  return (
+    <div className="field">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <label style={{ margin: 0 }}>Baremos · contra qué se compara cada ítem</label>
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>{lista.length} condicion{lista.length === 1 ? '' : 'es'}</span>
+      </div>
+
+      {nombres.length === 0 && (
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 6 }}>Añade primero los ítems: cada condición se cuelga de uno.</div>
+      )}
+
+      {lista.map((b: any, i: number) => {
+        const huerfana = b?.item && !nombres.includes(String(b.item))
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 5, background: huerfana ? 'var(--ambl)' : 'var(--bl)', borderRadius: 5, padding: '6px 8px', border: `1px solid ${huerfana ? '#E0C068' : 'var(--bd)'}` }}>
+            <select className="input" style={{ width: 170, fontSize: 11 }} value={b?.item || ''}
+              onChange={e => set(i, { item: e.target.value })}>
+              <option value="">— ítem —</option>
+              {nombres.map(n => <option key={n} value={n}>{n}</option>)}
+              {huerfana && <option value={b.item}>{b.item} (ya no existe)</option>}
+            </select>
+
+            <select className="input" style={{ width: 104, fontSize: 11 }} value={b?.sexo || ''}
+              onChange={e => set(i, { sexo: e.target.value || undefined })}>
+              {SEXOS_BAREMO.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+
+            <span style={{ fontSize: 10, color: 'var(--grl)' }}>Edad</span>
+            <input className="input" type="number" style={{ width: 58, fontSize: 11 }} value={b?.edad_min ?? ''}
+              onChange={e => set(i, { edad_min: num(e.target.value) })} placeholder="desde" />
+            <span style={{ fontSize: 10, color: 'var(--grl)' }}>a</span>
+            <input className="input" type="number" style={{ width: 58, fontSize: 11 }} value={b?.edad_max ?? ''}
+              onChange={e => set(i, { edad_max: num(e.target.value) })} placeholder="hasta" />
+
+            <span style={{ fontSize: 10, color: 'var(--gd)', marginLeft: 6 }}>Normal de</span>
+            <input className="input" type="number" style={{ width: 70, fontSize: 11 }} value={b?.min ?? ''}
+              onChange={e => set(i, { min: num(e.target.value) })} placeholder="mín" />
+            <span style={{ fontSize: 10, color: 'var(--gd)' }}>a</span>
+            <input className="input" type="number" style={{ width: 70, fontSize: 11 }} value={b?.max ?? ''}
+              onChange={e => set(i, { max: num(e.target.value) })} placeholder="máx" />
+
+            {/* DUPLICAR. Una tabla normativa son la misma prueba repetida por tramos de
+                edad: sin esto hay que volver a elegir ítem y sexo ochenta veces. */}
+            <button onClick={() => { const b2 = [...lista]; b2.splice(i + 1, 0, { ...lista[i] }); onCambia(b2) }}
+              title="Duplicar esta condición"
+              style={{ fontSize: 10, color: 'var(--gd)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              Duplicar
+            </button>
+            <button onClick={() => onCambia(lista.filter((_, j) => j !== i))}
+              style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+          </div>
+        )
+      })}
+
+      <button className="btn btn-t btn-sm" disabled={nombres.length === 0}
+        onClick={() => onCambia([...lista, { item: nombres[0] || '', sexo: '', edad_min: undefined, edad_max: undefined, min: undefined, max: undefined }])}>
+        + Añadir condición
+      </button>
+
+      {/* COBERTURA. Un ítem sin ninguna condición no se puede interpretar, y con veinte
+          filas por medio eso no se ve mirando la lista. */}
+      {nombres.length > 0 && (
+        <div style={{ marginTop: 7, fontSize: 10, color: 'var(--gr)', lineHeight: 1.7 }}>
+          {nombres.map(n => {
+            const cuantas = lista.filter((b: any) => String(b?.item || '') === n).length
+            return (
+              <div key={n} style={{ color: cuantas === 0 ? 'var(--red)' : 'var(--gr)' }}>
+                {n} · {cuantas === 0 ? 'sin baremo' : `${cuantas} condicion${cuantas === 1 ? '' : 'es'}`}
               </div>
             )
           })}
@@ -337,7 +442,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
-  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', bandas:[] as any[], etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
+  const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', bandas:[] as any[], baremos:[] as any[], etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
 
   /**
    * Todo lo de abajo miraba el resultado de Supabase de reojo o directamente no lo miraba:
@@ -372,7 +477,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   async function crearTest() {
     if (bloqueadoPorProblemas(nuevoTest)) return
     setSubiendoImgTest(true)
-    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, bandas:esSuma(nuevoTest)?(nuevoTest.bandas||[]):[], etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], etiquetas_bloquea:nuevoTest.etiquetas_bloquea||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
+    const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, bandas:(esSuma(nuevoTest)||esBaremo(nuevoTest))?(nuevoTest.bandas||[]):[], baremos:esBaremo(nuevoTest)?(nuevoTest.baremos||[]):[], etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], etiquetas_bloquea:nuevoTest.etiquetas_bloquea||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
     if (error || !t) {
       setSubiendoImgTest(false)
       alert('No se ha podido crear el test: ' + (error?.message || 'la base de datos no ha devuelto la fila creada.'))
@@ -391,7 +496,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
     }
     setSubiendoImgTest(false)
     setModalTest(false)
-    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', bandas:[], etiquetas_relacionadas:[], etiquetas_bloquea:[], tipo_lado:'bilateral' })
+    setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', bandas:[], baremos:[], etiquetas_relacionadas:[], etiquetas_bloquea:[], tipo_lado:'bilateral' })
     await recargarTests()
     if (avisoImagen) alert('El test se ha creado, pero la imagen no se ha subido: ' + avisoImagen + '\n\nVuelve a subirla desde Editar.')
   }
@@ -409,7 +514,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
       // es siempre la misma y sin esto se sigue viendo la imagen anterior.
       else imagenUrl = r.url + '?t=' + Date.now()
     }
-    const { error } = await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], bandas:esSuma(testEditando)?(testEditando.bandas||[]):[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
+    const { error } = await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], bandas:(esSuma(testEditando)||esBaremo(testEditando))?(testEditando.bandas||[]):[], baremos:esBaremo(testEditando)?(testEditando.baremos||[]):[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
     setSubiendoImgTest(false)
     if (error) { alert('No se han guardado los cambios: ' + error.message); return }
     setModalEditarTest(false); setTestEditando(null)
@@ -479,16 +584,23 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                       biblioteca es justo lo que se hace desde esta ficha. */}
                   {(testDetalle.items||[]).length>0&&(
                     <div>
-                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {esSuma(testDetalle)?'Suma · manda el total':testDetalle.logica==='todos'?'Todos = positivo':'Cualquiera = positivo'}</div>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {esSuma(testDetalle)?'Suma · manda el total':esBaremo(testDetalle)?'Baremo · cada ítem contra su norma':testDetalle.logica==='todos'?'Todos = positivo':'Cualquiera = positivo'}</div>
                       {(testDetalle.items||[]).map((item:any,i:number)=>{
                         const regla = textoRegla(item)
                         const objs = (item.objetivos||[]).map((id:string)=>(objetivos||[]).find((o:any)=>o.id===id)).filter(Boolean)
                         return (
                           <div key={i} style={{padding:'5px 0',borderTop:i===0?'none':'1px solid var(--bl)'}}>
                             <div style={{fontSize:11,color:'var(--n)',fontWeight:300}}>
-                              {esSuma(testDetalle)?'▤':regla?'▭':'☐'} {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}
+                              {esSuma(testDetalle)||esBaremo(testDetalle)?'▤':regla?'▭':'☐'} {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}
                             </div>
-                            {esSuma(testDetalle)
+                            {esBaremo(testDetalle)
+                              ? (()=>{
+                                  const suyas = baremosDe(testDetalle).filter((b:any)=>String(b.item||'').trim().toLowerCase()===String(item.nombre||'').trim().toLowerCase())
+                                  return <div style={{fontSize:10,color:suyas.length?'var(--gd)':'var(--red)',marginTop:2}}>
+                                    {suyas.length===0?'Sin baremo: este ítem no se puede interpretar':`${suyas.length} condicion${suyas.length===1?'':'es'} de baremo`}
+                                  </div>
+                                })()
+                              : esSuma(testDetalle)
                               ? <div style={{fontSize:10,color:'var(--gd)',marginTop:2}}>Puntúa de {item.min ?? '?'} a {item.max ?? '?'}</div>
                               : regla&&(
                                 <div style={{fontSize:10,color:'var(--gd)',marginTop:2}}>
@@ -498,7 +610,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                             {/* En un test de puntuación los ítems no abren objetivos: lo
                                 hace el test entero. Enseñar aquí un "Abre: ninguno" haría
                                 pensar que falta engancharlos ítem a ítem. */}
-                            {!esSuma(testDetalle) && (
+                            {!esSuma(testDetalle) && !esBaremo(testDetalle) && (
                               <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3,alignItems:'center'}}>
                                 <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
                                 {objs.length===0
@@ -519,13 +631,34 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                       })}
                     </div>
                   )}
-                  {esSuma(testDetalle)&&(()=>{
+                  {esBaremo(testDetalle)&&baremosDe(testDetalle).length>0&&(
+                    <div style={{marginTop:12}}>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>
+                        Baremos · {baremosDe(testDetalle).length} condiciones
+                      </div>
+                      <div style={{maxHeight:180,overflowY:'auto'}}>
+                        {baremosDe(testDetalle).map((b:any,i:number)=>{
+                          const item = (testDetalle.items||[]).find((it:any)=>String(it.nombre||'').trim().toLowerCase()===String(b.item||'').trim().toLowerCase())
+                          const edad = b.edad_min!=null&&b.edad_max!=null ? `${b.edad_min}-${b.edad_max} años`
+                            : b.edad_min!=null ? `${b.edad_min}+ años`
+                            : b.edad_max!=null ? `hasta ${b.edad_max} años` : 'cualquier edad'
+                          return (
+                            <div key={i} style={{fontSize:10,color:'var(--n)',fontWeight:300,padding:'1px 0'}}>
+                              {b.item} · {b.sexo||'cualquier sexo'} · {edad} · {textoNorma(b, item)||'sin norma'}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {(esSuma(testDetalle)||esBaremo(testDetalle))&&(()=>{
                     const bandas = bandasDe(testDetalle)
-                    const rango = rangoTotal(testDetalle.items||[])
+                    const porRecuento = esBaremo(testDetalle)
+                    const rango = porRecuento ? { min:0, max:(testDetalle.items||[]).length } : rangoTotal(testDetalle.items||[])
                     return (
                       <div style={{marginTop:12}}>
                         <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>
-                          Bandas del total{rango?` · de ${rango.min} a ${rango.max}`:''}
+                          {porRecuento?'Bandas del recuento':'Bandas del total'}{rango?` · de ${rango.min} a ${rango.max}`:''}
                         </div>
                         {bandas.length===0
                           ? <div style={{fontSize:10,color:'var(--grl)'}}>Sin bandas: este test no puede dar resultado.</div>
@@ -623,6 +756,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   <option value="cualquiera">Cualquier ítem = positivo</option>
                   <option value="todos">Todos los ítems = positivo</option>
                   <option value="suma">Puntuación · manda el total</option>
+                  <option value="baremo">Baremo · cada ítem contra su norma</option>
                 </select>
               </div>
               {esSuma(nuevoTest) && (
@@ -630,6 +764,13 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   Cada ítem aporta su puntuación y el total cae en una banda. Los objetivos no
                   cuelgan de los ítems —un ítem suelto no significa nada— sino del test entero:
                   se enganchan desde la biblioteca de objetivos.
+                </div>
+              )}
+              {esBaremo(nuevoTest) && (
+                <div style={{fontSize:11,color:'var(--gr)',marginBottom:7,lineHeight:1.5}}>
+                  Cada ítem se compara con su norma según el sexo y la edad del paciente, que ya
+                  están en su ficha. Lo que cae en una banda es CUÁNTOS ítems quedan por debajo,
+                  no la suma: sumar segundos con repeticiones no daría un número con sentido.
                 </div>
               )}
               {nuevoTest.items.map((item:any,i:number)=>(
@@ -645,11 +786,13 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setNuevoTest(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
-                  <ConfigBarra item={item} soloRango={esSuma(nuevoTest)} onCambia={(campos:any)=>{
+                  {/* En baremo el ítem no lleva ni regla ni rango propios: el umbral lo
+                      pone la tabla de normas, que depende del paciente. */}
+                  {!esBaremo(nuevoTest) && <ConfigBarra item={item} soloRango={esSuma(nuevoTest)} onCambia={(campos:any)=>{
                     const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
                     setNuevoTest(p=>({...p,items:its}))
-                  }}/>
-                  {!esSuma(nuevoTest) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
+                  }}/>}
+                  {!esSuma(nuevoTest) && !esBaremo(nuevoTest) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
                     movimientos={item.objetivos_mov||{}}
                     onMovimiento={(oid:string,mid:string)=>{
                       const its=[...nuevoTest.items] as any[]
@@ -670,8 +813,12 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   puede ser, y dejarlo en "sin medida" solo daba un aviso de validación. */}
               <button className="btn btn-t btn-sm" onClick={()=>setNuevoTest(p=>({...p,items:[...p.items,{nombre:'',unidad:esSuma(p)?'puntos':''}]}))}>+ Añadir ítem</button>
             </div>
-            {esSuma(nuevoTest) && (
-              <EditorBandas bandas={nuevoTest.bandas} items={nuevoTest.items}
+            {esBaremo(nuevoTest) && (
+              <EditorBaremos baremos={nuevoTest.baremos} items={nuevoTest.items}
+                onCambia={(b:any[])=>setNuevoTest(p=>({...p,baremos:b}))}/>
+            )}
+            {(esSuma(nuevoTest)||esBaremo(nuevoTest)) && (
+              <EditorBandas bandas={nuevoTest.bandas} items={nuevoTest.items} porRecuento={esBaremo(nuevoTest)}
                 onCambia={(b:any[])=>setNuevoTest(p=>({...p,bandas:b}))}/>
             )}
             <div className="field">
@@ -747,6 +894,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   <option value="cualquiera">Positivo si algún ítem está marcado</option>
                   <option value="todos">Positivo si todos los ítems están marcados</option>
                   <option value="suma">Puntuación · manda el total</option>
+                  <option value="baremo">Baremo · cada ítem contra su norma</option>
                 </select>
               </div>
             </div>
@@ -761,6 +909,13 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                   se enganchan desde la biblioteca de objetivos.
                 </div>
               )}
+              {esBaremo(testEditando) && (
+                <div style={{fontSize:11,color:'var(--gr)',marginBottom:7,lineHeight:1.5}}>
+                  Cada ítem se compara con su norma según el sexo y la edad del paciente, que ya
+                  están en su ficha. Lo que cae en una banda es CUÁNTOS ítems quedan por debajo,
+                  no la suma.
+                </div>
+              )}
               {(testEditando.items||[]).map((item:any,i:number)=>(
                 <div key={i} style={{marginBottom:5,background:'var(--bl)',borderRadius:5,padding:'6px 8px',border:'1px solid var(--bd)'}}>
                   <div style={{display:'flex',alignItems:'center',gap:7}}>
@@ -771,11 +926,11 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
-                  <ConfigBarra item={item} soloRango={esSuma(testEditando)} onCambia={(campos:any)=>{
+                  {!esBaremo(testEditando) && <ConfigBarra item={item} soloRango={esSuma(testEditando)} onCambia={(campos:any)=>{
                     const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
                     setTestEditando((p:any)=>({...p,items:its}))
-                  }}/>
-                  {!esSuma(testEditando) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
+                  }}/>}
+                  {!esSuma(testEditando) && !esBaremo(testEditando) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
                     movimientos={item.objetivos_mov||{}}
                     onMovimiento={(oid:string,mid:string)=>{
                       const its=[...(testEditando.items||[])] as any[]
@@ -794,8 +949,12 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
               ))}
               <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',unidad:esSuma(p)?'puntos':''}]}))}>+ Añadir ítem</button>
             </div>
-            {esSuma(testEditando) && (
-              <EditorBandas bandas={testEditando.bandas} items={testEditando.items||[]}
+            {esBaremo(testEditando) && (
+              <EditorBaremos baremos={testEditando.baremos} items={testEditando.items||[]}
+                onCambia={(b:any[])=>setTestEditando((p:any)=>({...p,baremos:b}))}/>
+            )}
+            {(esSuma(testEditando)||esBaremo(testEditando)) && (
+              <EditorBandas bandas={testEditando.bandas} items={testEditando.items||[]} porRecuento={esBaremo(testEditando)}
                 onCambia={(b:any[])=>setTestEditando((p:any)=>({...p,bandas:b}))}/>
             )}
             <div className="field">

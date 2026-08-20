@@ -3,6 +3,7 @@ import { Ic } from '@/lib/icons'
 import {
   resultadoDeTest, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla, medicionesPendientes,
   esSuma, puntuacionDe, puntuacionesPendientes, bandaDe, rangoTotal,
+  esBaremo, evaluarBaremo, edadEn, textoNorma,
 } from '@/lib/tests'
 
 /**
@@ -43,7 +44,7 @@ export function ladoVacio(test: any, meses?: number) {
   }
 }
 
-export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }: {
+export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, paciente }: {
   /** La fila de la biblioteca: imagen, descripción, ítems, lógica. */
   test: any
   tv: TestEnCurso
@@ -51,6 +52,12 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
   onCerrar: () => void
   /** Botonera propia de quien lo abre. Sin ella solo hay "Hecho". */
   pie?: React.ReactNode
+  /**
+   * Solo hace falta en los tests de BAREMO: la norma con la que se compara cada ítem
+   * depende del sexo y la edad. Se pasa desde fuera —la ficha y la valoración ya lo
+   * tienen— en vez de consultarlo aquí, porque este componente no escribe ni lee nada.
+   */
+  paciente?: { sexo?: string | null, fecha_nacimiento?: string | null }
 }) {
   /**
    * En un test LATERAL no se elige lado por ti.
@@ -81,6 +88,9 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
   // Barras sin valor. El veredicto se sigue calculando igual, pero deja de anunciarse como
   // si estuviera el test entero mirado.
   const pendientes = medicionesPendientes(base)
+
+  // Con qué se compara este paciente. Solo lo usa el baremo; en el resto es inofensivo.
+  const ctx = { sexo: paciente?.sexo || null, edad: edadEn(paciente?.fecha_nacimiento) }
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -134,6 +144,82 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                     en cada uno, y sin decirlo el resultado no significa nada.
                   </span>
                 </div>
+              ) : esBaremo(test) ? (
+                /* TEST CONTRA BAREMO.
+                   Cada ítem se mide en su unidad y se compara con SU norma, que sale del
+                   sexo y la edad del paciente. Lo que decide el test es cuántos quedan por
+                   debajo. Si falta el sexo, la fecha de nacimiento o la fila de la tabla,
+                   NO hay veredicto y se dice cuál falta: un "negativo" ahí sería decir que
+                   está bien alguien a quien no se ha comparado con nada. */
+                (() => {
+                  const ev = evaluarBaremo(test, base, ctx)
+                  const banda = ev.fallos === null ? null : bandaDe(test, ev.fallos)
+                  const ponValor = (ii: number, x: string) => {
+                    const its = [...base]; its[ii] = { ...its[ii], valor: x }
+                    actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its, 'positivo', ctx) })
+                  }
+                  return (
+                    <>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 6 }}>
+                        Baremo · {ctx.sexo || 'sexo sin indicar'}{ctx.edad != null ? `, ${ctx.edad} años` : ', edad sin saber'}
+                      </div>
+
+                      {(!ctx.sexo || ctx.edad == null) && (
+                        <div className="fila-p" style={{ borderLeftColor: '#E0C068', marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+                            Este test se lee por <b>sexo y edad</b>, y a este paciente le falta
+                            {!ctx.sexo ? ' el sexo' : ''}{!ctx.sexo && ctx.edad == null ? ' y' : ''}
+                            {ctx.edad == null ? ' la fecha de nacimiento' : ''}. Complétalo en su ficha:
+                            hasta entonces se puede anotar lo medido, pero no se puede registrar.
+                          </span>
+                        </div>
+                      )}
+
+                      {base.map((item: any, ii: number) => {
+                        const f = ev.filas[ii]
+                        const v = valorDe(item)
+                        const col = f?.dentro === false ? 'var(--red)' : f?.dentro === true ? 'var(--g)' : 'var(--bd)'
+                        return (
+                          <div key={ii} style={{ padding: '11px 12px', borderRadius: 7, marginBottom: 5,
+                            border: `1px solid ${col}`,
+                            background: f?.dentro === false ? 'var(--redl)' : f?.dentro === true ? 'var(--gl)' : 'var(--w)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ flex: 1, fontSize: 13, color: 'var(--n)', fontWeight: v ? 400 : 300 }}>{item.nombre}</span>
+                              <input type="number" value={v} onChange={e => ponValor(ii, e.target.value)} placeholder="—"
+                                style={{ width: 82, fontSize: 15, padding: '6px 7px', borderRadius: 5, textAlign: 'center', fontFamily: 'inherit',
+                                  border: `1.5px solid ${f?.dentro === false ? 'var(--red)' : 'var(--bd)'}` }} />
+                              <span style={{ fontSize: 12, color: 'var(--grl)', minWidth: 34 }}>{unidadDe(item).simbolo.trim()}</span>
+                            </div>
+                            <div style={{ fontSize: 10, marginTop: 4, color: f?.baremo ? (f.dentro === false ? 'var(--red)' : 'var(--gd)') : 'var(--red)' }}>
+                              {f?.baremo
+                                ? `${textoNorma(f.baremo, item)}${f.dentro === false ? ' · por debajo de la norma' : f.dentro === true ? ' · dentro' : ''}`
+                                : 'Sin baremo para este paciente. Añade la condición en la biblioteca.'}
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 8,
+                        border: `1.5px solid ${!banda ? 'var(--bd)' : banda.hallazgo ? 'var(--red)' : 'var(--gm)'}`,
+                        background: !banda ? 'var(--bl)' : banda.hallazgo ? 'var(--redl)' : 'var(--gl)' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase' }}>Fuera de norma</span>
+                          <span style={{ fontSize: 28, fontWeight: 300, color: ev.fallos === null ? 'var(--grl)' : !banda ? 'var(--n)' : banda.hallazgo ? 'var(--red)' : 'var(--gd)' }}>
+                            {ev.fallos === null ? '—' : ev.fallos}
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--grl)' }}>de {base.length}</span>
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 3, color: !banda ? 'var(--grl)' : banda.hallazgo ? 'var(--red)' : 'var(--gd)' }}>
+                          {ev.motivo
+                            ? ev.motivo
+                            : banda
+                              ? `${banda.etiqueta} · ${banda.hallazgo ? '+ Positivo' : '− Negativo'}`
+                              : `${ev.fallos} no cae en ninguna banda del test. Revísalas en la biblioteca: así no se puede registrar.`}
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()
               ) : esSuma(test) ? (
                 /* TEST DE PUNTUACIÓN.
                    Aquí no se marca nada: cada ítem aporta su número y el veredicto sale
@@ -147,7 +233,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                   const rango = rangoTotal(base)
                   const ponValor = (ii: number, x: string) => {
                     const its = [...base]; its[ii] = { ...its[ii], valor: x }
-                    actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its) })
+                    actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its, 'positivo', ctx) })
                   }
                   return (
                     <>
@@ -238,7 +324,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                       const col = hallazgo === true ? 'var(--red)' : hallazgo === false ? 'var(--g)' : 'var(--bd)'
                       const ponValor = (x: string) => {
                         const its = [...base]; its[ii] = { ...its[ii], valor: x }
-                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its) })
+                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its, 'positivo', ctx) })
                       }
                       return (
                         <div key={ii} style={{ padding: '12px 13px', background: hallazgo === true ? 'var(--redl)' : hallazgo === false ? 'var(--gl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${col}`, marginBottom: 5 }}>
@@ -280,7 +366,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
                     <label key={ii} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', background: item.marcado ? 'var(--redl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${item.marcado ? '#F5C8C8' : 'var(--bd)'}`, marginBottom: 5, cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!item.marcado} onChange={e => {
                         const its = [...base]; its[ii] = { ...its[ii], marcado: e.target.checked }
-                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its) })
+                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its, 'positivo', ctx) })
                       }} style={{ width: 19, height: 19, accentColor: 'var(--red)', cursor: 'pointer', flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 13, color: 'var(--n)', fontWeight: item.marcado ? 400 : 300 }}>{item.nombre}</span>
                       {mide(item) && item.marcado && (

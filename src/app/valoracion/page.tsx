@@ -40,7 +40,7 @@ const STEPS_POR_MODO: Record<Modo, string[]> = {
 }
 
 const FORM_VACIO = {
-  paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
+  paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',sexo:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
   anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
   hace_deporte:false as boolean,deportes:[] as string[],
   plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
@@ -93,7 +93,7 @@ export default function ValoracionPage() {
   const esRevaloracion = modo === 'revaloracion'
 
   useEffect(() => {
-    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,fecha_nacimiento,altura_cm,peso_kg,usa_plantillas,plantilla_izq,plantilla_der,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,fecha_nacimiento,sexo,altura_cm,peso_kg,usa_plantillas,plantilla_izq,plantilla_der,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
@@ -143,7 +143,7 @@ export default function ValoracionPage() {
   async function elegirParaRevaloracion(p: any) {
     setForm(f=>({...f, paciente_id:p.id, desde_pendiente:false,
       nombre:p.nombre||'', apellidos:p.apellidos||'', nombre_clinica:p.nombre_clinica||'',
-      telefono:p.telefono||'', email:p.email||'', dni:p.dni||'', fecha_nacimiento:p.fecha_nacimiento||'',
+      telefono:p.telefono||'', email:p.email||'', dni:p.dni||'', fecha_nacimiento:p.fecha_nacimiento||'', sexo:p.sexo||'',
       altura_cm:p.altura_cm?String(p.altura_cm):'', peso_kg:p.peso_kg?String(p.peso_kg):'',
       plantillas:!!p.usa_plantillas, plantilla_izq:p.plantilla_izq||'', plantilla_der:p.plantilla_der||'',
     }))
@@ -213,16 +213,22 @@ export default function ValoracionPage() {
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
-        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
+        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
       } else if (esRevaloracion) {
         // De la ficha solo se tocan las plantillas, que es lo único que el paso de
         // completar deja cambiar. Lo demás se edita en su ficha.
-        await supabase.from('pacientes').update({ usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null }).eq('id',pacienteId)
+        //
+        // El SEXO es la excepción, y solo cuando estaba vacío: es dato nuevo, los
+        // pacientes de antes no lo tienen, y la revaloración es justo el momento en que se
+        // vuelve a mirar la ficha entera. Si ya estaba puesto no se pisa.
+        const updRe: any = { usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null }
+        if (form.sexo && !pacientes.find((x:any)=>x.id===pacienteId)?.sexo) updRe.sexo = form.sexo
+        await supabase.from('pacientes').update(updRe).eq('id',pacienteId)
       } else {
         const upd: any = { pendiente_valoracion:false }
-        if (form.desde_pendiente) Object.assign(upd, { nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null })
+        if (form.desde_pendiente) Object.assign(upd, { nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null })
         await supabase.from('pacientes').update(upd).eq('id',pacienteId)
       }
       const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
@@ -414,7 +420,8 @@ export default function ValoracionPage() {
       {paso==='Anamnesis'&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} modo={modo} previo={previo}/>}
       {paso==='Historial'&&<PasoHistorial form={form} up={up} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {paso==='Completar'&&<PasoCompletar form={form} up={up} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
-      {paso==='Tests'&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}/>}
+      {paso==='Tests'&&<PasoTests testsLib={testsLib} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}
+        paciente={{ sexo: form.sexo, fecha_nacimiento: form.fecha_nacimiento }}/>}
       {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
       {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo} clinica={clinica}/>}
 

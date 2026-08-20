@@ -237,6 +237,136 @@ export function rangoTotal(items: any[]): { min: number, max: number } | null {
   return { min, max }
 }
 
+/* ─── TESTS CONTRA BAREMO ───────────────────────────────────────────────────
+ *
+ * El otro tipo que faltaba. En el fitness de mayores no hay un total que sumar: son seis
+ * pruebas independientes —sentarse y levantarse en 30 s, flexiones de brazo, levantarse y
+ * andar 2,4 m— y cada una se compara con SU norma, que depende del sexo y de la edad.
+ * Sumarlas sería sumar segundos con repeticiones, que da un número sin significado.
+ *
+ * Lo que sí se puede contar es CUÁNTAS pruebas quedan por debajo de su norma, y ese
+ * recuento cae en las mismas bandas que un test de puntuación. Así no hay una tercera
+ * mecánica: 'suma' y 'baremo' se diferencian solo en de dónde sale el número.
+ *
+ * Y una cosa que aquí importa más que en ningún otro tipo: si falta el sexo, falta la
+ * fecha de nacimiento, o el paciente cae fuera de los tramos de la tabla, el test NO tiene
+ * resultado. Dar un negativo ahí sería decir "está bien" sobre alguien a quien no se ha
+ * podido comparar con nada.
+ */
+
+export type FilaBaremo = {
+  /** Nombre del ítem al que se aplica, tal cual está escrito en `items`. */
+  item: string
+  /** 'hombre' | 'mujer'. Vacío = vale para cualquiera. */
+  sexo?: string
+  edad_min?: number
+  edad_max?: number
+  /** El intervalo NORMAL. Los dos son opcionales por separado: hay pruebas donde más es
+   *  mejor (repeticiones, normal ≥ min) y otras donde menos lo es (segundos, normal ≤ max). */
+  min?: number
+  max?: number
+  fuente?: string
+}
+
+export type ContextoPaciente = { sexo?: string | null, edad?: number | null }
+
+export const esBaremo = (test: any) => test?.logica === 'baremo'
+
+export function baremosDe(test: any): FilaBaremo[] {
+  return (Array.isArray(test?.baremos) ? test.baremos : []).filter((b: any) => b && String(b.item || '').trim())
+}
+
+/** Edad cumplida en una fecha. Sin fecha de nacimiento no hay edad, y eso se dice. */
+export function edadEn(fechaNacimiento?: string | null, fecha?: string): number | null {
+  if (!fechaNacimiento) return null
+  const n = new Date(String(fechaNacimiento).slice(0, 10) + 'T12:00:00')
+  const d = new Date((fecha ? String(fecha).slice(0, 10) : hoy()) + 'T12:00:00')
+  if (!isFinite(n.getTime()) || !isFinite(d.getTime())) return null
+  let e = d.getFullYear() - n.getFullYear()
+  const m = d.getMonth() - n.getMonth()
+  if (m < 0 || (m === 0 && d.getDate() < n.getDate())) e--
+  return e >= 0 && e < 130 ? e : null
+}
+
+/** Cuánto de concreta es una fila. Gana la más concreta cuando encajan varias. */
+const concrecion = (b: FilaBaremo) => (b.sexo ? 2 : 0) + (b.edad_min != null || b.edad_max != null ? 1 : 0)
+
+/**
+ * La fila de baremo que aplica a un ítem para este paciente.
+ *
+ * Se empareja por NOMBRE del ítem, igual que las metas se emparejan con el movimiento:
+ * es lo que permite escribir la tabla una vez y que siga valiendo al reordenar los ítems.
+ */
+export function baremoDe(test: any, nombre: any, ctx: ContextoPaciente): FilaBaremo | null {
+  const n = String(nombre || '').trim().toLowerCase()
+  if (!n) return null
+  const encaja = (b: FilaBaremo) => {
+    // Una fila con sexo no vale para un paciente sin sexo: no es que valga "para
+    // cualquiera", es que no se sabe cuál mirar.
+    if (b.sexo && b.sexo !== (ctx.sexo || '')) return false
+    if (b.edad_min != null && (ctx.edad == null || ctx.edad < Number(b.edad_min))) return false
+    if (b.edad_max != null && (ctx.edad == null || ctx.edad > Number(b.edad_max))) return false
+    return true
+  }
+  return baremosDe(test)
+    .filter(b => String(b.item).trim().toLowerCase() === n)
+    .filter(encaja)
+    .sort((a, b) => concrecion(b) - concrecion(a))[0] || null
+}
+
+/** ¿Está el valor dentro de su norma? null si no se puede saber. */
+export function dentroDeNorma(fila: FilaBaremo | null, valor: any): boolean | null {
+  if (!fila) return null
+  const v = parseFloat(String(valor))
+  if (!isFinite(v)) return null
+  const tieneMin = fila.min !== undefined && fila.min !== null && isFinite(Number(fila.min))
+  const tieneMax = fila.max !== undefined && fila.max !== null && isFinite(Number(fila.max))
+  if (!tieneMin && !tieneMax) return null
+  if (tieneMin && v < Number(fila.min)) return false
+  if (tieneMax && v > Number(fila.max)) return false
+  return true
+}
+
+/** La norma en una línea, para leerla al lado del número mientras se rellena. */
+export function textoNorma(fila: FilaBaremo | null, item?: any): string {
+  if (!fila) return ''
+  const u = item ? unidadDe(item).simbolo.trim() : ''
+  const tieneMin = fila.min !== undefined && fila.min !== null
+  const tieneMax = fila.max !== undefined && fila.max !== null
+  if (tieneMin && tieneMax) return `Normal entre ${fila.min} y ${fila.max}${u}`
+  if (tieneMin) return `Normal a partir de ${fila.min}${u}`
+  if (tieneMax) return `Normal hasta ${fila.max}${u}`
+  return ''
+}
+
+export type EvaluacionBaremo = {
+  /** Por qué no se puede resolver. null = sí se puede. */
+  motivo: string | null
+  filas: { nombre: string, valor: string, baremo: FilaBaremo | null, dentro: boolean | null }[]
+  /** Ítems por debajo de su norma. null si no se puede resolver. */
+  fallos: number | null
+}
+
+export function evaluarBaremo(test: any, items: any[], ctx: ContextoPaciente): EvaluacionBaremo {
+  const filas = (items || []).map((it, i) => {
+    const baremo = baremoDe(test, it?.nombre, ctx)
+    return { nombre: nombreItem(it, i), valor: valorDe(it), baremo, dentro: dentroDeNorma(baremo, valorDe(it)) }
+  })
+
+  let motivo: string | null = null
+  if (filas.length === 0) motivo = 'El test no tiene ítems que comparar.'
+  else if (!ctx.sexo) motivo = 'Falta el sexo del paciente. Los baremos se leen por sexo y edad, así que sin él no hay con qué comparar.'
+  else if (ctx.edad == null) motivo = 'Falta la fecha de nacimiento del paciente. Los baremos se leen por sexo y edad.'
+  else {
+    const sinMedir = filas.filter(f => f.valor === '').map(f => f.nombre)
+    const sinTabla = filas.filter(f => f.valor !== '' && !f.baremo).map(f => f.nombre)
+    if (sinMedir.length > 0) motivo = `Falta medir: ${sinMedir.join(', ')}.`
+    else if (sinTabla.length > 0) motivo = `No hay baremo para ${sinTabla.join(', ')} en ${ctx.sexo} de ${ctx.edad} años. Añádelo en la biblioteca: sin él, este test no significa nada.`
+  }
+
+  return { motivo, filas, fallos: motivo ? null : filas.filter(f => f.dentro === false).length }
+}
+
 /**
  * Qué le falta a un test de la biblioteca para poder guardarse.
  *
@@ -263,8 +393,8 @@ export function problemasDelTest(test: any): string[] {
     if (!String(it?.nombre || '').trim()) {
       p.push(`${como}: sin nombre. El nombre del ítem es lo que empareja la meta con el movimiento del objetivo, así que en blanco no resuelve nada.`)
     }
-    // En un test de suma la regla por ítem no decide nada; se revisa en su propio bloque.
-    if (!it?.regla || esSuma(test)) return
+    // En suma y en baremo la regla por ítem no decide nada; se revisa en su propio bloque.
+    if (!it?.regla || esSuma(test) || esBaremo(test)) return
 
     if (!mide(it)) {
       p.push(`${como}: tiene regla pero no tiene unidad, así que la regla se ignora y el ítem vuelve a ser una casilla. Ponle unidad o quítale la regla.`)
@@ -306,20 +436,58 @@ export function problemasDelTest(test: any): string[] {
       if ((it?.objetivos || []).length > 0) p.push(`${como}: tiene objetivos colgados, y en un test de puntuación no se abren: el hallazgo es del total. El objetivo se engancha al test entero desde la biblioteca de objetivos.`)
     })
 
-    const bandas = bandasDe(test)
-    if (bandas.length === 0) {
-      p.push('No hay bandas. Sin ellas el total es un número suelto y el test no puede dar ni positivo ni negativo.')
-    } else {
-      if (bandas.some(b => !b.etiqueta.trim())) p.push('Hay bandas sin nombre. El nombre de la banda es lo que se guarda en el historial y lo que se lee luego.')
-      const techos = bandas.map(b => b.hasta)
-      if (new Set(techos).size !== techos.length) p.push('Hay dos bandas con el mismo techo: la segunda nunca se alcanzaría.')
-      const rango = rangoTotal(items)
-      if (rango && bandas[bandas.length - 1].hasta < rango.max) {
-        p.push(`La última banda llega hasta ${bandas[bandas.length - 1].hasta} y el total puede llegar a ${rango.max}. Un total por encima no caería en ninguna banda y el test se quedaría sin resultado.`)
-      }
-    }
+    p.push(...problemasDeBandas(test, rangoTotal(items)?.max, 'el total'))
   }
 
+  if (esBaremo(test)) {
+    if (items.length === 0) p.push('Un test de baremo necesita ítems: cada uno se compara con su norma.')
+    const filas = baremosDe(test)
+    const nombres = items.map((it, i) => nombreItem(it, i).toLowerCase())
+
+    items.forEach((it, i) => {
+      const como = `«${nombreItem(it, i)}»`
+      if (it?.regla) p.push(`${como}: tiene regla propia, y en un test de baremo el umbral lo pone la tabla de normas. Quítasela para que no parezca que decide algo.`)
+      if ((it?.objetivos || []).length > 0) p.push(`${como}: tiene objetivos colgados, y en un test de baremo no se abren: el hallazgo es del conjunto. El objetivo se engancha al test entero.`)
+      if (!mide(it)) { p.push(`${como}: en un test de baremo todos los ítems se miden, así que necesita unidad.`); return }
+      const suyas = filas.filter(b => String(b.item).trim().toLowerCase() === nombreItem(it, i).toLowerCase())
+      if (suyas.length === 0) p.push(`${como}: no tiene ninguna condición de baremo. Sin norma no se puede decir si el resultado está bien o mal.`)
+    })
+
+    filas.forEach((b, i) => {
+      const como = `Condición ${i + 1} (${b.item || 'sin ítem'})`
+      if (!nombres.includes(String(b.item).trim().toLowerCase())) {
+        p.push(`${como}: no coincide con ningún ítem del test. Se empareja por nombre, así que un ítem renombrado deja su baremo huérfano.`)
+      }
+      const min = num(b.min), max = num(b.max)
+      if (!isFinite(min) && !isFinite(max)) p.push(`${como}: no dice ni mínimo ni máximo, así que no marca ninguna norma.`)
+      if (isFinite(min) && isFinite(max) && min > max) p.push(`${como}: el mínimo normal (${b.min}) es mayor que el máximo (${b.max}).`)
+      const eMin = num(b.edad_min), eMax = num(b.edad_max)
+      if (isFinite(eMin) && isFinite(eMax) && eMin > eMax) p.push(`${como}: el tramo de edad va de ${b.edad_min} a ${b.edad_max}, al revés.`)
+      if (b.sexo && b.sexo !== 'hombre' && b.sexo !== 'mujer') p.push(`${como}: el sexo «${b.sexo}» no es ni hombre ni mujer, así que no va a encajar con ningún paciente.`)
+    })
+
+    // El número que cae en las bandas es cuántos ítems fallan: como mucho, todos.
+    p.push(...problemasDeBandas(test, items.length, 'el recuento de pruebas por debajo de la norma'))
+  }
+
+  return p
+}
+
+/** Lo que le puede faltar a un juego de bandas, sea de suma o de baremo. */
+function problemasDeBandas(test: any, techoNecesario: number | undefined, queEs: string): string[] {
+  const p: string[] = []
+  const bandas = bandasDe(test)
+  if (bandas.length === 0) {
+    p.push(`No hay bandas. Sin ellas ${queEs} es un número suelto y el test no puede dar ni positivo ni negativo.`)
+  } else {
+    if (bandas.some(b => !b.etiqueta.trim())) p.push('Hay bandas sin nombre. El nombre de la banda es lo que se guarda en el historial y lo que se lee luego.')
+    const techos = bandas.map(b => b.hasta)
+    if (new Set(techos).size !== techos.length) p.push('Hay dos bandas con el mismo techo: la segunda nunca se alcanzaría.')
+    const ultima = bandas[bandas.length - 1].hasta
+    if (techoNecesario !== undefined && isFinite(techoNecesario) && ultima < techoNecesario) {
+      p.push(`La última banda llega hasta ${ultima} y ${queEs} puede llegar a ${techoNecesario}. Por encima no caería en ninguna banda y el test se quedaría sin resultado.`)
+    }
+  }
   return p
 }
 
@@ -353,12 +521,17 @@ export function resultadoDeItems(items: ItemTest[], logica?: string, aMano: Resu
  * en ese test no existen, sin que nada fallara. Por eso lo que se pasa aquí es el TEST, no
  * su lógica suelta: las bandas viven en él.
  */
-export function resultadoDeTest(test: any, items: ItemTest[], aMano: ResultadoTest = 'positivo'): ResultadoTest {
+export function resultadoDeTest(test: any, items: ItemTest[], aMano: ResultadoTest = 'positivo', ctx?: ContextoPaciente): ResultadoTest {
   if (aMano === 'sin_realizar') return 'sin_realizar'
-  if (!esSuma(test)) return resultadoDeItems(items, test?.logica, aMano)
-  // Total incompleto o total que no cae en ninguna banda: NO hay veredicto. Devolver
-  // 'negativo' aquí sería exactamente el fallo que este tipo de test viene a evitar.
-  const banda = bandaDe(test, puntuacionDe(items))
+  // Suma y baremo acaban igual: un número que cae en una banda. Cambia de dónde sale el
+  // número —el total de los ítems, o cuántos quedan por debajo de su norma—.
+  const numero = esSuma(test) ? puntuacionDe(items)
+    : esBaremo(test) ? evaluarBaremo(test, items, ctx || {}).fallos
+    : undefined
+  if (numero === undefined) return resultadoDeItems(items, test?.logica, aMano)
+  // Número incompleto, o número que no cae en ninguna banda: NO hay veredicto. Devolver
+  // 'negativo' aquí sería exactamente el fallo que estos tipos vienen a evitar.
+  const banda = bandaDe(test, numero)
   if (!banda) return 'sin_realizar'
   return banda.hallazgo ? 'positivo' : 'negativo'
 }
@@ -432,15 +605,37 @@ export async function registrarResultadoTest(
   const items = (datos.items || []).map(i => ({
     ...i, marcado: tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado,
   }))
-  const resultado = resultadoDeTest(test, items, datos.resultado || 'positivo')
   const lado = datos.lado || 'bilateral'
   const fecha = datos.fecha || hoy()
 
-  // En un test de puntuación, el total se recalcula siempre de los ítems —lo derivado no
-  // se guarda— pero la BANDA sí se congela, igual que la unidad y la regla: si mañana
-  // mueves los cortes, el registro de marzo tiene que seguir diciendo "Pronado".
-  const puntuacion = esSuma(test) ? puntuacionDe(items) : null
-  const banda = esSuma(test) ? bandaDe(test, puntuacion) : null
+  /**
+   * El baremo necesita al PACIENTE, no solo lo medido: la norma depende de su sexo y de la
+   * edad que tenía el día del test. Se lee aquí, en la función que escribe, y no se pide a
+   * quien llama, porque si dependiera de que cada pantalla lo pase, la que se olvidara
+   * guardaría un resultado comparado contra nada.
+   *
+   * Y si falta el dato, NO SE GUARDA. Es el único caso en el que registrar un test se
+   * niega: un veredicto sin baremo aplicable sería "está bien" dicho sobre alguien a quien
+   * no se ha comparado con nada, y quedaría en el historial igual que uno de verdad.
+   */
+  let ctx: ContextoPaciente = {}
+  if (esBaremo(test)) {
+    const { data: pac, error: errPac } = await supabase.from('pacientes')
+      .select('sexo,fecha_nacimiento').eq('id', pacienteId).maybeSingle()
+    if (errPac) return { ok: false, error: errPac.message }
+    ctx = { sexo: pac?.sexo || null, edad: edadEn(pac?.fecha_nacimiento, fecha) }
+    const ev = evaluarBaremo(test, items, ctx)
+    if (ev.motivo) return { ok: false, error: ev.motivo }
+  }
+
+  const resultado = resultadoDeTest(test, items, datos.resultado || 'positivo', ctx)
+
+  // El número se recalcula siempre de los ítems —lo derivado no se guarda— pero la BANDA
+  // sí se congela, igual que la unidad y la regla: si mañana mueves los cortes, el registro
+  // de marzo tiene que seguir diciendo "Pronado".
+  const evalBaremo = esBaremo(test) ? evaluarBaremo(test, items, ctx) : null
+  const puntuacion = esSuma(test) ? puntuacionDe(items) : evalBaremo ? evalBaremo.fallos : null
+  const banda = (esSuma(test) || esBaremo(test)) ? bandaDe(test, puntuacion) : null
 
   const { error } = await supabase.from('resultados_tests').insert({
     paciente_id: pacienteId,
@@ -454,9 +649,16 @@ export async function registrarResultadoTest(
     // Se congela la unidad con el resultado, igual que la sesión congela el nombre del
     // ejercicio: si mañana el test pasa a medirse en centímetros, el registro de marzo
     // tiene que seguir diciendo los grados que se anotaron aquel día.
-    items_resultado: items.map(i => ({
+    items_resultado: items.map((i, n) => ({
       nombre: i.nombre, marcado: i.marcado,
       unidad: unidadDe(i).id, valor: valorDe(i),
+      // El BAREMO aplicado se congela también. La tabla de normas se va a corregir con el
+      // tiempo, y sin esto un resultado de marzo cambiaría de sentido al retocarla.
+      ...(evalBaremo?.filas[n]?.baremo ? {
+        norma_min: evalBaremo.filas[n].baremo!.min,
+        norma_max: evalBaremo.filas[n].baremo!.max,
+        dentro: evalBaremo.filas[n].dentro,
+      } : {}),
       // Los extremos se congelan siempre que estén: son los que dan sentido al número
       // guardado —un 2 sobre 4 no es un 2 sobre 10— y en un test de puntuación son además
       // lo que permite volver a pintar el selector tal y como estaba.
@@ -474,7 +676,9 @@ export async function registrarResultadoTest(
   // negativo en marzo es información clínica, no ausencia de ella.
   // En un test de puntuación lo que hay que leer en la cronología es el total y su banda:
   // la lista de ítems marcados está vacía porque ahí no se marca nada.
-  const marcados = esSuma(test)
+  const marcados = esBaremo(test)
+    ? `${puntuacion} de ${items.length} por debajo de su norma${banda ? ` · ${banda.etiqueta}` : ''}`
+    : esSuma(test)
     ? (puntuacion === null ? null : `Total ${puntuacion}${banda ? ` · ${banda.etiqueta}` : ''}`)
     : (items.filter(i => i.marcado)
         .map(i => { const m = textoMedida(i); return i.nombre + (m ? ` (${m})` : '') }).join(', ') || null)
@@ -492,10 +696,10 @@ export async function registrarResultadoTest(
   if (resultado === 'positivo') {
     const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado)
     abiertos += a
-    // En un test de puntuación el hallazgo es del TOTAL, así que solo cuenta el objetivo
-    // del test entero. Recorrer los ítems abriría objetivos por un ítem que por sí solo
-    // no significa nada —un +1 de un FPI-6 que suma 3 no es una pronación—.
-    if (!esSuma(test)) {
+    // En puntuación y en baremo el hallazgo es del CONJUNTO, así que solo cuenta el
+    // objetivo del test entero. Recorrer los ítems abriría objetivos por un ítem que por
+    // sí solo no significa nada —un +1 de un FPI-6 que suma 3 no es una pronación—.
+    if (!esSuma(test) && !esBaremo(test)) {
       // Los ítems marcados que NO llevan objetivo colgado no abren nada. Es legítimo —hay
       // ítems que solo describen— pero si no abre ninguno el test entero, hay que decirlo.
       const b = await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
