@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BonoTipo, TIPOS_DESCUENTO, quitarBono } from '@/lib/bonos'
 import { esDeSesiones, caducidadDesde, textoModalidad } from '@/lib/bonoSesiones'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
+import { cargarTarifas, type Descuento } from '@/lib/tarifas'
 
 /**
  * BONOS DE PAREJA: no existe "la pareja" como cosa guardada.
@@ -63,6 +64,18 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
      */
     empieza: new Date().toISOString().split('T')[0],
   })
+
+  /**
+   * Los descuentos guardados en Ajustes → Tarifas.
+   *
+   * El modal tenía el formulario a mano —tipo, valor y motivo— pero no leía el catálogo,
+   * así que un "Descuento amigo" creado en Ajustes no se podía aplicar a nadie: había que
+   * acordarse de cuánto era y volver a teclearlo bono a bono. Y en cuanto se teclea a mano,
+   * el mismo descuento acaba con dos importes distintos según quién lo puso.
+   */
+  const [guardados, setGuardados] = useState<Descuento[]>([])
+  useEffect(() => { cargarTarifas().then(t => setGuardados(t.descuentos || [])) }, [])
+
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
   const [confirmarQuitar, setConfirmarQuitar] = useState(false)
@@ -302,6 +315,26 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         )}
 
         <div className="field"><label>Descuento (opcional) · se mantiene cada mes al renovar</label>
+          {/* Primero los guardados: es lo que se quiere el 90% de las veces, y aplicarlo de
+              un clic evita que el mismo descuento acabe con dos importes distintos. */}
+          {guardados.length > 0 && (
+            <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:7}}>
+              {guardados.map((d, i) => {
+                const puesto = form.descuento_tipo===d.tipo
+                  && parseFloat(form.descuento_valor||'0')===d.valor
+                  && form.descuento_motivo===d.nombre
+                return (
+                  <button key={i} type="button" className={`chip-sel ${puesto?'on':''}`}
+                    title={d.tipo==='porcentaje'?`${d.valor}% menos`:d.tipo==='precio'?`Paga ${d.valor} €`:`${d.valor} € menos`}
+                    onClick={()=>setForm(p=>puesto
+                      ? ({...p, descuento_tipo:'', descuento_valor:'', descuento_motivo:''})
+                      : ({...p, descuento_tipo:d.tipo, descuento_valor:String(d.valor), descuento_motivo:d.nombre }))}>
+                    {d.nombre} · {d.tipo==='porcentaje'?`${d.valor}%`:d.tipo==='precio'?`${d.valor} €`:`−${d.valor} €`}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <div style={{display:'flex',gap:6}}>
             <select className="input" style={{flex:'0 0 140px'}} value={form.descuento_tipo} onChange={e=>setForm(p=>({...p,descuento_tipo:e.target.value}))}>
               <option value="">Sin descuento</option>
