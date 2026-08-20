@@ -140,6 +140,76 @@ export function textoMedida(item: any): string {
 }
 
 /**
+ * Los ítems con barra que todavía no se han medido.
+ *
+ * Una barra sin valor NO es un cero ni un "no hay hallazgo": es una medición que no se ha
+ * hecho. `resultadoDeItems` la trata como no marcada, que para un test de tres barras con
+ * una sola medida significa anunciar "negativo · calculado automáticamente" habiendo
+ * mirado un tercio del test. El cálculo se deja como está —cambiarlo rompería los tests
+ * que sí se rellenan enteros— pero quien decide tiene que ver qué le falta.
+ */
+export function medicionesPendientes(items: any[]): string[] {
+  return (items || [])
+    .filter(i => tieneBarra(i) && valorDe(i) === '')
+    .map((i, n) => i.nombre || `ítem ${n + 1}`)
+}
+
+/**
+ * Qué le falta a un test de la biblioteca para poder guardarse.
+ *
+ * Un ítem con `regla` pero sin umbral, o sin barra de mín/máx, no da error al guardar: se
+ * guarda tal cual y el fallo aparece semanas después con el paciente delante, en forma de
+ * barra que va de 0 a 100 por defecto o de regla que nunca se cumple. El sitio donde se
+ * toma la decisión es este formulario, así que el aviso va aquí.
+ *
+ * Devuelve la lista de problemas en el mismo orden en que se leen en pantalla. Vacía = se
+ * puede guardar.
+ */
+export function problemasDelTest(test: any): string[] {
+  const p: string[] = []
+  // '' y null son "sin poner"; Number() los convertiría en 0 y daría por válido un umbral
+  // que nadie ha escrito.
+  const num = (v: any) => (v === '' || v === null || v === undefined) ? NaN : Number(v)
+
+  if (!String(test?.nombre || '').trim()) p.push('El test no tiene nombre.')
+
+  const items: any[] = test?.items || []
+  items.forEach((it, i) => {
+    const como = String(it?.nombre || '').trim() ? `«${String(it.nombre).trim()}»` : `Ítem ${i + 1}`
+
+    if (!String(it?.nombre || '').trim()) {
+      p.push(`${como}: sin nombre. El nombre del ítem es lo que empareja la meta con el movimiento del objetivo, así que en blanco no resuelve nada.`)
+    }
+    if (!it?.regla) return
+
+    if (!mide(it)) {
+      p.push(`${como}: tiene regla pero no tiene unidad, así que la regla se ignora y el ítem vuelve a ser una casilla. Ponle unidad o quítale la regla.`)
+      return
+    }
+
+    const dos = it.regla === 'entre' || it.regla === 'fuera'
+    const a = num(it.umbral), b = num(it.umbral2)
+    if (!isFinite(a)) p.push(`${como}: falta el valor del umbral.`)
+    if (dos && !isFinite(b)) p.push(`${como}: la regla «${it.regla}» necesita dos valores y solo tiene uno.`)
+
+    const min = num(it.min), max = num(it.max)
+    if (!isFinite(min) || !isFinite(max)) {
+      p.push(`${como}: la barra no tiene mínimo y máximo. Sin ellos se pinta de 0 a 100, que casi nunca es el rango real.`)
+      return
+    }
+    if (min >= max) { p.push(`${como}: el mínimo de la barra (${min}) no es menor que el máximo (${max}).`); return }
+
+    for (const u of [a, ...(dos ? [b] : [])]) {
+      if (isFinite(u) && (u < min || u > max)) {
+        p.push(`${como}: el umbral ${u} queda fuera de la barra ${min}–${max}, así que nunca se podrá alcanzar.`)
+      }
+    }
+  })
+
+  return p
+}
+
+/**
  * El resultado que sale de los ítems.
  *
  * `logica: 'todos'` exige que estén todos marcados; cualquier otra cosa, con uno basta.
@@ -418,4 +488,96 @@ async function abrirOReabrir(pacienteId: string, objetivoId: string, via: Via, c
     : [...vias, via]
   const origen = (exist.origen || '').includes('test') ? exist.origen : (exist.origen ? exist.origen + '+test' : 'test')
   await guardarVias(pacienteId, objetivoId, nuevas, { origen, logradoAntes: !!exist.logrado, contexto: contexto || 'un test' })
+}
+
+/* ─── BORRAR UN TEST DE LA BIBLIOTECA ───────────────────────────────────────
+ *
+ * Borrar el test no era borrar el test. Se iban su fila y sus resultados, pero las VÍAS
+ * que había abierto en los pacientes —`test` con ref = id del test, `test_item` con ref
+ * `id:índice`— se quedaban en `pacientes_objetivos` apuntando a algo que ya no existe. Un
+ * objetivo sostenido por una vía fantasma no se puede cerrar nunca: la única forma de
+ * resolverla era volver a pasar el test, y el test ya no está.
+ *
+ * Además ninguno de los dos `delete` miraba su error, así que un borrado bloqueado por la
+ * clave ajena de `resultados_tests` se veía igual que uno correcto.
+ *
+ * Se sigue el patrón de `lib/borrarPaciente.ts`: primero lo que apunta al test, el test al
+ * final, parando en el primer fallo en vez de dejarlo a medias.
+ */
+
+const esViaDeTest = (v: any, testId: string) =>
+  (v?.tipo === 'test' && v.ref === testId) ||
+  (v?.tipo === 'test_item' && typeof v?.ref === 'string' && v.ref.startsWith(testId + ':'))
+
+export type AlcanceBorradoTest = {
+  resultados: number
+  /** Pacientes con alguna vía de objetivo abierta por este test. */
+  pacientes: number
+  /** Objetivos de la BIBLIOTECA vinculados al test entero: se quedarían sin test. */
+  objetivos: string[]
+}
+
+/** Qué se lleva por delante el borrado. Para poder preguntarlo ANTES de hacerlo. */
+export async function alcanceBorradoTest(testId: string): Promise<AlcanceBorradoTest> {
+  const [{ count }, { data: objs }, { data: pos }] = await Promise.all([
+    supabase.from('resultados_tests').select('id', { count: 'exact', head: true }).eq('test_id', testId),
+    supabase.from('objetivos').select('nombre').eq('test_id', testId),
+    supabase.from('pacientes_objetivos').select('paciente_id,vias'),
+  ])
+  const pacientes = new Set(
+    (pos || [])
+      .filter(po => (Array.isArray(po.vias) ? po.vias : []).some((v: any) => esViaDeTest(v, testId)))
+      .map(po => po.paciente_id),
+  )
+  return { resultados: count || 0, pacientes: pacientes.size, objetivos: (objs || []).map((o: any) => o.nombre) }
+}
+
+export type ResultadoBorradoTest =
+  | { ok: true, resultados: number, viasQuitadas: number }
+  | { ok: false, error: string }
+
+export async function borrarTest(testId: string): Promise<ResultadoBorradoTest> {
+  if (!testId) return { ok: false, error: 'Falta el test' }
+
+  // 1. Las vías, primero: si el borrado del test falla después, al menos no quedan
+  // apuntando a un test que sí sigue existiendo (una vía de menos se puede reabrir
+  // pasando el test otra vez; una vía fantasma no se puede cerrar de ninguna forma).
+  const { data: pos, error: errPos } = await supabase.from('pacientes_objetivos')
+    .select('paciente_id,objetivo_id,vias,logrado')
+  if (errPos) return { ok: false, error: errPos.message }
+
+  let viasQuitadas = 0
+  for (const po of (pos || [])) {
+    const vias: Via[] = Array.isArray(po.vias) ? po.vias : []
+    const restantes = vias.filter(v => !esViaDeTest(v, testId))
+    if (restantes.length === vias.length) continue
+    // La fila NO se borra aunque se quede sin vías: un objetivo con `vias: []` es un
+    // estado legítimo —así nacen los que se añaden a mano desde la ficha— y borrarlo se
+    // llevaría por delante un objetivo que el paciente puede tener por otro motivo.
+    const r = await guardarVias(po.paciente_id, po.objetivo_id, restantes, {
+      logradoAntes: !!po.logrado, contexto: 'un test eliminado',
+    })
+    if (!r.ok) return { ok: false, error: r.error }
+    viasQuitadas += vias.length - restantes.length
+  }
+
+  // 2. Los resultados. `resultados_tests.test_id` no tiene cascada, así que sin esto el
+  // borrado del test se bloquea por clave ajena.
+  const { count, error: errCount } = await supabase.from('resultados_tests')
+    .select('id', { count: 'exact', head: true }).eq('test_id', testId)
+  if (errCount) return { ok: false, error: errCount.message }
+
+  const { error: errRes } = await supabase.from('resultados_tests').delete().eq('test_id', testId)
+  if (errRes) return { ok: false, error: errRes.message }
+
+  // 3. El test.
+  const { error: errTest } = await supabase.from('tests').delete().eq('id', testId)
+  if (errTest) return { ok: false, error: errTest.message }
+
+  // 4. Y comprobar que de verdad se ha ido: `delete` devuelve ok aunque no borre ninguna
+  // fila, por ejemplo si una política RLS lo impide.
+  const { data: sigue } = await supabase.from('tests').select('id').eq('id', testId).maybeSingle()
+  if (sigue) return { ok: false, error: 'El test sigue en la biblioteca después de borrarlo. Probablemente lo impide una política de la base de datos.' }
+
+  return { ok: true, resultados: count || 0, viasQuitadas }
 }

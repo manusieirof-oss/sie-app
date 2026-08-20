@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { UNIDADES, unidadDe, mide, textoRegla } from '@/lib/tests'
+import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { ordenAnatomico } from '@/lib/anatomia'
@@ -247,52 +247,104 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
   const [nuevoTest, setNuevoTest] = useState({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null as File|null, items:[] as any[], logica:'cualquiera', etiquetas_relacionadas:[] as string[], etiquetas_bloquea:[] as string[], tipo_lado:'bilateral' })
 
+  /**
+   * Todo lo de abajo miraba el resultado de Supabase de reojo o directamente no lo miraba:
+   * se cerraba el modal, se recargaba la lista y parecía que había ido bien. Un test que
+   * no se guarda tiene que decir que no se ha guardado, y el modal tiene que seguir
+   * abierto con lo escrito dentro.
+   */
+  async function recargarTests() {
+    const { data, error } = await supabase.from('tests').select('*').order('nombre')
+    if (error) { alert('El test se ha guardado, pero la lista no se ha podido recargar: ' + error.message); return }
+    setTestsLib(data || [])
+  }
+
+  /** Sube la imagen y devuelve su URL pública, o el motivo por el que no ha podido. */
+  async function subirImagenTest(testId: string, file: File): Promise<{ url: string } | { error: string }> {
+    const ext = file.name.split('.').pop()
+    const path = `tests/${testId}/foto.${ext}`
+    const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: true })
+    if (error) return { error: error.message }
+    const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
+    return { url: publicUrl }
+  }
+
+  /** Las reglas están en `lib/tests.ts`; aquí solo se enseñan. true = no se guarda. */
+  function bloqueadoPorProblemas(test: any): boolean {
+    const p = problemasDelTest(test)
+    if (p.length === 0) return false
+    alert('El test no se ha guardado:\n\n' + p.map(x => '· ' + x).join('\n'))
+    return true
+  }
+
   async function crearTest() {
-    if (!nuevoTest.nombre) { alert('El nombre es obligatorio'); return }
+    if (bloqueadoPorProblemas(nuevoTest)) return
     setSubiendoImgTest(true)
     const { data: t, error } = await supabase.from('tests').insert({ nombre:nuevoTest.nombre, descripcion:nuevoTest.descripcion, frecuencia_meses:nuevoTest.frecuencia_meses, video_url:nuevoTest.video_url, items:nuevoTest.items, logica:nuevoTest.logica, etiquetas_relacionadas:nuevoTest.etiquetas_relacionadas||[], etiquetas_bloquea:nuevoTest.etiquetas_bloquea||[], tipo_lado:nuevoTest.tipo_lado, imagen_url:'' }).select().single()
-    if (!error && t && nuevoTest.imagen_file) {
-      const ext = nuevoTest.imagen_file.name.split('.').pop()
-      const path = `tests/${t.id}/foto.${ext}`
-      const { error: upErr } = await supabase.storage.from('fotos').upload(path, nuevoTest.imagen_file, { upsert: true })
-      if (!upErr) {
-        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
-        await supabase.from('tests').update({ imagen_url: publicUrl }).eq('id', t.id)
+    if (error || !t) {
+      setSubiendoImgTest(false)
+      alert('No se ha podido crear el test: ' + (error?.message || 'la base de datos no ha devuelto la fila creada.'))
+      return
+    }
+    // La imagen falla aparte y no invalida el test: se avisa, pero después de cerrar, para
+    // que no parezca que no se ha guardado nada.
+    let avisoImagen = ''
+    if (nuevoTest.imagen_file) {
+      const r = await subirImagenTest(t.id, nuevoTest.imagen_file)
+      if ('error' in r) avisoImagen = r.error
+      else {
+        const { error: errUrl } = await supabase.from('tests').update({ imagen_url: r.url }).eq('id', t.id)
+        if (errUrl) avisoImagen = errUrl.message
       }
     }
     setSubiendoImgTest(false)
     setModalTest(false)
     setNuevoTest({ nombre:'', descripcion:'', frecuencia_meses:3, video_url:'', imagen_url:'', imagen_file:null, items:[], logica:'cualquiera', etiquetas_relacionadas:[], etiquetas_bloquea:[], tipo_lado:'bilateral' })
-    const { data: tl } = await supabase.from('tests').select('*').order('nombre')
-    setTestsLib(tl||[])
+    await recargarTests()
+    if (avisoImagen) alert('El test se ha creado, pero la imagen no se ha subido: ' + avisoImagen + '\n\nVuelve a subirla desde Editar.')
   }
 
   async function guardarEditTest() {
     if (!testEditando) return
+    if (bloqueadoPorProblemas(testEditando)) return
     setSubiendoImgTest(true)
     let imagenUrl = testEditando.imagen_url || ''
+    let avisoImagen = ''
     if (testEditando.imagen_file) {
-      const ext = testEditando.imagen_file.name.split('.').pop()
-      const path = `tests/${testEditando.id}/foto.${ext}`
-      const { error: upErr } = await supabase.storage.from('fotos').upload(path, testEditando.imagen_file, { upsert: true })
-      if (!upErr) {
-        const { data: { publicUrl } } = supabase.storage.from('fotos').getPublicUrl(path)
-        imagenUrl = publicUrl + '?t=' + Date.now()
-      }
+      const r = await subirImagenTest(testEditando.id, testEditando.imagen_file)
+      if ('error' in r) avisoImagen = r.error
+      // El sufijo con la hora es para saltarse la caché del navegador: la ruta del fichero
+      // es siempre la misma y sin esto se sigue viendo la imagen anterior.
+      else imagenUrl = r.url + '?t=' + Date.now()
     }
-    await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
+    const { error } = await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
     setSubiendoImgTest(false)
+    if (error) { alert('No se han guardado los cambios: ' + error.message); return }
     setModalEditarTest(false); setTestEditando(null)
-    const { data: tl } = await supabase.from('tests').select('*').order('nombre')
-    setTestsLib(tl||[])
+    await recargarTests()
+    if (avisoImagen) alert('Los cambios se han guardado, pero la imagen no se ha subido: ' + avisoImagen)
   }
 
-  async function eliminarTest(id: string) {
-    if (!confirm('¿Eliminar este test?')) return
-    await supabase.from('resultados_tests').delete().eq('test_id', id)
-    await supabase.from('tests').delete().eq('id', id)
-    const { data: tl } = await supabase.from('tests').select('*').order('nombre')
-    setTestsLib(tl||[])
+  /**
+   * El borrado vive en `lib/tests.ts`, que es quien sabe qué cuelga de un test. Aquí solo
+   * se pregunta —diciendo exactamente qué se lleva por delante— y se enseña el resultado.
+   */
+  async function eliminarTest(t: any) {
+    const a = await alcanceBorradoTest(t.id)
+    const lineas = [
+      `Vas a eliminar «${t.nombre}» de la biblioteca.`, '',
+      `· ${a.resultados} resultado${a.resultados === 1 ? '' : 's'} de paciente se borran con él.`,
+      `· ${a.pacientes} paciente${a.pacientes === 1 ? ' tiene' : 's tienen'} objetivos abiertos por este test: esas vías se quitan.`,
+    ]
+    if (a.objetivos.length > 0) lineas.push(`· Se quedan sin test los objetivos: ${a.objetivos.join(', ')}.`)
+    lineas.push('', 'No se puede deshacer. ¿Seguir?')
+    if (!confirm(lineas.join('\n'))) return
+
+    const r = await borrarTest(t.id)
+    if (!r.ok) { alert('No se ha eliminado: ' + r.error); return }
+    setTestDetalle(null)
+    await recargarTests()
+    alert(`Eliminado «${t.nombre}».\n${r.resultados} resultado${r.resultados === 1 ? '' : 's'} y ${r.viasQuitadas} vía${r.viasQuitadas === 1 ? '' : 's'} de objetivo.`)
   }
 
   // El buscador, el filtro por zona y la rejilla los pone `ExploradorTests`, que es el
@@ -311,7 +363,9 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
               <div style={{flex:1,fontSize:14,fontWeight:400,color:'var(--n)'}}>{testDetalle.nombre}</div>
               <button className="btn btn-s btn-sm" onClick={()=>{setTestEditando({...testDetalle});setModalEditarTest(true);setTestDetalle(null)}}><Ic name="editar" size={12}/> Editar</button>
-              <button className="btn btn-d btn-sm" onClick={()=>{eliminarTest(testDetalle.id);setTestDetalle(null)}}><Ic name="papelera" size={12}/></button>
+              {/* La ficha NO se cierra al pulsar: se cerraba antes de que respondiera el
+                  borrado, así que un borrado fallido se veía igual que uno correcto. */}
+              <button className="btn btn-d btn-sm" onClick={()=>eliminarTest(testDetalle)}><Ic name="papelera" size={12}/></button>
               <button onClick={()=>setTestDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:16}}>
@@ -326,12 +380,61 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{testDetalle.tipo_lado==='lateral'?'Izq / Der':'Bilateral'}</span>
                     {testDetalle.video_url&&<a href={testDetalle.video_url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="play" size={10}/> Vídeo</a>}
                   </div>
+                  {/* LO QUE HACE CADA ÍTEM, SIN ENTRAR A EDITAR.
+                      Aquí solo salía el nombre del ítem, así que para saber con qué regla
+                      decide o qué objetivo abre había que abrir el formulario de edición
+                      —con el riesgo de tocar algo— y cerrarlo sin guardar. Revisar la
+                      biblioteca es justo lo que se hace desde esta ficha. */}
                   {(testDetalle.items||[]).length>0&&(
                     <div>
                       <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {testDetalle.logica==='cualquiera'?'Cualquiera = positivo':'Todos = positivo'}</div>
-                      {(testDetalle.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:11,color:'var(--n)',fontWeight:300,padding:'2px 0'}}>☐ {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}</div>)}
+                      {(testDetalle.items||[]).map((item:any,i:number)=>{
+                        const regla = textoRegla(item)
+                        const objs = (item.objetivos||[]).map((id:string)=>(objetivos||[]).find((o:any)=>o.id===id)).filter(Boolean)
+                        return (
+                          <div key={i} style={{padding:'5px 0',borderTop:i===0?'none':'1px solid var(--bl)'}}>
+                            <div style={{fontSize:11,color:'var(--n)',fontWeight:300}}>
+                              {regla?'▭':'☐'} {item.nombre}{unidadDe(item).simbolo?` · mide ${unidadDe(item).nombre.toLowerCase()}`:''}
+                            </div>
+                            {regla&&(
+                              <div style={{fontSize:10,color:'var(--gd)',marginTop:2}}>
+                                {regla} · barra {item.min ?? '?'} a {item.max ?? '?'}
+                              </div>
+                            )}
+                            <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3,alignItems:'center'}}>
+                              <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
+                              {objs.length===0
+                                ? <span style={{fontSize:9,color:'var(--grl)'}}>ningún objetivo</span>
+                                : objs.map((o:any)=>{
+                                    const movId=(item.objetivos_mov||{})[o.id]
+                                    const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
+                                    return (
+                                      <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>
+                                        {o.nombre}{mov?` · ${mov}`:''}
+                                      </span>
+                                    )
+                                  })}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
+                  {/* Los mismos problemas que impiden guardar, en los tests que ya están
+                      guardados: la biblioteca se ha ido montando a mano y hay ítems de
+                      antes de que existiera la validación. */}
+                  {(()=>{
+                    const probs = problemasDelTest(testDetalle)
+                    if (probs.length===0) return null
+                    return (
+                      <div style={{marginTop:12,padding:'8px 10px',borderRadius:7,background:'var(--ambl)',border:'1px solid #E0C068'}}>
+                        <div style={{fontSize:9,fontWeight:600,color:'#8A6410',letterSpacing:.4,textTransform:'uppercase',marginBottom:4,display:'flex',alignItems:'center',gap:5}}>
+                          <Ic name="alerta" size={11}/> Este test está incompleto
+                        </div>
+                        {probs.map((p,i)=><div key={i} style={{fontSize:10,color:'var(--n)',fontWeight:300,lineHeight:1.5}}>· {p}</div>)}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             </div>

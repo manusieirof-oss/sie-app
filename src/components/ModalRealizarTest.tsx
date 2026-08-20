@@ -1,6 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
-import { resultadoDeItems, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla } from '@/lib/tests'
+import { resultadoDeItems, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla, medicionesPendientes } from '@/lib/tests'
 
 /**
  * Pasar un test, con el mismo aspecto que su ficha de la biblioteca.
@@ -74,6 +74,10 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
 
   // Los ítems del lado, cayendo en la definición vigente del test si aún no se ha tocado.
   const base = d.items_resultado?.length ? d.items_resultado : items.map((it: any) => ({ ...it, marcado: false, valor: '' }))
+
+  // Barras sin valor. El veredicto se sigue calculando igual, pero deja de anunciarse como
+  // si estuviera el test entero mirado.
+  const pendientes = medicionesPendientes(base)
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -202,8 +206,22 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie }
 
                   <div style={{ padding: '9px 12px', borderRadius: 7, background: d.resultado === 'positivo' ? 'var(--redl)' : d.resultado === 'negativo' ? 'var(--gl)' : 'var(--bl)', border: `1px solid ${d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gm)' : 'var(--bd)'}`, fontSize: 12, fontWeight: 500, color: d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gd)' : 'var(--grl)', marginTop: 8 }}>
                     {d.resultado === 'positivo' ? '+ Positivo' : d.resultado === 'negativo' ? '− Negativo' : 'Marca los ítems observados'}
-                    {d.resultado !== 'sin_realizar' && ' · calculado automáticamente'}
+                    {d.resultado !== 'sin_realizar' && (pendientes.length > 0 ? ' · con mediciones sin hacer' : ' · calculado automáticamente')}
                   </div>
+
+                  {/* UNA BARRA SIN VALOR NO ES UN CERO.
+                      `resultadoDeItems` la cuenta como no marcada, así que un test de tres
+                      mediciones con una sola hecha decía "− Negativo · calculado
+                      automáticamente" habiendo mirado un tercio. El aviso va aquí, que es
+                      donde se decide dar el test por bueno. */}
+                  {pendientes.length > 0 && d.resultado !== 'sin_realizar' && (
+                    <div className="fila-p" style={{ borderLeftColor: '#E0C068', marginTop: 6 }}>
+                      <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+                        Falta medir <b>{pendientes.join(', ')}</b>. El resultado de arriba solo
+                        tiene en cuenta lo que sí has medido.
+                      </span>
+                    </div>
+                  )}
 
                   {/* "No se lo hice" y "se lo hice y salió limpio" no son lo mismo: lo
                       segundo hay que decirlo a propósito. */}
