@@ -21,6 +21,7 @@ import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
+import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
 import { useParams, useRouter } from 'next/navigation'
 
 
@@ -492,7 +493,20 @@ export default function FichaPacientePage() {
     if (!confirm(`¿Eliminar DEFINITIVAMENTE a ${pac.nombre} ${pac.apellidos}?\n\nEsta acción NO se puede deshacer. Se borrarán todos sus datos, citas y sesiones.`)) return
     if (!confirm('Segunda confirmación: ¿estás completamente seguro?')) return
     setProcesando(true)
-    await supabase.from('pacientes').delete().eq('id',id)
+    const r = await borrarPaciente(String(id))
+    if (!r.ok) {
+      setProcesando(false)
+      alert(`No se ha podido borrar a ${pac.nombre}.\n\n${r.error}${r.tabla ? `\n\n(al borrar sus ${r.tabla})` : ''}`)
+      return
+    }
+    // El delete de Supabase devuelve ok aunque no haya borrado ninguna fila —una política
+    // RLS que no deja, por ejemplo—, así que se comprueba antes de decir que está hecho.
+    // Sin esto volvíamos a la lista tan tranquilos y el paciente seguía ahí.
+    if (await siguePaciente(String(id))) {
+      setProcesando(false)
+      alert(`${pac.nombre} sigue en la base de datos.\n\nEl borrado no ha dado error pero tampoco ha borrado nada: lo normal es que sea un permiso.`)
+      return
+    }
     router.push('/pacientes')
   }
 
