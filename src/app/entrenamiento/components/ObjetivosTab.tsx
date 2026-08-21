@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { categoriaDe } from '@/lib/etiquetas'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
-import { criteriosDe, textoCriterio, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
+import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
 
 /**
  * La biblioteca de objetivos.
@@ -41,8 +41,11 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
   tests: any[]
   onCambia: (v: any[]) => void
 }) {
-  const defs = criteriosDe({ criterios_fase: criterios, fases })
-  const deFase = (n: number): CriterioFase[] => defs.find(d => d.fase === n)?.criterios || []
+  // EN BRUTO, sin descartar lo incompleto: un criterio recién añadido nace sin test ni
+  // ítem, y leerlo con `criteriosDe` lo tiraba antes de poder rellenarlo — el botón de
+  // añadir parecía no hacer nada.
+  const defs = criteriosBrutos({ criterios_fase: criterios })
+  const deFase = (n: number): CriterioFase[] => (defs.find(d => d.fase === n)?.criterios || []) as CriterioFase[]
 
   const escribe = (n: number, lista: CriterioFase[]) => {
     const resto = (Array.isArray(criterios) ? criterios : []).filter((f: any) => Number(f?.fase) !== n)
@@ -542,11 +545,15 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
             {form.tipo === 'fase' && (
               <>
+                {/* El placeholder era "4" a secas y se leía como un valor puesto: el campo
+                    parecía relleno estando vacío, y los criterios no salían porque no
+                    sabían cuántas cajas pintar. */}
                 <div className="field"><label>Cuántas fases</label>
                   <input className="input" type="number" min={2} max={8} value={form.fases}
-                    onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="4" />
+                    onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="ej. 4" />
                 </div>
-                <div className="field">
+                {/* A ancho completo: con tres o más cajas dentro, en media rejilla no cabe. */}
+                <div className="field ancho">
                   <label>Criterios de salida <span className="subt">· la fase la calculan los tests, no se pone a mano</span></label>
                   <div style={{ marginTop: 5 }}>
                     <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []}

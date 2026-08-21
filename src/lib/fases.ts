@@ -44,16 +44,32 @@ export type CriterioFase = {
 
 export type FaseDef = { fase: number, criterios: CriterioFase[] }
 
-/** Los criterios de un objetivo, normalizados y ordenados por fase. */
-export function criteriosDe(objetivo: any): FaseDef[] {
+/**
+ * Los criterios TAL CUAL están guardados, sin descartar nada.
+ *
+ * Es lo que necesitan el formulario y la validación: un criterio recién añadido nace sin
+ * test ni ítem, y si se lee con `criteriosDe` desaparece antes de poder rellenarlo —el
+ * botón "añadir criterio" parecía no hacer nada—. Y al guardar, una fila a medias tiene
+ * que dar aviso, no evaporarse en silencio.
+ */
+export function criteriosBrutos(objetivo: any): { fase: number, criterios: any[] }[] {
   const bruto = Array.isArray(objetivo?.criterios_fase) ? objetivo.criterios_fase : []
   return bruto
     .filter((f: any) => f && isFinite(Number(f.fase)))
-    .map((f: any) => ({
-      fase: Number(f.fase),
-      criterios: (Array.isArray(f.criterios) ? f.criterios : []).filter((c: any) => c && c.test_id && c.item),
-    }))
-    .sort((a: FaseDef, b: FaseDef) => a.fase - b.fase)
+    .map((f: any) => ({ fase: Number(f.fase), criterios: Array.isArray(f.criterios) ? f.criterios : [] }))
+    .sort((a: { fase: number }, b: { fase: number }) => a.fase - b.fase)
+}
+
+/**
+ * Los criterios que SÍ pueden juzgar, ordenados por fase.
+ *
+ * Aquí se descarta lo que está a medias, y es a propósito: un criterio sin test o sin ítem
+ * no puede decidir si alguien cambia de fase. Lo que no puede pasar es que además
+ * desaparezca sin decirlo, y de eso se encarga `problemasDeCriterios` al guardar.
+ */
+export function criteriosDe(objetivo: any): FaseDef[] {
+  return criteriosBrutos(objetivo)
+    .map(f => ({ fase: f.fase, criterios: f.criterios.filter((c: any) => c && c.test_id && c.item) }))
 }
 
 /** La regla en una línea, para leerla al configurarla y al explicarla en la ficha. */
@@ -224,8 +240,17 @@ export async function revisarFases(pacienteId: string): Promise<CambioFase[]> {
  */
 export function problemasDeCriterios(objetivo: any, tests: any[]): string[] {
   const p: string[] = []
-  const defs = criteriosDe(objetivo)
+  // Sobre los BRUTOS: si se leyeran los buenos, una fila sin test o sin ítem se habría
+  // descartado antes de llegar aquí y se perdería al guardar sin que nadie lo dijera.
+  const defs = criteriosBrutos(objetivo)
   if (defs.length === 0) return p
+
+  defs.forEach(d => {
+    d.criterios.forEach((c: any, i: number) => {
+      if (!c?.test_id) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el test.`)
+      else if (!c?.item) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el ítem.`)
+    })
+  })
 
   const total = Number(objetivo?.fases) || 0
   const num = (v: any) => (v === '' || v === null || v === undefined) ? NaN : Number(v)
@@ -243,7 +268,9 @@ export function problemasDeCriterios(objetivo: any, tests: any[]): string[] {
 
   defs.forEach(d => {
     if (total > 0 && d.fase > total) p.push(`Hay criterios para la fase ${d.fase} y el objetivo solo tiene ${total}.`)
-    d.criterios.forEach((c, i) => {
+    d.criterios.forEach((c: any, i: number) => {
+      // Las filas a medias ya se avisaron arriba; repetirlo con otro texto solo confunde.
+      if (!c?.test_id || !c?.item) return
       const como = `Fase ${d.fase}, criterio ${i + 1}`
       const t = (tests || []).find((x: any) => x.id === c.test_id)
       if (!t) { p.push(`${como}: el test ya no está en la biblioteca.`); return }
