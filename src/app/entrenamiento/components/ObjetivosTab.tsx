@@ -5,6 +5,7 @@ import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { categoriaDe } from '@/lib/etiquetas'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
+import { criteriosDe, textoCriterio, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
 
 /**
  * La biblioteca de objetivos.
@@ -22,6 +23,121 @@ import { subirImagenObjetivo } from '@/lib/ejercicios'
  * decide al asignárselo. Es lo que evita las 160 fichas del programa anterior.
  */
 
+/**
+ * Los CRITERIOS DE SALIDA de cada fase.
+ *
+ * Viven en el objetivo y no en el test a propósito: las fases son del objetivo —"vuelta a
+ * correr tras cruzado" tiene las suyas— y el mismo test puede medir criterios de objetivos
+ * distintos con umbrales distintos. Ponerlos en el test obligaría a duplicar el test por
+ * cada protocolo que lo use.
+ *
+ * Y por eso el umbral se escribe AQUÍ y no se hereda del ítem: la regla del ítem dice
+ * cuándo el test es positivo, que es otra pregunta. Un déficit de extensión de 3° puede
+ * ser un hallazgo del test y a la vez suficiente para salir de la fase 2.
+ */
+function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
+  fases: number
+  criterios: any
+  tests: any[]
+  onCambia: (v: any[]) => void
+}) {
+  const defs = criteriosDe({ criterios_fase: criterios, fases })
+  const deFase = (n: number): CriterioFase[] => defs.find(d => d.fase === n)?.criterios || []
+
+  const escribe = (n: number, lista: CriterioFase[]) => {
+    const resto = (Array.isArray(criterios) ? criterios : []).filter((f: any) => Number(f?.fase) !== n)
+    onCambia(lista.length > 0 ? [...resto, { fase: n, criterios: lista }] : resto)
+  }
+  const num = (v: string) => v === '' ? undefined : Number(v)
+
+  if (!fases || fases < 2) {
+    return <div style={{ fontSize: 11, color: 'var(--grl)' }}>Pon primero cuántas fases tiene el objetivo.</div>
+  }
+
+  return (
+    <div>
+      {/* La ÚLTIMA fase no lleva criterios de salida: de ella no se sale sola. Cerrar el
+          objetivo es una decisión del entrenador, no una consecuencia de una medición. */}
+      {Array.from({ length: Math.max(0, fases - 1) }).map((_, k) => {
+        const n = k + 1
+        const lista = deFase(n)
+        return (
+          <div key={n} style={{ marginBottom: 8, padding: '8px 10px', borderRadius: 7, background: 'var(--bl)', border: '1px solid var(--bd)' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', letterSpacing: .4, textTransform: 'uppercase', marginBottom: 6 }}>
+              Para salir de la fase {n}
+            </div>
+
+            {lista.length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 5 }}>
+                Sin criterios: de esta fase se pasa a mano.
+              </div>
+            )}
+
+            {lista.map((c, i) => {
+              const t = tests.find((x: any) => x.id === c.test_id)
+              const items = (t?.items || []).filter((it: any) => it?.nombre)
+              const item = items.find((it: any) => String(it.nombre).trim().toLowerCase() === String(c.item || '').trim().toLowerCase())
+              const unidad = item?.unidad || (item?.tiene_grados ? 'grados' : '')
+              const dos = c.regla === 'entre' || c.regla === 'fuera'
+              const set = (campos: any) => { const l = [...lista]; l[i] = { ...l[i], ...campos }; escribe(n, l) }
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
+                  <select className="input" style={{ width: 168, fontSize: 11 }} value={c.test_id}
+                    onChange={e => set({ test_id: e.target.value, item: '' })}>
+                    <option value="">— test —</option>
+                    {tests.map((x: any) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+                  </select>
+
+                  <select className="input" style={{ width: 168, fontSize: 11 }} value={c.item || ''}
+                    onChange={e => set({ item: e.target.value })}>
+                    <option value="">— ítem —</option>
+                    {items.map((it: any) => <option key={it.nombre} value={it.nombre}>{it.nombre}</option>)}
+                    {c.item && !item && <option value={c.item}>{c.item} (ya no existe)</option>}
+                  </select>
+
+                  {/* "Se cumple si es", no "positivo si es": aquí se describe cuándo se
+                      SUPERA la fase, que es lo contrario de cuándo el test da hallazgo. */}
+                  <span style={{ fontSize: 10, color: 'var(--grl)' }}>se cumple si es</span>
+                  <select className="input" style={{ width: 116, fontSize: 11 }} value={c.regla}
+                    onChange={e => set({ regla: e.target.value })}>
+                    <option value="mayor">mayor que</option>
+                    <option value="menor">menor que</option>
+                    <option value="entre">está entre</option>
+                    <option value="fuera">está fuera de</option>
+                  </select>
+                  <input className="input" type="number" style={{ width: 72, fontSize: 11 }} value={c.umbral ?? ''}
+                    onChange={e => set({ umbral: num(e.target.value) })} placeholder="valor" />
+                  {dos && (
+                    <>
+                      <span style={{ fontSize: 10, color: 'var(--grl)' }}>y</span>
+                      <input className="input" type="number" style={{ width: 72, fontSize: 11 }} value={c.umbral2 ?? ''}
+                        onChange={e => set({ umbral2: num(e.target.value) })} placeholder="valor" />
+                    </>
+                  )}
+                  <span style={{ fontSize: 10, color: 'var(--grl)' }}>{unidad}</span>
+                  <button type="button" onClick={() => escribe(n, lista.filter((_, j) => j !== i))}
+                    style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                </div>
+              )
+            })}
+
+            <button type="button" className="btn btn-t btn-sm"
+              onClick={() => escribe(n, [...lista, { test_id: '', item: '', regla: 'mayor', umbral: undefined }])}>
+              + Añadir criterio
+            </button>
+
+            {lista.length > 1 && (
+              <div style={{ fontSize: 10, color: 'var(--gr)', marginTop: 4 }}>
+                Hay que cumplirlos <b>todos</b> para salir de la fase.
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 const FAMILIAS = [
   { id: 'metrico', nombre: 'Medibles', ayuda: 'Fuerza o movilidad. Los cierra una medición de un test.' },
   { id: 'fase', nombre: 'Por fases', ayuda: 'Progresan de una tanda del programa a la siguiente.' },
@@ -34,7 +150,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[] as any[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -76,14 +192,14 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
+    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'',
       test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
-      articulacion_id:o.articulacion_id||'', fases:o.fases||'', etiquetas:o.etiquetas||[],
+      articulacion_id:o.articulacion_id||'', fases:o.fases||'', criterios_fase:o.criterios_fase||[], etiquetas:o.etiquetas||[],
       movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
     })
     setModal(true)
@@ -91,6 +207,13 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
   async function guardar() {
     if (!form.nombre) { alert('El nombre es obligatorio'); return }
+    // Los criterios de fase deciden solos en qué punto está un paciente, así que un
+    // criterio a medio escribir no puede guardarse: fallaría callado, dejando a alguien
+    // clavado en una fase por un umbral que nadie rellenó.
+    if (form.tipo === 'fase') {
+      const p = problemasDeCriterios({ criterios_fase: form.criterios_fase, fases: parseInt(form.fases) || 0 }, testsLib || [])
+      if (p.length > 0) { alert('El objetivo no se ha guardado:\n\n' + p.map(x => '· ' + x).join('\n')); return }
+    }
     setGuardando(true)
     const payload: any = {
       nombre: form.nombre, descripcion: form.descripcion,
@@ -100,6 +223,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // y pasa a cualitativo no puede quedarse con la métrica puesta.
       metrica: form.tipo === 'metrico' ? (form.metrica || null) : null,
       fases: form.tipo === 'fase' ? (parseInt(form.fases) || null) : null,
+      criterios_fase: form.tipo === 'fase' ? (form.criterios_fase || []) : [],
       articulacion_id: form.articulacion_id || null,
       // Solo en fases y cualitativos: los métricos ya se describen con su articulación y
       // sus movimientos, y repetirlo aquí serían dos verdades para lo mismo.
@@ -417,10 +541,19 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             )}
 
             {form.tipo === 'fase' && (
-              <div className="field"><label>Cuántas fases</label>
-                <input className="input" type="number" min={2} max={8} value={form.fases}
-                  onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="4" />
-              </div>
+              <>
+                <div className="field"><label>Cuántas fases</label>
+                  <input className="input" type="number" min={2} max={8} value={form.fases}
+                    onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="4" />
+                </div>
+                <div className="field">
+                  <label>Criterios de salida <span className="subt">· la fase la calculan los tests, no se pone a mano</span></label>
+                  <div style={{ marginTop: 5 }}>
+                    <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []}
+                      onCambia={(v: any[]) => setForm((p: any) => ({ ...p, criterios_fase: v }))} />
+                  </div>
+                </div>
+              </>
             )}
 
             {/* Solo en fases y cualitativos. Los métricos se describen con su articulación

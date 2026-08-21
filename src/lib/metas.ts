@@ -280,14 +280,26 @@ export const FASE_MAX = 8
  * "mantenimiento y prevención", que por definición no se acaba. Que el objetivo se cierre
  * lo decide el entrenador.
  */
-export async function cambiarFase(pacienteId: string, objetivoId: string, fase: number, nombre?: string) {
+export async function cambiarFase(pacienteId: string, objetivoId: string, fase: number, nombre?: string, opciones?: {
+  /** Fase de la que viene, para saber si sube o baja sin volver a consultarlo. */
+  desde?: number | null
+  /** Por qué cambia. Lo pone el cálculo automático; a mano no hace falta. */
+  motivo?: string
+}) {
   const n = Math.max(1, Math.min(FASE_MAX, Math.round(fase)))
   const { error } = await supabase.from('pacientes_objetivos')
     .update({ fase_actual: n }).eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
   if (error) return { ok: false as const, error: error.message }
+  // Bajar de fase no se cuenta igual que subir. Cuando lo decide un test, el evento tiene
+  // que decir que es una vuelta atrás: leer "pasa a la fase 2" después de estar en la 4 se
+  // interpretaría como un avance.
+  const baja = opciones?.desde != null && opciones.desde > n
   await supabase.from('eventos_paciente').insert({
     paciente_id: pacienteId, tipo: 'objetivo',
-    titulo: `${nombre || 'Objetivo'}: pasa a la fase ${n}`,
+    titulo: baja
+      ? `${nombre || 'Objetivo'}: vuelve a la fase ${n}`
+      : `${nombre || 'Objetivo'}: pasa a la fase ${n}`,
+    descripcion: opciones?.motivo || null,
     fecha: new Date().toISOString().split('T')[0],
   })
   return { ok: true as const }

@@ -8,6 +8,7 @@ import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
 import MetasObjetivo from './MetasObjetivo'
 import { cambiarFase } from '@/lib/metas'
+import { evaluarFases, ladoDeObjetivo, textoCriterio, criteriosDe } from '@/lib/fases'
 import { ordenAnatomico } from '@/lib/anatomia'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
@@ -112,7 +113,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,tipo,metrica,movimientos,fases,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,tipo,metrica,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
     // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
@@ -360,6 +361,35 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             )}
           </div>
         )}
+        {/* QUÉ FALTA PARA SALIR DE ESTA FASE.
+            El aviso va donde se toma la decisión. La fase la calculan los tests, y sin
+            enseñar contra qué se ha calculado, la barra volvería a ser un número que hay
+            que creerse. Aquí se ve qué criterio falta y por cuánto. */}
+        {o.tipo==='fase' && !o.logrado && criteriosDe(o).length>0 && (()=>{
+          const lado = ladoDeObjetivo(o.vias)
+          const ev = evaluarFases(o, resultadosTests, lado, o.fase_actual)
+          const actual = ev.detalle.find(d => d.fase === (o.fase_actual || 1))
+          if (!actual) {
+            return (
+              <div style={{fontSize:11,color:'var(--grl)',marginTop:5}}>
+                De la fase {o.fase_actual || 1} en adelante no hay criterios escritos: se avanza a mano.
+              </div>
+            )
+          }
+          return (
+            <div style={{marginTop:6,padding:'7px 10px',borderRadius:6,background:'var(--bl)',border:'1px solid var(--bd)'}}>
+              <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>
+                Para salir de la fase {actual.fase}{lado!=='bilateral'?` · ${lado}`:''}
+              </div>
+              {actual.criterios.map((c,i)=>(
+                <div key={i} style={{fontSize:11,fontWeight:300,lineHeight:1.6,color:c.cumple===true?'var(--gd)':c.cumple===false?'var(--red)':'var(--grl)'}}>
+                  {c.cumple===true?'✓':c.cumple===false?'✕':'—'} {c.criterio.item} {textoCriterio(c.criterio)}
+                  {c.valor==null ? ' · sin medir' : ` · va por ${c.valor}`}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
         {vias.length===0 && !o.logrado && o.tipo!=='metrico' && o.tipo!=='fase' && (
           <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
             <span style={{fontSize:12,color:'var(--gr)'}}>Sin nada que marcar · no vino de un test ni de un ejercicio</span>

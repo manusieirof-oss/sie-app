@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { revisarMetas } from './metas'
+import { revisarFases } from './fases'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -576,6 +577,8 @@ export type ResultadoRegistro = {
   /** Solo en tests de puntuación: el total y la banda en la que ha caído. */
   puntuacion?: number | null
   banda?: string | null
+  /** Objetivos por fases que han cambiado de fase por este resultado. */
+  fases?: { objetivo: string, desde: number | null, hasta: number }[]
 } | {
   ok: false
   error: string
@@ -719,7 +722,11 @@ export async function registrarResultadoTest(
   // un proceso aparte que habría que acordarse de lanzar.
   const { cerradas } = await revisarMetas(pacienteId)
 
-  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, puntuacion, banda: banda?.etiqueta || null }
+  // Y las fases, por lo mismo: un criterio de salida solo puede haber cambiado al pasar un
+  // test. Va aquí y no en un proceso aparte para que no haya que acordarse de lanzarlo.
+  const fases = await revisarFases(pacienteId)
+
+  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, puntuacion, banda: banda?.etiqueta || null, fases }
 }
 
 /**
