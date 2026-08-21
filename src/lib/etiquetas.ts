@@ -72,6 +72,32 @@ export function raizDe(etiquetas: any[], et: any): any {
   return actual
 }
 
+/**
+ * Las ZONAS que representa un conjunto de etiquetas: sus raíces de articulación.
+ *
+ * Es lo que ordena la biblioteca de tests, y estaba resuelto a mano y mal en el
+ * explorador: comparaba `etiqueta.categoria === 'articulacion'` directamente sobre la
+ * fila. Las etiquetas hijas NO repiten la categoría de su raíz —eso es lo que dice
+ * `categoriaDe`— así que un test etiquetado con una subetiqueta de Hombro no contaba como
+ * de hombro y se caía al cajón de "Sin zona", sin ninguna forma de darse cuenta salvo
+ * echar de menos el test en su filtro.
+ *
+ * Se devuelve siempre la RAÍZ, no la etiqueta puesta: quien etiqueta un test con una
+ * subzona quiere encontrarlo por su articulación, no abrir un filtro nuevo por cada
+ * subetiqueta que use.
+ */
+export function zonasDe(etiquetas: any[], ids: string[]): any[] {
+  const salida: any[] = []
+  for (const id of (ids || [])) {
+    const et = etiquetas.find(e => e.id === id)
+    if (!et) continue
+    if (categoriaDe(etiquetas, et) !== 'articulacion') continue
+    const raiz = raizDe(etiquetas, et)
+    if (raiz && !salida.some(z => z.id === raiz.id)) salida.push(raiz)
+  }
+  return salida
+}
+
 export type GrupoEtiqueta = {
   raiz: any
   /** Las subetiquetas que el ejercicio tiene bajo esa raíz. Puede estar vacío. */

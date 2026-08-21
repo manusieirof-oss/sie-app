@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { unidadDe, valorDe } from '@/lib/tests'
 import { estadoDeMeta, cerrarMetaAMano, revisarMetas, revisarObjetivos, TIPOS_META, antagonistaDe, type Meta } from '@/lib/metas'
+import { zonasDe } from '@/lib/etiquetas'
 
 /**
  * Las metas medibles de un objetivo, dentro de la ficha del paciente.
@@ -55,7 +56,11 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
   const sugerida = useMemo(() => {
     const mov = f.movimiento_id ? nombreEt(f.movimiento_id) : ''
     if (!mov) return null
-    const deLaZona = tests.filter((t: any) => (t.etiquetas_relacionadas || []).includes(objetivo.articulacion_id))
+    // Por la ZONA del test, no por su lista cruda de etiquetas: un test etiquetado con una
+    // subzona de hombro tiene que seguir siendo un test de hombro. Misma regla que en la
+    // biblioteca, y por eso sale de `zonasDe` y no de un `includes` escrito aquí.
+    const deLaZona = tests.filter((t: any) =>
+      zonasDe(etiquetas || [], t.etiquetas_relacionadas || []).some((z: any) => z.id === objetivo.articulacion_id))
     const conMetrica = deLaZona.filter((t: any) => norm(t.nombre).includes(norm(objetivo.metrica || '')))
     for (const t of (conMetrica.length ? conMetrica : deLaZona)) {
       const i = (t.items || []).findIndex((it: any) => norm(it.nombre) === norm(mov))

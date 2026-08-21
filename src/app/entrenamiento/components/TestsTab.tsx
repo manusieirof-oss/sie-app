@@ -6,6 +6,7 @@ import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoT
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { ordenAnatomico } from '@/lib/anatomia'
+import { categoriaDe, raizDe, zonasDe } from '@/lib/etiquetas'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -167,6 +168,99 @@ function EditorBandas({ bandas, items, onCambia, porRecuento = false }: { bandas
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * La ZONA del test: la articulación por la que se encuentra en la biblioteca.
+ *
+ * Antes esto era un selector de etiquetas completo, con las nueve categorías. El problema
+ * no era que sobrara sitio: era que de todo lo que se pusiera ahí, LO ÚNICO que leía
+ * alguien eran las de articulación. Un test etiquetado con "supraespinoso" o "decúbito
+ * supino" guardaba ese dato y no lo miraba nadie, ni el filtro, ni el buscador, ni las
+ * metas. Un campo que parece que clasifica y no clasifica hace desconfiar de la pantalla
+ * entera.
+ *
+ * Las etiquetas que ya estuvieran puestas y no sean de articulación NO se borran: este
+ * campo no las gestiona, pero tirarlas al guardar sería destruir datos que quien guarda ni
+ * siquiera está viendo. Se avisa de que están y se ofrece quitarlas a mano.
+ */
+function SelectorZona({ etiquetas = [], seleccionadas = [], onChange }: {
+  etiquetas: any[]
+  seleccionadas: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const puestas = seleccionadas || []
+  const esArticulacion = (id: string) => {
+    const et = etiquetas.find((e: any) => e.id === id)
+    return !!et && categoriaDe(etiquetas, et) === 'articulacion'
+  }
+  const ajenas = puestas.filter(id => !esArticulacion(id))
+  const articulares = puestas.filter(esArticulacion)
+  const zonasPuestas = zonasDe(etiquetas, articulares)
+
+  const raices = etiquetas
+    .filter((e: any) => !e.padre_id && categoriaDe(etiquetas, e) === 'articulacion')
+    .sort((a: any, b: any) => ordenAnatomico(a.nombre, b.nombre))
+
+  /**
+   * Se alterna por RAÍZ, pero se respeta el nivel al que se etiquetó.
+   *
+   * Si el test estaba puesto en una subzona, quitar la zona se lleva esa subetiqueta, y
+   * dejarla puesta no la sustituye por la raíz: reescribir a la raíz perdería el detalle
+   * sin que nadie lo hubiera pedido.
+   */
+  const alternar = (raizId: string) => {
+    const suyas = articulares.filter(id => {
+      const et = etiquetas.find((e: any) => e.id === id)
+      return raizDe(etiquetas, et)?.id === raizId
+    })
+    const nuevas = suyas.length > 0
+      ? articulares.filter(id => !suyas.includes(id))
+      : [...articulares, raizId]
+    onChange([...ajenas, ...nuevas])
+  }
+
+  const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || id
+
+  return (
+    <div>
+      {raices.length === 0
+        ? <div style={{ fontSize: 11, color: 'var(--grl)' }}>No hay etiquetas de articulación en la biblioteca.</div>
+        : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {raices.map((z: any) => {
+              const on = zonasPuestas.some((p: any) => p.id === z.id)
+              return (
+                <button key={z.id} type="button" className={`chip-sel ${on ? 'on' : ''}`} onClick={() => alternar(z.id)}>
+                  {z.nombre}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+      {/* Las subzonas concretas, cuando el test está etiquetado por debajo de la raíz. Se
+          enseñan para que se vea por qué está encendida una zona que no se pulsó. */}
+      {articulares.some(id => !raices.some((r: any) => r.id === id)) && (
+        <div style={{ fontSize: 10, color: 'var(--gr)', marginTop: 5 }}>
+          Etiquetado en: {articulares.filter(id => !raices.some((r: any) => r.id === id)).map(nombreEt).join(', ')}
+        </div>
+      )}
+
+      {ajenas.length > 0 && (
+        <div style={{ marginTop: 6, padding: '7px 9px', borderRadius: 6, background: 'var(--ambl)', border: '1px solid #E0C068' }}>
+          <div style={{ fontSize: 10, color: '#8A6410', lineHeight: 1.5 }}>
+            Este test arrastra {ajenas.length} etiqueta{ajenas.length === 1 ? '' : 's'} que no son de articulación
+            ({ajenas.map(nombreEt).join(', ')}). No las lee nadie: no filtran, no buscan y no abren nada.
+          </div>
+          <button type="button" className="btn btn-t btn-sm" style={{ marginTop: 4 }}
+            onClick={() => onChange(articulares)}>
+            Quitarlas
+          </button>
         </div>
       )}
     </div>
@@ -822,8 +916,8 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                 onCambia={(b:any[])=>setNuevoTest(p=>({...p,bandas:b}))}/>
             )}
             <div className="field">
-              <label>Etiquetas relacionadas</label>
-              <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/></div>
+              <label>Zona <span className="subt">· por dónde se encuentra en la biblioteca</span></label>
+              <div style={{marginTop:5}}><SelectorZona etiquetas={etiquetas} seleccionadas={nuevoTest.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setNuevoTest(p=>({...p,etiquetas_relacionadas:ids}))}/></div>
             </div>
             {/* Lo que este test DESACONSEJA si sale positivo. Avisa al montar la sesión;
                 no impide nada, porque hay motivos para prescribirlo igual —carga baja,
@@ -958,8 +1052,8 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                 onCambia={(b:any[])=>setTestEditando((p:any)=>({...p,bandas:b}))}/>
             )}
             <div className="field">
-              <label>Etiquetas relacionadas</label>
-              <div style={{marginTop:5}}><SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>
+              <label>Zona <span className="subt">· por dónde se encuentra en la biblioteca</span></label>
+              <div style={{marginTop:5}}><SelectorZona etiquetas={etiquetas} seleccionadas={testEditando.etiquetas_relacionadas||[]} onChange={(ids:string[])=>setTestEditando((p:any)=>({...p,etiquetas_relacionadas:ids}))}/></div>
             </div>
             {/* Lo que este test DESACONSEJA si sale positivo. Avisa al montar la sesión;
                 no impide nada, porque hay motivos para prescribirlo igual —carga baja,

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { unidadDe } from '@/lib/tests'
 import { ordenAnatomico } from '@/lib/anatomia'
+import { zonasDe } from '@/lib/etiquetas'
 
 /**
  * Explorador del catálogo de tests: buscador, filtro por zona y rejilla de tarjetas.
@@ -36,28 +37,35 @@ export default function ExploradorTests({
   const [buscar, setBuscar] = useState('')
   const [zona, setZona] = useState('')
 
-  const nombreEt = (id: string) => (etiquetas || []).find((e: any) => e.id === id)?.nombre || ''
-  const idsArticulacion = new Set((etiquetas || []).filter((e: any) => e.categoria === 'articulacion').map((e: any) => e.id))
-
   /**
-   * Las zonas que algún test usa, de la cabeza a los pies.
+   * La zona de cada test: las raíces de articulación de sus etiquetas.
    *
-   * Solo las de categoría ARTICULACIÓN. Ofrecer el resto de etiquetas —músculo,
-   * patología, movimiento— es lo que tenía la valoración y por eso no servía: con
-   * cuarenta pastillas mezcladas, encontrar "Rodilla" costaba más que leer la lista.
+   * Solo cuentan las de ARTICULACIÓN. Ofrecer el resto —músculo, patología, movimiento—
+   * es lo que tenía la valoración y por eso no servía: con cuarenta pastillas mezcladas,
+   * encontrar "Rodilla" costaba más que leer la lista entera.
+   *
+   * La resuelve `zonasDe` y no un filtro escrito aquí, porque escrito aquí estaba MAL:
+   * comparaba `etiqueta.categoria` sobre la fila puesta en el test, y las etiquetas hijas
+   * no repiten la categoría de su raíz. Un test etiquetado con una subetiqueta de Hombro
+   * no contaba como de hombro y desaparecía en "Sin zona".
    */
+  const zonasPorTest = new Map<string, any[]>(
+    tests.map((t: any) => [t.id, zonasDe(etiquetas || [], t.etiquetas_relacionadas || [])]),
+  )
+  const zonasDeTest = (t: any): any[] => zonasPorTest.get(t.id) || []
+
   const zonas = (() => {
-    const ids = Array.from(new Set(
-      tests.flatMap((t: any) => (t.etiquetas_relacionadas || []).filter((id: string) => idsArticulacion.has(id)))
-    )) as string[]
-    return ids.map(id => ({ id, nombre: nombreEt(id) })).filter(z => z.nombre)
-      .sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
+    const vistas: any[] = []
+    tests.forEach((t: any) => zonasDeTest(t).forEach(z => {
+      if (z.nombre && !vistas.some(v => v.id === z.id)) vistas.push(z)
+    }))
+    return vistas.sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
   })()
 
-  // Un test sin etiqueta de articulación no aparecería bajo ninguna zona y quedaría
-  // invisible en cuanto se filtre. Tiene su propio chip para que se vea que existe —y
-  // para que se note que le falta etiquetar.
-  const sinZona = tests.filter((t: any) => !(t.etiquetas_relacionadas || []).some((id: string) => idsArticulacion.has(id)))
+  // Un test sin zona no aparecería bajo ningún filtro y quedaría invisible en cuanto se
+  // filtre. Tiene su propio chip para que se vea que existe —y para que se note que le
+  // falta etiquetar.
+  const sinZona = tests.filter((t: any) => zonasDeTest(t).length === 0)
 
   const filtrados = tests.filter((t: any) => {
     const q = buscar.trim().toLowerCase()
@@ -66,15 +74,14 @@ export default function ExploradorTests({
     const enItems = (t.items || []).some((i: any) => (i.nombre || '').toLowerCase().includes(q))
     const matchQ = !q || (t.nombre || '').toLowerCase().includes(q) || (t.descripcion || '').toLowerCase().includes(q) || enItems
     const matchZ = !zona
-      || (zona === '_sin' ? !(t.etiquetas_relacionadas || []).some((id: string) => idsArticulacion.has(id))
-        : (t.etiquetas_relacionadas || []).includes(zona))
+      || (zona === '_sin' ? zonasDeTest(t).length === 0 : zonasDeTest(t).some(z => z.id === zona))
     return matchQ && matchZ
   })
 
   function Tarjeta({ t }: { t: any }) {
     const yaEsta = yaAnadidos.includes(t.id)
     const sel = !!seleccion?.includes(t.id)
-    const zonasDelTest = (t.etiquetas_relacionadas || []).filter((id: string) => idsArticulacion.has(id)).map(nombreEt).filter(Boolean)
+    const zonasDelTest = zonasDeTest(t).map((z: any) => z.nombre).filter(Boolean)
     return (
       <div
         onClick={() => { if (yaEsta) return; onAlternar ? onAlternar(t) : onAbrir?.(t) }}
