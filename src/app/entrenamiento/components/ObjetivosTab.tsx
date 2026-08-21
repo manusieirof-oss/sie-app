@@ -98,26 +98,46 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
                     {c.item && !item && <option value={c.item}>{c.item} (ya no existe)</option>}
                   </select>
 
-                  {/* "Se cumple si es", no "positivo si es": aquí se describe cuándo se
-                      SUPERA la fase, que es lo contrario de cuándo el test da hallazgo. */}
-                  <span style={{ fontSize: 10, color: 'var(--grl)' }}>se cumple si es</span>
-                  <select className="input" style={{ width: 116, fontSize: 11 }} value={c.regla}
-                    onChange={e => set({ regla: e.target.value })}>
-                    <option value="mayor">mayor que</option>
-                    <option value="menor">menor que</option>
-                    <option value="entre">está entre</option>
-                    <option value="fuera">está fuera de</option>
+                  {/* "Se cumple si", no "positivo si": aquí se describe cuándo se SUPERA la
+                      fase, que es lo contrario de cuándo el test da hallazgo. */}
+                  <span style={{ fontSize: 10, color: 'var(--grl)' }}>se cumple si</span>
+
+                  {/* MEDIDA O CASILLA. No todas las progresiones tienen números: un
+                      aprendizaje avanza por observaciones que se cumplen o no, y el ítem de
+                      casilla del test es exactamente eso. */}
+                  <select className="input" style={{ width: 96, fontSize: 11 }} value={c.tipo || 'medida'}
+                    onChange={e => set({ tipo: e.target.value })}>
+                    <option value="medida">el valor es</option>
+                    <option value="marcado">la casilla</option>
                   </select>
-                  <input className="input" type="number" style={{ width: 72, fontSize: 11 }} value={c.umbral ?? ''}
-                    onChange={e => set({ umbral: num(e.target.value) })} placeholder="valor" />
-                  {dos && (
+
+                  {(c.tipo || 'medida') === 'marcado' ? (
+                    <select className="input" style={{ width: 132, fontSize: 11 }} value={c.marcado === false ? 'no' : 'si'}
+                      onChange={e => set({ marcado: e.target.value === 'si' })}>
+                      <option value="si">está marcada</option>
+                      <option value="no">está sin marcar</option>
+                    </select>
+                  ) : (
                     <>
-                      <span style={{ fontSize: 10, color: 'var(--grl)' }}>y</span>
-                      <input className="input" type="number" style={{ width: 72, fontSize: 11 }} value={c.umbral2 ?? ''}
-                        onChange={e => set({ umbral2: num(e.target.value) })} placeholder="valor" />
+                      <select className="input" style={{ width: 116, fontSize: 11 }} value={c.regla || 'mayor'}
+                        onChange={e => set({ regla: e.target.value })}>
+                        <option value="mayor">mayor que</option>
+                        <option value="menor">menor que</option>
+                        <option value="entre">está entre</option>
+                        <option value="fuera">está fuera de</option>
+                      </select>
+                      <input className="input" type="number" style={{ width: 72, fontSize: 11 }} value={c.umbral ?? ''}
+                        onChange={e => set({ umbral: num(e.target.value) })} placeholder="valor" />
+                      {dos && (
+                        <>
+                          <span style={{ fontSize: 10, color: 'var(--grl)' }}>y</span>
+                          <input className="input" type="number" style={{ width: 72, fontSize: 11 }} value={c.umbral2 ?? ''}
+                            onChange={e => set({ umbral2: num(e.target.value) })} placeholder="valor" />
+                        </>
+                      )}
+                      <span style={{ fontSize: 10, color: 'var(--grl)' }}>{unidad}</span>
                     </>
                   )}
-                  <span style={{ fontSize: 10, color: 'var(--grl)' }}>{unidad}</span>
                   <button type="button" onClick={() => escribe(n, lista.filter((_, j) => j !== i))}
                     style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                 </div>
@@ -125,7 +145,7 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
             })}
 
             <button type="button" className="btn btn-t btn-sm"
-              onClick={() => escribe(n, [...lista, { test_id: '', item: '', regla: 'mayor', umbral: undefined }])}>
+              onClick={() => escribe(n, [...lista, { test_id: '', item: '', tipo: 'medida', regla: 'mayor', umbral: undefined }])}>
               + Añadir criterio
             </button>
 

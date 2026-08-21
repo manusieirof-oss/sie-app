@@ -36,11 +36,39 @@ export type CriterioFase = {
    * criterio huérfano, y por eso hay que poder verlo (`problemasDeCriterios`).
    */
   item: string
-  /** Qué hace que el criterio se CUMPLA. Ojo: al revés que la regla del test, que dice qué lo hace positivo. */
-  regla: 'mayor' | 'menor' | 'entre' | 'fuera'
+  /**
+   * DE QUÉ TIPO ES LA CONDICIÓN.
+   *
+   * Esto nació solo con umbrales, y estaba mal: hay progresiones que no tienen números.
+   * "Aprender a atar los cordones" avanza por observaciones que se cumplen o no, no por
+   * grados ni segundos, y obligar a inventarse una medida para poder usar fases habría
+   * sido pedir un dato falso.
+   *
+   * Y no hace falta un mecanismo nuevo para eso: en esta app una observación que se anota
+   * YA es un ítem de test, el de casilla. Así que el criterio solo tiene que saber si mira
+   * el número del ítem o su casilla.
+   *
+   * Sin `tipo` se entiende 'medida', que es como se guardaron los primeros.
+   */
+  tipo?: 'medida' | 'marcado'
+  /** Solo en 'medida'. Qué hace que el criterio se CUMPLA — al revés que la regla del test, que dice qué lo hace positivo. */
+  regla?: 'mayor' | 'menor' | 'entre' | 'fuera'
   umbral?: number | null
   umbral2?: number | null
+  /**
+   * Solo en 'marcado'. true = la casilla tiene que estar marcada para cumplir; false = tiene
+   * que estar sin marcar.
+   *
+   * Las dos direcciones hacen falta y dependen de cómo esté escrito el ítem. Los ítems de
+   * test suelen redactarse como hallazgos —"el talón se levanta"— y ahí cumplir es NO
+   * estar marcado. En un test de aprendizaje se redactan al revés —"hace el nudo solo"— y
+   * cumplir es estarlo.
+   */
+  marcado?: boolean
 }
+
+/** Lo leído de un ítem en un resultado: su número y su casilla. */
+export type Lectura = { valor: number | null, marcado: boolean | null }
 
 export type FaseDef = { fase: number, criterios: CriterioFase[] }
 
@@ -72,8 +100,11 @@ export function criteriosDe(objetivo: any): FaseDef[] {
     .map(f => ({ fase: f.fase, criterios: f.criterios.filter((c: any) => c && c.test_id && c.item) }))
 }
 
-/** La regla en una línea, para leerla al configurarla y al explicarla en la ficha. */
+export const esMarcado = (c: CriterioFase) => c?.tipo === 'marcado'
+
+/** La condición en una línea, para leerla al configurarla y al explicarla en la ficha. */
 export function textoCriterio(c: CriterioFase, unidad?: string): string {
+  if (esMarcado(c)) return c.marcado === false ? 'sin marcar' : 'marcado'
   const u = unidad ? ` ${unidad}` : ''
   const a = c.umbral, b = c.umbral2
   switch (c.regla) {
@@ -85,8 +116,16 @@ export function textoCriterio(c: CriterioFase, unidad?: string): string {
   }
 }
 
-/** ¿Se cumple este criterio con este valor? null si todavía no se ha medido. */
-export function cumpleCriterio(c: CriterioFase, valor: number | null): boolean | null {
+/** ¿Se cumple este criterio con lo leído? null si todavía no se ha medido ni anotado. */
+export function cumpleCriterio(c: CriterioFase, l: Lectura | null): boolean | null {
+  if (!l) return null
+
+  if (esMarcado(c)) {
+    if (l.marcado == null) return null
+    return l.marcado === (c.marcado !== false)
+  }
+
+  const valor = l.valor
   if (valor == null || !isFinite(valor)) return null
   const a = Number(c.umbral), b = Number(c.umbral2)
   switch (c.regla) {
@@ -106,7 +145,7 @@ export function cumpleCriterio(c: CriterioFase, valor: number | null): boolean |
  * la lesionada. Un resultado bilateral sí vale para cualquier lado: ahí no hay dos
  * historias que confundir.
  */
-export function valorDeItem(resultados: any[], testId: string, item: string, lado: string): number | null {
+export function leerItem(resultados: any[], testId: string, item: string, lado: string): Lectura | null {
   const nombre = String(item || '').trim().toLowerCase()
   const sirve = (r: any) => {
     const l = r.lado || 'bilateral'
@@ -119,12 +158,12 @@ export function valorDeItem(resultados: any[], testId: string, item: string, lad
     const it = (fila.items_resultado || []).find((x: any) => String(x?.nombre || '').trim().toLowerCase() === nombre)
     if (!it) continue
     const v = parseFloat(String(it.valor ?? it.grados ?? ''))
-    if (isFinite(v)) return v
+    return { valor: isFinite(v) ? v : null, marcado: typeof it.marcado === 'boolean' ? it.marcado : null }
   }
   return null
 }
 
-export type DetalleCriterio = { criterio: CriterioFase, valor: number | null, cumple: boolean | null }
+export type DetalleCriterio = { criterio: CriterioFase, lectura: Lectura | null, cumple: boolean | null }
 export type DetalleFase = { fase: number, criterios: DetalleCriterio[], superada: boolean }
 
 export type EvaluacionFases = {
@@ -158,8 +197,8 @@ export function evaluarFases(objetivo: any, resultados: any[], lado: string, fas
   for (let n = 1; n <= hasta; n++) {
     const criterios = porFase.get(n) || []
     const filas = criterios.map(c => {
-      const valor = valorDeItem(resultados, c.test_id, c.item, lado)
-      return { criterio: c, valor, cumple: cumpleCriterio(c, valor) }
+      const lectura = leerItem(resultados, c.test_id, c.item, lado)
+      return { criterio: c, lectura, cumple: cumpleCriterio(c, lectura) }
     })
     const superada = filas.length > 0 && filas.every(f => f.cumple === true)
     detalle.push({ fase: n, criterios: filas, superada })
@@ -276,7 +315,18 @@ export function problemasDeCriterios(objetivo: any, tests: any[]): string[] {
       if (!t) { p.push(`${como}: el test ya no está en la biblioteca.`); return }
       const item = (t.items || []).find((x: any) => String(x?.nombre || '').trim().toLowerCase() === String(c.item || '').trim().toLowerCase())
       if (!item) { p.push(`${como}: «${c.item}» ya no es un ítem de «${t.nombre}». Se empareja por nombre, así que renombrarlo deja el criterio huérfano.`); return }
-      if (!item.unidad && !item.tiene_grados) p.push(`${como}: «${c.item}» no mide nada, así que no se puede comparar con un umbral.`)
+
+      // Un criterio de casilla no necesita más: la casilla existe siempre.
+      if (c.tipo === 'marcado') {
+        // Salvo que el ítem lleve barra: entonces no hay casilla que marcar, la decide su
+        // valor, y el criterio nunca se cumpliría.
+        if (item.regla && (item.unidad || item.tiene_grados)) {
+          p.push(`${como}: «${c.item}» se rellena con barra, así que no tiene casilla que marcar. Usa una condición de medida.`)
+        }
+        return
+      }
+
+      if (!item.unidad && !item.tiene_grados) p.push(`${como}: «${c.item}» no mide nada, así que no se puede comparar con un umbral. Si lo que quieres es que esté marcado o sin marcar, cambia la condición a casilla.`)
       if (!isFinite(num(c.umbral))) p.push(`${como}: falta el valor del umbral.`)
       if ((c.regla === 'entre' || c.regla === 'fuera') && !isFinite(num(c.umbral2))) p.push(`${como}: la regla «${c.regla}» necesita dos valores.`)
     })
