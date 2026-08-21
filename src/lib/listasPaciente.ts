@@ -39,6 +39,19 @@ export type EntradaLista = {
   lado?: string | null
   observaciones?: string | null
   tiene_informe?: boolean
+  /**
+   * De qué fila de la BIBLIOTECA salió. Solo la guardan las operaciones.
+   *
+   * Hasta ahora la biblioteca se usaba como ayuda para escribir y después se olvidaba que
+   * había existido: se copiaba el nombre y no quedaba ningún enlace. Con eso, relacionar
+   * una operación del paciente con cualquier otra cosa —un test indicado, una precaución—
+   * obliga a comparar textos, y los textos se separan solos: se renombra la entrada de la
+   * biblioteca, o se teclea una variante a mano, y deja de casar sin que nada avise.
+   *
+   * Lo escrito a mano se queda sin id a propósito. No es un hueco a rellenar: es el dato
+   * de que esa entrada no está en la biblioteca, y por eso no puede relacionarse con nada.
+   */
+  biblioteca_id?: string | null
 }
 
 export type ResultadoLista = { ok: true; anadidas: number; repetidas: string[] } | { ok: false; error: string }
@@ -85,6 +98,10 @@ export async function anadirALista(
     // Las columnas de más solo existen en operaciones. Mandarlas vacías a las otras dos
     // tablas daría error de columna desconocida, así que se añaden solo si vienen.
     if (lista === 'operaciones') {
+      // Solo aquí: `alergias_paciente` e `intolerancias_paciente` no tienen la columna, y
+      // mandarla daría error de columna desconocida. Si algún día se relacionan también,
+      // se añade allí y se saca esta línea del `if`.
+      if (e.biblioteca_id) fila.biblioteca_id = e.biblioteca_id
       if (e.anio) fila.anio = e.anio
       if (e.lado && e.lado !== 'no_aplica') fila.lado = e.lado
       if (e.observaciones) fila.observaciones = e.observaciones

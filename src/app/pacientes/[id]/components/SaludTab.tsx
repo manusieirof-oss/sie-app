@@ -183,7 +183,10 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function guardarMolestia() {
     if (!molConfig) return
     setGuardando(true)
-    await supabase.from('molestias').insert({ paciente_id:id, zona:molConfig.zona, tipo:molConfig.tipo, eva:molConfig.eva, lado:molConfig.lado||null, sensacion:molConfig.cuando||null, observaciones:molConfig.observaciones||null, activa:true })
+    // `biblioteca_id` es lo que convierte esta fila en algo relacionable. Sin él, la
+    // molestia solo tiene el texto de `zona`, que unas veces viene de la biblioteca y
+    // otras se teclea, y no hay forma fiable de saber cuál es cuál.
+    await supabase.from('molestias').insert({ paciente_id:id, zona:molConfig.zona, biblioteca_id:molConfig.biblioteca_id||null, tipo:molConfig.tipo, eva:molConfig.eva, lado:molConfig.lado||null, sensacion:molConfig.cuando||null, observaciones:molConfig.observaciones||null, activa:true })
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia: ${molConfig.zona}${molConfig.eva==null?'':` (EVA ${molConfig.eva}/10)`}`, descripcion:molConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
     setMolConfig(null); setGuardando(false); cargar()
   }
@@ -194,7 +197,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     // La ZONA se copia de la biblioteca al asignarla. Antes no se guardaba y el mapa
     // corporal tenía que deducirla del nombre —"Condropatía rotuliana" no contiene
     // "rodilla"—, así que media lista caía en "sin localizar".
-    await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, zona:patConfig.zona||null, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
+    await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, zona:patConfig.zona||null, biblioteca_id:patConfig.biblioteca_id||null, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'patologia', titulo:`Patología: ${patConfig.nombre}`, descripcion:patConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
     setPatConfig(null); setGuardando(false); cargar()
   }
@@ -349,8 +352,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
               <div className="sec-sub">Molestias y dolores</div>
               <BuscadorBiblioteca items={molsBiblio} placeholder="Buscar para añadir... ej. lumbar, rodilla"
                 buscarEn={(m:any)=>[m.nombre,m.zona]} subtitulo={(m:any)=>m.zona} etiquetaNuevo="Añadir"
-                onElegir={(m:any)=>setMolConfig({nombre:m.nombre,zona:m.zona||m.nombre,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}
-                onNuevo={(t:string)=>setMolConfig({nombre:t,zona:t,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}/>
+                onElegir={(m:any)=>setMolConfig({nombre:m.nombre,zona:m.zona||m.nombre,biblioteca_id:m.id,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}
+                onNuevo={(t:string)=>setMolConfig({nombre:t,zona:t,biblioteca_id:null,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}/>
               {molActivas.length===0 && <div className="muted">Sin molestias activas</div>}
               {molActivas.map((m:any)=>(
                 <div key={m.id} className="fila-p" style={{borderLeftColor:'var(--red)'}}>
@@ -380,8 +383,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
               <div className="sec-sub">Patologías</div>
               <BuscadorBiblioteca items={patsBiblio} placeholder="Buscar para añadir... ej. tendinitis, hernia"
                 buscarEn={(p:any)=>[p.nombre,p.zona,p.sistema]} subtitulo={(p:any)=>[p.zona,p.sistema].filter(Boolean).join(' · ')}
-                onElegir={(p:any)=>setPatConfig({nombre:p.nombre,zona:p.zona||null,precauciones:p.precauciones||null,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}
-                onNuevo={(t:string)=>setPatConfig({nombre:t,zona:null,precauciones:null,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}/>
+                onElegir={(p:any)=>setPatConfig({nombre:p.nombre,zona:p.zona||null,biblioteca_id:p.id,precauciones:p.precauciones||null,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}
+                onNuevo={(t:string)=>setPatConfig({nombre:t,zona:null,biblioteca_id:null,precauciones:null,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}/>
               {patActivas.length===0 && <div className="muted">Sin patologías activas</div>}
               {patActivas.map((p:any)=>(
                 <div key={p.id} className="fila-p" style={{borderLeftColor:p.estado==='cronica'?'var(--amb)':'var(--red)'}}>
@@ -416,8 +419,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
               <div className="sec-sub">Operaciones</div>
               <BuscadorBiblioteca items={opsBiblio} placeholder="Buscar para añadir... ej. menisco, prótesis"
                 buscarEn={(o:any)=>[o.nombre,o.zona]} subtitulo={(o:any)=>o.zona} etiquetaNuevo="Añadir"
-                onElegir={(o:any)=>setOpConfig({nombre:o.nombre,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}
-                onNuevo={(t:string)=>setOpConfig({nombre:t,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}/>
+                onElegir={(o:any)=>setOpConfig({nombre:o.nombre,biblioteca_id:o.id,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}
+                onNuevo={(t:string)=>setOpConfig({nombre:t,biblioteca_id:null,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}/>
               {(operaciones||[]).length===0 && <div className="muted">Sin operaciones</div>}
               {(operaciones||[]).map((o:any)=>(
                 <div key={o.id} className="fila-p" style={{borderLeftColor:'#6B6D6A'}}>
