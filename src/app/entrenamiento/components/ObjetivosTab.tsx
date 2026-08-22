@@ -47,6 +47,23 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
   const defs = criteriosBrutos({ criterios_fase: criterios })
   const deFase = (n: number): CriterioFase[] => (defs.find(d => d.fase === n)?.criterios || []) as CriterioFase[]
 
+  /**
+   * EL TEST SE ELIGE UNA VEZ, NO EN CADA FILA.
+   *
+   * Un objetivo por fases se mide casi siempre con el mismo test, y repetir el desplegable
+   * en cada criterio hacía que la pantalla pareciera preguntar algo distinto cada vez
+   * cuando la respuesta iba a ser la misma doce veces.
+   *
+   * No se guarda en el objetivo: sigue siendo cada criterio el que dice de qué test sale,
+   * porque un protocolo puede mezclarlos —rango de una prueba, fuerza de otra—. Esto solo
+   * decide con cuál nacen los criterios nuevos, y las filas que usen otro lo enseñan.
+   */
+  const [testBase, setTestBase] = useState<string>(() => {
+    const puestos = defs.flatMap(d => d.criterios).map((c: any) => c?.test_id).filter(Boolean)
+    return puestos[0] || ''
+  })
+  const [otroTest, setOtroTest] = useState<Record<string, boolean>>({})
+
   const escribe = (n: number, lista: CriterioFase[]) => {
     const resto = (Array.isArray(criterios) ? criterios : []).filter((f: any) => Number(f?.fase) !== n)
     onCambia(lista.length > 0 ? [...resto, { fase: n, criterios: lista }] : resto)
@@ -59,6 +76,15 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
 
   return (
     <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 9, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: 'var(--gr)' }}>Los criterios se miden con</span>
+        <select className="input" style={{ width: 240, fontSize: 11 }} value={testBase}
+          onChange={e => setTestBase(e.target.value)}>
+          <option value="">— elige el test —</option>
+          {tests.map((x: any) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+        </select>
+      </div>
+
       {/* La ÚLTIMA fase no lleva criterios de salida: de ella no se sale sola. Cerrar el
           objetivo es una decisión del entrenador, no una consecuencia de una medición. */}
       {Array.from({ length: Math.max(0, fases - 1) }).map((_, k) => {
@@ -83,13 +109,20 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
               const unidad = item?.unidad || (item?.tiene_grados ? 'grados' : '')
               const dos = c.regla === 'entre' || c.regla === 'fuera'
               const set = (campos: any) => { const l = [...lista]; l[i] = { ...l[i], ...campos }; escribe(n, l) }
+              // El desplegable de test solo sale si esta fila usa otro distinto del común, o
+              // si has pedido cambiárselo. Enseñarlo siempre era la repetición que sobraba.
+              const clave = `${n}:${i}`
+              const distinto = !!c.test_id && c.test_id !== testBase
+              const verTest = distinto || !!otroTest[clave]
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
-                  <select className="input" style={{ width: 168, fontSize: 11 }} value={c.test_id}
-                    onChange={e => set({ test_id: e.target.value, item: '' })}>
-                    <option value="">— test —</option>
-                    {tests.map((x: any) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-                  </select>
+                  {verTest && (
+                    <select className="input" style={{ width: 168, fontSize: 11, borderColor: distinto ? 'var(--g)' : undefined }} value={c.test_id}
+                      onChange={e => set({ test_id: e.target.value, item: '' })}>
+                      <option value="">— test —</option>
+                      {tests.map((x: any) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+                    </select>
+                  )}
 
                   <select className="input" style={{ width: 168, fontSize: 11 }} value={c.item || ''}
                     onChange={e => set({ item: e.target.value })}>
@@ -138,14 +171,24 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
                       <span style={{ fontSize: 10, color: 'var(--grl)' }}>{unidad}</span>
                     </>
                   )}
+                  {!verTest && (
+                    <button type="button" onClick={() => setOtroTest(p => ({ ...p, [clave]: true }))}
+                      title="Medir este criterio con un test distinto"
+                      style={{ fontSize: 10, color: 'var(--gd)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      otro test
+                    </button>
+                  )}
                   <button type="button" onClick={() => escribe(n, lista.filter((_, j) => j !== i))}
                     style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                 </div>
               )
             })}
 
-            <button type="button" className="btn btn-t btn-sm"
-              onClick={() => escribe(n, [...lista, { test_id: '', item: '', tipo: 'medida', regla: 'mayor', umbral: undefined }])}>
+            {/* Sin test elegido no hay ítems que ofrecer, así que el botón espera en vez de
+                crear una fila que no se puede rellenar. */}
+            <button type="button" className="btn btn-t btn-sm" disabled={!testBase}
+              title={testBase ? '' : 'Elige antes el test con el que se miden los criterios'}
+              onClick={() => escribe(n, [...lista, { test_id: testBase, item: '', tipo: 'medida', regla: 'mayor', umbral: undefined }])}>
               + Añadir criterio
             </button>
 
