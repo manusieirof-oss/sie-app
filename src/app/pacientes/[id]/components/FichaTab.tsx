@@ -383,7 +383,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               </div>
               {actual.criterios.map((c,i)=>(
                 <div key={i} style={{fontSize:11,fontWeight:300,lineHeight:1.6,color:c.cumple===true?'var(--gd)':c.cumple===false?'var(--red)':'var(--grl)'}}>
-                  {c.cumple===true?'✓':c.cumple===false?'✕':'—'} {c.criterio.item} {textoCriterio(c.criterio)}
+                  {c.cumple===true?'✓':c.cumple===false?'✕':'—'} {c.criterio.tipo==='total'?'Puntuación del test':c.criterio.item} {textoCriterio(c.criterio)}
                   {/* Lo que se enseña detrás depende del tipo: en una medida interesa el
                       número al que va; en una casilla, si está o no puesta. */}
                   {c.criterio.tipo==='marcado'

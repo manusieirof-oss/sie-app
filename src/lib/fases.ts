@@ -50,7 +50,15 @@ export type CriterioFase = {
    *
    * Sin `tipo` se entiende 'medida', que es como se guardaron los primeros.
    */
-  tipo?: 'medida' | 'marcado'
+  /**
+   * 'total' no mira ningún ítem: mira lo que el test entero da.
+   *
+   * Es el hueco que faltaba. Un Berg significa su total sobre 56, y un baremo significa
+   * cuántas pruebas caen por debajo de su norma — ninguno de los dos es un ítem, así que
+   * "sales de la fase cuando el Berg pase de 40" no se podía escribir. Se podía organizar
+   * el objetivo en fases y no atarlas a la puntuación, que es lo único que esos tests dan.
+   */
+  tipo?: 'medida' | 'marcado' | 'total'
   /** Solo en 'medida'. Qué hace que el criterio se CUMPLA — al revés que la regla del test, que dice qué lo hace positivo. */
   regla?: 'mayor' | 'menor' | 'entre' | 'fuera'
   umbral?: number | null
@@ -97,7 +105,8 @@ export function criteriosBrutos(objetivo: any): { fase: number, criterios: any[]
  */
 export function criteriosDe(objetivo: any): FaseDef[] {
   return criteriosBrutos(objetivo)
-    .map(f => ({ fase: f.fase, criterios: f.criterios.filter((c: any) => c && c.test_id && c.item) }))
+    // Un criterio sobre el total no tiene ítem, y exigírselo lo tiraba antes de evaluarlo.
+    .map(f => ({ fase: f.fase, criterios: f.criterios.filter((c: any) => c && c.test_id && (c.tipo === 'total' || c.item)) }))
 }
 
 export const esMarcado = (c: CriterioFase) => c?.tipo === 'marcado'
@@ -163,6 +172,36 @@ export function leerItem(resultados: any[], testId: string, item: string, lado: 
   return null
 }
 
+/**
+ * Lo que da el test entero en su resultado más reciente: el total si es de suma, o cuántas
+ * pruebas caen por debajo de su norma si es de baremo.
+ *
+ * Se deduce de la propia fila guardada y no del test: un resultado de baremo lleva `dentro`
+ * congelado en cada ítem, y uno de suma no. Así esto no depende de que la biblioteca siga
+ * diciendo hoy lo mismo que decía el día que se midió, que es la clase de dependencia que
+ * hace que el histórico cambie de sentido al tocar un test.
+ */
+export function leerTotal(resultados: any[], testId: string, lado: string): number | null {
+  const sirve = (r: any) => {
+    const l = r.lado || 'bilateral'
+    return r.test_id === testId && (l === lado || l === 'bilateral')
+  }
+  const fila = (resultados || []).filter(sirve).sort((a: any, b: any) =>
+    String(b.fecha || '').localeCompare(String(a.fecha || '')) ||
+    String(b.created_at || '').localeCompare(String(a.created_at || '')))[0]
+  if (!fila) return null
+
+  const its: any[] = fila.items_resultado || []
+  if (its.length === 0) return null
+
+  if (its.some(x => typeof x?.dentro === 'boolean')) return its.filter(x => x.dentro === false).length
+
+  const vals = its.map(x => parseFloat(String(x?.valor ?? x?.grados ?? '')))
+  // Una suma incompleta no es una suma más pequeña: es que no hay total.
+  if (vals.some(v => !isFinite(v))) return null
+  return vals.reduce((a, b) => a + b, 0)
+}
+
 export type DetalleCriterio = { criterio: CriterioFase, lectura: Lectura | null, cumple: boolean | null }
 export type DetalleFase = { fase: number, criterios: DetalleCriterio[], superada: boolean }
 
@@ -197,7 +236,9 @@ export function evaluarFases(objetivo: any, resultados: any[], lado: string, fas
   for (let n = 1; n <= hasta; n++) {
     const criterios = porFase.get(n) || []
     const filas = criterios.map(c => {
-      const lectura = leerItem(resultados, c.test_id, c.item, lado)
+      const lectura: Lectura | null = c.tipo === 'total'
+        ? { valor: leerTotal(resultados, c.test_id, lado), marcado: null }
+        : leerItem(resultados, c.test_id, c.item, lado)
       return { criterio: c, lectura, cumple: cumpleCriterio(c, lectura) }
     })
     const superada = filas.length > 0 && filas.every(f => f.cumple === true)
@@ -287,7 +328,7 @@ export function problemasDeCriterios(objetivo: any, tests: any[]): string[] {
   defs.forEach(d => {
     d.criterios.forEach((c: any, i: number) => {
       if (!c?.test_id) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el test.`)
-      else if (!c?.item) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el ítem.`)
+      else if (c?.tipo !== 'total' && !c?.item) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el ítem.`)
     })
   })
 
@@ -309,10 +350,21 @@ export function problemasDeCriterios(objetivo: any, tests: any[]): string[] {
     if (total > 0 && d.fase > total) p.push(`Hay criterios para la fase ${d.fase} y el objetivo solo tiene ${total}.`)
     d.criterios.forEach((c: any, i: number) => {
       // Las filas a medias ya se avisaron arriba; repetirlo con otro texto solo confunde.
-      if (!c?.test_id || !c?.item) return
+      if (!c?.test_id || (c?.tipo !== 'total' && !c?.item)) return
       const como = `Fase ${d.fase}, criterio ${i + 1}`
       const t = (tests || []).find((x: any) => x.id === c.test_id)
       if (!t) { p.push(`${como}: el test ya no está en la biblioteca.`); return }
+
+      // El TOTAL solo significa algo en un test que dé un número entero: suma o baremo. En
+      // uno de casillas, sumar sus ítems no es una puntuación, es un número inventado.
+      if (c.tipo === 'total') {
+        if (t.logica !== 'suma' && t.logica !== 'baremo') {
+          p.push(`${como}: «${t.nombre}» no es de puntuación ni de baremo, así que no tiene un total que comparar.`)
+        }
+        if (!isFinite(num(c.umbral))) p.push(`${como}: falta el valor del umbral.`)
+        if ((c.regla === 'entre' || c.regla === 'fuera') && !isFinite(num(c.umbral2))) p.push(`${como}: la regla «${c.regla}» necesita dos valores.`)
+        return
+      }
       const item = (t.items || []).find((x: any) => String(x?.nombre || '').trim().toLowerCase() === String(c.item || '').trim().toLowerCase())
       if (!item) { p.push(`${como}: «${c.item}» ya no es un ítem de «${t.nombre}». Se empareja por nombre, así que renombrarlo deja el criterio huérfano.`); return }
 

@@ -124,12 +124,20 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
                     </select>
                   )}
 
-                  <select className="input" style={{ width: 168, fontSize: 11 }} value={c.item || ''}
-                    onChange={e => set({ item: e.target.value })}>
-                    <option value="">— ítem —</option>
-                    {items.map((it: any) => <option key={it.nombre} value={it.nombre}>{it.nombre}</option>)}
-                    {c.item && !item && <option value={c.item}>{c.item} (ya no existe)</option>}
-                  </select>
+                  {/* Un criterio sobre el TOTAL no mira ningún ítem, así que el desplegable
+                      sobra: enseñarlo apagado invitaría a rellenarlo para nada. */}
+                  {c.tipo !== 'total' ? (
+                    <select className="input" style={{ width: 168, fontSize: 11 }} value={c.item || ''}
+                      onChange={e => set({ item: e.target.value })}>
+                      <option value="">— ítem —</option>
+                      {items.map((it: any) => <option key={it.nombre} value={it.nombre}>{it.nombre}</option>)}
+                      {c.item && !item && <option value={c.item}>{c.item} (ya no existe)</option>}
+                    </select>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--gd)', width: 168 }}>
+                      {t?.logica === 'baremo' ? 'pruebas fuera de norma' : 'el total del test'}
+                    </span>
+                  )}
 
                   {/* "Se cumple si", no "positivo si": aquí se describe cuándo se SUPERA la
                       fase, que es lo contrario de cuándo el test da hallazgo. */}
@@ -138,10 +146,11 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
                   {/* MEDIDA O CASILLA. No todas las progresiones tienen números: un
                       aprendizaje avanza por observaciones que se cumplen o no, y el ítem de
                       casilla del test es exactamente eso. */}
-                  <select className="input" style={{ width: 96, fontSize: 11 }} value={c.tipo || 'medida'}
-                    onChange={e => set({ tipo: e.target.value })}>
-                    <option value="medida">el valor es</option>
-                    <option value="marcado">la casilla</option>
+                  <select className="input" style={{ width: 120, fontSize: 11 }} value={c.tipo || 'medida'}
+                    onChange={e => set({ tipo: e.target.value, ...(e.target.value === 'total' ? { item: '' } : {}) })}>
+                    <option value="medida">el valor del ítem</option>
+                    <option value="marcado">la casilla del ítem</option>
+                    <option value="total">la puntuación del test</option>
                   </select>
 
                   {(c.tipo || 'medida') === 'marcado' ? (
