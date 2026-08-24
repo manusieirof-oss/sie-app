@@ -400,15 +400,26 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
   const nombreEt = (id: string) => (etiquetas || []).find((e: any) => e.id === id)?.nombre || ''
 
   /** Las zonas que de verdad se usan, de la cabeza a los pies. Igual que en la biblioteca. */
+  /**
+   * La zona de un objetivo: la raíz de articulación de su articulación o de sus etiquetas.
+   *
+   * Esto mezclaba la articulación con TODAS las etiquetas libres, así que las patologías
+   * —Trocantéritis, Condropatía— salían como si fueran zonas y la fila de chips se hacía
+   * ilegible. Misma regla que en la biblioteca de tests, y por eso sale de `zonasDe`.
+   */
+  const zonaDeObj = (o: any) => zonasDe(etiquetas || [], [o?.articulacion_id, ...(o?.etiquetas || [])].filter(Boolean))
+
   const zonas = useMemo(() => {
-    const ids = Array.from(new Set([
-      ...(objetivos || []).map((o: any) => o.articulacion_id),
-      ...(objetivos || []).flatMap((o: any) => o.etiquetas || []),
-    ].filter(Boolean))) as string[]
-    return ids.map(id => ({ id, nombre: nombreEt(id) }))
-      .filter(z => z.nombre)
-      .sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
+    const vistas: any[] = []
+    ;(objetivos || []).forEach((o: any) => zonaDeObj(o).forEach((z: any) => {
+      if (z.nombre && !vistas.some(v => v.id === z.id)) vistas.push(z)
+    }))
+    return vistas.sort((a: any, b: any) => ordenAnatomico(a.nombre, b.nombre))
   }, [objetivos, etiquetas])
+
+  // Un objetivo etiquetado solo con una patología no tiene articulación y desaparecería en
+  // cuanto se filtre. Su propio chip, igual que en los tests.
+  const sinZona = (objetivos || []).filter((o: any) => zonaDeObj(o).length === 0)
 
   if (!objetivos || objetivos.length===0) return null
 
@@ -416,11 +427,12 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
   const q = busca.toLowerCase().trim()
   const resto = objetivos.filter((o:any)=>{
     if (sel.includes(o.id)) return false
-    const mQ = !q || (o.nombre||'').toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q)
+    // El texto SÍ busca en las etiquetas: "Trocantéritis" tiene que encontrar el objetivo
+    // que la lleva como patología, aunque esa palabra ya no sea un chip de zona.
+    const nombresEt = (o.etiquetas||[]).map((id:string)=>nombreEt(id).toLowerCase()).join(' ')
+    const mQ = !q || (o.nombre||'').toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q) || nombresEt.includes(q)
     const mF = !familia || (o.tipo||'cualitativo') === familia
-    // Por articulación O por etiqueta libre: "Trocantéritis" tiene que encontrar el
-    // objetivo que la lleva como patología y no como zona.
-    const mZ = !zona || o.articulacion_id === zona || (o.etiquetas||[]).includes(zona)
+    const mZ = !zona || (zona === '_sin' ? zonaDeObj(o).length === 0 : zonaDeObj(o).some((z:any)=>z.id===zona))
     return mQ && mF && mZ
   })
 
@@ -494,6 +506,14 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
                       {z.nombre}
                     </span>
                   ))}
+                  {sinZona.length>0 && (
+                    <span onClick={()=>setZona(zona==='_sin'?'':'_sin')} title="Objetivos sin articulación"
+                      style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',
+                        border:`1.5px solid ${zona==='_sin'?'var(--gd)':'var(--bd)'}`,
+                        background:zona==='_sin'?'var(--gd)':'var(--w)',color:zona==='_sin'?'#fff':'var(--gr)'}}>
+                      Sin zona · {sinZona.length}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
