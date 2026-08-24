@@ -124,21 +124,50 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
  * logros siguen siendo los de antes, con lo que ya llevara marcado.
  */
 export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: string): Promise<number> {
-  const { data: o } = await supabase.from('objetivos').select('logros_plantilla').eq('id', objetivoId).maybeSingle()
-  const lista = (Array.isArray(o?.logros_plantilla) ? o!.logros_plantilla : [])
-    .map((x: any) => String(x || '').trim()).filter(Boolean)
-  if (lista.length === 0) return 0
+  const { data: o } = await supabase.from('objetivos')
+    .select('tipo,logros_plantilla,movimientos').eq('id', objetivoId).maybeSingle()
+  if (!o) return 0
+
+  // Las partes salen de dos sitios de la biblioteca: los logros habituales, que son texto
+  // —QUÉ tiene que conseguir— y los específicos, que son etiquetas —DÓNDE se concreta—.
+  const partes: { descripcion: string, movimiento_id: string | null }[] = []
+
+  for (const x of (Array.isArray(o.logros_plantilla) ? o.logros_plantilla : [])) {
+    const d = String(x || '').trim()
+    if (d) partes.push({ descripcion: d, movimiento_id: null })
+  }
+
+  /**
+   * En los MÉTRICOS los específicos no se copian como logros.
+   *
+   * Allí la parte concreta de un paciente ya es su meta, con su número y su lado, y la pone
+   * el entrenador al asignarle el objetivo. Copiarlos además como logros dejaría cada
+   * específico contado dos veces y el objetivo no se cerraría nunca.
+   */
+  const especificos = (o.tipo !== 'metrico' && Array.isArray(o.movimientos)) ? o.movimientos : []
+  if (especificos.length > 0) {
+    const { data: ets } = await supabase.from('etiquetas').select('id,nombre').in('id', especificos)
+    for (const id of especificos) {
+      const nombre = (ets || []).find((e: any) => e.id === id)?.nombre
+      if (nombre) partes.push({ descripcion: nombre, movimiento_id: id })
+    }
+  }
+
+  if (partes.length === 0) return 0
 
   const { data: ya } = await supabase.from('objetivos_metas')
-    .select('descripcion').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).eq('tipo', 'logro')
-  const puestos = new Set((ya || []).map((m: any) => String(m.descripcion || '').trim().toLowerCase()))
-  const nuevos = lista.filter((d: string) => !puestos.has(d.toLowerCase()))
-  if (nuevos.length === 0) return 0
+    .select('descripcion,movimiento_id').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).eq('tipo', 'logro')
+  const puestos = new Set((ya || []).map((m: any) => String(m.movimiento_id || m.descripcion || '').trim().toLowerCase()))
+  const nuevas = partes.filter(p => !puestos.has(String(p.movimiento_id || p.descripcion).trim().toLowerCase()))
+  if (nuevas.length === 0) return 0
 
   const { error } = await supabase.from('objetivos_metas').insert(
-    nuevos.map((d: string) => ({ paciente_id: pacienteId, objetivo_id: objetivoId, tipo: 'logro', descripcion: d, cumplida: false })),
+    nuevas.map(p => ({
+      paciente_id: pacienteId, objetivo_id: objetivoId, tipo: 'logro',
+      descripcion: p.descripcion, movimiento_id: p.movimiento_id, cumplida: false,
+    })),
   )
-  return error ? 0 : nuevos.length
+  return error ? 0 : nuevas.length
 }
 
 /** Crea el objetivo para el paciente con su primera vía, y con sus logros habituales. */

@@ -5,6 +5,7 @@ import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { categoriaDe, zonasDe } from '@/lib/etiquetas'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
+import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
 
@@ -396,9 +397,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // Solo en fases y cualitativos: los métricos ya se describen con su articulación y
       // sus movimientos, y repetirlo aquí serían dos verdades para lo mismo.
       etiquetas: form.tipo === 'metrico' ? [] : (form.etiquetas || []),
-      // Los movimientos son los específicos, y solo tienen sentido en un métrico: en un
-      // objetivo por fases o cualitativo no hay nada que medir por movimiento.
-      movimientos: form.tipo === 'metrico' ? (form.movimientos || []) : [],
+      // Los específicos valen en las tres familias. Estaban limitados a los métricos, y eso
+      // dejaba a un cualitativo sin forma de concretarse: "reeducación neuromuscular" no
+      // podía decir que la suya es la del pie.
+      movimientos: form.movimientos || [],
     }
     // La imagen NO va en el payload: se sube al almacén y lo que se guarda es su URL.
     // Y hace falta el id, que en un objetivo nuevo no existe hasta después de insertarlo.
@@ -677,36 +679,28 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                   </div>
                 </div>
 
-                {/* LOS MOVIMIENTOS SON LOS OBJETIVOS ESPECÍFICOS.
-                    "Movilidad de tobillo" es el general; dorsiflexión, flexión plantar,
-                    inversión y eversión son lo concreto que se entrena y se mide. Van aquí
-                    dentro y no como cuatro fichas aparte: con 38 movimientos y dos métricas
-                    serían casi cien objetivos que mantener, y es de donde venimos. */}
-                <div className="field ancho">
-                  <label>Movimientos · los específicos de este objetivo</label>
-                  <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
-                    Son las opciones que se ofrecen al ponerle una meta a un paciente, y las que
-                    puede fijar un ítem de test. Sin ninguno, el objetivo no se puede medir.
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 150, overflowY: 'auto' }}>
-                    {deCategoria('movimiento')
-                      .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
-                      .map((e: any) => {
-                        const sel = (form.movimientos || []).includes(e.id)
-                        return (
-                          <button key={e.id} className={`chip-sel ${sel ? 'on' : ''}`}
-                            onClick={() => setForm((p: any) => ({
-                              ...p,
-                              movimientos: sel
-                                ? (p.movimientos || []).filter((x: string) => x !== e.id)
-                                : [...(p.movimientos || []), e.id],
-                            }))}>{e.nombre}</button>
-                        )
-                      })}
-                  </div>
-                </div>
               </>
             )}
+
+            {/* LOS ESPECÍFICOS.
+                "Movilidad de tobillo" es el general; dorsiflexión, eversión y compañía son
+                lo concreto. Van dentro y no como fichas aparte: con 38 movimientos y dos
+                métricas serían casi cien objetivos que mantener, y es de donde venimos.
+
+                Salen en las TRES familias. Estaban capados a los métricos y ofreciendo solo
+                etiquetas de movimiento, y por eso "Reeducación neuromuscular · pie" no se
+                podía escribir: el pie no es un movimiento, pero es igual de específico. */}
+            <div className="field ancho">
+              <label>Específicos <span className="subt">· en qué se concreta este objetivo</span></label>
+              <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
+                {form.tipo === 'metrico'
+                  ? 'Son las opciones que se ofrecen al ponerle una meta a un paciente, y las que puede fijar un ítem de test. Sin ninguno, el objetivo no se puede medir.'
+                  : 'Cada uno se convierte en una parte del objetivo cuando se lo asignas a un paciente, y el objetivo se cierra cuando estén todas.'}
+              </div>
+              <SelectorEtiquetasCompacto etiquetas={etiquetas}
+                seleccionadas={form.movimientos || []}
+                onChange={(ids: string[]) => setForm((p: any) => ({ ...p, movimientos: ids }))} />
+            </div>
 
             {form.tipo === 'fase' && (
               <>
