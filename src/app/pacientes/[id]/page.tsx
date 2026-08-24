@@ -472,9 +472,21 @@ export default function FichaPacientePage() {
     if (!confirm(`¿Dar de baja a ${pac.nombre} ${pac.apellidos}?\n\nSus datos se conservan pero se eliminarán TODAS sus citas futuras automáticamente.`)) return
     setProcesando(true)
     const hoy = new Date().toISOString().split('T')[0]
-    await supabase.from('citas').delete().eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
-    await supabase.from('pacientes').update({ estado:'baja' }).eq('id',id)
-    await registrarEvento('baja', 'Baja del servicio', 'Sus citas futuras programadas fueron eliminadas.')
+    const { error: errCitas } = await supabase.from('citas').delete().eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
+    if (errCitas) { setProcesando(false); alert('No se han podido eliminar sus citas futuras: ' + errCitas.message); return }
+    /**
+     * Las fechas de pausa se limpian al dar de baja.
+     *
+     * Un paciente puede irse de baja ESTANDO EN PAUSA, y si se le deja el `pausa_hasta`
+     * puesto queda una fecha de vuelta apuntando a alguien que ya no está: el día que
+     * llegue, cualquier proceso que mire esas fechas tiene motivo para tocarlo. La baja es
+     * un estado nuevo, no una pausa con otro nombre.
+     */
+    const { error } = await supabase.from('pacientes')
+      .update({ estado:'baja', pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    if (error) { setProcesando(false); alert('No se ha podido dar de baja: ' + error.message); return }
+    await registrarEvento('baja', pac.estado === 'pausa' ? 'Baja del servicio, estando en pausa' : 'Baja del servicio',
+      'Sus citas futuras programadas fueron eliminadas.')
     setProcesando(false)
     alert('✓ Paciente dado de baja. Sus citas futuras han sido eliminadas.')
     router.push('/pacientes')
@@ -676,10 +688,16 @@ export default function FichaPacientePage() {
           <div className="menu-flot" style={{left:menuAcc.x,top:menuAcc.y,minWidth:160}}>
             <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalAlertas(true)}}><Ic name="alerta" size={14}/> Añadir alerta</button>
             <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
-            {pac.estado==='activo' && <>
+            {pac.estado==='activo' && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalPausa(true)}}><Ic name="pausa" size={14}/> Pausa temporal</button>
+            )}
+            {/* Dar de baja también DESDE LA PAUSA. Estaba atado a `activo`, así que a quien
+                estaba en pausa había que reactivarlo primero para poder darlo de baja: dos
+                pasos y un estado intermedio falso en el historial, cuando lo que ha pasado
+                es que no vuelve. */}
+            {(pac.estado==='activo'||pac.estado==='pausa') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);darDeBaja()}} disabled={procesando}><Ic name="altabaja" size={14}/> Dar de baja</button>
-            </>}
+            )}
             {(pac.estado==='baja'||pac.estado==='pausa') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);reactivar()}} disabled={procesando}><Ic name="play" size={14}/> Reactivar</button>
             )}
