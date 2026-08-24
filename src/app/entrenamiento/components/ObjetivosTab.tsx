@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
-import { categoriaDe } from '@/lib/etiquetas'
+import { categoriaDe, zonasDe } from '@/lib/etiquetas'
+import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
 
@@ -24,6 +25,56 @@ import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/
  */
 
 /**
+ * Elegir un test, buscando.
+ *
+ * Era un `<select>` con los sesenta y pico tests de la biblioteca, en el orden en que
+ * vinieran. Para encontrar "Lunge de tobillo" había que recorrer la lista entera, y la
+ * biblioteca solo va a crecer.
+ *
+ * Busca por nombre, por descripción, por zona y por el nombre de los ÍTEMS, igual que el
+ * explorador de la biblioteca: en la camilla se busca por la maniobra —"McMurray"— y esa
+ * palabra vive dentro de un ítem, no en el título del test. La zona va debajo, que es lo
+ * que distingue dos tests que se llaman parecido.
+ */
+function SelectorTest({ tests, etiquetas, valor, onElegir, onLimpiar, placeholder = 'Buscar test por nombre, zona o maniobra…' }: {
+  tests: any[]
+  etiquetas: any[]
+  valor: string
+  onElegir: (t: any) => void
+  onLimpiar: () => void
+  placeholder?: string
+}) {
+  const elegido = valor ? tests.find((t: any) => t.id === valor) : null
+  const zonas = (t: any) => zonasDe(etiquetas || [], t?.etiquetas_relacionadas || []).map((z: any) => z.nombre).join(' · ')
+
+  if (elegido) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 'var(--r)', border: '1.5px solid var(--g)', background: 'var(--gl)' }}>
+        <span style={{ flex: 1, fontSize: 12, color: 'var(--n)' }}>
+          {elegido.nombre}
+          {zonas(elegido) && <span style={{ color: 'var(--gr)' }}> · {zonas(elegido)}</span>}
+        </span>
+        <button type="button" onClick={onLimpiar}
+          style={{ fontSize: 11, color: 'var(--gd)', background: 'none', border: 'none', cursor: 'pointer' }}>
+          Cambiar
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <BuscadorBiblioteca
+      items={tests}
+      placeholder={placeholder}
+      buscarEn={(t: any) => [t.nombre, t.descripcion, zonas(t), ...(t.items || []).map((i: any) => i?.nombre)]}
+      subtitulo={(t: any) => zonas(t) || 'Sin zona'}
+      onElegir={onElegir}
+      max={12}
+    />
+  )
+}
+
+/**
  * Los CRITERIOS DE SALIDA de cada fase.
  *
  * Viven en el objetivo y no en el test a propósito: las fases son del objetivo —"vuelta a
@@ -35,10 +86,11 @@ import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/
  * cuándo el test es positivo, que es otra pregunta. Un déficit de extensión de 3° puede
  * ser un hallazgo del test y a la vez suficiente para salir de la fase 2.
  */
-function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
+function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
   fases: number
   criterios: any
   tests: any[]
+  etiquetas: any[]
   onCambia: (v: any[]) => void
 }) {
   // EN BRUTO, sin descartar lo incompleto: un criterio recién añadido nace sin test ni
@@ -76,13 +128,10 @@ function EditorCriteriosFase({ fases, criterios, tests, onCambia }: {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, color: 'var(--gr)' }}>Los criterios se miden con</span>
-        <select className="input" style={{ width: 240, fontSize: 11 }} value={testBase}
-          onChange={e => setTestBase(e.target.value)}>
-          <option value="">— elige el test —</option>
-          {tests.map((x: any) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-        </select>
+      <div style={{ marginBottom: 9 }}>
+        <div style={{ fontSize: 11, color: 'var(--gr)', marginBottom: 4 }}>Los criterios se miden con</div>
+        <SelectorTest tests={tests} etiquetas={etiquetas} valor={testBase}
+          onElegir={(t: any) => setTestBase(t.id)} onLimpiar={() => setTestBase('')} />
       </div>
 
       {/* La ÚLTIMA fase no lleva criterios de salida: de ella no se sale sola. Cerrar el
@@ -628,7 +677,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 <div className="field ancho">
                   <label>Criterios de salida <span className="subt">· la fase la calculan los tests, no se pone a mano</span></label>
                   <div style={{ marginTop: 5 }}>
-                    <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []}
+                    <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []} etiquetas={etiquetas || []}
                       onCambia={(v: any[]) => setForm((p: any) => ({ ...p, criterios_fase: v }))} />
                   </div>
                 </div>
@@ -666,11 +715,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             )}
 
             <div className="field ancho"><label>Test que lo abre (opcional)</label>
-              <select className="input" value={form.test_id} disabled={guardando}
-                onChange={e => setForm((p: any) => ({ ...p, test_id: e.target.value }))}>
-                <option value="">— Ninguno —</option>
-                {(testsLib || []).map((t: any) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
+              <SelectorTest tests={testsLib || []} etiquetas={etiquetas || []} valor={form.test_id}
+                placeholder="Buscar el test que abre este objetivo…"
+                onElegir={(t: any) => setForm((p: any) => ({ ...p, test_id: t.id }))}
+                onLimpiar={() => setForm((p: any) => ({ ...p, test_id: '' }))} />
               <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
                 Si ese test da positivo, este objetivo se abre solo en el paciente.
               </div>
