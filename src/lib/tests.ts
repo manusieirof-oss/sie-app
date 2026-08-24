@@ -697,7 +697,7 @@ export async function registrarResultadoTest(
   let abiertos = 0
 
   if (resultado === 'positivo') {
-    const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado)
+    const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado, banda?.etiqueta || null)
     abiertos += a
     // En puntuación y en baremo el hallazgo es del CONJUNTO, así que solo cuenta el
     // objetivo del test entero. Recorrer los ítems abriría objetivos por un ítem que por
@@ -790,17 +790,36 @@ export async function testsPositivosDe(pacienteId: string): Promise<UltimoResult
  * ítem —es lo normal cuando la ficha mide una sola cosa— y sin esto la meta del paciente
  * nacía sin lado justo en el caso más frecuente.
  */
-async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string, lado?: string) {
-  const { data: objs } = await supabase.from('objetivos')
-    .select('id').eq('test_id', test.id).eq('activo', true)
-  const etiqueta = 'Test: ' + (test.nombre || 'test')
-  for (const o of (objs || [])) {
+async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string, lado?: string, banda?: string | null) {
+  const { data: todos } = await supabase.from('objetivos')
+    .select('id,test_bandas').eq('test_id', test.id).eq('activo', true)
+
+  /**
+   * LA BANDA MANDA, CUANDO EL OBJETIVO LO PIDE.
+   *
+   * "Positivo" no siempre significa lo mismo. Un FPI-6 sale positivo en un pie pronado y en
+   * uno supinado, y el trabajo es el contrario: sin mirar la banda, un pie supinado abría el
+   * objetivo de la pronación y nadie se enteraba. En un test normal esto no pasa porque el
+   * objetivo se cuelga del ÍTEM; en uno de puntuación, el equivalente del ítem es la banda.
+   *
+   * Sin bandas puestas, el objetivo se abre con cualquier positivo: es como se comportaba
+   * antes y es lo que sigue valiendo para los tests que no puntúan.
+   */
+  const objs = (todos || []).filter((o: any) => {
+    const suyas = (Array.isArray(o.test_bandas) ? o.test_bandas : [])
+      .map((x: any) => String(x || '').trim().toLowerCase()).filter(Boolean)
+    if (suyas.length === 0) return true
+    return !!banda && suyas.includes(String(banda).trim().toLowerCase())
+  })
+
+  const etiqueta = 'Test: ' + (test.nombre || 'test') + (banda ? ` · ${banda}` : '')
+  for (const o of objs) {
     await abrirOReabrir(pacienteId, o.id, {
       tipo: 'test', ref: test.id, etiqueta, resuelto: false, fecha_resuelto: null,
       mov: null, lado: lado || null,
     }, contexto)
   }
-  return (objs || []).length
+  return objs.length
 }
 
 /**
