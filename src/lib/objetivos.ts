@@ -32,9 +32,33 @@ export type Via = {
 
 const hoy = () => new Date().toISOString().split('T')[0]
 
-/** Un objetivo está logrado cuando tiene vías y todas están resueltas. */
+/**
+ * UN OBJETIVO ESTÁ LOGRADO CUANDO TIENE PARTES Y TODAS ESTÁN RESUELTAS.
+ *
+ * Sus partes son sus VÍAS —lo que lo abrió: un test, una ejecución— y sus LOGROS, las
+ * metas que se marcan a mano para ese paciente.
+ *
+ * Antes la regla solo miraba las vías, y por eso un objetivo añadido a mano, que nace sin
+ * ninguna, no se podía cerrar de ninguna manera: se quedaba abierto para siempre. Y al
+ * aparecer los logros habría habido dos sitios decidiendo lo mismo —las vías por un lado,
+ * las metas por otro—, que acaba siempre igual: la ficha diciendo una cosa y el cierre
+ * automático haciendo otra.
+ *
+ * Una sola regla y sin excepciones. Solo vías: lo cierra el test. Solo logros: lo cierras
+ * al marcarlos. Las dos cosas: hacen falta las dos, porque que el test dé negativo no
+ * significa que lo que te propusiste con ese paciente esté hecho.
+ */
+export function estaLogradoCon(vias: Via[], metas: { cumplida?: boolean }[]): boolean {
+  const partes = [
+    ...(Array.isArray(vias) ? vias : []).map(v => !!v.resuelto),
+    ...(Array.isArray(metas) ? metas : []).map(m => !!m.cumplida),
+  ]
+  return partes.length > 0 && partes.every(Boolean)
+}
+
+/** La misma regla cuando en la mano solo hay vías. */
 export function estaLogrado(vias: Via[]): boolean {
-  return Array.isArray(vias) && vias.length > 0 && vias.every(v => v.resuelto)
+  return estaLogradoCon(vias, [])
 }
 
 async function nombreObjetivo(objetivoId: string) {
@@ -53,7 +77,12 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   /** De dónde viene el cambio, para el texto del evento: "test", "ejecución"… */
   contexto?: string
 }) {
-  const logrado = estaLogrado(vias)
+  // Los LOGROS también cuentan, así que hay que leerlos: cerrar por las vías sin mirarlos
+  // daría por hecho un objetivo con logros pendientes, y esa es exactamente la mentira que
+  // la regla nueva viene a evitar.
+  const { data: metas } = await supabase.from('objetivos_metas')
+    .select('cumplida').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
+  const logrado = estaLogradoCon(vias, metas || [])
 
   const cambios: any = { vias, logrado, fecha_logrado: logrado ? hoy() : null }
   if (opciones?.origen) cambios.origen = opciones.origen
@@ -65,14 +94,14 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   // Solo se registra el cambio de estado, no cada retoque de una vía.
   if (opciones?.logradoAntes !== undefined && opciones.logradoAntes !== logrado) {
     const nombre = await nombreObjetivo(objetivoId)
-    const pendientes = vias.filter(v => !v.resuelto).length
+    const pendientes = vias.filter(v => !v.resuelto).length + (metas || []).filter((m: any) => !m.cumplida).length
     await supabase.from('eventos_paciente').insert({
       paciente_id: pacienteId,
       tipo: logrado ? 'objetivo_logrado' : 'objetivo_reabierto',
       titulo: logrado ? `Objetivo logrado: ${nombre}` : `Objetivo reabierto: ${nombre}`,
       descripcion: logrado
         ? (opciones.contexto ? `Resuelto desde ${opciones.contexto}` : null)
-        : `Quedan ${pendientes} vía${pendientes === 1 ? '' : 's'} por resolver`,
+        : `Quedan ${pendientes} parte${pendientes === 1 ? '' : 's'} por resolver`,
       fecha: hoy(),
     })
   }

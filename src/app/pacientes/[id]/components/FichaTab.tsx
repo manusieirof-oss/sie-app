@@ -9,6 +9,7 @@ import { guardarVias } from '@/lib/objetivos'
 import MetasObjetivo from './MetasObjetivo'
 import { cambiarFase } from '@/lib/metas'
 import { evaluarFases, ladoDeObjetivo, textoCriterio, criteriosDe } from '@/lib/fases'
+import LogrosObjetivo from './LogrosObjetivo'
 import { ordenAnatomico } from '@/lib/anatomia'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
@@ -319,6 +320,17 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
         {/* Los métricos se cierran con metas, no con vías: el número lo pone una medición.
             Por eso no se les ofrece "dar por logrado" a secas. */}
+        {/* LOS LOGROS VAN EN TODAS LAS FAMILIAS. Un objetivo métrico puede tener uno que no
+            es un número, y uno cualitativo o por fases no tenía forma de proponerse nada.
+            Y son lo único que puede cerrar un objetivo añadido a mano, que nace sin vías. */}
+        {!o.logrado && (
+          <LogrosObjetivo
+            pacienteId={pac.id}
+            objetivo={o}
+            logros={metas.filter((m:any)=>m.objetivo_id===o.id && m.tipo==='logro')}
+            onCambio={cargarObjetivos}
+          />
+        )}
         {o.tipo==='metrico' && !o.logrado && (
           <MetasObjetivo
             pacienteId={pac.id}

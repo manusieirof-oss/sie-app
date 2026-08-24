@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { estaLogradoCon } from './objetivos'
 
 /**
  * Lo medido en un ítem, tolerando el nombre de campo anterior.
@@ -65,6 +66,10 @@ export const TIPOS_META = [
   { id: 'mejorar', nombre: 'Mejorar', ayuda: 'Sobre el valor de partida del propio paciente.' },
   { id: 'igualar_lados', nombre: 'Igualar lados', ayuda: 'Que el lado peor alcance al bueno, con menos de un 10% de diferencia.' },
   { id: 'igualar_par', nombre: 'Igualar con el antagonista', ayuda: 'Que el movimiento y su opuesto queden parejos. Flexión contra extensión.' },
+  // El cuarto no mide: se marca. Sin él, un objetivo cualitativo no podía tener metas de
+  // ninguna clase —o ponías un número o no ponías nada— y lo que se persigue con muchos
+  // pacientes no es un número, es que consigan algo concreto.
+  { id: 'logro', nombre: 'Logro', ayuda: 'Algo concreto que este paciente tiene que conseguir. No lleva número: se marca a mano.' },
 ] as const
 
 export type TipoMeta = typeof TIPOS_META[number]['id']
@@ -76,6 +81,8 @@ export type Meta = {
   movimiento_id?: string | null
   lado: 'izquierdo' | 'derecho' | 'bilateral'
   tipo: TipoMeta
+  /** Solo en 'logro': qué tiene que conseguir. Es todo lo que ese tipo necesita. */
+  descripcion?: string | null
   unidad?: string | null
   valor_inicial?: number | null
   meta_pct?: number | null
@@ -123,6 +130,18 @@ const otroLado = (l: string) => l === 'izquierdo' ? 'derecho' : l === 'derecho' 
  */
 export function estadoDeMeta(meta: Meta, resultados: any[]): Estado {
   const vacio = (texto: string): Estado => ({ actual: null, referencia: null, cumplida: !!meta.cumplida, texto, progreso: null })
+
+  // Un LOGRO no se calcula: se marca. No tiene test, ni valor, ni progreso intermedio —o
+  // se ha conseguido o no— y pedirle cualquiera de esas cosas sería inventarse un número
+  // sobre algo que no lo tiene.
+  if (meta.tipo === 'logro') {
+    return {
+      actual: null, referencia: null,
+      cumplida: !!meta.cumplida,
+      texto: meta.descripcion || 'Logro sin describir',
+      progreso: meta.cumplida ? 1 : 0,
+    }
+  }
 
   if (meta.cerrada_a_mano) return { actual: null, referencia: null, cumplida: true, texto: 'Cerrada a mano', progreso: 1 }
   if (!meta.test_id || meta.item_indice == null) return vacio('Sin test asignado que la mida')
@@ -242,13 +261,16 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
   if (ids.length === 0) return []
 
   const { data: filas } = await supabase.from('pacientes_objetivos')
-    .select('objetivo_id,logrado,objetivos(nombre)')
+    .select('objetivo_id,logrado,vias,objetivos(nombre)')
     .eq('paciente_id', pacienteId).in('objetivo_id', ids)
 
   const logrados: string[] = []
   for (const fila of (filas || []) as any[]) {
     const suyas = porObjetivo[fila.objetivo_id] || []
-    const debe = suyas.length > 0 && suyas.every(m => m.cumplida)
+    // Las VÍAS cuentan igual que las metas. Cerrar mirando solo las metas daba por hecho un
+    // objetivo cuyo test seguía dando positivo, y la regla de qué es "logrado" vive en
+    // `lib/objetivos.ts`: aquí solo se aplica, no se vuelve a escribir.
+    const debe = estaLogradoCon(fila.vias || [], suyas)
     if (debe === !!fila.logrado) continue
 
     await supabase.from('pacientes_objetivos').update({
@@ -263,7 +285,7 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
       titulo: debe ? `Objetivo logrado: ${nombre}` : `Objetivo reabierto: ${nombre}`,
       descripcion: debe
         ? `Sus ${suyas.length} meta${suyas.length > 1 ? 's están cumplidas' : ' está cumplida'}`
-        : 'Una de sus metas ha vuelto a abrirse',
+        : 'Una de sus partes ha vuelto a abrirse',
       fecha: new Date().toISOString().split('T')[0],
     })
     if (debe) logrados.push(nombre)
