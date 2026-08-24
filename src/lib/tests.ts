@@ -500,6 +500,12 @@ function problemasDeBandas(test: any, techoNecesario: number | undefined, queEs:
     p.push(`No hay bandas. Sin ellas ${queEs} es un número suelto y el test no puede dar ni positivo ni negativo.`)
   } else {
     if (bandas.some(b => !b.etiqueta.trim())) p.push('Hay bandas sin nombre. El nombre de la banda es lo que se guarda en el historial y lo que se lee luego.')
+    // En estos tests el trabajo cuelga de la banda. Una banda que es hallazgo y no abre nada
+    // deja un resultado positivo sin consecuencia, que es el fallo mudo de siempre.
+    const mudas = bandas.filter(b => b.hallazgo && (b.objetivos || []).length === 0).map(b => b.etiqueta || 'sin nombre')
+    if (mudas.length > 0) {
+      p.push(`Estas bandas son hallazgo y no abren ningún objetivo: ${mudas.join(', ')}. Un resultado que caiga ahí saldrá positivo y no aparecerá nada en la ficha.`)
+    }
     const techos = bandas.map(b => b.hasta)
     if (new Set(techos).size !== techos.length) p.push('Hay dos bandas con el mismo techo: la segunda nunca se alcanzaría.')
     const ultima = bandas[bandas.length - 1].hasta

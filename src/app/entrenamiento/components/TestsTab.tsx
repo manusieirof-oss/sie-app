@@ -802,11 +802,33 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                           ? <div style={{fontSize:10,color:'var(--grl)'}}>Sin bandas: este test no puede dar resultado.</div>
                           : bandas.map((b,i)=>{
                               const desde = i===0 ? (rango?rango.min:'−∞') : bandas[i-1].hasta+1
+                              /* Qué abre cada banda. En un test de puntuación es donde
+                                 cuelga el trabajo, igual que el ítem en uno de casillas, y
+                                 sin enseñarlo aquí había que entrar a editar para saberlo. */
+                              const objs = (b.objetivos||[]).map((id:string)=>(objetivos||[]).find((o:any)=>o.id===id)).filter(Boolean)
                               return (
-                                <div key={i} style={{fontSize:11,color:'var(--n)',fontWeight:300,display:'flex',alignItems:'center',gap:6,padding:'1px 0'}}>
-                                  <span style={{width:9,height:9,borderRadius:2,background:b.hallazgo?'var(--red)':'var(--g)',flexShrink:0}}/>
-                                  <span style={{color:'var(--grl)',minWidth:64}}>{desde} a {b.hasta}</span>
-                                  <span>{b.etiqueta||'sin nombre'}</span>
+                                <div key={i} style={{padding:'2px 0'}}>
+                                  <div style={{fontSize:11,color:'var(--n)',fontWeight:300,display:'flex',alignItems:'center',gap:6}}>
+                                    <span style={{width:9,height:9,borderRadius:2,background:b.hallazgo?'var(--red)':'var(--g)',flexShrink:0}}/>
+                                    <span style={{color:'var(--grl)',minWidth:64}}>{desde} a {b.hasta}</span>
+                                    <span>{b.etiqueta||'sin nombre'}</span>
+                                  </div>
+                                  {b.hallazgo && (
+                                    <div style={{display:'flex',flexWrap:'wrap',gap:3,margin:'2px 0 0 15px',alignItems:'center'}}>
+                                      <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
+                                      {objs.length===0
+                                        ? <span style={{fontSize:9,color:'var(--red)'}}>ningún objetivo</span>
+                                        : objs.map((o:any)=>{
+                                            const movId=(b.objetivos_mov||{})[o.id]
+                                            const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
+                                            return (
+                                              <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>
+                                                {o.nombre}{mov?` · ${mov}`:''}
+                                              </span>
+                                            )
+                                          })}
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })}
