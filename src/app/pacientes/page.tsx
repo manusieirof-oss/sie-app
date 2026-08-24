@@ -397,7 +397,9 @@ export default function PacientesPage() {
                         title={r?.respuesta || 'Marcar y anotar lo que diga'}
                         onClick={e=>{e.preventDefault();e.stopPropagation()
                           const b=(e.currentTarget as HTMLElement).getBoundingClientRect()
-                          setEditRonda({ paciente:p, estado:r?.estado||null, texto:r?.respuesta||'', x:Math.min(b.left, window.innerWidth-300), y:b.bottom+4 })}}>
+                          // Se guardan los DOS bordes del botón. El panel se pinta debajo si
+                          // cabe y encima si no, y eso solo se puede decidir al pintarlo.
+                          setEditRonda({ paciente:p, estado:r?.estado||null, texto:r?.respuesta||'', x:Math.min(b.left, window.innerWidth-300), y:b.bottom+4, yTop:b.top })}}>
                         {/* El icono dice el estado aunque el texto sea la respuesta
                             escrita: con una respuesta larga, "respondido" desaparecía. */}
                         <Ic name={r?.estado==='respondido' ? 'check'
@@ -422,10 +424,30 @@ export default function PacientesPage() {
 
       {/* MARCAR EN LA RONDA · junto a la fila, no en un modal a pantalla completa:
           se marcan cien seguidos y abrir y cerrar un modal cada vez cansa a los diez. */}
-      {editRonda && ronda && (
+      {editRonda && ronda && (()=>{
+        /**
+         * EL PANEL TIENE QUE CABER EN LA PANTALLA.
+         *
+         * Se pintaba en `position:fixed` con el borde inferior del botón como `top`, sin
+         * ningún límite. En las últimas filas de la tabla eso lo dejaba por debajo del
+         * borde de la ventana, y como es fijo no hay scroll que lo alcance: el panel
+         * existía, tapaba el clic de fondo y no había forma de verlo ni de cerrarlo salvo
+         * pulsando fuera a ciegas. La `x` sí estaba acotada desde el principio; la `y` no.
+         *
+         * Si no cabe debajo del botón, se pinta encima. Y en cualquier caso se le pone un
+         * alto máximo con scroll propio, para que ni con una pantalla muy baja quede algo
+         * fuera de alcance.
+         */
+        const alto = typeof window !== 'undefined' ? window.innerHeight : 800
+        const ESTIMADO = 300
+        const cabeDebajo = alto - editRonda.y >= ESTIMADO
+        const arriba = !cabeDebajo && editRonda.yTop > alto - editRonda.y
+        const top = arriba ? Math.max(8, editRonda.yTop - Math.min(ESTIMADO, editRonda.yTop - 12)) : editRonda.y
+        const maxAlto = arriba ? editRonda.yTop - 12 : alto - editRonda.y - 12
+        return (
         <>
           <div onClick={()=>setEditRonda(null)} style={{position:'fixed',inset:0,zIndex:60}}/>
-          <div style={{position:'fixed',left:editRonda.x,top:editRonda.y,zIndex:61,width:288,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'var(--sh-md)',padding:'11px 12px'}}>
+          <div style={{position:'fixed',left:editRonda.x,top,zIndex:61,width:288,maxHeight:Math.max(160,maxAlto),overflowY:'auto',background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'var(--sh-md)',padding:'11px 12px'}}>
             <div style={{fontSize:13,color:'var(--n)',marginBottom:8}}>
               {editRonda.paciente.nombre} {editRonda.paciente.apellidos}
             </div>
@@ -459,7 +481,8 @@ export default function PacientesPage() {
             </div>
           </div>
         </>
-      )}
+        )
+      })()}
 
       {/* MODAL NUEVO PACIENTE */}
       {modal && (

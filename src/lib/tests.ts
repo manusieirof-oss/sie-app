@@ -844,15 +844,18 @@ async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: s
     return ids.length
   }
 
-  const { data: objs } = await supabase.from('objetivos')
-    .select('id').eq('test_id', test.id).eq('activo', true)
-  for (const o of (objs || [])) {
-    await abrirOReabrir(pacienteId, o.id, {
-      tipo: 'test', ref: test.id, etiqueta: base, resuelto: false, fecha_resuelto: null,
-      mov: null, lado: lado || null,
-    }, contexto)
-  }
-  return (objs || []).length
+  /**
+   * En un test de casillas ya no cuelga nada del test entero.
+   *
+   * `objetivos.test_id` era la segunda forma de decir lo mismo: el test colgaba objetivos de
+   * sus ítems, y el objetivo podía colgarse a sí mismo del test completo. Dos sitios para
+   * una decisión acaban contradiciéndose, y quien mira uno no ve lo que dice el otro.
+   *
+   * Ahora hay una sola vía y vive en el test: el ítem si es de casillas, la banda si puntúa.
+   * La columna se queda en la base para no borrar de golpe lo que hubiera configurado antes,
+   * pero no la lee nadie.
+   */
+  return 0
 }
 
 /** La referencia de una vía abierta por una banda. Lleva el test y la banda dentro. */
@@ -969,17 +972,27 @@ export type AlcanceBorradoTest = {
   resultados: number
   /** Pacientes con alguna vía de objetivo abierta por este test. */
   pacientes: number
-  /** Objetivos de la BIBLIOTECA vinculados al test entero: se quedarían sin test. */
+  /** Objetivos que este test abre desde sus ítems o sus bandas: se quedarían sin quien los abra. */
   objetivos: string[]
 }
 
 /** Qué se lleva por delante el borrado. Para poder preguntarlo ANTES de hacerlo. */
 export async function alcanceBorradoTest(testId: string): Promise<AlcanceBorradoTest> {
-  const [{ count }, { data: objs }, { data: pos }] = await Promise.all([
+  // Los objetivos que cuelgan de este test ya no se buscan por `objetivos.test_id`: viven
+  // dentro del propio test, en sus ítems y en sus bandas.
+  const [{ count }, { data: t }, { data: pos }] = await Promise.all([
     supabase.from('resultados_tests').select('id', { count: 'exact', head: true }).eq('test_id', testId),
-    supabase.from('objetivos').select('nombre').eq('test_id', testId),
+    supabase.from('tests').select('items,bandas').eq('id', testId).maybeSingle(),
     supabase.from('pacientes_objetivos').select('paciente_id,vias'),
   ])
+
+  const ids = Array.from(new Set([
+    ...(Array.isArray(t?.items) ? t!.items : []).flatMap((i: any) => Array.isArray(i?.objetivos) ? i.objetivos : []),
+    ...(Array.isArray(t?.bandas) ? t!.bandas : []).flatMap((b: any) => Array.isArray(b?.objetivos) ? b.objetivos : []),
+  ])) as string[]
+  const { data: objs } = ids.length > 0
+    ? await supabase.from('objetivos').select('nombre').in('id', ids)
+    : { data: [] as any[] }
   const pacientes = new Set(
     (pos || [])
       .filter(po => (Array.isArray(po.vias) ? po.vias : []).some((v: any) => esViaDeTest(v, testId)))

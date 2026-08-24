@@ -383,7 +383,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     setGuardando(true)
     const payload: any = {
       nombre: form.nombre, descripcion: form.descripcion,
-      test_id: form.test_id || null,
+      // `test_id` ya no se escribe desde aquí: el enlace con los tests vive en el test, en
+      // su ítem o en su banda. No se manda a null a propósito — borrar de golpe lo que
+      // hubiera configurado de antes sería tirar datos que nadie ha pedido tirar.
       tipo: form.tipo,
       // Cada familia guarda lo suyo y limpia lo de las otras: un objetivo que fue métrico
       // y pasa a cualitativo no puede quedarse con la métrica puesta.
@@ -558,11 +560,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                           {(o.etiquetas || []).map((id: string) => (
                             <span key={id} className="pill pill-soft">{nombreEt(id)}</span>
                           ))}
-                        </div>
-                      )}
-                      {o.test_id && (
-                        <div style={{ fontSize: 12, color: 'var(--gd)', marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Ic name="test" size={11} /> Lo abre: {nombreTest(o.test_id)}
                         </div>
                       )}
                     </div>
@@ -761,35 +758,12 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               </div>
             </div>
 
-            <div className="field ancho"><label>Test que lo abre (opcional)</label>
-              <SelectorTest tests={testsLib || []} etiquetas={etiquetas || []} valor={form.test_id}
-                placeholder="Buscar el test que abre este objetivo…"
-                onElegir={(t: any) => setForm((p: any) => ({ ...p, test_id: t.id, test_bandas: [] }))}
-                onLimpiar={() => setForm((p: any) => ({ ...p, test_id: '', test_bandas: [] }))} />
-
-              {/* Un test de puntuación o de baremo NO engancha desde aquí: sus objetivos
-                  cuelgan de la banda, en el propio test, igual que los de un test de
-                  casillas cuelgan del ítem. Decirlo aquí evita configurarlo dos veces y en
-                  dos sitios que podrían contradecirse. */}
-              {(() => {
-                const t = (testsLib || []).find((x: any) => x.id === form.test_id)
-                if (!t || (t.logica !== 'suma' && t.logica !== 'baremo')) return null
-                return (
-                  <div className="fila-p" style={{ borderLeftColor: '#E0C068', marginTop: 7 }}>
-                    <span style={{ fontSize: 12, color: 'var(--gr)' }}>
-                      «{t.nombre}» se resuelve por puntuación, y ahí el objetivo se cuelga de la
-                      <b> banda</b>, no del test entero — un resultado supinado y uno pronado piden
-                      cosas contrarias. Ve a <b>Biblioteca → Tests → {t.nombre} → Editar</b> y
-                      añádelo en la banda que corresponda. Este campo puedes dejarlo vacío.
-                    </span>
-                  </div>
-                )
-              })()}
-              <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
-                Si ese test da positivo, este objetivo se abre solo en el paciente.
-              </div>
-            </div>
-
+            {/* EL ENLACE CON LOS TESTS SE HACE DESDE EL TEST, Y SOLO DESDE AHÍ.
+                Aquí había un "Test que lo abre" que era la segunda forma de decir lo mismo:
+                el test podía colgar el objetivo de un ítem o de una banda, y el objetivo
+                podía colgarse a sí mismo del test entero. Dos sitios para una decisión
+                acaban contradiciéndose, y el que mira uno no ve lo que dice el otro.
+                Ahora hay una sola vía: Biblioteca → Tests → el ítem o la banda. */}
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
