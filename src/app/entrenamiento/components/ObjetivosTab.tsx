@@ -384,8 +384,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     const payload: any = {
       nombre: form.nombre, descripcion: form.descripcion,
       test_id: form.test_id || null,
-      // Sin test que lo abra, las bandas no significan nada y se limpian.
-      test_bandas: form.test_id ? (form.test_bandas || []) : [],
       tipo: form.tipo,
       // Cada familia guarda lo suyo y limpia lo de las otras: un objetivo que fue métrico
       // y pasa a cualitativo no puede quedarse con la métrica puesta.
@@ -769,34 +767,21 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 onElegir={(t: any) => setForm((p: any) => ({ ...p, test_id: t.id, test_bandas: [] }))}
                 onLimpiar={() => setForm((p: any) => ({ ...p, test_id: '', test_bandas: [] }))} />
 
-              {/* EN QUÉ BANDAS. "Positivo" no siempre significa lo mismo: un FPI-6 sale
-                  positivo con el pie pronado y con el supinado, y el trabajo es el
-                  contrario. Sin esto, un pie supinado abría el objetivo de la pronación. */}
+              {/* Un test de puntuación o de baremo NO engancha desde aquí: sus objetivos
+                  cuelgan de la banda, en el propio test, igual que los de un test de
+                  casillas cuelgan del ítem. Decirlo aquí evita configurarlo dos veces y en
+                  dos sitios que podrían contradecirse. */}
               {(() => {
                 const t = (testsLib || []).find((x: any) => x.id === form.test_id)
-                const bandas = bandasDe(t)
-                if (!t || bandas.length === 0) return null
-                const puestas: string[] = form.test_bandas || []
-                const alterna = (e: string) => setForm((p: any) => ({
-                  ...p,
-                  test_bandas: (p.test_bandas || []).includes(e)
-                    ? (p.test_bandas || []).filter((x: string) => x !== e)
-                    : [...(p.test_bandas || []), e],
-                }))
+                if (!t || (t.logica !== 'suma' && t.logica !== 'baremo')) return null
                 return (
-                  <div style={{ marginTop: 7 }}>
-                    <div style={{ fontSize: 11, color: 'var(--gr)', marginBottom: 4 }}>
-                      Solo en estas bandas {puestas.length === 0 && <span style={{ color: 'var(--grl)' }}>· sin marcar ninguna, lo abre cualquier resultado positivo</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                      {bandas.map((b: any) => (
-                        <button key={b.etiqueta} type="button"
-                          className={`chip-sel ${puestas.includes(b.etiqueta) ? 'on' : ''}`}
-                          onClick={() => alterna(b.etiqueta)}>
-                          {b.etiqueta}{b.hallazgo ? '' : ' (no es hallazgo)'}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="fila-p" style={{ borderLeftColor: '#E0C068', marginTop: 7 }}>
+                    <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+                      «{t.nombre}» se resuelve por puntuación, y ahí el objetivo se cuelga de la
+                      <b> banda</b>, no del test entero — un resultado supinado y uno pronado piden
+                      cosas contrarias. Ve a <b>Biblioteca → Tests → {t.nombre} → Editar</b> y
+                      añádelo en la banda que corresponda. Este campo puedes dejarlo vacío.
+                    </span>
                   </div>
                 )
               })()}

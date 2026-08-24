@@ -200,8 +200,10 @@ export async function resolverViasDeTest(pacienteId: string, testId: string, con
     const vias: Via[] = Array.isArray(po.vias) ? po.vias : []
     let cambio = false
     const nuevas = vias.map(v => {
+      // La vía de una banda lleva `test|banda` en la ref, así que no basta con comparar el
+      // id: sin esto, un test de puntuación que pasa a negativo no cerraría nada.
       const esDeEsteTest =
-        (v.tipo === 'test' && v.ref === testId) ||
+        (v.tipo === 'test' && typeof v.ref === 'string' && (v.ref === testId || v.ref.startsWith(testId + '|'))) ||
         (v.tipo === 'test_item' && typeof v.ref === 'string' && v.ref.startsWith(testId + ':'))
       if (esDeEsteTest && !v.resuelto) { cambio = true; return { ...v, resuelto: true, fecha_resuelto: hoy() } }
       return v

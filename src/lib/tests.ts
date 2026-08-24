@@ -181,6 +181,20 @@ export type Banda = {
   etiqueta: string
   /** Si caer aquí cuenta como hallazgo. Es lo que se traduce a positivo/negativo. */
   hallazgo: boolean
+  /**
+   * Los objetivos que abre caer en ESTA banda.
+   *
+   * La banda es, en un test de puntuación, lo que el ítem es en uno de casillas: el sitio
+   * concreto del que cuelga el trabajo. Un FPI-6 positivo no dice qué hacer —un pie
+   * supinado y uno pronado piden lo contrario— y la banda sí.
+   *
+   * Por eso se cuelgan desde el test y no desde el objetivo: así todos los objetivos se
+   * enganchan igual, y una misma banda puede abrir varios —fortalecer peroneos, liberar la
+   * planta, ganar movilidad— cada uno con su específico.
+   */
+  objetivos?: string[]
+  /** Qué específico de cada objetivo concreta esta banda. Igual que en los ítems. */
+  objetivos_mov?: Record<string, string>
 }
 
 /** true si el test se resuelve por el total de sus ítems. */
@@ -190,7 +204,11 @@ export const esSuma = (test: any) => test?.logica === 'suma'
 export function bandasDe(test: any): Banda[] {
   return (Array.isArray(test?.bandas) ? test.bandas : [])
     .filter((b: any) => b && b.hasta !== '' && b.hasta !== null && isFinite(Number(b.hasta)))
-    .map((b: any) => ({ hasta: Number(b.hasta), etiqueta: String(b.etiqueta || ''), hallazgo: !!b.hallazgo }))
+    .map((b: any) => ({
+      hasta: Number(b.hasta), etiqueta: String(b.etiqueta || ''), hallazgo: !!b.hallazgo,
+      objetivos: Array.isArray(b.objetivos) ? b.objetivos : [],
+      objetivos_mov: (b.objetivos_mov && typeof b.objetivos_mov === 'object') ? b.objetivos_mov : {},
+    }))
     .sort((a: Banda, b: Banda) => a.hasta - b.hasta)
 }
 
@@ -697,7 +715,7 @@ export async function registrarResultadoTest(
   let abiertos = 0
 
   if (resultado === 'positivo') {
-    const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado, banda?.etiqueta || null)
+    const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado, banda)
     abiertos += a
     // En puntuación y en baremo el hallazgo es del CONJUNTO, así que solo cuenta el
     // objetivo del test entero. Recorrer los ítems abriría objetivos por un ítem que por
@@ -790,36 +808,78 @@ export async function testsPositivosDe(pacienteId: string): Promise<UltimoResult
  * ítem —es lo normal cuando la ficha mide una sola cosa— y sin esto la meta del paciente
  * nacía sin lado justo en el caso más frecuente.
  */
-async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string, lado?: string, banda?: string | null) {
-  const { data: todos } = await supabase.from('objetivos')
-    .select('id,test_bandas').eq('test_id', test.id).eq('activo', true)
+async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string, lado?: string, banda?: Banda | null) {
+  const base = 'Test: ' + (test.nombre || 'test')
 
   /**
-   * LA BANDA MANDA, CUANDO EL OBJETIVO LO PIDE.
+   * CADA TIPO DE TEST CUELGA SUS OBJETIVOS DONDE LE CORRESPONDE.
    *
-   * "Positivo" no siempre significa lo mismo. Un FPI-6 sale positivo en un pie pronado y en
-   * uno supinado, y el trabajo es el contrario: sin mirar la banda, un pie supinado abría el
-   * objetivo de la pronación y nadie se enteraba. En un test normal esto no pasa porque el
-   * objetivo se cuelga del ÍTEM; en uno de puntuación, el equivalente del ítem es la banda.
+   * En un test de casillas, del ÍTEM. En uno de puntuación o de baremo, de la BANDA, que es
+   * su equivalente: el sitio concreto que dice qué trabajo abre este resultado.
    *
-   * Sin bandas puestas, el objetivo se abre con cualquier positivo: es como se comportaba
-   * antes y es lo que sigue valiendo para los tests que no puntúan.
+   * Hacía falta porque "positivo" no siempre significa lo mismo: un FPI-6 sale positivo con
+   * el pie supinado y con el pronado, y el trabajo es el contrario. Colgarlo del test entero
+   * abría el objetivo de la pronación a un pie supinado, y nadie se enteraba.
+   *
+   * La vía lleva la banda en su `ref`, así que un resultado que cambia de banda cierra lo
+   * que abrió la anterior en vez de dejar las dos cosas abiertas a la vez.
    */
-  const objs = (todos || []).filter((o: any) => {
-    const suyas = (Array.isArray(o.test_bandas) ? o.test_bandas : [])
-      .map((x: any) => String(x || '').trim().toLowerCase()).filter(Boolean)
-    if (suyas.length === 0) return true
-    return !!banda && suyas.includes(String(banda).trim().toLowerCase())
-  })
+  if (esSuma(test) || esBaremo(test)) {
+    if (!banda) return 0
+    await resolverViasDeOtrasBandas(pacienteId, test.id, banda.etiqueta, contexto)
+    const ids = Array.isArray(banda.objetivos) ? banda.objetivos : []
+    const movs = banda.objetivos_mov || {}
+    for (const oid of ids) {
+      await abrirOReabrir(pacienteId, oid, {
+        tipo: 'test', ref: refDeBanda(test.id, banda.etiqueta), etiqueta: `${base} · ${banda.etiqueta}`,
+        resuelto: false, fecha_resuelto: null, mov: movs[oid] || null, lado: lado || null,
+      }, contexto)
+    }
+    return ids.length
+  }
 
-  const etiqueta = 'Test: ' + (test.nombre || 'test') + (banda ? ` · ${banda}` : '')
-  for (const o of objs) {
+  const { data: objs } = await supabase.from('objetivos')
+    .select('id').eq('test_id', test.id).eq('activo', true)
+  for (const o of (objs || [])) {
     await abrirOReabrir(pacienteId, o.id, {
-      tipo: 'test', ref: test.id, etiqueta, resuelto: false, fecha_resuelto: null,
+      tipo: 'test', ref: test.id, etiqueta: base, resuelto: false, fecha_resuelto: null,
       mov: null, lado: lado || null,
     }, contexto)
   }
-  return objs.length
+  return (objs || []).length
+}
+
+/** La referencia de una vía abierta por una banda. Lleva el test y la banda dentro. */
+export const refDeBanda = (testId: string, etiqueta: string) => `${testId}|${String(etiqueta || '').trim()}`
+
+/**
+ * Cierra lo que abrieron OTRAS bandas del mismo test.
+ *
+ * Un pie que pasa de supinado a pronado sigue dando el test positivo, así que nada lo
+ * cerraría: se abrirían los objetivos de la pronación y los de la supinación se quedarían
+ * abiertos para siempre, con el paciente arrastrando trabajo de una situación que ya no
+ * tiene. Cambiar de banda es dejar atrás la anterior.
+ */
+async function resolverViasDeOtrasBandas(pacienteId: string, testId: string, etiquetaActual: string, contexto?: string) {
+  const actual = refDeBanda(testId, etiquetaActual)
+  const { data: pos } = await supabase.from('pacientes_objetivos')
+    .select('objetivo_id,vias,logrado').eq('paciente_id', pacienteId)
+
+  for (const po of (pos || [])) {
+    const vias: Via[] = Array.isArray(po.vias) ? po.vias : []
+    let cambio = false
+    const nuevas = vias.map((v: any) => {
+      const deOtraBanda = v.tipo === 'test' && typeof v.ref === 'string'
+        && v.ref.startsWith(testId + '|') && v.ref !== actual && !v.resuelto
+      if (!deOtraBanda) return v
+      cambio = true
+      return { ...v, resuelto: true, fecha_resuelto: hoy() }
+    })
+    if (!cambio) continue
+    await guardarVias(pacienteId, po.objetivo_id, nuevas, {
+      logradoAntes: !!po.logrado, contexto: contexto || 'un cambio de banda del test',
+    })
+  }
 }
 
 /**
@@ -895,7 +955,8 @@ async function abrirOReabrir(pacienteId: string, objetivoId: string, via: Via, c
  */
 
 const esViaDeTest = (v: any, testId: string) =>
-  (v?.tipo === 'test' && v.ref === testId) ||
+  // `test|banda` para las que abre una banda, `test:índice` para las de un ítem.
+  (v?.tipo === 'test' && typeof v?.ref === 'string' && (v.ref === testId || v.ref.startsWith(testId + '|'))) ||
   (v?.tipo === 'test_item' && typeof v?.ref === 'string' && v.ref.startsWith(testId + ':'))
 
 export type AlcanceBorradoTest = {

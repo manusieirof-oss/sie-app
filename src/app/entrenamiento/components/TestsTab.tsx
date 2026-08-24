@@ -107,7 +107,7 @@ function ConfigBarra({ item, onCambia, soloRango = false }: { item: any, onCambi
  * Se leen por TECHO, no por orden de escritura: el total cae en la primera banda cuyo
  * techo alcanza. Así se pueden añadir en cualquier orden sin que cambie el significado.
  */
-function EditorBandas({ bandas, items, onCambia, porRecuento = false }: { bandas: any, items: any[], onCambia: (b: any[]) => void, porRecuento?: boolean }) {
+function EditorBandas({ bandas, items, onCambia, porRecuento = false, objetivos = [], etiquetas = [] }: { bandas: any, items: any[], onCambia: (b: any[]) => void, porRecuento?: boolean, objetivos?: any[], etiquetas?: any[] }) {
   const lista: any[] = Array.isArray(bandas) ? bandas : []
   // En un baremo el número que cae en la banda no es la suma de los ítems: es cuántos de
   // ellos quedan por debajo de su norma, o sea de 0 a todos.
@@ -132,7 +132,8 @@ function EditorBandas({ bandas, items, onCambia, porRecuento = false }: { bandas
       )}
 
       {lista.map((b: any, i: number) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5, background: 'var(--bl)', borderRadius: 5, padding: '6px 8px', border: '1px solid var(--bd)' }}>
+        <div key={i} style={{ marginBottom: 5, background: 'var(--bl)', borderRadius: 5, padding: '6px 8px', border: '1px solid var(--bd)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ fontSize: 10, color: 'var(--grl)', whiteSpace: 'nowrap' }}>Hasta</span>
           <input className="input" type="number" style={{ width: 74, fontSize: 11 }} value={b?.hasta ?? ''}
             onChange={e => set(i, { hasta: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="techo" />
@@ -145,10 +146,30 @@ function EditorBandas({ bandas, items, onCambia, porRecuento = false }: { bandas
           </label>
           <button onClick={() => onCambia(lista.filter((_, j) => j !== i))}
             style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+          </div>
+
+          {/* LOS OBJETIVOS SE CUELGAN DE LA BANDA.
+              Es lo que el ítem es en un test de casillas: el sitio concreto que dice qué
+              trabajo abre este resultado. Un FPI-6 positivo no dice qué hacer —supinado y
+              pronado piden lo contrario—; la banda sí. Y una misma banda puede abrir varios,
+              cada uno con su específico. */}
+          {b?.hallazgo && (
+            <PildorasObjetivos seleccionados={b.objetivos || []} objetivos={objetivos} etiquetas={etiquetas}
+              movimientos={b.objetivos_mov || {}}
+              onMovimiento={(oid: string, mid: string) => {
+                const mapa = { ...(b.objetivos_mov || {}) }
+                if (mid) mapa[oid] = mid; else delete mapa[oid]
+                set(i, { objetivos_mov: mapa })
+              }}
+              onToggle={(oid: string) => {
+                const act = b.objetivos || []
+                set(i, { objetivos: act.includes(oid) ? act.filter((x: string) => x !== oid) : [...act, oid] })
+              }} />
+          )}
         </div>
       ))}
 
-      <button className="btn btn-t btn-sm" onClick={() => onCambia([...lista, { hasta: undefined, etiqueta: '', hallazgo: false }])}>
+      <button className="btn btn-t btn-sm" onClick={() => onCambia([...lista, { hasta: undefined, etiqueta: '', hallazgo: false, objetivos: [], objetivos_mov: {} }])}>
         + Añadir banda
       </button>
 
@@ -936,6 +957,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             )}
             {(esSuma(nuevoTest)||esBaremo(nuevoTest)) && (
               <EditorBandas bandas={nuevoTest.bandas} items={nuevoTest.items} porRecuento={esBaremo(nuevoTest)}
+                objetivos={objetivos} etiquetas={etiquetas}
                 onCambia={(b:any[])=>setNuevoTest(p=>({...p,bandas:b}))}/>
             )}
             <div className="field">
@@ -1072,6 +1094,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
             )}
             {(esSuma(testEditando)||esBaremo(testEditando)) && (
               <EditorBandas bandas={testEditando.bandas} items={testEditando.items||[]} porRecuento={esBaremo(testEditando)}
+                objetivos={objetivos} etiquetas={etiquetas}
                 onCambia={(b:any[])=>setTestEditando((p:any)=>({...p,bandas:b}))}/>
             )}
             <div className="field">
