@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
-import { guardarVias } from '@/lib/objetivos'
+import { guardarVias, copiarLogrosPlantilla } from '@/lib/objetivos'
 import MetasObjetivo from './MetasObjetivo'
 import { cambiarFase } from '@/lib/metas'
 import { evaluarFases, ladoDeObjetivo, textoCriterio, criteriosDe } from '@/lib/fases'
@@ -97,8 +97,12 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     const { error } = await supabase.from('pacientes_objetivos').insert(
       lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
         fase_actual: o.tipo==='fase' ? 1 : null })))
+    if (error) { setGuardandoVia(null); alert(error.message); return }
+    // Los logros habituales de la biblioteca se copian a la ficha. Un objetivo cualitativo
+    // añadido a mano nace sin vías, así que sin esto no tendría ninguna parte y no habría
+    // forma de darlo por logrado.
+    for (const o of lista) await copiarLogrosPlantilla(pac.id, o.id)
     setGuardandoVia(null)
-    if (error) { alert(error.message); return }
     // Un solo evento con el total: abrir cuatro objetivos a la vez es una decisión, no
     // cuatro hitos en la cronología.
     await supabase.from('eventos_paciente').insert({

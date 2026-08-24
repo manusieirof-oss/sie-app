@@ -25,6 +25,45 @@ import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/
  */
 
 /**
+ * Los LOGROS HABITUALES de un objetivo: sus partes, escritas una vez.
+ *
+ * La familia métrica ya tenía específicos —sus movimientos— y las otras dos no tenían nada:
+ * un objetivo cualitativo era un título suelto, y las partes que siempre lo componen había
+ * que volver a escribirlas en cada paciente.
+ *
+ * Aquí se escriben una vez y al asignárselo a alguien se COPIAN a su ficha, donde ya son
+ * suyas: se quitan, se cambian y se marcan sin tocar la biblioteca. Por eso son texto y no
+ * una tabla de sub-objetivos con su propia vida — un sub-objetivo que hubiera que mantener
+ * en dos sitios acabaría diciendo cosas distintas en cada uno.
+ */
+function EditorLogrosPlantilla({ logros, onCambia }: { logros: any, onCambia: (v: string[]) => void }) {
+  const lista: string[] = (Array.isArray(logros) ? logros : []).map((x: any) => String(x || ''))
+  const set = (i: number, v: string) => { const l = [...lista]; l[i] = v; onCambia(l) }
+
+  return (
+    <div>
+      {lista.length === 0 && (
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 5 }}>
+          Sin partes escritas. El objetivo se podrá usar igual, pero cada paciente empezará en blanco.
+        </div>
+      )}
+      {lista.map((l, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <input className="input" style={{ flex: 1, fontSize: 12 }} value={l}
+            placeholder="ej. Control escapular en empuje"
+            onChange={e => set(i, e.target.value)} />
+          <button type="button" onClick={() => onCambia(lista.filter((_, j) => j !== i))}
+            style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="btn btn-t btn-sm" onClick={() => onCambia([...lista, ''])}>
+        + Añadir parte
+      </button>
+    </div>
+  )
+}
+
+/**
  * Elegir un test, buscando.
  *
  * Era un `<select>` con los sesenta y pico tests de la biblioteca, en el orden en que
@@ -274,7 +313,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[] as any[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[] as any[], logros_plantilla:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -316,14 +355,15 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
+    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'',
       test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
-      articulacion_id:o.articulacion_id||'', fases:o.fases||'', criterios_fase:o.criterios_fase||[], etiquetas:o.etiquetas||[],
+      articulacion_id:o.articulacion_id||'', fases:o.fases||'', criterios_fase:o.criterios_fase||[],
+      logros_plantilla:o.logros_plantilla||[], etiquetas:o.etiquetas||[],
       movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
     })
     setModal(true)
@@ -348,6 +388,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       metrica: form.tipo === 'metrico' ? (form.metrica || null) : null,
       fases: form.tipo === 'fase' ? (parseInt(form.fases) || null) : null,
       criterios_fase: form.tipo === 'fase' ? (form.criterios_fase || []) : [],
+      // Los logros habituales valen en las tres familias: un objetivo métrico también puede
+      // tener una parte que no es un número. Se limpian los vacíos, que solo son filas que
+      // alguien empezó y no escribió.
+      logros_plantilla: (form.logros_plantilla || []).map((x: string) => String(x || '').trim()).filter(Boolean),
       articulacion_id: form.articulacion_id || null,
       // Solo en fases y cualitativos: los métricos ya se describen con su articulación y
       // sus movimientos, y repetirlo aquí serían dos verdades para lo mismo.
@@ -713,6 +757,14 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 </div>
               </div>
             )}
+
+            <div className="field ancho">
+              <label>Logros habituales <span className="subt">· las partes de este objetivo, se copian al paciente al asignárselo</span></label>
+              <div style={{ marginTop: 5 }}>
+                <EditorLogrosPlantilla logros={form.logros_plantilla}
+                  onCambia={(v: string[]) => setForm((p: any) => ({ ...p, logros_plantilla: v }))} />
+              </div>
+            </div>
 
             <div className="field ancho"><label>Test que lo abre (opcional)</label>
               <SelectorTest tests={testsLib || []} etiquetas={etiquetas || []} valor={form.test_id}

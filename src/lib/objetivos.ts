@@ -108,11 +108,48 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   return { ok: true as const, logrado }
 }
 
-/** Crea el objetivo para el paciente con su primera vía. */
+/**
+ * Copia a la ficha del paciente los LOGROS HABITUALES escritos en la biblioteca.
+ *
+ * "Reeducar el control neuromuscular" tiene siempre las mismas partes —control escapular,
+ * control lumbopélvico— y escribirlas paciente a paciente era repetir a mano lo que la
+ * biblioteca ya sabe.
+ *
+ * Se COPIAN, no se enlazan, y eso es lo importante: los logros de un paciente son suyos.
+ * Tienes que poder quitarle uno que no aplica o añadirle el suyo sin tocar la biblioteca ni
+ * afectar a los demás. Es lo mismo que ya pasa con la métrica de un objetivo —vive en la
+ * biblioteca— y su meta —vive en la ficha—.
+ *
+ * No duplica lo que el paciente ya tenga con el mismo texto: si el objetivo se reabre, sus
+ * logros siguen siendo los de antes, con lo que ya llevara marcado.
+ */
+export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: string): Promise<number> {
+  const { data: o } = await supabase.from('objetivos').select('logros_plantilla').eq('id', objetivoId).maybeSingle()
+  const lista = (Array.isArray(o?.logros_plantilla) ? o!.logros_plantilla : [])
+    .map((x: any) => String(x || '').trim()).filter(Boolean)
+  if (lista.length === 0) return 0
+
+  const { data: ya } = await supabase.from('objetivos_metas')
+    .select('descripcion').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).eq('tipo', 'logro')
+  const puestos = new Set((ya || []).map((m: any) => String(m.descripcion || '').trim().toLowerCase()))
+  const nuevos = lista.filter((d: string) => !puestos.has(d.toLowerCase()))
+  if (nuevos.length === 0) return 0
+
+  const { error } = await supabase.from('objetivos_metas').insert(
+    nuevos.map((d: string) => ({ paciente_id: pacienteId, objetivo_id: objetivoId, tipo: 'logro', descripcion: d, cumplida: false })),
+  )
+  return error ? 0 : nuevos.length
+}
+
+/** Crea el objetivo para el paciente con su primera vía, y con sus logros habituales. */
 export async function abrirObjetivo(pacienteId: string, objetivoId: string, via: Via, origen: string) {
   const { error } = await supabase.from('pacientes_objetivos')
     .insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen, vias: [via] })
   if (error) return { ok: false as const, error: error.message }
+  // Va aquí y no en quien llama: un objetivo se abre desde un test, desde el taller y desde
+  // la ficha, y si la copia dependiera de que cada sitio se acuerde, el que se olvidara
+  // dejaría al paciente sin sus logros sin que nadie lo notara.
+  await copiarLogrosPlantilla(pacienteId, objetivoId)
   return { ok: true as const }
 }
 
