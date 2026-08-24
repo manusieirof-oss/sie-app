@@ -93,7 +93,9 @@ export default function ValoracionPage() {
   const esRevaloracion = modo === 'revaloracion'
 
   useEffect(() => {
-    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,fecha_nacimiento,sexo,altura_cm,peso_kg,usa_plantillas,plantilla_izq,plantilla_der,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
+    // Se traen TODOS los campos que la valoración puede reescribir. Traer menos era lo que
+    // vaciaba la ficha de un pendiente: lo que no se cargaba se guardaba en blanco.
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,email,dni,fecha_nacimiento,sexo,altura_cm,peso_kg,tipo_clase,como_nos_conocio,usa_plantillas,plantilla_izq,plantilla_der,pendiente_valoracion').eq('estado','activo').order('nombre').then(({data})=>setPacientes(data||[]))
     supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMedsBiblio(data||[]))
     supabase.from('patologias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setPatsBiblio(data||[]))
     supabase.from('molestias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setMolsBiblio(data||[]))
@@ -228,8 +230,12 @@ export default function ValoracionPage() {
         await supabase.from('pacientes').update(updRe).eq('id',pacienteId)
       } else {
         const upd: any = { pendiente_valoracion:false }
+        // Se reescribe la ficha entera a propósito: es el momento de corregir el nombre que
+        // se apuntó abreviado al coger la cita. Depende de que el paso 1 haya cargado TODOS
+        // los campos del paciente al elegirlo — si carga menos, lo que falte se guarda vacío.
         if (form.desde_pendiente) Object.assign(upd, { nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null })
-        await supabase.from('pacientes').update(upd).eq('id',pacienteId)
+        const { error: errUpd } = await supabase.from('pacientes').update(upd).eq('id',pacienteId)
+        if (errUpd) alert('Aviso: los datos del paciente no se han actualizado (' + errUpd.message + '). El resto de la valoración sí se ha guardado.')
       }
       const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
       await Promise.all([

@@ -15,7 +15,31 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
         {(() => {
           const pendientes = (pacientes||[]).filter((p:any)=>p.pendiente_valoracion)
           if (pendientes.length===0) return null
-          const elegir = (p:any) => { up('paciente_id',p.id); up('desde_pendiente',true); up('nombre',p.nombre||''); up('apellidos',p.apellidos||''); up('telefono',p.telefono||'') }
+          /**
+           * SE CARGA TODO LO QUE EL PACIENTE YA TIENE, no solo el nombre.
+           *
+           * Copiaba tres campos —nombre, apellidos y teléfono— y dejaba el resto en blanco.
+           * Como al guardar una valoración que viene de un pendiente se escribe el
+           * formulario ENTERO sobre el paciente, todo lo que no se hubiera cargado se
+           * borraba: nombre de clínica, email, DNI, fecha de nacimiento, sexo, altura, peso
+           * y cómo nos conoció. Sin aviso, y con la valoración dándose por buena.
+           *
+           * Escribirlo entero está bien —así se pueden corregir los datos y el nombre
+           * abreviado de la cita—, pero entonces el formulario tiene que ser el reflejo
+           * completo del paciente antes de tocarlo.
+           */
+          const elegir = (p:any) => {
+            up('paciente_id',p.id); up('desde_pendiente',true)
+            up('nombre',p.nombre||''); up('apellidos',p.apellidos||'')
+            up('nombre_clinica',p.nombre_clinica||''); up('telefono',p.telefono||'')
+            up('email',p.email||''); up('dni',p.dni||'')
+            up('fecha_nacimiento',(p.fecha_nacimiento||'').slice(0,10)); up('sexo',p.sexo||'')
+            up('altura_cm',p.altura_cm?String(p.altura_cm):''); up('peso_kg',p.peso_kg?String(p.peso_kg):'')
+            up('como_nos_conocio',p.como_nos_conocio||'')
+            if (p.tipo_clase) up('tipo_clase_def',p.tipo_clase)
+            up('plantillas',!!p.usa_plantillas)
+            up('plantilla_izq',p.plantilla_izq||''); up('plantilla_der',p.plantilla_der||'')
+          }
           return (
             <div style={{marginBottom:12}}>
               <div style={{fontSize:9,fontWeight:600,color:'#8A6410',letterSpacing:.4,textTransform:'uppercase',marginBottom:6,display:'flex',alignItems:'center',gap:5}}><Ic name="alerta" size={11}/> Pendientes de valoración ({pendientes.length})</div>
@@ -45,6 +69,8 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
               up('nombre',p.nombre||''); up('apellidos',p.apellidos||'')
               up('nombre_clinica',p.nombre_clinica||''); up('telefono',p.telefono||'')
               up('email',p.email||''); up('dni',p.dni||'')
+              up('fecha_nacimiento',(p.fecha_nacimiento||'').slice(0,10)); up('sexo',p.sexo||'')
+              up('altura_cm',p.altura_cm?String(p.altura_cm):''); up('peso_kg',p.peso_kg?String(p.peso_kg):'')
             }}
             onLimpiar={()=>{ up('paciente_id',''); up('desde_pendiente',false) }}/>
         </div>
