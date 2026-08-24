@@ -447,14 +447,17 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
              preguntarlo otra vez con el paciente delante es repetir un trabajo que se
              puede hacer una vez en la biblioteca. Si se deja sin elegir, se comporta como
              antes y el movimiento se decide al asignar la meta. */
+          /* Los específicos ya no son solo movimientos ni solo de los métricos: un
+             cualitativo puede tener "Pie". La condición miraba `o.tipo==='metrico'` y por
+             eso el desplegable no salía en el resto de familias. */
           const movs = (o.movimientos||[]).map((id:string)=>({ id, nombre: nombreEt(id) })).filter((m:any)=>m.nombre)
           const elegido = movimientos?.[o.id] || ''
           return (
             <span key={o.id} style={{display:'inline-flex',alignItems:'center',gap:0,borderRadius:99,background:o.color||'var(--g)',color:'#fff',overflow:'hidden'}}>
               <span style={{fontSize:9,padding:'2px 4px 2px 8px'}}>{o.nombre}</span>
-              {(o.tipo==='metrico'&&movs.length>0&&onMovimiento) && (
+              {(movs.length>0&&onMovimiento) && (
                 <select value={elegido} onChange={e=>onMovimiento(o.id, e.target.value)}
-                  title="Movimiento concreto que mide este ítem"
+                  title="Específico del objetivo al que se refiere este ítem"
                   style={{fontSize:9,border:'none',background:'rgba(255,255,255,.22)',color:'#fff',padding:'2px 4px',cursor:'pointer',fontFamily:'inherit',maxWidth:130}}>
                   <option value="" style={{color:'var(--n)'}}>— sin concretar —</option>
                   {movs.map((m:any)=><option key={m.id} value={m.id} style={{color:'var(--n)'}}>{m.nombre}</option>)}
