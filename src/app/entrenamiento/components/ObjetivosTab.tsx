@@ -310,7 +310,6 @@ const FAMILIAS = [
 ] as const
 
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
-  const [buscar, setBuscar] = useState('')
   const [familia, setFamilia] = useState<string>('')
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
@@ -343,13 +342,11 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   }, [objetivos, etiquetas])
 
   const filtrados = (objetivos || []).filter((o: any) => {
-    const q = buscar.toLowerCase()
-    const matchQ = !q || o.nombre.toLowerCase().includes(q) || (o.descripcion || '').toLowerCase().includes(q)
     const matchF = !familia || (o.tipo || 'cualitativo') === familia
     // Por articulación O por etiqueta libre: buscar "Trocantéritis" tiene que encontrar
     // el objetivo de trocanteritis, que la lleva como patología y no como zona.
     const matchZ = !zona || o.articulacion_id === zona || (o.etiquetas || []).includes(zona)
-    return matchQ && matchF && matchZ
+    return matchF && matchZ
   })
 
   const cuentaFamilia = (f: string) => (objetivos || []).filter((o: any) => (o.tipo || 'cualitativo') === f).length
@@ -464,9 +461,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             {(objetivos || []).length} en total{sinFamilia > 0 && <> · {sinFamilia} sin clasificar</>}
           </span>
         </div>
-
-        <input className="input" placeholder="Buscar objetivo…" value={buscar}
-          onChange={e => setBuscar(e.target.value)} style={{ marginBottom: 10 }} />
 
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
           {FAMILIAS.map(f => (
