@@ -206,7 +206,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
             const sel = filtroObjetivos.includes(o.id)
             return (
               <span key={o.id} onClick={()=>setFiltroObjetivos(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
-                style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',border:`1.5px solid ${sel?(o.color||'var(--g)'):'var(--bd)'}`,background:sel?(o.color||'var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
+                style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',border:`1.5px solid ${sel?('var(--g)'):'var(--bd)'}`,background:sel?('var(--g)'):'var(--w)',color:sel?'#fff':'var(--gr)'}}>
                 {sel?'✓ ':''}{o.nombre}
               </span>
             )
@@ -246,7 +246,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 </div>
                 {objsDeSesion(s).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
+                    {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
                 )}
                 {encargo && (multiple
@@ -275,7 +275,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 {sesionVista.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionVista.descripcion}</div>}
                 {objsDeSesion(sesionVista).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
-                    {objsDeSesion(sesionVista).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
+                    {objsDeSesion(sesionVista).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
                   </div>
                 )}
               </div>

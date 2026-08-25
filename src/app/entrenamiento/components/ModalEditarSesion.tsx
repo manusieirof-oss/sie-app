@@ -5,6 +5,7 @@ import { Ic } from '@/lib/icons'
 import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPorCapacidad, textoDescanso } from '@/lib/capacidades'
 import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 
@@ -112,7 +113,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
   useEffect(() => {
     (async () => {
-      const { data: objs } = await supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre')
+      const { data: objs } = await supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre')
       setObjetivosDisp(objs||[])
       if (sesion.id) {
         const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id').eq('sesion_id', sesion.id)
@@ -366,14 +367,18 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   ocho objetivos y deja de funcionar con doscientos: el resto se busca. */}
               {verObj && (
               <div style={{display:'flex',gap:5,flexWrap:'wrap',flex:1,minWidth:200}}>
+                {/* En MONEDAS, igual que en la ficha del paciente y en las sesiones: un
+                    objetivo se reconoce por su foto, y dibujarlo distinto en cada pantalla
+                    obliga a reconocerlo otra vez en cada una. */}
                 {objetivosSel.map(id=>{
                   const o = objetivosDisp.find((x:any)=>x.id===id)
                   if (!o) return null
                   return (
-                    <button key={id} type="button" className="chip-obj" title="Quitar"
+                    <button key={id} type="button" title={`${o.nombre} · pulsa para quitarlo`}
                       onClick={()=>setObjetivosSel(prev=>prev.filter(x=>x!==id))}
-                      style={{borderColor:o.color||'var(--g)',background:o.color||'var(--g)',color:'#fff'}}>
-                      {o.nombre}<Ic name="cerrar" size={11} style={{verticalAlign:'-1px',marginLeft:5}}/>
+                      style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:70,background:'none',border:'none',padding:0,cursor:'pointer'}}>
+                      <MonedaObjetivo objetivo={o}/>
+                      <span className="obj-mon-g">{o.nombre}</span>
                     </button>
                   )
                 })}
@@ -392,7 +397,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           .map((o:any)=>(
                             <div key={o.id} className="pop-it"
                               onClick={()=>{setObjetivosSel(prev=>[...prev,o.id]);setBuscarObj('');setAbrirObj(false)}}>
-                              <span style={{width:9,height:9,borderRadius:'50%',background:o.color||'var(--g)',flexShrink:0}}/>
+                              <MonedaObjetivo objetivo={o} tam="mini"/>
                               {o.nombre}
                             </div>
                           ))}

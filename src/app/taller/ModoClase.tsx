@@ -618,7 +618,7 @@ export default function ModoClase() {
                               return (
                                 <span key={o.id} onClick={()=>toggleObjetivo(act.paciente.id,o.id,ej.ejercicio_id,ej.nombre)}
                                   title={yaActivo?'Quitar objetivo del paciente':'Activar este objetivo'}
-                                  style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:`1px solid ${o.color||'var(--g)'}`,background:yaActivo?(o.color||'var(--g)'):'var(--w)',color:yaActivo?'#fff':(o.color||'var(--gd)')}}>
+                                  style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:`1px solid ${'var(--g)'}`,background:yaActivo?('var(--g)'):'var(--w)',color:yaActivo?'#fff':('var(--gd)')}}>
                                   {yaActivo?'✓ ':'+ '}{o.nombre}
                                 </span>
                               )

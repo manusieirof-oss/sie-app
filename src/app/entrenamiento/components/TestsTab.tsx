@@ -460,7 +460,7 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
           const movs = (o.movimientos||[]).map((id:string)=>({ id, nombre: nombreEt(id) })).filter((m:any)=>m.nombre)
           const elegido = movimientos?.[o.id] || ''
           return (
-            <span key={o.id} style={{display:'inline-flex',alignItems:'center',gap:0,borderRadius:99,background:o.color||'var(--g)',color:'#fff',overflow:'hidden'}}>
+            <span key={o.id} style={{display:'inline-flex',alignItems:'center',gap:0,borderRadius:99,background:'var(--g)',color:'#fff',overflow:'hidden'}}>
               <span style={{fontSize:9,padding:'2px 4px 2px 8px'}}>{o.nombre}</span>
               {(movs.length>0&&onMovimiento) && (
                 <select value={elegido} onChange={e=>onMovimiento(o.id, e.target.value)}
@@ -515,7 +515,7 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
                   style={{display:'flex',alignItems:'center',gap:7,padding:'6px 9px',cursor:'pointer',borderBottom:'1px solid var(--bl)'}}
                   onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
                   onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                  <span style={{width:8,height:8,borderRadius:2,background:o.color||'var(--g)',flexShrink:0}}/>
+                  <span style={{width:8,height:8,borderRadius:2,background:'var(--g)',flexShrink:0}}/>
                   <span style={{fontSize:11,color:'var(--n)',flex:1}}>{o.nombre}</span>
                   <Ic name="mas" size={11}/>
                 </div>
@@ -716,7 +716,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                                       const movId=(item.objetivos_mov||{})[o.id]
                                       const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
                                       return (
-                                        <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>
+                                        <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:'var(--g)',color:'#fff'}}>
                                           {o.nombre}{mov?` · ${mov}`:''}
                                         </span>
                                       )
@@ -781,7 +781,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                                             const movId=(b.objetivos_mov||{})[o.id]
                                             const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
                                             return (
-                                              <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:o.color||'var(--g)',color:'#fff'}}>
+                                              <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:'var(--g)',color:'#fff'}}>
                                                 {o.nombre}{mov?` · ${mov}`:''}
                                               </span>
                                             )

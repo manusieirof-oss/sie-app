@@ -60,7 +60,7 @@ function ElegirObjetivos({ objetivos, seleccionados, onToggle, disabled }: any) 
         return (
           <button key={oid} type="button" className="chip-obj" title="Quitar" disabled={disabled}
             onClick={() => onToggle(oid)}
-            style={{ borderColor: o.color || 'var(--g)', background: o.color || 'var(--g)', color: '#fff' }}>
+            style={{ borderColor: 'var(--g)', background: 'var(--g)', color: '#fff' }}>
             {o.nombre}<Ic name="cerrar" size={11} style={{ verticalAlign: '-1px', marginLeft: 5 }} />
           </button>
         )
@@ -75,7 +75,7 @@ function ElegirObjetivos({ objetivos, seleccionados, onToggle, disabled }: any) 
               <div style={{ maxHeight: 180, overflowY: 'auto', marginTop: 6 }}>
                 {disponibles.slice(0, 40).map((o: any) => (
                   <div key={o.id} className="pop-it" onClick={() => { onToggle(o.id); setQ(''); setAbierto(false) }}>
-                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color || 'var(--g)', flexShrink: 0 }} />
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--g)', flexShrink: 0 }} />
                     {o.nombre}
                   </div>
                 ))}
