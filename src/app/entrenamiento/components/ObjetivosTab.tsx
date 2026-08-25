@@ -249,7 +249,6 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
                     <option value="medida">el valor del ítem</option>
                     <option value="marcado">la casilla del ítem</option>
                     <option value="total">la puntuación del test</option>
-                    <option value="logro">lo marco yo a mano</option>
                   </select>
 
                   {c.tipo === 'logro' ? null : (c.tipo || 'medida') === 'marcado' ? (
@@ -704,8 +703,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // contra fases que no existen.
       fases: (parseInt(form.fases) || null),
       criterios_fase: (parseInt(form.fases) || 0) > 0 ? (form.criterios_fase || []) : [],
-      // Se limpian los vacíos, que solo son filas que alguien empezó y no escribió.
-      logros_plantilla: (form.logros_plantilla || []).map((x: string) => String(x || '').trim()).filter(Boolean),
       articulacion_id: form.articulacion_id || null,
       etiquetas: form.etiquetas || [],
       movimientos: form.movimientos || [],
@@ -993,13 +990,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 onChange={(ids: string[]) => setForm((p: any) => ({ ...p, etiquetas: ids }))} />
             </div>
 
-            <div className="field ancho">
-              <label>Logros habituales <span className="subt">· las partes de este objetivo, se copian al paciente al asignárselo</span></label>
-              <div style={{ marginTop: 5 }}>
-                <EditorLogrosPlantilla logros={form.logros_plantilla}
-                  onCambia={(v: string[]) => setForm((p: any) => ({ ...p, logros_plantilla: v }))} />
-              </div>
-            </div>
+            {/* AQUÍ IBAN LOS "LOGROS HABITUALES". Se han quitado con las metas y los
+                logros del paciente: el objetivo es lo que se mide, y no lleva dentro otra
+                lista de cosas que medir. `EditorLogrosPlantilla` sigue en este fichero y la
+                columna `logros_plantilla` sigue en la base, sin escribirse. */}
 
             {/* EL ENLACE CON LOS TESTS SE HACE DESDE EL TEST, Y SOLO DESDE AHÍ.
                 Aquí había un "Test que lo abre" que era la segunda forma de decir lo mismo:

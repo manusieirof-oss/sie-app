@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, copiarLogrosPlantilla, type Via } from './objetivos'
+import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { revisarMetas } from './metas'
 import { revisarFases } from './fases'
 
@@ -946,12 +946,6 @@ async function abrirOReabrir(pacienteId: string, objetivoId: string, via: Via, c
     : [...vias, via]
   const origen = (exist.origen || '').includes('test') ? exist.origen : (exist.origen ? exist.origen + '+test' : 'test')
   await guardarVias(pacienteId, objetivoId, nuevas, { origen, logradoAntes: !!exist.logrado, contexto: contexto || 'un test' })
-
-  // Y su parte, si este test señala un específico que el paciente aún no tenía. El objetivo
-  // ya estaba abierto por otro hallazgo —el pie supinado abrió "fortalecer peroneos"— y hoy
-  // aparece otro; sin esto la parte nueva no existiría y el objetivo se cerraría sin ella.
-  // No duplica: `copiarLogrosPlantilla` compara contra lo que el paciente ya tiene.
-  if (via?.mov) await copiarLogrosPlantilla(pacienteId, objetivoId, { soloMovimiento: via.mov })
 }
 
 /* ─── BORRAR UN TEST DE LA BIBLIOTECA ───────────────────────────────────────

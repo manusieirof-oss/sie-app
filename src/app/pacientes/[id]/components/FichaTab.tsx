@@ -5,11 +5,9 @@ import { Ic } from '@/lib/icons'
 import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
-import { guardarVias, copiarLogrosPlantilla, partesQueCuentan } from '@/lib/objetivos'
-import MetasObjetivo from './MetasObjetivo'
+import { guardarVias } from '@/lib/objetivos'
 import { cambiarFase } from '@/lib/metas'
 import { evaluarFases, ladoDeObjetivo, textoCriterio, criteriosDe } from '@/lib/fases'
-import LogrosObjetivo from './LogrosObjetivo'
 import { ordenAnatomico } from '@/lib/anatomia'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
@@ -44,7 +42,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [menuPago, setMenuPago] = useState<any>(null)
   const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
   const [guardandoVia, setGuardandoVia] = useState<string|null>(null)
-  const [metas, setMetas] = useState<any[]>([])
   const [resultadosTests, setResultadosTests] = useState<any[]>([])
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
@@ -95,7 +92,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    * tres o cuatro a la vez: al valorar un hombro salen fuerza, movilidad y algún
    * cualitativo del mismo tirón.
    *
-   * Nacen SIN vías y sin metas: un objetivo métrico se cierra por sus metas, y ponerle una
+   * Nacen SIN vías: se cierran a mano con "Dar por logrado". Ponerle una
    * vía de relleno haría que `estaLogrado` lo diera por cumplido en cuanto alguien la
    * marcara, sin haber medido nada.
    */
@@ -106,10 +103,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
         fase_actual: Number(o.fases) > 0 ? 1 : null })))
     if (error) { setGuardandoVia(null); alert(error.message); return }
-    // Los logros habituales de la biblioteca se copian a la ficha. Un objetivo cualitativo
-    // añadido a mano nace sin vías, así que sin esto no tendría ninguna parte y no habría
-    // forma de darlo por logrado.
-    for (const o of lista) await copiarLogrosPlantilla(pac.id, o.id)
+    // Ya no se le copia ninguna parte: un objetivo añadido a mano nace sin nada y se cierra
+    // a mano, con "Dar por logrado". Es lo que se decidió al quitar metas y logros.
     setGuardandoVia(null)
     // Un solo evento con el total: abrir cuatro objetivos a la vez es una decisión, no
     // cuatro hitos en la cronología.
@@ -129,10 +124,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
-    // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
-    // necesita las dos y traerlas por separado abriría la puerta a pintar con datos viejos.
-    supabase.from('objetivos_metas').select('*').eq('paciente_id', pac.id).order('created_at')
-      .then(({data}) => setMetas(data||[]))
     supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
       .then(({data}) => setResultadosTests(data||[]))
     // `tipo_lado` hace falta para saber si un test va por lados o entero: es lo que decide
@@ -200,16 +191,18 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   /**
    * Los objetivos ESPECÍFICOS que este paciente tiene abiertos dentro del general.
    *
-   * Salen de sus metas, no del catálogo: "Movilidad de tobillo" ofrece cuatro movimientos,
-   * pero de este paciente solo se está trabajando el que tiene meta. Listar los cuatro
-   * sería enseñar catálogo donde se espera tratamiento.
+   * Salen de sus VÍAS, no del catálogo: "Movilidad de tobillo" ofrece cuatro movimientos,
+   * pero de este paciente solo se trabaja el que su test señaló. Listar los cuatro sería
+   * enseñar catálogo donde se espera tratamiento.
    *
-   * Se quita el lado al agrupar: dorsiflexión derecha e izquierda son el mismo objetivo
-   * específico trabajado en dos sitios, y el lado ya se ve en la meta.
+   * Antes salían de las metas. Al quitarlas habrían desaparecido de la moneda, y son la
+   * mitad de lo que se lee en la rejilla; la vía dice lo mismo y lo dice antes — es el
+   * propio test el que apunta qué específico abrió.
    */
   const especificosDe = (o:any): string[] => Array.from(new Set(
-    metas.filter((m:any)=>m.objetivo_id===o.id && m.movimiento_id)
-      .map((m:any)=>etiquetasLib.find((e:any)=>e.id===m.movimiento_id)?.nombre)
+    (Array.isArray(o.vias) ? o.vias : [])
+      .filter((v:any)=>!v.resuelto && v.mov)
+      .map((v:any)=>etiquetasLib.find((e:any)=>e.id===v.mov)?.nombre)
       .filter(Boolean)
   )) as string[]
 
@@ -243,7 +236,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             es una letra, así que sin este renglón no hay forma de saber de qué zona es. */}
         <span className="obj-mon-g">{o.nombre}</span>
         {/* Uno por línea. Juntos con puntos se leían como una frase larga y no como lo que
-            son: objetivos distintos, cada uno con sus metas y su propio recorrido. */}
+            son: objetivos distintos, cada uno con su propio recorrido. */}
         {esp.map((e:string) => <span key={e} className="obj-mon-n">{e}</span>)}
       </button>
     )
@@ -322,7 +315,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':'var(--g)'}}>
         {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la
             moneda que se acaba de pulsar para llegar aquí: repetirlos empujaba hacia abajo
-            lo único que se viene a ver, que son las metas. Solo queda el contador, que sí
+            lo único que se viene a ver. Solo queda el contador, que sí
             dice algo que la rejilla no dice. */}
         {(o.logrado || vias.length>0) && (
           <div style={{display:'flex',justifyContent:'flex-end'}}>
@@ -332,39 +325,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           </div>
         )}
         {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
-        {/* Los métricos se cierran con metas, no con vías: el número lo pone una medición.
-            Por eso no se les ofrece "dar por logrado" a secas. */}
-        {/* LOS LOGROS VAN EN TODAS LAS FAMILIAS. Un objetivo métrico puede tener uno que no
-            es un número, y uno cualitativo o por fases no tenía forma de proponerse nada.
-            Y son lo único que puede cerrar un objetivo añadido a mano, que nace sin vías. */}
-        {!o.logrado && (
-          <LogrosObjetivo
-            pacienteId={pac.id}
-            objetivo={o}
-            logros={partesQueCuentan(metas.filter((m:any)=>m.objetivo_id===o.id)).filter((m:any)=>m.tipo==='logro')}
-            onCambio={cargarObjetivos}
-          />
-        )}
-        {/* LAS METAS CON NÚMERO SALEN EN TODOS LOS OBJETIVOS. Estaban limitadas a la
-            familia "medible", y eso era lo que impedía ponerle un número a un objetivo
-            que no habías catalogado así. Ya no hay familias: si tiene algo que se pueda
-            medir con un test, se le pone. */}
-        {!o.logrado && (
-          <MetasObjetivo
-            pacienteId={pac.id}
-            objetivo={o}
-            metas={metas.filter((m:any)=>m.objetivo_id===o.id)}
-            resultados={resultadosTests}
-            tests={testsLib}
-            etiquetas={etiquetasLib}
-            pedirMeta={pedirMetaEn===o.id}
-            onPedidoMeta={()=>setPedirMetaEn(null)}
-            onCambio={cargarObjetivos}
-          />
-        )}
-        {/* La barra se pulsa para cambiar de fase. Antes solo se pintaba: era un
-            indicador de progreso que no se podía mover. Lo normal es decidirlo al montar
-            la tanda nueva, y desde allí se avisa, pero el gesto vive aquí. */}
+        {/* AQUÍ IBAN LAS METAS Y LOS LOGROS, y se han quitado a propósito.
+            El objetivo YA ES lo que se mide: lo abre un test y ese mismo test lo cierra.
+            Ponerle dentro otra capa de cosas que medir era medir dos veces la misma cosa,
+            y obligaba a decidir por cada objetivo si se cerraba con números o con
+            casillas — la misma trampa que las familias.
+            Lo que sí hay que medir son las SESIONES, que es la estrategia para llegar.
+            `MetasObjetivo.tsx`, `LogrosObjetivo.tsx` y todo `lib/metas.ts` siguen en el
+            repositorio intactos: no se pintan, no se han borrado. */}
         {Number(o.fases) > 0 && !o.logrado && (
           <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
             {Array.from({length:o.fases}).map((_,i)=>(
@@ -394,7 +362,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             que creerse. Aquí se ve qué criterio falta y por cuánto. */}
         {Number(o.fases) > 0 && !o.logrado && criteriosDe(o).length>0 && (()=>{
           const lado = ladoDeObjetivo(o.vias)
-          const ev = evaluarFases(o, resultadosTests, lado, o.fase_actual, metas.filter((m:any)=>m.objetivo_id===o.id && m.tipo==='logro'))
+          const ev = evaluarFases(o, resultadosTests, lado, o.fase_actual)
           const actual = ev.detalle.find(d => d.fase === (o.fase_actual || 1))
           if (!actual) {
             return (
@@ -430,9 +398,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           </div>
         )}
         {/* Las vías solo se pintan en los objetivos que se CIERRAN con ellas.
-            Un métrico se cierra con sus metas —`revisarObjetivos` mira solo eso— así que
-            ahí las píldoras no cerraban nada: repetían el test y el ítem que ya dice cada
-            bloque de meta, y encima parecían un buscador. */}
+            son lo único que lo cierra. */}
         {/* LAS VÍAS SE PINTAN SIEMPRE. Se escondían en los medibles, pero seguían
             contando para cerrarlos: un objetivo podía quedarse abierto por una vía que no
             había forma de ver ni de resolver desde aquí. */}

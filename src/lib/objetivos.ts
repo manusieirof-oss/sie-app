@@ -106,16 +106,25 @@ export function partesQueCuentan(metas: MetaParte[] = []): MetaParte[] {
     !(m.tipo === 'logro' && m.movimiento_id && conNumero.has(String(m.movimiento_id))))
 }
 
-export function estaLogradoCon(vias: Via[], metas: MetaParte[], objetivo?: { fases?: number | null } | null): boolean {
+/**
+ * SOLO LAS VÍAS CIERRAN UN OBJETIVO.
+ *
+ * Las metas y los logros ya no se pintan en ningún sitio (ver `FichaTab`): el objetivo ES
+ * lo que se mide, y meterle dentro otra capa de cosas que medir era medir dos veces la
+ * misma cosa. Se dejan de contar aquí a la vez que se dejan de enseñar, porque contar
+ * partes que nadie puede ver ni marcar deja objetivos que no se cierran nunca y sin forma
+ * de averiguar por qué.
+ *
+ * El parámetro `metas` se mantiene para no tocar a quien llama, y porque `lib/metas.ts`
+ * sigue entero en el repositorio por si esto vuelve.
+ */
+export function estaLogradoCon(vias: Via[], _metas: MetaParte[] = [], objetivo?: { fases?: number | null } | null): boolean {
   // CON FASES MANDA LA FASE. Sus condiciones ya incluyen lo que hay que medir y lo que hay
   // que marcar, así que dejarlas contar además por su cuenta cerraba el objetivo yendo por
   // la fase 2 de 4. Quien lo cierra es `revisarFases` al superar la última.
   if (Number(objetivo?.fases) > 0) return false
 
-  const partes = [
-    ...(Array.isArray(vias) ? vias : []).map(v => !!v.resuelto),
-    ...partesQueCuentan(metas).map(m => !!m.cumplida),
-  ]
+  const partes = (Array.isArray(vias) ? vias : []).map(v => !!v.resuelto)
   return partes.length > 0 && partes.every(Boolean)
 }
 
@@ -289,7 +298,6 @@ export async function abrirObjetivo(pacienteId: string, objetivoId: string, via:
   // Va aquí y no en quien llama: un objetivo se abre desde un test, desde el taller y desde
   // la ficha, y si la copia dependiera de que cada sitio se acuerde, el que se olvidara
   // dejaría al paciente sin sus logros sin que nadie lo notara.
-  await copiarLogrosPlantilla(pacienteId, objetivoId, { soloMovimiento: via?.mov || null })
   return { ok: true as const }
 }
 
