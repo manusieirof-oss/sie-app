@@ -32,6 +32,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [etiquetasBib, setEtiquetasBib] = useState<any[]>([])
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [sesionDetalle, setSesionDetalle] = useState<any>(null)
+  /** Sesión a la que se le están poniendo objetivos, y lo marcado dentro del modal. */
+  const [objsDe, setObjsDe] = useState<any>(null)
+  const [selObjs, setSelObjs] = useState<string[]>([])
+  const [guardandoObjs, setGuardandoObjs] = useState(false)
   /**
    * Si se ha llegado desde el taller a poner la sesión de una cita, el encargo viene en la
    * dirección. En el uso normal esto es null y no cambia nada de la pantalla.
@@ -76,7 +80,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
-    supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
+    supabase.from('objetivos').select('id,nombre,color,imagen_url').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
     // Estado de los objetivos DE ESTE PACIENTE, para saber qué sesión sigue haciendo
     // falta y cuál ya cumplió su función.
     supabase.from('pacientes_objetivos').select('objetivo_id,logrado').eq('paciente_id',pacienteId)
@@ -429,6 +433,47 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     return (objetivosLib||[]).filter((o:any)=>ids.includes(o.id))
   }
 
+  /**
+   * Los objetivos que este paciente tiene abiertos, con su ficha de la biblioteca.
+   *
+   * SOLO LOS SUYOS, y solo los abiertos. La sesión se monta para trabajar lo que le sale
+   * de sus tests: ofrecer el catálogo entero sería volver a elegir aquí lo que ya se
+   * decidió al valorarlo, y encima dejaría sesiones apuntando a objetivos que este
+   * paciente nunca abrió — que es justo lo que hace que `estadoSesion` no sepa decir si
+   * una sesión sigue haciendo falta.
+   */
+  const objsDelPaciente = (objPaciente||[])
+    .filter((r:any)=>!r.logrado)
+    .map((r:any)=>(objetivosLib||[]).find((o:any)=>o.id===r.objetivo_id))
+    .filter(Boolean)
+
+  function abrirObjsDe(s:any) {
+    setObjsDe(s)
+    setSelObjs((s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id))
+  }
+
+  /** Escribe solo la diferencia: lo que se ha marcado y lo que se ha desmarcado. */
+  async function guardarObjsSesion() {
+    if (!objsDe) return
+    setGuardandoObjs(true)
+    const antes: string[] = (objsDe.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
+    const anadir = selObjs.filter(id=>!antes.includes(id))
+    const quitar = antes.filter(id=>!selObjs.includes(id))
+
+    if (anadir.length>0) {
+      const { error } = await supabase.from('sesiones_objetivos')
+        .insert(anadir.map(objetivo_id=>({ sesion_id: objsDe.id, objetivo_id })))
+      if (error) { setGuardandoObjs(false); alert('No se han podido añadir: '+error.message); return }
+    }
+    if (quitar.length>0) {
+      const { error } = await supabase.from('sesiones_objetivos')
+        .delete().eq('sesion_id', objsDe.id).in('objetivo_id', quitar)
+      if (error) { setGuardandoObjs(false); alert('No se han podido quitar: '+error.message); return }
+    }
+    setGuardandoObjs(false); setObjsDe(null); setSelObjs([])
+    cargarDatos()
+  }
+
   return (
     <div>
       {/* Mismo conmutador que en Salud (.vista-sw): era el cuarto estilo de pestañas
@@ -654,15 +699,23 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                           </span>
                         )}
                       </div>
-                      {objsDeSesion(s).length>0&&(
-                        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>
-                          {objsDeSesion(s).map((o:any)=>(
-                            <span key={o.id} className="pill" style={{background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4}}>
-                              <Ic name="objetivo" size={10}/> {o.nombre}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* QUÉ TRABAJA ESTA SESIÓN, y el botón para decirlo.
+                          Es el eslabón que faltaba en la cadena: el test abre objetivos, la
+                          sesión los trabaja, y al repetir el test se vuelve a valorar. Sin
+                          poder engancharlos desde aquí había que entrar a editar la sesión
+                          para algo que se decide mirando la ficha. */}
+                      <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6,alignItems:'center'}}>
+                        {objsDeSesion(s).map((o:any)=>(
+                          <span key={o.id} className="pill" style={{background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4}}>
+                            <Ic name="objetivo" size={10}/> {o.nombre}
+                          </span>
+                        ))}
+                        <button className="btn btn-t btn-sm" style={{fontSize:11}}
+                          onClick={e=>{e.stopPropagation();abrirObjsDe(s)}}
+                          title="Elegir qué objetivos del paciente trabaja esta sesión">
+                          <Ic name="mas" size={11}/> Objetivos
+                        </button>
+                      </div>
                       {/* Las tandas anteriores no se borran: son lo que se hizo, y las
                           citas pasadas siguen apuntando a ellas. Se consultan, y desde
                           cada una se puede arrancar la siguiente. */}
@@ -915,6 +968,59 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {seccion==='ejecucion'&&(
         <EvaluacionEjecucion pacienteId={pacienteId}/>
       )}
+
+    {/* OBJETIVOS DE LA SESIÓN.
+        Se ven igual que en la ficha —la misma moneda, el mismo aro— porque son la misma
+        cosa mirada desde otro sitio. Dos dibujos distintos para el mismo objetivo obligan
+        a reconocerlo dos veces. */}
+    {objsDe && (
+      <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget && !guardandoObjs){setObjsDe(null);setSelObjs([])}}}>
+        <div className="modal" style={{width:'min(680px, 94vw)'}}>
+          <div className="modal-title">
+            Qué trabaja «{objsDe.nombre}»
+            <button className="modal-close" onClick={()=>{setObjsDe(null);setSelObjs([])}}><Ic name="cerrar" size={15}/></button>
+          </div>
+
+          <div style={{fontSize:12,color:'var(--gr)',marginBottom:10,lineHeight:1.5}}>
+            Los objetivos que este paciente tiene abiertos. Marca los que trabaja esta sesión.
+          </div>
+
+          {objsDelPaciente.length===0 ? (
+            <div className="muted">
+              No tiene ningún objetivo abierto. Se los abren sus tests, o se los añades tú
+              desde la pestaña de su perfil.
+            </div>
+          ) : (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(132px,1fr))',gap:8,maxHeight:'52vh',overflowY:'auto'}}>
+              {objsDelPaciente.map((o:any)=>{
+                const sel = selObjs.includes(o.id)
+                return (
+                  <button key={o.id} type="button" className={`obj-mon-b${sel?' on':''}`}
+                    title={o.nombre}
+                    onClick={()=>setSelObjs(v=>sel?v.filter(x=>x!==o.id):[...v,o.id])}>
+                    <span className="obj-moneda g" style={{background:o.imagen_url?'var(--bl)':'var(--gl)',borderColor:'var(--g)'}}>
+                      {o.imagen_url
+                        ? <img src={o.imagen_url} alt=""/>
+                        : <b style={{color:'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
+                    </span>
+                    <span className="obj-mon-g">{o.nombre}</span>
+                    {sel && <span style={{fontSize:10,color:'var(--gd)'}}><Ic name="check" size={11}/> Elegido</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <div style={{display:'flex',gap:8,marginTop:12,justifyContent:'flex-end'}}>
+            <button className="btn btn-t btn-sm" disabled={guardandoObjs}
+              onClick={()=>{setObjsDe(null);setSelObjs([])}}>Cancelar</button>
+            <button className="btn btn-p btn-sm" disabled={guardandoObjs} onClick={guardarObjsSesion}>
+              {guardandoObjs?'Guardando…':'Guardar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
