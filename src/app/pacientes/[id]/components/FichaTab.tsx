@@ -118,7 +118,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,tipo,metrica,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,tipo,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
     // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
@@ -132,7 +132,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas,tipo_lado').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
     // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
-    supabase.from('objetivos').select('id,nombre,descripcion,tipo,metrica,movimientos,fases,articulacion_id,etiquetas,imagen_url')
+    supabase.from('objetivos').select('id,nombre,descripcion,tipo,movimientos,fases,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))
@@ -623,9 +623,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                           {monedaDe(o, true)}
                           <span className="obj-mon-g">{o.nombre}</span>
                           <span className="obj-mon-n">
-                            {o.tipo==='metrico' && o.metrica
-                              ? (o.metrica==='fuerza'?'Fuerza':'Movilidad')
-                              : o.tipo==='fase' ? `${o.fases||'?'} fases` : ''}
+                            {o.tipo==='fase' ? `${o.fases||'?'} fases` : ''}
                             {porPatologia[o.id] && <span style={{display:'block',color:'var(--gd)'}}>{porPatologia[o.id]}</span>}
                           </span>
                           {/* Ya asignado: no es un error, es que sus metas se ponen en la ficha. */}

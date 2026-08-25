@@ -48,7 +48,8 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
    *
    * Desde que los tests de medición espejan a los espacios métricos —"Fuerza de hombro"
    * tiene su "Hombro · fuerza" con los mismos movimientos como ítems— no hay nada que
-   * elegir: el objetivo dice la zona y la métrica, el movimiento dice el ítem.
+   * elegir: el objetivo dice la zona, el movimiento dice el ítem, y entre los tests de
+   * esa zona manda el que el paciente se haya hecho.
    *
    * Preguntarlo era pedirle al usuario que resolviera a mano una correspondencia que la
    * app conoce, y en una lista que además ofrecía tests de otras zonas.
@@ -61,13 +62,25 @@ export default function MetasObjetivo({ pacienteId, objetivo, metas, resultados,
     // biblioteca, y por eso sale de `zonasDe` y no de un `includes` escrito aquí.
     const deLaZona = tests.filter((t: any) =>
       zonasDe(etiquetas || [], t.etiquetas_relacionadas || []).some((z: any) => z.id === objetivo.articulacion_id))
-    const conMetrica = deLaZona.filter((t: any) => norm(t.nombre).includes(norm(objetivo.metrica || '')))
-    for (const t of (conMetrica.length ? conMetrica : deLaZona)) {
+    // De los de la zona, PRIMERO LOS QUE ESTE PACIENTE SE HA HECHO.
+    //
+    // Antes se prefería el test cuyo NOMBRE llevara la palabra "fuerza" o "movilidad",
+    // según el campo `metrica` del objetivo. Funcionaba solo porque la semilla los llama
+    // "Hombro · fuerza" y "Hombro · movilidad": un test creado a mano con otro nombre no
+    // casaba y la preferencia no servía de nada.
+    //
+    // Haberlo pasado es una señal de verdad y no una coincidencia de texto: si de esta
+    // zona el paciente tiene hecho el de fuerza y no el de movilidad, la meta tiene que
+    // colgar del que tiene medición, porque es el único que puede cerrarla.
+    const pasados = new Set((resultados || []).map((r: any) => r.test_id))
+    const ordenados = [...deLaZona].sort((a: any, b: any) =>
+      Number(pasados.has(b.id)) - Number(pasados.has(a.id)))
+    for (const t of ordenados) {
       const i = (t.items || []).findIndex((it: any) => norm(it.nombre) === norm(mov))
       if (i >= 0) return { test_id: t.id, item_indice: i, nombre: t.nombre, item: t.items[i] }
     }
     return null
-  }, [f.movimiento_id, tests, objetivo, etiquetas])
+  }, [f.movimiento_id, tests, objetivo, etiquetas, resultados])
 
   /**
    * De dónde sale el objetivo: la vía que abrió el test.

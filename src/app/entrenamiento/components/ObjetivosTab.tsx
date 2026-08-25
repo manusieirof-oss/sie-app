@@ -315,7 +315,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[] as any[], logros_plantilla:[] as string[], test_bandas:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', articulacion_id:'', fases:'', criterios_fase:[] as any[], logros_plantilla:[] as string[], test_bandas:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -362,13 +362,13 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', metrica:'', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], test_bandas:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
+    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], test_bandas:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'',
-      test_id:o.test_id||'', tipo:o.tipo||'cualitativo', metrica:o.metrica||'',
+      test_id:o.test_id||'', tipo:o.tipo||'cualitativo',
       articulacion_id:o.articulacion_id||'', fases:o.fases||'', criterios_fase:o.criterios_fase||[],
       logros_plantilla:o.logros_plantilla||[], test_bandas:o.test_bandas||[], etiquetas:o.etiquetas||[],
       movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
@@ -394,7 +394,12 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       tipo: form.tipo,
       // Cada familia guarda lo suyo y limpia lo de las otras: un objetivo que fue métrico
       // y pasa a cualitativo no puede quedarse con la métrica puesta.
-      metrica: form.tipo === 'metrico' ? (form.metrica || null) : null,
+      // `metrica` (fuerza/movilidad) ya NO se escribe. Solo servía para preferir el test
+      // cuyo NOMBRE llevara esa palabra al sugerir la medición de una meta, y esa
+      // sugerencia ahora sale de qué test tiene resultados el paciente, que es un dato de
+      // verdad y no una coincidencia de texto. Tampoco se pone a null: la columna se
+      // queda con lo que ya tuviera hasta que se decida tirarla, y borrarla al guardar
+      // sería destruir datos por el camino.
       fases: form.tipo === 'fase' ? (parseInt(form.fases) || null) : null,
       criterios_fase: form.tipo === 'fase' ? (form.criterios_fase || []) : [],
       // Los logros habituales valen en las tres familias: un objetivo métrico también puede
@@ -520,7 +525,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                     <div className="obj-card-b">
                       <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', lineHeight: 1.3 }}>
                         {o.nombre}
-                        {tipo === 'metrico' && o.metrica && <span className="pill pill-o on">{o.metrica === 'fuerza' ? 'Fuerza' : 'Movilidad'}</span>}
                         {tipo === 'fase' && <span className="pill pill-soft">{o.fases || '?'} fases</span>}
                         {!tipo && <span className="pill pill-soft" title="De antes del modelo nuevo">Sin clasificar</span>}
                         {o.articulacion_id && <span style={{ fontSize: 12, color: 'var(--gr)' }}>{nombreEt(o.articulacion_id)}</span>}
@@ -542,7 +546,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                             {movs.map((m: string) => (
                               <div key={m} style={{ fontSize: 12, color: 'var(--gr)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
                                 <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--g)', flexShrink: 0 }} />
-                                {o.metrica === 'fuerza' ? 'Fuerza' : 'Movilidad'} · {m}
+                                {m}
                               </div>
                             ))}
                           </div>
@@ -673,20 +677,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             </div>
 
             <div className="obj-form">
-            {form.tipo === 'metrico' && (
-              <>
-                <div className="field"><label>Qué se mide</label>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {[['fuerza', 'Fuerza'], ['movilidad', 'Movilidad']].map(([v, l]) => (
-                      <button key={v} className={`chip-sel ${form.metrica === v ? 'on' : ''}`}
-                        onClick={() => setForm((p: any) => ({ ...p, metrica: v }))}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-
-              </>
-            )}
-
             {/* LOS ESPECÍFICOS.
                 "Movilidad de tobillo" es el general; dorsiflexión, eversión y compañía son
                 lo concreto. Van dentro y no como fichas aparte: con 38 movimientos y dos
