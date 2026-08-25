@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
 import ModalProgramarGrupo from './ModalProgramarGrupo'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
@@ -244,9 +245,12 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bl)',color:'var(--gd)',border:'1px solid var(--bd)'}}>{modoDeSesion(s.partes||[]).nombre}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
                 </div>
+                {/* En monedas mini, igual que en las sesiones del paciente. El nombre va en
+                    el tooltip: en una tarjeta pequeña, tres nombres seguidos ocupaban más
+                    que el resto de la tarjeta. */}
                 {objsDeSesion(s).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {objsDeSesion(s).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
+                    {objsDeSesion(s).map((o:any)=><MonedaObjetivo key={o.id} objetivo={o} tam="mini"/>)}
                   </div>
                 )}
                 {encargo && (multiple
@@ -273,9 +277,15 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
               <div style={{flex:1}}>
                 <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>{sesionVista.nombre}</div>
                 {sesionVista.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionVista.descripcion}</div>}
+                {/* Abierta sí caben con su nombre, como en la ficha del paciente. */}
                 {objsDeSesion(sesionVista).length>0&&(
-                  <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}>
-                    {objsDeSesion(sesionVista).map((o:any)=><span key={o.id} style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="objetivo" size={9}/> {o.nombre}</span>)}
+                  <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:7}}>
+                    {objsDeSesion(sesionVista).map((o:any)=>(
+                      <span key={o.id} style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
+                        <MonedaObjetivo objetivo={o}/>
+                        <span className="obj-mon-g">{o.nombre}</span>
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
