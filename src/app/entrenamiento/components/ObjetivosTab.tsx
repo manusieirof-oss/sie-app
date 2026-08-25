@@ -330,14 +330,24 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || ''
   const nombreTest = (id: string) => (testsLib || []).find((t: any) => t.id === id)?.nombre || ''
 
-  /** Las zonas que de verdad se usan, en orden de la cabeza a los pies. */
+  /**
+   * Las zonas que de verdad se usan, en orden de la cabeza a los pies.
+   *
+   * SOLO ARTICULACIONES. Antes entraban también las `etiquetas` libres de cada objetivo
+   * —que son patologías— para poder filtrar por "Trocanteritis". El resultado era una
+   * fila con decenas de pastillas donde la mitad no eran zonas, y encontrar "Rodilla"
+   * costaba más que no tener filtro. La categoría se resuelve desde la raíz, así que una
+   * subzona cuenta como su articulación.
+   */
   const zonas = useMemo(() => {
     const ids = Array.from(new Set([
       ...(objetivos || []).map((o: any) => o.articulacion_id),
       ...(objetivos || []).flatMap((o: any) => o.etiquetas || []),
     ].filter(Boolean))) as string[]
-    return ids.map(id => ({ id, nombre: nombreEt(id) }))
-      .filter(z => z.nombre)
+    return ids
+      .map(id => ({ id, et: etiquetas.find((e: any) => e.id === id) }))
+      .filter(z => z.et && categoriaDe(etiquetas, z.et) === 'articulacion')
+      .map(z => ({ id: z.id, nombre: z.et.nombre }))
       .sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
   }, [objetivos, etiquetas])
 
