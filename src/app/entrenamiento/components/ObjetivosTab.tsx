@@ -207,7 +207,7 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
               const verTest = distinto || !!otroTest[clave]
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
-                  {verTest && (
+                  {verTest && c.tipo !== 'logro' && (
                     <select className="input" style={{ width: 168, fontSize: 11, borderColor: distinto ? 'var(--g)' : undefined }} value={c.test_id}
                       onChange={e => set({ test_id: e.target.value, item: '' })}>
                       <option value="">— test —</option>
@@ -217,7 +217,13 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
 
                   {/* Un criterio sobre el TOTAL no mira ningún ítem, así que el desplegable
                       sobra: enseñarlo apagado invitaría a rellenarlo para nada. */}
-                  {c.tipo !== 'total' ? (
+                  {/* La condición que se marca a mano no tiene test ni ítem: lo suyo es el
+                      texto de lo que hay que conseguir. */}
+                  {c.tipo === 'logro' ? (
+                    <input className="input" style={{ flex: 1, minWidth: 220, fontSize: 11 }} value={c.descripcion || ''}
+                      onChange={e => set({ descripcion: e.target.value })}
+                      placeholder="ej. Sube y baja el escalón sin apoyo" />
+                  ) : c.tipo !== 'total' ? (
                     <select className="input" style={{ width: 168, fontSize: 11 }} value={c.item || ''}
                       onChange={e => set({ item: e.target.value })}>
                       <option value="">— ítem —</option>
@@ -232,19 +238,20 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
 
                   {/* "Se cumple si", no "positivo si": aquí se describe cuándo se SUPERA la
                       fase, que es lo contrario de cuándo el test da hallazgo. */}
-                  <span style={{ fontSize: 10, color: 'var(--grl)' }}>se cumple si</span>
+                  {c.tipo !== 'logro' && <span style={{ fontSize: 10, color: 'var(--grl)' }}>se cumple si</span>}
 
                   {/* MEDIDA O CASILLA. No todas las progresiones tienen números: un
                       aprendizaje avanza por observaciones que se cumplen o no, y el ítem de
                       casilla del test es exactamente eso. */}
-                  <select className="input" style={{ width: 120, fontSize: 11 }} value={c.tipo || 'medida'}
+                  <select className="input" style={{ width: 146, fontSize: 11 }} value={c.tipo || 'medida'}
                     onChange={e => set({ tipo: e.target.value, ...(e.target.value === 'total' ? { item: '' } : {}) })}>
                     <option value="medida">el valor del ítem</option>
                     <option value="marcado">la casilla del ítem</option>
                     <option value="total">la puntuación del test</option>
+                    <option value="logro">lo marco yo a mano</option>
                   </select>
 
-                  {(c.tipo || 'medida') === 'marcado' ? (
+                  {c.tipo === 'logro' ? null : (c.tipo || 'medida') === 'marcado' ? (
                     <select className="input" style={{ width: 132, fontSize: 11 }} value={c.marcado === false ? 'no' : 'si'}
                       onChange={e => set({ marcado: e.target.value === 'si' })}>
                       <option value="si">está marcada</option>
@@ -304,14 +311,7 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
   )
 }
 
-const FAMILIAS = [
-  { id: 'metrico', nombre: 'Medibles', ayuda: 'Fuerza o movilidad. Los cierra una medición de un test.' },
-  { id: 'fase', nombre: 'Por fases', ayuda: 'Progresan de una tanda del programa a la siguiente.' },
-  { id: 'cualitativo', nombre: 'Cualitativos', ayuda: 'Se cumplen o no. Aprender algo, corregir un hábito.' },
-] as const
-
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
-  const [familia, setFamilia] = useState<string>('')
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -353,13 +353,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const sinZona = (objetivos || []).filter((o: any) => zonasDe(etiquetas, zonaIdsDe(o)).length === 0).length
 
   const filtrados = (objetivos || []).filter((o: any) => {
-    const matchF = !familia || (o.tipo || 'cualitativo') === familia
-    return matchF && casaZona(etiquetas, zonaIdsDe(o), zona)
+    return casaZona(etiquetas, zonaIdsDe(o), zona)
   })
 
-  const cuentaFamilia = (f: string) => (objetivos || []).filter((o: any) => (o.tipo || 'cualitativo') === f).length
-  // Los sembrados con los tests se quedaron sin familia. Conviene verlos para repasarlos.
-  const sinFamilia = (objetivos || []).filter((o: any) => !o.tipo).length
 
   function abrirNuevo() {
     setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], test_bandas:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
@@ -381,7 +377,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     // Los criterios de fase deciden solos en qué punto está un paciente, así que un
     // criterio a medio escribir no puede guardarse: fallaría callado, dejando a alguien
     // clavado en una fase por un umbral que nadie rellenó.
-    if (form.tipo === 'fase') {
+    if ((parseInt(form.fases) || 0) > 0) {
       const p = problemasDeCriterios({ criterios_fase: form.criterios_fase, fases: parseInt(form.fases) || 0 }, testsLib || [])
       if (p.length > 0) { alert('El objetivo no se ha guardado:\n\n' + p.map(x => '· ' + x).join('\n')); return }
     }
@@ -391,28 +387,20 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // `test_id` ya no se escribe desde aquí: el enlace con los tests vive en el test, en
       // su ítem o en su banda. No se manda a null a propósito — borrar de golpe lo que
       // hubiera configurado de antes sería tirar datos que nadie ha pedido tirar.
-      tipo: form.tipo,
-      // Cada familia guarda lo suyo y limpia lo de las otras: un objetivo que fue métrico
-      // y pasa a cualitativo no puede quedarse con la métrica puesta.
-      // `metrica` (fuerza/movilidad) ya NO se escribe. Solo servía para preferir el test
-      // cuyo NOMBRE llevara esa palabra al sugerir la medición de una meta, y esa
-      // sugerencia ahora sale de qué test tiene resultados el paciente, que es un dato de
-      // verdad y no una coincidencia de texto. Tampoco se pone a null: la columna se
-      // queda con lo que ya tuviera hasta que se decida tirarla, y borrarla al guardar
-      // sería destruir datos por el camino.
-      fases: form.tipo === 'fase' ? (parseInt(form.fases) || null) : null,
-      criterios_fase: form.tipo === 'fase' ? (form.criterios_fase || []) : [],
-      // Los logros habituales valen en las tres familias: un objetivo métrico también puede
-      // tener una parte que no es un número. Se limpian los vacíos, que solo son filas que
-      // alguien empezó y no escribió.
+      // YA NO HAY FAMILIAS. `tipo` y `metrica` no se escriben: lo que el objetivo es se
+      // deduce de lo que tiene —si tiene fases, progresa por fases; si le pones una meta
+      // con número, se mide—. Tampoco se ponen a null: la columna se queda con lo que
+      // tuviera hasta que se tire, y vaciarla al guardar sería destruir datos de paso.
+      //
+      // Sin fases: `fases` a null y los criterios vacíos. Eso SÍ hay que limpiarlo, porque
+      // un objetivo con criterios y sin fases sería un objetivo que la app intenta juzgar
+      // contra fases que no existen.
+      fases: (parseInt(form.fases) || null),
+      criterios_fase: (parseInt(form.fases) || 0) > 0 ? (form.criterios_fase || []) : [],
+      // Se limpian los vacíos, que solo son filas que alguien empezó y no escribió.
       logros_plantilla: (form.logros_plantilla || []).map((x: string) => String(x || '').trim()).filter(Boolean),
       articulacion_id: form.articulacion_id || null,
-      // Solo en fases y cualitativos: los métricos ya se describen con su articulación y
-      // sus movimientos, y repetirlo aquí serían dos verdades para lo mismo.
-      etiquetas: form.tipo === 'metrico' ? [] : (form.etiquetas || []),
-      // Los específicos valen en las tres familias. Estaban limitados a los métricos, y eso
-      // dejaba a un cualitativo sin forma de concretarse: "reeducación neuromuscular" no
-      // podía decir que la suya es la del pie.
+      etiquetas: form.etiquetas || [],
       movimientos: form.movimientos || [],
     }
     // La imagen NO va en el payload: se sube al almacén y lo que se guarda es su URL.
@@ -471,28 +459,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             <button className="btn btn-p btn-sm" onClick={abrirNuevo}>+ Nuevo</button>
           </span>
           <span className="sh-r">
-            {(objetivos || []).length} en total{sinFamilia > 0 && <> · {sinFamilia} sin clasificar</>}
+            {(objetivos || []).length} en total
           </span>
         </div>
 
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
-          {FAMILIAS.map(f => (
-            <button key={f.id} className={`chip-sel ${familia === f.id ? 'on' : ''}`} title={f.ayuda}
-              onClick={() => setFamilia(familia === f.id ? '' : f.id)}>
-              {f.nombre} · {cuentaFamilia(f.id)}
-            </button>
-          ))}
-          {sinFamilia > 0 && (
-            <button className={`chip-sel ${familia === 'sin' ? 'on' : ''}`}
-              title="Los que sembré con los tests, de antes del modelo nuevo. Conviene repasarlos."
-              onClick={() => setFamilia(familia === 'sin' ? '' : 'sin')}>
-              Sin clasificar · {sinFamilia}
-            </button>
-          )}
-        </div>
-
-        {/* Por zona, de la cabeza a los pies. Sale de la misma etiqueta con la que se
-            filtran ejercicios y tests, así que el vocabulario es uno solo. */}
         <div style={{ marginBottom: 12 }}>
           <FiltroZonas etiquetas={etiquetas} usadas={zonasUsadas}
             valor={zona} onChange={setZona} nSinZona={sinZona} todas="Todas las zonas" />
@@ -505,9 +475,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(232px,1fr))', gap: 12 }}>
             {filtrados
-              .filter((o: any) => familia !== 'sin' || !o.tipo)
               .map((o: any) => {
-                const tipo = o.tipo || null
                 const movs = (o.movimientos || []).map((id: string) => nombreEt(id)).filter(Boolean)
                 const n = enUso[o.id] || 0
                 return (
@@ -525,8 +493,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                     <div className="obj-card-b">
                       <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', lineHeight: 1.3 }}>
                         {o.nombre}
-                        {tipo === 'fase' && <span className="pill pill-soft">{o.fases || '?'} fases</span>}
-                        {!tipo && <span className="pill pill-soft" title="De antes del modelo nuevo">Sin clasificar</span>}
+                        {Number(o.fases) > 0 && <span className="pill pill-soft">{o.fases} fases</span>}
                         {o.articulacion_id && <span style={{ fontSize: 12, color: 'var(--gr)' }}>{nombreEt(o.articulacion_id)}</span>}
                       </div>
                       {o.descripcion && (
@@ -540,21 +507,17 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                           sola línea gris separados por puntos, y no se leían como lo que
                           son —"mejorar la dorsiflexión de tobillo" vive dentro de
                           "Movilidad de tobillo"—, así que parecía que faltaban fichas. */}
-                      {tipo === 'metrico' && (
-                        movs.length > 0 ? (
-                          <div style={{ marginTop: 5, borderLeft: '2px solid var(--gm)', paddingLeft: 9 }}>
-                            {movs.map((m: string) => (
-                              <div key={m} style={{ fontSize: 12, color: 'var(--gr)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--g)', flexShrink: 0 }} />
-                                {m}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>
-                            Sin movimientos: no se le puede poner una meta a nadie.
-                          </div>
-                        )
+                      {/* Los específicos salen en TODOS los objetivos: son sus partes, y da
+                          igual cómo se cierre cada una. */}
+                      {movs.length > 0 && (
+                        <div style={{ marginTop: 5, borderLeft: '2px solid var(--gm)', paddingLeft: 9 }}>
+                          {movs.map((m: string) => (
+                            <div key={m} style={{ fontSize: 12, color: 'var(--gr)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--g)', flexShrink: 0 }} />
+                              {m}
+                            </div>
+                          ))}
+                        </div>
                       )}
                       {(o.etiquetas || []).length > 0 && (
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
@@ -633,12 +596,10 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 <div className="field"><label>Nombre *</label>
                   <input className="input" value={form.nombre} autoFocus disabled={guardando}
                     onChange={e => setForm((p: any) => ({ ...p, nombre: e.target.value }))}
-                    placeholder={form.tipo === 'metrico' ? 'ej. Fuerza de hombro' : 'ej. Aprender el puente de glúteo'} />
-                  {form.tipo === 'metrico' && (
-                    <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
-                      Sin movimiento ni lado en el nombre: eso se elige al asignárselo a un paciente.
-                    </div>
-                  )}
+                    placeholder="ej. Movilidad de tobillo, Aprender el puente de glúteo" />
+                  <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 3 }}>
+                    Empieza por un verbo, y sin lado: el lado se elige al asignárselo a un paciente.
+                  </div>
                 </div>
 
                 <div className="field"><label>Descripción</label>
@@ -661,60 +622,47 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               </div>
             </div>
 
-            {/* LA FAMILIA, y de aquí abajo cambia todo. La raya la separa de la cabecera,
-                que es la parte que no se mueve nunca. */}
-            <div className="field" style={{ borderTop: '1px solid var(--bd)', paddingTop: 12, marginTop: 12 }}>
-              <label>Familia</label>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {FAMILIAS.map(f => (
-                  <button key={f.id} className={`chip-sel ${form.tipo === f.id ? 'on' : ''}`} title={f.ayuda}
-                    onClick={() => setForm((p: any) => ({ ...p, tipo: f.id }))}>{f.nombre}</button>
-                ))}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
-                {FAMILIAS.find(f => f.id === form.tipo)?.ayuda}
-              </div>
-            </div>
-
-            <div className="obj-form">
+            {/* AQUÍ IBA LA FAMILIA, y ya no está.
+                Obligaba a decidir de antemano cómo se iba a cerrar el objetivo, y esa
+                decisión se toma después: al ponerle una meta con número o al marcar una
+                condición. Peor aún, cerraba puertas — un objetivo marcado "cualitativo" no
+                admitía un número—. Ahora el objetivo es lo que tiene: si le pones fases,
+                progresa por fases; si le pones una meta, se mide. */}
+            <div className="obj-form" style={{ borderTop: '1px solid var(--bd)', paddingTop: 12, marginTop: 12 }}>
             {/* LOS ESPECÍFICOS.
                 "Movilidad de tobillo" es el general; dorsiflexión, eversión y compañía son
                 lo concreto. Van dentro y no como fichas aparte: con 38 movimientos y dos
                 métricas serían casi cien objetivos que mantener, y es de donde venimos.
 
-                Salen en las TRES familias. Estaban capados a los métricos y ofreciendo solo
-                etiquetas de movimiento, y por eso "Reeducación neuromuscular · pie" no se
-                podía escribir: el pie no es un movimiento, pero es igual de específico. */}
+                Cada uno es una PARTE que hace falta: "que me financien" y "que me alquilen
+                el local" para montar el negocio. Si no aparecen en la ficha, nada garantiza
+                que no se salte ninguna. */}
             <div className="field ancho">
               <label>Específicos <span className="subt">· en qué se concreta este objetivo</span></label>
               <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
-                {form.tipo === 'metrico'
-                  ? 'Son las opciones que se ofrecen al ponerle una meta a un paciente, y las que puede fijar un ítem de test. Sin ninguno, el objetivo no se puede medir.'
-                  : 'Cada uno se convierte en una parte del objetivo cuando se lo asignas a un paciente, y el objetivo se cierra cuando estén todas.'}
+                Cada uno se convierte en una parte del objetivo al asignárselo a un paciente,
+                y hacen falta todas para darlo por logrado. Cada parte se cierra con un check
+                o, si le pones un número medido por un test, con ese número.
               </div>
               <SelectorEtiquetasCompacto etiquetas={etiquetas}
                 seleccionadas={form.movimientos || []}
                 onChange={(ids: string[]) => setForm((p: any) => ({ ...p, movimientos: ids }))} />
             </div>
 
-            {form.tipo === 'fase' && (
-              <>
-                {/* El placeholder era "4" a secas y se leía como un valor puesto: el campo
-                    parecía relleno estando vacío, y los criterios no salían porque no
-                    sabían cuántas cajas pintar. */}
-                <div className="field"><label>Cuántas fases</label>
-                  <input className="input" type="number" min={2} max={8} value={form.fases}
-                    onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="ej. 4" />
+            {/* LAS FASES YA NO DEPENDEN DE NINGUNA FAMILIA: vacío = no tiene fases. */}
+            <div className="field"><label>Cuántas fases <span className="subt">· vacío si no va por fases</span></label>
+              <input className="input" type="number" min={2} max={8} value={form.fases}
+                onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="ej. 4" />
+            </div>
+            {(parseInt(form.fases) || 0) > 0 && (
+              /* A ancho completo: con tres o más cajas dentro, en media rejilla no cabe. */
+              <div className="field ancho">
+                <label>Condiciones de salida <span className="subt">· qué hay que cumplir para pasar a la siguiente</span></label>
+                <div style={{ marginTop: 5 }}>
+                  <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []} etiquetas={etiquetas || []}
+                    onCambia={(v: any[]) => setForm((p: any) => ({ ...p, criterios_fase: v }))} />
                 </div>
-                {/* A ancho completo: con tres o más cajas dentro, en media rejilla no cabe. */}
-                <div className="field ancho">
-                  <label>Criterios de salida <span className="subt">· la fase la calculan los tests, no se pone a mano</span></label>
-                  <div style={{ marginTop: 5 }}>
-                    <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []} etiquetas={etiquetas || []}
-                      onCambia={(v: any[]) => setForm((p: any) => ({ ...p, criterios_fase: v }))} />
-                  </div>
-                </div>
-              </>
+              </div>
             )}
 
             {/* Solo en fases y cualitativos. Los métricos se describen con su articulación
@@ -723,7 +671,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             {/* Solo PATOLOGÍA. El músculo estaba aquí y no lo leía nadie: no proponía
                 objetivos, no movía nada, solo salía como píldora. La zona ya dice dónde
                 está el objetivo, así que repetir el músculo era pedir un dato de más. */}
-            {form.tipo !== 'metrico' && (
+            {true && (
               <div className="field ancho"><label>Patología</label>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 132, overflowY: 'auto' }}>
                   {deCategoria('patologia')

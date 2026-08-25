@@ -391,11 +391,6 @@ function EditorBaremos({ baremos, items, onCambia }: { baremos: any, items: any[
   )
 }
 
-const FAMILIAS_OBJ = [
-  { id: 'metrico', nombre: 'Medibles' },
-  { id: 'fase', nombre: 'Por fases' },
-  { id: 'cualitativo', nombre: 'Cualitativos' },
-] as const
 
 /**
  * Los objetivos que abre un ítem.
@@ -415,7 +410,6 @@ const FAMILIAS_OBJ = [
 function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle, movimientos = {}, onMovimiento }: any) {
   const [abierto, setAbierto] = useState(false)
   const [busca, setBusca] = useState('')
-  const [familia, setFamilia] = useState('')
   const [zona, setZona] = useState('')
 
   const sel = seleccionados || []
@@ -445,9 +439,8 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
     // que la lleva como patología, aunque esa palabra ya no sea un chip de zona.
     const nombresEt = (o.etiquetas||[]).map((id:string)=>nombreEt(id).toLowerCase()).join(' ')
     const mQ = !q || (o.nombre||'').toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q) || nombresEt.includes(q)
-    const mF = !familia || (o.tipo||'cualitativo') === familia
     const mZ = casaZona(etiquetas || [], zonaIdsDe(o), zona)
-    return mQ && mF && mZ
+    return mQ && mZ
   })
 
   return (
@@ -499,18 +492,6 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
             <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
               placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:6}}/>
 
-            <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:5}}>
-              <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42}}>Familia</span>
-              {FAMILIAS_OBJ.map(f=>(
-                <span key={f.id} onClick={()=>setFamilia(familia===f.id?'':f.id)}
-                  style={{fontSize:9,padding:'2px 9px',borderRadius:99,cursor:'pointer',
-                    border:`1.5px solid ${familia===f.id?'var(--g)':'var(--bd)'}`,
-                    background:familia===f.id?'var(--g)':'var(--w)',color:familia===f.id?'#fff':'var(--gr)'}}>
-                  {f.nombre}
-                </span>
-              ))}
-            </div>
-
             {/* La misma fila de zonas que las dos bibliotecas, en pequeño. */}
             <div style={{display:'flex',alignItems:'flex-start',gap:5,flexWrap:'wrap'}}>
               <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42,paddingTop:3}}>Zona</span>
@@ -527,7 +508,7 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
           <div style={{maxHeight:190,overflowY:'auto',background:'var(--w)'}}>
             {resto.length===0
               ? <div style={{fontSize:10,color:'var(--grl)',padding:'10px 9px'}}>
-                  {puestos.length>0 && !q && !familia && !zona ? 'Ya están todos puestos.' : 'Nada que coincida.'}
+                  {puestos.length>0 && !q && !zona ? 'Ya están todos puestos.' : 'Nada que coincida.'}
                 </div>
               : resto.map((o:any)=>(
                 <div key={o.id} onClick={()=>onToggle(o.id)} title={o.descripcion||''}

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { revisarObjetivos } from '@/lib/metas'
+import { revisarFases } from '@/lib/fases'
 
 /**
  * Los LOGROS de un objetivo, por paciente.
@@ -57,7 +58,12 @@ export default function LogrosObjetivo({ pacienteId, objetivo, logros, onCambio 
     if (error) { setGuardando(false); alert('No se ha podido marcar: ' + error.message); return }
     // Marcar un logro puede cerrar el objetivo entero, y eso no puede quedar pendiente de
     // que alguien recargue: se recalcula aquí mismo, en el momento de la decisión.
+    //
+    // Y también las FASES: desde que una condición de fase puede ser una casilla, marcarla
+    // es exactamente igual de decisivo que pasar un test. Sin esto, la fase solo se movería
+    // el día que se hiciera una medición.
     await revisarObjetivos(pacienteId)
+    await revisarFases(pacienteId)
     setGuardando(false)
     onCambio()
   }
@@ -68,6 +74,7 @@ export default function LogrosObjetivo({ pacienteId, objetivo, logros, onCambio 
     const { error } = await supabase.from('objetivos_metas').delete().eq('id', l.id)
     if (error) { setGuardando(false); alert('No se ha podido quitar: ' + error.message); return }
     await revisarObjetivos(pacienteId)
+    await revisarFases(pacienteId)
     setGuardando(false)
     onCambio()
   }
@@ -109,6 +116,9 @@ export default function LogrosObjetivo({ pacienteId, objetivo, logros, onCambio 
           }}>
             {l.descripcion || 'Logro sin describir'}
           </span>
+          {/* De qué fase es la condición. Sin esto, en un objetivo por fases se ven todas
+              las casillas seguidas y no se sabe cuál toca ahora. */}
+          {l.fase ? <span className="badge badge-b">Fase {l.fase}</span> : null}
           {l.cumplida && l.fecha_cumplida && (
             <span style={{ fontSize: 10, color: 'var(--grl)' }}>
               {new Date(l.fecha_cumplida + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}

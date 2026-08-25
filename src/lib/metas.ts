@@ -260,17 +260,26 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
   const ids = Object.keys(porObjetivo)
   if (ids.length === 0) return []
 
+  // `fases` viene con la fila porque decide quién cierra el objetivo: si el objetivo tiene
+  // fases, lo cierra `revisarFases` al superar la última y aquí no se toca. Sus condiciones
+  // ya están dentro de las fases, y dejarlas cerrar también por su cuenta lo daba por
+  // logrado yendo por la fase 2 de 4.
   const { data: filas } = await supabase.from('pacientes_objetivos')
-    .select('objetivo_id,logrado,vias,objetivos(nombre)')
+    .select('objetivo_id,logrado,vias,objetivos(nombre,fases)')
     .eq('paciente_id', pacienteId).in('objetivo_id', ids)
 
   const logrados: string[] = []
   for (const fila of (filas || []) as any[]) {
     const suyas = porObjetivo[fila.objetivo_id] || []
+    const objFila: any = Array.isArray(fila.objetivos) ? fila.objetivos[0] : fila.objetivos
     // Las VÍAS cuentan igual que las metas. Cerrar mirando solo las metas daba por hecho un
     // objetivo cuyo test seguía dando positivo, y la regla de qué es "logrado" vive en
     // `lib/objetivos.ts`: aquí solo se aplica, no se vuelve a escribir.
-    const debe = estaLogradoCon(fila.vias || [], suyas)
+    const debe = estaLogradoCon(fila.vias || [], suyas, objFila)
+    // Un objetivo por fases no se reabre desde aquí: `estaLogradoCon` devuelve siempre
+    // false para ellos, y sin esto cada test le quitaría el "logrado" que puso la última
+    // fase.
+    if (Number(objFila?.fases) > 0) continue
     if (debe === !!fila.logrado) continue
 
     await supabase.from('pacientes_objetivos').update({
@@ -278,8 +287,7 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
       fecha_logrado: debe ? new Date().toISOString().split('T')[0] : null,
     }).eq('paciente_id', pacienteId).eq('objetivo_id', fila.objetivo_id)
 
-    const obj: any = Array.isArray(fila.objetivos) ? fila.objetivos[0] : fila.objetivos
-    const nombre = obj?.nombre || 'Objetivo'
+    const nombre = objFila?.nombre || 'Objetivo'
     await supabase.from('eventos_paciente').insert({
       paciente_id: pacienteId, tipo: 'objetivo',
       titulo: debe ? `Objetivo logrado: ${nombre}` : `Objetivo reabierto: ${nombre}`,

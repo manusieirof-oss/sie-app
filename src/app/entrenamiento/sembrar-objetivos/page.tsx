@@ -42,7 +42,7 @@ export default function SembrarObjetivosPage() {
     // mismo error y la pantalla se llena de líneas rojas idénticas que no dicen qué hacer.
     // Una frase antes vale más que treinta y seis mensajes después.
     const { error: errCol } = await supabase.from('objetivos')
-      .select('tipo,articulacion_id,movimientos,fases,etiquetas').limit(1)
+      .select('articulacion_id,movimientos,fases,etiquetas').limit(1)
     setSinSql(errCol ? errCol.message : null)
 
     // La comprobacion usa EL MISMO indice que la escritura. Antes miraba
@@ -151,7 +151,7 @@ export default function SembrarObjetivosPage() {
 
     /** Lo que ya hay en cada objetivo, para no pisarlo al actualizar. */
     const { data: objCompletos } = await supabase.from('objetivos')
-      .select('id,descripcion,color,etiquetas,articulacion_id,tipo,fases')
+      .select('id,descripcion,color,etiquetas,articulacion_id,fases')
     const actual: Record<string, any> = {}
     ;(objCompletos || []).forEach((o: any) => { actual[o.id] = o })
 
@@ -226,9 +226,9 @@ export default function SembrarObjetivosPage() {
       }).filter(Boolean)
       await guardar({
         nombre: e.nombre, descripcion: e.descripcion,
-        // `metrica` ya no es una columna: la familia métrica se define por su zona y sus
-        // específicos. En la semilla sigue existiendo, pero solo para elegir el color.
-        tipo: 'metrico',
+        // Ni `metrica` ni `tipo`: las familias ya no existen. Un objetivo es lo que tiene
+        // —sus específicos, sus fases—, no lo que alguien declaró que era. En la semilla
+        // `metrica` sigue estando, pero solo para elegir el color.
         articulacion_id: buscar('articulacion', e.articulacion),
         movimientos: movIds, fases: null,
         // Los métricos no llevan etiquetas libres: su articulación y sus movimientos ya
@@ -241,7 +241,6 @@ export default function SembrarObjetivosPage() {
     for (const f of FASES) {
       await guardar({
         nombre: f.nombre, descripcion: f.descripcion,
-        tipo: 'fase',
         articulacion_id: buscar('articulacion', f.articulacion),
         movimientos: [], fases: f.fases.length,
         etiquetas: resolver(f.etiquetas),
@@ -252,7 +251,6 @@ export default function SembrarObjetivosPage() {
     for (const c of CUALITATIVOS) {
       await guardar({
         nombre: c.nombre, descripcion: c.descripcion,
-        tipo: 'cualitativo',
         articulacion_id: buscar('articulacion', c.articulacion),
         movimientos: [], fases: null,
         etiquetas: resolver(c.etiquetas),

@@ -48,10 +48,41 @@ const hoy = () => new Date().toISOString().split('T')[0]
  * al marcarlos. Las dos cosas: hacen falta las dos, porque que el test dé negativo no
  * significa que lo que te propusiste con ese paciente esté hecho.
  */
-export function estaLogradoCon(vias: Via[], metas: { cumplida?: boolean }[]): boolean {
+export type MetaParte = {
+  cumplida?: boolean | null
+  tipo?: string | null
+  movimiento_id?: string | null
+  fase?: number | null
+}
+
+/**
+ * Las partes que de verdad cuentan, de entre todo lo que el paciente tiene guardado.
+ *
+ * Se descarta la CASILLA de un específico que además tiene una meta con número. Son la
+ * misma parte contada dos veces: le pones "de 8 a 11 cm" a la dorsiflexión y no tiene
+ * sentido que además siga colgando un ☐ Dorsiflexión que hay que marcar a mano. Manda el
+ * número, que es el que se cierra solo.
+ *
+ * Se decide aquí y no borrando la fila: si un día quitas la meta, la casilla vuelve sola.
+ */
+export function partesQueCuentan(metas: MetaParte[] = []): MetaParte[] {
+  const lista = Array.isArray(metas) ? metas : []
+  const conNumero = new Set(lista
+    .filter(m => m.tipo && m.tipo !== 'logro' && m.movimiento_id)
+    .map(m => String(m.movimiento_id)))
+  return lista.filter(m =>
+    !(m.tipo === 'logro' && m.movimiento_id && conNumero.has(String(m.movimiento_id))))
+}
+
+export function estaLogradoCon(vias: Via[], metas: MetaParte[], objetivo?: { fases?: number | null } | null): boolean {
+  // CON FASES MANDA LA FASE. Sus condiciones ya incluyen lo que hay que medir y lo que hay
+  // que marcar, así que dejarlas contar además por su cuenta cerraba el objetivo yendo por
+  // la fase 2 de 4. Quien lo cierra es `revisarFases` al superar la última.
+  if (Number(objetivo?.fases) > 0) return false
+
   const partes = [
     ...(Array.isArray(vias) ? vias : []).map(v => !!v.resuelto),
-    ...(Array.isArray(metas) ? metas : []).map(m => !!m.cumplida),
+    ...partesQueCuentan(metas).map(m => !!m.cumplida),
   ]
   return partes.length > 0 && partes.every(Boolean)
 }
@@ -81,8 +112,9 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   // daría por hecho un objetivo con logros pendientes, y esa es exactamente la mentira que
   // la regla nueva viene a evitar.
   const { data: metas } = await supabase.from('objetivos_metas')
-    .select('cumplida').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
-  const logrado = estaLogradoCon(vias, metas || [])
+    .select('cumplida,tipo,movimiento_id,fase').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
+  const { data: obj } = await supabase.from('objetivos').select('fases').eq('id', objetivoId).maybeSingle()
+  const logrado = estaLogradoCon(vias, metas || [], obj)
 
   const cambios: any = { vias, logrado, fecha_logrado: logrado ? hoy() : null }
   if (opciones?.origen) cambios.origen = opciones.origen
@@ -125,46 +157,70 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
  */
 export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: string): Promise<number> {
   const { data: o } = await supabase.from('objetivos')
-    .select('tipo,logros_plantilla,movimientos').eq('id', objetivoId).maybeSingle()
+    .select('logros_plantilla,movimientos,fases,criterios_fase').eq('id', objetivoId).maybeSingle()
   if (!o) return 0
 
-  // Las partes salen de dos sitios de la biblioteca: los logros habituales, que son texto
-  // —QUÉ tiene que conseguir— y los específicos, que son etiquetas —DÓNDE se concreta—.
-  const partes: { descripcion: string, movimiento_id: string | null }[] = []
+  // Las partes salen de tres sitios de la biblioteca: los logros habituales, que son texto
+  // —QUÉ tiene que conseguir—; los específicos, que son etiquetas —EN QUÉ se concreta—; y
+  // las condiciones de fase que se marcan a mano, que ya nacen con su fase puesta.
+  const partes: { descripcion: string, movimiento_id: string | null, fase: number | null }[] = []
 
   for (const x of (Array.isArray(o.logros_plantilla) ? o.logros_plantilla : [])) {
     const d = String(x || '').trim()
-    if (d) partes.push({ descripcion: d, movimiento_id: null })
+    if (d) partes.push({ descripcion: d, movimiento_id: null, fase: null })
   }
 
   /**
-   * En los MÉTRICOS los específicos no se copian como logros.
+   * LOS ESPECÍFICOS SE COPIAN SIEMPRE, y esto cambió al quitar las familias.
    *
-   * Allí la parte concreta de un paciente ya es su meta, con su número y su lado, y la pone
-   * el entrenador al asignarle el objetivo. Copiarlos además como logros dejaría cada
-   * específico contado dos veces y el objetivo no se cerraría nunca.
+   * Cada específico es una parte que hace falta para lograr el objetivo —"me financian" y
+   * "me alquilan el local" para montar el negocio—, así que tiene que existir en la ficha
+   * o no habría nada que garantice que no se salta ninguna.
+   *
+   * Antes se saltaban en los métricos para no contar dos veces lo mismo. Eso ahora lo
+   * resuelve `partesQueCuentan`: en cuanto le pones una meta con número a un específico, su
+   * casilla deja de contar y deja de pintarse. La parte es una; lo que cambia es cómo se
+   * cierra.
    */
-  const especificos = (o.tipo !== 'metrico' && Array.isArray(o.movimientos)) ? o.movimientos : []
+  const especificos = Array.isArray(o.movimientos) ? o.movimientos : []
   if (especificos.length > 0) {
     const { data: ets } = await supabase.from('etiquetas').select('id,nombre').in('id', especificos)
     for (const id of especificos) {
       const nombre = (ets || []).find((e: any) => e.id === id)?.nombre
-      if (nombre) partes.push({ descripcion: nombre, movimiento_id: id })
+      if (nombre) partes.push({ descripcion: nombre, movimiento_id: id, fase: null })
+    }
+  }
+
+  // Las condiciones de fase que no salen de un test: se marcan a mano y pertenecen a SU
+  // fase, que es lo que permite que una fase se cierre con mediciones y con checks a la vez.
+  // Se leen aquí y no con `criteriosBrutos` de lib/fases a propósito: fases importa metas
+  // y metas importa este fichero, así que traerlo cerraría el círculo. Son cuatro líneas y
+  // no juzgan nada — solo recorren lo guardado.
+  const bloques = (Array.isArray(o.criterios_fase) ? o.criterios_fase : [])
+    .filter((f: any) => f && isFinite(Number(f.fase)))
+  for (const bloque of bloques) {
+    for (const c of (Array.isArray(bloque.criterios) ? bloque.criterios : [])) {
+      if (c?.tipo !== 'logro') continue
+      const d = String(c.descripcion || '').trim()
+      if (d) partes.push({ descripcion: d, movimiento_id: null, fase: Number(bloque.fase) })
     }
   }
 
   if (partes.length === 0) return 0
 
   const { data: ya } = await supabase.from('objetivos_metas')
-    .select('descripcion,movimiento_id').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).eq('tipo', 'logro')
-  const puestos = new Set((ya || []).map((m: any) => String(m.movimiento_id || m.descripcion || '').trim().toLowerCase()))
-  const nuevas = partes.filter(p => !puestos.has(String(p.movimiento_id || p.descripcion).trim().toLowerCase()))
+    .select('descripcion,movimiento_id,fase').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).eq('tipo', 'logro')
+  // La misma frase en dos fases distintas son dos partes distintas, así que la fase entra
+  // en la clave: "tolera la carga" puede repetirse en la 2 y en la 4 con otro listón.
+  const clave = (p: any) => `${p.fase ?? ''}|${String(p.movimiento_id || p.descripcion || '').trim().toLowerCase()}`
+  const puestos = new Set((ya || []).map(clave))
+  const nuevas = partes.filter(p => !puestos.has(clave(p)))
   if (nuevas.length === 0) return 0
 
   const { error } = await supabase.from('objetivos_metas').insert(
     nuevas.map(p => ({
       paciente_id: pacienteId, objetivo_id: objetivoId, tipo: 'logro',
-      descripcion: p.descripcion, movimiento_id: p.movimiento_id, cumplida: false,
+      descripcion: p.descripcion, movimiento_id: p.movimiento_id, fase: p.fase, cumplida: false,
     })),
   )
   return error ? 0 : nuevas.length

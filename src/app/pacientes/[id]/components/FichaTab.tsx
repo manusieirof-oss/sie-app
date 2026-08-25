@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
-import { guardarVias, copiarLogrosPlantilla } from '@/lib/objetivos'
+import { guardarVias, copiarLogrosPlantilla, partesQueCuentan } from '@/lib/objetivos'
 import MetasObjetivo from './MetasObjetivo'
 import { cambiarFase } from '@/lib/metas'
 import { evaluarFases, ladoDeObjetivo, textoCriterio, criteriosDe } from '@/lib/fases'
@@ -45,7 +45,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
   const [selObj, setSelObj] = useState<string[]>([])
-  const [famObj, setFamObj] = useState('')
   const [zonaObj, setZonaObj] = useState('')
   const [patologiasPac, setPatologiasPac] = useState<any[]>([])
   /**
@@ -96,7 +95,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     setGuardandoVia('anadir')
     const { error } = await supabase.from('pacientes_objetivos').insert(
       lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
-        fase_actual: o.tipo==='fase' ? 1 : null })))
+        fase_actual: Number(o.fases) > 0 ? 1 : null })))
     if (error) { setGuardandoVia(null); alert(error.message); return }
     // Los logros habituales de la biblioteca se copian a la ficha. Un objetivo cualitativo
     // añadido a mano nace sin vías, así que sin esto no tendría ninguna parte y no habría
@@ -331,11 +330,15 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           <LogrosObjetivo
             pacienteId={pac.id}
             objetivo={o}
-            logros={metas.filter((m:any)=>m.objetivo_id===o.id && m.tipo==='logro')}
+            logros={partesQueCuentan(metas.filter((m:any)=>m.objetivo_id===o.id)).filter((m:any)=>m.tipo==='logro')}
             onCambio={cargarObjetivos}
           />
         )}
-        {o.tipo==='metrico' && !o.logrado && (
+        {/* LAS METAS CON NÚMERO SALEN EN TODOS LOS OBJETIVOS. Estaban limitadas a la
+            familia "medible", y eso era lo que impedía ponerle un número a un objetivo
+            que no habías catalogado así. Ya no hay familias: si tiene algo que se pueda
+            medir con un test, se le pone. */}
+        {!o.logrado && (
           <MetasObjetivo
             pacienteId={pac.id}
             objetivo={o}
@@ -351,7 +354,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         {/* La barra se pulsa para cambiar de fase. Antes solo se pintaba: era un
             indicador de progreso que no se podía mover. Lo normal es decidirlo al montar
             la tanda nueva, y desde allí se avisa, pero el gesto vive aquí. */}
-        {o.tipo==='fase' && o.fases > 0 && !o.logrado && (
+        {Number(o.fases) > 0 && !o.logrado && (
           <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
             {Array.from({length:o.fases}).map((_,i)=>(
               <button key={i} disabled={guardandoVia===o.id}
@@ -369,21 +372,18 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>
               {o.fase_actual ? `Fase ${o.fase_actual} de ${o.fases}` : 'Sin empezar'}
             </span>
-            {/* La última fase no cierra el objetivo sola: "mantenimiento y prevención" no
-                se acaba nunca. Cerrarlo es una decisión, no una consecuencia. */}
-            {o.fase_actual >= o.fases && (
-              <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id}
-                onClick={()=>cerrarSinVias(o)}>Dar por logrado</button>
-            )}
+            {/* Ya no hay botón de "dar por logrado" aquí: superar las condiciones de la
+                última fase cierra el objetivo solo. Tenerlo además a mano era la puerta por
+                la que se cerraba un objetivo yendo por la mitad. */}
           </div>
         )}
         {/* QUÉ FALTA PARA SALIR DE ESTA FASE.
             El aviso va donde se toma la decisión. La fase la calculan los tests, y sin
             enseñar contra qué se ha calculado, la barra volvería a ser un número que hay
             que creerse. Aquí se ve qué criterio falta y por cuánto. */}
-        {o.tipo==='fase' && !o.logrado && criteriosDe(o).length>0 && (()=>{
+        {Number(o.fases) > 0 && !o.logrado && criteriosDe(o).length>0 && (()=>{
           const lado = ladoDeObjetivo(o.vias)
-          const ev = evaluarFases(o, resultadosTests, lado, o.fase_actual)
+          const ev = evaluarFases(o, resultadosTests, lado, o.fase_actual, metas.filter((m:any)=>m.objetivo_id===o.id && m.tipo==='logro'))
           const actual = ev.detalle.find(d => d.fase === (o.fase_actual || 1))
           if (!actual) {
             return (
@@ -399,18 +399,18 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               </div>
               {actual.criterios.map((c,i)=>(
                 <div key={i} style={{fontSize:11,fontWeight:300,lineHeight:1.6,color:c.cumple===true?'var(--gd)':c.cumple===false?'var(--red)':'var(--grl)'}}>
-                  {c.cumple===true?'✓':c.cumple===false?'✕':'—'} {c.criterio.tipo==='total'?'Puntuación del test':c.criterio.item} {textoCriterio(c.criterio)}
+                  {c.cumple===true?'✓':c.cumple===false?'✕':'—'} {c.criterio.tipo==='logro'?c.criterio.descripcion:c.criterio.tipo==='total'?'Puntuación del test':c.criterio.item} {c.criterio.tipo==='logro'?'':textoCriterio(c.criterio)}
                   {/* Lo que se enseña detrás depende del tipo: en una medida interesa el
                       número al que va; en una casilla, si está o no puesta. */}
-                  {c.criterio.tipo==='marcado'
-                    ? (c.lectura?.marcado==null ? ' · sin anotar' : c.lectura.marcado ? ' · está marcada' : ' · sin marcar')
+                  {c.criterio.tipo==='marcado' || c.criterio.tipo==='logro'
+                    ? (c.lectura?.marcado==null ? ' · sin anotar' : c.lectura.marcado ? ' · hecho' : ' · pendiente')
                     : (c.lectura?.valor==null ? ' · sin medir' : ` · va por ${c.lectura.valor}`)}
                 </div>
               ))}
             </div>
           )
         })()}
-        {vias.length===0 && !o.logrado && o.tipo!=='metrico' && o.tipo!=='fase' && (
+        {vias.length===0 && !o.logrado && !(Number(o.fases) > 0) && (
           <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
             <span style={{fontSize:12,color:'var(--gr)'}}>Sin nada que marcar · no vino de un test ni de un ejercicio</span>
             <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id} onClick={()=>cerrarSinVias(o)}>
@@ -422,7 +422,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             Un métrico se cierra con sus metas —`revisarObjetivos` mira solo eso— así que
             ahí las píldoras no cerraban nada: repetían el test y el ítem que ya dice cada
             bloque de meta, y encima parecían un buscador. */}
-        {vias.length>0 && o.tipo!=='metrico' && pintarOrigen(o, vias)}
+        {/* LAS VÍAS SE PINTAN SIEMPRE. Se escondían en los medibles, pero seguían
+            contando para cerrarlos: un objetivo podía quedarse abierto por una vía que no
+            había forma de ver ni de resolver desde aquí. */}
+        {vias.length>0 && pintarOrigen(o, vias)}
       </div>
     )
   }
@@ -509,9 +512,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <div>
               <div className="sec-sub" style={{display:'flex',alignItems:'center',gap:8}}>
                 <span style={{flex:1}}>Lo que prescribimos · de tests y ejercicios</span>
-                {/* Hasta ahora solo llegaban solos, cuando un test daba positivo. Los
-                    métricos casi nunca vienen de ahí: se deciden mirando una medición. */}
-                <button className="btn btn-t btn-sm" onClick={()=>{setSelObj([]);setBuscarObj('');setFamObj('');setZonaObj('');setModalAnadir(true)}}>
+                {/* Hasta ahora solo llegaban solos, cuando un test daba positivo. Los que se
+                    deciden mirando una medición casi nunca vienen de ahí. */}
+                <button className="btn btn-t btn-sm" onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setModalAnadir(true)}}>
                   <Ic name="mas" size={12}/> Añadir
                 </button>
               </div>
@@ -555,13 +558,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               onChange={e=>setBuscarObj(e.target.value)} style={{marginBottom:8}}/>
 
             {/* Los filtros a la vista, no escondidos tras el buscador: con 36 fichas lo
-                normal es no saber cómo se llama la que buscas pero sí de qué zona es. */}
-            <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>
-              {[['metrico','Medibles'],['fase','Por fases'],['cualitativo','Cualitativos']].map(([v,l])=>(
-                <button key={v} className={`chip-sel ${famObj===v?'on':''}`}
-                  onClick={()=>setFamObj(famObj===v?'':v)}>{l}</button>
-              ))}
-            </div>
+                normal es no saber cómo se llama la que buscas pero sí de qué zona es.
+                Solo la zona: las familias ya no existen. */}
             {(() => {
               const zonas = Array.from(new Set(catalogo.map((o:any)=>o.articulacion_id).filter(Boolean)))
                 .map((id:any)=>({ id, nombre: etiquetasLib.find((e:any)=>e.id===id)?.nombre || '' }))
@@ -585,7 +583,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 const yaTiene = new Set(objetivosTrabajo.map((o:any)=>o.id))
                 const lista = catalogo.filter((o:any)=>
                   (!q || o.nombre.toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q)) &&
-                  (!famObj || (o.tipo||'cualitativo')===famObj) &&
                   (!zonaObj || o.articulacion_id===zonaObj))
                   // Los de sus patologías arriba: es lo que se busca al abrir esto tras
                   // registrarle una lesión.
@@ -606,31 +603,25 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                         <button key={o.id} type="button"
                           onClick={()=>{
                             if (!tiene) { setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]); return }
-                            // Ya asignado: si es medible, se va a su panel a ponerle otro
-                            // movimiento. Si no, no hay nada que añadir y no hace nada.
-                            if (o.tipo!=='metrico') return
+                            // Ya asignado: se va a su panel a ponerle otra meta. Ahora vale
+                            // para cualquier objetivo, no solo para los que eran "medibles".
                             setModalAnadir(false); setSelObj([]); setBuscarObj('')
                             setObjAbierto(o.id); setPedirMetaEn(o.id)
                           }}
                           className={`obj-mon-b${sel?' on':''}`}
                           title={tiene
-                            ? (o.tipo==='metrico'
-                                ? 'Ya lo tiene. Pulsa para añadirle la meta de otro movimiento.'
-                                : 'Ya lo tiene.')
+                            ? 'Ya lo tiene. Pulsa para añadirle otra meta.'
                             : (o.descripcion||o.nombre)}
-                          style={{cursor:(tiene && o.tipo!=='metrico')?'default':'pointer',
-                            opacity:tiene?(o.tipo==='metrico'?.8:.45):1}}>
+                          style={{cursor:'pointer', opacity:tiene?.8:1}}>
                           {monedaDe(o, true)}
                           <span className="obj-mon-g">{o.nombre}</span>
                           <span className="obj-mon-n">
-                            {o.tipo==='fase' ? `${o.fases||'?'} fases` : ''}
+                            {Number(o.fases) > 0 ? `${o.fases} fases` : ''}
                             {porPatologia[o.id] && <span style={{display:'block',color:'var(--gd)'}}>{porPatologia[o.id]}</span>}
                           </span>
                           {/* Ya asignado: no es un error, es que sus metas se ponen en la ficha. */}
                           {tiene && (
-                            <span style={{fontSize:10,color:'var(--gd)'}}>
-                              {o.tipo==='metrico' ? '+ otro movimiento' : 'Ya lo tiene'}
-                            </span>
+                            <span style={{fontSize:10,color:'var(--gd)'}}>+ otra meta</span>
                           )}
                           {sel && <span style={{fontSize:10,color:'var(--gd)'}}><Ic name="check" size={11}/> Elegido</span>}
                         </button>

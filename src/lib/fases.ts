@@ -58,7 +58,20 @@ export type CriterioFase = {
    * "sales de la fase cuando el Berg pase de 40" no se podía escribir. Se podía organizar
    * el objetivo en fases y no atarlas a la puntuación, que es lo único que esos tests dan.
    */
-  tipo?: 'medida' | 'marcado' | 'total'
+  /**
+   * 'logro' no mira ningún test: es una condición que MARCAS TÚ.
+   *
+   * "Que me alquilen el local" no lo mide ninguna prueba, y obligar a inventarse un test
+   * para poder ponerlo como condición de fase habría sido pedir un dato falso. Con esto,
+   * una fase se puede cerrar con mediciones, con casillas de test, con condiciones a mano,
+   * o con las tres mezcladas — que es como son de verdad las progresiones.
+   *
+   * Su texto va en `descripcion`, y al asignar el objetivo a un paciente se le crea como
+   * una parte marcable (`objetivos_metas` con `tipo:'logro'` y su `fase`).
+   */
+  tipo?: 'medida' | 'marcado' | 'total' | 'logro'
+  /** Solo en 'logro'. El texto que se marca. Es también lo que lo identifica dentro de su fase. */
+  descripcion?: string
   /** Solo en 'medida'. Qué hace que el criterio se CUMPLA — al revés que la regla del test, que dice qué lo hace positivo. */
   regla?: 'mayor' | 'menor' | 'entre' | 'fuera'
   umbral?: number | null
@@ -106,13 +119,26 @@ export function criteriosBrutos(objetivo: any): { fase: number, criterios: any[]
 export function criteriosDe(objetivo: any): FaseDef[] {
   return criteriosBrutos(objetivo)
     // Un criterio sobre el total no tiene ítem, y exigírselo lo tiraba antes de evaluarlo.
-    .map(f => ({ fase: f.fase, criterios: f.criterios.filter((c: any) => c && c.test_id && (c.tipo === 'total' || c.item)) }))
+    .map(f => ({
+      fase: f.fase,
+      criterios: f.criterios.filter((c: any) => {
+        if (!c) return false
+        // El de logro no tiene test ni ítem: lo que le hace falta es su texto.
+        if (c.tipo === 'logro') return !!String(c.descripcion || '').trim()
+        return c.test_id && (c.tipo === 'total' || c.item)
+      }),
+    }))
 }
 
 export const esMarcado = (c: CriterioFase) => c?.tipo === 'marcado'
+export const esLogro = (c: CriterioFase) => c?.tipo === 'logro'
+
+/** Cómo se identifica una condición de tipo logro dentro de su fase. */
+export const claveLogro = (texto?: string | null) => String(texto || '').trim().toLowerCase()
 
 /** La condición en una línea, para leerla al configurarla y al explicarla en la ficha. */
 export function textoCriterio(c: CriterioFase, unidad?: string): string {
+  if (esLogro(c)) return 'lo marcas tú'
   if (esMarcado(c)) return c.marcado === false ? 'sin marcar' : 'marcado'
   const u = unidad ? ` ${unidad}` : ''
   const a = c.umbral, b = c.umbral2
@@ -128,6 +154,13 @@ export function textoCriterio(c: CriterioFase, unidad?: string): string {
 /** ¿Se cumple este criterio con lo leído? null si todavía no se ha medido ni anotado. */
 export function cumpleCriterio(c: CriterioFase, l: Lectura | null): boolean | null {
   if (!l) return null
+
+  // El logro se lee como una casilla: o está marcado o no. Reutiliza `marcado` para no
+  // duplicar la máquina por un caso que se comporta igual.
+  if (esLogro(c)) {
+    if (l.marcado == null) return null
+    return l.marcado === true
+  }
 
   if (esMarcado(c)) {
     if (l.marcado == null) return null
@@ -211,7 +244,17 @@ export type EvaluacionFases = {
   /** Hasta qué fase alcanzan los criterios escritos, contando desde la 1 sin saltos. */
   hasta: number
   detalle: DetalleFase[]
+  /**
+   * TODAS las fases tienen condiciones y TODAS se cumplen. Es lo que cierra el objetivo.
+   *
+   * Va aparte de `fase` porque "estar en la última" y "haber superado la última" no son lo
+   * mismo y con un solo número no se distinguen: se entra en la fase 4 al superar la 3.
+   */
+  completado: boolean
 }
+
+/** Una parte del objetivo en la ficha del paciente: `objetivos_metas` con `tipo:'logro'`. */
+export type ParteLogro = { descripcion?: string | null, fase?: number | null, cumplida?: boolean | null, tipo?: string }
 
 /**
  * En qué fase está el paciente según lo medido.
@@ -222,7 +265,7 @@ export type EvaluacionFases = {
  * toca. Inventar un veredicto sobre una fase sin criterios sería justo lo contrario de lo
  * que esto viene a arreglar.
  */
-export function evaluarFases(objetivo: any, resultados: any[], lado: string, faseActual?: number | null): EvaluacionFases {
+export function evaluarFases(objetivo: any, resultados: any[], lado: string, faseActual?: number | null, partes: ParteLogro[] = []): EvaluacionFases {
   const total = Math.min(Number(objetivo?.fases) || 0, FASE_MAX)
   const defs = criteriosDe(objetivo)
   const porFase = new Map<number, CriterioFase[]>(defs.map(d => [d.fase, d.criterios]))
@@ -236,9 +279,17 @@ export function evaluarFases(objetivo: any, resultados: any[], lado: string, fas
   for (let n = 1; n <= hasta; n++) {
     const criterios = porFase.get(n) || []
     const filas = criterios.map(c => {
-      const lectura: Lectura | null = c.tipo === 'total'
-        ? { valor: leerTotal(resultados, c.test_id, lado), marcado: null }
-        : leerItem(resultados, c.test_id, c.item, lado)
+      // El de logro no se lee de un test sino de la parte que el paciente tiene marcada,
+      // emparejada por su TEXTO dentro de esta fase. Si todavía no se le ha creado la
+      // parte, se lee como "sin anotar" y no como incumplida.
+      const lectura: Lectura | null = esLogro(c)
+        ? { valor: null, marcado: (() => {
+            const parte = partes.find(m => Number(m.fase) === n && claveLogro(m.descripcion) === claveLogro(c.descripcion))
+            return parte ? !!parte.cumplida : null
+          })() }
+        : c.tipo === 'total'
+          ? { valor: leerTotal(resultados, c.test_id, lado), marcado: null }
+          : leerItem(resultados, c.test_id, c.item, lado)
       return { criterio: c, lectura, cumple: cumpleCriterio(c, lectura) }
     })
     const superada = filas.length > 0 && filas.every(f => f.cumple === true)
@@ -246,7 +297,12 @@ export function evaluarFases(objetivo: any, resultados: any[], lado: string, fas
     if (!superada && primerFallo === null) primerFallo = n
   }
 
-  if (hasta === 0) return { fase: null, hasta, detalle }
+  if (hasta === 0) return { fase: null, hasta, detalle, completado: false }
+
+  // Cerrar el objetivo exige que TODAS las fases tengan condiciones y todas se cumplan. Con
+  // una fase sin condiciones no se puede afirmar nada de ella, y darlo por logrado sería
+  // cerrarlo por lo que no se ha mirado.
+  const completado = total > 0 && hasta === total && primerFallo === null
 
   // Se ha quedado en la primera que no supera. Si las supera todas, sale de la última que
   // sabemos juzgar; y si el entrenador ya lo había puesto más arriba, no se le baja desde
@@ -255,7 +311,7 @@ export function evaluarFases(objetivo: any, resultados: any[], lado: string, fas
     ? primerFallo
     : Math.max(faseActual || 0, Math.min(hasta + 1, total || hasta + 1))
 
-  return { fase: Math.min(Math.max(fase, 1), Math.max(total, 1)), hasta, detalle }
+  return { fase: Math.min(Math.max(fase, 1), Math.max(total, 1)), hasta, detalle, completado }
 }
 
 /** El lado sobre el que se abrió el objetivo. Es contra el que se miden sus criterios. */
@@ -281,24 +337,49 @@ export async function revisarFases(pacienteId: string): Promise<CambioFase[]> {
   if (!pacienteId) return []
 
   const { data: filas, error } = await supabase.from('pacientes_objetivos')
-    .select('objetivo_id,vias,fase_actual,logrado,objetivos!inner(id,nombre,tipo,fases,criterios_fase)')
+    .select('objetivo_id,vias,fase_actual,logrado,objetivos!inner(id,nombre,fases,criterios_fase)')
     .eq('paciente_id', pacienteId)
   if (error) return []
 
+  // Tener fases es TENER FASES, no estar catalogado como tal: la familia del objetivo ya
+  // no existe. Lo que decide es el dato — cuántas fases tiene y si sus condiciones están
+  // escritas—, que además es lo único que esta función sabe usar.
   const conFases = (filas || []).filter((f: any) => {
     const o: any = Array.isArray(f.objetivos) ? f.objetivos[0] : f.objetivos
-    return o?.tipo === 'fase' && criteriosDe(o).length > 0 && !f.logrado
+    return Number(o?.fases) > 0 && criteriosDe(o).length > 0 && !f.logrado
   })
   if (conFases.length === 0) return []
 
   const { data: resultados } = await supabase.from('resultados_tests')
     .select('test_id,lado,fecha,items_resultado,created_at').eq('paciente_id', pacienteId)
 
+  // Las condiciones que se marcan a mano viven aquí, junto a las metas con número.
+  const { data: partes } = await supabase.from('objetivos_metas')
+    .select('objetivo_id,descripcion,fase,cumplida,tipo')
+    .eq('paciente_id', pacienteId).eq('tipo', 'logro')
+
   const cambios: CambioFase[] = []
   for (const fila of conFases as any[]) {
     const o: any = Array.isArray(fila.objetivos) ? fila.objetivos[0] : fila.objetivos
     const lado = ladoDeObjetivo(fila.vias)
-    const ev = evaluarFases(o, resultados || [], lado, fila.fase_actual)
+    const suyas = (partes || []).filter((m: any) => m.objetivo_id === fila.objetivo_id)
+    const ev = evaluarFases(o, resultados || [], lado, fila.fase_actual, suyas)
+
+    // SUPERAR LA ÚLTIMA FASE CIERRA EL OBJETIVO. Antes llegar al final no lo cerraba y
+    // había que darle a "dar por logrado", lo que dejaba la contradicción de que sus
+    // condiciones marcadas sí podían cerrarlo yendo por la fase 2 de 4.
+    if (ev.completado && !fila.logrado) {
+      await supabase.from('pacientes_objetivos')
+        .update({ logrado: true, fecha_logrado: new Date().toISOString().split('T')[0] })
+        .eq('paciente_id', pacienteId).eq('objetivo_id', fila.objetivo_id)
+      await supabase.from('eventos_paciente').insert({
+        paciente_id: pacienteId, tipo: 'objetivo_logrado',
+        titulo: `Objetivo logrado: ${o.nombre}`,
+        descripcion: 'Ha superado la última fase.',
+        fecha: new Date().toISOString().split('T')[0],
+      })
+    }
+
     if (ev.fase == null || ev.fase === fila.fase_actual) continue
 
     const sube = (fila.fase_actual || 0) < ev.fase
@@ -327,8 +408,11 @@ export function problemasDeCriterios(objetivo: any, tests: any[]): string[] {
 
   defs.forEach(d => {
     d.criterios.forEach((c: any, i: number) => {
-      if (!c?.test_id) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el test.`)
-      else if (c?.tipo !== 'total' && !c?.item) p.push(`Fase ${d.fase}, criterio ${i + 1}: falta elegir el ítem.`)
+      if (c?.tipo === 'logro') {
+        if (!String(c?.descripcion || '').trim()) p.push(`Fase ${d.fase}, condición ${i + 1}: falta escribir qué hay que conseguir.`)
+      }
+      else if (!c?.test_id) p.push(`Fase ${d.fase}, condición ${i + 1}: falta elegir el test.`)
+      else if (c?.tipo !== 'total' && !c?.item) p.push(`Fase ${d.fase}, condición ${i + 1}: falta elegir el ítem.`)
     })
   })
 
