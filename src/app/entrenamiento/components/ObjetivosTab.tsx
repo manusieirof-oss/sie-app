@@ -328,8 +328,10 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
  * NO CAMBIA NADA POR DEBAJO. Los específicos siguen siendo la misma lista de etiquetas en
  * `objetivos.movimientos`; lo único distinto es cómo se miran.
  */
-function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
+function EspecificosEnPestanas({ ids, objetivoId, etiquetas, tests, onChange }: {
   ids: string[]
+  /** Vacío en un objetivo que aún no se ha guardado: entonces no hay nada que colgar. */
+  objetivoId?: string
   etiquetas: any[]
   tests: any[]
   onChange: (ids: string[]) => void
@@ -367,6 +369,25 @@ function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
       return it ? [{ test: t, item: it }] : []
     })
   }
+
+  /**
+   * Dónde está colgado este objetivo: qué ítems y qué bandas lo abren, y si además dicen
+   * que la parte que abren es ESTA.
+   *
+   * Es el enlace de verdad —`items[].objetivos` y `bandas[].objetivos`—, no la coincidencia
+   * de nombres. El ítem que abre un objetivo puede llamarse de otra forma que el específico.
+   */
+  const abren = (valor: string) => (tests || []).flatMap((t: any) => {
+    const filas: any[] = []
+    const mira = (cont: any, donde: string) => {
+      if (!((cont?.objetivos || []).includes(objetivoId))) return
+      const mov = (cont?.objetivos_mov || {})[objetivoId as string] || null
+      filas.push({ test: t, donde, esta: mov === valor, sinMov: !mov })
+    }
+    ;(t.items || []).forEach((it: any, i: number) => mira(it, `ítem «${it?.nombre || i + 1}»`))
+    ;(t.bandas || []).forEach((b: any) => mira(b, `banda «${b?.etiqueta || '?'}»`))
+    return filas
+  })
 
   const quitar = (id: string) => { onChange(puestos.filter(x => x !== id)); setActiva(0) }
 
@@ -442,20 +463,69 @@ function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
               </button>
             </div>
 
-            <div className="et-mini" style={{ marginBottom: 5 }}>Qué test la mide</div>
+            {/* DE DÓNDE SALE y CON QUÉ SE MIDE son dos cosas distintas, y juntarlas era el
+                error: un test puede abrir este objetivo desde un ítem que se llame de otra
+                forma —"dolor en la fascia plantar" abriendo "masajear · fascia del pie"— y
+                aquí ponía "ningún test", que se lee como que el objetivo no sale de ningún
+                sitio. Salir sale; lo que no hay es un ítem con ese nombre del que sacar un
+                número. */}
+            <div className="et-mini" style={{ marginBottom: 5 }}>De dónde sale</div>
+            {(() => {
+              const a = objetivoId ? abren(actual) : []
+              const suyos = a.filter((x: any) => x.esta)
+              const generales = a.filter((x: any) => x.sinMov)
+              if (!objetivoId) {
+                return <div style={{ fontSize: 12, color: 'var(--grl)' }}>Guarda el objetivo para ver qué tests lo abren.</div>
+              }
+              if (a.length === 0) {
+                return (
+                  <div style={{ fontSize: 12, color: '#8A6410', lineHeight: 1.5 }}>
+                    <Ic name="alerta" size={11} /> Ningún test abre este objetivo. Se cuelga
+                    desde el propio test, en su ítem o en su banda.
+                  </div>
+                )
+              }
+              return (
+                <div style={{ display: 'grid', gap: 4, marginBottom: 10 }}>
+                  {suyos.map((x: any, k: number) => (
+                    <div key={'s' + k} style={{ fontSize: 12, color: 'var(--gd)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Ic name="check" size={11} />
+                      <span style={{ color: 'var(--n)' }}>{x.test.nombre}</span>
+                      <span>· {x.donde}</span>
+                      <span className="badge badge-g">abre esta parte</span>
+                    </div>
+                  ))}
+                  {generales.map((x: any, k: number) => (
+                    <div key={'g' + k} style={{ fontSize: 12, color: 'var(--gr)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Ic name="test" size={11} />
+                      <span style={{ color: 'var(--n)' }}>{x.test.nombre}</span>
+                      <span>· {x.donde}</span>
+                      <span className="badge badge-b">abre el objetivo, sin decir qué parte</span>
+                    </div>
+                  ))}
+                  {suyos.length === 0 && generales.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--gr)' }}>
+                      Lo abren {a.length} sitio{a.length > 1 ? 's' : ''}, pero apuntando a otra parte.
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            <div className="et-mini" style={{ marginBottom: 5 }}>Con qué se mide</div>
             {!esEtiqueta(actual) ? (
               <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5 }}>
-                Escrito a mano, así que no lo mide ningún test: esta parte se cierra
-                marcándola en la ficha del paciente.
+                Escrita a mano, así que ningún test puede medirla: se cierra marcándola en la
+                ficha del paciente.
               </div>
             ) : (() => {
               const m = miden(actual)
               if (m.length === 0) {
                 return (
-                  <div style={{ fontSize: 12, color: '#8A6410', background: 'var(--ambl)', border: '1px solid var(--amb)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.5 }}>
-                    <Ic name="alerta" size={11} /> Ningún test tiene un ítem que se llame
-                    «{nombreDe(actual)}», así que esta parte solo se podrá cerrar marcándola a
-                    mano. Para medirla con un número, crea el ítem en un test de esta zona.
+                  <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5 }}>
+                    Ningún test tiene un ítem llamado «{nombreDe(actual)}», así que esta parte
+                    se cierra marcándola. Para ponerle un número, el ítem que la mide tiene que
+                    llamarse igual.
                   </div>
                 )
               }
@@ -878,6 +948,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               <label>Objetivo específico</label>
               <EspecificosEnPestanas
                 ids={form.movimientos || []}
+                objetivoId={form.id}
                 etiquetas={etiquetas}
                 tests={testsLib || []}
                 onChange={(ids: string[]) => setForm((p: any) => ({ ...p, movimientos: ids }))} />
