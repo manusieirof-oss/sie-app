@@ -84,7 +84,7 @@ export default function SembrarTestsPage() {
 
     // ── 1. Objetivos ────────────────────────────────────────────────────────
     const { data: objExist } = await supabase.from('objetivos')
-      .select('id,nombre,descripcion,color,etiquetas,articulacion_id,tipo,metrica,fases')
+      .select('id,nombre,descripcion,color,etiquetas,articulacion_id,tipo,fases')
     const idObjetivo: Record<string, string> = {}
     const actualObj: Record<string, any> = {}
     ;(objExist || []).forEach((o: any) => { idObjetivo[norm(o.nombre)] = o.id; actualObj[o.id] = o })
@@ -108,7 +108,7 @@ export default function SembrarTestsPage() {
       // podían filtrar con el resto.
       const campos = {
         nombre: o.nombre, descripcion: o.descripcion, color: o.color, activo: true,
-        tipo: 'cualitativo', metrica: null, movimientos: [], fases: null,
+        tipo: 'cualitativo', movimientos: [], fases: null,
         articulacion_id: o.zona ? (idEtPrev[norm(o.zona)] || null) : null,
         etiquetas: resolverEts(o.etiquetas),
       }
