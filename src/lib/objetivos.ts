@@ -155,7 +155,20 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
  * No duplica lo que el paciente ya tenga con el mismo texto: si el objetivo se reabre, sus
  * logros siguen siendo los de antes, con lo que ya llevara marcado.
  */
-export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: string): Promise<number> {
+export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: string, opciones?: {
+  /**
+   * Copiar SOLO este específico, y no todos.
+   *
+   * Lo usa el test: cuando abre un objetivo desde un ítem o una banda, ya dice EN QUÉ se
+   * concreta —el pie supinado abre "fortalecer peroneos", no las otras tres partes de
+   * "ganar fuerza de pantorrilla"—. Copiarlas todas le colgaba al paciente partes que
+   * nadie le ha encontrado, y encima le impedía cerrar el objetivo hasta marcarlas.
+   *
+   * Añadido a mano desde la ficha va sin esto: ahí te estás echando encima el objetivo
+   * entero, y sus partes son todas.
+   */
+  soloMovimiento?: string | null
+}): Promise<number> {
   const { data: o } = await supabase.from('objetivos')
     .select('logros_plantilla,movimientos,fases,criterios_fase').eq('id', objetivoId).maybeSingle()
   if (!o) return 0
@@ -182,7 +195,12 @@ export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: stri
    * casilla deja de contar y deja de pintarse. La parte es una; lo que cambia es cómo se
    * cierra.
    */
-  const especificos = Array.isArray(o.movimientos) ? o.movimientos : []
+  const todos = Array.isArray(o.movimientos) ? o.movimientos : []
+  // Si el test dice cuál, ese y solo ese —siempre que el objetivo lo tenga: un `mov` que
+  // no está entre sus específicos no se inventa como parte.
+  const especificos = opciones?.soloMovimiento
+    ? todos.filter((id: string) => id === opciones.soloMovimiento)
+    : todos
   if (especificos.length > 0) {
     const { data: ets } = await supabase.from('etiquetas').select('id,nombre').in('id', especificos)
     for (const id of especificos) {
@@ -234,7 +252,7 @@ export async function abrirObjetivo(pacienteId: string, objetivoId: string, via:
   // Va aquí y no en quien llama: un objetivo se abre desde un test, desde el taller y desde
   // la ficha, y si la copia dependiera de que cada sitio se acuerde, el que se olvidara
   // dejaría al paciente sin sus logros sin que nadie lo notara.
-  await copiarLogrosPlantilla(pacienteId, objetivoId)
+  await copiarLogrosPlantilla(pacienteId, objetivoId, { soloMovimiento: via?.mov || null })
   return { ok: true as const }
 }
 
