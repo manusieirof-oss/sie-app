@@ -5,6 +5,7 @@ import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 import ModalRepartir from './ModalRepartir'
 import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
@@ -706,9 +707,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                           para algo que se decide mirando la ficha. */}
                       <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6,alignItems:'center'}}>
                         {objsDeSesion(s).map((o:any)=>(
-                          <span key={o.id} className="pill" style={{background:o.color||'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4}}>
-                            <Ic name="objetivo" size={10}/> {o.nombre}
-                          </span>
+                          <MonedaObjetivo key={o.id} objetivo={o} tam="mini"/>
                         ))}
                         <button className="btn btn-t btn-sm" style={{fontSize:11}}
                           onClick={e=>{e.stopPropagation();abrirObjsDe(s)}}
@@ -998,11 +997,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   <button key={o.id} type="button" className={`obj-mon-b${sel?' on':''}`}
                     title={o.nombre}
                     onClick={()=>setSelObjs(v=>sel?v.filter(x=>x!==o.id):[...v,o.id])}>
-                    <span className="obj-moneda g" style={{background:o.imagen_url?'var(--bl)':'var(--gl)',borderColor:'var(--g)'}}>
-                      {o.imagen_url
-                        ? <img src={o.imagen_url} alt=""/>
-                        : <b style={{color:'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
-                    </span>
+                    <MonedaObjetivo objetivo={o} tam="g"/>
                     <span className="obj-mon-g">{o.nombre}</span>
                     {sel && <span style={{fontSize:10,color:'var(--gd)'}}><Ic name="check" size={11}/> Elegido</span>}
                   </button>

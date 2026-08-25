@@ -236,6 +236,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .obj-moneda img{width:100%;height:100%;object-fit:cover;display:block;}
 .obj-moneda b{font-size:17px;font-weight:500;}
 .obj-moneda.g{width:72px;height:72px;border-width:2.5px;}
+/* Mini: para meterla en una fila junto a las píldoras de la tarjeta de sesión, donde una
+   moneda de 42 px rompía el renglón. */
+.obj-moneda.mini{width:24px;height:24px;border-width:1.5px;}
+.obj-moneda.mini b{font-size:11px;}
 .obj-moneda.g b{font-size:29px;}
 
 /* Rejilla de monedas: es la vista por defecto de los objetivos del paciente. Todo el

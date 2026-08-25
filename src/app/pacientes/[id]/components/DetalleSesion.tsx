@@ -2,6 +2,7 @@
 import { Ic } from '@/lib/icons'
 import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, descansoEfectivo } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 
 /**
  * Cómo se mide el ejercicio. Aquí solo se puede mirar lo guardado en la sesión: el
@@ -76,11 +77,14 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 15, color: 'var(--n)' }}>{sesion.nombre}</div>
             {sesion.descripcion && <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>{sesion.descripcion}</div>}
+            {/* QUÉ TRABAJA, en monedas y justo bajo el nombre. Es lo primero que se
+                pregunta al abrir una sesión, y con la foto se reconoce sin leer. */}
             {objetivos.length > 0 && (
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 7 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 9 }}>
                 {objetivos.map((o: any) => (
-                  <span key={o.id} style={{ fontSize: 12, padding: '2px 9px', borderRadius: 99, background: o.color || 'var(--g)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Ic name="objetivo" size={11} /> {o.nombre}
+                  <span key={o.id} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 76 }}>
+                    <MonedaObjetivo objetivo={o} />
+                    <span className="obj-mon-g">{o.nombre}</span>
                   </span>
                 ))}
               </div>
