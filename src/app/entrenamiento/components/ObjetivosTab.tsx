@@ -311,6 +311,76 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
   )
 }
 
+/**
+ * Las patologías de un objetivo, plegadas.
+ *
+ * Cerrado se ve solo lo que hay puesto; abierto, un buscador. Enseñar el catálogo entero
+ * en pastillas ocupaba más que todo lo demás del formulario junto para un campo que se
+ * rellena una vez y no se vuelve a mirar.
+ */
+function PatologiasObjetivo({ todas, puestas, onChange }: {
+  todas: any[]
+  puestas: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [busca, setBusca] = useState('')
+
+  const nombre = (id: string) => todas.find((e: any) => e.id === id)?.nombre || 'etiqueta'
+  const quitar = (id: string) => onChange(puestas.filter(x => x !== id))
+  const anadir = (id: string) => onChange([...puestas, id])
+
+  const t = busca.trim().toLowerCase()
+  const opciones = todas
+    .filter((e: any) => !puestas.includes(e.id))
+    .filter((e: any) => !t || String(e.nombre).toLowerCase().includes(t))
+    .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+    .slice(0, 40)
+
+  return (
+    <>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span>Patología <span className="subt">· opcional, para proponerlo solo</span></span>
+        <button type="button" className="btn btn-t btn-sm" style={{ marginLeft: 'auto' }}
+          onClick={() => setAbierto(v => !v)}>
+          <Ic name={abierto ? 'arriba' : 'abajo'} size={11} /> {abierto ? 'Cerrar' : (puestas.length > 0 ? 'Cambiar' : 'Añadir')}
+        </button>
+      </label>
+
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', minHeight: 22, alignItems: 'center' }}>
+        {puestas.length === 0
+          ? <span style={{ fontSize: 12, color: 'var(--grl)' }}>Ninguna</span>
+          : puestas.map(id => (
+            <span key={id} onClick={() => quitar(id)} title="Quitar"
+              style={{ fontSize: 10, padding: '3px 8px', borderRadius: 99, background: 'var(--g)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {nombre(id)} <span style={{ opacity: .7 }}>✕</span>
+            </span>
+          ))}
+      </div>
+
+      {abierto && (
+        <div style={{ marginTop: 6 }}>
+          <input className="input" value={busca} autoFocus onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar patología…" style={{ fontSize: 12, marginBottom: 5 }} />
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 118, overflowY: 'auto' }}>
+            {opciones.length === 0
+              ? <span style={{ fontSize: 12, color: 'var(--grl)' }}>Nada que coincida.</span>
+              : opciones.map((e: any) => (
+                <button key={e.id} type="button" className="chip-sel" onClick={() => anadir(e.id)}>
+                  <Ic name="mas" size={9} /> {e.nombre}
+                </button>
+              ))}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 5 }}>
+            Con la patología puesta, a un paciente al que le registres esa patología se le
+            proponen estos objetivos arriba del todo, sin buscarlos.
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
@@ -671,29 +741,22 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             {/* Solo PATOLOGÍA. El músculo estaba aquí y no lo leía nadie: no proponía
                 objetivos, no movía nada, solo salía como píldora. La zona ya dice dónde
                 está el objetivo, así que repetir el músculo era pedir un dato de más. */}
-            {true && (
-              <div className="field ancho"><label>Patología</label>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 132, overflowY: 'auto' }}>
-                  {deCategoria('patologia')
-                    .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
-                    .map((e: any) => {
-                      const sel = (form.etiquetas || []).includes(e.id)
-                      return (
-                        <button key={e.id} className={`chip-sel ${sel ? 'on' : ''}`}
-                          onClick={() => setForm((p: any) => ({
-                            ...p, etiquetas: sel
-                              ? (p.etiquetas || []).filter((x: string) => x !== e.id)
-                              : [...(p.etiquetas || []), e.id],
-                          }))}>{e.nombre}</button>
-                      )
-                    })}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
-                  Con la patología puesta, a un paciente al que le registres esa patología se le
-                  podrán proponer estos objetivos sin buscarlos.
-                </div>
-              </div>
-            )}
+            {/* PATOLOGÍA, PLEGADA.
+                Es el campo que menos se toca y salía como un muro de treinta pastillas que
+                se llevaba media pantalla. Ahora se ve lo que hay puesto —que es lo único que
+                se viene a comprobar— y el resto se busca. Mismo criterio que el selector de
+                específicos.
+
+                No se quita, aunque casi no se use: la ficha del paciente cruza estas
+                etiquetas con sus patologías activas para subir arriba los objetivos que le
+                tocan al abrir "Añadir". Sin este campo eso se degradaría solo, porque
+                ningún objetivo nuevo volvería a entrar en la sugerencia. */}
+            <div className="field ancho">
+              <PatologiasObjetivo
+                todas={deCategoria('patologia')}
+                puestas={form.etiquetas || []}
+                onChange={(ids: string[]) => setForm((p: any) => ({ ...p, etiquetas: ids }))} />
+            </div>
 
             <div className="field ancho">
               <label>Logros habituales <span className="subt">· las partes de este objetivo, se copian al paciente al asignárselo</span></label>
