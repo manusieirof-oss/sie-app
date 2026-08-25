@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { ESPACIOS, FASES, CUALITATIVOS, MOVIMIENTOS_NUEVOS, PATOLOGIAS_NUEVAS } from '@/lib/semillaObjetivos'
+import { indicePorCategoria, idEnCategoria, normNombre, type IndiceEtiquetas } from '@/lib/etiquetas'
 
 /**
  * Alta del catálogo de objetivos.
@@ -44,10 +45,16 @@ export default function SembrarObjetivosPage() {
       .select('tipo,metrica,articulacion_id,movimientos,fases,etiquetas').limit(1)
     setSinSql(errCol ? errCol.message : null)
 
-    const { data: ets } = await supabase.from('etiquetas').select('nombre,categoria')
-    const arts = new Set((ets || []).filter((e: any) => e.categoria === 'articulacion').map((e: any) => norm(e.nombre)))
+    // La comprobacion usa EL MISMO indice que la escritura. Antes miraba
+    // `categoria === 'articulacion'` sobre la fila mientras que sembrar() resolvia con un
+    // mapa plano por nombre: te decia que estaba todo bien y guardaba otra cosa.
+    const { data: ets } = await supabase.from('etiquetas').select('id,nombre,categoria,padre_id')
+    const indice = indicePorCategoria(ets || [])
     const pedidas = new Set<string>()
-    ESPACIOS.forEach(e => { if (!arts.has(norm(e.articulacion))) pedidas.add(e.articulacion) })
+    ESPACIOS.forEach(e => {
+      const r = idEnCategoria(indice, 'articulacion', e.articulacion)
+      if (!r.id) pedidas.add(e.articulacion + (r.repetidas > 1 ? ` (hay ${r.repetidas} con ese nombre)` : ''))
+    })
     setFaltan(Array.from(pedidas))
 
     // Los diez objetivos que sembré con los tests son de la familia métrica mal hechos:
@@ -62,18 +69,41 @@ export default function SembrarObjetivosPage() {
 
     // ── 1. Etiquetas de movimiento que faltan ───────────────────────────────
     const { data: ets } = await supabase.from('etiquetas').select('id,nombre,categoria,padre_id')
-    const idEt: Record<string, string> = {}
-    ;(ets || []).forEach((e: any) => { idEt[norm(e.nombre)] = e.id })
+    const arbol: any[] = [...(ets || [])]
+    let indice: IndiceEtiquetas = indicePorCategoria(arbol)
+
+    /**
+     * Resuelve un nombre DENTRO de su categoría, y avisa si no puede.
+     *
+     * Antes esto era un mapa plano `nombre -> id`, y con dos etiquetas legítimas que se
+     * llaman igual —"Cervical" es articulación bajo Columna y también un músculo, igual
+     * que "Hombro", "Rodilla" o "Pie"— se quedaba con la última que leyera. Así acabaron
+     * trece objetivos con un MÚSCULO guardado como zona.
+     *
+     * Si hay dos con el mismo nombre en la MISMA categoría no se elige ninguna: entre dos
+     * candidatas igual de válidas, acertar es cuestión de suerte. Se avisa y se sigue.
+     */
+    const ambiguas = new Set<string>()
+    const buscar = (categoria: string, nombre?: string | null): string | null => {
+      if (!nombre) return null
+      const r = idEnCategoria(indice, categoria, nombre)
+      if (!r.id && r.repetidas > 1) ambiguas.add(`${nombre} (${r.repetidas} en ${categoria})`)
+      return r.id
+    }
+    /** Una etiqueta recién creada tiene que entrar en el índice o no se encontrará. */
+    const apuntar = (fila: any) => { arbol.push(fila); indice = indicePorCategoria(arbol) }
 
     let etsCreadas = 0
     for (const m of MOVIMIENTOS_NUEVOS) {
-      if (idEt[norm(m.nombre)]) continue
-      const padre = idEt[norm(m.padre)]
+      // Existir "con ese nombre" no basta: tiene que existir COMO MOVIMIENTO. Si no, un
+      // movimiento que se llama como un músculo no se crearía nunca.
+      if (buscar('movimiento', m.nombre)) continue
+      const padre = buscar('movimiento', m.padre)
       if (!padre) { anota(`No existe el movimiento "${m.padre}", así que "${m.nombre}" se queda sin crear.`, 'aviso'); continue }
       const { data, error } = await supabase.from('etiquetas')
-        .insert({ nombre: m.nombre, categoria: 'movimiento', padre_id: padre }).select('id').single()
+        .insert({ nombre: m.nombre, categoria: 'movimiento', padre_id: padre }).select('id,nombre,categoria,padre_id').single()
       if (error || !data) { anota(`Etiqueta "${m.nombre}" — error: ${error?.message}`, 'error'); continue }
-      idEt[norm(m.nombre)] = data.id
+      apuntar(data)
       etsCreadas++
     }
     anota(`Etiquetas de movimiento creadas: ${etsCreadas}.`, 'ok')
@@ -82,13 +112,13 @@ export default function SembrarObjetivosPage() {
     // y los tests que las nombran se crean sin ellas y el aviso se pierde entre líneas.
     let patsCreadas = 0
     for (const p of PATOLOGIAS_NUEVAS) {
-      if (idEt[norm(p.nombre)]) continue
-      const padre = p.padre ? idEt[norm(p.padre)] : null
+      if (buscar('patologia', p.nombre)) continue
+      const padre = p.padre ? buscar('patologia', p.padre) : null
       if (p.padre && !padre) { anota(`No existe "${p.padre}", así que "${p.nombre}" se queda sin crear.`, 'aviso'); continue }
       const { data, error } = await supabase.from('etiquetas')
-        .insert({ nombre: p.nombre, categoria: 'patologia', padre_id: padre }).select('id').single()
+        .insert({ nombre: p.nombre, categoria: 'patologia', padre_id: padre }).select('id,nombre,categoria,padre_id').single()
       if (error || !data) { anota(`Etiqueta "${p.nombre}" — error: ${error?.message}`, 'error'); continue }
-      idEt[norm(p.nombre)] = data.id
+      apuntar(data)
       patsCreadas++
     }
     anota(`Patologías creadas: ${patsCreadas}.`, 'ok')
@@ -103,10 +133,20 @@ export default function SembrarObjetivosPage() {
 
     /** Etiquetas libres por nombre, avisando de las que no existan en el árbol. */
     const sinEtiqueta = new Set<string>()
+    /**
+     * Las etiquetas libres de un objetivo pueden ser de cualquier categoría —una
+     * patología, un músculo—, así que aquí no se puede acotar. Lo que sí se hace es no
+     * elegir a ciegas: si el nombre está repetido en el árbol se omite y se avisa, en vez
+     * de meter la primera que aparezca y que nadie se entere.
+     */
     const resolver = (nombres?: string[]) => (nombres || []).map(n => {
-      const id = idEt[norm(n)]
-      if (!id) sinEtiqueta.add(n)
-      return id
+      const candidatos = Object.values(indice)
+        .map(porNombre => porNombre[normNombre(n)] || [])
+        .flat()
+      if (candidatos.length === 1) return candidatos[0]
+      if (candidatos.length > 1) ambiguas.add(`${n} (${candidatos.length} en el árbol)`)
+      else sinEtiqueta.add(n)
+      return ''
     }).filter(Boolean)
 
     /** Lo que ya hay en cada objetivo, para no pisarlo al actualizar. */
@@ -180,14 +220,14 @@ export default function SembrarObjetivosPage() {
 
     for (const e of ESPACIOS) {
       const movIds = e.movimientos.map(n => {
-        const id = idEt[norm(n)]
+        const id = buscar('movimiento', n)
         if (!id) sinMovimiento.add(n)
         return id
       }).filter(Boolean)
       await guardar({
         nombre: e.nombre, descripcion: e.descripcion,
         tipo: 'metrico', metrica: e.metrica,
-        articulacion_id: idEt[norm(e.articulacion)] || null,
+        articulacion_id: buscar('articulacion', e.articulacion),
         movimientos: movIds, fases: null,
         // Los métricos no llevan etiquetas libres: su articulación y sus movimientos ya
         // los describen, y repetirlos aquí serían dos verdades para lo mismo.
@@ -200,7 +240,7 @@ export default function SembrarObjetivosPage() {
       await guardar({
         nombre: f.nombre, descripcion: f.descripcion,
         tipo: 'fase', metrica: null,
-        articulacion_id: f.articulacion ? (idEt[norm(f.articulacion)] || null) : null,
+        articulacion_id: buscar('articulacion', f.articulacion),
         movimientos: [], fases: f.fases.length,
         etiquetas: resolver(f.etiquetas),
         color: COLOR.fase,
@@ -211,7 +251,7 @@ export default function SembrarObjetivosPage() {
       await guardar({
         nombre: c.nombre, descripcion: c.descripcion,
         tipo: 'cualitativo', metrica: null,
-        articulacion_id: c.articulacion ? (idEt[norm(c.articulacion)] || null) : null,
+        articulacion_id: buscar('articulacion', c.articulacion),
         movimientos: [], fases: null,
         etiquetas: resolver(c.etiquetas),
         color: COLOR.cualitativo,
@@ -235,6 +275,11 @@ export default function SembrarObjetivosPage() {
     }
     if (sinMovimiento.size > 0) {
       anota(`Movimientos que no existen en el árbol y se han omitido: ${Array.from(sinMovimiento).join(', ')}.`, 'aviso')
+    }
+    // Se avisa en vez de elegir una al azar: es la avería que dejó trece objetivos con
+    // un músculo guardado como zona, y no se vio hasta que salieron dos "Cervical".
+    if (ambiguas.size > 0) {
+      anota(`Estos nombres están repetidos dentro de la misma categoría, así que no se ha puesto ninguno: ${Array.from(ambiguas).join(', ')}. Renombra una de las dos en Etiquetas y vuelve a pasarlo.`, 'aviso')
     }
     anota(`Resumen: ${creados} objetivos creados, ${actualizados} actualizados.`, 'info')
     setCorriendo(false)

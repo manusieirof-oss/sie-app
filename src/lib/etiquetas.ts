@@ -59,6 +59,55 @@ export function categoriaDe(etiquetas: any[], et: any): string {
   return actual?.categoria || et?.categoria || ''
 }
 
+/**
+ * Nombre de etiqueta en forma comparable: sin mayúsculas, sin tildes y sin espacios
+ * sobrantes. Estaba escrito a mano en cada sembrador.
+ */
+export const normNombre = (s: string) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+export type IndiceEtiquetas = Record<string, Record<string, string[]>>
+
+/**
+ * Índice de etiquetas por CATEGORÍA y nombre. Se construye una vez y se consulta con
+ * `idEnCategoria`.
+ *
+ * POR QUÉ NO BASTA UN MAPA POR NOMBRE. Hay nombres repetidos en categorías distintas y
+ * son etiquetas legítimas: "Cervical" es una articulación bajo Columna y a la vez un
+ * músculo con sus dos hijas; lo mismo "Hombro", "Rodilla", "Pie" o "Mano". Un mapa
+ * `nombre -> id` se queda con la última que lea, y esa fue la avería real: trece
+ * objetivos acabaron con un MÚSCULO guardado como zona, y en la pestaña salían dos
+ * "Cervical" que parecían el mismo repetido.
+ *
+ * La categoría se resuelve desde la RAÍZ (`categoriaDe`), no leyendo la columna: las
+ * hijas heredan la de su madre.
+ */
+export function indicePorCategoria(etiquetas: any[]): IndiceEtiquetas {
+  const mapa: IndiceEtiquetas = {}
+  ;(etiquetas || []).forEach(e => {
+    const n = normNombre(e?.nombre)
+    if (!n) return
+    const cat = categoriaDe(etiquetas, e)
+    const porNombre = (mapa[cat] = mapa[cat] || {})
+    ;(porNombre[n] = porNombre[n] || []).push(e.id)
+  })
+  return mapa
+}
+
+/**
+ * El id de la etiqueta con ese nombre DENTRO de esa categoría.
+ *
+ * Si hay dos con el mismo nombre en la misma categoría devuelve `null` y dice cuántas
+ * son: entre dos candidatas igual de válidas no hay forma de acertar, y elegir una a
+ * dedo es exactamente lo que provocó el problema que esto viene a evitar. Quien llama
+ * tiene que avisar, no seguir como si nada.
+ */
+export function idEnCategoria(indice: IndiceEtiquetas, categoria: string, nombre: string):
+  { id: string | null, repetidas: number } {
+  const ids = indice[categoria]?.[normNombre(nombre)] || []
+  return { id: ids.length === 1 ? ids[0] : null, repetidas: ids.length }
+}
+
 /** La etiqueta raíz de la que cuelga esta. Si ya es raíz, se devuelve ella misma. */
 export function raizDe(etiquetas: any[], et: any): any {
   let actual = et
