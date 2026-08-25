@@ -6,7 +6,8 @@ import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoT
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { ordenAnatomico } from '@/lib/anatomia'
-import { categoriaDe, raizDe, zonasDe } from '@/lib/etiquetas'
+import { categoriaDe, raizDe, zonasDe, casaZona } from '@/lib/etiquetas'
+import FiltroZonas from '@/components/FiltroZonas'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -421,26 +422,18 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
   const nombreEt = (id: string) => (etiquetas || []).find((e: any) => e.id === id)?.nombre || ''
 
   /** Las zonas que de verdad se usan, de la cabeza a los pies. Igual que en la biblioteca. */
-  /**
-   * La zona de un objetivo: la raíz de articulación de su articulación o de sus etiquetas.
-   *
-   * Esto mezclaba la articulación con TODAS las etiquetas libres, así que las patologías
-   * —Trocantéritis, Condropatía— salían como si fueran zonas y la fila de chips se hacía
-   * ilegible. Misma regla que en la biblioteca de tests, y por eso sale de `zonasDe`.
-   */
-  const zonaDeObj = (o: any) => zonasDe(etiquetas || [], [o?.articulacion_id, ...(o?.etiquetas || [])].filter(Boolean))
+  /** Las etiquetas de zona de un objetivo, sin resolver a raíz: `FiltroZonas` y
+   *  `casaZona` se encargan de agrupar y de emparejar. */
+  const zonaIdsDe = (o: any) => [o?.articulacion_id, ...(o?.etiquetas || [])].filter(Boolean) as string[]
 
-  const zonas = useMemo(() => {
-    const vistas: any[] = []
-    ;(objetivos || []).forEach((o: any) => zonaDeObj(o).forEach((z: any) => {
-      if (z.nombre && !vistas.some(v => v.id === z.id)) vistas.push(z)
-    }))
-    return vistas.sort((a: any, b: any) => ordenAnatomico(a.nombre, b.nombre))
+  const zonasUsadas = useMemo(() => {
+    const ids = Array.from(new Set((objetivos || []).flatMap(zonaIdsDe))) as string[]
+    return ids.filter(id => zonasDe(etiquetas || [], [id]).length > 0)
   }, [objetivos, etiquetas])
 
   // Un objetivo etiquetado solo con una patología no tiene articulación y desaparecería en
   // cuanto se filtre. Su propio chip, igual que en los tests.
-  const sinZona = (objetivos || []).filter((o: any) => zonaDeObj(o).length === 0)
+  const sinZona = (objetivos || []).filter((o: any) => zonasDe(etiquetas || [], zonaIdsDe(o)).length === 0)
 
   if (!objetivos || objetivos.length===0) return null
 
@@ -453,7 +446,7 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
     const nombresEt = (o.etiquetas||[]).map((id:string)=>nombreEt(id).toLowerCase()).join(' ')
     const mQ = !q || (o.nombre||'').toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q) || nombresEt.includes(q)
     const mF = !familia || (o.tipo||'cualitativo') === familia
-    const mZ = !zona || (zona === '_sin' ? zonaDeObj(o).length === 0 : zonaDeObj(o).some((z:any)=>z.id===zona))
+    const mZ = casaZona(etiquetas || [], zonaIdsDe(o), zona)
     return mQ && mF && mZ
   })
 
@@ -506,7 +499,7 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
             <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
               placeholder="Buscar objetivo..." style={{fontSize:11,marginBottom:6}}/>
 
-            <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:zonas.length>0?5:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:5}}>
               <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42}}>Familia</span>
               {FAMILIAS_OBJ.map(f=>(
                 <span key={f.id} onClick={()=>setFamilia(familia===f.id?'':f.id)}
@@ -518,29 +511,14 @@ function PildorasObjetivos({ seleccionados, objetivos, etiquetas = [], onToggle,
               ))}
             </div>
 
-            {zonas.length>0 && (
-              <div style={{display:'flex',alignItems:'flex-start',gap:5,flexWrap:'wrap'}}>
-                <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42,paddingTop:3}}>Zona</span>
-                <div style={{display:'flex',flexWrap:'wrap',gap:4,flex:1}}>
-                  {zonas.map(z=>(
-                    <span key={z.id} onClick={()=>setZona(zona===z.id?'':z.id)}
-                      style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',
-                        border:`1.5px solid ${zona===z.id?'var(--gd)':'var(--bd)'}`,
-                        background:zona===z.id?'var(--gd)':'var(--w)',color:zona===z.id?'#fff':'var(--gr)'}}>
-                      {z.nombre}
-                    </span>
-                  ))}
-                  {sinZona.length>0 && (
-                    <span onClick={()=>setZona(zona==='_sin'?'':'_sin')} title="Objetivos sin articulación"
-                      style={{fontSize:9,padding:'2px 8px',borderRadius:99,cursor:'pointer',
-                        border:`1.5px solid ${zona==='_sin'?'var(--gd)':'var(--bd)'}`,
-                        background:zona==='_sin'?'var(--gd)':'var(--w)',color:zona==='_sin'?'#fff':'var(--gr)'}}>
-                      Sin zona · {sinZona.length}
-                    </span>
-                  )}
-                </div>
+            {/* La misma fila de zonas que las dos bibliotecas, en pequeño. */}
+            <div style={{display:'flex',alignItems:'flex-start',gap:5,flexWrap:'wrap'}}>
+              <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',width:42,paddingTop:3}}>Zona</span>
+              <div style={{flex:1,minWidth:0}}>
+                <FiltroZonas compacto etiquetas={etiquetas||[]} usadas={zonasUsadas}
+                  valor={zona} onChange={setZona} nSinZona={sinZona.length} />
               </div>
-            )}
+            </div>
           </div>
 
           {/* LISTA VERTICAL, no píldoras sueltas. Los nombres son largos y al envolverse

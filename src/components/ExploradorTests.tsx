@@ -2,8 +2,8 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { unidadDe } from '@/lib/tests'
-import { ordenAnatomico } from '@/lib/anatomia'
-import { zonasDe } from '@/lib/etiquetas'
+import { zonasDe, casaZona } from '@/lib/etiquetas'
+import FiltroZonas from '@/components/FiltroZonas'
 
 /**
  * Explorador del catálogo de tests: buscador, filtro por zona y rejilla de tarjetas.
@@ -54,13 +54,11 @@ export default function ExploradorTests({
   )
   const zonasDeTest = (t: any): any[] => zonasPorTest.get(t.id) || []
 
-  const zonas = (() => {
-    const vistas: any[] = []
-    tests.forEach((t: any) => zonasDeTest(t).forEach(z => {
-      if (z.nombre && !vistas.some(v => v.id === z.id)) vistas.push(z)
-    }))
-    return vistas.sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
-  })()
+  /** Las etiquetas de articulación que los tests llevan puestas, tal cual, sin resolver a
+   *  raíz: el filtro las necesita así para poder ofrecer las subzonas. */
+  const articularesEnUso = Array.from(new Set(
+    tests.flatMap((t: any) => (t.etiquetas_relacionadas || []) as string[])
+  )).filter(id => zonasDe(etiquetas || [], [id]).length > 0)
 
   // Un test sin zona no aparecería bajo ningún filtro y quedaría invisible en cuanto se
   // filtre. Tiene su propio chip para que se vea que existe —y para que se note que le
@@ -73,8 +71,8 @@ export default function ExploradorTests({
     // meniscos", y buscar por el nombre de la maniobra es lo natural en la camilla.
     const enItems = (t.items || []).some((i: any) => (i.nombre || '').toLowerCase().includes(q))
     const matchQ = !q || (t.nombre || '').toLowerCase().includes(q) || (t.descripcion || '').toLowerCase().includes(q) || enItems
-    const matchZ = !zona
-      || (zona === '_sin' ? zonasDeTest(t).length === 0 : zonasDeTest(t).some(z => z.id === zona))
+    // `casaZona`: elegir una raíz trae también lo etiquetado en sus subzonas.
+    const matchZ = casaZona(etiquetas || [], t.etiquetas_relacionadas || [], zona)
     return matchQ && matchZ
   })
 
@@ -142,21 +140,13 @@ export default function ExploradorTests({
         {acciones}
       </div>
 
-      {/* Por zona y en orden anatómico, como en etiquetas y objetivos: un solo criterio
-          para recorrer la app. Solo salen las zonas que algún test usa de verdad. */}
-      {zonas.length > 0 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
-          <button className={`chip-sel ${!zona ? 'on' : ''}`} onClick={() => setZona('')}>Todas</button>
-          {zonas.map(z => (
-            <button key={z.id} className={`chip-sel ${zona === z.id ? 'on' : ''}`}
-              onClick={() => setZona(zona === z.id ? '' : z.id)}>{z.nombre}</button>
-          ))}
-          {sinZona.length > 0 && (
-            <button className={`chip-sel ${zona === '_sin' ? 'on' : ''}`} title="Tests sin etiqueta de articulación"
-              onClick={() => setZona(zona === '_sin' ? '' : '_sin')}>Sin zona · {sinZona.length}</button>
-          )}
-        </div>
-      )}
+      {/* La MISMA fila de zonas que la biblioteca de objetivos y que el buscador de
+          objetivos de dentro de un test: un solo componente, un solo vocabulario. */}
+      <div style={{ marginBottom: 10 }}>
+        <FiltroZonas etiquetas={etiquetas || []} usadas={articularesEnUso}
+          valor={zona} onChange={setZona} nSinZona={sinZona.length}
+          etiquetaSinZona="Sin zona" />
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 9 }}>
         {filtrados.length === 0 && (

@@ -147,6 +147,46 @@ export function zonasDe(etiquetas: any[], ids: string[]): any[] {
   return salida
 }
 
+/**
+ * Valor del filtro de zona para "las filas que no tienen ninguna".
+ *
+ * Está aquí y no en cada pantalla porque las tres lo escribían por su cuenta y ya había
+ * dos cadenas distintas para la misma idea.
+ */
+export const SIN_ZONA = '_sin'
+
+/**
+ * Las SUBZONAS de una raíz que alguien usa de verdad, entre las etiquetas dadas.
+ *
+ * Solo las que están en uso: ofrecer el árbol entero llenaría la fila de filtros que no
+ * devuelven nada. No incluye la raíz.
+ */
+export function subzonasEnUso(etiquetas: any[], usadas: string[], raizId: string): any[] {
+  const rama = conDescendientes(etiquetas, raizId)
+  const salida: any[] = []
+  for (const id of (usadas || [])) {
+    if (id === raizId || !rama.includes(id)) continue
+    const et = etiquetas.find(e => e.id === id)
+    if (et && !salida.some(x => x.id === et.id)) salida.push(et)
+  }
+  return salida
+}
+
+/**
+ * ¿Esta fila cae bajo la zona elegida?
+ *
+ * Elegir una RAÍZ trae también lo etiquetado por debajo —"Columna" trae lo de "Cervical"—,
+ * y elegir una SUBZONA trae solo esa rama. Es la misma regla en los dos casos: la elegida
+ * con sus descendientes. Así desplegar las subzonas sirve para afinar y nunca para dejar
+ * de ver algo.
+ */
+export function casaZona(etiquetas: any[], ids: string[], zona: string): boolean {
+  if (!zona) return true
+  if (zona === SIN_ZONA) return zonasDe(etiquetas, ids).length === 0
+  const rama = conDescendientes(etiquetas, zona)
+  return (ids || []).some(id => rama.includes(id))
+}
+
 export type GrupoEtiqueta = {
   raiz: any
   /** Las subetiquetas que el ejercicio tiene bajo esa raíz. Puede estar vacío. */
