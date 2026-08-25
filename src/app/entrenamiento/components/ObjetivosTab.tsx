@@ -309,6 +309,12 @@ const FAMILIAS = [
   { id: 'cualitativo', nombre: 'Cualitativos', ayuda: 'Se cumplen o no. Aprender algo, corregir un hábito.' },
 ] as const
 
+/**
+ * Valor del filtro de zona para "los que no tienen ninguna". Es una cadena imposible
+ * como id de etiqueta, así que no puede chocar con una zona de verdad.
+ */
+const SIN_ZONA = '__sin_zona'
+
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
   const [familia, setFamilia] = useState<string>('')
   const [zona, setZona] = useState<string>('')
@@ -351,11 +357,16 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       .sort((a, b) => ordenAnatomico(a.nombre, b.nombre))
   }, [objetivos, etiquetas])
 
+  /** Los que no tienen zona puesta. Sin este cajón no habría forma de dar con ellos. */
+  const sinZona = (objetivos || []).filter((o: any) => !o.articulacion_id).length
+
   const filtrados = (objetivos || []).filter((o: any) => {
     const matchF = !familia || (o.tipo || 'cualitativo') === familia
-    // Por articulación O por etiqueta libre: buscar "Trocantéritis" tiene que encontrar
-    // el objetivo de trocanteritis, que la lleva como patología y no como zona.
-    const matchZ = !zona || o.articulacion_id === zona || (o.etiquetas || []).includes(zona)
+    // También vale que la articulación esté entre las etiquetas libres: un objetivo puede
+    // llevarla ahí y sigue siendo de esa zona.
+    const matchZ = !zona
+      || (zona === SIN_ZONA ? !o.articulacion_id
+        : o.articulacion_id === zona || (o.etiquetas || []).includes(zona))
     return matchF && matchZ
   })
 
@@ -490,13 +501,21 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
         {/* Por zona, de la cabeza a los pies. Sale de la misma etiqueta con la que se
             filtran ejercicios y tests, así que el vocabulario es uno solo. */}
-        {zonas.length > 0 && (
+        {(zonas.length > 0 || sinZona > 0) && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
             <button className={`chip-sel ${!zona ? 'on' : ''}`} onClick={() => setZona('')}>Todas las zonas</button>
             {zonas.map(z => (
               <button key={z.id} className={`chip-sel ${zona === z.id ? 'on' : ''}`}
                 onClick={() => setZona(zona === z.id ? '' : z.id)}>{z.nombre}</button>
             ))}
+            {/* Al final y con su cuenta: es un cajón de repaso, no una zona más. */}
+            {sinZona > 0 && (
+              <button className={`chip-sel ${zona === SIN_ZONA ? 'on' : ''}`}
+                title="Objetivos a los que no les has puesto zona"
+                onClick={() => setZona(zona === SIN_ZONA ? '' : SIN_ZONA)}>
+                Sin zona · {sinZona}
+              </button>
+            )}
           </div>
         )}
 
