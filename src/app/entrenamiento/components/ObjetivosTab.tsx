@@ -624,9 +624,13 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               lo que baila queda debajo de la familia, que es donde se ha decidido.
             */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 4 }}>
-              {/* UNA IMAGEN PARA EL OBJETIVO ENTERO, no una por movimiento. Los específicos
-                  —dorsiflexión, inversión— comparten la del general: son el mismo gesto en
-                  direcciones distintas y cuatro ilustraciones casi iguales aclararían poco. */}
+              {/* UNA IMAGEN PARA EL OBJETIVO ENTERO, no una por específico: dorsiflexión e
+                  inversión son el mismo gesto en direcciones distintas y cuatro ilustraciones
+                  casi iguales aclararían poco.
+                  Debajo había una nota que lo decía —"la comparten todos sus movimientos"— y
+                  se quitó: no hay ningún sitio donde se pueda subir una foto por específico,
+                  así que respondía una pregunta que nadie se hace, y encima llamaba
+                  "movimientos" a lo que en la pantalla se llama "específicos". */}
               <div style={{ flexShrink: 0, width: 260 }}>
                 <div style={{ position: 'relative', width: 260, height: 260, background: 'var(--bm)', borderRadius: 10, border: '1px solid var(--bd)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {form.imagen_url
@@ -644,9 +648,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                   <input type="file" accept="image/*" style={{ display: 'none' }} disabled={guardando}
                     onChange={e => { const f = e.target.files?.[0]; if (f) setForm((p: any) => ({ ...p, imagen_file: f, imagen_url: URL.createObjectURL(f) })) }} />
                 </label>
-                <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 5, lineHeight: 1.4 }}>
-                  La comparten todos sus movimientos.
-                </div>
               </div>
 
               <div style={{ flex: 1, minWidth: 0, maxWidth: 320 }}>
