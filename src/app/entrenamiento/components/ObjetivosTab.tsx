@@ -587,9 +587,12 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                       )}
                     </div>
                     <div className="obj-card-f">
-                      <span style={{ flex: 1, fontSize: 12, color: n > 0 ? 'var(--gd)' : 'var(--grl)', whiteSpace: 'nowrap' }}
-                        title={n > 0 ? `${n} pacientes lo tienen abierto` : 'No lo tiene abierto nadie'}>
-                        {n > 0 ? `${n} abiertos` : '—'}
+                      {/* Sin nadie que lo tenga abierto no se escribe nada: un guión suelto
+                          no informa de más que el hueco vacío y ensucia el pie de veinte
+                          tarjetas. El `flex:1` se queda para empujar los botones a la derecha. */}
+                      <span style={{ flex: 1, fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}
+                        title={n > 0 ? `${n} pacientes lo tienen abierto` : undefined}>
+                        {n > 0 ? `${n} abiertos` : ''}
                       </span>
                       <button className="et-b" title="Editar" onClick={() => abrirEditar(o)}><Ic name="editar" size={13} /></button>
                       <button className="et-b et-b-r" title="Borrar" onClick={() => eliminar(o)}><Ic name="papelera" size={13} /></button>
