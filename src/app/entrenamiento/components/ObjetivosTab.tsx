@@ -616,7 +616,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             </div>
 
             {/*
-              CABECERA FIJA: imagen a la izquierda; nombre, zona y descripción a la derecha.
+              CABECERA FIJA: imagen a la izquierda; nombre y descripción a la derecha.
 
               Es lo que tiene TODO objetivo, se llame como se llame su familia. Antes la
               familia iba arriba del todo y al cambiarla se movía el formulario entero, así
@@ -661,33 +661,43 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                   )}
                 </div>
 
-                <div className="field"><label>Zona</label>
-                  <select className="input" value={form.articulacion_id} disabled={guardando}
-                    onChange={e => setForm((p: any) => ({ ...p, articulacion_id: e.target.value }))}>
-                    <option value="">— Sin zona concreta —</option>
-                    {articulaciones.map((a: any) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-                  </select>
-                </div>
-
+                {/* La descripción crece hasta el alto de la foto: al lado de una imagen de
+                    260 px, tres renglones dejaban medio hueco en blanco. */}
                 <div className="field" style={{ marginBottom: 0 }}><label>Descripción</label>
-                  <textarea className="input" value={form.descripcion} disabled={guardando} rows={3}
+                  <textarea className="input" value={form.descripcion} disabled={guardando}
+                    style={{ minHeight: 150, resize: 'vertical' }}
                     onChange={e => setForm((p: any) => ({ ...p, descripcion: e.target.value }))}
                     placeholder="Qué se busca y cuándo se da por conseguido" />
                 </div>
               </div>
             </div>
 
-            {/* LA FAMILIA, y de aquí abajo cambia todo. */}
-            <div className="field" style={{ borderTop: '1px solid var(--bd)', paddingTop: 12, marginTop: 12 }}>
-              <label>Familia</label>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {FAMILIAS.map(f => (
-                  <button key={f.id} className={`chip-sel ${form.tipo === f.id ? 'on' : ''}`} title={f.ayuda}
-                    onClick={() => setForm((p: any) => ({ ...p, tipo: f.id }))}>{f.nombre}</button>
-                ))}
+            {/* LA FAMILIA, y de aquí abajo cambia todo.
+                La ZONA va aquí al lado y no arriba: son las dos etiquetas que clasifican el
+                objetivo —de qué tipo es y de qué parte del cuerpo—, y son justo los dos
+                filtros de la lista. Arriba solo queda lo que lo identifica: foto, nombre y
+                descripción. */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap',
+              borderTop: '1px solid var(--bd)', paddingTop: 12, marginTop: 12 }}>
+              <div className="field" style={{ flex: 1, minWidth: 240, marginBottom: 0 }}>
+                <label>Familia</label>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {FAMILIAS.map(f => (
+                    <button key={f.id} className={`chip-sel ${form.tipo === f.id ? 'on' : ''}`} title={f.ayuda}
+                      onClick={() => setForm((p: any) => ({ ...p, tipo: f.id }))}>{f.nombre}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
+                  {FAMILIAS.find(f => f.id === form.tipo)?.ayuda}
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
-                {FAMILIAS.find(f => f.id === form.tipo)?.ayuda}
+
+              <div className="field" style={{ width: 240, marginBottom: 0 }}><label>Zona</label>
+                <select className="input" value={form.articulacion_id} disabled={guardando}
+                  onChange={e => setForm((p: any) => ({ ...p, articulacion_id: e.target.value }))}>
+                  <option value="">— Sin zona concreta —</option>
+                  {articulaciones.map((a: any) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                </select>
               </div>
             </div>
 
