@@ -18,6 +18,99 @@ const BUCKET = 'fotos'
 export const LATERALIDADES = ['Bilateral', 'Unilateral', 'Alterno', 'Unipodal', 'Bipodal', 'Contralateral']
 
 /**
+ * Cómo se mide un ejercicio. Decide qué campos pide la sesión y qué pregunta el taller,
+ * así que no se puede dejar en blanco ni adivinar: una plancha creada con el valor por
+ * defecto pediría kilos y nadie sabría por qué.
+ */
+export const TIPOS_MEDIDA = [
+  { id: 'peso_reps', nombre: 'Peso y reps', ayuda: 'Series de repeticiones, con carga.' },
+  { id: 'tiempo', nombre: 'Tiempo', ayuda: 'Se aguanta o se sostiene. Segundos, sin carga.' },
+  { id: 'peso_tiempo', nombre: 'Peso y tiempo', ayuda: 'Segundos con carga: isométricos cargados, paseos.' },
+] as const
+
+export const nombreMedida = (id?: string | null) =>
+  TIPOS_MEDIDA.find(m => m.id === id)?.nombre || TIPOS_MEDIDA[0].nombre
+
+// ---------------------------------------------------------------------------
+// EJERCICIOS POR COMPLETAR
+//
+// Montando una sesión hace falta un ejercicio que no está en la biblioteca y no hay
+// tiempo de rellenarlo entero. Se crea con lo mínimo y queda en una cola.
+//
+// SE CALCULA, NO SE GUARDA. No hay columna "pendiente" que alguien pueda dejar
+// marcada en un ejercicio ya completo, ni al revés. La cola son los huecos que el
+// ejercicio tiene AHORA MISMO, así que rellenar el último lo saca solo.
+//
+// Y no hay botón de "déjalo estar": completo significa completo. Si algún día un
+// ejercicio no puede tener foto de verdad, se hablará entonces; hoy un silenciador
+// solo serviría para que la cola no bajara nunca y acabara ignorándose.
+// ---------------------------------------------------------------------------
+
+export type ProblemaEjercicio = {
+  campo: 'etiquetas' | 'imagen' | 'descripcion' | 'ejecucion'
+  texto: string
+  /** Rompe algo de verdad, no es solo un hueco. */
+  grave?: boolean
+}
+
+/**
+ * Qué le falta a un ejercicio para estar completo. Único sitio que lo decide.
+ */
+export function problemasDeEjercicio(ej: any): ProblemaEjercicio[] {
+  const p: ProblemaEjercicio[] = []
+  if (!ej) return p
+
+  // El grave, y encima silencioso: sin etiquetas `motivoDe` no puede avisar de
+  // contraindicaciones, `similaresA` no encuentra nada y no sale en ningún filtro. El
+  // ejercicio funciona, pero la app deja de protegerte con él.
+  if ((ej.etiquetas || []).length === 0)
+    p.push({ campo: 'etiquetas', texto: 'Sin etiquetas: no avisa de contraindicaciones ni sale en los filtros', grave: true })
+
+  if (!ej.imagen_url) p.push({ campo: 'imagen', texto: 'Sin imagen' })
+  if (!(ej.descripcion || '').trim()) p.push({ campo: 'descripcion', texto: 'Sin descripción' })
+  if ((ej.items_ejecucion || []).length === 0)
+    p.push({ campo: 'ejecucion', texto: 'Sin ítems de ejecución correcta' })
+
+  return p
+}
+
+export const estaCompleto = (ej: any) => problemasDeEjercicio(ej).length === 0
+
+/** Los que tienen algún hueco. Es la cola de "por completar". */
+export const ejerciciosPendientes = (lista: any[] = []) => lista.filter(e => !estaCompleto(e))
+
+/**
+ * Crea un ejercicio con lo mínimo: nombre y cómo se mide.
+ *
+ * ES UNA FILA DE VERDAD en `ejercicios`, no un nombre suelto dentro del JSON de la
+ * sesión. El `ejercicio_id` es lo que engancha el histórico de ejecución, la progresión
+ * de cargas, las contraindicaciones y los criterios de ejecución; un nombre tecleado
+ * funcionaría hoy y rompería todo eso sin decir nada.
+ *
+ * Se comprueba el nombre repetido porque crear a las prisas es justo donde nacen los
+ * duplicados, y dos ejercicios iguales parten en dos la progresión del paciente.
+ */
+export async function crearEjercicioRapido(nombre: string, tipoMedida: string) {
+  const limpio = (nombre || '').trim()
+  if (!limpio) return { ok: false as const, error: 'Hace falta el nombre' }
+  if (!TIPOS_MEDIDA.some(m => m.id === tipoMedida))
+    return { ok: false as const, error: 'Hay que decir cómo se mide' }
+
+  const { data: ya } = await supabase.from('ejercicios')
+    .select('id,nombre').ilike('nombre', limpio).limit(1)
+  if (ya && ya[0]) return { ok: false as const, error: `Ya existe "${ya[0].nombre}" en la biblioteca` }
+
+  const { data, error } = await supabase.from('ejercicios').insert({
+    nombre: limpio, descripcion: '', video_url: '', imagen_url: '',
+    etiquetas: [], tipo_medida: tipoMedida,
+    variantes: [], items_ejecucion: [], feedbacks: [],
+  }).select().single()
+
+  if (error || !data) return { ok: false as const, error: error?.message || 'No se pudo crear el ejercicio' }
+  return { ok: true as const, ejercicio: data }
+}
+
+/**
  * Categorías que dicen si dos ejercicios se parecen.
  *
  * El material NO cuenta: un press de banca y un remo con barra comparten "Barra" y con

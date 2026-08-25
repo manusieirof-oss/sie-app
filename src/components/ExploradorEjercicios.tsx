@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
+import { TIPOS_MEDIDA, problemasDeEjercicio } from '@/lib/ejercicios'
 
 // Explorador del catálogo de ejercicios: buscador, filtro por etiquetas y rejilla de
 // tarjetas con foto. Es LA MISMA vista que el Pilar Entrenamiento → Biblioteca; lo que
@@ -14,6 +15,14 @@ import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorR
 // Lo usan los dos: la Biblioteca y el editor de sesión. Antes eran dos copias de la
 // misma rejilla y ya habían empezado a divergir en qué campos buscaban.
 
+/** Cómo se lee cada hueco en la pastilla de la tarjeta, cuando solo falta uno. */
+const FALTA: Record<string, string> = {
+  etiquetas: 'etiquetar',
+  imagen: 'la foto',
+  descripcion: 'la descripción',
+  ejecucion: 'la ejecución',
+}
+
 const MEDIDA: Record<string, string> = {
   peso_reps: 'Peso y reps',
   tiempo: 'Tiempo',
@@ -21,7 +30,7 @@ const MEDIDA: Record<string, string> = {
 }
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear,
 }: {
   ejercicios: any[]
   etiquetas?: any[]
@@ -33,11 +42,19 @@ export default function ExploradorEjercicios({
   sugeridos?: { titulo: string, items: any[] }
   /** Botones de la barra superior, a la derecha del contador. */
   acciones?: React.ReactNode
+  /**
+   * Crear un ejercicio que no está en el catálogo, con lo mínimo. Si no se pasa, la
+   * tira de crear no aparece: hay pantallas donde esto no tiene sentido.
+   */
+  onCrear?: (nombre: string, tipoMedida: string) => Promise<void> | void
 }) {
   const [buscar, setBuscar] = useState('')
   const [filtroEt, setFiltroEt] = useState<string[]>([])
   /** Categorías con las subetiquetas a la vista. Se recuerda por categoría, no global. */
   const [desplegadas, setDesplegadas] = useState<string[]>([])
+  /** Ver solo los que tienen huecos. Ver `problemasDeEjercicio` en lib/ejercicios. */
+  const [soloPendientes, setSoloPendientes] = useState(false)
+  const [creando, setCreando] = useState(false)
 
   // Solo las etiquetas que algún ejercicio tiene de verdad —o que son madre de una
   // usada— y agrupadas por categoría. Ofrecer el árbol entero llenaría la barra de
@@ -107,10 +124,23 @@ export default function ExploradorEjercicios({
       const rama = conDescendientes(etiquetas, id)
       return (e.etiquetas || []).some((x: string) => rama.includes(x))
     })
-    return coincide && etiquetado
+    return coincide && etiquetado && (!soloPendientes || problemasDeEjercicio(e).length > 0)
   })
 
-  const hayFiltro = !!buscar || filtroEt.length > 0
+  const nPendientes = ejercicios.filter(e => problemasDeEjercicio(e).length > 0).length
+
+  /**
+   * Ofrecer crear lo buscado solo cuando NO existe ya con ese nombre exacto.
+   *
+   * Se ofrece aunque haya resultados parecidos: buscando "press Pallof de rodillas"
+   * aparece "press Pallof", que no es el mismo ejercicio. Lo que no se puede es ofrecer
+   * crear algo que ya está, porque duplicarlo parte en dos la progresión del paciente.
+   */
+  const aCrear = buscar.trim()
+  const yaExiste = ejercicios.some(e => (e.nombre || '').trim().toLowerCase() === aCrear.toLowerCase())
+  const ofreceCrear = !!onCrear && aCrear.length >= 3 && !yaExiste
+
+  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes
   const marcado = (e: any) => !!seleccion?.includes(e.id)
 
   function Tarjeta({ e }: { e: any }) {
@@ -139,6 +169,21 @@ export default function ExploradorEjercicios({
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {MEDIDA[e.tipo_medida] || MEDIDA.peso_reps}
           </div>
+          {/* Lo que le falta se ve AQUÍ y no solo en la lista de pendientes: es al
+              montar la sesión cuando te topas con el ejercicio a medias, y es el
+              momento en el que puedes decidir completarlo o usar otro. */}
+          {(() => {
+            const faltan = problemasDeEjercicio(e)
+            if (faltan.length === 0) return null
+            return (
+              <div style={{ marginTop: 5 }}>
+                <span className="badge badge-pen" title={faltan.map(f => f.texto).join('\n')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Ic name="alerta" size={9} /> Falta{faltan.length > 1 ? `n ${faltan.length} cosas` : ` ${FALTA[faltan[0].campo]}`}
+                </span>
+              </div>
+            )
+          })()}
           {grupos.length > 0 && (
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
               {grupos.slice(0, 3).map(g => {
@@ -170,8 +215,39 @@ export default function ExploradorEjercicios({
         <span style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap' }}>
           {filtrados.length} {filtrados.length === 1 ? 'ejercicio' : 'ejercicios'}
         </span>
+        {nPendientes > 0 && (
+          <button type="button" className={`chip-sel ${soloPendientes ? 'on' : ''}`}
+            onClick={() => setSoloPendientes(v => !v)}
+            title="Los que se crearon a medias o les falta algo por rellenar">
+            Por completar · {nPendientes}
+          </button>
+        )}
         {acciones}
       </div>
+
+      {/* CREAR LO QUE NO ESTÁ. Aparece donde surge la necesidad —buscando algo que no
+          existe— y pide lo mínimo: el nombre ya está escrito, y cómo se mide, que no se
+          puede adivinar porque decide si la sesión pide kilos o segundos. Lo demás se
+          rellena luego desde "Por completar". */}
+      {ofreceCrear && (
+        <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10,
+          padding: '8px 11px', borderRadius: 'var(--r)', background: 'var(--bl)', border: '1px dashed var(--gm)' }}>
+          <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+            Crear &laquo;<b style={{ color: 'var(--n)' }}>{aCrear}</b>&raquo; y a&ntilde;adirlo. &iquest;C&oacute;mo se mide?
+          </span>
+          {TIPOS_MEDIDA.map(m => (
+            <button key={m.id} type="button" className="chip-sel" title={m.ayuda} disabled={creando}
+              onClick={async () => {
+                setCreando(true)
+                try { await onCrear!(aCrear, m.id) } finally { setCreando(false) }
+                setBuscar('')
+              }}>
+              {m.nombre}
+            </button>
+          ))}
+          {creando && <span style={{ fontSize: 12, color: 'var(--gr)' }}>Creando…</span>}
+        </div>
+      )}
 
       {grupos.length > 0 && (
         <div className="filtros-et">
@@ -232,7 +308,9 @@ export default function ExploradorEjercicios({
       )}
 
       {filtrados.length === 0
-        ? <div className="muted">{ejercicios.length === 0 ? 'No hay ejercicios en la biblioteca.' : 'Ningún ejercicio coincide.'}</div>
+        ? <div className="muted">{ejercicios.length === 0 ? 'No hay ejercicios en la biblioteca.'
+            : soloPendientes && !buscar && filtroEt.length === 0 ? 'No queda ningún ejercicio por completar.'
+            : 'Ningún ejercicio coincide.'}</div>
         : <div className="rej-ej">{filtrados.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
     </div>
   )

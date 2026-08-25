@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
-import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, LATERALIDADES } from '@/lib/ejercicios'
+import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido } from '@/lib/ejercicios'
 
 
 function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
@@ -267,6 +267,18 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
     setEjSeleccionado(r.ejercicio); setVarianteActiva(-1); setEditando(false)
   }
 
+  /**
+   * Crear desde el buscador, con lo mínimo. Aquí SÍ se abre la ficha después: estás en
+   * la biblioteca, o sea que has venido a trabajar el catálogo. En el editor de sesión
+   * no se abre, porque ahí estás montando la sesión y no toca desviarte.
+   */
+  async function crearRapido(nombre: string, tipoMedida: string) {
+    const r = await crearEjercicioRapido(nombre, tipoMedida)
+    if (!r.ok) { alert('No se pudo crear: ' + r.error); return }
+    cargar()
+    setEjSeleccionado(r.ejercicio)
+  }
+
   async function crearEjercicio() {
     if (guardando) return
     if (!nuevoEj.nombre) { alert('El nombre es obligatorio'); return }
@@ -296,6 +308,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
         etiquetas={etiquetas}
         onAbrir={(e:any)=>setEjSeleccionado(e)}
         acciones={<button className="btn btn-p btn-sm" onClick={()=>setModalEj(true)}>+ Nuevo ejercicio</button>}
+        onCrear={crearRapido}
       />
 
       {/* MODAL EJERCICIO (vista / edición) */}
@@ -341,6 +354,28 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
               ):(
                 /* ===== MODO VISTA ===== */
                 <div style={{padding:16}}>
+                  {/* Lo que le falta, arriba del todo y con el botón de arreglarlo al
+                      lado. Un ejercicio a medias solo se completa si al abrirlo te dice
+                      qué falta; buscarlo campo por campo no lo hace nadie. */}
+                  {(() => {
+                    const faltan = problemasDeEjercicio(ejSeleccionado)
+                    if (faltan.length === 0) return null
+                    return (
+                      <div style={{marginBottom:14,padding:'9px 12px',borderRadius:'var(--r)',background:'var(--ambl)',border:'1px solid var(--amb)'}}>
+                        <div style={{fontSize:12,color:'#8A6410',fontWeight:600,display:'flex',alignItems:'center',gap:5,marginBottom:5}}>
+                          <Ic name="alerta" size={12}/> Este ejercicio est&aacute; por completar
+                        </div>
+                        {faltan.map((f:any,i:number)=>(
+                          <div key={i} style={{fontSize:12,color:'#8A6410',lineHeight:1.6}}>
+                            &middot; {f.texto}{f.grave && <b> — esto sí rompe cosas</b>}
+                          </div>
+                        ))}
+                        <button className="btn btn-s btn-sm" onClick={abrirEdicion} style={{marginTop:7}}>
+                          <Ic name="editar" size={12}/> Completarlo
+                        </button>
+                      </div>
+                    )
+                  })()}
                   <div style={{display:'grid',gridTemplateColumns:'1.1fr 1fr',gap:18}}>
                     <div>
                       {(() => {

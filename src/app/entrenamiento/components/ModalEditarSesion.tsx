@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPorCapacidad, textoDescanso } from '@/lib/capacidades'
 import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
-import { similaresA } from '@/lib/ejercicios'
+import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 
 /**
@@ -94,6 +94,14 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const [parteActiva, setParteActiva] = useState(0)
   const [abrirBib, setAbrirBib] = useState(false)
   const [selBib, setSelBib] = useState<string[]>([])
+  /**
+   * Ejercicios creados a las prisas SIN salir de aquí. Ya existen en la biblioteca
+   * —son filas de verdad— pero el catálogo llegó por props y no se ha vuelto a leer,
+   * así que se añaden a mano para que se vean en la rejilla al momento.
+   */
+  const [nuevosEj, setNuevosEj] = useState<any[]>([])
+  const [ultimoCreado, setUltimoCreado] = useState('')
+  const catalogo = [...(ejercicios || []), ...nuevosEj.filter(n => !(ejercicios || []).some((e: any) => e.id === n.id))]
   const [guardando, setGuardando] = useState(false)
   const [objetivosDisp, setObjetivosDisp] = useState<any[]>([])
   const [objetivosSel, setObjetivosSel] = useState<string[]>([])
@@ -138,7 +146,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    */
   function medida(ej: any): string {
     if (ej?.tipo_medida) return ej.tipo_medida
-    const bib = ejercicios.find((e:any)=>e.id===ej?.ejercicio_id)
+    const bib = catalogo.find((e:any)=>e.id===ej?.ejercicio_id)
     return bib?.tipo_medida || 'peso_tiempo'
   }
 
@@ -152,7 +160,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    * dejar en blanco un desplegable que sí tenía opciones.
    */
   function variantesDe(ej: any): any[] {
-    const bib = ejercicios.find((e:any)=>e.id===ej?.ejercicio_id)
+    const bib = catalogo.find((e:any)=>e.id===ej?.ejercicio_id)
     const lista = Array.isArray(bib?.variantes) ? bib.variantes
       : Array.isArray(ej?.variantes_disp) ? ej.variantes_disp
       : []
@@ -164,11 +172,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const ultimo = (parte?.ejercicios||[]).slice(-1)[0]
   const similares = (() => {
     if (!ultimo?.ejercicio_id) return []
-    const base = ejercicios.find((e:any)=>e.id===ultimo.ejercicio_id)
+    const base = catalogo.find((e:any)=>e.id===ultimo.ejercicio_id)
     if (!base) return []
     const yaPuestos = new Set((parte?.ejercicios||[]).map((x:any)=>x.ejercicio_id))
     // Por músculo y patrón, no por material: ver lib/ejercicios.ts.
-    return similaresA(ejercicios, base, 6, etiquetas).filter((e:any)=>!yaPuestos.has(e.id))
+    return similaresA(catalogo, base, 6, etiquetas).filter((e:any)=>!yaPuestos.has(e.id))
   })()
 
   function editarParte(cambios: any) {
@@ -218,6 +226,24 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
       return { ...prev, partes }
     })
+  }
+
+  /**
+   * Crear aquí mismo un ejercicio que no está en la biblioteca, y meterlo en la parte.
+   *
+   * Se añade DIRECTAMENTE en vez de dejarlo marcado para el botón "Añadir": ese botón
+   * busca por id en el catálogo que llegó por props, donde el recién creado todavía no
+   * está, así que se lo habría saltado sin decir nada.
+   *
+   * Lo que queda por rellenar —etiquetas, foto, descripción, ejecución— se ve luego en
+   * Biblioteca → "Por completar". Aquí no se pregunta: estás montando la sesión.
+   */
+  async function crearYAnadir(nombre: string, tipoMedida: string) {
+    const r = await crearEjercicioRapido(nombre, tipoMedida)
+    if (!r.ok) { alert('No se pudo crear: ' + r.error); return }
+    setNuevosEj(p => [...p, r.ejercicio])
+    addEjercicio(r.ejercicio)
+    setUltimoCreado(r.ejercicio.nombre)
   }
 
   function quitarEjercicio(parteIdx: number, ejIdx: number) {
@@ -513,7 +539,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             baja, rango parcial— y un bloqueo duro se esquiva fuera de la
                             app, que es peor porque entonces no queda registrado. */}
                         {(() => {
-                          const bib = ejercicios.find((e:any)=>e.id===ej.ejercicio_id)
+                          const bib = catalogo.find((e:any)=>e.id===ej.ejercicio_id)
                           const m = bib ? motivoDe(bib, contra, etiquetas) : null
                           if (!m) return null
                           return (
@@ -694,7 +720,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   onClick={()=>{
                     // De golpe y en el orden en que se marcaron, no el del catálogo.
                     selBib.forEach(id=>{
-                      const e = ejercicios.find((x:any)=>x.id===id)
+                      const e = catalogo.find((x:any)=>x.id===id)
                       if (e) addEjercicio(e)
                     })
                     setSelBib([]); setAbrirBib(false)
@@ -705,12 +731,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   onClick={()=>{setSelBib([]);setAbrirBib(false)}}><Ic name="cerrar" size={16}/></button>
               </div>
               <div className="capa-bib-c">
+                {/* El creado se añade solo a la parte, y la capa sigue abierta para
+                    seguir eligiendo. Sin este aviso parecería que no ha pasado nada:
+                    la tabla de la sesión está detrás y no se ve. */}
+                {ultimoCreado && (
+                  <div style={{marginBottom:10,padding:'7px 11px',borderRadius:'var(--r)',background:'var(--gl)',color:'var(--gd)',fontSize:12,display:'flex',alignItems:'center',gap:6}}>
+                    <Ic name="ok" size={12}/>
+                    &laquo;{ultimoCreado}&raquo; creado y a&ntilde;adido a {parte?.nombre || 'la parte'}.
+                    Te falta rellenarlo en Biblioteca &rarr; Por completar.
+                  </div>
+                )}
                 <ExploradorEjercicios
-                  ejercicios={ejercicios}
+                  ejercicios={catalogo}
                   etiquetas={etiquetas}
                   seleccion={selBib}
                   onAlternar={(e:any)=>setSelBib(prev=>prev.includes(e.id)?prev.filter(x=>x!==e.id):[...prev,e.id])}
                   sugeridos={ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
+                  onCrear={crearYAnadir}
                 />
               </div>
             </div>
