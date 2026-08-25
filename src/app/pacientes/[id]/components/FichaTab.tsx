@@ -126,7 +126,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,tipo,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
     })
     // Las metas y las mediciones con las que se evalúan. Van juntas porque `estadoDeMeta`
@@ -142,7 +142,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
     supabase.from('sesiones').select('id,nombre,sesiones_objetivos(objetivo_id)').eq('paciente_id', pac.id)
       .then(({data}) => setSesionesPac(data||[]))
-    supabase.from('objetivos').select('id,nombre,descripcion,tipo,movimientos,fases,articulacion_id,etiquetas,imagen_url')
+    supabase.from('objetivos').select('id,nombre,descripcion,movimientos,fases,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))
