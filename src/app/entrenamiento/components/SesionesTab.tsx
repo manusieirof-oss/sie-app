@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
+import ModalProgramarGrupo from './ModalProgramarGrupo'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
@@ -49,6 +50,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [sesionEditando, setSesionEditando] = useState<any>(null)
   /** Plantilla que se está asignando: abre el selector de paciente. */
   const [asignando, setAsignando] = useState<any>(null)
+  /** Plantilla que se está programando a un grupo. Ver ModalProgramarGrupo. */
+  const [grupo, setGrupo] = useState<any>(null)
   /**
    * Encargo del taller: se ha llegado aquí a poner la sesión de una cita concreta. En el
    * uso normal es null y la pantalla se comporta igual que siempre.
@@ -289,7 +292,13 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                       Traer para {encargo.etiqueta || 'el paciente'}
                     </button>)
                 : esPlantilla(sesionVista)
-                ? <button className="btn btn-p btn-sm" onClick={()=>setAsignando(sesionVista)} disabled={ocupado}><Ic name="usuario" size={12}/> Asignar a paciente</button>
+                ? <>
+                    <button className="btn btn-p btn-sm" onClick={()=>setAsignando(sesionVista)} disabled={ocupado}><Ic name="usuario" size={12}/> Asignar a paciente</button>
+                    {/* Programar a un grupo es lo mismo pero con la regla puesta en el
+                        calendario en vez de en una sola cita. Va al lado y no dentro:
+                        son dos decisiones distintas, no un modo de la misma. */}
+                    <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setGrupo(s)}} disabled={ocupado}><Ic name="pacientes" size={12}/> Programar a un grupo</button>
+                  </>
                 : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}
               <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>
               <button className="btn btn-d btn-sm" onClick={()=>borrar(sesionVista)} disabled={ocupado} title="Eliminar la sesión"><Ic name="papelera" size={12}/></button>
@@ -397,6 +406,15 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
             </div>
           </div>
         </div>
+      )}
+
+      {grupo&&(
+        <ModalProgramarGrupo
+          plantilla={grupo}
+          pacientes={pacientes||[]}
+          onCerrar={()=>setGrupo(null)}
+          onHecho={cargar}
+        />
       )}
 
       {sesionEditando&&(

@@ -137,6 +137,15 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
    * Ver src/lib/linaje.ts y sql/sesiones_linaje.sql.
    */
   evolucionDe?: string
+  /**
+   * Plantilla de la que sale esta copia. Solo lo pone el programador de grupos
+   * (`lib/programarGrupo.ts`): con él se reconoce la copia que un paciente ya tiene y
+   * no se le crea una segunda al volver a pasar el plan.
+   *
+   * NO es lo mismo que `evolucionDe`. Aquel dice de qué VERSIÓN sale esta —el linaje de
+   * tandas—; este dice de qué MOLDE se sacó. Una sesión puede tener los dos.
+   */
+  plantillaId?: string
   /** No registrar evento propio: quien llama va a poner uno con el total. */
   sinEvento?: boolean
 }) {
@@ -146,6 +155,7 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
     nombre: (sesion.nombre || 'Sesión') + sufijo,
     descripcion: sesion.descripcion,
     evolucion_de: opciones?.evolucionDe || null,
+    plantilla_id: opciones?.plantillaId || null,
     // COPIA, no referencia. `partes` es JSON y se guarda entero en la fila nueva, así
     // que a partir de aquí las dos sesiones son independientes: tocar la del paciente
     // no cambia la plantilla, y tocar la plantilla no cambia lo ya prescrito a nadie.
