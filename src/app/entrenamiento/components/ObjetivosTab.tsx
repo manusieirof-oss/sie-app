@@ -9,6 +9,7 @@ import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
+import { especificosDeObjetivo } from '@/lib/objetivos'
 import { bandasDe } from '@/lib/tests'
 
 /**
@@ -336,12 +337,26 @@ function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
   const [activa, setActiva] = useState(0)
   const [anadiendo, setAnadiendo] = useState(false)
 
-  const norm = (x: string) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-  const nombreDe = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || 'etiqueta'
+  const [texto, setTexto] = useState('')
 
-  const puestos = (ids || []).filter(id => etiquetas.some((e: any) => e.id === id))
+  const norm = (x: string) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+  // Etiquetas del árbol y textos escritos a mano, en la misma lista. Ver `especificosDeObjetivo`.
+  const puestosObj = especificosDeObjetivo(etiquetas, ids)
+  const puestos = puestosObj.map(e => e.valor)
+  const nombreDe = (v: string) => puestosObj.find(e => e.valor === v)?.nombre || v
+  const esEtiqueta = (v: string) => !!puestosObj.find(e => e.valor === v)?.etiquetaId
+
   const i = Math.min(activa, Math.max(0, puestos.length - 1))
   const actual = puestos[i]
+
+  const anadirTexto = () => {
+    const t = texto.trim()
+    if (!t) return
+    if (puestos.some(v => norm(nombreDe(v)) === norm(t))) { setTexto(''); return }
+    onChange([...puestos, t])
+    setTexto(''); setAnadiendo(false); setActiva(puestos.length)
+  }
 
   /** Los tests que tienen un ítem que se llama como esta parte. Deducido, no guardado. */
   const miden = (id: string) => {
@@ -389,7 +404,29 @@ function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
 
       <div style={{ border: '1px solid var(--bd)', borderTop: 'none', borderRadius: '0 0 7px 7px', padding: 12, background: 'var(--w)' }}>
         {anadiendo ? (
-          <SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={puestos} onChange={onChange} />
+          <>
+            {/* A MANO, y lo primero: no todo lo que hace falta para lograr un objetivo está
+                en el árbol de etiquetas, ni tiene por qué estarlo. */}
+            <div style={{ marginBottom: 10 }}>
+              <div className="et-mini" style={{ marginBottom: 5 }}>Escribir uno</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input className="input" style={{ flex: 1, fontSize: 12 }} value={texto}
+                  placeholder="ej. Sube y baja del coche sin ayuda"
+                  onChange={e => setTexto(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); anadirTexto() } }} />
+                <button type="button" className="btn btn-p btn-sm" disabled={!texto.trim()} onClick={anadirTexto}>
+                  <Ic name="mas" size={11} /> Añadir
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
+                Uno escrito a mano se cierra marcándolo: ningún test puede medirlo.
+              </div>
+            </div>
+            <div className="et-mini" style={{ marginBottom: 5 }}>O elegir una etiqueta</div>
+            <SelectorEtiquetasCompacto etiquetas={etiquetas}
+              seleccionadas={puestos.filter(esEtiqueta)}
+              onChange={(sel: string[]) => onChange([...puestos.filter(v => !esEtiqueta(v)), ...sel])} />
+          </>
         ) : puestos.length === 0 ? (
           <div style={{ fontSize: 12, color: 'var(--grl)' }}>
             Sin específicos. Pulsa <b>+</b> para añadir en qué se concreta este objetivo.
@@ -406,7 +443,12 @@ function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
             </div>
 
             <div className="et-mini" style={{ marginBottom: 5 }}>Qué test la mide</div>
-            {(() => {
+            {!esEtiqueta(actual) ? (
+              <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5 }}>
+                Escrito a mano, así que no lo mide ningún test: esta parte se cierra
+                marcándola en la ficha del paciente.
+              </div>
+            ) : (() => {
               const m = miden(actual)
               if (m.length === 0) {
                 return (
@@ -672,7 +714,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(232px,1fr))', gap: 12 }}>
             {filtrados
               .map((o: any) => {
-                const movs = (o.movimientos || []).map((id: string) => nombreEt(id)).filter(Boolean)
+                const movs = especificosDeObjetivo(etiquetas, o.movimientos).map(e => e.nombre)
                 const n = enUso[o.id] || 0
                 return (
                   <div key={o.id} className="obj-card">
@@ -834,12 +876,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 el local" para montar el negocio. Si no aparecen en la ficha, nada garantiza
                 que no se salte ninguna. */}
             <div className="field ancho">
-              <label>Específicos <span className="subt">· en qué se concreta este objetivo</span></label>
-              <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 7 }}>
-                Cada uno se convierte en una parte del objetivo al asignárselo a un paciente,
-                y hacen falta todas para darlo por logrado. Cada parte se cierra con un check
-                o, si le pones un número medido por un test, con ese número.
-              </div>
+              <label>Objetivo específico</label>
               <EspecificosEnPestanas
                 ids={form.movimientos || []}
                 etiquetas={etiquetas}

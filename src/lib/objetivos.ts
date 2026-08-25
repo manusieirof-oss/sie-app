@@ -48,6 +48,38 @@ const hoy = () => new Date().toISOString().split('T')[0]
  * al marcarlos. Las dos cosas: hacen falta las dos, porque que el test dé negativo no
  * significa que lo que te propusiste con ese paciente esté hecho.
  */
+/**
+ * Un específico puede ser una ETIQUETA del árbol o un TEXTO escrito a mano.
+ *
+ * Las etiquetas son lo normal —rotación interna, peroneos— y son las que un test puede
+ * medir, porque el ítem del test se llama igual. Pero no todo lo que hace falta para
+ * lograr un objetivo está en el árbol: "que me alquilen el local" no es una etiqueta de
+ * anatomía y no tiene por qué serlo.
+ *
+ * Los dos viven en la misma lista, `objetivos.movimientos`. Se distinguen mirando si hay
+ * una etiqueta con ese id: si la hay, es etiqueta; si no, el propio valor ES el texto.
+ * Así no hace falta ni una columna nueva ni una segunda lista que pueda desordenarse
+ * respecto a la primera.
+ */
+export const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export type Especifico = { valor: string, nombre: string, etiquetaId: string | null }
+
+export function especificosDeObjetivo(etiquetas: any[], movimientos: any): Especifico[] {
+  return (Array.isArray(movimientos) ? movimientos : [])
+    .map((x: any) => String(x || '').trim())
+    .filter(Boolean)
+    .map((valor: string) => {
+      const et = (etiquetas || []).find((e: any) => e.id === valor)
+      return et
+        ? { valor, nombre: et.nombre, etiquetaId: et.id }
+        // Un id con pinta de etiqueta que ya no existe NO se enseña como texto: sería
+        // pintar un uuid en pantalla. Se descarta al filtrar por nombre vacío.
+        : { valor, nombre: ES_UUID.test(valor) ? '' : valor, etiquetaId: null }
+    })
+    .filter(e => e.nombre !== '')
+}
+
 export type MetaParte = {
   cumplida?: boolean | null
   tipo?: string | null
@@ -195,19 +227,29 @@ export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: stri
    * casilla deja de contar y deja de pintarse. La parte es una; lo que cambia es cómo se
    * cierra.
    */
-  const todos = Array.isArray(o.movimientos) ? o.movimientos : []
+  const todos = (Array.isArray(o.movimientos) ? o.movimientos : [])
+    .map((x: any) => String(x || '').trim()).filter(Boolean)
   // Si el test dice cuál, ese y solo ese —siempre que el objetivo lo tenga: un `mov` que
   // no está entre sus específicos no se inventa como parte.
   const especificos = opciones?.soloMovimiento
     ? todos.filter((id: string) => id === opciones.soloMovimiento)
     : todos
-  if (especificos.length > 0) {
-    const { data: ets } = await supabase.from('etiquetas').select('id,nombre').in('id', especificos)
-    for (const id of especificos) {
+
+  // Los que son ETIQUETA se resuelven contra el árbol; los escritos A MANO son ya su
+  // propio texto y entran sin `movimiento_id`, que es una clave ajena y no admite texto.
+  // Eso también significa que una parte escrita a mano no la puede medir un test: se
+  // cierra con su casilla, que es justo lo que se pide al escribirla.
+  const conId = especificos.filter(x => ES_UUID.test(x))
+  const aMano = especificos.filter(x => !ES_UUID.test(x))
+
+  if (conId.length > 0) {
+    const { data: ets } = await supabase.from('etiquetas').select('id,nombre').in('id', conId)
+    for (const id of conId) {
       const nombre = (ets || []).find((e: any) => e.id === id)?.nombre
       if (nombre) partes.push({ descripcion: nombre, movimiento_id: id, fase: null })
     }
   }
+  for (const texto of aMano) partes.push({ descripcion: texto, movimiento_id: null, fase: null })
 
   // Las condiciones de fase que no salen de un test: se marcan a mano y pertenecen a SU
   // fase, que es lo que permite que una fase se cierre con mediciones y con checks a la vez.
