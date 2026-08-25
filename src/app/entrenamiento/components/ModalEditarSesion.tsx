@@ -9,6 +9,13 @@ import { similaresA } from '@/lib/ejercicios'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 
 /**
+ * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
+ * texto y no un valor aparte porque `ChipMenu` trabaja con nombres; al elegirla se
+ * guarda cadena vacía, que es lo que el registro entiende por "sin variante".
+ */
+const SIN_VARIANTE = 'Sin variante'
+
+/**
  * Valor que se lee como etiqueta y se cambia al pulsarlo. Un `select` gris pesa lo
  * mismo esté relleno o vacío; aquí el dato se ve de un vistazo y el caret dice que
  * se puede tocar. Es el patrón `.chip-ed` que ya usa la ficha del paciente.
@@ -133,6 +140,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     if (ej?.tipo_medida) return ej.tipo_medida
     const bib = ejercicios.find((e:any)=>e.id===ej?.ejercicio_id)
     return bib?.tipo_medida || 'peso_tiempo'
+  }
+
+  /**
+   * Variantes que se pueden elegir para este ejercicio.
+   *
+   * Manda la BIBLIOTECA, no la copia que la sesión guardó en `variantes_disp` el día
+   * que se añadió el ejercicio: si luego se añade una variante nueva al ejercicio,
+   * aparece también en las sesiones ya montadas. La copia solo se usa como respaldo
+   * cuando el ejercicio ya no está en la biblioteca —borrado o renombrado—, para no
+   * dejar en blanco un desplegable que sí tenía opciones.
+   */
+  function variantesDe(ej: any): any[] {
+    const bib = ejercicios.find((e:any)=>e.id===ej?.ejercicio_id)
+    const lista = Array.isArray(bib?.variantes) ? bib.variantes
+      : Array.isArray(ej?.variantes_disp) ? ej.variantes_disp
+      : []
+    return lista.filter((v:any)=>(v?.nombre||'').trim()!=='')
   }
 
   // Ejercicios que comparten etiqueta con el último añadido a esta parte. Es la
@@ -501,17 +525,33 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             </div>
                           )
                         })()}
-                        {/* La ejecución la marca el EJERCICIO, no la sesión: se enseña
-                            pero no se toca. Si hace falta otra, se elige otro ejercicio
-                            de la biblioteca. Por eso es `.badge` y no `.chip-ed`, que en
-                            este sistema significa "esto se puede cambiar". */}
-                        {ej.variante && (
-                          <div className="ej-sub">
-                            <span className="badge badge-g" title="Lo define el ejercicio en la biblioteca">
-                              {ej.variante}
-                            </span>
-                          </div>
-                        )}
+                        {/* La variante SÍ la decide la sesión. El ejercicio a secas es su
+                            forma estándar y la biblioteca solo dice qué variantes existen;
+                            cuál toca hoy —unilateral, alterno, unipodal— es prescripción, y
+                            se elige aquí. Por eso es `.chip-ed` y no `.badge`, que en este
+                            sistema significa "esto no se toca".
+
+                            Si el ejercicio no tiene ninguna variante en la biblioteca no se
+                            pinta nada: un desplegable con una sola opción vacía no informa,
+                            solo ocupa. La única excepción es que la sesión ya tenga escrita
+                            una variante que la biblioteca ya no ofrece —se quitó después de
+                            montar la sesión—: entonces se enseña igual, y se puede quitar.
+                            Esconderla la dejaría guardándose sin que nadie la vea. */}
+                        {(() => {
+                          const vars = variantesDe(ej)
+                          if (vars.length === 0 && !ej.variante) return null
+                          const nombres = vars.map((v:any)=>String(v.nombre).trim())
+                          if (ej.variante && !nombres.includes(ej.variante)) nombres.push(ej.variante)
+                          const desc = vars.find((v:any)=>String(v.nombre).trim()===ej.variante)?.descripcion
+                          return (
+                            <div className="ej-sub">
+                              <ChipMenu valor={ej.variante} vacio="Variante"
+                                opciones={[SIN_VARIANTE, ...nombres.filter((n:string)=>n!==SIN_VARIANTE)]}
+                                titulo={desc || 'Cómo se ejecuta hoy. Las variantes las define el ejercicio en la biblioteca'}
+                                onElegir={v=>editarEjercicio(ei,{variante: v===SIN_VARIANTE ? '' : v})}/>
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
 
