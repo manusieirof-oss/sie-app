@@ -312,6 +312,132 @@ function EditorCriteriosFase({ fases, criterios, tests, etiquetas, onCambia }: {
 }
 
 /**
+ * Los ESPECÍFICOS en pestañas, como las lengüetas de una carpeta.
+ *
+ * Salían como una fila de pastillas y con seis o siete —rotación interna, externa, flexión,
+ * extensión…— era una lista, no una estructura: no se veía que cada uno es una parte con
+ * entidad propia. En pestañas, abres una y estás DENTRO de esa parte.
+ *
+ * Dentro va lo que hoy se puede decir de una parte sin inventarse nada: QUÉ TEST LA MIDE.
+ * Se deduce buscando un ítem del test que se llame igual, que es la misma regla con la que
+ * la app resuelve sola la medición al ponerle una meta a un paciente. Y cuando no la mide
+ * ninguno, lo dice — que es el aviso que hoy no aparecía en ningún sitio y solo se
+ * descubría con el paciente delante, al no poder ponerle la meta.
+ *
+ * NO CAMBIA NADA POR DEBAJO. Los específicos siguen siendo la misma lista de etiquetas en
+ * `objetivos.movimientos`; lo único distinto es cómo se miran.
+ */
+function EspecificosEnPestanas({ ids, etiquetas, tests, onChange }: {
+  ids: string[]
+  etiquetas: any[]
+  tests: any[]
+  onChange: (ids: string[]) => void
+}) {
+  const [activa, setActiva] = useState(0)
+  const [anadiendo, setAnadiendo] = useState(false)
+
+  const norm = (x: string) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const nombreDe = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || 'etiqueta'
+
+  const puestos = (ids || []).filter(id => etiquetas.some((e: any) => e.id === id))
+  const i = Math.min(activa, Math.max(0, puestos.length - 1))
+  const actual = puestos[i]
+
+  /** Los tests que tienen un ítem que se llama como esta parte. Deducido, no guardado. */
+  const miden = (id: string) => {
+    const n = norm(nombreDe(id))
+    if (!n) return [] as any[]
+    return (tests || []).flatMap((t: any) => {
+      const it = (t.items || []).find((x: any) => norm(x?.nombre) === n)
+      return it ? [{ test: t, item: it }] : []
+    })
+  }
+
+  const quitar = (id: string) => { onChange(puestos.filter(x => x !== id)); setActiva(0) }
+
+  return (
+    <div>
+      {/* Las lengüetas. La activa se pega al panel de abajo quitándose el borde inferior:
+          es lo que hace que se lea como una carpeta y no como una fila de botones. */}
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'flex-end', borderBottom: '1px solid var(--bd)', paddingBottom: 0 }}>
+        {puestos.map((id, n) => {
+          const on = n === i && !anadiendo
+          return (
+            <button key={id} type="button" onClick={() => { setActiva(n); setAnadiendo(false) }}
+              style={{
+                fontFamily: 'inherit', fontSize: 12, padding: '6px 12px', cursor: 'pointer',
+                border: '1px solid var(--bd)', borderBottom: on ? '1px solid var(--w)' : '1px solid var(--bd)',
+                borderRadius: '7px 7px 0 0', marginBottom: -1,
+                background: on ? 'var(--w)' : 'var(--bl)',
+                color: on ? 'var(--n)' : 'var(--gr)', fontWeight: on ? 500 : 400,
+              }}>
+              {nombreDe(id)}
+            </button>
+          )
+        })}
+        <button type="button" onClick={() => setAnadiendo(v => !v)}
+          title="Añadir o quitar específicos"
+          style={{
+            fontFamily: 'inherit', fontSize: 12, padding: '6px 12px', cursor: 'pointer',
+            border: '1px dashed var(--gm)', borderBottom: anadiendo ? '1px solid var(--w)' : '1px dashed var(--gm)',
+            borderRadius: '7px 7px 0 0', marginBottom: -1,
+            background: anadiendo ? 'var(--w)' : 'transparent', color: 'var(--g)',
+          }}>
+          {anadiendo ? 'Cerrar' : '+'}
+        </button>
+      </div>
+
+      <div style={{ border: '1px solid var(--bd)', borderTop: 'none', borderRadius: '0 0 7px 7px', padding: 12, background: 'var(--w)' }}>
+        {anadiendo ? (
+          <SelectorEtiquetasCompacto etiquetas={etiquetas} seleccionadas={puestos} onChange={onChange} />
+        ) : puestos.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--grl)' }}>
+            Sin específicos. Pulsa <b>+</b> para añadir en qué se concreta este objetivo.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 14, color: 'var(--n)' }}>{nombreDe(actual)}</span>
+              <span style={{ fontSize: 12, color: 'var(--grl)' }}>· parte {i + 1} de {puestos.length}</span>
+              <button type="button" className="btn btn-d btn-sm" style={{ marginLeft: 'auto' }}
+                onClick={() => quitar(actual)}>
+                <Ic name="papelera" size={11} /> Quitar
+              </button>
+            </div>
+
+            <div className="et-mini" style={{ marginBottom: 5 }}>Qué test la mide</div>
+            {(() => {
+              const m = miden(actual)
+              if (m.length === 0) {
+                return (
+                  <div style={{ fontSize: 12, color: '#8A6410', background: 'var(--ambl)', border: '1px solid var(--amb)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.5 }}>
+                    <Ic name="alerta" size={11} /> Ningún test tiene un ítem que se llame
+                    «{nombreDe(actual)}», así que esta parte solo se podrá cerrar marcándola a
+                    mano. Para medirla con un número, crea el ítem en un test de esta zona.
+                  </div>
+                )
+              }
+              return (
+                <div style={{ display: 'grid', gap: 4 }}>
+                  {m.map((x: any) => (
+                    <div key={x.test.id} style={{ fontSize: 12, color: 'var(--gr)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Ic name="test" size={11} />
+                      <span style={{ color: 'var(--n)' }}>{x.test.nombre}</span>
+                      <span>· ítem «{x.item.nombre}»</span>
+                      {x.item.unidad && <span className="badge badge-b">{x.item.unidad}</span>}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Las patologías de un objetivo, plegadas.
  *
  * Cerrado se ve solo lo que hay puesto; abierto, un buscador. Enseñar el catálogo entero
@@ -709,13 +835,15 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 que no se salte ninguna. */}
             <div className="field ancho">
               <label>Específicos <span className="subt">· en qué se concreta este objetivo</span></label>
-              <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 5 }}>
+              <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 7 }}>
                 Cada uno se convierte en una parte del objetivo al asignárselo a un paciente,
                 y hacen falta todas para darlo por logrado. Cada parte se cierra con un check
                 o, si le pones un número medido por un test, con ese número.
               </div>
-              <SelectorEtiquetasCompacto etiquetas={etiquetas}
-                seleccionadas={form.movimientos || []}
+              <EspecificosEnPestanas
+                ids={form.movimientos || []}
+                etiquetas={etiquetas}
+                tests={testsLib || []}
                 onChange={(ids: string[]) => setForm((p: any) => ({ ...p, movimientos: ids }))} />
             </div>
 
