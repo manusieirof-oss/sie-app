@@ -81,7 +81,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
-    supabase.from('objetivos').select('id,nombre,color,imagen_url').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
+    supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
     // Estado de los objetivos DE ESTE PACIENTE, para saber qué sesión sigue haciendo
     // falta y cuál ya cumplió su función.
     supabase.from('pacientes_objetivos').select('objetivo_id,logrado').eq('paciente_id',pacienteId)
@@ -171,9 +171,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // Las fases son lo único que la tanda NO puede decidir sola: si el paciente ya puede
     // pasar a lo siguiente lo sabes tú, no un número. Se recuerda aquí porque es el
     // momento en que estás decidiendo el programa.
+    // Tener fases es TENER FASES, no estar catalogado como "de fase". Esto filtraba por
+    // `objetivos.tipo`, y desde que las familias no existen ningún objetivo nuevo lo lleva:
+    // el recordatorio había dejado de salir para todos ellos sin que nada avisara.
     const { data: enFases } = await supabase.from('pacientes_objetivos')
-      .select('objetivo_id,fase_actual,objetivos!inner(nombre,tipo,fases)')
-      .eq('paciente_id', pacienteId).eq('logrado', false).eq('objetivos.tipo', 'fase')
+      .select('objetivo_id,fase_actual,objetivos!inner(nombre,fases)')
+      .eq('paciente_id', pacienteId).eq('logrado', false).gt('objetivos.fases', 0)
     const porAvanzar = (enFases||[]).filter((x:any)=>{
       const o = Array.isArray(x.objetivos) ? x.objetivos[0] : x.objetivos
       return o?.fases && (x.fase_actual||0) < o.fases

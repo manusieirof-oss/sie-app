@@ -151,7 +151,7 @@ export default function SembrarObjetivosPage() {
 
     /** Lo que ya hay en cada objetivo, para no pisarlo al actualizar. */
     const { data: objCompletos } = await supabase.from('objetivos')
-      .select('id,descripcion,color,etiquetas,articulacion_id,fases')
+      .select('id,descripcion,etiquetas,articulacion_id,fases')
     const actual: Record<string, any> = {}
     ;(objCompletos || []).forEach((o: any) => { actual[o.id] = o })
 
@@ -190,7 +190,6 @@ export default function SembrarObjetivosPage() {
       anota(`${campos.nombre} — ${ya ? 'actualizado' : 'creado'} · ${etiqueta}`, 'ok')
     }
 
-    const COLOR = { fuerza: '#9A6B8F', movilidad: '#6B8F9A', fase: '#C17A54', cualitativo: '#7C9A6B' }
 
     // ── Objetivos ↔ sesiones ────────────────────────────────────────────────
     // Un objetivo abierto sin sesión que lo trabaje es un aviso sin salida: la ficha dice
@@ -234,7 +233,6 @@ export default function SembrarObjetivosPage() {
         // Los métricos no llevan etiquetas libres: su articulación y sus movimientos ya
         // los describen, y repetirlos aquí serían dos verdades para lo mismo.
         etiquetas: [],
-        color: COLOR[e.metrica],
       }, `${movIds.length} movimientos`)
     }
 
@@ -244,7 +242,6 @@ export default function SembrarObjetivosPage() {
         articulacion_id: buscar('articulacion', f.articulacion),
         movimientos: [], fases: f.fases.length,
         etiquetas: resolver(f.etiquetas),
-        color: COLOR.fase,
       }, `${f.fases.length} fases`)
     }
 
@@ -254,7 +251,6 @@ export default function SembrarObjetivosPage() {
         articulacion_id: buscar('articulacion', c.articulacion),
         movimientos: [], fases: null,
         etiquetas: resolver(c.etiquetas),
-        color: COLOR.cualitativo,
       }, 'cualitativo')
     }
 

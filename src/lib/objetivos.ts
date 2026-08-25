@@ -119,11 +119,6 @@ export function estaLogradoCon(vias: Via[], metas: MetaParte[], objetivo?: { fas
   return partes.length > 0 && partes.every(Boolean)
 }
 
-/** La misma regla cuando en la mano solo hay vías. */
-export function estaLogrado(vias: Via[]): boolean {
-  return estaLogradoCon(vias, [])
-}
-
 async function nombreObjetivo(objetivoId: string) {
   const { data } = await supabase.from('objetivos').select('nombre').eq('id', objetivoId).maybeSingle()
   return data?.nombre || 'Objetivo'

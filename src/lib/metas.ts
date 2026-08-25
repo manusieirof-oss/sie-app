@@ -93,7 +93,6 @@ export type Meta = {
   cumplida?: boolean
   fecha_cumplida?: string | null
   cerrada_a_mano?: boolean
-  nota?: string | null
 }
 
 export type Estado = {
@@ -336,22 +335,12 @@ export async function cambiarFase(pacienteId: string, objetivoId: string, fase: 
 }
 
 /** Cierra o reabre una meta a mano. Queda marcado para poder distinguirlas después. */
-export async function cerrarMetaAMano(metaId: string, cerrar: boolean, nota?: string) {
+export async function cerrarMetaAMano(metaId: string, cerrar: boolean) {
   const { error } = await supabase.from('objetivos_metas').update({
     cumplida: cerrar,
     cerrada_a_mano: cerrar,
     fecha_cumplida: cerrar ? new Date().toISOString().split('T')[0] : null,
-    ...(nota !== undefined ? { nota } : {}),
   }).eq('id', metaId)
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 
-/**
- * Resumen de un objetivo métrico: cuántas metas van. El objetivo se da por logrado cuando
- * lo están todas, igual que un objetivo por vías.
- */
-export function resumenObjetivo(metas: Meta[], resultados: any[]) {
-  const estados = metas.map(m => estadoDeMeta(m, resultados))
-  const cumplidas = estados.filter((e, i) => e.cumplida || metas[i].cumplida).length
-  return { total: metas.length, cumplidas, logrado: metas.length > 0 && cumplidas === metas.length, estados }
-}

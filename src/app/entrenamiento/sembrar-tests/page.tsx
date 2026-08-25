@@ -84,7 +84,7 @@ export default function SembrarTestsPage() {
 
     // ── 1. Objetivos ────────────────────────────────────────────────────────
     const { data: objExist } = await supabase.from('objetivos')
-      .select('id,nombre,descripcion,color,etiquetas,articulacion_id,fases')
+      .select('id,nombre,descripcion,etiquetas,articulacion_id,fases')
     const idObjetivo: Record<string, string> = {}
     const actualObj: Record<string, any> = {}
     ;(objExist || []).forEach((o: any) => { idObjetivo[norm(o.nombre)] = o.id; actualObj[o.id] = o })
@@ -107,7 +107,7 @@ export default function SembrarTestsPage() {
       // donde se ponen metas con número. Sin esta familia salían "sin clasificar" y no se
       // podían filtrar con el resto.
       const campos = {
-        nombre: o.nombre, descripcion: o.descripcion, color: o.color, activo: true,
+        nombre: o.nombre, descripcion: o.descripcion, activo: true,
         movimientos: [], fases: null,
         articulacion_id: o.zona ? (idEtPrev[norm(o.zona)] || null) : null,
         etiquetas: resolverEts(o.etiquetas),
@@ -244,12 +244,11 @@ export default function SembrarTestsPage() {
         creados++
       }
 
-      // El enlace test → objetivo vive en `objetivos.test_id`, no en el test. Se escribe
-      // aquí porque hasta ahora no existía el id del test.
+      // El enlace test → objetivo YA NO ES `objetivos.test_id`: cuelga del ítem o de la
+      // banda del test, que es lo único que sabe qué hallazgo abre qué. Aquí solo se
+      // comprueba que los objetivos que la semilla nombra existan, para poder avisar.
       for (const nombreObj of t.objetivos) {
-        const oid = idObjetivo[norm(nombreObj)]
-        if (!oid) { objQueFaltan.add(nombreObj); continue }
-        if (testId) await supabase.from('objetivos').update({ test_id: testId }).eq('id', oid)
+        if (!idObjetivo[norm(nombreObj)]) objQueFaltan.add(nombreObj)
       }
 
       // IMAGEN. Solo si se ha seleccionado el fichero con ese nombre. La que ya tuviera el

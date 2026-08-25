@@ -143,7 +143,7 @@ export default function ModoClase() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('objetivos').select('id,nombre,color').eq('activo',true).order('nombre')
+      const { data } = await supabase.from('objetivos').select('id,nombre').eq('activo',true).order('nombre')
       setObjetivosLib(data||[])
     })()
   }, [])

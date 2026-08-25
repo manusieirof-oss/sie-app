@@ -553,7 +553,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', articulacion_id:'', fases:'', criterios_fase:[] as any[], logros_plantilla:[] as string[], test_bandas:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', articulacion_id:'', fases:'', criterios_fase:[] as any[], logros_plantilla:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -596,15 +596,14 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', test_id:'', tipo:'cualitativo', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], test_bandas:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
+    setForm({ id:'', nombre:'', descripcion:'', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'',
-      test_id:o.test_id||'', tipo:o.tipo||'cualitativo',
       articulacion_id:o.articulacion_id||'', fases:o.fases||'', criterios_fase:o.criterios_fase||[],
-      logros_plantilla:o.logros_plantilla||[], test_bandas:o.test_bandas||[], etiquetas:o.etiquetas||[],
+      logros_plantilla:o.logros_plantilla||[], etiquetas:o.etiquetas||[],
       movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
     })
     setModal(true)

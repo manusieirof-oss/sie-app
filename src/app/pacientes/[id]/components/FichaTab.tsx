@@ -31,6 +31,15 @@ function haceCuanto(f:string) {
 export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
+  /**
+   * Las sesiones de este paciente con los objetivos que trabajan.
+   *
+   * Es la tercera pata de la cadena y la única que no se veía desde aquí: el test abre el
+   * objetivo, las sesiones son la estrategia para llegar a él, y el mismo test lo cierra.
+   * Sin esto, un objetivo abierto que no trabaja ninguna sesión se veía exactamente igual
+   * que uno con tres sesiones detrás.
+   */
+  const [sesionesPac, setSesionesPac] = useState<any[]>([])
   const [menuTipo, setMenuTipo] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
   const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
@@ -131,6 +140,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas,tipo_lado').order('nombre').then(({data}) => setTestsLib(data||[]))
     supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
     // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
+    supabase.from('sesiones').select('id,nombre,sesiones_objetivos(objetivo_id)').eq('paciente_id', pac.id)
+      .then(({data}) => setSesionesPac(data||[]))
     supabase.from('objetivos').select('id,nombre,descripcion,tipo,movimientos,fases,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
@@ -426,6 +437,36 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             contando para cerrarlos: un objetivo podía quedarse abierto por una vía que no
             había forma de ver ni de resolver desde aquí. */}
         {vias.length>0 && pintarOrigen(o, vias)}
+
+        {/* CON QUÉ SE TRABAJA. Justo debajo de de dónde sale: arriba el test y el ítem que
+            lo abrió, aquí las sesiones que lo persiguen. Y cuando no hay ninguna se dice,
+            porque un objetivo abierto sin sesión detrás es un aviso sin salida — la ficha
+            dice qué hay que mejorar y no propone con qué. */}
+        {!o.logrado && (() => {
+          const suyas = (sesionesPac||[]).filter((s:any)=>
+            (s.sesiones_objetivos||[]).some((r:any)=>r.objetivo_id===o.id))
+          return (
+            <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bl)'}}>
+              <div className="et-mini" style={{marginBottom:5}}>
+                Se trabaja en{suyas.length>0?` ${suyas.length} sesi${suyas.length===1?'ón':'ones'}`:''}
+              </div>
+              {suyas.length===0 ? (
+                <div style={{fontSize:12,color:'#8A6410'}}>
+                  <Ic name="alerta" size={11}/> Ninguna sesión suya lo trabaja todavía. Se
+                  añaden desde Entreno &rarr; Sesiones, con el botón «Objetivos».
+                </div>
+              ) : (
+                <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                  {suyas.map((s:any)=>(
+                    <span key={s.id} className="badge badge-g" style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                      <Ic name="fuerza" size={10}/> {s.nombre}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     )
   }
