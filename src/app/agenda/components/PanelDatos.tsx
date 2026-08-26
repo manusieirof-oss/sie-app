@@ -1,9 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-
-const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
+import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
+import { textoModalidad } from '@/lib/bonoSesiones'
 
 export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, guardando, guardarEdicionCita, cambiarEstado, horas }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -16,7 +16,14 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
   const [fechaAviso, setFechaAviso] = useState('')
   const [guardandoNota, setGuardandoNota] = useState(false)
 
-  const bonoLabel: Record<string,string> = {reducido:'Reducido · 2d/sem',esencial:'Esencial · 3d/sem',progreso:'Progreso · 4d/sem',avanzado:'Avanzado · 5d/sem',individual:'Individual',bono4:'Bono 4 sesiones'}
+  // Los nombres de bono salen de `bonos_tipos`, como en el resto de la app. Estaban
+  // escritos a mano aquí, así que cualquier bono creado en Ajustes —individual, pareja—
+  // se veía como su identificador crudo.
+  const [bonosTipos, setBonosTipos] = useState<BonoTipo[]>([])
+  useEffect(() => { cargarBonosTipos(false).then(setBonosTipos) }, [])
+  const bonoLabel: Record<string,string> = Object.fromEntries(
+    bonosTipos.map(b => [b.id, `${b.nombre} · ${textoModalidad(b)}`])
+  )
   const pagoColor: Record<string,string> = {pagado:'var(--g)',pendiente:'var(--red)',parcial:'var(--amb)'}
 
   async function guardarNotaRapida() {

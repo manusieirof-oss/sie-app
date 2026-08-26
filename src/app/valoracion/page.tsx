@@ -317,9 +317,11 @@ export default function ValoracionPage() {
         const lados = t.lados || {}
         // `k &&`: la clave vacía es "todavía no se ha elegido lado", no un resultado.
         const ladosConDato = Object.keys(lados).filter(k => k && lados[k] && lados[k].resultado && lados[k].resultado !== 'sin_realizar')
-        // Un test que se trajo por estar abierto y no se ha llegado a pasar no se
-        // registra: 'sin_realizar' no dice nada y ensucia el historial.
-        const aGuardar = ladosConDato.length ? ladosConDato : (t.previo ? [] : Object.keys(lados).filter(k => k))
+        // SOLO SE GUARDA LO QUE TIENE RESULTADO. Antes, un test añadido a mano y no
+        // pasado se guardaba como 'sin_realizar': una fila que no dice nada y que en la
+        // ficha se lee como un test con resultado desconocido. Lo que falta lo avisa el
+        // resumen antes de guardar, que es donde todavía se puede arreglar.
+        const aGuardar = ladosConDato
         for (const ladoKey of aGuardar) {
           const d = lados[ladoKey]
           if (!d) continue

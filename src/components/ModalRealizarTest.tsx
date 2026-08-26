@@ -433,6 +433,23 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
           </div>
         </div>
 
+        {/* SALIR SIN VEREDICTO NO PUEDE PASAR EN SILENCIO.
+            Un test que sale limpio no marca ninguna casilla, así que es facilísimo
+            cerrarlo creyendo que quedó registrado cuando en realidad no consta que se
+            hiciera. Se sigue sin calcular el negativo solo —"no se lo hice" y "salió
+            limpio" no son lo mismo—, pero ahora hay que decir cuál de las dos es. */}
+        {ladoActivo && d.resultado === 'sin_realizar' && (
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--bd)', background: 'var(--ambl)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ flex: 1, minWidth: 200, fontSize: 12, color: '#8A6410' }}>
+              Este lado todavía no tiene resultado. Si el test salió limpio, márcalo como negativo:
+              si no, no quedará constancia de que se hizo.
+            </span>
+            <button className="btn btn-s btn-sm" onClick={() => actualizar({ resultado: 'negativo' })}>
+              Salió limpio · − Negativo
+            </button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--bd)', flexShrink: 0 }}>
           {pie || <button className="btn btn-p" onClick={onCerrar}>Hecho</button>}
         </div>

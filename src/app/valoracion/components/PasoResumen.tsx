@@ -131,7 +131,11 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
   const hoy = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
   const edad = form.fecha_nacimiento ? Math.floor((Date.now() - new Date(form.fecha_nacimiento).getTime()) / (365.25 * 24 * 3600 * 1000)) : null
 
-  const sinPasar = testsValoracion.filter((tv: any) => tv.previo && !Object.keys(tv.lados || {}).some((k: string) => tv.lados[k]?.resultado && tv.lados[k].resultado !== 'sin_realizar'))
+  // TODOS los que no tienen resultado, no solo los que se trajeron por estar abiertos.
+  // Un test que sale limpio no marca ninguna casilla, así que es el caso más fácil de
+  // dejarse sin registrar — y el que peor se nota, porque en la ficha no consta que se
+  // hiciera.
+  const sinPasar = testsValoracion.filter((tv: any) => !Object.keys(tv.lados || {}).some((k: string) => k && tv.lados[k]?.resultado && tv.lados[k].resultado !== 'sin_realizar'))
 
   /** El informe para imprimir o guardar como PDF, con el membrete de la clínica. */
   function imprimir() {
@@ -247,10 +251,12 @@ export default function PasoResumen({ form, testsValoracion, guardando, finaliza
 
       {/* Los tests que se trajeron por estar abiertos y no se han pasado no se registran.
           Se dice aquí, antes de guardar, no después. */}
-      {esRevaloracion && sinPasar.length > 0 && (
+      {sinPasar.length > 0 && (
         <div style={{ background: 'var(--ambl)', border: '1px solid var(--amb)', borderRadius: 'var(--rl)', padding: '11px 14px', marginBottom: 14, fontSize: 12, color: '#8A6410' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, fontWeight: 500 }}><Ic name="alerta" size={13} /> {sinPasar.length} test{sinPasar.length > 1 ? 's' : ''} sin pasar</div>
-          <div style={{ fontWeight: 300, lineHeight: 1.55 }}>{sinPasar.map((t: any) => t.nombre).join(', ')}. Seguirán abiertos: no se guarda nada de ellos.</div>
+          <div style={{ fontWeight: 300, lineHeight: 1.55 }}>
+            {sinPasar.map((t: any) => t.nombre).join(', ')}. <strong style={{ fontWeight: 500 }}>No se guardará nada de ellos</strong>, así que en la ficha no constará que se hicieran. Si alguno salió limpio, vuelve al paso de Tests y márcalo como negativo.
+          </div>
         </div>
       )}
 
