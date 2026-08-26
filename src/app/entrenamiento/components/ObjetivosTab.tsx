@@ -8,7 +8,7 @@ import FiltroZonas from '@/components/FiltroZonas'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
-import { criteriosBrutos, problemasDeCriterios, type CriterioFase } from '@/lib/fases'
+import { criteriosBrutos, type CriterioFase } from '@/lib/fases'
 import { especificosDeObjetivo } from '@/lib/objetivos'
 import { bandasDe } from '@/lib/tests'
 
@@ -622,7 +622,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [zona, setZona] = useState<string>('')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', articulacion_id:'', fases:'', criterios_fase:[] as any[], logros_plantilla:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
+  const [form, setForm] = useState<any>({ id:'', nombre:'', descripcion:'', articulacion_id:'', logros_plantilla:[] as string[], etiquetas:[] as string[], movimientos:[] as string[], imagen_url:'', imagen_file:null as File|null })
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -665,13 +665,13 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
 
 
   function abrirNuevo() {
-    setForm({ id:'', nombre:'', descripcion:'', articulacion_id:'', fases:'', criterios_fase:[], logros_plantilla:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
+    setForm({ id:'', nombre:'', descripcion:'', articulacion_id:'', logros_plantilla:[], etiquetas:[], movimientos:[], imagen_url:'', imagen_file:null })
     setModal(true)
   }
   function abrirEditar(o: any) {
     setForm({
       id:o.id, nombre:o.nombre||'', descripcion:o.descripcion||'',
-      articulacion_id:o.articulacion_id||'', fases:o.fases||'', criterios_fase:o.criterios_fase||[],
+      articulacion_id:o.articulacion_id||'',
       logros_plantilla:o.logros_plantilla||[], etiquetas:o.etiquetas||[],
       movimientos:o.movimientos||[], imagen_url:o.imagen_url||'', imagen_file:null,
     })
@@ -683,10 +683,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
     // Los criterios de fase deciden solos en qué punto está un paciente, así que un
     // criterio a medio escribir no puede guardarse: fallaría callado, dejando a alguien
     // clavado en una fase por un umbral que nadie rellenó.
-    if ((parseInt(form.fases) || 0) > 0) {
-      const p = problemasDeCriterios({ criterios_fase: form.criterios_fase, fases: parseInt(form.fases) || 0 }, testsLib || [])
-      if (p.length > 0) { alert('El objetivo no se ha guardado:\n\n' + p.map(x => '· ' + x).join('\n')); return }
-    }
     setGuardando(true)
     const payload: any = {
       nombre: form.nombre, descripcion: form.descripcion,
@@ -698,11 +694,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       // con número, se mide—. Tampoco se ponen a null: la columna se queda con lo que
       // tuviera hasta que se tire, y vaciarla al guardar sería destruir datos de paso.
       //
-      // Sin fases: `fases` a null y los criterios vacíos. Eso SÍ hay que limpiarlo, porque
-      // un objetivo con criterios y sin fases sería un objetivo que la app intenta juzgar
-      // contra fases que no existen.
-      fases: (parseInt(form.fases) || null),
-      criterios_fase: (parseInt(form.fases) || 0) > 0 ? (form.criterios_fase || []) : [],
       articulacion_id: form.articulacion_id || null,
       etiquetas: form.etiquetas || [],
       movimientos: form.movimientos || [],
@@ -797,7 +788,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                     <div className="obj-card-b">
                       <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--n)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', lineHeight: 1.3 }}>
                         {o.nombre}
-                        {Number(o.fases) > 0 && <span className="pill pill-soft">{o.fases} fases</span>}
                         {o.articulacion_id && <span style={{ fontSize: 12, color: 'var(--gr)' }}>{nombreEt(o.articulacion_id)}</span>}
                       </div>
                       {o.descripcion && (
@@ -951,28 +941,14 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 onChange={(ids: string[]) => setForm((p: any) => ({ ...p, movimientos: ids }))} />
             </div>
 
-            {/* LAS FASES YA NO DEPENDEN DE NINGUNA FAMILIA: vacío = no tiene fases. */}
-            <div className="field"><label>Cuántas fases <span className="subt">· vacío si no va por fases</span></label>
-              <input className="input" type="number" min={2} max={8} value={form.fases}
-                onChange={e => setForm((p: any) => ({ ...p, fases: e.target.value }))} placeholder="ej. 4" />
-            </div>
-            {(parseInt(form.fases) || 0) > 0 && (
-              /* A ancho completo: con tres o más cajas dentro, en media rejilla no cabe. */
-              <div className="field ancho">
-                <label>Condiciones de salida <span className="subt">· qué hay que cumplir para pasar a la siguiente</span></label>
-                <div style={{ marginTop: 5 }}>
-                  <EditorCriteriosFase fases={parseInt(form.fases) || 0} criterios={form.criterios_fase} tests={testsLib || []} etiquetas={etiquetas || []}
-                    onCambia={(v: any[]) => setForm((p: any) => ({ ...p, criterios_fase: v }))} />
-                </div>
-              </div>
-            )}
+            {/* AQUÍ IBAN LAS FASES y sus condiciones de salida, y se han quitado por lo
+                mismo que las metas y los logros: el objetivo ES lo que se mide, lo abre un
+                test y lo cierra ese mismo test. Una progresión por fases dentro era otra
+                capa de medición encima de la medición.
+                `EditorCriteriosFase` sigue en este fichero y `lib/fases.ts` entero en el
+                repositorio; las columnas `fases` y `criterios_fase` siguen en la base, sin
+                escribirse. */}
 
-            {/* Solo en fases y cualitativos. Los métricos se describen con su articulación
-                y sus movimientos, que además tienen un papel: con ellos la app resuelve
-                sola qué test mide cada meta. */}
-            {/* Solo PATOLOGÍA. El músculo estaba aquí y no lo leía nadie: no proponía
-                objetivos, no movía nada, solo salía como píldora. La zona ya dice dónde
-                está el objetivo, así que repetir el músculo era pedir un dato de más. */}
             {/* PATOLOGÍA, PLEGADA.
                 Es el campo que menos se toca y salía como un muro de treinta pastillas que
                 se llevaba media pantalla. Ahora se ve lo que hay puesto —que es lo único que

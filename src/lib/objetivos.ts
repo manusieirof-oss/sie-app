@@ -118,12 +118,7 @@ export function partesQueCuentan(metas: MetaParte[] = []): MetaParte[] {
  * El parámetro `metas` se mantiene para no tocar a quien llama, y porque `lib/metas.ts`
  * sigue entero en el repositorio por si esto vuelve.
  */
-export function estaLogradoCon(vias: Via[], _metas: MetaParte[] = [], objetivo?: { fases?: number | null } | null): boolean {
-  // CON FASES MANDA LA FASE. Sus condiciones ya incluyen lo que hay que medir y lo que hay
-  // que marcar, así que dejarlas contar además por su cuenta cerraba el objetivo yendo por
-  // la fase 2 de 4. Quien lo cierra es `revisarFases` al superar la última.
-  if (Number(objetivo?.fases) > 0) return false
-
+export function estaLogradoCon(vias: Via[], _metas: MetaParte[] = []): boolean {
   const partes = (Array.isArray(vias) ? vias : []).map(v => !!v.resuelto)
   return partes.length > 0 && partes.every(Boolean)
 }
@@ -144,13 +139,10 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   /** De dónde viene el cambio, para el texto del evento: "test", "ejecución"… */
   contexto?: string
 }) {
-  // Los LOGROS también cuentan, así que hay que leerlos: cerrar por las vías sin mirarlos
-  // daría por hecho un objetivo con logros pendientes, y esa es exactamente la mentira que
-  // la regla nueva viene a evitar.
-  const { data: metas } = await supabase.from('objetivos_metas')
-    .select('cumplida,tipo,movimiento_id,fase').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
-  const { data: obj } = await supabase.from('objetivos').select('fases').eq('id', objetivoId).maybeSingle()
-  const logrado = estaLogradoCon(vias, metas || [], obj)
+  // Solo las vías. Ya no hay que leer metas ni logros ni preguntar por las fases: nada de
+  // eso existe en un objetivo, y consultarlo era una vuelta a la base por dato que nadie
+  // usa en cada guardado de vía.
+  const logrado = estaLogradoCon(vias)
 
   const cambios: any = { vias, logrado, fecha_logrado: logrado ? hoy() : null }
   if (opciones?.origen) cambios.origen = opciones.origen
@@ -162,7 +154,7 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   // Solo se registra el cambio de estado, no cada retoque de una vía.
   if (opciones?.logradoAntes !== undefined && opciones.logradoAntes !== logrado) {
     const nombre = await nombreObjetivo(objetivoId)
-    const pendientes = vias.filter(v => !v.resuelto).length + (metas || []).filter((m: any) => !m.cumplida).length
+    const pendientes = vias.filter(v => !v.resuelto).length
     await supabase.from('eventos_paciente').insert({
       paciente_id: pacienteId,
       tipo: logrado ? 'objetivo_logrado' : 'objetivo_reabierto',

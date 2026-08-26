@@ -274,11 +274,7 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
     // Las VÍAS cuentan igual que las metas. Cerrar mirando solo las metas daba por hecho un
     // objetivo cuyo test seguía dando positivo, y la regla de qué es "logrado" vive en
     // `lib/objetivos.ts`: aquí solo se aplica, no se vuelve a escribir.
-    const debe = estaLogradoCon(fila.vias || [], suyas, objFila)
-    // Un objetivo por fases no se reabre desde aquí: `estaLogradoCon` devuelve siempre
-    // false para ellos, y sin esto cada test le quitaría el "logrado" que puso la última
-    // fase.
-    if (Number(objFila?.fases) > 0) continue
+    const debe = estaLogradoCon(fila.vias || [], suyas)
     if (debe === !!fila.logrado) continue
 
     await supabase.from('pacientes_objetivos').update({

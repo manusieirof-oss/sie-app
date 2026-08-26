@@ -168,19 +168,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
     // Que reasigne cero citas no es un error de base de datos —nada falla— pero deja el
     // programa a medias: sesiones nuevas que nadie va a entrenar. Hay que decirlo.
-    // Las fases son lo único que la tanda NO puede decidir sola: si el paciente ya puede
-    // pasar a lo siguiente lo sabes tú, no un número. Se recuerda aquí porque es el
-    // momento en que estás decidiendo el programa.
-    // Tener fases es TENER FASES, no estar catalogado como "de fase". Esto filtraba por
-    // `objetivos.tipo`, y desde que las familias no existen ningún objetivo nuevo lo lleva:
-    // el recordatorio había dejado de salir para todos ellos sin que nada avisara.
-    const { data: enFases } = await supabase.from('pacientes_objetivos')
-      .select('objetivo_id,fase_actual,objetivos!inner(nombre,fases)')
-      .eq('paciente_id', pacienteId).eq('logrado', false).gt('objetivos.fases', 0)
-    const porAvanzar = (enFases||[]).filter((x:any)=>{
-      const o = Array.isArray(x.objetivos) ? x.objetivos[0] : x.objetivos
-      return o?.fases && (x.fase_actual||0) < o.fases
-    })
+    // Aquí se recordaba revisar si algún objetivo avanzaba de fase. Los objetivos ya no
+    // tienen fases, así que el recordatorio se ha ido con ellas.
 
     setReciboTanda({
       mal: r.nCitas===0,
@@ -188,9 +177,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         ? `Se crearon ${r.nuevas.length} sesión${r.nuevas.length>1?'es':''} pero NINGUNA cita cambió a la tanda nueva. Las citas siguen con la anterior.`
         : `${r.nuevas.length} sesión${r.nuevas.length>1?'es':''} nueva${r.nuevas.length>1?'s':''} · ${r.nCitas} cita${r.nCitas>1?'s':''} reasignada${r.nCitas>1?'s':''}`
           + (r.fijas.length>0 ? ` · sin tocar por fijas: ${r.fijas.join(', ')}` : '')
-          + (porAvanzar.length>0
-              ? ` · Revisa si avanza de fase: ${porAvanzar.map((x:any)=>(Array.isArray(x.objetivos)?x.objetivos[0]:x.objetivos)?.nombre).join(', ')}`
-              : ''),
     })
     cargarDatos(); onRefresh()
   }

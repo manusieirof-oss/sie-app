@@ -6,8 +6,6 @@ import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
-import { cambiarFase } from '@/lib/metas'
-import { evaluarFases, ladoDeObjetivo, textoCriterio, criteriosDe } from '@/lib/fases'
 import { ordenAnatomico } from '@/lib/anatomia'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
@@ -100,8 +98,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     if (lista.length===0) return
     setGuardandoVia('anadir')
     const { error } = await supabase.from('pacientes_objetivos').insert(
-      lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [],
-        fase_actual: Number(o.fases) > 0 ? 1 : null })))
+      lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [] })))
     if (error) { setGuardandoVia(null); alert(error.message); return }
     // Ya no se le copia ninguna parte: un objetivo añadido a mano nace sin nada y se cierra
     // a mano, con "Dar por logrado". Es lo que se decidió al quitar metas y logros.
@@ -121,8 +118,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, fase_actual, objetivos(id,nombre,descripcion,movimientos,fases,criterios_fase,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
-      setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado, fase_actual:r.fase_actual})).filter((o:any)=>o.id))
+    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
+      setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado })).filter((o:any)=>o.id))
     })
     supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
       .then(({data}) => setResultadosTests(data||[]))
@@ -133,7 +130,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
     supabase.from('sesiones').select('id,nombre,sesiones_objetivos(objetivo_id)').eq('paciente_id', pac.id)
       .then(({data}) => setSesionesPac(data||[]))
-    supabase.from('objetivos').select('id,nombre,descripcion,movimientos,fases,articulacion_id,etiquetas,imagen_url')
+    supabase.from('objetivos').select('id,nombre,descripcion,movimientos,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))
@@ -220,7 +217,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   )
 
   /**
-   * La moneda de la rejilla. Todo lo demás —metas, vías, fases— vive dentro y se abre
+   * La moneda de la rejilla. Las vías viven dentro y se abren
    * al pulsarla: la ficha enseñaba diez bloques desplegados a la vez y no se veía de un
    * vistazo en qué se está trabajando, que es justo lo que hay que ver al abrirla.
    */
@@ -333,63 +330,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             Lo que sí hay que medir son las SESIONES, que es la estrategia para llegar.
             `MetasObjetivo.tsx`, `LogrosObjetivo.tsx` y todo `lib/metas.ts` siguen en el
             repositorio intactos: no se pintan, no se han borrado. */}
-        {Number(o.fases) > 0 && !o.logrado && (
-          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6}}>
-            {Array.from({length:o.fases}).map((_,i)=>(
-              <button key={i} disabled={guardandoVia===o.id}
-                title={`Pasar a la fase ${i+1}${i+1===o.fase_actual?' (es la actual)':''}`}
-                onClick={async()=>{
-                  setGuardandoVia(o.id)
-                  await cambiarFase(pac.id, o.id, i+1, o.nombre)
-                  setGuardandoVia(null); cargarObjetivos()
-                }}
-                style={{
-                  flex:1,height:7,borderRadius:3,border:'none',padding:0,cursor:'pointer',
-                  background: i < (o.fase_actual||0) ? 'var(--g)' : 'var(--bm)',
-                }}/>
-            ))}
-            <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>
-              {o.fase_actual ? `Fase ${o.fase_actual} de ${o.fases}` : 'Sin empezar'}
-            </span>
-            {/* Ya no hay botón de "dar por logrado" aquí: superar las condiciones de la
-                última fase cierra el objetivo solo. Tenerlo además a mano era la puerta por
-                la que se cerraba un objetivo yendo por la mitad. */}
-          </div>
-        )}
-        {/* QUÉ FALTA PARA SALIR DE ESTA FASE.
-            El aviso va donde se toma la decisión. La fase la calculan los tests, y sin
-            enseñar contra qué se ha calculado, la barra volvería a ser un número que hay
-            que creerse. Aquí se ve qué criterio falta y por cuánto. */}
-        {Number(o.fases) > 0 && !o.logrado && criteriosDe(o).length>0 && (()=>{
-          const lado = ladoDeObjetivo(o.vias)
-          const ev = evaluarFases(o, resultadosTests, lado, o.fase_actual)
-          const actual = ev.detalle.find(d => d.fase === (o.fase_actual || 1))
-          if (!actual) {
-            return (
-              <div style={{fontSize:11,color:'var(--grl)',marginTop:5}}>
-                De la fase {o.fase_actual || 1} en adelante no hay criterios escritos: se avanza a mano.
-              </div>
-            )
-          }
-          return (
-            <div style={{marginTop:6,padding:'7px 10px',borderRadius:6,background:'var(--bl)',border:'1px solid var(--bd)'}}>
-              <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>
-                Para salir de la fase {actual.fase}{lado!=='bilateral'?` · ${lado}`:''}
-              </div>
-              {actual.criterios.map((c,i)=>(
-                <div key={i} style={{fontSize:11,fontWeight:300,lineHeight:1.6,color:c.cumple===true?'var(--gd)':c.cumple===false?'var(--red)':'var(--grl)'}}>
-                  {c.cumple===true?'✓':c.cumple===false?'✕':'—'} {c.criterio.tipo==='logro'?c.criterio.descripcion:c.criterio.tipo==='total'?'Puntuación del test':c.criterio.item} {c.criterio.tipo==='logro'?'':textoCriterio(c.criterio)}
-                  {/* Lo que se enseña detrás depende del tipo: en una medida interesa el
-                      número al que va; en una casilla, si está o no puesta. */}
-                  {c.criterio.tipo==='marcado' || c.criterio.tipo==='logro'
-                    ? (c.lectura?.marcado==null ? ' · sin anotar' : c.lectura.marcado ? ' · hecho' : ' · pendiente')
-                    : (c.lectura?.valor==null ? ' · sin medir' : ` · va por ${c.lectura.valor}`)}
-                </div>
-              ))}
-            </div>
-          )
-        })()}
-        {vias.length===0 && !o.logrado && !(Number(o.fases) > 0) && (
+        {/* AQUÍ IBAN LAS FASES: la tira de progreso y el "para salir de la fase N".
+            Fuera por lo mismo que las metas y los logros — el objetivo lo abre un test y lo
+            cierra ese mismo test, sin capas intermedias. `lib/fases.ts` sigue entero. */}
+        {vias.length===0 && !o.logrado && (
           <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
             <span style={{fontSize:12,color:'var(--gr)'}}>Sin nada que marcar · no vino de un test ni de un ejercicio</span>
             <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id} onClick={()=>cerrarSinVias(o)}>
@@ -623,7 +567,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                           {monedaDe(o, true)}
                           <span className="obj-mon-g">{o.nombre}</span>
                           <span className="obj-mon-n">
-                            {Number(o.fases) > 0 ? `${o.fases} fases` : ''}
                             {porPatologia[o.id] && <span style={{display:'block',color:'var(--gd)'}}>{porPatologia[o.id]}</span>}
                           </span>
                           {/* Ya asignado: no es un error, es que sus metas se ponen en la ficha. */}

@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { revisarMetas } from './metas'
-import { revisarFases } from './fases'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -746,11 +745,9 @@ export async function registrarResultadoTest(
   // un proceso aparte que habría que acordarse de lanzar.
   const { cerradas } = await revisarMetas(pacienteId)
 
-  // Y las fases, por lo mismo: un criterio de salida solo puede haber cambiado al pasar un
-  // test. Va aquí y no en un proceso aparte para que no haya que acordarse de lanzarlo.
-  const fases = await revisarFases(pacienteId)
-
-  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, puntuacion, banda: banda?.etiqueta || null, fases }
+  // Las FASES ya no se recalculan: los objetivos no las tienen. `lib/fases.ts` sigue
+  // entero en el repositorio por si vuelven, pero nadie lo llama.
+  return { ok: true, resultado, logrados, metasCerradas: cerradas.length, abiertos, puntuacion, banda: banda?.etiqueta || null, fases: [] }
 }
 
 /**
