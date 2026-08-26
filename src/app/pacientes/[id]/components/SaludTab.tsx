@@ -119,6 +119,12 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   const [vista, setVista] = useState<'lista'|'mapa'>('lista')
   const [escalaConfig, setEscalaConfig] = useState<any>(null)
   const [nDocs, setNDocs] = useState(0)
+  /**
+   * Qué test tiene abierto el listado de registros. Guarda el test_id y su nombre, no las
+   * filas: las filas se sacan de `tests` en el momento, así que al borrar una se refresca
+   * sola sin tener que acordarse de actualizar dos sitios.
+   */
+  const [registrosDe, setRegistrosDe] = useState<{id:string,nombre:string}|null>(null)
 
   const LBL_TIPO_MOL: Record<string,string> = { molestia:'Molestia', dolor_agudo:'Dolor agudo', dolor_cronico:'Dolor crónico', rigidez:'Rigidez' }
   const LBL_EST_PAT: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
@@ -249,6 +255,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     const fecha = new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES')
     const lado = t.lado && t.lado!=='bilateral' ? ` · ${cap(t.lado)}` : ''
     if (!confirm(`¿Borrar el resultado del ${fecha}${lado}?\n\nSe borra solo esta medición. Los objetivos que abrió siguen abiertos.`)) return
+    // Segunda confirmación: esto es historia clínica y no se puede deshacer.
+    if (!confirm('Segunda confirmación: se elimina el registro y no se puede recuperar.')) return
     const { error } = await supabase.from('resultados_tests').delete().eq('id', t.id)
     if (error) { alert('No se pudo borrar: ' + error.message); return }
     cargar()
@@ -538,15 +546,6 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                     </div>
                   )}
 
-                  {/* Solo el borrado es de este lado. Volver a evaluar y pasar a negativo
-                      son del test entero y viven en la cabecera de la tarjeta: un test
-                      lateral se pasa en los dos lados de una vez, así que dos botones
-                      iguales eran dos formas de hacer lo mismo a medias. */}
-                  <button className="btn btn-t btn-sm" style={{marginTop:6,color:'var(--red)',fontSize:10}}
-                    onClick={()=>borrarResultado(t)}>
-                    <Ic name="papelera" size={11}/> Borrar
-                  </button>
-
                   {anteriores.length>0 && (
                     <details style={{marginTop:7}}>
                       <summary className="det-sum">Historial · {anteriores.length} anterior{anteriores.length>1?'es':''}</summary>
@@ -577,6 +576,13 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                     <div style={{flex:1,minWidth:120,fontSize:13,color:'var(--n)'}}>{t0.tests?.nombre||'Test'}</div>
                     {/* Del TEST, no del lado: al volver a evaluar se pasan los dos. */}
                     <button className="btn btn-t btn-sm" onClick={()=>abrirTest?.(t0.test_id, '')}>Volver a evaluar</button>
+                    {/* Los registros del test: todas las veces que se pasó, de los dos
+                        lados y por fecha. Es desde donde se borra, para no borrar a ciegas
+                        desde una tarjeta que solo enseña el último de cada lado. */}
+                    <button className="et-b" title="Ver los registros de este test"
+                      onClick={()=>setRegistrosDe({ id: t0.test_id, nombre: t0.tests?.nombre||'Test' })}>
+                      <Ic name="mas" size={13}/>
+                    </button>
                     {positivo && (
                       <button className="btn btn-t btn-sm" onClick={async()=>{
                         // Pasa a negativo TODOS los lados que sigan positivos. Uno a uno se
@@ -866,6 +872,67 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
 
       {/* MODAL CONFIGURAR PATOLOGÍA */}
       {patConfig&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setPatConfig(null)}}><div className="modal"><div className="modal-title">{patConfig.nombre}<button className="modal-close" onClick={()=>setPatConfig(null)}>✕</button></div>{patConfig.precauciones&&<div style={{padding:'8px 10px',background:'var(--ambl)',borderRadius:8,border:'1px solid var(--amb)',fontSize:10,color:'#8A6410',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}><Ic name="alerta" size={13} style={{marginTop:1}}/> {patConfig.precauciones}</div>}<div className="g2"><div className="field"><label>Lado</label><select className="input" value={patConfig.lado} onChange={e=>setPatConfig((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option><option value="no_aplica">No aplica</option></select></div><div className="field"><label>Estado</label><select className="input" value={patConfig.estado} onChange={e=>setPatConfig((p:any)=>({...p,estado:e.target.value}))}><option value="activa">Activa</option><option value="cronica">Crónica</option><option value="resuelta">Resuelta</option></select></div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={patConfig.observaciones} onChange={e=>setPatConfig((p:any)=>({...p,observaciones:e.target.value}))}/></div><div onClick={()=>setPatConfig((p:any)=>({...p,tiene_informe:!p.tiene_informe}))} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:`1px solid ${patConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:patConfig.tiene_informe?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}><div style={{width:16,height:16,borderRadius:3,border:`2px solid ${patConfig.tiene_informe?'var(--g)':'var(--bd)'}`,background:patConfig.tiene_informe?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{patConfig.tiene_informe&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div><span style={{fontSize:11,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={13}/> Tiene informe médico</span></div><div style={{display:'flex',gap:8}}><button className="btn btn-d btn-sm" onClick={()=>setPatConfig(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={guardarPatologia} disabled={guardando}>{guardando?'…':'✓ Añadir'}</button></div></div></div>}
+
+      {/* REGISTROS DE UN TEST · todas las veces que se pasó, de los dos lados */}
+      {registrosDe && (()=>{
+        // Se filtran de `tests` en el momento: al borrar uno, la lista se rehace sola.
+        const filas = (tests||[])
+          .filter((x:any)=>x.test_id===registrosDe.id)
+          .sort((a:any,b:any)=>`${b.fecha}T${b.created_at||''}`.localeCompare(`${a.fecha}T${a.created_at||''}`))
+        return (
+          <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setRegistrosDe(null)}}>
+            <div className="modal" style={{width:'min(820px, 94vw)'}}>
+              <div className="modal-title">
+                {registrosDe.nombre}
+                <button className="modal-close" onClick={()=>setRegistrosDe(null)}><Ic name="cerrar" size={15}/></button>
+              </div>
+              <div className="sec-sub">
+                {filas.length} {filas.length===1?'registro':'registros'} · el más reciente de cada lado es el que manda en la ficha
+              </div>
+
+              {filas.length===0 && <div className="muted">Sin registros.</div>}
+
+              {filas.map((r:any, i:number)=>{
+                const pos = r.resultado==='positivo'
+                // El vigente de cada lado: el primero que aparece de ese lado, porque
+                // vienen ordenados de más nuevo a más viejo. Borrarlo cambia lo que se ve
+                // en la ficha, y eso hay que decirlo antes y no después.
+                const vigente = filas.findIndex((x:any)=>(x.lado||'bilateral')===(r.lado||'bilateral')) === i
+                const marcados = (r.items_resultado||[]).filter((it:any)=>it.marcado)
+                return (
+                  <div key={r.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'8px 0',borderTop:i?'1px solid var(--bd)':'none'}}>
+                    <div style={{width:96,flexShrink:0,fontSize:12,color:'var(--n)'}}>
+                      {new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
+                    </div>
+                    <div style={{width:86,flexShrink:0,fontSize:11,fontWeight:600,letterSpacing:.4,textTransform:'uppercase',color:'var(--gr)'}}>
+                      {cap(r.lado||'bilateral')}
+                    </div>
+                    <div style={{width:74,flexShrink:0,fontSize:12,color:pos?'var(--red)':'var(--gd)'}}>
+                      {pos?'Positivo':'Negativo'}
+                    </div>
+                    <div style={{flex:1,minWidth:0,fontSize:12,color:'var(--gr)'}}>
+                      {marcados.length>0
+                        ? marcados.map((it:any)=>it.nombre+(textoMedida(it)?' · '+textoMedida(it):'')).join(' · ')
+                        : <span style={{color:'var(--grl)'}}>Nada marcado</span>}
+                      {r.observaciones && <div style={{fontStyle:'italic',marginTop:2}}>{r.observaciones}</div>}
+                      {vigente && <div style={{fontSize:11,color:'var(--gd)',marginTop:2}}>Es el que se ve en la ficha</div>}
+                    </div>
+                    <button className="et-b et-b-r" style={{flexShrink:0}} title="Borrar este registro"
+                      onClick={()=>borrarResultado(r)}>
+                      <Ic name="papelera" size={12}/>
+                    </button>
+                  </div>
+                )
+              })}
+
+              <div style={{fontSize:12,color:'var(--gr)',marginTop:12,lineHeight:1.5}}>
+                Borrar un registro no cierra ni reabre los objetivos que abrió: eso se decide
+                en la ficha del paciente.
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </>
   )
 }
