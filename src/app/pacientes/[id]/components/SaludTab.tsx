@@ -461,31 +461,72 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
           </div>
           {tests.length===0 && <div className="muted">Sin tests registrados</div>}
           {tests.length>0 && (()=>{
-            const positivos = testsPositivos
-            const negativos = testsNegativos
-            const bloque = (grupo:any, positivo:boolean) => {
-              const t = grupo[0]; const anteriores = grupo.slice(1)
-              // Clave estable por test+lado: si se usa el id del registro actual, al
-              // reevaluar cambia la clave, React remonta el bloque y se cierra el historial.
+            /**
+             * UNA TARJETA POR TEST, con sus lados dentro.
+             *
+             * Antes cada lado era una tarjeta suelta, así que el lunge de un paciente salía
+             * dos veces y podían acabar en columnas distintas —el derecho en positivos y el
+             * izquierdo en negativos— sin nada que dijera que eran el mismo test. Lo que se
+             * mira en un test lateral es precisamente la comparación entre lados, y estaban
+             * lo más lejos posible el uno del otro.
+             *
+             * Los grupos por test+lado se conservan tal cual: los usan el mapa corporal y el
+             * detalle. Aquí solo se juntan para pintar.
+             */
+            const ORDEN: Record<string,number> = { izquierdo:0, derecho:1, bilateral:2 }
+            const porTest = (grupos:any[][]) => {
+              const m: Record<string, any[][]> = {}
+              grupos.forEach(g => { const k = g[0].test_id; (m[k] = m[k] || []).push(g) })
+              return Object.values(m).map(lados =>
+                lados.sort((a,b) => (ORDEN[a[0].lado] ?? 9) - (ORDEN[b[0].lado] ?? 9)))
+            }
+
+            // Basta con que UN lado siga positivo para que el test entero se quede en la
+            // columna de positivos. Un positivo no puede esconderse en "resueltos" porque
+            // el otro lado esté bien.
+            const todos = porTest(gruposTests)
+            const positivos = todos.filter(t => t.some(l => l[0].resultado === 'positivo'))
+            const negativos = todos.filter(t => !t.some(l => l[0].resultado === 'positivo'))
+
+            /** Un lado dentro de la tarjeta: su fecha, lo marcado y sus acciones. */
+            const columnaLado = (grupo:any[], soloUno:boolean) => {
+              const t = grupo[0]
+              const anteriores = grupo.slice(1)
+              const pos = t.resultado === 'positivo'
               return (
-                <div key={`${t.test_id}_${t.lado||'bilateral'}`} style={{padding:'9px 11px',background:positivo?'var(--redl)':'var(--gl)',borderRadius:8,border:`1px solid ${positivo?'#F5C8C8':'var(--gm)'}`,marginBottom:7}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,color:'var(--n)'}}>{t.tests?.nombre||'Test'}{t.lado&&t.lado!=='bilateral'?' · '+cap(t.lado):''}</div>
-                      <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>{new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})} · {grupo.length} {grupo.length===1?'registro':'registros'}</div>
-                    </div>
-                    <button className="btn btn-t btn-sm" onClick={()=>abrirTest?.(t.test_id, t.lado||'bilateral')}>Volver a evaluar</button>
-                    {positivo && <button className="btn btn-t btn-sm" onClick={()=>resolverTestNegativo(t)}>Pasar a negativo</button>}
+                <div key={t.lado||'bilateral'} style={{flex:'1 1 190px',minWidth:0,
+                  borderLeft: soloUno ? 'none' : `2px solid ${pos?'#F5C8C8':'var(--gm)'}`,
+                  paddingLeft: soloUno ? 0 : 9}}>
+                  {!soloUno && (
+                    <div style={{fontSize:11,fontWeight:600,letterSpacing:.4,textTransform:'uppercase',
+                      color: pos?'var(--red)':'var(--gd)'}}>{cap(t.lado||'bilateral')}</div>
+                  )}
+                  <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>
+                    {new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
+                    {' · '}<span style={{color:pos?'var(--red)':'var(--gd)'}}>{pos?'Positivo':'Negativo'}</span>
                   </div>
+
                   {(t.items_resultado||[]).filter((i:any)=>i.marcado).map((item:any,ii:number)=>(
-                    <div key={ii} style={{fontSize:12,color:'var(--red)',marginTop:4,display:'flex',alignItems:'center',gap:5}}><Ic name="checkbox" size={12}/><span>{item.nombre}{textoMedida(item)?' · '+textoMedida(item):''}</span></div>
+                    <div key={ii} style={{fontSize:12,color:'var(--red)',marginTop:4,display:'flex',alignItems:'flex-start',gap:5}}>
+                      <Ic name="checkbox" size={12}/><span>{item.nombre}{textoMedida(item)?' · '+textoMedida(item):''}</span>
+                    </div>
                   ))}
                   {t.observaciones && <div style={{fontSize:12,color:'var(--gr)',marginTop:5,fontStyle:'italic'}}>{t.observaciones}</div>}
-                  {t.fecha_repeticion && <div style={{fontSize:12,color:'#8A6410',marginTop:4,display:'flex',alignItems:'center',gap:5}}><Ic name="alarma" size={12}/> Revisión: {new Date(t.fecha_repeticion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
+                  {t.fecha_repeticion && (
+                    <div style={{fontSize:12,color:'#8A6410',marginTop:4,display:'flex',alignItems:'center',gap:5}}>
+                      <Ic name="alarma" size={12}/> Revisión: {new Date(t.fecha_repeticion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                    </div>
+                  )}
+
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:6}}>
+                    <button className="btn btn-t btn-sm" onClick={()=>abrirTest?.(t.test_id, t.lado||'bilateral')}>Volver a evaluar</button>
+                    {pos && <button className="btn btn-t btn-sm" onClick={()=>resolverTestNegativo(t)}>Pasar a negativo</button>}
+                  </div>
+
                   {anteriores.length>0 && (
                     <details style={{marginTop:7}}>
                       <summary className="det-sum">Historial · {anteriores.length} anterior{anteriores.length>1?'es':''}</summary>
-                      <div style={{marginTop:5,paddingLeft:9,borderLeft:`2px solid ${positivo?'#F5C8C8':'var(--gm)'}`}}>
+                      <div style={{marginTop:5,paddingLeft:9,borderLeft:`2px solid ${pos?'#F5C8C8':'var(--gm)'}`}}>
                         {anteriores.map((ant:any,ai:number)=>(
                           <div key={ai} style={{marginBottom:5}}>
                             <div style={{fontSize:12,color:'var(--n)'}}>
@@ -500,17 +541,35 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                 </div>
               )
             }
+
+            const bloque = (lados:any[][], positivo:boolean) => {
+              const t0 = lados[0][0]
+              const soloUno = lados.length === 1 && (!t0.lado || t0.lado === 'bilateral')
+              // Clave estable por TEST: al reevaluar cambia el id del registro, y si la
+              // clave dependiera de él React remontaría la tarjeta y cerraría el historial.
+              return (
+                <div key={t0.test_id} style={{padding:'9px 11px',background:positivo?'var(--redl)':'var(--gl)',borderRadius:8,border:`1px solid ${positivo?'#F5C8C8':'var(--gm)'}`,marginBottom:7}}>
+                  <div style={{fontSize:13,color:'var(--n)',marginBottom:6}}>{t0.tests?.nombre||'Test'}</div>
+                  {/* Izquierdo a la izquierda y derecho a la derecha, en la misma tarjeta.
+                      Con `wrap` se apilan solos cuando la columna se queda estrecha. */}
+                  <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                    {lados.map(g => columnaLado(g, soloUno))}
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <div className="g2">
                 <div>
                   <div className="sec-sub" style={{color:'var(--red)'}}>Positivos · {positivos.length}</div>
                   {positivos.length===0 && <div className="muted">Ninguno</div>}
-                  {positivos.map(g=>bloque(g,true))}
+                  {positivos.map(t=>bloque(t,true))}
                 </div>
                 <div>
                   <div className="sec-sub" style={{color:'var(--gd)'}}>Negativos · {negativos.length}</div>
                   {negativos.length===0 && <div className="muted">Ninguno</div>}
-                  {negativos.map(g=>bloque(g,false))}
+                  {negativos.map(t=>bloque(t,false))}
                 </div>
               </div>
             )
