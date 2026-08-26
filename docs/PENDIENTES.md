@@ -282,6 +282,28 @@ Decisiones tomadas:
 
 Nada de esto necesitó esquema nuevo.
 
+## Los bonos de la valoración ✅ HECHO
+
+La valoración ofrecía bonos que no existían y no ofrecía los reales —individual, pareja—, y los
+días por semana no coincidían con los de Ajustes. Tres causas, todas del mismo tipo:
+
+- **Lista escrita a mano** en `valoracion/page.tsx`: reducido, esencial, progreso, avanzado,
+  individual, bono4. El resto de la app lee `bonos_tipos` con `cargarBonosTipos()`.
+- **Una clave de ajustes muerta.** Intentaba leer `ajustes.bonos_lista`, que ya no escribe
+  nadie: Ajustes → Bonos guarda en la tabla.
+- **Los días salían de un `diasMap` fijo** dentro de `finalizar()`, no del bono elegido. Un bono
+  nuevo creado en Ajustes entraba siempre con 2 días.
+
+Ahora usa `cargarBonosTipos()` como todos, `dias_semana` sale del bono elegido y el paso 5
+enseña la modalidad real con `textoModalidad()` —días/semana o número de sesiones y caducidad—.
+Sin bono elegido no se guarda.
+
+**Pendiente relacionado:** dar de alta un bono está escrito en **seis sitios**
+(`ModalBono` ×2, `pacientes/nuevo`, la valoración, `lib/bonoSesiones`, `lib/bonos`). Los campos
+que rellena cada uno no son los mismos —descuentos, modalidad de sesiones, sustitución del bono
+anterior—, así que un bono creado desde la valoración no es igual que uno creado desde la ficha.
+Toca una función única de alta cuando se abra el Pilar Finanzas.
+
 ## Resumen e informe de valoración ✅ HECHO
 
 El resumen se había quedado con las cajas grises y la tipografía 9/10/11 px de antes, mientras

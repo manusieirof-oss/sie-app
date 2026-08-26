@@ -2,6 +2,8 @@
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 
+import { textoModalidad } from '@/lib/bonoSesiones'
+
 export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
   const hp = form.horario_pref || {modo:'general',franja_general:'manana',franjas_dia:{},alterno:'manana_tarde',hora_exacta:'',notas_horario:''}
   const upHp = (k:string, v:any) => up('horario_pref', {...hp, [k]:v})
@@ -33,7 +35,9 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
             <div key={b.id} onClick={()=>up('bono',b.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1.5px solid ${form.bono===b.id?'var(--g)':'var(--bd)'}`,background:form.bono===b.id?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:4,transition:'all .15s'}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{b.nombre}</div>
-                <div style={{fontSize:9,color:'var(--grl)'}}>{b.descripcion}</div>
+                {/* Los días salen del bono de Ajustes. Antes la valoración los sacaba de
+                    un mapa fijo y decían una cosa distinta de la que se guardaba. */}
+                <div style={{fontSize:9,color:'var(--grl)'}}>{[textoModalidad(b), b.descripcion].filter(Boolean).join(' · ')}</div>
               </div>
               {form.bono===b.id&&<div style={{width:16,height:16,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</div>}
             </div>

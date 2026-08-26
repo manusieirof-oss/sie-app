@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
 import { registrarResultadoTest, testsPositivosDe } from '@/lib/tests'
 import { anadirALista, leerLista } from '@/lib/listasPaciente'
+import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -46,7 +47,7 @@ const FORM_VACIO = {
   plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
   medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
   patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
-  tipo_clase_def:'entrenamiento',bono:'reducido',dias_asistencia:'',franja:'manana',notas_plan:'',
+  tipo_clase_def:'entrenamiento',bono:'',dias_asistencia:'',franja:'manana',notas_plan:'',
   horario_pref:{modo:'general',franja_general:'manana',franjas_dia:{} as Record<string,string>,alterno:'manana_tarde',hora_exacta:'',notas_horario:''},
 }
 
@@ -66,7 +67,15 @@ export default function ValoracionPage() {
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
   const [deportesOpts, setDeportesOpts] = useState<string[]>(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
   const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>(TIPOS_CLASE_FALLBACK)
-  const [bonosOpts, setBonosOpts] = useState<any[]>([{id:'reducido',nombre:'Reducido',dias:2,descripcion:'2 días/semana'},{id:'esencial',nombre:'Esencial',dias:3,descripcion:'3 días/semana'},{id:'progreso',nombre:'Progreso',dias:4,descripcion:'4 días/semana'},{id:'avanzado',nombre:'Avanzado',dias:5,descripcion:'5 días/semana'},{id:'individual',nombre:'Individual',dias:1,descripcion:'Sesiones sueltas'},{id:'bono4',nombre:'Bono 4 sesiones',dias:1,descripcion:'4 sesiones'}])
+  /**
+   * Los bonos salen de `bonos_tipos` como en el resto de la app (`lib/bonos.ts`).
+   *
+   * Aquí había una lista escrita a mano —reducido, esencial, progreso, avanzado…— más un
+   * intento de leer una clave `ajustes.bonos_lista` que ya no escribe nadie: Ajustes →
+   * Bonos guarda en la TABLA. Resultado: la valoración ofrecía bonos que no existían y no
+   * ofrecía los que sí, como el individual o el de pareja.
+   */
+  const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
   const [medsBiblio, setMedsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -106,6 +115,12 @@ export default function ValoracionPage() {
     supabase.from('plantillas_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setTiposPlantilla(data.map((t:any)=>t.nombre)) })
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
     supabase.from('etiquetas').select('*').order('nombre').then(({data})=>setEtiquetasLib(data||[]))
+    cargarBonosTipos().then(bs => {
+      setBonosOpts(bs)
+      // Sin bono por defecto escrito a mano: manda el primero que haya configurado, y si
+      // no hay ninguno se queda vacío y el guardado avisa.
+      setForm(f => f.bono && bs.some(b => b.id === f.bono) ? f : { ...f, bono: bs[0]?.id || '' })
+    })
     supabase.from('ajustes').select('clave,valor').then(({data})=>{
       if(data){
         const map: Record<string,string> = {}
@@ -113,7 +128,6 @@ export default function ValoracionPage() {
         setComoNosConocioOpts(parseListaSimple(map.como_nos_conocio, VIAS_CAPTACION_FALLBACK))
         if(map.tipos_jornada) setTiposJornada(JSON.parse(map.tipos_jornada))
         setTiposClaseOpts(parseTiposClase(map.tipos_clase))
-        if(map.bonos_lista) setBonosOpts(JSON.parse(map.bonos_lista))
         setClinica({ nombre: map.clinica_nombre || '', logo: map.clinica_logo || '' })
       }
     })
@@ -127,7 +141,7 @@ export default function ValoracionPage() {
     if (m === modo) return
     const algoEscrito = form.paciente_id || form.nombre || form.anamnesis || testsValoracion.length > 0
     if (algoEscrito && !confirm('Se perderá lo que llevas escrito en esta pestaña. ¿Cambiar?')) return
-    setModo(m); setStep(1); setForm({...FORM_VACIO}); setTestsValoracion([]); setTestActivo(null)
+    setModo(m); setStep(1); setForm({...FORM_VACIO, bono: bonosOpts[0]?.id || ''}); setTestsValoracion([]); setTestActivo(null)
     setPrevio(null); setFirmaCanvas(''); setFirmaAceptada(false); setImagenesAceptada(false); setClinicaAceptada(false)
   }
 
@@ -212,6 +226,7 @@ export default function ValoracionPage() {
     setGuardando(true)
     try {
       if (esRevaloracion && !form.paciente_id) { alert('Elige el paciente que se revalora'); setGuardando(false); return }
+      if (!esRevaloracion && !form.bono) { alert('Elige el bono en el paso de Plan'); setGuardando(false); return }
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
@@ -237,11 +252,13 @@ export default function ValoracionPage() {
         const { error: errUpd } = await supabase.from('pacientes').update(upd).eq('id',pacienteId)
         if (errUpd) alert('Aviso: los datos del paciente no se han actualizado (' + errUpd.message + '). El resto de la valoración sí se ha guardado.')
       }
-      const diasMap: Record<string,number> = { reducido:2, esencial:3, progreso:4, avanzado:5, individual:1, bono4:1 }
+      // Los días por semana son los del bono elegido. Estaban en un mapa fijo aquí
+      // dentro, así que un bono nuevo de Ajustes entraba siempre con 2 días.
+      const bonoSel = bonosOpts.find(b => b.id === form.bono)
       await Promise.all([
         // El bono es cosa de la valoración inicial. Una revaloración abría uno nuevo
         // en paralelo al que el paciente ya estaba pagando.
-        ...(esRevaloracion ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:diasMap[form.bono]||2, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true })]),
+        ...(esRevaloracion ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true })]),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar
