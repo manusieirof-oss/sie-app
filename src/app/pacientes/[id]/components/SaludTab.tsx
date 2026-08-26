@@ -6,7 +6,7 @@ import Silueta, { MarcaCuerpo } from './Silueta'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import Sparkline from './Sparkline'
 import Documentos from './Documentos'
-import { registrarResultadoTest, textoMedida } from '@/lib/tests'
+import { textoMedida } from '@/lib/tests'
 import { anadirALista, quitarDeLista, type ListaClinica } from '@/lib/listasPaciente'
 import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 import ModalItemClinico, { type ConfigItemClinico } from '@/components/ModalItemClinico'
@@ -220,25 +220,6 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     setPatConfig(null); setGuardando(false); cargar()
   }
 
-  async function resolverTestNegativo(t:any) {
-    // Registro NUEVO con fecha de hoy: así queda cuándo se resolvió y el positivo
-    // anterior se conserva en el historial del test. Antes se sobrescribía el viejo.
-    //
-    // Pasa por `registrarResultadoTest` como los demás caminos: guardar el resultado y
-    // cerrar las vías del test es una sola operación, y tenerla escrita aparte aquí es
-    // lo que hizo que la ficha registrara negativos sin cerrar nada.
-    const r = await registrarResultadoTest(String(id), { id: t.test_id, nombre: t.tests?.nombre }, {
-      resultado: 'negativo', items: [], lado: t.lado || 'bilateral',
-      observaciones: 'Resuelto desde la ficha', contexto: 'la ficha',
-    })
-    if (!r.ok) { alert('No se pudo registrar: ' + r.error); return }
-    cargar()
-    if (r.logrados > 0) {
-      alert(r.logrados === 1
-        ? 'Test resuelto. Un objetivo ha pasado a logrado.'
-        : `Test resuelto. ${r.logrados} objetivos han pasado a logrados.`)
-    }
-  }
 
   /**
    * Borrar UN resultado de test.
@@ -574,22 +555,24 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                 <div key={t0.test_id} style={{padding:'9px 11px',background:positivo?'var(--redl)':'var(--gl)',borderRadius:8,border:`1px solid ${positivo?'#F5C8C8':'var(--gm)'}`,marginBottom:7}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
                     <div style={{flex:1,minWidth:120,fontSize:13,color:'var(--n)'}}>{t0.tests?.nombre||'Test'}</div>
-                    {/* Del TEST, no del lado: al volver a evaluar se pasan los dos. */}
-                    <button className="btn btn-t btn-sm" onClick={()=>abrirTest?.(t0.test_id, '')}>Volver a evaluar</button>
-                    {/* Los registros del test: todas las veces que se pasó, de los dos
-                        lados y por fecha. Es desde donde se borra, para no borrar a ciegas
-                        desde una tarjeta que solo enseña el último de cada lado. */}
+                    {/*
+                      DOS ICONOS, mismo peso. Antes uno era texto y otro icono, y se leían
+                      como acciones de distinta categoría cuando son las dos del test.
+
+                      Y NO HAY "pasar a negativo". Cambiar el resultado sin volver a mirar
+                      al paciente es escribir en la historia clínica algo que nadie ha
+                      comprobado, y encima un test lateral se quedaba resuelto en un lado y
+                      no en el otro. Para cambiarlo se vuelve a pasar, que además obliga a
+                      hacerlo en los dos lados.
+                    */}
+                    <button className="et-b" title="Volver a evaluar · se pasan los dos lados"
+                      onClick={()=>abrirTest?.(t0.test_id, '')}>
+                      <Ic name="recuperar" size={13}/>
+                    </button>
                     <button className="et-b" title="Ver los registros de este test"
                       onClick={()=>setRegistrosDe({ id: t0.test_id, nombre: t0.tests?.nombre||'Test' })}>
-                      <Ic name="mas" size={13}/>
+                      <Ic name="historial" size={13}/>
                     </button>
-                    {positivo && (
-                      <button className="btn btn-t btn-sm" onClick={async()=>{
-                        // Pasa a negativo TODOS los lados que sigan positivos. Uno a uno se
-                        // quedaba medio test abierto y el objetivo sin cerrarse.
-                        for (const g of lados) if (g[0].resultado==='positivo') await resolverTestNegativo(g[0])
-                      }}>Pasar a negativo</button>
-                    )}
                   </div>
                   {/* Izquierdo a la izquierda y derecho a la derecha, en la misma tarjeta.
                       Con `wrap` se apilan solos cuando la columna se queda estrecha. */}
@@ -806,7 +789,6 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
               )}
               <div style={{display:'flex',gap:8,marginTop:2,alignItems:'center'}}>
                 <button className="btn btn-t btn-sm" onClick={()=>{setDetalle(null);abrirTest?.(t.test_id,t.lado||'bilateral')}}>Volver a evaluar</button>
-                {pos && <button className="btn btn-t btn-sm" onClick={()=>{setDetalle(null);resolverTestNegativo(t)}}>Pasar a negativo</button>}
                 <div style={{flex:1}}/>
                 {/* BORRAR el registro. No existía, y un resultado metido por error —el lado
                     equivocado, el test que no era— se quedaba dentro para siempre falseando
