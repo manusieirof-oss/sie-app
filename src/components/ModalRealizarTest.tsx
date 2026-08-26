@@ -69,7 +69,12 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
    *
    * Bilateral sí se resuelve solo: ahí no hay nada que elegir.
    */
-  const ladoActivo = tv.ladoActivo || (test?.tipo_lado === 'lateral' ? '' : 'bilateral')
+  const ladosPermitidos = test?.tipo_lado === 'lateral' ? ['izquierdo','derecho'] : ['bilateral']
+  // Si llega un lado que este test no tiene —un 'bilateral' en un test lateral— se ignora.
+  // Antes se quedaba como lado activo sin pestaña encendida y acababa guardándose así.
+  const ladoActivo: string = ladosPermitidos.includes(tv.ladoActivo || '')
+    ? (tv.ladoActivo as string)
+    : (test?.tipo_lado === 'lateral' ? '' : 'bilateral')
   const d = tv.lados?.[ladoActivo] || ladoVacio(test, tv.frecuencia_meses)
   const lados = test?.tipo_lado === 'lateral' ? LADOS_LATERAL : LADOS_BILATERAL
   const items = (test?.items || [])

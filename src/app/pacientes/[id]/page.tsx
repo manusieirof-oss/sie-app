@@ -392,10 +392,20 @@ export default function FichaPacientePage() {
   function abrirTest(testId: string, lado: string) {
     const test = testsDisp.find((t:any)=>t.id===testId)
     if (!test) { alert('Ese test ya no está en la biblioteca'); return }
-    // Al REPETIR se abre en el lado que se venía mirando. Al pasarlo de cero en un test
-    // lateral no se elige por ti: se entra sin lado y hay que decirlo. Poner 'izquierdo'
-    // por defecto hacía que se guardara como izquierdo un lado que nadie había decidido.
-    const l = lado || (test.tipo_lado==='lateral' ? '' : 'bilateral')
+    /**
+     * EL LADO TIENE QUE PERTENECER AL TEST. Aquí es donde se colaban los 'bilateral'.
+     *
+     * El explorador llama siempre con 'bilateral', y como es un valor con contenido pasaba
+     * de largo: en un test lateral dejaba `ladoActivo:'bilateral'`, ninguna pestaña se
+     * encendía y al guardar se escribía una fila con lado 'bilateral' para un test que solo
+     * tiene izquierdo y derecho. De ahí salen los tests que aparecen con los tres.
+     *
+     * Al REPETIR se abre en el lado que se venía mirando. Al pasarlo de cero en un test
+     * lateral no se elige por ti: se entra sin lado y hay que decirlo.
+     */
+    const lateral = test.tipo_lado === 'lateral'
+    const valido = lateral ? (lado==='izquierdo' || lado==='derecho') : (lado==='bilateral')
+    const l = valido ? lado : (lateral ? '' : 'bilateral')
     setTestEnCurso({ test, tv: { ladoActivo:l, frecuencia_meses:test.frecuencia_meses,
       lados: l ? { [l]: ladoVacio(test) } : {} } })
   }

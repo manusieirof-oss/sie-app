@@ -234,6 +234,26 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     }
   }
 
+  /**
+   * Borrar UN resultado de test.
+   *
+   * Hace falta sobre todo para limpiar los lados que no existen: hasta hace nada, elegir un
+   * test lateral desde el explorador lo abría con lado "bilateral" y se guardaba así, de
+   * modo que el mismo test aparece con izquierdo, derecho Y bilateral. Ese tercero no es
+   * un resultado, es un error de registro, y no había forma de quitarlo.
+   *
+   * Los objetivos que abrió NO se tocan: cerrarlos es una decisión clínica y se hace desde
+   * la ficha. Borrar la medición no significa que el problema no exista.
+   */
+  async function borrarResultado(t:any) {
+    const fecha = new Date(t.fecha+'T12:00:00').toLocaleDateString('es-ES')
+    const lado = t.lado && t.lado!=='bilateral' ? ` · ${cap(t.lado)}` : ''
+    if (!confirm(`¿Borrar el resultado del ${fecha}${lado}?\n\nSe borra solo esta medición. Los objetivos que abrió siguen abiertos.`)) return
+    const { error } = await supabase.from('resultados_tests').delete().eq('id', t.id)
+    if (error) { alert('No se pudo borrar: ' + error.message); return }
+    cargar()
+  }
+
   // Agrupación de tests por test+lado. La usan la vista lista y la del mapa.
   // El primero de cada grupo es "el resultado de hoy" y el resto el historial, así
   // que el orden no puede quedar al azar: se ordena aquí y no solo en la consulta.
@@ -518,10 +538,14 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                     </div>
                   )}
 
-                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:6}}>
-                    <button className="btn btn-t btn-sm" onClick={()=>abrirTest?.(t.test_id, t.lado||'bilateral')}>Volver a evaluar</button>
-                    {pos && <button className="btn btn-t btn-sm" onClick={()=>resolverTestNegativo(t)}>Pasar a negativo</button>}
-                  </div>
+                  {/* Solo el borrado es de este lado. Volver a evaluar y pasar a negativo
+                      son del test entero y viven en la cabecera de la tarjeta: un test
+                      lateral se pasa en los dos lados de una vez, así que dos botones
+                      iguales eran dos formas de hacer lo mismo a medias. */}
+                  <button className="btn btn-t btn-sm" style={{marginTop:6,color:'var(--red)',fontSize:10}}
+                    onClick={()=>borrarResultado(t)}>
+                    <Ic name="papelera" size={11}/> Borrar
+                  </button>
 
                   {anteriores.length>0 && (
                     <details style={{marginTop:7}}>
@@ -549,7 +573,18 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
               // clave dependiera de él React remontaría la tarjeta y cerraría el historial.
               return (
                 <div key={t0.test_id} style={{padding:'9px 11px',background:positivo?'var(--redl)':'var(--gl)',borderRadius:8,border:`1px solid ${positivo?'#F5C8C8':'var(--gm)'}`,marginBottom:7}}>
-                  <div style={{fontSize:13,color:'var(--n)',marginBottom:6}}>{t0.tests?.nombre||'Test'}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+                    <div style={{flex:1,minWidth:120,fontSize:13,color:'var(--n)'}}>{t0.tests?.nombre||'Test'}</div>
+                    {/* Del TEST, no del lado: al volver a evaluar se pasan los dos. */}
+                    <button className="btn btn-t btn-sm" onClick={()=>abrirTest?.(t0.test_id, '')}>Volver a evaluar</button>
+                    {positivo && (
+                      <button className="btn btn-t btn-sm" onClick={async()=>{
+                        // Pasa a negativo TODOS los lados que sigan positivos. Uno a uno se
+                        // quedaba medio test abierto y el objetivo sin cerrarse.
+                        for (const g of lados) if (g[0].resultado==='positivo') await resolverTestNegativo(g[0])
+                      }}>Pasar a negativo</button>
+                    )}
+                  </div>
                   {/* Izquierdo a la izquierda y derecho a la derecha, en la misma tarjeta.
                       Con `wrap` se apilan solos cuando la columna se queda estrecha. */}
                   <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
