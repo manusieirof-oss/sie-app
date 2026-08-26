@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import BuscadorBiblioteca from '@/components/BuscadorBiblioteca'
 import EscalaSlider from '@/components/EscalaSlider'
+import ModalItemClinico, { type ConfigItemClinico } from '@/components/ModalItemClinico'
 
 /**
  * Lo que el paciente ya tiene registrado, en gris y sin poder tocarlo.
@@ -26,17 +27,19 @@ function Ya({ lista }: { lista?: string[] }) {
   )
 }
 
-export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, intolBiblio, opsBiblio, patsBiblio, molsBiblio, setMedsBiblio, setAlergiasBiblio, setIntolBiblio, setOpsBiblio, setPatsBiblio, setMolsBiblio, yaTiene = {} }: any) {
+export default function PasoHistorial({ form, up, etiquetasLib=[], medsBiblio, alergiasBiblio, intolBiblio, opsBiblio, patsBiblio, molsBiblio, setMedsBiblio, setAlergiasBiblio, setIntolBiblio, setOpsBiblio, setPatsBiblio, setMolsBiblio, yaTiene = {} }: any) {
   const [opConfigurando, setOpConfigurando] = useState<any>(null)
   const [patConfigurando, setPatConfigurando] = useState<any>(null)
   const [molConfigurando, setMolConfigurando] = useState<any>(null)
-  const [modalNuevoMed, setModalNuevoMed] = useState(false)
-  const [modalNuevaAlerg, setModalNuevaAlerg] = useState(false)
-  const [modalNuevaIntol, setModalNuevaIntol] = useState(false)
-  const [modalNuevaOp, setModalNuevaOp] = useState(false)
-  const [modalNuevaPat, setModalNuevaPat] = useState(false)
-  const [modalNuevaMol, setModalNuevaMol] = useState(false)
-  const [nuevoNombre, setNuevoNombre] = useState('')
+  /**
+   * Dar de alta en el catálogo lo que no está.
+   *
+   * Eran seis modales escritos a mano, uno por lista, que creaban la entrada con
+   * `zona:'Otros'` y sin descripción ni etiquetas — y el de medicación pedía la
+   * frecuencia con un `prompt()`, la caja negra del navegador. Ahora es el mismo modal de
+   * la pestaña Clínico.
+   */
+  const [altaClinica, setAltaClinica] = useState<{config:ConfigItemClinico,valor:any,luego:(fila:any)=>void}|null>(null)
 
   return (
     <div>
@@ -49,7 +52,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
           <BuscadorBiblioteca items={medsBiblio} placeholder="Buscar medicación..." max={8}
             subtitulo={(m:any)=>m.categoria}
             onElegir={(m:any)=>up('medicacion',[...form.medicacion,{nombre:m.nombre,frecuencia:''}])}
-            onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevoMed(true)}}/>
+            onNuevo={(t:string)=>setAltaClinica({config:{tabla:'medicamentos_biblioteca',tipo:'medicamento',campoGrupo:'categoria'},valor:{nombre:t},luego:(f:any)=>{setMedsBiblio((p:any)=>[...p,f]);up('medicacion',[...form.medicacion,{nombre:f.nombre,frecuencia:''}])}})}/>
         </div>
         {/* ALERGIAS */}
         <div className="card">
@@ -58,7 +61,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
           <Ya lista={yaTiene.alergias}/>
           <BuscadorBiblioteca items={alergiasBiblio} placeholder="Buscar alergia..." max={8}
             onElegir={(a:any)=>{if(!form.alergias.includes(a.nombre))up('alergias',[...form.alergias,a.nombre])}}
-            onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaAlerg(true)}}/>
+            onNuevo={(t:string)=>setAltaClinica({config:{tabla:'alergias_biblioteca',tipo:'alergia',campoGrupo:'categoria'},valor:{nombre:t},luego:(f:any)=>{setAlergiasBiblio((p:any)=>[...p,f]);up('alergias',[...form.alergias,f.nombre])}})}/>
         </div>
         {/* INTOLERANCIAS */}
         <div className="card">
@@ -67,7 +70,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
           <Ya lista={yaTiene.intolerancias}/>
           <BuscadorBiblioteca items={intolBiblio} placeholder="Buscar intolerancia..." max={8}
             onElegir={(a:any)=>{if(!form.intolerancias.includes(a.nombre))up('intolerancias',[...form.intolerancias,a.nombre])}}
-            onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaIntol(true)}}/>
+            onNuevo={(t:string)=>setAltaClinica({config:{tabla:'intolerancias_biblioteca',tipo:'intolerancia',campoGrupo:'categoria'},valor:{nombre:t},luego:(f:any)=>{setIntolBiblio((p:any)=>[...p,f]);up('intolerancias',[...form.intolerancias,f.nombre])}})}/>
         </div>
       </div>
       <div className="g2" style={{marginBottom:10}}>
@@ -81,7 +84,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
             /* `biblioteca_id` explícito y no confiando en el `...op`: el spread trae `id`,
                pero al llegar a la fila del paciente `id` significa otra cosa y se pisaría. */
             onElegir={(op:any)=>setOpConfigurando({...op,biblioteca_id:op.id,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}
-            onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaOp(true)}}/>
+            onNuevo={(t:string)=>setAltaClinica({config:{tabla:'operaciones_biblioteca',tipo:'operación',campoGrupo:'zona'},valor:{nombre:t},luego:(f:any)=>{setOpsBiblio((p:any)=>[...p,f]);setOpConfigurando({nombre:f.nombre,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''})}})}/>
         </div>
         {/* PATOLOGÍAS */}
         <div className="card">
@@ -91,7 +94,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
           <BuscadorBiblioteca items={patsBiblio} placeholder="Buscar patología..." max={8}
             buscarEn={(p:any)=>[p.nombre,p.zona,p.sistema]} subtitulo={(p:any)=>[p.zona,p.sistema].filter(Boolean).join(' · ')}
             onElegir={(p:any)=>setPatConfigurando({...p,biblioteca_id:p.id,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}
-            onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaPat(true)}}/>
+            onNuevo={(t:string)=>setAltaClinica({config:{tabla:'patologias_biblioteca',tipo:'patología',campoGrupo:'zona'},valor:{nombre:t},luego:(f:any)=>{setPatsBiblio((p:any)=>[...p,f]);setPatConfigurando({nombre:f.nombre,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}})}/>
         </div>
       </div>
       {/* MOLESTIAS */}
@@ -102,7 +105,7 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
         <BuscadorBiblioteca items={molsBiblio} placeholder="ej. Dolor lumbar, rodilla..." max={10}
           buscarEn={(m:any)=>[m.nombre,m.zona]} subtitulo={(m:any)=>m.zona}
           onElegir={(m:any)=>setMolConfigurando({nombre:m.nombre,zona:m.zona,biblioteca_id:m.id,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}
-          onNuevo={(t:string)=>{setNuevoNombre(t);setModalNuevaMol(true)}}/>
+          onNuevo={(t:string)=>setAltaClinica({config:{tabla:'molestias_biblioteca',tipo:'molestia',campoGrupo:'zona'},valor:{nombre:t},luego:(f:any)=>{setMolsBiblio((p:any)=>[...p,f]);setMolConfigurando({nombre:f.nombre,zona:f.zona||'Otros',tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}})}/>
       </div>
 
       {/* MODALES CONFIGURAR */}
@@ -110,13 +113,13 @@ export default function PasoHistorial({ form, up, medsBiblio, alergiasBiblio, in
       {opConfigurando&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setOpConfigurando(null)}}><div className="modal"><div className="modal-title">{opConfigurando.nombre}<button className="modal-close" onClick={()=>setOpConfigurando(null)}>✕</button></div><div className="g2"><div className="field"><label>Año</label><input className="input" value={opConfigurando.anio} onChange={e=>setOpConfigurando((p:any)=>({...p,anio:e.target.value}))} placeholder="ej. 2020"/></div><div className="field"><label>Lado</label><select className="input" value={opConfigurando.lado} onChange={e=>setOpConfigurando((p:any)=>({...p,lado:e.target.value}))}><option value="no_aplica">No aplica</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option><option value="bilateral">Bilateral</option></select></div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={opConfigurando.observaciones} onChange={e=>setOpConfigurando((p:any)=>({...p,observaciones:e.target.value}))}/></div><div onClick={()=>setOpConfigurando((p:any)=>({...p,tiene_informe:!p.tiene_informe}))} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1px solid ${opConfigurando.tiene_informe?'var(--g)':'var(--bd)'}`,background:opConfigurando.tiene_informe?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}><div style={{width:16,height:16,borderRadius:3,border:`2px solid ${opConfigurando.tiene_informe?'var(--g)':'var(--bd)'}`,background:opConfigurando.tiene_informe?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{opConfigurando.tiene_informe&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}</div><span style={{fontSize:10,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={12}/> Tiene informe</span></div><div style={{display:'flex',gap:8}}><button className="btn btn-d btn-sm" onClick={()=>setOpConfigurando(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={()=>{up('operaciones',[...form.operaciones,{nombre:opConfigurando.nombre,biblioteca_id:opConfigurando.biblioteca_id||null,anio:opConfigurando.anio,lado:opConfigurando.lado,tiene_informe:opConfigurando.tiene_informe,observaciones:opConfigurando.observaciones}]);setOpConfigurando(null)}}>✓ Añadir</button></div></div></div>}
       {molConfigurando&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setMolConfigurando(null)}}><div className="modal"><div className="modal-title">{molConfigurando.nombre}<button className="modal-close" onClick={()=>setMolConfigurando(null)}>✕</button></div><div className="g2"><div className="field"><label>Tipo</label><select className="input" value={molConfigurando.tipo} onChange={e=>setMolConfigurando((p:any)=>({...p,tipo:e.target.value}))}><option value="molestia">Molestia</option><option value="dolor_agudo">Dolor agudo</option><option value="dolor_cronico">Dolor crónico</option><option value="rigidez">Rigidez</option></select></div><div className="field"><label>Lado</label><select className="input" value={molConfigurando.lado} onChange={e=>setMolConfigurando((p:any)=>({...p,lado:e.target.value}))}><option value="bilateral">Bilateral</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select></div></div><EscalaSlider label="EVA · intensidad" valor={molConfigurando.eva} color="var(--red)" izquierda="0 Nada" derecha="10 Insoportable" onCambio={v=>setMolConfigurando((p:any)=>({...p,eva:v}))}/><div className="field"><label>¿Cuándo aparece?</label><div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>{['En reposo','Al moverse','Con carga','Al caminar','Siempre','Al despertar'].map(c=><span key={c} onClick={()=>setMolConfigurando((p:any)=>({...p,cuando:c}))} style={{fontSize:10,padding:'3px 9px',borderRadius:99,border:`1px solid ${molConfigurando.cuando===c?'var(--g)':'var(--bd)'}`,background:molConfigurando.cuando===c?'var(--g)':'var(--w)',color:molConfigurando.cuando===c?'#fff':'var(--gr)',cursor:'pointer'}}>{c}</span>)}</div></div><div className="field"><label>Observaciones</label><textarea className="input" style={{minHeight:60}} value={molConfigurando.observaciones} onChange={e=>setMolConfigurando((p:any)=>({...p,observaciones:e.target.value}))} placeholder="Sensación, qué lo provoca..."/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setMolConfigurando(null)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={()=>{up('molestias',[...form.molestias,{zona:molConfigurando.nombre,biblioteca_id:molConfigurando.biblioteca_id||null,tipo:molConfigurando.tipo,eva:molConfigurando.eva,lado:molConfigurando.lado,cuando:molConfigurando.cuando,observaciones:molConfigurando.observaciones}]);setMolConfigurando(null)}}>✓ Añadir</button></div></div></div>}
 
-      {/* MODALES NUEVO */}
-      {modalNuevoMed&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevoMed(false)}}><div className="modal"><div className="modal-title">Añadir medicamento<button className="modal-close" onClick={()=>setModalNuevoMed(false)}>✕</button></div><div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setModalNuevoMed(false)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{if(!nuevoNombre)return;await supabase.from('medicamentos_biblioteca').insert({nombre:nuevoNombre,categoria:'Otros',activo:true});setMedsBiblio((p:any)=>[...p,{id:Date.now(),nombre:nuevoNombre,categoria:'Otros'}]);const freq=prompt('Frecuencia:','Diario');up('medicacion',[...form.medicacion,{nombre:nuevoNombre,frecuencia:freq||''}]);setModalNuevoMed(false);setNuevoNombre('')}}><Ic name="guardar" size={13}/> Añadir</button></div></div></div>}
-      {modalNuevaAlerg&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaAlerg(false)}}><div className="modal"><div className="modal-title">Añadir alergia<button className="modal-close" onClick={()=>setModalNuevaAlerg(false)}>✕</button></div><div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setModalNuevaAlerg(false)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{if(!nuevoNombre)return;await supabase.from('alergias_biblioteca').insert({nombre:nuevoNombre,categoria:'Otros',activo:true});setAlergiasBiblio((p:any)=>[...p,{id:Date.now(),nombre:nuevoNombre}]);up('alergias',[...form.alergias,nuevoNombre]);setModalNuevaAlerg(false);setNuevoNombre('')}}><Ic name="guardar" size={13}/> Añadir</button></div></div></div>}
-      {modalNuevaIntol&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaIntol(false)}}><div className="modal"><div className="modal-title">Añadir intolerancia<button className="modal-close" onClick={()=>setModalNuevaIntol(false)}>✕</button></div><div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setModalNuevaIntol(false)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{if(!nuevoNombre)return;await supabase.from('intolerancias_biblioteca').insert({nombre:nuevoNombre,categoria:'Otros',activo:true});setIntolBiblio((p:any)=>[...p,{id:Date.now(),nombre:nuevoNombre}]);up('intolerancias',[...form.intolerancias,nuevoNombre]);setModalNuevaIntol(false);setNuevoNombre('')}}><Ic name="guardar" size={13}/> Añadir</button></div></div></div>}
-      {modalNuevaOp&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaOp(false)}}><div className="modal"><div className="modal-title">Nueva operación<button className="modal-close" onClick={()=>setModalNuevaOp(false)}>✕</button></div><div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setModalNuevaOp(false)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{if(!nuevoNombre)return;const {data:nop}=await supabase.from('operaciones_biblioteca').insert({nombre:nuevoNombre,zona:'Otros',activo:true}).select().single();if(nop)setOpsBiblio((p:any)=>[...p,nop]);setOpConfigurando({nombre:nuevoNombre,biblioteca_id:nop?.id||null,anio:'',lado:'no_aplica',tiene_informe:false,observaciones:''});setModalNuevaOp(false);setNuevoNombre('')}}><Ic name="guardar" size={13}/> Añadir</button></div></div></div>}
-      {modalNuevaPat&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaPat(false)}}><div className="modal"><div className="modal-title">Nueva patología<button className="modal-close" onClick={()=>setModalNuevaPat(false)}>✕</button></div><div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setModalNuevaPat(false)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{if(!nuevoNombre)return;const {data:np}=await supabase.from('patologias_biblioteca').insert({nombre:nuevoNombre,zona:'Otros',sistema:'Otros',activo:true}).select().single();if(np)setPatsBiblio((p:any)=>[...p,np]);setPatConfigurando({nombre:nuevoNombre,biblioteca_id:np?.id||null,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''});setModalNuevaPat(false);setNuevoNombre('')}}><Ic name="guardar" size={13}/> Añadir</button></div></div></div>}
-      {modalNuevaMol&&<div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalNuevaMol(false)}}><div className="modal"><div className="modal-title">Nueva molestia<button className="modal-close" onClick={()=>setModalNuevaMol(false)}>✕</button></div><div className="field"><label>Nombre *</label><input className="input" value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} autoFocus/></div><div style={{display:'flex',gap:8,marginTop:8}}><button className="btn btn-d btn-sm" onClick={()=>setModalNuevaMol(false)}>Cancelar</button><div style={{flex:1}}/><button className="btn btn-p" onClick={async()=>{if(!nuevoNombre)return;const {data:nm}=await supabase.from('molestias_biblioteca').insert({nombre:nuevoNombre,zona:'Otros',activo:true}).select().single();if(nm)setMolsBiblio((p:any)=>[...p,nm]);setMolConfigurando({nombre:nuevoNombre,zona:'Otros',biblioteca_id:nm?.id||null,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''});setModalNuevaMol(false);setNuevoNombre('')}}><Ic name="guardar" size={13}/> Añadir</button></div></div></div>}
+      {altaClinica && (
+        <ModalItemClinico
+          config={altaClinica.config} valor={altaClinica.valor} etiquetas={etiquetasLib}
+          onGuardado={(fila:any)=>{ const f=altaClinica.luego; setAltaClinica(null); f(fila) }}
+          onCerrar={()=>setAltaClinica(null)}/>
+      )}
+
     </div>
   )
 }

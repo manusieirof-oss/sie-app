@@ -2,8 +2,8 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { CATEGORIAS_ETIQUETA } from '@/lib/etiquetas'
-import { ordenAnatomico, zonaEstaMapeada, ZONAS_DISPONIBLES } from '@/lib/anatomia'
+import { ordenAnatomico, zonaEstaMapeada } from '@/lib/anatomia'
+import ModalItemClinico from '@/components/ModalItemClinico'
 
 /**
  * Las seis listas del Pilar Clínico, en un solo componente.
@@ -69,23 +69,6 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
 
   function abrirNuevo() {
     setEditando({ nombre: '', [g]: '', descripcion: '', etiquetas: [] })
-  }
-
-  async function guardar() {
-    if (!editando?.nombre?.trim()) { alert('El nombre es obligatorio'); return }
-    setGuardando(true)
-    const campos: any = {
-      nombre: editando.nombre.trim(),
-      [g]: (editando[g] || '').trim() || 'Otros',
-      descripcion: editando.descripcion || null,
-      etiquetas: editando.etiquetas || [],
-    }
-    const r = editando.id
-      ? await supabase.from(config.tabla).update(campos).eq('id', editando.id)
-      : await supabase.from(config.tabla).insert({ ...campos, activo: true })
-    setGuardando(false)
-    if (r.error) { alert(r.error.message); return }
-    setEditando(null); setDetalle(null); cargar()
   }
 
   async function borrar(i: any) {
@@ -202,83 +185,14 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
       )}
 
       {/* ALTA Y EDICIÓN */}
+      {/* El alta y la edición viven en `ModalItemClinico`, compartido con la ficha del
+          paciente y la valoración: antes cada sitio se inventaba su propio formulario. */}
       {editando && (
-        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !guardando) setEditando(null) }}>
-          <div className="modal">
-            <div className="modal-title">
-              {editando.id ? `Editar ${config.tipo}` : `Añadir ${config.tipo}`}
-              <button className="modal-close" onClick={() => setEditando(null)}><Ic name="cerrar" size={15} /></button>
-            </div>
-
-            <div className="field"><label>Nombre *</label>
-              <input className="input" value={editando.nombre} autoFocus disabled={guardando}
-                onChange={e => setEditando((p: any) => ({ ...p, nombre: e.target.value }))} />
-            </div>
-
-            <div className="field"><label>{g === 'zona' ? 'Zona' : 'Categoría'}</label>
-              {/* Lista de las que ya existen más escritura libre: obligar a elegir de una
-                  lista cerrada impediría dar de alta la primera de una zona nueva. */}
-              <input className="input" list={`grupos-${config.tabla}`} value={editando[g] || ''} disabled={guardando}
-                onChange={e => setEditando((p: any) => ({ ...p, [g]: e.target.value }))}
-                placeholder="Otros" />
-              {/* Se ofrecen también las zonas que el mapa conoce, aunque todavía no las
-                  use nadie: es lo que evita escribir una que luego no se pueda pintar. */}
-              <datalist id={`grupos-${config.tabla}`}>
-                {Array.from(new Set([
-                  ...(items || []).map((i: any) => i[g]).filter(Boolean),
-                  ...(g === 'zona' ? ZONAS_DISPONIBLES : []),
-                ])).map((v: any) => <option key={v} value={v} />)}
-              </datalist>
-              {g === 'zona' && editando[g] && !zonaEstaMapeada(editando[g]) && (
-                <div style={{ fontSize: 12, color: '#8A6410', marginTop: 4 }}>
-                  El mapa corporal no conoce esta zona: lo que la use saldrá en "Sin localizar".
-                </div>
-              )}
-            </div>
-
-            <div className="field"><label>Descripción</label>
-              <textarea className="input" value={editando.descripcion || ''} disabled={guardando}
-                onChange={e => setEditando((p: any) => ({ ...p, descripcion: e.target.value }))}
-                placeholder="Qué es, en una o dos frases. Es lo que se lee al pulsar la píldora." />
-            </div>
-
-            <div className="field"><label>Etiquetas</label>
-              <input className="input" placeholder="Filtrar etiquetas…" disabled={guardando}
-                onChange={e => setEditando((p: any) => ({ ...p, filtroEt: e.target.value }))}
-                value={editando.filtroEt || ''} style={{ marginBottom: 6 }} />
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxHeight: 140, overflowY: 'auto' }}>
-                {etiquetas
-                  .filter((e: any) => {
-                    const f = (editando.filtroEt || '').toLowerCase()
-                    return !f || (e.nombre || '').toLowerCase().includes(f)
-                  })
-                  .slice(0, 120)
-                  .map((e: any) => {
-                    const sel = (editando.etiquetas || []).includes(e.id)
-                    return (
-                      <button key={e.id} className={`chip-sel ${sel ? 'on' : ''}`}
-                        onClick={() => setEditando((p: any) => ({
-                          ...p, etiquetas: sel
-                            ? (p.etiquetas || []).filter((x: string) => x !== e.id)
-                            : [...(p.etiquetas || []), e.id],
-                        }))}>{e.nombre}</button>
-                    )
-                  })}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>
-                Las mismas que los ejercicios y los tests: {CATEGORIAS_ETIQUETA.map(c => c.label.toLowerCase()).join(', ')}.
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button className="btn btn-t btn-sm" onClick={() => setEditando(null)} disabled={guardando}>Cancelar</button>
-              <div style={{ flex: 1 }} />
-              <button className="btn btn-p" onClick={guardar} disabled={guardando}>
-                {guardando ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ModalItemClinico
+          config={{ tabla: config.tabla, tipo: config.tipo, campoGrupo: g }}
+          valor={editando} etiquetas={etiquetas}
+          onGuardado={() => { setEditando(null); setDetalle(null); cargar() }}
+          onCerrar={() => setEditando(null)}/>
       )}
     </>
   )
