@@ -36,6 +36,7 @@ export default function CobrosPage() {
 
   const [pacientes, setPacientes] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
+  const [bonosFuturos, setBonosFuturos] = useState<any[]>([])
   const [pago, setPago] = useState<Record<string, any>>({})
   const [planes, setPlanes] = useState<any[]>([])
   const [facturas, setFacturas] = useState<any[]>([])
@@ -67,15 +68,20 @@ export default function CobrosPage() {
 
   async function cargar() {
     setCargando(true); setFallos([])
-    const [rp, rb, rpl, rf] = await Promise.all([
+    const [rp, rb, rfut, rpl, rf] = await Promise.all([
       supabase.from('pacientes').select('id,nombre,apellidos,dni,estado').in('estado',['activo','pausa']).order('nombre'),
       // Solo los bonos vigentes: un paciente al que se le corrigió el bono a
       // mitad de mes tiene la fila vieja desactivada, y contarla sería cobrar dos veces.
       supabase.from('bonos').select('*').eq('mes', mes).eq('anio', anio).eq('activo', true),
+      // Quién tiene ya bono de un mes POSTERIOR al que se mira. No entra en la
+      // lista de cobros —todavía no hay nada que cobrarle— pero tampoco puede
+      // salir como "le falta bono": no está olvidado, está programado.
+      supabase.from('bonos').select('paciente_id,mes,anio').eq('activo', true)
+        .or(`anio.gt.${anio},and(anio.eq.${anio},mes.gt.${mes})`),
       supabase.from('planes').select('*').eq('activo', true),
       supabase.from('facturas').select('id,serie,numero,fecha_expedicion,tipo,total,cobro_id').order('fecha_expedicion',{ascending:false}).limit(30),
     ])
-    const errs = ([['pacientes',rp],['bonos',rb],['planes',rpl],['facturas',rf]] as const)
+    const errs = ([['pacientes',rp],['bonos',rb],['bonos futuros',rfut],['planes',rpl],['facturas',rf]] as const)
       .filter(([,r]) => r.error).map(([n,r]) => `${n}: ${r.error!.message}`)
 
     const tar = await cargarTarifas()
@@ -132,6 +138,7 @@ export default function CobrosPage() {
 
     setFallos(errs)
     setPacientes(rp.data || []); setBonos(rb.data || []); setPlanes(rpl.data || [])
+    setBonosFuturos(rfut.data || [])
     setFacturas(rf.data || []); setPago(mapaPago)
     setCargando(false)
   }
@@ -207,17 +214,31 @@ export default function CobrosPage() {
    */
   const sinCuota = useMemo(() => {
     const conBono = new Set(bonos.map(b => b.paciente_id))
+    // Quien empieza más adelante NO es un olvido. Se marca aparte y va al final
+    // de la lista, para que los que de verdad faltan no queden diluidos entre
+    // gente que ya está resuelta.
+    const empiezaEn = new Map<string, string>()
+    bonosFuturos.forEach(b => {
+      const clave = `${b.anio}-${String(b.mes).padStart(2,'0')}`
+      const previo = empiezaEn.get(b.paciente_id)
+      if (!previo || clave < previo) empiezaEn.set(b.paciente_id, clave)
+    })
     const t = busca.trim().toLowerCase()
     return pacientes
       .filter(p => !conBono.has(p.id))
       .filter(p => !t || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(t))
-  }, [pacientes, bonos, busca])
+      .map(p => ({ ...p, empiezaEn: empiezaEn.get(p.id) || null }))
+      .sort((a, b) => Number(!!a.empiezaEn) - Number(!!b.empiezaEn))
+  }, [pacientes, bonos, bonosFuturos, busca])
+
+  /** De los de arriba, los que de verdad no tienen nada previsto. */
+  const faltanDeVerdad = sinCuota.filter(p => !p.empiezaEn).length
 
   const cuenta = {
     pendientes: base.filter(DE_VISTA.pendientes).length,
     vinieron:   base.filter(DE_VISTA.vinieron).length,
     todos:      base.length,
-    sincuota:   sinCuota.length,
+    sincuota:   faltanDeVerdad,
   }
 
   // "Sin cuota" no filtra bonos: pinta pacientes, y se resuelve aparte abajo.
@@ -401,9 +422,12 @@ export default function CobrosPage() {
           <>
             <div style={{fontSize:10,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',
                          borderRadius:8,padding:'10px 13px',marginBottom:10,lineHeight:1.6}}>
-              <strong>{sinCuota.length} clientes sin bono de {MESES[mes-1].toLowerCase()}.</strong> No aparecen
+              <strong>{faltanDeVerdad} clientes sin bono de {MESES[mes-1].toLowerCase()}.</strong> No aparecen
               en la lista de cobros porque no hay nada que cobrarles: hay que asignarles el bono desde su ficha.
               {' '}Los que están <strong>en pausa</strong> también cuentan — pausa es que está de vacaciones, y el mes se cobra igual.
+              {sinCuota.length > faltanDeVerdad && <>
+                {' '}Los {sinCuota.length - faltanDeVerdad} de abajo del todo ya tienen bono para más adelante: esos están resueltos.
+              </>}
             </div>
             {sinCuota.map(p => (
               <Link key={p.id} href={`/pacientes/${p.id}`}
@@ -414,12 +438,17 @@ export default function CobrosPage() {
                   {!p.dni && <div style={{fontSize:9,color:'var(--grl)'}}>sin DNI</div>}
                 </div>
                 {p.estado==='pausa' && <span style={{fontSize:9,color:'#7A5800',fontWeight:600}}>en pausa</span>}
+                {p.empiezaEn && (
+                  <span style={{fontSize:9,color:'var(--gd)',fontWeight:600,whiteSpace:'nowrap'}}>
+                    empieza en {MESES[Number(p.empiezaEn.split('-')[1])-1].toLowerCase()}
+                  </span>
+                )}
                 {(clasesDe[p.id]||0) > 0 && (
                   <span style={{fontSize:9,color:'var(--red)',fontWeight:600}}>
                     {clasesDe[p.id]} {clasesDe[p.id]===1?'clase':'clases'} este mes
                   </span>
                 )}
-                <span style={{fontSize:10,color:'var(--gd)'}}>Asignar bono →</span>
+                {!p.empiezaEn && <span style={{fontSize:10,color:'var(--gd)'}}>Asignar bono →</span>}
               </Link>
             ))}
           </>

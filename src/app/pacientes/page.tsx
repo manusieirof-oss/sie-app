@@ -9,6 +9,8 @@ import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase, iconTipoClase, colorTipoClase } from '@/lib/tipos'
 import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
+import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
+         mesesDesde, MESES_HASTA_REVISAR, valoraronYNoEmpezaron } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -22,6 +24,9 @@ export default function PacientesPage() {
   const [filtroPago, setFiltroPago] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroEstado, setFiltroEstado] = useState('activo')
+  // Aviso de los que se valoraron y nunca llegaron a dar una clase. Se pliega:
+  // es información útil, no una alarma diaria.
+  const [verSinEmpezar, setVerSinEmpezar] = useState(false)
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [modal, setModal] = useState(false)
   const [modalBonoPac, setModalBonoPac] = useState<any>(null)
@@ -41,6 +46,10 @@ export default function PacientesPage() {
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
   const [citasPac, setCitasPac] = useState<Record<string, ResumenCitas>>({})
+  // Última clase DADA de cada uno. De aquí sale "cuánto hace que no viene", que
+  // es el dato que convierte "puede volver" en algo accionable en vez de en un
+  // cajón donde la gente se queda para siempre.
+  const [ultimaClase, setUltimaClase] = useState<Map<string,string>>(new Map())
 
   const mesActual = new Date().getMonth()+1
   const anioActual = new Date().getFullYear()
@@ -79,6 +88,8 @@ export default function PacientesPage() {
     // Una sola consulta para toda la lista: doscientos pacientes son doscientas
     // consultas si se pide uno a uno, y se nota al abrir.
     setCitasPac(await resumenCitasFuturas((p || []).filter((x:any)=>x.estado==='activo').map((x:any)=>x.id)))
+    const uc = await ultimaClaseDe((p || []).map((x:any)=>x.id))
+    setUltimaClase(uc.mapa)
     setTiposClase(await cargarTiposClase())
 
     const r = await rondaAbierta()
@@ -136,6 +147,9 @@ export default function PacientesPage() {
     return bonos.filter(b => b.paciente_id === pacienteId && b.sesiones_totales != null)
   }
 
+  // Los que se valoraron y nunca dieron una clase. Derivado, no marcado.
+  const sinEmpezar = valoraronYNoEmpezaron(pacientes, ultimaClase)
+
   /** true si ese bono todavía no ha empezado: es una cuota dejada preparada. */
   const esFuturo = (b: any) => !!b && (b.anio > anioActual || (b.anio === anioActual && b.mes > mesActual))
 
@@ -168,7 +182,11 @@ export default function PacientesPage() {
   }
 
   const labelTipo = (v:string) => v ? nombreTipoClase(tiposClase, v) : '—'
-  const estadoBadge: Record<string,{txt:string,bg:string,col:string}> = { activo:{txt:'● Activo',bg:'var(--gl)',col:'var(--gd)'}, baja:{txt:'○ Baja',bg:'var(--redl)',col:'var(--red)'}, pausa:{txt:'Pausa',bg:'var(--ambl)',col:'#8A6410'} }
+  // Los colores y las etiquetas salen de `lib/estadosPaciente`, que es donde se
+  // decide qué significa cada estado. Duplicarlos aquí fue lo que permitió que
+  // "pausa" acabara queriendo decir dos cosas distintas según la pantalla.
+  const estadoBadge: Record<string,{txt:string,bg:string,col:string}> =
+    Object.fromEntries(ESTADOS_PACIENTE.map(e => [e.id, { txt: e.badge, bg: e.bg, col: e.col }]))
   const pagoLabel: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
   const pagoDot: Record<string,string> = { pagado:'var(--g)', pendiente:'var(--amb)', impago:'var(--red)' }
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
@@ -240,7 +258,7 @@ export default function PacientesPage() {
         <div style={{width:1,height:18,background:'var(--bd)'}}/>
         <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
           <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Estado</span>
-          {[['activo','Activos'],['baja','Bajas'],['pausa','Pausas'],['todos','Todos']].map(([f,l])=>(
+          {[['activo','Activos'],['pausa','Pausas'],['puede_volver','Pueden volver'],['baja','Bajas'],['todos','Todos']].map(([f,l])=>(
             <span key={f} onClick={()=>setFiltroEstado(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroEstado===f?'var(--g)':'var(--w)',color:filtroEstado===f?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
               {l} <b style={{fontWeight:600}}>{nEstado(f)}</b>
             </span>
@@ -280,6 +298,36 @@ export default function PacientesPage() {
         </div>
       )}
 
+      {/* SE VALORARON Y NO LLEGARON A EMPEZAR
+          No es un estado que nadie marque: se deduce de que no tengan ninguna
+          clase dada. Marcarlo a mano obligaría a acordarse de desmarcarlo el día
+          que por fin vengan, y de eso no se acuerda nadie.
+          Va plegado porque es para revisar de vez en cuando, no una alarma. */}
+      {!loading && sinEmpezar.length > 0 && (
+        <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',marginBottom:10}}>
+          <div onClick={()=>setVerSinEmpezar(v=>!v)}
+            style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:10,color:'var(--gr)'}}>
+            <Ic name="alerta" size={12}/>
+            <span style={{flex:1}}>
+              <strong>{sinEmpezar.length}</strong> {sinEmpezar.length===1?'persona se valoró':'personas se valoraron'} y nunca {sinEmpezar.length===1?'llegó':'llegaron'} a dar una clase
+            </span>
+            <span style={{fontSize:9,color:'var(--grl)'}}>{verSinEmpezar?'ocultar':'ver quiénes'}</span>
+          </div>
+          {verSinEmpezar && (
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:9}}>
+              {sinEmpezar.map(p=>(
+                <Link key={p.id} href={`/pacientes/${p.id}`}
+                  style={{fontSize:10,padding:'4px 10px',borderRadius:99,background:'var(--w)',border:'1px solid var(--bd)',
+                          color:'var(--n)',textDecoration:'none',whiteSpace:'nowrap'}}>
+                  {p.nombre} {p.apellidos}
+                  <span style={{color:'var(--grl)',marginLeft:5}}>{situacionDe(p.estado).nombre.toLowerCase()}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
@@ -302,6 +350,18 @@ export default function PacientesPage() {
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   <span style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:estadoBadge[p.estado]?.bg||'var(--bl)',color:estadoBadge[p.estado]?.col||'var(--gr)'}}>{estadoBadge[p.estado]?.txt||p.estado}</span>
+                  {/* Cuánto hace que no viene, solo en los que pueden volver:
+                      es el dato con el que se decide si toca llamarles o
+                      cerrarles la ficha. En un activo no dice nada útil. */}
+                  {p.estado==='puede_volver' && (() => {
+                    const m = mesesDesde(ultimaClase.get(p.id))
+                    const revisar = m == null || m >= MESES_HASTA_REVISAR
+                    return (
+                      <div style={{fontSize:8,marginTop:2,color:revisar?'var(--red)':'var(--grl)',fontWeight:revisar?600:400}}>
+                        {textoDesde(ultimaClase.get(p.id))}
+                      </div>
+                    )
+                  })()}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (

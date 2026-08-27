@@ -518,6 +518,35 @@ export default function FichaPacientePage() {
     cargar()
   }
 
+  /**
+   * "Puede volver": lo dejó sin fecha, pero dijo que volvería.
+   *
+   * No es una pausa y no es una baja. La pausa cobra el mes —es alguien de
+   * vacaciones que conserva su plaza— y la baja borra sus citas futuras y lo
+   * saca de todas las listas. Aquí no se le cobra nada y no cuenta como
+   * cliente, pero sigue estando a la vista con los meses que lleva sin venir.
+   *
+   * Sus citas futuras se cancelan, no se borran: si vuelve la semana que viene,
+   * el historial cuenta lo que pasó de verdad. Y se limpian las fechas de pausa
+   * por lo mismo que en la baja: una fecha de vuelta apuntando a alguien que no
+   * la tiene haría que la reactivación automática se lo llevara por delante.
+   */
+  async function marcarPuedeVolver() {
+    if (!confirm(`¿Marcar a ${pac.nombre} ${pac.apellidos} como "puede volver"?\n\nDeja de contar como cliente y no se le cobra el mes. Sus citas programadas se cancelan, pero sigue apareciendo en su lista de seguimiento.`)) return
+    setProcesando(true)
+    const hoy = new Date().toISOString().split('T')[0]
+    const { error: errCitas } = await supabase.from('citas')
+      .update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
+    if (errCitas) { setProcesando(false); alert('No se han podido cancelar sus citas futuras: ' + errCitas.message); return }
+    const { error } = await supabase.from('pacientes')
+      .update({ estado:'puede_volver', pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    if (error) { setProcesando(false); alert('No se ha podido cambiar el estado: ' + error.message); return }
+    await registrarEvento('pausa', 'Marcado como "puede volver"',
+      'Sin fecha de vuelta. No se le cobra el mes; sus citas programadas se han cancelado.')
+    setProcesando(false)
+    cargar()
+  }
+
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
     await supabase.from('pacientes').update({ estado:'activo', pausa_desde:null, pausa_hasta:null }).eq('id',id)
@@ -705,10 +734,16 @@ export default function FichaPacientePage() {
                 estaba en pausa había que reactivarlo primero para poder darlo de baja: dos
                 pasos y un estado intermedio falso en el historial, cuando lo que ha pasado
                 es que no vuelve. */}
+            {/* "Puede volver" va ANTES de "Dar de baja" a propósito: es la
+                opción que se busca cuando alguien lo deja diciendo que volverá,
+                y si la baja está primero se pulsa la baja. */}
             {(pac.estado==='activo'||pac.estado==='pausa') && (
+              <button className="menu-it" onClick={()=>{setMenuAcc(null);marcarPuedeVolver()}} disabled={procesando}><Ic name="reloj" size={14}/> Puede volver</button>
+            )}
+            {(pac.estado==='activo'||pac.estado==='pausa'||pac.estado==='puede_volver') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);darDeBaja()}} disabled={procesando}><Ic name="altabaja" size={14}/> Dar de baja</button>
             )}
-            {(pac.estado==='baja'||pac.estado==='pausa') && (
+            {(pac.estado==='baja'||pac.estado==='pausa'||pac.estado==='puede_volver') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);reactivar()}} disabled={procesando}><Ic name="play" size={14}/> Reactivar</button>
             )}
             <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
