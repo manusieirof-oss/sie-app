@@ -16,7 +16,7 @@ import ExploradorTests from '@/components/ExploradorTests'
 import ModalCobro from '@/components/ModalCobro'
 import { cargarTarifas } from '@/lib/tarifas'
 import { bonosDe, renovarBonoSesiones, type BonoSesiones } from '@/lib/bonoSesiones'
-import { programarEstado, anularProgramacion, estadoDe as situacionDe, ESTADOS_PACIENTE } from '@/lib/estadosPaciente'
+import { programarEstado, anularProgramacion, estadoDe as situacionDe, ESTADOS_PACIENTE, textoDesde } from '@/lib/estadosPaciente'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
@@ -657,6 +657,15 @@ export default function FichaPacientePage() {
   // Cuatro mapas, y ninguno conocía 'puede_volver': la cabecera caía al valor por
   // defecto y ponía "Activo" a alguien que lo había dejado. Un estado nuevo tiene
   // que fallar de forma visible, no fingir el más inocuo de todos.
+  // Su última clase DADA, de las citas que ya están cargadas. Es lo que
+  // convierte "puede volver" en algo accionable: tres meses sin aparecer es una
+  // llamada pendiente, tres semanas es normal.
+  const ultimaClase = (citas||[])
+    .filter((c:any)=>c.estado==='realizada')
+    .map((c:any)=>c.fecha)
+    .sort()
+    .pop() || null
+
   const estadoColor: Record<string,string> = { activo:'var(--gm)', baja:'#E8A8A8', pausa:'#E6CE8A', puede_volver:'#C9C4BC' }
   const estadoBg: Record<string,string> = { activo:'rgba(90,150,158,.22)', baja:'rgba(176,90,90,.22)', pausa:'rgba(201,168,76,.22)', puede_volver:'rgba(255,255,255,.14)' }
   const estadoDot: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)', puede_volver:'var(--grl)' }
@@ -804,25 +813,46 @@ export default function FichaPacientePage() {
         </>
       )}
 
-      {/* AVISO BAJA/PAUSA */}
-      {pac.estado!=='activo' && (
-        <div style={{background:pac.estado==='baja'?'var(--redl)':'var(--ambl)',border:`1px solid ${pac.estado==='baja'?'var(--red)':'var(--amb)'}`,borderRadius:'var(--rl)',padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
-          <span style={{display:'inline-flex',color:pac.estado==='baja'?'var(--red)':'var(--amb)'}}><Ic name={pac.estado==='baja'?'altabaja':'pausa'} size={17}/></span>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:500,color:pac.estado==='baja'?'var(--red)':'#7A5800'}}>
-              {pac.estado==='baja' ? 'Paciente dado de baja'
-               : pac.estado==='puede_volver' ? 'Lo dejó, pero puede volver'
-               : 'Paciente en pausa temporal'}
+      {/* EN QUÉ SITUACIÓN ESTÁ
+          Cada estado con SU color y SU icono. Antes esto era un ternario
+          "¿es baja? rojo : ámbar", así que "puede volver" salía idéntico a una
+          pausa —mismo ámbar, mismo icono de pausa— y solo se distinguían por el
+          texto. Dos situaciones que se cobran de forma distinta no pueden
+          parecer la misma de un vistazo.
+
+          Lo que de verdad las separa es la fecha de vuelta: la pausa la tiene y
+          se reactiva sola; esta no, y por eso hay que llamar a alguien. */}
+      {pac.estado!=='activo' && (() => {
+        const S = {
+          baja:         { bg:'var(--redl)', bd:'var(--red)', tx:'var(--red)', ic:'altabaja',
+                          titulo:'Paciente dado de baja' },
+          puede_volver: { bg:'var(--bl)',   bd:'var(--bd)',  tx:'var(--gr)',  ic:'reloj',
+                          titulo:'Lo dejó, pero puede volver' },
+          pausa:        { bg:'var(--ambl)', bd:'var(--amb)', tx:'#7A5800',    ic:'pausa',
+                          titulo:'Paciente en pausa temporal' },
+        }[pac.estado as 'baja'|'puede_volver'|'pausa'] || {
+          bg:'var(--bl)', bd:'var(--bd)', tx:'var(--gr)', ic:'alerta', titulo:pac.estado
+        }
+        return (
+          <div style={{background:S.bg,border:`1px solid ${S.bd}`,borderRadius:'var(--rl)',padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
+            <span style={{display:'inline-flex',color:S.tx}}><Ic name={S.ic} size={17}/></span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,fontWeight:500,color:S.tx}}>{S.titulo}</div>
+              <div style={{fontSize:10,color:S.tx,fontWeight:300,lineHeight:1.5}}>
+                {pac.estado==='baja'
+                  ? 'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.'
+                  : pac.estado==='puede_volver'
+                  ? <><strong>Sin fecha de vuelta.</strong> No se le cobra el mes ni cuenta como cliente.
+                      {' '}Última clase {textoDesde(ultimaClase)}. Pulsa Reactivar cuando vuelva, o programa la vuelta si ya sabéis el día.</>
+                  : pac.pausa_desde && pac.pausa_hasta
+                  ? `Vuelve el ${new Date(pac.pausa_hasta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'})}, y se reactiva solo ese día. Se le cobra el mes igual. Sus citas del periodo fueron canceladas.`
+                  : 'Sus citas del periodo de pausa fueron canceladas. Se le cobra el mes igual.'}
+              </div>
             </div>
-            <div style={{fontSize:10,color:pac.estado==='baja'?'var(--red)':'#7A5800',fontWeight:300}}>
-              {pac.estado==='baja'?'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.'
-               :pac.estado==='puede_volver'?'No se le cobra el mes ni cuenta como cliente. Pulsa Reactivar cuando vuelva.'
-               :(pac.pausa_desde&&pac.pausa_hasta?`En pausa del ${new Date(pac.pausa_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} al ${new Date(pac.pausa_hasta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}. Sus citas de ese periodo fueron canceladas.`:'Sus citas del periodo de pausa fueron canceladas.')}
-            </div>
+            <button className="btn btn-p btn-sm" onClick={reactivar}>▶ Reactivar</button>
           </div>
-          <button className="btn btn-p btn-sm" onClick={reactivar}>▶ Reactivar</button>
-        </div>
-      )}
+        )
+      })()}
 
       {/* SALIDA PROGRAMADA
           Se avisa aquí arriba y no escondido en un menú: mientras esté puesto,
