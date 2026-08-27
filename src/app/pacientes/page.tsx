@@ -10,7 +10,8 @@ import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase, iconTipoClase,
 import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
-         mesesDesde, MESES_HASTA_REVISAR, valoraronYNoEmpezaron } from '@/lib/estadosPaciente'
+         mesesDesde, MESES_HASTA_REVISAR, valoraronYNoEmpezaron,
+         estadosPrevistos, textoCuando, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -27,6 +28,9 @@ export default function PacientesPage() {
   // Aviso de los que se valoraron y nunca llegaron a dar una clase. Se pliega:
   // es información útil, no una alarma diaria.
   const [verSinEmpezar, setVerSinEmpezar] = useState(false)
+  // Bajas y salidas ya firmadas, con su fecha. Saber esto por adelantado era
+  // imposible: solo estaba en la cabeza de quien lo había hablado con el cliente.
+  const [previstos, setPrevistos] = useState<EstadoPrevisto[]>([])
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [modal, setModal] = useState(false)
   const [modalBonoPac, setModalBonoPac] = useState<any>(null)
@@ -90,6 +94,8 @@ export default function PacientesPage() {
     setCitasPac(await resumenCitasFuturas((p || []).filter((x:any)=>x.estado==='activo').map((x:any)=>x.id)))
     const uc = await ultimaClaseDe((p || []).map((x:any)=>x.id))
     setUltimaClase(uc.mapa)
+    const prev = await estadosPrevistos()
+    setPrevistos(prev.filas)
     setTiposClase(await cargarTiposClase())
 
     const r = await rondaAbierta()
@@ -295,6 +301,30 @@ export default function PacientesPage() {
             onClick={()=>setSoloFaltan(v=>!v)}>
             Solo los que faltan
           </button>
+        </div>
+      )}
+
+      {/* LO QUE VIENE
+          Bajas ya habladas con el cliente y con fecha puesta. Esto antes no
+          existía en ningún sitio: quien lo hablaba se lo guardaba en la cabeza,
+          y el resto se enteraba el día que la persona dejaba de aparecer. */}
+      {!loading && previstos.length > 0 && (
+        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:'var(--rl)',padding:'10px 13px',marginBottom:10}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#7A5800',display:'flex',alignItems:'center',gap:5,marginBottom:7}}>
+            <Ic name="calendario" size={12}/>
+            {previstos.length===1 ? '1 salida prevista' : `${previstos.length} salidas previstas`}
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {previstos.map(v=>(
+              <Link key={v.paciente_id} href={`/pacientes/${v.paciente_id}`}
+                style={{fontSize:10,padding:'4px 10px',borderRadius:99,background:'var(--w)',border:'1px solid #E5D3A8',
+                        color:'var(--n)',textDecoration:'none',whiteSpace:'nowrap'}}>
+                {v.nombre} {v.apellidos}
+                <span style={{color:'#8A6410',marginLeft:5,fontWeight:600}}>{textoCuando(v.dias_para)}</span>
+                {v.estado_programado==='puede_volver' && <span style={{color:'var(--grl)',marginLeft:4}}>· puede volver</span>}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 

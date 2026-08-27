@@ -239,9 +239,26 @@ export async function renovarCuotas(modoPrueba = false) {
   // descanso, no se ha ido. Sigue pagando el mes y vuelve cuando termina el
   // periodo. Dejar de renovarle la cuota le quitaría la plaza sin que nadie lo
   // haya decidido.
-  const { data: pacientes, error: errPac } = await supabase.from('pacientes').select('id,estado')
+  const { data: pacientes, error: errPac } = await supabase.from('pacientes')
+    .select('id,estado,estado_programado,estado_programado_desde')
   if (errPac) return { ejecutado: false, motivo: 'error_lectura', error: errPac.message, renovados: 0 }
-  const estadoPaciente = new Map((pacientes || []).map((p: any) => [p.id, p.estado]))
+
+  /**
+   * El estado que le toca HOY, no el que tiene guardado.
+   *
+   * Hay una carrera entre esto y el cron: la renovación se dispara al entrar en
+   * la app y el cron corre a su hora. Si alguien tenía la baja puesta para el 1
+   * y entras antes de que el cron pase, su fila todavía dice "activo" y se le
+   * generaría una cuota del mes que no debe pagar —y que además hay que
+   * localizar y borrar después—.
+   *
+   * Mirar aquí la fecha programada cuesta nada y quita la dependencia del orden.
+   */
+  const estadoPaciente = new Map((pacientes || []).map((p: any) => {
+    const yaToca = p.estado_programado && p.estado_programado_desde
+      && p.estado_programado_desde <= new Date().toISOString().split('T')[0]
+    return [p.id, yaToca ? p.estado_programado : p.estado]
+  }))
   const SIGUE_SIENDO_CLIENTE = ['activo', 'pausa']
 
   // Los bonos POR SESIONES no se renuevan: se compran, se gastan y se acaban.

@@ -134,3 +134,91 @@ export function valoraronYNoEmpezaron(pacientes: any[], ultimaClase: Map<string,
     p.estado !== 'baja' &&
     !ultimaClase.has(p.id))
 }
+
+// ---------------------------------------------------------------------------
+// CAMBIOS DE ESTADO PROGRAMADOS
+//
+// Alguien avisa el día 10 de que lo deja a final de mes. Hasta ahora había que
+// elegir entre marcarlo de baja ya —y quedarse sin sus quince clases pendientes
+// en la agenda— o acordarse el día 30. Ahora se apunta y se aplica solo.
+//
+// Lo aplica el cron diario, no la app: si dependiera de que alguien abriera una
+// pantalla, una baja del día 30 se quedaría sin aplicar hasta que a alguien le
+// diera por entrar. Ver sql/estados_programados.sql.
+// ---------------------------------------------------------------------------
+
+/** Estados que se pueden programar. Solo salidas: para volver está Reactivar. */
+export const ESTADOS_PROGRAMABLES = ['baja', 'puede_volver'] as const
+
+export type EstadoPrevisto = {
+  paciente_id: string
+  nombre: string
+  apellidos: string
+  estado_actual: string
+  estado_programado: string
+  estado_programado_desde: string
+  estado_programado_motivo: string | null
+  dias_para: number
+  bono_tipo: string | null
+}
+
+/**
+ * Deja programado el cambio. No toca el estado actual: el paciente sigue
+ * viniendo y pagando hasta la fecha, que es justamente el motivo de esto.
+ */
+export async function programarEstado(
+  pacienteId: string,
+  estado: string,
+  desde: string,
+  motivo?: string | null,
+) {
+  if (!ESTADOS_PROGRAMABLES.includes(estado as any)) {
+    return { ok: false as const, error: `No se puede programar el estado "${estado}"` }
+  }
+  if (!desde) return { ok: false as const, error: 'Falta la fecha' }
+
+  const { error } = await supabase.from('pacientes').update({
+    estado_programado: estado,
+    estado_programado_desde: desde,
+    estado_programado_motivo: motivo || null,
+  }).eq('id', pacienteId)
+  if (error) return { ok: false as const, error: error.message }
+
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: pacienteId, tipo: 'baja',
+    titulo: `${estado === 'baja' ? 'Baja' : 'Puede volver'} programado para el ${new Date(desde + 'T12:00:00').toLocaleDateString('es-ES')}`,
+    descripcion: (motivo ? `${motivo}. ` : '') + 'Hasta esa fecha sigue viniendo y se le cobra normalmente.',
+    fecha: new Date().toISOString().split('T')[0],
+  })
+  return { ok: true as const }
+}
+
+/** Anula lo programado. Se arrepintió, o se apuntó mal. */
+export async function anularProgramacion(pacienteId: string) {
+  const { error } = await supabase.from('pacientes').update({
+    estado_programado: null, estado_programado_desde: null, estado_programado_motivo: null,
+  }).eq('id', pacienteId)
+  if (error) return { ok: false as const, error: error.message }
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: pacienteId, tipo: 'baja',
+    titulo: 'Cambio de estado anulado',
+    descripcion: 'Se ha quitado la baja que estaba programada. Sigue como cliente.',
+    fecha: new Date().toISOString().split('T')[0],
+  })
+  return { ok: true as const }
+}
+
+/** Lo que viene: quién se va, cuándo y con qué bono. Para verlo antes de que pase. */
+export async function estadosPrevistos() {
+  const { data, error } = await supabase.from('v_estados_previstos').select('*')
+  if (error) return { ok: false as const, error: error.message, filas: [] as EstadoPrevisto[] }
+  return { ok: true as const, error: null, filas: (data || []) as EstadoPrevisto[] }
+}
+
+/** "en 12 días", "hoy", "hace 3 días" (esto último es que el cron no ha pasado aún). */
+export function textoCuando(dias: number): string {
+  if (dias === 0) return 'hoy'
+  if (dias === 1) return 'mañana'
+  if (dias > 1) return `en ${dias} días`
+  return dias === -1 ? 'ayer, pendiente de aplicar' : `hace ${Math.abs(dias)} días, pendiente de aplicar`
+}

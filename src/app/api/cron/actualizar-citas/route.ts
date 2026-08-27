@@ -39,5 +39,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, fecha: hoy, reactivados: null, error_pausas: errPausa.message }, { status: 207 })
   }
 
-  return NextResponse.json({ ok: true, fecha: hoy, reactivados })
+  // Bajas y "puede volver" que llegan a su fecha. Ver sql/estados_programados.sql:
+  // se apuntan por adelantado y se aplican aquí, para que quien avisa el día 10
+  // de que lo deja a fin de mes siga dando sus clases hasta fin de mes.
+  const { data: aplicados, error: errEstados } = await supabase.rpc('aplicar_estados_programados')
+  if (errEstados) {
+    return NextResponse.json({ ok: true, fecha: hoy, reactivados, aplicados: null, error_estados: errEstados.message }, { status: 207 })
+  }
+  // Los que ya estaban en ese estado por otro camino: se les quita la marca
+  // para que no se queden en la lista de previstas eternamente.
+  await supabase.rpc('limpiar_estados_programados_cumplidos')
+
+  return NextResponse.json({ ok: true, fecha: hoy, reactivados, aplicados: aplicados ?? [] })
 }

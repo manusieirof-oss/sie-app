@@ -16,6 +16,7 @@ import ExploradorTests from '@/components/ExploradorTests'
 import ModalCobro from '@/components/ModalCobro'
 import { cargarTarifas } from '@/lib/tarifas'
 import { bonosDe, renovarBonoSesiones, type BonoSesiones } from '@/lib/bonoSesiones'
+import { programarEstado, anularProgramacion, estadoDe as situacionDe } from '@/lib/estadosPaciente'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
@@ -69,6 +70,9 @@ export default function FichaPacientePage() {
   const [form, setForm] = useState<any>({})
   const [modalBono, setModalBono] = useState(false)
   const [modalPausa, setModalPausa] = useState(false)
+  // Baja o "puede volver" con fecha futura. Ver lib/estadosPaciente.ts.
+  const [modalSalida, setModalSalida] = useState(false)
+  const [salida, setSalida] = useState({ estado:'baja', desde:'', motivo:'' })
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
@@ -547,6 +551,26 @@ export default function FichaPacientePage() {
     cargar()
   }
 
+  async function guardarSalida() {
+    if (!salida.desde) { alert('Indica desde qué día'); return }
+    setProcesando(true)
+    const r = await programarEstado(String(id), salida.estado, salida.desde, salida.motivo)
+    setProcesando(false)
+    if (!r.ok) { alert('No se ha podido programar: ' + r.error); return }
+    setModalSalida(false)
+    setSalida({ estado:'baja', desde:'', motivo:'' })
+    cargar()
+  }
+
+  async function quitarSalida() {
+    if (!confirm('¿Quitar el cambio de estado programado? El paciente sigue como está.')) return
+    setProcesando(true)
+    const r = await anularProgramacion(String(id))
+    setProcesando(false)
+    if (!r.ok) { alert('No se ha podido anular: ' + r.error); return }
+    cargar()
+  }
+
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
     await supabase.from('pacientes').update({ estado:'activo', pausa_desde:null, pausa_hasta:null }).eq('id',id)
@@ -740,6 +764,11 @@ export default function FichaPacientePage() {
             {(pac.estado==='activo'||pac.estado==='pausa') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);marcarPuedeVolver()}} disabled={procesando}><Ic name="reloj" size={14}/> Puede volver</button>
             )}
+            {/* Programar la salida. Es lo que se necesita cuando alguien avisa a
+                mitad de mes: sigue viniendo y pagando hasta la fecha. */}
+            {(pac.estado==='activo'||pac.estado==='pausa') && !pac.estado_programado && (
+              <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalSalida(true)}} disabled={procesando}><Ic name="calendario" size={14}/> Programar baja…</button>
+            )}
             {(pac.estado==='activo'||pac.estado==='pausa'||pac.estado==='puede_volver') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);darDeBaja()}} disabled={procesando}><Ic name="altabaja" size={14}/> Dar de baja</button>
             )}
@@ -767,6 +796,28 @@ export default function FichaPacientePage() {
             </div>
           </div>
           <button className="btn btn-p btn-sm" onClick={reactivar}>▶ Reactivar</button>
+        </div>
+      )}
+
+      {/* SALIDA PROGRAMADA
+          Se avisa aquí arriba y no escondido en un menú: mientras esté puesto,
+          todo lo demás de la ficha dice que es un cliente normal, y lo es —hasta
+          esa fecha—. Pero quien abra la ficha tiene que saber que se va. */}
+      {pac.estado_programado && pac.estado_programado_desde && (
+        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:'var(--rl)',padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
+          <span style={{display:'inline-flex',color:'var(--amb)'}}><Ic name="calendario" size={17}/></span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:500,color:'#7A5800'}}>
+              {pac.estado_programado==='baja' ? 'Baja programada' : 'Lo deja el'}{' '}
+              {new Date(pac.estado_programado_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'})}
+            </div>
+            <div style={{fontSize:10,color:'#7A5800',fontWeight:300,lineHeight:1.5}}>
+              Hasta ese día sigue viniendo y se le cobra el mes normalmente.
+              Después se le cancelan las citas automáticamente.
+              {pac.estado_programado_motivo && <> · {pac.estado_programado_motivo}</>}
+            </div>
+          </div>
+          <button className="btn btn-s btn-sm" onClick={quitarSalida} disabled={procesando}>Anular</button>
         </div>
       )}
 
@@ -881,6 +932,66 @@ export default function FichaPacientePage() {
           onCerrar={()=>setCobrando(null)}
           onEmitida={r=>{ setCobrando(null); alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}
         />
+      )}
+
+      {/* PROGRAMAR LA SALIDA
+          Alguien avisa el día 10 de que lo deja a fin de mes. Hasta ahora había
+          que elegir entre marcarlo ya —y perder sus quince clases pendientes de
+          la agenda— o acordarse el día 30. */}
+      {modalSalida && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSalida(false)}}>
+          <div className="modal" style={{maxWidth:430}}>
+            <div className="modal-title">
+              <span className="ct-l"><Ic name="calendario" size={16}/> Programar salida</span>
+              <button className="modal-close" onClick={()=>setModalSalida(false)}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,lineHeight:1.6}}>
+              Hasta la fecha que pongas, <strong>no cambia nada</strong>: sigue en la agenda, se le
+              cobra el mes y aparece en las listas. Ese día se aplica solo y se le
+              cancelan las citas posteriores.
+            </div>
+
+            <div className="field">
+              <label>¿Qué pasa con esta persona?</label>
+              <div style={{display:'flex',gap:6}}>
+                {[['baja','Se da de baja'],['puede_volver','Lo deja, pero puede volver']].map(([v,l])=>(
+                  <button key={v} type="button" onClick={()=>setSalida(p=>({...p,estado:v}))}
+                    style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                            border:`1.5px solid ${salida.estado===v?'var(--g)':'var(--bd)'}`,
+                            background:salida.estado===v?'var(--g)':'var(--w)',
+                            color:salida.estado===v?'#fff':'var(--gr)'}}>{l}</button>
+                ))}
+              </div>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:4,lineHeight:1.5}}>
+                {situacionDe(salida.estado).ayuda}
+              </div>
+            </div>
+
+            <div className="field">
+              <label>Su última semana es hasta el *</label>
+              <input type="date" className="input" value={salida.desde}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e=>setSalida(p=>({...p,desde:e.target.value}))}/>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
+                Da clase hasta ese día incluido. Las citas posteriores se cancelan.
+              </div>
+            </div>
+
+            <div className="field">
+              <label>Motivo (opcional)</label>
+              <input className="input" placeholder="ej. se muda, lesión, precio"
+                value={salida.motivo} onChange={e=>setSalida(p=>({...p,motivo:e.target.value}))}/>
+            </div>
+
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setModalSalida(false)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={guardarSalida} disabled={procesando||!salida.desde}>
+                {procesando?'…':'✓ Programar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODAL PAUSA */}
