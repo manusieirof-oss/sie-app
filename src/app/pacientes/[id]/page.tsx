@@ -953,13 +953,20 @@ export default function FichaPacientePage() {
 
             <div className="field">
               <label>¿Qué pasa con esta persona?</label>
+              {/* Mismas palabras y mismos iconos que el menú de los tres puntos.
+                  Si allí pone "Puede volver" y aquí "Lo deja, pero puede volver",
+                  parecen dos cosas distintas y hay que pararse a comprobar que no
+                  lo son. Y en el mismo orden, por lo mismo. */}
               <div style={{display:'flex',gap:6}}>
-                {[['baja','Se da de baja'],['puede_volver','Lo deja, pero puede volver']].map(([v,l])=>(
+                {[['puede_volver','Puede volver','reloj'],['baja','Dar de baja','altabaja']].map(([v,l,ic])=>(
                   <button key={v} type="button" onClick={()=>setSalida(p=>({...p,estado:v}))}
-                    style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                    style={{flex:1,padding:'8px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                            display:'flex',alignItems:'center',justifyContent:'center',gap:5,
                             border:`1.5px solid ${salida.estado===v?'var(--g)':'var(--bd)'}`,
                             background:salida.estado===v?'var(--g)':'var(--w)',
-                            color:salida.estado===v?'#fff':'var(--gr)'}}>{l}</button>
+                            color:salida.estado===v?'#fff':'var(--gr)'}}>
+                    <Ic name={ic} size={13}/> {l}
+                  </button>
                 ))}
               </div>
               <div style={{fontSize:9,color:'var(--grl)',marginTop:4,lineHeight:1.5}}>
