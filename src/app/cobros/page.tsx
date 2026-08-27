@@ -48,7 +48,7 @@ export default function CobrosPage() {
   const [busca, setBusca] = useState('')
   // Tres vistas en vez de un interruptor. "Ver todos" sacaba también a quien no
   // tiene cuota ni ha venido, y eso es ruido: la lista va de cobrar el mes.
-  const [vista, setVista] = useState<'pendientes'|'vinieron'|'todos'>('pendientes')
+  const [vista, setVista] = useState<'pendientes'|'vinieron'|'todos'|'sincuota'>('pendientes')
   const [cobrando, setCobrando] = useState<any>(null)
   const [aviso, setAviso] = useState<string|null>(null)
   // Última factura emitida, para poder imprimirla sin buscarla.
@@ -187,19 +187,41 @@ export default function CobrosPage() {
   }, [bonos, pacienteDe, pago, idx, busca, clasesDe])
 
   /** Qué entra en cada vista. Una sola definición para el contador y la lista. */
-  const DE_VISTA = {
+  const DE_VISTA: Record<string, (f: any) => boolean> = {
     pendientes: (f: any) => !f.pagado,
     vinieron:   (f: any) => f.clases > 0,
     todos:      () => true,
-  } as const
+  }
+
+  /**
+   * CLIENTES SIN NADA QUE COBRAR ESTE MES.
+   *
+   * El complemento exacto de la lista: esta pantalla se construye desde los
+   * BONOS del mes, así que quien no tiene bono no aparece por ningún lado. Eso
+   * está bien mientras no le falte a nadie, y deja de estarlo en cuanto se te
+   * queda gente sin asignar y no hay forma de saber quién.
+   *
+   * No es lo mismo que el aviso rojo de arriba: aquel solo pilla a quien tiene
+   * citas. Alguien en pausa, de vacaciones y sin citas, no sale ahí y sin
+   * embargo se le cobra el mes igual.
+   */
+  const sinCuota = useMemo(() => {
+    const conBono = new Set(bonos.map(b => b.paciente_id))
+    const t = busca.trim().toLowerCase()
+    return pacientes
+      .filter(p => !conBono.has(p.id))
+      .filter(p => !t || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(t))
+  }, [pacientes, bonos, busca])
 
   const cuenta = {
     pendientes: base.filter(DE_VISTA.pendientes).length,
     vinieron:   base.filter(DE_VISTA.vinieron).length,
     todos:      base.length,
+    sincuota:   sinCuota.length,
   }
 
-  const filas = useMemo(() => base.filter(DE_VISTA[vista]), [base, vista])
+  // "Sin cuota" no filtra bonos: pinta pacientes, y se resuelve aparte abajo.
+  const filas = useMemo(() => base.filter(DE_VISTA[vista] || DE_VISTA.todos), [base, vista])
 
   /**
    * Abre el cobro mirando antes si al paciente se le ha cobrado alguna vez.
@@ -268,7 +290,7 @@ export default function CobrosPage() {
               mismo, que es lo que pasa cuando nadie ha pagado todavía y todos
               tienen clases: entonces no es que el filtro no haga nada, es que
               las tres listas son la misma gente. */}
-          {([['pendientes','Pendientes'],['vinieron','Han venido'],['todos','Todos']] as const).map(([k,l])=>(
+          {([['pendientes','Pendientes'],['vinieron','Han venido'],['todos','Todos'],['sincuota','Sin cuota']] as const).map(([k,l])=>(
             <button key={k} onClick={()=>setVista(k)}
               style={{fontSize:10,padding:'6px 11px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',
                 background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',
@@ -370,6 +392,38 @@ export default function CobrosPage() {
 
       {cargando ? (
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando...</div>
+      ) : vista === 'sincuota' ? (
+        sinCuota.length === 0 ? (
+          <div style={{fontSize:11,color:'var(--grl)',padding:24,textAlign:'center'}}>
+            Todos los clientes tienen bono de {MESES[mes-1].toLowerCase()}.
+          </div>
+        ) : (
+          <>
+            <div style={{fontSize:10,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',
+                         borderRadius:8,padding:'10px 13px',marginBottom:10,lineHeight:1.6}}>
+              <strong>{sinCuota.length} clientes sin bono de {MESES[mes-1].toLowerCase()}.</strong> No aparecen
+              en la lista de cobros porque no hay nada que cobrarles: hay que asignarles el bono desde su ficha.
+              {' '}Los que están <strong>en pausa</strong> también cuentan — pausa es que está de vacaciones, y el mes se cobra igual.
+            </div>
+            {sinCuota.map(p => (
+              <Link key={p.id} href={`/pacientes/${p.id}`}
+                style={{display:'flex',alignItems:'center',gap:10,padding:'9px 13px',borderRadius:8,
+                        border:'1px solid var(--bd)',marginBottom:6,background:'var(--w)',textDecoration:'none'}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:500,color:'var(--n)'}}>{p.nombre} {p.apellidos}</div>
+                  {!p.dni && <div style={{fontSize:9,color:'var(--grl)'}}>sin DNI</div>}
+                </div>
+                {p.estado==='pausa' && <span style={{fontSize:9,color:'#7A5800',fontWeight:600}}>en pausa</span>}
+                {(clasesDe[p.id]||0) > 0 && (
+                  <span style={{fontSize:9,color:'var(--red)',fontWeight:600}}>
+                    {clasesDe[p.id]} {clasesDe[p.id]===1?'clase':'clases'} este mes
+                  </span>
+                )}
+                <span style={{fontSize:10,color:'var(--gd)'}}>Asignar bono →</span>
+              </Link>
+            ))}
+          </>
+        )
       ) : filas.length === 0 ? (
         <div style={{fontSize:11,color:'var(--grl)',padding:24,textAlign:'center'}}>
           {vista==='pendientes' ? 'No queda nadie por cobrar este mes.'
