@@ -808,12 +808,12 @@ export default function FichaPacientePage() {
           <span style={{display:'inline-flex',color:'var(--amb)'}}><Ic name="calendario" size={17}/></span>
           <div style={{flex:1}}>
             <div style={{fontSize:11,fontWeight:500,color:'#7A5800'}}>
-              {pac.estado_programado==='baja' ? 'Baja programada' : 'Lo deja el'}{' '}
+              {pac.estado_programado==='baja' ? 'Baja programada desde el' : 'Lo deja a partir del'}{' '}
               {new Date(pac.estado_programado_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'})}
             </div>
             <div style={{fontSize:10,color:'#7A5800',fontWeight:300,lineHeight:1.5}}>
-              Hasta ese día sigue viniendo y se le cobra el mes normalmente.
-              Después se le cancelan las citas automáticamente.
+              Su última clase es el día anterior. Hasta entonces sigue viniendo y se le
+              cobra el mes normalmente; de esa fecha en adelante se le cancelan las citas.
               {pac.estado_programado_motivo && <> · {pac.estado_programado_motivo}</>}
             </div>
           </div>
@@ -946,9 +946,9 @@ export default function FichaPacientePage() {
               <button className="modal-close" onClick={()=>setModalSalida(false)}>✕</button>
             </div>
             <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,lineHeight:1.6}}>
-              Hasta la fecha que pongas, <strong>no cambia nada</strong>: sigue en la agenda, se le
-              cobra el mes y aparece en las listas. Ese día se aplica solo y se le
-              cancelan las citas posteriores.
+              Hasta ese día, <strong>no cambia nada</strong>: sigue en la agenda, se le
+              cobra el mes y aparece en las listas. A partir de esa fecha se aplica
+              solo y se le cancelan las citas.
             </div>
 
             <div className="field">
@@ -968,12 +968,13 @@ export default function FichaPacientePage() {
             </div>
 
             <div className="field">
-              <label>Su última semana es hasta el *</label>
+              <label>Primer día que ya no viene *</label>
               <input type="date" className="input" value={salida.desde}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={e=>setSalida(p=>({...p,desde:e.target.value}))}/>
               <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
-                Da clase hasta ese día incluido. Las citas posteriores se cancelan.
+                Su última clase es el día ANTERIOR a este. Si lo deja a final de agosto,
+                pon el 1 de septiembre. Las citas de ese día en adelante se cancelan.
               </div>
             </div>
 
