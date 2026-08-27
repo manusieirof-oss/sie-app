@@ -392,6 +392,17 @@ export default function PacientesPage() {
                       </div>
                     )
                   })()}
+                  {/* SALIDA PROGRAMADA. Va debajo del estado, no en el panel de
+                      arriba solamente: el panel se lee una vez y se ignora, pero
+                      esta línea la ves cada vez que buscas a esa persona por
+                      cualquier otro motivo. Alguien que se va el mes que viene
+                      no se le renueva el bono ni se le cierra un trimestre. */}
+                  {p.estado_programado && p.estado_programado_desde && (
+                    <div style={{fontSize:8,marginTop:2,color:'#8A6410',fontWeight:600,whiteSpace:'nowrap'}}>
+                      {p.estado_programado==='baja' ? 'baja el ' : 'lo deja el '}
+                      {new Date(p.estado_programado_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                    </div>
+                  )}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
