@@ -16,7 +16,7 @@ import ExploradorTests from '@/components/ExploradorTests'
 import ModalCobro from '@/components/ModalCobro'
 import { cargarTarifas } from '@/lib/tarifas'
 import { bonosDe, renovarBonoSesiones, type BonoSesiones } from '@/lib/bonoSesiones'
-import { programarEstado, anularProgramacion, estadoDe as situacionDe } from '@/lib/estadosPaciente'
+import { programarEstado, anularProgramacion, estadoDe as situacionDe, ESTADOS_PACIENTE } from '@/lib/estadosPaciente'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
@@ -73,6 +73,17 @@ export default function FichaPacientePage() {
   // Baja o "puede volver" con fecha futura. Ver lib/estadosPaciente.ts.
   const [modalSalida, setModalSalida] = useState(false)
   const [salida, setSalida] = useState({ estado:'baja', desde:'', motivo:'' })
+
+  /**
+   * Qué se le puede programar según dónde esté ahora.
+   *
+   * A quien está dentro se le programa la salida; a quien está fuera, la
+   * vuelta. Ofrecer las dos siempre dejaría programar una baja a alguien que ya
+   * está de baja, que no significa nada.
+   */
+  const opcionesSalida = pac?.estado === 'activo' || pac?.estado === 'pausa'
+    ? [['puede_volver','Puede volver','reloj'],['baja','Dar de baja','altabaja']]
+    : [['activo','Reincorporar','play']]
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
   const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
@@ -497,7 +508,7 @@ export default function FichaPacientePage() {
      * un estado nuevo, no una pausa con otro nombre.
      */
     const { error } = await supabase.from('pacientes')
-      .update({ estado:'baja', pausa_desde:null, pausa_hasta:null }).eq('id',id)
+      .update({ estado:'baja', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
     if (error) { setProcesando(false); alert('No se ha podido dar de baja: ' + error.message); return }
     await registrarEvento('baja', pac.estado === 'pausa' ? 'Baja del servicio, estando en pausa' : 'Baja del servicio',
       'Sus citas futuras programadas fueron eliminadas.')
@@ -514,7 +525,7 @@ export default function FichaPacientePage() {
     if (citasPausa && citasPausa.length > 0) {
       await supabase.from('citas').update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
     }
-    await supabase.from('pacientes').update({ estado:'pausa', pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
+    await supabase.from('pacientes').update({ estado:'pausa', estado_desde:pausa.desde, pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
     await registrarEvento('pausa', `Pausa del ${pausa.desde} al ${pausa.hasta}`, `${citasPausa?.length||0} citas canceladas en ese periodo.`)
     setProcesando(false)
     setModalPausa(false)
@@ -543,7 +554,7 @@ export default function FichaPacientePage() {
       .update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
     if (errCitas) { setProcesando(false); alert('No se han podido cancelar sus citas futuras: ' + errCitas.message); return }
     const { error } = await supabase.from('pacientes')
-      .update({ estado:'puede_volver', pausa_desde:null, pausa_hasta:null }).eq('id',id)
+      .update({ estado:'puede_volver', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
     if (error) { setProcesando(false); alert('No se ha podido cambiar el estado: ' + error.message); return }
     await registrarEvento('pausa', 'Marcado como "puede volver"',
       'Sin fecha de vuelta. No se le cobra el mes; sus citas programadas se han cancelado.')
@@ -573,7 +584,7 @@ export default function FichaPacientePage() {
 
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
-    await supabase.from('pacientes').update({ estado:'activo', pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    await supabase.from('pacientes').update({ estado:'activo', estado_desde:new Date().toISOString().split('T')[0], pausa_desde:null, pausa_hasta:null }).eq('id',id)
     await registrarEvento('reactivacion', 'Reactivación del servicio', null)
     alert('✓ Paciente reactivado. Recuerda crear sus nuevas citas en la agenda.')
     cargar()
@@ -643,10 +654,13 @@ export default function FichaPacientePage() {
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id, b.dias_semana>1?`${b.nombre} · ${b.dias_semana}d/sem`:b.nombre]))
   const pagoBadge: Record<string,string> = { pagado:'badge-g', pendiente:'badge-pen', impago:'badge-imp' }
   const pagoLabel: Record<string,string> = { pagado:'✓ Pagado', pendiente:'Pendiente', impago:'Impago' }
-  const estadoColor: Record<string,string> = { activo:'var(--gm)', baja:'#E8A8A8', pausa:'#E6CE8A' }
-  const estadoBg: Record<string,string> = { activo:'rgba(90,150,158,.22)', baja:'rgba(176,90,90,.22)', pausa:'rgba(201,168,76,.22)' }
-  const estadoDot: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)' }
-  const estadoLabel: Record<string,string> = { activo:'Activo', baja:'Baja', pausa:'Pausa' }
+  // Cuatro mapas, y ninguno conocía 'puede_volver': la cabecera caía al valor por
+  // defecto y ponía "Activo" a alguien que lo había dejado. Un estado nuevo tiene
+  // que fallar de forma visible, no fingir el más inocuo de todos.
+  const estadoColor: Record<string,string> = { activo:'var(--gm)', baja:'#E8A8A8', pausa:'#E6CE8A', puede_volver:'#C9C4BC' }
+  const estadoBg: Record<string,string> = { activo:'rgba(90,150,158,.22)', baja:'rgba(176,90,90,.22)', pausa:'rgba(201,168,76,.22)', puede_volver:'rgba(255,255,255,.14)' }
+  const estadoDot: Record<string,string> = { activo:'var(--g)', baja:'var(--red)', pausa:'var(--amb)', puede_volver:'var(--grl)' }
+  const estadoLabel: Record<string,string> = Object.fromEntries(ESTADOS_PACIENTE.map(e => [e.id, e.nombre]))
   const inputOscuro = { background:'rgba(255,255,255,.1)', color:'#fff', borderColor:'var(--gm)' }
   const contacto: [string,string][] = ([
     ['telefono', pac?.telefono], ['mail', pac?.email], ['dni', pac?.dni],
@@ -711,7 +725,7 @@ export default function FichaPacientePage() {
           <div className="pat-tags">
             <span className="pat-tag" style={{background:estadoBg[pac.estado]||'rgba(90,150,158,.22)',color:estadoColor[pac.estado]||'var(--gm)'}}>
               <span className="pat-dot" style={{background:estadoDot[pac.estado]||'var(--g)'}}/>
-              {estadoLabel[pac.estado]||'Activo'}
+              {estadoLabel[pac.estado] || pac.estado}
             </span>
           </div>
         </div>
@@ -766,8 +780,15 @@ export default function FichaPacientePage() {
             )}
             {/* Programar la salida. Es lo que se necesita cuando alguien avisa a
                 mitad de mes: sigue viniendo y pagando hasta la fecha. */}
-            {(pac.estado==='activo'||pac.estado==='pausa') && !pac.estado_programado && (
-              <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalSalida(true)}} disabled={procesando}><Ic name="calendario" size={14}/> Programar baja…</button>
+            {!pac.estado_programado && (
+              <button className="menu-it" disabled={procesando}
+                onClick={()=>{
+                  setMenuAcc(null)
+                  setSalida({ estado: (pac.estado==='activo'||pac.estado==='pausa') ? 'puede_volver' : 'activo', desde:'', motivo:'' })
+                  setModalSalida(true)
+                }}>
+                <Ic name="calendario" size={14}/> {(pac.estado==='activo'||pac.estado==='pausa') ? 'Programar baja…' : 'Programar vuelta…'}
+              </button>
             )}
             {(pac.estado==='activo'||pac.estado==='pausa'||pac.estado==='puede_volver') && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);darDeBaja()}} disabled={procesando}><Ic name="altabaja" size={14}/> Dar de baja</button>
@@ -789,10 +810,14 @@ export default function FichaPacientePage() {
           <span style={{display:'inline-flex',color:pac.estado==='baja'?'var(--red)':'var(--amb)'}}><Ic name={pac.estado==='baja'?'altabaja':'pausa'} size={17}/></span>
           <div style={{flex:1}}>
             <div style={{fontSize:11,fontWeight:500,color:pac.estado==='baja'?'var(--red)':'#7A5800'}}>
-              {pac.estado==='baja'?'Paciente dado de baja':'Paciente en pausa temporal'}
+              {pac.estado==='baja' ? 'Paciente dado de baja'
+               : pac.estado==='puede_volver' ? 'Lo dejó, pero puede volver'
+               : 'Paciente en pausa temporal'}
             </div>
             <div style={{fontSize:10,color:pac.estado==='baja'?'var(--red)':'#7A5800',fontWeight:300}}>
-              {pac.estado==='baja'?'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.':(pac.pausa_desde&&pac.pausa_hasta?`En pausa del ${new Date(pac.pausa_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} al ${new Date(pac.pausa_hasta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}. Sus citas de ese periodo fueron canceladas.`:'Sus citas del periodo de pausa fueron canceladas.')}
+              {pac.estado==='baja'?'Sus citas futuras fueron eliminadas. Pulsa Reactivar si vuelve.'
+               :pac.estado==='puede_volver'?'No se le cobra el mes ni cuenta como cliente. Pulsa Reactivar cuando vuelva.'
+               :(pac.pausa_desde&&pac.pausa_hasta?`En pausa del ${new Date(pac.pausa_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} al ${new Date(pac.pausa_hasta+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}. Sus citas de ese periodo fueron canceladas.`:'Sus citas del periodo de pausa fueron canceladas.')}
             </div>
           </div>
           <button className="btn btn-p btn-sm" onClick={reactivar}>▶ Reactivar</button>
@@ -808,12 +833,17 @@ export default function FichaPacientePage() {
           <span style={{display:'inline-flex',color:'var(--amb)'}}><Ic name="calendario" size={17}/></span>
           <div style={{flex:1}}>
             <div style={{fontSize:11,fontWeight:500,color:'#7A5800'}}>
-              {pac.estado_programado==='baja' ? 'Baja programada desde el' : 'Lo deja a partir del'}{' '}
+              {pac.estado_programado==='baja' ? 'Baja programada desde el'
+               : pac.estado_programado==='activo' ? 'Vuelve el'
+               : 'Lo deja a partir del'}{' '}
               {new Date(pac.estado_programado_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'})}
             </div>
             <div style={{fontSize:10,color:'#7A5800',fontWeight:300,lineHeight:1.5}}>
-              Su última clase es el día anterior. Hasta entonces sigue viniendo y se le
-              cobra el mes normalmente; de esa fecha en adelante se le cancelan las citas.
+              {pac.estado_programado==='activo'
+                ? <>Hasta entonces no cuenta como cliente ni se le cobra. Ese día vuelve a estar activo
+                    solo; acuérdate de asignarle el bono y de ponerle citas.</>
+                : <>Su última clase es el día anterior. Hasta entonces sigue viniendo y se le
+                    cobra el mes normalmente; de esa fecha en adelante se le cancelan las citas.</>}
               {pac.estado_programado_motivo && <> · {pac.estado_programado_motivo}</>}
             </div>
           </div>
@@ -942,23 +972,27 @@ export default function FichaPacientePage() {
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSalida(false)}}>
           <div className="modal" style={{maxWidth:430}}>
             <div className="modal-title">
-              <span className="ct-l"><Ic name="calendario" size={16}/> Programar salida</span>
+              <span className="ct-l"><Ic name="calendario" size={16}/> {salida.estado==='activo' ? 'Programar vuelta' : 'Programar salida'}</span>
               <button className="modal-close" onClick={()=>setModalSalida(false)}>✕</button>
             </div>
             <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,lineHeight:1.6}}>
-              Hasta ese día, <strong>no cambia nada</strong>: sigue en la agenda, se le
-              cobra el mes y aparece en las listas. A partir de esa fecha se aplica
-              solo y se le cancelan las citas.
+              {salida.estado==='activo'
+                ? <>Hasta ese día <strong>no cambia nada</strong>: no cuenta como cliente ni se le
+                    cobra. Esa fecha vuelve a estar activo solo, sin tocarle ninguna cita.
+                    El bono se le asigna aparte, con su propia fecha de inicio.</>
+                : <>Hasta ese día, <strong>no cambia nada</strong>: sigue en la agenda, se le
+                    cobra el mes y aparece en las listas. A partir de esa fecha se aplica
+                    solo y se le cancelan las citas.</>}
             </div>
 
             <div className="field">
-              <label>¿Qué pasa con esta persona?</label>
+              <label>{salida.estado==='activo' ? '¿Qué se programa?' : '¿Qué pasa con esta persona?'}</label>
               {/* Mismas palabras y mismos iconos que el menú de los tres puntos.
                   Si allí pone "Puede volver" y aquí "Lo deja, pero puede volver",
                   parecen dos cosas distintas y hay que pararse a comprobar que no
                   lo son. Y en el mismo orden, por lo mismo. */}
               <div style={{display:'flex',gap:6}}>
-                {[['puede_volver','Puede volver','reloj'],['baja','Dar de baja','altabaja']].map(([v,l,ic])=>(
+                {opcionesSalida.map(([v,l,ic])=>(
                   <button key={v} type="button" onClick={()=>setSalida(p=>({...p,estado:v}))}
                     style={{flex:1,padding:'8px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
                             display:'flex',alignItems:'center',justifyContent:'center',gap:5,
@@ -975,19 +1009,20 @@ export default function FichaPacientePage() {
             </div>
 
             <div className="field">
-              <label>Primer día que ya no viene *</label>
+              <label>{salida.estado==='activo' ? 'Primer día que vuelve *' : 'Primer día que ya no viene *'}</label>
               <input type="date" className="input" value={salida.desde}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={e=>setSalida(p=>({...p,desde:e.target.value}))}/>
               <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
-                Su última clase es el día ANTERIOR a este. Si lo deja a final de agosto,
-                pon el 1 de septiembre. Las citas de ese día en adelante se cancelan.
+                {salida.estado==='activo'
+                  ? 'Ese día amanece activo. Acuérdate de asignarle el bono y de ponerle citas.'
+                  : 'Su última clase es el día ANTERIOR a este. Si lo deja a final de agosto, pon el 1 de septiembre. Las citas de ese día en adelante se cancelan.'}
               </div>
             </div>
 
             <div className="field">
               <label>Motivo (opcional)</label>
-              <input className="input" placeholder="ej. se muda, lesión, precio"
+              <input className="input" placeholder={salida.estado==='activo' ? 'ej. vuelve tras la lesión' : 'ej. se muda, lesión, precio'}
                 value={salida.motivo} onChange={e=>setSalida(p=>({...p,motivo:e.target.value}))}/>
             </div>
 

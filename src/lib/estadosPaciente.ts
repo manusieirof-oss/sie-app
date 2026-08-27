@@ -147,8 +147,32 @@ export function valoraronYNoEmpezaron(pacientes: any[], ultimaClase: Map<string,
 // diera por entrar. Ver sql/estados_programados.sql.
 // ---------------------------------------------------------------------------
 
-/** Estados que se pueden programar. Solo salidas: para volver está Reactivar. */
-export const ESTADOS_PROGRAMABLES = ['baja', 'puede_volver'] as const
+/**
+ * Estados que se pueden programar: las dos salidas y la vuelta.
+ *
+ * La vuelta hace falta porque alguien puede avisar en agosto de que se
+ * reincorpora el 1 de octubre. Ponerlo activo ya lo metería en Cobros y le
+ * generaría cuota de dos meses que no va a pagar; la pausa tampoco vale,
+ * porque la pausa cobra.
+ */
+export const ESTADOS_PROGRAMABLES = ['baja', 'puede_volver', 'activo'] as const
+
+/**
+ * Cuántos días se marca a alguien como "reciente" tras cambiar de estado.
+ *
+ * Quien acaba de volver necesita que le mires la ficha: ¿tiene bono?, ¿tiene
+ * citas?, ¿le cuadra el horario? Pasadas un par de semanas ya es uno más y la
+ * marca solo sería ruido.
+ */
+export const DIAS_RECIENTE = 10
+
+/** true si acaba de cambiar de estado. `estado_desde` en null es "no se sabe". */
+export function esReciente(p: { estado_desde?: string | null }): boolean {
+  if (!p?.estado_desde) return false
+  const d = new Date(p.estado_desde + 'T12:00:00')
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000)
+  return dias >= 0 && dias <= DIAS_RECIENTE
+}
 
 export type EstadoPrevisto = {
   paciente_id: string

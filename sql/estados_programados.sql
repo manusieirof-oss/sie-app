@@ -37,13 +37,24 @@ alter table pacientes add column if not exists estado_programado text;
 alter table pacientes add column if not exists estado_programado_desde date;
 alter table pacientes add column if not exists estado_programado_motivo text;
 
--- Solo se programan SALIDAS. Programar un "activo" no tiene sentido: para eso
--- está reactivar, que es inmediato. Y la pausa ya tiene sus propias fechas.
+-- Salidas Y VUELTAS. Lo de la vuelta se añadió después: alguien dice en agosto
+-- que se reincorpora el 1 de octubre, y hasta entonces no debe contar como
+-- cliente ni generar cuota. La pausa no sirve para eso porque la pausa cobra.
 alter table pacientes drop constraint if exists chk_estado_programado;
 alter table pacientes add constraint chk_estado_programado check (
   estado_programado is null
-  or estado_programado in ('baja','puede_volver')
+  or estado_programado in ('baja','puede_volver','activo')
 );
+
+-- DESDE CUÁNDO ESTÁ EN SU ESTADO ACTUAL.
+--
+-- No es un derivado: es la fecha en que ocurrió el cambio, un hecho. Sirve para
+-- marcar como "reciente" a quien acaba de volver, que es justo a quien hay que
+-- mirar de cerca las primeras semanas.
+--
+-- Se queda en null en las filas antiguas, y eso significa "no se sabe", no
+-- "hace mucho". Quien lo pinte tiene que distinguir esos dos casos.
+alter table pacientes add column if not exists estado_desde date;
 
 -- Las dos columnas van juntas o no van. Un estado sin fecha no se aplicaría
 -- nunca y una fecha sin estado no diría a qué.
@@ -85,15 +96,22 @@ begin
        -- programación y punto, sin registrar un cambio que no ha ocurrido.
        and p.estado is distinct from p.estado_programado
   loop
-    update citas c
-       set estado = 'cancelada'
-     where c.paciente_id = r.id
-       and c.fecha > r.estado_programado_desde
-       and c.estado = 'programada';
-    get diagnostics n = row_count;
+    -- Solo se cancelan citas al SALIR. Al volver no hay nada que cancelar, y
+    -- borrarle las citas a quien se reincorpora sería justo lo contrario.
+    if r.estado_programado = 'activo' then
+      n := 0;
+    else
+      update citas c
+         set estado = 'cancelada'
+       where c.paciente_id = r.id
+         and c.fecha >= r.estado_programado_desde
+         and c.estado = 'programada';
+      get diagnostics n = row_count;
+    end if;
 
     update pacientes p
        set estado = r.estado_programado,
+           estado_desde = r.estado_programado_desde,
            -- Las fechas de pausa se limpian: una fecha de vuelta apuntando a
            -- alguien que se ha ido haría que `reactivar_pausas` lo resucitara.
            pausa_desde = null, pausa_hasta = null, pausa_motivo = null,
@@ -104,8 +122,10 @@ begin
 
     insert into eventos_paciente (paciente_id, tipo, titulo, descripcion, fecha)
     values (r.id, 'baja',
-      case when r.estado_programado = 'baja' then 'Baja (programada)'
-           else 'Puede volver (programado)' end,
+      case r.estado_programado
+        when 'baja'   then 'Baja (programada)'
+        when 'activo' then 'Reincorporación (programada)'
+        else 'Puede volver (programado)' end,
       'Aplicado automáticamente en la fecha prevista.'
         || case when n > 0 then ' ' || n || ' citas posteriores canceladas.' else '' end,
       current_date);

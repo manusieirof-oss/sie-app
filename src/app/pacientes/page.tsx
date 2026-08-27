@@ -11,7 +11,7 @@ import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, 
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
          mesesDesde, MESES_HASTA_REVISAR, valoraronYNoEmpezaron,
-         estadosPrevistos, textoCuando, type EstadoPrevisto } from '@/lib/estadosPaciente'
+         estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -399,9 +399,17 @@ export default function PacientesPage() {
                       no se le renueva el bono ni se le cierra un trimestre. */}
                   {p.estado_programado && p.estado_programado_desde && (
                     <div style={{fontSize:8,marginTop:2,color:'#8A6410',fontWeight:600,whiteSpace:'nowrap'}}>
-                      {p.estado_programado==='baja' ? 'baja el ' : 'lo deja el '}
+                      {p.estado_programado==='baja' ? 'baja el '
+                       : p.estado_programado==='activo' ? 'vuelve el '
+                       : 'lo deja el '}
                       {new Date(p.estado_programado_desde+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
                     </div>
+                  )}
+                  {/* RECIENTE. Quien acaba de cambiar de estado necesita que le
+                      mires la ficha: si acaba de volver, ¿tiene bono?, ¿tiene
+                      citas? Pasados diez días ya es uno más y la marca sobra. */}
+                  {esReciente(p) && (
+                    <div style={{fontSize:8,marginTop:2,color:'var(--gd)',fontWeight:600}}>reciente</div>
                   )}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
