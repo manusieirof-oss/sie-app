@@ -17,6 +17,18 @@
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
+-- 0 · EL ESTADO NUEVO
+-- ---------------------------------------------------------------------------
+-- `pacientes.estado` SÍ tiene un check, aunque no estuviera en esta carpeta, y
+-- rechazaba 'puede_volver' con un error que no dice nada útil al usuario.
+--
+-- Rehacerlo con los cuatro valores no invalida ninguna fila: los únicos valores
+-- que existían eran activo, pausa y baja.
+alter table pacientes drop constraint if exists pacientes_estado_check;
+alter table pacientes add constraint pacientes_estado_check
+  check (estado in ('activo','pausa','puede_volver','baja'));
+
+-- ---------------------------------------------------------------------------
 -- 1 · QUÉ SE PROGRAMA
 -- ---------------------------------------------------------------------------
 -- El estado al que pasará y desde cuándo. Null en las dos = no hay nada
