@@ -290,6 +290,16 @@ export default function CobrosPage() {
     [bonos, pacienteDe])
 
   const totalPendiente = filas.filter(f=>!f.pagado).reduce((a,f)=>a+f.importe, 0)
+  /**
+   * PERSONAS distintas, no filas.
+   *
+   * La lista va por BONO, y alguien puede tener a la vez su cuota mensual y un bono de
+   * sesiones: son dos cobros de la misma persona, y las dos filas son correctas. Pero el
+   * contador decía "pacientes" contando filas, así que esa persona sumaba dos y el número
+   * no cuadraba nunca con la cuenta de cabeza de nadie.
+   */
+  const nPendientes = filas.filter(f=>!f.pagado).length
+  const pacientesPendientes = new Set(filas.filter(f=>!f.pagado).map(f=>f.p?.id)).size
   const nPagados = Object.values(pago).filter((r:any)=>r.pagado).length
 
   async function exportarGestoria() {
@@ -418,12 +428,17 @@ export default function CobrosPage() {
           {veImportes ? (
             <>
               <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{totalPendiente.toFixed(0)} €</div>
-              <div style={{fontSize:9,color:'var(--grl)'}}>{filas.filter(f=>!f.pagado).length} pacientes</div>
+              <div style={{fontSize:9,color:'var(--grl)'}}>
+                {nPendientes} cobro{nPendientes===1?'':'s'}
+                {pacientesPendientes !== nPendientes && ` · ${pacientesPendientes} personas`}
+              </div>
             </>
           ) : (
             <>
-              <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{filas.filter(f=>!f.pagado).length}</div>
-              <div style={{fontSize:9,color:'var(--grl)'}}>por cobrar</div>
+              <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{nPendientes}</div>
+              <div style={{fontSize:9,color:'var(--grl)'}}>
+                cobros{pacientesPendientes !== nPendientes && ` · ${pacientesPendientes} personas`}
+              </div>
             </>
           )}
         </div>
