@@ -24,6 +24,16 @@ export default function PacientesPage() {
   const [filtroPago, setFiltroPago] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroEstado, setFiltroEstado] = useState('activo')
+  /** Qué cuota tiene: un tipo concreto, o 'sin' para los que no tienen ninguna. */
+  const [filtroBono, setFiltroBono] = useState('todos')
+  /**
+   * Por qué columna se ordena y en qué sentido.
+   *
+   * La lista salía siempre por nombre, que sirve para buscar a alguien concreto pero no
+   * para las preguntas que se hacen de verdad: a quién le quedan pocas citas, quién está
+   * sin cuota, cuántos hay en pausa. Ordenar por la columna responde a las tres.
+   */
+  const [orden, setOrden] = useState<{col:string, asc:boolean}>({ col:'nombre', asc:true })
   // Aviso de los que se valoraron y nunca llegaron a dar una clase. Se pliega:
   // es información útil, no una alarma diaria.
   const [verSinEmpezar, setVerSinEmpezar] = useState(false)
@@ -197,10 +207,42 @@ export default function PacientesPage() {
     const matchPago = filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
     const matchEstado = filtroEstado==='todos' || p.estado===filtroEstado
     const matchTipo = filtroTipo==='todos' || p.tipo_clase===filtroTipo
+    // 'sin' incluye a quien tampoco tiene bono de sesiones: es "no tiene nada".
+    const matchBono = filtroBono==='todos'
+      || (filtroBono==='sin' ? (!bono && sesionesDe(p.id).length===0) : bono?.tipo===filtroBono)
     // "Los que faltan" es lo que hace que la ronda se termine: recorrer cien filas con la
     // vista buscando huecos es la hoja de Excel otra vez.
     const matchRonda = !soloFaltan || !ronda || !respuestas[p.id]
-    return matchQ && matchPago && matchTipo && matchEstado && matchRonda
+    return matchQ && matchPago && matchTipo && matchEstado && matchBono && matchRonda
+  })
+
+  /**
+   * La ordenación se aplica DESPUÉS de filtrar, sobre lo que se ve.
+   *
+   * El bono y las citas no están en la fila del paciente: salen de otras listas, así que
+   * hay que ordenarlos por el valor calculado y no por un campo de la tabla.
+   */
+  const COLS_ORDEN = ['nombre','estado','bono','tipo','citas','pago'] as const
+  const ordenados = [...filtrados].sort((a,b)=>{
+    const dir = orden.asc ? 1 : -1
+    const valor = (p:any) => {
+      switch (orden.col) {
+        case 'estado': return p.estado || ''
+        case 'bono':   return bonoLabel[getBonoActual(p.id)?.tipo] || ''
+        case 'tipo':   return p.tipo_clase ? nombreTipoClase(tiposClase, p.tipo_clase) : ''
+        // Sin citas va primero al ordenar ascendente: es lo que hay que mirar.
+        case 'citas':  return citasPac[p.id]?.citas ?? -1
+        case 'pago':   return estadoPagoDe(getBonoActual(p.id)) || ''
+        default:       return `${p.nombre} ${p.apellidos}`.toLowerCase()
+      }
+    }
+    const va = valor(a), vb = valor(b)
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
+    // Los vacíos al final siempre, se ordene como se ordene: son ausencia de dato, no
+    // un valor que compita con los demás.
+    if (!va && vb) return 1
+    if (va && !vb) return -1
+    return String(va).localeCompare(String(vb)) * dir
   })
 
   // El denominador son los ACTIVOS, no todos: preguntarle el horario de septiembre a
@@ -217,7 +259,9 @@ export default function PacientesPage() {
       const matchPago = excluir==='pago' || filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
       const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
-      return matchQ && matchPago && matchEstado && matchTipo
+      const matchBono = excluir==='bono' || filtroBono==='todos'
+        || (filtroBono==='sin' ? (!bono && sesionesDe(p.id).length===0) : bono?.tipo===filtroBono)
+      return matchQ && matchPago && matchEstado && matchTipo && matchBono
     })
   }
   function nPago(f: string) {
@@ -234,6 +278,12 @@ export default function PacientesPage() {
     const base = baseFiltrada('tipo')
     if (f==='todos') return base.length
     return base.filter(p=>p.tipo_clase===f).length
+  }
+  function nBono(f: string) {
+    const base = baseFiltrada('bono')
+    if (f==='todos') return base.length
+    if (f==='sin') return base.filter(p=>!getBonoActual(p.id) && sesionesDe(p.id).length===0).length
+    return base.filter(p=>getBonoActual(p.id)?.tipo===f).length
   }
 
   return (
@@ -272,6 +322,21 @@ export default function PacientesPage() {
           {tiposClase.map((t:any)=>(
             <span key={t.valor} onClick={()=>setFiltroTipo(t.valor)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroTipo===t.valor?'var(--g)':'var(--w)',color:filtroTipo===t.valor?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
               {t.nombre} <b style={{fontWeight:600}}>{nTipo(t.valor)}</b>
+            </span>
+          ))}
+        </div>
+        <div style={{width:1,height:18,background:'var(--bd)'}}/>
+        {/* BONO. Se podía filtrar por estado, por pago y por tipo de clase, pero no por qué
+            cuota tiene. "Sin cuota" es el que más se va a usar: es la lista de a quién hay
+            que ponerle bono, que antes había que sacar mirando fila a fila. */}
+        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Bono</span>
+          {([['todos','Todos'],['sin','Sin cuota'],...bonosOpts.map(b=>[b.id,b.nombre] as [string,string])] as [string,string][]).map(([v,l])=>(
+            <span key={v} onClick={()=>setFiltroBono(v)}
+              style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',
+                background:filtroBono===v?'var(--g)':'var(--w)',color:filtroBono===v?'#fff':'var(--gr)',
+                display:'flex',alignItems:'center',gap:4}}>
+              {l} <b style={{fontWeight:600}}>{nBono(v)}</b>
             </span>
           ))}
         </div>
@@ -355,12 +420,25 @@ export default function PacientesPage() {
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
           <div style={{display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 90px 105px 170px':'1fr 95px 100px 120px 90px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-            {['Paciente','Estado','Bono','Tipo clase','Citas',' Cuota actual'.trim(),...(ronda?[ronda.nombre]:[])].map((h,i)=>(
-              <div key={i} style={{fontSize:9,fontWeight:500,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',padding:'7px 10px',borderLeft:i>0?'1px solid var(--bd)':'none'}}>{h}</div>
-            ))}
+            {['Paciente','Estado','Bono','Tipo clase','Citas','Cuota actual',...(ronda?[ronda.nombre]:[])].map((h,i)=>{
+              // La columna de la ronda no ordena: es una respuesta de este mes, no un dato
+              // del paciente, y ordenar por ella descolocaría la lista cada semana.
+              const col = COLS_ORDEN[i]
+              const activa = col && orden.col===col
+              return (
+                <div key={i}
+                  onClick={()=>{ if (col) setOrden(o=>({ col, asc: o.col===col ? !o.asc : true })) }}
+                  style={{fontSize:9,fontWeight:500,color:activa?'var(--gd)':'var(--grl)',letterSpacing:.5,
+                    textTransform:'uppercase',padding:'7px 10px',borderLeft:i>0?'1px solid var(--bd)':'none',
+                    cursor:col?'pointer':'default',userSelect:'none',display:'flex',alignItems:'center',gap:4}}>
+                  {h}
+                  {activa && <Ic name={orden.asc?'arriba':'abajo'} size={10}/>}
+                </div>
+              )
+            })}
           </div>
-          {filtrados.length===0 && <div className="loading">Sin resultados</div>}
-          {filtrados.map(p=>{
+          {ordenados.length===0 && <div className="loading">Sin resultados</div>}
+          {ordenados.map(p=>{
             const bono = getBonoActual(p.id)
             const pago = estadoPagoDe(bono)
             return (
