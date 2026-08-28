@@ -1,9 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { cargarBonosTipos, BonoTipo, cambiarEstadoPago } from '@/lib/bonos'
+import { cargarBonosTipos, BonoTipo, cambiarEstadoPago, cuotaVigenteDe, sesionesDe as sesionesDeBonos, bonosActivos } from '@/lib/bonos'
 import Link from 'next/link'
-import ModalBono from './components/ModalBono'
 import ModalCobro from '@/components/ModalCobro'
 import { Ic } from '@/lib/icons'
 import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase, iconTipoClase, colorTipoClase } from '@/lib/tipos'
@@ -33,7 +32,6 @@ export default function PacientesPage() {
   const [previstos, setPrevistos] = useState<EstadoPrevisto[]>([])
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   const [modal, setModal] = useState(false)
-  const [modalBonoPac, setModalBonoPac] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
   // Cobro abierto desde el chip de la cuota. El modal es el mismo que usa el
   // pilar Cobros: un solo camino de escritura, varias puertas de entrada.
@@ -62,15 +60,17 @@ export default function PacientesPage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p }, { data: b }] = await Promise.all([
+    const [{ data: p }, b] = await Promise.all([
       supabase.from('pacientes').select('*').order('nombre'),
-      // Del mes en curso EN ADELANTE. Antes solo se leía el mes actual, así que
-      // una cuota dejada lista para septiembre no existía para esta lista: el
-      // paciente seguía saliendo con el botón "Asignar" y parecía que no se le
-      // había puesto nada. Justo lo contrario de lo que sirve esta columna, que
-      // es ver de un vistazo a quién le falta bono.
-      supabase.from('bonos').select('*').eq('activo',true)
-        .or(`anio.gt.${anioActual},and(anio.eq.${anioActual},mes.gte.${mesActual})`),
+      // TODOS los activos, sin filtrar por mes.
+      //
+      // Antes se pedían solo los del mes en curso en adelante, para que una cuota dejada
+      // lista para septiembre no desapareciera. Pero eso dejó fuera lo contrario: un bono
+      // activo de un mes pasado —o un bono de sesiones comprado en junio al que le quedan
+      // sesiones— no llegaba, y el paciente salía con "Asignar" teniendo bono en su ficha.
+      //
+      // Qué bono es "el suyo" lo decide `cuotaVigenteDe`, no la consulta.
+      bonosActivos(),
     ])
     setPacientes(p || [])
     setBonos(b || [])
@@ -134,12 +134,7 @@ export default function PacientesPage() {
    * paciente y enseñarlas en esa columna haría creer que tiene cuota quien solo
    * compró ocho sesiones sueltas.
    */
-  function getBonoActual(pacienteId: string) {
-    const suyos = bonos
-      .filter(b => b.paciente_id === pacienteId && b.sesiones_totales == null)
-      .sort((a,b) => (a.anio - b.anio) || (a.mes - b.mes))
-    return suyos.find(b => b.mes === mesActual && b.anio === anioActual) || suyos[0]
-  }
+  const getBonoActual = (pacienteId: string) => cuotaVigenteDe(bonos, pacienteId)
 
   /**
    * Sus bonos de SESIONES vigentes, que no son la cuota pero sí son "tener bono".
@@ -149,9 +144,7 @@ export default function PacientesPage() {
    * acaba de comprar cuatro sesiones es peor: parece que no tiene nada y se le asigna otro
    * encima. Es justo lo que ha pasado.
    */
-  function sesionesDe(pacienteId: string) {
-    return bonos.filter(b => b.paciente_id === pacienteId && b.sesiones_totales != null)
-  }
+  const sesionesDe = (pacienteId: string) => sesionesDeBonos(bonos, pacienteId)
 
   // Los que se valoraron y nunca dieron una clase. Derivado, no marcado.
   const sinEmpezar = valoraronYNoEmpezaron(pacientes, ultimaClase)
@@ -435,10 +428,17 @@ export default function PacientesPage() {
                             {nSes} sesiones
                           </div>
                         )}
-                        <button className="chip-ed chip-ed-n" title={ses.length>0 ? 'Tiene sesiones sueltas. Asignar además una cuota mensual' : 'Asignar un bono'}
-                          onClick={e=>{e.preventDefault();e.stopPropagation();setModalBonoPac({ paciente_id:p.id, bono:null })}}>
-                          <Ic name="mas" size={12}/> {ses.length>0 ? 'Cuota' : 'Asignar'}
-                        </button>
+                        {/* AQUÍ NO SE ASIGNA. Los bonos se ponen solo desde la ficha.
+                            Había dos sitios para lo mismo y cada uno leía los bonos a su
+                            manera, así que se asignaban bonos encima de otros que la lista
+                            no estaba viendo. Un solo sitio y se acabó.
+                            La columna sigue avisando de quién no tiene: para eso está. */}
+                        {ses.length===0 && (
+                          <span title="No tiene cuota. Se le asigna desde su ficha."
+                            style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:'var(--redl)',color:'var(--red)',border:'1px solid #F5C8C8',whiteSpace:'nowrap',display:'inline-block'}}>
+                            Sin cuota
+                          </span>
+                        )}
                       </>
                     )
                   })()}
@@ -665,16 +665,6 @@ export default function PacientesPage() {
           descuentos={descuentos}
           onCerrar={()=>setCobrando(null)}
           onEmitida={r=>{ alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}
-        />
-      )}
-
-      {modalBonoPac && (
-        <ModalBono
-          pacienteId={modalBonoPac.paciente_id}
-          bonoActual={modalBonoPac.bono}
-          bonosOpts={bonosOpts}
-          onCerrar={()=>setModalBonoPac(null)}
-          onGuardado={cargar}
         />
       )}
     </>

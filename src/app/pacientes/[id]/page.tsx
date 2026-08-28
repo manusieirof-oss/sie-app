@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { cargarBonosTipos, quitarBono, BonoTipo } from '@/lib/bonos'
+import { cargarBonosTipos, quitarBono, BonoTipo, cuotaVigenteDe } from '@/lib/bonos'
 import FichaTab from './components/FichaTab'
 import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
@@ -293,23 +293,14 @@ export default function FichaPacientePage() {
    *
    * Los bonos de sesiones no son la cuota: se ven aparte, en sus tarjetas.
    */
-  function cuotaVigente(lista: any[]) {
-    const hoy = new Date()
-    const m = hoy.getMonth()+1, a = hoy.getFullYear()
-    const cuotas = (lista||[])
-      .filter((b:any) => b.sesiones_totales == null)
-      .sort((x:any,y:any) => (x.anio - y.anio) || (x.mes - y.mes))
-    return cuotas.find((b:any) => b.mes === m && b.anio === a) || cuotas[0] || null
-  }
-
   async function cargar() {
     if (primeraCarga.current) setLoading(true)
     const [{ data: p },{ data: b },{ data: m },{ data: pat },{ data: med },{ data: esc },{ data: c },{ data: s }] = await Promise.all([
       supabase.from('pacientes').select('*').eq('id',id).single(),
-      // Todas sus cuotas vigentes, no solo la última creada. Cuál es "la suya"
-      // lo decide `cuotaVigente` de abajo, con la misma regla que la lista de
-      // pacientes: si las dos pantallas eligen distinto, la ficha te enseña una
-      // cuota y la lista otra para la misma persona.
+      // Todos sus bonos activos, no solo el último creado. Cuál es "el suyo" lo decide
+      // `cuotaVigenteDe` en lib/bonos, que es la MISMA función que usa la lista de
+      // pacientes. Antes la regla estaba escrita en las dos pantallas y, aunque decían lo
+      // mismo, cada una leía datos distintos: la ficha enseñaba una cuota y la lista otra.
       supabase.from('bonos').select('*').eq('paciente_id',id).eq('activo',true).order('created_at',{ascending:false}),
       supabase.from('molestias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
       supabase.from('patologias').select('*').eq('paciente_id',id).order('created_at',{ascending:false}),
@@ -332,7 +323,7 @@ export default function FichaPacientePage() {
       leerLista(id as string,'operaciones'),
     ])
     setAlergias(alg||[]); setIntolerancias(intol||[]); setDeportesPac(dep||[]); setOperaciones(oper||[])
-    const cuota = cuotaVigente(b||[])
+    const cuota = cuotaVigenteDe(b||[])
     setPac(p); setBono(cuota); setMolestias(m||[]); setPatologias(pat||[])
 
     // Estado de pago DERIVADO del cobro, no de `bonos.estado_pago`. Se pregunta

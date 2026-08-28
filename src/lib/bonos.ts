@@ -337,3 +337,54 @@ export async function renovarCuotas(modoPrueba = false) {
   await supabase.from('ajustes').upsert({ clave: 'ultima_renovacion', valor: claveMes }, { onConflict: 'clave' })
   return { ejecutado: true, renovados: ok, omitidos, fallidos, retirados: superados.length }
 }
+
+/**
+ * CUÁL ES LA CUOTA DE UN PACIENTE. Una regla, un sitio.
+ *
+ * Estaba escrita dos veces —`getBonoActual` en la lista y `cuotaVigente` en la ficha— con
+ * un comentario en cada una avisando de que tenían que coincidir. Coincidían en la regla,
+ * pero no en los datos: la lista solo leía los bonos DEL MES EN CURSO EN ADELANTE y la
+ * ficha los leía todos. Un bono activo de un mes pasado no llegaba a la lista, así que el
+ * paciente salía con "Asignar" mientras en su ficha tenía bono.
+ *
+ * El orden importa. Alguien puede tener la cuota de agosto y además la de septiembre ya
+ * preparada; manda la de agosto, que es la que se está cobrando. La de septiembre solo
+ * aparece cuando no hay otra.
+ *
+ * Las ventas puntuales —los bonos de sesiones— se saltan: no son la cuota del paciente, y
+ * enseñarlas en esa columna haría creer que tiene mensualidad quien compró ocho sesiones.
+ */
+export function cuotaVigenteDe(bonos: any[], pacienteId?: string) {
+  const hoy = new Date()
+  const mes = hoy.getMonth() + 1, anio = hoy.getFullYear()
+  const cuotas = (bonos || [])
+    .filter(b => (!pacienteId || b.paciente_id === pacienteId) && b.sesiones_totales == null)
+    .sort((a, b) => (a.anio - b.anio) || (a.mes - b.mes))
+  return cuotas.find(b => b.mes === mes && b.anio === anio) || cuotas[0] || null
+}
+
+/** Sus bonos de SESIONES. No caducan con el mes: valen mientras les queden sesiones. */
+export function sesionesDe(bonos: any[], pacienteId?: string) {
+  return (bonos || []).filter(b =>
+    (!pacienteId || b.paciente_id === pacienteId) && b.sesiones_totales != null)
+}
+
+/**
+ * Todos los bonos activos, por páginas.
+ *
+ * Supabase corta en 1000 filas sin decirlo, y los bonos se acumulan mes a mes: doscientos
+ * pacientes son dos mil cuotas al año. Pasado el corte, a unos pacientes les llegaba su
+ * bono y a otros no, sin ningún criterio.
+ */
+export async function bonosActivos(): Promise<any[]> {
+  const TAM = 1000
+  const filas: any[] = []
+  for (let desde = 0; ; desde += TAM) {
+    const { data, error } = await supabase.from('bonos').select('*').eq('activo', true)
+      .order('anio').order('mes').range(desde, desde + TAM - 1)
+    if (error) { console.error('No se han podido leer los bonos:', error.message); return filas }
+    filas.push(...(data || []))
+    if (!data || data.length < TAM) break
+  }
+  return filas
+}
