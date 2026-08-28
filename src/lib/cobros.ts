@@ -284,3 +284,20 @@ export async function pagoDeBonos(bonoIds: string[]) {
   if (error) return { ok: false as const, error: error.message, pago: new Map<string, any>() }
   return { ok: true as const, pago: new Map((data || []).map((r: any) => [r.bono_id, r])) }
 }
+
+/**
+ * La fecha de la última factura emitida en una serie.
+ *
+ * Hace falta antes de emitir con fecha atrasada. Una serie de facturas va numerada de
+ * forma correlativa, y el orden de los números tiene que acompañar al de las fechas: si la
+ * F-24 lleva fecha del 20 y la F-25 del 12, la numeración deja de ser correlativa en el
+ * tiempo y eso es un defecto de la serie, no un detalle.
+ */
+export async function ultimaFechaDeSerie(serie: string): Promise<string | null> {
+  const { data } = await supabase.from('facturas')
+    .select('fecha_expedicion')
+    .eq('serie', serie)
+    .order('fecha_expedicion', { ascending: false })
+    .limit(1)
+  return data?.[0]?.fecha_expedicion ?? null
+}

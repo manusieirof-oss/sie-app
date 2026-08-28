@@ -4,7 +4,8 @@ import { Ic } from '@/lib/icons'
 import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
 import {
   emitirCobro, desgloseDesdeTotal, totalesDe, fraccionDeAlta, LBL_FRACCION,
-  lineaDeBono, type LineaCobro, type FormaPago,
+  lineaDeBono, ultimaFechaDeSerie, SERIE_COMPLETA, SERIE_SIMPLIFICADA,
+  type LineaCobro, type FormaPago,
 } from '@/lib/cobros'
 
 // Modal de cobro. NO calcula precios por su cuenta: todo sale de lib/cobros y
@@ -59,6 +60,19 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
   const [lineas, setLineas] = useState<LineaCobro[]>(() =>
     bono ? [lineaDeBono(bono, plan, fraccionPropuesta, etiquetaPeriodo)] : []
   )
+  /**
+   * CUÁNDO SE COBRÓ DE VERDAD.
+   *
+   * Antes siempre era hoy, así que un pago recibido hace tres días se registraba con la
+   * fecha equivocada. La fecha de una factura no se elige: es la del hecho. Lo que sí hace
+   * falta es poder anotar la real cuando se registra con retraso.
+   *
+   * No se admite fecha futura. Una factura fechada mañana no documenta nada que haya
+   * pasado, y mover un cobro a otro periodo cambiándole la fecha no es un ajuste
+   * contable: es declarar en el trimestre que no toca.
+   */
+  const hoyISO = new Date().toISOString().split('T')[0]
+  const [fecha, setFecha] = useState(hoyISO)
   const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta')
   const [notas, setNotas] = useState('')
   const [emitiendo, setEmitiendo] = useState(false)
@@ -121,10 +135,24 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
 
   async function cobrar() {
     setEmitiendo(true); setError(null)
+    // Antes de emitir con fecha atrasada, se comprueba que no rompa el orden de la serie.
+    // Se avisa y se deja decidir: puede haber un motivo, pero no puede pasar sin saberlo.
+    if (fecha < hoyISO) {
+      const serie = tieneDni ? SERIE_COMPLETA : SERIE_SIMPLIFICADA
+      const ultima = await ultimaFechaDeSerie(serie)
+      if (ultima && fecha < ultima) {
+        const ok = confirm(
+          `La última factura de la serie ${serie} es del ${new Date(ultima+'T12:00:00').toLocaleDateString('es-ES')}.\n\n` +
+          `Si emites esta con fecha ${new Date(fecha+'T12:00:00').toLocaleDateString('es-ES')}, la numeración deja de ir en orden de fecha.\n\n¿Emitir igualmente?`)
+        if (!ok) { setEmitiendo(false); return }
+      }
+    }
+
     const r = await emitirCobro({
       pacienteId: paciente.id,
       lineas,
       formaPago,
+      fecha,
       notas: notas || undefined,
       tipo: tieneDni ? 'completa' : 'simplificada',
     })
@@ -283,6 +311,16 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
                 background:formaPago===k?'var(--g)':'var(--w)',
                 color:formaPago===k?'#fff':'var(--gr)',fontWeight:formaPago===k?500:400}}>{l}</button>
           ))}
+        </div>
+
+        <div className="field"><label>Fecha del cobro</label>
+          <input className="input" type="date" value={fecha} max={hoyISO}
+            onChange={e=>setFecha(e.target.value)}/>
+          <div style={{fontSize:12,color:'var(--gr)',marginTop:3,lineHeight:1.5}}>
+            {fecha === hoyISO
+              ? 'Es la fecha que llevará la factura. Cámbiala solo si el cobro fue otro día.'
+              : <>La factura se emitirá con fecha <b>{new Date(fecha+'T12:00:00').toLocaleDateString('es-ES')}</b>. Tiene que ser el día en que cobraste de verdad.</>}
+          </div>
         </div>
 
         <div className="field"><label>Notas (opcional)</label>
