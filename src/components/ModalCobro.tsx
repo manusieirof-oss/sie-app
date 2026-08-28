@@ -72,7 +72,10 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
    * contable: es declarar en el trimestre que no toca.
    */
   const hoyISO = new Date().toISOString().split('T')[0]
+  /** Cuándo se emite la factura. Es hoy, salvo que se esté regularizando algo. */
   const [fecha, setFecha] = useState(hoyISO)
+  /** Cuándo se cobró de verdad. Si es otro día, va en la factura como fecha de operación. */
+  const [fechaCobro, setFechaCobro] = useState(hoyISO)
   const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta')
   const [notas, setNotas] = useState('')
   const [emitiendo, setEmitiendo] = useState(false)
@@ -153,6 +156,7 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
       lineas,
       formaPago,
       fecha,
+      fechaOperacion: fechaCobro !== fecha ? fechaCobro : undefined,
       notas: notas || undefined,
       tipo: tieneDni ? 'completa' : 'simplificada',
     })
@@ -313,14 +317,25 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
           ))}
         </div>
 
-        <div className="field"><label>Fecha del cobro</label>
-          <input className="input" type="date" value={fecha} max={hoyISO}
-            onChange={e=>setFecha(e.target.value)}/>
-          <div style={{fontSize:12,color:'var(--gr)',marginTop:3,lineHeight:1.5}}>
-            {fecha === hoyISO
-              ? 'Es la fecha que llevará la factura. Cámbiala solo si el cobro fue otro día.'
-              : <>La factura se emitirá con fecha <b>{new Date(fecha+'T12:00:00').toLocaleDateString('es-ES')}</b>. Tiene que ser el día en que cobraste de verdad.</>}
+        {/* DOS FECHAS, que son dos cosas distintas.
+            La de expedición numera la serie; la del cobro es el hecho que se documenta y
+            es la que marca el devengo del IVA en un pago anticipado. Solo consta en la
+            factura cuando son distintas, que es lo que pide el reglamento. */}
+        <div style={{display:'flex',gap:8}}>
+          <div className="field" style={{flex:1}}><label>Fecha del cobro</label>
+            <input className="input" type="date" value={fechaCobro} max={hoyISO}
+              onChange={e=>setFechaCobro(e.target.value)}/>
           </div>
+          <div className="field" style={{flex:1}}><label>Fecha de la factura</label>
+            <input className="input" type="date" value={fecha} max={hoyISO}
+              onChange={e=>setFecha(e.target.value)}/>
+          </div>
+        </div>
+        <div style={{fontSize:12,color:'var(--gr)',marginTop:-6,marginBottom:12,lineHeight:1.5}}>
+          {fechaCobro === fecha
+            ? 'Cobraste y facturas el mismo día, así que la factura llevará solo esa fecha.'
+            : <>La factura se expide el <b>{new Date(fecha+'T12:00:00').toLocaleDateString('es-ES')}</b> y hará constar
+               que la operación fue el <b>{new Date(fechaCobro+'T12:00:00').toLocaleDateString('es-ES')}</b>.</>}
         </div>
 
         <div className="field"><label>Notas (opcional)</label>

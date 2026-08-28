@@ -164,7 +164,17 @@ export async function emitirCobro(args: {
   pacienteId: string
   lineas: LineaCobro[]
   formaPago: FormaPago
+  /** Fecha de EXPEDICIÓN: el día en que se emite la factura. Por defecto, hoy. */
   fecha?: string
+  /**
+   * Fecha de OPERACIÓN: cuándo se prestó el servicio o se recibió el pago anticipado.
+   *
+   * Solo hay que hacerla constar cuando es distinta de la de expedición —Reglamento de
+   * facturación, art. 6.1— y es lo que permite emitir hoy una factura de un cobro de la
+   * semana pasada sin mentir en ninguna de las dos fechas. La plantilla de la factura ya
+   * la imprimía; lo que faltaba era que alguien la escribiera.
+   */
+  fechaOperacion?: string
   tipo?: 'completa' | 'simplificada'
   notas?: string
 }): Promise<ResultadoCobro> {
@@ -202,6 +212,23 @@ export async function emitirCobro(args: {
   if (error) return { ok: false, error: error.message }
   const r = Array.isArray(data) ? data[0] : data
   if (!r?.factura_id) return { ok: false, error: 'El servidor no ha devuelto la factura emitida.' }
+
+  /**
+   * La fecha de operación se escribe DESPUÉS, sobre la factura ya emitida.
+   *
+   * Se podría pasar a `emitir_cobro`, pero esa función es la que numera la serie y la que
+   * garantiza que no haya huecos ni saltos. Tocarla para añadir un dato que no interviene
+   * en la numeración es arriesgar lo que sí importa por algo que no lo necesita.
+   *
+   * Si falla, la factura ya existe y es válida: se avisa por consola y no se rompe el
+   * cobro, que es lo que el usuario está esperando.
+   */
+  const expedicion = args.fecha ?? new Date().toISOString().split('T')[0]
+  if (args.fechaOperacion && args.fechaOperacion !== expedicion) {
+    const { error: errOp } = await supabase.from('facturas')
+      .update({ fecha_operacion: args.fechaOperacion }).eq('id', r.factura_id)
+    if (errOp) console.error('La factura se emitió, pero sin fecha de operación:', errOp.message)
+  }
 
   await registrarEvento(args.pacienteId, r.serie, r.numero, lineas)
   return { ok: true, cobroId: r.cobro_id, facturaId: r.factura_id, serie: r.serie, numero: r.numero }
