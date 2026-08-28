@@ -9,7 +9,7 @@ import { TIPOS_CLASE_FALLBACK, cargarTiposClase, nombreTipoClase, iconTipoClase,
 import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, type Respuesta, type EstadoRonda } from '@/lib/rondas'
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
-         mesesDesde, MESES_HASTA_REVISAR, valoraronYNoEmpezaron,
+         mesesDesde, MESES_HASTA_REVISAR,
          estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 
@@ -36,7 +36,6 @@ export default function PacientesPage() {
   const [orden, setOrden] = useState<{col:string, asc:boolean}>({ col:'nombre', asc:true })
   // Aviso de los que se valoraron y nunca llegaron a dar una clase. Se pliega:
   // es información útil, no una alarma diaria.
-  const [verSinEmpezar, setVerSinEmpezar] = useState(false)
   // Bajas y salidas ya firmadas, con su fecha. Saber esto por adelantado era
   // imposible: solo estaba en la cabeza de quien lo había hablado con el cliente.
   const [previstos, setPrevistos] = useState<EstadoPrevisto[]>([])
@@ -157,9 +156,6 @@ export default function PacientesPage() {
   const sesionesDe = (pacienteId: string) => sesionesDeBonos(bonos, pacienteId)
 
   // Los que se valoraron y nunca dieron una clase. Derivado, no marcado.
-  // `citasPac` ya sabe quién tiene citas por delante: se calcula para la columna de citas.
-  const sinEmpezar = valoraronYNoEmpezaron(pacientes, ultimaClase,
-    new Set(Object.entries(citasPac).filter(([,c]) => c.citas > 0).map(([id]) => id)))
 
   /** true si ese bono todavía no ha empezado: es una cuota dejada preparada. */
   const esFuturo = (b: any) => !!b && (b.anio > anioActual || (b.anio === anioActual && b.mes > mesActual))
@@ -261,10 +257,23 @@ export default function PacientesPage() {
       const matchPago = excluir==='pago' || filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
       const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
-      const matchBono = excluir==='bono' || filtroBono==='todos'
-        || (filtroBono==='sin' ? (!bono && sesionesDe(p.id).length===0) : bono?.tipo===filtroBono)
+      const matchBono = excluir==='bono' || filtroBono==='todos' || esDeBono(p.id, filtroBono)
       return matchQ && matchPago && matchEstado && matchTipo && matchBono
     })
+  }
+
+  /**
+   * ¿Este paciente es de ese bono?
+   *
+   * Mira TODOS sus bonos activos, no solo la cuota. `getBonoActual` devuelve la cuota
+   * mensual y descarta los de sesiones a propósito —no son mensualidad—, así que
+   * preguntando por ella los tipos por sesiones daban cero siempre, hubiera los que
+   * hubiera. Filtrar por "Bono individual 8 sesiones" no encontraba a nadie.
+   */
+  function esDeBono(pacienteId: string, tipo: string) {
+    const suyos = bonos.filter(b => b.paciente_id === pacienteId)
+    if (tipo === 'sin') return suyos.length === 0
+    return suyos.some(b => b.tipo === tipo)
   }
   function nPago(f: string) {
     const base = baseFiltrada('pago')
@@ -284,8 +293,7 @@ export default function PacientesPage() {
   function nBono(f: string) {
     const base = baseFiltrada('bono')
     if (f==='todos') return base.length
-    if (f==='sin') return base.filter(p=>!getBonoActual(p.id) && sesionesDe(p.id).length===0).length
-    return base.filter(p=>getBonoActual(p.id)?.tipo===f).length
+    return base.filter(p=>esDeBono(p.id, f)).length
   }
 
   return (
@@ -385,36 +393,6 @@ export default function PacientesPage() {
               </Link>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* SE VALORARON Y NO LLEGARON A EMPEZAR
-          No es un estado que nadie marque: se deduce de que no tengan ninguna
-          clase dada. Marcarlo a mano obligaría a acordarse de desmarcarlo el día
-          que por fin vengan, y de eso no se acuerda nadie.
-          Va plegado porque es para revisar de vez en cuando, no una alarma. */}
-      {!loading && sinEmpezar.length > 0 && (
-        <div style={{background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',marginBottom:10}}>
-          <div onClick={()=>setVerSinEmpezar(v=>!v)}
-            style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:10,color:'var(--gr)'}}>
-            <Ic name="alerta" size={12}/>
-            <span style={{flex:1}}>
-              <strong>{sinEmpezar.length}</strong> {sinEmpezar.length===1?'persona se valoró':'personas se valoraron'} y nunca {sinEmpezar.length===1?'llegó':'llegaron'} a dar una clase
-            </span>
-            <span style={{fontSize:9,color:'var(--grl)'}}>{verSinEmpezar?'ocultar':'ver quiénes'}</span>
-          </div>
-          {verSinEmpezar && (
-            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:9}}>
-              {sinEmpezar.map(p=>(
-                <Link key={p.id} href={`/pacientes/${p.id}`}
-                  style={{fontSize:10,padding:'4px 10px',borderRadius:99,background:'var(--w)',border:'1px solid var(--bd)',
-                          color:'var(--n)',textDecoration:'none',whiteSpace:'nowrap'}}>
-                  {p.nombre} {p.apellidos}
-                  <span style={{color:'var(--grl)',marginLeft:5}}>{situacionDe(p.estado).nombre.toLowerCase()}</span>
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
