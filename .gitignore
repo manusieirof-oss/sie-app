@@ -7,3 +7,9 @@ tsconfig.tsbuildinfo
 
 # Facturas reales: nóminas, NIFs y datos bancarios. Nunca al repositorio.
 Finanzas 26/
+
+# Copias de la base de datos. Llevan la clínica entera dentro: pacientes, patologías,
+# facturas. Si una acaba en GitHub, da igual que el repositorio sea privado.
+*.sql
+*.sql.gz
+copias-sie/
