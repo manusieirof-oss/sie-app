@@ -43,8 +43,21 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
     ? fraccionDeAlta(bono.fecha_inicio) : 1
   const [fraccion, setFraccion] = useState(fraccionPropuesta)
 
+  /**
+   * DE QUÉ MES ES LA CUOTA, escrito en la factura.
+   *
+   * `lineaDeBono` admitía esta etiqueta desde el principio y nadie se la pasaba, así que
+   * todas las cuotas salían como "Cuota mensual · Individual", sin decir el periodo. Con
+   * cobros del mes en curso se adivina por la fecha de la factura, pero en cuanto alguien
+   * paga septiembre por adelantado en agosto la factura deja de decir qué se está
+   * pagando — y eso es justo lo que tiene que constar en ella.
+   */
+  const etiquetaPeriodo = bono && bono.mes && bono.anio
+    ? new Date(bono.anio, bono.mes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+    : undefined
+
   const [lineas, setLineas] = useState<LineaCobro[]>(() =>
-    bono ? [lineaDeBono(bono, plan, fraccionPropuesta)] : []
+    bono ? [lineaDeBono(bono, plan, fraccionPropuesta, etiquetaPeriodo)] : []
   )
   const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta')
   const [notas, setNotas] = useState('')
@@ -63,7 +76,7 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
     // Solo se recalcula la línea de la cuota; lo añadido a mano no se toca.
     setLineas(ls => ls.map(l => {
       if (!(l.bono_id && bono && l.bono_id === bono.id)) return l
-      const nueva = lineaDeBono(bono, plan, f)
+      const nueva = lineaDeBono(bono, plan, f, etiquetaPeriodo)
       return { ...nueva, precioBase: nueva.total, descuento: null }
     }))
   }
