@@ -561,8 +561,21 @@ export default function FichaPacientePage() {
     const { error } = await supabase.from('pacientes')
       .update({ estado:'puede_volver', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
     if (error) { setProcesando(false); alert('No se ha podido cambiar el estado: ' + error.message); return }
+
+    /**
+     * Y SUS CUOTAS DE MESES POSTERIORES, igual que en la baja.
+     *
+     * Deja de ser cliente, así que una cuota dejada preparada para octubre es un cobro de
+     * un servicio que no va a recibir. Sin esto seguía activa: salía con bono en la lista y
+     * contaba como pendiente en Finanzas.
+     *
+     * La del mes en curso no se toca aquí, igual que en la baja.
+     */
+    const rc = await cerrarCuotasFuturas(String(id))
+    if (!rc.ok) alert('El estado se ha cambiado, pero sus cuotas futuras no se han podido cerrar: ' + rc.error)
+
     await registrarEvento('pausa', 'Marcado como "puede volver"',
-      'Sin fecha de vuelta. No se le cobra el mes; sus citas programadas se han cancelado.')
+      `Sin fecha de vuelta. Sus citas programadas se han cancelado.${rc.ok && rc.cerradas > 0 ? ` Se cerraron ${rc.cerradas} cuota${rc.cerradas>1?'s':''} de meses posteriores.` : ''}`)
     setProcesando(false)
     cargar()
   }
