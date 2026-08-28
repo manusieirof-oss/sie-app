@@ -207,28 +207,15 @@ export async function emitirCobro(args: {
     p_notas: args.notas ?? null,
     p_tipo: args.tipo ?? 'completa',
     p_lineas: lineas,
+    // Va DENTRO de la función, no en un update posterior: una factura emitida es
+    // inmutable —hay un disparador que lo impide— así que escribirla después no era
+    // que fallara a veces, es que no podía funcionar nunca.
+    p_fecha_operacion: args.fechaOperacion ?? null,
   })
 
   if (error) return { ok: false, error: error.message }
   const r = Array.isArray(data) ? data[0] : data
   if (!r?.factura_id) return { ok: false, error: 'El servidor no ha devuelto la factura emitida.' }
-
-  /**
-   * La fecha de operación se escribe DESPUÉS, sobre la factura ya emitida.
-   *
-   * Se podría pasar a `emitir_cobro`, pero esa función es la que numera la serie y la que
-   * garantiza que no haya huecos ni saltos. Tocarla para añadir un dato que no interviene
-   * en la numeración es arriesgar lo que sí importa por algo que no lo necesita.
-   *
-   * Si falla, la factura ya existe y es válida: se avisa por consola y no se rompe el
-   * cobro, que es lo que el usuario está esperando.
-   */
-  const expedicion = args.fecha ?? new Date().toISOString().split('T')[0]
-  if (args.fechaOperacion && args.fechaOperacion !== expedicion) {
-    const { error: errOp } = await supabase.from('facturas')
-      .update({ fecha_operacion: args.fechaOperacion }).eq('id', r.factura_id)
-    if (errOp) console.error('La factura se emitió, pero sin fecha de operación:', errOp.message)
-  }
 
   await registrarEvento(args.pacienteId, r.serie, r.numero, lineas)
   return { ok: true, cobroId: r.cobro_id, facturaId: r.factura_id, serie: r.serie, numero: r.numero }

@@ -338,6 +338,18 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
                que la operación fue el <b>{new Date(fechaCobro+'T12:00:00').toLocaleDateString('es-ES')}</b>.</>}
         </div>
 
+        {/* SIMPLIFICADA O COMPLETA, dicho ANTES de emitir.
+            Lo decide el DNI del paciente y hasta ahora te enterabas al abrir la factura
+            ya emitida — que además es inmutable, así que arreglarlo obliga a rectificar.
+            Aquí todavía estás a tiempo de ir a su ficha y ponerlo. */}
+        {!tieneDni && (
+          <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,
+            padding:'8px 11px',marginBottom:12,fontSize:12,color:'#8A6410',lineHeight:1.5}}>
+            <b>{paciente?.nombre} no tiene DNI</b>, así que saldrá <b>factura simplificada</b> y
+            sin sus datos. Si la necesita para desgravar, ponle el DNI en su ficha antes de cobrar.
+          </div>
+        )}
+
         <div className="field"><label>Notas (opcional)</label>
           <input className="input" value={notas} onChange={e=>setNotas(e.target.value)} placeholder="ej. paga la mitad ahora"/>
         </div>
