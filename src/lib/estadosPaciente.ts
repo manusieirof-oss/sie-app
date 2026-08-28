@@ -128,11 +128,22 @@ export async function ultimaClaseDe(pacienteIds: string[]) {
  * `pendiente_valoracion` se excluye porque esos ni siquiera han llegado a
  * valorarse todavía: están en otra fase y tienen su propio aviso.
  */
-export function valoraronYNoEmpezaron(pacientes: any[], ultimaClase: Map<string, string>) {
+export function valoraronYNoEmpezaron(
+  pacientes: any[],
+  ultimaClase: Map<string, string>,
+  conCitasPorDelante?: Set<string>,
+) {
   return pacientes.filter(p =>
     !p.pendiente_valoracion &&
     p.estado !== 'baja' &&
-    !ultimaClase.has(p.id))
+    !ultimaClase.has(p.id) &&
+    // QUIEN TIENE CITAS POR DELANTE NO SE HA QUEDADO SIN EMPEZAR: aún no le toca.
+    //
+    // La regla miraba solo si tenía alguna clase REALIZADA, y eso metía en la lista a todo
+    // el que estuviera recién agendado: al cargar la agenda de septiembre en agosto,
+    // cuarenta y seis personas aparecían como si te hubieran dejado plantado. El aviso
+    // pasaba de ser útil a ser ruido, que es como muere cualquier aviso.
+    !conCitasPorDelante?.has(p.id))
 }
 
 // ---------------------------------------------------------------------------

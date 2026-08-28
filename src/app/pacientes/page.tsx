@@ -157,7 +157,9 @@ export default function PacientesPage() {
   const sesionesDe = (pacienteId: string) => sesionesDeBonos(bonos, pacienteId)
 
   // Los que se valoraron y nunca dieron una clase. Derivado, no marcado.
-  const sinEmpezar = valoraronYNoEmpezaron(pacientes, ultimaClase)
+  // `citasPac` ya sabe quién tiene citas por delante: se calcula para la columna de citas.
+  const sinEmpezar = valoraronYNoEmpezaron(pacientes, ultimaClase,
+    new Set(Object.entries(citasPac).filter(([,c]) => c.citas > 0).map(([id]) => id)))
 
   /** true si ese bono todavía no ha empezado: es una cuota dejada preparada. */
   const esFuturo = (b: any) => !!b && (b.anio > anioActual || (b.anio === anioActual && b.mes > mesActual))
