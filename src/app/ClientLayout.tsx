@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import AvisoRenovacion from './AvisoRenovacion'
 import { renovarCuotas } from '@/lib/bonos'
+import { aplicarEstadosProgramados } from '@/lib/estadosPaciente'
 import { Ic } from '@/lib/icons'
 
 const NAV = [
@@ -51,6 +52,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
         setPerfil(data)
         if (data?.rol==='admin' || data?.permisos?.finanzas===true) {
+          /**
+           * Los estados programados ANTES de renovar cuotas.
+           *
+           * El orden importa: si alguien tenía la baja puesta para hoy, hay que aplicarla
+           * primero, o la renovación le vería todavía como activo y le generaría la cuota
+           * del mes que no debe pagar.
+           */
+          aplicarEstadosProgramados().then(e => {
+            if (e.aplicados > 0) console.log(`Estados aplicados: ${e.aplicados}`)
+            if (e.fallidos?.length) console.error('Estados que NO se han podido aplicar:', e.fallidos)
+          })
           renovarCuotas().then(r => {
             if (!r.ejecutado) return
             if (r.renovados > 0) console.log(`Cuotas renovadas: ${r.renovados}`)

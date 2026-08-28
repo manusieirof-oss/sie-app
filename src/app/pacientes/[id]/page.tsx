@@ -23,6 +23,7 @@ import { leerLista } from '@/lib/listasPaciente'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
+import { cerrarCuotasFuturas } from '@/lib/estadosPaciente'
 import { useParams, useRouter } from 'next/navigation'
 
 
@@ -501,10 +502,23 @@ export default function FichaPacientePage() {
     const { error } = await supabase.from('pacientes')
       .update({ estado:'baja', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
     if (error) { setProcesando(false); alert('No se ha podido dar de baja: ' + error.message); return }
+
+    /**
+     * Y SUS CUOTAS FUTURAS. La baja borraba las citas pero dejaba el bono activo, así que
+     * seguía saliendo con bono en la lista y contando como pendiente en Finanzas.
+     *
+     * La del mes en curso se respeta a propósito: si el mes ha empezado y no avisó, ese
+     * mes se cobra entero, y si no lo paga queda como impago. Eso es información, no un
+     * error que haya que limpiar.
+     */
+    const rc = await cerrarCuotasFuturas(String(id))
+    if (!rc.ok) alert('El paciente está de baja, pero sus cuotas futuras no se han podido cerrar: ' + rc.error)
+
     await registrarEvento('baja', pac.estado === 'pausa' ? 'Baja del servicio, estando en pausa' : 'Baja del servicio',
-      'Sus citas futuras programadas fueron eliminadas.')
+      `Sus citas futuras programadas fueron eliminadas.${rc.ok && rc.cerradas > 0 ? ` Se cerraron ${rc.cerradas} cuota${rc.cerradas>1?'s':''} de meses posteriores.` : ''}`)
     setProcesando(false)
-    alert('✓ Paciente dado de baja. Sus citas futuras han sido eliminadas.')
+    alert('✓ Paciente dado de baja. Sus citas futuras han sido eliminadas.'
+      + (rc.ok && rc.cerradas > 0 ? `\n\nTambién se han cerrado ${rc.cerradas} cuota${rc.cerradas>1?'s':''} de meses posteriores. La del mes en curso se mantiene.` : ''))
     router.push('/pacientes')
   }
 

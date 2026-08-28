@@ -246,3 +246,88 @@ export function textoCuando(dias: number): string {
   if (dias > 1) return `en ${dias} días`
   return dias === -1 ? 'ayer, pendiente de aplicar' : `hace ${Math.abs(dias)} días, pendiente de aplicar`
 }
+
+/**
+ * QUIEN DEJA DE SER CLIENTE NO ARRASTRA CUOTAS FUTURAS.
+ *
+ * Al dar de baja se le borraban las citas y se le cambiaba el estado, pero el bono seguía
+ * `activo`. La renovación mensual sí lo esquivaba —no le generaba cuota nueva— pero la que
+ * ya tuviera seguía viva: salía con bono en la lista y contaba como pendiente de cobro en
+ * Finanzas, mezclando a quien debe dinero con quien ya no viene.
+ *
+ * LA DEL MES EN CURSO SE RESPETA. Si el mes ha empezado y no avisó, ese mes se cobra
+ * entero; si luego no paga, queda como impago, que es información y no un error. Se
+ * desactivan solo las de meses POSTERIORES, que son cuotas de un servicio que no va a
+ * recibir.
+ *
+ * Los bonos de SESIONES no se tocan: están pagados por adelantado y qué hacer con las
+ * sesiones que le sobran es una decisión comercial, no algo que deba resolver un cambio
+ * de estado.
+ */
+export async function cerrarCuotasFuturas(pacienteId: string) {
+  const hoy = new Date()
+  const mes = hoy.getMonth() + 1, anio = hoy.getFullYear()
+
+  const { data, error } = await supabase.from('bonos')
+    .select('id,mes,anio,sesiones_totales')
+    .eq('paciente_id', pacienteId).eq('activo', true)
+  if (error) return { ok: false as const, error: error.message, cerradas: 0 }
+
+  const futuras = (data || []).filter((b: any) =>
+    b.sesiones_totales == null && (b.anio > anio || (b.anio === anio && b.mes > mes)))
+  if (futuras.length === 0) return { ok: true as const, cerradas: 0 }
+
+  const { error: errUpd } = await supabase.from('bonos')
+    .update({ activo: false }).in('id', futuras.map((b: any) => b.id))
+  if (errUpd) return { ok: false as const, error: errUpd.message, cerradas: 0 }
+  return { ok: true as const, cerradas: futuras.length }
+}
+
+/**
+ * Aplica los cambios de estado que ya han llegado a su fecha.
+ *
+ * `programarEstado` guardaba la intención —"se va de baja el 1 de septiembre"— y NADIE la
+ * ejecutaba. La renovación de cuotas lo esquivaba calculando el estado al vuelo, que es
+ * por lo que no se notaba, pero la ficha del paciente seguía diciendo "activo" para
+ * siempre y todo lo demás también: las citas, el taller, los avisos.
+ *
+ * Se ejecuta al entrar en la app, junto a la renovación de cuotas. No hace falta un cron:
+ * lo importante no es que ocurra a las 00:00, es que ocurra antes de que nadie mire.
+ */
+export async function aplicarEstadosProgramados() {
+  const hoy = new Date().toISOString().split('T')[0]
+  const { data, error } = await supabase.from('pacientes')
+    .select('id,nombre,apellidos,estado,estado_programado,estado_programado_desde,estado_programado_motivo')
+    .not('estado_programado', 'is', null)
+    .lte('estado_programado_desde', hoy)
+  if (error) return { aplicados: 0, fallidos: [error.message] }
+
+  const fallidos: string[] = []
+  let aplicados = 0
+
+  for (const p of (data || [])) {
+    const nuevo = p.estado_programado as string
+    const { error: errUpd } = await supabase.from('pacientes').update({
+      estado: nuevo,
+      estado_desde: p.estado_programado_desde,
+      // La programación se consume: si se quedara puesta, volvería a aplicarse cada vez.
+      estado_programado: null, estado_programado_desde: null, estado_programado_motivo: null,
+      // Una baja no es una pausa con otro nombre: sin esto queda una fecha de vuelta
+      // apuntando a alguien que ya no está.
+      ...(nuevo === 'baja' ? { pausa_desde: null, pausa_hasta: null } : {}),
+    }).eq('id', p.id)
+    if (errUpd) { fallidos.push(`${p.nombre}: ${errUpd.message}`); continue }
+
+    // Deja de ser cliente: se le cierran las cuotas de meses posteriores.
+    if (nuevo === 'baja' || nuevo === 'puede_volver') await cerrarCuotasFuturas(p.id)
+
+    await supabase.from('eventos_paciente').insert({
+      paciente_id: p.id, tipo: nuevo === 'baja' ? 'baja' : 'estado',
+      titulo: nuevo === 'baja' ? 'Baja del servicio' : `Estado: ${estadoDe(nuevo).nombre}`,
+      descripcion: `Estaba programado para el ${p.estado_programado_desde}.${p.estado_programado_motivo ? ' ' + p.estado_programado_motivo : ''}`,
+      fecha: hoy,
+    })
+    aplicados++
+  }
+  return { aplicados, fallidos }
+}
