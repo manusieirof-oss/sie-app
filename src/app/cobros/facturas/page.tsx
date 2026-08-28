@@ -20,6 +20,7 @@ const LBL_TIPO: Record<string,string> = { completa:'Completa', simplificada:'Tiq
 export default function FacturasPage() {
   const router = useRouter()
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
+  const [veTotales, setVeTotales] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [fallo, setFallo] = useState<string|null>(null)
   const [aviso, setAviso] = useState<string|null>(null)
@@ -40,6 +41,9 @@ export default function FacturasPage() {
     if (!user?.id) { router.push('/login'); return }
     const { data } = await supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle()
     setAutorizado(data?.rol === 'admin' || data?.permisos?.cobros === true || data?.permisos?.finanzas === true)
+    // Ver una factura suelta para reimprimirla es parte de cobrar. Sumar todas las del
+    // periodo ya es la facturación de la clínica, y eso es otra cosa.
+    setVeTotales(data?.rol === 'admin' || data?.permisos?.finanzas === true)
   }
 
   async function cargar() {
@@ -92,7 +96,8 @@ export default function FacturasPage() {
         <input className="input" style={{width:220}} placeholder="Buscar por paciente o número..." value={busca} onChange={e=>setBusca(e.target.value)}/>
         <div style={{flex:1}}/>
         <span style={{fontSize:11,color:'var(--grl)'}}>
-          {filtradas.length} {filtradas.length===1?'factura':'facturas'} · base {totales.base.toFixed(2)} € · IVA {totales.cuota.toFixed(2)} € · <strong style={{color:'var(--n)'}}>{totales.total.toFixed(2)} €</strong>
+          {filtradas.length} {filtradas.length===1?'factura':'facturas'}
+          {veTotales && <> · base {totales.base.toFixed(2)} € · IVA {totales.cuota.toFixed(2)} € · <strong style={{color:'var(--n)'}}>{totales.total.toFixed(2)} €</strong></>}
         </span>
       </div>
 

@@ -58,12 +58,27 @@ export default function CobrosPage() {
   useEffect(() => { verificar() }, [])
   useEffect(() => { if (autorizado) cargar() }, [autorizado, mes])
 
+  /**
+   * COBRAR NO ES VER EL DINERO DE LA CLÍNICA.
+   *
+   * Quien tiene `cobros` cobra a los pacientes y emite facturas: para eso necesita ver el
+   * importe de CADA paciente, o no sabe qué cobrar. Lo que no tiene por qué ver son los
+   * agregados —cuánto hay pendiente en total, el listado completo para la gestoría—, que
+   * son la foto económica de la clínica y no hacen falta para su trabajo.
+   *
+   * Esto es ocultar, no proteger: los datos siguen llegando al navegador. Para una persona
+   * de confianza es lo razonable; si algún día tuviera que ser infranqueable, habría que
+   * limitarlo con políticas en la base de datos.
+   */
+  const [veImportes, setVeImportes] = useState(false)
+
   async function verificar() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user?.id) { router.push('/login'); return }
     const { data } = await supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle()
     // Quien puede ver Finanzas puede cobrar; al revés no.
     setAutorizado(data?.rol === 'admin' || data?.permisos?.cobros === true || data?.permisos?.finanzas === true)
+    setVeImportes(data?.rol === 'admin' || data?.permisos?.finanzas === true)
   }
 
   async function cargar() {
@@ -324,9 +339,13 @@ export default function CobrosPage() {
         <Link href="/cobros/facturas" className="btn btn-s btn-sm" style={{textDecoration:'none'}}>
           <Ic name="informe" size={12}/> Facturas emitidas
         </Link>
-        <button className="btn btn-s btn-sm" onClick={exportarGestoria}>
-          <Ic name="descargar" size={12}/> Listado para la gestoría
-        </button>
+        {/* El listado de la gestoría lleva bases, IVA y totales de todo el mes: es la
+            contabilidad entera en un CSV. No es una pantalla, es el dato completo. */}
+        {veImportes && (
+          <button className="btn btn-s btn-sm" onClick={exportarGestoria}>
+            <Ic name="descargar" size={12}/> Listado para la gestoría
+          </button>
+        )}
       </div>
 
       {fallos.length > 0 && (
@@ -392,10 +411,21 @@ export default function CobrosPage() {
           <div style={{fontSize:24,fontWeight:300,color:'#3E7179',marginTop:4}}>{nPagados}</div>
           <div style={{fontSize:9,color:'var(--grl)'}}>cuotas de {bonos.length}</div>
         </div>
+        {/* El pendiente en euros solo para quien ve las finanzas. Para el resto, la misma
+            información útil —a cuánta gente hay que cobrar— sin la cifra de la clínica. */}
         <div className="card" style={{textAlign:'center',margin:0}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Pendiente</div>
-          <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{totalPendiente.toFixed(0)} €</div>
-          <div style={{fontSize:9,color:'var(--grl)'}}>{filas.filter(f=>!f.pagado).length} pacientes</div>
+          {veImportes ? (
+            <>
+              <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{totalPendiente.toFixed(0)} €</div>
+              <div style={{fontSize:9,color:'var(--grl)'}}>{filas.filter(f=>!f.pagado).length} pacientes</div>
+            </>
+          ) : (
+            <>
+              <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{filas.filter(f=>!f.pagado).length}</div>
+              <div style={{fontSize:9,color:'var(--grl)'}}>por cobrar</div>
+            </>
+          )}
         </div>
         <div className="card" style={{textAlign:'center',margin:0}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Han venido</div>
