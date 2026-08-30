@@ -23,6 +23,17 @@ export default function ModoClase() {
   const SKEY = 'taller_clase'
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
+  const [ctxPorPaciente, setCtxPorPaciente] = useState<Record<string,any>>({})
+  const [ctxAbierto, setCtxAbierto] = useState<string>('')
+
+  async function cargarCtxPaciente(pid: string) {
+    const [rm, rp, ra] = await Promise.all([
+      supabase.from('molestias').select('*').eq('paciente_id', pid).eq('activa', true),
+      supabase.from('patologias').select('*').eq('paciente_id', pid),
+      supabase.from('alertas_paciente').select('*').eq('paciente_id', pid).eq('activa', true),
+    ])
+    setCtxPorPaciente(prev => ({ ...prev, [pid]: { molestias: rm.data||[], patologias: rp.data||[], alertas: ra.data||[] } }))
+  }
   const [sala, setSala] = useState('')
   // A y B por defecto, igual que la agenda: si `clinica_salas` no está puesto en Ajustes,
   // antes se quedaba en lista vacía y el selector de sala no llegaba a pintarse nunca.
@@ -98,8 +109,15 @@ export default function ModoClase() {
         const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
         if (ya) { lista.push(ya); continue }        // lo suyo se queda como esté
         const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, d.sesion) : []
+        let objetivosSesion: any[] = []
+        if (d.sesion?.id) {
+          const { data: rel } = await supabase.from('sesiones_objetivos')
+            .select('objetivos(id,nombre,color)').eq('sesion_id', d.sesion.id)
+          objetivosSesion = (rel||[]).map((r:any)=>r.objetivos).filter(Boolean)
+        }
         lista.push({
           paciente: d.paciente,
+          objetivosSesion,
           sesionId: d.sesion?.id || '',
           sesiones: d.disponibles,
           datos, cargado: !!d.sesion, finalizado: false,
@@ -107,6 +125,7 @@ export default function ModoClase() {
           origen: d.origen, sesionVieja: d.sesionVieja,
         })
         cargarObjsPaciente(d.pacienteId)
+        cargarCtxPaciente(d.pacienteId)
       }
 
       const final = lista
@@ -192,6 +211,7 @@ export default function ModoClase() {
       ;(parte.ejercicios||[]).forEach((ej:any)=>{
         const n = parseInt(ej.series)||4
         ejs.push({
+          parte: parte.nombre || '',
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
           plan:{peso:ej.peso,reps:ej.reps},
@@ -231,13 +251,22 @@ export default function ModoClase() {
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
           e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
+          // precargar lo de la ultima vez como punto de partida editable
+          if (Array.isArray(e.ultimo) && e.ultimo.length>0) {
+            e.series = e.series.map((orig:any, idx:number) => {
+              const prev = e.ultimo[idx]
+              if (!prev) return orig
+              return { ...orig, peso: prev.peso ?? '', reps: prev.reps ?? '', segundos: prev.segundos ?? '' }
+            })
+            e.precargado = true
+          }
           const c = cursoMap[e.ejercicio_id]
           if (c && Array.isArray(c.series)) {
             // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
             const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
             // si el borrador tenia mas series que la plantilla, añadirlas
             for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
-            e.series = merged; e.comentario = c.comentario||''; e.guardado = true
+            e.series = merged; e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
           }
           if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
         }
@@ -336,6 +365,7 @@ export default function ModoClase() {
     const hayComent = (ej.comentario||'').trim()!==''
     const iv = ej.items_evaluados || {}
     const hayItems = Object.values(iv).some((v:any)=>v===true)
+    if (ej.precargado && !hayComent && !hayItems) return
     if (seriesLlenas.length===0 && !hayComent && !hayItems) return
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
@@ -371,7 +401,7 @@ export default function ModoClase() {
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; const series=[...datos[ei].series]
       series[si]={...series[si],[campo]:val}
-      datos[ei]={...datos[ei],series,guardado:false}
+      datos[ei]={...datos[ei],series,guardado:false,precargado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
@@ -503,10 +533,56 @@ export default function ModoClase() {
       ) : (
         <div className="card">
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-            <div style={{fontSize:13,fontWeight:400,color:'var(--n)',flex:1}}>
-              {nombrePac(act.paciente)}
-              {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
-              {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>
+                {nombrePac(act.paciente)}
+                {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
+                {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
+              </div>
+              {(() => {
+                const ctx = ctxPorPaciente[act.paciente.id] || {}
+                const objsSesion = (act.objetivosSesion||[])
+                const grupos:any[] = [
+                  { k:'objetivos', icon:'objetivo', label:'Objetivos de la sesión', items:objsSesion, color:'var(--g)' },
+                  { k:'patologias', icon:'patologia', label:'Patologías', items:(ctx.patologias||[]), color:'var(--red)' },
+                  { k:'molestias', icon:'molestia', label:'Molestias', items:(ctx.molestias||[]), color:'var(--amb)' },
+                  { k:'alertas', icon:'alerta', label:'Alertas', items:(ctx.alertas||[]), color:'var(--red)' },
+                ].filter(g=>g.items.length>0)
+                if (grupos.length===0) return null
+                return (
+                  <div style={{marginTop:6}}>
+                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                      {grupos.map(g=>{
+                        const abierto = ctxAbierto===g.k
+                        return (
+                          <span key={g.k} onClick={()=>setCtxAbierto(abierto?'':g.k)} title={g.label}
+                            style={{width:26,height:26,borderRadius:'50%',cursor:'pointer',flexShrink:0,
+                              background:abierto?g.color:'var(--w)',color:abierto?'#fff':g.color,border:'1.5px solid '+g.color,
+                              display:'inline-flex',alignItems:'center',justifyContent:'center',gap:2,fontSize:9,fontWeight:600,position:'relative'}}>
+                            <Ic name={g.icon} size={11}/>
+                            <span style={{position:'absolute',top:-3,right:-3,minWidth:13,height:13,borderRadius:'50%',background:g.color,color:'#fff',fontSize:8,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 3px'}}>{g.items.length}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                    {ctxAbierto && (() => {
+                      const g = grupos.find(x=>x.k===ctxAbierto)
+                      if (!g) return null
+                      return (
+                        <div style={{marginTop:6,padding:'7px 10px',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:6,maxWidth:420}}>
+                          <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:4}}>{g.label}</div>
+                          {g.items.map((it:any,i:number)=>(
+                            <div key={i} style={{fontSize:10,color:'var(--n)',padding:'2px 0'}}>
+                              · {it.nombre || it.titulo || it.texto || it.descripcion || '—'}
+                              {it.zona&&<span style={{color:'var(--grl)'}}> · {it.zona}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )
+              })()}
             </div>
             {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
                 existe para eso. Al asignar allí, vuelves aquí. */}
@@ -551,17 +627,27 @@ export default function ModoClase() {
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Sin sesión para hoy. Dale a <b style={{color:'var(--gr)'}}>Asignar sesión</b> arriba.</div>
           ) : act.datos.length===0 ? (
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Esta sesión no tiene ejercicios.</div>
-          ) : act.datos.map((ej:any,ei:number)=>(
-            <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'9px 11px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
-                {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:30,height:30,objectFit:'cover',borderRadius:4}}/>:<div style={{width:30,height:30,background:'var(--bm)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={14}/></div>}
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{ej.nombre}{ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',marginLeft:6}}>{ej.variante}</span>}</div>
-                  {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
-                  {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:2,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="mensaje" size={10}/> última vez: {ej.ultimoComent}</div>}
+          ) : act.datos.map((ej:any,ei:number)=>{
+            const partePrev = ei>0 ? (act.datos[ei-1].parte||'') : null
+            const mostrarParte = (ej.parte||'') && (ej.parte||'') !== partePrev
+            return (
+            <div key={'w'+ei}>
+            {mostrarParte && (
+              <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.5,margin:'14px 0 6px',paddingBottom:4,borderBottom:'1px solid var(--bd)'}}>{ej.parte}</div>
+            )}
+            <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'10px 12px',display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
+              <div style={{flex:'0 0 150px',minWidth:130,display:'flex',flexDirection:'column',gap:6,alignItems:'flex-start'}}>
+                {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:110,objectFit:'contain',background:'var(--w)',borderRadius:7,flexShrink:0,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:110,background:'var(--bm)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={32}/></div>}
+                <div style={{width:'100%',minWidth:0}}>
+                  <div style={{fontSize:11,fontWeight:500,color:'var(--n)',lineHeight:1.3}}>{ej.nombre}</div>
+                  {ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',display:'inline-block',marginTop:3}}>{ej.variante}</span>}
+                  {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                  {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'flex-start',gap:4}}><Ic name="mensaje" size={10}/> <span>última vez: {ej.ultimoComent}</span></div>}
+                  {ej.guardado&&<div style={{fontSize:9,color:'var(--g)',marginTop:3}}>✓ guardado</div>}
                 </div>
-                {ej.guardado&&<span style={{fontSize:9,color:'var(--g)'}}>✓ guardado</span>}
               </div>
+              <div style={{flex:'1 1 340px',minWidth:300,display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
+                <div style={{flex:'1 1 210px',minWidth:200}}>
               {ej.series.map((ser:any,si:number)=>{
                 const tm = ej.tipo_medida || 'peso_reps'
                 const fmtPrev = (x:any) => {
@@ -598,8 +684,10 @@ export default function ModoClase() {
                 <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>+ serie</button>
                 <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="Comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
               </div>
+                </div>
+                <div style={{flex:'1 1 190px',minWidth:180}}>
               {(ej.items||[]).length>0 && (
-                <div style={{marginTop:8,paddingTop:8,borderTop:'1px dashed var(--bm)'}}>
+                <div>
                   <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
                   {(ej.items||[]).map((it:any,ii:number)=>{
                     const cumple = itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, ii)
@@ -633,12 +721,16 @@ export default function ModoClase() {
               {(ej.feedbacks||[]).length>0 && (
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
                   {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
-                    <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--bl)',color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="mensaje" size={9}/> {fb.texto}</span>
+                    <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--w)',color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3,border:'1px solid var(--bd)'}}><Ic name="mensaje" size={9}/> {fb.texto}</span>
                   ))}
                 </div>
               )}
+                </div>
+              </div>
             </div>
-          ))}
+            </div>
+            )
+          })}
         </div>
       )}
     </>

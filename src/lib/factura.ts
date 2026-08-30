@@ -81,14 +81,27 @@ export function htmlFactura(d: FacturaCompleta): string {
       <td class="r">${eur(l.total)}</td>
     </tr>`).join('')
 
-  // El destinatario solo va en la completa: la simplificada no lo necesita.
-  const destinatario = simplificada ? '' : `
+  /**
+   * El destinatario.
+   *
+   * En la COMPLETA es obligatorio con nombre, NIF y domicilio. En la SIMPLIFICADA no hace
+   * falta ninguno, pero se pone el nombre si se sabe: al cliente le sirve para saber que
+   * es suya, y a ti para encontrarla. Poner el nombre no la convierte en completa —eso
+   * exige NIF y domicilio— así que se advierte para que nadie la entregue creyendo que
+   * vale para desgravar.
+   */
+  const destinatario = !simplificada ? `
     <div class="dest">
       <div class="lbl">Destinatario</div>
       <div class="val"><strong>${esc(f.receptor_nombre || '')}</strong><br>
         ${f.receptor_nif ? `NIF ${esc(f.receptor_nif)}<br>` : ''}
         ${esc(f.receptor_direccion || '')}</div>
-    </div>`
+    </div>` : (f.receptor_nombre ? `
+    <div class="dest">
+      <div class="lbl">Cliente</div>
+      <div class="val"><strong>${esc(f.receptor_nombre)}</strong><br>
+        <span style="color:#8A6410">Factura simplificada · sin NIF no sirve para deducir</span></div>
+    </div>` : '')
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <title>${numeroFactura(f)}</title>
