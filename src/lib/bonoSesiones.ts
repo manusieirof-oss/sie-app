@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { aISO } from './fechas'
 
 // ---------------------------------------------------------------------------
 // BONOS POR SESIONES
@@ -211,7 +212,7 @@ export async function renovarBonoSesiones(bonoViejo: { bono_id: string, paciente
     .eq('id', bonoViejo.bono_id).maybeSingle()
 
   const hoy = new Date()
-  const hoyStr = hoy.toISOString().split('T')[0]
+  const hoyStr = aISO(hoy)
   const { data: nuevo, error } = await supabase.from('bonos').insert({
     paciente_id: bonoViejo.paciente_id,
     tipo: bonoViejo.tipo,

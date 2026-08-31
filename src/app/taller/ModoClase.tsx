@@ -7,8 +7,10 @@ import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita } from '@/
 import { rutaDeAsignacion } from '@/lib/asignarCita'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
+import { hoyISO } from '@/lib/fechas'
 
-const hoy = () => new Date().toISOString().slice(0,10)
+// Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
+const hoy = hoyISO
 
 export default function ModoClase() {
   const [fecha, setFecha] = useState(hoy())

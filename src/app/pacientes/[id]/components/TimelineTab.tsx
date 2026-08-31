@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { aISO } from '@/lib/fechas'
 
 // Definicion de tipos de evento: icono, color, etiqueta y familia para el filtro
 const TIPOS: Record<string,{icono:string,color:string,label:string,familia:string}> = {
@@ -103,7 +104,7 @@ export default function TimelineTab({ pacienteId }: { pacienteId: string }) {
     if (periodo === 'todo') return null
     const d = new Date()
     d.setMonth(d.getMonth() - (periodo === '3m' ? 3 : 12))
-    return d.toISOString().split('T')[0]
+    return aISO(d)
   })()
   const enPeriodo = corte ? eventos.filter(ev => ev.fecha && ev.fecha >= corte) : eventos
 

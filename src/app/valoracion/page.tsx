@@ -16,7 +16,7 @@ import PasoCompletar from './components/PasoCompletar'
 import PasoTests from './components/PasoTests'
 import PasoPlan from './components/PasoPlan'
 import PasoResumen from './components/PasoResumen'
-import { hoyISO } from '@/lib/fechas'
+import { hoyISO, aISO } from '@/lib/fechas'
 
 /**
  * Valoración y revaloración.
@@ -213,7 +213,7 @@ export default function ValoracionPage() {
           lados: { [r.lado]: {
             items_resultado: (t?.items||[]).map((it:any)=>({...it,marcado:false,valor:''})),
             resultado: 'sin_realizar', observaciones: '',
-            fecha_repeticion: rev.toISOString().split('T')[0],
+            fecha_repeticion: aISO(rev),
           } },
         }
       }))

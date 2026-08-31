@@ -2,6 +2,7 @@
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { indicePlanes, precioBono as precioDeBono } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
+import { mesISO } from '@/lib/fechas'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -15,7 +16,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], m
   const precioBono = (b:any) => precioDeBono(b, idxPlanes)
 
   // FOTO DEL MES ACTUAL
-  const mesActual = mesRef || new Date().toISOString().slice(0,7)
+  const mesActual = mesRef || mesISO()
   const ingresosMes = bonosActivos.reduce((a:number,b:any)=>a+precioBono(b),0)
   const gastosMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((a:number,g:any)=>a+Number(g.importe),0)
   const beneficioMes = ingresosMes - gastosMes

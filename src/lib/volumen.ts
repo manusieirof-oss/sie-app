@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { raizDe, categoriaDe, conDescendientes } from './etiquetas'
 import { modoParte } from './sesiones'
+import { aISO } from './fechas'
 
 // Cuánto se ha trabajado cada zona y cada patrón en un periodo.
 //
@@ -74,8 +75,8 @@ const PARES = [
 export async function resumenVolumen(pacienteId: string, semanas = 8): Promise<ResumenVolumen> {
   const hoy = new Date()
   const desde = new Date(hoy.getTime() - semanas * 7 * 24 * 3600 * 1000)
-  const sDesde = desde.toISOString().split('T')[0]
-  const sHasta = hoy.toISOString().split('T')[0]
+  const sDesde = aISO(desde)
+  const sHasta = aISO(hoy)
 
   const [{ data: citas }, { data: etiquetas }, { data: ejercicios }] = await Promise.all([
     supabase.from('citas').select('id,estado,sesion_id, sesiones:sesion_id(id,nombre,partes)')

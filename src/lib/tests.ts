@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { revisarMetas } from './metas'
-import { hoyISO } from '@/lib/fechas'
+import { hoyISO, aISO } from '@/lib/fechas'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -566,7 +566,7 @@ export function fechaRevisionDe(test: any): string {
   if (!test?.frecuencia_meses) return ''
   const d = new Date()
   d.setMonth(d.getMonth() + Number(test.frecuencia_meses))
-  return d.toISOString().split('T')[0]
+  return aISO(d)
 }
 
 export type DatosResultado = {

@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { hoyISO } from '@/lib/fechas'
+import { hoyISO, inicioDeMes } from '@/lib/fechas'
 
 export type BonoTipo = {
   id: string
@@ -315,7 +315,7 @@ export async function renovarCuotas(modoPrueba = false) {
     const { error: errIns } = await supabase.from('bonos').insert({
       paciente_id: b.paciente_id, tipo: b.tipo, dias_semana: b.dias_semana,
       estado_pago: 'pendiente', mes, anio,
-      fecha_inicio: new Date(anio, mes-1, 1).toISOString().split('T')[0], activo: true,
+      fecha_inicio: inicioDeMes(anio, mes), activo: true,
       descuento_tipo: b.descuento_tipo, descuento_valor: b.descuento_valor, descuento_motivo: b.descuento_motivo,
     })
     // Si falla (p.ej. duplicado), se salta ese sin romper el resto, pero se

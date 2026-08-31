@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts'
 import { Ic } from '@/lib/icons'
+import { mesISO } from '@/lib/fechas'
 
 const PAL = { g:'#5A969E', gd:'#3E7179', bg:'#EBF4F5', red:'#C25B5B', amb:'#D4A24E' }
 const GREY='#9CA3AF'
@@ -58,7 +59,7 @@ export default function StatsPage() {
   const recRecuperadas = recuperaciones.filter(r=>r.estado==='recuperada').length
 
   const ahora = new Date()
-  const mesActual = ahora.toISOString().slice(0,7)
+  const mesActual = mesISO()
   const sesionesMes = citas.filter(c=>c.estado==='realizada'&&c.fecha?.slice(0,7)===mesActual).length
 
   // Asistencia por mes (últimos 6, solo pasadas)

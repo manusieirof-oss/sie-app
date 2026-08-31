@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { hoyISO } from '@/lib/fechas'
+import { hoyISO, mesISO } from '@/lib/fechas'
 
 export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
@@ -50,7 +50,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     recargar()
   }
 
-  const mesActual = mesRef || new Date().toISOString().slice(0,7)
+  const mesActual = mesRef || mesISO()
   const totalMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((acc:number,g:any)=>acc+Number(g.importe),0)
   const totalFijos = gastos.filter((g:any)=>g.tipo==='fijo').reduce((acc:number,g:any)=>acc+Number(g.importe),0)
 

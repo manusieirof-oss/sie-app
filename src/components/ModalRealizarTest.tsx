@@ -5,7 +5,7 @@ import {
   esSuma, puntuacionDe, puntuacionesPendientes, bandaDe, rangoTotal,
   esBaremo, evaluarBaremo, edadEn, textoNorma,
 } from '@/lib/tests'
-import { hoyISO } from '@/lib/fechas'
+import { hoyISO, aISO } from '@/lib/fechas'
 
 /**
  * Pasar un test, con el mismo aspecto que su ficha de la biblioteca.
@@ -41,7 +41,7 @@ export function ladoVacio(test: any, meses?: number) {
   return {
     items_resultado: (test?.items || []).map((it: any) => ({ ...it, marcado: false, valor: '' })),
     resultado: 'sin_realizar', observaciones: '',
-    fecha_repeticion: rev.toISOString().split('T')[0],
+    fecha_repeticion: aISO(rev),
   }
 }
 

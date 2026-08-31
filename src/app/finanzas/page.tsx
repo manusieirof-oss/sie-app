@@ -11,6 +11,7 @@ import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
 import PrevisionTab from './components/PrevisionTab'
 import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes } from '@/lib/bonos'
+import { mesISO } from '@/lib/fechas'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -54,7 +55,7 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
 export default function FinanzasPage() {
   const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'|'rentabilidad'|'prevision'>('resumen')
   // Mes que se está mirando, 'YYYY-MM'. Arranca en el actual.
-  const [mesRef, setMesRef] = useState(() => new Date().toISOString().slice(0,7))
+  const [mesRef, setMesRef] = useState(mesISO)
   const [planes, setPlanes] = useState<any[]>([])
   const [gastos, setGastos] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])

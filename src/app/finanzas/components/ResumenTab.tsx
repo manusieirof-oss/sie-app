@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { indicePlanes, precioBono as precioDeBono, precioFinalPlan, esVentaPuntual } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
+import { mesISO } from '@/lib/fechas'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -30,7 +31,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   const pendiente = bonosActivos.filter((b: any) => b.estado_pago === 'pendiente').reduce((a: number, b: any) => a + precioBono(b), 0)
   const impago = bonosActivos.filter((b: any) => b.estado_pago === 'impago').reduce((a: number, b: any) => a + precioBono(b), 0)
 
-  const mesActual = mesRef || new Date().toISOString().slice(0, 7)
+  const mesActual = mesRef || mesISO()
   const gastosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual).reduce((a: number, g: any) => a + Number(g.importe), 0)
   const gastosFijosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual && g.tipo === 'fijo').reduce((a: number, g: any) => a + Number(g.importe), 0)
   const gastosVarMes = gastosMes - gastosFijosMes

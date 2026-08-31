@@ -28,6 +28,15 @@ export function aISO(d: Date): string {
 /** Hoy. Sustituye a `new Date().toISOString().split('T')[0]`. */
 export const hoyISO = () => aISO(new Date())
 
+/**
+ * El mes de hoy, 'YYYY-MM'.
+ *
+ * `new Date().toISOString().slice(0,7)` devuelve el mes ANTERIOR el día 1 entre
+ * las 00:00 y las 02:00. Estrecho, pero es justo el rato en que se abre la app
+ * el primer día del mes para ver cómo va.
+ */
+export const mesISO = () => hoyISO().slice(0, 7)
+
 /** Primer día del mes, 'YYYY-MM-DD'. `mes` va de 1 a 12. */
 export const inicioDeMes = (anio: number, mes: number) =>
   `${anio}-${String(mes).padStart(2, '0')}-01`
