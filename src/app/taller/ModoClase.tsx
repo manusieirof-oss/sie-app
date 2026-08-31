@@ -27,6 +27,16 @@ export default function ModoClase() {
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
   const [ctxPorPaciente, setCtxPorPaciente] = useState<Record<string,any>>({})
   const [ctxAbierto, setCtxAbierto] = useState<string>('')
+  const [pendientes, setPendientes] = useState(0)
+  const [ultimoGuardado, setUltimoGuardado] = useState<Date|null>(null)
+
+  useEffect(() => {
+    const antesDeSalir = (e: BeforeUnloadEvent) => {
+      if (pendientes > 0) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', antesDeSalir)
+    return () => window.removeEventListener('beforeunload', antesDeSalir)
+  }, [pendientes])
 
   async function cargarCtxPaciente(pid: string) {
     const [rm, rp, ra] = await Promise.all([
@@ -359,7 +369,8 @@ export default function ModoClase() {
   function programarAutosave(pid:string, ei:number, ejData:any, sesionId:string){
     const key = `${pid}_${ei}`
     if (timers.current[key]) clearTimeout(timers.current[key])
-    timers.current[key] = setTimeout(()=>{ autoguardar(pid, ei, ejData, sesionId) }, 700)
+    else setPendientes(p=>p+1)
+    timers.current[key] = setTimeout(()=>{ delete timers.current[key]; autoguardar(pid, ei, ejData, sesionId) }, 700)
   }
 
   async function autoguardar(pid:string, ei:number, ej:any, sesionId:string){
@@ -367,8 +378,8 @@ export default function ModoClase() {
     const hayComent = (ej.comentario||'').trim()!==''
     const iv = ej.items_evaluados || {}
     const hayItems = Object.values(iv).some((v:any)=>v===true)
-    if (ej.precargado && !hayComent && !hayItems) return
-    if (seriesLlenas.length===0 && !hayComent && !hayItems) return
+    if (ej.precargado && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); return }
+    if (seriesLlenas.length===0 && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); return }
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
@@ -390,7 +401,9 @@ export default function ModoClase() {
     } else {
       ({ error } = await supabase.from('registros_ejercicio').insert(fila))
     }
-    if (error){ console.error('autoguardar clase', error.message); return }
+    if (error){ console.error('autoguardar clase', error.message); setPendientes(p=>Math.max(0,p-1)); return }
+    setPendientes(p=>Math.max(0,p-1))
+    setUltimoGuardado(new Date())
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; if(datos[ei]) datos[ei]={...datos[ei],guardado:true}
@@ -486,6 +499,15 @@ export default function ModoClase() {
       {/* CABECERA CLASE */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
         <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="taller" size={14}/> Taller</span>
+        {pendientes>0 ? (
+          <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--ambl)',color:'#7A5800',border:'1px solid var(--amb)',display:'inline-flex',alignItems:'center',gap:4}}>
+            <Ic name="reloj" size={9}/> Guardando…
+          </span>
+        ) : ultimoGuardado ? (
+          <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',border:'1px solid var(--g)',display:'inline-flex',alignItems:'center',gap:4}}>
+            <Ic name="check" size={9}/> Guardado {ultimoGuardado.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}
+          </span>
+        ) : null}
         <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
         {salas.length>1 && (
           <select className="input" value={sala} onChange={e=>setSala(e.target.value)} style={{maxWidth:110,fontSize:11}}>
@@ -509,19 +531,27 @@ export default function ModoClase() {
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && (
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
-          {seleccion.map(s=>(
+          {seleccion.map(s=>{
+            const nGuardados = s.datos.filter((e:any)=>e.guardado).length
+            const estado = s.finalizado ? 'fin' : (nGuardados>0 ? 'curso' : 'nada')
+            const colorEstado = estado==='fin' ? 'var(--g)' : estado==='curso' ? 'var(--amb)' : 'var(--bm)'
+            const activoChip = activo===s.paciente.id
+            return (
             <div key={s.paciente.id} onClick={()=>setActivo(s.paciente.id)}
+              title={estado==='fin'?'Finalizado':estado==='curso'?'En curso, sin finalizar':'Sin empezar'}
               style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:99,cursor:'pointer',
-                border:`1.5px solid ${activo===s.paciente.id?'var(--g)':'var(--bd)'}`,
-                background:activo===s.paciente.id?'var(--g)':'var(--w)',
-                color:activo===s.paciente.id?'#fff':'var(--gr)'}}>
+                border:`1.5px solid ${activoChip?'var(--g)':(estado==='fin'?'var(--g)':'var(--bd)')}`,
+                background:activoChip?'var(--g)':(estado==='fin'?'var(--gl)':'var(--w)'),
+                color:activoChip?'#fff':(estado==='fin'?'var(--gd)':'var(--gr)')}}>
+              <span style={{width:7,height:7,borderRadius:'50%',flexShrink:0,background:activoChip?'#fff':colorEstado}}/>
               {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
               {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
               <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
