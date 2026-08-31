@@ -168,19 +168,44 @@ create trigger trg_linea_bloqueada
 -- ---------------------------------------------------------------------------
 -- 6 · VISTAS
 -- ---------------------------------------------------------------------------
+-- ¿ESTÁ PAGADO? Es una pregunta de SALDO, no de existencia.
+--
+-- Esto era "¿hay algún cobro apuntando a este bono?", y aguantó hasta la
+-- primera rectificativa. Rectificar crea un SEGUNDO cobro con las líneas en
+-- negativo, y los dos apuntan al mismo bono: la vista veía dos cobros, decía
+-- "pagado", y el bono desaparecía de Cobros para siempre sin que se hubiera
+-- ingresado un euro. +63 y −63 suman cero.
+--
+-- Los dos cobros se quedan, y es lo correcto: el primero ocurrió y la
+-- rectificativa es la forma legal de deshacerlo. Lo que no puede es contarse
+-- como un cobro cada uno.
+--
+-- Las columnas van en el orden original y `neto_cobrado` al final: `create or
+-- replace view` no admite reordenar ni renombrar.
 create or replace view v_bonos_pago as
 select
   b.id as bono_id, b.paciente_id, b.mes, b.anio,
-  (c.id is not null) as pagado,
+  (coalesce(n.neto, 0) > 0) as pagado,
   c.id as cobro_id, c.fecha as fecha_cobro,
-  b.estado_pago as estado_pago_legacy
+  b.estado_pago as estado_pago_legacy,
+  coalesce(n.neto, 0) as neto_cobrado
 from bonos b
+left join lateral (
+  select sum(cl.total) as neto
+    from cobro_lineas cl
+    join cobros co on co.id = cl.cobro_id
+   where cl.bono_id = b.id and co.anulado = false
+) n on true
+-- El cobro que se enseña es el último POSITIVO: es el que tiene detrás la
+-- factura vigente. Enseñar aquí la rectificativa llevaría a abrir el documento
+-- que anula en vez del que cobra.
 left join lateral (
   select co.id, co.fecha
     from cobro_lineas cl
     join cobros co on co.id = cl.cobro_id
-   where cl.bono_id = b.id and co.anulado = false
-   order by co.fecha limit 1
+   where cl.bono_id = b.id and co.anulado = false and cl.total > 0
+   order by co.fecha desc, co.id desc
+   limit 1
 ) c on true;
 
 create or replace view v_listado_gestoria as

@@ -84,7 +84,12 @@ export default function CobrosPage() {
   async function cargar() {
     setCargando(true); setFallos([])
     const [rp, rb, rfut, rpl, rf] = await Promise.all([
-      supabase.from('pacientes').select('id,nombre,apellidos,dni,estado').in('estado',['activo','pausa']).order('nombre'),
+      // La dirección viene porque el modal de cobro la necesita: sin ella creería
+      // que falta en todo el mundo y sacaría el aviso siempre, que es la forma
+      // más rápida de que se deje de leer.
+      supabase.from('pacientes')
+        .select('id,nombre,apellidos,dni,estado,direccion,codigo_postal,localidad')
+        .in('estado',['activo','pausa']).order('nombre'),
       // Solo los bonos vigentes: un paciente al que se le corrigió el bono a
       // mitad de mes tiene la fila vieja desactivada, y contarla sería cobrar dos veces.
       supabase.from('bonos').select('*').eq('mes', mes).eq('anio', anio).eq('activo', true),

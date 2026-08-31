@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { supabase } from '@/lib/supabase'
 import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
 import {
   emitirCobro, desgloseDesdeTotal, totalesDe, fraccionDeAlta, LBL_FRACCION,
@@ -82,6 +83,43 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
   const [error, setError] = useState<string|null>(null)
 
   const tieneDni = !!(paciente?.dni || '').trim()
+
+  /**
+   * La dirección del destinatario, editable sin salir del cobro.
+   *
+   * Se guarda en la ficha del paciente, no solo en esta factura: si no, el mes
+   * que viene volvería a faltar y habría que teclearla otra vez.
+   *
+   * `guardada` arranca desde el paciente y se actualiza al guardar, para que el
+   * aviso desaparezca sin tener que recargar la pantalla entera.
+   */
+  const [dir, setDir] = useState({
+    direccion: paciente?.direccion || '',
+    codigo_postal: paciente?.codigo_postal || '',
+    localidad: paciente?.localidad || '',
+  })
+  const [guardandoDir, setGuardandoDir] = useState(false)
+  const [dirGuardada, setDirGuardada] = useState(
+    !!(paciente?.direccion || '').trim() && !!(paciente?.localidad || '').trim())
+  const faltaDireccion = !dirGuardada
+
+  async function guardarDireccion() {
+    setGuardandoDir(true); setError(null)
+    const { error } = await supabase.from('pacientes').update({
+      direccion: dir.direccion.trim(),
+      codigo_postal: dir.codigo_postal.trim() || null,
+      localidad: dir.localidad.trim(),
+    }).eq('id', paciente.id)
+    setGuardandoDir(false)
+    if (error) { setError(`No se ha podido guardar la dirección: ${error.message}`); return }
+    // El objeto `paciente` que nos han pasado es de quien nos abrió; se toca
+    // también para que la factura que se emita ahora mismo lleve la dirección
+    // sin depender de que la pantalla de arriba se haya recargado.
+    paciente.direccion = dir.direccion.trim()
+    paciente.codigo_postal = dir.codigo_postal.trim() || null
+    paciente.localidad = dir.localidad.trim()
+    setDirGuardada(true)
+  }
   const totales = totalesDe(lineas)
 
   const mensualConDescuento = bono ? precioConDescuento(precioFinalPlan(plan), bono) : 0
@@ -137,6 +175,16 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
   }
 
   async function cobrar() {
+    // Se avisa, no se impide. Puede que no tengas su dirección a mano y prefieras
+    // emitir igual; lo que no puede es emitirse una completa sin domicilio sin
+    // que nadie lo haya sabido.
+    if (tieneDni && faltaDireccion) {
+      const ok = confirm(
+        'Vas a emitir una factura completa sin la dirección del cliente.\n\n' +
+        'El domicilio del destinatario es obligatorio en una factura completa, ' +
+        'igual que su NIF. Sin él, la factura no cumple.\n\n¿Emitirla igualmente?')
+      if (!ok) return
+    }
     setEmitiendo(true); setError(null)
     // Antes de emitir con fecha atrasada, se comprueba que no rompa el orden de la serie.
     // Se avisa y se deja decidir: puede haber un motivo, pero no puede pasar sin saberlo.
@@ -180,6 +228,36 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
             ? <>Se emitirá <strong>factura completa</strong> (serie F) al confirmar.</>
             : <>Sin DNI en la ficha: saldrá <strong>factura simplificada</strong> (serie S), que no le sirve para deducirse el gasto.</>}
         </div>
+
+        {/* FALTA LA DIRECCIÓN
+            En una factura completa el domicilio del destinatario es tan
+            obligatorio como su NIF (RD 1619/2012, art. 6). Sin DNI la app hace
+            lo correcto —emite una simplificada— pero sin dirección emitía una
+            COMPLETA INCOMPLETA, que es peor: parece válida y no lo es.
+
+            Se pide aquí porque aquí es donde tienes al cliente delante. Mandarte
+            a su ficha significa cerrar el cobro, navegar, volver y buscarlo otra
+            vez, y a la tercera se emite igual y ya se arreglará. */}
+        {tieneDni && faltaDireccion && (
+          <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:8,padding:'10px 12px',marginBottom:14}}>
+            <div style={{fontSize:10,color:'#7A5800',lineHeight:1.6,marginBottom:8,display:'flex',gap:5}}>
+              <Ic name="alerta" size={12}/>
+              <span>Falta su <strong>dirección</strong>, y en una factura completa es obligatoria igual que el NIF. Rellénala aquí y se guarda en su ficha.</span>
+            </div>
+            <input className="input" style={{marginBottom:6}} placeholder="Calle y número"
+              value={dir.direccion} onChange={e=>setDir(p=>({...p,direccion:e.target.value}))}/>
+            <div style={{display:'flex',gap:6}}>
+              <input className="input" style={{flex:'0 0 90px'}} placeholder="CP"
+                value={dir.codigo_postal} onChange={e=>setDir(p=>({...p,codigo_postal:e.target.value}))}/>
+              <input className="input" style={{flex:1}} placeholder="Localidad"
+                value={dir.localidad} onChange={e=>setDir(p=>({...p,localidad:e.target.value}))}/>
+              <button className="btn btn-s btn-sm" onClick={guardarDireccion}
+                disabled={guardandoDir || !dir.direccion.trim() || !dir.localidad.trim()}>
+                {guardandoDir ? '…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {primerCobro && bono && !ventaPuntual && (
           <div style={{marginBottom:12}}>
