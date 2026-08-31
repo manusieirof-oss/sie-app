@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { estaLogradoCon } from './objetivos'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Lo medido en un ítem, tolerando el nombre de campo anterior.
@@ -232,7 +233,7 @@ export async function revisarMetas(pacienteId: string) {
     const e = estadoDeMeta(m, resultados || [])
     if (!e.cumplida) continue
     const { error } = await supabase.from('objetivos_metas')
-      .update({ cumplida: true, fecha_cumplida: new Date().toISOString().split('T')[0] }).eq('id', m.id)
+      .update({ cumplida: true, fecha_cumplida: hoyISO() }).eq('id', m.id)
     if (!error) { m.cumplida = true; cerradas.push(m) }
   }
 
@@ -279,7 +280,7 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
 
     await supabase.from('pacientes_objetivos').update({
       logrado: debe,
-      fecha_logrado: debe ? new Date().toISOString().split('T')[0] : null,
+      fecha_logrado: debe ? hoyISO() : null,
     }).eq('paciente_id', pacienteId).eq('objetivo_id', fila.objetivo_id)
 
     const nombre = objFila?.nombre || 'Objetivo'
@@ -289,7 +290,7 @@ export async function revisarObjetivos(pacienteId: string, metas?: Meta[]) {
       descripcion: debe
         ? `Sus ${suyas.length} meta${suyas.length > 1 ? 's están cumplidas' : ' está cumplida'}`
         : 'Una de sus partes ha vuelto a abrirse',
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: hoyISO(),
     })
     if (debe) logrados.push(nombre)
   }
@@ -325,7 +326,7 @@ export async function cambiarFase(pacienteId: string, objetivoId: string, fase: 
       ? `${nombre || 'Objetivo'}: vuelve a la fase ${n}`
       : `${nombre || 'Objetivo'}: pasa a la fase ${n}`,
     descripcion: opciones?.motivo || null,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }
@@ -335,7 +336,7 @@ export async function cerrarMetaAMano(metaId: string, cerrar: boolean) {
   const { error } = await supabase.from('objetivos_metas').update({
     cumplida: cerrar,
     cerrada_a_mano: cerrar,
-    fecha_cumplida: cerrar ? new Date().toISOString().split('T')[0] : null,
+    fecha_cumplida: cerrar ? hoyISO() : null,
   }).eq('id', metaId)
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }

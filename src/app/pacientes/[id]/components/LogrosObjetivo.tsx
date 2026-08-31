@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { revisarObjetivos } from '@/lib/metas'
 import { revisarFases } from '@/lib/fases'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Los LOGROS de un objetivo, por paciente.
@@ -53,7 +54,7 @@ export default function LogrosObjetivo({ pacienteId, objetivo, logros, onCambio 
     setGuardando(true)
     const { error } = await supabase.from('objetivos_metas').update({
       cumplida,
-      fecha_cumplida: cumplida ? new Date().toISOString().split('T')[0] : null,
+      fecha_cumplida: cumplida ? hoyISO() : null,
     }).eq('id', l.id)
     if (error) { setGuardando(false); alert('No se ha podido marcar: ' + error.message); return }
     // Marcar un logro puede cerrar el objetivo entero, y eso no puede quedar pendiente de

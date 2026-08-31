@@ -5,6 +5,7 @@ import { BonoTipo, TIPOS_DESCUENTO, quitarBono } from '@/lib/bonos'
 import { esDeSesiones, caducidadDesde, textoModalidad } from '@/lib/bonoSesiones'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { cargarTarifas, type Descuento } from '@/lib/tarifas'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * BONOS DE PAREJA: no existe "la pareja" como cosa guardada.
@@ -62,7 +63,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
      * agosto y empieza el 1 de septiembre se deja listo el mismo día, sin
      * ensuciar agosto con una cuota que nadie va a cobrar.
      */
-    empieza: new Date().toISOString().split('T')[0],
+    empieza: hoyISO(),
   })
 
   /**
@@ -138,7 +139,7 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     // El evento del historial lleva la fecha de HOY: la asignación ocurre
     // ahora, aunque la cuota empiece a correr en septiembre. Fecharlo en el
     // futuro metería el apunte fuera de sitio en la cronología del paciente.
-    const hoyStr = new Date().toISOString().split('T')[0]
+    const hoyStr = hoyISO()
     const empiezaDespues = inicio > hoyStr
 
     // UN BONO DE SESIONES NO SUSTITUYE A NADA.

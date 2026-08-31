@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { revisarMetas } from './metas'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -21,7 +22,7 @@ import { revisarMetas } from './metas'
  * consecuencias van en la misma función, para que no se pueda hacer una sin la otra.
  */
 
-const hoy = () => new Date().toISOString().split('T')[0]
+const hoy = () => hoyISO()
 
 export type ResultadoTest = 'positivo' | 'negativo' | 'sin_realizar'
 

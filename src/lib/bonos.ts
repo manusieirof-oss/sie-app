@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 export type BonoTipo = {
   id: string
@@ -37,7 +38,7 @@ export async function cambiarEstadoPago(bono: { id: string, paciente_id: string,
     tipo: 'pago_bono',
     titulo: `Estado de pago: ${LBL[nuevoEstado] || nuevoEstado}`,
     descripcion: `Cambiado de "${LBL[anterior] || anterior}" a "${LBL[nuevoEstado] || nuevoEstado}".`,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true }
 }
@@ -206,7 +207,7 @@ export async function quitarBono(bono: { id: string, paciente_id: string, tipo?:
     paciente_id: bono.paciente_id, tipo: 'cambio_bono',
     titulo: 'Bono retirado',
     descripcion: `Se ha quitado el bono${bono.tipo ? ` "${bono.tipo}"` : ''} sin llegar a cobrarse.`,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }
@@ -256,7 +257,7 @@ export async function renovarCuotas(modoPrueba = false) {
    */
   const estadoPaciente = new Map((pacientes || []).map((p: any) => {
     const yaToca = p.estado_programado && p.estado_programado_desde
-      && p.estado_programado_desde <= new Date().toISOString().split('T')[0]
+      && p.estado_programado_desde <= hoyISO()
     return [p.id, yaToca ? p.estado_programado : p.estado]
   }))
   const SIGUE_SIENDO_CLIENTE = ['activo', 'pausa']
@@ -328,7 +329,7 @@ export async function renovarCuotas(modoPrueba = false) {
       paciente_id: b.paciente_id, tipo: 'cambio_bono',
       titulo: `Cuota renovada (${mes}/${anio})`,
       descripcion: `Nueva cuota mensual pendiente de pago.${b.descuento_tipo?' Descuento mantenido.':''}`,
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: hoyISO(),
     })
     ok++
   }

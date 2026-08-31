@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
 import { cargarTiposClase, cargarViasCaptacion, iconTipoClase, TIPOS_CLASE_FALLBACK, VIAS_CAPTACION_FALLBACK } from '@/lib/tipos'
+import { hoyISO } from '@/lib/fechas'
 
 export default function NuevoPacientePage() {
   
@@ -57,7 +58,7 @@ export default function NuevoPacientePage() {
       dias_semana: bonosOpts.find(b => b.id === bono.tipo)?.dias_semana || 1,
       estado_pago: 'pendiente', activo: true,
       mes: new Date().getMonth() + 1, anio: new Date().getFullYear(),
-      fecha_inicio: new Date().toISOString().split('T')[0]
+      fecha_inicio: hoyISO()
     })
     router.push(`/pacientes/${pat.id}`)
   }

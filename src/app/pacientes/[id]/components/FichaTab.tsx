@@ -7,6 +7,7 @@ import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
 import { ordenAnatomico } from '@/lib/anatomia'
+import { hoyISO } from '@/lib/fechas'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -111,7 +112,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         ? `Objetivo abierto: ${lista[0].nombre}`
         : `${lista.length} objetivos abiertos`,
       descripcion: lista.length===1 ? 'Añadido desde la ficha' : lista.map((o:any)=>o.nombre).join(', '),
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: hoyISO(),
     })
     setModalAnadir(false); setBuscarObj(''); setSelObj([]); cargarObjetivos()
   }
@@ -160,7 +161,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   // la regla siga siendo la única que decide y el objetivo se pueda reabrir igual.
   async function cerrarSinVias(o:any) {
     const via = { tipo:'manual', ref:'', etiqueta:'Cierre manual', resuelto:true,
-      fecha_resuelto:new Date().toISOString().split('T')[0] }
+      fecha_resuelto:hoyISO() }
     setGuardandoVia(o.id)
     const r = await guardarVias(pac.id, o.id, [via], { logradoAntes: !!o.logrado, contexto: 'la ficha' })
     setGuardandoVia(null)
@@ -170,7 +171,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   async function toggleVia(o:any, vi:number) {
     const vias = (Array.isArray(o.vias)?o.vias:[]).map((v:any,i:number)=>
-      i===vi ? {...v, resuelto:!v.resuelto, fecha_resuelto:!v.resuelto?new Date().toISOString().split('T')[0]:null} : v)
+      i===vi ? {...v, resuelto:!v.resuelto, fecha_resuelto:!v.resuelto?hoyISO():null} : v)
     setGuardandoVia(o.id)
     const r = await guardarVias(pac.id, o.id, vias, { logradoAntes: !!o.logrado, contexto: 'la ficha' })
     setGuardandoVia(null)

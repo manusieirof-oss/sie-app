@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { hoyISO } from '@/lib/fechas'
 
 // El cliente se crea DENTRO del handler, no al cargar el módulo. Con la clave de
 // servicio fuera (que es lo normal en local: .env.local solo tiene la anónima),
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   }
   const supabase = createClient(url, clave)
 
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
 
   const { data, error } = await supabase
     .from('citas')

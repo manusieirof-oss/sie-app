@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { textoDescanso } from './capacidades'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Modos de ejecución. Van en la PARTE, no en la sesión.
@@ -235,6 +236,6 @@ export async function registrarSesion(pacienteId: string, titulo: string, descri
   await supabase.from('eventos_paciente').insert({
     paciente_id: pacienteId, tipo: 'sesion', titulo,
     descripcion: descripcion || null,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
 }

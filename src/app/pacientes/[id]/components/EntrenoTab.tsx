@@ -15,6 +15,7 @@ import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
+import { hoyISO } from '@/lib/fechas'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -75,7 +76,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   useEffect(() => { cargarDatos() }, [limHist])
 
   async function cargarDatos() {
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyISO()
     const [{ data: c },{ data: s }] = await Promise.all([
       supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
@@ -404,7 +405,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const perdida = recuperaciones.find((r:any)=>r.cita_falta_id===cita.id)
     if (perdida) {
       if (perdida.estado==='recuperada') return { txt:'Recuperada', clase:'pill-o on' }
-      const vencida = perdida.fecha_limite && perdida.fecha_limite < new Date().toISOString().split('T')[0]
+      const vencida = perdida.fecha_limite && perdida.fecha_limite < hoyISO()
       return vencida
         ? { txt:'Sin recuperar · plazo vencido', clase:'pill-r' }
         : { txt:`Por recuperar antes del ${fmtCorto(perdida.fecha_limite)}`, clase:'pill-a' }

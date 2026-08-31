@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { registrarSesion } from './sesiones'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Repartir las sesiones entre las citas futuras siguiendo una rotación.
@@ -39,7 +40,7 @@ export type Reparto = {
 
 /** Citas futuras no canceladas, en orden. Las canceladas no se programan. */
 export async function citasFuturasDe(pacienteId: string): Promise<CitaFutura[]> {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
   const { data } = await supabase.from('citas')
     .select('id,fecha,hora,sala,sesion_id')
     .eq('paciente_id', pacienteId).gte('fecha', hoy)

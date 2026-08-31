@@ -2,12 +2,13 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { hoyISO } from '@/lib/fechas'
 
 export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
-  const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
 
   // Cálculo en vivo del desglose a partir del total (importe con IVA incluido)
   const total = parseFloat(form.importe) || 0
@@ -37,7 +38,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     setGuardando(false)
     // Cerrar el modal sin mirar el error daba un gasto "guardado" que no existía.
     if (errIns) { setError(`No se ha podido guardar el gasto: ${errIns.message}`); return }
-    setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:new Date().toISOString().split('T')[0], tiene_factura:false, notas:'' })
+    setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
     setModal(false)
     recargar()
   }

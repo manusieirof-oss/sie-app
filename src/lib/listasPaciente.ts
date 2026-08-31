@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Las listas clínicas del paciente: alergias, intolerancias y operaciones. UN SOLO SITIO.
@@ -22,7 +23,7 @@ import { supabase } from './supabase'
  * la misma función, para que no se pueda hacer una sin la otra.
  */
 
-const hoy = () => new Date().toISOString().split('T')[0]
+const hoy = () => hoyISO()
 
 export type ListaClinica = 'alergias' | 'intolerancias' | 'operaciones'
 

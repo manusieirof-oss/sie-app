@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { duplicarSesion, registrarSesion } from './sesiones'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Linaje de sesiones: qué tanda sustituyó a cuál.
@@ -167,7 +168,7 @@ export type ResultadoEvolucion = {
 
 /** Citas futuras del paciente que llevan sesión, en orden. */
 async function citasFuturasConSesion(pacienteId: string) {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
   return supabase.from('citas')
     .select('id,fecha,sesion_id')
     .eq('paciente_id', pacienteId).gte('fecha', hoy)

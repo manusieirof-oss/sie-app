@@ -25,6 +25,7 @@ import ModalBono from '../components/ModalBono'
 import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
 import { cerrarCuotasFuturas } from '@/lib/estadosPaciente'
 import { useParams, useRouter } from 'next/navigation'
+import { hoyISO } from '@/lib/fechas'
 
 
 export default function FichaPacientePage() {
@@ -86,7 +87,7 @@ export default function FichaPacientePage() {
     ? [['puede_volver','Puede volver','reloj'],['baja','Dar de baja','altabaja']]
     : [['activo','Reincorporar','play']]
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
-  const [pausa, setPausa] = useState({ desde: new Date().toISOString().split('T')[0], hasta: '' })
+  const [pausa, setPausa] = useState({ desde: hoyISO(), hasta: '' })
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   // Pasar un test es la misma pantalla que en la valoración (`ModalRealizarTest`) y
   // elegirlo el mismo explorador (`ExploradorTests`). Aquí había un formulario propio de
@@ -488,7 +489,7 @@ export default function FichaPacientePage() {
   async function darDeBaja() {
     if (!confirm(`¿Dar de baja a ${pac.nombre} ${pac.apellidos}?\n\nSus datos se conservan pero se eliminarán TODAS sus citas futuras automáticamente.`)) return
     setProcesando(true)
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyISO()
     const { error: errCitas } = await supabase.from('citas').delete().eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
     if (errCitas) { setProcesando(false); alert('No se han podido eliminar sus citas futuras: ' + errCitas.message); return }
     /**
@@ -554,7 +555,7 @@ export default function FichaPacientePage() {
   async function marcarPuedeVolver() {
     if (!confirm(`¿Marcar a ${pac.nombre} ${pac.apellidos} como "puede volver"?\n\nDeja de contar como cliente y no se le cobra el mes. Sus citas programadas se cancelan, pero sigue apareciendo en su lista de seguimiento.`)) return
     setProcesando(true)
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyISO()
     const { error: errCitas } = await supabase.from('citas')
       .update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
     if (errCitas) { setProcesando(false); alert('No se han podido cancelar sus citas futuras: ' + errCitas.message); return }
@@ -602,7 +603,7 @@ export default function FichaPacientePage() {
 
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
-    await supabase.from('pacientes').update({ estado:'activo', estado_desde:new Date().toISOString().split('T')[0], pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    await supabase.from('pacientes').update({ estado:'activo', estado_desde:hoyISO(), pausa_desde:null, pausa_hasta:null }).eq('id',id)
     await registrarEvento('reactivacion', 'Reactivación del servicio', null)
     alert('✓ Paciente reactivado. Recuerda crear sus nuevas citas en la agenda.')
     cargar()
@@ -630,7 +631,7 @@ export default function FichaPacientePage() {
   }
 
   async function registrarEvento(tipo:string, titulo:string, descripcion:string|null=null, pacId:any=id) {
-    await supabase.from('eventos_paciente').insert({ paciente_id:pacId, tipo, titulo, descripcion, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:pacId, tipo, titulo, descripcion, fecha:hoyISO() })
   }
 
   async function recargarAlertas() {
@@ -1059,7 +1060,7 @@ export default function FichaPacientePage() {
             <div className="field">
               <label>{salida.estado==='activo' ? 'Primer día que vuelve *' : 'Primer día que ya no viene *'}</label>
               <input type="date" className="input" value={salida.desde}
-                min={new Date().toISOString().split('T')[0]}
+                min={hoyISO()}
                 onChange={e=>setSalida(p=>({...p,desde:e.target.value}))}/>
               <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
                 {salida.estado==='activo'

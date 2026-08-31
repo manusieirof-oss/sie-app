@@ -18,6 +18,7 @@ import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
+import { hoyISO } from '@/lib/fechas'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -30,7 +31,7 @@ export default function AgendaPage() {
   const [userId, setUserId] = useState<string|null>(null)
   const [tareas, setTareas] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [fecha, setFecha] = useState(hoyISO())
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [modalTareas, setModalTareas] = useState(false)
@@ -80,7 +81,7 @@ export default function AgendaPage() {
   const [desdeValoracion, setDesdeValoracion] = useState<string|null>(null)
   const [ofrecerSesiones, setOfrecerSesiones] = useState<{pacienteId:string,citas:number}|null>(null)
 
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
   const fechaObj = new Date(fecha+'T12:00:00')
   const fechaDisplay = fechaObj.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
 
@@ -224,7 +225,7 @@ export default function AgendaPage() {
     const matchingPacs = pacientes.filter(p => `${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(q.toLowerCase()))
     if (matchingPacs.length === 0) { setResultadosBusqueda([]); return }
     const ids = matchingPacs.map(p => p.id)
-    const { data } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica)').in('paciente_id', ids).gte('fecha', new Date().toISOString().split('T')[0]).neq('estado','cancelada').order('fecha').limit(15)
+    const { data } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica)').in('paciente_id', ids).gte('fecha', hoyISO()).neq('estado','cancelada').order('fecha').limit(15)
     setResultadosBusqueda(data||[])
   }
 

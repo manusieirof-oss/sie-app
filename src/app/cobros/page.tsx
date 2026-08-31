@@ -8,6 +8,7 @@ import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } fro
 import { listadoGestoria } from '@/lib/cobros'
 import { cargarTarifas } from '@/lib/tarifas'
 import { abrirFactura } from '@/lib/factura'
+import { rangoDeMes } from '@/lib/fechas'
 import Link from 'next/link'
 
 // Pilar Cobros. Quién ha pagado el mes y quién no, y desde aquí se cobra.
@@ -112,8 +113,9 @@ export default function CobrosPage() {
     // Quién ha pisado la clínica este mes, tenga cuota o no. Sin esto, alguien
     // sin bono asignado no aparece en ningún sitio: ni en la lista de cobros,
     // ni en pendientes, ni en el total. Viene, entrena y no lo ve nadie.
-    const desdeM = `${anio}-${String(mes).padStart(2,'0')}-01`
-    const hastaM = new Date(anio, mes, 0).toISOString().split('T')[0]
+    // Ver lib/fechas. Con el cálculo viejo, las clases del último día del mes
+    // no se contaban: el recuento de "ha venido" se quedaba corto cada mes.
+    const { desde: desdeM, hasta: hastaM } = rangoDeMes(anio, mes)
     // EL LÍMITE VA EXPLÍCITO. Supabase devuelve como mucho 1000 filas si no se
     // le dice otra cosa, y no avisa de que ha cortado. Agosto de 2026 ya tiene
     // 830 citas entre realizadas y programadas: en cuanto un mes pase de mil,
@@ -308,8 +310,8 @@ export default function CobrosPage() {
   const nPagados = Object.values(pago).filter((r:any)=>r.pagado).length
 
   async function exportarGestoria() {
-    const desde = `${anio}-${String(mes).padStart(2,'0')}-01`
-    const hasta = new Date(anio, mes, 0).toISOString().split('T')[0]
+    // El listado de la gestoría se dejaba fuera las facturas del último día.
+    const { desde, hasta } = rangoDeMes(anio, mes)
     const r = await listadoGestoria(desde, hasta)
     if (!r.ok) { setAviso(`No se ha podido generar el listado: ${r.error}`); return }
     if (!r.filas.length) { setAviso('No hay facturas emitidas en ese mes.'); return }

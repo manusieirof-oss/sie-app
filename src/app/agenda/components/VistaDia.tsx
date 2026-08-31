@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
+import { hoyISO } from '@/lib/fechas'
 
 export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'] }: {
   fecha: string
@@ -209,7 +210,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
           </div>
           {(tareas||[]).filter((t:any)=>!t.completada).length===0&&<div style={{fontSize:10,color:'var(--grl)',fontWeight:300}}>Sin tareas pendientes</div>}
           {(tareas||[]).filter((t:any)=>!t.completada).slice(0,5).map((t:any)=>{
-            const hoyStr=new Date().toISOString().split('T')[0]
+            const hoyStr=hoyISO()
             const venc=t.fecha_limite&&t.fecha_limite<hoyStr
             const esHoy=t.fecha_limite===hoyStr
             const bd=venc?'var(--red)':esHoy?'var(--amb)':'var(--bm)'

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 // Etiquetas de tipo de alerta. Fuente única: antes estaban duplicadas en la ficha
 // (LBL_ALERTA) y en el modal, y podían desincronizarse.
@@ -11,7 +12,7 @@ export const LBL_ALERTA: Record<string, string> = {
   otro: 'Otro',
 }
 
-const hoy = () => new Date().toISOString().split('T')[0]
+const hoy = () => hoyISO()
 
 // Abrir y cerrar alertas SIEMPRE por aquí. La agenda hacía el update a pelo y no
 // dejaba traza en eventos_paciente, así que esas alertas no salían en el historial.

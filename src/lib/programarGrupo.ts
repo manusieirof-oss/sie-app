@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { duplicarSesion, registrarSesion, esPlantilla } from './sesiones'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Programar UNA sesión a UN GRUPO de pacientes.
@@ -83,7 +84,9 @@ export type PlanGrupo = {
 const dosCifras = (n: number) => String(n).padStart(2, '0')
 
 /** Hoy en 'YYYY-MM-DD', igual que lo guardan las citas. */
-export const hoyISO = () => new Date().toISOString().split('T')[0]
+// `hoyISO` vive ahora en lib/fechas, que no pasa por UTC. Se reexporta para
+// no romper a quien lo importaba desde aquí.
+export { hoyISO }
 
 /** El mes de hoy, en 'YYYY-MM'. Es el valor con el que arranca el formulario. */
 export const mesActual = () => hoyISO().slice(0, 7)

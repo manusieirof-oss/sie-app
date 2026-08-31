@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { precioFinalPlan, precioConDescuento, redondear, Plan, esVentaPuntual } from './bonos'
+import { hoyISO } from '@/lib/fechas'
 
 // ---------------------------------------------------------------------------
 // COBROS Y FACTURAS
@@ -202,7 +203,7 @@ export async function emitirCobro(args: {
 
   const { data, error } = await supabase.rpc('emitir_cobro', {
     p_paciente_id: args.pacienteId,
-    p_fecha: args.fecha ?? new Date().toISOString().split('T')[0],
+    p_fecha: args.fecha ?? hoyISO(),
     p_forma_pago: args.formaPago,
     p_notas: args.notas ?? null,
     p_tipo: args.tipo ?? 'completa',
@@ -272,7 +273,7 @@ async function registrarEvento(pacienteId: string, serie: string, numero: number
     tipo: 'cobro',
     titulo: `Cobro · factura ${serie}/${String(numero).padStart(4, '0')}`,
     descripcion: `${lineas.map(l => l.concepto).join(' · ')} — ${total.toFixed(2)} €`,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   if (error) console.error('El cobro se emitió pero no se pudo registrar el evento:', error.message)
 }

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 // Documentos clínicos del paciente. El bucket 'documentos' es PRIVADO:
 // nunca se usa getPublicUrl, siempre createSignedUrl. Ver sql/documentos.sql.
@@ -103,7 +104,7 @@ export async function subirDocumento(pacienteId: string, file: File, datos: {
   await supabase.from('eventos_paciente').insert({
     paciente_id: pacienteId, tipo: 'documento',
     titulo: `Documento: ${datos.nombre || file.name}`,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }
@@ -123,7 +124,7 @@ export async function borrarDocumento(doc: DocumentoPaciente) {
   await supabase.from('eventos_paciente').insert({
     paciente_id: doc.paciente_id, tipo: 'documento',
     titulo: `Documento eliminado: ${doc.nombre}`,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }

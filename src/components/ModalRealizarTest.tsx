@@ -5,6 +5,7 @@ import {
   esSuma, puntuacionDe, puntuacionesPendientes, bandaDe, rangoTotal,
   esBaremo, evaluarBaremo, edadEn, textoNorma,
 } from '@/lib/tests'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Pasar un test, con el mismo aspecto que su ficha de la biblioteca.
@@ -432,7 +433,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
               </div>
               <div className="field">
                 <label>Fecha de revisión</label>
-                <input type="date" className="input" value={d.fecha_repeticion || ''} onChange={e => actualizar({ fecha_repeticion: e.target.value })} min={new Date().toISOString().split('T')[0]} />
+                <input type="date" className="input" value={d.fecha_repeticion || ''} onChange={e => actualizar({ fecha_repeticion: e.target.value })} min={hoyISO()} />
               </div>
             </div>
           </div>

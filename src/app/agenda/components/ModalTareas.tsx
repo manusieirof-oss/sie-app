@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { hoyISO } from '@/lib/fechas'
 
 export default function ModalTareas({ tareas, perfiles, pacientes, userId, crearTarea, completarTarea, borrarTarea, onCerrar }: any) {
   const [titulo, setTitulo] = useState('')
@@ -12,7 +13,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
   const [filtroTrab, setFiltroTrab] = useState('todos')
   const [verCompletadas, setVerCompletadas] = useState(false)
 
-  const hoyStr = new Date().toISOString().split('T')[0]
+  const hoyStr = hoyISO()
 
   function nombreTrab(uid) {
     const p = (perfiles||[]).find((x)=>x.user_id===uid)

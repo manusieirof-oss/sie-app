@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Ic } from '@/lib/icons'
 import { abrirFactura, numeroFactura } from '@/lib/factura'
 import { emitirRectificativa } from '@/lib/cobros'
+import { rangoDeMes } from '@/lib/fechas'
 
 // Facturas emitidas. Ver, imprimir y rectificar.
 //
@@ -48,8 +49,9 @@ export default function FacturasPage() {
 
   async function cargar() {
     setCargando(true); setFallo(null)
-    const desde = `${anio}-${String(mes).padStart(2,'0')}-01`
-    const hasta = new Date(anio, mes, 0).toISOString().split('T')[0]
+    // Ver lib/fechas: calcular el fin de mes con toISOString devolvía el día 30
+    // en agosto, y una factura emitida el 31 no aparecía en ninguna parte.
+    const { desde, hasta } = rangoDeMes(anio, mes)
     const { data, error } = await supabase.from('facturas')
       .select('*, cobros(paciente_id, forma_pago, pacientes(nombre,apellidos))')
       .gte('fecha_expedicion', desde).lte('fecha_expedicion', hasta)

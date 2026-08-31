@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Crear citas. UN SOLO SITIO.
@@ -224,7 +225,7 @@ export type ResumenCitas = {
 export async function resumenCitasFuturas(pacienteIds: string[]): Promise<Record<string, ResumenCitas>> {
   const salida: Record<string, ResumenCitas> = {}
   if (!pacienteIds?.length) return salida
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
 
   /**
    * SE PIDE POR PÁGINAS. Supabase corta en 1000 filas y no lo dice.

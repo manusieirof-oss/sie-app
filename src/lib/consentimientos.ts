@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { VERSION_TEXTOS, TEXTO_DATOS, TEXTO_IMAGENES, TEXTO_CLINICA } from './textosLegales'
+import { hoyISO } from '@/lib/fechas'
 
 // Registro de consentimientos. Antes se firmaba en pantalla y no se guardaba
 // nada: el RGPD (art. 7.1) obliga a PODER DEMOSTRAR que se obtuvo, así que un
@@ -93,7 +94,7 @@ export async function guardarConsentimientos(pacienteId: string, opciones: {
     descripcion: CONSENTIMIENTOS
       .map(c => `${c.titulo}: ${opciones.aceptados.includes(c.tipo) ? 'acepta' : 'NO acepta'}`)
       .join(' · '),
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { cambiarFase, FASE_MAX } from './metas'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Los CRITERIOS DE SALIDA de un objetivo por fases. UN SOLO SITIO.
@@ -370,13 +371,13 @@ export async function revisarFases(pacienteId: string): Promise<CambioFase[]> {
     // condiciones marcadas sí podían cerrarlo yendo por la fase 2 de 4.
     if (ev.completado && !fila.logrado) {
       await supabase.from('pacientes_objetivos')
-        .update({ logrado: true, fecha_logrado: new Date().toISOString().split('T')[0] })
+        .update({ logrado: true, fecha_logrado: hoyISO() })
         .eq('paciente_id', pacienteId).eq('objetivo_id', fila.objetivo_id)
       await supabase.from('eventos_paciente').insert({
         paciente_id: pacienteId, tipo: 'objetivo_logrado',
         titulo: `Objetivo logrado: ${o.nombre}`,
         descripcion: 'Ha superado la última fase.',
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: hoyISO(),
       })
     }
 

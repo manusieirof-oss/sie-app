@@ -10,6 +10,7 @@ import { textoMedida } from '@/lib/tests'
 import { anadirALista, quitarDeLista, type ListaClinica } from '@/lib/listasPaciente'
 import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 import ModalItemClinico, { type ConfigItemClinico } from '@/components/ModalItemClinico'
+import { hoyISO } from '@/lib/fechas'
 
 export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, onNuevoTest, abrirTest }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
@@ -53,9 +54,9 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     const mol = (molestias||[]).find((m:any)=>m.id===mid)
     const zona = mol?.zona || 'Molestia'
     if (activa) {
-      await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia_resuelta', titulo:`Molestia resuelta: ${zona}`, fecha:new Date().toISOString().split('T')[0] })
+      await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia_resuelta', titulo:`Molestia resuelta: ${zona}`, fecha:hoyISO() })
     } else {
-      await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia reactivada: ${zona}`, fecha:new Date().toISOString().split('T')[0] })
+      await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia reactivada: ${zona}`, fecha:hoyISO() })
     }
     cargar()
   }
@@ -63,7 +64,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function cambiarEstadoPatologia(pid: string, nombre: string, nuevoEstado: string) {
     await supabase.from('patologias').update({ estado:nuevoEstado }).eq('id', pid)
     const lbl: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:nuevoEstado==='resuelta'?'patologia_resuelta':'patologia', titulo:`Patología ${nombre}: ${lbl[nuevoEstado]||nuevoEstado}`, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:nuevoEstado==='resuelta'?'patologia_resuelta':'patologia', titulo:`Patología ${nombre}: ${lbl[nuevoEstado]||nuevoEstado}`, fecha:hoyISO() })
     cargar()
   }
 
@@ -71,13 +72,13 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     if (!nombre.trim()) return
     const yaTiene = (deportesPac||[]).length>0
     await supabase.from('deportes_paciente').insert({ paciente_id:id, nombre })
-    if (!yaTiene) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Empieza a practicar deporte: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
-    else await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Nuevo deporte: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
+    if (!yaTiene) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Empieza a practicar deporte: ${nombre}`, fecha:hoyISO() })
+    else await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Nuevo deporte: ${nombre}`, fecha:hoyISO() })
     cargar()
   }
   async function delDeporte(did: string, nombre: string) {
     await supabase.from('deportes_paciente').delete().eq('id', did)
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Deja el deporte: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Deja el deporte: ${nombre}`, fecha:hoyISO() })
     cargar()
   }
 
@@ -85,7 +86,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   // es historia clínica y no debe evaporarse al quitarla de la ficha.
   async function delMedicamento(mid: string, nombre: string) {
     await supabase.from('medicamentos').delete().eq('id', mid)
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Deja el medicamento: ${nombre}`, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Deja el medicamento: ${nombre}`, fecha:hoyISO() })
     cargar()
   }
 
@@ -129,7 +130,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   const LBL_TIPO_MOL: Record<string,string> = { molestia:'Molestia', dolor_agudo:'Dolor agudo', dolor_cronico:'Dolor crónico', rigidez:'Rigidez' }
   const LBL_EST_PAT: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
   const cap = (v:string) => v ? v.charAt(0).toUpperCase()+v.slice(1) : ''
-  const hoy = () => new Date().toISOString().split('T')[0]
+  const hoy = () => hoyISO()
   // Valencias opuestas: bienestar bajo es malo, estrés alto es malo.
   const colorBienestar = (v:number) => v>=7 ? 'var(--gd)' : v>=4 ? 'var(--amb)' : 'var(--red)'
   const colorEstres    = (v:number) => v<=3 ? 'var(--gd)' : v<=6 ? 'var(--amb)' : 'var(--red)'
@@ -179,7 +180,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
       plantilla_der: usaPlantillas ? (plantDer || null) : null,
     }).eq('id', id)
 
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyISO()
     const detalle = [plantIzq?`Izq: ${plantIzq}`:'', plantDer?`Der: ${plantDer}`:''].filter(Boolean).join(' · ') || null
     if (usaPlantillas && !antes) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'plantillas', titulo:'Empieza a usar plantillas', descripcion:detalle, fecha:hoy })
     else if (!usaPlantillas && antes) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'plantillas', titulo:'Deja de usar plantillas', fecha:hoy })
@@ -194,7 +195,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     if (!medConfig) return
     setGuardando(true)
     await supabase.from('medicamentos').insert({ paciente_id:id, nombre:medConfig.nombre, frecuencia:medConfig.frecuencia||'', observaciones:medConfig.observaciones||'' })
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Medicamento: ${medConfig.nombre}`, descripcion:medConfig.frecuencia?`Frecuencia: ${medConfig.frecuencia}`:null, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Medicamento: ${medConfig.nombre}`, descripcion:medConfig.frecuencia?`Frecuencia: ${medConfig.frecuencia}`:null, fecha:hoyISO() })
     setMedConfig(null); setGuardando(false); cargar()
   }
 
@@ -205,7 +206,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     // molestia solo tiene el texto de `zona`, que unas veces viene de la biblioteca y
     // otras se teclea, y no hay forma fiable de saber cuál es cuál.
     await supabase.from('molestias').insert({ paciente_id:id, zona:molConfig.zona, biblioteca_id:molConfig.biblioteca_id||null, tipo:molConfig.tipo, eva:molConfig.eva, lado:molConfig.lado||null, sensacion:molConfig.cuando||null, observaciones:molConfig.observaciones||null, activa:true })
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia: ${molConfig.zona}${molConfig.eva==null?'':` (EVA ${molConfig.eva}/10)`}`, descripcion:molConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia: ${molConfig.zona}${molConfig.eva==null?'':` (EVA ${molConfig.eva}/10)`}`, descripcion:molConfig.observaciones||null, fecha:hoyISO() })
     setMolConfig(null); setGuardando(false); cargar()
   }
 
@@ -216,7 +217,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     // corporal tenía que deducirla del nombre —"Condropatía rotuliana" no contiene
     // "rodilla"—, así que media lista caía en "sin localizar".
     await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, zona:patConfig.zona||null, biblioteca_id:patConfig.biblioteca_id||null, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
-    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'patologia', titulo:`Patología: ${patConfig.nombre}`, descripcion:patConfig.observaciones||null, fecha:new Date().toISOString().split('T')[0] })
+    await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'patologia', titulo:`Patología: ${patConfig.nombre}`, descripcion:patConfig.observaciones||null, fecha:hoyISO() })
     setPatConfig(null); setGuardando(false); cargar()
   }
 
@@ -697,7 +698,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
           <div className="sec-h">
             <span className="sh-l">
               <span className="ct-l"><Ic name="progreso" size={13}/> Bienestar y estrés</span>
-              <button className="btn btn-s btn-sm" onClick={()=>setEscalaConfig({borg:5,estres:5,fecha:new Date().toISOString().split('T')[0]})}>+ Registrar</button>
+              <button className="btn btn-s btn-sm" onClick={()=>setEscalaConfig({borg:5,estres:5,fecha:hoyISO()})}>+ Registrar</button>
             </span>
           </div>
           {escalas.length===0 ? <div className="muted">Sin registros todavía</div> : (

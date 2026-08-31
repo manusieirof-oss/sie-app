@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
 import { textoModalidad } from '@/lib/bonoSesiones'
+import { hoyISO } from '@/lib/fechas'
 
 export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, guardando, guardarEdicionCita, cambiarEstado, horas }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -30,7 +31,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
     if (!textoNota.trim()) return
     setGuardandoNota(true)
     const texto = tipoNota==='molestia' ? `Molestia (EVA ${evaRapido}/10): ${textoNota}` : textoNota
-    await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto, tipo: 'info', fecha: new Date().toISOString().split('T')[0], visible_agenda: false })
+    await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto, tipo: 'info', fecha: hoyISO(), visible_agenda: false })
     setTextoNota(''); setModalNota(false); setGuardandoNota(false)
     alert('✓ Nota guardada en el historial del paciente')
   }
@@ -43,7 +44,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
     alert('✓ Aviso guardado')
   }
 
-  const esPasada = panelPac.fecha <= new Date().toISOString().split('T')[0]
+  const esPasada = panelPac.fecha <= hoyISO()
   const estado = panelPac.estado
 
   return (
@@ -140,7 +141,7 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
           <div className="modal">
             <div className="modal-title"><span className="ct-l"><Ic name="campana" size={16}/> Aviso · {panelPac.pacientes?.nombre}</span><button className="modal-close" onClick={()=>setModalAviso(false)}>✕</button></div>
             <div className="field"><label>Fecha del aviso *</label>
-              <input type="date" className="input" value={fechaAviso} onChange={e=>setFechaAviso(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
+              <input type="date" className="input" value={fechaAviso} onChange={e=>setFechaAviso(e.target.value)} min={hoyISO()}/>
             </div>
             <div className="field"><label>Descripción *</label>
               <textarea className="input" style={{minHeight:70}} value={textoAviso} onChange={e=>setTextoAviso(e.target.value)} autoFocus placeholder="ej. Cita con traumatólogo, posible cambio de entreno..."/>

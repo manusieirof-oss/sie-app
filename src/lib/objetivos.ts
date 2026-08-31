@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 // ÚNICO sitio que decide si un objetivo está logrado y que registra el hito.
 //
@@ -30,7 +31,7 @@ export type Via = {
   lado?: string | null
 }
 
-const hoy = () => new Date().toISOString().split('T')[0]
+const hoy = () => hoyISO()
 
 /**
  * UN OBJETIVO ESTÁ LOGRADO CUANDO TIENE PARTES Y TODAS ESTÁN RESUELTAS.

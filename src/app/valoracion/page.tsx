@@ -16,6 +16,7 @@ import PasoCompletar from './components/PasoCompletar'
 import PasoTests from './components/PasoTests'
 import PasoPlan from './components/PasoPlan'
 import PasoResumen from './components/PasoResumen'
+import { hoyISO } from '@/lib/fechas'
 
 /**
  * Valoración y revaloración.
@@ -258,8 +259,8 @@ export default function ValoracionPage() {
       await Promise.all([
         // El bono es cosa de la valoración inicial. Una revaloración abría uno nuevo
         // en paralelo al que el paciente ya estaba pagando.
-        ...(esRevaloracion ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:new Date().toISOString().split('T')[0], activo:true })]),
-        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
+        ...(esRevaloracion ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
+        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar
         // nombres, que es lo que se separa solo en cuanto alguien teclea una variante.
@@ -268,7 +269,7 @@ export default function ValoracionPage() {
         ...form.medicacion.map((m:any)=>supabase.from('medicamentos').insert({ paciente_id:pacienteId, nombre:m.nombre, frecuencia:m.frecuencia||'', observaciones:m.observaciones||'' })),
         // Si no ha contestado a ninguna de las dos no se abre fila: una escala con los
         // dos huecos vacíos no dice nada y ensucia la evolución con un punto muerto.
-        ...((form.borg!=null||form.estres!=null) ? [supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:new Date().toISOString().split('T')[0], borg:form.borg, estres:form.estres })] : []),
+        ...((form.borg!=null||form.estres!=null) ? [supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:hoyISO(), borg:form.borg, estres:form.estres })] : []),
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
       // Alergias, intolerancias y operaciones van a SUS TABLAS, no solo al JSON de la
@@ -339,7 +340,7 @@ export default function ValoracionPage() {
           if (!r.ok) alert(`Aviso: no se pudo guardar el test "${t.nombre || ''}" (${r.error}). El resto de la valoración sí se ha guardado.`)
         }
       }
-      await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:esRevaloracion?'revaloracion':'valoracion_inicial', titulo:esRevaloracion?'Revaloración':'Valoración inicial', descripcion:form.anamnesis||null, fecha:new Date().toISOString().split('T')[0] })
+      await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:esRevaloracion?'revaloracion':'valoracion_inicial', titulo:esRevaloracion?'Revaloración':'Valoración inicial', descripcion:form.anamnesis||null, fecha:hoyISO() })
       // Ya no se salta solo a la ficha. Lo que toca justo después de valorar es ponerle
       // las citas y repartirle las sesiones, y si se encadenan dos valoraciones seguidas
       // hay que poder dejarlo para luego sin perder al paciente: no se marca nada, la

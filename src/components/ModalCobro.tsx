@@ -8,6 +8,7 @@ import {
   lineaDeBono, ultimaFechaDeSerie, SERIE_COMPLETA, SERIE_SIMPLIFICADA,
   type LineaCobro, type FormaPago,
 } from '@/lib/cobros'
+import { hoyISO } from '@/lib/fechas'
 
 // Modal de cobro. NO calcula precios por su cuenta: todo sale de lib/cobros y
 // lib/bonos, que es donde vive la regla. Aquí solo se enseña y se deja tocar.
@@ -72,11 +73,11 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
    * pasado, y mover un cobro a otro periodo cambiándole la fecha no es un ajuste
    * contable: es declarar en el trimestre que no toca.
    */
-  const hoyISO = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
   /** Cuándo se emite la factura. Es hoy, salvo que se esté regularizando algo. */
-  const [fecha, setFecha] = useState(hoyISO)
+  const [fecha, setFecha] = useState(hoy)
   /** Cuándo se cobró de verdad. Si es otro día, va en la factura como fecha de operación. */
-  const [fechaCobro, setFechaCobro] = useState(hoyISO)
+  const [fechaCobro, setFechaCobro] = useState(hoy)
   const [formaPago, setFormaPago] = useState<FormaPago>('tarjeta')
   const [notas, setNotas] = useState('')
   const [emitiendo, setEmitiendo] = useState(false)
@@ -188,7 +189,7 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
     setEmitiendo(true); setError(null)
     // Antes de emitir con fecha atrasada, se comprueba que no rompa el orden de la serie.
     // Se avisa y se deja decidir: puede haber un motivo, pero no puede pasar sin saberlo.
-    if (fecha < hoyISO) {
+    if (fecha < hoy) {
       const serie = tieneDni ? SERIE_COMPLETA : SERIE_SIMPLIFICADA
       const ultima = await ultimaFechaDeSerie(serie)
       if (ultima && fecha < ultima) {
@@ -401,11 +402,11 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
             factura cuando son distintas, que es lo que pide el reglamento. */}
         <div style={{display:'flex',gap:8}}>
           <div className="field" style={{flex:1}}><label>Fecha del cobro</label>
-            <input className="input" type="date" value={fechaCobro} max={hoyISO}
+            <input className="input" type="date" value={fechaCobro} max={hoy}
               onChange={e=>setFechaCobro(e.target.value)}/>
           </div>
           <div className="field" style={{flex:1}}><label>Fecha de la factura</label>
-            <input className="input" type="date" value={fecha} max={hoyISO}
+            <input className="input" type="date" value={fecha} max={hoy}
               onChange={e=>setFecha(e.target.value)}/>
           </div>
         </div>

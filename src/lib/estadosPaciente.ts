@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { hoyISO } from '@/lib/fechas'
 
 // ---------------------------------------------------------------------------
 // EN QUÉ SITUACIÓN ESTÁ UN PACIENTE
@@ -195,7 +196,7 @@ export async function programarEstado(
     paciente_id: pacienteId, tipo: 'baja',
     titulo: `${estado === 'baja' ? 'Baja' : 'Puede volver'} programado para el ${new Date(desde + 'T12:00:00').toLocaleDateString('es-ES')}`,
     descripcion: (motivo ? `${motivo}. ` : '') + 'Hasta esa fecha sigue viniendo y se le cobra normalmente.',
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }
@@ -210,7 +211,7 @@ export async function anularProgramacion(pacienteId: string) {
     paciente_id: pacienteId, tipo: 'baja',
     titulo: 'Cambio de estado anulado',
     descripcion: 'Se ha quitado la baja que estaba programada. Sigue como cliente.',
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoyISO(),
   })
   return { ok: true as const }
 }
@@ -278,7 +279,7 @@ export async function cerrarCuotasFuturas(pacienteId: string) {
  * lo importante no es que ocurra a las 00:00, es que ocurra antes de que nadie mire.
  */
 export async function aplicarEstadosProgramados() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = hoyISO()
   const { data, error } = await supabase.from('pacientes')
     .select('id,nombre,apellidos,estado,estado_programado,estado_programado_desde,estado_programado_motivo')
     .not('estado_programado', 'is', null)
