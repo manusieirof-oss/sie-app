@@ -32,6 +32,18 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
   /** paciente_id -> tipo de bono activo. */
   const [bonoDe, setBonoDe] = useState<Record<string, string>>({})
   const [filtroBono, setFiltroBono] = useState('')
+  /**
+   * Filtro por CACTUS: la habilidad del paciente.
+   *
+   * Va junto al de bono porque responde a la otra mitad de la misma pregunta. El bono dice
+   * cuántas clases hace y con qué ritmo; el cactus, si puede con una sesión que hay que
+   * entender y recordar. Programar la misma tanda a alguien de 1 y a alguien de 3 es
+   * darles la misma sesión a dos personas que no están en el mismo sitio.
+   *
+   * '' es todos y 'sin' los que aún no has valorado, que también son un grupo: son a los
+   * que no conviene mandarles nada complicado sin mirarlos antes.
+   */
+  const [filtroCactus, setFiltroCactus] = useState('')
   const [buscar, setBuscar] = useState('')
   const [sel, setSel] = useState<string[]>([])
 
@@ -97,6 +109,9 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
 
   const visibles = (pacientes || []).filter((p: any) => {
     if (filtroBono && (bonoDe[p.id] || '') !== filtroBono) return false
+    if (filtroCactus) {
+      if (filtroCactus === 'sin' ? p.cactus != null : String(p.cactus || '') !== filtroCactus) return false
+    }
     if (!buscar) return true
     return `${p.nombre || ''} ${p.apellidos || ''} ${p.nombre_clinica || ''}`
       .toLowerCase().includes(buscar.toLowerCase())
@@ -191,6 +206,24 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
                 <button key={t.id} className={`chip-sel ${filtroBono === t.id ? 'on' : ''}`}
                   title={textoModalidad(t)} onClick={() => setFiltroBono(t.id)}>
                   {t.nombre}
+                </button>
+              ))}
+            </div>
+
+            {/* CACTUS · la habilidad. El bono dice cuánto viene; esto, con qué puede. */}
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
+              <Ic name="cactus" size={13} style={{ color: '#7C9A6B' }} />
+              <button className={`chip-sel ${!filtroCactus ? 'on' : ''}`}
+                onClick={() => setFiltroCactus('')}>Todos</button>
+              {[
+                ['1', 'Entiende lo que hace'],
+                ['2', 'Recuerda lo que hace'],
+                ['3', 'Todo lo demás, y bien'],
+                ['sin', 'Sin valorar'],
+              ].map(([v, ayuda]) => (
+                <button key={v} className={`chip-sel ${filtroCactus === v ? 'on' : ''}`}
+                  title={ayuda} onClick={() => setFiltroCactus(v)}>
+                  {v === 'sin' ? 'Sin valorar' : `${v} cactus`}
                 </button>
               ))}
             </div>

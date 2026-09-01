@@ -57,7 +57,7 @@ function EntrenamientoContent() {
     setLoading(true)
     const [{ data: e },{ data: p },{ data: s },{ data: et },{ data: tl }] = await Promise.all([
       supabase.from('ejercicios').select('*').order('nombre'),
-      supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').eq('estado','activo').order('nombre'),
+      supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,cactus').eq('estado','activo').order('nombre'),
       // Sin `limit`. Estaba en 20 y la biblioteca enseñaba las 20 últimas creadas, que con
       // el tiempo son casi todas de pacientes: las plantillas quedaban fuera de la lista y
       // parecía que no había. El filtro por origen va en la pestaña, no en la consulta.
