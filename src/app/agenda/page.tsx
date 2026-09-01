@@ -56,6 +56,7 @@ export default function AgendaPage() {
   const [tiposFiltro, setTiposFiltro] = useState<string[]>([])
   const [salas, setSalas] = useState<string[]>(['A','B'])
   const [soloHueco, setSoloHueco] = useState(false)
+  const [panelAbierto, setPanelAbierto] = useState<null|'alertas'|'tareas'>(null)
   const [eventos, setEventos] = useState<any[]>([])
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'entrenamiento', notas:'',
@@ -464,8 +465,13 @@ export default function AgendaPage() {
   const prevPeriodo=()=>{const d=new Date(fecha+'T12:00:00');if(vista==='dia')d.setDate(d.getDate()-1);else if(vista==='semana')d.setDate(d.getDate()-7);else d.setMonth(d.getMonth()-1);setFecha(d.toISOString().split('T')[0])}
   const nextPeriodo=()=>{const d=new Date(fecha+'T12:00:00');if(vista==='dia')d.setDate(d.getDate()+1);else if(vista==='semana')d.setDate(d.getDate()+7);else d.setMonth(d.getMonth()+1);setFecha(d.toISOString().split('T')[0])}
   const citasHoyActivas=citas.filter(c=>c.fecha===fecha&&c.estado!=='cancelada'&&(salaFiltro==='ambas'||c.sala===salaFiltro))
-  const totalPersonas=citasHoyActivas.length
+  // Personas DISTINTAS, no citas: el que viene a dos clases el mismo día es una persona.
+  const totalPersonas=new Set(citasHoyActivas.map(c=>c.paciente_id)).size
   const clases=new Set(citasHoyActivas.map(c=>`${(c.hora||'').slice(0,5)}|${c.sala}`)).size
+  const pacsHoy=new Set(citasHoyActivas.map((c:any)=>c.paciente_id))
+  const alertasHoy=(alertasPaciente||[]).filter((a:any)=>pacsHoy.has(a.paciente_id))
+  const tareasPend=(tareas||[]).filter((t:any)=>!t.completada)
+  const nombrePacDe=(pid:string)=>{const c=citas.find((x:any)=>x.paciente_id===pid);return c?.pacientes?`${c.pacientes.nombre} ${c.pacientes.apellidos||''}`.trim():''}
   const tipoActivo=(v:string)=>tiposFiltro.length===0||tiposFiltro.includes(v)
   const toggleTipo=(v:string)=>setTiposFiltro(prev=>prev.length===0?[v]:prev.includes(v)?prev.filter(x=>x!==v):[...prev,v])
 
@@ -538,6 +544,68 @@ export default function AgendaPage() {
               </button>
             )
           })}
+
+          {/* Resumen del día y accesos. Sustituye al panel lateral: la rejilla se queda
+              con todo el ancho y lo de consulta puntual se despliega solo al pedirlo. */}
+          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}} title="Personas distintas que asisten hoy">
+              <Ic name="pacientes" size={14} style={{color:'var(--g)'}}/><b style={{fontWeight:600,color:'var(--n)'}}>{totalPersonas}</b> personas
+            </span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}} title="Clases del día">
+              <Ic name="agenda" size={14} style={{color:'var(--g)'}}/><b style={{fontWeight:600,color:'var(--n)'}}>{clases}</b> clases
+            </span>
+            <button onClick={()=>setPanelAbierto(p=>p==='alertas'?null:'alertas')} title="Alertas de los pacientes de hoy"
+              style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${panelAbierto==='alertas'?'var(--red)':(alertasHoy.length>0?'#F0C9C9':'var(--bd)')}`,background:panelAbierto==='alertas'?'var(--redl)':'var(--w)',color:alertasHoy.length>0?'var(--red)':'var(--grl)',fontWeight:panelAbierto==='alertas'?500:400}}>
+              <Ic name="alerta" size={14}/> Alertas {alertasHoy.length>0&&<b style={{fontWeight:600}}>{alertasHoy.length}</b>}
+            </button>
+            <button onClick={()=>setPanelAbierto(p=>p==='tareas'?null:'tareas')} title="Tareas pendientes"
+              style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${panelAbierto==='tareas'?'var(--amb)':(tareasPend.length>0?'var(--amb)':'var(--bd)')}`,background:panelAbierto==='tareas'?'var(--ambl)':'var(--w)',color:tareasPend.length>0?'#8A6410':'var(--grl)',fontWeight:panelAbierto==='tareas'?500:400}}>
+              <Ic name="lista" size={14}/> Tareas {tareasPend.length>0&&<b style={{fontWeight:600}}>{tareasPend.length}</b>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {vista==='dia'&&panelAbierto==='alertas'&&(
+        <div className="card" style={{padding:'12px 14px',marginBottom:10}}>
+          <div className="card-title" style={{marginBottom:10}}><span className="ct-l"><Ic name="alerta"/> Alertas de hoy</span><span style={{fontSize:10,color:'var(--grl)',cursor:'pointer',fontWeight:400,textTransform:'none',letterSpacing:0}} onClick={()=>setPanelAbierto(null)}>Cerrar</span></div>
+          {alertasHoy.length===0 ? <div style={{fontSize:11,color:'var(--grl)'}}>Ningún paciente de hoy tiene alertas activas.</div> : (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:7}}>
+              {alertasHoy.map((a:any)=>(
+                <div key={a.id} style={{borderRadius:7,padding:'7px 10px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)'}}>
+                  <div style={{fontSize:10,color:a.afecta_sesion?'var(--red)':'var(--gd)',fontWeight:500,marginBottom:2}}>{nombrePacDe(a.paciente_id)}{a.afecta_sesion&&' · afecta sesión'}</div>
+                  <div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {vista==='dia'&&panelAbierto==='tareas'&&(
+        <div className="card" style={{padding:'12px 14px',marginBottom:10}}>
+          <div className="card-title" style={{marginBottom:10}}><span className="ct-l"><Ic name="lista"/> Tareas pendientes</span>
+            <span style={{display:'flex',gap:12,alignItems:'center'}}>
+              <span style={{fontSize:10,color:'var(--g)',cursor:'pointer',fontWeight:500,textTransform:'none',letterSpacing:0}} onClick={()=>setModalTareas(true)}>+ Nueva / ver todas</span>
+              <span style={{fontSize:10,color:'var(--grl)',cursor:'pointer',fontWeight:400,textTransform:'none',letterSpacing:0}} onClick={()=>setPanelAbierto(null)}>Cerrar</span>
+            </span>
+          </div>
+          {tareasPend.length===0 ? <div style={{fontSize:11,color:'var(--grl)'}}>Sin tareas pendientes.</div> : (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:7}}>
+              {tareasPend.map((t:any)=>{
+                const venc=t.fecha_limite&&t.fecha_limite<hoy, esHoy=t.fecha_limite===hoy
+                return (
+                  <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:8,borderRadius:7,padding:'7px 10px',borderLeft:`2px solid ${venc?'var(--red)':esHoy?'var(--amb)':'var(--bm)'}`,background:venc?'var(--redl)':esHoy?'var(--ambl)':'var(--bl)'}}>
+                    <div onClick={()=>completarTarea(t.id,true)} style={{width:15,height:15,borderRadius:3,border:'2px solid var(--bm)',cursor:'pointer',flexShrink:0,marginTop:1,background:'var(--w)'}} title="Marcar hecha"/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.35}}>{t.titulo}</div>
+                      {t.fecha_limite&&<div style={{fontSize:9,color:venc?'var(--red)':esHoy?'#7A5800':'var(--grl)',marginTop:2,fontWeight:venc||esHoy?600:400,display:'flex',alignItems:'center',gap:3}}><Ic name="calendario" size={10}/> {t.fecha_limite}{venc?' · vencida':esHoy?' · hoy':''}</div>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
