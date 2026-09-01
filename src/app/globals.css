@@ -236,6 +236,11 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .obj-moneda img{width:100%;height:100%;object-fit:cover;display:block;}
 .obj-moneda b{font-size:17px;font-weight:500;}
 .obj-moneda.g{width:72px;height:72px;border-width:2.5px;}
+/* LO QUE PIDE EL PACIENTE. Morado para que no se confunda con los objetivos clínicos:
+   aquellos salen de una exploración y se miden; estos son lo que la persona dijo que
+   quería. Tratarlos igual sería convertir un deseo en un hallazgo. */
+.obj-moneda.pide{background:#F2ECF5;border-color:#9A6B8F;}
+.obj-moneda.pide b{color:#9A6B8F;}
 /* Mini: para meterla en una fila junto a las píldoras de la tarjeta de sesión, donde una
    moneda de 42 px rompía el renglón. */
 .obj-moneda.mini{width:24px;height:24px;border-width:1.5px;}

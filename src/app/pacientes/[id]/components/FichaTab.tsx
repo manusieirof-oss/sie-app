@@ -516,11 +516,26 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 {valoracion?.fecha && <> · {tipoVal.toLowerCase()} del {fmtLargo(valoracion.fecha)}, {haceCuanto(valoracion.fecha)}</>}
               </div>
               {objPide.length===0 && !valoracion?.deseo && <div className="muted">Sin objetivos recogidos</div>}
-              {objPide.map((o:string,i:number)=>(
-                <div key={i} style={{fontSize:13,color:'var(--n)',lineHeight:1.9,display:'flex',gap:8}}>
-                  <span style={{color:'var(--gr)',flexShrink:0}}>{i+1}.</span>{o}
+              {/*
+                LO QUE PIDE EL PACIENTE, en monedas moradas.
+                
+                Mismo formato que los objetivos clínicos porque en la cabeza son lo mismo
+                —adónde quiere llegar— pero en morado y sin número de clases: estos no los
+                decide la clínica ni los mide ningún test, son sus palabras. Confundirlos
+                sería empezar a tratar un deseo como si fuera un hallazgo.
+              */}
+              {objPide.length > 0 && (
+                <div className="obj-rej" style={{gridTemplateColumns:'repeat(auto-fill,minmax(96px,1fr))'}}>
+                  {objPide.map((o:string,i:number)=>(
+                    <div key={i} className="obj-mon-b" style={{cursor:'default'}} title={o}>
+                      <span className="obj-moneda g pide">
+                        <b>{(o||'?').trim().charAt(0).toUpperCase()}</b>
+                      </span>
+                      <span className="obj-mon-n">{o}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
               {valoracion?.deseo && (
                 <div style={{marginTop:9,padding:'8px 10px',background:'var(--ambl)',fontSize:12,color:'#7A5800',display:'flex',gap:6,alignItems:'flex-start'}}>
                   <span style={{display:'inline-flex',flexShrink:0,marginTop:1}}><Ic name="estrella" size={12}/></span>{valoracion.deseo}
