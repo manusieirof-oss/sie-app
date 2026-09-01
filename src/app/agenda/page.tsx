@@ -576,22 +576,20 @@ export default function AgendaPage() {
         <div className="card" style={{padding:'12px 14px',marginBottom:10}}>
           <div className="card-title" style={{marginBottom:10}}><span className="ct-l"><Ic name="alerta"/> Alertas de hoy</span><span style={{fontSize:10,color:'var(--grl)',cursor:'pointer',fontWeight:400,textTransform:'none',letterSpacing:0}} onClick={()=>setPanelAbierto(null)}>Cerrar</span></div>
           {alertasHoy.length===0 ? <div style={{fontSize:11,color:'var(--grl)'}}>Ningún paciente de hoy tiene alertas activas.</div> : (
-            <div style={{maxHeight:'46vh',overflowY:'auto',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:8,alignItems:'start',paddingRight:2}}>
+            <div style={{maxHeight:'46vh',overflowY:'auto',paddingRight:4}}>
               {alertasPorPaciente.map(g=>(
-                <div key={g.pid} style={{border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',overflow:'hidden'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:7,padding:'6px 9px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+                <div key={g.pid} style={{marginBottom:8}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:4}}>
                     <span style={{fontSize:10,fontWeight:600,color:'var(--gd)',background:'var(--gl)',borderRadius:99,padding:'2px 8px',flexShrink:0}}>{g.hora==='99:99'?'—':g.hora}</span>
-                    <span style={{fontSize:11,fontWeight:500,color:'var(--n)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{g.nombre}</span>
-                    {g.items.length>1&&<span style={{marginLeft:'auto',fontSize:9,color:'var(--grl)',flexShrink:0}}>{g.items.length}</span>}
+                    <span style={{fontSize:11,fontWeight:500,color:'var(--n)'}}>{g.nombre}</span>
+                    {g.items.length>1&&<span style={{fontSize:9,color:'var(--grl)'}}>· {g.items.length} alertas</span>}
                   </div>
-                  <div style={{padding:'6px 8px',display:'flex',flexDirection:'column',gap:5}}>
-                    {g.items.map((a:any)=>(
-                      <div key={a.id} style={{borderRadius:6,padding:'6px 9px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)'}}>
-                        {a.afecta_sesion&&<div style={{fontSize:9,color:'var(--red)',fontWeight:600,marginBottom:2}}>Afecta sesión</div>}
-                        <div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</div>
-                      </div>
-                    ))}
-                  </div>
+                  {g.items.map((a:any)=>(
+                    <div key={a.id} style={{borderRadius:6,padding:'7px 10px',marginBottom:4,borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)',display:'flex',alignItems:'baseline',gap:7}}>
+                      {a.afecta_sesion&&<span style={{fontSize:9,color:'var(--red)',fontWeight:600,flexShrink:0}}>Afecta sesión ·</span>}
+                      <span style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
