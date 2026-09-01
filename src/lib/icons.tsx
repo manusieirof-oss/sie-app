@@ -84,6 +84,7 @@ const MAP: Record<string, any> = {
   baja: TrendingDown,
   idea: Lightbulb,
   trofeo: Trophy,
+  cactus: Cactus,
   campana: Bell,
   mail: Mail,
   telefono: Phone,
@@ -120,6 +121,28 @@ const MAP: Record<string, any> = {
 
 export const ICON_NAMES = Object.keys(MAP)
 export const isIcon = (n?: string) => !!n && Object.prototype.hasOwnProperty.call(MAP, n)
+
+/**
+ * Cactus. No está en lucide, así que se dibuja aquí con la misma firma que los suyos
+ * —size, strokeWidth, color heredado— para que `Ic` no tenga que saber que es distinto.
+ *
+ * Marca la habilidad del paciente: entiende lo que hace, lo recuerda, y lo hace bien.
+ */
+function Cactus({ size = 14, strokeWidth = 1.75, ...resto }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round" {...resto}>
+      {/* El tronco, de la maceta hacia arriba */}
+      <path d="M12 20V7a2.5 2.5 0 0 1 5 0v1" />
+      {/* Los dos brazos, a distinta altura como en uno de verdad */}
+      <path d="M12 13H9.5A2.5 2.5 0 0 1 7 10.5V9" />
+      <path d="M12 10h2.5A2.5 2.5 0 0 0 17 7.5" />
+      {/* La maceta */}
+      <path d="M8 20h8l-.6 2.4a.8.8 0 0 1-.8.6h-5.2a.8.8 0 0 1-.8-.6z" />
+    </svg>
+  )
+}
 
 export function Ic({ name, size = 14, strokeWidth = 1.75, className = '', style = {} }: any) {
   const C = MAP[name] || Circle

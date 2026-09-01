@@ -198,6 +198,28 @@ export default function PacientesPage() {
   const pagoDot: Record<string,string> = { pagado:'var(--g)', pendiente:'var(--amb)', impago:'var(--red)' }
   const bonoLabel: Record<string,string> = Object.fromEntries(bonosOpts.map(b=>[b.id,b.nombre]))
 
+  const CACTUS_TXT = [
+    '', 'Entiende lo que hace', 'Recuerda lo que hace', 'Todo lo demás, y bien',
+  ]
+
+  /**
+   * La habilidad del paciente, de 1 a 3 cactus.
+   *
+   * Se pone desde la lista y no desde la ficha a propósito: es un juicio que se forma
+   * viendo a la gente entrenar, y se corrige de pasada. Obligar a entrar en cada ficha
+   * significaría que nadie lo mantiene al día.
+   *
+   * Pulsar el cactus que ya está puesto lo quita: no hay nivel cero, hay "todavía no lo
+   * he valorado", y eso tiene que poder decirse.
+   */
+  async function ponerCactus(p:any, n:number) {
+    const nuevo = p.cactus === n ? null : n
+    setPacientes(ps => ps.map(x => x.id===p.id ? { ...x, cactus:nuevo } : x))
+    const { error } = await supabase.from('pacientes').update({ cactus:nuevo }).eq('id', p.id)
+    // Si falla se deshace: dejarlo pintado sería enseñar un dato que no está guardado.
+    if (error) { setPacientes(ps => ps.map(x => x.id===p.id ? { ...x, cactus:p.cactus } : x)); alert('No se ha podido guardar: ' + error.message) }
+  }
+
   const filtrados = pacientes.filter(p=>{
     const q = buscar.toLowerCase()
     const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
@@ -220,11 +242,13 @@ export default function PacientesPage() {
    * El bono y las citas no están en la fila del paciente: salen de otras listas, así que
    * hay que ordenarlos por el valor calculado y no por un campo de la tabla.
    */
-  const COLS_ORDEN = ['nombre','estado','bono','tipo','citas','pago'] as const
+  const COLS_ORDEN = ['nombre','cactus','estado','bono','tipo','citas','pago'] as const
   const ordenados = [...filtrados].sort((a,b)=>{
     const dir = orden.asc ? 1 : -1
     const valor = (p:any) => {
       switch (orden.col) {
+        // Sin cactus va al final: es "no valorado", no un cero.
+        case 'cactus': return p.cactus ?? 99
         case 'estado': return p.estado || ''
         case 'bono':   return bonoLabel[getBonoActual(p.id)?.tipo] || ''
         case 'tipo':   return p.tipo_clase ? nombreTipoClase(tiposClase, p.tipo_clase) : ''
@@ -399,8 +423,8 @@ export default function PacientesPage() {
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
         <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden'}}>
-          <div style={{display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 90px 105px 170px':'1fr 95px 100px 120px 90px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
-            {['Paciente','Estado','Bono','Tipo clase','Citas','Cuota actual',...(ronda?[ronda.nombre]:[])].map((h,i)=>{
+          <div style={{display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+            {['Paciente','Cactus','Estado','Bono','Tipo clase','Citas','Cuota actual',...(ronda?[ronda.nombre]:[])].map((h,i)=>{
               // La columna de la ronda no ordena: es una respuesta de este mes, no un dato
               // del paciente, y ordenar por ella descolocaría la lista cada semana.
               const col = COLS_ORDEN[i]
@@ -422,7 +446,7 @@ export default function PacientesPage() {
             const bono = getBonoActual(p.id)
             const pago = estadoPagoDe(bono)
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 95px 100px 120px 90px 105px 170px':'1fr 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
+              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
                 <div style={{padding:'8px 10px'}}>
@@ -462,6 +486,18 @@ export default function PacientesPage() {
                   {esReciente(p) && (
                     <div style={{fontSize:8,marginTop:2,color:'var(--gd)',fontWeight:600}}>reciente</div>
                   )}
+                </div>
+                {/* CACTUS · la habilidad. Se pulsa directamente en la lista. */}
+                <div style={{padding:'8px 6px',borderLeft:'1px solid var(--bl)',display:'flex',gap:1,alignItems:'center'}}
+                  onClick={e=>{e.preventDefault();e.stopPropagation()}}>
+                  {[1,2,3].map(n=>(
+                    <button key={n} title={`${n} · ${CACTUS_TXT[n]}`}
+                      onClick={()=>ponerCactus(p,n)}
+                      style={{background:'none',border:'none',padding:2,cursor:'pointer',lineHeight:0,
+                        color: (p.cactus||0) >= n ? '#7C9A6B' : 'var(--bd)'}}>
+                      <Ic name="cactus" size={15}/>
+                    </button>
+                  ))}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
