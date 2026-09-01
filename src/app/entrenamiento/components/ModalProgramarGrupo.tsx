@@ -37,6 +37,17 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
 
   // ---- Qué sesiones del mes ---------------------------------------------
   const [ordinales, setOrdinales] = useState<number[]>([1])
+  /**
+   * HASTA QUÉ ORDINAL SE PUEDE ELEGIR.
+   *
+   * Estaba fijo en 8, que es lo que viene un bono reducido. Pero esencial son 12 al mes y
+   * progreso 16, así que a partir de la octava clase no había forma de decir "esta": las
+   * de la segunda mitad del mes quedaban fuera del alcance del modal.
+   *
+   * Sale de las citas que tienen de verdad los pacientes elegidos, no de una lista de
+   * tipos de bono: si mañana aparece un bono de veinte, esto se adapta solo.
+   */
+  const [maxOrdinal, setMaxOrdinal] = useState(8)
   const [desde, setDesde] = useState(mesActual())
   const [meses, setMeses] = useState('4')
 
@@ -102,6 +113,15 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
         copiasDeLaPlantilla(plantilla.id, sel),
       ])
       if (mio !== tick.current) return   // llegó tarde: manda el cálculo más nuevo
+      // El mayor número de citas que tiene un paciente en un mes: hasta ahí llegan los
+      // ordinales que tiene sentido ofrecer.
+      const porPacienteMes: Record<string, number> = {}
+      citas.forEach((c: any) => {
+        const k = `${c.paciente_id}|${c.fecha.slice(0, 7)}`
+        porPacienteMes[k] = (porPacienteMes[k] || 0) + 1
+      })
+      const tope = Math.max(8, ...Object.values(porPacienteMes))
+      setMaxOrdinal(Math.min(31, tope))
       setCopias(cop)
       setPlan(planDeGrupo(sel, citas, { ordinales, desde, meses: nMeses }, cop))
       setCalculando(false)
@@ -206,15 +226,26 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
                 la 2ª de abril es el día 3 para uno y el 7 para otro, y por eso la misma
                 regla vale para treinta agendas distintas. */}
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+              {Array.from({ length: maxOrdinal }, (_, i) => i + 1).map(n => (
                 <button key={n} className={`chip-sel ${ordinales.includes(n) ? 'on' : ''}`}
                   onClick={() => togglOrdinal(n)} title={`La ${ordinalTexto(n)} vez que venga ese mes`}>
                   {ordinalTexto(n)}
                 </button>
               ))}
+              {/* Con dieciséis clases al mes, marcarlas una a una son dieciséis clics para
+                  lo más habitual: que toda su tanda lleve la misma sesión. */}
+              <button className="chip-sel"
+                onClick={() => setOrdinales(
+                  ordinales.length === maxOrdinal
+                    ? [1]
+                    : Array.from({ length: maxOrdinal }, (_, i) => i + 1))}>
+                {ordinales.length === maxOrdinal ? 'Ninguna' : 'Todas'}
+              </button>
             </div>
             <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 10 }}>
               Se cuentan las citas de cada paciente dentro del mes. Las canceladas no cuentan.
+              {' '}Llega hasta la {ordinalTexto(maxOrdinal)} porque es lo máximo que viene alguien
+              de los elegidos.
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
