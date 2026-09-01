@@ -36,6 +36,18 @@ import { hoyISO } from '@/lib/fechas'
 export type ReglaGrupo = {
   /** Qué sesiones del mes. [1,2] = la 1ª y la 2ª cita del paciente ese mes. */
   ordinales: number[]
+  /**
+   * DESDE DÓNDE SE CUENTA.
+   *
+   * Contando desde el principio, "la 7ª" es un número distinto para cada bono: quien viene
+   * 8 veces al mes y quien viene 16 no tienen la misma séptima clase en el calendario.
+   *
+   * Desde el FINAL, en cambio, "la penúltima" es la misma idea para todos y cae donde
+   * corresponde a cada uno: la 7ª en reducido, la 11ª en esencial, la 15ª en progreso. Es
+   * lo que permite programar la última semana de una tanda a todo el mundo de una vez, en
+   * lugar de hacer una pasada por bono calculando los números a mano.
+   */
+  desdeElFinal?: boolean
   /** Primer mes, en formato 'YYYY-MM'. */
   desde: string
   /** Cuántos meses seguidos contando el primero. */
@@ -126,6 +138,14 @@ export function fechaCorta(fecha: string): string {
 /** '1ª', '2ª'… para no escribir el ordinal a mano en cinco sitios. */
 export const ordinalTexto = (n: number) => `${n}ª`
 
+/** Cómo se llama el ordinal contando desde el final. La 1ª desde el final es la última. */
+export const ordinalDesdeFinal = (n: number) =>
+  n === 1 ? 'Última' : n === 2 ? 'Penúltima' : n === 3 ? 'Antepenúltima' : `${n}ª por el final`
+
+/** El nombre que toca según cómo se esté contando. */
+export const textoOrdinal = (n: number, desdeElFinal?: boolean) =>
+  desdeElFinal ? ordinalDesdeFinal(n) : ordinalTexto(n)
+
 /**
  * Las copias que estos pacientes ya tienen de esta plantilla, por paciente.
  *
@@ -197,23 +217,25 @@ export function planDeGrupo(
       }
 
       for (const n of ordinales) {
-        const cita = delMes[n - 1]
+        // Desde el final, la 1ª es la última cita del mes; desde el principio, la primera.
+        const cita = regla.desdeElFinal ? delMes[delMes.length - n] : delMes[n - 1]
+        const nombreN = textoOrdinal(n, regla.desdeElFinal)
 
         if (!cita) {
           avisos.push({ pacienteId: pid, mes, motivo: 'no_llega',
-            texto: `${nombreMes(mes)}: solo tiene ${delMes.length} cita${delMes.length > 1 ? 's' : ''}, no hay ${ordinalTexto(n)}.` })
+            texto: `${nombreMes(mes)}: solo tiene ${delMes.length} cita${delMes.length > 1 ? 's' : ''}, no hay ${nombreN.toLowerCase()}.` })
           continue
         }
 
         if (cita.sesion_id && copias[pid] && cita.sesion_id === copias[pid]) {
           avisos.push({ pacienteId: pid, mes, motivo: 'ya_puesta',
-            texto: `${nombreMes(mes)}: la ${ordinalTexto(n)} (${fechaCorta(cita.fecha)}) ya la tiene puesta.` })
+            texto: `${nombreMes(mes)}: la ${nombreN.toLowerCase()} (${fechaCorta(cita.fecha)}) ya la tiene puesta.` })
           continue
         }
 
         if (cita.sesion_id) {
           avisos.push({ pacienteId: pid, mes, motivo: 'ocupada',
-            texto: `${nombreMes(mes)}: la ${ordinalTexto(n)} (${fechaCorta(cita.fecha)}) ya tiene otra sesión. No se pisa.` })
+            texto: `${nombreMes(mes)}: la ${nombreN.toLowerCase()} (${fechaCorta(cita.fecha)}) ya tiene otra sesión. No se pisa.` })
           continue
         }
 
@@ -222,7 +244,7 @@ export function planDeGrupo(
         // Pero escribir en una cita pasada es reescribir lo que ya se entrenó.
         if (cita.fecha < hoy || cita.estado === 'realizada' || cita.estado === 'falta') {
           avisos.push({ pacienteId: pid, mes, motivo: 'ya_paso',
-            texto: `${nombreMes(mes)}: la ${ordinalTexto(n)} (${fechaCorta(cita.fecha)}) ya pasó.` })
+            texto: `${nombreMes(mes)}: la ${nombreN.toLowerCase()} (${fechaCorta(cita.fecha)}) ya pasó.` })
           continue
         }
 

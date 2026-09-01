@@ -6,7 +6,7 @@ import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
 import { textoModalidad } from '@/lib/bonoSesiones'
 import {
   citasDelGrupo, copiasDeLaPlantilla, planDeGrupo, aplicarPlanGrupo,
-  mesesDe, mesActual, nombreMes, fechaCorta, ordinalTexto,
+  mesesDe, mesActual, nombreMes, fechaCorta, ordinalTexto, textoOrdinal,
   type PlanGrupo,
 } from '@/lib/programarGrupo'
 
@@ -38,6 +38,14 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
   // ---- Qué sesiones del mes ---------------------------------------------
   const [ordinales, setOrdinales] = useState<number[]>([1])
   /**
+   * Contar desde el final en vez de desde el principio.
+   *
+   * "La penúltima clase del mes" es la misma idea para todos, pero un número distinto en
+   * cada bono: la 7ª en reducido, la 11ª en esencial, la 15ª en progreso. Contando desde
+   * el principio no hay forma de decirlo para todos a la vez; desde el final, sí.
+   */
+  const [desdeElFinal, setDesdeElFinal] = useState(false)
+  /**
    * HASTA QUÉ ORDINAL SE PUEDE ELEGIR.
    *
    * Estaba fijo en 8, que es lo que viene un bono reducido. Pero esencial son 12 al mes y
@@ -48,6 +56,17 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
    * tipos de bono: si mañana aparece un bono de veinte, esto se adapta solo.
    */
   const [maxOrdinal, setMaxOrdinal] = useState(8)
+  /**
+   * A cuántos de los elegidos les alcanza cada ordinal.
+   *
+   * En un grupo mezclado no todos vienen lo mismo: quien tiene reducido viene 8 veces al
+   * mes y quien tiene esencial 12, así que la 12ª clase solo existe para unos pocos.
+   * Elegirla sin saberlo parece que asignas a todos y luego asignas a cuatro.
+   *
+   * Se cuenta por paciente, no por cita: alguien que tiene 12 en septiembre y 8 en octubre
+   * cuenta una vez, porque lo que se pregunta es "¿a este le llega?".
+   */
+  const [alcance, setAlcance] = useState<Record<number, number>>({})
   const [desde, setDesde] = useState(mesActual())
   const [meses, setMeses] = useState('4')
 
@@ -122,13 +141,25 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
       })
       const tope = Math.max(8, ...Object.values(porPacienteMes))
       setMaxOrdinal(Math.min(31, tope))
+
+      // Para cada ordinal, cuántos pacientes distintos tienen esa clase en algún mes.
+      const maxPorPaciente: Record<string, number> = {}
+      Object.entries(porPacienteMes).forEach(([k, n]) => {
+        const pid = k.split('|')[0]
+        maxPorPaciente[pid] = Math.max(maxPorPaciente[pid] || 0, n)
+      })
+      const cuantos: Record<number, number> = {}
+      for (let n = 1; n <= Math.min(31, tope); n++) {
+        cuantos[n] = Object.values(maxPorPaciente).filter(m => m >= n).length
+      }
+      setAlcance(cuantos)
       setCopias(cop)
-      setPlan(planDeGrupo(sel, citas, { ordinales, desde, meses: nMeses }, cop))
+      setPlan(planDeGrupo(sel, citas, { ordinales, desde, meses: nMeses, desdeElFinal }, cop))
       setCalculando(false)
     }, 350)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel.join(','), ordinales.join(','), desde, nMeses, plantilla?.id])
+  }, [sel.join(','), ordinales.join(','), desdeElFinal, desde, nMeses, plantilla?.id])
 
   async function aplicar() {
     if (!plan || plan.filas.length === 0) return
@@ -221,31 +252,61 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
 
           {/* ---------- QUÉ SESIONES Y QUÉ SALE ---------- */}
           <div style={{ padding: 12, minWidth: 0 }}>
-            <div className="et-mini" style={{ marginBottom: 6 }}>Qu&eacute; sesiones del mes</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6, flexWrap:'wrap' }}>
+              <span className="et-mini">Qu&eacute; sesiones del mes</span>
+              <div style={{ display:'flex', gap:3, background:'var(--bl)', border:'1px solid var(--bd)',
+                borderRadius:99, padding:2 }}>
+                {[[false,'Desde el principio'],[true,'Desde el final']].map(([v,l]:any)=>(
+                  <button key={String(v)} onClick={()=>{ setDesdeElFinal(v); setOrdinales([1]) }}
+                    style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'none', cursor:'pointer',
+                      fontFamily:'inherit', background: desdeElFinal===v ? 'var(--w)' : 'transparent',
+                      color: desdeElFinal===v ? 'var(--n)' : 'var(--grl)',
+                      fontWeight: desdeElFinal===v ? 500 : 400,
+                      boxShadow: desdeElFinal===v ? '0 1px 3px rgba(0,0,0,.08)' : 'none' }}>{l}</button>
+                ))}
+              </div>
+            </div>
             {/* Se cuentan las CITAS del paciente dentro del mes, no días del calendario:
                 la 2ª de abril es el día 3 para uno y el 7 para otro, y por eso la misma
                 regla vale para treinta agendas distintas. */}
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
-              {Array.from({ length: maxOrdinal }, (_, i) => i + 1).map(n => (
-                <button key={n} className={`chip-sel ${ordinales.includes(n) ? 'on' : ''}`}
-                  onClick={() => togglOrdinal(n)} title={`La ${ordinalTexto(n)} vez que venga ese mes`}>
-                  {ordinalTexto(n)}
-                </button>
-              ))}
-              {/* Con dieciséis clases al mes, marcarlas una a una son dieciséis clics para
-                  lo más habitual: que toda su tanda lleve la misma sesión. */}
-              <button className="chip-sel"
-                onClick={() => setOrdinales(
-                  ordinales.length === maxOrdinal
-                    ? [1]
-                    : Array.from({ length: maxOrdinal }, (_, i) => i + 1))}>
-                {ordinales.length === maxOrdinal ? 'Ninguna' : 'Todas'}
-              </button>
+              {/* Cada chip dice a cuántos de los elegidos les llega esa clase. Sin ese
+                  número, elegir la 12ª parece que asigna a todos y asigna a cuatro. */}
+              {Array.from({ length: maxOrdinal }, (_, i) => i + 1).map(n => {
+                const cuantos = alcance[n] ?? 0
+                const parcial = sel.length > 0 && cuantos > 0 && cuantos < sel.length
+                return (
+                  <button key={n} className={`chip-sel ${ordinales.includes(n) ? 'on' : ''}`}
+                    onClick={() => togglOrdinal(n)}
+                    title={desdeElFinal
+                      ? `${textoOrdinal(n, true)} cita del mes · cae donde toque a cada bono`
+                      : (sel.length === 0
+                          ? `La ${ordinalTexto(n)} vez que venga ese mes`
+                          : `La ${ordinalTexto(n)} vez que venga · la tienen ${cuantos} de ${sel.length}`)}>
+                    {textoOrdinal(n, desdeElFinal)}
+                    {sel.length > 0 && (
+                      <span style={{ marginLeft: 4, fontSize: 9,
+                        color: ordinales.includes(n) ? 'rgba(255,255,255,.75)'
+                             : parcial ? '#8A6410' : 'var(--grl)' }}>
+                        {cuantos}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
             <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 10 }}>
               Se cuentan las citas de cada paciente dentro del mes. Las canceladas no cuentan.
-              {' '}Llega hasta la {ordinalTexto(maxOrdinal)} porque es lo máximo que viene alguien
-              de los elegidos.
+              {/* Sin pacientes elegidos no se sabe hasta dónde llegan, así que se enseña el
+                  mínimo. Decirlo evita pensar que el tope son ocho y punto. */}
+              {desdeElFinal
+                ? <> Se cuenta hacia atrás: la <b>penúltima</b> cae en la 7ª de un reducido,
+                    la 11ª de un esencial y la 15ª de un progreso. Cada uno la suya, de una
+                    sola pasada.</>
+                : sel.length === 0
+                  ? <> Elige pacientes y verás hasta qué clase llegan las suyas.</>
+                  : <> Llega hasta la {ordinalTexto(maxOrdinal)} porque es lo máximo que viene
+                      alguien de los elegidos ese mes.</>}
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
