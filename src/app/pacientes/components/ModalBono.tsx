@@ -63,7 +63,15 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
      * agosto y empieza el 1 de septiembre se deja listo el mismo día, sin
      * ensuciar agosto con una cuota que nadie va a cobrar.
      */
-    empieza: hoyISO(),
+    /**
+     * Al CORREGIR se abre con la fecha que ya tiene, no con la de hoy.
+     *
+     * Poniendo siempre hoy, abrir el modal de alguien cuya cuota empieza el 1 de
+     * septiembre enseñaba la fecha de hoy; si dabas a guardar sin tocar nada, le
+     * cambiabas la fecha sin querer. Un formulario de edición tiene que abrirse
+     * con lo que hay guardado.
+     */
+    empieza: bonoActual?.fecha_inicio || hoyISO(),
   })
 
   /**
@@ -218,7 +226,18 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     const sustituye = bonoActual && !esDeSesiones(bonoActual) && bonoActual.id !== yaDelMes?.id
 
     if (aCorregir) {
-      const { error } = await supabase.from('bonos').update(comun).eq('id', aCorregir.id)
+      // LA FECHA TAMBIÉN SE CORRIGE. `comun` solo lleva tipo, días y descuento,
+      // así que por esta rama se guardaba todo menos lo que el usuario acababa
+      // de cambiar en el campo "Empieza el": tocabas la fecha, dabas a guardar,
+      // y la ficha seguía enseñando la de antes. Parecía que no se guardaba
+      // nada, y lo que pasaba es que se guardaba todo menos eso.
+      //
+      // `mes` y `anio` van con ella: son el mes que cubre la cuota y salen de la
+      // misma fecha. Dejarlos sin tocar pondría la cuota en un mes y su fecha de
+      // inicio en otro.
+      const { error } = await supabase.from('bonos')
+        .update({ ...comun, fecha_inicio: inicio, mes, anio })
+        .eq('id', aCorregir.id)
       if (error) { setError(`No se ha podido cambiar el bono: ${error.message}`); setGuardando(false); return }
     } else {
       // Primero se crea el nuevo. Solo si entra se retira el anterior, para que

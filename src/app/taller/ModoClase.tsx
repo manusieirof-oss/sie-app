@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { modoParte, textoModo, descansoDeParte } from '@/lib/sesiones'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita } from '@/lib/taller'
@@ -221,9 +222,12 @@ export default function ModoClase() {
     const ejs: any[] = []
     ;(ses.partes||[]).forEach((parte:any)=>{
       ;(parte.ejercicios||[]).forEach((ej:any)=>{
-        const n = parseInt(ej.series)||4
+        const esCircuito = parte.modo === 'circuito'
+        const n = esCircuito ? (parseInt(parte.vueltas)||parseInt(ej.series)||4) : (parseInt(ej.series)||4)
         ejs.push({
           parte: parte.nombre || '',
+          parteObj: parte,
+          grupo: ej.grupo || '',
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
           plan:{peso:ej.peso,reps:ej.reps},
@@ -249,7 +253,7 @@ export default function ModoClase() {
     }
     if (ids.length) {
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,created_at,comentario')
+        .select('ejercicio_id,series,fecha,created_at,comentario,items_evaluados')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
@@ -263,6 +267,8 @@ export default function ModoClase() {
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
           e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
+          e.ultimaEval = ultMap[e.ejercicio_id]?.items_evaluados || null
+          e.ultimaEvalFecha = ultMap[e.ejercicio_id]?.fecha || null
           // precargar lo de la ultima vez como punto de partida editable
           if (Array.isArray(e.ultimo) && e.ultimo.length>0) {
             e.series = e.series.map((orig:any, idx:number) => {
@@ -466,6 +472,22 @@ export default function ModoClase() {
     }))
   }
 
+  function marcarTodosItems(pid:string, ei:number, valor:boolean){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]
+      const ej = datos[ei]; if(!ej) return s
+      const iv:any = {}
+      ;(ej.items||[]).forEach((it:any)=>{
+        const texto = typeof it==='string' ? it : it?.texto
+        if (texto) iv[texto] = valor
+      })
+      datos[ei]={...ej,items_evaluados:valor?iv:{},guardado:false,precargado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
   async function finalizarPaciente(pid:string){
     const item = seleccion.find(s=>s.paciente.id===pid); if(!item) return
     // forzar guardado de todo lo lleno
@@ -665,13 +687,32 @@ export default function ModoClase() {
             return (
             <div key={'w'+ei}>
             {mostrarParte && (
-              <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.5,margin:'14px 0 6px',paddingBottom:4,borderBottom:'1px solid var(--bd)'}}>{ej.parte}</div>
+              <div style={{margin:'14px 0 6px',paddingBottom:4,borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                <span style={{fontSize:9,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.5}}>{ej.parte}</span>
+                {ej.parteObj && (
+                  <span style={{fontSize:9,color:'var(--g)',display:'inline-flex',alignItems:'center',gap:4}}>
+                    <Ic name={modoParte(ej.parteObj.modo).icono} size={10}/> {textoModo(ej.parteObj)}
+                  </span>
+                )}
+                {ej.parteObj && descansoDeParte(ej.parteObj) && (
+                  <span style={{fontSize:9,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}>
+                    <Ic name="pausa" size={10}/> {descansoDeParte(ej.parteObj)!.texto} {descansoDeParte(ej.parteObj)!.cuando}
+                  </span>
+                )}
+              </div>
             )}
             <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'10px 12px',display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
               <div style={{flex:'0 0 150px',minWidth:130,display:'flex',flexDirection:'column',gap:6,alignItems:'flex-start'}}>
                 {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:110,objectFit:'contain',background:'var(--w)',borderRadius:7,flexShrink:0,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:110,background:'var(--bm)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={32}/></div>}
                 <div style={{width:'100%',minWidth:0}}>
-                  <div style={{fontSize:11,fontWeight:500,color:'var(--n)',lineHeight:1.3}}>{ej.nombre}</div>
+                  <div style={{fontSize:11,fontWeight:500,color:'var(--n)',lineHeight:1.3}}>
+                    {ej.grupo && ej.parteObj?.modo==='superserie' && (() => {
+                      const mismos = act.datos.filter((x:any)=>x.parte===ej.parte && x.grupo===ej.grupo)
+                      const pos = mismos.indexOf(ej)+1
+                      return <span style={{fontSize:8,fontWeight:600,padding:'1px 5px',borderRadius:4,background:'var(--gl)',color:'var(--gd)',marginRight:5}}>{ej.grupo}{pos}</span>
+                    })()}
+                    {ej.nombre}
+                  </div>
                   {ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',display:'inline-block',marginTop:3}}>{ej.variante}</span>}
                   {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
                   {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'flex-start',gap:4}}><Ic name="mensaje" size={10}/> <span>última vez: {ej.ultimoComent}</span></div>}
@@ -718,9 +759,45 @@ export default function ModoClase() {
               </div>
                 </div>
                 <div style={{flex:'1 1 190px',minWidth:180}}>
-              {(ej.items||[]).length>0 && (
+              {(ej.items||[]).length>0 && (() => {
+                const total = (ej.items||[]).length
+                const ue = ej.ultimaEval || null
+                const okPrevios = ue ? (ej.items||[]).filter((it:any)=>{
+                  const txt = typeof it==='string'?it:it?.texto
+                  return txt && ue[txt]===true
+                }).length : 0
+                const evalCompleta = !!ue && okPrevios===total && total>0
+                const tocado = Object.keys(ej.items_evaluados||{}).length>0
+                const colapsar = evalCompleta && !tocado && !ej.revisando
+                if (colapsar) return (
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Ejecución</span>
+                    <span style={{fontSize:9,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}>
+                      <Ic name="check" size={10}/> {total}/{total} correcto{ej.ultimaEvalFecha?` · ${new Date(ej.ultimaEvalFecha).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:''}
+                    </span>
+                    <button onClick={()=>setSeleccion(prev=>prev.map(x=>{
+                      if (x.paciente.id!==act.paciente.id) return x
+                      const d=[...x.datos]; d[ei]={...d[ei],revisando:true}
+                      return {...x,datos:d}
+                    }))} style={{fontSize:8,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}}>Revisar</button>
+                  </div>
+                )
+                return (
                 <div>
-                  <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ejecución</div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+                    <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Ejecución</span>
+                    {(() => {
+                      const total = (ej.items||[]).length
+                      const marcados = (ej.items||[]).filter((it:any)=>itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, 0)).length
+                      const todos = total>0 && marcados===total
+                      return (
+                        <button onClick={()=>marcarTodosItems(act.paciente.id,ei,!todos)}
+                          style={{fontSize:8,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid '+(todos?'var(--g)':'var(--bd)'),background:todos?'var(--gl)':'var(--w)',color:todos?'var(--gd)':'var(--gr)'}}>
+                          {todos?'✓ Todo correcto':'Marcar todo'}
+                        </button>
+                      )
+                    })()}
+                  </div>
                   {(ej.items||[]).map((it:any,ii:number)=>{
                     const cumple = itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, ii)
                     const objs = (it.objetivos||[]).map((oid:string)=>objetivosLib.find((o:any)=>o.id===oid)).filter(Boolean)
@@ -749,7 +826,8 @@ export default function ModoClase() {
                     )
                   })}
                 </div>
-              )}
+                )
+              })()}
               {(ej.feedbacks||[]).length>0 && (
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
                   {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
