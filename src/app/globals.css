@@ -256,6 +256,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .obj-mon-g{font-size:10px;line-height:1.2;color:var(--grl);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .obj-mon-n{font-size:11.5px;line-height:1.3;color:var(--gr);text-align:center;}
 .obj-mon-b.on .obj-mon-n{color:var(--n);}
+/* Cuántas clases trabajan el objetivo. El cero va en ámbar porque es lo accionable:
+   un objetivo abierto que ninguna clase persigue es una intención, no un plan. */
+.obj-mon-clases{font-size:10px;line-height:1.2;color:var(--grl);text-align:center;margin-top:1px;}
+.obj-mon-clases.cero,.obj-mon-clases .cero{color:#8A6410;font-weight:500;}
 
 /* Tarjetas de la biblioteca de OBJETIVOS. Más grandes que las de ejercicio a propósito:
    de un objetivo cuelgan las metas de todos los pacientes, y en lista su imagen quedaba

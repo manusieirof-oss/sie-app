@@ -37,6 +37,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    * que uno con tres sesiones detrás.
    */
   const [sesionesPac, setSesionesPac] = useState<any[]>([])
+  /** Sus citas con la sesión que tienen asignada. Para saber qué se trabaja de verdad. */
+  const [citasPac, setCitasPac] = useState<any[]>([])
   const [menuTipo, setMenuTipo] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
   const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
@@ -131,6 +133,11 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
     supabase.from('sesiones').select('id,nombre,sesiones_objetivos(objetivo_id)').eq('paciente_id', pac.id)
       .then(({data}) => setSesionesPac(data||[]))
+    // Todas sus citas que cuentan como clase, pasadas y futuras. Las canceladas no: una
+    // clase que no se dio ni se va a dar no trabaja nada.
+    supabase.from('citas').select('id,fecha,estado,sesion_id').eq('paciente_id', pac.id)
+      .in('estado', ['programada','realizada']).order('fecha')
+      .then(({data}) => setCitasPac(data||[]))
     supabase.from('objetivos').select('id,nombre,descripcion,movimientos,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
@@ -204,6 +211,43 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       .filter(Boolean)
   )) as string[]
 
+  /**
+   * EN CUÁNTAS CLASES SE TRABAJA CADA OBJETIVO.
+   *
+   * La ficha ya decía "se trabaja en 3 sesiones", pero eso es tener la sesión guardada, no
+   * tenerla puesta en la agenda. Una sesión que persigue un objetivo y nunca se programa no
+   * trabaja nada, y esa diferencia no se veía por ninguna parte.
+   *
+   * Sale de cruzar cita → sesión → objetivos. No se guarda: cambiar la sesión de una cita
+   * lo recalcula solo, que es justo lo que un contador guardado no haría.
+   */
+  const clasesPorObjetivo = (() => {
+    const objsDeSesion: Record<string, string[]> = {}
+    ;(sesionesPac||[]).forEach((s:any)=>{
+      objsDeSesion[s.id] = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
+    })
+    const hoy = hoyISO()
+    const cuenta: Record<string, {total:number, porDelante:number}> = {}
+    ;(citasPac||[]).forEach((c:any)=>{
+      if (!c.sesion_id) return
+      for (const oid of (objsDeSesion[c.sesion_id]||[])) {
+        const r = cuenta[oid] || (cuenta[oid] = { total:0, porDelante:0 })
+        r.total++
+        if (c.fecha >= hoy) r.porDelante++
+      }
+    })
+    return cuenta
+  })()
+
+  /**
+   * ¿Tiene clases sin sesión asignada?
+   *
+   * Distingue dos problemas que se ven igual: que sus sesiones no persigan un objetivo, o
+   * que las clases no tengan sesión puesta. El arreglo es distinto en cada caso, así que
+   * el aviso tiene que decir cuál es.
+   */
+  const citasSinSesion = (citasPac||[]).filter((c:any)=>!c.sesion_id).length
+
   /** El aro de la moneda: gris si está logrado, si no el color del objetivo. */
   const monedaDe = (o:any, grande=false) => (
     <span className={`obj-moneda${grande?' g':''}`} style={{
@@ -236,6 +280,28 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         {/* Uno por línea. Juntos con puntos se leían como una frase larga y no como lo que
             son: objetivos distintos, cada uno con su propio recorrido. */}
         {esp.map((e:string) => <span key={e} className="obj-mon-n">{e}</span>)}
+        {/*
+          EN CUÁNTAS CLASES SE TRABAJA. El aviso va en el CERO, no en los que sí se
+          trabajan: con ocho objetivos, colorear los buenos obliga a buscar el que no
+          tiene color entre siete que sí. Lo que hay que ver de un vistazo es el hueco.
+        */}
+        {!o.logrado && (() => {
+          const c = clasesPorObjetivo[o.id]
+          if (!c) return (
+            <span className="obj-mon-clases cero" title={citasSinSesion > 0
+              ? `Ninguna clase lo trabaja. Tiene ${citasSinSesion} clase${citasSinSesion===1?'':'s'} sin sesión asignada.`
+              : 'Ninguna de sus clases trabaja este objetivo.'}>
+              sin clases
+            </span>
+          )
+          return (
+            <span className="obj-mon-clases"
+              title={`${c.total} clase${c.total===1?'':'s'} lo trabajan · ${c.porDelante} por delante`}>
+              {c.total} {c.total===1?'clase':'clases'}
+              {c.porDelante === 0 && <span className="cero"> · ya pasadas</span>}
+            </span>
+          )
+        })()}
       </button>
     )
   }
