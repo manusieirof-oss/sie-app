@@ -27,6 +27,18 @@ export default function ModoClase() {
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
   const [ctxPorPaciente, setCtxPorPaciente] = useState<Record<string,any>>({})
+  const [objsDeSesion, setObjsDeSesion] = useState<Record<string,any[]>>({})
+
+  async function cargarObjsDeSesion(sesionId: string) {
+    if (!sesionId) return
+    const { data: rel } = await supabase.from('sesiones_objetivos')
+      .select('objetivo_id').eq('sesion_id', sesionId)
+    const ids = (rel||[]).map((r:any)=>r.objetivo_id).filter(Boolean)
+    if (ids.length===0) { setObjsDeSesion(prev => ({ ...prev, [sesionId]: [] })); return }
+    const { data: objs } = await supabase.from('objetivos')
+      .select('id,nombre').in('id', ids)
+    setObjsDeSesion(prev => ({ ...prev, [sesionId]: objs||[] }))
+  }
   const [ctxAbierto, setCtxAbierto] = useState<string>('')
   const [pendientes, setPendientes] = useState(0)
   const [ultimoGuardado, setUltimoGuardado] = useState<Date|null>(null)
@@ -219,6 +231,7 @@ export default function ModoClase() {
 
   // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
   async function cargarDatosSesion(pid: string, ses: any) {
+    if (ses?.id) cargarObjsDeSesion(ses.id)
     const ejs: any[] = []
     ;(ses.partes||[]).forEach((parte:any)=>{
       ;(parte.ejercicios||[]).forEach((ej:any)=>{
@@ -604,15 +617,17 @@ export default function ModoClase() {
       ) : (
         <div className="card">
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:400,color:'var(--n)'}}>
-                {nombrePac(act.paciente)}
+            <div style={{minWidth:0,flexShrink:0}}>
+              <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                <span>{nombrePac(act.paciente)}</span>
                 {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
                 {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
               </div>
+            </div>
+            <div style={{flex:1,display:'flex',justifyContent:'center'}}>
               {(() => {
                 const ctx = ctxPorPaciente[act.paciente.id] || {}
-                const objsSesion = (act.objetivosSesion||[])
+                const objsSesion = (objsDeSesion[act.sesionId]||act.objetivosSesion||[])
                 const grupos:any[] = [
                   { k:'objetivos', icon:'objetivo', label:'Objetivos de la sesión', items:objsSesion, color:'var(--g)' },
                   { k:'patologias', icon:'patologia', label:'Patologías', items:(ctx.patologias||[]), color:'var(--red)' },
@@ -621,17 +636,17 @@ export default function ModoClase() {
                 ].filter(g=>g.items.length>0)
                 if (grupos.length===0) return null
                 return (
-                  <div style={{marginTop:6}}>
-                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:9}}>
+                    <div style={{display:'flex',gap:9,alignItems:'center'}}>
                       {grupos.map(g=>{
                         const abierto = ctxAbierto===g.k
                         return (
                           <span key={g.k} onClick={()=>setCtxAbierto(abierto?'':g.k)} title={g.label}
-                            style={{width:26,height:26,borderRadius:'50%',cursor:'pointer',flexShrink:0,
-                              background:abierto?g.color:'var(--w)',color:abierto?'#fff':g.color,border:'1.5px solid '+g.color,
+                            style={{width:38,height:38,borderRadius:'50%',cursor:'pointer',flexShrink:0,
+                              background:abierto?g.color:'var(--w)',color:abierto?'#fff':g.color,border:'2px solid '+g.color,
                               display:'inline-flex',alignItems:'center',justifyContent:'center',gap:2,fontSize:9,fontWeight:600,position:'relative'}}>
-                            <Ic name={g.icon} size={11}/>
-                            <span style={{position:'absolute',top:-3,right:-3,minWidth:13,height:13,borderRadius:'50%',background:g.color,color:'#fff',fontSize:8,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 3px'}}>{g.items.length}</span>
+                            <Ic name={g.icon} size={17}/>
+                            <span style={{position:'absolute',top:-4,right:-4,minWidth:17,height:17,borderRadius:'50%',background:g.color,color:'#fff',fontSize:10,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px',border:'2px solid var(--w)'}}>{g.items.length}</span>
                           </span>
                         )
                       })}
