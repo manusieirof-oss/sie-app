@@ -472,6 +472,12 @@ export default function AgendaPage() {
   const alertasHoy=(alertasPaciente||[]).filter((a:any)=>pacsHoy.has(a.paciente_id))
   const tareasPend=(tareas||[]).filter((t:any)=>!t.completada)
   const nombrePacDe=(pid:string)=>{const c=citas.find((x:any)=>x.paciente_id===pid);return c?.pacientes?`${c.pacientes.nombre} ${c.pacientes.apellidos||''}`.trim():''}
+  // Las alertas se leen siguiendo el día: agrupadas por paciente (las dos suyas juntas)
+  // y en el orden en que van llegando, de primera a última hora.
+  const horaPacHoy=(pid:string)=>citasHoyActivas.filter((c:any)=>c.paciente_id===pid).map((c:any)=>(c.hora||'').slice(0,5)).sort()[0]||'99:99'
+  const alertasPorPaciente=Array.from(new Set(alertasHoy.map((a:any)=>a.paciente_id)))
+    .map((pid:any)=>({pid,nombre:nombrePacDe(pid),hora:horaPacHoy(pid),items:alertasHoy.filter((a:any)=>a.paciente_id===pid)}))
+    .sort((a,b)=>a.hora.localeCompare(b.hora)||a.nombre.localeCompare(b.nombre))
   const tipoActivo=(v:string)=>tiposFiltro.length===0||tiposFiltro.includes(v)
   const toggleTipo=(v:string)=>setTiposFiltro(prev=>prev.length===0?[v]:prev.includes(v)?prev.filter(x=>x!==v):[...prev,v])
 
@@ -570,11 +576,22 @@ export default function AgendaPage() {
         <div className="card" style={{padding:'12px 14px',marginBottom:10}}>
           <div className="card-title" style={{marginBottom:10}}><span className="ct-l"><Ic name="alerta"/> Alertas de hoy</span><span style={{fontSize:10,color:'var(--grl)',cursor:'pointer',fontWeight:400,textTransform:'none',letterSpacing:0}} onClick={()=>setPanelAbierto(null)}>Cerrar</span></div>
           {alertasHoy.length===0 ? <div style={{fontSize:11,color:'var(--grl)'}}>Ningún paciente de hoy tiene alertas activas.</div> : (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:7}}>
-              {alertasHoy.map((a:any)=>(
-                <div key={a.id} style={{borderRadius:7,padding:'7px 10px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)'}}>
-                  <div style={{fontSize:10,color:a.afecta_sesion?'var(--red)':'var(--gd)',fontWeight:500,marginBottom:2}}>{nombrePacDe(a.paciente_id)}{a.afecta_sesion&&' · afecta sesión'}</div>
-                  <div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</div>
+            <div style={{maxHeight:'46vh',overflowY:'auto',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:8,alignItems:'start',paddingRight:2}}>
+              {alertasPorPaciente.map(g=>(
+                <div key={g.pid} style={{border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',overflow:'hidden'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,padding:'6px 9px',background:'var(--bl)',borderBottom:'1px solid var(--bd)'}}>
+                    <span style={{fontSize:10,fontWeight:600,color:'var(--gd)',background:'var(--gl)',borderRadius:99,padding:'2px 8px',flexShrink:0}}>{g.hora==='99:99'?'—':g.hora}</span>
+                    <span style={{fontSize:11,fontWeight:500,color:'var(--n)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{g.nombre}</span>
+                    {g.items.length>1&&<span style={{marginLeft:'auto',fontSize:9,color:'var(--grl)',flexShrink:0}}>{g.items.length}</span>}
+                  </div>
+                  <div style={{padding:'6px 8px',display:'flex',flexDirection:'column',gap:5}}>
+                    {g.items.map((a:any)=>(
+                      <div key={a.id} style={{borderRadius:6,padding:'6px 9px',borderLeft:`2px solid ${a.afecta_sesion?'var(--red)':'var(--g)'}`,background:a.afecta_sesion?'var(--redl)':'var(--gl)'}}>
+                        {a.afecta_sesion&&<div style={{fontSize:9,color:'var(--red)',fontWeight:600,marginBottom:2}}>Afecta sesión</div>}
+                        <div style={{fontSize:11,color:'var(--n)',fontWeight:300,lineHeight:1.4}}>{a.descripcion}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
