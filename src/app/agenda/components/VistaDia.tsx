@@ -39,7 +39,10 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
   const PAUSA_INICIO = pausaInicio || '12:30'
   const PAUSA_FIN = pausaFin || '15:30'
   const SALAS = salaFiltro==='ambas' ? salas : [salaFiltro]
-  const GT = '56px '+SALAS.map(()=>'1fr').join(' ')
+  // minmax(0,1fr) y no 1fr: con 1fr el mínimo es el contenido, así que una sala con
+  // nombres largos (o los selects en tablet) le robaba ancho a la otra y las columnas
+  // dejaban de medir lo mismo.
+  const GT = '56px '+SALAS.map(()=>'minmax(0,1fr)').join(' ')
   const filtrando = (tiposFiltro?.length||0) > 0
   const [alertasExpand, setAlertasExpand] = useState(false)
 
@@ -92,11 +95,16 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
           <div/>
           {SALAS.map(s=><div key={s} style={{fontSize:11,fontWeight:600,color:'var(--gd)',padding:'9px 10px',textAlign:'center',letterSpacing:.4,borderLeft:'1px solid var(--bd)'}}>Sala {s}</div>)}
         </div>
-        {HORAS.map(h=>(
+        {HORAS.map(h=>{
+          // Hora sin nadie en ninguna sala: ocupa menos. En tablet, con la agenda medio
+          // vacía, esas filas se comían la pantalla y había que hacer scroll para llegar
+          // a las horas que sí tienen gente.
+          const horaVacia = SALAS.every(s=>getCitasSlot(h,s).length===0)
+          return (
           <div key={h}>
             {h===PAUSA_FIN&&<div style={{padding:'5px 12px',background:'var(--gl)',borderBottom:'1px solid var(--bd)',fontSize:11,color:'var(--gd)',display:'flex',alignItems:'center',gap:6}}><Ic name="pausa" size={12}/> Pausa · {PAUSA_INICIO}–{PAUSA_FIN}</div>}
             <div style={{display:'grid',gridTemplateColumns:GT,borderBottom:'1px solid var(--bl)'}}>
-              <div style={{fontSize:13,color:'var(--gr)',padding:'10px 8px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:500}}>{h}</div>
+              <div style={{fontSize:horaVacia?12:13,color:horaVacia?'var(--grl)':'var(--gr)',padding:horaVacia?'6px 8px':'10px 8px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:500}}>{h}</div>
               {SALAS.map(sala=>{
                 const scAll=getCitasSlot(h,sala)
                 const scActivas=scAll.filter((c:any)=>c.estado!=='cancelada').sort((a:any,b:any)=>(a.estado==='falta'?1:0)-(b.estado==='falta'?1:0))
@@ -112,13 +120,14 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                   </div>
                 )
                 if (sc.length===0 && scCanceladas.length===0) {
+                  const alto = horaVacia ? 26 : 44
                   return (
-                    <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:6,minHeight:52}}>
+                    <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:horaVacia?4:6,minHeight:horaVacia?34:52,minWidth:0}}>
                       {filtrando ? (
-                        <div style={{border:'1px dashed var(--bd2)',borderRadius:8,minHeight:44,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'var(--bm)'}}>·</div>
+                        <div style={{border:'1px dashed var(--bd2)',borderRadius:8,minHeight:alto,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'var(--bm)'}}>·</div>
                       ):(
                         <div onClick={()=>abrirNueva(h,sala)}
-                          style={{border:'1.5px dashed var(--bm)',borderRadius:8,minHeight:44,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--grl)',cursor:'pointer',transition:'all .12s'}}
+                          style={{border:'1.5px dashed var(--bm)',borderRadius:8,minHeight:alto,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--grl)',cursor:'pointer',transition:'all .12s'}}
                           onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)';el.style.background='var(--gl)'}}
                           onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)';el.style.background=''}}>
                           + libre
@@ -128,7 +137,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                   )
                 }
                 return (
-                  <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:6,minHeight:52}}>
+                  <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:6,minHeight:52,minWidth:0}}>
                     <div style={{border:`1px solid ${sobre?'var(--amb)':'var(--bd)'}`,borderRadius:10,padding:'8px 9px',background:'var(--w)'}}>
                       {sc.length>0&&(
                         <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',marginBottom:7}}>
@@ -158,12 +167,15 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 )
               })}
             </div>
-            <div style={{display:'grid',gridTemplateColumns:GT,background:'var(--bl)'}}>
-              <div style={{borderRight:'1px solid var(--bm)'}}/>
-              <div style={{gridColumn:'2/-1',padding:'1px 8px',borderLeft:'1px solid var(--bm)',fontSize:8,color:'var(--grl)'}}>{DESCANSO} min cambio</div>
-            </div>
+            {!horaVacia && (
+              <div style={{display:'grid',gridTemplateColumns:GT,background:'var(--bl)'}}>
+                <div style={{borderRight:'1px solid var(--bm)'}}/>
+                <div style={{gridColumn:'2/-1',padding:'1px 8px',borderLeft:'1px solid var(--bm)',fontSize:8,color:'var(--grl)'}}>{DESCANSO} min cambio</div>
+              </div>
+            )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* PANEL DERECHO */}

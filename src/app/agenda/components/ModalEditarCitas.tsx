@@ -10,10 +10,16 @@ export default function ModalEditarCitas({ citas, pacienteNombre, horas=[], sala
     }))
   )
   const [busy, setBusy] = useState(false)
+  // Lo que ya se ha aplicado en la base de datos mientras el modal está abierto.
+  // Cancelar y eliminar guardan al momento (no esperan al botón Guardar), así que
+  // hay que decirlo: si no, se pulsa Guardar esperando que "confirme" y no pasa nada.
+  const [hechas, setHechas] = useState({ canceladas: 0, eliminadas: 0 })
+  const [flash, setFlash] = useState('')
+  const avisar = (t:string) => { setFlash(t); setTimeout(()=>setFlash(''), 2600) }
   const GT = '1.2fr 0.8fr 0.7fr 1fr 82px'
-  const cancelarCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'cancelada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'cancelada'}:x)); setBusy(false) }
-  const deshacerCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'programada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'programada'}:x)); setBusy(false) }
-  const eliminarUna = async (r:any) => { if(!onEliminar) return; if(!confirm('¿Eliminar esta cita definitivamente? Se usa para errores: no guarda falta ni recuperación.')) return; setBusy(true); await onEliminar(orig(r.id)); setRows(p=>p.filter(x=>x.id!==r.id)); setBusy(false) }
+  const cancelarCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'cancelada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'cancelada'}:x)); setHechas(h=>({...h,canceladas:h.canceladas+1})); avisar('Cita cancelada · se ha generado su recuperación'); setBusy(false) }
+  const deshacerCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'programada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'programada'}:x)); setHechas(h=>({...h,canceladas:Math.max(0,h.canceladas-1)})); avisar('Cancelación deshecha'); setBusy(false) }
+  const eliminarUna = async (r:any) => { if(!onEliminar) return; if(!confirm('¿Eliminar esta cita definitivamente? Se usa para errores: no guarda falta ni recuperación.')) return; setBusy(true); await onEliminar(orig(r.id)); setRows(p=>p.filter(x=>x.id!==r.id)); setHechas(h=>({...h,eliminadas:h.eliminadas+1})); avisar('Cita eliminada'); setBusy(false) }
   const HORAS = horas && horas.length>0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
   const set = (id:string, k:string, v:string) => setRows(p=>p.map(r=>r.id===id?{...r,[k]:v}:r))
@@ -43,10 +49,17 @@ export default function ModalEditarCitas({ citas, pacienteNombre, horas=[], sala
             const dis = guardando || busy || cancel
             return (
               <div key={r.id} style={{display:'grid',gridTemplateColumns:GT,gap:6,alignItems:'center',padding:'5px 4px',borderRadius:7,marginBottom:3,background:cancel?'var(--redl)':(cambiada(r)?'var(--gl)':'transparent')}}>
-                <div style={{display:'flex',alignItems:'center',gap:5,opacity:cancel?0.6:1}}>
-                  <input type="date" className="input" value={r.fecha} onChange={e=>set(r.id,'fecha',e.target.value)} disabled={dis} style={{fontSize:11,padding:'5px 7px'}}/>
-                  <span style={{fontSize:9,color:'var(--grl)',width:24,flexShrink:0,textTransform:'capitalize'}}>{diaSemana(r.fecha)}</span>
-                </div>
+                {cancel ? (
+                  <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                    <span style={{fontSize:11,color:'var(--red)',textDecoration:'line-through',whiteSpace:'nowrap'}}>{new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
+                    <span style={{fontSize:8,fontWeight:600,color:'var(--red)',background:'var(--w)',border:'1px solid var(--red)',borderRadius:99,padding:'1px 7px',flexShrink:0}}>CANCELADA</span>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <input type="date" className="input" value={r.fecha} onChange={e=>set(r.id,'fecha',e.target.value)} disabled={dis} style={{fontSize:11,padding:'5px 7px'}}/>
+                    <span style={{fontSize:9,color:'var(--grl)',width:24,flexShrink:0,textTransform:'capitalize'}}>{diaSemana(r.fecha)}</span>
+                  </div>
+                )}
                 <select className="input" value={r.hora} onChange={e=>set(r.id,'hora',e.target.value)} disabled={dis} style={{fontSize:11,padding:'5px 7px',opacity:cancel?0.6:1}}>
                   {!HORAS.includes(r.hora)&&<option value={r.hora}>{r.hora}</option>}
                   {HORAS.map((h:string)=><option key={h} value={h}>{h}</option>)}
@@ -76,13 +89,31 @@ export default function ModalEditarCitas({ citas, pacienteNombre, horas=[], sala
           })}
         </div>
 
+        {flash && (
+          <div style={{marginTop:10,fontSize:10,color:'var(--gd)',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'6px 10px',display:'flex',alignItems:'center',gap:6}}>
+            <Ic name="ok" size={12}/> {flash}
+          </div>
+        )}
+        {(hechas.canceladas>0||hechas.eliminadas>0) && (
+          <div style={{marginTop:8,fontSize:10,color:'var(--gr)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+            <span style={{fontWeight:600,color:'var(--n)'}}>Ya aplicado:</span>
+            {hechas.canceladas>0&&<span style={{color:'#8A6410'}}>{hechas.canceladas} cancelada{hechas.canceladas>1?'s':''}</span>}
+            {hechas.eliminadas>0&&<span style={{color:'var(--red)'}}>{hechas.eliminadas} eliminada{hechas.eliminadas>1?'s':''}</span>}
+            <span style={{color:'var(--grl)'}}>· ya guardado, no hace falta pulsar Guardar</span>
+          </div>
+        )}
+
         <div style={{display:'flex',gap:8,marginTop:14,alignItems:'center'}}>
-          <span style={{fontSize:10,color:'var(--grl)'}}>{nCambios>0?`${nCambios} cita${nCambios>1?'s':''} con cambios`:'Sin cambios'}</span>
+          <span style={{fontSize:10,color:'var(--grl)'}}>{nCambios>0?`${nCambios} cita${nCambios>1?'s':''} con cambios sin guardar`:'Sin cambios pendientes'}</span>
           <div style={{flex:1}}/>
-          <button className="btn btn-d btn-sm" onClick={()=>{if(!guardando)onCerrar()}} disabled={guardando}>Cancelar</button>
-          <button className="btn btn-p" onClick={()=>onGuardar(rows.filter(cambiada))} disabled={guardando||nCambios===0}>
-            {guardando?'Guardando…':`✓ Guardar ${nCambios>0?`(${nCambios})`:''}`}
-          </button>
+          <button className="btn btn-d btn-sm" onClick={()=>{if(!guardando)onCerrar()}} disabled={guardando}>{nCambios>0?'Descartar':'Cancelar'}</button>
+          {nCambios>0 ? (
+            <button className="btn btn-p" onClick={()=>onGuardar(rows.filter(cambiada))} disabled={guardando}>
+              {guardando?'Guardando…':`✓ Guardar (${nCambios})`}
+            </button>
+          ) : (
+            <button className="btn btn-p" onClick={()=>{if(!guardando)onCerrar()}} disabled={guardando}>✓ Hecho</button>
+          )}
         </div>
       </div>
     </div>
