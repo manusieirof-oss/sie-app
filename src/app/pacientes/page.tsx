@@ -453,6 +453,18 @@ export default function PacientesPage() {
                   <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.email || p.telefono || '—'}</div>
                 </div>
+                {/* CACTUS · la habilidad. Se pulsa directamente en la lista. */}
+                <div style={{padding:'8px 6px',borderLeft:'1px solid var(--bl)',display:'flex',gap:1,alignItems:'center'}}
+                  onClick={e=>{e.preventDefault();e.stopPropagation()}}>
+                  {[1,2,3].map(n=>(
+                    <button key={n} title={`${n} · ${CACTUS_TXT[n]}`}
+                      onClick={()=>ponerCactus(p,n)}
+                      style={{background:'none',border:'none',padding:2,cursor:'pointer',lineHeight:0,
+                        color: (p.cactus||0) >= n ? '#7C9A6B' : 'var(--bd)'}}>
+                      <Ic name="cactus" size={15}/>
+                    </button>
+                  ))}
+                </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   <span style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:estadoBadge[p.estado]?.bg||'var(--bl)',color:estadoBadge[p.estado]?.col||'var(--gr)'}}>{estadoBadge[p.estado]?.txt||p.estado}</span>
                   {/* Cuánto hace que no viene, solo en los que pueden volver:
@@ -486,18 +498,6 @@ export default function PacientesPage() {
                   {esReciente(p) && (
                     <div style={{fontSize:8,marginTop:2,color:'var(--gd)',fontWeight:600}}>reciente</div>
                   )}
-                </div>
-                {/* CACTUS · la habilidad. Se pulsa directamente en la lista. */}
-                <div style={{padding:'8px 6px',borderLeft:'1px solid var(--bl)',display:'flex',gap:1,alignItems:'center'}}
-                  onClick={e=>{e.preventDefault();e.stopPropagation()}}>
-                  {[1,2,3].map(n=>(
-                    <button key={n} title={`${n} · ${CACTUS_TXT[n]}`}
-                      onClick={()=>ponerCactus(p,n)}
-                      style={{background:'none',border:'none',padding:2,cursor:'pointer',lineHeight:0,
-                        color: (p.cactus||0) >= n ? '#7C9A6B' : 'var(--bd)'}}>
-                      <Ic name="cactus" size={15}/>
-                    </button>
-                  ))}
                 </div>
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
