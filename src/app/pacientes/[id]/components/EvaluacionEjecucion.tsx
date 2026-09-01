@@ -19,25 +19,24 @@ export default function EvaluacionEjecucion({ pacienteId }: { pacienteId: string
 
   async function cargar() {
     setLoading(true)
-    const { data: regs } = await supabase.from('registros_ejercicio')
-      .select('ejercicio_id,ejercicio_nombre,fecha,items_evaluados,comentario,created_at')
+    // La ejecución es del paciente y del ejercicio, no de la sesión: una fila por par.
+    const { data: regs } = await supabase.from('ejecucion_paciente')
+      .select('ejercicio_id,items,fecha')
       .eq('paciente_id', pacienteId)
-      .order('fecha', { ascending: false }).order('created_at', { ascending: false })
-      .limit(400)
+      .order('fecha', { ascending: false })
 
-    // La primera de cada ejercicio es la más reciente: la consulta ya viene ordenada.
     const porEjercicio: Record<string, any> = {}
     ;(regs || []).forEach((r: any) => {
       if (!r.ejercicio_id) return
-      if (Object.keys(r.items_evaluados || {}).length === 0) return
-      if (!porEjercicio[r.ejercicio_id]) porEjercicio[r.ejercicio_id] = r
+      if (Object.keys(r.items || {}).length === 0) return
+      porEjercicio[r.ejercicio_id] = { ...r, items_evaluados: r.items, comentario: '' }
     })
 
     const ids = Object.keys(porEjercicio)
     if (ids.length === 0) { setEvals([]); setLoading(false); return }
 
     const { data: ejs } = await supabase.from('ejercicios')
-      .select('id,items_ejecucion,imagen_url,video_url').in('id', ids)
+      .select('id,nombre,items_ejecucion,imagen_url,video_url').in('id', ids)
     const bib: Record<string, any> = {}
     ;(ejs || []).forEach((e: any) => { bib[e.id] = e })
 
@@ -47,7 +46,7 @@ export default function EvaluacionEjecucion({ pacienteId }: { pacienteId: string
       const { items, huerfanos, dudoso } = leerItems(r.items_evaluados, e.items_ejecucion || [])
       return {
         ejercicio_id: id,
-        nombre: r.ejercicio_nombre,
+        nombre: e.nombre || '—',
         fecha: r.fecha,
         comentario: r.comentario || '',
         imagen_url: e.imagen_url || '',

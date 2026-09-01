@@ -258,6 +258,10 @@ export default function ModoClase() {
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
       ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
+      const { data: ejec } = await supabase.from('ejecucion_paciente')
+        .select('ejercicio_id,items,fecha').eq('paciente_id', pid).in('ejercicio_id', ids)
+      const ejecMap:Record<string,any>={}
+      ;(ejec||[]).forEach((r:any)=>{ ejecMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
         .select('ejercicio_id,series,comentario,items_evaluados')
         .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).in('ejercicio_id', ids)
@@ -267,8 +271,10 @@ export default function ModoClase() {
         if (e.ejercicio_id){
           e.ultimo = ultMap[e.ejercicio_id]?.series || null
           e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
-          e.ultimaEval = ultMap[e.ejercicio_id]?.items_evaluados || null
-          e.ultimaEvalFecha = ultMap[e.ejercicio_id]?.fecha || null
+          const ejec = ejecMap[e.ejercicio_id]
+          e.ultimaEval = ejec?.items || null
+          e.ultimaEvalFecha = ejec?.fecha || null
+          e.items_evaluados = ejec?.items ? { ...ejec.items } : (e.items_evaluados || {})
           // precargar lo de la ultima vez como punto de partida editable
           if (Array.isArray(e.ultimo) && e.ultimo.length>0) {
             e.series = e.series.map((orig:any, idx:number) => {
@@ -462,6 +468,7 @@ export default function ModoClase() {
       const iv=alternarItem(datos[ei].items_evaluados, texto)
       datos[ei]={...datos[ei],items_evaluados:iv,guardado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
+      guardarEjecucion(pid, datos[ei].ejercicio_id, iv)
       const ej = datos[ei]
       const item = (ej.items||[])[ii]
       const cumplido = iv[texto]===true
@@ -470,6 +477,15 @@ export default function ModoClase() {
       }
       return {...s,datos}
     }))
+  }
+
+  async function guardarEjecucion(pid:string, ejercicioId:string, items:any){
+    if (!ejercicioId) return
+    const { error } = await supabase.from('ejecucion_paciente').upsert({
+      paciente_id: pid, ejercicio_id: ejercicioId, items,
+      fecha: new Date().toISOString().slice(0,10), updated_at: new Date().toISOString(),
+    }, { onConflict: 'paciente_id,ejercicio_id' })
+    if (error) console.error('guardarEjecucion', error.message)
   }
 
   function marcarTodosItems(pid:string, ei:number, valor:boolean){
@@ -484,6 +500,7 @@ export default function ModoClase() {
       })
       datos[ei]={...ej,items_evaluados:valor?iv:{},guardado:false,precargado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
+      guardarEjecucion(pid, ej.ejercicio_id, valor?iv:{})
       return {...s,datos}
     }))
   }
