@@ -1,12 +1,64 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
+import { catalogoDeObjetivos, sugerencias, type ObjetivoPedido } from '@/lib/objetivosPide'
+
+/**
+ * Un objetivo del paciente, con lo que ya ha pedido otra gente a mano.
+ *
+ * El campo sigue siendo texto libre —nadie va a encajar su vida en una lista cerrada— pero
+ * al escribir sugiere lo ya dicho. Es lo único que hace que "bajar de peso" y "perder peso"
+ * acaben siendo la misma cosa: con texto libre a secas no se juntan jamás, y entonces no
+ * hay forma de saber qué pide la gente de verdad.
+ */
+function CampoObjetivo({ label, valor, onCambio, placeholder, catalogo }: {
+  label: string, valor: string, onCambio: (v: string) => void,
+  placeholder: string, catalogo: ObjetivoPedido[],
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const lista = abierto ? sugerencias(catalogo, valor) : []
+  return (
+    <div className="field" style={{ position: 'relative' }}>
+      <label>{label}</label>
+      <input className="input" value={valor} placeholder={placeholder}
+        onChange={e => onCambio(e.target.value)}
+        onFocus={() => setAbierto(true)}
+        // Con retraso: sin él, el clic sobre una sugerencia cierra la lista antes de que
+        // el navegador llegue a registrar la pulsación y no se selecciona nada.
+        onBlur={() => setTimeout(() => setAbierto(false), 150)} />
+      {lista.length > 0 && (
+        <div style={{ position:'absolute', zIndex:20, left:0, right:0, background:'var(--w)',
+          border:'1px solid var(--bd)', borderRadius:'var(--r)', boxShadow:'var(--sh-md)',
+          marginTop:2, overflow:'hidden' }}>
+          {lista.map(o => (
+            <button key={o.texto} type="button"
+              onClick={() => { onCambio(o.texto); setAbierto(false) }}
+              style={{ display:'flex', width:'100%', alignItems:'center', gap:8, padding:'7px 11px',
+                background:'none', border:'none', cursor:'pointer', textAlign:'left',
+                fontSize:13, color:'var(--n)', fontFamily:'inherit' }}>
+              <span style={{ flex:1 }}>{o.texto}</span>
+              <span style={{ fontSize:11, color:'var(--grl)' }}>
+                {o.veces === 1 ? '1 persona' : `${o.veces} personas`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, tiposPlantilla, modo='inicial', previo=null }: any) {
   // En la revaloración el deporte y las plantillas se preguntan en el paso de
   // completar, junto al resto del historial: aquí solo estarían por segunda vez.
   const esRevaloracion = modo === 'revaloracion'
   const anterior = previo?.valoracion || null
+
+  // El catálogo se lee una vez al abrir el paso: es la lista de lo que ya ha pedido la
+  // gente, y no cambia mientras rellenas una valoración.
+  const [catalogo, setCatalogo] = useState<ObjetivoPedido[]>([])
+  useEffect(() => { catalogoDeObjetivos().then(setCatalogo) }, [])
   return (
     <div>
       <div className="card" style={{marginBottom:8}}>
@@ -36,9 +88,12 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
               ))}
             </div>
           )}
-          <div className="field"><label>Objetivo 1</label><input className="input" value={form.objetivo1} onChange={e=>up('objetivo1',e.target.value)} placeholder="ej. Reducir dolor de espalda"/></div>
-          <div className="field"><label>Objetivo 2</label><input className="input" value={form.objetivo2} onChange={e=>up('objetivo2',e.target.value)} placeholder="ej. Ganar fuerza"/></div>
-          <div className="field"><label>Objetivo 3</label><input className="input" value={form.objetivo3} onChange={e=>up('objetivo3',e.target.value)} placeholder="ej. Perder peso"/></div>
+          <CampoObjetivo label="Objetivo 1" valor={form.objetivo1} catalogo={catalogo}
+            onCambio={v=>up('objetivo1',v)} placeholder="ej. Reducir dolor de espalda"/>
+          <CampoObjetivo label="Objetivo 2" valor={form.objetivo2} catalogo={catalogo}
+            onCambio={v=>up('objetivo2',v)} placeholder="ej. Ganar fuerza"/>
+          <CampoObjetivo label="Objetivo 3" valor={form.objetivo3} catalogo={catalogo}
+            onCambio={v=>up('objetivo3',v)} placeholder="ej. Perder peso"/>
           <div className="field"><label>Si pudiera concederle un deseo ¿cuál sería?</label><textarea className="input" style={{minHeight:60}} value={form.deseo} onChange={e=>up('deseo',e.target.value)} placeholder="ej. Poder jugar con mis hijos sin dolor..."/></div>
         </div>
         <div className="card">
