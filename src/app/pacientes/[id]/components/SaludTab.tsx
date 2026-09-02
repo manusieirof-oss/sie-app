@@ -205,7 +205,10 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     // `biblioteca_id` es lo que convierte esta fila en algo relacionable. Sin él, la
     // molestia solo tiene el texto de `zona`, que unas veces viene de la biblioteca y
     // otras se teclea, y no hay forma fiable de saber cuál es cuál.
-    await supabase.from('molestias').insert({ paciente_id:id, zona:molConfig.zona, biblioteca_id:molConfig.biblioteca_id||null, tipo:molConfig.tipo, eva:molConfig.eva, lado:molConfig.lado||null, sensacion:molConfig.cuando||null, observaciones:molConfig.observaciones||null, activa:true })
+    // Mismo motivo que en la patología: sin leer el error, un fallo se ve igual que un
+    // acierto y el dato desaparece sin que nadie sepa por qué.
+    const { error } = await supabase.from('molestias').insert({ paciente_id:id, zona:molConfig.zona, biblioteca_id:molConfig.biblioteca_id||null, tipo:molConfig.tipo, eva:molConfig.eva, lado:molConfig.lado||null, sensacion:molConfig.cuando||null, observaciones:molConfig.observaciones||null, activa:true })
+    if (error) { setGuardando(false); alert('No se ha podido guardar la molestia:\n\n' + error.message); return }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'molestia', titulo:`Molestia: ${molConfig.zona}${molConfig.eva==null?'':` (EVA ${molConfig.eva}/10)`}`, descripcion:molConfig.observaciones||null, fecha:hoyISO() })
     setMolConfig(null); setGuardando(false); cargar()
   }
@@ -216,7 +219,11 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     // La ZONA se copia de la biblioteca al asignarla. Antes no se guardaba y el mapa
     // corporal tenía que deducirla del nombre —"Condropatía rotuliana" no contiene
     // "rodilla"—, así que media lista caía en "sin localizar".
-    await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, zona:patConfig.zona||null, biblioteca_id:patConfig.biblioteca_id||null, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
+    // SE LEE EL ERROR. Antes no se miraba, así que una patología que no llegaba a
+    // guardarse cerraba el modal como si todo hubiera ido bien y luego no aparecía en la
+    // ficha: parecía que la pantalla no se refrescaba, cuando no había nada que refrescar.
+    const { error } = await supabase.from('patologias').insert({ paciente_id:id, nombre:patConfig.nombre, zona:patConfig.zona||null, biblioteca_id:patConfig.biblioteca_id||null, lado:patConfig.lado||null, estado:patConfig.estado, descripcion:patConfig.observaciones||'', informe_url:patConfig.tiene_informe?'pendiente':null })
+    if (error) { setGuardando(false); alert('No se ha podido guardar la patología:\n\n' + error.message); return }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'patologia', titulo:`Patología: ${patConfig.nombre}`, descripcion:patConfig.observaciones||null, fecha:hoyISO() })
     setPatConfig(null); setGuardando(false); cargar()
   }
