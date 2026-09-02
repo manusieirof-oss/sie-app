@@ -18,6 +18,18 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 const COLOR: Record<string,string> = { F:'#5A969E', S:'#3E7179', R:'#C25B5B' }
 const LBL_TIPO: Record<string,string> = { completa:'Completa', simplificada:'Tique', rectificativa:'Rectificativa' }
 
+// Cómo se pagó. El orden es el del cuadre de caja: primero lo que hay que contar
+// a mano, después lo que sale del extracto del TPV, y luego lo demás.
+const LBL_PAGO: Record<string,string> = {
+  efectivo:'Efectivo', tarjeta:'Tarjeta', transferencia:'Transferencia',
+  domiciliacion:'Domiciliación', otro:'Otro',
+}
+const ORDEN_PAGO = ['efectivo','tarjeta','transferencia','domiciliacion','otro']
+const COLOR_PAGO: Record<string,string> = {
+  efectivo:'#7A5800', tarjeta:'#3E7179', transferencia:'#5A969E',
+  domiciliacion:'#5A969E', otro:'var(--grl)',
+}
+
 export default function FacturasPage() {
   const router = useRouter()
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
@@ -30,6 +42,8 @@ export default function FacturasPage() {
   const [mes, setMes] = useState(hoy.getMonth()+1)
   const [anio] = useState(hoy.getFullYear())
   const [busca, setBusca] = useState('')
+  // Filtro por forma de pago, para contar una sola vía de golpe.
+  const [pago, setPago] = useState('todas')
 
   const [facturas, setFacturas] = useState<any[]>([])
   const [rectificando, setRectificando] = useState<any>(null)
@@ -63,13 +77,37 @@ export default function FacturasPage() {
 
   const filtradas = useMemo(() => {
     const t = busca.trim().toLowerCase()
-    if (!t) return facturas
-    return facturas.filter(f => {
-      const p = f.cobros?.pacientes
-      const nombre = f.receptor_nombre || (p ? `${p.nombre} ${p.apellidos}` : '')
-      return nombre.toLowerCase().includes(t) || numeroFactura(f).toLowerCase().includes(t)
+    return facturas
+      // Aislar una forma de pago. Para contar el efectivo hay que ver SOLO el
+      // efectivo: buscándolo entre ciento cincuenta facturas se salta una.
+      .filter(f => pago === 'todas' || (f.cobros?.forma_pago || 'otro') === pago)
+      .filter(f => {
+        if (!t) return true
+        const p = f.cobros?.pacientes
+        const nombre = f.receptor_nombre || (p ? `${p.nombre} ${p.apellidos}` : '')
+        return nombre.toLowerCase().includes(t) || numeroFactura(f).toLowerCase().includes(t)
+      })
+  }, [facturas, busca, pago])
+
+  /**
+   * Cuánto entró por cada vía. Es lo que hace falta para cuadrar la caja: el
+   * efectivo se cuenta a mano y la tarjeta se compara con el extracto del TPV.
+   *
+   * Las rectificativas suman en negativo, y tiene que ser así: si devolviste 66 €
+   * en efectivo, en la caja hay 66 € menos. El desglose tiene que cuadrar con lo
+   * que hay en el cajón, no con lo que se facturó en bruto.
+   */
+  const porFormaPago = useMemo(() => {
+    const m = new Map<string, { total: number, n: number }>()
+    filtradas.forEach(f => {
+      const forma = f.cobros?.forma_pago || 'otro'
+      const acc = m.get(forma) || { total: 0, n: 0 }
+      acc.total += Number(f.total)
+      acc.n += 1
+      m.set(forma, acc)
     })
-  }, [facturas, busca])
+    return ORDEN_PAGO.filter(k => m.has(k)).map(k => ({ forma: k, ...m.get(k)! }))
+  }, [filtradas])
 
   const totales = useMemo(() => filtradas.reduce((a, f) => ({
     base: a.base + Number(f.base_total), cuota: a.cuota + Number(f.cuota_total), total: a.total + Number(f.total),
@@ -96,12 +134,40 @@ export default function FacturasPage() {
           {MESES.map((m,i)=><option key={m} value={i+1}>{m} {anio}</option>)}
         </select>
         <input className="input" style={{width:220}} placeholder="Buscar por paciente o número..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+        <select className="input" style={{width:'auto',padding:'6px 10px'}} value={pago} onChange={e=>setPago(e.target.value)}>
+          <option value="todas">Todas las formas de pago</option>
+          {ORDEN_PAGO.map(k=><option key={k} value={k}>{LBL_PAGO[k]}</option>)}
+        </select>
         <div style={{flex:1}}/>
         <span style={{fontSize:11,color:'var(--grl)'}}>
           {filtradas.length} {filtradas.length===1?'factura':'facturas'}
           {veTotales && <> · base {totales.base.toFixed(2)} € · IVA {totales.cuota.toFixed(2)} € · <strong style={{color:'var(--n)'}}>{totales.total.toFixed(2)} €</strong></>}
         </span>
       </div>
+
+      {/* CUADRE DE CAJA
+          Cuánto entró por cada vía. El efectivo se cuenta a mano al cerrar y la
+          tarjeta se compara con el extracto del TPV; sin esto había que abrir
+          factura por factura para saber cuál fue cuál.
+
+          Las rectificativas restan, y tiene que ser así: si devolviste 66 € en
+          efectivo, en el cajón hay 66 € menos. Esto cuadra con la caja, no con
+          lo facturado en bruto. */}
+      {veTotales && porFormaPago.length > 0 && (
+        <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+          {porFormaPago.map(fp => (
+            <div key={fp.forma} className="card" style={{margin:0,flex:'1 1 130px',textAlign:'center',padding:'10px 12px'}}>
+              <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>
+                {LBL_PAGO[fp.forma] || fp.forma}
+              </div>
+              <div style={{fontSize:20,fontWeight:300,color:COLOR_PAGO[fp.forma]||'var(--n)',marginTop:3}}>
+                {fp.total.toFixed(2)} €
+              </div>
+              <div style={{fontSize:8,color:'var(--grl)'}}>{fp.n} {fp.n===1?'factura':'facturas'}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {fallo && (
         <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:10,color:'var(--red)'}}>
@@ -137,6 +203,13 @@ export default function FacturasPage() {
               <div style={{fontSize:9,color:'var(--grl)'}}>
                 {new Date(f.fecha_expedicion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
                 {' · '}{LBL_TIPO[f.tipo] || f.tipo}
+                {/* Cómo se pagó, en cada fila: es lo que permite ir tachando
+                    contra el extracto del TPV sin abrir factura por factura. */}
+                {f.cobros?.forma_pago && (
+                  <span style={{color:COLOR_PAGO[f.cobros.forma_pago]||'var(--grl)',fontWeight:600}}>
+                    {' · '}{LBL_PAGO[f.cobros.forma_pago] || f.cobros.forma_pago}
+                  </span>
+                )}
                 {f.rectifica_motivo ? ` · ${f.rectifica_motivo}` : ''}
               </div>
             </div>
