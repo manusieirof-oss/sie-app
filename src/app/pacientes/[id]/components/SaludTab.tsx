@@ -213,6 +213,27 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     setMolConfig(null); setGuardando(false); cargar()
   }
 
+  /**
+   * BORRAR NO ES RESOLVER, y hacían falta las dos.
+   *
+   * "Resolver" dice que la persona lo superó: es historia clínica y tiene que quedarse.
+   * Borrar es para lo que nunca existió —una patología apuntada en la ficha equivocada, un
+   * nombre mal elegido— y eso no se arregla marcándolo como resuelto: dejaría en su
+   * historial una lesión que no tuvo.
+   *
+   * Se avisa de que no es lo mismo y se pide confirmación, porque desde la lista los dos
+   * botones están a un centímetro.
+   */
+  async function borrarClinico(tabla: string, fila: any, etiqueta: string) {
+    if (!confirm(
+      `¿Borrar "${etiqueta}" de su ficha?\n\n` +
+      `Esto es para cuando se apuntó POR ERROR: desaparece sin dejar rastro.\n` +
+      `Si lo que pasa es que ya lo superó, cierra esto y usa "Resolver", que sí lo conserva en su historial.`)) return
+    const { error } = await supabase.from(tabla).delete().eq('id', fila.id)
+    if (error) { alert('No se ha podido borrar:\n\n' + error.message); return }
+    cargar()
+  }
+
   async function guardarPatologia() {
     if (!patConfig) return
     setGuardando(true)
@@ -391,6 +412,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                     <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>{m.eva==null?'Sin EVA':`EVA ${m.eva}/10`} · {LBL_TIPO_MOL[m.tipo]||m.tipo?.replace('_',' ')}</div>
                   </div>
                   <button className="btn btn-t btn-sm" onClick={()=>toggleMolestia(m.id,m.activa)}>Resolver</button>
+                  <button className="fila-x" title="Se apuntó por error · borrar"
+                    onClick={()=>borrarClinico('molestias', m, m.zona)}><Ic name="papelera" size={13}/></button>
                 </div>
               ))}
               {molResueltas.length>0 && (
@@ -402,6 +425,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                         <div style={{fontSize:13,color:'var(--gr)'}}>{m.zona}</div>
                       </div>
                       <button className="btn btn-t btn-sm" onClick={()=>toggleMolestia(m.id,m.activa)}>Reactivar</button>
+                      <button className="fila-x" title="Se apuntó por error · borrar"
+                        onClick={()=>borrarClinico('molestias', m, m.zona)}><Ic name="papelera" size={13}/></button>
                     </div>
                   ))}
                 </details>
@@ -427,6 +452,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                     <option value="cronica">Crónica</option>
                     <option value="resuelta">Resuelta</option>
                   </select>
+                  <button className="fila-x" title="Se apuntó por error · borrar"
+                    onClick={()=>borrarClinico('patologias', p, p.nombre)}><Ic name="papelera" size={13}/></button>
                 </div>
               ))}
               {patResueltas.length>0 && (
@@ -438,6 +465,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                         <div style={{fontSize:13,color:'var(--gr)'}}>{p.nombre}</div>
                       </div>
                       <button className="btn btn-t btn-sm" onClick={()=>cambiarEstadoPatologia(p.id,p.nombre,'activa')}>Reactivar</button>
+                      <button className="fila-x" title="Se apuntó por error · borrar"
+                        onClick={()=>borrarClinico('patologias', p, p.nombre)}><Ic name="papelera" size={13}/></button>
                     </div>
                   ))}
                 </details>
