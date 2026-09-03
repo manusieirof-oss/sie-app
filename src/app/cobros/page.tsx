@@ -72,6 +72,19 @@ export default function CobrosPage() {
    * limitarlo con políticas en la base de datos.
    */
   const [veImportes, setVeImportes] = useState(false)
+  /**
+   * Pacientes que YA NO son clientes pero tienen cuota de este mes.
+   *
+   * Quien se da de baja empezado el mes conserva su cuota —el mes empezado se cobra— pero
+   * Cobros solo cargaba activos y en pausa, así que su fila se caía de la lista al no
+   * encontrar al paciente. La deuda seguía en la base y no la veía nadie: no se podía
+   * cobrar ni marcar impago, y desaparecía del pendiente sin que nadie lo decidiera.
+   *
+   * Van aparte de `pacientes` a propósito: esa lista es la de clientes y de ella sale
+   * "Sin cuota". Meter aquí a los de baja los acusaría de no tener bono cuando lo que
+   * pasa es que ya no son clientes.
+   */
+  const [exClientes, setExClientes] = useState<any[]>([])
 
   async function verificar() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -159,6 +172,19 @@ export default function CobrosPage() {
     }
 
     setFallos(errs)
+    // Los que tienen bono del mes y no están en la lista de clientes: se cargan aparte
+    // para que su fila no se caiga. Una deuda no se cancela porque alguien deje de venir.
+    const idsClientes = new Set((rp.data || []).map((x: any) => x.id))
+    const faltan = Array.from(new Set((rb.data || [])
+      .map((b: any) => b.paciente_id)
+      .filter((pid: string) => pid && !idsClientes.has(pid))))
+    if (faltan.length > 0) {
+      const rex = await supabase.from('pacientes')
+        .select('id,nombre,apellidos,dni,estado').in('id', faltan)
+      if (rex.error) errs.push(`ex clientes: ${rex.error.message}`)
+      setExClientes(rex.data || [])
+    } else setExClientes([])
+
     setPacientes(rp.data || []); setBonos(rb.data || []); setPlanes(rpl.data || [])
     setBonosFuturos(rfut.data || [])
     setFacturas(rf.data || []); setPago(mapaPago)
@@ -166,7 +192,10 @@ export default function CobrosPage() {
   }
 
   const idx = useMemo(() => indicePlanes(planes), [planes])
-  const pacienteDe = useMemo(() => Object.fromEntries(pacientes.map(p => [p.id, p])), [pacientes])
+  // El índice incluye a los ex clientes: es lo que evita que sus filas se caigan.
+  const pacienteDe = useMemo(
+    () => Object.fromEntries([...pacientes, ...exClientes].map(p => [p.id, p])),
+    [pacientes, exClientes])
 
   /**
    * UNA FILA POR BONO, no por paciente.
@@ -519,6 +548,14 @@ export default function CobrosPage() {
             <div style={{fontSize:12,fontWeight:500,color:'var(--n)'}}>
               {p.nombre} {p.apellidos}
               {p.estado==='pausa' && <span style={{fontSize:9,color:'#7A5800',marginLeft:6}}>en pausa</span>}
+              {/* Se fue empezado el mes. La cuota se le cobra igual —mes empezado, mes
+                  cobrado— pero hay que saber que ya no viene: es a quien hay que reclamar
+                  por teléfono, no esperar a que aparezca por la puerta. */}
+              {(p.estado==='baja' || p.estado==='puede_volver') && (
+                <span style={{fontSize:9,color:'var(--red)',marginLeft:6,fontWeight:600}}>
+                  {p.estado==='baja' ? 'de baja' : 'ya no viene'}
+                </span>
+              )}
               {impago && <span style={{fontSize:9,color:'var(--red)',marginLeft:6,fontWeight:600}}>impago</span>}
             </div>
             <div style={{fontSize:9,color:'var(--grl)'}}>
