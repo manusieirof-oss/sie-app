@@ -145,8 +145,24 @@ export default function AgendaPage() {
       const ult=new Date(parseInt(fecha.slice(0,4)),parseInt(fecha.slice(5,7)),0).getDate()
       fechaFin=fecha.slice(0,7)+'-'+String(ult).padStart(2,'0')
     }
-    const { data: c } = await supabase.from('citas').select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase,notas_fijas), sesiones:sesion_id(id,nombre,partes,descripcion)').gte('fecha',fechaInicio).lte('fecha',fechaFin).order('fecha').order('hora')
-    setCitas(c||[])
+    // POR PÁGINAS, no de una: Supabase corta en 1000 filas y no avisa. Una semana cabe
+    // de sobra, pero un mes entero se pasa, y como vienen ordenadas por fecha lo que se
+    // perdía era el final del mes: pacientes a los que les faltaban sesiones sin motivo
+    // aparente. Se ordena también por id para que el corte entre páginas sea estable
+    // (con fecha+hora repetidas, sin desempate único, se colarían filas dos veces o ninguna).
+    const TAM_PAGINA = 1000
+    const todas: any[] = []
+    for (let desde = 0; desde < 20000; desde += TAM_PAGINA) {
+      const { data: pagina, error } = await supabase.from('citas')
+        .select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase,notas_fijas), sesiones:sesion_id(id,nombre,partes,descripcion)')
+        .gte('fecha',fechaInicio).lte('fecha',fechaFin)
+        .order('fecha').order('hora').order('id')
+        .range(desde, desde + TAM_PAGINA - 1)
+      if (error || !pagina) break
+      todas.push(...pagina)
+      if (pagina.length < TAM_PAGINA) break
+    }
+    setCitas(todas)
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])
     const { data: perf } = await supabase.from('perfiles').select('user_id,nombre,rol')
