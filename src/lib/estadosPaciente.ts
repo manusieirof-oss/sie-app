@@ -158,6 +158,31 @@ export function esReciente(p: { estado_desde?: string | null }): boolean {
   return dias >= 0 && dias <= DIAS_RECIENTE
 }
 
+/**
+ * Cuántos días se considera "nuevo" a alguien que acaba de entrar en la clínica.
+ *
+ * Un mes. Es el tiempo que tardas en aprenderte una cara y un nombre, y también el
+ * tiempo en el que hay cosas que se le pasan a uno: si tiene bono, si tiene citas
+ * puestas, si se le hizo la valoración. Pasado el mes ya es uno más.
+ */
+export const DIAS_NUEVO = 30
+
+/**
+ * true si la ficha se creó hace menos de `DIAS_NUEVO` días.
+ *
+ * Se mira la fecha de ALTA de la ficha, no la primera clase: lo que se quiere marcar
+ * es "esta persona acaba de llegar y todavía no me sé su nombre", y eso empieza el día
+ * que se le abre la ficha, no el día que pisa la sala por primera vez —que puede ser
+ * dos semanas después de la valoración—.
+ */
+export function esNuevo(p: { created_at?: string | null }): boolean {
+  if (!p?.created_at) return false
+  const t = new Date(p.created_at).getTime()
+  if (isNaN(t)) return false
+  const dias = Math.floor((Date.now() - t) / 86400000)
+  return dias >= 0 && dias <= DIAS_NUEVO
+}
+
 export type EstadoPrevisto = {
   paciente_id: string
   nombre: string

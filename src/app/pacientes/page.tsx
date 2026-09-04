@@ -10,7 +10,8 @@ import { rondaAbierta, respuestasDe, marcar, contar, ESTADOS_RONDA, type Ronda, 
 import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas'
 import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
          mesesDesde, MESES_HASTA_REVISAR,
-         estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE, type EstadoPrevisto } from '@/lib/estadosPaciente'
+         estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE,
+         esNuevo, DIAS_NUEVO, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -26,6 +27,14 @@ export default function PacientesPage() {
   const [filtroEstado, setFiltroEstado] = useState('activo')
   /** Qué cuota tiene: un tipo concreto, o 'sin' para los que no tienen ninguna. */
   const [filtroBono, setFiltroBono] = useState('todos')
+  /**
+   * Solo los que acaban de entrar.
+   *
+   * No es un estado más —un nuevo está activo como los demás—, así que va aparte y no
+   * en el grupo de Estado: se cruza con cualquier otro filtro. "Nuevos sin cuota" y
+   * "nuevos sin citas" son las dos preguntas que se hacen de verdad con esto.
+   */
+  const [soloNuevos, setSoloNuevos] = useState(false)
   /**
    * Por qué columna se ordena y en qué sentido.
    *
@@ -233,7 +242,8 @@ export default function PacientesPage() {
     // "Los que faltan" es lo que hace que la ronda se termine: recorrer cien filas con la
     // vista buscando huecos es la hoja de Excel otra vez.
     const matchRonda = !soloFaltan || !ronda || !respuestas[p.id]
-    return matchQ && matchPago && matchTipo && matchEstado && matchBono && matchRonda
+    const matchNuevo = !soloNuevos || esNuevo(p)
+    return matchQ && matchPago && matchTipo && matchEstado && matchBono && matchRonda && matchNuevo
   })
 
   /**
@@ -282,9 +292,13 @@ export default function PacientesPage() {
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
       const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
       const matchBono = excluir==='bono' || filtroBono==='todos' || esDeBono(p.id, filtroBono)
-      return matchQ && matchPago && matchEstado && matchTipo && matchBono
+      const matchNuevo = excluir==='nuevo' || !soloNuevos || esNuevo(p)
+      return matchQ && matchPago && matchEstado && matchTipo && matchBono && matchNuevo
     })
   }
+
+  /** Cuántos nuevos hay dentro de lo que ya está filtrado por lo demás. */
+  const nNuevos = baseFiltrada('nuevo').filter(esNuevo).length
 
   /**
    * ¿Este paciente es de ese bono?
@@ -374,6 +388,18 @@ export default function PacientesPage() {
             </span>
           ))}
         </div>
+        {/* NUEVOS. Va suelto y no dentro de "Estado" porque no es un estado: un recién
+            llegado está activo igual que el resto. Es un interruptor que se cruza con
+            todo lo demás. */}
+        <div style={{width:1,height:18,background:'var(--bd)'}}/>
+        <span onClick={()=>setSoloNuevos(v=>!v)}
+          title={`Los que se dieron de alta en los últimos ${DIAS_NUEVO} días`}
+          style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
+            border:`1px solid ${soloNuevos?'#5B7F4A':'#BBD3AC'}`,
+            background:soloNuevos?'#5B7F4A':'#F1F7ED',color:soloNuevos?'#fff':'#4A6B3B',
+            display:'flex',alignItems:'center',gap:4,fontWeight:600}}>
+          Nuevos <b style={{fontWeight:700}}>{nNuevos}</b>
+        </span>
       </div>
 
       {/* RONDA ABIERTA · el contador es lo que hace que la tarea se acabe */}
@@ -445,12 +471,35 @@ export default function PacientesPage() {
           {ordenados.map(p=>{
             const bono = getBonoActual(p.id)
             const pago = estadoPagoDe(bono)
+            /**
+             * ACABA DE LLEGAR. Se marca la fila entera, igual que los impagos.
+             *
+             * Si además debe dinero manda el impago: el rojo es una tarea, el verde es un
+             * recordatorio. Dos fondos a la vez no se leen, y de los dos el que hay que ver
+             * es el que cuesta dinero.
+             */
+            const nuevo = esNuevo(p)
+            const fondo = pago==='impago' ? 'var(--redl)' : nuevo ? '#F3F9EE' : 'var(--w)'
+            const fondoHover = pago==='impago' ? '#fce8e8' : nuevo ? '#E9F3E1' : 'var(--gl)'
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:pago==='impago'?'var(--redl)':'var(--w)',transition:'background .1s'}}
-                onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'#fce8e8':'var(--gl)'}
-                onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=pago==='impago'?'var(--redl)':'var(--w)'}>
+              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:fondo,transition:'background .1s',
+                // Marca lateral, no borde: un borde de verdad correría las columnas y
+                // desalinearía la fila del nuevo respecto a todas las demás.
+                boxShadow: nuevo && pago!=='impago' ? 'inset 3px 0 0 #7C9A6B' : 'none'}}
+                onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=fondoHover}
+                onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=fondo}>
                 <div style={{padding:'8px 10px'}}>
-                  <div style={{fontSize:12,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}{p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
+                  <div style={{fontSize:12,fontWeight:nuevo?600:400,color:nuevo?'#3F5C31':'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}
+                    {/* El distintivo va aunque la fila ya esté teñida: con el filtro de
+                        nuevos puesto están todas verdes y el color deja de decir nada.
+                        Además dice CUÁNDO entró, que es lo que se quiere saber. */}
+                    {nuevo && (
+                      <span title={`Alta el ${new Date(p.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'long'})}`}
+                        style={{fontSize:8,fontWeight:700,padding:'2px 7px',borderRadius:99,background:'#5B7F4A',color:'#fff',whiteSpace:'nowrap',letterSpacing:.3}}>
+                        NUEVO · {new Date(p.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                      </span>
+                    )}
+                    {p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.email || p.telefono || '—'}</div>
                 </div>
                 {/* CACTUS · la habilidad. Se pulsa directamente en la lista. */}
