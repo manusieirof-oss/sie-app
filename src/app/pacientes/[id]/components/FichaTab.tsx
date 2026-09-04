@@ -42,6 +42,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [menuTipo, setMenuTipo] = useState<any>(null)
   const [menuPago, setMenuPago] = useState<any>(null)
   const [anamnesisAbierta, setAnamnesisAbierta] = useState(false)
+  /** Texto en curso mientras se edita la anamnesis. `null` = no se está editando. */
+  const [anamEdit, setAnamEdit] = useState<string|null>(null)
+  const [guardandoAnam, setGuardandoAnam] = useState(false)
   const [guardandoVia, setGuardandoVia] = useState<string|null>(null)
   const [resultadosTests, setResultadosTests] = useState<any[]>([])
   const [testsLib, setTestsLib] = useState<any[]>([])
@@ -117,6 +120,34 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       fecha: hoyISO(),
     })
     setModalAnadir(false); setBuscarObj(''); setSelObj([]); cargarObjetivos()
+  }
+
+  /**
+   * COMPLETAR LA ANAMNESIS DESPUÉS DE LA VALORACIÓN.
+   *
+   * Se escribía en la valoración y ahí se quedaba: si el paciente te contó su caso por
+   * teléfono, o lo tenías apuntado fuera, no había forma de meterlo. Y si la valoración se
+   * hizo con la anamnesis vacía, el bloque ni siquiera aparecía, así que tampoco había por
+   * dónde entrar.
+   *
+   * Se guarda sobre la valoración más reciente, que es la que la ficha enseña, y se deja
+   * un evento en el historial. Es historia clínica: que se pueda completar está bien, que
+   * se pueda cambiar sin que quede rastro, no.
+   */
+  async function guardarAnamnesis() {
+    if (anamEdit == null || !valoracion?.id) return
+    setGuardandoAnam(true)
+    const { error } = await supabase.from('valoraciones')
+      .update({ anamnesis: anamEdit }).eq('id', valoracion.id)
+    if (error) { setGuardandoAnam(false); alert('No se ha podido guardar:\n\n' + error.message); return }
+    await supabase.from('eventos_paciente').insert({
+      paciente_id: pac.id, tipo: 'valoracion',
+      titulo: (valoracion.anamnesis || '').trim() ? 'Anamnesis completada' : 'Anamnesis añadida',
+      descripcion: `Sobre la ${tipoVal.toLowerCase()} del ${valoracion.fecha}.`,
+      fecha: hoyISO(),
+    })
+    setValoracion((v:any)=>({ ...v, anamnesis: anamEdit }))
+    setAnamEdit(null); setGuardandoAnam(false)
   }
 
   function cargarObjetivos() {
@@ -746,17 +777,44 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       </div>
 
-      {/* 5. ANAMNESIS */}
-      {valoracion?.anamnesis && (
+      {/* 5. ANAMNESIS · se pinta aunque esté vacía, para poder añadirla */}
+      {valoracion?.id && (
         <div className="sec">
           <div className="sec-h">
-            <span className="ct-l"><Ic name="anamnesis" size={13}/> Anamnesis</span>
+            <span className="sh-l">
+              <span className="ct-l"><Ic name="anamnesis" size={13}/> Anamnesis</span>
+              {anamEdit == null && (
+                <button className="btn btn-t btn-sm" onClick={()=>setAnamEdit(valoracion.anamnesis||'')}>
+                  <Ic name="editar" size={11}/> {valoracion.anamnesis ? 'Completar' : 'Añadir'}
+                </button>
+              )}
+            </span>
             {valoracion.fecha && <span className="sh-r">{tipoVal} del {fmtLargo(valoracion.fecha)} · {haceCuanto(valoracion.fecha)}</span>}
           </div>
+
+          {anamEdit != null ? (
+            <>
+              <textarea className="input" style={{minHeight:170,fontSize:13,lineHeight:1.7}}
+                value={anamEdit} onChange={e=>setAnamEdit(e.target.value)} autoFocus
+                placeholder="Lo que te contó: motivo de consulta, historia, expectativas..."/>
+              <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
+                <span style={{flex:1,fontSize:12,color:'var(--gr)'}}>
+                  Se guarda sobre la {tipoVal.toLowerCase()} del {valoracion.fecha} y queda anotado en su historial.
+                </span>
+                <button className="btn btn-t btn-sm" onClick={()=>setAnamEdit(null)} disabled={guardandoAnam}>Cancelar</button>
+                <button className="btn btn-p btn-sm" onClick={guardarAnamnesis} disabled={guardandoAnam}>
+                  {guardandoAnam?'Guardando…':'Guardar'}
+                </button>
+              </div>
+            </>
+          ) : !valoracion.anamnesis ? (
+            <div className="muted">Sin anamnesis recogida.</div>
+          ) : (
           <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>
             {anamLarga && !anamnesisAbierta ? valoracion.anamnesis.slice(0,260).trimEnd()+'…' : valoracion.anamnesis}
           </div>
-          {anamLarga && (
+          )}
+          {anamEdit == null && anamLarga && (
             <button onClick={()=>setAnamnesisAbierta(v=>!v)} style={{fontSize:12,color:'var(--gd)',background:'none',border:'none',padding:'6px 0 0',cursor:'pointer',fontFamily:'inherit'}}>
               {anamnesisAbierta?'Ver menos':'Ver más'}
             </button>
