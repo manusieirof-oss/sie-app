@@ -78,7 +78,7 @@ export default function PacientesPage() {
   useEffect(() => { cargar(); cargarBonosTipos(false).then(setBonosOpts) }, [])
 
   // Al volver de una ficha, la lista se queda donde estaba.
-  useScrollRecordado('pacientes', !loading)
+  const guardarScroll = useScrollRecordado('pacientes', !loading)
 
   async function cargar() {
     setLoading(true)
@@ -490,6 +490,7 @@ export default function PacientesPage() {
                 // Marca lateral, no borde: un borde de verdad correría las columnas y
                 // desalinearía la fila del nuevo respecto a todas las demás.
                 boxShadow: nuevo && pago!=='impago' ? 'inset 3px 0 0 #7C9A6B' : 'none'}}
+                onMouseDown={guardarScroll}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=fondoHover}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=fondo}>
                 <div style={{padding:'8px 10px'}}>
