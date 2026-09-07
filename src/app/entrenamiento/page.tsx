@@ -9,6 +9,7 @@ import EtiquetasTab from './components/EtiquetasTab'
 import ClinicoTab from './components/ClinicoTab'
 import ObjetivosTab from './components/ObjetivosTab'
 import { Ic } from '@/lib/icons'
+import { pacientesAgendables } from '@/lib/estadosPaciente'
 
 const CATEGORIAS = [
   { key: 'musculo', label: 'Músculo' },
@@ -55,9 +56,11 @@ function EntrenamientoContent() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: e },{ data: p },{ data: s },{ data: et },{ data: tl }] = await Promise.all([
+    const [{ data: e },p,{ data: s },{ data: et },{ data: tl }] = await Promise.all([
       supabase.from('ejercicios').select('*').order('nombre'),
-      supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,cactus').eq('estado','activo').order('nombre'),
+      // Activos y los que tienen la vuelta programada: a alguien que vuelve el 1 de
+      // octubre hay que poder dejarle las sesiones de octubre montadas.
+      pacientesAgendables('id,nombre,apellidos,nombre_clinica,cactus'),
       // Sin `limit`. Estaba en 20 y la biblioteca enseñaba las 20 últimas creadas, que con
       // el tiempo son casi todas de pacientes: las plantillas quedaban fuera de la lista y
       // parecía que no había. El filtro por origen va en la pestaña, no en la consulta.

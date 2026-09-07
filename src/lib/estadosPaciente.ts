@@ -241,6 +241,50 @@ export async function anularProgramacion(pacienteId: string) {
   return { ok: true as const }
 }
 
+/**
+ * A QUIÉN SE LE PUEDEN PONER CITAS.
+ *
+ * Los activos, y además los que tienen la VUELTA programada.
+ *
+ * Esto último faltaba, y era justo al revés de lo que hace falta. Cuando alguien avisa
+ * en agosto de que se reincorpora el 1 de octubre se le programa la vuelta, y su estado
+ * sigue siendo "puede volver" hasta esa fecha —a propósito: ponerlo activo ya lo metería
+ * en Cobros y le generaría dos meses de cuota que no va a pagar—. Pero entonces
+ * desaparecía de todos los selectores de paciente, que preguntaban por `estado='activo'`
+ * a secas. Resultado: sabes el día que vuelve y no puedes ponerle las clases de ese día.
+ * Justo lo único que querías hacer con esa información.
+ *
+ * La regla estaba escrita a mano en cada pantalla que necesita una lista de pacientes.
+ * Aquí solo hay una, y se arregla en un sitio.
+ */
+export async function pacientesAgendables(columnas: string) {
+  // Los campos del estado programado se piden siempre: quien los use querrá poder
+  // avisar de "vuelve el 1 de octubre", y sin ellos no puede.
+  const pedidas = columnas.split(',').map(s => s.trim()).filter(Boolean)
+  for (const c of ['id', 'estado', 'estado_programado', 'estado_programado_desde']) {
+    if (!pedidas.includes(c)) pedidas.push(c)
+  }
+  const { data, error } = await supabase.from('pacientes')
+    .select(pedidas.join(','))
+    // No hace falta comprobar la fecha: `programarEstado` no deja programar sin ella.
+    .or('estado.eq.activo,estado_programado.eq.activo')
+    .order('nombre')
+  if (error) { console.error('No se han podido cargar los pacientes:', error.message); return [] as any[] }
+  return (data || []) as any[]
+}
+
+/**
+ * La fecha en la que vuelve, si todavía no ha vuelto. null si ya está activo.
+ *
+ * Sirve para decirlo al lado del nombre: se le pueden poner citas, pero conviene saber
+ * que hasta esa fecha no viene, y no ponerle una clase el martes que viene.
+ */
+export function vuelveEl(p: { estado?: string | null, estado_programado?: string | null, estado_programado_desde?: string | null }): string | null {
+  if (!p || p.estado === 'activo') return null
+  if (p.estado_programado !== 'activo' || !p.estado_programado_desde) return null
+  return p.estado_programado_desde
+}
+
 /** Lo que viene: quién se va, cuándo y con qué bono. Para verlo antes de que pase. */
 export async function estadosPrevistos() {
   const { data, error } = await supabase.from('v_estados_previstos').select('*')

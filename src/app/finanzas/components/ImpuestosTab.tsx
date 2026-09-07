@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { indicePlanes, desglosePlan, precioConDescuento, precioFinalPlan } from '@/lib/bonos'
+import { delTrimestre, type Factura } from '@/lib/facturado'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 
@@ -9,30 +10,33 @@ const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 const trimestreDe = (mes:number) => Math.ceil(mes/3)
 const MESES_TRIM: Record<number,string> = { 1:'Ene–Mar', 2:'Abr–Jun', 3:'Jul–Sep', 4:'Oct–Dic' }
 
-export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
+export default function ImpuestosTab({ planes, gastos, facturas=[] }: any) {
   const anioActual = new Date().getFullYear()
   const [anio, setAnio] = useState(anioActual)
   const [irpfPctBeneficio, setIrpfPctBeneficio] = useState(20) // % del modelo 130
 
   const idxPlanes = indicePlanes(planes)
 
-  // Lo que factura un bono, con su descuento, partido en base e IVA repercutido.
-  // El descuento reduce las dos partes: un bono de 63€ con 10€ de descuento
-  // repercute el IVA de 53€, no el de 63€.
-  function desgloseBono(b:any) {
-    const plan = idxPlanes[b.tipo]
-    const final = precioConDescuento(precioFinalPlan(plan), b)
-    const pct = Number(plan?.iva || 0)
-    const base = pct > 0 ? final/(1+pct/100) : final
-    return { base, iva: final - base }
-  }
 
   // Calcular por trimestre
   function calcularTrimestre(t: number) {
-    // Ingresos: bonos de ese trimestre y año
-    const bonosT = bonosHist.filter((b:any)=> b.anio===anio && trimestreDe(b.mes)===t)
-    const ivaRepercutido = bonosT.reduce((a:number,b:any)=> a + desgloseBono(b).iva, 0)
-    const baseIngresos = bonosT.reduce((a:number,b:any)=> a + desgloseBono(b).base, 0)
+    /**
+     * EL IVA REPERCUTIDO SALE DE LAS FACTURAS EMITIDAS, no de los bonos.
+     *
+     * Es lo que declara el 303 y lo que verá tu gestoría. Un bono dice lo que
+     * DEBERÍAS cobrar; la factura dice lo que has facturado, con su base y su
+     * cuota congeladas en el documento.
+     *
+     * La diferencia no es teórica: contando bonos declarabas IVA de cuotas que
+     * no llegaste a cobrar, y no declarabas el de las valoraciones y servicios
+     * sueltos, que se facturan pero no son bonos de nadie.
+     *
+     * Las rectificativas van dentro, en negativo. Una factura anulada y su
+     * rectificativa suman cero, que es justo lo que hay que declarar.
+     */
+    const fact = delTrimestre(facturas as Factura[], anio, t)
+    const ivaRepercutido = fact.iva
+    const baseIngresos = fact.base
 
     // Gastos de ese trimestre y año
     const gastosT = gastos.filter((g:any)=>{
@@ -62,7 +66,7 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
     const modelo115 = gastosT.filter((g:any)=>g.irpf_modelo==='115' && g.irpf_pct>0)
       .reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(g.irpf_pct/100), 0)
 
-    return { ivaRepercutido, ivaSoportado, modelo303, beneficio, modelo130, modelo111, modelo115, sinBase, nBonos: bonosT.length, nGastos: gastosT.length }
+    return { ivaRepercutido, ivaSoportado, modelo303, beneficio, modelo130, modelo111, modelo115, sinBase, nFacturas: fact.n, nGastos: gastosT.length }
   }
 
   const trimestreActual = trimestreDe(new Date().getMonth()+1)
@@ -94,7 +98,7 @@ export default function ImpuestosTab({ planes, gastos, bonosHist=[] }: any) {
         {[1,2,3,4].map(t=>{
           const d = calcularTrimestre(t)
           const esActual = t===trimestreActual && anio===anioActual
-          const vacio = d.nBonos===0 && d.nGastos===0
+          const vacio = d.nFacturas===0 && d.nGastos===0
           return (
             <div key={t} className="card" style={{margin:0,border:esActual?`1.5px solid ${G}`:'1px solid var(--bd)',opacity:vacio?.5:1}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>

@@ -2,6 +2,7 @@
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { AvisoBonoEnCita } from '@/components/SesionesBono'
 import { planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
+import { vuelveEl } from '@/lib/estadosPaciente'
 
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
@@ -64,6 +65,13 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
               valor={nuevaCita.paciente_id}
               disabled={guardando}
               autoFocus
+              /* Los que tienen la vuelta programada salen en la lista —hay que poderles
+                 las citas por adelantado— pero avisando de cuándo vuelven: no se les
+                 puede poner una clase el martes que viene. */
+              etiqueta={(p:any)=>{
+                const d = vuelveEl(p)
+                return d ? `vuelve el ${new Date(d+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}` : null
+              }}
               onElegir={(p:any)=>{
                 setNuevaCita((prev:any)=>({...prev,paciente_id:p.id,es_recuperacion:false,recuperacion_id:'',
                   ...(p.tipo_clase&&tiposClase.some((t:any)=>t.valor===p.tipo_clase)?{tipo:p.tipo_clase}:{})}))

@@ -19,6 +19,7 @@ import ModalTareas from './components/ModalTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
 import { hoyISO } from '@/lib/fechas'
+import { pacientesAgendables } from '@/lib/estadosPaciente'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -126,8 +127,10 @@ export default function AgendaPage() {
   useEffect(() => { cargar() }, [fecha, vista])
 
   async function cargarPacientes() {
-    const { data } = await supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,fecha_nacimiento,tipo_clase').eq('estado','activo').order('nombre')
-    setPacientes(data||[])
+    // Activos Y los que tienen la vuelta programada. Ver `pacientesAgendables`:
+    // saber que alguien vuelve el 1 de octubre no sirve de nada si no puedes
+    // ponerle las clases de octubre.
+    setPacientes(await pacientesAgendables('id,nombre,apellidos,nombre_clinica,fecha_nacimiento,tipo_clase'))
   }
 
   const primeraCarga = useRef(true)

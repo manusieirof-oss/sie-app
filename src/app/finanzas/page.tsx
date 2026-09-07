@@ -12,6 +12,7 @@ import RentabilidadTab from './components/RentabilidadTab'
 import PrevisionTab from './components/PrevisionTab'
 import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes } from '@/lib/bonos'
 import { mesISO } from '@/lib/fechas'
+import { facturasDelAnio, type Factura } from '@/lib/facturado'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -61,12 +62,27 @@ export default function FinanzasPage() {
   const [bonos, setBonos] = useState<any[]>([])
   const [bonosHist, setBonosHist] = useState<any[]>([])
   const [bonosTipos, setBonosTipos] = useState<BonoTipo[]>([])
+  // LO FACTURADO DE VERDAD. Ver lib/facturado: los bonos dicen lo que deberías
+  // cobrar, las facturas lo que has cobrado. Para el "cobrado" del mes y para el
+  // IVA del 303 manda esto.
+  const [facturas, setFacturas] = useState<Factura[]>([])
   const [loading, setLoading] = useState(true)
   const [fallos, setFallos] = useState<string[]>([])
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
   const router = useRouter()
 
   useEffect(() => { verificarAcceso() }, [])
+
+  // Al cambiar de AÑO hay que releer las facturas: se cargan del año entero, así
+  // que saltar de diciembre a enero dejaría la pestaña con las del año anterior.
+  const anioRef = mesRef.slice(0, 4)
+  useEffect(() => {
+    if (!autorizado) return
+    facturasDelAnio(Number(anioRef)).then(r => {
+      if (!r.ok) { setFallos(f => [...f.filter(x => !x.startsWith('facturas')), `facturas: ${r.error}`]); return }
+      setFacturas(r.filas)
+    })
+  }, [anioRef, autorizado])
 
   async function verificarAcceso() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -102,6 +118,14 @@ export default function FinanzasPage() {
     setBonos(rb.data || [])
     setBonosHist(unoPorPacienteYMes(rbh.data || []))
     setBonosTipos(await cargarBonosTipos(false))
+
+    // Del año entero: Impuestos las reparte por trimestres y el Resumen por
+    // meses, y así no hacen falta cinco consultas.
+    const rf = await facturasDelAnio(Number(mesRef.slice(0, 4)))
+    if (!rf.ok) errores.push(`facturas: ${rf.error}`)
+    setFacturas(rf.filas)
+    setFallos(errores)
+
     setLoading(false)
   }
 
@@ -200,10 +224,10 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
-          {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} bonosHist={bonosHist}/>}
+          {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} facturas={facturas}/>}
           {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef}/>}
           {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas}/>}
         </>

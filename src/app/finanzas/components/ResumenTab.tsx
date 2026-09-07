@@ -4,13 +4,14 @@ import { indicePlanes, precioBono as precioDeBono, precioFinalPlan, esVentaPuntu
 import { Ic } from '@/lib/icons'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 import { mesISO } from '@/lib/fechas'
+import { delMes, sumar, type Factura } from '@/lib/facturado'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // mesRef ('YYYY-MM') existe para poder mirar un mes que no sea el de hoy, que es
 // lo que necesita el banco de pruebas. Por defecto es el mes en curso.
-export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef }: any) {
+export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[] }: any) {
   const [vista, setVista] = useState<'general'|'evolucion'>('general')
 
   const idxPlanes = indicePlanes(planes)
@@ -27,11 +28,38 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
 
   const ingresosPrevistos = bonosActivos.reduce((a: number, b: any) => a + precioBono(b), 0)
   const totalDescuentos = bonosActivos.reduce((a: number, b: any) => a + (precioFinalPlan(idxPlanes[b.tipo]) - precioBono(b)), 0)
-  const ingresosCobrados = bonosActivos.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + precioBono(b), 0)
-  const pendiente = bonosActivos.filter((b: any) => b.estado_pago === 'pendiente').reduce((a: number, b: any) => a + precioBono(b), 0)
-  const impago = bonosActivos.filter((b: any) => b.estado_pago === 'impago').reduce((a: number, b: any) => a + precioBono(b), 0)
-
   const mesActual = mesRef || mesISO()
+  const [anioSel, mesSel] = mesActual.split('-').map(Number)
+
+  /**
+   * COBRADO SALE DE LAS FACTURAS, no de `bonos.estado_pago`.
+   *
+   * Ese campo dejó de escribirse cuando los cobros pasaron a su propia tabla, así
+   * que aquí salía 0 € cobrado por muchas facturas que hubieras emitido: Cobros
+   * decía una cosa y Finanzas otra del mismo mes.
+   *
+   * Las rectificativas vienen dentro y restan, que es lo correcto: una factura
+   * anulada y su rectificativa suman cero.
+   */
+  const facturado = delMes(facturas as Factura[], anioSel, mesSel)
+  const ingresosCobrados = facturado.total
+
+  /**
+   * PENDIENTE = lo que toca cobrar MENOS lo ya facturado.
+   *
+   * Antes se sumaban los bonos con `estado_pago = 'pendiente'`, y como ese campo
+   * no cambia al cobrar, el pendiente no bajaba nunca. Restando se corrige solo.
+   *
+   * Nunca negativo: si has facturado de más —un extra, una valoración suelta— eso
+   * no significa que te deban dinero en contra.
+   */
+  const pendiente = Math.max(0, ingresosPrevistos - ingresosCobrados)
+
+  /** Impago sigue siendo un JUICIO tuyo sobre lo que no se ha cobrado, no un hecho. */
+  const impago = bonosActivos
+    .filter((b: any) => b.estado_pago === 'impago')
+    .reduce((a: number, b: any) => a + precioBono(b), 0)
+
   const gastosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual).reduce((a: number, g: any) => a + Number(g.importe), 0)
   const gastosFijosMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === mesActual && g.tipo === 'fijo').reduce((a: number, g: any) => a + Number(g.importe), 0)
   const gastosVarMes = gastosMes - gastosFijosMes
@@ -64,7 +92,10 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
     // Con descuento, igual que la foto del mes actual. Sin esto, el mismo mes
     // salía con dos cifras distintas en dos gráficas de esta misma pestaña.
     const previsto = bonosMes.reduce((a: number, b: any) => a + precioBono(b), 0)
-    const cobrado = bonosMes.filter((b: any) => b.estado_pago === 'pagado').reduce((a: number, b: any) => a + precioBono(b), 0)
+    // Cobrado desde las FACTURAS de ese mes, igual que la foto de arriba. Con
+    // `estado_pago` la línea de cobrado salía plana en cero y el beneficio con
+    // ella: parecía que la clínica no ingresaba nada.
+    const cobrado = delMes(facturas as Factura[], anio, mes).total
     const gastoMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === clave).reduce((a: number, g: any) => a + Number(g.importe), 0)
     return {
       mes: `${MESES[mes-1]} ${String(anio).slice(2)}`,

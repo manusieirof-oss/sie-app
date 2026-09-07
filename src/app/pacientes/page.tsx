@@ -13,6 +13,7 @@ import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
          estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE,
          esNuevo, DIAS_NUEVO, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
+import { useScrollRecordado } from '@/lib/scrollRecordado'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
@@ -75,6 +76,9 @@ export default function PacientesPage() {
   const anioActual = new Date().getFullYear()
 
   useEffect(() => { cargar(); cargarBonosTipos(false).then(setBonosOpts) }, [])
+
+  // Al volver de una ficha, la lista se queda donde estaba.
+  useScrollRecordado('pacientes', !loading)
 
   async function cargar() {
     setLoading(true)
