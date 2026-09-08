@@ -280,3 +280,37 @@ export async function ultimoImporteDe(concepto: string) {
   const b = data?.[0]?.base_imponible
   return { ok: true as const, base: b != null ? Number(b) : null }
 }
+
+// ---------------------------------------------------------------------------
+// EN QUÉ TE GASTAS EL DINERO
+//
+// Era un campo de texto libre, y un campo de texto libre acaba siempre igual:
+// "Suministros", "suministros" y "Luz" son tres categorías distintas para el
+// ordenador, así que el desglose se rompe solo en tres meses sin que nadie haga
+// nada mal. Lista cerrada.
+//
+// Lo que ya estaba guardado se sigue viendo tal cual: cambiar a mano el
+// histórico de alguien para que encaje en una lista nueva sería reescribir lo
+// que ya pasó. Se queda como está y las nuevas van por aquí.
+//
+// UN AVISO SOBRE LOS IMPUESTOS: el IVA y el IRPF que ingresas a Hacienda NO son
+// gasto. Son dinero que recaudas o que adelantas, no coste tuyo. En "Bancos e
+// impuestos" van las comisiones y las tasas, no el resultado del 303.
+// ---------------------------------------------------------------------------
+
+export const CATEGORIAS_GASTO = [
+  { id: 'Local',                  ayuda: 'Alquiler, comunidad, IBI, obras, limpieza.' },
+  { id: 'Suministros',            ayuda: 'Luz, agua, internet, móvil.' },
+  { id: 'Personal',               ayuda: 'Nóminas, seguros sociales, tu cuota de autónomos.' },
+  { id: 'Servicios profesionales',ayuda: 'Gestoría, abogado, prevención de riesgos, protección de datos.' },
+  { id: 'Material y equipamiento',ayuda: 'Fungible, aparatos, mantenimiento y reparaciones.' },
+  { id: 'Software y web',         ayuda: 'Programas, dominio, hosting, comisiones de la pasarela.' },
+  { id: 'Seguros',                ayuda: 'Responsabilidad civil, seguro del local.' },
+  { id: 'Marketing',              ayuda: 'Redes, cartelería, fotos, imprenta.' },
+  { id: 'Formación',              ayuda: 'Cursos, congresos, colegiación.' },
+  { id: 'Bancos e impuestos',     ayuda: 'Comisiones del TPV, comisiones bancarias, tasas. El IVA y el IRPF que pagas a Hacienda NO van aquí: no son gasto.' },
+  { id: 'Otros',                  ayuda: 'Lo que no encaje. Si crece mucho, es que falta una categoría.' },
+] as const
+
+export const ayudaDeCategoria = (id?: string | null) =>
+  CATEGORIAS_GASTO.find(c => c.id === id)?.ayuda ?? null

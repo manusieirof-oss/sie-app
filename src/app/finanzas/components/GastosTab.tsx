@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { hoyISO, mesISO } from '@/lib/fechas'
 import { CADENCIAS, fechasDeSerie, mediaDeConcepto, crearSerie, confirmarGasto,
-         borrarEstimadosDeSerie, estimadosVencidos, MODOS_ESTIMACION, modoPorDefecto,
+         estimadosVencidos, MODOS_ESTIMACION, modoPorDefecto,
          ultimoImporteDe, contarPendientes, actualizarEstimadosPendientes,
-         darDeBajaSerie } from '@/lib/gastos'
+         darDeBajaSerie, CATEGORIAS_GASTO, ayudaDeCategoria } from '@/lib/gastos'
 
 export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
@@ -24,6 +24,26 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   /** El último importe real del concepto. Es lo que usa el modo "siempre igual". */
   const [ultimo, setUltimo] = useState<number|null>(null)
   const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+
+  /**
+   * CONFIRMAR UNA PREVISIÓN.
+   *
+   * Sí hace falta preguntar el importe: una previsión es un cálculo, y lo que
+   * decide el IVA que te deduces es el papel, no el cálculo. Si se confirmara
+   * sin mirar, estarías declarando el número que se inventó la app.
+   *
+   * Lo que no hacía falta era el cuadro negro del navegador. Y encima venían
+   * encadenados: primero el importe, luego otro preguntando por las previsiones
+   * que quedan. Ahora es una sola pantalla que enseña las dos cosas a la vez.
+   */
+  const [conf, setConf] = useState<any|null>(null)
+  const [confBase, setConfBase] = useState('')
+  const [confPend, setConfPend] = useState(0)
+  const [confPropagar, setConfPropagar] = useState(false)
+
+  /** El gasto cuya serie se está dando de baja, y desde cuándo. */
+  const [baja, setBaja] = useState<any|null>(null)
+  const [bajaDesde, setBajaDesde] = useState('')
 
   /**
    * EL DESGLOSE, A PARTIR DEL NÚMERO QUE TENGAS A MANO.
@@ -122,45 +142,49 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     recargar()
   }
 
+  /**
+   * Abrir la confirmación. Se cuenta ANTES cuántas previsiones quedan, para
+   * poder ofrecer lo de propagar el precio en la misma pantalla en vez de
+   * soltarlo en un segundo cuadro cuando ya has guardado.
+   */
+  async function abrirConfirmar(g: any) {
+    setConf(g)
+    setConfBase(String(g.base_imponible ?? ''))
+    setConfPropagar(false)
+    setConfPend(0)
+    if (g.serie_id) {
+      const p = await contarPendientes(g.serie_id, g.fecha)
+      if (p.ok) setConfPend(p.n)
+    }
+  }
+
   /** Llegó la factura: se pone el importe real y deja de ser una estimación. */
-  async function confirmar(g: any) {
-    const txt = prompt(
-      `${g.concepto} · ${new Date(g.fecha+'T12:00:00').toLocaleDateString('es-ES')}\n\n` +
-      `Base imponible de la factura (estimada: ${Number(g.base_imponible||0).toFixed(2)} €):`,
-      String(g.base_imponible || ''))
-    if (txt == null) return
-    const nueva = parseFloat(txt.replace(',', '.'))
+  async function guardarConfirmacion() {
+    const g = conf
+    if (!g) return
+    const nueva = parseFloat(confBase.replace(',', '.'))
     if (isNaN(nueva) || nueva < 0) { setError('Ese importe no es válido'); return }
+    setGuardando(true)
     const r = await confirmarGasto(g.id, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
-    if (!r.ok) { setError(`No se ha podido confirmar: ${r.error}`); return }
+    if (!r.ok) { setGuardando(false); setError(`No se ha podido confirmar: ${r.error}`); return }
 
     /**
-     * SI EL PRECIO HA CAMBIADO, OFRECER APLICARLO A LO QUE QUEDA.
+     * SI EL PRECIO HA CAMBIADO, APLICARLO A LO QUE QUEDA.
      *
      * Es el caso de "en abril me suben la cuota": las previsiones de mayo a
      * diciembre siguen con el precio viejo, y corregirlas una a una son ocho
-     * ediciones que nadie hace. Se pregunta aquí, que es donde acabas de
-     * descubrir la subida.
+     * ediciones que nadie hace.
      *
-     * Se PREGUNTA, no se hace solo: una factura más alta un mes puede ser una
-     * subida permanente o una regularización puntual, y eso solo lo sabes tú.
+     * Va marcado por ti, no automático: una factura más alta un mes puede ser
+     * una subida permanente o una regularización puntual, y eso solo lo sabes tú.
      */
-    const estimada = Number(g.base_imponible || 0)
-    if (g.serie_id && Math.abs(nueva - estimada) > 0.005) {
-      const p = await contarPendientes(g.serie_id, g.fecha)
-      if (p.ok && p.n > 0) {
-        const subeOBaja = nueva > estimada ? 'sube' : 'baja'
-        const ok = confirm(
-          `El importe ${subeOBaja} de ${estimada.toFixed(2)} € a ${nueva.toFixed(2)} €.\n\n` +
-          `¿Aplicarlo también a las ${p.n} previsiones que quedan de "${g.concepto}"?\n\n` +
-          `Si es una subida permanente, sí. Si fue algo puntual de este mes, no.`)
-        if (ok) {
-          const u = await actualizarEstimadosPendientes(
-            g.serie_id, g.fecha, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
-          if (!u.ok) setError(`El gasto se confirmó, pero no se han podido actualizar las previsiones: ${u.error}`)
-        }
-      }
+    if (confPropagar && g.serie_id) {
+      const u = await actualizarEstimadosPendientes(
+        g.serie_id, g.fecha, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
+      if (!u.ok) setError(`El gasto se confirmó, pero no se han podido actualizar las previsiones: ${u.error}`)
     }
+    setGuardando(false)
+    setConf(null)
     recargar()
   }
 
@@ -174,26 +198,14 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
    * Lo ya confirmado no se toca: son facturas que pagaste y siguen siendo gasto
    * deducible aunque el servicio se haya acabado.
    */
-  async function darDeBaja(g: any) {
-    const desde = prompt(
-      `Dar de baja "${g.concepto}".\n\n` +
-      `Se quitarán las previsiones desde esta fecha en adelante.\n` +
-      `Las facturas ya confirmadas no se tocan.\n\n` +
-      `¿Desde qué día ya no lo tienes? (AAAA-MM-DD)`,
-      g.fecha)
-    if (!desde) return
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) { setError('La fecha tiene que ser AAAA-MM-DD'); return }
-    const r = await darDeBajaSerie(g.serie_id, desde)
+  async function darDeBaja() {
+    if (!baja || !bajaDesde) return
+    setGuardando(true)
+    const r = await darDeBajaSerie(baja.serie_id, bajaDesde)
+    setGuardando(false)
     if (!r.ok) { setError(`No se ha podido dar de baja: ${r.error}`); return }
+    setBaja(null)
     if (r.borrados === 0) setError('No había ninguna previsión a partir de esa fecha.')
-    recargar()
-  }
-
-  /** Quitar lo que queda por venir de una serie, sin tocar lo ya confirmado. */
-  async function borrarSerie(serieId: string, concepto: string) {
-    if (!confirm(`¿Quitar las previsiones pendientes de "${concepto}"?\n\nLos gastos ya confirmados no se tocan.`)) return
-    const r = await borrarEstimadosDeSerie(serieId)
-    if (!r.ok) { setError(`No se han podido borrar: ${r.error}`); return }
     recargar()
   }
 
@@ -347,26 +359,27 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               {Number(g.importe).toFixed(2)}€
             </div>
             {g.estimado && (
-              <button className="btn btn-s btn-sm" onClick={()=>confirmar(g)}
+              <button className="btn btn-s btn-sm" onClick={()=>abrirConfirmar(g)}
                 title="Ha llegado la factura: poner el importe real">
                 Confirmar
               </button>
             )}
+            {/* Antes había DOS papeleras: una borraba esta fila y la otra todas
+                las previsiones de la serie. Dos dibujos iguales que hacen cosas
+                distintas es una trampa, y encima la segunda ya no hace falta:
+                "Dar de baja" desde la primera fecha pendiente hace exactamente
+                lo mismo, diciendo lo que hace. */}
             {g.estimado && g.serie_id && (
-              <button className="btn btn-t btn-sm" onClick={()=>darDeBaja(g)}
+              <button className="btn btn-t btn-sm"
+                onClick={()=>{ setBaja(g); setBajaDesde(g.fecha) }}
                 title="Ya no tienes este servicio: quitar las previsiones desde una fecha"
                 style={{color:'var(--grl)'}}>
                 Dar de baja
               </button>
             )}
-            {g.estimado && g.serie_id && (
-              <button onClick={()=>borrarSerie(g.serie_id, g.concepto)}
-                title="Quitar las previsiones pendientes de esta serie"
-                style={{color:'var(--grl)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}>
-                <Ic name="papelera" size={12}/>
-              </button>
-            )}
-            <button onClick={()=>eliminar(g.id)} style={{color:'var(--red)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}><Ic name="papelera" size={13}/></button>
+            <button onClick={()=>eliminar(g.id)}
+              title={g.estimado ? 'Borrar solo esta previsión' : 'Borrar este gasto'}
+              style={{color:'var(--red)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}><Ic name="papelera" size={13}/></button>
           </div>
         ))
       )}
@@ -381,12 +394,27 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 <label>{form.metodo === 'base' ? 'Base imponible (€) *' : 'Total pagado (€) *'}</label>
                 <input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/>
               </div>
-              <div className="field"><label>Tipo</label>
+              {/* SIGUE HACIENDO FALTA, PERO NO ES LO MISMO QUE LO DE ABAJO.
+                  En esta pantalla la palabra "fijo" aparecía en tres sitios
+                  distintos queriendo decir tres cosas:
+                    · "Se repite durante el año" → cada cuánto llega la factura.
+                    · "Siempre el mismo importe" → si el importe cambia o no.
+                    · esto                       → si lo pagas venga gente o no.
+                  Solo la tercera da sentido al dato de "gastos fijos al mes",
+                  que es lo que te cuesta abrir la puerta y por tanto cuántas
+                  cuotas necesitas para no perder dinero. Así que se queda, pero
+                  preguntando lo que de verdad pregunta. */}
+              <div className="field"><label>¿Lo pagas aunque no venga nadie?</label>
                 <select className="input" value={form.tipo}
                   onChange={e=>setForm(p=>({...p, tipo:e.target.value, modoEst:modoPorDefecto(e.target.value)}))}>
-                  <option value="variable">Variable</option>
-                  <option value="fijo">Fijo (mensual)</option>
+                  <option value="variable">No · depende de la actividad</option>
+                  <option value="fijo">Sí · lo pago igual</option>
                 </select>
+                <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
+                  {form.tipo === 'fijo'
+                    ? 'Alquiler, gestoría, seguro. Suma en «gastos fijos al mes», el suelo que tienes que cubrir cada mes.'
+                    : 'Material, publicidad, un pedido puntual. Sube y baja con lo que trabajes.'}
+                </div>
               </div>
             </div>
             {/* QUÉ NÚMERO ESTÁS COPIANDO. Con retención el total no es base+IVA
@@ -520,9 +548,24 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             )}
 
             <div className="g2">
-              <div className="field"><label>Categoría</label><input className="input" value={form.categoria} onChange={e=>setForm(p=>({...p,categoria:e.target.value}))} placeholder="ej. Suministros"/></div>
+              {/* Lista cerrada. Era texto libre y "Suministros", "suministros"
+                  y "Luz" eran tres categorías distintas para el ordenador: el
+                  desglose se rompía solo en tres meses sin que nadie hiciera
+                  nada mal. Ver CATEGORIAS_GASTO en lib/gastos. */}
+              <div className="field"><label>Categoría</label>
+                <select className="input" value={form.categoria}
+                  onChange={e=>setForm(p=>({...p,categoria:e.target.value}))}>
+                  <option value="">Sin categoría</option>
+                  {CATEGORIAS_GASTO.map(c=><option key={c.id} value={c.id}>{c.id}</option>)}
+                </select>
+              </div>
               <div className="field"><label>Fecha</label><input className="input" type="date" value={form.fecha} onChange={e=>setForm(p=>({...p,fecha:e.target.value}))}/></div>
             </div>
+            {ayudaDeCategoria(form.categoria) && (
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:-4,marginBottom:10,lineHeight:1.5}}>
+                {ayudaDeCategoria(form.categoria)}
+              </div>
+            )}
             <div onClick={()=>setForm(p=>({...p,tiene_factura:!p.tiene_factura}))} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:6,border:`1px solid ${form.tiene_factura?'var(--g)':'var(--bd)'}`,background:form.tiene_factura?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:10}}>
               <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${form.tiene_factura?'var(--g)':'var(--bd)'}`,background:form.tiene_factura?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 {form.tiene_factura && <span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}
@@ -534,6 +577,116 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               <button className="btn btn-d btn-sm" onClick={()=>setModal(false)}>Cancelar</button>
               <div style={{flex:1}}/>
               <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMAR UNA PREVISIÓN.
+          Una pantalla, no dos cuadros encadenados del navegador: el importe y
+          lo de propagarlo a lo que queda se deciden a la vez, viendo los dos
+          números. */}
+      {conf && (() => {
+        const est = Number(conf.base_imponible || 0)
+        const nueva = parseFloat(confBase.replace(',', '.'))
+        const val = isNaN(nueva) ? null : nueva
+        const iva = Number(conf.iva_pct || 0), irpf = Number(conf.irpf_pct || 0)
+        const cambia = val != null && Math.abs(val - est) > 0.005
+        return (
+          <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setConf(null)}}>
+            <div className="modal" style={{maxWidth:420}}>
+              <div className="modal-title">Ha llegado la factura<button className="modal-close" onClick={()=>setConf(null)}>✕</button></div>
+
+              <div style={{fontSize:11,color:'var(--n)',fontWeight:500}}>{conf.concepto}</div>
+              <div style={{fontSize:9,color:'var(--grl)',marginBottom:10}}>
+                {new Date(conf.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}
+                {' · previsión de '}{est.toFixed(2)} €
+              </div>
+
+              <div className="field">
+                <label>Base imponible de la factura (€)</label>
+                <input className="input" type="number" value={confBase} autoFocus
+                  onChange={e=>setConfBase(e.target.value)}/>
+                <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
+                  Se pregunta porque lo que se deduce sale del papel, no del cálculo.
+                  Si coincide con la previsión, dale a confirmar sin tocar nada.
+                </div>
+              </div>
+
+              {val != null && (
+                <div style={{padding:'9px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>Base</span><span style={{fontWeight:500}}>{val.toFixed(2)} €</span>
+                  </div>
+                  {iva > 0 && <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>+ IVA {iva}%</span><span style={{fontWeight:500}}>{(val*iva/100).toFixed(2)} €</span>
+                  </div>}
+                  {irpf > 0 && <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>− IRPF {irpf}%</span><span style={{fontWeight:500,color:'var(--red)'}}>−{(val*irpf/100).toFixed(2)} €</span>
+                  </div>}
+                  <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px solid var(--bd)'}}>
+                    <span style={{fontWeight:600,color:'var(--n)'}}>Total pagado</span>
+                    <span style={{fontWeight:600,color:'var(--n)'}}>{(val + val*iva/100 - val*irpf/100).toFixed(2)} €</span>
+                  </div>
+                </div>
+              )}
+
+              {/* La subida de abril. Marcado por ti: una factura más alta puede
+                  ser una subida permanente o algo puntual de este mes. */}
+              {cambia && confPend > 0 && (
+                <div onClick={()=>setConfPropagar(v=>!v)}
+                  style={{display:'flex',alignItems:'flex-start',gap:8,padding:'9px 11px',borderRadius:6,cursor:'pointer',marginBottom:10,
+                          border:`1px solid ${confPropagar?'var(--g)':'var(--bd)'}`,background:confPropagar?'var(--gl)':'var(--w)'}}>
+                  <div style={{width:16,height:16,borderRadius:3,marginTop:1,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',
+                               border:`2px solid ${confPropagar?'var(--g)':'var(--bd)'}`,background:confPropagar?'var(--g)':'transparent'}}>
+                    {confPropagar && <span style={{color:'#fff',fontSize:9,fontWeight:700}}>✓</span>}
+                  </div>
+                  <div style={{fontSize:10,color:'var(--n)',lineHeight:1.55}}>
+                    El importe {val! > est ? 'sube' : 'baja'} de {est.toFixed(2)} € a {val!.toFixed(2)} €.
+                    {' '}<strong>Aplicarlo también a las {confPend} previsiones que quedan.</strong>
+                    <div style={{color:'var(--grl)',marginTop:2}}>
+                      Márcalo si es el precio nuevo de aquí en adelante. Déjalo sin marcar si
+                      fue algo puntual de este mes.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <button className="btn btn-d btn-sm" onClick={()=>setConf(null)}>Cancelar</button>
+                <div style={{flex:1}}/>
+                <button className="btn btn-p" onClick={guardarConfirmacion} disabled={guardando || val==null}>
+                  {guardando?'…':<><Ic name="guardar" size={13}/> Confirmar</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* DAR DE BAJA UN SERVICIO. La fecha con un calendario, no tecleando
+          AAAA-MM-DD en un cuadro del navegador. */}
+      {baja && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setBaja(null)}}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div className="modal-title">Dar de baja el servicio<button className="modal-close" onClick={()=>setBaja(null)}>✕</button></div>
+            <div style={{fontSize:11,color:'var(--n)',fontWeight:500,marginBottom:10}}>{baja.concepto}</div>
+            <div className="field">
+              <label>¿Desde qué día ya no lo tienes?</label>
+              <input className="input" type="date" value={bajaDesde} autoFocus
+                onChange={e=>setBajaDesde(e.target.value)}/>
+            </div>
+            <div style={{fontSize:10,color:'var(--grl)',lineHeight:1.6,marginBottom:10}}>
+              Se quitarán las previsiones de esa fecha en adelante.
+              {' '}<strong style={{color:'var(--n)'}}>Las facturas ya confirmadas no se tocan</strong>:
+              {' '}son gasto deducible aunque el servicio se haya acabado.
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setBaja(null)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              <button className="btn btn-p" onClick={darDeBaja} disabled={guardando || !bajaDesde}>
+                {guardando?'…':'Dar de baja'}
+              </button>
             </div>
           </div>
         </div>
