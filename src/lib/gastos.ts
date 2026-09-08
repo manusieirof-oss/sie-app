@@ -183,3 +183,100 @@ export async function borrarEstimadosDeSerie(serieId: string) {
 export function estimadosVencidos(gastos: any[], hoy: string) {
   return (gastos || []).filter(g => g.estimado && g.fecha && g.fecha <= hoy)
 }
+
+// ---------------------------------------------------------------------------
+// PRECIO FIJO O PRECIO QUE VARÍA
+//
+// La media sirve para la luz, que cambia cada mes. Para la gestoría o la
+// limpieza es peor que inútil: si son 90 € y en abril suben a 100, la media de
+// 90·90·90·100 da 92,50 €, un importe que no está en ninguna factura y que
+// además no volverá a estarlo nunca.
+//
+// Lo que quieres en un coste fijo es el ÚLTIMO precio conocido. Y cuando sube,
+// que suba en todas las previsiones que quedan de golpe.
+// ---------------------------------------------------------------------------
+
+export const MODOS_ESTIMACION = [
+  { id: 'fijo',  nombre: 'Siempre el mismo importe',
+    ayuda: 'Gestoría, limpieza, alquiler. Repite el último precio conocido.' },
+  { id: 'media', nombre: 'La media de los anteriores',
+    ayuda: 'Luz, agua, teléfono. Lo que varía cada factura.' },
+] as const
+
+export type ModoEstimacion = typeof MODOS_ESTIMACION[number]['id']
+
+/** Lo natural según el tipo de gasto, para no obligar a elegir en cada alta. */
+export const modoPorDefecto = (tipo: string): ModoEstimacion =>
+  tipo === 'fijo' ? 'fijo' : 'media'
+
+/**
+ * Cambia el importe de las previsiones que quedan POR VENIR de una serie.
+ *
+ * Es la respuesta a "en abril me suben la cuota": confirmas la de abril con el
+ * precio nuevo y las de mayo a diciembre se ponen al día de una vez.
+ *
+ * Solo toca las que siguen siendo estimaciones. Una factura ya confirmada dice
+ * lo que decía su papel, y eso no se reescribe: lo que ya pagaste a 90 € no
+ * pasa a haber costado 100 porque hoy cueste otra cosa.
+ */
+export async function actualizarEstimadosPendientes(
+  serieId: string, desdeFecha: string, base: number, ivaPct: number, irpfPct: number,
+) {
+  const { data, error } = await supabase.from('gastos')
+    .update({
+      base_imponible: Math.round(base * 100) / 100,
+      importe: totalDe(base, ivaPct, irpfPct),
+    })
+    .eq('serie_id', serieId).eq('estimado', true).gt('fecha', desdeFecha)
+    .select('id')
+  if (error) return { ok: false as const, error: error.message, actualizados: 0 }
+  return { ok: true as const, actualizados: (data || []).length }
+}
+
+/** Cuántas previsiones quedan por delante de una fecha. Para poder preguntar antes. */
+export async function contarPendientes(serieId: string, desdeFecha: string) {
+  const { count, error } = await supabase.from('gastos')
+    .select('id', { count: 'exact', head: true })
+    .eq('serie_id', serieId).eq('estimado', true).gt('fecha', desdeFecha)
+  if (error) return { ok: false as const, error: error.message, n: 0 }
+  return { ok: true as const, n: count ?? 0 }
+}
+
+/**
+ * Dar de baja un servicio: borra las previsiones a partir de una fecha.
+ *
+ * Dejaste la limpieza en junio pero tienes previsiones hasta diciembre. Esas
+ * seis no van a existir, y mientras estén ahí inflan el gasto del mes y ensucian
+ * la media del concepto para siempre.
+ *
+ * Lo YA CONFIRMADO no se toca, esté antes o después de la fecha: eso son
+ * facturas que pagaste, y siguen siendo gasto deducible aunque el servicio se
+ * haya acabado.
+ */
+export async function darDeBajaSerie(serieId: string, desdeFecha: string) {
+  const { data, error } = await supabase.from('gastos')
+    .delete()
+    .eq('serie_id', serieId).eq('estimado', true).gte('fecha', desdeFecha)
+    .select('id')
+  if (error) return { ok: false as const, error: error.message, borrados: 0 }
+  return { ok: true as const, borrados: (data || []).length }
+}
+
+/**
+ * El último importe REAL de un concepto. Lo que usa el modo "fijo".
+ *
+ * El último y no la media: en un coste fijo lo que vale es lo que cuesta ahora,
+ * no lo que costaba de media antes de la subida.
+ */
+export async function ultimoImporteDe(concepto: string) {
+  const clave = concepto.trim().toLowerCase()
+  if (!clave) return { ok: true as const, base: null }
+  const { data, error } = await supabase.from('gastos')
+    .select('base_imponible, fecha')
+    .eq('estimado', false).ilike('concepto', clave)
+    .not('base_imponible', 'is', null)
+    .order('fecha', { ascending: false }).limit(1)
+  if (error) return { ok: false as const, error: error.message, base: null }
+  const b = data?.[0]?.base_imponible
+  return { ok: true as const, base: b != null ? Number(b) : null }
+}

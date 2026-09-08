@@ -4,7 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { hoyISO, mesISO } from '@/lib/fechas'
 import { CADENCIAS, fechasDeSerie, mediaDeConcepto, crearSerie, confirmarGasto,
-         borrarEstimadosDeSerie, estimadosVencidos } from '@/lib/gastos'
+         borrarEstimadosDeSerie, estimadosVencidos, MODOS_ESTIMACION, modoPorDefecto,
+         ultimoImporteDe, contarPendientes, actualizarEstimadosPendientes,
+         darDeBajaSerie } from '@/lib/gastos'
 
 export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
@@ -19,7 +21,9 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
    * importe que se esté tecleando, que es lo único honesto que se puede hacer.
    */
   const [media, setMedia] = useState<{ base: number, n: number }|null>(null)
-  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+  /** El último importe real del concepto. Es lo que usa el modo "siempre igual". */
+  const [ultimo, setUltimo] = useState<number|null>(null)
+  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
 
   /**
    * EL DESGLOSE, A PARTIR DEL NÚMERO QUE TENGAS A MANO.
@@ -60,13 +64,19 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
    * que estás tecleando: no hay nada mejor, y fingir una media a partir de un
    * solo dato sería inventar precisión.
    */
-  const baseEstimada = media?.base ?? base
+  const baseEstimada = form.modoEst === 'fijo'
+    ? (ultimo ?? base)
+    : (media?.base ?? base)
 
   /** Se busca la media al salir del campo, no en cada tecla. */
   async function buscarMedia() {
-    if (!form.concepto.trim()) { setMedia(null); return }
-    const r = await mediaDeConcepto(form.concepto)
-    setMedia(r.media != null ? { base: r.media, n: r.n } : null)
+    if (!form.concepto.trim()) { setMedia(null); setUltimo(null); return }
+    const [rm, ru] = await Promise.all([
+      mediaDeConcepto(form.concepto),
+      ultimoImporteDe(form.concepto),
+    ])
+    setMedia(rm.media != null ? { base: rm.media, n: rm.n } : null)
+    setUltimo(ru.base)
   }
 
   async function crear() {
@@ -123,6 +133,59 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     if (isNaN(nueva) || nueva < 0) { setError('Ese importe no es válido'); return }
     const r = await confirmarGasto(g.id, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
     if (!r.ok) { setError(`No se ha podido confirmar: ${r.error}`); return }
+
+    /**
+     * SI EL PRECIO HA CAMBIADO, OFRECER APLICARLO A LO QUE QUEDA.
+     *
+     * Es el caso de "en abril me suben la cuota": las previsiones de mayo a
+     * diciembre siguen con el precio viejo, y corregirlas una a una son ocho
+     * ediciones que nadie hace. Se pregunta aquí, que es donde acabas de
+     * descubrir la subida.
+     *
+     * Se PREGUNTA, no se hace solo: una factura más alta un mes puede ser una
+     * subida permanente o una regularización puntual, y eso solo lo sabes tú.
+     */
+    const estimada = Number(g.base_imponible || 0)
+    if (g.serie_id && Math.abs(nueva - estimada) > 0.005) {
+      const p = await contarPendientes(g.serie_id, g.fecha)
+      if (p.ok && p.n > 0) {
+        const subeOBaja = nueva > estimada ? 'sube' : 'baja'
+        const ok = confirm(
+          `El importe ${subeOBaja} de ${estimada.toFixed(2)} € a ${nueva.toFixed(2)} €.\n\n` +
+          `¿Aplicarlo también a las ${p.n} previsiones que quedan de "${g.concepto}"?\n\n` +
+          `Si es una subida permanente, sí. Si fue algo puntual de este mes, no.`)
+        if (ok) {
+          const u = await actualizarEstimadosPendientes(
+            g.serie_id, g.fecha, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
+          if (!u.ok) setError(`El gasto se confirmó, pero no se han podido actualizar las previsiones: ${u.error}`)
+        }
+      }
+    }
+    recargar()
+  }
+
+  /**
+   * Dar de baja el servicio: quita las previsiones a partir de una fecha.
+   *
+   * Dejaste la limpieza en junio y tienes previsiones hasta diciembre. Esas seis
+   * no van a existir nunca, y mientras estén ahí inflan el gasto de cada mes y
+   * ensucian la media del concepto para siempre.
+   *
+   * Lo ya confirmado no se toca: son facturas que pagaste y siguen siendo gasto
+   * deducible aunque el servicio se haya acabado.
+   */
+  async function darDeBaja(g: any) {
+    const desde = prompt(
+      `Dar de baja "${g.concepto}".\n\n` +
+      `Se quitarán las previsiones desde esta fecha en adelante.\n` +
+      `Las facturas ya confirmadas no se tocan.\n\n` +
+      `¿Desde qué día ya no lo tienes? (AAAA-MM-DD)`,
+      g.fecha)
+    if (!desde) return
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) { setError('La fecha tiene que ser AAAA-MM-DD'); return }
+    const r = await darDeBajaSerie(g.serie_id, desde)
+    if (!r.ok) { setError(`No se ha podido dar de baja: ${r.error}`); return }
+    if (r.borrados === 0) setError('No había ninguna previsión a partir de esa fecha.')
     recargar()
   }
 
@@ -290,6 +353,13 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               </button>
             )}
             {g.estimado && g.serie_id && (
+              <button className="btn btn-t btn-sm" onClick={()=>darDeBaja(g)}
+                title="Ya no tienes este servicio: quitar las previsiones desde una fecha"
+                style={{color:'var(--grl)'}}>
+                Dar de baja
+              </button>
+            )}
+            {g.estimado && g.serie_id && (
               <button onClick={()=>borrarSerie(g.serie_id, g.concepto)}
                 title="Quitar las previsiones pendientes de esta serie"
                 style={{color:'var(--grl)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}>
@@ -312,7 +382,8 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 <input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/>
               </div>
               <div className="field"><label>Tipo</label>
-                <select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}>
+                <select className="input" value={form.tipo}
+                  onChange={e=>setForm(p=>({...p, tipo:e.target.value, modoEst:modoPorDefecto(e.target.value)}))}>
                   <option value="variable">Variable</option>
                   <option value="fijo">Fijo (mensual)</option>
                 </select>
@@ -384,17 +455,40 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                     onChange={e=>setForm(p=>({...p,cadencia:e.target.value}))}>
                     {CADENCIAS.map(c=><option key={c.id} value={c.id}>{c.nombre} · {c.ayuda}</option>)}
                   </select>
+                  {/* FIJO O VARIABLE. Para la gestoría, la media es un número
+                      que no aparece en ninguna factura: si son 90 € y suben a
+                      100, promediar da 92,50 €. Lo que vale ahí es el último
+                      precio conocido. */}
+                  <div style={{display:'flex',gap:6,marginTop:6}}>
+                    {MODOS_ESTIMACION.map(m=>(
+                      <button key={m.id} type="button" onClick={()=>setForm(p=>({...p,modoEst:m.id}))}
+                        style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                                border:`1.5px solid ${form.modoEst===m.id?'var(--g)':'var(--bd)'}`,
+                                background:form.modoEst===m.id?'var(--g)':'var(--w)',
+                                color:form.modoEst===m.id?'#fff':'var(--gr)'}}>{m.nombre}</button>
+                    ))}
+                  </div>
+                  <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
+                    {MODOS_ESTIMACION.find(m=>m.id===form.modoEst)?.ayuda}
+                  </div>
+
                   <div style={{fontSize:9,color:'var(--gd)',marginTop:6,lineHeight:1.6,
                                background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'8px 10px'}}>
                     Se crearán <strong>{fechasSerie.length}</strong> gastos hasta diciembre, el día{' '}
                     <strong>{form.fecha.split('-')[2]}</strong> de cada periodo.
                     {' '}El primero queda como <strong>real</strong> y los otros {fechasSerie.length-1} como
                     {' '}<strong>estimados</strong>, que no cuentan para los impuestos hasta que confirmes su factura.
-                    {media
-                      ? <> Los estimados llevarán <strong>{media.base.toFixed(2)} €</strong> de base,
-                          la media de los {media.n} anteriores de este concepto.</>
-                      : <> No hay histórico de este concepto, así que los estimados repetirán
-                          los <strong>{base.toFixed(2)} €</strong> que has puesto.</>}
+                    {form.modoEst === 'fijo'
+                      ? (ultimo != null
+                          ? <> Los estimados llevarán <strong>{ultimo.toFixed(2)} €</strong> de base,
+                              que es el último importe real de este concepto.</>
+                          : <> Los estimados repetirán los <strong>{base.toFixed(2)} €</strong> que has puesto.
+                              Cuando confirmes uno con otro importe, te ofrecerá aplicarlo al resto.</>)
+                      : (media
+                          ? <> Los estimados llevarán <strong>{media.base.toFixed(2)} €</strong> de base,
+                              la media de los {media.n} anteriores de este concepto.</>
+                          : <> No hay histórico de este concepto, así que los estimados repetirán
+                              los <strong>{base.toFixed(2)} €</strong> que has puesto.</>)}
                   </div>
                 </>
               )}
