@@ -199,6 +199,33 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       notas: form.notas || null,
     }
 
+    /**
+     * LA FILA TAL Y COMO VA A LA BASE DE DATOS.
+     *
+     * `plantilla.base` es un campo de trabajo, no una columna: la columna se
+     * llama `base_imponible`. Haciendo `...plantilla` se le colaba una clave
+     * `base` que no existe, y PostgREST rechazaba la operación entera con
+     * "Could not find the 'base' column of 'gastos'".
+     *
+     * Se construye aquí, una sola vez, con los nombres de las columnas de
+     * verdad. Un objeto que sirve para calcular y otro para guardar, y no se
+     * mezclan: mientras fueran el mismo, cualquier campo auxiliar que se añada
+     * mañana vuelve a romper el guardado.
+     */
+    const fila = {
+      concepto: plantilla.concepto,
+      base_imponible: plantilla.base,
+      importe: total,
+      iva_pct: plantilla.iva_pct,
+      irpf_pct: plantilla.irpf_pct,
+      irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
+      tipo: plantilla.tipo,
+      categoria: plantilla.categoria,
+      notas: plantilla.notas,
+      fecha: form.fecha,
+      tiene_factura: form.tiene_factura,
+    }
+
     if (editando) {
       // Corregir un apunte. NO se toca `estimado`: si estaba confirmado sigue
       // confirmado, y si es una previsión sigue siéndolo. Confirmar es decir
@@ -215,19 +242,12 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
        * Resultado: el modal se cerraba tan contento y el gasto seguía igual. Un
        * fallo que se presenta como un éxito es peor que un fallo.
        */
-      const { data: filas, error: errUpd } = await supabase.from('gastos').update({
-        ...plantilla,
-        importe: total,
-        base_imponible: plantilla.base,
-        irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
-        fecha: form.fecha,
-        tiene_factura: form.tiene_factura,
-      }).eq('id', editando.id).select('id')
+      const { data: filas, error: errUpd } = await supabase.from('gastos')
+        .update(fila).eq('id', editando.id).select('id')
       setGuardando(false)
       if (errUpd) { setError(`No se ha podido guardar el cambio: ${errUpd.message}`); return }
       if (!filas || filas.length === 0) {
-        setError('El cambio no se ha guardado: la base de datos no ha modificado ninguna fila. ' +
-                 'Suele ser que a la tabla de gastos le falta el permiso de actualizar (RLS).')
+        setError('El cambio no se ha guardado: la base de datos no ha modificado ninguna fila.')
         return
       }
     } else if (form.repetir) {
@@ -237,15 +257,10 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       setGuardando(false)
       if (!r.ok) { setError(`No se ha podido crear la serie: ${r.error}`); return }
     } else {
-      const { error: errIns } = await supabase.from('gastos').insert({
-        ...plantilla,
-        importe: total,
-        base_imponible: plantilla.base,
-        irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
-        fecha: form.fecha,
-        estimado: false,
-        tiene_factura: form.tiene_factura,
-      })
+      // Mismo fallo que arriba: aquí también se colaba `base`. Un gasto suelto
+      // con IVA distinto del que llevaba el formulario no se llegaba a guardar.
+      const { error: errIns } = await supabase.from('gastos')
+        .insert({ ...fila, estimado: false })
       setGuardando(false)
       // Cerrar el modal sin mirar el error daba un gasto "guardado" que no existía.
       if (errIns) { setError(`No se ha podido guardar el gasto: ${errIns.message}`); return }
