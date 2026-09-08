@@ -331,6 +331,39 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const totalUlt3 = gastos.filter((g:any)=>mesesRef.includes(g.fecha?.slice(0,7))).reduce((a:number,g:any)=>a+Number(g.importe),0)
   const mediaMensual = totalUlt3/3
 
+  // ---------------------------------------------------------------------------
+  // BUSCAR EN LA LISTA
+  //
+  // Filtra LO QUE SE PINTA, no lo que se cuenta. Los totales de arriba, la media
+  // y el desglose por categoría siguen mirando todos los gastos: si buscar
+  // "alquiler" cambiara el total del mes, la pantalla estaría diciendo que ese
+  // mes gastaste 655 €.
+  //
+  // Lo único que se recalcula es el resumen de la propia búsqueda, que va justo
+  // encima de los resultados y dice de qué está hablando.
+  // ---------------------------------------------------------------------------
+  const [busca, setBusca] = useState('')
+  const [mesFiltro, setMesFiltro] = useState('')
+
+  /** Los meses que existen de verdad en los datos, del más nuevo al más viejo. */
+  const mesesConGastos = Array.from(new Set(
+    gastos.map((g:any)=>g.fecha?.slice(0,7)).filter(Boolean) as string[]
+  )).sort().reverse()
+
+  const nombreMes = (m: string) =>
+    new Date(m + '-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'})
+
+  const q = busca.trim().toLowerCase()
+  const filtrados = gastos.filter((g:any) => {
+    if (mesFiltro && g.fecha?.slice(0,7) !== mesFiltro) return false
+    if (!q) return true
+    // Concepto, categoría y notas: los tres sitios donde uno escribe de qué era.
+    return [g.concepto, g.categoria, g.notas].some((c:any)=>String(c||'').toLowerCase().includes(q))
+  })
+  const hayFiltro = !!q || !!mesFiltro
+  const totalFiltrado = filtrados.reduce((a:number,g:any)=>a+Number(g.importe),0)
+  const estimadoFiltrado = filtrados.filter((g:any)=>g.estimado).reduce((a:number,g:any)=>a+Number(g.importe),0)
+
   // Desglose por categoría (todos los gastos)
   const porCat: Record<string, number> = {}
   gastos.forEach((g:any)=>{ const c=g.categoria||'Sin categoría'; porCat[c]=(porCat[c]||0)+Number(g.importe) })
@@ -407,10 +440,54 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
         )}
       </div>
 
+      {/* BUSCADOR. Con doce meses de recurrentes cargados la lista pasa de
+          treinta líneas a más de cien, y encontrar "el recibo del agua de mayo"
+          a base de rueda del ratón deja de ser viable. */}
+      {gastos.length > 0 && (
+        <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+          <input className="input" value={busca} onChange={e=>setBusca(e.target.value)}
+            placeholder="Buscar por concepto, categoría o notas…"
+            style={{flex:'1 1 180px',minWidth:0}}/>
+          <select className="input" value={mesFiltro} onChange={e=>setMesFiltro(e.target.value)}
+            style={{flex:'0 1 160px'}}>
+            <option value="">Todos los meses</option>
+            {mesesConGastos.map(m=><option key={m} value={m}>{nombreMes(m)}</option>)}
+          </select>
+          {hayFiltro && (
+            <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro('')}}>Quitar</button>
+          )}
+        </div>
+      )}
+
+      {/* De qué está hablando lo de abajo. Los totales de arriba NO cambian:
+          son los del mes entero, y que una búsqueda los moviera sería mentir. */}
+      {hayFiltro && (
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:8,
+                     background:'var(--bl)',borderRadius:6,padding:'7px 11px',marginBottom:8,fontSize:10}}>
+          <span style={{color:'var(--grl)'}}>
+            {filtrados.length===0 ? 'Ningún gasto'
+              : `${filtrados.length} ${filtrados.length===1?'gasto':'gastos'}`}
+            {mesFiltro && ` · ${nombreMes(mesFiltro)}`}
+            {q && ` · "${busca.trim()}"`}
+          </span>
+          {filtrados.length>0 && (
+            <span style={{fontWeight:600,color:'var(--n)',whiteSpace:'nowrap'}}>
+              {totalFiltrado.toFixed(2)} €
+              {estimadoFiltrado>0 && <span style={{fontWeight:400,color:'var(--grl)'}}> · {estimadoFiltrado.toFixed(0)} € estimados</span>}
+            </span>
+          )}
+        </div>
+      )}
+
       {gastos.length===0 ? (
         <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:11}}>Sin gastos registrados</div>
+      ) : filtrados.length===0 ? (
+        <div style={{textAlign:'center',padding:24,color:'var(--grl)',fontSize:11,lineHeight:1.6}}>
+          No hay ningún gasto que encaje.<br/>
+          <span style={{fontSize:10}}>Hay {gastos.length} en total: prueba a quitar el filtro.</span>
+        </div>
       ) : (
-        gastos.map((g:any) => (
+        filtrados.map((g:any) => (
           <div key={g.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,opacity:g.estimado?.72:1,border:g.estimado?'1px dashed var(--bd)':'1px solid var(--bd)',marginBottom:5,background:'var(--bl)'}}>
             <div style={{width:8,height:8,borderRadius:'50%',background:g.tipo==='fijo'?'var(--amb)':'var(--grl)',flexShrink:0}}/>
             <div style={{flex:1}}>
