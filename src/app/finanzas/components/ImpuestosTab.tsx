@@ -41,6 +41,10 @@ export default function ImpuestosTab({ planes, gastos, facturas=[] }: any) {
     // Gastos de ese trimestre y año
     const gastosT = gastos.filter((g:any)=>{
       if (!g.fecha) return false
+      // LAS ESTIMACIONES NO ENTRAN. Ver lib/gastos: un gasto estimado es una
+      // previsión, no una factura. Deducir su IVA o declarar su retención sería
+      // declarar a partir de un papel que todavía no existe.
+      if (g.estimado) return false
       const [gy, gm] = g.fecha.split('-').map(Number)
       return gy===anio && trimestreDe(gm)===t
     })
