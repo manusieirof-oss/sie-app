@@ -4,8 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte } from '@/lib/sesiones'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
-import { pacientesDelDia, horasDelDia, horaActual, asignarSesionACita } from '@/lib/taller'
+import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
 import { rutaDeAsignacion } from '@/lib/asignarCita'
+import { MOTIVOS_CAMBIO, nombreMotivo, cambiosDeCitas, type CambioSesion } from '@/lib/cambioSesion'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
@@ -40,6 +41,22 @@ export default function ModoClase() {
     setObjsDeSesion(prev => ({ ...prev, [sesionId]: objs||[] }))
   }
   const [ctxAbierto, setCtxAbierto] = useState<string>('')
+  /**
+   * Los cambios de sesión ya registrados en las citas de esta franja, por cita.
+   *
+   * Se leen al traer la franja, no se guardan en la fila del paciente: el cambio lo pudo
+   * hacer otro compañero en otro ordenador hace diez minutos, y esta pantalla se abre
+   * veinte veces al día.
+   */
+  const [cambios, setCambios] = useState<Record<string, CambioSesion>>({})
+  /**
+   * El panel de "¿por qué cambias la sesión?" mientras está abierto.
+   *
+   * Guarda a quién, qué tenía puesto y a dónde iba a ir a buscar la nueva, porque el
+   * motivo se pide ANTES de salir del taller. Es donde está el paciente delante: en la
+   * biblioteca ya no se acuerda uno de por qué venía.
+   */
+  const [cambiando, setCambiando] = useState<any>(null)
   const [pendientes, setPendientes] = useState(0)
   const [ultimoGuardado, setUltimoGuardado] = useState<Date|null>(null)
 
@@ -155,6 +172,8 @@ export default function ModoClase() {
 
       const final = lista
       setSeleccion(final)
+      // Quién trae hoy una sesión distinta de la que se le había planificado.
+      setCambios(await cambiosDeCitas(delDia.map(d => d.citaId).filter(Boolean)))
       // Si el que estaba abierto ya no está en la franja, no se deja un panel colgado.
       setActivo(a => final.some((x:any) => x.paciente.id === a) ? a : (final[0]?.paciente.id || ''))
 
@@ -360,36 +379,14 @@ export default function ModoClase() {
    */
 
   /**
-   * Poner una sesión a alguien, desde el taller.
+   * AQUÍ NO SE PONE UNA SESIÓN DIRECTAMENTE.
    *
-   * SE GUARDA EN LA CITA. El taller, la agenda y Planificación mandan por igual sobre qué
-   * sesión toca ese día: los tres escriben `citas.sesion_id`. Si lo cambias aquí, mañana
-   * la agenda y la ficha dicen lo mismo, porque es el mismo dato y no tres copias.
-   *
-   * Los datos se rellenan con `cargarDatosSesion`, la misma que usa la carga de la franja.
-   * Antes esto tenía su propia copia de esas sesenta líneas —tipos de medida, último
-   * registro, borrador en curso— y bastaba tocar una para que las dos dejaran de coincidir.
+   * Hubo una `elegirSesion` que escribía `citas.sesion_id` desde el taller. Quedó sin usar
+   * cuando la elección pasó a hacerse en la ficha o en la biblioteca —un solo mecanismo,
+   * ver `lib/asignarCita`—, y se ha retirado ahora porque desde que el cambio de sesión
+   * exige motivo, una segunda puerta de escritura es una puerta por la que el motivo se
+   * pierde. El único camino es el encargo, y el encargo lo lleva.
    */
-  async function elegirSesion(pid: string, ses: any) {
-    const sesionId = ses?.id || ''
-    const item = seleccionRef.current.find((s:any) => s.paciente.id === pid)
-    if (item?.citaId) {
-      const r = await asignarSesionACita(item.citaId, sesionId || null)
-      if (!r.ok) { alert('No se ha podido guardar la sesión en la cita: ' + r.error); return }
-    }
-    if (!sesionId) {
-      setSeleccion(prev => prev.map(s => s.paciente.id===pid ? {...s, sesionId:'', datos:[], cargado:false, finalizado:false} : s))
-      return
-    }
-    const datos = await cargarDatosSesion(pid, ses)
-    setSeleccion(prev => prev.map(s => {
-      if (s.paciente.id !== pid) return s
-      // La recién elegida entra en su lista aunque venga de la biblioteca, para que se
-      // vea como puesta y se pueda volver a ella sin reabrir el buscador.
-      const sesiones = s.sesiones.some((x:any) => x.id === sesionId) ? s.sesiones : [ses, ...s.sesiones]
-      return { ...s, sesionId, sesiones, datos, cargado:true, finalizado:false }
-    }))
-  }
 
   function programarAutosave(pid:string, ei:number, ejData:any, sesionId:string){
     const key = `${pid}_${ei}`
@@ -622,6 +619,20 @@ export default function ModoClase() {
                 <span>{nombrePac(act.paciente)}</span>
                 {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
                 {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
+                {/* LO QUE ESTÁ HACIENDO NO ES LO QUE SE LE PLANIFICÓ. Va aquí arriba y no
+                    escondido junto al botón: quien entra a mitad de clase tiene que verlo
+                    sin preguntar, porque cambia lo que se espera de la sesión. */}
+                {act.citaId && cambios[act.citaId] && (()=>{
+                  const c = cambios[act.citaId]
+                  return (
+                    <span title={`Antes: «${c.sesion_antes_nombre || '—'}»${c.nota ? '\n\n' + c.nota : ''}`}
+                      style={{fontSize:9,fontWeight:600,padding:'2px 9px',borderRadius:99,whiteSpace:'nowrap',
+                        background:'#EFE7F7',color:'#5B3E86',border:'1px solid #D6C4E8',
+                        display:'inline-flex',alignItems:'center',gap:4}}>
+                      <Ic name="cambio" size={10}/> Cambiada · {nombreMotivo(c.motivo).toLowerCase()}
+                    </span>
+                  )
+                })()}
               </div>
             </div>
             <div style={{flex:1,display:'flex',justifyContent:'center'}}>
@@ -686,11 +697,31 @@ export default function ModoClase() {
                   {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).map(([d,l])=>(
                     <div key={d} onClick={()=>{
                       setEligiendo(null)
-                      router.push(rutaDeAsignacion(d as any, {
+                      const encargo = {
                         citaId: act.citaId, pacienteId: act.paciente.id,
                         etiqueta: nombrePac(act.paciente) + (act.hora ? ' · ' + act.hora : ''),
                         volver: '/taller',
-                      }))
+                      }
+                      /**
+                       * SI YA TENÍA SESIÓN, PRIMERO EL PORQUÉ.
+                       *
+                       * Poner una sesión en una cita vacía no hay que justificarlo. Cambiar
+                       * la que estaba planificada, sí: eso es una decisión clínica que se
+                       * toma con el paciente delante, y era justo lo único que no quedaba
+                       * escrito en ningún sitio. Un mes después la cita apuntaba a la sesión
+                       * nueva y no había forma de distinguirla de una planificada así.
+                       *
+                       * Se pregunta aquí y no en la biblioteca porque aquí es donde está el
+                       * paciente. Al llegar al catálogo de sesiones uno ya está pensando en
+                       * cuál elegir, no en por qué venía.
+                       */
+                      const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
+                      if (act.sesionId && act.citaId) {
+                        setCambiando({ destino:d, encargo, motivo:'', nota:'',
+                          antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
+                        return
+                      }
+                      router.push(rutaDeAsignacion(d as any, encargo))
                     }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}}
                       onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
                       onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{l}</div>
@@ -873,6 +904,65 @@ export default function ModoClase() {
             </div>
             )
           })}
+        </div>
+      )}
+
+      {/* POR QUÉ SE CAMBIA LA SESIÓN
+          Sale antes de ir a elegir la nueva. El motivo viaja en el encargo y lo escribe
+          `asignarSesionYVolver`, que es quien toca la cita: si se preguntara al volver,
+          bastaría con cerrar la pestaña para que el cambio quedara sin explicación. */}
+      {cambiando && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setCambiando(null)}}>
+          <div className="modal" style={{width:460}}>
+            <div className="modal-title">
+              ¿Por qué cambias la sesión?
+              <button className="modal-close" onClick={()=>setCambiando(null)}>✕</button>
+            </div>
+            <div style={{fontSize:11,color:'var(--gr)',marginBottom:14}}>
+              Tenía puesta <b style={{fontWeight:600,color:'var(--n)'}}>«{cambiando.antesNombre || 'una sesión'}»</b>.
+              Queda anotado en su historial junto con lo que elijas.
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:12}}>
+              {MOTIVOS_CAMBIO.map(m=>(
+                <button key={m.id} title={m.ayuda}
+                  onClick={()=>setCambiando((p:any)=>({...p,motivo:p.motivo===m.id?'':m.id}))}
+                  className={`chip-sel ${cambiando.motivo===m.id?'on':''}`}>
+                  {m.nombre}
+                </button>
+              ))}
+            </div>
+            <div className="field">
+              <label>Nota {cambiando.motivo==='otro' ? '*' : '(opcional)'}</label>
+              <textarea className="input" value={cambiando.nota} autoFocus
+                onChange={e=>setCambiando((p:any)=>({...p,nota:e.target.value}))}
+                placeholder="Ej: fue a correr por la mañana y no tiene bien las piernas"
+                style={{minHeight:56,fontSize:12}}/>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
+              <button className="btn btn-d btn-sm" onClick={()=>setCambiando(null)}>Cancelar</button>
+              <div style={{flex:1}}/>
+              {/* Sin motivo no se sale. Si se pudiera saltar, en tres semanas la mitad
+                  estarían sin motivo y el registro no valdría para nada. */}
+              <button className="btn btn-p btn-sm"
+                disabled={!cambiando.motivo || (cambiando.motivo==='otro' && !cambiando.nota.trim())}
+                onClick={()=>{
+                  const c = cambiando
+                  setCambiando(null)
+                  router.push(rutaDeAsignacion(c.destino, {
+                    ...c.encargo,
+                    antesId: c.antesId, antesNombre: c.antesNombre,
+                    motivo: c.motivo, nota: c.nota.trim() || undefined,
+                  }))
+                }}>
+                Elegir la nueva sesión
+              </button>
+            </div>
+            {!cambiando.motivo && (
+              <div style={{fontSize:10,color:'var(--grl)',marginTop:7,textAlign:'right'}}>
+                Marca un motivo para continuar.
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>

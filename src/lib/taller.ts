@@ -175,15 +175,17 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
 }
 
 /**
- * Cambiar la sesión de una cita sobre la marcha.
+ * LA SESIÓN DE UNA CITA NO SE ESCRIBE DESDE AQUÍ.
  *
- * Se guarda en la CITA y no en ningún sitio del taller. Así el cambio queda donde ya se
- * mira —la agenda y la ficha— y mañana se sigue viendo qué se entrenó de verdad ese día.
+ * Hubo una `asignarSesionACita` que hacía el `update` directo. Se ha retirado: desde que
+ * cambiar una sesión ya puesta exige decir por qué (ver `lib/cambioSesion`), una función
+ * que escribe la cita sin pasar por el motivo es exactamente el agujero por el que el
+ * motivo se pierde. Y no sería un fallo ruidoso: la sesión quedaría bien puesta y solo
+ * faltaría el registro, que es lo que nadie mira hasta que hace falta.
+ *
+ * El único camino es el encargo de `lib/asignarCita`, que pone la sesión y deja constancia
+ * en la misma operación.
  */
-export async function asignarSesionACita(citaId: string, sesionId: string | null) {
-  const { error } = await supabase.from('citas').update({ sesion_id: sesionId }).eq('id', citaId)
-  return error ? { ok: false as const, error: error.message } : { ok: true as const }
-}
 
 /**
  * EL ESTADO DE LA CITA NO SE TOCA DESDE AQUÍ.

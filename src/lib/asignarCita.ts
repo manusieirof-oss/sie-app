@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { duplicarSesion } from './sesiones'
+import { registrarCambio } from './cambioSesion'
 
 /**
  * Traer una sesión de otra pantalla. UN SOLO MECANISMO.
@@ -29,17 +30,41 @@ export type Encargo = {
   etiqueta: string
   /** A dónde se vuelve al terminar. */
   volver: string
+  /**
+   * SUSTITUCIÓN: qué había antes y por qué se cambia.
+   *
+   * Solo viene cuando la cita YA tenía sesión y se está cambiando en la sala. El motivo
+   * se pide en el taller, antes de salir, y viaja hasta aquí porque el que escribe la
+   * cita es este módulo: pedirlo aquí significaría preguntar en la ficha y en la
+   * biblioteca por separado, y el "por qué" se decide mirando al paciente, no mirando el
+   * catálogo de sesiones.
+   *
+   * El nombre viaja además del id por lo mismo que se guarda en la tabla: el registro
+   * tiene que poder leerse aunque la sesión se renombre o se borre.
+   */
+  antesId?: string
+  antesNombre?: string
+  motivo?: string
+  nota?: string
 }
 
 const P_PAC = 'asignar_paciente'
 const P_CITA = 'asignar_cita'
 const P_ETQ = 'asignar_de'
 const P_VOLVER = 'volver_a'
+const P_ANTES = 'cambia_de'
+const P_ANTES_N = 'cambia_de_n'
+const P_MOTIVO = 'cambia_por'
+const P_NOTA = 'cambia_nota'
 
 /** La dirección a la que mandar. `destino` es 'ficha' (las suyas) o 'biblioteca'. */
 export function rutaDeAsignacion(destino: 'ficha' | 'biblioteca', e: Encargo): string {
   const q = new URLSearchParams({ [P_PAC]: e.pacienteId, [P_ETQ]: e.etiqueta, [P_VOLVER]: e.volver })
   if (e.citaId) q.set(P_CITA, e.citaId)
+  if (e.antesId) q.set(P_ANTES, e.antesId)
+  if (e.antesNombre) q.set(P_ANTES_N, e.antesNombre)
+  if (e.motivo) q.set(P_MOTIVO, e.motivo)
+  if (e.nota) q.set(P_NOTA, e.nota)
   return destino === 'ficha'
     ? `/pacientes/${e.pacienteId}?tab=entreno&${q}`
     : `/entrenamiento?tab=sesiones&${q}`
@@ -57,6 +82,10 @@ export function encargoDeLaUrl(): Encargo | null {
     etiqueta: p.get(P_ETQ) || '',
     // Se vuelve al taller si no se dice otra cosa: es de donde más se viene.
     volver: p.get(P_VOLVER) || '/taller',
+    antesId: p.get(P_ANTES) || undefined,
+    antesNombre: p.get(P_ANTES_N) || undefined,
+    motivo: p.get(P_MOTIVO) || undefined,
+    nota: p.get(P_NOTA) || undefined,
   }
 }
 
@@ -82,6 +111,28 @@ export async function asignarSesionYVolver(sesion: any, e: Encargo) {
   if (e.citaId) {
     const { error } = await supabase.from('citas').update({ sesion_id: id }).eq('id', e.citaId)
     if (error) return { ok: false as const, error: error.message }
+
+    /**
+     * Queda constancia del cambio, si es que ha habido cambio.
+     *
+     * Las dos condiciones importan. Sin `motivo` no es una sustitución en la sala, es una
+     * asignación normal —una cita que estaba vacía—, y eso no hay por qué justificarlo.
+     * Y si la sesión elegida resulta ser la que ya estaba, tampoco: se fue a mirar y se
+     * volvió con la misma. Registrar eso llenaría el historial de cambios que no lo son.
+     *
+     * El fallo aquí NO tumba la asignación. La sesión ya está puesta y el paciente está
+     * esperando; deshacerlo por no haber podido escribir el apunte sería cambiar un
+     * problema de registro por uno de sala. Se avisa y se sigue.
+     */
+    if (e.motivo && id !== e.antesId) {
+      const r = await registrarCambio({
+        citaId: e.citaId, pacienteId: e.pacienteId,
+        antesId: e.antesId, antesNombre: e.antesNombre,
+        despuesId: id, despuesNombre: sesion.nombre || null,
+        motivo: e.motivo, nota: e.nota,
+      })
+      if (!r.ok) return { ok: true as const, sesionId: id, avisoRegistro: r.error }
+    }
   }
 
   return { ok: true as const, sesionId: id }
