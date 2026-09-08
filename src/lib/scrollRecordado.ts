@@ -1,113 +1,98 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 
 /**
- * Devolver a la lista donde estaba, no al principio.
+ * Volver a la lista y encontrar a la persona que estabas mirando.
  *
- * Entrar en la ficha de alguien que está en la fila noventa y volver al tope de la lista
- * obliga a buscarlo otra vez cada vez. Con doscientos pacientes eso es la diferencia
- * entre revisar la lista entera y no revisarla.
+ * Entrar en la ficha de alguien que está en la fila noventa y volver al principio de la
+ * lista obliga a buscarlo otra vez cada vez. Con doscientos pacientes eso es la
+ * diferencia entre revisar la lista entera y no revisarla.
  *
- * QUÉ SE MIDE. No es la ventana: la aplicación no hace scroll en el `body`. El que se
- * mueve es `.content` (ver `globals.css`), así que es su `scrollTop` lo que hay que
- * guardar. Con `window.scrollY` esto no funcionaba, y no por poco: siempre valía cero.
+ * SE RECUERDA LA FILA, NO LA ALTURA. Tres intentos anteriores guardaban el `scrollTop`
+ * de `.content` y ninguno funcionó, por dos motivos que no se arreglan insistiendo:
  *
- * EL ORDEN ES TODO. Next, al cambiar de página, sube el contenido al principio por su
- * cuenta, y lo hace DESPUÉS de montar la lista. La primera versión de esto ponía el
- * oyente de scroll nada más montar, así que ese salto al principio entraba por la misma
- * puerta que un scroll del usuario y guardaba un cero encima de la posición buena, justo
- * antes de que llegara el momento de restaurarla. Se restauraba, sí: a cero.
+ *   - Poner `scrollTop = 4000` cuando la lista todavía mide una pantalla no hace nada:
+ *     el navegador lo recorta a lo que hay. Y la lista no tiene su alto definitivo hasta
+ *     que llegan seis consultas, que tardan lo que tardan.
+ *   - Daba por hecho que el elemento que hace scroll es `.content`. Es una suposición, y
+ *     todo el mecanismo colgaba de ella.
  *
- * De ahí las dos reglas de abajo:
+ * Guardando el id de la fila desaparecen las dos. `scrollIntoView` busca solo cuál es el
+ * antecesor que hace scroll, así que no hay que acertar; y si la fila todavía no está
+ * pintada, no es que se recorte el resultado: es que no hay elemento, se ve que no lo
+ * hay, y se reintenta. Además sigue funcionando si al volver la lista trae un paciente
+ * más, o está ordenada de otra forma.
  *
- *   1. No se guarda nada hasta haber restaurado. Mientras tanto, lo que mueva la
- *      posición no es el usuario.
- *   2. Al restaurar se insiste unos fotogramas, porque el salto de Next puede llegar
- *      después. Se deja de insistir en cuanto el usuario toca la rueda o la pantalla:
- *      a partir de ahí manda él.
- *
- * DÓNDE SE GUARDA. En `sessionStorage`: dura lo que dura la pestaña. Recordar la
- * posición de la semana pasada no es útil, y ocupar `localStorage` con eso, tampoco.
+ * SE VIGILA, NO SE INTENTA UNA VEZ. Hay tres cosas que mueven la posición y ninguna
+ * avisa: Next sube el contenido al principio al cambiar de página y no en un momento
+ * fijo; la lista crece según van llegando los datos; y en desarrollo React monta,
+ * desmonta y vuelve a montar. Así que cada fotograma se comprueba si la fila está a la
+ * vista y, si no, se la trae. Se para cuando lleva tres fotogramas seguidos en su sitio,
+ * cuando el usuario toca la rueda, la pantalla, el teclado o la barra de scroll, o a los
+ * cinco segundos.
  */
-export function useScrollRecordado(clave: string, listo: boolean) {
-  /** false hasta que la posición está puesta. Ver la regla 1. */
-  const [siguiendo, setSiguiendo] = useState(false)
-  const restaurado = useRef(false)
-  const k = 'scroll:' + clave
 
-  // 1 · RESTAURAR, y solo cuando los datos ya están pintados. Antes la lista mide una
-  //     pantalla, el navegador recorta el `scrollTop` a lo que hay y te quedas arriba.
+/** La última fila abierta de cada lista. En memoria: sobrevive al cambio de página. */
+const ultima = new Map<string, string>()
+const VIGILAR_MS = 5000
+const QUIETA = 3
+
+/** El id del elemento de la fila. La lista tiene que ponerlo en cada fila. */
+export const idFila = (clave: string, id: string) => `fila-${clave}-${id}`
+
+export function useVolverALaFila(clave: string) {
   useEffect(() => {
-    if (!listo || restaurado.current) return
-    restaurado.current = true
-    const caja = document.querySelector('.content') as HTMLElement | null
-    if (!caja) return
+    const id = ultima.get(clave) || (() => {
+      try { return sessionStorage.getItem('fila:' + clave) || '' } catch { return '' }
+    })()
+    if (!id) return
 
-    let y = 0
-    try { y = parseInt(sessionStorage.getItem(k) || '0', 10) } catch {}
-    if (!y || isNaN(y) || y < 0) { setSiguiendo(true); return }
+    let vivo = true
+    let marco = 0
+    let quieta = 0
+    const desde = Date.now()
 
-    let id = 0
-    let intentos = 0
-    const rendirse = () => {
-      if (id) cancelAnimationFrame(id)
-      id = 0
-      caja.removeEventListener('wheel', rendirse)
-      caja.removeEventListener('touchstart', rendirse)
-      setSiguiendo(true)
+    const parar = () => {
+      if (!vivo) return
+      vivo = false
+      if (marco) cancelAnimationFrame(marco)
+      window.removeEventListener('wheel', parar)
+      window.removeEventListener('touchstart', parar)
+      window.removeEventListener('mousedown', parar)
+      window.removeEventListener('keydown', parar)
     }
-    const poner = () => {
-      caja.scrollTop = y
-      // Diez fotogramas, unos 150 ms. Suficiente para ganarle al salto de Next y lo
-      // bastante corto como para que no se note si el usuario ya está moviendo.
-      if (++intentos < 10) id = requestAnimationFrame(poner)
-      else rendirse()
-    }
-    caja.addEventListener('wheel', rendirse, { passive: true, once: true })
-    caja.addEventListener('touchstart', rendirse, { passive: true, once: true })
-    id = requestAnimationFrame(poner)
 
-    return () => {
-      if (id) cancelAnimationFrame(id)
-      caja.removeEventListener('wheel', rendirse)
-      caja.removeEventListener('touchstart', rendirse)
+    const vigilar = () => {
+      if (!vivo) return
+      const el = document.getElementById(idFila(clave, id))
+      if (!el) {
+        // Todavía no está pintada. No es un fallo: es que faltan datos por llegar.
+        quieta = 0
+      } else {
+        const r = el.getBoundingClientRect()
+        // Con margen por arriba y por abajo: dejarla pegada al borde no es "verla".
+        const aLaVista = r.top >= 70 && r.bottom <= window.innerHeight - 24
+        if (aLaVista) quieta++
+        else { el.scrollIntoView({ block: 'center' }); quieta = 0 }
+      }
+      if (quieta >= QUIETA || Date.now() - desde > VIGILAR_MS) { parar(); return }
+      marco = requestAnimationFrame(vigilar)
     }
-  }, [listo, k])
 
-  // 2 · GUARDAR, ya con la posición puesta y el mando en manos del usuario.
-  useEffect(() => {
-    if (!siguiendo) return
-    const caja = document.querySelector('.content') as HTMLElement | null
-    if (!caja) return
+    // El usuario manda: en cuanto mueve él, se deja de insistir. El `mousedown` cubre
+    // arrastrar la barra de scroll, que no dispara `wheel`.
+    window.addEventListener('wheel', parar, { passive: true })
+    window.addEventListener('touchstart', parar, { passive: true })
+    window.addEventListener('mousedown', parar)
+    window.addEventListener('keydown', parar)
+    marco = requestAnimationFrame(vigilar)
 
-    // Se guarda de continuo y no solo al salir: si la pestaña se recarga o el
-    // componente se desmonta por un camino que no pasa por la limpieza, lo último
-    // que se vio ya está guardado.
-    let pendiente = 0
-    const guardar = () => { try { sessionStorage.setItem(k, String(caja.scrollTop)) } catch {} }
-    const alScroll = () => {
-      if (pendiente) return
-      pendiente = requestAnimationFrame(() => { pendiente = 0; guardar() })
-    }
-    caja.addEventListener('scroll', alScroll, { passive: true })
-    return () => {
-      caja.removeEventListener('scroll', alScroll)
-      if (pendiente) cancelAnimationFrame(pendiente)
-      guardar()
-    }
-  }, [siguiendo, k])
+    return parar
+  }, [clave])
 
-  /**
-   * Guardar AHORA, sin esperar a nada.
-   *
-   * Para colgarlo del clic en la fila. La limpieza del efecto de arriba ya guarda al
-   * desmontar, pero eso depende de que React desmonte antes de que Next mueva la
-   * posición, y ese orden no lo decido yo. El clic sí: cuando ocurre, la lista está
-   * quieta y donde el usuario la dejó.
-   */
-  return () => {
-    const caja = document.querySelector('.content') as HTMLElement | null
-    if (!caja) return
-    try { sessionStorage.setItem(k, String(caja.scrollTop)) } catch {}
+  /** Cuélgalo del `onMouseDown` de la fila: es cuando se sabe a quién se está abriendo. */
+  return (id: string) => {
+    ultima.set(clave, id)
+    try { sessionStorage.setItem('fila:' + clave, id) } catch {}
   }
 }

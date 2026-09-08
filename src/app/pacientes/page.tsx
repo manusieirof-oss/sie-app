@@ -13,7 +13,7 @@ import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
          estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE,
          esNuevo, DIAS_NUEVO, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
-import { useScrollRecordado } from '@/lib/scrollRecordado'
+import { useVolverALaFila, idFila } from '@/lib/scrollRecordado'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
@@ -77,8 +77,8 @@ export default function PacientesPage() {
 
   useEffect(() => { cargar(); cargarBonosTipos(false).then(setBonosOpts) }, [])
 
-  // Al volver de una ficha, la lista se queda donde estaba.
-  const guardarScroll = useScrollRecordado('pacientes', !loading)
+  // Al volver de una ficha, la lista se coloca en el paciente que estabas viendo.
+  const recordarFila = useVolverALaFila('pacientes')
 
   async function cargar() {
     setLoading(true)
@@ -486,11 +486,11 @@ export default function PacientesPage() {
             const fondo = pago==='impago' ? 'var(--redl)' : nuevo ? '#F3F9EE' : 'var(--w)'
             const fondoHover = pago==='impago' ? '#fce8e8' : nuevo ? '#E9F3E1' : 'var(--gl)'
             return (
-              <Link key={p.id} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:fondo,transition:'background .1s',
+              <Link key={p.id} id={idFila('pacientes', p.id)} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:fondo,transition:'background .1s',
                 // Marca lateral, no borde: un borde de verdad correría las columnas y
                 // desalinearía la fila del nuevo respecto a todas las demás.
                 boxShadow: nuevo && pago!=='impago' ? 'inset 3px 0 0 #7C9A6B' : 'none'}}
-                onMouseDown={guardarScroll}
+                onMouseDown={()=>recordarFila(p.id)}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=fondoHover}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=fondo}>
                 <div style={{padding:'8px 10px'}}>
