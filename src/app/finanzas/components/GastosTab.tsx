@@ -8,6 +8,23 @@ import { CADENCIAS, fechasDeSerie, mediaDeConcepto, crearSerie, confirmarGasto,
          ultimoImporteDe, contarPendientes, actualizarEstimadosPendientes,
          darDeBajaSerie, CATEGORIAS_GASTO, ayudaDeCategoria } from '@/lib/gastos'
 
+/**
+ * El trimestre de una fecha, SOLO si ya pasó. null si es del trimestre en curso.
+ *
+ * Sirve para avisar al corregir: mientras el trimestre está abierto, cambiar un
+ * gasto no tiene consecuencias. En cuanto se ha presentado, sí las tiene.
+ */
+function trimestrePasado(fecha?: string | null): string | null {
+  if (!fecha) return null
+  const [a, m] = fecha.split('-').map(Number)
+  if (!a || !m) return null
+  const t = Math.floor((m - 1) / 3) + 1
+  const hoy = new Date()
+  const tHoy = Math.floor(hoy.getMonth() / 3) + 1
+  const pasado = a < hoy.getFullYear() || (a === hoy.getFullYear() && t < tHoy)
+  return pasado ? `${t}T ${a}` : null
+}
+
 export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -44,6 +61,19 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   /** El gasto cuya serie se está dando de baja, y desde cuándo. */
   const [baja, setBaja] = useState<any|null>(null)
   const [bajaDesde, setBajaDesde] = useState('')
+
+  /**
+   * EL GASTO QUE SE ESTÁ EDITANDO. null = se está creando uno nuevo.
+   *
+   * Un gasto no es una factura tuya. Las que emites son inmutables por ley y por
+   * eso se corrigen con una rectificativa; esto es tu apunte de la factura de
+   * OTRO, así que si te equivocaste tecleando, lo que toca es arreglarlo.
+   *
+   * Se reaprovecha el mismo formulario: los mismos campos, la misma cuenta y el
+   * mismo desglose. Un segundo formulario "de editar" acabaría calculando la
+   * base de otra manera que el de crear, y ahí es donde salen los descuadres.
+   */
+  const [editando, setEditando] = useState<any|null>(null)
 
   /**
    * EL DESGLOSE, A PARTIR DEL NÚMERO QUE TENGAS A MANO.
@@ -99,6 +129,45 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     setUltimo(ru.base)
   }
 
+  /**
+   * Abrir el formulario con un gasto ya guardado dentro.
+   *
+   * Se rellena con la BASE, no con el total: la base es lo que está guardado y
+   * es exacta. Reconstruir el total para volver a dividirlo entre 1+IVA daría
+   * céntimos de diferencia cada vez que abrieras la ficha sin tocar nada.
+   */
+  function abrirEditar(g: any) {
+    setEditando(g)
+    setError(null)
+    setForm({
+      concepto: g.concepto || '',
+      importe: String(g.base_imponible ?? ''),
+      metodo: 'base',
+      repetir: false,
+      cadencia: 'mensual',
+      modoEst: 'media',
+      iva_pct: String(g.iva_pct ?? 0),
+      irpf_pct: String(g.irpf_pct ?? 0),
+      irpf_modelo: g.irpf_modelo || '111',
+      tipo: g.tipo || 'variable',
+      categoria: g.categoria || '',
+      fecha: g.fecha,
+      tiene_factura: !!g.tiene_factura,
+      notas: g.notas || '',
+    })
+    setMedia(null); setUltimo(null)
+    setModal(true)
+  }
+
+  function abrirNuevo() {
+    setEditando(null)
+    setError(null)
+    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false,
+                    categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' }))
+    setMedia(null); setUltimo(null)
+    setModal(true)
+  }
+
   async function crear() {
     if (!form.concepto || !form.importe) { setError('Concepto e importe son obligatorios'); return }
     setGuardando(true)
@@ -115,7 +184,22 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       notas: form.notas || null,
     }
 
-    if (form.repetir) {
+    if (editando) {
+      // Corregir un apunte. NO se toca `estimado`: si estaba confirmado sigue
+      // confirmado, y si es una previsión sigue siéndolo. Confirmar es decir
+      // "ha llegado el papel", y eso se hace en su sitio, no de refilón al
+      // arreglar una errata.
+      const { error: errUpd } = await supabase.from('gastos').update({
+        ...plantilla,
+        importe: total,
+        base_imponible: plantilla.base,
+        irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
+        fecha: form.fecha,
+        tiene_factura: form.tiene_factura,
+      }).eq('id', editando.id)
+      setGuardando(false)
+      if (errUpd) { setError(`No se ha podido guardar el cambio: ${errUpd.message}`); return }
+    } else if (form.repetir) {
       // La serie entera. El primero es real —la factura que tienes delante— y
       // el resto quedan como estimados hasta que llegue cada papel.
       const r = await crearSerie({ plantilla, desde: form.fecha, cadencia: form.cadencia, baseEstimada })
@@ -138,6 +222,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
 
     setForm(p => ({ ...p, concepto:'', importe:'', repetir:false, categoria:'', tiene_factura:false, notas:'' }))
     setMedia(null)
+    setEditando(null)
     setModal(false)
     recargar()
   }
@@ -256,7 +341,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     <div className="card">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
         <div className="card-title" style={{margin:0}}><span className="ct-l"><Ic name="recibo"/> Gastos</span></div>
-        <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo gasto</button>
+        <button className="btn btn-p btn-sm" onClick={abrirNuevo}>+ Nuevo gasto</button>
       </div>
 
       {error && (
@@ -377,6 +462,10 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 Dar de baja
               </button>
             )}
+            {/* Corregir una errata. Un gasto es tu apunte de la factura de otro,
+                no una factura tuya: si te equivocaste al teclear, se arregla. */}
+            <button onClick={()=>abrirEditar(g)} title="Corregir este gasto"
+              style={{color:'var(--grl)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}><Ic name="editar" size={13}/></button>
             <button onClick={()=>eliminar(g.id)}
               title={g.estimado ? 'Borrar solo esta previsión' : 'Borrar este gasto'}
               style={{color:'var(--red)',background:'none',border:'none',cursor:'pointer',display:'inline-flex'}}><Ic name="papelera" size={13}/></button>
@@ -385,9 +474,27 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       )}
 
       {modal && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModal(false)}}>
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget){setModal(false);setEditando(null)}}}>
           <div className="modal">
-            <div className="modal-title">Nuevo gasto<button className="modal-close" onClick={()=>setModal(false)}>✕</button></div>
+            <div className="modal-title">
+              {editando ? 'Corregir gasto' : 'Nuevo gasto'}
+              <button className="modal-close" onClick={()=>{setModal(false);setEditando(null)}}>✕</button>
+            </div>
+
+            {/* SI EL TRIMESTRE YA ESTÁ PRESENTADO, ESTO NO LO CORRIGE.
+                La app pasará a decir el número bueno, pero el 303 que entregaste
+                sigue diciendo el viejo. Eso se arregla en Hacienda, no aquí, y
+                más vale saberlo antes de dar a guardar que en la próxima
+                declaración. */}
+            {editando && trimestrePasado(editando.fecha) && (
+              <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:6,
+                           padding:'8px 11px',marginBottom:10,fontSize:9.5,color:'#7A5800',lineHeight:1.6}}>
+                <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>
+                Este gasto es del <strong>{trimestrePasado(editando.fecha)}</strong>. Si ya presentaste
+                ese trimestre, cambiarlo aquí corrige lo que ve la app pero no lo que entregaste:
+                eso se arregla con una complementaria o en la siguiente declaración. Coméntalo con la gestoría.
+              </div>
+            )}
             <div className="field"><label>Concepto *</label><input className="input" value={form.concepto} onChange={e=>setForm(p=>({...p,concepto:e.target.value}))} placeholder="ej. Alquiler local" autoFocus onBlur={buscarMedia}/></div>
             <div className="g2">
               <div className="field">
@@ -471,7 +578,10 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 cuentan para el 303 ni el 115 hasta que confirmes cada factura.
                 Ver lib/gastos: deducir IVA de un papel que no existe no es un
                 número feo, es una declaración mal hecha. */}
-            <div className="field">
+            {/* Solo al crear. Editando, "se repite" no querría decir nada: la
+                serie ya existe y las otras filas son gastos con vida propia.
+                Marcarlo aquí generaría doce duplicados. */}
+            <div className="field" style={{display: editando ? 'none' : undefined}}>
               <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
                 <input type="checkbox" checked={form.repetir}
                   onChange={e=>setForm(p=>({...p,repetir:e.target.checked}))}/>
@@ -573,10 +683,16 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               <span style={{fontSize:10,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:5}}><Ic name="informe" size={12}/> Tiene factura</span>
             </div>
             <div className="field"><label>Notas</label><textarea className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} style={{minHeight:50}}/></div>
+            {editando?.serie_id && (
+              <div style={{fontSize:9,color:'var(--grl)',lineHeight:1.55,marginBottom:8}}>
+                Esto cambia <strong>solo este mes</strong>. Los demás de la serie se quedan como están;
+                para subir el precio de los que quedan, hazlo al confirmar uno.
+              </div>
+            )}
             <div style={{display:'flex',gap:8,marginTop:8}}>
-              <button className="btn btn-d btn-sm" onClick={()=>setModal(false)}>Cancelar</button>
+              <button className="btn btn-d btn-sm" onClick={()=>{setModal(false);setEditando(null)}}>Cancelar</button>
               <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
+              <button className="btn btn-p" onClick={crear} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={13}/> {editando?'Guardar cambios':'Guardar'}</>}</button>
             </div>
           </div>
         </div>
