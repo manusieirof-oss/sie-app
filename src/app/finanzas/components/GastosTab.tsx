@@ -189,16 +189,32 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       // confirmado, y si es una previsión sigue siéndolo. Confirmar es decir
       // "ha llegado el papel", y eso se hace en su sitio, no de refilón al
       // arreglar una errata.
-      const { error: errUpd } = await supabase.from('gastos').update({
+      /**
+       * EL `.select()` NO ES DECORACIÓN, ES EL AVISO.
+       *
+       * Sin él, un UPDATE que no toca ninguna fila devuelve exactamente lo mismo
+       * que uno que fue bien: sin error y sin datos. Es lo que pasa cuando la
+       * política RLS de la tabla no permite actualizar — la fila no se bloquea
+       * con un mensaje, es que para el UPDATE deja de existir.
+       *
+       * Resultado: el modal se cerraba tan contento y el gasto seguía igual. Un
+       * fallo que se presenta como un éxito es peor que un fallo.
+       */
+      const { data: filas, error: errUpd } = await supabase.from('gastos').update({
         ...plantilla,
         importe: total,
         base_imponible: plantilla.base,
         irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
         fecha: form.fecha,
         tiene_factura: form.tiene_factura,
-      }).eq('id', editando.id)
+      }).eq('id', editando.id).select('id')
       setGuardando(false)
       if (errUpd) { setError(`No se ha podido guardar el cambio: ${errUpd.message}`); return }
+      if (!filas || filas.length === 0) {
+        setError('El cambio no se ha guardado: la base de datos no ha modificado ninguna fila. ' +
+                 'Suele ser que a la tabla de gastos le falta el permiso de actualizar (RLS).')
+        return
+      }
     } else if (form.repetir) {
       // La serie entera. El primero es real —la factura que tienes delante— y
       // el resto quedan como estimados hasta que llegue cada papel.
@@ -572,6 +588,16 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 eso se arregla con una complementaria o en la siguiente declaración. Coméntalo con la gestoría.
               </div>
             )}
+            {/* El aviso de error vivía SOLO al principio de la página, o sea
+                detrás del modal. Si guardar fallaba, el mensaje se pintaba donde
+                no se veía y desde aquí parecía que no había pasado nada. */}
+            {error && (
+              <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,
+                           padding:'8px 12px',marginBottom:10,fontSize:10,color:'var(--red)',lineHeight:1.55}}>
+                <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>{error}
+              </div>
+            )}
+
             <div className="field"><label>Concepto *</label><input className="input" value={form.concepto} onChange={e=>setForm(p=>({...p,concepto:e.target.value}))} placeholder="ej. Alquiler local" autoFocus onBlur={buscarMedia}/></div>
             <div className="g2">
               <div className="field">
@@ -790,6 +816,12 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             <div className="modal" style={{maxWidth:420}}>
               <div className="modal-title">Ha llegado la factura<button className="modal-close" onClick={()=>setConf(null)}>✕</button></div>
 
+              {error && (
+                <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,
+                             padding:'8px 12px',marginBottom:10,fontSize:10,color:'var(--red)',lineHeight:1.55}}>
+                  <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>{error}
+                </div>
+              )}
               <div style={{fontSize:11,color:'var(--n)',fontWeight:500}}>{conf.concepto}</div>
               <div style={{fontSize:9,color:'var(--grl)',marginBottom:10}}>
                 {new Date(conf.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}

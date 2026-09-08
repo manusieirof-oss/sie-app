@@ -158,15 +158,22 @@ export async function crearSerie(args: {
  * Si coincide con la estimada, mejor; si no, manda la factura.
  */
 export async function confirmarGasto(id: string, base: number, ivaPct: number, irpfPct: number) {
-  const { error } = await supabase.from('gastos').update({
+  // El `.select()` es lo que distingue "se ha guardado" de "no ha tocado nada".
+  // Sin él, un UPDATE bloqueado por RLS devuelve lo mismo que uno correcto:
+  // silencio. Y un fallo que se presenta como un éxito es peor que un fallo.
+  const { data, error } = await supabase.from('gastos').update({
     base_imponible: Math.round(base * 100) / 100,
     importe: totalDe(base, ivaPct, irpfPct),
     iva_pct: ivaPct,
     irpf_pct: irpfPct,
     estimado: false,
     tiene_factura: true,
-  }).eq('id', id)
+  }).eq('id', id).select('id')
   if (error) return { ok: false as const, error: error.message }
+  if (!data || data.length === 0) {
+    return { ok: false as const,
+      error: 'la base de datos no ha modificado ninguna fila (suele faltar el permiso de actualizar en la tabla de gastos)' }
+  }
   return { ok: true as const }
 }
 

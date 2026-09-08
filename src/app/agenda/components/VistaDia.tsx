@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useRef } from 'react'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
@@ -44,6 +45,40 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
   const GT = '56px '+SALAS.map(()=>'minmax(0,1fr)').join(' ')
   const filtrando = (tiposFiltro?.length||0) > 0
 
+  /**
+   * Al abrir el día de hoy, la agenda arranca en la hora que es.
+   *
+   * Empezar siempre a las 8:30 obligaba a bajar a mano cada vez que se entraba, y a media
+   * tarde eso es media pantalla de horas ya pasadas. Se coloca la franja en curso arriba
+   * del todo (la última que ya ha empezado), justo debajo de la cabecera de salas.
+   *
+   * Solo se hace UNA VEZ por día y por horario: si se recarga la agenda después de crear
+   * o cambiar una cita, no se vuelve a mover, porque estarías mirando otra hora y el salto
+   * sería justo lo que se quería evitar.
+   */
+  const scrollRef = useRef<HTMLDivElement|null>(null)
+  const yaColocado = useRef('')
+  const horasClave = HORAS.join(',')
+  useEffect(() => {
+    if (fecha !== hoy) return
+    const cont = scrollRef.current
+    if (!cont) return
+    const clave = fecha + '|' + horasClave
+    if (yaColocado.current === clave) return
+    const ahora = new Date()
+    const minAhora = ahora.getHours()*60 + ahora.getMinutes()
+    const aMinutos = (h:string) => { const [a,b] = h.split(':').map(Number); return (a||0)*60 + (b||0) }
+    // La franja en curso es la última que ya ha empezado. Antes de abrir, la primera.
+    let destino = HORAS[0]
+    for (const h of HORAS) if (aMinutos(h) <= minAhora) destino = h
+    const fila = cont.querySelector(`[data-hora="${destino}"]`) as HTMLElement|null
+    if (!fila) return
+    const ALTO_CABECERA = 36
+    const y = fila.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop
+    cont.scrollTop = Math.max(0, y - ALTO_CABECERA)
+    yaColocado.current = clave
+  }, [fecha, hoy, horasClave])
+
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
   const nombreTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.nombre) || (t ? t.charAt(0).toUpperCase()+t.slice(1) : 'Clase')
   const iconTipo = (t:string) => iconTipoClase(t, tiposClase.find((x:any)=>x.valor===t)?.icono)
@@ -88,7 +123,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
 
   return (
     <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',background:'var(--w)',height:'calc(100vh - 150px)'}}>
-      <div style={{overflowY:'auto',height:'100%'}}>
+      <div ref={scrollRef} style={{overflowY:'auto',height:'100%'}}>
         <div style={{display:'grid',gridTemplateColumns:GT,background:'var(--bl)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
           <div/>
           {SALAS.map(s=><div key={s} style={{fontSize:11,fontWeight:600,color:'var(--gd)',padding:'9px 10px',textAlign:'center',letterSpacing:.4,borderLeft:'1px solid var(--bd)'}}>Sala {s}</div>)}
@@ -99,7 +134,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
           // a las horas que sí tienen gente.
           const horaVacia = SALAS.every(s=>getCitasSlot(h,s).length===0)
           return (
-          <div key={h}>
+          <div key={h} data-hora={h}>
             {h===PAUSA_FIN&&<div style={{padding:'5px 12px',background:'var(--gl)',borderBottom:'1px solid var(--bd)',fontSize:11,color:'var(--gd)',display:'flex',alignItems:'center',gap:6}}><Ic name="pausa" size={12}/> Pausa · {PAUSA_INICIO}–{PAUSA_FIN}</div>}
             <div style={{display:'grid',gridTemplateColumns:GT,borderBottom:'1px solid var(--bl)'}}>
               <div style={{fontSize:horaVacia?12:13,color:horaVacia?'var(--grl)':'var(--gr)',padding:horaVacia?'6px 8px':'10px 8px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:500}}>{h}</div>
