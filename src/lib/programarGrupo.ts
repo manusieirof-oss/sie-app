@@ -19,11 +19,16 @@ import { hoyISO } from '@/lib/fechas'
  *
  * QUÉ PASA SI CAMBIAN LA CITA. El enlace vive en la cita (`citas.sesion_id`), no en la
  * fecha: mover el martes al jueves se lleva la sesión al jueves sin que nadie haga nada.
- * Si la CANCELAN, la cita cancelada sale de la cuenta y lo que era la 3ª pasa a ser la
- * 2ª — pero esto NO recalcula solo. Mover por su cuenta una sesión ya prescrita, en
- * treinta fichas, es de esas cosas que se descubren tarde. En su lugar el plan se puede
- * volver a pasar cuando se quiera: como solo rellena huecos, la segunda pasada le pone
- * la sesión al que la perdió y no toca a nadie más.
+ *
+ * Si la CANCELAN, la cita sigue contando para el ordinal. Es deliberado y es lo contrario
+ * de lo que se hacía al principio: entonces la cancelada salía de la cuenta y lo que era
+ * la 3ª pasaba a ser la 2ª. Persona a persona parecía razonable; en grupo destruye la
+ * única propiedad que hace útil todo esto, que "la 3ª" signifique lo mismo para todos los
+ * del mismo bono. Un bono de doce clases tiene doce clases, y una cancelación de una sola
+ * persona desalineaba su mes entero respecto al resto. Ver `citasDelGrupo`.
+ *
+ * El plan se puede volver a pasar cuando se quiera: como solo rellena huecos, la segunda
+ * pasada le pone la sesión a quien no la tenga y no toca a nadie más.
  *
  * SOLO RELLENA HUECOS. Nunca sustituye una sesión ya prescrita. Lo que se salta sale
  * por su nombre en los avisos, no desaparece.
@@ -84,7 +89,7 @@ export type FilaPlan = {
 export type AvisoPlan = {
   pacienteId: string
   mes: string
-  motivo: 'sin_citas' | 'no_llega' | 'ya_paso' | 'ocupada' | 'ya_puesta'
+  motivo: 'sin_citas' | 'no_llega' | 'ya_paso' | 'ocupada' | 'ya_puesta' | 'cancelada'
   texto: string
 }
 
@@ -167,9 +172,23 @@ export async function copiasDeLaPlantilla(plantillaId: string, pacienteIds: stri
 }
 
 /**
- * Las citas de estos pacientes en este rango. Las CANCELADAS no vienen: no se programan
- * y, sobre todo, no cuentan para el ordinal. Si el paciente anula la 2ª de abril, la que
- * era 3ª pasa a ser la 2ª, que es lo que de verdad va a ocurrir en la sala.
+ * Las citas de estos pacientes en este rango. TODAS, también las canceladas y las faltas.
+ *
+ * Antes las canceladas se dejaban fuera de la consulta, con este razonamiento: si el
+ * paciente anula la 2ª de abril, la que era 3ª pasa a ser la 2ª, que es lo que de verdad
+ * va a ocurrir en la sala. Visto de uno en uno tiene sentido. Visto en grupo, no: rompe
+ * justo lo que el ordinal existe para conseguir.
+ *
+ * La idea de "la 3ª sesión del mes" es que sea LA MISMA para todos los del mismo bono.
+ * Un bono de doce clases tiene doce clases, y la tercera es la tercera, la dé el paciente
+ * o la anule. Si al que cancela una se le corren todas las demás, a partir de esa semana
+ * está haciendo la sesión que al resto del grupo le toca la semana siguiente, y ya no se
+ * vuelve a juntar. Basta una cancelación de una persona para desalinear su mes entero.
+ *
+ * Así que la cancelada CUENTA para el ordinal, y sigue sin poder recibir la sesión: no se
+ * puede entrenar una clase que no existe. Cuando el ordinal cae en una, se avisa por su
+ * nombre —igual que con las que ya pasaron— y ese paciente se salta esa sesión. Que es
+ * exactamente lo que ocurre en la sala: no vino ese día.
  */
 export async function citasDelGrupo(pacienteIds: string[], meses: string[]): Promise<CitaGrupo[]> {
   if (pacienteIds.length === 0 || meses.length === 0) return []
@@ -177,7 +196,6 @@ export async function citasDelGrupo(pacienteIds: string[], meses: string[]): Pro
     .select('id,paciente_id,fecha,hora,estado,sesion_id')
     .in('paciente_id', pacienteIds)
     .gte('fecha', `${meses[0]}-01`).lte('fecha', finDeMes(meses[meses.length - 1]))
-    .neq('estado', 'cancelada')
     .order('fecha').order('hora')
   return (data || []) as CitaGrupo[]
 }
@@ -224,6 +242,14 @@ export function planDeGrupo(
         if (!cita) {
           avisos.push({ pacienteId: pid, mes, motivo: 'no_llega',
             texto: `${nombreMes(mes)}: solo tiene ${delMes.length} cita${delMes.length > 1 ? 's' : ''}, no hay ${nombreN.toLowerCase()}.` })
+          continue
+        }
+
+        // Cuenta para el ordinal —por eso ha llegado hasta aquí— pero no se le puede
+        // poner nada: esa clase no se va a dar. Se dice, y el grupo sigue alineado.
+        if (cita.estado === 'cancelada') {
+          avisos.push({ pacienteId: pid, mes, motivo: 'cancelada',
+            texto: `${nombreMes(mes)}: la ${nombreN.toLowerCase()} (${fechaCorta(cita.fecha)}) está cancelada. Cuenta, pero no se da.` })
           continue
         }
 

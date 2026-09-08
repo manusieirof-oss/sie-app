@@ -294,7 +294,9 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 10 }}>
-              Se cuentan las citas de cada paciente dentro del mes. Las canceladas no cuentan.
+              Se cuentan TODAS las citas del mes de cada paciente, también las canceladas y
+              las faltas, para que la misma sesión caiga en la misma clase a todos los del
+              mismo bono. En una cancelada no se programa nada: se avisa y se salta.
               {/* Sin pacientes elegidos no se sabe hasta dónde llegan, así que se enseña el
                   mínimo. Decirlo evita pensar que el tope son ocho y punto. */}
               {desdeElFinal
