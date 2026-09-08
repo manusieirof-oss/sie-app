@@ -8,15 +8,36 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
-  const [form, setForm] = useState({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
 
-  // Cálculo en vivo del desglose a partir del total (importe con IVA incluido)
-  const total = parseFloat(form.importe) || 0
+  /**
+   * EL DESGLOSE, A PARTIR DEL NÚMERO QUE TENGAS A MANO.
+   *
+   * Antes solo se podía meter el total y la base salía de dividir entre 1+IVA.
+   * Eso vale cuando el total es base + IVA, y deja de valer en cuanto hay
+   * RETENCIÓN: en una factura de alquiler el total ya lleva el IRPF restado.
+   *
+   *   Alquiler:  655,00 base + 137,55 IVA − 124,45 IRPF = 668,10 total
+   *   La app:    668,10 / 1,21 = 552,15 de base  ← 102,85 € de menos
+   *
+   * Y no era un número feo en pantalla: con esa base te deducías 21,60 € menos
+   * de IVA soportado cada mes y declarabas 19,54 € menos de retención en el 115.
+   *
+   * La solución no es adivinar cuál de los dos casos es. Es preguntar qué número
+   * estás copiando de la factura, que es algo que quien la tiene delante sabe
+   * sin dudar. Con retención, lo natural es teclear la BASE.
+   */
   const ivaPct = parseFloat(form.iva_pct) || 0
   const irpfPct = parseFloat(form.irpf_pct) || 0
-  const base = ivaPct > 0 ? total / (1 + ivaPct/100) : total
-  const ivaImporte = total - base
+  const importe = parseFloat(form.importe) || 0
+
+  const base = form.metodo === 'base' ? importe
+    : ivaPct > 0 ? importe / (1 + ivaPct/100)
+    : importe
+  const ivaImporte = base * (ivaPct/100)
   const irpfImporte = base * (irpfPct/100)
+  /** Lo que sale de la cuenta: base + IVA − retención. Es lo que pagas de verdad. */
+  const total = base + ivaImporte - irpfImporte
 
   async function crear() {
     if (!form.concepto || !form.importe) { setError('Concepto e importe son obligatorios'); return }
@@ -38,7 +59,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     setGuardando(false)
     // Cerrar el modal sin mirar el error daba un gasto "guardado" que no existía.
     if (errIns) { setError(`No se ha podido guardar el gasto: ${errIns.message}`); return }
-    setForm({ concepto:'', importe:'', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+    setForm({ concepto:'', importe:'', metodo:form.metodo, iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
     setModal(false)
     recargar()
   }
@@ -165,7 +186,10 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             <div className="modal-title">Nuevo gasto<button className="modal-close" onClick={()=>setModal(false)}>✕</button></div>
             <div className="field"><label>Concepto *</label><input className="input" value={form.concepto} onChange={e=>setForm(p=>({...p,concepto:e.target.value}))} placeholder="ej. Alquiler local" autoFocus/></div>
             <div className="g2">
-              <div className="field"><label>Total (€, con IVA) *</label><input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/></div>
+              <div className="field">
+                <label>{form.metodo === 'base' ? 'Base imponible (€) *' : 'Total pagado (€) *'}</label>
+                <input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/>
+              </div>
               <div className="field"><label>Tipo</label>
                 <select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}>
                   <option value="variable">Variable</option>
@@ -173,6 +197,30 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 </select>
               </div>
             </div>
+            {/* QUÉ NÚMERO ESTÁS COPIANDO. Con retención el total no es base+IVA
+                —lleva el IRPF restado— así que no se puede deducir la base a
+                partir de él. Se pregunta en vez de adivinar. */}
+            <div className="field">
+              <label>¿Qué importe vas a escribir?</label>
+              <div style={{display:'flex',gap:6}}>
+                {[['total','El total pagado'],['base','La base imponible']].map(([v,l])=>(
+                  <button key={v} type="button" onClick={()=>setForm(p=>({...p,metodo:v}))}
+                    style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                            border:`1.5px solid ${form.metodo===v?'var(--g)':'var(--bd)'}`,
+                            background:form.metodo===v?'var(--g)':'var(--w)',
+                            color:form.metodo===v?'#fff':'var(--gr)'}}>{l}</button>
+                ))}
+              </div>
+              {irpfPct > 0 && form.metodo === 'total' && (
+                <div style={{fontSize:9,color:'var(--amb)',marginTop:5,lineHeight:1.5,display:'flex',gap:4}}>
+                  <Ic name="alerta" size={11}/>
+                  <span>Con retención, el total ya lleva el IRPF restado y la base no se puede
+                  calcular desde él. Pon <strong>la base imponible</strong>, que en tu factura
+                  es el importe de la renta.</span>
+                </div>
+              )}
+            </div>
+
             <div className="g2">
               <div className="field"><label>IVA (%)</label>
                 <select className="input" value={form.iva_pct} onChange={e=>setForm(p=>({...p,iva_pct:e.target.value}))}>
@@ -193,11 +241,33 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               </div>
             )}
 
-            {total > 0 && (
-              <div style={{display:'flex',gap:12,padding:'8px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
-                <div><span style={{color:'var(--grl)'}}>Base: </span><span style={{fontWeight:500}}>{base.toFixed(2)}€</span></div>
-                <div><span style={{color:'var(--grl)'}}>IVA: </span><span style={{fontWeight:500}}>{ivaImporte.toFixed(2)}€</span></div>
-                {irpfPct>0 && <div><span style={{color:'var(--grl)'}}>IRPF: </span><span style={{fontWeight:500}}>−{irpfImporte.toFixed(2)}€</span></div>}
+            {/* El desglose completo, con el mismo orden y los mismos signos que
+                la factura, para poder compararlo línea a línea antes de guardar.
+                El TOTAL estaba antes en la etiqueta del campo, así que al meter
+                la base no había forma de comprobar que salía lo que pone abajo
+                del papel. */}
+            {base > 0 && (
+              <div style={{padding:'9px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                  <span style={{color:'var(--grl)'}}>Base imponible</span>
+                  <span style={{fontWeight:500}}>{base.toFixed(2)} €</span>
+                </div>
+                {ivaPct > 0 && (
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>+ IVA {ivaPct}%</span>
+                    <span style={{fontWeight:500}}>{ivaImporte.toFixed(2)} €</span>
+                  </div>
+                )}
+                {irpfPct > 0 && (
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>− IRPF {irpfPct}%</span>
+                    <span style={{fontWeight:500,color:'var(--red)'}}>−{irpfImporte.toFixed(2)} €</span>
+                  </div>
+                )}
+                <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px solid var(--bd)'}}>
+                  <span style={{fontWeight:600,color:'var(--n)'}}>Total pagado</span>
+                  <span style={{fontWeight:600,color:'var(--n)'}}>{total.toFixed(2)} €</span>
+                </div>
               </div>
             )}
 
