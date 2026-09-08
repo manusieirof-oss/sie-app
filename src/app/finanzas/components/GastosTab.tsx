@@ -139,10 +139,24 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   function abrirEditar(g: any) {
     setEditando(g)
     setError(null)
+    /**
+     * LOS GASTOS VIEJOS NO TIENEN BASE.
+     *
+     * `base_imponible` se empezó a guardar después, así que todo lo que se
+     * cargó antes la tiene a null. Al abrirlos para editar el campo salía
+     * VACÍO, y el formulario exige importe: dabas a guardar y no pasaba nada.
+     *
+     * Y como el aviso se pintaba detrás del modal, el botón parecía roto.
+     *
+     * Con base guardada se rellena esa, que es exacta. Sin ella se rellena el
+     * total y se cambia la pregunta a "el total pagado", que es de donde viene
+     * ese número. No se inventa una base dividiendo: con retención saldría mal.
+     */
+    const tieneBase = g.base_imponible != null && Number(g.base_imponible) > 0
     setForm({
       concepto: g.concepto || '',
-      importe: String(g.base_imponible ?? ''),
-      metodo: 'base',
+      importe: String(tieneBase ? g.base_imponible : (g.importe ?? '')),
+      metodo: tieneBase ? 'base' : 'total',
       repetir: false,
       cadencia: 'mensual',
       modoEst: 'media',
@@ -169,7 +183,8 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   }
 
   async function crear() {
-    if (!form.concepto || !form.importe) { setError('Concepto e importe son obligatorios'); return }
+    if (!form.concepto) { setError('Falta el concepto.'); return }
+    if (!form.importe) { setError('Falta el importe. Escribe el número que pone la factura.'); return }
     setGuardando(true)
     setError(null)
 
