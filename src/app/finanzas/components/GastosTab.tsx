@@ -57,6 +57,10 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [confBase, setConfBase] = useState('')
   const [confPend, setConfPend] = useState(0)
   const [confPropagar, setConfPropagar] = useState(false)
+  /** Igual que al crear: qué número estás copiando del papel. */
+  const [confMetodo, setConfMetodo] = useState('base')
+  /** La parte sin IVA de ESTA factura. Puede cambiar entre un recibo y otro. */
+  const [confExento, setConfExento] = useState('')
 
   /** El gasto cuya serie se está dando de baja, y desde cuándo. */
   const [baja, setBaja] = useState<any|null>(null)
@@ -216,6 +220,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     const plantilla = {
       concepto: form.concepto,
       base: Math.round(base*100)/100,
+      exento: Math.round(exento*100)/100,
       iva_pct: ivaPct,
       irpf_pct: irpfPct,
       irpf_modelo: form.irpf_modelo,
@@ -306,7 +311,15 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
    */
   async function abrirConfirmar(g: any) {
     setConf(g)
-    setConfBase(String(g.base_imponible ?? ''))
+    /**
+     * `base_imponible` lleva la parte exenta sumada dentro. Si se volcara tal
+     * cual en el campo, confirmarGasto la sumaría otra vez y la factura
+     * crecería en cada confirmación. Al campo va solo la parte gravada.
+     */
+    const exG = Number(g.importe_exento || 0)
+    setConfBase(String(Math.round((Number(g.base_imponible || 0) - exG)*100)/100))
+    setConfExento(exG ? String(exG) : '')
+    setConfMetodo('base')
     setConfPropagar(false)
     setConfPend(0)
     if (g.serie_id) {
@@ -319,10 +332,20 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   async function guardarConfirmacion() {
     const g = conf
     if (!g) return
-    const nueva = parseFloat(confBase.replace(',', '.'))
-    if (isNaN(nueva) || nueva < 0) { setError('Ese importe no es válido'); return }
+    const tecleado = parseFloat(confBase.replace(',', '.'))
+    if (isNaN(tecleado) || tecleado < 0) { setError('Ese importe no es válido'); return }
+    const exN = Math.max(parseFloat(confExento.replace(',', '.')) || 0, 0)
+    const ivaN = Number(g.iva_pct||0), irpfN = Number(g.irpf_pct||0)
+    /**
+     * Si has escrito el TOTAL, hay que sacar la base: se le quita la parte
+     * exenta —que no lleva IVA— y lo que queda se divide entre 1+IVA. Con
+     * retención el total ya trae el IRPF restado, así que también se deshace.
+     */
+    const nueva = confMetodo === 'base' ? tecleado
+      : (tecleado - exN) / (1 + ivaN/100 - irpfN/100)
+    if (nueva < 0) { setError('Con esa parte sin IVA, la base sale negativa. Revisa los importes.'); return }
     setGuardando(true)
-    const r = await confirmarGasto(g.id, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
+    const r = await confirmarGasto(g.id, Math.round(nueva*100)/100, ivaN, irpfN, exN)
     if (!r.ok) { setGuardando(false); setError(`No se ha podido confirmar: ${r.error}`); return }
 
     /**
@@ -337,7 +360,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
      */
     if (confPropagar && g.serie_id) {
       const u = await actualizarEstimadosPendientes(
-        g.serie_id, g.fecha, nueva, Number(g.iva_pct||0), Number(g.irpf_pct||0))
+        g.serie_id, g.fecha, Math.round(nueva*100)/100, ivaN, irpfN, exN)
       if (!u.ok) setError(`El gasto se confirmó, pero no se han podido actualizar las previsiones: ${u.error}`)
     }
     setGuardando(false)
@@ -879,10 +902,16 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
           lo de propagarlo a lo que queda se deciden a la vez, viendo los dos
           números. */}
       {conf && (() => {
-        const est = Number(conf.base_imponible || 0)
-        const nueva = parseFloat(confBase.replace(',', '.'))
-        const val = isNaN(nueva) ? null : nueva
         const iva = Number(conf.iva_pct || 0), irpf = Number(conf.irpf_pct || 0)
+        const exPrev = Number(conf.importe_exento || 0)
+        // La previsión, sin la parte exenta: es con lo que se compara lo tecleado.
+        const est = Number(conf.base_imponible || 0) - exPrev
+        const ex = Math.max(parseFloat(confExento.replace(',', '.')) || 0, 0)
+        const tec = parseFloat(confBase.replace(',', '.'))
+        // Si escribes el total, la base se deduce quitando exento, IVA y retención.
+        const val = isNaN(tec) ? null
+          : confMetodo === 'base' ? tec
+          : (tec - ex) / (1 + iva/100 - irpf/100)
         const cambia = val != null && Math.abs(val - est) > 0.005
         return (
           <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setConf(null)}}>
@@ -901,8 +930,23 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 {' · previsión de '}{est.toFixed(2)} €
               </div>
 
+              {/* Las mismas opciones que al crear. Una factura real puede traer
+                  otro consumo Y otro canon, y antes solo se podía tocar un número. */}
               <div className="field">
-                <label>Base imponible de la factura (€)</label>
+                <label>¿Qué importe vas a escribir?</label>
+                <div style={{display:'flex',gap:6}}>
+                  {[['base','La base imponible'],['total','El total pagado']].map(([v,l])=>(
+                    <button key={v} type="button" onClick={()=>setConfMetodo(v)}
+                      style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                              border:`1.5px solid ${confMetodo===v?'var(--g)':'var(--bd)'}`,
+                              background:confMetodo===v?'var(--g)':'var(--w)',
+                              color:confMetodo===v?'#fff':'var(--gr)'}}>{l}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="field">
+                <label>{confMetodo==='base'?'Base imponible de la factura (€)':'Total pagado de la factura (€)'}</label>
                 <input className="input" type="number" value={confBase} autoFocus
                   onChange={e=>setConfBase(e.target.value)}/>
                 <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
@@ -911,11 +955,23 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 </div>
               </div>
 
+              <div className="field">
+                <label>Parte sin IVA (€) <span style={{color:'var(--grl)',fontWeight:400}}>· opcional</span></label>
+                <input className="input" type="number" value={confExento}
+                  onChange={e=>setConfExento(e.target.value)} placeholder="0.00"/>
+                <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
+                  Canon y tasas del recibo. Puede cambiar de una factura a otra.
+                </div>
+              </div>
+
               {val != null && (
                 <div style={{padding:'9px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
                     <span style={{color:'var(--grl)'}}>Base</span><span style={{fontWeight:500}}>{val.toFixed(2)} €</span>
                   </div>
+                  {ex > 0 && <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>+ Parte sin IVA</span><span style={{fontWeight:500}}>{ex.toFixed(2)} €</span>
+                  </div>}
                   {iva > 0 && <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
                     <span style={{color:'var(--grl)'}}>+ IVA {iva}%</span><span style={{fontWeight:500}}>{(val*iva/100).toFixed(2)} €</span>
                   </div>}
@@ -924,7 +980,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                   </div>}
                   <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px solid var(--bd)'}}>
                     <span style={{fontWeight:600,color:'var(--n)'}}>Total pagado</span>
-                    <span style={{fontWeight:600,color:'var(--n)'}}>{(val + val*iva/100 - val*irpf/100).toFixed(2)} €</span>
+                    <span style={{fontWeight:600,color:'var(--n)'}}>{(val + ex + val*iva/100 - val*irpf/100).toFixed(2)} €</span>
                   </div>
                 </div>
               )}

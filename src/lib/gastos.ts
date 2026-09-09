@@ -39,6 +39,8 @@ export type Plantilla = {
   base: number
   iva_pct: number
   irpf_pct: number
+  /** La parte del recibo que no lleva IVA (canon, tasas). Suma al gasto, no al IVA. */
+  exento: number
   irpf_modelo: string | null
   tipo: string
   categoria: string | null
@@ -46,10 +48,10 @@ export type Plantilla = {
 }
 
 /** Base + IVA − retención. La misma cuenta que el formulario, en un solo sitio. */
-export function totalDe(base: number, ivaPct: number, irpfPct: number) {
+export function totalDe(base: number, ivaPct: number, irpfPct: number, exento = 0) {
   const iva = base * (ivaPct / 100)
   const irpf = base * (irpfPct / 100)
-  return Math.round((base + iva - irpf) * 100) / 100
+  return Math.round((base + exento + iva - irpf) * 100) / 100
 }
 
 /**
@@ -128,10 +130,17 @@ export async function crearSerie(args: {
 
   const filas = fechas.map((fecha, i) => {
     const base = i === 0 ? p.base : baseEst
+    /**
+     * La parte exenta se repite en toda la serie: el canon del agua o las tasas
+     * son fijas, no dependen del consumo. La base guardada las incluye —para el
+     * 130 es gasto deducible— pero el IVA se calcula solo sobre la parte gravada.
+     */
+    const ex = p.exento || 0
     return {
       concepto: p.concepto,
-      importe: totalDe(base, p.iva_pct, p.irpf_pct),
-      base_imponible: Math.round(base * 100) / 100,
+      importe: totalDe(base, p.iva_pct, p.irpf_pct, ex),
+      base_imponible: Math.round((base + ex) * 100) / 100,
+      importe_exento: Math.round(ex * 100) / 100,
       iva_pct: p.iva_pct,
       irpf_pct: p.irpf_pct,
       irpf_modelo: p.irpf_pct > 0 ? p.irpf_modelo : null,
@@ -157,13 +166,14 @@ export async function crearSerie(args: {
  * A partir de aquí sí cuenta para los impuestos, así que se pide la base real.
  * Si coincide con la estimada, mejor; si no, manda la factura.
  */
-export async function confirmarGasto(id: string, base: number, ivaPct: number, irpfPct: number) {
+export async function confirmarGasto(id: string, base: number, ivaPct: number, irpfPct: number, exento = 0) {
   // El `.select()` es lo que distingue "se ha guardado" de "no ha tocado nada".
   // Sin él, un UPDATE bloqueado por RLS devuelve lo mismo que uno correcto:
   // silencio. Y un fallo que se presenta como un éxito es peor que un fallo.
   const { data, error } = await supabase.from('gastos').update({
-    base_imponible: Math.round(base * 100) / 100,
-    importe: totalDe(base, ivaPct, irpfPct),
+    base_imponible: Math.round((base + exento) * 100) / 100,
+    importe_exento: Math.round(exento * 100) / 100,
+    importe: totalDe(base, ivaPct, irpfPct, exento),
     iva_pct: ivaPct,
     irpf_pct: irpfPct,
     estimado: false,
@@ -227,12 +237,14 @@ export const modoPorDefecto = (tipo: string): ModoEstimacion =>
  * pasa a haber costado 100 porque hoy cueste otra cosa.
  */
 export async function actualizarEstimadosPendientes(
-  serieId: string, desdeFecha: string, base: number, ivaPct: number, irpfPct: number,
+  serieId: string, desdeFecha: string, base: number, ivaPct: number, irpfPct: number, exento = 0,
 ) {
   const { data, error } = await supabase.from('gastos')
     .update({
-      base_imponible: Math.round(base * 100) / 100,
-      importe: totalDe(base, ivaPct, irpfPct),
+      // La base guardada incluye la parte exenta; el IVA solo mira la gravada.
+      base_imponible: Math.round((base + exento) * 100) / 100,
+      importe_exento: Math.round(exento * 100) / 100,
+      importe: totalDe(base, ivaPct, irpfPct, exento),
     })
     .eq('serie_id', serieId).eq('estimado', true).gt('fecha', desdeFecha)
     .select('id')
