@@ -40,7 +40,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [media, setMedia] = useState<{ base: number, n: number }|null>(null)
   /** El último importe real del concepto. Es lo que usa el modo "siempre igual". */
   const [ultimo, setUltimo] = useState<number|null>(null)
-  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', exento:'', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
 
   /**
    * CONFIRMAR UNA PREVISIÓN.
@@ -99,10 +99,21 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const base = form.metodo === 'base' ? importe
     : ivaPct > 0 ? importe / (1 + ivaPct/100)
     : importe
+  /**
+   * LA PARTE DE LA FACTURA QUE NO LLEVA IVA.
+   *
+   * Hay recibos mixtos: en el del agua, el consumo lleva IVA y el canon y las
+   * tasas municipales no. Metiéndolo todo con el mismo tipo te deduces IVA de
+   * unos importes que nunca lo llevaron.
+   *
+   * Es gasto deducible igual —suma a la base y al total— pero no genera IVA
+   * soportado. Por eso el IVA se calcula solo sobre la parte gravada.
+   */
+  const exento = Math.max(parseFloat(form.exento) || 0, 0)
   const ivaImporte = base * (ivaPct/100)
   const irpfImporte = base * (irpfPct/100)
   /** Lo que sale de la cuenta: base + IVA − retención. Es lo que pagas de verdad. */
-  const total = base + ivaImporte - irpfImporte
+  const total = base + exento + ivaImporte - irpfImporte
 
   /** Las fechas que se van a crear, para poder decirlo ANTES de crearlas. */
   const fechasSerie = form.repetir ? fechasDeSerie(form.fecha, form.cadencia) : [form.fecha]
@@ -153,9 +164,22 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
      * ese número. No se inventa una base dividiendo: con retención saldría mal.
      */
     const tieneBase = g.base_imponible != null && Number(g.base_imponible) > 0
+    /**
+     * LA PARTE EXENTA SE GUARDA DENTRO DE `base_imponible`.
+     *
+     * Es lo correcto para los impuestos: la base del 130 es todo el gasto
+     * deducible, lleve IVA o no. Pero el formulario tiene DOS campos, y si al
+     * abrir se rellena el importe con la base entera y además el campo de
+     * exento con su parte, esa parte cuenta dos veces. Al guardar se volvía a
+     * sumar, y el gasto crecía en cada edición.
+     *
+     * Aquí se deshace la suma: al campo del importe va solo la parte gravada.
+     */
+    const exentoG = Number(g.importe_exento || 0)
+    const baseGravadaG = tieneBase ? Number(g.base_imponible) - exentoG : 0
     setForm({
       concepto: g.concepto || '',
-      importe: String(tieneBase ? g.base_imponible : (g.importe ?? '')),
+      importe: String(tieneBase ? Math.round(baseGravadaG*100)/100 : (g.importe ?? '')),
       metodo: tieneBase ? 'base' : 'total',
       repetir: false,
       cadencia: 'mensual',
@@ -163,6 +187,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       iva_pct: String(g.iva_pct ?? 0),
       irpf_pct: String(g.irpf_pct ?? 0),
       irpf_modelo: g.irpf_modelo || '111',
+      exento: g.importe_exento ? String(g.importe_exento) : '',
       tipo: g.tipo || 'variable',
       categoria: g.categoria || '',
       fecha: g.fecha,
@@ -176,7 +201,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   function abrirNuevo() {
     setEditando(null)
     setError(null)
-    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false,
+    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false, exento:'',
                     categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' }))
     setMedia(null); setUltimo(null)
     setModal(true)
@@ -214,7 +239,8 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
      */
     const fila = {
       concepto: plantilla.concepto,
-      base_imponible: plantilla.base,
+      base_imponible: Math.round((plantilla.base + exento)*100)/100,
+      importe_exento: Math.round(exento*100)/100,
       importe: total,
       iva_pct: plantilla.iva_pct,
       irpf_pct: plantilla.irpf_pct,
@@ -692,6 +718,17 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               </div>
               <div className="field"><label>IRPF (%)</label><input className="input" type="number" value={form.irpf_pct} onChange={e=>setForm(p=>({...p,irpf_pct:e.target.value}))} placeholder="0"/></div>
             </div>
+            {/* Recibos mixtos: el agua lleva IVA en el consumo y no en el canon
+                ni en las tasas. Aquí va lo segundo. */}
+            <div className="field">
+              <label>Parte sin IVA (€) <span style={{color:'var(--grl)',fontWeight:400}}>· opcional</span></label>
+              <input className="input" type="number" value={form.exento}
+                onChange={e=>setForm(p=>({...p,exento:e.target.value}))} placeholder="0.00"/>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
+                Para facturas mixtas, como el agua: canon y tasas municipales no llevan IVA.
+                Se deduce como gasto igual, pero no genera IVA soportado.
+              </div>
+            </div>
             {irpfPct > 0 && (
               <div className="field"><label>¿Qué retención es? (modelo)</label>
                 <select className="input" value={form.irpf_modelo} onChange={e=>setForm(p=>({...p,irpf_modelo:e.target.value}))}>
@@ -771,9 +808,15 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                   <span style={{color:'var(--grl)'}}>Base imponible</span>
                   <span style={{fontWeight:500}}>{base.toFixed(2)} €</span>
                 </div>
+                {exento > 0 && (
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>+ Parte sin IVA</span>
+                    <span style={{fontWeight:500}}>{exento.toFixed(2)} €</span>
+                  </div>
+                )}
                 {ivaPct > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
-                    <span style={{color:'var(--grl)'}}>+ IVA {ivaPct}%</span>
+                    <span style={{color:'var(--grl)'}}>+ IVA {ivaPct}% <span style={{fontSize:9}}>(sobre {base.toFixed(2)} €)</span></span>
                     <span style={{fontWeight:500}}>{ivaImporte.toFixed(2)} €</span>
                   </div>
                 )}
