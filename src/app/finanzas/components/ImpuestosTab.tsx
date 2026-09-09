@@ -48,7 +48,20 @@ export default function ImpuestosTab({ planes, gastos, facturas=[] }: any) {
       const [gy, gm] = g.fecha.split('-').map(Number)
       return gy===anio && trimestreDe(gm)===t
     })
-    const ivaSoportado = gastosT.reduce((a:number,g:any)=> a + (Number(g.importe) - Number(g.base_imponible||g.importe)), 0)
+    /**
+     * EL IVA SOPORTADO SALE DE LA BASE, NO DE RESTARLO DEL TOTAL.
+     *
+     * Antes era `importe - base_imponible`. Eso valía cuando el total era
+     * base + IVA, y dejó de valer al aparecer las retenciones: el total que se
+     * guarda ya lleva el IRPF restado (ver totalDe en lib/gastos).
+     *
+     *   Alquiler:  655,00 base + 137,55 IVA - 124,45 IRPF = 668,10 total
+     *   La resta:  668,10 - 655,00 =  13,10 €  <- 124,45 € de IVA sin deducir
+     *
+     * Cada mes. En un trimestre son ~373 € de más en el 303, y el panel existe
+     * justamente para que eso no pase.
+     */
+    const ivaSoportado = gastosT.reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(Number(g.iva_pct||0)/100), 0)
     const baseGastos = gastosT.reduce((a:number,g:any)=> a + Number(g.base_imponible||g.importe), 0)
     // Un gasto sin base imponible aporta 0 € de IVA soportado. Puede ser correcto
     // (nómina, seguridad social, préstamo) o puede ser una factura mal metida, y
