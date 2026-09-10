@@ -40,7 +40,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [media, setMedia] = useState<{ base: number, n: number }|null>(null)
   /** El último importe real del concepto. Es lo que usa el modo "siempre igual". */
   const [ultimo, setUltimo] = useState<number|null>(null)
-  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', exento:'', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', exento:'', clase:'', ss_empresa:'', irpf_retenido:'', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
 
   /**
    * CONFIRMAR UNA PREVISIÓN.
@@ -114,10 +114,29 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
    * soportado. Por eso el IVA se calcula solo sobre la parte gravada.
    */
   const exento = Math.max(parseFloat(form.exento) || 0, 0)
+
+  /**
+   * UNA NÓMINA NO ES UNA FACTURA.
+   *
+   * El gasto de la empresa son DOS cosas: el salario bruto y la Seguridad
+   * Social a cargo de la empresa. Ninguna lleva IVA.
+   *
+   * El IRPF retenido NO es un gasto aparte: ya está dentro del bruto. Es dinero
+   * del trabajador que tú ingresas a Hacienda por él, y por eso va al 111 pero
+   * no suma al coste.
+   *
+   * Los números se copian de lo que pasa la gestoría. Calcular aquí tramos de
+   * IRPF o bases de cotización daría cifras que no cuadran con lo presentado.
+   */
+  const esNomina = form.clase === 'nomina'
+  const ssEmpresa = Math.max(parseFloat(form.ss_empresa) || 0, 0)
+  const irpfRetenido = Math.max(parseFloat(form.irpf_retenido) || 0, 0)
   const ivaImporte = base * (ivaPct/100)
   const irpfImporte = base * (irpfPct/100)
   /** Lo que sale de la cuenta: base + IVA − retención. Es lo que pagas de verdad. */
-  const total = base + exento + ivaImporte - irpfImporte
+  const total = esNomina
+    ? base + ssEmpresa
+    : base + exento + ivaImporte - irpfImporte
 
   /** Las fechas que se van a crear, para poder decirlo ANTES de crearlas. */
   const fechasSerie = form.repetir ? fechasDeSerie(form.fecha, form.cadencia) : [form.fecha]
@@ -192,6 +211,9 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       irpf_pct: String(g.irpf_pct ?? 0),
       irpf_modelo: g.irpf_modelo || '111',
       exento: g.importe_exento ? String(g.importe_exento) : '',
+      clase: g.clase || '',
+      ss_empresa: g.ss_empresa ? String(g.ss_empresa) : '',
+      irpf_retenido: g.irpf_retenido ? String(g.irpf_retenido) : '',
       tipo: g.tipo || 'variable',
       categoria: g.categoria || '',
       fecha: g.fecha,
@@ -205,7 +227,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   function abrirNuevo() {
     setEditando(null)
     setError(null)
-    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false, exento:'',
+    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false, exento:'', clase:'', ss_empresa:'', irpf_retenido:'',
                     categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' }))
     setMedia(null); setUltimo(null)
     setModal(true)
@@ -244,12 +266,28 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
      */
     const fila = {
       concepto: plantilla.concepto,
-      base_imponible: Math.round((plantilla.base + exento)*100)/100,
-      importe_exento: Math.round(exento*100)/100,
+      /**
+       * EN UNA NÓMINA, LA BASE ES EL SALARIO BRUTO.
+       *
+       * La Seguridad Social de empresa va aparte porque es otro concepto —lo
+       * pagas tú, no sale del sueldo—, pero suma igual al gasto deducible: el
+       * `importe` es la suma de los dos, que es tu coste real.
+       *
+       * Sin IVA: una nómina no lo lleva. Y el irpf_pct se deja a 0 porque la
+       * retención de una nómina es un IMPORTE, no un porcentaje redondo: va en
+       * `irpf_retenido` y de ahí al 111.
+       */
+      clase: form.clase || null,
+      ss_empresa: esNomina ? Math.round(ssEmpresa*100)/100 : 0,
+      irpf_retenido: esNomina ? Math.round(irpfRetenido*100)/100 : 0,
+      base_imponible: esNomina
+        ? Math.round(plantilla.base*100)/100
+        : Math.round((plantilla.base + exento)*100)/100,
+      importe_exento: esNomina ? 0 : Math.round(exento*100)/100,
       importe: total,
-      iva_pct: plantilla.iva_pct,
-      irpf_pct: plantilla.irpf_pct,
-      irpf_modelo: irpfPct > 0 ? form.irpf_modelo : null,
+      iva_pct: esNomina ? 0 : plantilla.iva_pct,
+      irpf_pct: esNomina ? 0 : plantilla.irpf_pct,
+      irpf_modelo: esNomina ? '111' : (irpfPct > 0 ? form.irpf_modelo : null),
       tipo: plantilla.tipo,
       categoria: plantilla.categoria,
       notas: plantilla.notas,
@@ -677,10 +715,26 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               </div>
             )}
 
+            {/* QUÉ CLASE DE GASTO ES. Una nómina no se parece a una factura:
+                no lleva IVA, el coste son dos importes y la retención es un
+                número del papel, no un porcentaje. */}
+            <div className="field" style={{display: editando ? 'none' : undefined}}>
+              <label>¿Qué estás apuntando?</label>
+              <div style={{display:'flex',gap:6}}>
+                {[['','Una factura'],['nomina','Una nómina']].map(([v,l])=>(
+                  <button key={v} type="button" onClick={()=>setForm(p=>({...p,clase:v,metodo:v==='nomina'?'base':p.metodo}))}
+                    style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
+                            border:`1.5px solid ${form.clase===v?'var(--g)':'var(--bd)'}`,
+                            background:form.clase===v?'var(--g)':'var(--w)',
+                            color:form.clase===v?'#fff':'var(--gr)'}}>{l}</button>
+                ))}
+              </div>
+            </div>
+
             <div className="field"><label>Concepto *</label><input className="input" value={form.concepto} onChange={e=>setForm(p=>({...p,concepto:e.target.value}))} placeholder="ej. Alquiler local" autoFocus onBlur={buscarMedia}/></div>
             <div className="g2">
               <div className="field">
-                <label>{form.metodo === 'base' ? 'Base imponible (€) *' : 'Total pagado (€) *'}</label>
+                <label>{esNomina ? 'Salario bruto (€) *' : form.metodo === 'base' ? 'Base imponible (€) *' : 'Total pagado (€) *'}</label>
                 <input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/>
               </div>
               {/* SIGUE HACIENDO FALTA, PERO NO ES LO MISMO QUE LO DE ABAJO.
@@ -709,7 +763,30 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             {/* QUÉ NÚMERO ESTÁS COPIANDO. Con retención el total no es base+IVA
                 —lleva el IRPF restado— así que no se puede deducir la base a
                 partir de él. Se pregunta en vez de adivinar. */}
-            <div className="field">
+            {esNomina && (
+              <>
+                <div className="g2">
+                  <div className="field">
+                    <label>Seguridad Social a cargo de la empresa (€)</label>
+                    <input className="input" type="number" value={form.ss_empresa}
+                      onChange={e=>setForm(p=>({...p,ss_empresa:e.target.value}))} placeholder="0.00"/>
+                  </div>
+                  <div className="field">
+                    <label>IRPF retenido al trabajador (€)</label>
+                    <input className="input" type="number" value={form.irpf_retenido}
+                      onChange={e=>setForm(p=>({...p,irpf_retenido:e.target.value}))} placeholder="0.00"/>
+                  </div>
+                </div>
+                <div style={{fontSize:9,color:'var(--grl)',marginBottom:10,lineHeight:1.55}}>
+                  Copia los tres números de lo que te pasa la gestoría. El <strong>bruto</strong> y la
+                  <strong> Seguridad Social de empresa</strong> son tu gasto; el <strong>IRPF retenido</strong> no
+                  lo es —ya está dentro del bruto— pero es lo que se ingresa en el <strong>modelo 111</strong>.
+                  Una nómina no lleva IVA.
+                </div>
+              </>
+            )}
+
+            <div className="field" style={{display: esNomina ? 'none' : undefined}}>
               <label>¿Qué importe vas a escribir?</label>
               <div style={{display:'flex',gap:6}}>
                 {[['total','El total pagado'],['base','La base imponible']].map(([v,l])=>(
@@ -730,7 +807,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               )}
             </div>
 
-            <div className="g2">
+            <div className="g2" style={{display: esNomina ? 'none' : undefined}}>
               <div className="field"><label>IVA (%)</label>
                 <select className="input" value={form.iva_pct} onChange={e=>setForm(p=>({...p,iva_pct:e.target.value}))}>
                   <option value="21">21%</option>
@@ -743,7 +820,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             </div>
             {/* Recibos mixtos: el agua lleva IVA en el consumo y no en el canon
                 ni en las tasas. Aquí va lo segundo. */}
-            <div className="field">
+            <div className="field" style={{display: esNomina ? 'none' : undefined}}>
               <label>Parte sin IVA (€) <span style={{color:'var(--grl)',fontWeight:400}}>· opcional</span></label>
               <input className="input" type="number" value={form.exento}
                 onChange={e=>setForm(p=>({...p,exento:e.target.value}))} placeholder="0.00"/>
@@ -828,31 +905,45 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             {base > 0 && (
               <div style={{padding:'9px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
-                  <span style={{color:'var(--grl)'}}>Base imponible</span>
+                  <span style={{color:'var(--grl)'}}>{esNomina ? 'Salario bruto' : 'Base imponible'}</span>
                   <span style={{fontWeight:500}}>{base.toFixed(2)} €</span>
                 </div>
+                {/* En una nómina el coste son dos importes. La retención se
+                    enseña aparte porque NO suma: ya está dentro del bruto. */}
+                {esNomina && ssEmpresa > 0 && (
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                    <span style={{color:'var(--grl)'}}>+ Seguridad Social empresa</span>
+                    <span style={{fontWeight:500}}>{ssEmpresa.toFixed(2)} €</span>
+                  </div>
+                )}
                 {exento > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
                     <span style={{color:'var(--grl)'}}>+ Parte sin IVA</span>
                     <span style={{fontWeight:500}}>{exento.toFixed(2)} €</span>
                   </div>
                 )}
-                {ivaPct > 0 && (
+                {!esNomina && ivaPct > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
                     <span style={{color:'var(--grl)'}}>+ IVA {ivaPct}% <span style={{fontSize:9}}>(sobre {base.toFixed(2)} €)</span></span>
                     <span style={{fontWeight:500}}>{ivaImporte.toFixed(2)} €</span>
                   </div>
                 )}
-                {irpfPct > 0 && (
+                {!esNomina && irpfPct > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
                     <span style={{color:'var(--grl)'}}>− IRPF {irpfPct}%</span>
                     <span style={{fontWeight:500,color:'var(--red)'}}>−{irpfImporte.toFixed(2)} €</span>
                   </div>
                 )}
                 <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px solid var(--bd)'}}>
-                  <span style={{fontWeight:600,color:'var(--n)'}}>Total pagado</span>
+                  <span style={{fontWeight:600,color:'var(--n)'}}>{esNomina ? 'Coste total empresa' : 'Total pagado'}</span>
                   <span style={{fontWeight:600,color:'var(--n)'}}>{total.toFixed(2)} €</span>
                 </div>
+                {esNomina && irpfRetenido > 0 && (
+                  <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px dashed var(--bd)'}}>
+                    <span style={{color:'var(--grl)'}}>IRPF retenido <span style={{fontSize:9}}>(al 111, no es gasto)</span></span>
+                    <span style={{fontWeight:500,color:'var(--grl)'}}>{irpfRetenido.toFixed(2)} €</span>
+                  </div>
+                )}
               </div>
             )}
 

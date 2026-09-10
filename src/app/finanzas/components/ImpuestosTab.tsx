@@ -78,6 +78,15 @@ export default function ImpuestosTab({ planes, gastos, facturas=[] }: any) {
     // Modelo 111: IRPF retenido en gastos marcados como 111
     const modelo111 = gastosT.filter((g:any)=>g.irpf_modelo==='111' && g.irpf_pct>0)
       .reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(g.irpf_pct/100), 0)
+      /**
+       * LAS NÓMINAS TAMBIÉN VAN AL 111.
+       *
+       * En una factura de profesional la retención es un porcentaje sobre la
+       * base. En una nómina es un importe del papel, así que se guarda aparte
+       * en `irpf_retenido` y aquí se suma: el 111 recoge las dos cosas.
+       */
+      + gastosT.filter((g:any)=>g.clase==='nomina')
+        .reduce((a:number,g:any)=> a + Number(g.irpf_retenido||0), 0)
 
     // Modelo 115: IRPF retenido en alquiler (marcados como 115)
     const modelo115 = gastosT.filter((g:any)=>g.irpf_modelo==='115' && g.irpf_pct>0)
