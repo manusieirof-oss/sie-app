@@ -41,6 +41,13 @@ export type Plantilla = {
   irpf_pct: number
   /** La parte del recibo que no lleva IVA (canon, tasas). Suma al gasto, no al IVA. */
   exento: number
+  /** 'nomina' | 'prestamo' | 'seguro'. null o vacío = una factura normal. */
+  clase?: string | null
+  /** Nómina: Seguridad Social de empresa e IRPF retenido del papel. */
+  ssEmpresa?: number
+  irpfRetenido?: number
+  /** Préstamo: capital amortizado del recibo. No es gasto. */
+  capital?: number
   irpf_modelo: string | null
   tipo: string
   categoria: string | null
@@ -136,14 +143,33 @@ export async function crearSerie(args: {
      * 130 es gasto deducible— pero el IVA se calcula solo sobre la parte gravada.
      */
     const ex = p.exento || 0
+    /**
+     * UNA SERIE NO ES SIEMPRE UNA SERIE DE FACTURAS.
+     *
+     * Un préstamo o una nómina se repiten igual que la luz, pero su coste no
+     * sale de base+IVA: en el préstamo el gasto son solo los intereses y no
+     * llevan IVA; en la nómina son el bruto más la Seguridad Social.
+     *
+     * Sin esto, marcar "se repite" convertía doce recibos del banco en doce
+     * facturas con un 21% que nadie pagó.
+     */
+    const esNom = p.clase === 'nomina'
+    const esPres = p.clase === 'prestamo'
+    const cap = p.capital || 0
     return {
       concepto: p.concepto,
-      importe: totalDe(base, p.iva_pct, p.irpf_pct, ex),
-      base_imponible: Math.round((base + ex) * 100) / 100,
-      importe_exento: Math.round(ex * 100) / 100,
-      iva_pct: p.iva_pct,
-      irpf_pct: p.irpf_pct,
-      irpf_modelo: p.irpf_pct > 0 ? p.irpf_modelo : null,
+      clase: p.clase || null,
+      importe: esNom ? Math.round((base + (p.ssEmpresa||0)) * 100) / 100
+        : esPres ? Math.round(base * 100) / 100
+        : totalDe(base, p.iva_pct, p.irpf_pct, ex),
+      base_imponible: Math.round((base + ((esNom||esPres) ? 0 : ex)) * 100) / 100,
+      importe_exento: (esNom||esPres) ? 0 : Math.round(ex * 100) / 100,
+      ss_empresa: esNom ? Math.round((p.ssEmpresa||0) * 100) / 100 : 0,
+      irpf_retenido: esNom ? Math.round((p.irpfRetenido||0) * 100) / 100 : 0,
+      capital_amortizado: esPres ? Math.round(cap * 100) / 100 : 0,
+      iva_pct: (esNom||esPres) ? 0 : p.iva_pct,
+      irpf_pct: (esNom||esPres) ? 0 : p.irpf_pct,
+      irpf_modelo: esNom ? '111' : (p.irpf_pct > 0 ? p.irpf_modelo : null),
       tipo: p.tipo,
       categoria: p.categoria,
       fecha,
@@ -173,19 +199,22 @@ export async function crearSerie(args: {
  * unos cientos de euros menos.
  */
 export async function confirmarGasto(id: string, base: number, ivaPct: number, irpfPct: number, exento = 0,
-                                     nomina?: { ssEmpresa: number, irpfRetenido: number }) {
+                                     nomina?: { ssEmpresa: number, irpfRetenido: number },
+                                     prestamo?: { capital: number }) {
   // El `.select()` es lo que distingue "se ha guardado" de "no ha tocado nada".
   // Sin él, un UPDATE bloqueado por RLS devuelve lo mismo que uno correcto:
   // silencio. Y un fallo que se presenta como un éxito es peor que un fallo.
   const { data, error } = await supabase.from('gastos').update({
-    base_imponible: nomina ? Math.round(base * 100) / 100 : Math.round((base + exento) * 100) / 100,
+    base_imponible: (nomina || prestamo) ? Math.round(base * 100) / 100 : Math.round((base + exento) * 100) / 100,
     importe_exento: nomina ? 0 : Math.round(exento * 100) / 100,
     ...(nomina ? {
       ss_empresa: Math.round(nomina.ssEmpresa * 100) / 100,
       irpf_retenido: Math.round(nomina.irpfRetenido * 100) / 100,
     } : {}),
+    ...(prestamo ? { capital_amortizado: Math.round(prestamo.capital * 100) / 100 } : {}),
     importe: nomina
       ? Math.round((base + nomina.ssEmpresa) * 100) / 100
+      : prestamo ? Math.round(base * 100) / 100
       : totalDe(base, ivaPct, irpfPct, exento),
     iva_pct: ivaPct,
     irpf_pct: irpfPct,
