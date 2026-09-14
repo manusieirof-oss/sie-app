@@ -40,7 +40,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [media, setMedia] = useState<{ base: number, n: number }|null>(null)
   /** El último importe real del concepto. Es lo que usa el modo "siempre igual". */
   const [ultimo, setUltimo] = useState<number|null>(null)
-  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', exento:'', clase:'', ss_empresa:'', irpf_retenido:'', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
+  const [form, setForm] = useState({ concepto:'', importe:'', metodo:'total', repetir:false, cadencia:'mensual', modoEst:'media', iva_pct:'21', irpf_pct:'0', irpf_modelo:'111', exento:'', clase:'', ss_empresa:'', irpf_retenido:'', capital:'', tipo:'variable', categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' })
 
   /**
    * CONFIRMAR UNA PREVISIÓN.
@@ -61,6 +61,9 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const [confMetodo, setConfMetodo] = useState('base')
   /** La parte sin IVA de ESTA factura. Puede cambiar entre un recibo y otro. */
   const [confExento, setConfExento] = useState('')
+  /** Nóminas: la SS de empresa y la retención de ESTE mes. */
+  const [confSS, setConfSS] = useState('')
+  const [confIrpfRet, setConfIrpfRet] = useState('')
 
   /** El gasto cuya serie se está dando de baja, y desde cuándo. */
   const [baja, setBaja] = useState<any|null>(null)
@@ -131,11 +134,29 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   const esNomina = form.clase === 'nomina'
   const ssEmpresa = Math.max(parseFloat(form.ss_empresa) || 0, 0)
   const irpfRetenido = Math.max(parseFloat(form.irpf_retenido) || 0, 0)
+
+  /**
+   * DE UNA CUOTA DE PRÉSTAMO SOLO SON GASTO LOS INTERESES.
+   *
+   * Amortizar capital no es un gasto: es devolver dinero que te prestaron. Si
+   * se apuntara la cuota entera, el beneficio del 130 saldría más bajo de lo
+   * real y estarías declarando mal.
+   *
+   * Y no llevan IVA: los servicios financieros están exentos, así que no hay
+   * nada que deducir en el 303.
+   *
+   * El capital se pide igualmente —y se guarda— para poder cuadrar el recibo
+   * con el banco, pero no suma al gasto. Con tipo variable el reparto cambia en
+   * cada revisión, por eso se teclea de cada recibo en vez de calcularlo.
+   */
+  const esPrestamo = form.clase === 'prestamo'
+  const capital = Math.max(parseFloat(form.capital) || 0, 0)
   const ivaImporte = base * (ivaPct/100)
   const irpfImporte = base * (irpfPct/100)
   /** Lo que sale de la cuenta: base + IVA − retención. Es lo que pagas de verdad. */
   const total = esNomina
     ? base + ssEmpresa
+    : esPrestamo ? base
     : base + exento + ivaImporte - irpfImporte
 
   /** Las fechas que se van a crear, para poder decirlo ANTES de crearlas. */
@@ -214,6 +235,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       clase: g.clase || '',
       ss_empresa: g.ss_empresa ? String(g.ss_empresa) : '',
       irpf_retenido: g.irpf_retenido ? String(g.irpf_retenido) : '',
+      capital: g.capital_amortizado ? String(g.capital_amortizado) : '',
       tipo: g.tipo || 'variable',
       categoria: g.categoria || '',
       fecha: g.fecha,
@@ -227,7 +249,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   function abrirNuevo() {
     setEditando(null)
     setError(null)
-    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false, exento:'', clase:'', ss_empresa:'', irpf_retenido:'',
+    setForm(p => ({ ...p, concepto:'', importe:'', metodo:'total', repetir:false, exento:'', clase:'', ss_empresa:'', irpf_retenido:'', capital:'',
                     categoria:'', fecha:hoyISO(), tiene_factura:false, notas:'' }))
     setMedia(null); setUltimo(null)
     setModal(true)
@@ -279,6 +301,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
        */
       clase: form.clase || null,
       ss_empresa: esNomina ? Math.round(ssEmpresa*100)/100 : 0,
+      capital_amortizado: esPrestamo ? Math.round(capital*100)/100 : 0,
       irpf_retenido: esNomina ? Math.round(irpfRetenido*100)/100 : 0,
       base_imponible: esNomina
         ? Math.round(plantilla.base*100)/100
@@ -358,6 +381,8 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     setConfBase(String(Math.round((Number(g.base_imponible || 0) - exG)*100)/100))
     setConfExento(exG ? String(exG) : '')
     setConfMetodo('base')
+    setConfSS(g.ss_empresa ? String(g.ss_empresa) : '')
+    setConfIrpfRet(g.irpf_retenido ? String(g.irpf_retenido) : '')
     setConfPropagar(false)
     setConfPend(0)
     if (g.serie_id) {
@@ -383,7 +408,12 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       : (tecleado - exN) / (1 + ivaN/100 - irpfN/100)
     if (nueva < 0) { setError('Con esa parte sin IVA, la base sale negativa. Revisa los importes.'); return }
     setGuardando(true)
-    const r = await confirmarGasto(g.id, Math.round(nueva*100)/100, ivaN, irpfN, exN)
+    const esNom = g.clase === 'nomina'
+    const r = await confirmarGasto(g.id, Math.round(nueva*100)/100, ivaN, irpfN, exN,
+      esNom ? {
+        ssEmpresa: Math.max(parseFloat(confSS.replace(',', '.')) || 0, 0),
+        irpfRetenido: Math.max(parseFloat(confIrpfRet.replace(',', '.')) || 0, 0),
+      } : undefined)
     if (!r.ok) { setGuardando(false); setError(`No se ha podido confirmar: ${r.error}`); return }
 
     /**
@@ -721,7 +751,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             <div className="field" style={{display: editando ? 'none' : undefined}}>
               <label>¿Qué estás apuntando?</label>
               <div style={{display:'flex',gap:6}}>
-                {[['','Una factura'],['nomina','Una nómina']].map(([v,l])=>(
+                {[['','Una factura'],['nomina','Una nómina'],['prestamo','Un préstamo']].map(([v,l])=>(
                   <button key={v} type="button" onClick={()=>setForm(p=>({...p,clase:v,metodo:v==='nomina'?'base':p.metodo}))}
                     style={{flex:1,padding:'7px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
                             border:`1.5px solid ${form.clase===v?'var(--g)':'var(--bd)'}`,
@@ -734,7 +764,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             <div className="field"><label>Concepto *</label><input className="input" value={form.concepto} onChange={e=>setForm(p=>({...p,concepto:e.target.value}))} placeholder="ej. Alquiler local" autoFocus onBlur={buscarMedia}/></div>
             <div className="g2">
               <div className="field">
-                <label>{esNomina ? 'Salario bruto (€) *' : form.metodo === 'base' ? 'Base imponible (€) *' : 'Total pagado (€) *'}</label>
+                <label>{esNomina ? 'Salario bruto (€) *' : esPrestamo ? 'Intereses del recibo (€) *' : form.metodo === 'base' ? 'Base imponible (€) *' : 'Total pagado (€) *'}</label>
                 <input className="input" type="number" value={form.importe} onChange={e=>setForm(p=>({...p,importe:e.target.value}))} placeholder="0.00"/>
               </div>
               {/* SIGUE HACIENDO FALTA, PERO NO ES LO MISMO QUE LO DE ABAJO.
@@ -763,6 +793,21 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             {/* QUÉ NÚMERO ESTÁS COPIANDO. Con retención el total no es base+IVA
                 —lleva el IRPF restado— así que no se puede deducir la base a
                 partir de él. Se pregunta en vez de adivinar. */}
+            {esPrestamo && (
+              <>
+                <div className="field">
+                  <label>Capital amortizado en este recibo (€)</label>
+                  <input className="input" type="number" value={form.capital}
+                    onChange={e=>setForm(p=>({...p,capital:e.target.value}))} placeholder="0.00"/>
+                </div>
+                <div style={{fontSize:9,color:'var(--grl)',marginBottom:10,lineHeight:1.55}}>
+                  De la cuota, solo los <strong>intereses</strong> son gasto deducible: amortizar
+                  capital es devolver lo prestado, no un gasto. El capital se guarda para cuadrar
+                  el recibo con el banco, pero no cuenta. Los intereses <strong>no llevan IVA</strong>.
+                </div>
+              </>
+            )}
+
             {esNomina && (
               <>
                 <div className="g2">
@@ -786,7 +831,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               </>
             )}
 
-            <div className="field" style={{display: esNomina ? 'none' : undefined}}>
+            <div className="field" style={{display: (esNomina||esPrestamo) ? 'none' : undefined}}>
               <label>¿Qué importe vas a escribir?</label>
               <div style={{display:'flex',gap:6}}>
                 {[['total','El total pagado'],['base','La base imponible']].map(([v,l])=>(
@@ -807,7 +852,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               )}
             </div>
 
-            <div className="g2" style={{display: esNomina ? 'none' : undefined}}>
+            <div className="g2" style={{display: (esNomina||esPrestamo) ? 'none' : undefined}}>
               <div className="field"><label>IVA (%)</label>
                 <select className="input" value={form.iva_pct} onChange={e=>setForm(p=>({...p,iva_pct:e.target.value}))}>
                   <option value="21">21%</option>
@@ -820,7 +865,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             </div>
             {/* Recibos mixtos: el agua lleva IVA en el consumo y no en el canon
                 ni en las tasas. Aquí va lo segundo. */}
-            <div className="field" style={{display: esNomina ? 'none' : undefined}}>
+            <div className="field" style={{display: (esNomina||esPrestamo) ? 'none' : undefined}}>
               <label>Parte sin IVA (€) <span style={{color:'var(--grl)',fontWeight:400}}>· opcional</span></label>
               <input className="input" type="number" value={form.exento}
                 onChange={e=>setForm(p=>({...p,exento:e.target.value}))} placeholder="0.00"/>
@@ -905,7 +950,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             {base > 0 && (
               <div style={{padding:'9px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
-                  <span style={{color:'var(--grl)'}}>{esNomina ? 'Salario bruto' : 'Base imponible'}</span>
+                  <span style={{color:'var(--grl)'}}>{esNomina ? 'Salario bruto' : esPrestamo ? 'Intereses (gasto deducible)' : 'Base imponible'}</span>
                   <span style={{fontWeight:500}}>{base.toFixed(2)} €</span>
                 </div>
                 {/* En una nómina el coste son dos importes. La retención se
@@ -935,9 +980,21 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                   </div>
                 )}
                 <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px solid var(--bd)'}}>
-                  <span style={{fontWeight:600,color:'var(--n)'}}>{esNomina ? 'Coste total empresa' : 'Total pagado'}</span>
+                  <span style={{fontWeight:600,color:'var(--n)'}}>{esNomina ? 'Coste total empresa' : esPrestamo ? 'Gasto deducible' : 'Total pagado'}</span>
                   <span style={{fontWeight:600,color:'var(--n)'}}>{total.toFixed(2)} €</span>
                 </div>
+                {esPrestamo && capital > 0 && (
+                  <>
+                    <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px dashed var(--bd)'}}>
+                      <span style={{color:'var(--grl)'}}>+ Capital amortizado <span style={{fontSize:9}}>(no es gasto)</span></span>
+                      <span style={{fontWeight:500,color:'var(--grl)'}}>{capital.toFixed(2)} €</span>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:2}}>
+                      <span style={{color:'var(--grl)'}}>Cuota pagada al banco</span>
+                      <span style={{fontWeight:500,color:'var(--grl)'}}>{(base + capital).toFixed(2)} €</span>
+                    </div>
+                  </>
+                )}
                 {esNomina && irpfRetenido > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px dashed var(--bd)'}}>
                     <span style={{color:'var(--grl)'}}>IRPF retenido <span style={{fontSize:9}}>(al 111, no es gasto)</span></span>
@@ -994,6 +1051,9 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
           números. */}
       {conf && (() => {
         const iva = Number(conf.iva_pct || 0), irpf = Number(conf.irpf_pct || 0)
+        const esNomConf = conf.clase === 'nomina'
+        const ssConf = Math.max(parseFloat(confSS.replace(',', '.')) || 0, 0)
+        const retConf = Math.max(parseFloat(confIrpfRet.replace(',', '.')) || 0, 0)
         const exPrev = Number(conf.importe_exento || 0)
         // La previsión, sin la parte exenta: es con lo que se compara lo tecleado.
         const est = Number(conf.base_imponible || 0) - exPrev
@@ -1023,7 +1083,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
 
               {/* Las mismas opciones que al crear. Una factura real puede traer
                   otro consumo Y otro canon, y antes solo se podía tocar un número. */}
-              <div className="field">
+              <div className="field" style={{display: esNomConf ? 'none' : undefined}}>
                 <label>¿Qué importe vas a escribir?</label>
                 <div style={{display:'flex',gap:6}}>
                   {[['base','La base imponible'],['total','El total pagado']].map(([v,l])=>(
@@ -1037,7 +1097,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
               </div>
 
               <div className="field">
-                <label>{confMetodo==='base'?'Base imponible de la factura (€)':'Total pagado de la factura (€)'}</label>
+                <label>{esNomConf ? 'Salario bruto (€)' : confMetodo==='base'?'Base imponible de la factura (€)':'Total pagado de la factura (€)'}</label>
                 <input className="input" type="number" value={confBase} autoFocus
                   onChange={e=>setConfBase(e.target.value)}/>
                 <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
@@ -1046,14 +1106,29 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                 </div>
               </div>
 
-              <div className="field">
-                <label>Parte sin IVA (€) <span style={{color:'var(--grl)',fontWeight:400}}>· opcional</span></label>
-                <input className="input" type="number" value={confExento}
-                  onChange={e=>setConfExento(e.target.value)} placeholder="0.00"/>
-                <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
-                  Canon y tasas del recibo. Puede cambiar de una factura a otra.
+              {esNomConf ? (
+                <div className="g2">
+                  <div className="field">
+                    <label>Seguridad Social empresa (€)</label>
+                    <input className="input" type="number" value={confSS}
+                      onChange={e=>setConfSS(e.target.value)} placeholder="0.00"/>
+                  </div>
+                  <div className="field">
+                    <label>IRPF retenido (€)</label>
+                    <input className="input" type="number" value={confIrpfRet}
+                      onChange={e=>setConfIrpfRet(e.target.value)} placeholder="0.00"/>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="field">
+                  <label>Parte sin IVA (€) <span style={{color:'var(--grl)',fontWeight:400}}>· opcional</span></label>
+                  <input className="input" type="number" value={confExento}
+                    onChange={e=>setConfExento(e.target.value)} placeholder="0.00"/>
+                  <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
+                    Canon y tasas del recibo. Puede cambiar de una factura a otra.
+                  </div>
+                </div>
+              )}
 
               {val != null && (
                 <div style={{padding:'9px 12px',background:'var(--bl)',borderRadius:6,marginBottom:10,fontSize:10}}>
@@ -1069,10 +1144,22 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                   {irpf > 0 && <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
                     <span style={{color:'var(--grl)'}}>− IRPF {irpf}%</span><span style={{fontWeight:500,color:'var(--red)'}}>−{(val*irpf/100).toFixed(2)} €</span>
                   </div>}
+                  {esNomConf && ssConf > 0 && (
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                      <span style={{color:'var(--grl)'}}>+ Seguridad Social empresa</span>
+                      <span style={{fontWeight:500}}>{ssConf.toFixed(2)} €</span>
+                    </div>
+                  )}
                   <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px solid var(--bd)'}}>
-                    <span style={{fontWeight:600,color:'var(--n)'}}>Total pagado</span>
-                    <span style={{fontWeight:600,color:'var(--n)'}}>{(val + ex + val*iva/100 - val*irpf/100).toFixed(2)} €</span>
+                    <span style={{fontWeight:600,color:'var(--n)'}}>{esNomConf ? 'Coste total empresa' : 'Total pagado'}</span>
+                    <span style={{fontWeight:600,color:'var(--n)'}}>{(esNomConf ? val + ssConf : val + ex + val*iva/100 - val*irpf/100).toFixed(2)} €</span>
                   </div>
+                  {esNomConf && retConf > 0 && (
+                    <div style={{display:'flex',justifyContent:'space-between',paddingTop:4,marginTop:2,borderTop:'1px dashed var(--bd)'}}>
+                      <span style={{color:'var(--grl)'}}>IRPF retenido <span style={{fontSize:9}}>(al 111, no es gasto)</span></span>
+                      <span style={{fontWeight:500,color:'var(--grl)'}}>{retConf.toFixed(2)} €</span>
+                    </div>
+                  )}
                 </div>
               )}
 

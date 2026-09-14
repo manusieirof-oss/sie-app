@@ -166,14 +166,27 @@ export async function crearSerie(args: {
  * A partir de aquí sí cuenta para los impuestos, así que se pide la base real.
  * Si coincide con la estimada, mejor; si no, manda la factura.
  */
-export async function confirmarGasto(id: string, base: number, ivaPct: number, irpfPct: number, exento = 0) {
+/**
+ * En una nómina el coste no sale de la fórmula base+IVA−IRPF: son dos importes
+ * del papel, el bruto y la Seguridad Social de empresa. Si se recalculara como
+ * una factura, al confirmar se perdería la SS y la nómina costaría de golpe
+ * unos cientos de euros menos.
+ */
+export async function confirmarGasto(id: string, base: number, ivaPct: number, irpfPct: number, exento = 0,
+                                     nomina?: { ssEmpresa: number, irpfRetenido: number }) {
   // El `.select()` es lo que distingue "se ha guardado" de "no ha tocado nada".
   // Sin él, un UPDATE bloqueado por RLS devuelve lo mismo que uno correcto:
   // silencio. Y un fallo que se presenta como un éxito es peor que un fallo.
   const { data, error } = await supabase.from('gastos').update({
-    base_imponible: Math.round((base + exento) * 100) / 100,
-    importe_exento: Math.round(exento * 100) / 100,
-    importe: totalDe(base, ivaPct, irpfPct, exento),
+    base_imponible: nomina ? Math.round(base * 100) / 100 : Math.round((base + exento) * 100) / 100,
+    importe_exento: nomina ? 0 : Math.round(exento * 100) / 100,
+    ...(nomina ? {
+      ss_empresa: Math.round(nomina.ssEmpresa * 100) / 100,
+      irpf_retenido: Math.round(nomina.irpfRetenido * 100) / 100,
+    } : {}),
+    importe: nomina
+      ? Math.round((base + nomina.ssEmpresa) * 100) / 100
+      : totalDe(base, ivaPct, irpfPct, exento),
     iva_pct: ivaPct,
     irpf_pct: irpfPct,
     estimado: false,
