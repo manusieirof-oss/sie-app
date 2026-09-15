@@ -795,16 +795,25 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
                   que es lo que te cuesta abrir la puerta y por tanto cuántas
                   cuotas necesitas para no perder dinero. Así que se queda, pero
                   preguntando lo que de verdad pregunta. */}
-              <div className="field"><label>¿Lo pagas aunque no venga nadie?</label>
+              {/* LA PREGUNTA SIGUE SIENDO "¿LO PAGAS VENGA O NO VENGA GENTE?".
+                  Eso es lo que decide el punto de equilibrio: el suelo que hay
+                  que cubrir cada mes.
+
+                  Pero como enunciado se quedaba corto: una obra no se paga
+                  todos los meses y tampoco depende de cuánta gente venga, así
+                  que ninguna de las dos respuestas encajaba. El criterio no
+                  cambia —lo puntual va con lo variable, porque no es suelo—,
+                  solo se dice de forma que tenga respuesta siempre. */}
+              <div className="field"><label>Tipo de gasto</label>
                 <select className="input" value={form.tipo}
                   onChange={e=>setForm(p=>({...p, tipo:e.target.value, modoEst:modoPorDefecto(e.target.value)}))}>
-                  <option value="variable">No · depende de la actividad</option>
-                  <option value="fijo">Sí · lo pago igual</option>
+                  <option value="variable">Variable o puntual</option>
+                  <option value="fijo">Fijo · lo pago aunque no venga nadie</option>
                 </select>
                 <div style={{fontSize:9,color:'var(--grl)',marginTop:3,lineHeight:1.5}}>
                   {form.tipo === 'fijo'
-                    ? 'Alquiler, gestoría, seguro. Suma en «gastos fijos al mes», el suelo que tienes que cubrir cada mes.'
-                    : 'Material, publicidad, un pedido puntual. Sube y baja con lo que trabajes.'}
+                    ? 'Alquiler, gestoría, nóminas, seguro, préstamo. Suma en «gastos fijos al mes», el suelo que tienes que cubrir cada mes.'
+                    : 'Material, publicidad, una obra, una reparación. No cuenta como suelo: o sube y baja con lo que trabajes, o pasa una sola vez.'}
                 </div>
               </div>
             </div>
