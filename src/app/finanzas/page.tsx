@@ -220,7 +220,19 @@ export default function FinanzasPage() {
         </div>
       )}
 
-      {loading ? (
+      {/* EL AVISO DE CARGANDO NO PUEDE SUSTITUIR AL CONTENIDO.
+          Cuando lo sustituía, cada vez que se guardaba un gasto la pestaña
+          entera se desmontaba y volvía a montarse desde cero: se perdían el
+          buscador, el mes elegido y el orden. Estabas filtrando por abril,
+          corregías una línea y aparecías otra vez en «todos los meses».
+
+          Ahora el aviso se pinta ENCIMA, sin tocar lo de abajo. Solo la
+          primera carga —cuando todavía no hay nada que enseñar— muestra el
+          texto a secas. */}
+      {loading && gastos.length > 0 && (
+        <div style={{fontSize:10,color:'var(--grl)',padding:'6px 0'}}>Actualizando…</div>
+      )}
+      {loading && gastos.length === 0 ? (
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
