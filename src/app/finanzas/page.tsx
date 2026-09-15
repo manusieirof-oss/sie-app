@@ -246,7 +246,7 @@ export default function FinanzasPage() {
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
           {tab==='ingresos' && <IngresosTab ingresos={ingresos} recargar={cargar} mesRef={mesRef}/>}
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} ingresos={ingresos} facturas={facturas}/>}
-          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef}/>}
+          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} facturas={facturas} bonosHist={bonosHist} mesRef={mesRef}/>}
           {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas}/>}
         </>
       )}

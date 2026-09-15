@@ -8,7 +8,20 @@ const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // mesRef ('YYYY-MM'): ver un mes distinto al de hoy. Por defecto, el mes en curso.
-export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bonosHist=[], mesRef }: any) {
+import type { Factura } from '@/lib/facturado'
+
+/**
+ * FACTURADO Y COBRADO NO SON LO MISMO, Y LOS DOS HACEN FALTA.
+ *
+ *   facturado → lo que has emitido este mes. Dice si el negocio da de sí.
+ *   cobrado   → lo que ha entrado de verdad. Dice si llegas a fin de mes.
+ *
+ * Un negocio puede ser rentable y quedarse sin dinero porque no le pagan a
+ * tiempo. Antes esta pestaña enseñaba solo lo devengado y lo llamaba
+ * "Ingresos" a secas, mientras Resumen enseñaba lo cobrado con el mismo
+ * nombre: dos cifras distintas del mismo mes y ninguna pista de por qué.
+ */
+export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bonosHist=[], facturas=[], mesRef }: any) {
   const eur = (n:number) => `${n>=0?'':'−'}${Math.abs(n).toFixed(0)}€`
 
   const idxPlanes = indicePlanes(planes)
@@ -25,7 +38,14 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
    */
   const otrosMes = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===mesActual)
     .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
-  const ingresosMes = bonosActivos.reduce((a:number,b:any)=>a+precioBono(b),0) + otrosMes
+  const facturadoMes = bonosActivos.reduce((a:number,b:any)=>a+precioBono(b),0) + otrosMes
+  const cobradoFact = (facturas as Factura[])
+    .filter((x:any)=>x.fecha_expedicion?.slice(0,7)===mesActual)
+    .reduce((a:number,x:any)=>a+Number(x.total||0),0)
+  const cobradoMes = cobradoFact + otrosMes
+  /** El beneficio se mide sobre lo devengado: es lo que dice si el negocio es rentable. */
+  const ingresosMes = facturadoMes
+  const pendienteCobro = Math.max(0, facturadoMes - cobradoMes)
   const gastosMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((a:number,g:any)=>a+Number(g.importe),0)
   const beneficioMes = ingresosMes - gastosMes
   const margen = ingresosMes>0 ? (beneficioMes/ingresosMes)*100 : 0
@@ -40,8 +60,15 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
     const m = g.fecha.slice(0,7)
     fijosPorMes[m] = (fijosPorMes[m]||0) + Number(g.importe)
   })
-  const mesesConFijos = Object.keys(fijosPorMes).length
-  const gastosFijos = mesesConFijos ? Object.values(fijosPorMes).reduce((a,b)=>a+b,0)/mesesConFijos : 0
+  /**
+   * El mes en curso no entra en la media: va a medias por definición.
+   * Estando a día 5 con dos recibos cargados, incluirlo bajaba el objetivo y
+   * el punto de equilibrio salía más fácil de alcanzar de lo que es.
+   */
+  const mesesCerrados = Object.keys(fijosPorMes).filter(m => m < mesActual)
+  const clavesFijos = mesesCerrados.length ? mesesCerrados : Object.keys(fijosPorMes)
+  const mesesConFijos = clavesFijos.length
+  const gastosFijos = mesesConFijos ? clavesFijos.reduce((a,m)=>a+fijosPorMes[m],0)/mesesConFijos : 0
   // Ingreso medio por bono activo (para estimar cuántos bonos hacen falta)
   // Solo cuotas: los otros ingresos no salen de tener más pacientes.
   const ingresoMedioBono = bonosActivos.length ? (ingresosMes-otrosMes)/bonosActivos.length : 0
@@ -52,6 +79,10 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
   const mesesSet = new Set<string>()
   bonosHist.forEach((b:any)=>{ if(b.mes&&b.anio) mesesSet.add(claveMes(b.mes,b.anio)) })
   gastos.forEach((g:any)=>{ if(g.fecha) mesesSet.add(g.fecha.slice(0,7)) })
+  // Un mes que solo tiene ingresos sueltos —el histórico de quien empieza a
+  // mitad de año— también existe, aunque no haya bonos ni gastos.
+  ingresos.forEach((i:any)=>{ if(i.fecha) mesesSet.add(i.fecha.slice(0,7)) })
+  ;(facturas as Factura[]).forEach((x:any)=>{ if(x.fecha_expedicion) mesesSet.add(x.fecha_expedicion.slice(0,7)) })
   const mesesOrden = Array.from(mesesSet).sort().slice(-12)
 
   const dataEvol = mesesOrden.map((clave)=>{
@@ -61,7 +92,12 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
       .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
     const ingresosDelMes = bonosMes.reduce((a:number,b:any)=>a+precioBono(b),0) + otros
     const gastoMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===clave).reduce((a:number,g:any)=>a+Number(g.importe),0)
-    return { mes:`${MESES[mes-1]} ${String(anio).slice(2)}`, Ingresos:Math.round(ingresosDelMes), Gastos:Math.round(gastoMes), Beneficio:Math.round(ingresosDelMes-gastoMes) }
+    const cobradoDelMes = (facturas as Factura[])
+      .filter((x:any)=>x.fecha_expedicion?.slice(0,7)===clave)
+      .reduce((a:number,x:any)=>a+Number(x.total||0),0) + otros
+    return { mes:`${MESES[mes-1]} ${String(anio).slice(2)}`, Facturado:Math.round(ingresosDelMes),
+             Cobrado:Math.round(cobradoDelMes), Gastos:Math.round(gastoMes),
+             Beneficio:Math.round(ingresosDelMes-gastoMes) }
   })
 
   return (
@@ -70,10 +106,18 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
       {/* FOTO DEL MES */}
       <div>
         <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Este mes</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:12}}>
           <div className="card" style={{textAlign:'center',margin:0}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Ingresos</div>
-            <div style={{fontSize:26,fontWeight:300,color:G}}>{ingresosMes.toFixed(0)}€</div>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Facturado</div>
+            <div style={{fontSize:26,fontWeight:300,color:G}}>{facturadoMes.toFixed(0)}€</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>lo que toca cobrar</div>
+          </div>
+          <div className="card" style={{textAlign:'center',margin:0}}>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Cobrado</div>
+            <div style={{fontSize:26,fontWeight:300,color:GD}}>{cobradoMes.toFixed(0)}€</div>
+            <div style={{fontSize:9,color:pendienteCobro>0?'#7A5800':'var(--grl)',marginTop:2}}>
+              {pendienteCobro>0 ? `faltan ${pendienteCobro.toFixed(0)}€` : 'todo cobrado'}
+            </div>
           </div>
           <div className="card" style={{textAlign:'center',margin:0}}>
             <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Gastos</div>
@@ -82,7 +126,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
           <div className="card" style={{textAlign:'center',margin:0}}>
             <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Beneficio</div>
             <div style={{fontSize:26,fontWeight:300,color:beneficioMes>=0?GD:RED}}>{beneficioMes.toFixed(0)}€</div>
-            <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>margen {margen.toFixed(0)}%</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>margen {margen.toFixed(0)}% · sobre facturado</div>
           </div>
         </div>
       </div>
@@ -120,7 +164,8 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
                 <YAxis tick={{fontSize:10,fill:GREY}} axisLine={false} tickLine={false}/>
                 <Tooltip contentStyle={{fontSize:11,borderRadius:8,border:'1px solid #eee'}} formatter={(v:any)=>`${v}€`}/>
                 <Legend wrapperStyle={{fontSize:10}}/>
-                <Line type="monotone" dataKey="Ingresos" stroke={G} strokeWidth={2.5} dot={{r:3}}/>
+                <Line type="monotone" dataKey="Facturado" stroke={G} strokeWidth={2.5} dot={{r:3}}/>
+                <Line type="monotone" dataKey="Cobrado" stroke={GD} strokeWidth={1.5} strokeDasharray="4 3" dot={false}/>
                 <Line type="monotone" dataKey="Gastos" stroke={RED} strokeWidth={2} dot={{r:3}}/>
               </LineChart>
             </ResponsiveContainer>

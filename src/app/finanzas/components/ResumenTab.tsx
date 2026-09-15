@@ -94,6 +94,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   const mesesSet = new Set<string>()
   bonosHist.forEach((b: any) => { if (b.mes && b.anio) mesesSet.add(claveMes(b.mes, b.anio)) })
   gastos.forEach((g: any) => { if (g.fecha) mesesSet.add(g.fecha.slice(0, 7)) })
+  // Un mes que solo tiene ingresos sueltos también existe.
+  ingresos.forEach((i: any) => { if (i.fecha) mesesSet.add(i.fecha.slice(0, 7)) })
   const mesesOrden = Array.from(mesesSet).sort().slice(-12)
 
   const dataEvol = mesesOrden.map((clave) => {
