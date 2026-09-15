@@ -8,7 +8,7 @@ const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // mesRef ('YYYY-MM'): ver un mes distinto al de hoy. Por defecto, el mes en curso.
-export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], mesRef }: any) {
+export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bonosHist=[], mesRef }: any) {
   const eur = (n:number) => `${n>=0?'':'−'}${Math.abs(n).toFixed(0)}€`
 
   const idxPlanes = indicePlanes(planes)
@@ -17,7 +17,15 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], m
 
   // FOTO DEL MES ACTUAL
   const mesActual = mesRef || mesISO()
-  const ingresosMes = bonosActivos.reduce((a:number,b:any)=>a+precioBono(b),0)
+  /**
+   * Lo que entra y no es una cuota: charlas, alquilar la sala y el histórico de
+   * los meses en que todavía no se usaba la app. Sin sumarlo, un año que
+   * empezó en enero arranca en septiembre y el beneficio de esos meses sale
+   * en negativo aunque hubieras cobrado.
+   */
+  const otrosMes = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===mesActual)
+    .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
+  const ingresosMes = bonosActivos.reduce((a:number,b:any)=>a+precioBono(b),0) + otrosMes
   const gastosMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((a:number,g:any)=>a+Number(g.importe),0)
   const beneficioMes = ingresosMes - gastosMes
   const margen = ingresosMes>0 ? (beneficioMes/ingresosMes)*100 : 0
@@ -35,7 +43,8 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], m
   const mesesConFijos = Object.keys(fijosPorMes).length
   const gastosFijos = mesesConFijos ? Object.values(fijosPorMes).reduce((a,b)=>a+b,0)/mesesConFijos : 0
   // Ingreso medio por bono activo (para estimar cuántos bonos hacen falta)
-  const ingresoMedioBono = bonosActivos.length ? ingresosMes/bonosActivos.length : 0
+  // Solo cuotas: los otros ingresos no salen de tener más pacientes.
+  const ingresoMedioBono = bonosActivos.length ? (ingresosMes-otrosMes)/bonosActivos.length : 0
   const bonosParaEquilibrio = ingresoMedioBono>0 ? Math.ceil(gastosFijos/ingresoMedioBono) : 0
 
   // EVOLUCIÓN MENSUAL (últimos 12 meses)
@@ -48,9 +57,11 @@ export default function RentabilidadTab({ planes, gastos, bonos, bonosHist=[], m
   const dataEvol = mesesOrden.map((clave)=>{
     const [anio,mes] = clave.split('-').map(Number)
     const bonosMes = bonosHist.filter((b:any)=>b.mes===mes&&b.anio===anio)
-    const ingresos = bonosMes.reduce((a:number,b:any)=>a+precioBono(b),0)
+    const otros = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===clave)
+      .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
+    const ingresosDelMes = bonosMes.reduce((a:number,b:any)=>a+precioBono(b),0) + otros
     const gastoMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===clave).reduce((a:number,g:any)=>a+Number(g.importe),0)
-    return { mes:`${MESES[mes-1]} ${String(anio).slice(2)}`, Ingresos:Math.round(ingresos), Gastos:Math.round(gastoMes), Beneficio:Math.round(ingresos-gastoMes) }
+    return { mes:`${MESES[mes-1]} ${String(anio).slice(2)}`, Ingresos:Math.round(ingresosDelMes), Gastos:Math.round(gastoMes), Beneficio:Math.round(ingresosDelMes-gastoMes) }
   })
 
   return (

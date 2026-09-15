@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Ic } from '@/lib/icons'
 import PlanesTab from './components/PlanesTab'
 import GastosTab from './components/GastosTab'
+import IngresosTab from './components/IngresosTab'
 import ResumenTab from './components/ResumenTab'
 import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
@@ -54,7 +55,7 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
 }
 
 export default function FinanzasPage() {
-  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'impuestos'|'rentabilidad'|'prevision'>('resumen')
+  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'ingresos'|'impuestos'|'rentabilidad'|'prevision'>('resumen')
   // Mes que se está mirando, 'YYYY-MM'. Arranca en el actual.
   const [mesRef, setMesRef] = useState(mesISO)
   const [planes, setPlanes] = useState<any[]>([])
@@ -66,6 +67,8 @@ export default function FinanzasPage() {
   // cobrar, las facturas lo que has cobrado. Para el "cobrado" del mes y para el
   // IVA del 303 manda esto.
   const [facturas, setFacturas] = useState<Factura[]>([])
+  /** Ingresos que no vienen de una cuota: charlas, alquiler de sala, histórico. */
+  const [ingresos, setIngresos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [fallos, setFallos] = useState<string[]>([])
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
@@ -96,9 +99,10 @@ export default function FinanzasPage() {
   async function cargar() {
     setLoading(true)
     setFallos([])
-    const [rp, rg, rb, rbh] = await Promise.all([
+    const [rp, rg, ri, rb, rbh] = await Promise.all([
       supabase.from('planes').select('*').eq('activo', true).order('precio_base'),
       supabase.from('gastos').select('*').order('fecha', { ascending: false }),
+      supabase.from('ingresos').select('*').order('fecha', { ascending: false }),
       supabase.from('bonos').select('*').eq('activo', true),
       // El histórico necesita el descuento: sin él, la evolución mensual cobra
       // de más y el mes en curso sale con dos cifras distintas según la gráfica.
@@ -109,12 +113,13 @@ export default function FinanzasPage() {
       supabase.from('bonos').select('paciente_id,tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor,sesiones_totales').order('created_at'),
     ])
     // Una consulta que falla no puede pintarse como "0 €". Se dice.
-    const errores = ([['planes', rp], ['gastos', rg], ['bonos', rb], ['histórico de bonos', rbh]] as const)
+    const errores = ([['planes', rp], ['gastos', rg], ['ingresos', ri], ['bonos', rb], ['histórico de bonos', rbh]] as const)
       .filter(([, r]) => r.error)
       .map(([nombre, r]) => `${nombre}: ${r.error!.message}`)
     setFallos(errores)
     setPlanes(rp.data || [])
     setGastos(rg.data || [])
+    setIngresos(ri.data || [])
     setBonos(rb.data || [])
     setBonosHist(unoPorPacienteYMes(rbh.data || []))
     setBonosTipos(await cargarBonosTipos(false))
@@ -188,7 +193,7 @@ export default function FinanzasPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3,width:'fit-content'}}>
-          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad'],['prevision','progreso','Previsión']] as const).map(([k,ic,l])=>(
+          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['ingresos','sube','Ingresos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad'],['prevision','progreso','Previsión']] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:11,padding:'7px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
               <Ic name={ic} size={13}/> {l}
@@ -236,11 +241,12 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
-          {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} facturas={facturas}/>}
-          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} bonosHist={bonosHist} mesRef={mesRef}/>}
+          {tab==='ingresos' && <IngresosTab ingresos={ingresos} recargar={cargar} mesRef={mesRef}/>}
+          {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} ingresos={ingresos} facturas={facturas}/>}
+          {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef}/>}
           {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas}/>}
         </>
       )}

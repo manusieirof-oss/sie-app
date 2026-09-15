@@ -10,7 +10,7 @@ const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 const trimestreDe = (mes:number) => Math.ceil(mes/3)
 const MESES_TRIM: Record<number,string> = { 1:'Ene–Mar', 2:'Abr–Jun', 3:'Jul–Sep', 4:'Oct–Dic' }
 
-export default function ImpuestosTab({ planes, gastos, facturas=[] }: any) {
+export default function ImpuestosTab({ planes, gastos, facturas=[], ingresos=[] }: any) {
   const anioActual = new Date().getFullYear()
   const [anio, setAnio] = useState(anioActual)
   const [irpfPctBeneficio, setIrpfPctBeneficio] = useState(20) // % del modelo 130
@@ -35,8 +35,22 @@ export default function ImpuestosTab({ planes, gastos, facturas=[] }: any) {
      * rectificativa suman cero, que es justo lo que hay que declarar.
      */
     const fact = delTrimestre(facturas as Factura[], anio, t)
-    const ivaRepercutido = fact.iva
-    const baseIngresos = fact.base
+    /**
+     * Los ingresos sin factura de este trimestre. El histórico de meses
+     * anteriores a usar la app entra aquí: su base cuenta para el beneficio del
+     * 130, y su IVA —el que haya, porque un servicio sanitario va exento— para
+     * el 303. Dejarlos fuera hacía que el 130 saliera con pérdidas en los
+     * trimestres en los que sí cobraste.
+     */
+    const otrosT = ingresos.filter((i:any)=>{
+      if (!i.fecha) return false
+      const [iy, im] = i.fecha.split('-').map(Number)
+      return iy === anio && Math.ceil(im/3) === t
+    })
+    const otrosBase = otrosT.reduce((a:number,i:any)=>a+Number(i.base_imponible||0),0)
+    const otrosIva  = otrosT.reduce((a:number,i:any)=>a+(Number(i.importe||0)-Number(i.base_imponible||0)),0)
+    const ivaRepercutido = fact.iva + otrosIva
+    const baseIngresos = fact.base + otrosBase
 
     // Gastos de ese trimestre y año
     const gastosT = gastos.filter((g:any)=>{

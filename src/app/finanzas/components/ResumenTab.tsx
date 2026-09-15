@@ -11,7 +11,7 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 
 // mesRef ('YYYY-MM') existe para poder mirar un mes que no sea el de hoy, que es
 // lo que necesita el banco de pruebas. Por defecto es el mes en curso.
-export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[] }: any) {
+export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[], ingresos=[] }: any) {
   const [vista, setVista] = useState<'general'|'evolucion'>('general')
 
   const idxPlanes = indicePlanes(planes)
@@ -26,7 +26,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   const nVentas = bonosActivos.filter(esVentaPuntual).length
   const nCuotas = bonosActivos.length - nVentas
 
-  const ingresosPrevistos = bonosActivos.reduce((a: number, b: any) => a + precioBono(b), 0)
+  const ingresosPrevistosCuotas = bonosActivos.reduce((a: number, b: any) => a + precioBono(b), 0)
   const totalDescuentos = bonosActivos.reduce((a: number, b: any) => a + (precioFinalPlan(idxPlanes[b.tipo]) - precioBono(b)), 0)
   const mesActual = mesRef || mesISO()
   const [anioSel, mesSel] = mesActual.split('-').map(Number)
@@ -42,7 +42,16 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
    * anulada y su rectificativa suman cero.
    */
   const facturado = delMes(facturas as Factura[], anioSel, mesSel)
-  const ingresosCobrados = facturado.total
+  /**
+   * Lo cobrado fuera de una cuota: charlas, alquiler de sala y el histórico de
+   * meses anteriores a usar la app. Ya está cobrado, así que suma tanto a lo
+   * previsto como a lo cobrado; si solo sumara a lo previsto, el porcentaje
+   * cobrado del mes se hundiría por dinero que sí está en el banco.
+   */
+  const claveMesSel = `${anioSel}-${String(mesSel).padStart(2,'0')}`
+  const otrosIngresos = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===claveMesSel)
+    .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
+  const ingresosCobrados = facturado.total + otrosIngresos
 
   /**
    * PENDIENTE = lo que toca cobrar MENOS lo ya facturado.
@@ -53,6 +62,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
    * Nunca negativo: si has facturado de más —un extra, una valoración suelta— eso
    * no significa que te deban dinero en contra.
    */
+  const ingresosPrevistos = ingresosPrevistosCuotas + otrosIngresos
   const pendiente = Math.max(0, ingresosPrevistos - ingresosCobrados)
 
   /** Impago sigue siendo un JUICIO tuyo sobre lo que no se ha cobrado, no un hecho. */
@@ -95,7 +105,9 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
     // Cobrado desde las FACTURAS de ese mes, igual que la foto de arriba. Con
     // `estado_pago` la línea de cobrado salía plana en cero y el beneficio con
     // ella: parecía que la clínica no ingresaba nada.
-    const cobrado = delMes(facturas as Factura[], anio, mes).total
+    const otrosEse = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===`${anio}-${String(mes).padStart(2,'0')}`)
+      .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
+    const cobrado = delMes(facturas as Factura[], anio, mes).total + otrosEse
     const gastoMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === clave).reduce((a: number, g: any) => a + Number(g.importe), 0)
     return {
       mes: `${MESES[mes-1]} ${String(anio).slice(2)}`,
