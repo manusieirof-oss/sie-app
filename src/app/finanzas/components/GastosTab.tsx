@@ -525,6 +525,8 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   // ---------------------------------------------------------------------------
   const [busca, setBusca] = useState('')
   const [mesFiltro, setMesFiltro] = useState('')
+  /** Cómo se ordena lo que se ve. No toca los totales, solo la lista. */
+  const [orden, setOrden] = useState('fecha-desc')
 
   /** Los meses que existen de verdad en los datos, del más nuevo al más viejo. */
   const mesesConGastos = Array.from(new Set(
@@ -541,6 +543,13 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
     // Concepto, categoría y notas: los tres sitios donde uno escribe de qué era.
     return [g.concepto, g.categoria, g.notas].some((c:any)=>String(c||'').toLowerCase().includes(q))
   })
+  const ordenados = [...filtrados].sort((a:any,b:any)=>{
+    if (orden === 'fecha-asc')  return String(a.fecha).localeCompare(String(b.fecha))
+    if (orden === 'concepto')   return String(a.concepto||'').localeCompare(String(b.concepto||''), 'es')
+    if (orden === 'importe')    return Number(b.importe) - Number(a.importe)
+    return String(b.fecha).localeCompare(String(a.fecha)) // fecha-desc, por defecto
+  })
+
   const hayFiltro = !!q || !!mesFiltro
   const totalFiltrado = filtrados.reduce((a:number,g:any)=>a+Number(g.importe),0)
   const estimadoFiltrado = filtrados.filter((g:any)=>g.estimado).reduce((a:number,g:any)=>a+Number(g.importe),0)
@@ -634,6 +643,13 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
             <option value="">Todos los meses</option>
             {mesesConGastos.map(m=><option key={m} value={m}>{nombreMes(m)}</option>)}
           </select>
+          <select className="input" value={orden} onChange={e=>setOrden(e.target.value)}
+            style={{flex:'0 1 150px'}}>
+            <option value="fecha-desc">Más reciente primero</option>
+            <option value="fecha-asc">Más antiguo primero</option>
+            <option value="concepto">Concepto (A-Z)</option>
+            <option value="importe">Importe (mayor primero)</option>
+          </select>
           {hayFiltro && (
             <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro('')}}>Quitar</button>
           )}
@@ -668,7 +684,7 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
           <span style={{fontSize:10}}>Hay {gastos.length} en total: prueba a quitar el filtro.</span>
         </div>
       ) : (
-        filtrados.map((g:any) => (
+        ordenados.map((g:any) => (
           <div key={g.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:6,opacity:g.estimado?.72:1,border:g.estimado?'1px dashed var(--bd)':'1px solid var(--bd)',marginBottom:5,background:'var(--bl)'}}>
             <div style={{width:8,height:8,borderRadius:'50%',background:g.tipo==='fijo'?'var(--amb)':'var(--grl)',flexShrink:0}}/>
             <div style={{flex:1}}>
