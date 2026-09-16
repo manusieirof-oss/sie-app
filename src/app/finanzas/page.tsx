@@ -243,7 +243,7 @@ export default function FinanzasPage() {
         <>
           {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
-          {tab==='gastos' && <GastosTab gastos={gastos} recargar={cargar}/>}
+          {tab==='gastos' && <GastosTab gastos={gastos} ingresos={ingresos} facturas={facturas} recargar={cargar} mesRef={mesRef}/>}
           {tab==='ingresos' && <IngresosTab ingresos={ingresos} recargar={cargar} mesRef={mesRef}/>}
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} ingresos={ingresos} facturas={facturas}/>}
           {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} facturas={facturas} bonosHist={bonosHist} mesRef={mesRef}/>}

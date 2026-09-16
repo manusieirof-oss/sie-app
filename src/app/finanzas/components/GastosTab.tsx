@@ -25,7 +25,7 @@ function trimestrePasado(fecha?: string | null): string | null {
   return pasado ? `${t}T ${a}` : null
 }
 
-export default function GastosTab({ gastos, recargar, mesRef }: any) {
+export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, mesRef }: any) {
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
@@ -493,7 +493,16 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
    */
   const estimadoMes = delMes.filter((g:any)=>g.estimado).reduce((a:number,g:any)=>a+Number(g.importe),0)
   const sinConfirmar = estimadosVencidos(gastos, hoyISO())
-  const totalFijos = gastos.filter((g:any)=>g.tipo==='fijo').reduce((acc:number,g:any)=>acc+Number(g.importe),0)
+  /**
+   * LOS FIJOS DE ESTE MES, NO LOS DE TODO EL AÑO.
+   *
+   * Antes sumaba los gastos fijos de TODO el histórico y lo llamaba "Total
+   * gastos fijos". Con nueve meses cargados decía nueve veces lo que pagas cada
+   * mes, justo al lado de la media mensual correcta: dos cifras del mismo
+   * concepto y una de ellas sin ningún significado.
+   */
+  const totalFijos = delMes.filter((g:any)=>g.tipo==='fijo').reduce((acc:number,g:any)=>acc+Number(g.importe),0)
+  const totalVariables = totalMes - totalFijos
 
   // Fijos POR MES. El mismo dato se enseñaba abajo como "Fijos esperados/mes"
   // siendo el acumulado de todo el histórico, así que con medio año cargado
@@ -502,15 +511,48 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
   gastos.filter((g:any)=>g.tipo==='fijo'&&g.fecha).forEach((g:any)=>{
     const m = g.fecha.slice(0,7); fijosPorMes[m] = (fijosPorMes[m]||0) + Number(g.importe)
   })
-  const nMesesFijos = Object.keys(fijosPorMes).length
-  const fijosMedios = nMesesFijos ? Object.values(fijosPorMes).reduce((a,b)=>a+b,0)/nMesesFijos : 0
+  // El mes en curso va a medias por definición: incluirlo baja la media y hace
+  // creer que los fijos son más bajos de lo que son.
+  const mesesFijosCerrados = Object.keys(fijosPorMes).filter(m => m < mesActual)
+  const clavesFijos = mesesFijosCerrados.length ? mesesFijosCerrados : Object.keys(fijosPorMes)
+  const nMesesFijos = clavesFijos.length
+  const fijosMedios = nMesesFijos ? clavesFijos.reduce((a,m)=>a+fijosPorMes[m],0)/nMesesFijos : 0
 
   // Media mensual de los últimos 3 meses (excluyendo el mes actual incompleto)
   const hoy = mesRef ? new Date(`${mesRef}-01T12:00:00`) : new Date()
   const mesesRef: string[] = []
   for (let i=1; i<=3; i++) { const d=new Date(hoy.getFullYear(), hoy.getMonth()-i, 1); mesesRef.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`) }
-  const totalUlt3 = gastos.filter((g:any)=>mesesRef.includes(g.fecha?.slice(0,7))).reduce((a:number,g:any)=>a+Number(g.importe),0)
-  const mediaMensual = totalUlt3/3
+  /**
+   * MEDIAS POR TRIMESTRE Y DEL AÑO.
+   *
+   * "Últimos tres meses" era una ventana móvil que no coincide con nada: ni con
+   * los trimestres que declaras ni con el año. Y bastaba un mes con una compra
+   * grande para que la media dijera que gastas 5.500 € al mes cuando lo normal
+   * son 3.800.
+   *
+   * Solo cuentan meses CERRADOS: el mes en curso va a medias y el futuro es
+   * todo previsión.
+   */
+  const anioRef = mesActual.slice(0,4)
+  const mediaDe = (meses: string[]) => {
+    const conDatos = meses.filter(m => m < mesActual && gastos.some((g:any)=>g.fecha?.slice(0,7)===m))
+    if (!conDatos.length) return { media: 0, fijos: 0, variables: 0, n: 0 }
+    const delRango = gastos.filter((g:any)=>conDatos.includes(g.fecha?.slice(0,7)))
+    const total = delRango.reduce((a:number,g:any)=>a+Number(g.importe),0)
+    const fijos = delRango.filter((g:any)=>g.tipo==='fijo').reduce((a:number,g:any)=>a+Number(g.importe),0)
+    return {
+      media: total/conDatos.length,
+      fijos: fijos/conDatos.length,
+      variables: (total-fijos)/conDatos.length,
+      n: conDatos.length,
+    }
+  }
+  const mesesDeTrim = (t: number) => [0,1,2].map(i => `${anioRef}-${String((t-1)*3+1+i).padStart(2,'0')}`)
+  const trimActual = Math.ceil(Number(mesActual.slice(5,7))/3)
+  const mTrimActual = mediaDe(mesesDeTrim(trimActual))
+  const mTrimAnterior = trimActual > 1 ? mediaDe(mesesDeTrim(trimActual-1)) : { media: 0, n: 0 }
+  const mAnio = mediaDe(Array.from({length:12},(_,i)=>`${anioRef}-${String(i+1).padStart(2,'0')}`))
+  const mediaMensual = mAnio.media
 
   // ---------------------------------------------------------------------------
   // BUSCAR EN LA LISTA
@@ -556,16 +598,17 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
 
   // Desglose por categoría (todos los gastos)
   const porCat: Record<string, number> = {}
-  gastos.forEach((g:any)=>{ const c=g.categoria||'Sin categoría'; porCat[c]=(porCat[c]||0)+Number(g.importe) })
+  // De lo que se está mirando, no del histórico entero: filtrabas por
+  // septiembre y las barras seguían enseñando el año completo.
+  const baseCategorias = (mesFiltro || q) ? filtrados : delMes
+  baseCategorias.forEach((g:any)=>{ const c=g.categoria||'Sin categoría'; porCat[c]=(porCat[c]||0)+Number(g.importe) })
   const catList = Object.entries(porCat).map(([cat,total]:any)=>({cat,total})).sort((a,b)=>b.total-a.total)
   const maxCat = catList.length ? catList[0].total : 1
 
   return (
     <div className="card">
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div className="card-title" style={{margin:0}}><span className="ct-l"><Ic name="recibo"/> Gastos</span></div>
-        <button className="btn btn-p btn-sm" onClick={abrirNuevo}>+ Nuevo gasto</button>
-      </div>
+
+      <div className="card-title" style={{marginBottom:10}}><span className="ct-l"><Ic name="recibo"/> Gastos</span></div>
 
       {error && (
         <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:6,padding:'8px 12px',marginBottom:10,fontSize:10,color:'var(--red)'}}>
@@ -576,45 +619,79 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
       {/* Ya pasó la fecha y siguen sin factura. O llegó y nadie la metió, o
           hay que quitar la previsión: en cualquier caso, no puede quedarse
           contando como gasto para siempre sin que nadie lo mire. */}
-      {sinConfirmar.length > 0 && (
-        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:8,
-                     padding:'9px 13px',marginBottom:12,fontSize:10,color:'#7A5800',lineHeight:1.6}}>
-          <Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>
-          <strong>{sinConfirmar.length}</strong> {sinConfirmar.length===1?'gasto estimado ya pasó su fecha':'gastos estimados ya pasaron su fecha'}
-          {' '}y {sinConfirmar.length===1?'sigue':'siguen'} sin confirmar. Hasta que pongas el importe de la
-          factura no cuentan para el IVA ni para las retenciones.
-        </div>
-      )}
+      {/* ESTE MES arriba, MEDIAS abajo y dicho de dónde salen.
+          Antes estaban mezcladas cuatro cifras sin decir cuál era de septiembre
+          y cuál un promedio de ocho meses, así que no había forma de saber por
+          qué la media mensual (5.527 €) era más alta que el gasto del mes. */}
+      {/* TRES COLUMNAS: el mes, la media de lo ya cerrado y los trimestres.
+          Las mismas tres cifras en cada una —total, fijos y variables— para
+          poder leerlas en horizontal: lo de este mes contra lo normal. */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:22,marginBottom:18}}>
 
-      <div className="g2" style={{marginBottom:14}}>
-        <div style={{background:'var(--redl)',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-          <div style={{fontSize:20,fontWeight:300,color:'var(--red)'}}>{totalMes.toFixed(2)}€</div>
-          <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>
-            Gastos este mes
-            {estimadoMes > 0 && <><br/>incluye {estimadoMes.toFixed(0)}€ estimados</>}
+        <div>
+          <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.5,marginBottom:9}}>
+            {nombreMes(mesActual)}
+          </div>
+          {([['Total', totalMes, 'var(--red)'],
+             ['Fijos', totalFijos, '#7A5800'],
+             ['Variables o puntuales', totalVariables, 'var(--gr)']] as const).map(([l,v,c])=>(
+            <div key={l} style={{marginBottom:9}}>
+              <div style={{fontSize:19,fontWeight:200,color:c,lineHeight:1.1}}>{v.toFixed(0)}€</div>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{l}</div>
+            </div>
+          ))}
+          {estimadoMes > 0 && (
+            <div style={{fontSize:9,color:'#7A5800',marginTop:2}}>de los que {estimadoMes.toFixed(0)}€ sin confirmar</div>
+          )}
+        </div>
+
+        <div>
+          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.5,marginBottom:9}}>
+            Media de meses anteriores
+          </div>
+          {([['Total', mAnio.media],
+             ['Fijos', mAnio.fijos],
+             ['Variables o puntuales', mAnio.variables]] as const).map(([l,v])=>(
+            <div key={l} style={{marginBottom:9}}>
+              <div style={{fontSize:19,fontWeight:200,color:'var(--n)',lineHeight:1.1}}>{mAnio.n?`${v.toFixed(0)}€`:'—'}</div>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{l}</div>
+            </div>
+          ))}
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
+            {mAnio.n ? `${mAnio.n} ${mAnio.n===1?'mes cerrado':'meses cerrados'} de ${anioRef}` : 'sin meses cerrados'}
           </div>
         </div>
-        <div style={{background:'var(--ambl)',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-          <div style={{fontSize:20,fontWeight:300,color:'#7A5800'}}>{totalFijos.toFixed(2)}€</div>
-          <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>Total gastos fijos</div>
+
+        <div>
+          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.5,marginBottom:9}}>
+            Media por trimestre
+          </div>
+          {([[`${trimActual}º trimestre`, mTrimActual],
+             [trimActual>1?`${trimActual-1}º trimestre`:'Anterior', mTrimAnterior]] as const).map(([l,d])=>(
+            <div key={l} style={{marginBottom:9}}>
+              <div style={{fontSize:19,fontWeight:200,color:'var(--n)',lineHeight:1.1}}>{d.n?`${d.media.toFixed(0)}€`:'—'}</div>
+              <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{l}</div>
+            </div>
+          ))}
+          <div style={{marginBottom:9}}>
+            <div style={{fontSize:19,fontWeight:200,color:'#7A5800',lineHeight:1.1}}>{fijosMedios.toFixed(0)}€</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Fijos al mes</div>
+          </div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>
+            Solo meses ya cerrados: el actual va a medias.
+          </div>
         </div>
       </div>
 
-      {/* ESTADÍSTICAS */}
-      <div style={{background:'var(--bl)',borderRadius:8,padding:'12px 14px',marginBottom:14}}>
-        <div style={{display:'flex',gap:16,marginBottom:catList.length?12:0,flexWrap:'wrap'}}>
-          <div>
-            <div style={{fontSize:18,fontWeight:300,color:'var(--n)'}}>{mediaMensual.toFixed(0)}€</div>
-            <div style={{fontSize:8,color:'var(--grl)'}}>Media mensual (últ. 3 meses)</div>
-          </div>
-          <div>
-            <div style={{fontSize:18,fontWeight:300,color:'#7A5800'}}>{fijosMedios.toFixed(0)}€</div>
-            <div style={{fontSize:8,color:'var(--grl)'}}>Fijos esperados/mes{nMesesFijos>1?` (media de ${nMesesFijos})`:''}</div>
-          </div>
-        </div>
+      <div>
         {catList.length>0 && (
           <div>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:8}}>Por categoría</div>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:8}}>
+              Por categoría
+              <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,color:'var(--grl)'}}>
+                {' · '}{(mesFiltro || q) ? 'de la búsqueda' : nombreMes(mesActual)}
+              </span>
+            </div>
             {catList.map(({cat,total})=>(
               <div key={cat} style={{marginBottom:7}}>
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:2}}>
@@ -653,8 +730,22 @@ export default function GastosTab({ gastos, recargar, mesRef }: any) {
           {hayFiltro && (
             <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro('')}}>Quitar</button>
           )}
+          {/* Junto al buscador: es donde está la lista, y donde uno se da
+              cuenta de que falta un gasto por meter. */}
+          <button className="btn btn-p btn-sm" style={{marginLeft:'auto'}} onClick={abrirNuevo}>+ Nuevo gasto</button>
         </div>
       )}
+
+      {sinConfirmar.length > 0 && (
+        <div style={{background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:8,
+                     padding:'9px 13px',marginBottom:12,fontSize:10,color:'#7A5800',lineHeight:1.6}}>
+          <Ic name="alerta" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>
+          <strong>{sinConfirmar.length}</strong> {sinConfirmar.length===1?'gasto estimado ya pasó su fecha':'gastos estimados ya pasaron su fecha'}
+          {' '}y {sinConfirmar.length===1?'sigue':'siguen'} sin confirmar. Hasta que pongas el importe de la
+          factura no cuentan para el IVA ni para las retenciones.
+        </div>
+      )}
+
 
       {/* De qué está hablando lo de abajo. Los totales de arriba NO cambian:
           son los del mes entero, y que una búsqueda los moviera sería mentir. */}
