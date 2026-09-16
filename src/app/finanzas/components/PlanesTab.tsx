@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { precioConDescuento, precioFinalPlan, redondear, esVentaPuntual } from '@/lib/bonos'
-import { precioNeutro } from '@/lib/prevision'
 
 const G='#5A969E', GD='#3E7179'
 
@@ -84,7 +83,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
   const eur = (n:number) => `${n.toFixed(2)}€`
 
   return (
-    <div className="card">
+    <div>
       <div className="card-title"><span className="ct-l"><Ic name="euro"/> Planes y precios</span></div>
       <div style={{fontSize:10,color:'var(--grl)',marginBottom:14}}>Cada plan corresponde a un tipo de bono. Introduce el precio con IVA o el precio base; el IVA es configurable. Se muestra cuántos pacientes tienen cada bono activo y el ingreso que genera.</div>
 
@@ -98,6 +97,14 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
         <div style={{fontSize:11,color:'var(--grl)',padding:10}}>No hay tipos de bono. Créalos en Ajustes → Bonos.</div>
       )}
 
+      {/* EN REJILLA, NO EN LISTA.
+          Cada plan ocupaba una fila entera para decir un precio y dos cifras.
+          Con ocho tipos había que bajar toda la página para compararlos, que es
+          justo lo que uno viene a hacer aquí. La edición sigue a lo ancho: ahí
+          sí hacen falta los campos grandes. */}
+      <div style={{display:'grid',/* Cinco fijas, repartidas a todo el ancho. Con auto-fill salían siete en
+             pantalla grande y el nombre del bono partía en tres líneas. */
+          gridTemplateColumns:'repeat(5,1fr)',gap:14}}>
       {bonosTipos.map((bt:any) => {
         const p = planPorTipo[bt.id]
         const nPac = activosPorTipo[bt.id] || 0
@@ -105,12 +112,12 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
         // Sin plan: mostrar aviso + botón para crearlo
         if (!p) {
           return (
-            <div key={bt.id} style={{display:'flex',alignItems:'center',gap:10,padding:'12px',borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',marginBottom:6}}>
-              <div style={{flex:1}}>
+            <div key={bt.id} style={{padding:'12px',borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',display:'flex',flexDirection:'column',gap:8}}>
+              <div>
                 <div style={{fontSize:12,fontWeight:600,color:'var(--n)'}}>{bt.nombre}{!bt.activo && ' (inactivo)'}</div>
-                <div style={{fontSize:9,color:'#7A5800'}}>Este bono todavía no tiene precio asignado</div>
+                <div style={{fontSize:9,color:'#7A5800',marginTop:2}}>Sin precio asignado</div>
               </div>
-              <button className="btn btn-p btn-sm" onClick={()=>crearPlan(bt.id)} disabled={guardando}>+ Asignar precio</button>
+              <button className="btn btn-p btn-sm" style={{marginTop:'auto'}} onClick={()=>crearPlan(bt.id)} disabled={guardando}>+ Asignar precio</button>
             </div>
           )
         }
@@ -122,54 +129,73 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
         const preview = enEdicion ? calcularPreview() : null
 
         if (enEdicion) {
+          // EDITAR, EN LA PROPIA TARJETA.
+          //
+          // Antes se abría a lo ancho de toda la fila con dos botones grandes
+          // para elegir si el número llevaba IVA, dos campos y un resumen
+          // aparte. Para cambiar un precio. Ahora es un campo y debajo la
+          // cuenta hecha, que es la comprobación que importa.
           return (
-            <div key={bt.id} style={{padding:'12px',borderRadius:8,background:'var(--gl)',border:'1px solid var(--gm)',marginBottom:6}}>
-              <div style={{fontSize:12,fontWeight:600,color:'var(--n)',marginBottom:10}}>{bt.nombre}</div>
+            <div key={bt.id} className="card" style={{margin:0,background:'var(--gl)',border:'1px solid var(--gm)',display:'flex',flexDirection:'column'}}>
+              <div style={{fontSize:14,fontWeight:600,color:'var(--n)',lineHeight:1.25,marginBottom:8}}>{bt.nombre}</div>
 
-              <div style={{display:'flex',gap:6,marginBottom:10}}>
-                <button onClick={()=>setModo('final')} style={{flex:1,padding:'6px',borderRadius:6,border:`1.5px solid ${modo==='final'?'var(--g)':'var(--bd)'}`,background:modo==='final'?'var(--g)':'var(--w)',color:modo==='final'?'#fff':'var(--gr)',fontSize:10,cursor:'pointer',fontFamily:'system-ui'}}>Introducir precio CON IVA</button>
-                <button onClick={()=>setModo('base')} style={{flex:1,padding:'6px',borderRadius:6,border:`1.5px solid ${modo==='base'?'var(--g)':'var(--bd)'}`,background:modo==='base'?'var(--g)':'var(--w)',color:modo==='base'?'#fff':'var(--gr)',fontSize:10,cursor:'pointer',fontFamily:'system-ui'}}>Introducir precio SIN IVA</button>
-              </div>
-
-              <div className="g2">
-                <div className="field"><label>{modo==='final'?'Precio final (con IVA)':'Precio base (sin IVA)'}</label>
+              <div style={{display:'flex',gap:6,alignItems:'flex-end',marginBottom:6}}>
+                <div className="field" style={{flex:1,marginBottom:0}}>
+                  <label>{modo==='final'?'Precio con IVA':'Precio sin IVA'}</label>
                   <input className="input" type="number" value={valor} onChange={e=>setValor(e.target.value)} placeholder="0.00" autoFocus/>
                 </div>
-                <div className="field"><label>IVA (%)</label>
+                <div className="field" style={{width:62,marginBottom:0}}>
+                  <label>IVA %</label>
                   <input className="input" type="number" value={ivaEdit} onChange={e=>setIvaEdit(e.target.value)} placeholder="21"/>
                 </div>
               </div>
 
+              <button type="button" onClick={()=>setModo(modo==='final'?'base':'final')}
+                style={{background:'none',border:'none',padding:0,cursor:'pointer',fontSize:9,color:'var(--g)',textAlign:'left',marginBottom:8}}>
+                {modo==='final' ? 'Prefiero escribirlo sin IVA' : 'Prefiero escribirlo con IVA'}
+              </button>
+
               {preview && (
-                <div style={{display:'flex',gap:14,padding:'8px 12px',background:'var(--w)',borderRadius:6,marginBottom:10,fontSize:10}}>
-                  <div><span style={{color:'var(--grl)'}}>Base: </span><span style={{fontWeight:500}}>{preview.base.toFixed(2)}€</span></div>
-                  <div><span style={{color:'var(--grl)'}}>IVA: </span><span style={{fontWeight:500}}>{preview.ivaImporte.toFixed(2)}€</span></div>
-                  <div><span style={{color:'var(--grl)'}}>Final: </span><span style={{fontWeight:600,color:'var(--g)'}}>{preview.final.toFixed(2)}€</span></div>
+                <div style={{fontSize:9,color:'var(--grl)',lineHeight:1.6,marginBottom:10}}>
+                  <span style={{fontSize:22,fontWeight:300,color:G,lineHeight:1,marginRight:6,verticalAlign:'-2px'}}>{preview.final.toFixed(2)}€</span>
+                  base <strong style={{color:'var(--n)'}}>{preview.base.toFixed(2)}€</strong>, IVA {preview.ivaImporte.toFixed(2)}€
                 </div>
               )}
 
-              <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
-                <button className="btn btn-d btn-sm" onClick={()=>setEditando(null)}>Cancelar</button>
-                <button className="btn btn-p btn-sm" onClick={()=>guardar(p)} disabled={guardando}>{guardando?'…':<><Ic name="guardar" size={12}/> Guardar</>}</button>
+              <div style={{display:'flex',gap:6,marginTop:'auto'}}>
+                <button className="btn btn-d btn-sm" style={{flex:1}} onClick={()=>setEditando(null)}>Cancelar</button>
+                <button className="btn btn-p btn-sm" style={{flex:1}} onClick={()=>guardar(p)} disabled={guardando}>{guardando?'…':'Guardar'}</button>
               </div>
             </div>
           )
         }
 
         return (
-          <div key={bt.id} style={{padding:'12px',borderRadius:8,background:'var(--bl)',marginBottom:6,opacity:bt.activo?1:.55}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:600,color:'var(--n)'}}>{bt.nombre}{!bt.activo && ' (inactivo)'}</div>
-                <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{bt.descripcion || ''}</div>
+          <div key={bt.id} className="card" style={{margin:0,opacity:bt.activo?1:.55,display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:6}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:'var(--n)',lineHeight:1.25}}>{bt.nombre}{!bt.activo && ' (inactivo)'}</div>
+                {bt.descripcion && <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{bt.descripcion}</div>}
+
               </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontSize:16,fontWeight:600,color:G}}>{eur(final)}</div>
-                <div style={{fontSize:9,color:'var(--grl)'}}>base {p.precio_base.toFixed(2)}€ · IVA {p.iva}%</div>
-              </div>
-              <button className="btn btn-s btn-sm" onClick={()=>iniciarEdicion(p)}><Ic name="editar" size={12}/></button>
+              {/* Solo el icono: metido en un botón con marco parecía una caja
+                  dentro de la tarjeta y competía con el precio. */}
+              <button onClick={()=>iniciarEdicion(p)} title="Cambiar el precio"
+                style={{flexShrink:0,background:'none',border:'none',cursor:'pointer',color:'var(--grl)',padding:2,display:'inline-flex'}}><Ic name="editar" size={14}/></button>
             </div>
-            <div style={{display:'flex',gap:8,marginTop:10,paddingTop:10,borderTop:'1px solid var(--bd)'}}>
+            <div style={{marginTop:6}}>
+              {/* El desglose al lado del precio, no repetido arriba y abajo: es
+                  la misma cuenta y así se lee de un golpe. */}
+              {/* Todo en la misma línea de texto: el precio manda por tamaño y
+                  el desglose va detrás, como una frase, no como dos columnas. */}
+              <div style={{fontSize:9,color:'var(--grl)',lineHeight:1.6}}>
+                <span style={{fontSize:30,fontWeight:300,color:G,lineHeight:1,marginRight:7,verticalAlign:'-2px'}}>{eur(final)}</span>
+                {p.iva > 0 && (
+                  <>base <strong style={{color:'var(--n)'}}>{(final/(1+p.iva/100)).toFixed(2)}€</strong>, IVA {(final-final/(1+p.iva/100)).toFixed(2)}€ ({p.iva}%)</>
+                )}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:10,paddingTop:9,borderTop:'1px solid var(--bd)'}}>
               {/* Un bono de sesiones no da "ingreso / mes": se vende una vez.
                   Poner el mismo rótulo en los dos haría leer una venta suelta
                   como si fuera dinero que entra todos los meses. */}
@@ -181,26 +207,12 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
                 <div style={{fontSize:14,fontWeight:500,color:GD}}>{ingreso.toFixed(0)}€</div>
                 <div style={{fontSize:8,color:'var(--grl)'}}>{deSesiones ? 'ingreso este mes' : 'ingreso / mes'}</div>
               </div>
-              {/* PRECIO NEUTRO. Hasta 2025 la actividad estaba exenta y los 63 €
-                  eran íntegros; ahora 10,93 € de cada 63 son de Hacienda. Esto
-                  dice lo que habría que cobrar para ingresar lo de antes.
-                  Se enseña, no se recomienda: subir un 21% tiene su coste en
-                  bajas y eso no lo sabe una pantalla. */}
-              {p.iva > 0 && (
-                <div style={{flex:1,textAlign:'center'}}>
-                  <div style={{fontSize:14,fontWeight:500,color:'var(--gr)'}}>{precioNeutro(final, p.iva).toFixed(2)}€</div>
-                  <div style={{fontSize:8,color:'var(--grl)'}}>para ingresar lo mismo</div>
-                </div>
-              )}
             </div>
-            {p.iva > 0 && (
-              <div style={{fontSize:9,color:'var(--grl)',marginTop:6}}>
-                De {final.toFixed(2)} € te quedan <strong>{(final/(1+p.iva/100)).toFixed(2)} €</strong>; {(final-final/(1+p.iva/100)).toFixed(2)} € son IVA.
-              </div>
-            )}
+
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
