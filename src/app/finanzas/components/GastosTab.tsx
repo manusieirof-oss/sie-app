@@ -578,8 +578,12 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
     gastos.map((g:any)=>g.fecha?.slice(0,7)).filter(Boolean) as string[]
   )).sort().reverse()
 
+  /** Largo para los títulos, corto para los desplegables: "septiembre de
+   *  2026" no cabe en un select y se cortaba a media palabra. */
   const nombreMes = (m: string) =>
     new Date(m + '-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'})
+  const mesCorto = (m: string) =>
+    new Date(m + '-01T12:00:00').toLocaleDateString('es-ES',{month:'short',year:'numeric'}).replace('.','')
 
   const q = busca.trim().toLowerCase()
   const filtrados = gastos.filter((g:any) => {
@@ -735,14 +739,14 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
           <select className="input" value={mesFiltro} onChange={e=>setMesFiltro(e.target.value)}
             style={{flex:'0 1 160px'}}>
             <option value="">Todos los meses</option>
-            {mesesConGastos.map(m=><option key={m} value={m}>{nombreMes(m)}</option>)}
+            {mesesConGastos.map(m=><option key={m} value={m}>{mesCorto(m)}</option>)}
           </select>
           <select className="input" value={orden} onChange={e=>setOrden(e.target.value)}
             style={{flex:'0 1 150px'}}>
-            <option value="fecha-desc">Más reciente primero</option>
-            <option value="fecha-asc">Más antiguo primero</option>
-            <option value="concepto">Concepto (A-Z)</option>
-            <option value="importe">Importe (mayor primero)</option>
+            <option value="fecha-desc">Recientes antes</option>
+            <option value="fecha-asc">Antiguos antes</option>
+            <option value="concepto">Concepto A-Z</option>
+            <option value="importe">Mayor importe</option>
           </select>
           {hayFiltro && (
             <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro(mesActual)}}>Quitar</button>

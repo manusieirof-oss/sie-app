@@ -105,20 +105,43 @@ export default function IngresosTab({ ingresos, recargar, mesRef }: any) {
   }
 
   // -- Lista, filtros y totales ---------------------------------------------
+  const mesActual = mesRef || mesISO()
+
+  /**
+   * EL SELECTOR DE MES MANDA SOBRE TODA LA PESTAÑA.
+   *
+   * Arrancaba en "Todos los meses" mientras las cifras enseñaban el mes en
+   * curso: el desplegable decía una cosa y los números otra, y al quitarlo no
+   * se movían. Empieza en el mes actual, y al elegir "Todos" pasa a ser todo.
+   */
   const [busca, setBusca] = useState('')
-  const [mesFiltro, setMesFiltro] = useState('')
+  const [mesFiltro, setMesFiltro] = useState<string>(mesActual)
   const [orden, setOrden] = useState('fecha-desc')
 
-  const mesActual = mesRef || mesISO()
-  const delMes = ingresos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual)
+  const delMes = mesFiltro ? ingresos.filter((g:any)=>g.fecha?.slice(0,7)===mesFiltro) : ingresos
   const totalMes = delMes.reduce((a:number,g:any)=>a+Number(g.importe),0)
+  /** Cuánto de lo cobrado va exento: es lo que la gestoría preguntará. */
+  const exentoMes = delMes.filter((g:any)=>Number(g.iva_pct||0)===0)
+    .reduce((a:number,g:any)=>a+Number(g.importe),0)
+  const ivaMes = delMes.reduce((a:number,g:any)=>a+(Number(g.importe||0)-Number(g.base_imponible||0)),0)
   const totalAnio = ingresos.filter((g:any)=>g.fecha?.slice(0,4)===mesActual.slice(0,4))
     .reduce((a:number,g:any)=>a+Number(g.importe),0)
 
-  const mesesConIngresos = Array.from(new Set(
-    ingresos.map((g:any)=>g.fecha?.slice(0,7)).filter(Boolean) as string[]
-  )).sort().reverse()
-  const nombreMes = (m:string) => new Date(m+'-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'})
+  /**
+   * El mes en curso entra siempre, aunque no tenga nada.
+   * Si no, el desplegable arrancaba señalando un mes que no estaba en su lista
+   * y se quedaba en blanco enseñando "Todos los meses" con los datos de uno.
+   */
+  const mesesConIngresos = Array.from(new Set([
+    mesActual,
+    ...ingresos.map((g:any)=>g.fecha?.slice(0,7)).filter(Boolean) as string[],
+  ])).sort().reverse()
+  /** Largo para los títulos, corto para los desplegables: "septiembre de
+   *  2026" no cabe en un select y se cortaba a media palabra. */
+  const nombreMes = (m: string) =>
+    new Date(m + '-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'})
+  const mesCorto = (m: string) =>
+    new Date(m + '-01T12:00:00').toLocaleDateString('es-ES',{month:'short',year:'numeric'}).replace('.','')
 
   const q = busca.trim().toLowerCase()
   const filtrados = ingresos.filter((g:any)=>{
@@ -132,7 +155,7 @@ export default function IngresosTab({ ingresos, recargar, mesRef }: any) {
     if (orden==='importe')   return Number(b.importe) - Number(a.importe)
     return String(b.fecha).localeCompare(String(a.fecha))
   })
-  const hayFiltro = !!q || !!mesFiltro
+  const hayFiltro = !!q || mesFiltro !== mesActual
   const totalFiltrado = filtrados.reduce((a:number,g:any)=>a+Number(g.importe),0)
 
   return (
@@ -154,14 +177,24 @@ export default function IngresosTab({ ingresos, recargar, mesRef }: any) {
         </div>
       )}
 
-      <div className="g2" style={{marginBottom:14}}>
-        <div style={{background:'var(--gl)',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-          <div style={{fontSize:20,fontWeight:300,color:'var(--gd)'}}>{totalMes.toFixed(2)}€</div>
-          <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>Este mes</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:18,marginBottom:16}}>
+        <div>
+          <div style={{fontSize:19,fontWeight:200,color:'var(--gd)',lineHeight:1.1}}>{totalMes.toFixed(0)}€</div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{mesFiltro ? nombreMes(mesFiltro) : 'Todos los meses'}</div>
         </div>
-        <div style={{background:'var(--bl)',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-          <div style={{fontSize:20,fontWeight:300,color:'var(--n)'}}>{totalAnio.toFixed(2)}€</div>
-          <div style={{fontSize:8,color:'var(--grl)',marginTop:2}}>Total del año</div>
+        <div>
+          <div style={{fontSize:19,fontWeight:200,color:'var(--n)',lineHeight:1.1}}>{totalAnio.toFixed(0)}€</div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Total de {mesActual.slice(0,4)}</div>
+        </div>
+        <div>
+          <div style={{fontSize:19,fontWeight:200,color:'var(--gr)',lineHeight:1.1}}>{ivaMes.toFixed(0)}€</div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>IVA repercutido</div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>lo ingresas en el 303</div>
+        </div>
+        <div>
+          <div style={{fontSize:19,fontWeight:200,color:'var(--grl)',lineHeight:1.1}}>{exentoMes.toFixed(0)}€</div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Exento de IVA</div>
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>sanitario, formación…</div>
         </div>
       </div>
 
@@ -171,15 +204,15 @@ export default function IngresosTab({ ingresos, recargar, mesRef }: any) {
             placeholder="Buscar por concepto, categoría o notas…" style={{flex:'1 1 180px',minWidth:0}}/>
           <select className="input" value={mesFiltro} onChange={e=>setMesFiltro(e.target.value)} style={{flex:'0 1 160px'}}>
             <option value="">Todos los meses</option>
-            {mesesConIngresos.map(m=><option key={m} value={m}>{nombreMes(m)}</option>)}
+            {mesesConIngresos.map(m=><option key={m} value={m}>{mesCorto(m)}</option>)}
           </select>
           <select className="input" value={orden} onChange={e=>setOrden(e.target.value)} style={{flex:'0 1 150px'}}>
-            <option value="fecha-desc">Más reciente primero</option>
-            <option value="fecha-asc">Más antiguo primero</option>
-            <option value="concepto">Concepto (A-Z)</option>
-            <option value="importe">Importe (mayor primero)</option>
+            <option value="fecha-desc">Recientes antes</option>
+            <option value="fecha-asc">Antiguos antes</option>
+            <option value="concepto">Concepto A-Z</option>
+            <option value="importe">Mayor importe</option>
           </select>
-          {hayFiltro && <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro('')}}>Quitar</button>}
+          {hayFiltro && <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro(mesActual)}}>Quitar</button>}
         </div>
       )}
 
