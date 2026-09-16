@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { indicePlanes, desglosePlan, precioConDescuento, precioFinalPlan } from '@/lib/bonos'
 import { delTrimestre, type Factura } from '@/lib/facturado'
+import { calcularImpuestos, rangoTrimestre } from '@/lib/impuestos'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 
@@ -19,94 +20,27 @@ export default function ImpuestosTab({ planes, gastos, facturas=[], ingresos=[] 
 
 
   // Calcular por trimestre
+  /**
+   * UNA SOLA FÓRMULA, EN lib/impuestos.
+   *
+   * Este cálculo vivía aquí dentro, copiado también en el panel del Resumen.
+   * Dos copias de la misma cuenta es una cuenta que mañana se arregla en un
+   * sitio y no en el otro: ya pasó con el IVA soportado y con el beneficio, y
+   * el resultado fueron dos pantallas diciendo cosas distintas del mismo
+   * trimestre.
+   *
+   * Lo que queda aquí es pintar. La cuenta es de la librería, y la comparten
+   * Resumen, la línea de gastos y esta pestaña.
+   */
   function calcularTrimestre(t: number) {
-    /**
-     * EL IVA REPERCUTIDO SALE DE LAS FACTURAS EMITIDAS, no de los bonos.
-     *
-     * Es lo que declara el 303 y lo que verá tu gestoría. Un bono dice lo que
-     * DEBERÍAS cobrar; la factura dice lo que has facturado, con su base y su
-     * cuota congeladas en el documento.
-     *
-     * La diferencia no es teórica: contando bonos declarabas IVA de cuotas que
-     * no llegaste a cobrar, y no declarabas el de las valoraciones y servicios
-     * sueltos, que se facturan pero no son bonos de nadie.
-     *
-     * Las rectificativas van dentro, en negativo. Una factura anulada y su
-     * rectificativa suman cero, que es justo lo que hay que declarar.
-     */
+    const r = rangoTrimestre(`${anio}-${String((t-1)*3+1).padStart(2,'0')}`)
+    const d = calcularImpuestos({
+      facturas: facturas as Factura[], ingresos, gastos,
+      desde: r.desde, hasta: r.hasta, irpfPct: irpfPctBeneficio,
+    })
     const fact = delTrimestre(facturas as Factura[], anio, t)
-    /**
-     * Los ingresos sin factura de este trimestre. El histórico de meses
-     * anteriores a usar la app entra aquí: su base cuenta para el beneficio del
-     * 130, y su IVA —el que haya, porque un servicio sanitario va exento— para
-     * el 303. Dejarlos fuera hacía que el 130 saliera con pérdidas en los
-     * trimestres en los que sí cobraste.
-     */
-    const otrosT = ingresos.filter((i:any)=>{
-      if (!i.fecha) return false
-      const [iy, im] = i.fecha.split('-').map(Number)
-      return iy === anio && Math.ceil(im/3) === t
-    })
-    const otrosBase = otrosT.reduce((a:number,i:any)=>a+Number(i.base_imponible||0),0)
-    const otrosIva  = otrosT.reduce((a:number,i:any)=>a+(Number(i.importe||0)-Number(i.base_imponible||0)),0)
-    const ivaRepercutido = fact.iva + otrosIva
-    const baseIngresos = fact.base + otrosBase
-
-    // Gastos de ese trimestre y año
-    const gastosT = gastos.filter((g:any)=>{
-      if (!g.fecha) return false
-      // LAS ESTIMACIONES NO ENTRAN. Ver lib/gastos: un gasto estimado es una
-      // previsión, no una factura. Deducir su IVA o declarar su retención sería
-      // declarar a partir de un papel que todavía no existe.
-      if (g.estimado) return false
-      const [gy, gm] = g.fecha.split('-').map(Number)
-      return gy===anio && trimestreDe(gm)===t
-    })
-    /**
-     * EL IVA SOPORTADO SALE DE LA BASE, NO DE RESTARLO DEL TOTAL.
-     *
-     * Antes era `importe - base_imponible`. Eso valía cuando el total era
-     * base + IVA, y dejó de valer al aparecer las retenciones: el total que se
-     * guarda ya lleva el IRPF restado (ver totalDe en lib/gastos).
-     *
-     *   Alquiler:  655,00 base + 137,55 IVA - 124,45 IRPF = 668,10 total
-     *   La resta:  668,10 - 655,00 =  13,10 €  <- 124,45 € de IVA sin deducir
-     *
-     * Cada mes. En un trimestre son ~373 € de más en el 303, y el panel existe
-     * justamente para que eso no pase.
-     */
-    const ivaSoportado = gastosT.reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(Number(g.iva_pct||0)/100), 0)
-    const baseGastos = gastosT.reduce((a:number,g:any)=> a + Number(g.base_imponible||g.importe), 0)
-    // Un gasto sin base imponible aporta 0 € de IVA soportado. Puede ser correcto
-    // (nómina, seguridad social, préstamo) o puede ser una factura mal metida, y
-    // la diferencia son euros. Se cuenta para poder decirlo en vez de callarlo.
-    const sinBase = gastosT.filter((g:any)=> g.base_imponible == null && Number(g.iva_pct||0) > 0).length
-
-    // Modelo 303: IVA a pagar = repercutido - soportado
-    const modelo303 = ivaRepercutido - ivaSoportado
-
-    // Modelo 130: % sobre beneficio (base ingresos - base gastos)
-    const beneficio = baseIngresos - baseGastos
-    const modelo130 = Math.max(0, beneficio * (irpfPctBeneficio/100))
-
-    // Modelo 111: IRPF retenido en gastos marcados como 111
-    const modelo111 = gastosT.filter((g:any)=>g.irpf_modelo==='111' && g.irpf_pct>0)
-      .reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(g.irpf_pct/100), 0)
-      /**
-       * LAS NÓMINAS TAMBIÉN VAN AL 111.
-       *
-       * En una factura de profesional la retención es un porcentaje sobre la
-       * base. En una nómina es un importe del papel, así que se guarda aparte
-       * en `irpf_retenido` y aquí se suma: el 111 recoge las dos cosas.
-       */
-      + gastosT.filter((g:any)=>g.clase==='nomina')
-        .reduce((a:number,g:any)=> a + Number(g.irpf_retenido||0), 0)
-
-    // Modelo 115: IRPF retenido en alquiler (marcados como 115)
-    const modelo115 = gastosT.filter((g:any)=>g.irpf_modelo==='115' && g.irpf_pct>0)
-      .reduce((a:number,g:any)=> a + Number(g.base_imponible||0)*(g.irpf_pct/100), 0)
-
-    return { ivaRepercutido, ivaSoportado, modelo303, beneficio, modelo130, modelo111, modelo115, sinBase, nFacturas: fact.n, nGastos: gastosT.length }
+    const nGastos = gastos.filter((g:any)=>!g.estimado && g.fecha >= r.desde && g.fecha <= r.hasta).length
+    return { ...d, nFacturas: fact.n, nGastos }
   }
 
   const trimestreActual = trimestreDe(new Date().getMonth()+1)
@@ -128,8 +62,15 @@ export default function ImpuestosTab({ planes, gastos, facturas=[], ingresos=[] 
           </select>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <span style={{fontSize:10,color:'var(--grl)'}}>% IRPF (modelo 130)</span>
-          <input className="input" type="number" style={{width:70,padding:'4px 8px'}} value={irpfPctBeneficio} onChange={e=>setIrpfPctBeneficio(Number(e.target.value)||0)}/>
+          {/* El 20% es el tipo general del pago fraccionado. Se deja tocar
+              porque hay casos con otro porcentaje, pero sin decir de dónde sale
+              el número la casilla parecía pedir un dato que nadie sabe. */}
+          <span style={{fontSize:10,color:'var(--grl)'}}>Tu tipo de IRPF</span>
+          <input className="input" type="number" style={{width:60,padding:'4px 8px'}} value={irpfPctBeneficio} onChange={e=>setIrpfPctBeneficio(Number(e.target.value)||0)}/>
+          <span style={{fontSize:10,color:'var(--grl)'}}>%</span>
+          <span style={{fontSize:9,color:'var(--grl)',maxWidth:320,lineHeight:1.5}}>
+            El que aplicas en el modelo 130. Lo normal es <strong>20%</strong>; cámbialo solo si tu gestoría te dice otro.
+          </span>
         </div>
       </div>
 
