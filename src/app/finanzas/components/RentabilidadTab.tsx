@@ -9,6 +9,7 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 
 // mesRef ('YYYY-MM'): ver un mes distinto al de hoy. Por defecto, el mes en curso.
 import type { Factura } from '@/lib/facturado'
+import { calcularImpuestos, rangoMes } from '@/lib/impuestos'
 
 /**
  * FACTURADO Y COBRADO NO SON LO MISMO, Y LOS DOS HACEN FALTA.
@@ -47,8 +48,20 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
   const ingresosMes = facturadoMes
   const pendienteCobro = Math.max(0, facturadoMes - cobradoMes)
   const gastosMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual).reduce((a:number,g:any)=>a+Number(g.importe),0)
-  const beneficioMes = ingresosMes - gastosMes
-  const margen = ingresosMes>0 ? (beneficioMes/ingresosMes)*100 : 0
+
+  /**
+   * EL MISMO BENEFICIO QUE EN RESUMEN.
+   *
+   * Aquí era ingresos − gastos con el IVA dentro por los dos lados y sin
+   * descontar el 130. En Resumen ya se medía sobre bases y con el IRPF fuera,
+   * así que el mismo mes daba dos cifras distintas según la pestaña.
+   *
+   * La cuenta la hace lib/impuestos, que es de donde salen también el panel de
+   * Hacienda y la pestaña de Impuestos.
+   */
+  const impMes = calcularImpuestos({ facturas, ingresos, gastos, ...rangoMes(mesActual) })
+  const beneficioMes = impMes.beneficio - impMes.modelo130
+  const margen = impMes.baseIngresos>0 ? (beneficioMes/impMes.baseIngresos)*100 : 0
 
   // Gastos fijos MENSUALES -> punto de equilibrio.
   // Antes esto sumaba todos los fijos del histórico entero sin filtrar mes, así
@@ -97,7 +110,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
       .reduce((a:number,x:any)=>a+Number(x.total||0),0) + otros
     return { mes:`${MESES[mes-1]} ${String(anio).slice(2)}`, Facturado:Math.round(ingresosDelMes),
              Cobrado:Math.round(cobradoDelMes), Gastos:Math.round(gastoMes),
-             Beneficio:Math.round(ingresosDelMes-gastoMes) }
+             Beneficio:(()=>{ const i=calcularImpuestos({facturas,ingresos,gastos,...rangoMes(clave)}); return Math.round(i.beneficio-i.modelo130) })() }
   })
 
   return (
@@ -126,7 +139,7 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
           <div className="card" style={{textAlign:'center',margin:0}}>
             <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Beneficio</div>
             <div style={{fontSize:26,fontWeight:300,color:beneficioMes>=0?GD:RED}}>{beneficioMes.toFixed(0)}€</div>
-            <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>margen {margen.toFixed(0)}% · sobre facturado</div>
+            <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>sin IVA ni IRPF · margen {margen.toFixed(0)}%</div>
           </div>
         </div>
       </div>
