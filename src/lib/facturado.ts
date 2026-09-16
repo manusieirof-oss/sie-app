@@ -54,7 +54,18 @@ export async function facturasEntre(desde: string, hasta: string) {
 
 /** Todas las del año, para poder repartirlas por trimestres sin cuatro consultas. */
 export async function facturasDelAnio(anio: number) {
-  return facturasEntre(`${anio}-01-01`, `${anio}-12-31`)
+  /**
+   * DESDE EL AÑO ANTERIOR, NO DESDE ENERO.
+   *
+   * Las gráficas de evolución enseñan los últimos doce meses, así que en enero
+   * la mitad de lo que pintan es del año pasado. Trayendo solo el año en curso,
+   * esos meses salían con el cobrado a cero y el beneficio hundido con ellos:
+   * un bajón inventado cada 1 de enero.
+   *
+   * Los cálculos por trimestre filtran por año, así que traer de más no les
+   * afecta.
+   */
+  return facturasEntre(`${anio - 1}-01-01`, `${anio}-12-31`)
 }
 
 export type Resumen = { base: number, iva: number, total: number, n: number }
