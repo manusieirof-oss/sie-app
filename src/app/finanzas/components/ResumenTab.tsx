@@ -105,7 +105,18 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   const impMesReal = calcularImpuestos({ ...comun, ...rMes })
   const impMesPrev = calcularImpuestos({ ...comun, ...rMes, previsto: true, bonos: bonosActivos, precioBono })
 
-  const beneficioPrevisto = ingresosPrevistos - gastosMes
+  /**
+   * EL PREVISTO SE MIDE IGUAL QUE EL REAL, O NO SE PUEDEN COMPARAR.
+   *
+   * Antes era ingresos − gastos a pelo: con el IVA dentro por los dos lados y
+   * sin descontar el 130. Al lado del beneficio real —sobre bases y con el 130
+   * fuera— eran dos cifras que no medían lo mismo, y la de previsto salía
+   * siempre más alta por motivos que no tenían nada que ver con el mes.
+   *
+   * Mismo criterio, contando el mes entero: las cuotas aún sin facturar y los
+   * gastos que todavía son una estimación.
+   */
+  const beneficioPrevisto = impMesPrev.beneficio - impMesPrev.modelo130
 
   /**
    * EL BENEFICIO DE CAJA, SIN IVA Y SIN PREVISIONES.
@@ -374,7 +385,15 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
             <div style={{fontWeight:600,color:'var(--gr)',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Cómo leer estos números</div>
             <div><strong style={{color:'var(--n)'}}>Real</strong> es lo que ya ha pasado: facturas emitidas y gastos con su factura encima de la mesa.</div>
             <div><strong style={{color:'var(--n)'}}>Previsto</strong> es el mes entero si se cumple: incluye las cuotas aún sin facturar y los gastos que todavía son una estimación.</div>
-            <div style={{marginTop:5}}>El <strong style={{color:'var(--n)'}}>beneficio</strong> se mide sobre bases, sin IVA, y con el modelo 130 ya descontado: es lo que de verdad te queda. Las cifras de cobrado y gastos sí llevan IVA, porque son el dinero que se mueve.</div>
+            <div style={{marginTop:7}}>
+              <strong style={{color:'var(--n)'}}>El beneficio es lo que de verdad te queda</strong>, y por eso se calcula distinto que las otras cifras:
+              <div style={{marginTop:4,paddingLeft:10,borderLeft:'2px solid var(--bd)'}}>
+                <div><strong style={{color:'var(--n)'}}>Sin IVA por los dos lados.</strong> El IVA que cobras a los pacientes no es tuyo: lo custodias hasta ingresarlo en el 303. Y el que pagas en tus gastos te lo deduces. Así que ni suma ni resta, y el cálculo se hace sobre las bases.</div>
+                <div style={{marginTop:3}}><strong style={{color:'var(--n)'}}>Menos el modelo 130.</strong> Es tu IRPF como autónomo, un pago a cuenta de tu renta. Sale de tu bolsillo, así que no es beneficio.</div>
+                <div style={{marginTop:3}}><strong style={{color:'var(--n)'}}>El 111 y el 115 NO se restan.</strong> Son retenciones que ya viven dentro de los gastos: el IRPF de tus trabajadores está en su nómina y el del alquiler en el recibo del local. Restarlos aquí sería contarlos dos veces.</div>
+              </div>
+            </div>
+            <div style={{marginTop:5}}>Las cifras de <strong style={{color:'var(--n)'}}>cobrado</strong> y <strong style={{color:'var(--n)'}}>gastos</strong> sí llevan IVA: son el dinero que entra y sale de la cuenta, no lo que ganas.</div>
             <div style={{marginTop:5}}>El <strong style={{color:'var(--n)'}}>pendiente de cobro</strong> es lo previsto menos lo ya facturado. Lo marcado como impago va dentro, no aparte.</div>
           </div>
         </div>
