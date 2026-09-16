@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import LineaGastos from './LineaGastos'
 import { hoyISO, mesISO } from '@/lib/fechas'
 import { CADENCIAS, fechasDeSerie, mediaDeConcepto, crearSerie, confirmarGasto,
          estimadosVencidos, MODOS_ESTIMACION, modoPorDefecto,
@@ -26,6 +27,8 @@ function trimestrePasado(fecha?: string | null): string | null {
 }
 
 export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, mesRef }: any) {
+  /** Lista de gastos o línea de tiempo. La lista dice cuánto; la línea, cuándo. */
+  const [subtab, setSubtab] = useState<'lista'|'linea'>('lista')
   const [modal, setModal] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string|null>(null)
@@ -483,7 +486,9 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
   }
 
   const mesActual = mesRef || mesISO()
-  const delMes = gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesActual)
+  const [busca, setBusca] = useState('')
+  const [mesFiltro, setMesFiltro] = useState<string>(mesActual)
+  const delMes = mesFiltro ? gastos.filter((g:any)=>g.fecha?.slice(0,7)===mesFiltro) : gastos
   const totalMes = delMes.reduce((acc:number,g:any)=>acc+Number(g.importe),0)
   /**
    * Cuánto del total del mes es todavía una previsión.
@@ -565,8 +570,6 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
   // Lo único que se recalcula es el resumen de la propia búsqueda, que va justo
   // encima de los resultados y dice de qué está hablando.
   // ---------------------------------------------------------------------------
-  const [busca, setBusca] = useState('')
-  const [mesFiltro, setMesFiltro] = useState('')
   /** Cómo se ordena lo que se ve. No toca los totales, solo la lista. */
   const [orden, setOrden] = useState('fecha-desc')
 
@@ -592,7 +595,7 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
     return String(b.fecha).localeCompare(String(a.fecha)) // fecha-desc, por defecto
   })
 
-  const hayFiltro = !!q || !!mesFiltro
+  const hayFiltro = !!q || mesFiltro !== mesActual
   const totalFiltrado = filtrados.reduce((a:number,g:any)=>a+Number(g.importe),0)
   const estimadoFiltrado = filtrados.filter((g:any)=>g.estimado).reduce((a:number,g:any)=>a+Number(g.importe),0)
 
@@ -600,13 +603,27 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
   const porCat: Record<string, number> = {}
   // De lo que se está mirando, no del histórico entero: filtrabas por
   // septiembre y las barras seguían enseñando el año completo.
-  const baseCategorias = (mesFiltro || q) ? filtrados : delMes
+  const baseCategorias = q ? filtrados : delMes
   baseCategorias.forEach((g:any)=>{ const c=g.categoria||'Sin categoría'; porCat[c]=(porCat[c]||0)+Number(g.importe) })
   const catList = Object.entries(porCat).map(([cat,total]:any)=>({cat,total})).sort((a,b)=>b.total-a.total)
   const maxCat = catList.length ? catList[0].total : 1
 
   return (
-    <div className="card">
+    // La línea de tiempo va sobre el fondo, sin caja: es un trazo, no una
+    // ficha, y metida en una card competía con el propio dibujo.
+    <div className={subtab==='linea' ? undefined : 'card'}>
+      <div style={{display:'flex',gap:4,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,marginBottom:12,width:'fit-content'}}>
+        {([['lista','Lista'],['linea','Cuándo se paga']] as const).map(([k,l])=>(
+          <button key={k} onClick={()=>setSubtab(k)}
+            style={{fontSize:10,padding:'6px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'inherit',
+                    background:subtab===k?'var(--w)':'transparent',color:subtab===k?'var(--n)':'var(--grl)',
+                    fontWeight:subtab===k?500:300,boxShadow:subtab===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>{l}</button>
+        ))}
+      </div>
+
+      {subtab==='linea' ? (
+        <LineaGastos gastos={gastos} ingresos={ingresos} facturas={facturas} mesRef={mesRef}/>
+      ) : (<>
 
       <div className="card-title" style={{marginBottom:10}}><span className="ct-l"><Ic name="recibo"/> Gastos</span></div>
 
@@ -630,7 +647,7 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
 
         <div>
           <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.5,marginBottom:9}}>
-            {nombreMes(mesActual)}
+            {mesFiltro ? nombreMes(mesFiltro) : 'Todos los meses'}
           </div>
           {([['Total', totalMes, 'var(--red)'],
              ['Fijos', totalFijos, '#7A5800'],
@@ -689,7 +706,7 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
             <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:8}}>
               Por categoría
               <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,color:'var(--grl)'}}>
-                {' · '}{(mesFiltro || q) ? 'de la búsqueda' : nombreMes(mesActual)}
+                {' · '}{q ? 'de la búsqueda' : mesFiltro ? nombreMes(mesFiltro) : 'todo el histórico'}
               </span>
             </div>
             {catList.map(({cat,total})=>(
@@ -728,7 +745,7 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
             <option value="importe">Importe (mayor primero)</option>
           </select>
           {hayFiltro && (
-            <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro('')}}>Quitar</button>
+            <button className="btn btn-d btn-sm" onClick={()=>{setBusca('');setMesFiltro(mesActual)}}>Quitar</button>
           )}
           {/* Junto al buscador: es donde está la lista, y donde uno se da
               cuenta de que falta un gasto por meter. */}
@@ -1380,6 +1397,7 @@ export default function GastosTab({ gastos, ingresos=[], facturas=[], recargar, 
           </div>
         </div>
       )}
+      </>)}
     </div>
   )
 }
