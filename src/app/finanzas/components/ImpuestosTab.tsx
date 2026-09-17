@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { indicePlanes, desglosePlan, precioConDescuento, precioFinalPlan } from '@/lib/bonos'
 import { delTrimestre, type Factura } from '@/lib/facturado'
 import { calcularImpuestos, rangoTrimestre } from '@/lib/impuestos'
 
@@ -16,7 +15,6 @@ export default function ImpuestosTab({ planes, gastos, facturas=[], ingresos=[] 
   const [anio, setAnio] = useState(anioActual)
   const [irpfPctBeneficio, setIrpfPctBeneficio] = useState(20) // % del modelo 130
 
-  const idxPlanes = indicePlanes(planes)
 
 
   // Calcular por trimestre

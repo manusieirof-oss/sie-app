@@ -2,9 +2,9 @@
 import React, { useState } from 'react'
 import { indicePlanes, precioBono as precioDeBono, precioFinalPlan, esVentaPuntual } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
-import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 import { mesISO } from '@/lib/fechas'
-import { delMes, sumar, type Factura } from '@/lib/facturado'
+import { delMes, type Factura } from '@/lib/facturado'
 import { calcularImpuestos, rangoMes, rangoTrimestre } from '@/lib/impuestos'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'

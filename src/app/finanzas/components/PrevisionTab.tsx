@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { indicePlanes, precioBono as precioDeBono } from '@/lib/bonos'
 import {
   HISTORICO_BASE, ANIOS_EXENTOS, MESES_CORTO, indiceEstacional, proyectar,
