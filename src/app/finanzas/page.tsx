@@ -213,7 +213,9 @@ export default function FinanzasPage() {
         {/* Acceso al banco de pruebas. Va aquí y no en la navegación general
             porque solo tiene sentido para quien ya está mirando Finanzas. */}
         <Link href="/finanzas/prueba" style={{fontSize:10,color:'var(--grl)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}>
-          <Ic name="progreso" size={11}/> Ver con datos de 2026
+          {/* "Ver con datos de 2026" se leía como un filtro de año, justo al
+              lado del selector de mes. Lleva a datos inventados. */}
+          <Ic name="progreso" size={11}/> Banco de pruebas
         </Link>
       </div>
 
@@ -247,7 +249,7 @@ export default function FinanzasPage() {
           {tab==='ingresos' && <IngresosTab ingresos={ingresos} recargar={cargar} mesRef={mesRef}/>}
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} ingresos={ingresos} facturas={facturas}/>}
           {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} facturas={facturas} bonosHist={bonosHist} mesRef={mesRef}/>}
-          {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas}/>}
+          {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas} ingresos={ingresos} mesRef={mesRef}/>}
         </>
       )}
     </div>

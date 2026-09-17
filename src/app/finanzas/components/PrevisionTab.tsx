@@ -19,21 +19,38 @@ import {
 
 const G='#5A969E', GD='#3E7179', AMB='#D4A24E', RED='#C25B5B', GREY='#9CA3AF'
 
-export default function PrevisionTab({ planes, bonos }: any) {
-  const anio = new Date().getFullYear()
+export default function PrevisionTab({ planes, bonos, ingresos=[], mesRef }: any) {
+  // El año que se esté mirando arriba, no siempre el actual: el resto de
+  // Finanzas obedece a ese selector y esta pestaña lo ignoraba.
+  const anio = Number((mesRef || new Date().toISOString().slice(0,7)).slice(0,4))
   const [base, setBase] = useState<Record<number, number>>({})
   const [iva, setIva] = useState<Record<number, number>>({})
   const [cargando, setCargando] = useState(true)
   const [fallo, setFallo] = useState<string|null>(null)
   const [verIndices, setVerIndices] = useState(false)
 
-  useEffect(() => { cargar() }, [anio])
+  useEffect(() => { cargar() }, [anio, ingresos])
 
   async function cargar() {
     setCargando(true)
     const r = await facturadoPorMes(anio)
     if (!r.ok) setFallo(`No se han podido leer las facturas: ${r.error}`)
-    setBase(r.base); setIva(r.iva)
+    /**
+     * LO COBRADO ANTES DE USAR LA APP TAMBIÉN ES INGRESO.
+     *
+     * Esta pantalla leía solo de `facturas`, y quien empieza a mitad de año
+     * tiene los meses anteriores en "otros ingresos". El año arrancaba en
+     * septiembre: el total salía por los suelos y, peor, el nivel del que
+     * cuelga toda la proyección se calculaba con un mes.
+     */
+    const base = { ...r.base }, iva = { ...r.iva }
+    ;(ingresos || []).forEach((i: any) => {
+      if (!i.fecha || i.fecha.slice(0,4) !== String(anio)) return
+      const m = Number(i.fecha.slice(5,7))
+      base[m] = (base[m] || 0) + Number(i.base_imponible ?? i.importe ?? 0)
+      iva[m] = (iva[m] || 0) + (Number(i.importe || 0) - Number(i.base_imponible || 0))
+    })
+    setBase(base); setIva(iva)
     setCargando(false)
   }
 
@@ -88,29 +105,29 @@ export default function PrevisionTab({ planes, bonos }: any) {
         {ANIOS_EXENTOS.length > 0 && <> Los años {ANIOS_EXENTOS[0]}–{ANIOS_EXENTOS[ANIOS_EXENTOS.length-1]} la actividad estaba <strong>exenta de IVA</strong>, así que lo cobrado y la base coincidían.</>}
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:18}}>
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Ingresado</div>
-          <div style={{fontSize:24,fontWeight:300,color:G,marginTop:4}}>{eur(facturado)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:18,marginBottom:20}}>
+        <div>
+          <div style={{fontSize:9,color:'var(--grl)'}}>Ingresado</div>
+          <div style={{fontSize:22,fontWeight:200,color:G,marginTop:4}}>{eur(facturado)}</div>
           <div style={{fontSize:9,color:'var(--grl)'}}>+{eur(ivaAño)} de IVA cobrado</div>
         </div>
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Falta por ingresar</div>
-          <div style={{fontSize:24,fontWeight:300,color:AMB,marginTop:4}}>{eur(pendiente)}</div>
+        <div>
+          <div style={{fontSize:9,color:'var(--grl)'}}>Falta por ingresar</div>
+          <div style={{fontSize:22,fontWeight:200,color:AMB,marginTop:4}}>{eur(pendiente)}</div>
           <div style={{fontSize:9,color:'var(--grl)'}}>previsto</div>
         </div>
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Cierre {anio}</div>
-          <div style={{fontSize:24,fontWeight:300,color:GD,marginTop:4}}>{eur(cierre)}</div>
+        <div>
+          <div style={{fontSize:9,color:'var(--grl)'}}>Cierre {anio}</div>
+          <div style={{fontSize:22,fontWeight:200,color:GD,marginTop:4}}>{eur(cierre)}</div>
           {variacion != null && (
             <div style={{fontSize:9,color:variacion>=0?'var(--gd)':'var(--red)',fontWeight:600}}>
               {variacion>=0?'+':''}{variacion.toFixed(1)}% sobre {anio-1}
             </div>
           )}
         </div>
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Este mes</div>
-          <div style={{fontSize:24,fontWeight:300,color:'var(--n)',marginTop:4}}>{esteMes ? eur(esteMes.real ?? esteMes.previsto) : '—'}</div>
+        <div>
+          <div style={{fontSize:9,color:'var(--grl)'}}>Este mes</div>
+          <div style={{fontSize:22,fontWeight:200,color:'var(--n)',marginTop:4}}>{esteMes ? eur(esteMes.real ?? esteMes.previsto) : '—'}</div>
           <div style={{fontSize:9,color:'var(--grl)'}}>
             {esteMes ? `índice ${idx[mesActual-1].indice.toFixed(2)}` : ''}
           </div>
