@@ -60,6 +60,19 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
    * Hacienda y la pestaña de Impuestos.
    */
   const impMes = calcularImpuestos({ facturas, ingresos, gastos, ...rangoMes(mesActual) })
+  /**
+   * CUÁNTO DEL MES SIGUE SIENDO UNA PREVISIÓN.
+   *
+   * El beneficio solo resta gastos confirmados: deducir de una factura que no
+   * ha llegado sería inventar. Pero eso deja el ingreso completo contra un
+   * gasto a medias, y el margen sale disparado —69% cuando cuatro quintas
+   * partes del gasto del mes están sin confirmar—.
+   *
+   * No se cambia la cuenta: se dice. El número es correcto hoy y va a bajar.
+   */
+  const gastosSinConfirmar = gastos
+    .filter((g:any)=>g.fecha?.slice(0,7)===mesActual && g.estimado)
+    .reduce((a:number,g:any)=>a+Number(g.importe||0),0)
   const beneficioMes = impMes.beneficio - impMes.modelo130
   const margen = impMes.baseIngresos>0 ? (beneficioMes/impMes.baseIngresos)*100 : 0
 
@@ -96,7 +109,18 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
   // mitad de año— también existe, aunque no haya bonos ni gastos.
   ingresos.forEach((i:any)=>{ if(i.fecha) mesesSet.add(i.fecha.slice(0,7)) })
   ;(facturas as Factura[]).forEach((x:any)=>{ if(x.fecha_expedicion) mesesSet.add(x.fecha_expedicion.slice(0,7)) })
-  const mesesOrden = Array.from(mesesSet).sort().slice(-12)
+  /**
+   * HASTA EL MES EN CURSO, NO MÁS ALLÁ.
+   *
+   * Los gastos recurrentes están creados hasta diciembre, así que el conjunto
+   * de meses incluía tres que aún no han pasado: salían con 3.500 € de gastos
+   * y cero ingresos —las cuotas de noviembre todavía no existen— y la gráfica
+   * pintaba un desplome que no es tal. Encima esos tres desplazaban a enero,
+   * febrero y marzo, que sí tienen datos de verdad.
+   *
+   * Lo que va a pasar tiene su propia pestaña. Aquí, solo lo que ya ha pasado.
+   */
+  const mesesOrden = Array.from(mesesSet).filter(m => m <= mesActual).sort().slice(-12)
 
   const dataEvol = mesesOrden.map((clave)=>{
     const [anio,mes] = clave.split('-').map(Number)
@@ -120,26 +144,31 @@ export default function RentabilidadTab({ planes, gastos, bonos, ingresos=[], bo
       <div>
         <div style={{fontSize:11,fontWeight:500,color:'var(--n)',marginBottom:10}}>Este mes</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:12}}>
-          <div className="card" style={{textAlign:'center',margin:0}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Facturado</div>
-            <div style={{fontSize:26,fontWeight:300,color:G}}>{facturadoMes.toFixed(0)}€</div>
+          <div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:3}}>Facturado</div>
+            <div style={{fontSize:22,fontWeight:200,color:G}}>{facturadoMes.toFixed(0)}€</div>
             <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>lo que toca cobrar</div>
           </div>
-          <div className="card" style={{textAlign:'center',margin:0}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Cobrado</div>
-            <div style={{fontSize:26,fontWeight:300,color:GD}}>{cobradoMes.toFixed(0)}€</div>
+          <div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:3}}>Cobrado</div>
+            <div style={{fontSize:22,fontWeight:200,color:GD}}>{cobradoMes.toFixed(0)}€</div>
             <div style={{fontSize:9,color:pendienteCobro>0?'#7A5800':'var(--grl)',marginTop:2}}>
               {pendienteCobro>0 ? `faltan ${pendienteCobro.toFixed(0)}€` : 'todo cobrado'}
             </div>
           </div>
-          <div className="card" style={{textAlign:'center',margin:0}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Gastos</div>
-            <div style={{fontSize:26,fontWeight:300,color:RED}}>{gastosMes.toFixed(0)}€</div>
+          <div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:3}}>Gastos</div>
+            <div style={{fontSize:22,fontWeight:200,color:RED}}>{gastosMes.toFixed(0)}€</div>
           </div>
-          <div className="card" style={{textAlign:'center',margin:0}}>
-            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:6}}>Beneficio</div>
-            <div style={{fontSize:26,fontWeight:300,color:beneficioMes>=0?GD:RED}}>{beneficioMes.toFixed(0)}€</div>
+          <div>
+            <div style={{fontSize:9,color:'var(--grl)',marginBottom:3}}>Beneficio</div>
+            <div style={{fontSize:22,fontWeight:200,color:beneficioMes>=0?GD:RED}}>{beneficioMes.toFixed(0)}€</div>
             <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>sin IVA ni IRPF · margen {margen.toFixed(0)}%</div>
+            {gastosSinConfirmar > 0 && (
+              <div style={{fontSize:9,color:'#7A5800',marginTop:3,lineHeight:1.45}}>
+                Bajará: faltan {gastosSinConfirmar.toFixed(0)}€ de gastos por confirmar
+              </div>
+            )}
           </div>
         </div>
       </div>
