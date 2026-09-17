@@ -11,6 +11,7 @@ import ResumenTab from './components/ResumenTab'
 import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
 import PrevisionTab from './components/PrevisionTab'
+import SimuladorTab from './components/SimuladorTab'
 import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes } from '@/lib/bonos'
 import { mesISO } from '@/lib/fechas'
 import { facturasDelAnio, type Factura } from '@/lib/facturado'
@@ -55,7 +56,7 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
 }
 
 export default function FinanzasPage() {
-  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'ingresos'|'impuestos'|'rentabilidad'|'prevision'>('resumen')
+  const [tab, setTab] = useState<'resumen'|'planes'|'gastos'|'ingresos'|'impuestos'|'rentabilidad'|'prevision'|'simulador'>('resumen')
   // Mes que se está mirando, 'YYYY-MM'. Arranca en el actual.
   const [mesRef, setMesRef] = useState(mesISO)
   const [planes, setPlanes] = useState<any[]>([])
@@ -193,7 +194,7 @@ export default function FinanzasPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3,width:'fit-content'}}>
-          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['ingresos','sube','Ingresos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad'],['prevision','progreso','Previsión']] as const).map(([k,ic,l])=>(
+          {([['resumen','progreso','Resumen'],['planes','euro','Planes'],['gastos','recibo','Gastos'],['ingresos','dinero','Ingresos'],['impuestos','clinica','Impuestos'],['rentabilidad','sube','Rentabilidad'],['prevision','progreso','Previsión'],['simulador','idea','Simulador']] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k)}
               style={{fontSize:11,padding:'7px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
               <Ic name={ic} size={13}/> {l}
@@ -250,6 +251,7 @@ export default function FinanzasPage() {
           {tab==='impuestos' && <ImpuestosTab planes={planes} gastos={gastos} ingresos={ingresos} facturas={facturas}/>}
           {tab==='rentabilidad' && <RentabilidadTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} facturas={facturas} bonosHist={bonosHist} mesRef={mesRef}/>}
           {tab==='prevision' && <PrevisionTab planes={planes} bonos={cuotas} ingresos={ingresos} mesRef={mesRef}/>}
+          {tab==='simulador' && <SimuladorTab planes={planes} gastos={gastos} bonos={bonosMes} mesRef={mesRef}/>}
         </>
       )}
     </div>
