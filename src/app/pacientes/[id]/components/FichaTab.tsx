@@ -25,6 +25,22 @@ function haceCuanto(f:string) {
   return a === 1 ? 'hace 1 año' : `hace ${a} años`
 }
 
+/**
+ * EL MES DE LA CUOTA SALE DE LA CUOTA.
+ *
+ * `mes` y `anio` que llegan por props son el mes de HOY, y se usaban para
+ * rotular el bono: a quien tenia ya la cuota de octubre, la ficha le ponia
+ * "Mes 9/2026". El dato estaba bien guardado; mentia la etiqueta.
+ */
+const mesDeBono = (b: any) => b?.mes && b?.anio ? `${b.mes}/${b.anio}` : '—'
+const empiezaDespues = (b: any) => {
+  if (!b?.mes || !b?.anio) return false
+  const h = new Date()
+  return b.anio > h.getFullYear() || (b.anio === h.getFullYear() && b.mes > h.getMonth() + 1)
+}
+const nombreMes = (b: any) =>
+  new Date(b.anio, b.mes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+
 export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones }: any) {
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
@@ -514,7 +530,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </div>
           )}
           {estadoPago==='impago' && (
-            <div className="at-i">Cuota de {mes}/{anio} marcada como impago</div>
+            <div className="at-i">Cuota de {mesDeBono(bono)} marcada como impago</div>
           )}
         </div>
       )}
@@ -719,7 +735,11 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <>
               <div style={{fontSize:14,color:'var(--n)'}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
               <div style={{fontSize:12,color:'var(--gr)',marginTop:2}}>
-                Mes {mes}/{anio}
+                Mes {mesDeBono(bono)}
+                {/* Que no esta pagado se entiende distinto si el mes no ha llegado. */}
+                {empiezaDespues(bono) && (
+                  <span style={{color:'var(--gd)'}}> · empieza en {nombreMes(bono)}</span>
+                )}
                 {bono.descuento_tipo && bono.descuento_valor > 0 && (
                   <> · descuento {bono.descuento_tipo==='porcentaje'?`${bono.descuento_valor}%`:`${bono.descuento_valor}€`}{bono.descuento_motivo?` (${bono.descuento_motivo})`:''}</>
                 )}
