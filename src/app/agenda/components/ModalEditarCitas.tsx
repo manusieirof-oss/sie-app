@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { ocupacionPorSala } from '@/lib/citas'
@@ -23,7 +23,16 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
   const eliminarUna = async (r:any) => { if(!onEliminar) return; if(!confirm('¿Eliminar esta cita definitivamente? Se usa para errores: no guarda falta ni recuperación.')) return; setBusy(true); await onEliminar(orig(r.id)); setRows(p=>p.filter(x=>x.id!==r.id)); setHechas(h=>({...h,eliminadas:h.eliminadas+1})); avisar('Cita eliminada'); setBusy(false) }
   const HORAS = horas && horas.length>0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
-  const set = (id:string, k:string, v:string) => setRows(p=>p.map(r=>r.id===id?{...r,[k]:v}:r))
+  const set = (id:string, k:string, v:string) => setRows(p=>p.map(r=>{
+    if (r.id !== id) return r
+    const nr = { ...r, [k]: v }
+    // Mover una cita es la misma decision que crearla: lo que importa es quien
+    // hay ya en el hueco al que la llevas.
+    if (k === 'fecha' || k === 'hora') pedirOcupRef.current?.(nr.fecha, nr.hora)
+    return nr
+  }))
+  // `pedirOcup` se declara mas abajo; el ref evita tener que reordenar medio fichero.
+  const pedirOcupRef = useRef<((f:string,h:string)=>void)|null>(null)
 
   // Tambien mira en `rows`: una cita creada aqui mismo no esta en las que
   // llegaron por props, y cancelarla o borrarla se quedaba sin objeto.
@@ -46,24 +55,58 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
     sala: ultima?.sala || salas[0],
     tipo: ultima?.tipo || tiposClase[0]?.valor || '',
   })
-  const [ocup, setOcup] = useState<Record<string,number>|null>(null)
-  const [mirando, setMirando] = useState(false)
   const [creando, setCreando] = useState(false)
   const [errNueva, setErrNueva] = useState('')
 
-  useEffect(() => {
-    if (!nueva.fecha || !nueva.hora) { setOcup(null); return }
-    let vivo = true
-    setMirando(true)
-    ocupacionPorSala(nueva.fecha, nueva.hora).then(r => {
-      if (!vivo) return
-      setOcup(r.porSala)
-      setMirando(false)
+  /**
+   * LA OCUPACION, PREGUNTADA UNA VEZ POR HORA.
+   *
+   * La piden dos sitios —la cita nueva y cada fila que mueves de dia— y varias
+   * filas acaban cayendo en el mismo hueco. Con una consulta por fila serian
+   * cinco preguntas identicas seguidas, asi que se guarda por `fecha|hora`.
+   *
+   * `pedidas` es un ref y no estado a proposito: solo sirve para no disparar
+   * dos veces la misma consulta, y meterlo en estado provocaria el render que
+   * volveria a dispararla.
+   */
+  const [ocupCache, setOcupCache] = useState<Record<string, Record<string,number>|null>>({})
+  const pedidas = useRef<Set<string>>(new Set())
+  const claveOcup = (f:string, h:string) => `${f}|${h}`
+
+  function pedirOcup(f:string, h:string) {
+    if (!f || !h) return
+    const k = claveOcup(f, h)
+    if (pedidas.current.has(k)) return
+    pedidas.current.add(k)
+    setOcupCache(c => ({ ...c, [k]: null }))
+    ocupacionPorSala(f, h).then(r => setOcupCache(c => ({ ...c, [k]: r.porSala })))
+  }
+
+  pedirOcupRef.current = pedirOcup
+
+  useEffect(() => { pedirOcup(nueva.fecha, nueva.hora) }, [nueva.fecha, nueva.hora])
+
+  /** Las pastillas de ocupacion. Funcion, no componente: asi React no remonta nada. */
+  const pintaOcupacion = (f:string, h:string, salaSel:string, elegirSala:(s:string)=>void) => {
+    const datos = ocupCache[claveOcup(f, h)]
+    if (datos === undefined) return null
+    if (datos === null) return <span style={{fontSize:9,color:'var(--grl)'}}>Mirando la ocupación…</span>
+    return salas.map((sa:string) => {
+      const n = datos[sa] || 0
+      const lleno = n >= maxPersonas
+      return (
+        <span key={sa} onClick={()=>elegirSala(sa)}
+          style={{fontSize:10,cursor:'pointer',padding:'2px 9px',borderRadius:99,
+                  border:`1px solid ${salaSel===sa?'var(--g)':'var(--bd)'}`,
+                  background:salaSel===sa?'var(--gl)':'var(--w)',
+                  color:lleno?'var(--red)':'var(--gr)',fontWeight:lleno?600:400}}>
+          Sala {sa} <strong style={{color:lleno?'var(--red)':'var(--n)'}}>{n}</strong>
+          <span style={{color:'var(--grl)',fontWeight:400}}>/{maxPersonas}</span>
+          {lleno && ' · llena'}
+        </span>
+      )
     })
-    // Se anula la respuesta vieja si cambias de dia mientras llega: sin esto, la
-    // primera consulta puede contestar la ultima y pintar la ocupacion de otro dia.
-    return () => { vivo = false }
-  }, [nueva.fecha, nueva.hora])
+  }
 
   async function crear() {
     if (!onCrear || !pacienteId || !nueva.fecha) return
@@ -76,6 +119,10 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
       id: r.cita.id, paciente_id: r.cita.paciente_id, fecha: r.cita.fecha,
       hora: (r.cita.hora||'').slice(0,5), sala: r.cita.sala, tipo: r.cita.tipo, estado: r.cita.estado,
     }].sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)))
+    // El hueco acaba de ganar a alguien: se olvida lo cacheado y se vuelve a mirar.
+    const k = claveOcup(nueva.fecha, nueva.hora)
+    pedidas.current.delete(k)
+    pedirOcup(nueva.fecha, nueva.hora)
     avisar('Cita creada')
     // La fecha se limpia y lo demas se queda: lo normal es añadir varias seguidas
     // al mismo paciente, en la misma sala y a la misma hora.
@@ -99,8 +146,10 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
           {rows.map(r=>{
             const cancel = r.estado==='cancelada'
             const dis = guardando || busy || cancel
+            const movida = !cancel && (() => { const o = orig(r.id); return !!o && (o.fecha !== r.fecha || (o.hora||'').slice(0,5) !== r.hora) })()
             return (
-              <div key={r.id} style={{display:'grid',gridTemplateColumns:GT,gap:6,alignItems:'center',padding:'5px 4px',borderRadius:7,marginBottom:3,background:cancel?'var(--redl)':(cambiada(r)?'var(--gl)':'transparent')}}>
+              <div key={r.id} style={{marginBottom:3}}>
+              <div style={{display:'grid',gridTemplateColumns:GT,gap:6,alignItems:'center',padding:'5px 4px',borderRadius:7,background:cancel?'var(--redl)':(cambiada(r)?'var(--gl)':'transparent')}}>
                 {cancel ? (
                   <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
                     <span style={{fontSize:11,color:'var(--red)',textDecoration:'line-through',whiteSpace:'nowrap'}}>{new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
@@ -136,6 +185,13 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
                     </>
                   )}
                 </div>
+              </div>
+              {/* Solo en la fila que has movido: quien hay en el hueco nuevo. */}
+              {movida && (
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'4px 4px 6px 4px'}}>
+                  {pintaOcupacion(r.fecha, r.hora, r.sala, (sa:string)=>set(r.id,'sala',sa))}
+                </div>
+              )}
               </div>
             )
           })}
@@ -180,27 +236,9 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
 
             {/* QUIEN HAY YA a esa hora, sala por sala. Es el dato que decide. */}
             <div style={{display:'flex',alignItems:'center',gap:10,marginTop:7,flexWrap:'wrap',minHeight:16}}>
-              {!nueva.fecha ? (
-                <span style={{fontSize:9,color:'var(--grl)'}}>Elige el día y verás cuánta gente hay en cada sala.</span>
-              ) : mirando ? (
-                <span style={{fontSize:9,color:'var(--grl)'}}>Mirando la ocupación…</span>
-              ) : (
-                salas.map((sa:string)=>{
-                  const n = (ocup?.[sa]) || 0
-                  const lleno = n >= maxPersonas
-                  return (
-                    <span key={sa} onClick={()=>setNueva(x=>({...x,sala:sa}))}
-                      style={{fontSize:10,cursor:'pointer',padding:'2px 9px',borderRadius:99,
-                              border:`1px solid ${nueva.sala===sa?'var(--g)':'var(--bd)'}`,
-                              background:nueva.sala===sa?'var(--gl)':'var(--w)',
-                              color:lleno?'var(--red)':'var(--gr)',fontWeight:lleno?600:400}}>
-                      Sala {sa} <strong style={{color:lleno?'var(--red)':'var(--n)'}}>{n}</strong>
-                      <span style={{color:'var(--grl)',fontWeight:400}}>/{maxPersonas}</span>
-                      {lleno && ' · llena'}
-                    </span>
-                  )
-                })
-              )}
+              {!nueva.fecha
+                ? <span style={{fontSize:9,color:'var(--grl)'}}>Elige el día y verás cuánta gente hay en cada sala.</span>
+                : pintaOcupacion(nueva.fecha, nueva.hora, nueva.sala, (sa:string)=>setNueva(x=>({...x,sala:sa})))}
             </div>
             {errNueva && <div style={{fontSize:10,color:'var(--red)',marginTop:6}}>{errNueva}</div>}
           </div>
