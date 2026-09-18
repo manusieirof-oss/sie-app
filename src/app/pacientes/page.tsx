@@ -339,12 +339,6 @@ export default function PacientesPage() {
 
   return (
     <>
-      {/* FILTROS */}
-      <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
-        <input className="input" placeholder="Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
-        <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo paciente</button>
-      </div>
-
       {/* FILTROS CON CONTADORES */}
       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
         <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
@@ -448,6 +442,19 @@ export default function PacientesPage() {
           </div>
         </div>
       )}
+
+      {/* BUSCADOR PEGADO A LA LISTA.
+          Estaba arriba del todo, encima de los filtros, asi que para buscar a
+          alguien con la lista a medio bajar habia que subir hasta el principio.
+          Va aqui —lo ultimo antes de la tabla— y se queda fijo al hacer scroll.
+          Fuera de la tabla a la fuerza: ese contenedor tiene `overflow:hidden`,
+          que anula cualquier `sticky` de dentro. */}
+      <div style={{position:'sticky',top:0,zIndex:20,display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',
+                   marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',
+                   padding:'8px 12px',boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+        <input className="input" placeholder="Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo paciente</button>
+      </div>
 
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
