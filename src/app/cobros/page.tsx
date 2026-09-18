@@ -60,6 +60,17 @@ export default function CobrosPage() {
   const [agenda, setAgenda] = useState({ anotados: 0, vino: 0, porVenir: 0 })
   /** Los mismos de arriba pero por id, que es lo que hace falta para cruzarlos con los bonos. */
   const [idsMes, setIdsMes] = useState<{ anotados: string[], vino: string[] }>({ anotados: [], vino: [] })
+  /**
+   * A QUIEN LE HAS COBRADO ALGO ESTE MES, con bono o sin el.
+   *
+   * Hacia falta porque toda esta pantalla se construye desde `bonos`, y un
+   * servicio suelto no crea ninguno. Quien venia a una valoracion y la pagaba
+   * se quedaba en "sin cuota" para siempre: factura emitida, y la pantalla
+   * diciendo que no tiene nada.
+   */
+  const [cobradoMes, setCobradoMes] = useState<string[]>([])
+  /** Qué le cobraste y por cuánto, para la fila de quien no tiene bono. */
+  const [sueltosMes, setSueltosMes] = useState<Record<string, { total: number, conceptos: string[] }>>({})
   const [vinieronSinBono, setVinieronSinBono] = useState<any[]>([])
   const [busca, setBusca] = useState('')
   // Tres vistas en vez de un interruptor. "Ver todos" sacaba también a quien no
@@ -218,6 +229,25 @@ export default function CobrosPage() {
     })
     setIdsMes({ anotados: Array.from(anotados), vino: Array.from(vino) })
 
+    // Cobros del mes, anulados fuera. Con su detalle, porque quien no tiene bono
+    // necesita una fila y esa fila tiene que decir QUE le cobraste.
+    const rcob = await supabase.from('cobros')
+      .select('paciente_id, cobro_lineas(total, concepto)')
+      .eq('anulado', false).gte('fecha', desdeM).lte('fecha', hastaM)
+    if (rcob.error) errs.push(`cobros del mes: ${rcob.error.message}`)
+    const det: Record<string, { total: number, conceptos: string[] }> = {}
+    ;(rcob.data || []).forEach((c: any) => {
+      if (!c.paciente_id) return
+      const d = det[c.paciente_id] || (det[c.paciente_id] = { total: 0, conceptos: [] })
+      ;(c.cobro_lineas || []).forEach((l: any) => {
+        d.total += Number(l.total) || 0
+        if (l.concepto && !d.conceptos.includes(l.concepto)) d.conceptos.push(l.concepto)
+      })
+    })
+    const idsCobro = Object.keys(det)
+    setSueltosMes(det)
+    setCobradoMes(idsCobro)
+
     const conBono = new Set((rb.data || []).map((b:any) => b.paciente_id))
     setVinieronSinBono(
       Object.entries(cuenta)
@@ -238,8 +268,7 @@ export default function CobrosPage() {
     // Los que tienen bono del mes y no están en la lista de clientes: se cargan aparte
     // para que su fila no se caiga. Una deuda no se cancela porque alguien deje de venir.
     const idsClientes = new Set((rp.data || []).map((x: any) => x.id))
-    const faltan = Array.from(new Set((rb.data || [])
-      .map((b: any) => b.paciente_id)
+    const faltan = Array.from(new Set([...(rb.data || []).map((b: any) => b.paciente_id), ...idsCobro]
       .filter((pid: string) => pid && !idsClientes.has(pid))))
     if (faltan.length > 0) {
       const rex = await supabase.from('pacientes')
@@ -264,6 +293,7 @@ export default function CobrosPage() {
    */
   const resumen = useMemo(() => {
     const vinoSet = new Set(idsMes.vino)
+    const cobrados = new Set(cobradoMes)
     const porPersona = new Map<string, EntradaMes>()
     bonos.forEach((b: any) => {
       if (!b.paciente_id) return
@@ -287,12 +317,16 @@ export default function CobrosPage() {
         }
       }
     })
-    // Quien esta en la agenda y no tiene bono: no hay nada que cobrarle, pero existe.
-    idsMes.anotados.forEach(id => {
-      if (!porPersona.has(id)) porPersona.set(id, { pacienteId: id, vino: vinoSet.has(id), bono: null })
+    // Quien esta en la agenda sin bono, y quien no esta en la agenda pero te ha
+    // pagado algo: los dos existen y los dos tienen que caer en una casilla.
+    const sueltos = Array.from(new Set([...idsMes.anotados, ...cobradoMes]))
+    sueltos.forEach(id => {
+      if (!porPersona.has(id)) {
+        porPersona.set(id, { pacienteId: id, vino: vinoSet.has(id), bono: null, cobroSuelto: cobrados.has(id) })
+      }
     })
     return resumirMes(Array.from(porPersona.values()))
-  }, [bonos, pago, idx, idsMes])
+  }, [bonos, pago, idx, idsMes, cobradoMes])
   // El índice incluye a los ex clientes: es lo que evita que sus filas se caigan.
   const pacienteDe = useMemo(
     () => Object.fromEntries([...pacientes, ...exClientes].map(p => [p.id, p])),
@@ -333,8 +367,29 @@ export default function CobrosPage() {
         // vista y no del filtro. Meterlo en `clases` fue lo que se cargó el
         // filtro "Han venido": los bonos de sesiones nunca aparecían en él.
         const clases = clasesDe[bono.paciente_id] || 0
-        return { p, bono, pagado, impago, importe, clases, mostrarClases: !esVentaPuntual(bono) }
+        /**
+         * LO QUE SE COBRO, QUE NO ES LO QUE VALE.
+         *
+         * Un alta a mitad de mes paga media cuota: 33 de un bono de 66. La fila
+         * enseñaba el precio del bono, asi que decia 66 en verde junto a un
+         * "Cobrado" y parecia que habias cobrado el mes entero.
+         */
+        const cobrado = Number(pago[bono.id]?.neto_cobrado ?? 0)
+        return { p, bono, pagado, impago, importe, cobrado, clases, mostrarClases: !esVentaPuntual(bono) }
       })
+      // UNA FILA POR BONO, Y TAMBIEN POR SERVICIO SUELTO.
+      //
+      // Un suelto no crea bono a proposito, asi que quien venia a una valoracion
+      // y la pagaba no tenia fila en ninguna pestana: contaba en la rejilla de
+      // arriba y no aparecia por ningun lado. "Clientes del mes" son los
+      // clientes del mes, tengan cuota o hayan consumido algo.
+      .concat(cobradoMes
+        .filter(pid => !bonos.some((b: any) => b.paciente_id === pid))
+        .map(pid => ({
+          p: pacienteDe[pid], bono: null as any, pagado: true, impago: false,
+          importe: sueltosMes[pid]?.total || 0, cobrado: sueltosMes[pid]?.total || 0,
+          clases: clasesDe[pid] || 0, mostrarClases: true,
+        })))
       .filter(f => !!f.p)
       .filter(f => !t || `${f.p.nombre} ${f.p.apellidos}`.toLowerCase().includes(t))
       // Los cobrados al final: mientras cobras te interesa lo que falta. Dentro
@@ -343,7 +398,7 @@ export default function CobrosPage() {
       .sort((a, b) => Number(a.pagado) - Number(b.pagado)
         || b.clases - a.clases
         || `${a.p.nombre} ${a.p.apellidos}`.localeCompare(`${b.p.nombre} ${b.p.apellidos}`))
-  }, [bonos, pacienteDe, pago, idx, busca, clasesDe])
+  }, [bonos, pacienteDe, pago, idx, busca, clasesDe, cobradoMes, sueltosMes])
 
   /** Qué entra en cada vista. Una sola definición para el contador y la lista. */
   const DE_VISTA: Record<string, (f: any) => boolean> = {
@@ -379,12 +434,15 @@ export default function CobrosPage() {
       if (!previo || clave < previo) empiezaEn.set(b.paciente_id, clave)
     })
     const t = busca.trim().toLowerCase()
+    // Quien ya te ha pagado algo este mes —una valoracion, una sesion suelta—
+    // no esta esperando que le asignes nada: se le cobro lo que vino a hacer.
+    const cobrados = new Set(cobradoMes)
     return pacientes
-      .filter(p => !conBono.has(p.id))
+      .filter(p => !conBono.has(p.id) && !cobrados.has(p.id))
       .filter(p => !t || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(t))
       .map(p => ({ ...p, empiezaEn: empiezaEn.get(p.id) || null }))
       .sort((a, b) => Number(!!a.empiezaEn) - Number(!!b.empiezaEn))
-  }, [pacientes, bonos, bonosFuturos, busca])
+  }, [pacientes, bonos, bonosFuturos, busca, cobradoMes])
 
   /** De los de arriba, los que de verdad no tienen nada previsto. */
   const faltanDeVerdad = sinCuota.filter(p => !p.empiezaEn).length
@@ -667,10 +725,10 @@ export default function CobrosPage() {
           {vista==='pendientes' ? 'No queda nadie por cobrar este mes.'
            : vista==='impagos' ? 'No hay nadie marcado como impago este mes.'
            : vista==='vinieron' ? 'Nadie con cuota ha venido todavía este mes.'
-           : 'Nadie tiene cuota asignada este mes.'}
+           : 'Nadie tiene cuota asignada ni ha consumido nada este mes.'}
         </div>
-      ) : filas.map(({ p, bono, pagado, impago, importe, clases, mostrarClases }) => (
-        <div key={bono.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderRadius:8,
+      ) : filas.map(({ p, bono, pagado, impago, importe, cobrado, clases, mostrarClases }: any) => (
+        <div key={bono?.id || p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderRadius:8,
                                 border:`1px solid ${impago?'var(--red)':'var(--bd)'}`,marginBottom:6,
                                 background:pagado?'var(--gl)':impago?'var(--redl)':'var(--w)'}}>
           <div style={{flex:1,minWidth:0}}>
@@ -688,10 +746,13 @@ export default function CobrosPage() {
               {impago && <span style={{fontSize:9,color:'var(--red)',marginLeft:6,fontWeight:600}}>impago</span>}
             </div>
             <div style={{fontSize:9,color:'var(--grl)'}}>
-              {idx[bono.tipo]?.nombre || bono.tipo}
+              {/* Sin bono, la fila la trae un cobro suelto: se dice QUÉ se le
+                  cobró, que es lo único que explica por qué está aquí. */}
+              {bono ? (idx[bono.tipo]?.nombre || bono.tipo)
+                    : (sueltosMes[p.id]?.conceptos.join(' · ') || 'Cobro suelto')}
               {/* Sin esto, las dos filas de quien tiene cuota Y sesiones se leen
                   como una duplicada. */}
-              {esVentaPuntual(bono) && <span style={{color:'var(--gd)'}}>{' · '}{bono.sesiones_totales} sesiones</span>}
+              {bono && esVentaPuntual(bono) && <span style={{color:'var(--gd)'}}>{' · '}{bono.sesiones_totales} sesiones</span>}
               {!p.dni && ' · sin DNI'}
               {/* Lo que ya ha entrenado sin haber pagado. Cuanto más alto, más urge. */}
               {!pagado && mostrarClases && clases > 0 && (
@@ -701,7 +762,15 @@ export default function CobrosPage() {
               )}
             </div>
           </div>
-          <div style={{fontSize:13,fontWeight:600,color:pagado?'#3E7179':'var(--n)'}}>{importe.toFixed(2)} €</div>
+          <div style={{textAlign:'right'}}>
+            {/* Cobrado: lo que entro. Pendiente: lo que toca cobrar. */}
+            <div style={{fontSize:13,fontWeight:600,color:pagado?'#3E7179':'var(--n)'}}>
+              {(pagado ? cobrado : importe).toFixed(2)} €
+            </div>
+            {pagado && bono && Math.abs(cobrado - importe) >= 0.01 && (
+              <div style={{fontSize:9,color:'var(--grl)'}}>de {importe.toFixed(2)} €</div>
+            )}
+          </div>
           {pagado ? (
             <span style={{fontSize:10,color:'#3E7179',display:'inline-flex',alignItems:'center',gap:4,minWidth:130,justifyContent:'flex-end'}}>
               <Ic name="check" size={13}/> Cobrado
@@ -715,7 +784,7 @@ export default function CobrosPage() {
                   {impago ? 'Pendiente' : 'Impago'}
                 </button>
               )}
-              <button className="btn btn-p btn-sm" disabled={!bono} onClick={()=>abrirCobro(p, bono)}>Cobrar</button>
+              <button className="btn btn-p btn-sm" onClick={()=>abrirCobro(p, bono)}>Cobrar</button>
             </div>
           )}
         </div>

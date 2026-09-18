@@ -24,8 +24,17 @@ export type EntradaMes = {
   pacienteId: string
   /** Vino de verdad: al menos una clase realizada. Ni programada ni falta. */
   vino: boolean
-  /** null cuando no tiene bono del mes: no se le puede cobrar nada. */
+  /** null cuando no tiene bono del mes. */
   bono: { pagado: boolean, impago: boolean, importe: number, cobrado: number } | null
+  /**
+   * Le has cobrado algo este mes sin que hubiera bono detras: una valoracion,
+   * una sesion suelta.
+   *
+   * Sin esto, quien venia a una valoracion y la pagaba se quedaba en "sin
+   * cuota" para siempre, que se lee como que no ha pagado. Y no tenia arreglo
+   * mirando solo `bonos`: un suelto no crea ninguno, a proposito.
+   */
+  cobroSuelto?: boolean
 }
 
 export type Casilla = { personas: number, importe: number, cobrado: number }
@@ -37,10 +46,11 @@ export type ResumenMes = {
   cobrado: number
 }
 
-export function estadoDe(bono: EntradaMes['bono']): EstadoCobro {
-  if (!bono) return 'sinCuota'
-  if (bono.pagado) return 'pagado'
-  return bono.impago ? 'impago' : 'pendiente'
+export function estadoDe(e: EntradaMes): EstadoCobro {
+  if (e.bono) return e.bono.pagado ? 'pagado' : (e.bono.impago ? 'impago' : 'pendiente')
+  // Sin bono pero con cobro: pago lo que consumio. Que no sea una cuota no lo
+  // deja a deber nada.
+  return e.cobroSuelto ? 'pagado' : 'sinCuota'
 }
 
 const vacia = (): Record<EstadoCobro, Casilla> => ({
@@ -53,7 +63,7 @@ const vacia = (): Record<EstadoCobro, Casilla> => ({
 export function resumirMes(entradas: EntradaMes[]): ResumenMes {
   const r: ResumenMes = { vino: vacia(), noVino: vacia(), personas: 0, pendiente: 0, cobrado: 0 }
   entradas.forEach(e => {
-    const casilla = (e.vino ? r.vino : r.noVino)[estadoDe(e.bono)]
+    const casilla = (e.vino ? r.vino : r.noVino)[estadoDe(e)]
     casilla.personas += 1
     casilla.importe += e.bono?.importe || 0
     casilla.cobrado += e.bono?.cobrado || 0
