@@ -6,9 +6,10 @@ import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
 import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
+import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
 import { cargarTarifas } from '@/lib/tarifas'
 import { abrirFactura } from '@/lib/factura'
-import { rangoDeMes } from '@/lib/fechas'
+import { rangoDeMes, hoyISO } from '@/lib/fechas'
 import Link from 'next/link'
 
 // Pilar Cobros. Quién ha pagado el mes y quién no, y desde aquí se cobra.
@@ -46,12 +47,35 @@ export default function CobrosPage() {
   // Cuántas clases lleva cada paciente este mes, sacadas de la AGENDA.
   // Es el contraste que descubre a quien viene y no paga.
   const [clasesDe, setClasesDe] = useState<Record<string, number>>({})
+  /**
+   * LA AGENDA DEL MES, POR PERSONA Y NO POR CITA.
+   *
+   * Tres numeros que se leen en cadena: quien esta anotado, quien ya ha venido
+   * de verdad y quien todavia no ha aparecido pero tiene fecha. VENIR ES
+   * `realizada` y nada mas: ocho citas puestas y ninguna marcada no es haber
+   * venido, es haberlo previsto.
+   *
+   * `vino` y `porVenir` no se solapan: quien ya vino no cuenta otra vez por
+   * tener mas clases por delante. Asi los dos caben dentro del primero.
+   */
+  const [agenda, setAgenda] = useState({ anotados: 0, vino: 0, porVenir: 0 })
+  /** Los mismos de arriba pero por id, que es lo que hace falta para cruzarlos con los bonos. */
+  const [idsMes, setIdsMes] = useState<{ anotados: string[], vino: string[] }>({ anotados: [], vino: [] })
   const [vinieronSinBono, setVinieronSinBono] = useState<any[]>([])
   const [busca, setBusca] = useState('')
   // Tres vistas en vez de un interruptor. "Ver todos" sacaba también a quien no
   // tiene cuota ni ha venido, y eso es ruido: la lista va de cobrar el mes.
-  const [vista, setVista] = useState<'pendientes'|'vinieron'|'todos'|'sincuota'>('pendientes')
+  const [vista, setVista] = useState<'pendientes'|'impagos'|'vinieron'|'todos'|'sincuota'>('pendientes')
   const [cobrando, setCobrando] = useState<any>(null)
+  /**
+   * COBRAR A QUIEN NO TIENE BONO.
+   *
+   * Una valoracion suelta, una sesion puntual, algo que se vende una vez: la
+   * lista va por bono, asi que esa persona no tiene fila y no habia forma de
+   * cobrarle. `ModalCobro` ya funciona sin bono —empieza con las lineas vacias
+   * y tienes tus tarifas en "Anadir linea"—, solo faltaba la puerta.
+   */
+  const [eligiendo, setEligiendo] = useState(false)
   const [aviso, setAviso] = useState<string|null>(null)
   // Última factura emitida, para poder imprimirla sin buscarla.
   const [ultima, setUltima] = useState<string|null>(null)
@@ -113,7 +137,15 @@ export default function CobrosPage() {
       supabase.from('bonos').select('paciente_id,mes,anio').eq('activo', true)
         .or(`anio.gt.${anio},and(anio.eq.${anio},mes.gt.${mes})`),
       supabase.from('planes').select('*').eq('activo', true),
-      supabase.from('facturas').select('id,serie,numero,fecha_expedicion,tipo,total,cobro_id').order('fecha_expedicion',{ascending:false}).limit(30),
+      // EL DESEMPATE POR `numero` NO ES COSMETICO. Ordenando solo por fecha, dos
+      // facturas del mismo dia vuelven en orden arbitrario y la tarjeta podia
+      // enseñar la 0012 cuando la ultima emitida fue la 0014. En una serie que
+      // va numerada por ley, enseñar la que no es confunde de verdad.
+      //
+      // Va SIN filtro de mes a proposito: esto es "la ultima que emiti, para
+      // imprimirla sin buscarla", no un dato del mes que estas mirando.
+      supabase.from('facturas').select('id,serie,numero,fecha_expedicion,tipo,total,cobro_id')
+        .order('fecha_expedicion',{ascending:false}).order('numero',{ascending:false}).limit(30),
     ])
     const errs = ([['pacientes',rp],['bonos',rb],['bonos futuros',rfut],['planes',rpl],['facturas',rf]] as const)
       .filter(([,r]) => r.error).map(([n,r]) => `${n}: ${r.error!.message}`)
@@ -129,31 +161,63 @@ export default function CobrosPage() {
     // Ver lib/fechas. Con el cálculo viejo, las clases del último día del mes
     // no se contaban: el recuento de "ha venido" se quedaba corto cada mes.
     const { desde: desdeM, hasta: hastaM } = rangoDeMes(anio, mes)
-    // EL LÍMITE VA EXPLÍCITO. Supabase devuelve como mucho 1000 filas si no se
-    // le dice otra cosa, y no avisa de que ha cortado. Agosto de 2026 ya tiene
-    // 830 citas entre realizadas y programadas: en cuanto un mes pase de mil,
-    // parte de las clases dejarían de contarse y la lista diría que alguien ha
-    // venido menos veces de las que ha venido. Un recuento que se queda corto
-    // en silencio es peor que no tenerlo.
-    const TOPE_CITAS = 5000
-    const rcit = await supabase.from('citas')
-      .select('paciente_id, pacientes(nombre,apellidos)')
-      .gte('fecha', desdeM).lte('fecha', hastaM)
-      .in('estado', ['realizada','programada'])
-      .limit(TOPE_CITAS)
-    if (rcit.error) errs.push(`citas del mes: ${rcit.error.message}`)
-    if ((rcit.data?.length || 0) >= TOPE_CITAS) {
-      errs.push(`hay más de ${TOPE_CITAS} clases este mes y solo se han leído las primeras: el recuento de clases se queda corto`)
+    /**
+     * EL `.limit()` DEL CLIENTE NO SUBE EL TECHO DEL SERVIDOR.
+     *
+     * PostgREST corta TODA respuesta en `max-rows` —1000 en Supabase por
+     * defecto— y no avisa de que ha cortado. Pedir `.limit(5000)` no cambia
+     * eso: devuelve 1000 y se queda tan ancho. Con 1.468 citas en septiembre
+     * se perdían casi 500, y la pantalla decía 141 personas donde había 152.
+     *
+     * El guardia de antes comparaba contra 5000, así que nunca saltaba: el
+     * recuento se quedaba corto en el único sitio donde nadie miraba.
+     *
+     * Se pide por páginas hasta que una vuelve incompleta. El `.order('id')`
+     * no es cosmético: sin un orden estable, dos páginas pueden repetir filas
+     * y saltarse otras.
+     */
+    const PAGINA = 1000
+    const TOPE_CITAS = 20000
+    const citasMes: any[] = []
+    for (let desde = 0; desde < TOPE_CITAS; desde += PAGINA) {
+      const r = await supabase.from('citas')
+        .select('paciente_id, estado, fecha, pacientes(nombre,apellidos)')
+        .gte('fecha', desdeM).lte('fecha', hastaM)
+        // 'falta' entra SOLO para el recuento de anotados: quien no se presentó
+        // estaba en la agenda igual. No toca `clasesDe`, que se filtra debajo.
+        .in('estado', ['realizada','programada','falta'])
+        .order('id')
+        .range(desde, desde + PAGINA - 1)
+      if (r.error) { errs.push(`citas del mes: ${r.error.message}`); break }
+      citasMes.push(...(r.data || []))
+      if ((r.data?.length || 0) < PAGINA) break
+    }
+    if (citasMes.length >= TOPE_CITAS) {
+      errs.push(`hay más de ${TOPE_CITAS} clases este mes y solo se han leído las primeras: el recuento se queda corto`)
     }
 
     const cuenta: Record<string, number> = {}
     const nombreDe: Record<string, string> = {}
-    ;(rcit.data || []).forEach((c: any) => {
+    const hoy = hoyISO()
+    const anotados = new Set<string>(), vino = new Set<string>(), futura = new Set<string>()
+    ;citasMes.forEach((c: any) => {
       if (!c.paciente_id) return
-      cuenta[c.paciente_id] = (cuenta[c.paciente_id] || 0) + 1
+      anotados.add(c.paciente_id)
+      if (c.estado === 'realizada') vino.add(c.paciente_id)
+      if (c.estado === 'programada' && c.fecha >= hoy) futura.add(c.paciente_id)
+      // `clasesDe` cuenta lo de siempre: realizadas y programadas, nunca faltas.
+      if (c.estado === 'realizada' || c.estado === 'programada') {
+        cuenta[c.paciente_id] = (cuenta[c.paciente_id] || 0) + 1
+      }
       if (c.pacientes) nombreDe[c.paciente_id] = `${c.pacientes.nombre} ${c.pacientes.apellidos}`
     })
     setClasesDe(cuenta)
+    setAgenda({
+      anotados: anotados.size,
+      vino: vino.size,
+      porVenir: Array.from(futura).filter(id => !vino.has(id)).length,
+    })
+    setIdsMes({ anotados: Array.from(anotados), vino: Array.from(vino) })
 
     const conBono = new Set((rb.data || []).map((b:any) => b.paciente_id))
     setVinieronSinBono(
@@ -192,6 +256,44 @@ export default function CobrosPage() {
   }
 
   const idx = useMemo(() => indicePlanes(planes), [planes])
+
+  /**
+   * LAS OCHO CASILLAS DEL MES.
+   *
+   * Aparte de la lista a proposito: la lista va por BONO y la filtra el
+   * buscador; esto va por PERSONA y es la foto del mes, que no se mueve.
+   */
+  const resumen = useMemo(() => {
+    const vinoSet = new Set(idsMes.vino)
+    const porPersona = new Map<string, EntradaMes>()
+    bonos.forEach((b: any) => {
+      if (!b.paciente_id) return
+      const pagado = !!pago[b.id]?.pagado
+      const nuevo = {
+        pagado,
+        impago: !pagado && b.estado_pago === 'impago',
+        importe: precioConDescuento(precioFinalPlan(idx[b.tipo]), b),
+        cobrado: Number(pago[b.id]?.neto_cobrado ?? 0),
+      }
+      const prev = porPersona.get(b.paciente_id)
+      if (!prev || !prev.bono) {
+        porPersona.set(b.paciente_id, { pacienteId: b.paciente_id, vino: vinoSet.has(b.paciente_id), bono: nuevo })
+      } else {
+        // Cuota Y sesiones la misma persona: se suman, y solo esta pagada si lo estan las dos.
+        prev.bono = {
+          pagado: prev.bono.pagado && nuevo.pagado,
+          impago: prev.bono.impago || nuevo.impago,
+          importe: prev.bono.importe + nuevo.importe,
+          cobrado: prev.bono.cobrado + nuevo.cobrado,
+        }
+      }
+    })
+    // Quien esta en la agenda y no tiene bono: no hay nada que cobrarle, pero existe.
+    idsMes.anotados.forEach(id => {
+      if (!porPersona.has(id)) porPersona.set(id, { pacienteId: id, vino: vinoSet.has(id), bono: null })
+    })
+    return resumirMes(Array.from(porPersona.values()))
+  }, [bonos, pago, idx, idsMes])
   // El índice incluye a los ex clientes: es lo que evita que sus filas se caigan.
   const pacienteDe = useMemo(
     () => Object.fromEntries([...pacientes, ...exClientes].map(p => [p.id, p])),
@@ -246,7 +348,10 @@ export default function CobrosPage() {
 
   /** Qué entra en cada vista. Una sola definición para el contador y la lista. */
   const DE_VISTA: Record<string, (f: any) => boolean> = {
-    pendientes: (f: any) => !f.pagado,
+    // Pendiente e impago son cosas distintas y ahora tienen pestaña cada una:
+    // pendiente es "aun no ha pagado"; impago es que TU has dicho que no paga.
+    pendientes: (f: any) => !f.pagado && !f.impago,
+    impagos:    (f: any) => f.impago,
     vinieron:   (f: any) => f.clases > 0,
     todos:      () => true,
   }
@@ -294,6 +399,23 @@ export default function CobrosPage() {
 
   // "Sin cuota" no filtra bonos: pinta pacientes, y se resuelve aparte abajo.
   const filas = useMemo(() => base.filter(DE_VISTA[vista] || DE_VISTA.todos), [base, vista])
+
+  /**
+   * QUE CASILLA MIRA CADA PESTANA.
+   *
+   * La rejilla se ve siempre; lo que cambia es que se apaga lo que no estas
+   * mirando. Asi el numero de la pestana no hay que repetirlo en ningun sitio:
+   * esta ahi, encendido.
+   */
+  const RESALTA: Record<string, { col?: string, fila?: string }> = {
+    pendientes: { col: 'pendiente' },
+    impagos:    { col: 'impago' },
+    sincuota:   { col: 'sinCuota' },
+    vinieron:   { fila: 'vino' },
+  }
+  const foco = RESALTA[vista]
+  const colViva  = (c: string) => !foco || !foco.col  || foco.col === c
+  const filaViva = (f: string) => !foco || !foco.fila || foco.fila === f
 
   /**
    * Abre el cobro mirando antes si al paciente se le ha cobrado alguna vez.
@@ -372,12 +494,12 @@ export default function CobrosPage() {
               mismo, que es lo que pasa cuando nadie ha pagado todavía y todos
               tienen clases: entonces no es que el filtro no haga nada, es que
               las tres listas son la misma gente. */}
-          {([['pendientes','Pendientes'],['vinieron','Han venido'],['todos','Todos'],['sincuota','Sin cuota']] as const).map(([k,l])=>(
+          {([['todos','Clientes del mes'],['pendientes','Pendientes'],['impagos','Impagos'],['vinieron','Han venido'],['sincuota','Sin cuota']] as const).map(([k,l])=>(
             <button key={k} onClick={()=>setVista(k)}
               style={{fontSize:10,padding:'6px 11px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',
                 background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',
                 fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
-              {l} <span style={{opacity:.6}}>{cuenta[k]}</span>
+              {l}
             </button>
           ))}
         </div>
@@ -425,70 +547,77 @@ export default function CobrosPage() {
         </div>
       )}
 
-      {/* VIENE Y NO TIENE CUOTA
-          El agujero que no tapaba nada: esta pantalla lista a quien TIENE bono,
-          así que alguien sin bono asignado entrenaba sin aparecer en ningún
-          sitio. Se cruza con la agenda y se enseña arriba, en rojo, porque es
-          dinero que se está yendo sin que nadie lo vea. */}
-      {vinieronSinBono.length > 0 && (
-        <div style={{background:'var(--redl)',border:'1px solid var(--red)',borderRadius:8,padding:'11px 14px',marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:600,color:'var(--red)',display:'flex',alignItems:'center',gap:5,marginBottom:7}}>
-            <Ic name="alerta" size={13}/>
-            {vinieronSinBono.length} {vinieronSinBono.length===1?'persona ha venido':'personas han venido'} este mes sin cuota asignada
+      <div style={{display:'flex',alignItems:'flex-start',gap:26,flexWrap:'wrap',
+                   marginBottom:16,paddingBottom:14,borderBottom:'1px solid var(--bd)'}}>
+        {!cargando && (
+        <div style={{flex:1,minWidth:430}}>
+          <div style={{display:'grid',gridTemplateColumns:'104px 66px repeat(4,1fr)',gap:'9px 12px',alignItems:'baseline'}}>
+            <span/>
+            <span style={{fontSize:8,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Total</span>
+            {([['pagado','Pagado','#3E7179'],['pendiente','Pendiente','#D4A24E'],
+               ['impago','Impago','#C25B5B'],['sinCuota','Sin cuota','var(--grl)']] as const)
+              .map(([k,l]) => (
+                <span key={'h'+k} style={{fontSize:8,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,
+                                          opacity: colViva(k) ? 1 : .3}}>{l}</span>
+              ))}
+            {([['vino','Vinieron'],['noVino','No vinieron']] as const).map(([f,lf]) => [
+              <span key={'l'+f} style={{fontSize:10,color:'var(--gr)',opacity: filaViva(f) ? 1 : .3}}>{lf}</span>,
+              <div key={'t'+f} style={{fontSize:22,fontWeight:600,lineHeight:1.1,color:'var(--n)',
+                                       borderRight:'1px solid var(--bd)',paddingRight:12,
+                                       opacity: filaViva(f) ? 1 : .3}}>
+                {resumen[f].pagado.personas + resumen[f].pendiente.personas
+                 + resumen[f].impago.personas + resumen[f].sinCuota.personas}
+              </div>,
+              ...([['pagado','#3E7179'],['pendiente','#D4A24E'],
+                   ['impago','#C25B5B'],['sinCuota','var(--grl)']] as const).map(([c,color]) => {
+                const cel = resumen[f][c]
+                const viva = colViva(c) && filaViva(f)
+                return (
+                  <div key={f+c} style={{opacity: viva ? 1 : .3}}>
+                    <div style={{fontSize:22,fontWeight:500,lineHeight:1.1,
+                                 color: cel.personas ? color : 'var(--grl)'}}>{cel.personas}</div>
+                  </div>
+                )
+              }),
+            ])}
           </div>
-          <div style={{fontSize:10,color:'#8A3A3A',marginBottom:9,lineHeight:1.6}}>
-            Tienen citas en la agenda pero ningún bono de {MESES[mes-1].toLowerCase()}, así que no salen en la lista de abajo ni cuentan en el pendiente. Asígnales bono desde su ficha.
+          <div style={{fontSize:9,color:'var(--grl)',marginTop:10,lineHeight:1.6}}>
+            {resumen.personas} personas este mes. Venir es haber dado al menos una clase;
+            sin cuota es no tener bono del mes.
           </div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-            {vinieronSinBono.map(v=>(
-              <Link key={v.id} href={`/pacientes/${v.id}`}
-                style={{fontSize:10,padding:'4px 10px',borderRadius:99,background:'var(--w)',border:'1px solid #E8C4C4',
-                        color:'var(--n)',textDecoration:'none',whiteSpace:'nowrap'}}>
-                {v.nombre} <span style={{color:'var(--red)',fontWeight:600}}>{v.clases}</span>
-              </Link>
+        </div>
+        )}
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'stretch',gap:8}}>
+        {eligiendo ? (
+          <select className="input" style={{width:200,alignSelf:'center'}} autoFocus defaultValue=""
+            onChange={e=>{ const pa = pacienteDe[e.target.value]; setEligiendo(false); if (pa) abrirCobro(pa, null) }}
+            onBlur={()=>setEligiendo(false)}>
+            <option value="">Elige paciente…</option>
+            {pacientes.map((pa:any)=>(
+              <option key={pa.id} value={pa.id}>{pa.nombre} {pa.apellidos}</option>
             ))}
-          </div>
-        </div>
-      )}
-
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:10,marginBottom:16}}>
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Cobrado</div>
-          <div style={{fontSize:24,fontWeight:300,color:'#3E7179',marginTop:4}}>{nPagados}</div>
-          <div style={{fontSize:9,color:'var(--grl)'}}>cuotas de {bonos.length}</div>
-        </div>
-        {/* El pendiente en euros solo para quien ve las finanzas. Para el resto, la misma
-            información útil —a cuánta gente hay que cobrar— sin la cifra de la clínica. */}
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Pendiente</div>
-          {veImportes ? (
-            <>
-              <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{totalPendiente.toFixed(0)} €</div>
-              <div style={{fontSize:9,color:'var(--grl)'}}>
-                {nPendientes} cobro{nPendientes===1?'':'s'}
-                {pacientesPendientes !== nPendientes && ` · ${pacientesPendientes} personas`}
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{fontSize:24,fontWeight:300,color:'#D4A24E',marginTop:4}}>{nPendientes}</div>
-              <div style={{fontSize:9,color:'var(--grl)'}}>
-                cobros{pacientesPendientes !== nPendientes && ` · ${pacientesPendientes} personas`}
-              </div>
-            </>
-          )}
-        </div>
-        <div className="card" style={{textAlign:'center',margin:0}}>
-          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Han venido</div>
-          <div style={{fontSize:24,fontWeight:300,color:'var(--n)',marginTop:4}}>{Object.keys(clasesDe).length}</div>
-          <div style={{fontSize:9,color:'var(--grl)'}}>personas distintas</div>
-        </div>
-        <div className="card" style={{textAlign:'center',margin:0}}>
+          </select>
+        ) : (
+          <button onClick={()=>setEligiendo(true)} title="Cobrar algo suelto a quien no tiene bono"
+            style={{width:94,minHeight:94,border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',
+                    background:'#5A969E',color:'#fff',display:'flex',flexDirection:'column',
+                    alignItems:'center',justifyContent:'center',gap:6,padding:8}}>
+            <Ic name="dinero" size={20}/>
+            <span style={{fontSize:10,fontWeight:500,lineHeight:1.25}}>Cobro suelto</span>
+          </button>
+        )}
+        <div className="card" style={{textAlign:'center',margin:0,minWidth:150}}>
           <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Última factura</div>
           <div style={{fontSize:24,fontWeight:300,color:'#5A969E',marginTop:4}}>
             {facturas[0] ? `${facturas[0].serie}/${String(facturas[0].numero).padStart(4,'0')}` : '—'}
           </div>
-          <div style={{fontSize:9,color:'var(--grl)'}}>{facturas.length ? `${facturas.length} recientes` : 'ninguna aún'}</div>
+          {/* Antes decia "30 recientes", que era el `limit` disfrazado de dato. */}
+          <div style={{fontSize:9,color:'var(--grl)'}}>
+            {facturas[0]
+              ? new Date(facturas[0].fecha_expedicion+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+              : 'ninguna aún'}
+          </div>
+        </div>
         </div>
       </div>
 
@@ -537,6 +666,7 @@ export default function CobrosPage() {
       ) : filas.length === 0 ? (
         <div style={{fontSize:11,color:'var(--grl)',padding:24,textAlign:'center'}}>
           {vista==='pendientes' ? 'No queda nadie por cobrar este mes.'
+           : vista==='impagos' ? 'No hay nadie marcado como impago este mes.'
            : vista==='vinieron' ? 'Nadie con cuota ha venido todavía este mes.'
            : 'Nadie tiene cuota asignada este mes.'}
         </div>

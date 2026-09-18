@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts'
 import { Ic } from '@/lib/icons'
 import { mesISO } from '@/lib/fechas'
+import { traerTodo } from '@/lib/paginar'
 
 const PAL = { g:'#5A969E', gd:'#3E7179', bg:'#EBF4F5', red:'#C25B5B', amb:'#D4A24E' }
 const GREY='#9CA3AF'
@@ -30,20 +31,38 @@ export default function StatsPage() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: p },{ data: c },{ data: r },{ data: m },{ data: pat },{ data: t },{ data: o },{ data: po },{ data: s }] = await Promise.all([
+    /**
+     * LAS DOS TABLAS GRANDES VAN PAGINADAS.
+     *
+     * `.limit(3000)` sobre 6.764 citas devolvia 1.000: el techo lo pone el
+     * servidor, no el cliente, y no avisa. Ordenadas por fecha descendente,
+     * esas 1.000 eran las mas nuevas —las clases futuras y las de estas
+     * semanas—, asi que la grafica de "ultimos 6 meses" se pintaba con dos y
+     * el porcentaje de asistencia "global" salia de una ventana de semanas.
+     *
+     * NO se filtra por fecha a proposito: estos numeros dicen historico y
+     * tienen que seguir diciendolo. Son siete peticiones y esta pantalla se
+     * abre de vez en cuando; el dato correcto vale mas que el medio segundo.
+     */
+    const [{ data: p },{ data: r },{ data: m },{ data: pat },{ data: t },{ data: o },{ data: po }, cit, ses] = await Promise.all([
       supabase.from('pacientes').select('id,estado,tipo_clase,fecha_nacimiento,created_at,como_nos_conocio').order('created_at'),
-      supabase.from('citas').select('id,fecha,hora,estado,tipo,paciente_id,pacientes(nombre,apellidos)').order('fecha',{ascending:false}).limit(3000),
       supabase.from('recuperaciones').select('*').order('created_at',{ascending:false}),
       supabase.from('molestias').select('zona,activa,eva').eq('activa',true),
       supabase.from('patologias').select('nombre,estado'),
       supabase.from('resultados_tests').select('resultado,tests(nombre)').order('created_at',{ascending:false}).limit(400),
       supabase.from('objetivos').select('id,nombre,activo'),
       supabase.from('pacientes_objetivos').select('paciente_id,objetivo_id'),
-      supabase.from('sesiones').select('id,created_at,estado').order('created_at',{ascending:false}).limit(2000),
+      traerTodo((d,h) => supabase.from('citas')
+        .select('id,fecha,hora,estado,tipo,paciente_id,pacientes(nombre,apellidos)')
+        .order('id').range(d,h)),
+      traerTodo((d,h) => supabase.from('sesiones')
+        .select('id,created_at,estado').order('id').range(d,h)),
     ])
-    setPacientes(p||[]); setCitas(c||[]); setRecuperaciones(r||[])
+    setPacientes(p||[]); setCitas(cit.filas); setRecuperaciones(r||[])
     setMolestias(m||[]); setPatologias(pat||[]); setTests(t||[])
-    setObjetivos(o||[]); setPacObj(po||[]); setSesiones(s||[])
+    setObjetivos(o||[]); setPacObj(po||[]); setSesiones(ses.filas)
+    if (cit.error) console.error('citas:', cit.error)
+    if (ses.error) console.error('sesiones:', ses.error)
     setLoading(false)
   }
 
