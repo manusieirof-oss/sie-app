@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
+import { ocupacionPorSala } from '@/lib/citas'
 
-export default function ModalEditarCitas({ citas, pacienteNombre, horas=[], salas=['A','B'], tiposClase=[], guardando, onGuardar, onEstado, onEliminar, onCerrar }: any) {
+export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, horas=[], salas=['A','B'], tiposClase=[], maxPersonas=6, guardando, onGuardar, onEstado, onEliminar, onCrear, onCerrar }: any) {
   const [rows, setRows] = useState<any[]>(
     (citas||[]).slice().sort((a:any,b:any)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).map((c:any)=>({
       id:c.id, paciente_id:c.paciente_id, fecha:c.fecha, hora:(c.hora||'').slice(0,5), sala:c.sala, tipo:c.tipo, estado:c.estado,
@@ -24,11 +25,62 @@ export default function ModalEditarCitas({ citas, pacienteNombre, horas=[], sala
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
   const set = (id:string, k:string, v:string) => setRows(p=>p.map(r=>r.id===id?{...r,[k]:v}:r))
 
-  const orig = (id:string) => (citas||[]).find((c:any)=>c.id===id)
+  // Tambien mira en `rows`: una cita creada aqui mismo no esta en las que
+  // llegaron por props, y cancelarla o borrarla se quedaba sin objeto.
+  const orig = (id:string) => (citas||[]).find((c:any)=>c.id===id) || rows.find(r=>r.id===id)
   const cambiada = (r:any) => { const o=orig(r.id); return o && (o.fecha!==r.fecha || (o.hora||'').slice(0,5)!==r.hora || o.sala!==r.sala || o.tipo!==r.tipo) }
   const nCambios = rows.filter(cambiada).length
 
   const diaSemana = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short'})
+
+  /**
+   * UNA CITA MAS, SIN SALIR DE AQUI.
+   *
+   * El paciente y su tipo de clase ya se saben; lo unico que falta es cuando. Y
+   * para decidir cuando hace falta ver QUIEN HAY YA en cada sala a esa hora:
+   * elegir a ciegas es como se llenan de mas unas y quedan vacias otras.
+   */
+  const ultima = rows[rows.length-1]
+  const [nueva, setNueva] = useState({
+    fecha: '', hora: HORAS[0],
+    sala: ultima?.sala || salas[0],
+    tipo: ultima?.tipo || tiposClase[0]?.valor || '',
+  })
+  const [ocup, setOcup] = useState<Record<string,number>|null>(null)
+  const [mirando, setMirando] = useState(false)
+  const [creando, setCreando] = useState(false)
+  const [errNueva, setErrNueva] = useState('')
+
+  useEffect(() => {
+    if (!nueva.fecha || !nueva.hora) { setOcup(null); return }
+    let vivo = true
+    setMirando(true)
+    ocupacionPorSala(nueva.fecha, nueva.hora).then(r => {
+      if (!vivo) return
+      setOcup(r.porSala)
+      setMirando(false)
+    })
+    // Se anula la respuesta vieja si cambias de dia mientras llega: sin esto, la
+    // primera consulta puede contestar la ultima y pintar la ocupacion de otro dia.
+    return () => { vivo = false }
+  }, [nueva.fecha, nueva.hora])
+
+  async function crear() {
+    if (!onCrear || !pacienteId || !nueva.fecha) return
+    setErrNueva('')
+    setCreando(true)
+    const r = await onCrear({ ...nueva, pacienteId })
+    setCreando(false)
+    if (!r?.ok) { setErrNueva(r?.error || 'No se ha podido crear la cita'); return }
+    setRows(p => [...p, {
+      id: r.cita.id, paciente_id: r.cita.paciente_id, fecha: r.cita.fecha,
+      hora: (r.cita.hora||'').slice(0,5), sala: r.cita.sala, tipo: r.cita.tipo, estado: r.cita.estado,
+    }].sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)))
+    avisar('Cita creada')
+    // La fecha se limpia y lo demas se queda: lo normal es añadir varias seguidas
+    // al mismo paciente, en la misma sala y a la misma hora.
+    setNueva(n => ({ ...n, fecha: '' }))
+  }
 
   return (
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando)onCerrar()}}>
@@ -88,6 +140,71 @@ export default function ModalEditarCitas({ citas, pacienteNombre, horas=[], sala
             )
           })}
         </div>
+
+        {onCrear && pacienteId && (
+          <div style={{marginTop:10,paddingTop:11,borderTop:'1px solid var(--bd)'}}>
+            <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:6}}>
+              Añadir una cita
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:GT,gap:6,alignItems:'center'}}>
+              <div style={{display:'flex',alignItems:'center',gap:5}}>
+                <input type="date" className="input" value={nueva.fecha} onChange={e=>setNueva(n=>({...n,fecha:e.target.value}))}
+                  disabled={creando||guardando} style={{fontSize:11,padding:'5px 7px'}}/>
+                <span style={{fontSize:9,color:'var(--grl)',width:24,flexShrink:0,textTransform:'capitalize'}}>
+                  {nueva.fecha ? diaSemana(nueva.fecha) : ''}
+                </span>
+              </div>
+              <select className="input" value={nueva.hora} onChange={e=>setNueva(n=>({...n,hora:e.target.value}))}
+                disabled={creando||guardando} style={{fontSize:11,padding:'5px 7px'}}>
+                {HORAS.map((h:string)=><option key={h} value={h}>{h}</option>)}
+              </select>
+              <select className="input" value={nueva.sala} onChange={e=>setNueva(n=>({...n,sala:e.target.value}))}
+                disabled={creando||guardando} style={{fontSize:11,padding:'5px 7px'}}>
+                {salas.map((s:string)=><option key={s} value={s}>{s}</option>)}
+              </select>
+              <div style={{display:'flex',alignItems:'center',gap:5,minWidth:0}}>
+                <span style={{display:'inline-flex',color:colorTipo(nueva.tipo),flexShrink:0}}>
+                  <Ic name={iconTipoClase(nueva.tipo,(tiposClase.find((t:any)=>t.valor===nueva.tipo)||{}).icono)} size={14}/>
+                </span>
+                <select className="input" value={nueva.tipo} onChange={e=>setNueva(n=>({...n,tipo:e.target.value}))}
+                  disabled={creando||guardando} style={{fontSize:11,padding:'5px 7px'}}>
+                  {tiposClase.map((t:any)=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}
+                </select>
+              </div>
+              <div style={{display:'flex',justifyContent:'flex-end'}}>
+                <button className="btn btn-p btn-sm" onClick={crear} disabled={!nueva.fecha||creando||guardando}>
+                  {creando ? '…' : '+ Añadir'}
+                </button>
+              </div>
+            </div>
+
+            {/* QUIEN HAY YA a esa hora, sala por sala. Es el dato que decide. */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginTop:7,flexWrap:'wrap',minHeight:16}}>
+              {!nueva.fecha ? (
+                <span style={{fontSize:9,color:'var(--grl)'}}>Elige el día y verás cuánta gente hay en cada sala.</span>
+              ) : mirando ? (
+                <span style={{fontSize:9,color:'var(--grl)'}}>Mirando la ocupación…</span>
+              ) : (
+                salas.map((sa:string)=>{
+                  const n = (ocup?.[sa]) || 0
+                  const lleno = n >= maxPersonas
+                  return (
+                    <span key={sa} onClick={()=>setNueva(x=>({...x,sala:sa}))}
+                      style={{fontSize:10,cursor:'pointer',padding:'2px 9px',borderRadius:99,
+                              border:`1px solid ${nueva.sala===sa?'var(--g)':'var(--bd)'}`,
+                              background:nueva.sala===sa?'var(--gl)':'var(--w)',
+                              color:lleno?'var(--red)':'var(--gr)',fontWeight:lleno?600:400}}>
+                      Sala {sa} <strong style={{color:lleno?'var(--red)':'var(--n)'}}>{n}</strong>
+                      <span style={{color:'var(--grl)',fontWeight:400}}>/{maxPersonas}</span>
+                      {lleno && ' · llena'}
+                    </span>
+                  )
+                })
+              )}
+            </div>
+            {errNueva && <div style={{fontSize:10,color:'var(--red)',marginTop:6}}>{errNueva}</div>}
+          </div>
+        )}
 
         {flash && (
           <div style={{marginTop:10,fontSize:10,color:'var(--gd)',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,padding:'6px 10px',display:'flex',alignItems:'center',gap:6}}>

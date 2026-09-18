@@ -132,6 +132,25 @@ async function bonoDisponible(pacienteId: string, fecha: string) {
 }
 
 /** Una sola cita. Devuelve la fila creada, que hace falta para enganchar recuperaciones. */
+/**
+ * CUANTA GENTE HAY EN CADA SALA a una fecha y una hora.
+ *
+ * Se pregunta a la base y no se cuenta sobre las citas ya cargadas en pantalla,
+ * porque la agenda solo trae el rango que estas viendo: al citar a alguien para
+ * el mes que viene, contar en local daria cero y parecerian salas vacias.
+ *
+ * Las canceladas no ocupan hueco: avisaron y la plaza se libero.
+ */
+export async function ocupacionPorSala(fecha: string, hora: string) {
+  const h = hora.length === 5 ? hora + ':00' : hora
+  const { data, error } = await supabase.from('citas')
+    .select('sala').eq('fecha', fecha).eq('hora', h).neq('estado', 'cancelada')
+  const porSala: Record<string, number> = {}
+  if (error) return { ok: false as const, error: error.message, porSala }
+  ;(data || []).forEach((c: any) => { const s = c.sala || '—'; porSala[s] = (porSala[s] || 0) + 1 })
+  return { ok: true as const, error: null, porSala }
+}
+
 export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true; cita: any; sinBono?: number } | { ok: false; error: string }> {
   const { bonoId } = await bonoDisponible(d.pacienteId, fecha)
   const { data, error } = await supabase.from('citas').insert({ ...fila(fecha, d), bono_id: bonoId }).select().single()

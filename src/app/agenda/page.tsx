@@ -292,6 +292,26 @@ export default function AgendaPage() {
     setEditandoCita(null); setGuardando(false); cargar()
   }
 
+  /**
+   * UNA CITA MAS PARA EL MISMO PACIENTE, desde el modal de sus sesiones.
+   *
+   * Reaprovecha todo lo que ya se sabe de el —quien es, que tipo de clase, en
+   * que sala— y solo pregunta cuando. Antes habia que cerrar, cambiar de dia y
+   * abrir el alta completa, y eso para añadir un dia suelto a alguien que ya
+   * viene es una vuelta larga.
+   *
+   * Devuelve la cita creada para que el modal la pinte sin recargar: si
+   * desapareciera hasta volver a abrirlo, no sabrias si se ha guardado.
+   */
+  async function crearCitaSuelta(d:{fecha:string,hora:string,sala:string,tipo:string,pacienteId:string}) {
+    setGuardando(true)
+    const r = await crearUnaCita(d.fecha, { pacienteId: d.pacienteId, hora: d.hora, sala: d.sala, tipo: d.tipo })
+    setGuardando(false)
+    if (!r.ok) return { ok: false as const, error: r.error }
+    cargar()
+    return { ok: true as const, cita: r.cita }
+  }
+
   async function guardarCitasMultiple(editados:any[]) {
     if (!editados || editados.length===0) { setEditandoMulti(null); return }
     setGuardando(true)
@@ -647,7 +667,7 @@ export default function AgendaPage() {
         <>
           {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita} soloHueco={soloHueco} salas={salas}/>}
-          {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string)=>setEditandoMulti({citas:cts,nombre})} maxPersonas={maxPersonas} eventos={eventos}/>}
+          {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string,pacienteId:string)=>setEditandoMulti({citas:cts,nombre,pacienteId})} maxPersonas={maxPersonas} eventos={eventos}/>}
         </>
       )}
 
@@ -681,7 +701,7 @@ export default function AgendaPage() {
 
       {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} salas={salas}/>}
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}
-      {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} horas={horas} salas={salas} tiposClase={tiposClase} guardando={guardando} onGuardar={guardarCitasMultiple} onEstado={cambiarEstadoCita} onEliminar={borrarCitaDirecto} onCerrar={()=>setEditandoMulti(null)}/>}
+      {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} pacienteId={editandoMulti.pacienteId} horas={horas} salas={salas} tiposClase={tiposClase} maxPersonas={maxPersonas} guardando={guardando} onGuardar={guardarCitasMultiple} onEstado={cambiarEstadoCita} onEliminar={borrarCitaDirecto} onCrear={crearCitaSuelta} onCerrar={()=>setEditandoMulti(null)}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} alertasPaciente={alertasPaciente} onCerrar={()=>setVerEntrenoCita(null)}/>}
       {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}

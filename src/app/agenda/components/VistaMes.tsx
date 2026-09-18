@@ -14,7 +14,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
   setVista: (v: 'dia'|'semana'|'mes') => void
   pacientes?: any[]
   tiposClase?: any[]
-  onEditarMulti?: (citas:any[], nombre:string) => void
+  onEditarMulti?: (citas:any[], nombre:string, pacienteId:string) => void
   maxPersonas?: number
   eventos?: any[]
 }) {
@@ -40,7 +40,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
   const resultados = q.trim() ? pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(q.toLowerCase())).slice(0,8) : []
 
   const citasPac = pacSel ? citas.filter((c:any)=>c.paciente_id===pacSel.id) : []
-  const abrirMulti = () => { if (pacSel && onEditarMulti) onEditarMulti(citasPac, pacSel.nombre) }
+  const abrirMulti = () => { if (pacSel && onEditarMulti) onEditarMulti(citasPac, pacSel.nombre, pacSel.id) }
 
   const dias = getDiasMes()
   const nRows = Math.max(1, Math.ceil(dias.length/7))
