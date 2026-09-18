@@ -56,7 +56,6 @@ export default function PacientesPage() {
   // pilar Cobros: un solo camino de escritura, varias puertas de entrada.
   const [cobrando, setCobrando] = useState<any>(null)
   const [planes, setPlanes] = useState<any[]>([])
-  const [servicios, setServicios] = useState<any[]>([])
   const [descuentos, setDescuentos] = useState<any[]>([])
   const [pagoBono, setPagoBono] = useState<Record<string, boolean>>({})
   // Ronda de preguntas abierta, si la hay. Ver lib/rondas.ts.
@@ -110,7 +109,7 @@ export default function PacientesPage() {
     const { data: pl } = await supabase.from('planes').select('*').eq('activo', true)
     setPlanes(pl || [])
     const tar = await cargarTarifas()
-    setServicios(tar.servicios); setDescuentos(tar.descuentos)
+    setDescuentos(tar.descuentos)
     // Una sola consulta para toda la lista: doscientos pacientes son doscientas
     // consultas si se pide uno a uno, y se nota al abrir.
     setCitasPac(await resumenCitasFuturas((p || []).filter((x:any)=>x.estado==='activo').map((x:any)=>x.id)))
@@ -809,7 +808,6 @@ export default function PacientesPage() {
           paciente={cobrando.paciente}
           bono={cobrando.bono}
           planes={planes}
-          servicios={servicios}
           descuentos={descuentos}
           onCerrar={()=>setCobrando(null)}
           onEmitida={r=>{ alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}

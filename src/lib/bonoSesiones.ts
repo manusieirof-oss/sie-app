@@ -29,19 +29,26 @@ import { aISO } from './fechas'
  * justo el comportamiento que interesa.
  */
 /**
- * Las dos modalidades de bono.
+ * Las tres modalidades.
  *
  * `mensual` es la cuota de siempre: se renueva el día 1 y da derecho a venir
- * todo el mes. `sesiones` se compra, se gasta y se acaba.
+ * todo el mes. `sesiones` se compra, se gasta y se acaba. `suelto` no se
+ * compra para usarlo después —una valoración, una sesión individual—: se cobra
+ * en el momento y ahí acaba.
  *
  * La distinción vive en el TIPO, no en el bono comprado: un tipo lo es siempre.
- * Y sí está aquí y no en Ajustes porque cada modalidad se comporta distinto en
- * la renovación, en la agenda y en el cobro: añadir una tercera no sería añadir
- * una fila, sería escribir cómo se consume.
+ * Y está aquí y no en Ajustes porque cada modalidad se comporta distinto en la
+ * renovación, en la agenda y en el cobro: añadir una no es añadir una fila, es
+ * escribir cómo se consume. `suelto` se escribe en una línea —no se consume, no
+ * crea bono, no se asigna— y por eso cabe.
+ *
+ * CATEGORÍA es otra cosa y vive en lib/servicios: un entreno online puede ser
+ * mensual o de sesiones, así que no son el mismo campo.
  */
 export const MODALIDADES = [
   { id: 'mensual',  nombre: 'Cuota mensual', ayuda: 'Se renueva cada mes. Da derecho a venir los días que marque el bono.' },
   { id: 'sesiones', nombre: 'Bono de sesiones', ayuda: 'Se compran N sesiones, se gastan viniendo y se acaban. No se renueva solo.' },
+  { id: 'suelto',   nombre: 'Venta suelta', ayuda: 'Se cobra y se acaba: no se asigna a nadie ni aparece en Cobros el mes que viene.' },
 ] as const
 
 export type Modalidad = typeof MODALIDADES[number]['id']
@@ -50,8 +57,20 @@ export type Modalidad = typeof MODALIDADES[number]['id']
 export const esDeSesiones = (x: any) =>
   x?.modalidad === 'sesiones' || x?.sesiones_totales != null
 
+/** Una venta que no deja nada detrás: ni bono, ni sesiones, ni mes siguiente. */
+export const esSuelto = (x: any) => x?.modalidad === 'suelto'
+
+/**
+ * Si genera un derecho que hay que guardar.
+ *
+ * LA pregunta que separa un servicio de otro: mensual y sesiones crean fila en
+ * `bonos`; un suelto no, y por eso no aparece nunca en la rejilla de Cobros.
+ */
+export const esAsignable = (x: any) => !esSuelto(x)
+
 /** Cómo se describe un tipo de bono en una línea, en listas y desplegables. */
 export function textoModalidad(tipo: any): string {
+  if (esSuelto(tipo)) return 'venta suelta'
   if (!esDeSesiones(tipo)) {
     const d = tipo?.dias_semana || 1
     return `${d} día${d !== 1 ? 's' : ''}/semana`

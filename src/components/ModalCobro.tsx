@@ -26,8 +26,7 @@ type Props = {
   paciente: any
   bono?: any
   planes: any[]
-  /** Servicios sueltos y descuentos guardados, de Ajustes → Tarifas. */
-  servicios?: { nombre: string, precio: number, iva: number }[]
+  /** Descuentos guardados, de Ajustes → Tarifas. */
   descuentos?: { nombre: string, tipo: string, valor: number }[]
   /** true si es el primer cobro del paciente: solo entonces se propone prorrateo. */
   primerCobro?: boolean
@@ -35,7 +34,7 @@ type Props = {
   onEmitida?: (r: { serie: string, numero: number, facturaId: string }) => void
 }
 
-export default function ModalCobro({ paciente, bono, planes, servicios = [], descuentos = [], primerCobro, onCerrar, onEmitida }: Props) {
+export default function ModalCobro({ paciente, bono, planes, descuentos = [], primerCobro, onCerrar, onEmitida }: Props) {
   const idx = useMemo(() => indicePlanes(planes), [planes])
   const plan = bono ? idx[bono.tipo] : undefined
 
@@ -144,10 +143,9 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
   function añadirDesde(valor: string) {
     if (valor === 'libre') { setLineas(ls => [...ls, { concepto:'', total:0, precioBase:0, iva_pct:21, cantidad:1 }]); return }
     const [clase, ref] = valor.split(':')
-    if (clase === 's') {
-      const s = servicios[Number(ref)]
-      if (s) setLineas(ls => [...ls, { concepto: s.nombre, total: s.precio, precioBase: s.precio, iva_pct: s.iva ?? 21, cantidad: 1 }])
-    }
+    // Antes habia una rama 's' para los servicios sueltos, que vivian en un JSON
+    // de Ajustes con el precio dentro. Ahora todo lo que vendes es un tipo con su
+    // plan, asi que hay una sola forma de anadir una linea del catalogo.
     if (clase === 'p') {
       const p: any = idx[ref]
       if (p) setLineas(ls => [...ls, { concepto: p.nombre || ref, total: precioFinalPlan(p), precioBase: precioFinalPlan(p), iva_pct: Number(p.iva ?? 21), cantidad: 1 }])
@@ -349,18 +347,13 @@ export default function ModalCobro({ paciente, bono, planes, servicios = [], des
           )
         })}
 
-        {/* Añadir línea: tarifas de Ajustes, bonos de Finanzas → Planes, o libre.
+        {/* Añadir línea: cualquier servicio del catálogo, o una línea libre.
             Todo son atajos; el importe se puede tocar después. */}
         <select className="input" style={{fontSize:11,marginBottom:14}} value=""
           onChange={e=>{ if (e.target.value) { añadirDesde(e.target.value); e.target.value = '' } }}>
           <option value="">+ Añadir línea…</option>
-          {servicios.length > 0 && (
-            <optgroup label="Servicios">
-              {servicios.map((s,i)=><option key={`s${i}`} value={`s:${i}`}>{s.nombre} · {s.precio.toFixed(2)} €</option>)}
-            </optgroup>
-          )}
           {planes.length > 0 && (
-            <optgroup label="Bonos">
+            <optgroup label="Servicios">
               {planes.map((p:any)=>(
                 <option key={p.bono_tipo} value={`p:${p.bono_tipo}`}>
                   {p.nombre || p.bono_tipo} · {precioFinalPlan(p).toFixed(2)} €

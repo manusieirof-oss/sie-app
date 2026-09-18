@@ -15,9 +15,22 @@ export type BonoTipo = {
   caduca_meses?: number | null
 }
 
-export async function cargarBonosTipos(soloActivos = true): Promise<BonoTipo[]> {
+/**
+ * LOS SUELTOS SE QUEDAN FUERA SALVO QUE SE PIDAN.
+ *
+ * Una venta suelta —una valoracion, una sesion individual— vive en esta misma
+ * tabla desde que el catalogo se unifico, pero NO se asigna a nadie: no crea
+ * fila en `bonos`. Ofrecerla en un selector de "asignar bono" crearia una cuota
+ * mensual fantasma que apareceria en Cobros todos los meses.
+ *
+ * Por eso el defecto excluye: todos los selectores escritos antes de que los
+ * sueltos existieran siguen siendo correctos sin tocarlos. Los pide quien los
+ * necesita —Ajustes, Finanzas, Valoracion— y sabe que hacer con ellos.
+ */
+export async function cargarBonosTipos(soloActivos = true, incluirSueltos = false): Promise<BonoTipo[]> {
   let q = supabase.from('bonos_tipos').select('*').order('orden')
   if (soloActivos) q = q.eq('activo', true)
+  if (!incluirSueltos) q = q.or('modalidad.is.null,modalidad.neq.suelto')
   const { data, error } = await q
   if (error) { console.error('Error cargando bonos_tipos:', error.message); return [] }
   return data || []

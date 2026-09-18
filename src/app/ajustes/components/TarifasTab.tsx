@@ -2,16 +2,17 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { TIPOS_DESCUENTO, LBL_DESCUENTO } from '@/lib/bonos'
-import { SERVICIOS_POR_DEFECTO, DESCUENTOS_POR_DEFECTO, type Servicio, type Descuento } from '@/lib/tarifas'
+import { DESCUENTOS_POR_DEFECTO, type Descuento } from '@/lib/tarifas'
 
-// Catálogos que alimentan el modal de cobro.
+// Los descuentos que aplicas a menudo, guardados para no teclearlos.
 //
-// Viven en `ajustes` y no en código, igual que los tipos de clase o los
-// festivos: cambiar el precio de la valoración no puede exigir un despliegue.
-// Antes los 36 € de la valoración estaban escritos dentro del modal.
+// AQUÍ YA NO HAY SERVICIOS. Estuvieron, en un JSON con el precio dentro, y eso
+// hacía que Finanzas controlara la mitad de los precios y esta pantalla la otra
+// mitad. Ahora todo lo que vendes está en Ajustes → Servicios y su precio en
+// Finanzas → Planes.
 //
-// Son PROPUESTAS: en el cobro todo se puede tocar antes de emitir. Por eso no
-// hay tabla propia ni validaciones estrictas, es una lista de atajos.
+// Un descuento NO es un servicio: no se vende, modifica lo que cuesta otra cosa.
+// Por eso se queda aquí y no se fusionó con el catálogo.
 
 export default function TarifasTab({ ajustes, set }: any) {
   const leer = <T,>(clave: string, porDefecto: T[]): T[] => {
@@ -19,21 +20,11 @@ export default function TarifasTab({ ajustes, set }: any) {
     catch { return porDefecto }
   }
 
-  const servicios  = leer<Servicio>('servicios_lista', SERVICIOS_POR_DEFECTO)
   const descuentos = leer<Descuento>('descuentos_lista', DESCUENTOS_POR_DEFECTO)
 
-  const setServicios  = (v: Servicio[])  => set('servicios_lista', JSON.stringify(v))
   const setDescuentos = (v: Descuento[]) => set('descuentos_lista', JSON.stringify(v))
 
-  const [srv, setSrv] = useState({ nombre: '', precio: '', iva: '21' })
   const [dto, setDto] = useState({ nombre: '', tipo: 'porcentaje', valor: '' })
-
-  function añadirServicio() {
-    const nombre = srv.nombre.trim(); const precio = parseFloat(srv.precio)
-    if (!nombre || !(precio > 0)) return
-    setServicios([...servicios, { nombre, precio, iva: parseFloat(srv.iva) || 21 }])
-    setSrv({ nombre: '', precio: '', iva: srv.iva })
-  }
 
   function añadirDescuento() {
     const nombre = dto.nombre.trim(); const valor = parseFloat(dto.valor)
@@ -47,38 +38,6 @@ export default function TarifasTab({ ajustes, set }: any) {
 
   return (
     <>
-      <div className="card">
-        <div className="card-title"><span className="ct-l"><Ic name="euro"/> Servicios sueltos</span></div>
-        <div style={{fontSize:10,color:'var(--grl)',marginBottom:12}}>
-          Lo que se cobra fuera de la cuota mensual: valoración, sesión individual, lo que sea.
-          Sale como atajo al añadir una línea en un cobro, y el importe se puede cambiar antes de emitir.
-          Los bonos no van aquí: sus precios están en Finanzas → Planes.
-        </div>
-
-        {servicios.length === 0 && <div style={{fontSize:10,color:'var(--grl)',marginBottom:8}}>Sin servicios. El modal de cobro solo ofrecerá línea libre.</div>}
-        {servicios.map((s, i) => (
-          <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,background:'var(--bl)',border:'1px solid var(--bd)',marginBottom:5}}>
-            <span style={{fontSize:11,color:'var(--n)',flex:1}}>{s.nombre}</span>
-            <span style={{fontSize:9,color:'var(--grl)'}}>IVA {s.iva}%</span>
-            <span style={{fontSize:12,fontWeight:600,color:'var(--gd)'}}>{s.precio.toFixed(2)} €</span>
-            <button onClick={()=>setServicios(servicios.filter((_,j)=>j!==i))}
-              style={{fontSize:9,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}} title="Quitar">✕</button>
-          </div>
-        ))}
-
-        <div style={{display:'flex',gap:6,marginTop:10}}>
-          <input className="input" style={{flex:1,fontSize:11}} placeholder="Nombre del servicio" value={srv.nombre}
-            onChange={e=>setSrv(p=>({...p,nombre:e.target.value}))} onKeyDown={e=>{if(e.key==='Enter')añadirServicio()}}/>
-          <input className="input" type="number" step="0.01" style={{width:90,fontSize:11}} placeholder="Precio" value={srv.precio}
-            onChange={e=>setSrv(p=>({...p,precio:e.target.value}))} onKeyDown={e=>{if(e.key==='Enter')añadirServicio()}}/>
-          <select className="input" style={{width:80,fontSize:11}} value={srv.iva} onChange={e=>setSrv(p=>({...p,iva:e.target.value}))}>
-            <option value="21">21%</option><option value="10">10%</option><option value="4">4%</option><option value="0">0%</option>
-          </select>
-          <button className="btn btn-p btn-sm" onClick={añadirServicio}>+ Añadir</button>
-        </div>
-        <div style={{fontSize:9,color:'var(--grl)',marginTop:6}}>El precio se escribe con IVA incluido, como en el resto de la app.</div>
-      </div>
-
       <div className="card">
         <div className="card-title"><span className="ct-l"><Ic name="etiqueta"/> Descuentos guardados</span></div>
         <div style={{fontSize:10,color:'var(--grl)',marginBottom:12}}>

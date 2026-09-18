@@ -2,7 +2,7 @@
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 
-import { textoModalidad } from '@/lib/bonoSesiones'
+import { textoModalidad, esAsignable } from '@/lib/bonoSesiones'
 
 export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
   const hp = form.horario_pref || {modo:'general',franja_general:'manana',franjas_dia:{},alterno:'manana_tarde',hora_exacta:'',notas_horario:''}
@@ -30,7 +30,7 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
           </div>
         </div>
         <div className="card">
-          <div className="card-title">Bono definitivo</div>
+          <div className="card-title">Qué contrata</div>
           {bonosOpts.map((b:any)=>(
             <div key={b.id} onClick={()=>up('bono',b.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1.5px solid ${form.bono===b.id?'var(--g)':'var(--bd)'}`,background:form.bono===b.id?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:4,transition:'all .15s'}}>
               <div style={{flex:1}}>
@@ -42,6 +42,16 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
               {form.bono===b.id&&<div style={{width:16,height:16,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</div>}
             </div>
           ))}
+          {/* Una venta suelta no deja nada detrás, y eso hay que decirlo ANTES de
+              guardar: si no, se espera ver a esa persona en Cobros el mes que viene. */}
+          {!esAsignable(bonosOpts.find((b:any)=>b.id===form.bono)) && (
+            <div style={{fontSize:9,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',
+                         borderRadius:6,padding:'8px 11px',marginTop:6,lineHeight:1.6}}>
+              <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>
+              Es una venta suelta: no se le asigna cuota ni aparecerá en Cobros el mes que viene.
+              Se le cobra en el momento, desde Cobros → Cobro suelto.
+            </div>
+          )}
         </div>
       </div>
       <div>

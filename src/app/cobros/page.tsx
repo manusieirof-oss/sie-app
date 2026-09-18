@@ -42,7 +42,6 @@ export default function CobrosPage() {
   const [pago, setPago] = useState<Record<string, any>>({})
   const [planes, setPlanes] = useState<any[]>([])
   const [facturas, setFacturas] = useState<any[]>([])
-  const [servicios, setServicios] = useState<any[]>([])
   const [descuentos, setDescuentos] = useState<any[]>([])
   // Cuántas clases lleva cada paciente este mes, sacadas de la AGENDA.
   // Es el contraste que descubre a quien viene y no paga.
@@ -152,7 +151,7 @@ export default function CobrosPage() {
 
     const tar = await cargarTarifas()
     if (tar.error) errs.push(`tarifas: ${tar.error}`)
-    setServicios(tar.servicios); setDescuentos(tar.descuentos)
+    setDescuentos(tar.descuentos)
 
     // ---- CRUCE CON LA AGENDA ----------------------------------------------
     // Quién ha pisado la clínica este mes, tenga cuota o no. Sin esto, alguien
@@ -727,7 +726,6 @@ export default function CobrosPage() {
           paciente={cobrando.p}
           bono={cobrando.bono}
           planes={planes}
-          servicios={servicios}
           descuentos={descuentos}
           /* Prorrateo solo en el primer cobro del paciente: si nunca se le ha
              cobrado nada, se le ofrece pagar la fracción de mes que le queda. */

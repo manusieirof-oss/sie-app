@@ -123,7 +123,7 @@ export default function FinanzasPage() {
     setIngresos(ri.data || [])
     setBonos(rb.data || [])
     setBonosHist(unoPorPacienteYMes(rbh.data || []))
-    setBonosTipos(await cargarBonosTipos(false))
+    setBonosTipos(await cargarBonosTipos(false, true))
 
     // Del año entero: Impuestos las reparte por trimestres y el Resumen por
     // meses, y así no hacen falta cinco consultas.

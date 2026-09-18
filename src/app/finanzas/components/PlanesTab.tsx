@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { precioConDescuento, precioFinalPlan, redondear, esVentaPuntual } from '@/lib/bonos'
+import { esSuelto } from '@/lib/bonoSesiones'
 
 const G='#5A969E', GD='#3E7179'
 
@@ -94,7 +95,7 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
       )}
 
       {bonosTipos.length===0 && (
-        <div style={{fontSize:11,color:'var(--grl)',padding:10}}>No hay tipos de bono. Créalos en Ajustes → Bonos.</div>
+        <div style={{fontSize:11,color:'var(--grl)',padding:10}}>No hay servicios. Créalos en Ajustes → Servicios.</div>
       )}
 
       {/* EN REJILLA, NO EN LISTA.
@@ -102,10 +103,22 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
           Con ocho tipos había que bajar toda la página para compararlos, que es
           justo lo que uno viene a hacer aquí. La edición sigue a lo ancho: ahí
           sí hacen falta los campos grandes. */}
-      <div style={{display:'grid',/* Cinco fijas, repartidas a todo el ancho. Con auto-fill salían siete en
-             pantalla grande y el nombre del bono partía en tres líneas. */
-          gridTemplateColumns:'repeat(5,1fr)',gap:14}}>
-      {bonosTipos.map((bt:any) => {
+      {/* AGRUPADO POR CATEGORIA, igual que en Ajustes → Servicios. Con presencial
+          y online mezclados en la misma rejilla, comparar precios de lo mismo
+          obligaba a ir saltando tarjetas. */}
+      {(() => {
+        const cats: string[] = []
+        bonosTipos.forEach((b:any) => { const c = b.categoria || 'Sin categoría'; if (!cats.includes(c)) cats.push(c) })
+        return cats.map(cat => (
+          <div key={cat} style={{marginBottom:20}}>
+            {cats.length > 1 && (
+              <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',
+                           letterSpacing:.5,marginBottom:8}}>{cat}</div>
+            )}
+            <div style={{display:'grid',/* Cinco fijas, repartidas a todo el ancho. Con auto-fill salían siete en
+                   pantalla grande y el nombre del bono partía en tres líneas. */
+                gridTemplateColumns:'repeat(5,1fr)',gap:14}}>
+      {bonosTipos.filter((b:any) => (b.categoria || 'Sin categoría') === cat).map((bt:any) => {
         const p = planPorTipo[bt.id]
         const nPac = activosPorTipo[bt.id] || 0
 
@@ -195,6 +208,14 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
                 )}
               </div>
             </div>
+            {esSuelto(bt) ? (
+              /* No tiene pacientes activos ni ingreso mensual: se vende y se acaba.
+                 Poner dos ceros ahi se leeria como que no vendes ninguna. */
+              <div style={{marginTop:10,paddingTop:9,borderTop:'1px solid var(--bd)',
+                           fontSize:9,color:'var(--grl)',lineHeight:1.5}}>
+                Venta suelta · se cobra en el momento, no se asigna a nadie
+              </div>
+            ) : (
             <div style={{display:'flex',gap:8,marginTop:10,paddingTop:9,borderTop:'1px solid var(--bd)'}}>
               {/* Un bono de sesiones no da "ingreso / mes": se vende una vez.
                   Poner el mismo rótulo en los dos haría leer una venta suelta
@@ -208,11 +229,15 @@ export default function PlanesTab({ planes, bonos=[], bonosTipos=[], recargar }:
                 <div style={{fontSize:8,color:'var(--grl)'}}>{deSesiones ? 'ingreso este mes' : 'ingreso / mes'}</div>
               </div>
             </div>
+            )}
 
           </div>
         )
       })}
-      </div>
+            </div>
+          </div>
+        ))
+      })()}
     </div>
   )
 }

@@ -47,7 +47,6 @@ export default function FichaPacientePage() {
   const [cobrando, setCobrando] = useState<any>(null)
   const [cobrado, setCobrado] = useState(false)
   const [planes, setPlanes] = useState<any[]>([])
-  const [servicios, setServicios] = useState<any[]>([])
   const [descuentos, setDescuentos] = useState<any[]>([])
   // Bonos de sesiones con su consumo ya contado desde las citas.
   const [bonosSesiones, setBonosSesiones] = useState<BonoSesiones[]>([])
@@ -339,7 +338,7 @@ export default function FichaPacientePage() {
     const { data: pl } = await supabase.from('planes').select('*').eq('activo', true)
     setPlanes(pl || [])
     const tar = await cargarTarifas()
-    setServicios(tar.servicios); setDescuentos(tar.descuentos)
+    setDescuentos(tar.descuentos)
 
     const bs = await bonosDe(id as string)
     if (!bs.ok) console.error('No se han podido leer los bonos de sesiones:', bs.error)
@@ -1006,7 +1005,6 @@ export default function FichaPacientePage() {
           paciente={pac}
           bono={cobrando}
           planes={planes}
-          servicios={servicios}
           descuentos={descuentos}
           onCerrar={()=>setCobrando(null)}
           onEmitida={r=>{ setCobrando(null); alert(`Factura ${r.serie}/${String(r.numero).padStart(4,'0')} emitida.`); cargar() }}

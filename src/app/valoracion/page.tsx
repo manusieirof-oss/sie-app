@@ -5,6 +5,7 @@ import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimiento
 import { registrarResultadoTest, testsPositivosDe } from '@/lib/tests'
 import { anadirALista, leerLista } from '@/lib/listasPaciente'
 import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
+import { esAsignable } from '@/lib/bonoSesiones'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -116,11 +117,15 @@ export default function ValoracionPage() {
     supabase.from('plantillas_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setTiposPlantilla(data.map((t:any)=>t.nombre)) })
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
     supabase.from('etiquetas').select('*').order('nombre').then(({data})=>setEtiquetasLib(data||[]))
-    cargarBonosTipos().then(bs => {
+    // AQUÍ SE VE TODO, sueltos incluidos: una valoración puede acabar en una
+    // mensualidad o solo en la valoración, y esa decisión se toma en este paso.
+    cargarBonosTipos(true, true).then(bs => {
       setBonosOpts(bs)
       // Sin bono por defecto escrito a mano: manda el primero que haya configurado, y si
-      // no hay ninguno se queda vacío y el guardado avisa.
-      setForm(f => f.bono && bs.some(b => b.id === f.bono) ? f : { ...f, bono: bs[0]?.id || '' })
+      // no hay ninguno se queda vacío y el guardado avisa. Nunca un suelto: el defecto
+      // de una valoración inicial es que el paciente se queda.
+      const porDefecto = bs.find(b => esAsignable(b)) || bs[0]
+      setForm(f => f.bono && bs.some(b => b.id === f.bono) ? f : { ...f, bono: porDefecto?.id || '' })
     })
     supabase.from('ajustes').select('clave,valor').then(({data})=>{
       if(data){
@@ -259,7 +264,10 @@ export default function ValoracionPage() {
       await Promise.all([
         // El bono es cosa de la valoración inicial. Una revaloración abría uno nuevo
         // en paralelo al que el paciente ya estaba pagando.
-        ...(esRevaloracion ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
+        // Y SOLO SI HAY ALGO QUE ASIGNAR. Un suelto —una valoración a secas— no
+        // crea bono: se cobra en el momento y ahí acaba. Abrirle una fila en
+        // `bonos` le montaría una cuota mensual que nadie ha contratado.
+        ...(esRevaloracion || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar
