@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { mesISO } from '@/lib/fechas'
 import { precioConDescuento, precioFinalPlan, indicePlanes } from '@/lib/bonos'
-import { costeTrabajador, costeCompra, simularSubida, SS_EMPRESA_PCT, type ModoCompra } from '@/lib/simulador'
+import { costeTrabajador, costeCompra, simularSubida, compararBeneficio, SS_EMPRESA_PCT, type ModoCompra } from '@/lib/simulador'
+import RepartoTab from './RepartoTab'
 
 const G='#5A969E', GD='#3E7179', RED='#C25B5B', AMB='#D4A24E'
 
@@ -41,8 +42,8 @@ const Dato = ({ v, l, ayuda, color }: any) => (
 )
 
 
-export default function SimuladorTab({ planes=[], gastos=[], bonos=[], mesRef }: any) {
-  const [caso, setCaso] = useState<'contratar'|'comprar'|'precios'>('contratar')
+export default function SimuladorTab({ planes=[], gastos=[], bonos=[], bonosHist=[], ingresos=[], mesRef }: any) {
+  const [caso, setCaso] = useState<'contratar'|'comprar'|'precios'|'reparto'>('contratar')
   const eur = (n:number) => `${Math.round(n).toLocaleString('es-ES')}€`
 
   const mesActual = mesRef || mesISO()
@@ -59,6 +60,55 @@ export default function SimuladorTab({ planes=[], gastos=[], bonos=[], mesRef }:
   const ingresoMes = activos.reduce((a:number,b:any)=>a+precioConDescuento(precioFinalPlan(idx[b.tipo]), b),0)
   const porCliente = activos.length ? ingresoMes/activos.length : 0
   const faltan = (extra:number) => porCliente>0 ? Math.ceil(extra/porCliente) : 0
+
+  /**
+   * EL MES TIPO: la media de lo ya cerrado.
+   *
+   * Comparar contra el mes en curso engaña —va a medias y con gastos sin
+   * confirmar—, así que la base es la media de los meses completos. Es contra
+   * esto contra lo que se mide cualquier decisión.
+   */
+  const gastoMedioMes = (() => {
+    const porMes: Record<string, number> = {}
+    gastos.filter((g:any)=>g.fecha).forEach((g:any)=>{
+      const m = g.fecha.slice(0,7); porMes[m] = (porMes[m]||0) + Number(g.importe)
+    })
+    const cer = Object.keys(porMes).filter(m=>m<mesActual)
+    const ks = cer.length ? cer : Object.keys(porMes)
+    return ks.length ? ks.reduce((a,m)=>a+porMes[m],0)/ks.length : 0
+  })()
+
+
+  /** La tabla de horizontes que se pinta debajo de cada escenario. */
+  const Comparativa = ({ costeExtraMes=0, ingresoExtraMes=0, desembolsoUnico=0 }: any) => {
+    const filas = compararBeneficio({ ingresoMes, gastoMes: gastoMedioMes, costeExtraMes, ingresoExtraMes, desembolsoUnico })
+    return (
+      <div style={{marginTop:18}}>
+        <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.5,marginBottom:8}}>
+          Qué pasaría con el beneficio
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:'0 14px',alignItems:'baseline'}}>
+          <span style={{fontSize:8,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4}}>Plazo</span>
+          <span style={{fontSize:8,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,textAlign:'right'}}>Ahora</span>
+          <span style={{fontSize:8,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,textAlign:'right'}}>Después</span>
+          <span style={{fontSize:8,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,textAlign:'right'}}>Diferencia</span>
+          {filas.map(f=>(
+            <React.Fragment key={f.id}>
+              <span style={{fontSize:10,color:'var(--gr)',paddingTop:5}}>{f.nombre}</span>
+              <span style={{fontSize:10,color:'var(--grl)',textAlign:'right',paddingTop:5}}>{eur(f.antes)}</span>
+              <span style={{fontSize:10,color:'var(--n)',textAlign:'right',paddingTop:5}}>{eur(f.despues)}</span>
+              <span style={{fontSize:10,fontWeight:600,textAlign:'right',paddingTop:5,color:f.diferencia>=0?GD:RED}}>
+                {f.diferencia>=0?'+':''}{eur(f.diferencia)}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
+        <div style={{fontSize:9,color:'var(--grl)',marginTop:8,lineHeight:1.5}}>
+          Sobre un mes tipo: {eur(ingresoMes)} de ingresos y {eur(gastoMedioMes)} de gastos, la media de los meses ya cerrados.
+        </div>
+      </div>
+    )
+  }
 
   const [bruto, setBruto] = useState('1200')
   const [ssPct, setSsPct] = useState(String(SS_EMPRESA_PCT))
@@ -87,7 +137,7 @@ export default function SimuladorTab({ planes=[], gastos=[], bonos=[], mesRef }:
   return (
     <div>
       <div style={{display:'flex',gap:4,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,marginBottom:14,width:'fit-content'}}>
-        {([['contratar','Contratar'],['comprar','Comprar algo'],['precios','Subir precios']] as const).map(([k,l])=>(
+        {([['contratar','Contratar'],['comprar','Comprar algo'],['precios','Subir precios'],['reparto','Repartir gastos']] as const).map(([k,l])=>(
           <button key={k} onClick={()=>setCaso(k)}
             style={{fontSize:10,padding:'6px 14px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'inherit',
                     background:caso===k?'var(--w)':'transparent',color:caso===k?'var(--n)':'var(--grl)',
@@ -126,6 +176,7 @@ export default function SimuladorTab({ planes=[], gastos=[], bonos=[], mesRef }:
               El % de Seguridad Social es orientativo: depende del contrato, del grupo de cotización y de las bonificaciones. Confírmalo con tu gestoría antes de firmar.
             </div>
           </div>
+          <Comparativa costeExtraMes={tr.coste}/>
         </div>
       )}
 
@@ -174,6 +225,7 @@ export default function SimuladorTab({ planes=[], gastos=[], bonos=[], mesRef }:
               Los años de amortización dependen del tipo de bien y los fija Hacienda. Pregúntalo antes de contar con ese gasto.
             </div>
           </div>
+          <Comparativa costeExtraMes={cp.cuotaMes} desembolsoUnico={cp.desembolsoInicial}/>
         </div>
       )}
 
@@ -205,9 +257,15 @@ export default function SimuladorTab({ planes=[], gastos=[], bonos=[], mesRef }:
                 Cuántos se van de verdad no lo sabe una pantalla. El número de arriba es el límite, no una predicción.
               </div>
             </div>
+            <Comparativa ingresoExtraMes={sub.diferencia}/>
           </>)}
         </div>
       )}
+
+      {caso==='reparto' && (
+        <RepartoTab planes={planes} gastos={gastos} bonosHist={bonosHist} ingresos={ingresos} mesRef={mesRef}/>
+      )}
+
     </div>
   )
 }

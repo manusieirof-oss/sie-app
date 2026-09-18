@@ -114,3 +114,199 @@ export function simularSubida(args: {
     : 0
   return { nuevo, diferencia: nuevo - ingresoActual, bajasLimite, quedan, nuevoPrecio, porCliente }
 }
+
+
+/**
+ * QUÉ PASA CON EL BENEFICIO SI TOCAS ALGO.
+ *
+ * El coste de una decisión se entiende comparándolo con lo que dejas ahora, no
+ * suelto. Y a varios plazos: 300 € al mes suenan a poco hasta que ves que son
+ * 3.600 € al año.
+ *
+ * Se parte de un MES TIPO —la media de los meses ya cerrados— y no del mes en
+ * curso: el actual va a medias, con gastos sin confirmar, y compararse contra
+ * él daría una mejora que no existe.
+ */
+export const HORIZONTES = [
+  { id: 'mes', nombre: 'Un mes', meses: 1 },
+  { id: 'trimestre', nombre: 'Un trimestre', meses: 3 },
+  { id: 'semestre', nombre: 'Medio año', meses: 6 },
+  { id: 'anio', nombre: 'Un año', meses: 12 },
+] as const
+
+export function compararBeneficio(args: {
+  ingresoMes: number
+  gastoMes: number
+  costeExtraMes?: number
+  ingresoExtraMes?: number
+  /** Lo que sale de golpe una sola vez: una compra al contado. */
+  desembolsoUnico?: number
+}) {
+  const { ingresoMes, gastoMes, costeExtraMes = 0, ingresoExtraMes = 0, desembolsoUnico = 0 } = args
+  const antesMes = ingresoMes - gastoMes
+  const despuesMes = (ingresoMes + ingresoExtraMes) - (gastoMes + costeExtraMes)
+  return HORIZONTES.map(h => {
+    const antes = antesMes * h.meses
+    // El desembolso único pesa una vez, no cada mes.
+    const despues = despuesMes * h.meses - desembolsoUnico
+    return { ...h, antes, despues, diferencia: despues - antes }
+  })
+}
+
+
+// ---------------------------------------------------------------------------
+// REPARTIR: DE DÓNDE SALEN LAS PORCIONES
+//
+// Ingresos, gastos fijos y gastos variables son tres preguntas distintas y no
+// se mezclan en el mismo rosco: bajar el alquiler y bajar el material no son
+// la misma decisión.
+//
+// Cada porción es una CATEGORÍA y dentro lleva sus CONCEPTOS, que es donde de
+// verdad se decide. "Suministros 400 €" no dice nada; "luz 280, agua 60,
+// internet 60" sí.
+//
+// Siempre sobre la media de los meses YA CERRADOS: el mes en curso va a medias
+// y promediarlo hundiría todas las categorías a la vez.
+// ---------------------------------------------------------------------------
+
+export type Concepto = { nombre: string; valor: number }
+export type CatReparto = { nombre: string; valor: number; conceptos: Concepto[] }
+
+function agrupar(
+  filas: any[], mesActual: string,
+  mes: (f: any) => string, cat: (f: any) => string,
+  con: (f: any) => string, val: (f: any) => number,
+): CatReparto[] {
+  const todos = Array.from(new Set(filas.map(mes).filter(Boolean)))
+  const cerrados = todos.filter(m => m < mesActual)
+  // Sin meses cerrados todavía, mejor el mes en curso que un rosco vacío.
+  const ks = new Set(cerrados.length ? cerrados : todos)
+  const n = ks.size || 1
+  const acc: Record<string, Record<string, number>> = {}
+  filas.forEach(f => {
+    if (!ks.has(mes(f))) return
+    const c = cat(f), k = con(f)
+    acc[c] = acc[c] || {}
+    acc[c][k] = (acc[c][k] || 0) + val(f)
+  })
+  return Object.entries(acc)
+    .map(([nombre, conceptos]) => ({
+      nombre,
+      valor: Object.values(conceptos).reduce((a, b) => a + b, 0) / n,
+      conceptos: Object.entries(conceptos)
+        .map(([nombre, v]) => ({ nombre, valor: v / n }))
+        .sort((a, b) => b.valor - a.valor),
+    }))
+    .filter(c => c.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+}
+
+/** Los gastos de un tipo, por categoría y con sus conceptos dentro. */
+export function agruparGastos(gastos: any[] = [], mesActual: string, tipo: 'fijo' | 'variable'): CatReparto[] {
+  return agrupar(
+    gastos.filter(g => g.fecha && (g.tipo || 'variable') === tipo),
+    mesActual,
+    g => String(g.fecha).slice(0, 7),
+    g => g.categoria || 'Sin categoría',
+    g => g.concepto || 'Sin concepto',
+    g => Number(g.importe) || 0,
+  )
+}
+
+/**
+ * Los ingresos, que vienen de dos sitios distintos.
+ *
+ * Las cuotas van todas en una porción con un concepto por plan —lo interesante
+ * es cuánto aporta cada plan, no cada paciente—; lo demás (formación, alquiler
+ * de sala) por su categoría.
+ *
+ * El precio y el nombre del plan se piden de fuera para no arrastrar aquí la
+ * tabla de bonos ni Supabase: esto son cuentas, no acceso a datos.
+ */
+export function agruparIngresos(args: {
+  bonosHist?: any[]
+  ingresos?: any[]
+  mesActual: string
+  precioBono: (b: any) => number
+  nombrePlan: (b: any) => string
+}): CatReparto[] {
+  const { bonosHist = [], ingresos = [], mesActual, precioBono, nombrePlan } = args
+  const filas = [
+    ...bonosHist.filter(b => b.mes && b.anio).map(b => ({
+      m: `${b.anio}-${String(b.mes).padStart(2, '0')}`,
+      c: 'Cuotas', k: nombrePlan(b) || 'Sin plan', v: precioBono(b),
+    })),
+    ...ingresos.filter(i => i.fecha).map(i => ({
+      m: String(i.fecha).slice(0, 7),
+      c: i.categoria || 'Otros ingresos', k: i.concepto || 'Sin concepto',
+      v: Number(i.importe) || 0,
+    })),
+  ]
+  return agrupar(filas, mesActual, f => f.m, f => f.c, f => f.k, f => f.v)
+}
+
+
+// ---------------------------------------------------------------------------
+// LOS DOS MODOS DE MOVER UNA PORCIÓN
+//
+//   repartir → el total no se mueve. Lo que le das a una, sale de las demás.
+//              Es la pregunta de "dónde pongo el dinero que ya gasto".
+//   total    → cada categoría va a su aire y el total cambia con ella.
+//              Es la pregunta de "y si gasto más en esto".
+//
+// Y una regla que vale para los dos: LA CATEGORÍA ES LA SUMA DE SUS CONCEPTOS.
+// Si tocas un concepto, la categoría sube o baja con él; si tocas la categoría,
+// sus conceptos se escalan guardando el peso que tenían. Cualquier otra cosa
+// deja el desplegable diciendo algo distinto del rosco.
+// ---------------------------------------------------------------------------
+
+export type ModoReparto = 'repartir' | 'total'
+
+export const totalReparto = (cats: CatReparto[]) => cats.reduce((a, c) => a + c.valor, 0)
+
+/** Recoloca los conceptos para que sumen `nuevo` sin cambiar lo que pesa cada uno. */
+function escalar(cat: CatReparto, nuevo: number): CatReparto {
+  const v = Math.max(0, nuevo)
+  const n = cat.conceptos.length
+  if (!n) return { ...cat, valor: v, conceptos: [] }
+  const suma = cat.conceptos.reduce((a, c) => a + c.valor, 0)
+  // A cero no hay proporciones que respetar: se reparte a partes iguales.
+  const conceptos = suma > 0
+    ? cat.conceptos.map(c => ({ ...c, valor: c.valor * (v / suma) }))
+    : cat.conceptos.map(c => ({ ...c, valor: v / n }))
+  return { ...cat, valor: v, conceptos }
+}
+
+/** Lo que sube en una categoría lo pagan las demás, según lo que pese cada una. */
+function compensar(cats: CatReparto[], excepto: string, delta: number): CatReparto[] {
+  const suma = cats.filter(c => c.nombre !== excepto).reduce((a, c) => a + c.valor, 0)
+  if (suma <= 0) return cats
+  return cats.map(c => c.nombre === excepto ? c : escalar(c, c.valor - delta * (c.valor / suma)))
+}
+
+export function moverCategoria(cats: CatReparto[], nombre: string, nuevo: number, modo: ModoReparto): CatReparto[] {
+  const cat = cats.find(c => c.nombre === nombre)
+  if (!cat) return cats
+  // Repartiendo nadie puede llevarse más de lo que hay; con el total suelto, sí.
+  const tope = totalReparto(cats)
+  const v = modo === 'repartir' ? Math.min(Math.max(0, nuevo), tope) : Math.max(0, nuevo)
+  const base = cats.map(c => c.nombre === nombre ? escalar(c, v) : c)
+  return modo === 'repartir' ? compensar(base, nombre, v - cat.valor) : base
+}
+
+export function moverConcepto(cats: CatReparto[], nombreCat: string, nombreCon: string, nuevo: number, modo: ModoReparto): CatReparto[] {
+  const cat = cats.find(c => c.nombre === nombreCat)
+  const con = cat?.conceptos.find(c => c.nombre === nombreCon)
+  if (!cat || !con) return cats
+  const resto = totalReparto(cats) - cat.valor
+  const v = modo === 'repartir' ? Math.min(Math.max(0, nuevo), con.valor + resto) : Math.max(0, nuevo)
+  const delta = v - con.valor
+  // La categoría no se escala: se recalcula como suma, que es lo que es.
+  const nueva: CatReparto = {
+    ...cat,
+    valor: cat.valor + delta,
+    conceptos: cat.conceptos.map(c => c.nombre === nombreCon ? { ...c, valor: v } : c),
+  }
+  const base = cats.map(c => c.nombre === nombreCat ? nueva : c)
+  return modo === 'repartir' ? compensar(base, nombreCat, delta) : base
+}
