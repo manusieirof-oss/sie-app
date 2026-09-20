@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { comprimirImagen, MAX_EJERCICIO } from './imagen'
 import { categoriaDe } from './etiquetas'
+import { normalizar } from './texto'
 
 // Ejercicios de la biblioteca: subida de imágenes y borrado.
 //
@@ -96,9 +97,12 @@ export async function crearEjercicioRapido(nombre: string, tipoMedida: string) {
   if (!TIPOS_MEDIDA.some(m => m.id === tipoMedida))
     return { ok: false as const, error: 'Hay que decir cómo se mide' }
 
-  const { data: ya } = await supabase.from('ejercicios')
-    .select('id,nombre').ilike('nombre', limpio).limit(1)
-  if (ya && ya[0]) return { ok: false as const, error: `Ya existe "${ya[0].nombre}" en la biblioteca` }
+  // `ilike` de Postgres distingue acentos: "flexion" no encontraba "Flexión" y se
+  // colaba el duplicado. Se traen los nombres y se comparan normalizados, que es
+  // como los compara quien los lee.
+  const { data: ya } = await supabase.from('ejercicios').select('id,nombre').limit(3000)
+  const clon = (ya || []).find((e: any) => normalizar(e.nombre).trim() === normalizar(limpio).trim())
+  if (clon) return { ok: false as const, error: `Ya existe "${clon.nombre}" en la biblioteca` }
 
   const { data, error } = await supabase.from('ejercicios').insert({
     nombre: limpio, descripcion: '', video_url: '', imagen_url: '',

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio } from '@/lib/ejercicios'
+import { contiene, normalizar } from '@/lib/texto'
 
 // Explorador del catálogo de ejercicios: buscador, filtro por etiquetas y rejilla de
 // tarjetas con foto. Es LA MISMA vista que el Pilar Entrenamiento → Biblioteca; lo que
@@ -30,7 +31,7 @@ const MEDIDA: Record<string, string> = {
 }
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true,
 }: {
   ejercicios: any[]
   etiquetas?: any[]
@@ -47,6 +48,8 @@ export default function ExploradorEjercicios({
    * tira de crear no aparece: hay pantallas donde esto no tiene sentido.
    */
   onCrear?: (nombre: string, tipoMedida: string) => Promise<void> | void
+  /** false donde ya hay un alta completa propia, como la Biblioteca. */
+  botonCrear?: boolean
 }) {
   const [buscar, setBuscar] = useState('')
   const [filtroEt, setFiltroEt] = useState<string[]>([])
@@ -104,19 +107,18 @@ export default function ExploradorEjercicios({
    * saber cuál de ellas hizo casar el filtro.
    */
   function varianteQueCasa(e: any): any {
-    const q = buscar.trim().toLowerCase()
+    const q = buscar.trim()
     if (!q) return null
     // Si el nombre del ejercicio ya casa, manda él: buscar "marcha" enseña la marcha.
-    if ((e.nombre || '').toLowerCase().includes(q)) return null
-    return (e.variantes || []).find((v: any) => (v?.nombre || '').toLowerCase().includes(q)) || null
+    if (contiene(e.nombre, q)) return null
+    return (e.variantes || []).find((v: any) => contiene(v?.nombre, q)) || null
   }
 
   const filtrados = ejercicios.filter(e => {
-    const q = buscar.toLowerCase()
     const coincide = !buscar
-      || (e.nombre || '').toLowerCase().includes(q)
-      || (e.descripcion || '').toLowerCase().includes(q)
-      || (e.variantes || []).some((v: any) => (v?.nombre || '').toLowerCase().includes(q))
+      || contiene(e.nombre, buscar)
+      || contiene(e.descripcion, buscar)
+      || (e.variantes || []).some((v: any) => contiene(v?.nombre, buscar))
     // Varias etiquetas se acumulan: piden los que las tengan TODAS. Y cada una vale
     // por su rama entera, así que filtrar por "Cuádriceps" trae lo etiquetado solo
     // como "Recto femoral" — si no, habría que acordarse del nivel exacto.
@@ -136,9 +138,30 @@ export default function ExploradorEjercicios({
    * aparece "press Pallof", que no es el mismo ejercicio. Lo que no se puede es ofrecer
    * crear algo que ya está, porque duplicarlo parte en dos la progresión del paciente.
    */
-  const aCrear = buscar.trim()
-  const yaExiste = ejercicios.some(e => (e.nombre || '').trim().toLowerCase() === aCrear.toLowerCase())
-  const ofreceCrear = !!onCrear && aCrear.length >= 3 && !yaExiste
+  /**
+   * SIN ACENTOS TAMBIEN CUENTA COMO DUPLICADO.
+   *
+   * Comparando tal cual, escribir "flexion de cadera" no encontraba "Flexión de
+   * cadera" y la app ofrecia crearla: dos ejercicios iguales, y la progresion
+   * del paciente partida en dos. Es el fallo que mas caro sale aqui.
+   */
+  const existeYa = (n: string) => ejercicios.some(e => normalizar(e.nombre).trim() === normalizar(n).trim())
+
+  /**
+   * CREAR NO PUEDE DEPENDER DE BUSCAR ALGO QUE NO EXISTE.
+   *
+   * Solo se ofrecia al escribir en el buscador tres letras sin resultado exacto,
+   * asi que quien no lo descubria por accidente no sabia que se podia. Ahora hay
+   * un boton siempre visible, y la franja sigue apareciendo sola al buscar algo
+   * que no esta, que es donde surge la necesidad.
+   */
+  const [abiertoCrear, setAbiertoCrear] = useState(false)
+  const [nombreNuevo, setNombreNuevo] = useState('')
+  const aCrear = abiertoCrear ? nombreNuevo.trim() : buscar.trim()
+  const ofreceCrear = !!onCrear && !abiertoCrear && aCrear.length >= 3 && !existeYa(aCrear)
+  const mostrarCrear = !!onCrear && (ofreceCrear || abiertoCrear)
+  const duplicado = abiertoCrear && aCrear.length >= 3 && existeYa(aCrear)
+  const puedeCrear = aCrear.length >= 3 && !duplicado
 
   const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes
   const marcado = (e: any) => !!seleccion?.includes(e.id)
@@ -222,6 +245,13 @@ export default function ExploradorEjercicios({
             Por completar · {nPendientes}
           </button>
         )}
+        {onCrear && botonCrear && !abiertoCrear && (
+          <button type="button" className="btn btn-s btn-sm"
+            onClick={()=>{ setNombreNuevo(buscar.trim()); setAbiertoCrear(true) }}
+            title="Crear un ejercicio que no está en la biblioteca">
+            + Crear ejercicio
+          </button>
+        )}
         {acciones}
       </div>
 
@@ -229,23 +259,35 @@ export default function ExploradorEjercicios({
           existe— y pide lo mínimo: el nombre ya está escrito, y cómo se mide, que no se
           puede adivinar porque decide si la sesión pide kilos o segundos. Lo demás se
           rellena luego desde "Por completar". */}
-      {ofreceCrear && (
+      {mostrarCrear && (
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10,
           padding: '8px 11px', borderRadius: 'var(--r)', background: 'var(--bl)', border: '1px dashed var(--gm)' }}>
-          <span style={{ fontSize: 12, color: 'var(--gr)' }}>
-            Crear &laquo;<b style={{ color: 'var(--n)' }}>{aCrear}</b>&raquo; y a&ntilde;adirlo. &iquest;C&oacute;mo se mide?
-          </span>
+          {abiertoCrear ? (
+            <input className="input" autoFocus value={nombreNuevo} placeholder="Nombre del ejercicio"
+              onChange={e => setNombreNuevo(e.target.value)} style={{ flex: 1, minWidth: 180, maxWidth: 320 }} />
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--gr)' }}>
+              Crear &laquo;<b style={{ color: 'var(--n)' }}>{aCrear}</b>&raquo; y a&ntilde;adirlo.
+            </span>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--gr)' }}>&iquest;C&oacute;mo se mide?</span>
           {TIPOS_MEDIDA.map(m => (
-            <button key={m.id} type="button" className="chip-sel" title={m.ayuda} disabled={creando}
+            <button key={m.id} type="button" className="chip-sel" title={m.ayuda} disabled={creando || !puedeCrear}
+              style={!puedeCrear ? { opacity: .45, cursor: 'not-allowed' } : undefined}
               onClick={async () => {
                 setCreando(true)
                 try { await onCrear!(aCrear, m.id) } finally { setCreando(false) }
-                setBuscar('')
+                setBuscar(''); setNombreNuevo(''); setAbiertoCrear(false)
               }}>
               {m.nombre}
             </button>
           ))}
           {creando && <span style={{ fontSize: 12, color: 'var(--gr)' }}>Creando…</span>}
+          {duplicado && <span style={{ fontSize: 12, color: 'var(--red)' }}>Ya existe uno con ese nombre.</span>}
+          {abiertoCrear && !creando && (
+            <button type="button" onClick={()=>{ setAbiertoCrear(false); setNombreNuevo('') }}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'var(--grl)', fontSize:13, marginLeft:'auto' }}>✕</button>
+          )}
         </div>
       )}
 

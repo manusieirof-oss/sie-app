@@ -309,6 +309,8 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
         onAbrir={(e:any)=>setEjSeleccionado(e)}
         acciones={<button className="btn btn-p btn-sm" onClick={()=>setModalEj(true)}>+ Nuevo ejercicio</button>}
         onCrear={crearRapido}
+        /* Aqui el boton sobra: esta pantalla ya tiene su alta completa, con foto y etiquetas. */
+        botonCrear={false}
       />
 
       {/* MODAL EJERCICIO (vista / edición) */}
