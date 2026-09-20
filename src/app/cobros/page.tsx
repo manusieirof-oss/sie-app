@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
+import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
 import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
@@ -11,6 +12,7 @@ import { cargarTarifas } from '@/lib/tarifas'
 import { abrirFactura } from '@/lib/factura'
 import { rangoDeMes, hoyISO } from '@/lib/fechas'
 import Link from 'next/link'
+import { contiene } from '@/lib/texto'
 
 // Pilar Cobros. Quién ha pagado el mes y quién no, y desde aquí se cobra.
 //
@@ -391,7 +393,7 @@ export default function CobrosPage() {
           clases: clasesDe[pid] || 0, mostrarClases: true,
         })))
       .filter(f => !!f.p)
-      .filter(f => !t || `${f.p.nombre} ${f.p.apellidos}`.toLowerCase().includes(t))
+      .filter(f => !t || contiene(`${f.p.nombre} ${f.p.apellidos}`, t))
       // Los cobrados al final: mientras cobras te interesa lo que falta. Dentro
       // de los pendientes, primero el que más clases lleva sin pagar. Y las dos
       // filas de una misma persona, juntas: separadas parecen un error.
@@ -439,7 +441,7 @@ export default function CobrosPage() {
     const cobrados = new Set(cobradoMes)
     return pacientes
       .filter(p => !conBono.has(p.id) && !cobrados.has(p.id))
-      .filter(p => !t || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(t))
+      .filter(p => !t || contiene(`${p.nombre} ${p.apellidos}`, t))
       .map(p => ({ ...p, empiezaEn: empiezaEn.get(p.id) || null }))
       .sort((a, b) => Number(!!a.empiezaEn) - Number(!!b.empiezaEn))
   }, [pacientes, bonos, bonosFuturos, busca, cobradoMes])
@@ -645,16 +647,7 @@ export default function CobrosPage() {
         </div>
         )}
         <div style={{marginLeft:'auto',display:'flex',alignItems:'stretch',gap:8}}>
-        {eligiendo ? (
-          <select className="input" style={{width:200,alignSelf:'center'}} autoFocus defaultValue=""
-            onChange={e=>{ const pa = pacienteDe[e.target.value]; setEligiendo(false); if (pa) abrirCobro(pa, null) }}
-            onBlur={()=>setEligiendo(false)}>
-            <option value="">Elige paciente…</option>
-            {pacientes.map((pa:any)=>(
-              <option key={pa.id} value={pa.id}>{pa.nombre} {pa.apellidos}</option>
-            ))}
-          </select>
-        ) : (
+        {(
           <button onClick={()=>setEligiendo(true)} title="Cobrar algo suelto a quien no tiene bono"
             style={{width:94,minHeight:94,border:'none',borderRadius:10,cursor:'pointer',fontFamily:'inherit',
                     background:'#5A969E',color:'#fff',display:'flex',flexDirection:'column',
@@ -789,6 +782,37 @@ export default function CobrosPage() {
           )}
         </div>
       ))}
+
+      {/* ELEGIR A QUIEN SE LE COBRA.
+          Era un <select> con doscientos nombres seguidos. El resto de la app
+          busca con `BuscadorPacientes` —agenda, valoración, bonos— y no hay
+          motivo para que aquí se elija de otra forma.
+
+          Entran también los ex clientes: a alguien de baja se le puede cobrar
+          una sesión suelta, y era justo el caso que no tenía por dónde. */}
+      {eligiendo && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setEligiendo(false)}}>
+          <div className="modal" style={{width:460,maxWidth:'94vw'}}>
+            <div className="modal-title">
+              Cobro suelto
+              <button className="modal-close" onClick={()=>setEligiendo(false)}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,lineHeight:1.6}}>
+              Para cobrar algo que no es una cuota: una valoración, una sesión individual.
+              Eliges a quién y en el cobro añades el servicio.
+            </div>
+            <BuscadorPacientes
+              pacientes={[...pacientes, ...exClientes]}
+              valor=""
+              autoFocus
+              placeholder="Buscar paciente por nombre..."
+              etiqueta={(pa:any)=> pa.estado==='pausa' ? 'en pausa'
+                                 : (pa.estado==='baja'||pa.estado==='puede_volver') ? 'ya no viene' : null}
+              onElegir={(pa:any)=>{ setEligiendo(false); abrirCobro(pa, null) }}
+              onLimpiar={()=>{}}/>
+          </div>
+        </div>
+      )}
 
       {cobrando && (
         <ModalCobro

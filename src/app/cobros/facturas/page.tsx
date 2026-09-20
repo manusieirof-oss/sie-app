@@ -7,6 +7,7 @@ import { Ic } from '@/lib/icons'
 import { abrirFactura, numeroFactura } from '@/lib/factura'
 import { emitirRectificativa } from '@/lib/cobros'
 import { rangoDeMes } from '@/lib/fechas'
+import { contiene } from '@/lib/texto'
 
 // Facturas emitidas. Ver, imprimir y rectificar.
 //
@@ -85,7 +86,7 @@ export default function FacturasPage() {
         if (!t) return true
         const p = f.cobros?.pacientes
         const nombre = f.receptor_nombre || (p ? `${p.nombre} ${p.apellidos}` : '')
-        return nombre.toLowerCase().includes(t) || numeroFactura(f).toLowerCase().includes(t)
+        return contiene(nombre, t) || contiene(numeroFactura(f), t)
       })
   }, [facturas, busca, pago])
 

@@ -8,6 +8,7 @@ import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
+import { contiene } from '@/lib/texto'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -327,12 +328,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     <input className="input" value={busquedaPacModal} onChange={e=>setBusquedaPacModal(e.target.value)} placeholder="Paciente (opcional · vacío = plantilla)" style={{width:'100%'}}/>
                     {busquedaPacModal && (
                       <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:30,marginTop:4,border:'1px solid var(--bd)',borderRadius:6,maxHeight:200,overflowY:'auto',background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
-                        {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPacModal.toLowerCase())).slice(0,20).map((p:any)=>(
+                        {pacientes.filter((p:any)=>contiene(`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`, busquedaPacModal)).slice(0,20).map((p:any)=>(
                           <div key={p.id} onClick={()=>{setPacienteSel(p.id);setBusquedaPacModal('')}} style={{padding:'7px 10px',cursor:'pointer',fontSize:13,borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
                             {p.nombre} {p.apellidos}{p.nombre_clinica?<span style={{color:'var(--gr)',fontSize:12}}> · {p.nombre_clinica}</span>:null}
                           </div>
                         ))}
-                        {pacientes.filter((p:any)=>`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`.toLowerCase().includes(busquedaPacModal.toLowerCase())).length===0 && (
+                        {pacientes.filter((p:any)=>contiene(`${p.nombre} ${p.apellidos} ${p.nombre_clinica||''}`, busquedaPacModal)).length===0 && (
                           <div style={{padding:'7px 10px',fontSize:12,color:'var(--gr)'}}>Sin resultados</div>
                         )}
                       </div>

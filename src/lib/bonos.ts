@@ -361,9 +361,17 @@ export async function renovarCuotas(modoPrueba = false) {
  * ficha los leía todos. Un bono activo de un mes pasado no llegaba a la lista, así que el
  * paciente salía con "Asignar" mientras en su ficha tenía bono.
  *
- * El orden importa. Alguien puede tener la cuota de agosto y además la de septiembre ya
- * preparada; manda la de agosto, que es la que se está cobrando. La de septiembre solo
- * aparece cuando no hay otra.
+ * EL ORDEN IMPORTA, Y "LA MÁS ANTIGUA" NO VALE COMO RESPALDO.
+ *
+ * Manda la del mes en curso. Si no la hay, la SIGUIENTE que venga; y solo si
+ * todas quedaron atrás, la más reciente.
+ *
+ * Antes el respaldo era `cuotas[0]`, la más antigua de todas. Con una cuota
+ * pasada y otra futura y ninguna de este mes —una pausa, una baja con vuelta
+ * programada— devolvía la vieja, y eso no era solo una etiqueta equivocada:
+ * `ModalBono` desactiva "la actual" al asignar una nueva, así que asignarle un
+ * bono le tumbaba la cuota pasada. Si estaba sin cobrar, esa deuda salía de
+ * Cobros —que solo lee las activas— sin que nadie lo decidiera.
  *
  * Las ventas puntuales —los bonos de sesiones— se saltan: no son la cuota del paciente, y
  * enseñarlas en esa columna haría creer que tiene mensualidad quien compró ocho sesiones.
@@ -374,7 +382,12 @@ export function cuotaVigenteDe(bonos: any[], pacienteId?: string) {
   const cuotas = (bonos || [])
     .filter(b => (!pacienteId || b.paciente_id === pacienteId) && b.sesiones_totales == null)
     .sort((a, b) => (a.anio - b.anio) || (a.mes - b.mes))
-  return cuotas.find(b => b.mes === mes && b.anio === anio) || cuotas[0] || null
+  const enCurso = cuotas.find(b => b.mes === mes && b.anio === anio)
+  if (enCurso) return enCurso
+  // Ordenadas de antigua a reciente: la primera futura es la más próxima, y la
+  // última de todas es la más reciente que ya pasó.
+  const proxima = cuotas.find(b => b.anio > anio || (b.anio === anio && b.mes > mes))
+  return proxima || cuotas[cuotas.length - 1] || null
 }
 
 /** Sus bonos de SESIONES. No caducan con el mes: valen mientras les queden sesiones. */

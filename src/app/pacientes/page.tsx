@@ -14,6 +14,7 @@ import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
          esNuevo, DIAS_NUEVO, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 import { useVolverALaFila, idFila } from '@/lib/scrollRecordado'
+import { contiene } from '@/lib/texto'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
@@ -233,8 +234,8 @@ export default function PacientesPage() {
   }
 
   const filtrados = pacientes.filter(p=>{
-    const q = buscar.toLowerCase()
-    const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
+    const q = buscar
+    const matchQ = !q || contiene(`${p.nombre} ${p.apellidos}`, q) || contiene(p.nombre_clinica, q) || (p.telefono||'').includes(q)
     const bono = getBonoActual(p.id)
     const matchPago = filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
     const matchEstado = filtroEstado==='todos' || p.estado===filtroEstado
@@ -287,9 +288,9 @@ export default function PacientesPage() {
 
   // Conteo por categoria, respetando buscador y los OTROS filtros
   function baseFiltrada(excluir: string) {
-    const q = buscar.toLowerCase()
+    const q = buscar
     return pacientes.filter(p=>{
-      const matchQ = !q || `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || (p.nombre_clinica||'').toLowerCase().includes(q) || (p.telefono||'').includes(q)
+      const matchQ = !q || contiene(`${p.nombre} ${p.apellidos}`, q) || contiene(p.nombre_clinica, q) || (p.telefono||'').includes(q)
       const bono = getBonoActual(p.id)
       const matchPago = excluir==='pago' || filtroPago==='todos' || estadoPagoDe(bono)===filtroPago
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado

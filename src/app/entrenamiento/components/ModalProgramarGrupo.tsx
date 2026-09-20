@@ -9,6 +9,7 @@ import {
   mesesDe, mesActual, nombreMes, fechaCorta, ordinalTexto, textoOrdinal,
   type PlanGrupo,
 } from '@/lib/programarGrupo'
+import { contiene } from '@/lib/texto'
 
 /**
  * Programar una sesión a un grupo entero.
@@ -113,8 +114,7 @@ export default function ModalProgramarGrupo({ plantilla, pacientes, onCerrar, on
       if (filtroCactus === 'sin' ? p.cactus != null : String(p.cactus || '') !== filtroCactus) return false
     }
     if (!buscar) return true
-    return `${p.nombre || ''} ${p.apellidos || ''} ${p.nombre_clinica || ''}`
-      .toLowerCase().includes(buscar.toLowerCase())
+    return contiene(`${p.nombre || ''} ${p.apellidos || ''} ${p.nombre_clinica || ''}`, buscar)
   })
 
   const marcar = (id: string) => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])

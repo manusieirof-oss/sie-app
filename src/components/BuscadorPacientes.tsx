@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { contiene } from '@/lib/texto'
 
 // Selector de paciente por búsqueda. Lo usan la agenda (nueva cita) y la
 // valoración. La valoración tenía un <select> con TODOS los pacientes dentro,
@@ -42,8 +43,7 @@ export default function BuscadorPacientes({
   // Busca también por nombre de clínica y por teléfono: en la agenda muchas
   // veces se busca por el mote o por el número desde el que han llamado.
   const coincide = (p: any) =>
-    `${p.nombre} ${p.apellidos} ${p.nombre_clinica || ''} ${p.telefono || ''}`
-      .toLowerCase().includes(q.toLowerCase())
+    contiene(`${p.nombre} ${p.apellidos} ${p.nombre_clinica || ''} ${p.telefono || ''}`, q)
   const resultados = q ? pacientes.filter(coincide) : []
 
   return (
