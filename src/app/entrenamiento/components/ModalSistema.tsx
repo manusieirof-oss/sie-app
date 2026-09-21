@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
-import { PROGRESIONES, guardarSistema, guardarFase, borrarFase,
+import { PROGRESIONES, guardarSistema, guardarFase, borrarFase, tinte,
          fijarObjetivosDeFase, fijarSesionesDeFase } from '@/lib/sistemas'
 
 // ---------------------------------------------------------------------------
@@ -15,12 +15,7 @@ import { PROGRESIONES, guardarSistema, guardarFase, borrarFase,
 const COLORES = ['#5A969E','#C486A0','#C9A84C','#6E7CA8','#7EA98F','#C08457','#B05A5A','#A0689C']
 
 function Fila({ etiqueta, children }: any) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 10, color: 'var(--gr)', marginBottom: 4 }}>{etiqueta}</div>
-      {children}
-    </div>
-  )
+  return <div className="field"><label>{etiqueta}</label>{children}</div>
 }
 
 export default function ModalSistema({ sistema, objetivos = [], sesiones = [], onCerrar, onGuardado }: {
@@ -39,6 +34,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
     (sistema?.fases || []).map((x: any) => ({ ...x, objetivos: x.objetivos || [], sesiones: x.sesiones || [] }))
   )
   const [borradas, setBorradas] = useState<string[]>([])
+  const [picker, setPicker] = useState(false)
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -81,29 +77,30 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
-      <div style={{ background: 'var(--w)', borderRadius: 'var(--rl)', width: '94vw', maxWidth: 820,
-                    maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                    boxShadow: 'var(--sh-md)' }}>
+      <div style={{ background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 14,
+                    width: '94vw', maxWidth: 820, maxHeight: '90vh', display: 'flex',
+                    flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--sh-md)' }}>
 
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 26, height: 26, borderRadius: 7, background: f.color, color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             {f.icono ? <Ic name={f.icono} size={13}/> : null}
           </span>
-          <div style={{ flex: 1, fontSize: 14 }}>{f.id ? 'Editar sistema' : 'Nuevo sistema'}</div>
-          <button onClick={onCerrar} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--bd)',
-            background: 'var(--w)', cursor: 'pointer', fontSize: 13, color: 'var(--gr)' }}>✕</button>
+          <div style={{ flex: 1, fontSize: 16, fontWeight: 500, color: 'var(--n)' }}>
+            {f.id ? 'Editar sistema' : 'Nuevo sistema'}
+          </div>
+          <button className="modal-close" onClick={onCerrar}>✕</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
           <Fila etiqueta="Nombre">
-            <input className="inp" value={f.nombre} onChange={e => set('nombre', e.target.value)}
+            <input className="input" value={f.nombre} onChange={e => set('nombre', e.target.value)}
               placeholder="Embarazo, Vuelta de lesión, Reto 8 semanas…"/>
           </Fila>
 
           <Fila etiqueta="Descripción">
-            <input className="inp" value={f.descripcion} onChange={e => set('descripcion', e.target.value)}
+            <input className="input" value={f.descripcion} onChange={e => set('descripcion', e.target.value)}
               placeholder="Para qué sirve y a quién se le pone"/>
           </Fila>
 
@@ -117,13 +114,20 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                 ))}
               </div>
             </Fila>
-            <Fila etiqueta="Icono">
-              <select className="inp" style={{ width: 150 }} value={f.icono} onChange={e => set('icono', e.target.value)}>
-                <option value="">Sin icono</option>
-                {ICON_NAMES.map((n: string) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </Fila>
           </div>
+
+          <Fila etiqueta="Icono">
+            <button onClick={() => setPicker(true)}
+              style={{ display:'inline-flex', alignItems:'center', gap:9, padding:'6px 12px 6px 8px',
+                borderRadius:7, border:'1px solid var(--bd)', background:'var(--w)', cursor:'pointer' }}>
+              <span style={{ width:26, height:26, borderRadius:6, background:f.color, color:'#fff',
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                {f.icono ? <Ic name={f.icono} size={14}/> : null}
+              </span>
+              <span style={{ fontSize:12, color:'var(--n)' }}>{f.icono || 'Sin icono'}</span>
+              <span style={{ fontSize:10, color:'var(--gr)' }}>cambiar</span>
+            </button>
+          </Fila>
 
           <Fila etiqueta="Cómo avanza">
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -140,7 +144,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
 
           <div style={{ borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
-              <div style={{ flex: 1, fontSize: 12, color: 'var(--n)' }}>Fases</div>
+              <label style={{ flex: 1, fontSize: 10, fontWeight: 500, color: 'var(--gr)',
+              letterSpacing: '.5px', textTransform: 'uppercase' }}>Fases</label>
               <button className="btn btn-s btn-sm" onClick={anadirFase}>+ Añadir fase</button>
             </div>
 
@@ -155,11 +160,11 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                 borderRadius: 7, padding: 11, marginBottom: 8 }}>
 
                 <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginBottom: 8 }}>
-                  <input className="inp" style={{ flex: 1 }} value={x.nombre}
+                  <input className="input" style={{ flex: 1 }} value={x.nombre}
                     onChange={e => setFase(i, 'nombre', e.target.value)} placeholder="Nombre de la fase"/>
                   {porTiempo && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      <input className="inp" style={{ width: 70 }} type="number" min={1} value={x.dias ?? ''}
+                      <input className="input" style={{ width: 70 }} type="number" min={1} value={x.dias ?? ''}
                         onChange={e => setFase(i, 'dias', e.target.value)}/>
                       <span style={{ fontSize: 11, color: 'var(--gr)' }}>días</span>
                     </span>
@@ -171,7 +176,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
 
                 {f.progresion === 'objetivos' && (
                   <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10, color: 'var(--gr)', marginBottom: 4 }}>
+                    <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)',
+                      letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>
                       Se sale de esta fase cuando TODOS estos objetivos estén logrados
                     </div>
                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 }}>
@@ -182,7 +188,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                         </span>
                       ))}
                     </div>
-                    <select className="inp" value="" onChange={e => {
+                    <select className="input" value="" onChange={e => {
                       if (e.target.value) setFase(i, 'objetivos', [...(x.objetivos || []), e.target.value])
                     }}>
                       <option value="">Añadir objetivo…</option>
@@ -193,7 +199,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                 )}
 
                 <div>
-                  <div style={{ fontSize: 10, color: 'var(--gr)', marginBottom: 4 }}>Sesiones de esta fase</div>
+                  <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)',
+                    letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>Sesiones de esta fase</div>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 }}>
                     {(x.sesiones || []).map((id: string) => (
                       <span key={id} className="pill pill-o on" style={{ cursor: 'pointer' }}
@@ -202,7 +209,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                       </span>
                     ))}
                   </div>
-                  <select className="inp" value="" onChange={e => {
+                  <select className="input" value="" onChange={e => {
                     if (e.target.value) setFase(i, 'sesiones', [...(x.sesiones || []), e.target.value])
                   }}>
                     <option value="">Añadir sesión…</option>
@@ -216,6 +223,33 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
 
           {error && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
         </div>
+
+        {picker && (
+          <div className="modal-bg" style={{ zIndex: 200 }}
+            onClick={e => { if (e.target === e.currentTarget) setPicker(false) }}>
+            <div style={{ background:'var(--w)', borderRadius:'var(--rl)', width:'92vw', maxWidth:620,
+              maxHeight:'80vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'var(--sh-md)' }}>
+              <div style={{ padding:'13px 17px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ flex:1, fontSize:16, fontWeight:500, color:'var(--n)' }}>Elige el icono</div>
+                <button className="modal-close" onClick={() => setPicker(false)}>✕</button>
+              </div>
+              <div style={{ flex:1, overflowY:'auto', padding:14, display:'grid',
+                gridTemplateColumns:'repeat(auto-fill,minmax(92px,1fr))', gap:8 }}>
+                {['', ...ICON_NAMES].map((n: string) => (
+                  <button key={n||'ninguno'} onClick={() => { set('icono', n); setPicker(false) }}
+                    style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'13px 4px',
+                      borderRadius:8, cursor:'pointer',
+                      background: f.icono===n ? tinte(f.color,.16) : 'var(--w)',
+                      border: f.icono===n ? `1px solid ${f.color}` : '1px solid var(--bd2)',
+                      color: f.icono===n ? f.color : 'var(--gr)' }}>
+                    {n ? <Ic name={n} size={26}/> : <span style={{ fontSize:22, lineHeight:'26px' }}>—</span>}
+                    <span style={{ fontSize:10, lineHeight:1.2, textAlign:'center', wordBreak:'break-word' }}>{n||'ninguno'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ padding: '12px 18px', borderTop: '1px solid var(--bd)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn btn-s" onClick={onCerrar}>Cancelar</button>

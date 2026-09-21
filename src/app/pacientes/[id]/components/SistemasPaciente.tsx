@@ -85,17 +85,17 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
 
       {anadiendo && (
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-          <select className="inp" style={{ maxWidth: 230 }} value={sel} onChange={e => setSel(e.target.value)}>
+          <select className="input" style={{ maxWidth: 230 }} value={sel} onChange={e => setSel(e.target.value)}>
             <option value="">Elige un sistema…</option>
             {catalogo.filter(s => !asignaciones.some(a => a.sistema_id === s.id))
               .map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
           </select>
           <span style={{ fontSize: 11, color: 'var(--gr)' }}>desde</span>
-          <input className="inp" style={{ width: 145 }} type="date" value={ini} onChange={e => setIni(e.target.value)}/>
+          <input className="input" style={{ width: 145 }} type="date" value={ini} onChange={e => setIni(e.target.value)}/>
           {pideFin && (
             <>
               <span style={{ fontSize: 11, color: 'var(--gr)' }}>hasta</span>
-              <input className="inp" style={{ width: 145 }} type="date" value={fin} onChange={e => setFin(e.target.value)}/>
+              <input className="input" style={{ width: 145 }} type="date" value={fin} onChange={e => setFin(e.target.value)}/>
             </>
           )}
           <button className="btn btn-p btn-sm" onClick={anadir} disabled={!sel || (pideFin && !fin)}>Añadir</button>
