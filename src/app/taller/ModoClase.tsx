@@ -1,7 +1,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { modoParte, textoModo, descansoDeParte, transicionDeParte } from '@/lib/sesiones'
+import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo } from '@/lib/sesiones'
+import { textoDescanso } from '@/lib/capacidades'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
@@ -262,7 +263,18 @@ export default function ModoClase() {
           grupo: ej.grupo || '',
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
-          plan:{peso:ej.peso,reps:ej.reps},
+          /**
+           * LO PRESCRITO VIAJA ENTERO A LA SALA.
+           *
+           * Aqui solo se copiaban peso y reps, asi que la nota del ejercicio, el
+           * tiempo, la capacidad, el regimen y el descanso propio se quedaban en la
+           * ficha. Prescribias "excentrico, ojo con la rodilla derecha" y en la sala
+           * salia el nombre, la foto y unas casillas vacias.
+           */
+          plan:{
+            series:ej.series, peso:ej.peso, reps:ej.reps, tiempo:ej.tiempo,
+            capacidad:ej.capacidad, regimen:ej.regimen, descanso:ej.descanso, nota:ej.nota,
+          },
           series: Array.from({length:n},()=>({peso:'',reps:''})),
           comentario:'', ultimo:null, guardado:false,
         })
@@ -782,7 +794,37 @@ export default function ModoClase() {
                     {ej.nombre}
                   </div>
                   {ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',display:'inline-block',marginTop:3}}>{ej.variante}</span>}
-                  {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>Sin registro previo{ej.plan?.peso?` · plan ${ej.plan.peso}kg`:''}</div>}
+                  {/* EL PLAN, SIEMPRE. Antes el peso planificado solo salia si el
+                      paciente NO tenia registro previo, que es justo al reves: cuanto
+                      mas histórico tiene, mas falta hace saber a que ibas hoy. */}
+                  {(() => {
+                    const pl = ej.plan || {}
+                    const tm = ej.tipo_medida || 'peso_reps'
+                    const t: string[] = []
+                    if (pl.series) t.push(`${pl.series} series`)
+                    if ((tm==='tiempo'||tm==='peso_tiempo') && pl.tiempo) t.push(`${pl.tiempo}s`)
+                    if (pl.reps) t.push(`${pl.reps} reps`)
+                    if (pl.peso) t.push(`${pl.peso} kg`)
+                    if (!t.length) return null
+                    return <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',marginTop:4}}>{t.join(' · ')}</div>
+                  })()}
+                  {(ej.plan?.regimen || ej.plan?.capacidad) && (
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}>
+                      {ej.plan.regimen && <span style={{fontSize:8,padding:'1px 6px',borderRadius:4,background:'var(--bm)',color:'var(--gr)'}}>{ej.plan.regimen}</span>}
+                      {ej.plan.capacidad && <span style={{fontSize:8,padding:'1px 6px',borderRadius:4,background:'var(--ambl)',color:'#7A5800'}}>{ej.plan.capacidad}</span>}
+                    </div>
+                  )}
+                  {(() => {
+                    // Solo el SUYO: el heredado de la parte ya se enseña en su cabecera.
+                    const d = descansoEfectivo(ej.parteObj, { descanso: ej.plan?.descanso })
+                    if (!d.valor || d.heredado) return null
+                    return (
+                      <div style={{fontSize:9,color:'var(--grl)',marginTop:3,display:'inline-flex',alignItems:'center',gap:4}}>
+                        <Ic name="pausa" size={10}/> {textoDescanso(d.valor)} entre series
+                      </div>
+                    )
+                  })()}
+                  {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>Sin registro previo</div>}
                   {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'flex-start',gap:4}}><Ic name="mensaje" size={10}/> <span>última vez: {ej.ultimoComent}</span></div>}
                   {ej.guardado&&<div style={{fontSize:9,color:'var(--g)',marginTop:3}}>✓ guardado</div>}
                 </div>
@@ -896,6 +938,17 @@ export default function ModoClase() {
                 </div>
                 )
               })()}
+              {/* LA NOTA, A TODO LO ANCHO Y EN AMBAR.
+                  Es lo unico de la prescripcion que avisa de algo —una rodilla, un
+                  rango que no se fuerza— y no llegaba a la sala. En la columna
+                  estrecha de la foto no se leeria, asi que ocupa su propia linea. */}
+              {ej.plan?.nota && (
+                <div style={{flexBasis:'100%',fontSize:10,color:'#7A5800',background:'var(--ambl)',
+                             border:'1px solid var(--amb)',borderRadius:6,padding:'6px 9px',
+                             display:'flex',gap:6,alignItems:'flex-start',lineHeight:1.5}}>
+                  <Ic name="alerta" size={11}/> <span style={{fontStyle:'italic'}}>{ej.plan.nota}</span>
+                </div>
+              )}
               {(ej.feedbacks||[]).length>0 && (
                 <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
                   {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
