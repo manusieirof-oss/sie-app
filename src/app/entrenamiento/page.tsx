@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import BibliotecaTab from './components/BibliotecaTab'
 import SesionesTab from './components/SesionesTab'
 import TestsTab from './components/TestsTab'
+import SistemasTab from './components/SistemasTab'
 import EtiquetasTab from './components/EtiquetasTab'
 import ClinicoTab from './components/ClinicoTab'
 import ObjetivosTab from './components/ObjetivosTab'
@@ -190,7 +191,7 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['tests','test','Tests'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']].map(([k,ic,l])=>(
+        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas'],['tests','test','Tests'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']].map(([k,ic,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
@@ -199,6 +200,7 @@ function EntrenamientoContent() {
         <>
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
           {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
+          {tab==='sistemas'&&<SistemasTab objetivos={objetivos} sesiones={sesiones}/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,
               que es el dato con el que se decide si sobra, se fusiona o se borra. */}

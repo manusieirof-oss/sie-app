@@ -17,6 +17,8 @@ import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } fr
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 import { hoyISO } from '@/lib/fechas'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
+import SistemasPaciente from './SistemasPaciente'
+import { sistemasDePaciente, logradosDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase } from '@/lib/sistemas'
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
@@ -29,6 +31,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [ajustandoCita, setAjustandoCita] = useState<any>(null)
   /** La sesión cuyo historial de cambios por día se está mirando. Solo lectura. */
   const [historialDe, setHistorialDe] = useState<any>(null)
+  const [sistemasPac, setSistemasPac] = useState<Asignacion[]>([])
+  const [logrados, setLogrados] = useState<Record<string,string|null>>({})
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
   const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
@@ -89,7 +93,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const hoy = hoyISO()
     const [{ data: c },{ data: s }] = await Promise.all([
       supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
-      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
+      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija,plantilla_id, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
     supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
@@ -115,6 +119,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       .select('id,estado,fecha_falta,fecha_limite,cita_falta_id,cita_recuperacion_id')
       .eq('paciente_id',pacienteId)
     setRecuperaciones(recs||[])
+
+    // Los sistemas que lleva hoy. Pintan las citas y dicen que sesiones tocan.
+    sistemasDePaciente(pacienteId).then(setSistemasPac)
+    logradosDe(pacienteId).then(setLogrados)
 
     // El contador de Ejecución era un 0 literal. Se cuentan los ejercicios
     // distintos que tienen alguna evaluación, que es lo que muestra la sección.
@@ -404,6 +412,22 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
    * cumplida, simplemente no lo sabemos, y apagarla escondería trabajo válido. Lo
    * mismo con objetivos de la biblioteca que este paciente nunca abrió.
    */
+  /**
+   * De que fase de que sistema salio cada sesion. Se reconoce por `plantilla_id`:
+   * al traerla se guarda de que molde se saco, y el molde es de una fase. Si luego
+   * quitas el sistema la sesion sigue siendo suya, solo deja de ir coloreada.
+   */
+  function deSistema(ses:any) {
+    if (!ses?.plantilla_id) return null
+    for (const a of sistemasPac) {
+      for (const f of (a.sistema?.fases||[])) {
+        if ((f.sesiones||[]).includes(ses.plantilla_id))
+          return { color: a.sistema!.color, sistema: a.sistema!.nombre, fase: f.nombre }
+      }
+    }
+    return null
+  }
+
   function estadoSesion(s:any): 'activa'|'cumplida'|'neutra' {
     const ids = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
     if (ids.length===0) return 'neutra'
@@ -518,8 +542,24 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
         const atajos = atajosDe(citasFuturas, seleccionadas)
 
+        // El sistema que manda pinta la cita; el tono sube al cambiar de fase, y así
+        // el corte entre tramos se ve sin leer nada. Los demas sistemas van de punto.
+        const marco = principalDe(sistemasPac)
+        const otros = sistemasPac.filter(a=>a!==marco)
+        const pintar = (fecha:string) => {
+          if (!marco?.sistema) return null
+          const t = faseEn(marco.sistema, marco, fecha, logrados)
+          if (!t) return null
+          const fases = marco.sistema.fases||[]
+          const i = fases.findIndex(f=>f.id===t.fase.id)
+          return { color: marco.sistema.color, fase: t.fase,
+                   fondo: tinte(marco.sistema.color, alfaDeFase(Math.max(0,i), fases.length)) }
+        }
+
         return (
         <div className="panel">
+          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados}
+            onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac)}} onRecargar={cargarDatos}/>
           <div className="sec">
             <div className="sec-h">
               <span className="sh-l">
@@ -568,10 +608,13 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 {g.citas.map(c=>{
                   const sel=seleccionadas.includes(c.id); const tieneSesion=!!c.sesiones
                   const fecha=new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})
+                  const pin=pintar(c.fecha)
                   return (
                     <div key={c.id} onClick={()=>toggleCita(c.id)}
                       className={`fila-p fila-sel ${sel?'on':''}`}
-                      style={{borderLeftColor:tieneSesion?'var(--g)':'var(--bd)'}}>
+                      title={pin?`${marco?.sistema?.nombre} · ${pin.fase.nombre}`:undefined}
+                      style={{borderLeftColor:pin?pin.color:(tieneSesion?'var(--g)':'var(--bd)'),
+                              background:pin&&!sel?pin.fondo:undefined}}>
                       <span className={`chk ${sel?'on':''}`}>{sel&&<Ic name="check" size={12}/>}</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
@@ -673,9 +716,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
                   const abierta=versionesAbiertas.includes(s.id)
                   const nEj=(s.partes||[]).reduce((a:number,p:any)=>a+(p.ejercicios||[]).length,0); const nP=(s.partes||[]).length
+                  const sis=deSistema(s)
                   return (
                     <div key={s.id} onClick={()=>setSesionDetalle(s)}
                       className={`tarj-s est-${estadoSesion(s)}`}
+                      style={sis?{background:tinte(sis.color,.12),borderColor:tinte(sis.color,.45)}:undefined}
                       title={estadoSesion(s)==='cumplida'
                         ? 'Sus objetivos ya están logrados'
                         : estadoSesion(s)==='activa' ? 'Trabaja objetivos aún abiertos' : undefined}>
@@ -716,6 +761,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       </div>
                       <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:8,alignItems:'center'}}>
                         {/* Calculado de las partes, nunca guardado en la sesión. */}
+                        {sis && (
+                          <span className="pill" title={`${sis.sistema} · ${sis.fase}`}
+                            style={{background:tinte(sis.color,.16),color:sis.color,border:`1px solid ${tinte(sis.color,.5)}`}}>
+                            {sis.fase}
+                          </span>
+                        )}
                         {nEj>0 && <span className="pill pill-o on">{modoDeSesion(s.partes).nombre}</span>}
                         <span className="pill pill-soft">{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
                         {/* "Tanda" y no "versión": un número junto al nombre se lee como
