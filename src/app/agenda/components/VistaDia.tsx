@@ -101,9 +101,11 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     const falta = c.estado==='falta'
     const tieneAlerta = alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)
     const col = colorTipo(c.tipo)
-    const bgBase = falta?'var(--redl)':tint(col,0.18)
-    const bgHover = falta?'#FBE8E8':tint(col,0.30)
-    const bd = falta?'#F0C9C9':tint(col,0.45)
+    // El tipo de clase lo dice el icono. El fondo se reserva para lo excepcional
+    // —una falta— y, mas adelante, para el sistema que lleve el paciente.
+    const bgBase = falta?'var(--redl)':'var(--w)'
+    const bgHover = falta?'#FBE8E8':'var(--bl)'
+    const bd = falta?'#F0C9C9':'var(--bd2)'
     return (
       <div onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)} title={nombreTipo(c.tipo)}
         style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',borderRadius:7,cursor:'pointer',marginBottom:3,background:bgBase,border:`1px solid ${bd}`,transition:'all .12s'}}

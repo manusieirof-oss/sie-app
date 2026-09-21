@@ -1,5 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
+import { iconTipoClase } from '@/lib/tipos'
 
 export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, salas=['A','B'] }: {
   fecha: string
@@ -31,6 +32,8 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
   const dn = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
+  const iconTipo = (t:string) => iconTipoClase(t, tiposClase.find((x:any)=>x.valor===t)?.icono)
+  const nombreTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.nombre) || t
   const tint = (hex:string, a:number) => {
     const h=(hex||'#5A969E').replace('#',''); const n=h.length===3?h.split('').map(x=>x+x).join(''):h
     const r=parseInt(n.slice(0,2),16)||90, g=parseInt(n.slice(2,4),16)||150, b=parseInt(n.slice(4,6),16)||158
@@ -57,8 +60,11 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
         <div style={{fontSize:8,fontWeight:600,color:'var(--gr)',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sala} {n}/{MAX}{lleno?' · Completo':` · ${libres} libre${libres>1?'s':''}`}</div>
         {cd.map((c:any)=>(
           <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})}
-            style={{fontSize:9,color:'var(--n)',fontWeight:400,padding:'1px 4px',marginBottom:1,borderRadius:3,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.35,display:'flex',alignItems:'center',gap:3,background:tint(colorTipo(c.tipo),0.18)}}
-            title={getNombreCorto(c)}>
+            style={{fontSize:9,color:'var(--n)',fontWeight:400,padding:'1px 4px',marginBottom:1,borderRadius:3,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.35,display:'flex',alignItems:'center',gap:4}}
+            title={`${getNombreCorto(c)} · ${nombreTipo(c.tipo)}`}>
+            {/* El tipo de clase se dice con el icono y no tiñendo el nombre entero:
+                el color de la fila lo va a necesitar el sistema del paciente. */}
+            <span style={{display:'inline-flex',color:colorTipo(c.tipo),flexShrink:0}}><Ic name={iconTipo(c.tipo)} size={9}/></span>
             {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={9}/></span>}
             <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
           </div>

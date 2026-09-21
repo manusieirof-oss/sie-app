@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 import { festivoDe, COLOR_FESTIVO, LABEL_FESTIVO } from '@/lib/festivos'
+import { iconTipoClase } from '@/lib/tipos'
 
 export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setVista, pacientes=[], tiposClase=[], onEditarMulti, maxPersonas=6, eventos=[] }: {
   fecha: string
@@ -31,6 +32,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
   }, [])
 
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
+  const iconTipo = (t:string) => iconTipoClase(t, tiposClase.find((x:any)=>x.valor===t)?.icono)
   const nombreTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.nombre) || t
   const tint = (hex:string, a:number) => {
     const h=(hex||'#5A969E').replace('#',''); const n=h.length===3?h.split('').map(x=>x+x).join(''):h
@@ -149,7 +151,8 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
                   {cumples.length>0&&!pacSel&&<div style={{fontSize:8,color:'#9E4E74',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flexShrink:0}}>{cumples[0].nombre}{cumples.length>1?` +${cumples.length-1}`:''}</div>}
                   {pacSel ? (
                     cd.slice(0,6).map((c:any)=>(
-                      <div key={c.id} style={{fontSize:9,padding:'2px 6px',borderRadius:3,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',background:tint(colorTipo(c.tipo),0.2),border:`1.5px solid ${colorTipo(c.tipo)}`,color:'var(--n)',flexShrink:0}}>
+                      <div key={c.id} style={{fontSize:9,padding:'2px 6px',borderRadius:3,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:'var(--n)',flexShrink:0,display:'flex',alignItems:'center',gap:4}}>
+                      <span style={{display:'inline-flex',color:colorTipo(c.tipo),flexShrink:0}}><Ic name={iconTipo(c.tipo)} size={9}/></span>
                         {c.hora?.slice(0,5)} · Sala {c.sala}
                       </div>
                     ))
