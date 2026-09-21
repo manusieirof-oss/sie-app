@@ -89,6 +89,27 @@ export function descansoDeParte(parte: any): { texto: string, cuando: string } |
 }
 
 /**
+ * EL TIEMPO ENTRE UN EJERCICIO Y EL SIGUIENTE, dentro de la misma vuelta.
+ *
+ * En un circuito hay DOS pausas distintas, y confundirlas cambia el entrenamiento:
+ * la de entre vueltas —descanso de verdad— y la de pasar de una estación a la
+ * siguiente, que unas veces es solo el tiempo de moverse y otras es descanso
+ * prescrito. Con un único campo no se podía decir lo más normal: "sin descanso
+ * entre ejercicios, dos minutos al acabar la vuelta".
+ *
+ * Solo tiene sentido donde se recorren varios ejercicios seguidos. En "ejercicio a
+ * ejercicio" no hay transición: acabas uno y empiezas el siguiente.
+ *
+ * Vacío significa que no hay nada prescrito —se pasa y ya—, no que falte rellenar.
+ */
+export function transicionDeParte(parte: any): { texto: string, cuando: string } | null {
+  const m = modoParte(parte?.modo).id
+  if (m !== 'circuito' && m !== 'superserie') return null
+  if (!parte?.transicion) return null
+  return { texto: textoDescanso(parte.transicion), cuando: 'entre ejercicios' }
+}
+
+/**
  * El descanso que de verdad aplica a un ejercicio, y de dónde sale.
  *
  * En "ejercicio a ejercicio" el descanso de la parte es un GENERAL: vale para todos

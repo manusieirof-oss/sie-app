@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { modoParte, textoModo, descansoDeParte } from '@/lib/sesiones'
+import { modoParte, textoModo, descansoDeParte, transicionDeParte } from '@/lib/sesiones'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
@@ -760,6 +760,11 @@ export default function ModoClase() {
                 {ej.parteObj && descansoDeParte(ej.parteObj) && (
                   <span style={{fontSize:9,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}>
                     <Ic name="pausa" size={10}/> {descansoDeParte(ej.parteObj)!.texto} {descansoDeParte(ej.parteObj)!.cuando}
+                  </span>
+                )}
+                {ej.parteObj && transicionDeParte(ej.parteObj) && (
+                  <span style={{fontSize:9,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}>
+                    <Ic name="pausa" size={10}/> {transicionDeParte(ej.parteObj)!.texto} {transicionDeParte(ej.parteObj)!.cuando}
                   </span>
                 )}
               </div>

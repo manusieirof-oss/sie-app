@@ -496,6 +496,19 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   </label>
                 )}
 
+                {/* LA OTRA PAUSA DEL RECORRIDO. Pasar de una estación a la siguiente no
+                    es lo mismo que descansar al acabar la vuelta, y con un solo campo no
+                    se podía decir "sin descanso entre ejercicios, dos minutos al acabar".
+                    Vacío = se pasa y ya. */}
+                {(parte?.modo==='circuito'||parte?.modo==='superserie') && (
+                  <label className="par-in" title="Lo que se descansa al cambiar de ejercicio dentro de la vuelta. Déjalo vacío si se encadenan sin parar.">
+                    <span style={{display:'inline-flex',color:'var(--gr)',marginRight:2}}><Ic name="pausa" size={11}/></span>
+                    <input type="number" min={0} step={5} value={parte?.transicion||''} placeholder="seg"
+                      onChange={e=>editarParte({transicion:e.target.value})}/>
+                    <span>entre ejercicios</span>
+                  </label>
+                )}
+
                 <div style={{flex:1}}/>
                 {formSesion.partes.length>1&&(
                   <button title="Eliminar esta parte" className="fila-x" style={{opacity:1}}

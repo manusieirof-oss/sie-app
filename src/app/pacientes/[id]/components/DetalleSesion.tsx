@@ -1,6 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
-import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, descansoEfectivo } from '@/lib/sesiones'
+import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 
@@ -141,6 +141,12 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                   <span className="pill pill-o" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     title={`Descanso ${descansoDeParte(parte)!.cuando}`}>
                     <Ic name="pausa" size={11} /> {descansoDeParte(parte)!.texto} {descansoDeParte(parte)!.cuando}
+                  </span>
+                )}
+                {transicionDeParte(parte) && (
+                  <span className="pill pill-o" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    title="Descanso al cambiar de ejercicio dentro de la vuelta">
+                    <Ic name="pausa" size={11} /> {transicionDeParte(parte)!.texto} {transicionDeParte(parte)!.cuando}
                   </span>
                 )}
               </div>

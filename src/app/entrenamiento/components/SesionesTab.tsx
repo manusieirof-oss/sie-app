@@ -10,7 +10,7 @@ import { encargoDeLaUrl, asignarSesionYVolver, type Encargo } from '@/lib/asigna
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { textoDescanso } from '@/lib/capacidades'
-import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, modoDeSesion } from '@/lib/sesiones'
+import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, transicionDeParte, modoDeSesion } from '@/lib/sesiones'
 
 type EjercicioSesion = {
   ejercicio_id: string
@@ -334,6 +334,12 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                       <span style={{fontSize:10,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:4}}
                         title={`Descanso ${descansoDeParte(parte)!.cuando}`}>
                         <Ic name="pausa" size={10}/> {descansoDeParte(parte)!.texto} {descansoDeParte(parte)!.cuando}
+                      </span>
+                    )}
+                    {transicionDeParte(parte)&&(
+                      <span style={{fontSize:10,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:4}}
+                        title="Descanso al cambiar de ejercicio dentro de la vuelta">
+                        <Ic name="pausa" size={10}/> {transicionDeParte(parte)!.texto} {transicionDeParte(parte)!.cuando}
                       </span>
                     )}
                   </div>
