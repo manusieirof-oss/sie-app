@@ -192,6 +192,15 @@ export default function ExploradorEjercicios({
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {MEDIDA[e.tipo_medida] || MEDIDA.peso_reps}
           </div>
+          {/* QUE TIENE VARIANTES SE SABE AQUI. Antes solo se veía si por casualidad
+              buscabas el nombre de una: al montar la sesión elegías el ejercicio a
+              secas sin saber que había una unilateral esperando. */}
+          {!vc && (e.variantes || []).length > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 3 }}
+              title={(e.variantes || []).map((v: any) => v?.nombre).filter(Boolean).join(' · ')}>
+              {e.variantes.length} {e.variantes.length === 1 ? 'variante' : 'variantes'}
+            </div>
+          )}
           {/* Lo que le falta se ve AQUÍ y no solo en la lista de pendientes: es al
               montar la sesión cuando te topas con el ejercicio a medias, y es el
               momento en el que puedes decidir completarlo o usar otro. */}

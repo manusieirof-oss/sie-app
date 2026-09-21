@@ -22,6 +22,68 @@ const SIN_VARIANTE = 'Sin variante'
  * mismo esté relleno o vacío; aquí el dato se ve de un vistazo y el caret dice que
  * se puede tocar. Es el patrón `.chip-ed` que ya usa la ficha del paciente.
  */
+/**
+ * ELEGIR VARIANTE VIÉNDOLA.
+ *
+ * Era un desplegable de texto, y una variante no se distingue por el nombre: entre
+ * "en tándem" y "unipodal" lo que decide es la foto y la frase de cómo se ejecuta.
+ * Con solo el nombre había que acordarse de memoria de qué era cada una.
+ *
+ * Fuera del componente grande a propósito: definido dentro, React lo trataría como
+ * un componente nuevo en cada pulsación y el panel se cerraría solo.
+ */
+function SelectorVariante({ variantes, valor, imagenBase, onElegir }: {
+  variantes: any[]
+  valor: string
+  imagenBase?: string
+  onElegir: (v: string) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const actual = variantes.find((v: any) => String(v?.nombre || '').trim() === valor)
+  const fila = (nombre: string, desc?: string, img?: string, elegida?: boolean) => (
+    <div key={nombre || '—'} onClick={() => { onElegir(nombre); setAbierto(false) }}
+      style={{ display: 'flex', gap: 9, alignItems: 'center', padding: '7px 9px', cursor: 'pointer',
+               borderBottom: '1px solid var(--bl)', background: elegida ? 'var(--gl)' : 'transparent' }}
+      onMouseOver={e => (e.currentTarget as HTMLElement).style.background = 'var(--bl)'}
+      onMouseOut={e => (e.currentTarget as HTMLElement).style.background = elegida ? 'var(--gl)' : 'transparent'}>
+      {img
+        ? <img src={img} alt={nombre} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 5, flexShrink: 0, background: 'var(--bm)' }} />
+        : <div style={{ width: 40, height: 40, borderRadius: 5, flexShrink: 0, background: 'var(--bm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}><Ic name="fuerza" size={16} /></div>}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, color: 'var(--n)' }}>{nombre || 'Sin variante'}</div>
+        {desc && <div style={{ fontSize: 10, color: 'var(--gr)', lineHeight: 1.4 }}>{desc}</div>}
+      </div>
+      {elegida && <span style={{ marginLeft: 'auto', color: 'var(--g)', display: 'inline-flex' }}><Ic name="check" size={13} /></span>}
+    </div>
+  )
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button type="button" className={`chip-ed ${valor ? '' : 'chip-ed-v'}`} onClick={() => setAbierto(v => !v)}
+        title={actual?.descripcion || 'Cómo se ejecuta hoy. Las variantes las define el ejercicio en la biblioteca'}>
+        {valor || 'Variante'} <Ic name="abajo" size={11} />
+      </button>
+      {abierto && (
+        <>
+          <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }} />
+          <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 40, width: 270,
+                        maxHeight: 280, overflowY: 'auto', background: 'var(--w)', border: '1px solid var(--bd)',
+                        borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.12)' }}>
+            {fila('', 'El ejercicio en su forma estándar', imagenBase, !valor)}
+            {variantes.map((v: any) => {
+              const n = String(v?.nombre || '').trim()
+              return fila(n, v?.descripcion, v?.imagen_url || imagenBase, valor === n)
+            })}
+            {/* Una variante que la biblioteca ya no ofrece pero la sesión guarda: se
+                enseña igual, o se quedaría escrita sin que nadie la vea. */}
+            {valor && !variantes.some((v: any) => String(v?.nombre || '').trim() === valor) &&
+              fila(valor, 'Ya no está en la biblioteca', imagenBase, true)}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function ChipMenu({ valor, opciones, onElegir, clase = '', vacio = '—', titulo }: {
   valor?: string
   opciones: string[]
@@ -672,15 +734,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                         {(() => {
                           const vars = variantesDe(ej)
                           if (vars.length === 0 && !ej.variante) return null
-                          const nombres = vars.map((v:any)=>String(v.nombre).trim())
-                          if (ej.variante && !nombres.includes(ej.variante)) nombres.push(ej.variante)
-                          const desc = vars.find((v:any)=>String(v.nombre).trim()===ej.variante)?.descripcion
                           return (
                             <div className="ej-sub">
-                              <ChipMenu valor={ej.variante} vacio="Variante"
-                                opciones={[SIN_VARIANTE, ...nombres.filter((n:string)=>n!==SIN_VARIANTE)]}
-                                titulo={desc || 'Cómo se ejecuta hoy. Las variantes las define el ejercicio en la biblioteca'}
-                                onElegir={v=>editarEjercicio(ei,{variante: v===SIN_VARIANTE ? '' : v})}/>
+                              <SelectorVariante variantes={vars} valor={ej.variante||''}
+                                imagenBase={ej.imagen_url}
+                                onElegir={v=>editarEjercicio(ei,{variante:v})}/>
                             </div>
                           )
                         })()}
