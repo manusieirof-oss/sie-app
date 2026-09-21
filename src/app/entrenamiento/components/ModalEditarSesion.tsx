@@ -98,6 +98,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   // meter una libreria de drag-and-drop para mover cuatro chips no se sostiene.
   const [arrastra, setArrastra] = useState<number|null>(null)
   const [sobre, setSobre] = useState<number|null>(null)
+  // Y lo mismo para los ejercicios dentro de la parte abierta. Van aparte de los
+  // de arriba: arrastrando una parte no se puede soltar sobre un ejercicio.
+  const [arrEj, setArrEj] = useState<number|null>(null)
+  const [sobreEj, setSobreEj] = useState<number|null>(null)
   const [abrirBib, setAbrirBib] = useState(false)
   const [selBib, setSelBib] = useState<string[]>([])
   /**
@@ -274,6 +278,27 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       if (desde < prev && hasta >= prev) return prev - 1
       if (desde > prev && hasta <= prev) return prev + 1
       return prev
+    })
+  }
+
+  /**
+   * CAMBIAR DE SITIO UN EJERCICIO dentro de su parte.
+   *
+   * El orden es el que se sigue en la sala, así que colocarlo mal obligaba a
+   * quitarlo y volver a añadirlo —perdiendo series, peso y reps ya escritos.
+   *
+   * El tirador va en una manilla y no en la fila entera: con `draggable` en la
+   * fila, seleccionar un número dentro de un input se convierte en un arrastre.
+   */
+  function moverEjercicio(desde: number, hasta: number) {
+    if (desde === hasta) return
+    setFormSesion(prev => {
+      const partes = [...prev.partes]
+      const ejercicios = [...(partes[parteActiva]?.ejercicios || [])]
+      const [x] = ejercicios.splice(desde, 1)
+      ejercicios.splice(hasta, 0, x)
+      partes[parteActiva] = { ...partes[parteActiva], ejercicios }
+      return { ...prev, partes }
     })
   }
 
@@ -583,9 +608,25 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                 {(formSesion.partes[parteActiva]?.ejercicios||[]).map((ej:any,ei:number)=>{
                   const med = medida(ej)
+                  const destinoEj = sobreEj===ei && arrEj!==null && arrEj!==ei
                   return (
-                  <div key={ei} className="ej-row">
+                  <div key={ei} className="ej-row"
+                    onDragOver={e=>{ if(arrEj===null) return; e.preventDefault(); if(sobreEj!==ei) setSobreEj(ei) }}
+                    onDragLeave={()=>{ if(sobreEj===ei) setSobreEj(null) }}
+                    onDrop={e=>{ if(arrEj===null) return; e.preventDefault(); moverEjercicio(arrEj,ei); setArrEj(null); setSobreEj(null) }}
+                    style={{opacity: arrEj===ei ? .4 : 1,
+                            boxShadow: destinoEj ? 'inset 3px 0 0 var(--gd)' : undefined}}>
                     <div className="ej-nom">
+                      {/* La manilla es lo único arrastrable: con la fila entera
+                          `draggable`, seleccionar un número en un input se vuelve
+                          un arrastre y no se puede ni corregir un peso. */}
+                      <span draggable title="Arrastra para cambiar el orden"
+                        onDragStart={()=>setArrEj(ei)}
+                        onDragEnd={()=>{setArrEj(null);setSobreEj(null)}}
+                        onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'}
+                        onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}
+                        style={{cursor:arrEj!==null?'grabbing':'grab',color:'var(--grl)',fontSize:17,
+                                lineHeight:1,flexShrink:0,userSelect:'none',padding:'2px 3px'}}>⠿</span>
                       {parte?.modo==='superserie' && (
                         <select value={ej.grupo||'A'} onChange={e=>editarEjercicio(ei,{grupo:e.target.value})}
                           style={{width:44,textAlign:'center',fontWeight:600,color:'var(--gd)',flexShrink:0}}
