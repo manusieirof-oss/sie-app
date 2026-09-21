@@ -38,6 +38,13 @@ export type PacienteDelDia = {
   notas: string
   /** La sesión que toca, ya resuelta. null si hay que elegirla. */
   sesion: any | null
+  /**
+   * Lo que cambia ESE día respecto al plan, preparado de antes desde la ficha.
+   *
+   * Viaja aparte y no aplicado dentro de `sesion` porque quien llama puede querer
+   * las dos cosas: el plan para compararlo y lo de hoy para hacerlo.
+   */
+  ajustes: any | null
   /** De dónde ha salido, para poder decirlo en pantalla sin volver a calcularlo. */
   origen: 'cita' | 'unica' | 'ninguna'
   /** Las vigentes del paciente, para el desplegable de cambiar sobre la marcha. */
@@ -108,7 +115,7 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
   if (!fecha) return []
 
   let q = supabase.from('citas')
-    .select('id,fecha,hora,sala,tipo,estado,notas,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica), sesiones:sesion_id(*)')
+    .select('id,fecha,hora,sala,tipo,estado,notas,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica), sesiones:sesion_id(*)')
     .eq('fecha', fecha)
     .neq('estado', 'cancelada')
     .not('paciente_id', 'is', null)
@@ -156,6 +163,10 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
       estado: c.estado || 'programada',
       notas: c.notas || '',
       sesion,
+      // Solo cuenta si la sesión que se va a hacer es la de la cita: el ajuste se
+      // preparó contra ESA, y aplicarlo sobre otra pondría la variante en el
+      // ejercicio que haya caído en esa posición.
+      ajustes: origen === 'cita' ? (c.ajustes || null) : null,
       origen,
       // Las de la cita se añaden a la lista aunque sean viejas: si hoy se entrena esa, en
       // el desplegable tiene que poder volver a elegirse tras haber mirado otra.

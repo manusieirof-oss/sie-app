@@ -9,6 +9,7 @@ import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 import { contiene } from '@/lib/texto'
+import { aplicarAjustes, calcularAjustes, sinAjustes } from '@/lib/ajustesCita'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -128,14 +129,26 @@ function ChipMenu({ valor, opciones, onElegir, clase = '', vacio = '—', titulo
   )
 }
 
-export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], onGuardado, onCerrar, pacientes }: {
+export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], onGuardado, onCerrar, pacientes, cita }: {
   sesion: any
   ejercicios: any[]
   etiquetas?: any[]
   onGuardado: () => void
   onCerrar: () => void
   pacientes?: any[]
+  /**
+   * MISMA PANTALLA, DISTINTO DESTINO.
+   *
+   * Con `cita`, lo que guardes NO va a la sesión: va a esa cita, como desviación
+   * de un día. La sesión es el plan y la comparten todas sus citas —editarla
+   * haría que las ya hechas dijeran que se hizo algo que no se hizo.
+   *
+   * Se reutiliza el editor entero a propósito: un mini-editor aparte seria otra
+   * pantalla que mantener y que acabaria divergiendo de esta.
+   */
+  cita?: { id: string, fecha?: string, ajustes?: any } | null
 }) {
+  const modoCita = !!cita?.id
   const [pacienteSel, setPacienteSel] = useState(sesion.paciente_id || '')
 
   /**
@@ -153,7 +166,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const [formSesion, setFormSesion] = useState({
     nombre: sesion.nombre || '',
     descripcion: sesion.descripcion || '',
-    partes: sesion.partes || [],
+    // En modo cita se arranca del plan CON lo que ya estuviera ajustado ese día:
+    // si no, cada vez que abrieras verias el plan y borrarias el ajuste al guardar.
+    partes: (cita?.id ? aplicarAjustes(sesion, cita.ajustes) : sesion).partes || [],
   })
   const [parteActiva, setParteActiva] = useState(0)
   // Arrastrar para reordenar las partes. Con el arrastre nativo del navegador:
@@ -373,6 +388,20 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   }
 
   async function guardarSesion() {
+    // MODO CITA: se guarda la diferencia contra el plan, no el plan.
+    if (modoCita) {
+      setGuardando(true)
+      const ajustes = calcularAjustes(sesion, { partes: formSesion.partes })
+      // Sin cambios se escribe null y no un objeto vacio: asi "no tiene ajustes"
+      // es una sola cosa en la base y no dos que hay que acordarse de mirar.
+      const { error } = await supabase.from('citas')
+        .update({ ajustes: sinAjustes(ajustes) ? null : ajustes }).eq('id', cita!.id)
+      setGuardando(false)
+      if (error) { alert('No se ha podido guardar el cambio de ese día: ' + error.message); return }
+      onGuardado()
+      onCerrar()
+      return
+    }
     if (!formSesion.nombre) { alert('El nombre es obligatorio'); return }
     const esNueva = !sesion.id
     const pid = sesion.paciente_id || pacienteSel || null
@@ -429,6 +458,17 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
         {/* CABECERA */}
         <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
+            {/* QUE SE SEPA ANTES DE TOCAR NADA a dónde va lo que cambies. Es la
+                misma pantalla que edita la sesión, y sin decirlo daría miedo —o
+                peor, confianza equivocada. */}
+            {modoCita && (
+              <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,
+                           padding:'7px 11px',marginBottom:8,fontSize:11,color:'var(--gd)',lineHeight:1.6}}>
+                Cambios <strong>solo para el {cita?.fecha
+                  ? new Date(cita.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})
+                  : 'día de esta cita'}</strong>. La sesión no se toca: sigue igual para las demás citas.
+              </div>
+            )}
             {!sesion.id && !sesion.paciente_id && pacientes && (
               <div style={{position:'relative',marginBottom:6}}>
                 {pacienteSel ? (() => {
@@ -458,7 +498,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 )}
               </div>
             )}
-            <input className="input" value={formSesion.nombre} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%'}} autoFocus/>
+            {/* El nombre es de la sesión, no del día: en modo cita se lee y no se toca. */}
+            <input className="input" value={formSesion.nombre} readOnly={modoCita} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',cursor:modoCita?'default':undefined,color:modoCita?'var(--gr)':undefined}} autoFocus={!modoCita}/>
             <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / motivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>

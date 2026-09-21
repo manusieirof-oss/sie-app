@@ -11,6 +11,7 @@ import { MOTIVOS_CAMBIO, nombreMotivo, cambiosDeCitas, type CambioSesion } from 
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
+import { aplicarAjustes } from '@/lib/ajustesCita'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
@@ -151,7 +152,10 @@ export default function ModoClase() {
       for (const d of delDia) {
         const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
         if (ya) { lista.push(ya); continue }        // lo suyo se queda como esté
-        const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, d.sesion) : []
+        // La sesión de hoy es el plan CON lo ajustado para este día. Lo preparado
+        // semanas antes tiene que llegar a la sala solo; si hubiera que acordarse
+        // de mirarlo, no serviría de nada haberlo preparado.
+        const datos = d.sesion ? await cargarDatosSesion(d.pacienteId, aplicarAjustes(d.sesion, d.ajustes)) : []
         let objetivosSesion: any[] = []
         if (d.sesion?.id) {
           const { data: rel } = await supabase.from('sesiones_objetivos')
@@ -250,6 +254,9 @@ export default function ModoClase() {
 
 
   // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
+  /** Ejercicio + variante. Para el historial son dos cosas distintas. */
+  const claveVar = (id: string, v: any) => `${id}|${String(v || '').trim()}`
+
   async function cargarDatosSesion(pid: string, ses: any) {
     if (ses?.id) cargarObjsDeSesion(ses.id)
     const ejs: any[] = []
@@ -296,25 +303,38 @@ export default function ModoClase() {
       ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; if(!e.items_evaluados) e.items_evaluados = {} })
     }
     if (ids.length) {
+      /**
+       * UNA VARIANTE ES OTRO EJERCICIO a efectos de progresion.
+       *
+       * El registro ya guardaba la variante —"sin esto, la progresion de cargas
+       * mezclaba unilateral y bilateral"— pero al LEER la ultima vez no se miraba:
+       * se cogia el registro mas reciente del ejercicio, fuera de la variante que
+       * fuera. Si el lunes hizo press bilateral a 40 y el miercoles toca unilateral,
+       * el taller le ponia "ultima vez: 40", que es justo el numero que no debe ver.
+       *
+       * Sin respaldo a proposito: si no ha hecho nunca ESA variante, lo honesto es
+       * decir que no hay registro previo, no ensenarle el de otra cosa.
+       */
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,fecha,created_at,comentario,items_evaluados')
+        .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
-      ;(fin||[]).forEach((r:any)=>{ if(!ultMap[r.ejercicio_id]) ultMap[r.ejercicio_id]=r })
+      ;(fin||[]).forEach((r:any)=>{ const k=claveVar(r.ejercicio_id,r.variante); if(!ultMap[k]) ultMap[k]=r })
       const { data: ejec } = await supabase.from('ejecucion_paciente')
         .select('ejercicio_id,items,fecha').eq('paciente_id', pid).in('ejercicio_id', ids)
       const ejecMap:Record<string,any>={}
       ;(ejec||[]).forEach((r:any)=>{ ejecMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,series,comentario,items_evaluados')
+        .select('ejercicio_id,variante,series,comentario,items_evaluados')
         .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).in('ejercicio_id', ids)
       const cursoMap:Record<string,any>={}
-      ;(curso||[]).forEach((r:any)=>{ cursoMap[r.ejercicio_id]=r })
+      ;(curso||[]).forEach((r:any)=>{ cursoMap[claveVar(r.ejercicio_id,r.variante)]=r })
       ejs.forEach(e=>{
         if (e.ejercicio_id){
-          e.ultimo = ultMap[e.ejercicio_id]?.series || null
-          e.ultimoComent = ultMap[e.ejercicio_id]?.comentario || ''
+          const kv = claveVar(e.ejercicio_id, e.variante)
+          e.ultimo = ultMap[kv]?.series || null
+          e.ultimoComent = ultMap[kv]?.comentario || ''
           const ejec = ejecMap[e.ejercicio_id]
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
@@ -328,7 +348,7 @@ export default function ModoClase() {
             })
             e.precargado = true
           }
-          const c = cursoMap[e.ejercicio_id]
+          const c = cursoMap[kv]
           if (c && Array.isArray(c.series)) {
             // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
             const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
@@ -422,9 +442,14 @@ export default function ModoClase() {
     }
     let error
     if (ej.ejercicio_id){
-      const { data: existe } = await supabase.from('registros_ejercicio')
+      // Con la variante en la clave: el mismo ejercicio puede salir dos veces en
+      // la misma sesion —bilateral y unilateral— y sin esto el segundo pisaba al
+      // primero, o `maybeSingle` fallaba por encontrar dos.
+      let q = supabase.from('registros_ejercicio')
         .select('id').eq('paciente_id',pid).eq('ejercicio_id',ej.ejercicio_id)
-        .eq('sesion_id',sesionId).eq('finalizado',false).maybeSingle()
+        .eq('sesion_id',sesionId).eq('finalizado',false)
+      q = ej.variante ? q.eq('variante', ej.variante) : q.is('variante', null)
+      const { data: existe } = await q.maybeSingle()
       if (existe){
         ({ error } = await supabase.from('registros_ejercicio')
           .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null })

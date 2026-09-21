@@ -19,7 +19,7 @@ function medidaEj(ej: any): string {
 // desde Sesiones se veía con imágenes, series, pesos y notas; desde Historial,
 // solo una lista de nombres. Ahora es el mismo, y lo único que cambia son las
 // acciones: en Historial estás consultando el pasado, no editándolo.
-export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, textoAsignar, onPartir, textoPartir, nCitas, ejecutado }: {
+export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, textoAsignar, onPartir, textoPartir, nCitas, ejecutado, onHistorial }: {
   sesion: any
   objetivos?: any[]
   onCerrar: () => void
@@ -35,6 +35,8 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
    * vieja se queda intacta, que es lo que permite volver a hacerlo desde otra mañana.
    */
   onPartir?: () => void
+  /** Ver qué se cambió día a día. Solo mirar: se edita en la cita. */
+  onHistorial?: () => void
   /** Texto del botón, que dice qué número va a salir. */
   textoPartir?: string
   /** Asignar esta sesión a citas. Solo desde la ficha: el historial no se reprograma. */
@@ -57,16 +59,19 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
     if (!ejecutado || !ejercicioId) return null
     const reg = ejecutado.find((r: any) => r.ejercicio_id === ejercicioId)
     const series = Array.isArray(reg?.series) ? reg.series : []
-    if (series.length === 0) return reg?.comentario ? { texto: '', comentario: reg.comentario } : null
+    // La VARIANTE EJECUTADA viaja con el registro. Sin ella, un día que se hizo
+    // unilateral en vez de bilateral se leía como si se hubiera hecho lo prescrito.
+    const variante = reg?.variante || ''
+    if (series.length === 0) return reg?.comentario || variante ? { texto: '', comentario: reg?.comentario || '', variante } : null
     const texto = series.map((s: any) => {
       if (s.segundos !== '' && s.segundos != null) return `${s.segundos} s`
       if (s.peso !== '' && s.peso != null && s.reps !== '' && s.reps != null) return `${s.peso}×${s.reps}`
       if (s.reps !== '' && s.reps != null) return `${s.reps} reps`
       return null
     }).filter(Boolean).join(', ')
-    return { texto, comentario: reg?.comentario || '' }
+    return { texto, comentario: reg?.comentario || '', variante }
   }
-  const hayAcciones = !!(onEditar || onDuplicar || onEliminar || onAsignar || onPartir)
+  const hayAcciones = !!(onEditar || onDuplicar || onEliminar || onAsignar || onPartir || onHistorial)
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -100,6 +105,9 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                 <Ic name="calendario" size={12} /> {textoAsignar || 'Asignar a citas'}
               </button>
             )}
+            {/* Lo que se le fue desviando por el camino. Se mira aquí porque es aquí
+                donde se abre la sesión de un paciente; se toca en la cita. */}
+            {onHistorial && <button className="btn btn-s btn-sm" onClick={onHistorial} title="Cambios aplicados día a día"><Ic name="carpeta" size={12} /> Historial</button>}
             {onEditar && <button className="btn btn-s btn-sm" onClick={onEditar}><Ic name="editar" size={12} /> Editar</button>}
             {onPartir && (
               <button className="btn btn-s btn-sm" onClick={onPartir}
@@ -200,9 +208,27 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                               : <div className="ej-img ej-img-no"><Ic name="fuerza" size={24} /></div>}
                             <div style={{ minWidth: 0 }}>
                               <div className="ej-txt">{nombre}</div>
-                              {ej.variante && (
-                                <div className="ej-sub"><span className="badge badge-g">{ej.variante}</span></div>
-                              )}
+                              {(() => {
+                                const h = hizo(ej.ejercicio_id)
+                                const hecha = h?.variante || ''
+                                const cambio = !!hecha && hecha !== (ej.variante || '')
+                                if (!ej.variante && !hecha) return null
+                                return (
+                                  <div className="ej-sub" style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {ej.variante && (
+                                      <span className="badge badge-g" style={cambio ? { textDecoration: 'line-through', opacity: .6 } : undefined}
+                                        title={cambio ? 'Lo prescrito' : undefined}>{ej.variante}</span>
+                                    )}
+                                    {/* Si ese día se hizo otra, manda la que se hizo: el
+                                        historial cuenta lo que pasó, no lo que se planeó. */}
+                                    {cambio && (
+                                      <span className="badge badge-g" title="Variante que se hizo ese día">
+                                        {!ej.variante ? '' : '→ '}{hecha}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </div>
                           </div>
 

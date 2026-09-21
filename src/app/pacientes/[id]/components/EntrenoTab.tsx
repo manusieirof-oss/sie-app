@@ -16,10 +16,19 @@ import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 import { hoyISO } from '@/lib/fechas'
+import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
+import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
+  /**
+   * La cita cuya sesión se está ajustando. Distinto de editar la sesión: aquí lo
+   * que se guarde va a ESA cita, no al plan que comparten todas.
+   */
+  const [ajustandoCita, setAjustandoCita] = useState<any>(null)
+  /** La sesión cuyo historial de cambios por día se está mirando. Solo lectura. */
+  const [historialDe, setHistorialDe] = useState<any>(null)
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
   const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
@@ -79,7 +88,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function cargarDatos() {
     const hoy = hoyISO()
     const [{ data: c },{ data: s }] = await Promise.all([
-      supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
+      supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
@@ -351,6 +360,28 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
   // La biblioteca de ejercicios solo la necesita el editor de sesión. Traerla en cada
   // montaje de la pestaña era descargarla entera para no usarla casi nunca.
+  /**
+   * Ajustar la sesión SOLO para un día.
+   *
+   * Abre el mismo editor de siempre, pero atado a la cita: lo que guardes se anota
+   * como desviación de ese día y el plan no se entera. Es lo que permite cambiar un
+   * ejercicio cada pocas semanas sin que las sesiones ya hechas cambien con él.
+   */
+  async function abrirAjuste(cita:any) {
+    if (!cita?.sesiones?.id) return
+    await cargarBiblioteca()
+    setAjustandoCita(cita)
+  }
+
+  async function cargarBiblioteca() {
+    if (ejerciciosBib.length>0) return
+    const [{ data: ejs },{ data: ets }] = await Promise.all([
+      supabase.from('ejercicios').select('*').order('nombre'),
+      supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
+    ])
+    setEjerciciosBib(ejs||[]); setEtiquetasBib(ets||[])
+  }
+
   async function abrirEditor(sesion:any) {
     if (ejerciciosBib.length===0) {
       const [{ data: ejs },{ data: ets }] = await Promise.all([
@@ -553,7 +584,26 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                             </button>
                           </div>
                         ):<div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>Sin sesión asignada</div>}
+                        {/* Lo que cambia ESE día respecto al plan. Se ve en la propia
+                            fila: si hay que abrir algo para saberlo, no se mira. */}
+                        {tieneSesion && !sinAjustes(c.ajustes) && (
+                          <div style={{marginTop:3,display:'flex',flexWrap:'wrap',gap:5}}>
+                            {resumenAjustes(c.sesiones, c.ajustes).map((r:any)=>(
+                              <span key={r.clave} style={{fontSize:10,padding:'1px 8px',borderRadius:99,
+                                background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800'}}
+                                title={r.cambios.map((x:any)=>`${x.campo}: ${x.de||'—'} → ${x.a||'—'}`).join('\n')}>
+                                {r.nombre} · {r.cambios.map((x:any)=>x.a||'—').join(', ')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
+                      {tieneSesion && (
+                        <button title="Cambiar la sesión solo para este día" className="btn btn-t btn-sm" style={{flexShrink:0}}
+                          onClick={e=>{e.stopPropagation();abrirAjuste(c)}}>
+                          <Ic name="recuperar" size={13}/>
+                        </button>
+                      )}
                       <button title="Editar la cita" className="btn btn-t btn-sm" style={{flexShrink:0}}
                         onClick={e=>{e.stopPropagation();setEditandoCita({...c,paciente_id:pacienteId})}}>
                         <Ic name="editar" size={13}/>
@@ -655,6 +705,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                           <div style={{fontSize:13,color:'var(--n)'}}>{s.nombre}</div>
                           {s.descripcion&&<div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{s.descripcion.slice(0,70)}{s.descripcion.length>70?'…':''}</div>}
                         </div>
+                        <button className="pill pill-soft" title="Historial de cambios por dia"
+                          onClick={e=>{e.stopPropagation();setHistorialDe(s)}}
+                          style={{border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',flexShrink:0,padding:'3px 7px'}}>
+                          <Ic name="carpeta" size={12}/>
+                        </button>
                         <span className={`pill ${asignada?'pill-o on':'pill-soft'}`} style={{flexShrink:0}}>
                           {asignada?`${citasAsignadas.length} cita${citasAsignadas.length>1?'s':''}`:'Sin asignar'}
                         </span>
@@ -787,7 +842,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   const reg=registrosDe(c)
                   return (
                     <div key={c.id} className={`fila-p ${tieneSes?'test-clic':''}`} style={{borderLeftColor:est.borde}}
-                      onClick={()=>tieneSes&&setVerSesion({sesion:c.sesiones, ejecutado:reg})}>
+                      onClick={()=>tieneSes&&setVerSesion({sesion:aplicarAjustes(c.sesiones,c.ajustes), ejecutado:reg})}>
                       <div style={{flex:1}}>
                         {tieneSes
                           ? <div style={{fontSize:13,color:'var(--n)',display:'flex',alignItems:'center',gap:5}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}</div>
@@ -795,6 +850,19 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>
                           {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
                         </div>
+                        {/* Lo que ese dia se cambio respecto al plan. Queda aqui para
+                            siempre: es el registro de lo que de verdad tocaba hacer. */}
+                        {tieneSes && !sinAjustes(c.ajustes) && (
+                          <div style={{marginTop:3,display:'flex',flexWrap:'wrap',gap:5}}>
+                            {resumenAjustes(c.sesiones, c.ajustes).map((r:any)=>(
+                              <span key={r.clave} style={{fontSize:10,padding:'1px 8px',borderRadius:99,
+                                background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800'}}
+                                title={r.cambios.map((x:any)=>`${x.campo}: ${x.de||'—'} → ${x.a||'—'}`).join('\n')}>
+                                {r.nombre} · {r.cambios.map((x:any)=>x.a||'—').join(', ')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {/* El papel en una recuperación: si esta falta se recuperó o si
                           esta cita es la recuperación de otra. El dato ya estaba en la
@@ -1009,6 +1077,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     )}
 
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
+    {/* Mismo editor, atado a la cita: lo que se guarde va a ese día, no al plan. */}
+    {historialDe&&<HistorialAjustes sesion={historialDe} onCerrar={()=>setHistorialDe(null)}/>}
+    {ajustandoCita&&<ModalEditarSesion
+      sesion={ajustandoCita.sesiones}
+      cita={{ id: ajustandoCita.id, fecha: ajustandoCita.fecha, ajustes: ajustandoCita.ajustes }}
+      ejercicios={ejerciciosBib} etiquetas={etiquetasBib}
+      onGuardado={()=>{cargarDatos();onRefresh()}}
+      onCerrar={()=>setAjustandoCita(null)}/>}
     {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita}/>}
     </div>
   )

@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { textoDescanso } from '@/lib/capacidades'
 import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, transicionDeParte, modoDeSesion } from '@/lib/sesiones'
+import HistorialAjustes from './HistorialAjustes'
 
 type EjercicioSesion = {
   ejercicio_id: string
@@ -46,6 +47,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [origen, setOrigen] = useState<'plantillas'|'pacientes'|'todas'>('plantillas')
   const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
   const [sesionVista, setSesionVista] = useState<any>(null)
+  /** La sesión cuyo historial de cambios por día se está mirando. Solo lectura. */
+  const [historialDe, setHistorialDe] = useState<any>(null)
   const [buscarBiblio, setBuscarBiblio] = useState('')
   const [filtroEtBiblio, setFiltroEtBiblio] = useState<string[]>([])
   const [sesionEditando, setSesionEditando] = useState<any>(null)
@@ -273,6 +276,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
       )}
 
       {/* MODAL VISTA SESIÓN (solo lectura) */}
+      {historialDe&&<HistorialAjustes sesion={historialDe} onCerrar={()=>setHistorialDe(null)}/>}
+
       {sesionVista&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setSesionVista(null)}}>
           <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
@@ -313,6 +318,12 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                     <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setGrupo(s)}} disabled={ocupado}><Ic name="pacientes" size={12}/> Programar a un grupo</button>
                   </>
                 : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}
+              {/* SOLO MIRAR. Qué se cambió cada día y qué está previsto: la sesión
+                  es el plan, y esto es lo que se le fue desviando por el camino.
+                  No se edita desde aquí —se edita en la cita— para que no haya dos
+                  sitios que escriban lo mismo. */}
+              <button className="btn btn-s btn-sm" onClick={()=>setHistorialDe(sesionVista)}
+                title="Cambios aplicados día a día"><Ic name="carpeta" size={12}/> Historial</button>
               <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>
               <button className="btn btn-d btn-sm" onClick={()=>borrar(sesionVista)} disabled={ocupado} title="Eliminar la sesión"><Ic name="papelera" size={12}/></button>
               <button onClick={()=>setSesionVista(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
