@@ -94,6 +94,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     partes: sesion.partes || [],
   })
   const [parteActiva, setParteActiva] = useState(0)
+  // Arrastrar para reordenar las partes. Con el arrastre nativo del navegador:
+  // meter una libreria de drag-and-drop para mover cuatro chips no se sostiene.
+  const [arrastra, setArrastra] = useState<number|null>(null)
+  const [sobre, setSobre] = useState<number|null>(null)
   const [abrirBib, setAbrirBib] = useState(false)
   const [selBib, setSelBib] = useState<string[]>([])
   /**
@@ -246,6 +250,31 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     setNuevosEj(p => [...p, r.ejercicio])
     addEjercicio(r.ejercicio)
     setUltimoCreado(r.ejercicio.nombre)
+  }
+
+  /**
+   * CAMBIAR DE SITIO UNA PARTE.
+   *
+   * El orden de las partes ES el orden del entrenamiento —calentamiento, bloque,
+   * accesorios—, así que colocarlas mal obligaba a borrar y rehacer.
+   *
+   * `parteActiva` es un índice, no una referencia: si no se ajusta, mover una
+   * parte deja abierta OTRA sin avisar, y sigues escribiendo en la equivocada.
+   */
+  function moverParte(desde: number, hasta: number) {
+    if (desde === hasta) return
+    setFormSesion(prev => {
+      const partes = [...prev.partes]
+      const [x] = partes.splice(desde, 1)
+      partes.splice(hasta, 0, x)
+      return { ...prev, partes }
+    })
+    setParteActiva(prev => {
+      if (prev === desde) return hasta
+      if (desde < prev && hasta >= prev) return prev - 1
+      if (desde > prev && hasta <= prev) return prev + 1
+      return prev
+    })
   }
 
   function quitarEjercicio(parteIdx: number, ejIdx: number) {
@@ -419,12 +448,29 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
           {/* IZQUIERDA — PARTES */}
           <div style={{overflowY:'auto',padding:14,flex:1}}>
             <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
-              {formSesion.partes.map((p:any,i:number)=>(
-                <button key={i} onClick={()=>setParteActiva(i)}
-                  className={`chip-obj ${parteActiva===i?'on':''}`} style={parteActiva===i?{borderColor:'var(--g)',background:'var(--g)',color:'#fff'}:undefined}>
-                  {p.nombre} <span style={{opacity:.7}}>({(p.ejercicios||[]).length})</span>
-                </button>
-              ))}
+              {formSesion.partes.map((p:any,i:number)=>{
+                const activa = parteActiva===i
+                const destino = sobre===i && arrastra!==null && arrastra!==i
+                return (
+                  <button key={i} onClick={()=>setParteActiva(i)}
+                    draggable
+                    title="Arrastra para cambiar el orden de las partes"
+                    onDragStart={()=>setArrastra(i)}
+                    onDragEnd={()=>{setArrastra(null);setSobre(null)}}
+                    onDragOver={e=>{e.preventDefault(); if(sobre!==i) setSobre(i)}}
+                    onDragLeave={()=>{ if(sobre===i) setSobre(null) }}
+                    onDrop={e=>{e.preventDefault(); if(arrastra!==null) moverParte(arrastra,i); setArrastra(null); setSobre(null)}}
+                    className={`chip-obj ${activa?'on':''}`}
+                    style={{
+                      ...(activa?{borderColor:'var(--g)',background:'var(--g)',color:'#fff'}:{}),
+                      cursor: arrastra!==null ? 'grabbing' : 'grab',
+                      opacity: arrastra===i ? .4 : 1,
+                      boxShadow: destino ? 'inset 3px 0 0 var(--gd)' : undefined,
+                    }}>
+                    {p.nombre} <span style={{opacity:.7}}>({(p.ejercicios||[]).length})</span>
+                  </button>
+                )
+              })}
               <button onClick={()=>{setFormSesion(p=>({...p,partes:[...p.partes,{nombre:`Parte ${p.partes.length+1}`,ejercicios:[]}]}));setParteActiva(formSesion.partes.length)}}
                 className="chip-obj" style={{borderStyle:'dashed'}}>
                 + Parte
