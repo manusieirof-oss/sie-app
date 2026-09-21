@@ -417,6 +417,18 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
    * al traerla se guarda de que molde se saco, y el molde es de una fase. Si luego
    * quitas el sistema la sesion sigue siendo suya, solo deja de ir coloreada.
    */
+  // Quien pinta y como. Vive fuera de las secciones porque lo usan dos.
+  const pintaMarco = principalDe(sistemasPac)
+  const pinta = (fecha:string) => {
+    if (!pintaMarco?.sistema) return null
+    const t = faseEn(pintaMarco.sistema, pintaMarco, fecha, logrados)
+    if (!t) return null
+    const fases = pintaMarco.sistema.fases||[]
+    const i = fases.findIndex(f=>f.id===t.fase.id)
+    return { color: pintaMarco.sistema.color, fase: t.fase,
+             fondo: tinte(pintaMarco.sistema.color, alfaDeFase(Math.max(0,i), fases.length)) }
+  }
+
   function deSistema(ses:any) {
     if (!ses?.plantilla_id) return null
     for (const a of sistemasPac) {
@@ -544,17 +556,9 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
         // El sistema que manda pinta la cita; el tono sube al cambiar de fase, y así
         // el corte entre tramos se ve sin leer nada. Los demas sistemas van de punto.
-        const marco = principalDe(sistemasPac)
+        const marco = pintaMarco
         const otros = sistemasPac.filter(a=>a!==marco)
-        const pintar = (fecha:string) => {
-          if (!marco?.sistema) return null
-          const t = faseEn(marco.sistema, marco, fecha, logrados)
-          if (!t) return null
-          const fases = marco.sistema.fases||[]
-          const i = fases.findIndex(f=>f.id===t.fase.id)
-          return { color: marco.sistema.color, fase: t.fase,
-                   fondo: tinte(marco.sistema.color, alfaDeFase(Math.max(0,i), fases.length)) }
-        }
+        const pintar = pinta
 
         return (
         <div className="panel">
@@ -616,6 +620,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       style={{borderLeftColor:pin?pin.color:(tieneSesion?'var(--g)':'var(--bd)'),
                               background:pin&&!sel?pin.fondo:undefined}}>
                       <span className={`chk ${sel?'on':''}`}>{sel&&<Ic name="check" size={12}/>}</span>
+                      {/* Los demas sistemas van de punto: la cita tambien cuenta para
+                          ellos, pero el color lo pone el marco y no se parte. */}
+                      {otros.filter(o=>o.sistema&&faseEn(o.sistema,o,c.fecha,logrados)).map(o=>(
+                        <span key={o.id} title={`${o.sistema!.nombre} · ${faseEn(o.sistema!,o,c.fecha,logrados)?.fase.nombre}`}
+                          style={{width:8,height:8,borderRadius:99,flexShrink:0,background:o.sistema!.color}}/>
+                      ))}
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                         {tieneSesion?(
@@ -892,7 +902,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   const tieneSes=!!c.sesiones
                   const reg=registrosDe(c)
                   return (
-                    <div key={c.id} className={`fila-p ${tieneSes?'test-clic':''}`} style={{borderLeftColor:est.borde}}
+                    <div key={c.id} className={`fila-p ${tieneSes?'test-clic':''}`}
+                      style={{borderLeftColor:pinta(c.fecha)?.color||est.borde, background:pinta(c.fecha)?.fondo}}
                       onClick={()=>tieneSes&&setVerSesion({sesion:aplicarAjustes(c.sesiones,c.ajustes), ejecutado:reg})}>
                       <div style={{flex:1}}>
                         {tieneSes
