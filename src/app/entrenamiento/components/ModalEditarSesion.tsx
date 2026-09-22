@@ -133,7 +133,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   sesion: any
   ejercicios: any[]
   etiquetas?: any[]
-  onGuardado: () => void
+  /** Recibe el id de la sesion guardada, para quien necesite engancharla a algo. */
+  onGuardado: (sesionId?: string) => void
   onCerrar: () => void
   pacientes?: any[]
   /**
@@ -444,7 +445,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     }
 
     setGuardando(false)
-    onGuardado()
+    onGuardado(sesionId)
     onCerrar()
   }
 

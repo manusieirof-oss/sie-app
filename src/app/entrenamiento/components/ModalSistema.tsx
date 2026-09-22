@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
+import SelectorSesiones from './SelectorSesiones'
+import SelectorObjetivos from './SelectorObjetivos'
 import { PROGRESIONES, guardarSistema, guardarFase, borrarFase, tinte,
          fijarObjetivosDeFase, fijarSesionesDeFase } from '@/lib/sistemas'
 
@@ -18,13 +20,8 @@ function Fila({ etiqueta, children }: any) {
   return <div className="field"><label>{etiqueta}</label>{children}</div>
 }
 
-export default function ModalSistema({ sistema, objetivos = [], sesiones = [], onCerrar, onGuardado }: {
-  sistema: any | null
-  objetivos: any[]
-  sesiones: any[]
-  onCerrar: () => void
-  onGuardado: () => void
-}) {
+export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
+  ejercicios = [], etiquetas = [], tests = [], onRecargarBiblio, onCerrar, onGuardado }: any) {
   const [f, setF] = useState<any>({
     id: sistema?.id, nombre: sistema?.nombre || '', descripcion: sistema?.descripcion || '',
     color: sistema?.color || '#5A969E', icono: sistema?.icono || '',
@@ -35,6 +32,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
   )
   const [borradas, setBorradas] = useState<string[]>([])
   const [picker, setPicker] = useState(false)
+  const [eligiendo, setEligiendo] = useState<number | null>(null)
+  const [eligiendoObj, setEligiendoObj] = useState<number | null>(null)
   // Mismo arrastre que en las sesiones: manilla propia y no la fila entera, que
   // con `draggable` en la fila no se puede ni seleccionar texto en un input.
   const [arrastra, setArrastra] = useState<number|null>(null)
@@ -76,8 +75,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
     setGuardando(false); onGuardado(); onCerrar()
   }
 
-  const nombreObj = (id: string) => objetivos.find(o => o.id === id)?.nombre || '—'
-  const nombreSes = (id: string) => sesiones.find(s => s.id === id)?.nombre || '—'
+  const nombreObj = (id: string) => objetivos.find((o: any) => o.id === id)?.nombre || '—'
+  const nombreSes = (id: string) => sesiones.find((s: any) => s.id === id)?.nombre || '—'
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -211,13 +210,9 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                         </span>
                       ))}
                     </div>
-                    <select className="input" value="" onChange={e => {
-                      if (e.target.value) setFase(i, 'objetivos', [...(x.objetivos || []), e.target.value])
-                    }}>
-                      <option value="">Añadir objetivo…</option>
-                      {objetivos.filter(o => !(x.objetivos || []).includes(o.id))
-                        .map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}
-                    </select>
+                    <button className="btn btn-s btn-sm" onClick={() => setEligiendoObj(i)}>
+                      + Añadir objetivos
+                    </button>
                   </div>
                 )}
 
@@ -232,17 +227,31 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
                       </span>
                     ))}
                   </div>
-                  <select className="input" value="" onChange={e => {
-                    if (e.target.value) setFase(i, 'sesiones', [...(x.sesiones || []), e.target.value])
-                  }}>
-                    <option value="">Añadir sesión…</option>
-                    {sesiones.filter(s => !(x.sesiones || []).includes(s.id))
-                      .map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
+                  <button className="btn btn-s btn-sm" onClick={() => setEligiendo(i)}>
+                    + Añadir sesiones
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+
+          {eligiendoObj !== null && (
+            <SelectorObjetivos objetivos={objetivos} ya={fases[eligiendoObj]?.objetivos || []}
+              tests={tests} etiquetas={etiquetas} onRecargarBiblio={onRecargarBiblio}
+              titulo={`Condiciones de salida de «${fases[eligiendoObj]?.nombre || 'la fase'}»`}
+              onCerrar={() => setEligiendoObj(null)}
+              onElegir={(ids: string[]) => setFases(p => p.map((y, j) =>
+                j === eligiendoObj ? { ...y, objetivos: [...(y.objetivos || []), ...ids] } : y))}/>
+          )}
+
+          {eligiendo !== null && (
+            <SelectorSesiones sesiones={sesiones} ya={fases[eligiendo]?.sesiones || []}
+              ejercicios={ejercicios} etiquetas={etiquetas} onRecargarBiblio={onRecargarBiblio}
+              titulo={`Sesiones de «${fases[eligiendo]?.nombre || 'la fase'}»`}
+              onCerrar={() => setEligiendo(null)}
+              onElegir={(ids: string[]) => setFases(p => p.map((y, j) =>
+                j === eligiendo ? { ...y, sesiones: [...(y.sesiones || []), ...ids] } : y))}/>
+          )}
 
           {error && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{error}</div>}
         </div>

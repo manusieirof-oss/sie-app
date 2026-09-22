@@ -617,7 +617,11 @@ export default function ModoClase() {
 
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && (
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+        <div style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,flexWrap:'wrap',
+          marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',
+          padding:'8px 10px',boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+          {/* Se queda fija al bajar: con cinco personas en la sala, volver arriba
+              para cambiar de paciente es el scroll que mas se repite. */}
           {seleccion.map(s=>{
             const nGuardados = s.datos.filter((e:any)=>e.guardado).length
             const estado = s.finalizado ? 'fin' : (nGuardados>0 ? 'curso' : 'nada')

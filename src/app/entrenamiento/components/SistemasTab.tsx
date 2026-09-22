@@ -13,7 +13,7 @@ import ModalSistema from './ModalSistema'
 // y desde cuándo es cosa de la ficha del paciente, no de la biblioteca.
 // ---------------------------------------------------------------------------
 
-export default function SistemasTab({ objetivos = [], sesiones = [] }: { objetivos: any[], sesiones: any[] }) {
+export default function SistemasTab({ objetivos = [], sesiones = [], ejercicios = [], etiquetas = [], testsLib = [], cargar: recargarBiblio }: any) {
   const [lista, setLista] = useState<Sistema[]>([])
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState<any>(undefined)
@@ -52,10 +52,23 @@ export default function SistemasTab({ objetivos = [], sesiones = [] }: { objetiv
         </div>
       )}
 
+      {/* Agrupados por como avanzan, que es lo que de verdad los diferencia: un
+          sistema por tiempo y uno por objetivos se preparan y se usan distinto.
+          Agrupar y no filtrar: con una docena de sistemas, un filtro es un control
+          que hay que operar para no ahorrar nada. */}
+      {PROGRESIONES.map(pr => {
+        const suyos = lista.filter(x => x.progresion === pr.valor)
+        if (suyos.length === 0) return null
+        return (
+        <div key={pr.valor} style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)', letterSpacing: '.5px',
+              textTransform: 'uppercase' }}>{pr.nombre}</span>
+            <span style={{ fontSize: 11, color: 'var(--grl)' }}>{pr.ayuda}</span>
+          </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(215px,1fr))', gap: 11 }}>
-        {lista.map(s => {
+        {suyos.map(s => {
           const nSes = (s.fases || []).reduce((a, f) => a + (f.sesiones?.length || 0), 0)
-          const prog = PROGRESIONES.find(p => p.valor === s.progresion)
           return (
             <div key={s.id} className="test-clic" onClick={() => setEditando(s)}
               style={{ border: '1px solid var(--bd)', borderRadius: 7, overflow: 'hidden',
@@ -79,18 +92,21 @@ export default function SistemasTab({ objetivos = [], sesiones = [] }: { objetiv
                 <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 6 }}>
                   {(s.fases || []).length} fase{(s.fases || []).length === 1 ? '' : 's'} · {nSes} sesion{nSes === 1 ? '' : 'es'}
                 </div>
-                <div style={{ marginTop: 7, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  <span className="pill pill-o on">{prog?.nombre || s.progresion}</span>
-                  {!s.activo && <span className="pill pill-soft">Inactivo</span>}
-                </div>
+                {!s.activo && (
+                  <div style={{ marginTop: 7 }}><span className="pill pill-soft">Inactivo</span></div>
+                )}
               </div>
             </div>
           )
         })}
       </div>
+        </div>
+        )
+      })}
 
       {editando !== undefined && (
         <ModalSistema sistema={editando} objetivos={objetivos} sesiones={plantillas}
+          ejercicios={ejercicios} etiquetas={etiquetas} tests={testsLib} onRecargarBiblio={recargarBiblio}
           onCerrar={() => setEditando(undefined)} onGuardado={cargar}/>
       )}
     </>
