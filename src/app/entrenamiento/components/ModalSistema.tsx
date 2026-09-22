@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
 import SelectorSesiones from './SelectorSesiones'
+import ModalEditarSesion from './ModalEditarSesion'
+import { modoDeSesion } from '@/lib/sesiones'
 import SelectorObjetivos from './SelectorObjetivos'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { PROGRESIONES, guardarSistema, guardarFase, borrarFase, tinte,
@@ -35,6 +37,9 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
   const [picker, setPicker] = useState(false)
   const [eligiendo, setEligiendo] = useState<number | null>(null)
   const [eligiendoObj, setEligiendoObj] = useState<number | null>(null)
+  // La sesion se edita desde aqui mismo: montar la fase y tener que irte a la
+  // biblioteca a cambiar una sesion es perder el hilo de lo que estabas montando.
+  const [editandoSesion, setEditandoSesion] = useState<any>(null)
   // Mismo arrastre que en las sesiones: manilla propia y no la fila entera, que
   // con `draggable` en la fila no se puede ni seleccionar texto en un input.
   const [arrastra, setArrastra] = useState<number|null>(null)
@@ -237,13 +242,36 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)',
                     letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>Sesiones de esta fase</div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 }}>
-                    {(x.sesiones || []).map((id: string) => (
-                      <span key={id} className="pill pill-o on" style={{ cursor: 'pointer' }}
-                        onClick={() => setFase(i, 'sesiones', x.sesiones.filter((s: string) => s !== id))}>
-                        {nombreSes(id)} ✕
-                      </span>
-                    ))}
+                  {/* En tarjeta, como en la biblioteca: de una pildora con el nombre
+                      no se sabe si esa sesion tiene tres ejercicios o quince. */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(195px,1fr))',
+                    gap: 8, marginBottom: 8 }}>
+                    {(x.sesiones || []).map((id: string) => {
+                      const ses = sesiones.find((y: any) => y.id === id)
+                      const nEj = ((ses?.partes) || []).reduce((a: number, pp: any) => a + (pp.ejercicios || []).length, 0)
+                      const nP = ((ses?.partes) || []).length
+                      return (
+                        <div key={id} style={{ border: '1px solid var(--bd)', borderRadius: 7,
+                          padding: '9px 10px', background: 'var(--w)' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{nombreSes(id)}</div>
+                            <button className="btn btn-t btn-sm" title="Editar la sesión"
+                              onClick={() => ses && setEditandoSesion(ses)}>
+                              <Ic name="editar" size={12}/>
+                            </button>
+                            <button className="btn btn-t btn-sm" title="Quitarla de la fase"
+                              onClick={() => setFase(i, 'sesiones', x.sesiones.filter((y: string) => y !== id))}>
+                              <Ic name="cerrar" size={12}/>
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                            {nEj > 0 && <span className="pill pill-o on">{modoDeSesion(ses?.partes || []).nombre}</span>}
+                            <span className="pill pill-soft">{nP} {nP === 1 ? 'parte' : 'partes'}</span>
+                            <span className="pill pill-soft">{nEj} {nEj === 1 ? 'ejercicio' : 'ejercicios'}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                   <button className="btn btn-s btn-sm" onClick={() => setEligiendo(i)}>
                     + Añadir sesiones
@@ -252,6 +280,12 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
               </div>
             ))}
           </div>
+
+          {editandoSesion && (
+            <ModalEditarSesion sesion={editandoSesion} ejercicios={ejercicios} etiquetas={etiquetas}
+              onGuardado={() => onRecargarBiblio?.()}
+              onCerrar={() => setEditandoSesion(null)}/>
+          )}
 
           {eligiendoObj !== null && (
             <SelectorObjetivos objetivos={objetivos} ya={fases[eligiendoObj]?.objetivos || []}
