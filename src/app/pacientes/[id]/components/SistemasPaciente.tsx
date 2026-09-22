@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
+import { contiene } from '@/lib/texto'
+import { PROGRESIONES } from '@/lib/sistemas'
 import { duplicarSesion } from '@/lib/sesiones'
 import { hoyISO } from '@/lib/fechas'
 import { cargarSistemas, asignarSistema, quitarSistema, marcarPrincipal,
@@ -25,6 +27,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
   onRecargar?: () => void
 }) {
   const [trayendo, setTrayendo] = useState('')
+  const [busca, setBusca] = useState('')
   const [anadiendo, setAnadiendo] = useState(false)
   const [catalogo, setCatalogo] = useState<Sistema[]>([])
   const [sel, setSel] = useState('')
@@ -84,21 +87,78 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
       </div>
 
       {anadiendo && (
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-          <select className="input" style={{ maxWidth: 230 }} value={sel} onChange={e => setSel(e.target.value)}>
-            <option value="">Elige un sistema…</option>
-            {catalogo.filter(s => !asignaciones.some(a => a.sistema_id === s.id))
-              .map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
-          <span style={{ fontSize: 11, color: 'var(--gr)' }}>desde</span>
-          <input className="input" style={{ width: 145 }} type="date" value={ini} onChange={e => setIni(e.target.value)}/>
-          {pideFin && (
-            <>
-              <span style={{ fontSize: 11, color: 'var(--gr)' }}>hasta</span>
-              <input className="input" style={{ width: 145 }} type="date" value={fin} onChange={e => setFin(e.target.value)}/>
-            </>
-          )}
-          <button className="btn btn-p btn-sm" onClick={anadir} disabled={!sel || (pideFin && !fin)}>Añadir</button>
+        <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setAnadiendo(false) }}>
+          <div style={{ background:'var(--w)', border:'1px solid var(--bd)', borderRadius:14, width:'94vw',
+            maxWidth:660, maxHeight:'88vh', display:'flex', flexDirection:'column', overflow:'hidden',
+            boxShadow:'var(--sh-md)' }}>
+
+            <div style={{ padding:'13px 17px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ flex:1, fontSize:16, fontWeight:500 }}>Añadir sistema</div>
+              <button className="modal-close" onClick={() => setAnadiendo(false)}>✕</button>
+            </div>
+
+            <div style={{ padding:'11px 17px 0' }}>
+              <input className="input" autoFocus value={busca} onChange={e => setBusca(e.target.value)}
+                placeholder="Buscar sistema…"/>
+            </div>
+
+            {/* Tarjetas, no una lista desplegable: el sistema se reconoce por su color
+                y su icono, igual que en la biblioteca. */}
+            <div style={{ flex:1, overflowY:'auto', padding:'12px 17px', display:'grid',
+              gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:10 }}>
+              {catalogo
+                .filter(x => asignaciones.some(a => a.sistema_id === x.id) === false)
+                .filter(x => contiene(x.nombre, busca) || contiene(x.descripcion || '', busca))
+                .map(x => {
+                  const prog = PROGRESIONES.find(pr => pr.valor === x.progresion)
+                  const elegida = sel === x.id
+                  return (
+                    <div key={x.id} onClick={() => setSel(x.id)}
+                      style={{ border:`1px solid ${elegida ? x.color : 'var(--bd)'}`, borderRadius:8,
+                        overflow:'hidden', cursor:'pointer', background:'var(--w)',
+                        boxShadow: elegida ? `0 0 0 2px ${x.color}33` : undefined }}>
+                      <div style={{ height:4, background:x.color }}/>
+                      <div style={{ padding:'10px 12px 12px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ width:24, height:24, borderRadius:6, background:x.color, color:'#fff',
+                            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            {x.icono ? <Ic name={x.icono} size={12}/> : null}
+                          </span>
+                          <div style={{ flex:1, minWidth:0, fontSize:13 }}>{x.nombre}</div>
+                        </div>
+                        {x.descripcion && (
+                          <div style={{ fontSize:11, color:'var(--gr)', marginTop:5, lineHeight:1.4 }}>
+                            {x.descripcion.slice(0,60)}{x.descripcion.length > 60 ? '…' : ''}
+                          </div>
+                        )}
+                        <div style={{ fontSize:11, color:'var(--gr)', marginTop:6 }}>
+                          {(x.fases || []).length} fase{(x.fases || []).length === 1 ? '' : 's'}
+                        </div>
+                        <div style={{ marginTop:6 }}>
+                          <span className="pill pill-o on">{prog?.nombre || x.progresion}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              {catalogo.length === 0 && <div className="muted">Cargando…</div>}
+            </div>
+
+            <div style={{ padding:'12px 17px', borderTop:'1px solid var(--bd)', display:'flex',
+              gap:8, alignItems:'center', flexWrap:'wrap' }}>
+              <span style={{ fontSize:11, color:'var(--gr)' }}>desde</span>
+              <input className="input" style={{ width:150 }} type="date" value={ini} onChange={e => setIni(e.target.value)}/>
+              {pideFin && (
+                <>
+                  <span style={{ fontSize:11, color:'var(--gr)' }}>hasta</span>
+                  <input className="input" style={{ width:150 }} type="date" value={fin} onChange={e => setFin(e.target.value)}/>
+                </>
+              )}
+              <div style={{ flex:1 }}/>
+              <button className="btn btn-s" onClick={() => setAnadiendo(false)}>Cancelar</button>
+              <button className="btn btn-p" onClick={anadir} disabled={sel === '' || (pideFin && fin === '')}>Añadir</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -136,11 +196,11 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
                   {trayendo === t.fase.id ? '…' : `traer ${(t.fase.sesiones || []).length}`}
                 </button>
               )}
-              {a.principal
+              {asignaciones.length > 1 && (a.principal
                 ? <span className="pill pill-o on" style={{ flexShrink: 0 }} title="Marca el color de las citas">marco</span>
                 : <button className="pill pill-soft" style={{ border: 'none', cursor: 'pointer', flexShrink: 0 }}
                     title="Hacer que sea este el que pinta las citas"
-                    onClick={() => marcarPrincipal(pacienteId, a.id).then(onCambio)}>hacer marco</button>}
+                    onClick={() => marcarPrincipal(pacienteId, a.id).then(onCambio)}>hacer marco</button>)}
               <button className="btn btn-s btn-sm" title="Quitar" onClick={() => quitar(a)}>✕</button>
             </div>
           )
