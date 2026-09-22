@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
+import EvaluacionFase from './EvaluacionFase'
 import { contiene } from '@/lib/texto'
 import { PROGRESIONES } from '@/lib/sistemas'
 import { duplicarSesion } from '@/lib/sesiones'
@@ -262,7 +263,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
         <div className="muted">Sin sistema. Sus citas se ven como hasta ahora.</div>
       )}
 
-      <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {asignaciones.map(a => {
           const s = a.sistema
           if (!s) return null
@@ -270,9 +271,10 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
           const todas = tramos(s, a)
           const i = t ? (s.fases || []).findIndex(f => f.id === t.fase.id) : -1
           return (
-            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--w)',
+            <div key={a.id}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--w)',
               border: '1px solid var(--bd)', borderLeft: `4px solid ${s.color}`, borderRadius: 7,
-              padding: '7px 11px 7px 9px', minWidth: 215 }}>
+              padding: '7px 11px 7px 9px' }}>
               <span style={{ width: 24, height: 24, borderRadius: 6, background: s.color, color: '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {s.icono ? <Ic name={s.icono} size={12}/> : null}
@@ -310,6 +312,12 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
               <button className="btn btn-s btn-sm" title="Cambiar fechas o fase"
                 onClick={() => abrirEdicion(a)}><Ic name="editar" size={12}/></button>
               <button className="btn btn-s btn-sm" title="Quitar" onClick={() => quitar(a)}>✕</button>
+            </div>
+            {/* La evaluacion cuelga de la fase en la que esta HOY: es lo que hay que
+                pasarle para poder salir de ella. */}
+            {t && (
+              <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={t.fase} color={s.color}/>
+            )}
             </div>
           )
         })}

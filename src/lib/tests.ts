@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { revisarMetas } from './metas'
 import { hoyISO, aISO } from '@/lib/fechas'
+import { evaluacionAbiertaPara } from './evaluaciones'
 
 /**
  * Registrar el resultado de un test. UN SOLO SITIO.
@@ -664,9 +665,14 @@ export async function registrarResultadoTest(
   const puntuacion = esSuma(test) ? puntuacionDe(items) : evalBaremo ? evalBaremo.fallos : null
   const banda = (esSuma(test) || esBaremo(test)) ? bandaDe(test, puntuacion) : null
 
+  // Si este test forma parte de una evaluacion abierta, el resultado queda
+  // atribuido a ella. Un test pasado por otro motivo no cuenta para la fase.
+  const evaluacionId = await evaluacionAbiertaPara(pacienteId, test.id)
+
   const { error } = await supabase.from('resultados_tests').insert({
     paciente_id: pacienteId,
     test_id: test.id,
+    evaluacion_id: evaluacionId,
     fecha,
     resultado,
     observaciones: datos.observaciones || null,
