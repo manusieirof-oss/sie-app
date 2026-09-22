@@ -13,6 +13,7 @@ const NAV = [
   { href: '/pacientes', icon: 'pacientes', label: 'Pacientes' },
   { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca' },
   { href: '/taller', icon: 'taller', label: 'Taller' },
+  { href: '/torno', icon: 'recuperar', label: 'Torno' },
   { href: '/valoracion', icon: 'valoracion', label: 'Valorac.' },
   { href: '/estadisticas', icon: 'stats', label: 'Stats' },
   { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' },
@@ -96,7 +97,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const todayStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const pageTitle: Record<string,string> = {
-    '/agenda':'Agenda','/pacientes':'Pacientes','/entrenamiento':'Biblioteca','/taller':'Taller',
+    '/agenda':'Agenda','/pacientes':'Pacientes','/entrenamiento':'Biblioteca','/taller':'Taller','/torno':'El torno',
     '/valoracion':'Valoración','/estadisticas':'Stats','/ajustes':'Ajustes','/finanzas':'Finanzas','/cobros':'Cobros',
   }
   const currentTitle = Object.entries(pageTitle).find(([k])=>pathname.startsWith(k))?.[1] ?? 'SIE'
@@ -105,7 +106,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const veCobros   = veFinanzas || perfil?.permisos?.cobros===true
 
   return (
-    <div className="shell">
+    <div className={`shell ${pathname === '/torno' ? 'inmersivo' : ''}`}>
+      {pathname === '/torno' && <div className="borde-izq"/>}
       <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
         {/* El logo de la clínica manda; sin logo se queda el "SIE" vertical de siempre.
