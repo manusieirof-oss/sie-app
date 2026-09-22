@@ -71,6 +71,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
   const [selObj, setSelObj] = useState<string[]>([])
+  // Que especificos de cada objetivo se le trabajan a ESTE paciente. "Movilidad de
+  // rodilla" en la biblioteca tiene flexion, extension y rotacion; a este le tocas
+  // la flexion, y cada uno se resuelve por su cuenta.
+  const [espSel, setEspSel] = useState<Record<string, string[]>>({})
   const [zonaObj, setZonaObj] = useState('')
   const [patologiasPac, setPatologiasPac] = useState<any[]>([])
   /**
@@ -120,7 +124,18 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     if (lista.length===0) return
     setGuardandoVia('anadir')
     const { error } = await supabase.from('pacientes_objetivos').insert(
-      lista.map((o:any)=>({ paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias: [] })))
+      lista.map((o:any)=>{
+        // Una via por especifico elegido. No es una via de relleno: cada una es una
+        // parte de verdad que hay que resolver, y el objetivo no esta logrado hasta
+        // que lo esten todas. Sin especificos elegidos nace sin vias, como hasta ahora.
+        const ids = espSel[o.id] || []
+        const vias = ids.map((mid:string)=>({
+          tipo: 'movimiento', ref: mid, mov: mid,
+          etiqueta: etiquetasLib.find((e:any)=>e.id===mid)?.nombre || '',
+          resuelto: false,
+        }))
+        return { paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias }
+      }))
     if (error) { setGuardandoVia(null); alert(error.message); return }
     // Ya no se le copia ninguna parte: un objetivo añadido a mano nace sin nada y se cierra
     // a mano, con "Dar por logrado". Es lo que se decidió al quitar metas y logros.
@@ -135,7 +150,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       descripcion: lista.length===1 ? 'Añadido desde la ficha' : lista.map((o:any)=>o.nombre).join(', '),
       fecha: hoyISO(),
     })
-    setModalAnadir(false); setBuscarObj(''); setSelObj([]); cargarObjetivos()
+    setModalAnadir(false); setBuscarObj(''); setSelObj([]); setEspSel({}); cargarObjetivos()
   }
 
   /**
@@ -710,6 +725,44 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                 )
               })()}
             </div>
+
+            {/* QUE LE TRABAJAS DE CADA UNO. Solo sale cuando el objetivo elegido
+                tiene especificos: si no los tiene, no hay nada que acotar. */}
+            {selObj.length>0 && (() => {
+              const conEsp = catalogo.filter((o:any)=>
+                selObj.includes(o.id) && (o.movimientos||[]).length>0)
+              if (conEsp.length===0) return null
+              return (
+                <div style={{marginTop:12,borderTop:'1px solid var(--bd)',paddingTop:10}}>
+                  {conEsp.map((o:any)=>(
+                    <div key={o.id} style={{marginBottom:9}}>
+                      <div style={{fontSize:11,color:'var(--gr)',marginBottom:5}}>
+                        Qué le trabajas de <b style={{color:'var(--n)'}}>{o.nombre}</b>
+                      </div>
+                      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                        {(o.movimientos||[]).map((mid:string)=>{
+                          const on = (espSel[o.id]||[]).includes(mid)
+                          const nom = etiquetasLib.find((e:any)=>e.id===mid)?.nombre || mid
+                          return (
+                            <button key={mid} className={`chip-sel ${on?'on':''}`}
+                              onClick={()=>setEspSel(prev=>{
+                                const ya = prev[o.id]||[]
+                                return {...prev, [o.id]: ya.includes(mid)
+                                  ? ya.filter(x=>x!==mid) : [...ya, mid]}
+                              })}>{nom}</button>
+                          )
+                        })}
+                      </div>
+                      {(espSel[o.id]||[]).length===0 && (
+                        <div style={{fontSize:10,color:'var(--grl)',marginTop:4}}>
+                          Sin elegir ninguno se abre el objetivo entero, y se cierra a mano.
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             <div style={{display:'flex',gap:7,alignItems:'center',marginTop:10}}>
               <span style={{flex:1,fontSize:12,color:'var(--gr)',lineHeight:1.5}}>

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { categoriaDe, zonasDe, casaZona } from '@/lib/etiquetas'
 import FiltroZonas from '@/components/FiltroZonas'
+import { contiene } from '@/lib/texto'
 import { especificosDeObjetivo } from '@/lib/objetivos'
 import { conteoPorObjetivo, type Conteo } from '@/lib/objetivosTests'
 import ModalObjetivo from './ModalObjetivo'
@@ -18,6 +19,7 @@ import ModalObjetivo from './ModalObjetivo'
 
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
   const [zona, setZona] = useState<string>('')
+  const [busca, setBusca] = useState('')
   const [editando, setEditando] = useState<any>(undefined)
   const [evalua, setEvalua] = useState<Record<string, Conteo>>({})
   const [enUso, setEnUso] = useState<Record<string, number>>({})
@@ -59,9 +61,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   /** Los que no tienen ninguna zona. Sin este cajón no habría forma de dar con ellos. */
   const sinZona = (objetivos || []).filter((o: any) => zonasDe(etiquetas, zonaIdsDe(o)).length === 0).length
 
-  const filtrados = (objetivos || []).filter((o: any) => {
-    return casaZona(etiquetas, zonaIdsDe(o), zona)
-  })
+  const filtrados = (objetivos || []).filter((o: any) =>
+    casaZona(etiquetas, zonaIdsDe(o), zona) &&
+    (contiene(o.nombre || '', busca) || contiene(o.descripcion || '', busca)))
 
 
   const abrirNuevo = () => setEditando(null)
@@ -86,12 +88,20 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             <button className="btn btn-p btn-sm" onClick={abrirNuevo}>+ Nuevo</button>
           </span>
           <span className="sh-r">
-            {(objetivos || []).length} en total
+            {busca.trim() === '' && zona === ''
+              ? `${(objetivos || []).length} en total`
+              : `${filtrados.length} de ${(objetivos || []).length}`}
           </span>
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <FiltroZonas etiquetas={etiquetas} usadas={zonasUsadas}
+          {/* Con 36 fichas el filtro de zona no basta: si sabes como se llama,
+            escribirlo es mas rapido que acordarte de que zona era. */}
+        <input className="input" style={{ maxWidth: 330, marginBottom: 10 }}
+          value={busca} onChange={ev => setBusca(ev.target.value)}
+          placeholder="Buscar objetivo por nombre…"/>
+
+        <FiltroZonas etiquetas={etiquetas} usadas={zonasUsadas}
             valor={zona} onChange={setZona} nSinZona={sinZona} todas="Todas las zonas" />
         </div>
 

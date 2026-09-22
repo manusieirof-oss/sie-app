@@ -28,6 +28,8 @@ export type Fase = {
   dias?: number | null
   unidad?: 'dias' | 'semanas' | 'meses' | null
   objetivos?: string[]
+  /** Que especificos de cada objetivo pide la fase. Vacio = el objetivo entero. */
+  movimientos?: Record<string, string[]>
   sesiones?: string[]
 }
 
@@ -212,7 +214,7 @@ export function principalDe(as: Asignacion[]): Asignacion | null {
 /** Los sistemas de la biblioteca, con sus fases, objetivos y sesiones. */
 export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
   let q = supabase.from('sistemas')
-    .select('*, sistema_fases(*, sistema_fase_objetivos(objetivo_id), sistema_fase_sesiones(sesion_id,orden))')
+    .select('*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden))')
     .order('nombre')
   if (soloActivos) q = q.eq('activo', true)
   const { data } = await q
@@ -221,6 +223,8 @@ export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
     fases: orden((s.sistema_fases || []).map((f: any) => ({
       ...f,
       objetivos: (f.sistema_fase_objetivos || []).map((o: any) => o.objetivo_id),
+      movimientos: Object.fromEntries((f.sistema_fase_objetivos || [])
+        .map((o: any) => [o.objetivo_id, o.movimientos || []])),
       sesiones: [...(f.sistema_fase_sesiones || [])]
         .sort((a: any, b: any) => (a.orden||0)-(b.orden||0)).map((x: any) => x.sesion_id),
     }))),
@@ -230,7 +234,7 @@ export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
 /** Lo que lleva un paciente ahora, con el sistema entero dentro. */
 export async function sistemasDePaciente(pacienteId: string): Promise<Asignacion[]> {
   const { data } = await supabase.from('pacientes_sistemas')
-    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id), sistema_fase_sesiones(sesion_id,orden)))')
+    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden)))')
     .eq('paciente_id', pacienteId).eq('activo', true)
     .order('principal', { ascending: false }).order('created_at')
   return (data || []).map((a: any) => {
@@ -242,6 +246,8 @@ export async function sistemasDePaciente(pacienteId: string): Promise<Asignacion
         fases: orden((s.sistema_fases || []).map((f: any) => ({
           ...f,
           objetivos: (f.sistema_fase_objetivos || []).map((o: any) => o.objetivo_id),
+          movimientos: Object.fromEntries((f.sistema_fase_objetivos || [])
+            .map((o: any) => [o.objetivo_id, o.movimientos || []])),
           sesiones: [...(f.sistema_fase_sesiones || [])]
             .sort((x: any, y: any) => (x.orden||0)-(y.orden||0)).map((x: any) => x.sesion_id),
         }))),
@@ -312,11 +318,12 @@ export async function borrarFase(id: string) {
 }
 
 /** Se reescribe entero: son listas cortas y así no hay que diffear nada. */
-export async function fijarObjetivosDeFase(faseId: string, ids: string[]) {
+export async function fijarObjetivosDeFase(faseId: string, ids: string[],
+  movs: Record<string, string[]> = {}) {
   await supabase.from('sistema_fase_objetivos').delete().eq('fase_id', faseId)
   if (ids.length === 0) return { ok: true as const }
   const { error } = await supabase.from('sistema_fase_objetivos')
-    .insert(ids.map(objetivo_id => ({ fase_id: faseId, objetivo_id })))
+    .insert(ids.map(objetivo_id => ({ fase_id: faseId, objetivo_id, movimientos: movs[objetivo_id] || [] })))
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 

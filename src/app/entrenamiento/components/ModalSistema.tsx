@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
 import SelectorSesiones from './SelectorSesiones'
 import SelectorObjetivos from './SelectorObjetivos'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { PROGRESIONES, guardarSistema, guardarFase, borrarFase, tinte,
          fijarObjetivosDeFase, fijarSesionesDeFase } from '@/lib/sistemas'
 
@@ -69,13 +70,14 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
       const x = fases[i]
       const rf = await guardarFase({ ...x, sistema_id: r.id, orden: i })
       if (!rf.ok || !rf.id) { setError(rf.error || 'No se pudo guardar una fase.'); setGuardando(false); return }
-      await fijarObjetivosDeFase(rf.id, x.objetivos || [])
+      await fijarObjetivosDeFase(rf.id, x.objetivos || [], x.movimientos || {})
       await fijarSesionesDeFase(rf.id, x.sesiones || [])
     }
     setGuardando(false); onGuardado(); onCerrar()
   }
 
   const nombreObj = (id: string) => objetivos.find((o: any) => o.id === id)?.nombre || '—'
+  const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || id
   const nombreSes = (id: string) => sesiones.find((s: any) => s.id === id)?.nombre || '—'
 
   return (
@@ -202,13 +204,29 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
                       letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>
                       Se sale de esta fase cuando TODOS estos objetivos estén logrados
                     </div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 }}>
-                      {(x.objetivos || []).map((id: string) => (
-                        <span key={id} className="pill pill-o on" style={{ cursor: 'pointer' }}
-                          onClick={() => setFase(i, 'objetivos', x.objetivos.filter((o: string) => o !== id))}>
-                          {nombreObj(id)} ✕
-                        </span>
-                      ))}
+                    {/* Con su moneda: un objetivo se reconoce por la foto, y aqui hay
+                        que ver de un vistazo que le pide la fase. */}
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>
+                      {(x.objetivos || []).map((id: string) => {
+                        const o = objetivos.find((y: any) => y.id === id)
+                        const movs = (x.movimientos || {})[id] || []
+                        return (
+                          <div key={id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            gap: 4, width: 96, position: 'relative' }}>
+                            <MonedaObjetivo objetivo={o} tam="g"/>
+                            <span style={{ fontSize: 10.5, textAlign: 'center', lineHeight: 1.3 }}>{nombreObj(id)}</span>
+                            {movs.length > 0 && (
+                              <span style={{ fontSize: 9, color: 'var(--gd)', textAlign: 'center', lineHeight: 1.3 }}>
+                                {movs.map((m: string) => nombreEt(m)).join(' · ')}
+                              </span>
+                            )}
+                            <button title="Quitar" onClick={() => setFase(i, 'objetivos', x.objetivos.filter((y: string) => y !== id))}
+                              style={{ position: 'absolute', top: -4, right: 6, width: 19, height: 19, borderRadius: '50%',
+                                border: '1px solid var(--bd)', background: 'var(--w)', color: 'var(--gr)',
+                                fontSize: 10, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                          </div>
+                        )
+                      })}
                     </div>
                     <button className="btn btn-s btn-sm" onClick={() => setEligiendoObj(i)}>
                       + Añadir objetivos
@@ -240,8 +258,11 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
               tests={tests} etiquetas={etiquetas} onRecargarBiblio={onRecargarBiblio}
               titulo={`Condiciones de salida de «${fases[eligiendoObj]?.nombre || 'la fase'}»`}
               onCerrar={() => setEligiendoObj(null)}
-              onElegir={(ids: string[]) => setFases(p => p.map((y, j) =>
-                j === eligiendoObj ? { ...y, objetivos: [...(y.objetivos || []), ...ids] } : y))}/>
+              onElegir={(ids: string[], movs: Record<string, string[]>) => setFases(p => p.map((y, j) =>
+                j === eligiendoObj
+                  ? { ...y, objetivos: [...(y.objetivos || []), ...ids],
+                      movimientos: { ...(y.movimientos || {}), ...movs } }
+                  : y))}/>
           )}
 
           {eligiendo !== null && (
