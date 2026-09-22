@@ -35,6 +35,10 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
   )
   const [borradas, setBorradas] = useState<string[]>([])
   const [picker, setPicker] = useState(false)
+  // Mismo arrastre que en las sesiones: manilla propia y no la fila entera, que
+  // con `draggable` en la fila no se puede ni seleccionar texto en un input.
+  const [arrastra, setArrastra] = useState<number|null>(null)
+  const [sobre, setSobre] = useState<number|null>(null)
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -44,7 +48,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
     setFases(p => p.map((x, j) => j === i ? { ...x, [k]: v } : x))
 
   function anadirFase() {
-    setFases(p => [...p, { nombre: `Fase ${p.length + 1}`, dias: porTiempo ? 28 : null, objetivos: [], sesiones: [], orden: p.length }])
+    setFases(p => [...p, { nombre: `Fase ${p.length + 1}`, dias: porTiempo ? 4 : null, unidad: 'semanas', objetivos: [], sesiones: [], orden: p.length }])
   }
   function quitarFase(i: number) {
     const x = fases[i]
@@ -156,21 +160,40 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [], o
             )}
 
             {fases.map((x, i) => (
-              <div key={i} style={{ border: '1px solid var(--bd)', borderLeft: `3px solid ${f.color}`,
-                borderRadius: 7, padding: 11, marginBottom: 8 }}>
+              <div key={i}
+                onDragOver={e => { if (arrastra === null) return; e.preventDefault(); if (sobre !== i) setSobre(i) }}
+                onDragLeave={() => { if (sobre === i) setSobre(null) }}
+                onDrop={e => { if (arrastra === null) return; e.preventDefault(); mover(arrastra, i - arrastra); setArrastra(null); setSobre(null) }}
+                style={{ border: '1px solid var(--bd)', borderLeft: `3px solid ${f.color}`,
+                  borderRadius: 7, padding: 11, marginBottom: 8,
+                  opacity: arrastra === i ? .4 : 1,
+                  boxShadow: (sobre === i && arrastra !== null && arrastra !== i) ? 'inset 3px 0 0 var(--gd)' : undefined }}>
 
                 <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginBottom: 8 }}>
+                  <span draggable title="Arrastra para cambiar el orden"
+                    onDragStart={() => setArrastra(i)}
+                    onDragEnd={() => { setArrastra(null); setSobre(null) }}
+                    onMouseOver={e => (e.currentTarget as HTMLElement).style.color = 'var(--g)'}
+                    onMouseOut={e => (e.currentTarget as HTMLElement).style.color = 'var(--grl)'}
+                    style={{ cursor: arrastra !== null ? 'grabbing' : 'grab', color: 'var(--grl)', fontSize: 17,
+                      lineHeight: 1, flexShrink: 0, userSelect: 'none', padding: '2px 3px' }}>⠿</span>
+                  <span style={{ fontSize: 11, color: 'var(--grl)', width: 14, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
                   <input className="input" style={{ flex: 1 }} value={x.nombre}
                     onChange={e => setFase(i, 'nombre', e.target.value)} placeholder="Nombre de la fase"/>
                   {porTiempo && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                       <input className="input" style={{ width: 70 }} type="number" min={1} value={x.dias ?? ''}
                         onChange={e => setFase(i, 'dias', e.target.value)}/>
-                      <span style={{ fontSize: 11, color: 'var(--gr)' }}>días</span>
+                      {/* Un trimestre son 13 semanas, no 91 dias. Se guarda lo que se
+                          escribe y las fechas se calculan con su unidad. */}
+                      <select className="input" style={{ width: 106 }} value={x.unidad || 'dias'}
+                        onChange={e => setFase(i, 'unidad', e.target.value)}>
+                        <option value="dias">días</option>
+                        <option value="semanas">semanas</option>
+                        <option value="meses">meses</option>
+                      </select>
                     </span>
                   )}
-                  <button className="btn btn-s btn-sm" onClick={() => mover(i, -1)} disabled={i === 0}>↑</button>
-                  <button className="btn btn-s btn-sm" onClick={() => mover(i, 1)} disabled={i === fases.length - 1}>↓</button>
                   <button className="btn btn-s btn-sm" onClick={() => quitarFase(i)} title="Quitar fase">✕</button>
                 </div>
 

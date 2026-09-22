@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
+import CircuitoGrid from './CircuitoGrid'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
@@ -784,6 +785,12 @@ export default function ModoClase() {
           ) : act.datos.map((ej:any,ei:number)=>{
             const partePrev = ei>0 ? (act.datos[ei-1].parte||'') : null
             const mostrarParte = (ej.parte||'') && (ej.parte||'') !== partePrev
+            // Un circuito se anota cruzando, no ejercicio a ejercicio: se pinta
+            // entero de una vez en su cabecera y los demas de la parte se saltan.
+            const esCircuito = ej.parteObj?.modo==='circuito'
+            const delCircuito = esCircuito
+              ? act.datos.map((x:any,i:number)=>({ej:x, ei:i})).filter((o:any)=>o.ej.parte===ej.parte)
+              : []
             return (
             <div key={'w'+ei}>
             {mostrarParte && (
@@ -806,6 +813,13 @@ export default function ModoClase() {
                 )}
               </div>
             )}
+            {esCircuito ? (mostrarParte ? (
+              <CircuitoGrid pacienteId={act.paciente.id} ejercicios={delCircuito}
+                mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
+                marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
+                objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
+                toggleObjetivo={toggleObjetivo}/>
+            ) : null) : (
             <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'10px 12px',display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
               <div style={{flex:'0 0 150px',minWidth:130,display:'flex',flexDirection:'column',gap:6,alignItems:'flex-start'}}>
                 {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:110,objectFit:'contain',background:'var(--w)',borderRadius:7,flexShrink:0,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:110,background:'var(--bm)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={32}/></div>}
@@ -888,9 +902,18 @@ export default function ModoClase() {
                   </div>
                 )
               })}
-              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
-                <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>+ serie</button>
-                <input value={ej.comentario} onChange={e=>setComent(act.paciente.id,ei,e.target.value)} placeholder="Comentario..." style={{flex:1,fontSize:10,padding:'4px 7px',border:'1px solid var(--bd)',borderRadius:4}}/>
+              <div style={{display:'flex',alignItems:'flex-start',gap:8,marginTop:6}}>
+                <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer',paddingTop:6,whiteSpace:'nowrap'}}>+ serie</button>
+                {/* Varias lineas y no una: con un input de una linea, en cuanto el
+                    comentario pasaba del ancho se perdia de vista al salir del campo
+                    y no habia manera de llegar al final para corregirlo. */}
+                <textarea value={ej.comentario} rows={2}
+                  onChange={e=>setComent(act.paciente.id,ei,e.target.value)}
+                  onInput={e=>{const t=e.currentTarget; t.style.height='auto'; t.style.height=Math.min(140,t.scrollHeight)+'px'}}
+                  placeholder="Comentario..."
+                  style={{flex:1,fontFamily:'inherit',fontSize:12,lineHeight:1.45,padding:'6px 8px',
+                    border:'1px solid var(--bd)',borderRadius:5,background:'var(--w)',color:'var(--n)',
+                    minHeight:46,maxHeight:140,resize:'vertical',overflowY:'auto'}}/>
               </div>
                 </div>
                 <div style={{flex:'1 1 190px',minWidth:180}}>
@@ -984,6 +1007,7 @@ export default function ModoClase() {
                 </div>
               </div>
             </div>
+            )}
             </div>
             )
           })}

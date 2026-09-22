@@ -560,6 +560,25 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         const otros = sistemasPac.filter(a=>a!==marco)
         const pintar = pinta
 
+        // Donde cambia la fase, una linea. De TODOS sus sistemas, no solo del
+        // marco: el embarazo avanza por trimestres aunque el color lo ponga otro.
+        // Los de una sola fase no cortan nada, asi que no dicen nada.
+        const cortesEn: Record<string, any[]> = {}
+        sistemasPac.forEach((a:any) => {
+          const sis = a.sistema
+          if (sis == null) return
+          let ant: string | null = null
+          citasFuturas.forEach((c:any) => {
+            const t = faseEn(sis, a, c.fecha, logrados)
+            const id = t ? t.fase.id : null
+            if (id !== ant && t) {
+              if (cortesEn[c.id] == null) cortesEn[c.id] = []
+              cortesEn[c.id].push({ color: sis.color, sistema: sis.nombre, fase: t.fase })
+            }
+            ant = id
+          })
+        })
+
         return (
         <div className="panel">
           <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados}
@@ -613,8 +632,20 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   const sel=seleccionadas.includes(c.id); const tieneSesion=!!c.sesiones
                   const fecha=new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})
                   const pin=pintar(c.fecha)
+                  const cortes=cortesEn[c.id]||[]
                   return (
-                    <div key={c.id} onClick={()=>toggleCita(c.id)}
+                    <div key={'b'+c.id}>
+                    {cortes.map((co:any,ci:number)=>(
+                      <div key={ci} style={{display:'flex',alignItems:'center',gap:9,margin:'13px 0 7px'}}>
+                        <span style={{flex:1,height:1,background:co.color,opacity:.5}}/>
+                        <span style={{fontSize:9,fontWeight:600,textTransform:'uppercase',
+                          letterSpacing:.5,color:co.color,whiteSpace:'nowrap'}}>
+                          {co.sistema} · {co.fase.nombre}
+                        </span>
+                        <span style={{flex:1,height:1,background:co.color,opacity:.5}}/>
+                      </div>
+                    ))}
+                    <div onClick={()=>toggleCita(c.id)}
                       className={`fila-p fila-sel ${sel?'on':''}`}
                       title={pin?`${marco?.sistema?.nombre} · ${pin.fase.nombre}`:undefined}
                       style={{borderLeftColor:pin?pin.color:(tieneSesion?'var(--g)':'var(--bd)'),
@@ -661,6 +692,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         onClick={e=>{e.stopPropagation();setEditandoCita({...c,paciente_id:pacienteId})}}>
                         <Ic name="editar" size={13}/>
                       </button>
+                    </div>
                     </div>
                   )
                 })}

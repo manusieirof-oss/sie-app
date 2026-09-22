@@ -26,6 +26,7 @@ export type Fase = {
   nombre: string
   descripcion?: string | null
   dias?: number | null
+  unidad?: 'dias' | 'semanas' | 'meses' | null
   objetivos?: string[]
   sesiones?: string[]
 }
@@ -71,29 +72,96 @@ export function tramos(sistema: Sistema, a: Asignacion): Tramo[] {
   if (fases.length === 0) return []
 
   if (sistema.progresion === 'fecha_fin') {
-    if (!a.fecha_fin) return []
+    if (a.fecha_fin == null) return []
     const out: Tramo[] = []
     let hasta = a.fecha_fin
     for (let i = fases.length - 1; i >= 0; i--) {
-      const d = Number(fases[i].dias) || 0
-      const desde = i === 0 ? (a.fecha_inicio || null) : sumarDias(hasta, -(d - 1))
+      const desde = i === 0 ? (a.fecha_inicio || null) : arranque(hasta, fases[i])
       out.unshift({ fase: fases[i], desde, hasta })
       hasta = sumarDias(desde || hasta, -1)
     }
     return out
   }
 
-  if (!a.fecha_inicio) return []
+  if (a.fecha_inicio == null) return []
   const out: Tramo[] = []
   let desde = a.fecha_inicio
   fases.forEach((f, i) => {
-    const d = Number(f.dias) || 0
     const ultima = i === fases.length - 1
-    const hasta = (ultima || d <= 0) ? null : sumarDias(desde, d - 1)
+    const hasta = (ultima || duracion(f) <= 0) ? null : remate(desde, f)
     out.push({ fase: f, desde, hasta })
     if (hasta) desde = sumarDias(hasta, 1)
   })
   return out
+}
+
+const duracion = (f: Fase) => Number(f.dias) || 0
+
+/** Meses de verdad: tres meses desde el 31 de enero acaban en abril, no a los 90 días. */
+function sumarMeses(iso: string, n: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const base = new Date(y, m - 1 + n, 1)
+  const ultimo = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()
+  base.setDate(Math.min(d, ultimo))
+  const mm = String(base.getMonth() + 1).padStart(2, '0')
+  const dd = String(base.getDate()).padStart(2, '0')
+  return `${base.getFullYear()}-${mm}-${dd}`
+}
+
+/** Ultimo dia de la fase que arranca en `desde`. */
+function remate(desde: string, f: Fase): string {
+  const n = duracion(f)
+  if (f.unidad === 'meses') return sumarDias(sumarMeses(desde, n), -1)
+  if (f.unidad === 'semanas') return sumarDias(desde, n * 7 - 1)
+  return sumarDias(desde, n - 1)
+}
+
+/** Primer dia de la fase que termina en `hasta`. Lo que hace falta al ir hacia atras. */
+function arranque(hasta: string, f: Fase): string {
+  const n = duracion(f)
+  if (f.unidad === 'meses') return sumarMeses(sumarDias(hasta, 1), -n)
+  if (f.unidad === 'semanas') return sumarDias(hasta, -(n * 7 - 1))
+  return sumarDias(hasta, -(n - 1))
+}
+
+/**
+ * Que fecha de inicio hay que poner para que HOY caiga en la fase `indice`.
+ *
+ * Una embarazada no empieza con nosotros en la semana 1. Sin esto habria que
+ * restar a mano lo que duran las fases anteriores y poner esa fecha, que es
+ * justo la clase de cuenta que se hace mal un martes por la tarde.
+ */
+export function inicioParaEmpezarEn(sistema: Sistema, indice: number, hoy: string): string {
+  const fases = orden(sistema.fases)
+  let desde = hoy
+  for (let i = indice - 1; i >= 0; i--) desde = arranque(sumarDias(desde, -1), fases[i])
+  return desde
+}
+
+/**
+ * Cuando acabaria, si todo va como esta previsto. NO SE GUARDA: se calcula del
+ * inicio y de lo que duran las fases. Guardarla seria una segunda verdad que
+ * empieza a mentir en cuanto tocas una fase.
+ *
+ * En los sistemas por fecha fin no hay nada que calcular: la fecha ES el dato.
+ */
+export function finPrevisto(sistema: Sistema, a: Asignacion): string | null {
+  if (sistema.progresion === 'fecha_fin') return a.fecha_fin || null
+  if (sistema.progresion === 'objetivos') return null
+  const t = tramos(sistema, a)
+  if (t.length === 0) return null
+  const ultimo = t[t.length - 1]
+  if (ultimo.desde == null || duracion(ultimo.fase) <= 0) return null
+  return remate(ultimo.desde, ultimo.fase)
+}
+
+/** "13 semanas", "3 meses". Para decir la duracion sin traducirla a dias. */
+export function textoDuracion(f: Fase): string {
+  const n = duracion(f)
+  if (n <= 0) return 'sin duración'
+  if (f.unidad === 'meses') return `${n} ${n === 1 ? 'mes' : 'meses'}`
+  if (f.unidad === 'semanas') return `${n} ${n === 1 ? 'semana' : 'semanas'}`
+  return `${n} ${n === 1 ? 'día' : 'días'}`
 }
 
 /**
@@ -228,6 +296,7 @@ export async function guardarFase(f: any): Promise<{ ok: boolean, id?: string, e
     nombre: (f.nombre || '').trim() || 'Fase',
     descripcion: (f.descripcion || '').trim() || null,
     dias: f.dias === '' || f.dias == null ? null : Number(f.dias),
+    unidad: f.unidad || 'dias',
   }
   if (f.id) {
     const { error } = await supabase.from('sistema_fases').update(fila).eq('id', f.id)
@@ -277,6 +346,17 @@ export async function asignarSistema(pacienteId: string, sistemaId: string, d: {
     fecha_inicio: d.fecha_inicio || null, fecha_fin: d.fecha_fin || null,
     nota: d.nota || null, principal,
   })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/** Cambiar las fechas de un sistema ya puesto, sin tener que quitarlo. */
+export async function actualizarAsignacion(id: string, d: {
+  fecha_inicio?: string | null, fecha_fin?: string | null, nota?: string | null,
+}) {
+  const { error } = await supabase.from('pacientes_sistemas').update({
+    fecha_inicio: d.fecha_inicio || null,
+    fecha_fin: d.fecha_fin || null,
+  }).eq('id', id)
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 

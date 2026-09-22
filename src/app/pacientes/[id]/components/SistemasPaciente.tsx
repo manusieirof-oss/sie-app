@@ -6,6 +6,7 @@ import { contiene } from '@/lib/texto'
 import { PROGRESIONES } from '@/lib/sistemas'
 import { duplicarSesion } from '@/lib/sesiones'
 import { hoyISO } from '@/lib/fechas'
+import { inicioParaEmpezarEn, actualizarAsignacion, finPrevisto } from '@/lib/sistemas'
 import { cargarSistemas, asignarSistema, quitarSistema, marcarPrincipal,
          faseEn, tramos, Sistema, Asignacion } from '@/lib/sistemas'
 
@@ -28,9 +29,17 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
 }) {
   const [trayendo, setTrayendo] = useState('')
   const [busca, setBusca] = useState('')
+  const corto = (iso: string) => new Date(iso + 'T12:00:00')
+    .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+
   const [anadiendo, setAnadiendo] = useState(false)
   const [catalogo, setCatalogo] = useState<Sistema[]>([])
   const [sel, setSel] = useState('')
+  const [faseIni, setFaseIni] = useState(0)
+  const [editando, setEditando] = useState<Asignacion | null>(null)
+  const [eIni, setEIni] = useState('')
+  const [eFin, setEFin] = useState('')
+  const [eFase, setEFase] = useState(0)
   const [ini, setIni] = useState(hoyISO())
   const [fin, setFin] = useState('')
   const hoy = hoyISO()
@@ -42,9 +51,14 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
 
   async function anadir() {
     if (!sel) return
-    const r = await asignarSistema(pacienteId, sel, { fecha_inicio: ini || null, fecha_fin: fin || null })
+    // Si entra a mitad, la fecha de inicio se calcula hacia atras: lo que se
+    // guarda sigue siendo una sola fecha, como en todos los demas.
+    const arranca = (elegido && faseIni > 0)
+      ? inicioParaEmpezarEn(elegido, faseIni, ini || hoy)
+      : (ini || null)
+    const r = await asignarSistema(pacienteId, sel, { fecha_inicio: arranca, fecha_fin: fin || null })
     if (!r.ok) { alert(r.error); return }
-    setAnadiendo(false); setSel(''); setFin(''); onCambio()
+    setAnadiendo(false); setSel(''); setFin(''); setFaseIni(0); onCambio()
   }
 
   /**
@@ -70,6 +84,20 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
     setTrayendo('')
     onRecargar?.()
     alert(`${n} sesión${n === 1 ? '' : 'es'} a la ficha. Ya puedes asignarlas a sus citas.`)
+  }
+
+  function abrirEdicion(a: Asignacion) {
+    setEditando(a); setEFase(0)
+    setEIni(a.fecha_inicio || hoy); setEFin(a.fecha_fin || '')
+  }
+
+  async function guardarEdicion() {
+    if (editando == null) return
+    const sis = editando.sistema
+    const arranca = (sis && eFase > 0) ? inicioParaEmpezarEn(sis, eFase, eIni || hoy) : (eIni || null)
+    const r = await actualizarAsignacion(editando.id, { fecha_inicio: arranca, fecha_fin: eFin || null })
+    if (r.ok === false) { alert(r.error); return }
+    setEditando(null); onCambio()
   }
 
   async function quitar(a: Asignacion) {
@@ -113,7 +141,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
                   const prog = PROGRESIONES.find(pr => pr.valor === x.progresion)
                   const elegida = sel === x.id
                   return (
-                    <div key={x.id} onClick={() => setSel(x.id)}
+                    <div key={x.id} onClick={() => { setSel(x.id); setFaseIni(0) }}
                       style={{ border:`1px solid ${elegida ? x.color : 'var(--bd)'}`, borderRadius:8,
                         overflow:'hidden', cursor:'pointer', background:'var(--w)',
                         boxShadow: elegida ? `0 0 0 2px ${x.color}33` : undefined }}>
@@ -146,7 +174,18 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
 
             <div style={{ padding:'12px 17px', borderTop:'1px solid var(--bd)', display:'flex',
               gap:8, alignItems:'center', flexWrap:'wrap' }}>
-              <span style={{ fontSize:11, color:'var(--gr)' }}>desde</span>
+              {pideFin === false && (elegido?.fases || []).length > 1 && (
+                <>
+                  <span style={{ fontSize:11, color:'var(--gr)' }}>empieza en</span>
+                  <select className="input" style={{ width:190 }} value={faseIni}
+                    onChange={ev => setFaseIni(Number(ev.target.value))}>
+                    {(elegido?.fases || []).map((fa, k) => (
+                      <option key={fa.id} value={k}>{k + 1}. {fa.nombre}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <span style={{ fontSize:11, color:'var(--gr)' }}>{faseIni > 0 ? 'ese día es' : 'desde'}</span>
               <input className="input" style={{ width:150 }} type="date" value={ini} onChange={e => setIni(e.target.value)}/>
               {pideFin && (
                 <>
@@ -161,6 +200,63 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
           </div>
         </div>
       )}
+
+      {editando && (() => {
+        const sis = editando.sistema
+        const fin = sis?.progresion === 'fecha_fin'
+        return (
+          <div className="modal-bg" onClick={ev => { if (ev.target === ev.currentTarget) setEditando(null) }}>
+            <div className="modal" style={{ width: 460 }}>
+              <div className="modal-title">
+                {sis?.nombre}
+                <button className="modal-close" onClick={() => setEditando(null)}>✕</button>
+              </div>
+
+              {fin === false && (sis?.fases || []).length > 1 && (
+                <div className="field"><label>Empieza en</label>
+                  <select className="input" value={eFase} onChange={ev => setEFase(Number(ev.target.value))}>
+                    {(sis?.fases || []).map((fa, k) => (
+                      <option key={fa.id} value={k}>{k + 1}. {fa.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="field">
+                <label>{eFase > 0 ? 'Entra en esa fase el' : 'Empieza el'}</label>
+                <input className="input" type="date" value={eIni} onChange={ev => setEIni(ev.target.value)}/>
+              </div>
+
+              {fin && (
+                <div className="field"><label>Termina el</label>
+                  <input className="input" type="date" value={eFin} onChange={ev => setEFin(ev.target.value)}/>
+                </div>
+              )}
+
+              {(() => {
+                const f = sis ? finPrevisto(sis, { ...editando, fecha_inicio: eIni, fecha_fin: eFin }) : null
+                if (f == null) return null
+                return (
+                  <div style={{ fontSize: 12, color: 'var(--gd)', background: 'var(--gl)',
+                    border: '1px solid var(--gm)', borderRadius: 6, padding: '7px 10px', marginBottom: 12 }}>
+                    {fin ? 'Termina el' : 'Posible fin:'} <b>{corto(f)}</b>
+                  </div>
+                )
+              })()}
+
+              <div style={{ fontSize: 11, color: 'var(--gr)', lineHeight: 1.6, marginBottom: 12 }}>
+                Las fases se recolocan solas. Las citas que ya pasaron siguen contando en la
+                fase que les toque con las fechas nuevas: no hay nada congelado en ellas.
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn btn-s" onClick={() => setEditando(null)}>Cancelar</button>
+                <button className="btn btn-p" onClick={guardarEdicion}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {asignaciones.length === 0 && !anadiendo && (
         <div className="muted">Sin sistema. Sus citas se ven como hasta ahora.</div>
@@ -187,6 +283,16 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
                   {t ? `${t.fase.nombre}${i >= 0 && (s.fases||[]).length > 1 ? ` · ${i + 1} de ${(s.fases||[]).length}` : ''}`
                      : (todas.length === 0 && s.progresion !== 'objetivos' ? 'Le faltan fechas' : 'Fuera de fase')}
                 </div>
+                {(() => {
+                  const f = finPrevisto(s, a)
+                  if (f == null) return null
+                  const cerrado = s.progresion === 'fecha_fin'
+                  return (
+                    <div style={{ fontSize: 10, color: 'var(--grl)' }}>
+                      {cerrado ? 'termina el' : 'posible fin'} {corto(f)}
+                    </div>
+                  )
+                })()}
               </div>
               {t && (t.fase.sesiones || []).length > 0 && (
                 <button className="pill pill-soft" style={{ border: 'none', cursor: 'pointer', flexShrink: 0 }}
@@ -201,6 +307,8 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
                 : <button className="pill pill-soft" style={{ border: 'none', cursor: 'pointer', flexShrink: 0 }}
                     title="Hacer que sea este el que pinta las citas"
                     onClick={() => marcarPrincipal(pacienteId, a.id).then(onCambio)}>hacer marco</button>)}
+              <button className="btn btn-s btn-sm" title="Cambiar fechas o fase"
+                onClick={() => abrirEdicion(a)}><Ic name="editar" size={12}/></button>
               <button className="btn btn-s btn-sm" title="Quitar" onClick={() => quitar(a)}>✕</button>
             </div>
           )
