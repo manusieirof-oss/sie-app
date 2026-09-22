@@ -13,6 +13,7 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
 import CircuitoGrid from './CircuitoGrid'
+import ChapaEjecucion from './ChapaEjecucion'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
@@ -826,7 +827,14 @@ export default function ModoClase() {
             ) : null) : (
             <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'10px 12px',display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
               <div style={{flex:'0 0 150px',minWidth:130,display:'flex',flexDirection:'column',gap:6,alignItems:'flex-start'}}>
-                {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:110,objectFit:'contain',background:'var(--w)',borderRadius:7,flexShrink:0,border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:110,background:'var(--bm)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)',flexShrink:0}}><Ic name="fuerza" size={32}/></div>}
+                <div style={{position:'relative',width:'100%'}}>
+                  {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:110,objectFit:'contain',background:'var(--w)',borderRadius:7,display:'block',border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:110,background:'var(--bm)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={32}/></div>}
+                  <ChapaEjecucion ej={ej} itemMarcado={itemMarcado}
+                    onToggle={(ii:number)=>toggleItem(act.paciente.id,ei,ii)}
+                    onTodos={(v:boolean)=>marcarTodosItems(act.paciente.id,ei,v)}
+                    objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
+                    onObjetivo={(oid:string)=>toggleObjetivo(act.paciente.id,oid,ej.ejercicio_id,ej.nombre)}/>
+                </div>
                 <div style={{width:'100%',minWidth:0}}>
                   <div style={{fontSize:11,fontWeight:500,color:'var(--n)',lineHeight:1.3}}>
                     {ej.grupo && ej.parteObj?.modo==='superserie' && (() => {
@@ -921,75 +929,6 @@ export default function ModoClase() {
               </div>
                 </div>
                 <div style={{flex:'1 1 190px',minWidth:180}}>
-              {(ej.items||[]).length>0 && (() => {
-                const total = (ej.items||[]).length
-                const ue = ej.ultimaEval || null
-                const okPrevios = ue ? (ej.items||[]).filter((it:any)=>{
-                  const txt = typeof it==='string'?it:it?.texto
-                  return txt && ue[txt]===true
-                }).length : 0
-                const evalCompleta = !!ue && okPrevios===total && total>0
-                const tocado = Object.keys(ej.items_evaluados||{}).length>0
-                const colapsar = evalCompleta && !tocado && !ej.revisando
-                if (colapsar) return (
-                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                    <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Ejecución</span>
-                    <span style={{fontSize:9,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}>
-                      <Ic name="check" size={10}/> {total}/{total} correcto{ej.ultimaEvalFecha?` · ${new Date(ej.ultimaEvalFecha).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`:''}
-                    </span>
-                    <button onClick={()=>setSeleccion(prev=>prev.map(x=>{
-                      if (x.paciente.id!==act.paciente.id) return x
-                      const d=[...x.datos]; d[ei]={...d[ei],revisando:true}
-                      return {...x,datos:d}
-                    }))} style={{fontSize:8,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}}>Revisar</button>
-                  </div>
-                )
-                return (
-                <div>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
-                    <span style={{fontSize:8,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase'}}>Ejecución</span>
-                    {(() => {
-                      const total = (ej.items||[]).length
-                      const marcados = (ej.items||[]).filter((it:any)=>itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, 0)).length
-                      const todos = total>0 && marcados===total
-                      return (
-                        <button onClick={()=>marcarTodosItems(act.paciente.id,ei,!todos)}
-                          style={{fontSize:8,padding:'2px 8px',borderRadius:99,cursor:'pointer',border:'1px solid '+(todos?'var(--g)':'var(--bd)'),background:todos?'var(--gl)':'var(--w)',color:todos?'var(--gd)':'var(--gr)'}}>
-                          {todos?'✓ Todo correcto':'Marcar todo'}
-                        </button>
-                      )
-                    })()}
-                  </div>
-                  {(ej.items||[]).map((it:any,ii:number)=>{
-                    const cumple = itemMarcado(ej.items_evaluados, typeof it==='string'?it:it?.texto, ii)
-                    const objs = (it.objetivos||[]).map((oid:string)=>objetivosLib.find((o:any)=>o.id===oid)).filter(Boolean)
-                    const objsPac = objsPorPaciente[act.paciente.id] || []
-                    return (
-                      <div key={ii} style={{padding:'3px 0'}}>
-                        <div onClick={()=>toggleItem(act.paciente.id,ei,ii)} style={{display:'flex',alignItems:'center',gap:7,cursor:'pointer'}}>
-                          <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${cumple?'var(--g)':'var(--bd)'}`,background:cumple?'var(--g)':'transparent',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{cumple?'✓':''}</span>
-                          <span style={{fontSize:10,color:'var(--n)'}}>{it.texto}</span>
-                        </div>
-                        {!cumple && objs.length>0 && (
-                          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginLeft:23,marginTop:3}}>
-                            {objs.map((o:any)=>{
-                              const yaActivo = objsPac.some((po:any)=>po.objetivo_id===o.id)
-                              return (
-                                <span key={o.id} onClick={()=>toggleObjetivo(act.paciente.id,o.id,ej.ejercicio_id,ej.nombre)}
-                                  title={yaActivo?'Quitar objetivo del paciente':'Activar este objetivo'}
-                                  style={{fontSize:8,padding:'2px 7px',borderRadius:99,cursor:'pointer',border:`1px solid ${'var(--g)'}`,background:yaActivo?('var(--g)'):'var(--w)',color:yaActivo?'#fff':('var(--gd)')}}>
-                                  {yaActivo?'✓ ':'+ '}{o.nombre}
-                                </span>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-                )
-              })()}
               {/* LA NOTA, A TODO LO ANCHO Y EN AMBAR.
                   Es lo unico de la prescripcion que avisa de algo —una rodilla, un
                   rango que no se fuerza— y no llegaba a la sala. En la columna
