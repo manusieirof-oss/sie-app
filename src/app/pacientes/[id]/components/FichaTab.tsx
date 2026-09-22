@@ -8,6 +8,7 @@ import Consentimientos from './Consentimientos'
 import { guardarVias } from '@/lib/objetivos'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
+import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -120,7 +121,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    * vía de relleno haría que `estaLogrado` lo diera por cumplido en cuanto alguien la
    * marcara, sin haber medido nada.
    */
-  async function anadirObjetivos(lista:any[]) {
+  async function anadirObjetivos(lista:any[], movs:Record<string,string[]> = espSel) {
     if (lista.length===0) return
     setGuardandoVia('anadir')
     const { error } = await supabase.from('pacientes_objetivos').insert(
@@ -128,7 +129,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         // Una via por especifico elegido. No es una via de relleno: cada una es una
         // parte de verdad que hay que resolver, y el objetivo no esta logrado hasta
         // que lo esten todas. Sin especificos elegidos nace sin vias, como hasta ahora.
-        const ids = espSel[o.id] || []
+        const ids = movs[o.id] || []
         const vias = ids.map((mid:string)=>({
           tipo: 'movimiento', ref: mid, mov: mid,
           etiqueta: etiquetasLib.find((e:any)=>e.id===mid)?.nombre || '',
@@ -641,143 +642,21 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
       {/* AÑADIR OBJETIVO · hasta ahora solo llegaban solos, desde un test o desde el taller */}
       {modalAnadir && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalAnadir(false)}}>
-          {/* Es un explorador de la biblioteca entera con filtros: en 420 px las fichas
-              salían de una en una y no se podía comparar nada. */}
-          <div className="modal" style={{ width: 'min(860px, 94vw)' }}>
-            <div className="modal-title">
-              Añadir objetivo
-              <button className="modal-close" onClick={()=>setModalAnadir(false)}><Ic name="cerrar" size={15}/></button>
-            </div>
-            <input className="input" autoFocus value={buscarObj} placeholder="Buscar en la biblioteca…"
-              onChange={e=>setBuscarObj(e.target.value)} style={{marginBottom:8}}/>
-
-            {/* Los filtros a la vista, no escondidos tras el buscador: con 36 fichas lo
-                normal es no saber cómo se llama la que buscas pero sí de qué zona es.
-                Solo la zona: las familias ya no existen. */}
-            {(() => {
-              const zonas = Array.from(new Set(catalogo.map((o:any)=>o.articulacion_id).filter(Boolean)))
-                .map((id:any)=>({ id, nombre: etiquetasLib.find((e:any)=>e.id===id)?.nombre || '' }))
-                .filter((z:any)=>z.nombre)
-                .sort((a:any,b:any)=>ordenAnatomico(a.nombre,b.nombre))
-              if (zonas.length===0) return null
-              return (
-                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:10}}>
-                  <button className={`chip-sel ${!zonaObj?'on':''}`} onClick={()=>setZonaObj('')}>Todas</button>
-                  {zonas.map((z:any)=>(
-                    <button key={z.id} className={`chip-sel ${zonaObj===z.id?'on':''}`}
-                      onClick={()=>setZonaObj(zonaObj===z.id?'':z.id)}>{z.nombre}</button>
-                  ))}
-                </div>
-              )
-            })()}
-
-            <div style={{maxHeight:'46vh',overflowY:'auto',display:'grid',gap:3}}>
-              {(() => {
-                const q = buscarObj.trim().toLowerCase()
-                const yaTiene = new Set(objetivosTrabajo.map((o:any)=>o.id))
-                const lista = catalogo.filter((o:any)=>
-                  (!q || o.nombre.toLowerCase().includes(q) || (o.descripcion||'').toLowerCase().includes(q)) &&
-                  (!zonaObj || o.articulacion_id===zonaObj))
-                  // Los de sus patologías arriba: es lo que se busca al abrir esto tras
-                  // registrarle una lesión.
-                  .sort((a:any,b:any)=>(porPatologia[b.id]?1:0)-(porPatologia[a.id]?1:0))
-                if (lista.length===0) return <div className="muted">Ninguno coincide.</div>
-                /**
-                 * Tarjetas con su moneda, no una lista de renglones.
-                 *
-                 * Es el mismo catálogo que la biblioteca y en la ficha se veía distinto, así
-                 * que costaba reconocer el objetivo que acabas de mirar en Entrenamiento.
-                 */
-                return (
-                  <div className="obj-rej" style={{gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))'}}>
-                    {lista.map((o:any)=>{
-                      const tiene = yaTiene.has(o.id)
-                      const sel = selObj.includes(o.id)
-                      return (
-                        <button key={o.id} type="button"
-                          onClick={()=>{
-                            if (!tiene) { setSelObj(s=>sel?s.filter(x=>x!==o.id):[...s,o.id]); return }
-                            // Ya asignado: se va a su panel a ponerle otra meta. Ahora vale
-                            // para cualquier objetivo, no solo para los que eran "medibles".
-                            setModalAnadir(false); setSelObj([]); setBuscarObj('')
-                            setObjAbierto(o.id); setPedirMetaEn(o.id)
-                          }}
-                          className={`obj-mon-b${sel?' on':''}`}
-                          title={tiene
-                            ? 'Ya lo tiene. Pulsa para añadirle otra meta.'
-                            : (o.descripcion||o.nombre)}
-                          style={{cursor:'pointer', opacity:tiene?.8:1}}>
-                          {monedaDe(o, true)}
-                          <span className="obj-mon-g">{o.nombre}</span>
-                          <span className="obj-mon-n">
-                            {porPatologia[o.id] && <span style={{display:'block',color:'var(--gd)'}}>{porPatologia[o.id]}</span>}
-                          </span>
-                          {/* Ya asignado: no es un error, es que sus metas se ponen en la ficha. */}
-                          {tiene && (
-                            <span style={{fontSize:10,color:'var(--gd)'}}>+ otra meta</span>
-                          )}
-                          {sel && <span style={{fontSize:10,color:'var(--gd)'}}><Ic name="check" size={11}/> Elegido</span>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-
-            {/* QUE LE TRABAJAS DE CADA UNO. Solo sale cuando el objetivo elegido
-                tiene especificos: si no los tiene, no hay nada que acotar. */}
-            {selObj.length>0 && (() => {
-              const conEsp = catalogo.filter((o:any)=>
-                selObj.includes(o.id) && (o.movimientos||[]).length>0)
-              if (conEsp.length===0) return null
-              return (
-                <div style={{marginTop:12,borderTop:'1px solid var(--bd)',paddingTop:10}}>
-                  {conEsp.map((o:any)=>(
-                    <div key={o.id} style={{marginBottom:9}}>
-                      <div style={{fontSize:11,color:'var(--gr)',marginBottom:5}}>
-                        Qué le trabajas de <b style={{color:'var(--n)'}}>{o.nombre}</b>
-                      </div>
-                      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                        {(o.movimientos||[]).map((mid:string)=>{
-                          const on = (espSel[o.id]||[]).includes(mid)
-                          const nom = etiquetasLib.find((e:any)=>e.id===mid)?.nombre || mid
-                          return (
-                            <button key={mid} className={`chip-sel ${on?'on':''}`}
-                              onClick={()=>setEspSel(prev=>{
-                                const ya = prev[o.id]||[]
-                                return {...prev, [o.id]: ya.includes(mid)
-                                  ? ya.filter(x=>x!==mid) : [...ya, mid]}
-                              })}>{nom}</button>
-                          )
-                        })}
-                      </div>
-                      {(espSel[o.id]||[]).length===0 && (
-                        <div style={{fontSize:10,color:'var(--grl)',marginTop:4}}>
-                          Sin elegir ninguno se abre el objetivo entero, y se cierra a mano.
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-
-            <div style={{display:'flex',gap:7,alignItems:'center',marginTop:10}}>
-              <span style={{flex:1,fontSize:12,color:'var(--gr)',lineHeight:1.5}}>
-                {selObj.length===0
-                  ? 'Los medibles se abren sin metas: las pones después.'
-                  : `${selObj.length} seleccionado${selObj.length>1?'s':''}`}
-              </span>
-              <button className="btn btn-t btn-sm" onClick={()=>setModalAnadir(false)}>Cancelar</button>
-              <button className="btn btn-p" disabled={selObj.length===0||guardandoVia==='anadir'}
-                onClick={()=>anadirObjetivos(catalogo.filter((o:any)=>selObj.includes(o.id)))}>
-                {guardandoVia==='anadir' ? 'Añadiendo…' : `Añadir${selObj.length>0?' '+selObj.length:''}`}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SelectorObjetivos
+          objetivos={catalogo}
+          etiquetas={etiquetasLib}
+          titulo="Añadir objetivos"
+          puestos={objetivosTrabajo.map((o:any)=>o.id)}
+          marcaDe={(o:any)=>porPatologia[o.id] || null}
+          onExistente={(o:any)=>{
+            setModalAnadir(false); setSelObj([]); setBuscarObj('')
+            setObjAbierto(o.id); setPedirMetaEn(o.id)
+          }}
+          onCerrar={()=>{ setModalAnadir(false); setSelObj([]); setEspSel({}) }}
+          onElegir={(ids:string[], movs:Record<string,string[]>)=>{
+            setEspSel(movs)
+            anadirObjetivos(catalogo.filter((o:any)=>ids.includes(o.id)), movs)
+          }}/>
       )}
 
       {/* 4. BONO Y TIPO DE CLASE — cada cosa en su columna */}

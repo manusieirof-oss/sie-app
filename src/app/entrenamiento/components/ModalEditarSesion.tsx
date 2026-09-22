@@ -10,6 +10,7 @@ import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 import { contiene } from '@/lib/texto'
 import { aplicarAjustes, calcularAjustes, sinAjustes } from '@/lib/ajustesCita'
+import SelectorObjetivos from './SelectorObjetivos'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -193,6 +194,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const [guardando, setGuardando] = useState(false)
   const [objetivosDisp, setObjetivosDisp] = useState<any[]>([])
   const [objetivosSel, setObjetivosSel] = useState<string[]>([])
+  // Que especifico de cada objetivo trabaja esta sesion. "Movilidad de rodilla"
+  // no es lo mismo si la sesion va a la flexion que si va a todo.
+  const [movsSel, setMovsSel] = useState<Record<string, string[]>>({})
+  const [eligiendoObj, setEligiendoObj] = useState(false)
   const [buscarObj, setBuscarObj] = useState('')
   const [abrirObj, setAbrirObj] = useState(false)
   const [verObj, setVerObj] = useState(false)
@@ -200,11 +205,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
   useEffect(() => {
     (async () => {
-      const { data: objs } = await supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre')
+      const { data: objs } = await supabase.from('objetivos').select('id,nombre,descripcion,imagen_url,articulacion_id,etiquetas,movimientos').eq('activo',true).order('nombre')
       setObjetivosDisp(objs||[])
       if (sesion.id) {
-        const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id').eq('sesion_id', sesion.id)
+        const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id,movimientos').eq('sesion_id', sesion.id)
         setObjetivosSel((rel||[]).map((r:any)=>r.objetivo_id))
+        setMovsSel(Object.fromEntries((rel||[]).map((r:any)=>[r.objetivo_id, r.movimientos||[]])))
       }
     })()
   }, [sesion.id])
@@ -437,9 +443,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
     if (aAnadir.length>0) {
       const { error } = await supabase.from('sesiones_objetivos')
-        .insert(aAnadir.map(oid=>({ sesion_id:sesionId, objetivo_id:oid })))
+        .insert(aAnadir.map(oid=>({ sesion_id:sesionId, objetivo_id:oid, movimientos: movsSel[oid]||[] })))
       if (error) { alert('La sesión se guardó, pero sus objetivos no: '+error.message); setGuardando(false); onGuardado(); onCerrar(); return }
     }
+    // Los que ya estaban pueden haber cambiado de especificos.
+    for (const oid of objetivosSel.filter(x=>previos.includes(x))) {
+      await supabase.from('sesiones_objetivos').update({ movimientos: movsSel[oid]||[] })
+        .eq('sesion_id', sesionId).eq('objetivo_id', oid)
+    }
+
     if (aQuitar.length>0) {
       await supabase.from('sesiones_objetivos').delete().eq('sesion_id', sesionId).in('objetivo_id', aQuitar)
     }
@@ -448,6 +460,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     onGuardado(sesionId)
     onCerrar()
   }
+
+  const selectorObjetivos = eligiendoObj ? (
+    <SelectorObjetivos objetivos={objetivosDisp} ya={objetivosSel} etiquetas={etiquetas}
+      titulo="Objetivos que cubre la sesión"
+      onCerrar={()=>setEligiendoObj(false)}
+      onElegir={(ids:string[], movs:Record<string,string[]>)=>{
+        setObjetivosSel(prev=>[...prev, ...ids])
+        setMovsSel(prev=>({...prev, ...movs}))
+      }}/>
+  ) : null
 
   return (
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
@@ -538,35 +560,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:70,background:'none',border:'none',padding:0,cursor:'pointer'}}>
                       <MonedaObjetivo objetivo={o}/>
                       <span className="obj-mon-g">{o.nombre}</span>
+                      {(movsSel[id]||[]).length>0 && (
+                        <span style={{fontSize:9,color:'var(--gd)',textAlign:'center',lineHeight:1.3}}>
+                          {(movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ')}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
-                <div style={{position:'relative'}} ref={refObj}>
-                  <button type="button" className="chip-obj" style={{borderStyle:'dashed'}}
-                    onClick={()=>setAbrirObj(v=>!v)}>+ Añadir</button>
-                  {abrirObj && (
-                    <div className="pop-busca">
-                      <input className="input" autoFocus value={buscarObj} onChange={e=>setBuscarObj(e.target.value)}
-                        placeholder="Buscar objetivo…"/>
-                      <div style={{maxHeight:190,overflowY:'auto',marginTop:6}}>
-                        {objetivosDisp
-                          .filter((o:any)=>!objetivosSel.includes(o.id))
-                          .filter((o:any)=>!buscarObj || (o.nombre||'').toLowerCase().includes(buscarObj.toLowerCase()))
-                          .slice(0,40)
-                          .map((o:any)=>(
-                            <div key={o.id} className="pop-it"
-                              onClick={()=>{setObjetivosSel(prev=>[...prev,o.id]);setBuscarObj('');setAbrirObj(false)}}>
-                              <MonedaObjetivo objetivo={o} tam="mini"/>
-                              {o.nombre}
-                            </div>
-                          ))}
-                        {objetivosDisp.filter((o:any)=>!objetivosSel.includes(o.id) && (!buscarObj || (o.nombre||'').toLowerCase().includes(buscarObj.toLowerCase()))).length===0 && (
-                          <div style={{padding:'7px 10px',fontSize:13,color:'var(--gr)'}}>Sin resultados</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <button type="button" className="chip-obj" style={{borderStyle:'dashed'}}
+                  onClick={()=>setEligiendoObj(true)}>+ Añadir</button>
               </div>
               )}
             </div>
@@ -961,6 +964,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
         </div>
       </div>
+    {selectorObjetivos}
     </div>
   )
 }

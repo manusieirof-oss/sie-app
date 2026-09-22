@@ -742,7 +742,7 @@ export async function registrarResultadoTest(
   } else if (resultado === 'negativo') {
     // Negativo = no queda nada marcado, así que se cierran la vía del test y las de sus
     // ítems de una vez. Hacerlo ítem a ítem dejaba abierta la del test entero.
-    const r = await resolverViasDeTest(pacienteId, test.id, datos.contexto || 'un test')
+    const r = await resolverViasDeTest(pacienteId, test.id, datos.contexto || 'un test', lado)
     logrados += r.logrados
   }
   // 'sin_realizar' no toca ningún objetivo: no haber hecho el test no dice nada.

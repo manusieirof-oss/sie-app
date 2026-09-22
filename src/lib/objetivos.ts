@@ -303,7 +303,7 @@ export async function abrirObjetivo(pacienteId: string, objetivoId: string, via:
  * dejaba los objetivos abiertos por un ítem activos para siempre, sin ninguna
  * forma de cerrarlos desde la ficha.
  */
-export async function resolverViasDeTest(pacienteId: string, testId: string, contexto?: string) {
+export async function resolverViasDeTest(pacienteId: string, testId: string, contexto?: string, lado?: string | null) {
   const { data: pos } = await supabase.from('pacientes_objetivos')
     .select('objetivo_id, vias, logrado').eq('paciente_id', pacienteId)
 
@@ -317,7 +317,16 @@ export async function resolverViasDeTest(pacienteId: string, testId: string, con
       const esDeEsteTest =
         (v.tipo === 'test' && typeof v.ref === 'string' && (v.ref === testId || v.ref.startsWith(testId + '|'))) ||
         (v.tipo === 'test_item' && typeof v.ref === 'string' && v.ref.startsWith(testId + ':'))
-      if (esDeEsteTest && !v.resuelto) { cambio = true; return { ...v, resuelto: true, fecha_resuelto: hoy() } }
+      /**
+       * SOLO EL LADO QUE SE HA MEDIDO.
+       *
+       * Un test bilateral se pasa lado a lado y cada lado abre su propia via. Al
+       * cerrar todas de golpe, una rodilla derecha que sale bien cerraba tambien la
+       * izquierda, que seguia mal: el objetivo se daba por logrado sin haberlo estado.
+       * Las vias antiguas no llevan lado, y esas se siguen cerrando como antes.
+       */
+      const mismoLado = lado == null || v.lado == null || v.lado === lado
+      if (esDeEsteTest && mismoLado && !v.resuelto) { cambio = true; return { ...v, resuelto: true, fecha_resuelto: hoy() } }
       return v
     })
     if (!cambio) continue

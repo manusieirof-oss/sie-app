@@ -18,7 +18,13 @@ import ModalObjetivo from './ModalObjetivo'
 // ---------------------------------------------------------------------------
 
 export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadir objetivos',
-  tests = [], etiquetas = [], onRecargarBiblio, onCerrar, onElegir }: any) {
+  tests = [], etiquetas = [], onRecargarBiblio, onCerrar, onElegir,
+  /** Los que el paciente YA tiene: se ven, pero no se vuelven a marcar. */
+  puestos = [],
+  /** Que hacer al pulsar uno que ya tiene. Sin esto, no se puede pulsar. */
+  onExistente,
+  /** Un aviso corto bajo el nombre, por ejemplo la patologia que lo propone. */
+  marcaDe }: any) {
 
   const [busca, setBusca] = useState('')
   const [zona, setZona] = useState('')
@@ -84,19 +90,27 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(112px,1fr))', gap:10 }}>
             {lista.map((o: any) => {
               const on = marcados.includes(o.id)
+              const tiene = puestos.includes(o.id)
+              const marca = marcaDe ? marcaDe(o) : null
               return (
-                <div key={o.id} onClick={() => alternar(o.id)}
+                <div key={o.id}
+                  onClick={() => { if (tiene) { onExistente?.(o) } else { alternar(o.id) } }}
+                  title={tiene ? 'Ya lo tiene' : (o.descripcion || o.nombre)}
                   style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'10px 6px',
-                    borderRadius:9, cursor:'pointer',
+                    borderRadius:9, cursor: (tiene && onExistente == null) ? 'default' : 'pointer',
+                    opacity: tiene ? .75 : 1,
                     border:`1px solid ${on ? 'var(--g)' : 'var(--bd)'}`,
                     background: on ? 'var(--gl)' : 'var(--w)' }}>
                   <MonedaObjetivo objetivo={o} tam="g"/>
                   <span style={{ fontSize:10.5, textAlign:'center', lineHeight:1.3, color:'var(--n)' }}>{o.nombre}</span>
-                  {(o.movimientos || []).length > 0 && (
-                    <span style={{ fontSize:9, color:'var(--grl)' }}>
-                      {(o.movimientos || []).length} específicos
-                    </span>
-                  )}
+                  {marca && <span style={{ fontSize:9, color:'var(--gd)', textAlign:'center' }}>{marca}</span>}
+                  {tiene
+                    ? <span style={{ fontSize:9, color:'var(--gd)' }}>ya lo tiene</span>
+                    : (o.movimientos || []).length > 0 && (
+                        <span style={{ fontSize:9, color:'var(--grl)' }}>
+                          {(o.movimientos || []).length} específicos
+                        </span>
+                      )}
                 </div>
               )
             })}
