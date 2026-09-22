@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { ordenAnatomico } from '@/lib/anatomia'
@@ -9,6 +9,8 @@ import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { especificosDeObjetivo } from '@/lib/objetivos'
 import EspecificosEnPestanas from './EspecificosObjetivo'
+import SelectorEvaluadores from './SelectorEvaluadores'
+import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores } from '@/lib/objetivosTests'
 
 // ---------------------------------------------------------------------------
 // CREAR Y EDITAR UN OBJETIVO
@@ -100,6 +102,14 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
   onGuardado: (id?: string) => void
 }) {
   const [guardando, setGuardando] = useState(false)
+  // Con que se evalua este objetivo. Se carga aparte porque vive en su tabla.
+  const [evaluadores, setEvaluadores] = useState<string[]>([])
+  const [catalogo, setCatalogo] = useState<any[]>([])
+  const [eligiendo, setEligiendo] = useState(false)
+  useEffect(() => {
+    cargarEvaluadores().then(setCatalogo)
+    if (objetivo?.id) testsDeObjetivo(objetivo.id).then(setEvaluadores)
+  }, [objetivo?.id])
   const [form, setForm] = useState<any>({
     id: objetivo?.id || '', nombre: objetivo?.nombre || '', descripcion: objetivo?.descripcion || '',
     articulacion_id: objetivo?.articulacion_id || '',
@@ -146,6 +156,8 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
       // Se ha quitado la imagen a proposito.
       await supabase.from('objetivos').update({ imagen_url: null }).eq('id', id)
     }
+
+    if (id) await fijarTestsDeObjetivo(id, evaluadores)
 
     setGuardando(false)
     onGuardado(id)
@@ -278,6 +290,38 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                 puestas={form.etiquetas || []}
                 onChange={(ids: string[]) => setForm((p: any) => ({ ...p, etiquetas: ids }))} />
             </div>
+
+            {/* CON QUE SE EVALUA. Es otra relacion distinta de "que test lo abre":
+                aquella es diagnostico y vive en el item del test; esta dice con que
+                se mira si ya esta conseguido, y es la que arma las evaluaciones. */}
+            <div style={{ borderTop:'1px solid var(--bd)', marginTop:14, paddingTop:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:8 }}>
+                <label style={{ flex:1, fontSize:10, fontWeight:500, color:'var(--gr)',
+                  letterSpacing:'.5px', textTransform:'uppercase' }}>Se evalúa con</label>
+                <button className="btn btn-s btn-sm" onClick={() => setEligiendo(true)}>+ Añadir</button>
+              </div>
+              {evaluadores.length === 0
+                ? <div style={{ fontSize:11, color:'var(--gr)' }}>
+                    Nada todavía. Sin esto, el objetivo no entra en ninguna evaluación.
+                  </div>
+                : <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {evaluadores.map(id => {
+                      const t = catalogo.find((x: any) => x.id === id)
+                      return (
+                        <span key={id} className="pill pill-o on" style={{ cursor:'pointer' }}
+                          title="Quitar"
+                          onClick={() => setEvaluadores(p => p.filter(x => x !== id))}>
+                          {t?.tipo === 'cuestionario' ? '✎ ' : '◎ '}{t?.nombre || '—'} ✕
+                        </span>
+                      )
+                    })}
+                  </div>}
+            </div>
+
+            {eligiendo && (
+              <SelectorEvaluadores ya={evaluadores} etiquetas={etiquetas} onCerrar={() => setEligiendo(false)}
+                onElegir={(ids: string[]) => setEvaluadores(p => [...p, ...ids])}/>
+            )}
 
             {/* AQUÍ IBAN LOS "LOGROS HABITUALES". Se han quitado con las metas y los
                 logros del paciente: el objetivo es lo que se mide, y no lleva dentro otra

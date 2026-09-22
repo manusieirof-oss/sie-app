@@ -6,6 +6,7 @@ import BibliotecaTab from './components/BibliotecaTab'
 import SesionesTab from './components/SesionesTab'
 import TestsTab from './components/TestsTab'
 import SistemasTab from './components/SistemasTab'
+import CuestionariosTab from './components/CuestionariosTab'
 import EtiquetasTab from './components/EtiquetasTab'
 import ClinicoTab from './components/ClinicoTab'
 import ObjetivosTab from './components/ObjetivosTab'
@@ -67,7 +68,7 @@ function EntrenamientoContent() {
       // parecía que no había. El filtro por origen va en la pestaña, no en la consulta.
       supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id)').order('created_at',{ascending:false}),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
-      supabase.from('tests').select('*').order('nombre'),
+      supabase.from('tests').select('*').or('tipo.is.null,tipo.neq.cuestionario').order('nombre'),
     ])
     setEjercicios(e||[]); setPacientes(p||[]); setSesiones(s||[]); setEtiquetas(et||[]); setTestsLib(tl||[])
     const [{ data: meds },{ data: alerg },{ data: intol },{ data: ops },{ data: pats },{ data: mols },{ data: objs }] = await Promise.all([
@@ -191,7 +192,7 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas'],['tests','test','Tests'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']].map(([k,ic,l])=>(
+        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas'],['tests','test','Tests'],['cuestionarios','nota','Cuestionarios'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']].map(([k,ic,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
@@ -201,6 +202,7 @@ function EntrenamientoContent() {
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
           {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
           {tab==='sistemas'&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar}/>}
+          {tab==='cuestionarios'&&<CuestionariosTab/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,
               que es el dato con el que se decide si sobra, se fusiona o se borra. */}

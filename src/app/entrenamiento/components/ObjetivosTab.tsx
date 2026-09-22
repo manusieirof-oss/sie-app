@@ -5,6 +5,7 @@ import { Ic } from '@/lib/icons'
 import { categoriaDe, zonasDe, casaZona } from '@/lib/etiquetas'
 import FiltroZonas from '@/components/FiltroZonas'
 import { especificosDeObjetivo } from '@/lib/objetivos'
+import { conteoPorObjetivo, type Conteo } from '@/lib/objetivosTests'
 import ModalObjetivo from './ModalObjetivo'
 
 /**
@@ -18,6 +19,7 @@ import ModalObjetivo from './ModalObjetivo'
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
   const [zona, setZona] = useState<string>('')
   const [editando, setEditando] = useState<any>(undefined)
+  const [evalua, setEvalua] = useState<Record<string, Conteo>>({})
   const [enUso, setEnUso] = useState<Record<string, number>>({})
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
@@ -29,6 +31,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
       setEnUso(m)
     })
   }, [objetivos])
+
+  // Con que se evalua cada uno. Un objetivo sin nada no entra en ninguna evaluacion.
+  useEffect(() => { conteoPorObjetivo().then(setEvalua) }, [objetivos])
 
   const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || ''
   const nombreTest = (id: string) => (testsLib || []).find((t: any) => t.id === id)?.nombre || ''
@@ -100,6 +105,7 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
               .map((o: any) => {
                 const movs = especificosDeObjetivo(etiquetas, o.movimientos).map((e: any) => e.nombre)
                 const n = enUso[o.id] || 0
+                const ev = evalua[o.id] || { tests: 0, cuestionarios: 0 }
                 return (
                   <div key={o.id} className="obj-card">
                     {/* La imagen manda: es lo primero que se reconoce. Sin ella, la inicial
@@ -147,6 +153,25 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                           ))}
                         </div>
                       )}
+                      {/* CON QUE SE MIRA SI ESTA CONSEGUIDO. Un objetivo sin nada no
+                          entra en ninguna evaluacion, y eso hay que verlo desde fuera. */}
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                        {ev.tests > 0 && (
+                          <span className="pill pill-o on" title="Tests que lo evalúan">
+                            ◎ {ev.tests} test{ev.tests === 1 ? '' : 's'}
+                          </span>
+                        )}
+                        {ev.cuestionarios > 0 && (
+                          <span className="pill pill-o on" title="Cuestionarios que lo evalúan">
+                            ✎ {ev.cuestionarios} cuestionario{ev.cuestionarios === 1 ? '' : 's'}
+                          </span>
+                        )}
+                        {ev.tests === 0 && ev.cuestionarios === 0 && (
+                          <span className="pill pill-soft" title="No entra en ninguna evaluación">
+                            sin evaluación
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="obj-card-f">
                       {/* Sin nadie que lo tenga abierto no se escribe nada: un guión suelto
