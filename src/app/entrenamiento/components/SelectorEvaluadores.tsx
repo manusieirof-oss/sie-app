@@ -5,6 +5,7 @@ import { cargarEvaluadores } from '@/lib/objetivosTests'
 import { esCuestionario, preguntasDe } from '@/lib/cuestionarios'
 import { categoriaDe, zonasDe, casaZona } from '@/lib/etiquetas'
 import FiltroZonas from '@/components/FiltroZonas'
+import ModalTest from './ModalTest'
 
 // ---------------------------------------------------------------------------
 // CON QUE SE EVALUA UN OBJETIVO
@@ -24,6 +25,7 @@ export default function SelectorEvaluadores({ ya = [], etiquetas = [], onCerrar,
   const [todos, setTodos] = useState<any[]>([])
   const [busca, setBusca] = useState('')
   const [marcados, setMarcados] = useState<string[]>([])
+  const [creando, setCreando] = useState(false)
 
   useEffect(() => { cargarEvaluadores().then(setTodos) }, [])
 
@@ -59,6 +61,10 @@ export default function SelectorEvaluadores({ ya = [], etiquetas = [], onCerrar,
 
         <div style={{ padding:'13px 17px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ flex:1, fontSize:16, fontWeight:500 }}>Con qué se evalúa</div>
+          {/* CREARLO AQUI MISMO. Si a todo objetivo se le exige con que medirse y el
+              test no existe, obligar a salir a la biblioteca y volver es perder lo
+              que llevas escrito en el objetivo. */}
+          <button className="btn btn-s btn-sm" onClick={() => setCreando(true)}>+ Nuevo test</button>
           <button className="modal-close" onClick={onCerrar}>✕</button>
         </div>
 
@@ -131,6 +137,11 @@ export default function SelectorEvaluadores({ ya = [], etiquetas = [], onCerrar,
             onClick={() => { onElegir(marcados); onCerrar() }}>Añadir</button>
         </div>
       </div>
+
+      {creando && (
+        <ModalTest etiquetas={etiquetas} z={200} onCerrar={() => setCreando(false)}
+          onCreado={(t: any) => { setTodos(p => [...p, t]); setMarcados(p => [...p, t.id]); setBusca('') }}/>
+      )}
     </div>
   )
 }
