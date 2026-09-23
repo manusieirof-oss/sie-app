@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
-import { guardarVias } from '@/lib/objetivos'
+import { guardarVias, retratoDe } from '@/lib/objetivos'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
@@ -135,7 +135,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           etiqueta: etiquetasLib.find((e:any)=>e.id===mid)?.nombre || '',
           resuelto: false,
         }))
-        return { paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias }
+        // Y con el retrato del objetivo congelado: ver `retratoDe`.
+        return { paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias, ...retratoDe(o) }
       }))
     if (error) { setGuardandoVia(null); alert(error.message); return }
     // Ya no se le copia ninguna parte: un objetivo añadido a mano nace sin nada y se cierra
@@ -184,8 +185,20 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
   function cargarObjetivos() {
     if (!pac?.id) return
-    supabase.from('pacientes_objetivos').select('objetivo_id, origen, vias, logrado, fecha_logrado, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url)').eq('paciente_id', pac.id).then(({data}) => {
-      setObjetivosTrabajo((data||[]).map((r:any)=>({...r.objetivos, origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado })).filter((o:any)=>o.id))
+    // El nombre, la descripcion y los especificos salen de la COPIA del paciente, no de la
+    // biblioteca: ver `retratoDe`. De la biblioteca solo se trae lo que no cambia el pasado
+    // —la zona y la foto— y si esta archivado, que es lo unico que hay que decir de ella.
+    supabase.from('pacientes_objetivos')
+      .select('objetivo_id, origen, vias, logrado, fecha_logrado, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
+      .eq('paciente_id', pac.id).then(({data}) => {
+      setObjetivosTrabajo((data||[]).map((r:any)=>({
+        ...r.objetivos,
+        nombre: r.nombre || r.objetivos?.nombre,
+        descripcion: r.descripcion ?? r.objetivos?.descripcion,
+        movimientos: Array.isArray(r.movimientos) ? r.movimientos : (r.objetivos?.movimientos || []),
+        archivado: r.objetivos?.archivado_el != null,
+        origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado,
+      })).filter((o:any)=>o.id))
     })
     supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
       .then(({data}) => setResultadosTests(data||[]))
@@ -202,7 +215,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       .in('estado', ['programada','realizada']).order('fecha')
       .then(({data}) => setCitasPac(data||[]))
     supabase.from('objetivos').select('id,nombre,descripcion,movimientos,articulacion_id,etiquetas,imagen_url')
-      .eq('activo', true).order('nombre').then(({data}) => setCatalogo(data||[]))
+      .eq('activo', true).is('archivado_el', null).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))
   }
@@ -452,6 +465,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           </div>
         )}
         {o.logrado && o.fecha_logrado && <div style={{fontSize:12,color:'var(--gd)',marginTop:2}}>el {fmtDia(o.fecha_logrado)}</div>}
+        {/* ARCHIVADO EN LA BIBLIOTECA. Lo suyo se queda tal cual —por eso se archiva en
+            vez de borrarse—, pero hay que poder explicar por que no aparece al buscarlo
+            para ponerselo a otro. */}
+        {o.archivado && (
+          <div style={{fontSize:12,color:'var(--gr)',marginTop:4,display:'flex',alignItems:'center',gap:5}}>
+            <Ic name="caja" size={11}/> Archivado en la biblioteca · lo suyo se mantiene
+          </div>
+        )}
         {/* AQUÍ IBAN LAS METAS Y LOS LOGROS, y se han quitado a propósito.
             El objetivo YA ES lo que se mide: lo abre un test y ese mismo test lo cierra.
             Ponerle dentro otra capa de cosas que medir era medir dos veces la misma cosa,

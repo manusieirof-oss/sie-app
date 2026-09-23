@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import { categoriaDe, zonasDe, casaZona } from '@/lib/etiquetas'
 import FiltroZonas from '@/components/FiltroZonas'
 import { contiene } from '@/lib/texto'
-import { especificosDeObjetivo } from '@/lib/objetivos'
+import { especificosDeObjetivo, alcanceObjetivo, archivarObjetivo, borrarObjetivo } from '@/lib/objetivos'
 import { conteoPorObjetivo, type Conteo } from '@/lib/objetivosTests'
 import ModalObjetivo from './ModalObjetivo'
 
@@ -24,6 +24,15 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const [editando, setEditando] = useState<any>(undefined)
   const [evalua, setEvalua] = useState<Record<string, Conteo>>({})
   const [enUso, setEnUso] = useState<Record<string, number>>({})
+  // Los archivados no vienen con el resto: se piden aparte y solo cuando se miran.
+  const [verArchivados, setVerArchivados] = useState(false)
+  const [archivados, setArchivados] = useState<any[]>([])
+  const [nArchivados, setNArchivados] = useState(0)
+
+  useEffect(() => {
+    supabase.from('objetivos').select('*').eq('activo', true).not('archivado_el', 'is', null)
+      .order('nombre').then(({ data }) => { setArchivados(data || []); setNArchivados((data || []).length) })
+  }, [objetivos])
 
   // Cuántos pacientes tienen cada objetivo abierto. Es lo que dice si una ficha se usa o
   // sobra, y hasta ahora no se sabía: la biblioteca crecía sin que nadie la podase.
@@ -69,7 +78,11 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   }
   const nPendientes = (objetivos || []).filter(porCompletar).length
 
-  const filtrados = (objetivos || []).filter((o: any) =>
+  // Los archivados se traen aparte; del listado normal se caen aqui, y no en la
+  // consulta de la pagina, para que el resto de pestanas puedan seguir escribiendo
+  // el nombre de uno archivado que ya estuviera puesto en una sesion.
+  const base = (verArchivados ? archivados : (objetivos || []).filter((o: any) => o.archivado_el == null)) as any[]
+  const filtrados = base.filter((o: any) =>
     casaZona(etiquetas, zonaIdsDe(o), zona) &&
     (soloPendientes === false || porCompletar(o)) &&
     (contiene(o.nombre || '', busca) || contiene(o.descripcion || '', busca)))
@@ -78,13 +91,35 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   const abrirNuevo = () => setEditando(null)
   const abrirEditar = (o: any) => setEditando(o)
 
-  async function eliminar(o: any) {
-    const n = enUso[o.id] || 0
-    if (!confirm(
-      `Eliminar "${o.nombre}".\n\n` +
-      (n > 0 ? `${n} paciente${n > 1 ? 's lo tienen' : ' lo tiene'} abierto ahora mismo y lo perderá${n > 1 ? 'n' : ''}.\n` : 'No lo tiene nadie abierto.\n') +
-      `\nNo se puede deshacer.`)) return
-    await supabase.from('objetivos').delete().eq('id', o.id)
+  /**
+   * ARCHIVAR, y borrar de verdad solo lo que no ha tocado nadie.
+   *
+   * Un objetivo que lleva alguien encima no se puede borrar sin reescribir el
+   * pasado: se va en cascada de su ficha, de las sesiones ya dadas y de las
+   * fases de los ciclos. Ver `alcanceObjetivo`.
+   */
+  async function retirar(o: any) {
+    const a = await alcanceObjetivo(o.id)
+    if (a.limpio) {
+      if (!confirm(`Eliminar "${o.nombre}".\n\nNo lo lleva ningún paciente ni ninguna sesión, así que no se pierde nada.\n\nNo se puede deshacer.`)) return
+      const r = await borrarObjetivo(o.id)
+      if (r.ok === false) { alert('No se ha eliminado: ' + r.error); return }
+      cargar(); return
+    }
+    const lineas = [`Archivar "${o.nombre}".`, '']
+    if (a.pacientes > 0) lineas.push(`\u00b7 ${a.pacientes} paciente${a.pacientes === 1 ? ' lo lleva' : 's lo llevan'}${a.logrados > 0 ? `, y ${a.logrados} ya lo ${a.logrados === 1 ? 'tiene' : 'tienen'} logrado` : ''}.`)
+    if (a.sesiones > 0) lineas.push(`\u00b7 ${a.sesiones} sesi\u00f3n${a.sesiones === 1 ? '' : 'es'} lo trabaja${a.sesiones === 1 ? '' : 'n'}.`)
+    if (a.fases > 0) lineas.push(`\u00b7 ${a.fases} fase${a.fases === 1 ? '' : 's'} de ciclo lo usa${a.fases === 1 ? '' : 'n'} para cerrarse.`)
+    lineas.push('', 'Todo eso se queda como está. El objetivo desaparece de la biblioteca y no se le podrá poner a nadie más.')
+    if (!confirm(lineas.join('\n'))) return
+    const r = await archivarObjetivo(o.id, true)
+    if (r.ok === false) { alert('No se ha archivado: ' + r.error); return }
+    cargar()
+  }
+
+  async function desarchivar(o: any) {
+    const r = await archivarObjetivo(o.id, false)
+    if (r.ok === false) { alert('No se ha podido: ' + r.error); return }
     cargar()
   }
 
@@ -98,8 +133,8 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
           </span>
           <span className="sh-r">
             {busca.trim() === '' && zona === ''
-              ? `${(objetivos || []).length} en total`
-              : `${filtrados.length} de ${(objetivos || []).length}`}
+              ? `${base.length} en total`
+              : `${filtrados.length} de ${base.length}`}
           </span>
         </div>
 
@@ -111,11 +146,19 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
             value={busca} onChange={ev => setBusca(ev.target.value)}
             placeholder="Buscar objetivo por nombre…"/>
           {/* Como los ejercicios a medias: se ven aparte, no se buscan uno a uno. */}
-          {nPendientes > 0 && (
+          {nPendientes > 0 && verArchivados === false && (
             <button className={`pill ${soloPendientes ? 'pill-o on' : 'pill-soft'}`}
               style={{ border: 'none', cursor: 'pointer' }}
               onClick={() => setSoloPendientes(v => v === false)}>
               {nPendientes} por completar
+            </button>
+          )}
+          {/* Los archivados existen pero no estorban: solo se ven si los pides. */}
+          {nArchivados > 0 && (
+            <button className={`pill ${verArchivados ? 'pill-o on' : 'pill-soft'}`}
+              style={{ border: 'none', cursor: 'pointer' }}
+              onClick={() => { setVerArchivados(v => v === false); setSoloPendientes(false) }}>
+              {nArchivados} archivado{nArchivados === 1 ? '' : 's'}
             </button>
           )}
         </div>
@@ -211,8 +254,16 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                         title={n > 0 ? `${n} pacientes lo tienen abierto` : undefined}>
                         {n > 0 ? `${n} abiertos` : ''}
                       </span>
-                      <button className="et-b" title="Editar" onClick={() => abrirEditar(o)}><Ic name="editar" size={13} /></button>
-                      <button className="et-b et-b-r" title="Borrar" onClick={() => eliminar(o)}><Ic name="papelera" size={13} /></button>
+                      {verArchivados ? (
+                        <button className="btn btn-s btn-sm" onClick={() => desarchivar(o)}>
+                          <Ic name="recuperar" size={12} /> Recuperar
+                        </button>
+                      ) : (
+                        <>
+                          <button className="et-b" title="Editar" onClick={() => abrirEditar(o)}><Ic name="editar" size={13} /></button>
+                          <button className="et-b et-b-r" title="Archivar o eliminar" onClick={() => retirar(o)}><Ic name="papelera" size={13} /></button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )

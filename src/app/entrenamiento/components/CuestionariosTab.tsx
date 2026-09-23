@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { contiene } from '@/lib/texto'
 import { cargarCuestionarios, borrarCuestionario, preguntasDe, textoFormato } from '@/lib/cuestionarios'
+import { alcanceBorradoTest, archivarTest } from '@/lib/tests'
 import ModalCuestionario from './ModalCuestionario'
 
 // ---------------------------------------------------------------------------
@@ -18,6 +19,7 @@ export default function CuestionariosTab() {
   const [cargando, setCargando] = useState(true)
   const [busca, setBusca] = useState('')
   const [editando, setEditando] = useState<any>(undefined)
+  const [verArchivados, setVerArchivados] = useState(false)
 
   useEffect(() => { cargar() }, [])
   async function cargar() {
@@ -26,15 +28,38 @@ export default function CuestionariosTab() {
     setCargando(false)
   }
 
+  /**
+   * ARCHIVAR, igual que un test: un cuestionario comparte tabla con ellos y tiene los
+   * mismos hilos colgando. Y decia que "las respuestas ya registradas se quedan", que
+   * era falso: `resultados_tests` no deja borrar el test mientras existan.
+   */
   async function eliminar(c: any) {
-    if (confirm(`¿Borrar «${c.nombre}»? Las respuestas ya registradas se quedan.`) === false) return
-    const r = await borrarCuestionario(c.id)
-    if (r.ok === false) { alert(r.error); return }
+    const a = await alcanceBorradoTest(c.id)
+    if (a.limpio) {
+      if (confirm(`Eliminar «${c.nombre}».\n\nNo lo ha contestado nadie y no lo usa ningún objetivo.\n\nNo se puede deshacer.`) === false) return
+      const r = await borrarCuestionario(c.id)
+      if (r.ok === false) { alert('No se ha eliminado: ' + r.error); return }
+      cargar(); return
+    }
+    const lineas = [`Archivar «${c.nombre}».`, '']
+    if (a.resultados > 0) lineas.push(`\u00b7 ${a.resultados} respuesta${a.resultados === 1 ? '' : 's'} de paciente.`)
+    if (a.evaluan.length > 0) lineas.push(`\u00b7 Se comprueban con él: ${a.evaluan.join(', ')}.`)
+    lineas.push('', 'Todo eso se queda como está. Desaparece de la biblioteca y no se le podrá pasar a nadie más.')
+    if (confirm(lineas.join('\n')) === false) return
+    const r = await archivarTest(c.id, true)
+    if (r.ok === false) { alert('No se ha archivado: ' + r.error); return }
     cargar()
   }
 
-  const filtrados = lista.filter(c =>
-    contiene(c.nombre || '', busca) || contiene(c.descripcion || '', busca))
+  async function desarchivar(c: any) {
+    const r = await archivarTest(c.id, false)
+    if (r.ok === false) { alert('No se ha podido: ' + r.error); return }
+    cargar()
+  }
+
+  const filtrados = lista
+    .filter(c => verArchivados ? c.archivado_el != null : c.archivado_el == null)
+    .filter(c => contiene(c.nombre || '', busca) || contiene(c.descripcion || '', busca))
 
   return (
     <div className="panel">
@@ -48,8 +73,17 @@ export default function CuestionariosTab() {
         </div>
 
         {lista.length > 0 && (
-          <input className="input" style={{ maxWidth: 330, marginBottom: 12 }}
-            value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cuestionario…"/>
+          <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
+            <input className="input" style={{ maxWidth: 330 }}
+              value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cuestionario…"/>
+            {lista.some(c => c.archivado_el != null) && (
+              <button className={`pill ${verArchivados ? 'pill-o on' : 'pill-soft'}`}
+                style={{ border:'none', cursor:'pointer' }}
+                onClick={() => setVerArchivados(v => v === false)}>
+                {lista.filter(c => c.archivado_el != null).length} archivados
+              </button>
+            )}
+          </div>
         )}
 
         {cargando === false && lista.length === 0 && (
@@ -70,7 +104,7 @@ export default function CuestionariosTab() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--n)' }}>{c.nombre}</div>
                   <button className="btn btn-s btn-sm" title="Borrar"
-                    onClick={e => { e.stopPropagation(); eliminar(c) }}>✕</button>
+                    onClick={e => { e.stopPropagation(); verArchivados ? desarchivar(c) : eliminar(c) }}>{verArchivados ? '↺' : '✕'}</button>
                 </div>
                 {c.descripcion && (
                   <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 4, lineHeight: 1.4 }}>

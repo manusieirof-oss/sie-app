@@ -61,13 +61,16 @@ export async function contenidoDe(evaluacionId: string, objetivosDeLaFase: strin
   if (objetivosDeLaFase.length === 0) return []
 
   const { data: enlaces } = await supabase.from('objetivos_tests')
-    .select('objetivo_id, test_id, tests:test_id(id,nombre,descripcion,tipo,imagen_url,items)')
+    .select('objetivo_id, test_id, tests:test_id(id,nombre,descripcion,tipo,imagen_url,items,archivado_el)')
     .in('objetivo_id', objetivosDeLaFase)
 
   const porTest: Record<string, Pendiente> = {}
   ;(enlaces || []).forEach((e: any) => {
     const t = Array.isArray(e.tests) ? e.tests[0] : e.tests
     if (t == null) return
+    // Archivado: no se le puede pasar a nadie, asi que no se puede pedir en una
+    // evaluacion. Lo ya registrado con el sigue donde estaba.
+    if (t.archivado_el != null) return
     if (porTest[t.id] == null) porTest[t.id] = { test: t, objetivos: [], hecho: false }
     porTest[t.id].objetivos.push(e.objetivo_id)
   })

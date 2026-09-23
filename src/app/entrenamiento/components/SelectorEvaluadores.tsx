@@ -43,6 +43,8 @@ export default function SelectorEvaluadores({ ya = [], etiquetas = [], onCerrar,
   const sinZona = todos.filter(t => zonasDe(etiquetas, zonasDeTest(t)).length === 0).length
 
   const lista = todos
+    // Lo archivado no se ofrece: ya no se le puede pasar a nadie.
+    .filter(t => t.archivado_el == null)
     .filter(t => ya.includes(t.id) === false)
     .filter(t => contiene(t.nombre || '', busca) || contiene(t.descripcion || '', busca))
     .filter(t => casaZona(etiquetas, zonasDeTest(t), zona))

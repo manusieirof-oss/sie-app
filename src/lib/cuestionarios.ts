@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { planDeItems, aplicarCambioDeItems } from './tests'
 
 /**
  * CUESTIONARIOS. Un cuestionario es un test que se responde distinto.
@@ -68,8 +69,15 @@ export async function guardarCuestionario(c: any): Promise<{ ok: boolean, id?: s
       })),
   }
   if (c.id) {
+    // Renombrar una pregunta rompia el objetivo que se comprobaba con ella:
+    // `objetivos_tests.item` guarda el nombre. Mismo arrastre que en un test.
+    const { data: previo } = await supabase.from('tests').select('items').eq('id', c.id).maybeSingle()
+    const plan = planDeItems(previo?.items || [], fila.items)
     const { error } = await supabase.from('tests').update(fila).eq('id', c.id)
-    return error ? { ok: false, error: error.message } : { ok: true, id: c.id }
+    if (error) return { ok: false, error: error.message }
+    const rp = await aplicarCambioDeItems(c.id, plan, nombre)
+    if (rp.ok === false) return { ok: false, error: 'Guardado, pero los objetivos que cuelgan de sus preguntas no se han ajustado: ' + rp.error }
+    return { ok: true, id: c.id }
   }
   const { data, error } = await supabase.from('tests').insert(fila).select('id').single()
   return error ? { ok: false, error: error.message } : { ok: true, id: data!.id }

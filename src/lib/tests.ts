@@ -978,6 +978,10 @@ export type AlcanceBorradoTest = {
   pacientes: number
   /** Objetivos que este test abre desde sus ítems o sus bandas: se quedarían sin quien los abra. */
   objetivos: string[]
+  /** Objetivos que se MIDEN con él: se quedarían sin con qué comprobarse. */
+  evaluan: string[]
+  /** Nada cuelga de él: se puede borrar de verdad sin perder nada. */
+  limpio: boolean
 }
 
 /** Qué se lleva por delante el borrado. Para poder preguntarlo ANTES de hacerlo. */
@@ -1002,7 +1006,22 @@ export async function alcanceBorradoTest(testId: string): Promise<AlcanceBorrado
       .filter(po => (Array.isArray(po.vias) ? po.vias : []).some((v: any) => esViaDeTest(v, testId)))
       .map(po => po.paciente_id),
   )
-  return { resultados: count || 0, pacientes: pacientes.size, objetivos: (objs || []).map((o: any) => o.nombre) }
+  // Y con qué objetivos se usa para MEDIR, que es la relación nueva y la que no se
+  // miraba: borrar el test los dejaba sin forma de comprobarse, en silencio.
+  const { data: ev } = await supabase.from('objetivos_tests')
+    .select('objetivos(nombre)').eq('test_id', testId)
+  const evaluan = Array.from(new Set((ev || []).map((r: any) => {
+    const o = Array.isArray(r.objetivos) ? r.objetivos[0] : r.objetivos
+    return o?.nombre
+  }).filter(Boolean))) as string[]
+
+  return {
+    resultados: count || 0,
+    pacientes: pacientes.size,
+    objetivos: (objs || []).map((o: any) => o.nombre),
+    evaluan,
+    limpio: (count || 0) === 0 && pacientes.size === 0 && evaluan.length === 0 && (objs || []).length === 0,
+  }
 }
 
 export type ResultadoBorradoTest =
@@ -1053,4 +1072,170 @@ export async function borrarTest(testId: string): Promise<ResultadoBorradoTest> 
   if (sigue) return { ok: false, error: 'El test sigue en la biblioteca después de borrarlo. Probablemente lo impide una política de la base de datos.' }
 
   return { ok: true, resultados: count || 0, viasQuitadas }
+}
+
+/**
+ * ARCHIVAR UN TEST, que es lo que se hace casi siempre en vez de borrarlo.
+ *
+ * Borrarlo se lleva sus resultados —el historial de mediciones del paciente— y
+ * deja sin medida a los objetivos que se comprobaban con él; peor aún, al
+ * quitarle la vía a un paciente, un objetivo que tenía LOGRADO se le reabre.
+ * Archivado desaparece de la biblioteca y de todo lo que sirva para elegir, y
+ * lo pasado se queda donde estaba.
+ */
+export async function archivarTest(testId: string, archivar = true) {
+  const { error } = await supabase.from('tests')
+    .update({ archivado_el: archivar ? new Date().toISOString() : null }).eq('id', testId)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/* ─── EDITAR LOS ÍTEMS DE UN TEST SIN ROMPER LO QUE CUELGA ───────────────────
+ *
+ * Un ítem lo referencian dos cosas, y cada una por su lado:
+ *
+ *   - `objetivos_tests.item` guarda el NOMBRE. Renombrarlo dejaba al objetivo
+ *     apuntando a un ítem que ya no existe: pasaba a "por completar" sin que
+ *     nadie lo dijera.
+ *   - las vías de `pacientes_objetivos` guardan `testId:índice`, o sea la
+ *     POSICIÓN. Subir el tercer ítem al primer puesto cambiaba de qué ítem
+ *     dependía cada objetivo; borrar uno dejaba la vía colgando de un hueco, y
+ *     un objetivo con una vía fantasma no se puede cerrar nunca.
+ *
+ * Los resultados ya guardados no entran aquí: congelan nombre, unidad y regla
+ * en el momento de medir, así que la medición de marzo dice lo que dijo.
+ */
+
+const normIt = (x: any) => String(x || '').toLowerCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+export type PlanItems = {
+  /** Mismo ítem, otro nombre. */
+  renombres: { de: string, a: string }[]
+  /** Mismo ítem, otra posición. */
+  movidos: { de: number, a: number }[]
+  /** Ítems que ya no están. */
+  borrados: { nombre: string, indice: number }[]
+  /** Índice de antes → índice de ahora, o null si se ha ido. */
+  mapa: (number | null)[]
+  /** Los nombres de ahora, para reescribir la etiqueta de la vía. */
+  nombres: string[]
+  hayCambios: boolean
+}
+
+/**
+ * Qué le ha pasado a cada ítem entre una versión y otra.
+ *
+ * No hay ids en los ítems, así que se deduce: primero se casan por NOMBRE —ese
+ * es el mismo ítem, se haya movido o no—, y lo que sobra se casa por ORDEN, que
+ * es un renombre en su sitio. Es la forma en que se edita de verdad: se cambia
+ * el texto de una fila, o se arrastra la fila entera.
+ */
+export function planDeItems(antes: any[], despues: any[]): PlanItems {
+  const A = (Array.isArray(antes) ? antes : []).map((i: any) => String(i?.nombre || ''))
+  const B = (Array.isArray(despues) ? despues : []).map((i: any) => String(i?.nombre || ''))
+  const usados = new Set<number>()
+  const mapa: (number | null)[] = A.map(() => null)
+
+  A.forEach((n, i) => {
+    if (normIt(n) === '') return
+    const j = B.findIndex((m, k) => usados.has(k) === false && normIt(m) === normIt(n))
+    if (j >= 0) { mapa[i] = j; usados.add(j) }
+  })
+  const sueltosA = A.map((_, i) => i).filter(i => mapa[i] == null)
+  const sueltosB = B.map((_, k) => k).filter(k => usados.has(k) === false)
+  sueltosA.forEach((i, n) => {
+    const j = sueltosB[n]
+    if (j !== undefined) { mapa[i] = j; usados.add(j) }
+  })
+
+  const renombres: { de: string, a: string }[] = []
+  const movidos: { de: number, a: number }[] = []
+  const borrados: { nombre: string, indice: number }[] = []
+  A.forEach((n, i) => {
+    const j = mapa[i]
+    if (j == null) { borrados.push({ nombre: n, indice: i }); return }
+    if (normIt(B[j]) !== normIt(n)) renombres.push({ de: n, a: B[j] })
+    if (j !== i) movidos.push({ de: i, a: j })
+  })
+
+  return {
+    renombres, movidos, borrados, mapa, nombres: B,
+    hayCambios: renombres.length + movidos.length + borrados.length > 0,
+  }
+}
+
+/** Qué cuelga de los ítems que van a desaparecer. Para preguntarlo ANTES. */
+export async function alcanceItemsBorrados(testId: string, plan: PlanItems) {
+  if (plan.borrados.length === 0) return { objetivos: [] as string[], vias: 0, pacientes: 0 }
+
+  const nombres = plan.borrados.map(b => b.nombre).filter(n => n !== '')
+  const { data: ot } = nombres.length > 0
+    ? await supabase.from('objetivos_tests').select('objetivos(nombre)').eq('test_id', testId).in('item', nombres)
+    : { data: [] as any[] }
+  const objetivos = Array.from(new Set((ot || []).map((r: any) => {
+    const o = Array.isArray(r.objetivos) ? r.objetivos[0] : r.objetivos
+    return o?.nombre
+  }).filter(Boolean))) as string[]
+
+  const refs = new Set(plan.borrados.map(b => testId + ':' + b.indice))
+  const { data: pos } = await supabase.from('pacientes_objetivos').select('paciente_id,vias')
+  let vias = 0
+  const pacientes = new Set<string>()
+  ;(pos || []).forEach((po: any) => {
+    const n = (Array.isArray(po.vias) ? po.vias : [])
+      .filter((v: any) => v?.tipo === 'test_item' && refs.has(v?.ref)).length
+    if (n > 0) { vias += n; pacientes.add(po.paciente_id) }
+  })
+  return { objetivos, vias, pacientes: pacientes.size }
+}
+
+/**
+ * Arrastra el cambio: los renombres a `objetivos_tests`, y las posiciones y las
+ * bajas a las vías de los pacientes. Se llama DESPUÉS de guardar el test.
+ */
+export async function aplicarCambioDeItems(testId: string, plan: PlanItems, nombreTest: string) {
+  if (plan.hayCambios === false) return { ok: true as const }
+
+  // 1. Los renombres, en la tabla que guarda el nombre.
+  for (const r of plan.renombres) {
+    const { error } = await supabase.from('objetivos_tests')
+      .update({ item: r.a }).eq('test_id', testId).eq('item', r.de)
+    if (error) return { ok: false as const, error: error.message }
+  }
+  // 2. Los ítems que se van: el objetivo se queda sin ellos.
+  const fuera = plan.borrados.map(b => b.nombre).filter(n => n !== '')
+  if (fuera.length > 0) {
+    const { error } = await supabase.from('objetivos_tests')
+      .delete().eq('test_id', testId).in('item', fuera)
+    if (error) return { ok: false as const, error: error.message }
+  }
+  // 3. Las vías, que van por posición. Se reescriben todas las del test a la vez:
+  //    mover una por una cruzaría índices a mitad de camino.
+  if (plan.movidos.length > 0 || plan.borrados.length > 0) {
+    const { data: pos, error } = await supabase.from('pacientes_objetivos')
+      .select('paciente_id,objetivo_id,vias,logrado')
+    if (error) return { ok: false as const, error: error.message }
+
+    for (const po of (pos || [])) {
+      const vias: Via[] = Array.isArray(po.vias) ? po.vias : []
+      let tocada = false
+      const nuevas = vias.flatMap((v: any) => {
+        if (v?.tipo !== 'test_item' || typeof v?.ref !== 'string') return [v]
+        if (v.ref.startsWith(testId + ':') === false) return [v]
+        const i = Number(v.ref.slice(testId.length + 1))
+        const j = plan.mapa[i]
+        if (j == null) { tocada = true; return [] }
+        if (j === i) return [v]
+        tocada = true
+        return [{ ...v, ref: testId + ':' + j,
+          etiqueta: 'Test: ' + (nombreTest || 'test') + ' · ' + (plan.nombres[j] || `ítem ${j + 1}`) }]
+      })
+      if (tocada === false) continue
+      const r = await guardarVias(po.paciente_id, po.objetivo_id, nuevas, {
+        logradoAntes: !!po.logrado, contexto: 'un cambio en el test',
+      })
+      if (r.ok === false) return { ok: false as const, error: r.error }
+    }
+  }
+  return { ok: true as const }
 }

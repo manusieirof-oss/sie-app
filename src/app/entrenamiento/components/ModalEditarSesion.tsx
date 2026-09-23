@@ -205,7 +205,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
   useEffect(() => {
     (async () => {
-      const { data: objs } = await supabase.from('objetivos').select('id,nombre,descripcion,imagen_url,articulacion_id,etiquetas,movimientos').eq('activo',true).order('nombre')
+      const { data: objs } = await supabase.from('objetivos').select('id,nombre,descripcion,imagen_url,articulacion_id,etiquetas,movimientos,archivado_el').eq('activo',true).order('nombre')
       setObjetivosDisp(objs||[])
       if (sesion.id) {
         const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id,movimientos').eq('sesion_id', sesion.id)
@@ -461,8 +461,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     onCerrar()
   }
 
+  // Se cargan TODOS para poder pintar el nombre de uno archivado que ya estuviera puesto;
+  // lo que no se ofrece es ponerlo de nuevo.
   const selectorObjetivos = eligiendoObj ? (
-    <SelectorObjetivos objetivos={objetivosDisp} ya={objetivosSel} etiquetas={etiquetas}
+    <SelectorObjetivos objetivos={objetivosDisp.filter((o:any)=>o.archivado_el == null)} ya={objetivosSel} etiquetas={etiquetas}
       titulo="Objetivos que cubre la sesión"
       onCerrar={()=>setEligiendoObj(false)}
       onElegir={(ids:string[], movs:Record<string,string[]>)=>{

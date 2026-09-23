@@ -283,10 +283,33 @@ export async function copiarLogrosPlantilla(pacienteId: string, objetivoId: stri
   return error ? 0 : nuevas.length
 }
 
+/**
+ * EL RETRATO DEL OBJETIVO, tal y como estaba el dia que se le asigno.
+ *
+ * El `objetivo_id` se queda —es el que une el item de un test, la sesion, la
+ * fase y la ficha, y sin el no cierra ninguna fase—, pero el TEXTO se congela:
+ * anadir un especifico a un objetivo de la biblioteca le aparecia de golpe como
+ * una parte sin cumplir a quien ya lo tenia logrado.
+ */
+export function retratoDe(o: any) {
+  return {
+    nombre: o?.nombre || null,
+    descripcion: o?.descripcion || null,
+    movimientos: Array.isArray(o?.movimientos) ? o.movimientos : [],
+  }
+}
+
+export async function retratoObjetivo(objetivoId: string) {
+  const { data } = await supabase.from('objetivos')
+    .select('nombre,descripcion,movimientos').eq('id', objetivoId).maybeSingle()
+  return retratoDe(data)
+}
+
 /** Crea el objetivo para el paciente con su primera vía, y con sus logros habituales. */
 export async function abrirObjetivo(pacienteId: string, objetivoId: string, via: Via, origen: string) {
   const { error } = await supabase.from('pacientes_objetivos')
-    .insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen, vias: [via] })
+    .insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen, vias: [via],
+      ...(await retratoObjetivo(objetivoId)) })
   if (error) return { ok: false as const, error: error.message }
   // Va aquí y no en quien llama: un objetivo se abre desde un test, desde el taller y desde
   // la ficha, y si la copia dependiera de que cada sitio se acuerde, el que se olvidara
@@ -358,4 +381,59 @@ export async function resolverVia(pacienteId: string, objetivoId: string, tipo: 
   if (!cambio) return { ok: true as const, logrado: !!po.logrado, sinCambios: true }
 
   return guardarVias(pacienteId, objetivoId, nuevas, { logradoAntes: !!po.logrado, contexto })
+}
+
+/* ─── ARCHIVAR EN VEZ DE BORRAR ──────────────────────────────────────────────
+ *
+ * Borrar un objetivo era borrar el pasado: todo lo que le cuelga va en cascada
+ * —lo que el paciente tenia abierto Y lo que ya habia logrado, los objetivos de
+ * sesiones ya dadas, las fases de los ciclos—. Podabas la biblioteca y a un
+ * paciente se le reabria un objetivo conseguido en marzo.
+ *
+ * Archivado: desaparece de la biblioteca y de los selectores, no se le puede
+ * volver a poner a nadie, y todo lo pasado sigue donde estaba. El borrado de
+ * verdad se queda para lo que no ha tocado nadie, que es donde no hay historial
+ * que romper.
+ */
+
+export type AlcanceObjetivo = {
+  pacientes: number
+  logrados: number
+  sesiones: number
+  fases: number
+  evaluadores: number
+  /** Nada cuelga de el: se puede borrar de verdad sin perder nada. */
+  limpio: boolean
+}
+
+export async function alcanceObjetivo(objetivoId: string): Promise<AlcanceObjetivo> {
+  const cuenta = async (tabla: string, filtro?: (q: any) => any) => {
+    let q = supabase.from(tabla).select('objetivo_id', { count: 'exact', head: true }).eq('objetivo_id', objetivoId)
+    if (filtro) q = filtro(q)
+    const { count } = await q
+    return count || 0
+  }
+  const [pacientes, logrados, sesiones, fases, evaluadores] = await Promise.all([
+    cuenta('pacientes_objetivos'),
+    cuenta('pacientes_objetivos', (q: any) => q.eq('logrado', true)),
+    cuenta('sesiones_objetivos'),
+    cuenta('sistema_fase_objetivos'),
+    cuenta('objetivos_tests'),
+  ])
+  return {
+    pacientes, logrados, sesiones, fases, evaluadores,
+    limpio: pacientes + sesiones + fases === 0,
+  }
+}
+
+export async function archivarObjetivo(objetivoId: string, archivar = true) {
+  const { error } = await supabase.from('objetivos')
+    .update({ archivado_el: archivar ? new Date().toISOString() : null }).eq('id', objetivoId)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/** Solo para lo que no ha tocado nadie. Quien llama comprueba antes con `alcanceObjetivo`. */
+export async function borrarObjetivo(objetivoId: string) {
+  const { error } = await supabase.from('objetivos').delete().eq('id', objetivoId)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }

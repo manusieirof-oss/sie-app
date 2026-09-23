@@ -52,7 +52,7 @@ export type Conteo = { tests: number, cuestionarios: number }
 /** Cuantos tests y cuantos cuestionarios evaluan cada objetivo. Para las tarjetas. */
 export async function conteoPorObjetivo(): Promise<Record<string, Conteo>> {
   const { data } = await supabase.from('objetivos_tests')
-    .select('objetivo_id, test_id, tests:test_id(tipo)')
+    .select('objetivo_id, test_id, tests:test_id(tipo,archivado_el)')
   const m: Record<string, Conteo> = {}
   // POR TEST, NO POR FILA. Un mismo test puede estar colgado de varios especificos
   // —o del objetivo entero y ademas de una parte—, y son varias filas de lo mismo:
@@ -61,6 +61,10 @@ export async function conteoPorObjetivo(): Promise<Record<string, Conteo>> {
   const vistos = new Set<string>()
   ;(data || []).forEach((r: any) => {
     const t = Array.isArray(r.tests) ? r.tests[0] : r.tests
+    // Un test archivado ya no se le puede pasar a nadie: el objetivo se queda sin
+    // forma de comprobarse de aqui en adelante, asi que vuelve a "por completar".
+    // La ficha del test sigue viendose dentro del objetivo, marcada.
+    if (t?.archivado_el != null) return
     const clave = r.objetivo_id + '|' + r.test_id
     if (vistos.has(clave)) return
     vistos.add(clave)
@@ -73,6 +77,6 @@ export async function conteoPorObjetivo(): Promise<Record<string, Conteo>> {
 
 /** Todos los tests y cuestionarios de la biblioteca, para elegir. */
 export async function cargarEvaluadores() {
-  const { data } = await supabase.from('tests').select('id,nombre,descripcion,tipo,items,imagen_url,etiquetas_relacionadas').order('nombre')
+  const { data } = await supabase.from('tests').select('id,nombre,descripcion,tipo,items,imagen_url,etiquetas_relacionadas,archivado_el').order('nombre')
   return data || []
 }

@@ -217,9 +217,17 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                   test. Por nombre y no por posicion: reordenar los items cambiaria en
                   silencio que se mide. */}
               <div style={{ marginTop: 5, fontSize: 12, lineHeight: 1.3, textAlign: 'center',
-                color: 'var(--n)', overflowWrap: 'anywhere' }}>
+                color: t?.archivado_el ? 'var(--gr)' : 'var(--n)', overflowWrap: 'anywhere' }}>
                 {t?.nombre || '—'}
               </div>
+              {/* ARCHIVADO: se queda, porque es con lo que se ha estado midiendo, pero
+                  ya no se le puede pasar a nadie — y por eso el objetivo vuelve a
+                  contar como "por completar" hasta que se le ponga otro. */}
+              {t?.archivado_el != null && (
+                <div style={{ marginTop: 2, fontSize: 10.5, textAlign: 'center', color: '#7A5800' }}>
+                  archivado
+                </div>
+              )}
               {items.length > 0 && (
                 <select value={e.item || ''} onChange={ev => cambiar({ item: ev.target.value || null })}
                   title="Todo el test o solo un ítem"

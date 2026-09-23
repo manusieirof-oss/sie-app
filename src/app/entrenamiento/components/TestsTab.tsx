@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest, esSuma, esBaremo, bandasDe, baremosDe, rangoTotal, textoNorma } from '@/lib/tests'
+import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest, archivarTest, planDeItems, alcanceItemsBorrados, aplicarCambioDeItems, esSuma, esBaremo, bandasDe, baremosDe, rangoTotal, textoNorma } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import SelectorEtiquetasCompacto from '@/components/SelectorEtiquetasCompacto'
 import { ordenAnatomico } from '@/lib/anatomia'
@@ -17,6 +17,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
+  const [verArchivados, setVerArchivados] = useState(false)
 
   /**
    * Todo lo de abajo miraba el resultado de Supabase de reojo o directamente no lo miraba:
@@ -50,6 +51,27 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
   async function guardarEditTest() {
     if (!testEditando) return
     if (bloqueadoPorProblemas(testEditando)) return
+
+    /* QUÉ LE PASA A LO QUE CUELGA DE LOS ÍTEMS.
+       Los ítems de antes se leen de la base y no de `testsLib`: el formulario
+       trabaja sobre una copia superficial y el array de ítems puede ser el mismo
+       objeto, con lo que "antes" y "después" saldrían idénticos. */
+    const { data: previo } = await supabase.from('tests')
+      .select('items,nombre').eq('id', testEditando.id).maybeSingle()
+    const plan = planDeItems(previo?.items || [], testEditando.items || [])
+    if (plan.borrados.length > 0) {
+      const a = await alcanceItemsBorrados(testEditando.id, plan)
+      if (a.objetivos.length > 0 || a.vias > 0) {
+        const lineas = [
+          `Quitas ${plan.borrados.length === 1 ? 'el ítem' : 'los ítems'} ${plan.borrados.map(b => `\u00ab${b.nombre}\u00bb`).join(', ')}.`, '',
+        ]
+        if (a.objetivos.length > 0) lineas.push(`\u00b7 Se comprobaban con \u00e9l: ${a.objetivos.join(', ')}. Se quedan sin esa medida.`)
+        if (a.vias > 0) lineas.push(`\u00b7 ${a.vias} parte${a.vias === 1 ? '' : 's'} de objetivo abierta${a.vias === 1 ? '' : 's'} en ${a.pacientes} paciente${a.pacientes === 1 ? '' : 's'} depend${a.vias === 1 ? 'e' : 'en'} de \u00e9l. Se quitan, porque ya no hay forma de resolverlas.`)
+        lineas.push('', '¿Seguir?')
+        if (confirm(lineas.join('\n')) === false) return
+      }
+    }
+
     setSubiendoImgTest(true)
     let imagenUrl = testEditando.imagen_url || ''
     let avisoImagen = ''
@@ -61,8 +83,13 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
       else imagenUrl = r.url + '?t=' + Date.now()
     }
     const { error } = await supabase.from('tests').update({ nombre:testEditando.nombre, descripcion:testEditando.descripcion, video_url:testEditando.video_url, frecuencia_meses:testEditando.frecuencia_meses, logica:testEditando.logica, items:testEditando.items||[], bandas:(esSuma(testEditando)||esBaremo(testEditando))?(testEditando.bandas||[]):[], baremos:esBaremo(testEditando)?(testEditando.baremos||[]):[], etiquetas_relacionadas:testEditando.etiquetas_relacionadas||[], etiquetas_bloquea:testEditando.etiquetas_bloquea||[], tipo_lado:testEditando.tipo_lado||'bilateral', imagen_url:imagenUrl }).eq('id', testEditando.id)
+    if (error) { setSubiendoImgTest(false); alert('No se han guardado los cambios: ' + error.message); return }
+
+    // Y ahora se arrastra el cambio a lo que apunta a los ítems: ver `planDeItems`.
+    const rp = await aplicarCambioDeItems(testEditando.id, plan, testEditando.nombre || previo?.nombre || '')
     setSubiendoImgTest(false)
-    if (error) { alert('No se han guardado los cambios: ' + error.message); return }
+    if (rp.ok === false) alert('El test se ha guardado, pero los objetivos que cuelgan de sus ítems no se han podido ajustar: ' + rp.error)
+
     setModalEditarTest(false); setTestEditando(null)
     await recargarTests()
     if (avisoImagen) alert('Los cambios se han guardado, pero la imagen no se ha subido: ' + avisoImagen)
@@ -72,22 +99,39 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
    * El borrado vive en `lib/tests.ts`, que es quien sabe qué cuelga de un test. Aquí solo
    * se pregunta —diciendo exactamente qué se lleva por delante— y se enseña el resultado.
    */
-  async function eliminarTest(t: any) {
+  /**
+   * ARCHIVAR, y borrar de verdad solo lo que no ha medido a nadie.
+   *
+   * Borrar un test que ya se ha pasado reescribe el pasado: se van sus
+   * resultados y, al quitarle la vía al paciente, un objetivo que tenía LOGRADO
+   * se le reabre. Ver `archivarTest`.
+   */
+  async function retirarTest(t: any) {
     const a = await alcanceBorradoTest(t.id)
-    const lineas = [
-      `Vas a eliminar «${t.nombre}» de la biblioteca.`, '',
-      `· ${a.resultados} resultado${a.resultados === 1 ? '' : 's'} de paciente se borran con él.`,
-      `· ${a.pacientes} paciente${a.pacientes === 1 ? ' tiene' : 's tienen'} objetivos abiertos por este test: esas vías se quitan.`,
-    ]
-    if (a.objetivos.length > 0) lineas.push(`· Se quedan sin test los objetivos: ${a.objetivos.join(', ')}.`)
-    lineas.push('', 'No se puede deshacer. ¿Seguir?')
+    if (a.limpio) {
+      if (!confirm(`Eliminar «${t.nombre}».\n\nNo se lo han pasado a nadie y no lo usa ningún objetivo, así que no se pierde nada.\n\nNo se puede deshacer.`)) return
+      const r = await borrarTest(t.id)
+      if (r.ok === false) { alert('No se ha eliminado: ' + r.error); return }
+      setTestDetalle(null); await recargarTests(); return
+    }
+    const lineas = [`Archivar «${t.nombre}».`, '']
+    if (a.resultados > 0) lineas.push(`\u00b7 ${a.resultados} resultado${a.resultados === 1 ? '' : 's'} de paciente.`)
+    if (a.pacientes > 0) lineas.push(`\u00b7 ${a.pacientes} paciente${a.pacientes === 1 ? ' tiene' : 's tienen'} objetivos abiertos por él.`)
+    if (a.evaluan.length > 0) lineas.push(`\u00b7 Se comprueban con él: ${a.evaluan.join(', ')}.`)
+    if (a.objetivos.length > 0) lineas.push(`\u00b7 Abre: ${a.objetivos.join(', ')}.`)
+    lineas.push('', 'Todo eso se queda como está. El test desaparece de la biblioteca y no se le podrá pasar a nadie más.')
     if (!confirm(lineas.join('\n'))) return
-
-    const r = await borrarTest(t.id)
-    if (!r.ok) { alert('No se ha eliminado: ' + r.error); return }
+    const r = await archivarTest(t.id, true)
+    if (r.ok === false) { alert('No se ha archivado: ' + r.error); return }
     setTestDetalle(null)
     await recargarTests()
-    alert(`Eliminado «${t.nombre}».\n${r.resultados} resultado${r.resultados === 1 ? '' : 's'} y ${r.viasQuitadas} vía${r.viasQuitadas === 1 ? '' : 's'} de objetivo.`)
+  }
+
+  async function desarchivarTest(t: any) {
+    const r = await archivarTest(t.id, false)
+    if (r.ok === false) { alert('No se ha podido: ' + r.error); return }
+    setTestDetalle(null)
+    await recargarTests()
   }
 
   // El buscador, el filtro por zona y la rejilla los pone `ExploradorTests`, que es el
@@ -96,9 +140,21 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
 
   return (
     <>
+      {/* Los archivados no estorban en la rejilla, pero siguen a un clic: se ven
+          pidiendolos, igual que en la biblioteca de objetivos. */}
       <ExploradorTests
-        tests={testsLib} etiquetas={etiquetas} onAbrir={(t:any)=>setTestDetalle(t)}
-        acciones={<button className="btn btn-p btn-sm" onClick={()=>setModalTest(true)}>+ Nuevo test</button>}/>
+        tests={(testsLib||[]).filter((t:any)=>verArchivados ? t.archivado_el != null : t.archivado_el == null)}
+        etiquetas={etiquetas} onAbrir={(t:any)=>setTestDetalle(t)}
+        acciones={<>
+          {(testsLib||[]).some((t:any)=>t.archivado_el != null) && (
+            <button className={`pill ${verArchivados ? 'pill-o on' : 'pill-soft'}`}
+              style={{ border:'none', cursor:'pointer' }}
+              onClick={()=>setVerArchivados(v=>v===false)}>
+              {(testsLib||[]).filter((t:any)=>t.archivado_el != null).length} archivados
+            </button>
+          )}
+          <button className="btn btn-p btn-sm" onClick={()=>setModalTest(true)}>+ Nuevo test</button>
+        </>}/>
 
       {testDetalle&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setTestDetalle(null)}}>
@@ -108,7 +164,9 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
               <button className="btn btn-s btn-sm" onClick={()=>{setTestEditando({...testDetalle});setModalEditarTest(true);setTestDetalle(null)}}><Ic name="editar" size={12}/> Editar</button>
               {/* La ficha NO se cierra al pulsar: se cerraba antes de que respondiera el
                   borrado, así que un borrado fallido se veía igual que uno correcto. */}
-              <button className="btn btn-d btn-sm" onClick={()=>eliminarTest(testDetalle)}><Ic name="papelera" size={12}/></button>
+              {testDetalle.archivado_el
+                ? <button className="btn btn-s btn-sm" onClick={()=>desarchivarTest(testDetalle)}><Ic name="recuperar" size={12}/> Recuperar</button>
+                : <button className="btn btn-d btn-sm" title="Archivar o eliminar" onClick={()=>retirarTest(testDetalle)}><Ic name="papelera" size={12}/></button>}
               <button onClick={()=>setTestDetalle(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:16}}>
