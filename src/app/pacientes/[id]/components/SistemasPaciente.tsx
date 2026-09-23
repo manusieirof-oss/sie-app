@@ -325,6 +325,18 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
           const t = faseEn(s, a, hoy, logrados)
           const todas = tramos(s, a)
           const i = t ? (s.fases || []).findIndex(f => f.id === t.fase.id) : -1
+          /**
+           * TODAVIA NO HA EMPEZADO.
+           *
+           * `faseEn` no devuelve nada antes de la fecha de inicio, y con razon: hoy
+           * no esta en ninguna fase. Pero entonces la tarjeta no decia ni que
+           * arrancaba el dia 30 ni dejaba dejar programada la evaluacion de la
+           * primera fase, que es justo lo que se hace al montar el plan.
+           */
+          const porEmpezar = t == null && a.fecha_inicio != null && hoy < a.fecha_inicio
+          const primeraFase = porEmpezar
+            ? (s.fases || [])[Math.max(0, Math.min(Number(a.fase_inicial) || 0, (s.fases || []).length - 1))]
+            : null
           return (
             <div key={a.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--w)',
@@ -378,6 +390,18 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
                 pasarle para poder salir de ella. */}
             {t && (
               <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={t.fase} color={s.color} onCambio={onRecargar}/>
+            )}
+            {porEmpezar && (
+              <>
+                <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 7 }}>
+                  Empieza el {new Date(a.fecha_inicio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}.
+                  Hoy no está en ninguna fase todavía.
+                </div>
+                {primeraFase && (
+                  <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={primeraFase}
+                    color={s.color} onCambio={onRecargar}/>
+                )}
+              </>
             )}
             </div>
           )

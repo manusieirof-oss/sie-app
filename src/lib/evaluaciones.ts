@@ -217,3 +217,117 @@ export async function resumenDeEvaluacion(
   // Primero lo que falta: es a lo que se viene.
   return filas.sort((a, b) => Number(a.logrado) - Number(b.logrado))
 }
+
+/* ─── PARA CUANDO, TEST A TEST ───────────────────────────────────────────────
+ *
+ * La evaluacion tenia UN dia, y una evaluacion de verdad se reparte: tres el
+ * jueves y el resto el lunes. Esto guarda el dia de cada test —solo el dia; QUE
+ * tests toca se sigue calculando de los objetivos cada vez, que es lo que
+ * permite cambiar los objetivos de la fase sin que la evaluacion envejezca.
+ *
+ * Sin fila = sin dia asignado: entra en el dia general de la evaluacion.
+ */
+
+export type DiaDeTest = { test_id: string, fecha: string | null, cita_id: string | null }
+
+export async function diasDeEvaluacion(evaluacionId: string): Promise<Record<string, DiaDeTest>> {
+  const { data } = await supabase.from('evaluaciones_tests')
+    .select('test_id,fecha,cita_id').eq('evaluacion_id', evaluacionId)
+  const m: Record<string, DiaDeTest> = {}
+  ;(data || []).forEach((r: any) => { m[r.test_id] = r })
+  return m
+}
+
+/** Pone o quita el dia de un test. `fecha` en null lo devuelve al dia general. */
+export async function fijarDiaDeTest(evaluacionId: string, testId: string, fecha: string | null) {
+  if (fecha == null) {
+    const { error } = await supabase.from('evaluaciones_tests')
+      .delete().eq('evaluacion_id', evaluacionId).eq('test_id', testId)
+    return error ? { ok: false as const, error: error.message } : { ok: true as const }
+  }
+  const { error } = await supabase.from('evaluaciones_tests')
+    .upsert({ evaluacion_id: evaluacionId, test_id: testId, fecha }, { onConflict: 'evaluacion_id,test_id' })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/**
+ * Que hay que pasar cada dia, para la planificacion.
+ *
+ * Devuelve, por fecha, los tests que tocan: los que tienen dia propio en el suyo
+ * y los demas en el dia general de su evaluacion.
+ */
+export type TestDelDia = {
+  evaluacionId: string, faseId: string, asignacionId: string, test: any,
+  /** Los items concretos que se miran. Vacio = el test entero. */
+  items: string[],
+}
+
+export async function testsPorDia(pacienteId: string): Promise<Record<string, TestDelDia[]>> {
+  const { data: evs } = await supabase.from('evaluaciones')
+    .select('id,fecha,fase_id,asignacion_id').eq('paciente_id', pacienteId)
+  if (evs == null || evs.length === 0) return {}
+
+  const ids = evs.map((e: any) => e.id)
+
+  // 1. Los que tienen DIA PROPIO. Sin fila no es que no toque: es que va en el dia
+  //    general de su evaluacion, que es el caso normal mientras no repartas nada.
+  const { data: dias } = await supabase.from('evaluaciones_tests')
+    .select('evaluacion_id,test_id,fecha').in('evaluacion_id', ids)
+  const propio: Record<string, string> = {}
+  ;(dias || []).forEach((r: any) => { if (r.fecha) propio[r.evaluacion_id + '|' + r.test_id] = r.fecha })
+
+  // 2. Que tests pide cada fase. Sus objetivos salen de las sesiones que lleva dentro.
+  const fases = Array.from(new Set(evs.map((e: any) => e.fase_id).filter(Boolean)))
+  const { data: rel } = fases.length > 0
+    ? await supabase.from('sistema_fase_sesiones')
+        .select('fase_id, sesiones(sesiones_objetivos(objetivo_id))').in('fase_id', fases)
+    : { data: [] as any[] }
+  const objsDeFase: Record<string, string[]> = {}
+  ;(rel || []).forEach((r: any) => {
+    const ses = Array.isArray(r.sesiones) ? r.sesiones[0] : r.sesiones
+    ;(ses?.sesiones_objetivos || []).forEach((o: any) => {
+      if (objsDeFase[r.fase_id] == null) objsDeFase[r.fase_id] = []
+      if (objsDeFase[r.fase_id].includes(o.objetivo_id) === false) objsDeFase[r.fase_id].push(o.objetivo_id)
+    })
+  })
+
+  const todosObj = Array.from(new Set(Object.values(objsDeFase).flat()))
+  if (todosObj.length === 0) return {}
+
+  // 3. Fuera solo lo YA LOGRADO. Que el paciente no lleve el objetivo en su ficha
+  //    no quita el test de la sala: lo has programado para ese dia, asi que toca —y
+  //    pasarlo es justo lo que puede abrirlo o cerrarlo—.
+  const { data: suyos } = await supabase.from('pacientes_objetivos')
+    .select('objetivo_id,logrado').eq('paciente_id', pacienteId).in('objetivo_id', todosObj)
+  const cerrados = new Set((suyos || []).filter((r: any) => r.logrado === true).map((r: any) => r.objetivo_id))
+
+  const { data: enl } = await supabase.from('objetivos_tests')
+    .select('objetivo_id,test_id,item, tests:test_id(*)').in('objetivo_id', todosObj)
+
+  const porDia: Record<string, TestDelDia[]> = {}
+  evs.forEach((ev: any) => {
+    const mios = (objsDeFase[ev.fase_id] || []).filter(id => cerrados.has(id) === false)
+    if (mios.length === 0) return
+    // Un mismo test puede venir de dos objetivos y con items distintos: es UN test
+    // que se pasa una vez. Si en algun sitio cuelga entero, manda eso.
+    const por: Record<string, { test: any, items: string[], entero: boolean }> = {}
+    ;(enl || []).forEach((r: any) => {
+      if (mios.includes(r.objetivo_id) === false) return
+      const t = Array.isArray(r.tests) ? r.tests[0] : r.tests
+      if (t == null || t.archivado_el != null) return
+      if (por[t.id] == null) por[t.id] = { test: t, items: [], entero: false }
+      if (r.item == null) por[t.id].entero = true
+      else if (por[t.id].items.includes(r.item) === false) por[t.id].items.push(r.item)
+    })
+    Object.values(por).forEach(x => {
+      const f = propio[ev.id + '|' + x.test.id] || ev.fecha
+      if (f == null) return
+      if (porDia[f] == null) porDia[f] = []
+      porDia[f].push({
+        evaluacionId: ev.id, faseId: ev.fase_id, asignacionId: ev.asignacion_id,
+        test: x.test, items: x.entero ? [] : x.items,
+      })
+    })
+  })
+  return porDia
+}

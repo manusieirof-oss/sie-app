@@ -12,6 +12,9 @@ import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
+import { testsPorDia } from '@/lib/evaluaciones'
+import { registrarResultadoTest } from '@/lib/tests'
+import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import CircuitoGrid from './CircuitoGrid'
 import ChapaEjecucion from './ChapaEjecucion'
 
@@ -32,6 +35,17 @@ export default function ModoClase() {
   const [objetivosLib, setObjetivosLib] = useState<any[]>([])
   const [objsPorPaciente, setObjsPorPaciente] = useState<Record<string,any[]>>({})
   const [ctxPorPaciente, setCtxPorPaciente] = useState<Record<string,any>>({})
+  /**
+   * LO QUE HAY QUE MEDIRLE HOY.
+   *
+   * Sale de la evaluacion de su ciclo: se programa semanas antes desde la ficha y
+   * tiene que llegar a la sala solo, igual que la sesion. Si hubiera que acordarse
+   * de mirarlo, no serviria de nada haberlo programado.
+   */
+  const [testsHoy, setTestsHoy] = useState<Record<string, any[]>>({})
+  const [testEnCurso, setTestEnCurso] = useState<any>(null)
+  const [guardandoTest, setGuardandoTest] = useState(false)
+  const [listaTests, setListaTests] = useState(false)
   const [objsDeSesion, setObjsDeSesion] = useState<Record<string,any[]>>({})
 
   async function cargarObjsDeSesion(sesionId: string) {
@@ -80,6 +94,65 @@ export default function ModoClase() {
     ])
     setCtxPorPaciente(prev => ({ ...prev, [pid]: { molestias: rm.data||[], patologias: rp.data||[], alertas: ra.data||[] } }))
   }
+  async function cargarTestsHoy(pid: string, dia: string) {
+    const porDia = await testsPorDia(pid)
+    const suyos = porDia[dia] || []
+    // Lo ya pasado hoy no vuelve a pedirse: el icono se apaga solo.
+    const ids = suyos.map((x:any)=>x.test.id)
+    const { data: hechos } = ids.length > 0
+      ? await supabase.from('resultados_tests').select('test_id')
+          .eq('paciente_id', pid).eq('fecha', dia).in('test_id', ids)
+      : { data: [] as any[] }
+    const ya = new Set((hechos||[]).map((r:any)=>r.test_id))
+    setTestsHoy(prev => ({ ...prev, [pid]: suyos.map((x:any)=>({ ...x, hecho: ya.has(x.test.id) })) }))
+  }
+
+  /** Abrirlo para pasarlo. Mismo formulario que la ficha y la valoracion. */
+  function abrirTest(x: any) {
+    setListaTests(false)
+    const t = x.test
+    const lateral = t.tipo_lado === 'lateral'
+    const l = lateral ? '' : 'bilateral'
+    setTestEnCurso({ pacienteId: activo, items: x.items || [], test: t,
+      tv: { ladoActivo: l, frecuencia_meses: t.frecuencia_meses,
+            lados: l ? { [l]: ladoVacio(t) } : {} } })
+  }
+
+  /**
+   * Guardarlo. Toda la logica —fila, evento, objetivos y a que evaluacion pertenece—
+   * esta en `lib/tests.ts`, igual que desde la ficha: aqui solo cambia quien lo abre.
+   */
+  async function guardarTest() {
+    if (testEnCurso == null) return
+    const { test, tv, pacienteId } = testEnCurso
+    const conDato = Object.keys(tv.lados||{}).filter((k:string) =>
+      k && tv.lados[k]?.resultado && tv.lados[k].resultado !== 'sin_realizar')
+    if (conDato.length === 0) {
+      alert(test.tipo_lado === 'lateral'
+        ? 'Elige el lado y marca el resultado antes de guardar.'
+        : 'Marca el resultado antes de guardar')
+      return
+    }
+    setGuardandoTest(true)
+    let logrados = 0
+    for (const lado of conDato) {
+      const d = tv.lados[lado]
+      const r = await registrarResultadoTest(pacienteId, test, {
+        resultado: d.resultado, items: d.items_resultado || [],
+        observaciones: d.observaciones, lado,
+        fechaRepeticion: d.fecha_repeticion || null,
+        contexto: 'el taller',
+      })
+      if (r.ok === false) { alert('No se pudo guardar el resultado: ' + r.error); setGuardandoTest(false); return }
+      logrados += r.logrados
+    }
+    setGuardandoTest(false)
+    setTestEnCurso(null)
+    await cargarTestsHoy(pacienteId, fecha)
+    cargarObjsPaciente(pacienteId)
+    if (logrados > 0) alert(`Con esto se ${logrados === 1 ? 'cierra 1 objetivo' : `cierran ${logrados} objetivos`}.`)
+  }
+
   const [sala, setSala] = useState('')
   // A y B por defecto, igual que la agenda: si `clinica_salas` no está puesto en Ajustes,
   // antes se quedaba en lista vacía y el selector de sala no llegaba a pintarse nunca.
@@ -175,6 +248,7 @@ export default function ModoClase() {
         })
         cargarObjsPaciente(d.pacienteId)
         cargarCtxPaciente(d.pacienteId)
+        cargarTestsHoy(d.pacienteId, fecha)
       }
 
       const final = lista
@@ -665,6 +739,47 @@ export default function ModoClase() {
                 {/* LO QUE ESTÁ HACIENDO NO ES LO QUE SE LE PLANIFICÓ. Va aquí arriba y no
                     escondido junto al botón: quien entra a mitad de clase tiene que verlo
                     sin preguntar, porque cambia lo que se espera de la sesión. */}
+                {/* LO QUE HAY QUE MEDIRLE HOY. Va con el nombre, no escondido: es parte de
+                    lo que toca en esta clase, igual que la sesion. */}
+                {(testsHoy[act.paciente.id]||[]).length>0 && (()=>{
+                  const suyos = testsHoy[act.paciente.id]
+                  const faltan = suyos.filter((x:any)=>x.hecho===false).length
+                  return (
+                    <span style={{position:'relative'}}>
+                      <button className="btn btn-s btn-sm" style={{gap:5,
+                        borderColor: faltan>0?'var(--amb)':'var(--gm)',
+                        color: faltan>0?'#7A5800':'var(--gd)'}}
+                        title={suyos.map((x:any)=>x.test.nombre).join(', ')}
+                        onClick={()=>{ if (suyos.length===1 && faltan>0) abrirTest(suyos[0]); else setListaTests(v=>v===false) }}>
+                        <Ic name="informe" size={13}/>
+                        {faltan>0 ? `${faltan} por medir` : 'medido'}
+                      </button>
+                      {/* Absoluto y no `menu-flot`, que es `position:fixed`: con top:100%
+                          se iba al fondo de la pantalla y parecia que el boton no hacia nada. */}
+                      {listaTests && (
+                        <div style={{position:'absolute',top:'calc(100% + 5px)',left:0,zIndex:60,
+                          minWidth:250,background:'var(--w)',border:'1px solid var(--bd)',
+                          borderRadius:'var(--r)',boxShadow:'var(--sh-md)',padding:4}}>
+                          {suyos.map((x:any)=>(
+                            <button key={x.test.id} className="menu-it" style={{width:'100%',textAlign:'left'}}
+                              onClick={()=>abrirTest(x)}>
+                              <span style={{display:'flex',alignItems:'center',gap:7}}>
+                                <span style={{color:x.hecho?'var(--gd)':'var(--grl)',width:11}}>{x.hecho?'✓':'·'}</span>
+                                <span style={{flex:1,minWidth:0}}>
+                                  <span style={{fontSize:12,color:'var(--n)',display:'block'}}>{x.test.nombre}</span>
+                                  {/* Si el objetivo cuelga de un item suelto, solo se mide ese. */}
+                                  {x.items.length>0 && (
+                                    <span style={{fontSize:10.5,color:'var(--gd)',display:'block'}}>{x.items.join(' · ')}</span>
+                                  )}
+                                </span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </span>
+                  )
+                })()}
                 {act.citaId && cambios[act.citaId] && (()=>{
                   const c = cambios[act.citaId]
                   return (
@@ -1014,6 +1129,24 @@ export default function ModoClase() {
             )}
           </div>
         </div>
+      )}
+
+      {/* PASAR EL TEST · el mismo formulario que la ficha y la valoracion. Si el
+          objetivo cuelga de un item suelto, solo se pinta ese: sacar los otros doce
+          invita a rellenarlos por inercia. */}
+      {testEnCurso && (
+        <ModalRealizarTest
+          test={testEnCurso.test} tv={testEnCurso.tv}
+          soloItems={testEnCurso.items.length > 0 ? testEnCurso.items : undefined}
+          paciente={{ sexo: act?.paciente?.sexo, fecha_nacimiento: act?.paciente?.fecha_nacimiento }}
+          onCambiar={(tv:any)=>setTestEnCurso((p:any)=>({...p,tv}))}
+          onCerrar={()=>setTestEnCurso(null)}
+          pie={<>
+            <button className="btn btn-d" onClick={()=>setTestEnCurso(null)} disabled={guardandoTest}>Cancelar</button>
+            <button className="btn btn-p" onClick={guardarTest} disabled={guardandoTest}>
+              {guardandoTest ? 'Guardando…' : <><Ic name="guardar" size={13}/> Guardar resultado</>}
+            </button>
+          </>}/>
       )}
     </>
   )

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { sumarDias, hoyISO } from './fechas'
+import { retratoDe } from './objetivos'
 
 /**
  * SISTEMAS Y MÉTODOS. El nivel de arriba: ejercicios → sesiones → sistemas.
@@ -478,7 +479,55 @@ export async function asignarSistema(pacienteId: string, sistemaId: string, d: {
     fase_inicial: d.faseInicial || 0,
     nota: d.nota || null, principal,
   })
-  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+  if (error) return { ok: false as const, error: error.message }
+  await sembrarObjetivos(pacienteId, cp.id)
+  return { ok: true as const }
+}
+
+/**
+ * LOS OBJETIVOS DEL CICLO, EN LA FICHA DEL PACIENTE.
+ *
+ * Un ciclo persigue unos objetivos —los de las sesiones de sus fases— y hasta
+ * ahora asignarlo no se los daba a nadie: llegaban solo si un test los abria o
+ * si te acordabas de ponerlos a mano. Sin ellos en la ficha una fase por
+ * objetivos no puede cerrarse nunca y la evaluacion se queda sin nada que pedir.
+ *
+ * Nacen SIN vias, que es como nace uno puesto a mano: se cierran al pasar su
+ * test o a mano con "Dar por logrado". Al que ya lleva el objetivo no se le
+ * toca nada —ni el retrato ni las vias—: ya es suyo.
+ */
+export async function sembrarObjetivos(pacienteId: string, sistemaId: string) {
+  const { data: fases } = await supabase.from('sistema_fases')
+    .select('id, sistema_fase_sesiones(sesiones(sesiones_objetivos(objetivo_id)))')
+    .eq('sistema_id', sistemaId)
+
+  const quiere: string[] = []
+  ;(fases || []).forEach((f: any) => {
+    ;(f.sistema_fase_sesiones || []).forEach((x: any) => {
+      const ses = Array.isArray(x.sesiones) ? x.sesiones[0] : x.sesiones
+      ;(ses?.sesiones_objetivos || []).forEach((o: any) => {
+        if (quiere.includes(o.objetivo_id) === false) quiere.push(o.objetivo_id)
+      })
+    })
+  })
+  if (quiere.length === 0) return { ok: true as const, puestos: 0 }
+
+  const { data: ya } = await supabase.from('pacientes_objetivos')
+    .select('objetivo_id').eq('paciente_id', pacienteId).in('objetivo_id', quiere)
+  const tiene = new Set((ya || []).map((r: any) => r.objetivo_id))
+  const faltan = quiere.filter(id => tiene.has(id) === false)
+  if (faltan.length === 0) return { ok: true as const, puestos: 0 }
+
+  // El retrato se congela al asignarlo, igual que desde la ficha.
+  const { data: objs } = await supabase.from('objetivos')
+    .select('id,nombre,descripcion,movimientos').in('id', faltan)
+
+  const { error } = await supabase.from('pacientes_objetivos').insert(
+    faltan.map(id => ({
+      paciente_id: pacienteId, objetivo_id: id, origen: 'sistema', vias: [],
+      ...retratoDe((objs || []).find((o: any) => o.id === id)),
+    })))
+  return error ? { ok: false as const, error: error.message } : { ok: true as const, puestos: faltan.length }
 }
 
 /** Cambiar las fechas de un sistema ya puesto, sin tener que quitarlo. */

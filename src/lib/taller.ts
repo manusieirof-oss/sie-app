@@ -115,7 +115,7 @@ export async function pacientesDelDia(fecha: string, sala?: string, hora?: strin
   if (!fecha) return []
 
   let q = supabase.from('citas')
-    .select('id,fecha,hora,sala,tipo,estado,notas,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica), sesiones:sesion_id(*)')
+    .select('id,fecha,hora,sala,tipo,estado,notas,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento), sesiones:sesion_id(*)')
     .eq('fecha', fecha)
     .neq('estado', 'cancelada')
     .not('paciente_id', 'is', null)

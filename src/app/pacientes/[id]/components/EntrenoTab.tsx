@@ -19,6 +19,7 @@ import { hoyISO } from '@/lib/fechas'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import SelectorSesiones from '@/app/entrenamiento/components/SelectorSesiones'
+import { testsPorDia } from '@/lib/evaluaciones'
 import { sistemasDePaciente, historialSistemas, logradosDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 
@@ -78,6 +79,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [nEjecuciones, setNEjecuciones] = useState(0)
   const [objPaciente, setObjPaciente] = useState<any[]>([])
   const [evaluaciones, setEvaluaciones] = useState<any[]>([])
+  const [testsDia, setTestsDia] = useState<Record<string, any[]>>({})
   const [soloActivas, setSoloActivas] = useState(false)
   const [asignando, setAsignando] = useState<any>(null)
   const [selAsig, setSelAsig] = useState<string[]>([])
@@ -110,6 +112,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // recordar de memoria que dia tocaba.
     supabase.from('evaluaciones').select('id,fecha,cita_id,fase_id,asignacion_id').eq('paciente_id',pacienteId)
       .then(({data})=>setEvaluaciones(data||[]))
+    // Y que test toca cada dia, para los que se han repartido a mano.
+    testsPorDia(pacienteId).then(setTestsDia)
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
     if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); setHoras(horasDeAgenda(map)) }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(limHist)
@@ -591,8 +595,15 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
         // La evaluacion de cada dia. Se casa por cita si la tiene apuntada, y si no
         // por fecha: lo que se marca en la tarjeta del sistema es un dia.
-        const evalDe = (c: any) => evaluaciones.filter((e: any) =>
-          (e.cita_id != null && e.cita_id === c.id) || (e.cita_id == null && e.fecha === c.fecha))
+        const evalDe = (c: any) => {
+          // Su dia general, y tambien cualquier dia al que se haya llevado un test
+          // suelto: si ese jueves toca uno, el jueves es dia de evaluacion.
+          const sueltos = new Set((testsDia[c.fecha] || []).map((x: any) => x.evaluacionId))
+          return evaluaciones.filter((e: any) =>
+            (e.cita_id != null && e.cita_id === c.id)
+            || (e.cita_id == null && e.fecha === c.fecha)
+            || sueltos.has(e.id))
+        }
         /** El nombre de la fase que se evalua, buscandolo en el sistema del paciente. */
         const faseDeEval = (e: any) => {
           const a = sistemasPac.find((x: any) => x.id === e.asignacion_id)
@@ -706,6 +717,18 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                             </div>
                           )
                         })}
+                        {/* Y QUE se pasa ese dia, de los repartidos a mano. Los que no
+                            tienen dia propio van en el dia general, que es la chapa. */}
+                        {(testsDia[c.fecha]||[]).length>0 && (
+                          <div style={{marginTop:3,display:'flex',flexWrap:'wrap',gap:4}}>
+                            {(testsDia[c.fecha]||[]).map((x:any)=>(
+                              <span key={x.test.id} style={{fontSize:10,padding:'1px 7px',borderRadius:99,
+                                background:'var(--w)',border:'1px solid var(--gm)',color:'var(--gd)'}}>
+                                {x.test.tipo==='cuestionario'?'✎ ':'◎ '}{x.test.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {/* Lo que cambia ESE día respecto al plan. Se ve en la propia
                             fila: si hay que abrir algo para saberlo, no se mira. */}
                         {tieneSesion && !sinAjustes(c.ajustes) && (

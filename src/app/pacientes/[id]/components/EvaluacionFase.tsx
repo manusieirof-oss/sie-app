@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { esCuestionario } from '@/lib/cuestionarios'
+import { sembrarObjetivos } from '@/lib/sistemas'
 import { evaluacionDe, abrirEvaluacion, moverEvaluacion, borrarEvaluacion,
-         resumenDeEvaluacion, type ObjetivoEnEvaluacion } from '@/lib/evaluaciones'
+         resumenDeEvaluacion, diasDeEvaluacion, fijarDiaDeTest,
+         type ObjetivoEnEvaluacion, type DiaDeTest } from '@/lib/evaluaciones'
 
 // ---------------------------------------------------------------------------
 // LA EVALUACION DE UNA FASE
@@ -29,6 +31,8 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
   const [lista, setLista] = useState<ObjetivoEnEvaluacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [abierto, setAbierto] = useState(false)
+  // El dia propio de cada test, si se le ha puesto uno. Sin fila, va en el general.
+  const [dias, setDias] = useState<Record<string, DiaDeTest>>({})
 
   useEffect(() => { cargar() }, [asignacion?.id, fase?.id])
 
@@ -39,20 +43,45 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
     // TODOS los objetivos de la fase, no solo los que el paciente lleva: que no
     // lleve uno es justo uno de los motivos por los que la fase no cierra, y
     // filtrarlo lo dejaba invisible.
-    if (e) setLista(await resumenDeEvaluacion(e.id, pacienteId, fase.objetivos || []))
-    else setLista([])
+    if (e) {
+      setLista(await resumenDeEvaluacion(e.id, pacienteId, fase.objetivos || []))
+      setDias(await diasDeEvaluacion(e.id))
+    } else { setLista([]); setDias({}) }
     setCargando(false)
   }
 
   async function abrir() {
     const r = await abrirEvaluacion({ pacienteId, asignacionId: asignacion.id, faseId: fase.id })
     if (r.ok === false) { alert(r.error); return }
+    // Evaluar la fase implica que el paciente lleve sus objetivos: sin ellos en la
+    // ficha no hay nada que pedirle y la fase no puede cerrarse nunca.
+    await sembrarObjetivos(pacienteId, asignacion.sistema_id)
     setAbierto(true); cargar(); onCambio?.()
+  }
+
+  /** Para los ciclos que ya estaban puestos antes de que esto se sembrara solo. */
+  async function darleLosObjetivos() {
+    const r: any = await sembrarObjetivos(pacienteId, asignacion.sistema_id)
+    if (r.ok === false) { alert('No se han podido añadir: ' + r.error); return }
+    cargar(); onCambio?.()
   }
 
   async function quitar() {
     if (confirm('¿Quitar la evaluación de esta fase? Los tests ya pasados se quedan.') === false) return
     await borrarEvaluacion(ev.id); cargar(); onCambio?.()
+  }
+
+  /** Poner o quitarle el dia propio a un test. Sin dia, se pasa el dia general. */
+  async function ponerDia(testId: string, fecha: string | null) {
+    setDias(p => {
+      const q = { ...p }
+      if (fecha == null) delete q[testId]
+      else q[testId] = { test_id: testId, fecha, cita_id: null }
+      return q
+    })
+    const r = await fijarDiaDeTest(ev.id, testId, fecha)
+    if (r.ok === false) { alert('No se ha podido guardar el día: ' + r.error); cargar(); return }
+    onCambio?.()
   }
 
   const nObj = (fase?.objetivos || []).length
@@ -109,6 +138,17 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
               tests no lo contestaba: los tres motivos por los que un objetivo no cierra
               —falta pasar su test, el paciente no lo lleva, o no tiene con que medirse—
               se arreglan en sitios distintos. */}
+          {lista.some(o => o.lleva === false) && (
+            <div style={{ fontSize: 11, color: '#7A5800', background: 'var(--ambl)',
+              border: '1px solid var(--amb)', borderRadius: 6, padding: '7px 10px',
+              marginBottom: 8, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+              <span style={{ flex: 1 }}>
+                Hay objetivos de esta fase que no lleva en su ficha. Sin ellos la fase no
+                puede cerrarse.
+              </span>
+              <button className="btn btn-s btn-sm" onClick={darleLosObjetivos}>Añadírselos</button>
+            </div>
+          )}
           {lista.map(o => (
             <div key={o.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start',
               padding: '9px 0', borderTop: '1px solid var(--bd2)' }}>
@@ -167,6 +207,21 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
                           {p.hecho && p.fecha && (
                             <div style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.3 }}>
                               {new Date(p.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                            </div>
+                          )}
+                          {/* PARA CUANDO. Una evaluacion se reparte: tres el jueves y el
+                              resto el lunes. Sin dia propio va en el general de arriba. */}
+                          {p.hecho === false && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                              <input type="date" className="input"
+                                style={{ padding: '2px 5px', fontSize: 10.5, width: 122 }}
+                                value={dias[p.test.id]?.fecha || ev?.fecha || ''}
+                                onChange={e => ponerDia(p.test.id, e.target.value || null)}/>
+                              {dias[p.test.id] == null
+                                ? <span style={{ fontSize: 10, color: 'var(--grl)' }} title="Va en el día general de la evaluación">general</span>
+                                : <button className="btn btn-t btn-sm" title="Devolverlo al día general"
+                                    style={{ padding: '1px 5px', fontSize: 10 }}
+                                    onClick={() => ponerDia(p.test.id, null)}>✕</button>}
                             </div>
                           )}
                         </div>

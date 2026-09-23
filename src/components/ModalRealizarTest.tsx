@@ -45,7 +45,7 @@ export function ladoVacio(test: any, meses?: number) {
   }
 }
 
-export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, paciente }: {
+export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, paciente, soloItems }: {
   /** La fila de la biblioteca: imagen, descripción, ítems, lógica. */
   test: any
   tv: TestEnCurso
@@ -59,6 +59,15 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
    * tienen— en vez de consultarlo aquí, porque este componente no escribe ni lee nada.
    */
   paciente?: { sexo?: string | null, fecha_nacimiento?: string | null }
+  /**
+   * Enseñar SOLO estos ítems, por nombre.
+   *
+   * Un objetivo puede colgar de un ítem suelto de un test largo: en el taller lo
+   * que toca es ese, y sacar los otros doce invita a rellenarlos por inercia. Los
+   * demás siguen en el array —el índice no se toca, que es por donde se escribe—,
+   * simplemente no se pintan.
+   */
+  soloItems?: string[]
 }) {
   /**
    * En un test LATERAL no se elige lado por ti.
@@ -182,6 +191,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                       )}
 
                       {base.map((item: any, ii: number) => {
+                    if (soloItems && soloItems.includes(item?.nombre) === false) return null
                         const f = ev.filas[ii]
                         const v = valorDe(item)
                         const col = f?.dentro === false ? 'var(--red)' : f?.dentro === true ? 'var(--g)' : 'var(--bd)'
@@ -248,6 +258,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                       </div>
 
                       {base.map((item: any, ii: number) => {
+                    if (soloItems && soloItems.includes(item?.nombre) === false) return null
                         const min = Number(item.min ?? 0), max = Number(item.max ?? 10)
                         const v = valorDe(item)
                         const puesto = v !== ''
@@ -321,6 +332,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                     Ítems · {test?.logica === 'todos' ? 'todos marcados = positivo' : 'con uno basta = positivo'}
                   </div>
                   {base.map((item: any, ii: number) => {
+                    if (soloItems && soloItems.includes(item?.nombre) === false) return null
                     /* ÍTEM CON BARRA: no se marca, se mide. El veredicto sale del número,
                        así que la casilla sobra y encima invitaba a contradecirlo. */
                     if (tieneBarra(item)) {
