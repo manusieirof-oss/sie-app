@@ -377,7 +377,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
             {/* La evaluacion cuelga de la fase en la que esta HOY: es lo que hay que
                 pasarle para poder salir de ella. */}
             {t && (
-              <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={t.fase} color={s.color}/>
+              <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={t.fase} color={s.color} onCambio={onRecargar}/>
             )}
             </div>
           )

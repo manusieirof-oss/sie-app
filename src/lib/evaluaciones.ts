@@ -120,3 +120,100 @@ export async function evaluacionAbiertaPara(pacienteId: string, testId: string):
 
   return evs.find((e: any) => fases.has(e.fase_id))?.id || null
 }
+
+/* ─── LO QUE DE VERDAD HAY QUE MIRAR ─────────────────────────────────────────
+ *
+ * La lista de tests no contestaba la pregunta. La fase no se cierra pasando
+ * tests: se cierra cuando sus OBJETIVOS estan logrados, y un objetivo puede
+ * quedarse abierto por tres motivos distintos que la lista de tests no
+ * distinguia —falta pasar su test, el paciente no lo lleva, o no tiene con que
+ * medirse—. Los tres se arreglan en sitios distintos, asi que hay que decir
+ * cual es.
+ */
+
+export type TestEnEvaluacion = {
+  test: any
+  hecho: boolean
+  fecha?: string | null
+  /** Los items concretos con los que se comprueba. Vacio = el test entero. */
+  items: string[]
+}
+
+export type ObjetivoEnEvaluacion = {
+  id: string
+  nombre: string
+  imagen_url?: string | null
+  /** El paciente lo tiene en su ficha. Si no, no hay nada que pasarle. */
+  lleva: boolean
+  logrado: boolean
+  tests: TestEnEvaluacion[]
+  /** Por que sigue abierto, en una linea. Vacio si esta logrado. */
+  motivo: string
+}
+
+export async function resumenDeEvaluacion(
+  evaluacionId: string, pacienteId: string, objetivosDeLaFase: string[],
+): Promise<ObjetivoEnEvaluacion[]> {
+  if (objetivosDeLaFase.length === 0) return []
+
+  const [{ data: dObj }, { data: dPac }, { data: dEnl }] = await Promise.all([
+    supabase.from('objetivos').select('id,nombre,imagen_url').in('id', objetivosDeLaFase),
+    supabase.from('pacientes_objetivos').select('objetivo_id,logrado,nombre')
+      .eq('paciente_id', pacienteId).in('objetivo_id', objetivosDeLaFase),
+    supabase.from('objetivos_tests')
+      .select('objetivo_id, item, tests:test_id(id,nombre,descripcion,tipo,imagen_url,items,archivado_el)')
+      .in('objetivo_id', objetivosDeLaFase),
+  ])
+
+  // Lo ya registrado DENTRO de esta evaluacion. Un test pasado por otro motivo
+  // no cuenta: por eso los resultados llevan `evaluacion_id`.
+  const { data: dHechos } = await supabase.from('resultados_tests')
+    .select('test_id,fecha').eq('evaluacion_id', evaluacionId)
+  const hecho: Record<string, string> = {}
+  ;(dHechos || []).forEach((r: any) => { hecho[r.test_id] = r.fecha })
+
+  const delPaciente: Record<string, any> = {}
+  ;(dPac || []).forEach((r: any) => { delPaciente[r.objetivo_id] = r })
+
+  // Un mismo test puede estar colgado dos veces del mismo objetivo con items
+  // distintos: es UN test que se pasa una vez, con dos items que mirar.
+  const porObjetivo: Record<string, TestEnEvaluacion[]> = {}
+  ;(dEnl || []).forEach((e: any) => {
+    const t = Array.isArray(e.tests) ? e.tests[0] : e.tests
+    // Archivado: no se le puede pasar a nadie, asi que no se puede pedir.
+    if (t == null || t.archivado_el != null) return
+    if (porObjetivo[e.objetivo_id] == null) porObjetivo[e.objetivo_id] = []
+    let fila = porObjetivo[e.objetivo_id].find(p => p.test.id === t.id)
+    if (fila == null) {
+      fila = { test: t, hecho: hecho[t.id] != null, fecha: hecho[t.id] || null, items: [] }
+      porObjetivo[e.objetivo_id].push(fila)
+    }
+    if (e.item && fila.items.includes(e.item) === false) fila.items.push(e.item)
+  })
+
+  const filas = objetivosDeLaFase.map(id => {
+    const suyo = delPaciente[id]
+    const tests = porObjetivo[id] || []
+    const lleva = suyo != null
+    const logrado = !!suyo?.logrado
+    // El nombre sale de SU copia cuando la tiene: es el que el paciente ve.
+    const dela = (dObj || []).find((o: any) => o.id === id)
+    const nombre = suyo?.nombre || dela?.nombre || 'Objetivo'
+
+    let motivo = ''
+    if (logrado === false) {
+      if (lleva === false) motivo = 'El paciente no lleva este objetivo: añádeselo desde su ficha.'
+      else if (tests.length === 0) motivo = 'Este objetivo no tiene con qué medirse: engánchale un test en Biblioteca → Objetivos.'
+      else {
+        const faltan = tests.filter(t => t.hecho === false).map(t => t.test.nombre)
+        motivo = faltan.length === 0
+          ? 'Pasado todo, pero sigue abierto: alguna parte se cierra a mano desde su ficha.'
+          : 'Falta pasar: ' + faltan.join(', ') + '.'
+      }
+    }
+    return { id, nombre, imagen_url: dela?.imagen_url || null, lleva, logrado, tests, motivo }
+  })
+
+  // Primero lo que falta: es a lo que se viene.
+  return filas.sort((a, b) => Number(a.logrado) - Number(b.logrado))
+}

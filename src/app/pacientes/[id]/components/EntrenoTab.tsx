@@ -77,6 +77,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   }
   const [nEjecuciones, setNEjecuciones] = useState(0)
   const [objPaciente, setObjPaciente] = useState<any[]>([])
+  const [evaluaciones, setEvaluaciones] = useState<any[]>([])
   const [soloActivas, setSoloActivas] = useState(false)
   const [asignando, setAsignando] = useState<any>(null)
   const [selAsig, setSelAsig] = useState<string[]>([])
@@ -104,6 +105,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // falta y cuál ya cumplió su función.
     supabase.from('pacientes_objetivos').select('objetivo_id,logrado').eq('paciente_id',pacienteId)
       .then(({data})=>setObjPaciente(data||[]))
+    // Las evaluaciones que tenga puestas, para marcarlas en la planificacion: poner
+    // la fecha en la tarjeta del sistema y que no se viera en las citas obligaba a
+    // recordar de memoria que dia tocaba.
+    supabase.from('evaluaciones').select('id,fecha,cita_id,fase_id,asignacion_id').eq('paciente_id',pacienteId)
+      .then(({data})=>setEvaluaciones(data||[]))
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
     if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); setHoras(horasDeAgenda(map)) }
     const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(limHist)
@@ -583,6 +589,17 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           })
         })
 
+        // La evaluacion de cada dia. Se casa por cita si la tiene apuntada, y si no
+        // por fecha: lo que se marca en la tarjeta del sistema es un dia.
+        const evalDe = (c: any) => evaluaciones.filter((e: any) =>
+          (e.cita_id != null && e.cita_id === c.id) || (e.cita_id == null && e.fecha === c.fecha))
+        /** El nombre de la fase que se evalua, buscandolo en el sistema del paciente. */
+        const faseDeEval = (e: any) => {
+          const a = sistemasPac.find((x: any) => x.id === e.asignacion_id)
+          const f = (a?.sistema?.fases || []).find((x: any) => x.id === e.fase_id)
+          return { nombre: f?.nombre || 'fase', color: a?.sistema?.color || 'var(--g)' }
+        }
+
         return (
         <div className="panel">
           <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados}
@@ -676,6 +693,19 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                             </button>
                           </div>
                         ):<div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>Sin sesión asignada</div>}
+                        {/* EL DIA DE LA EVALUACION. Se marca en la tarjeta del sistema y
+                            se ve aqui, que es donde se mira lo que toca cada dia. */}
+                        {evalDe(c).map((e:any)=>{
+                          const f = faseDeEval(e)
+                          return (
+                            <div key={e.id} style={{marginTop:3,display:'flex',alignItems:'center',gap:5,
+                              fontSize:10,padding:'1px 8px',borderRadius:99,width:'fit-content',
+                              background:'var(--gl)',border:`1px solid ${f.color}`,color:'var(--gd)'}}
+                              title={`Evaluación de ${f.nombre}`}>
+                              <Ic name="valoracion" size={10}/> Evaluación · {f.nombre}
+                            </div>
+                          )
+                        })}
                         {/* Lo que cambia ESE día respecto al plan. Se ve en la propia
                             fila: si hay que abrir algo para saberlo, no se mira. */}
                         {tieneSesion && !sinAjustes(c.ajustes) && (

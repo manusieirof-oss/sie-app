@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import BibliotecaTab from './components/BibliotecaTab'
@@ -56,8 +56,16 @@ function EntrenamientoContent() {
     if (searchParams.get('asignar_paciente')) setTab('sesiones')
   }, [searchParams])
 
+  /**
+   * SOLO LA PRIMERA VEZ SE PONE "Cargando".
+   *
+   * Recargar con la biblioteca ya en pantalla cambiaba la pestana entera por el
+   * cartel, asi que desmontaba lo que hubiera abierto encima: editabas una sesion
+   * desde dentro de un ciclo y al guardarla el ciclo se cerraba solo.
+   */
+  const yaCargado = useRef(false)
   async function cargar() {
-    setLoading(true)
+    if (yaCargado.current === false) setLoading(true)
     const [{ data: e },p,{ data: s },{ data: et },{ data: tl }] = await Promise.all([
       supabase.from('ejercicios').select('*').order('nombre'),
       // Activos y los que tienen la vuelta programada: a alguien que vuelve el 1 de
@@ -83,6 +91,7 @@ function EntrenamientoContent() {
     setMedsBiblio(meds||[]); setAlergiasBiblio(alerg||[]); setIntolBiblio(intol||[])
     setOpsBiblioLib(ops||[]); setPatologiasBiblio(pats||[]); setMolestiasBiblio(mols||[])
     setObjetivos(objs||[])
+    yaCargado.current = true
     setLoading(false)
   }
 
