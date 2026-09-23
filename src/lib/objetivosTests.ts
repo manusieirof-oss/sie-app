@@ -12,19 +12,38 @@ import { supabase } from './supabase'
  * el test. Los cuestionarios entran aqui igual que los tests: comparten tabla.
  */
 
-export async function testsDeObjetivo(objetivoId: string): Promise<string[]> {
+/**
+ * Con que se evalua un objetivo, con su detalle.
+ *
+ * `item` en null = el test entero; con nombre = SOLO ese item, y es el unico
+ * que sale en la evaluacion. Se guarda por NOMBRE y no por posicion: reordenar
+ * los items del test cambiaria en silencio contra que se mide el objetivo.
+ * `movimiento` en null = el objetivo entero; con valor = solo ese especifico.
+ * Es TEXTO y no un id: un especifico puede ser una etiqueta del arbol o una
+ * frase escrita a mano, y la mitad de los que hay son lo segundo.
+ */
+export type Evaluador = {
+  test_id: string
+  item?: string | null
+  movimiento?: string | null
+}
+
+export async function testsDeObjetivo(objetivoId: string): Promise<Evaluador[]> {
   if (!objetivoId) return []
   const { data } = await supabase.from('objetivos_tests')
-    .select('test_id').eq('objetivo_id', objetivoId)
-  return (data || []).map((r: any) => r.test_id)
+    .select('test_id,item,movimiento').eq('objetivo_id', objetivoId)
+  return (data || []) as Evaluador[]
 }
 
 /** Se reescribe entera: son listas cortas y asi no hay que diffear nada. */
-export async function fijarTestsDeObjetivo(objetivoId: string, ids: string[]) {
+export async function fijarTestsDeObjetivo(objetivoId: string, evs: Evaluador[]) {
   await supabase.from('objetivos_tests').delete().eq('objetivo_id', objetivoId)
-  if (ids.length === 0) return { ok: true as const }
+  if (evs.length === 0) return { ok: true as const }
   const { error } = await supabase.from('objetivos_tests')
-    .insert(ids.map(test_id => ({ objetivo_id: objetivoId, test_id })))
+    .insert(evs.map(e => ({
+      objetivo_id: objetivoId, test_id: e.test_id,
+      item: e.item || null, movimiento: e.movimiento || null,
+    })))
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 

@@ -66,7 +66,7 @@ function EntrenamientoContent() {
       // Sin `limit`. Estaba en 20 y la biblioteca enseñaba las 20 últimas creadas, que con
       // el tiempo son casi todas de pacientes: las plantillas quedaban fuera de la lista y
       // parecía que no había. El filtro por origen va en la pestaña, no en la consulta.
-      supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id)').order('created_at',{ascending:false}),
+      supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id,movimientos)').order('created_at',{ascending:false}),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
       supabase.from('tests').select('*').or('tipo.is.null,tipo.neq.cuestionario').order('nombre'),
     ])

@@ -36,12 +36,13 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
   // vas a ponerselo a alguien, y volver a la biblioteca pierde el paciente.
   const [creando, setCreando] = useState(false)
   const [biblio, setBiblio] = useState<any>(null)
+  const [editandoSistema, setEditandoSistema] = useState<any>(null)
 
-  async function abrirCreacion() {
+  async function cargarBiblio() {
     if (biblio == null) {
       const [o, se, ej, et, te] = await Promise.all([
         supabase.from('objetivos').select('*').eq('activo', true).order('nombre'),
-        supabase.from('sesiones').select('*').order('nombre'),
+        supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id,movimientos)').order('nombre'),
         supabase.from('ejercicios').select('*').order('nombre'),
         supabase.from('etiquetas').select('*').order('nombre'),
         supabase.from('tests').select('*').order('nombre'),
@@ -54,8 +55,9 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
         tests: te.data || [],
       })
     }
-    setCreando(true)
   }
+
+  async function abrirCreacion() { await cargarBiblio(); setCreando(true) }
   const corto = (iso: string) => new Date(iso + 'T12:00:00')
     .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -80,10 +82,16 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
     if (!sel) return
     // Si entra a mitad, la fecha de inicio se calcula hacia atras: lo que se
     // guarda sigue siendo una sola fecha, como en todos los demas.
-    const arranca = (elegido && faseIni > 0)
+    // Por calendario la fase de entrada se traduce a una fecha de inicio hacia
+    // atras; por objetivos no hay fechas que mover, asi que se guarda la fase.
+    const porObjetivos = elegido?.progresion === 'objetivos'
+    const arranca = (elegido && faseIni > 0 && porObjetivos === false)
       ? inicioParaEmpezarEn(elegido, faseIni, ini || hoy)
       : (ini || null)
-    const r = await asignarSistema(pacienteId, sel, { fecha_inicio: arranca, fecha_fin: fin || null })
+    const r = await asignarSistema(pacienteId, sel, {
+      fecha_inicio: arranca, fecha_fin: fin || null,
+      faseInicial: porObjetivos ? faseIni : 0,
+    })
     if (!r.ok) { alert(r.error); return }
     setAnadiendo(false); setSel(''); setFin(''); setFaseIni(0); onCambio()
   }
@@ -114,15 +122,19 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
   }
 
   function abrirEdicion(a: Asignacion) {
-    setEditando(a); setEFase(0)
+    setEditando(a); setEFase(Number(a.fase_inicial) || 0)
     setEIni(a.fecha_inicio || hoy); setEFin(a.fecha_fin || '')
   }
 
   async function guardarEdicion() {
     if (editando == null) return
     const sis = editando.sistema
-    const arranca = (sis && eFase > 0) ? inicioParaEmpezarEn(sis, eFase, eIni || hoy) : (eIni || null)
-    const r = await actualizarAsignacion(editando.id, { fecha_inicio: arranca, fecha_fin: eFin || null })
+    const porObj = sis?.progresion === 'objetivos'
+    const arranca = (sis && eFase > 0 && porObj === false) ? inicioParaEmpezarEn(sis, eFase, eIni || hoy) : (eIni || null)
+    const r = await actualizarAsignacion(editando.id, {
+      fecha_inicio: arranca, fecha_fin: eFin || null,
+      faseInicial: porObj ? eFase : 0,
+    })
     if (r.ok === false) { alert(r.error); return }
     setEditando(null); onCambio()
   }
@@ -286,6 +298,14 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
         )
       })()}
 
+      {editandoSistema && biblio && (
+        <ModalSistema sistema={editandoSistema}
+          objetivos={biblio.objetivos} sesiones={biblio.sesiones}
+          ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
+          onCerrar={() => setEditandoSistema(null)}
+          onGuardado={onCambio}/>
+      )}
+
       {creando && biblio && (
         <ModalSistema sistema={null}
           objetivos={biblio.objetivos} sesiones={biblio.sesiones}
@@ -345,7 +365,13 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
                     title="Hacer que sea este el que pinta las citas"
                     onClick={() => marcarPrincipal(pacienteId, a.id).then(onCambio)}>hacer marco</button>)}
               <button className="btn btn-s btn-sm" title="Cambiar fechas o fase"
-                onClick={() => abrirEdicion(a)}><Ic name="editar" size={12}/></button>
+                onClick={() => abrirEdicion(a)}><Ic name="calendario" size={12}/></button>
+              {/* El sistema es SUYO: una copia. Retocarle una fase aqui no toca
+                  el molde de la biblioteca ni a nadie mas que lo lleve. */}
+              <button className="btn btn-s btn-sm" title="Editar este sistema solo para él"
+                onClick={async () => { await cargarBiblio(); setEditandoSistema(s) }}>
+                <Ic name="editar" size={12}/>
+              </button>
               <button className="btn btn-s btn-sm" title="Quitar" onClick={() => quitar(a)}>✕</button>
             </div>
             {/* La evaluacion cuelga de la fase en la que esta HOY: es lo que hay que

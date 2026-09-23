@@ -52,7 +52,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
   const [sesionesLocal, setSesionesLocal] = useState<any[]>(sesiones)
   useEffect(() => { setSesionesLocal(sesiones) }, [sesiones])
   async function recargarSesiones() {
-    const { data } = await supabase.from('sesiones').select('*').order('nombre')
+    const { data } = await supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id,movimientos)').order('nombre')
     setSesionesLocal((data || []).filter(esPlantilla))
     onRecargarBiblio?.()
   }
@@ -91,7 +91,6 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
       const x = fases[i]
       const rf = await guardarFase({ ...x, sistema_id: r.id, orden: i })
       if (!rf.ok || !rf.id) { setError(rf.error || 'No se pudo guardar una fase.'); setGuardando(false); return }
-      await fijarObjetivosDeFase(rf.id, x.objetivos || [], x.movimientos || {})
       await fijarSesionesDeFase(rf.id, x.sesiones || [])
     }
     setGuardando(false); onGuardado(); onCerrar()
@@ -219,41 +218,49 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
                   <button className="btn btn-s btn-sm" onClick={() => quitarFase(i)} title="Quitar fase">✕</button>
                 </div>
 
-                {f.progresion === 'objetivos' && (
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)',
-                      letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>
-                      Se sale de esta fase cuando TODOS estos objetivos estén logrados
-                    </div>
-                    {/* Con su moneda: un objetivo se reconoce por la foto, y aqui hay
-                        que ver de un vistazo que le pide la fase. */}
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>
-                      {(x.objetivos || []).map((id: string) => {
-                        const o = objetivos.find((y: any) => y.id === id)
-                        const movs = (x.movimientos || {})[id] || []
-                        return (
-                          <div key={id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
-                            gap: 4, width: 96, position: 'relative' }}>
-                            <MonedaObjetivo objetivo={o} tam="g"/>
-                            <span style={{ fontSize: 10.5, textAlign: 'center', lineHeight: 1.3 }}>{nombreObj(id)}</span>
-                            {movs.length > 0 && (
-                              <span style={{ fontSize: 9, color: 'var(--gd)', textAlign: 'center', lineHeight: 1.3 }}>
-                                {movs.map((m: string) => nombreEt(m)).join(' · ')}
-                              </span>
-                            )}
-                            <button title="Quitar" onClick={() => setFase(i, 'objetivos', x.objetivos.filter((y: string) => y !== id))}
-                              style={{ position: 'absolute', top: -4, right: 6, width: 19, height: 19, borderRadius: '50%',
-                                border: '1px solid var(--bd)', background: 'var(--w)', color: 'var(--gr)',
-                                fontSize: 10, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                {/* LOS OBJETIVOS SON LOS DE SUS SESIONES. No se eligen aqui: una
+                    fase que pide A mientras sus sesiones trabajan B no se cierra
+                    nunca y nadie avisa. Si hay que exigir algo, se pone la sesion
+                    que lo trabaje. */}
+                {f.progresion === 'objetivos' && (() => {
+                  const ids: string[] = []
+                  const sinObj: string[] = []
+                  ;(x.sesiones || []).forEach((sid: string) => {
+                    const ses = sesionesLocal.find((y: any) => y.id === sid)
+                    const suyos = (ses?.sesiones_objetivos || []).map((o: any) => o.objetivo_id)
+                    if (suyos.length === 0) sinObj.push(ses?.nombre || '—')
+                    suyos.forEach((oid: string) => { if (ids.includes(oid) === false) ids.push(oid) })
+                  })
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)',
+                        letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: 5 }}>
+                        Se sale de esta fase cuando estén logrados
+                      </div>
+                      {ids.length === 0
+                        ? <div style={{ fontSize: 11, color: 'var(--gr)' }}>
+                            Nada todavía. Los objetivos de la fase son los de sus sesiones:
+                            añade sesiones que trabajen algo y aparecerán aquí.
                           </div>
-                        )
-                      })}
+                        : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            {ids.map(id => (
+                              <div key={id} style={{ display: 'flex', flexDirection: 'column',
+                                alignItems: 'center', gap: 4, width: 88 }}>
+                                <MonedaObjetivo objetivo={objetivos.find((y: any) => y.id === id)} tam="g"/>
+                                <span style={{ fontSize: 10, textAlign: 'center', lineHeight: 1.3 }}>{nombreObj(id)}</span>
+                              </div>
+                            ))}
+                          </div>}
+                      {sinObj.length > 0 && (
+                        <div style={{ fontSize: 10, color: '#7A5800', background: 'var(--ambl)',
+                          border: '1px solid var(--amb)', borderRadius: 6, padding: '5px 8px',
+                          marginTop: 7, lineHeight: 1.5 }}>
+                          Sin objetivos, así que no cuentan para salir de la fase: {sinObj.join(', ')}
+                        </div>
+                      )}
                     </div>
-                    <button className="btn btn-s btn-sm" onClick={() => setEligiendoObj(i)}>
-                      + Añadir objetivos
-                    </button>
-                  </div>
-                )}
+                  )
+                })()}
 
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)',

@@ -20,6 +20,7 @@ import ModalObjetivo from './ModalObjetivo'
 export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], cargar }: any) {
   const [zona, setZona] = useState<string>('')
   const [busca, setBusca] = useState('')
+  const [soloPendientes, setSoloPendientes] = useState(false)
   const [editando, setEditando] = useState<any>(undefined)
   const [evalua, setEvalua] = useState<Record<string, Conteo>>({})
   const [enUso, setEnUso] = useState<Record<string, number>>({})
@@ -61,8 +62,16 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
   /** Los que no tienen ninguna zona. Sin este cajón no habría forma de dar con ellos. */
   const sinZona = (objetivos || []).filter((o: any) => zonasDe(etiquetas, zonaIdsDe(o)).length === 0).length
 
+  /** Sin nada con que medirlo no entra en ninguna evaluacion: esta a medias. */
+  const porCompletar = (o: any) => {
+    const ev = evalua[o.id]
+    return (ev?.tests || 0) + (ev?.cuestionarios || 0) === 0
+  }
+  const nPendientes = (objetivos || []).filter(porCompletar).length
+
   const filtrados = (objetivos || []).filter((o: any) =>
     casaZona(etiquetas, zonaIdsDe(o), zona) &&
+    (soloPendientes === false || porCompletar(o)) &&
     (contiene(o.nombre || '', busca) || contiene(o.descripcion || '', busca)))
 
 
@@ -97,9 +106,19 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
         <div style={{ marginBottom: 12 }}>
           {/* Con 36 fichas el filtro de zona no basta: si sabes como se llama,
             escribirlo es mas rapido que acordarte de que zona era. */}
-        <input className="input" style={{ maxWidth: 330, marginBottom: 10 }}
-          value={busca} onChange={ev => setBusca(ev.target.value)}
-          placeholder="Buscar objetivo por nombre…"/>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+          <input className="input" style={{ maxWidth: 330 }}
+            value={busca} onChange={ev => setBusca(ev.target.value)}
+            placeholder="Buscar objetivo por nombre…"/>
+          {/* Como los ejercicios a medias: se ven aparte, no se buscan uno a uno. */}
+          {nPendientes > 0 && (
+            <button className={`pill ${soloPendientes ? 'pill-o on' : 'pill-soft'}`}
+              style={{ border: 'none', cursor: 'pointer' }}
+              onClick={() => setSoloPendientes(v => v === false)}>
+              {nPendientes} por completar
+            </button>
+          )}
+        </div>
 
         <FiltroZonas etiquetas={etiquetas} usadas={zonasUsadas}
             valor={zona} onChange={setZona} nSinZona={sinZona} todas="Todas las zonas" />
@@ -177,8 +196,9 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                           </span>
                         )}
                         {ev.tests === 0 && ev.cuestionarios === 0 && (
-                          <span className="pill pill-soft" title="No entra en ninguna evaluación">
-                            sin evaluación
+                          <span className="pill" title="Sin forma de medirlo: no entra en ninguna evaluación"
+                            style={{ background:'var(--ambl)', border:'1px solid var(--amb)', color:'#7A5800' }}>
+                            por completar
                           </span>
                         )}
                       </div>

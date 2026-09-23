@@ -911,21 +911,12 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
                     setNuevoTest(p=>({...p,items:its}))
                   }}/>}
-                  {!esSuma(nuevoTest) && !esBaremo(nuevoTest) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
-                    movimientos={item.objetivos_mov||{}}
-                    onMovimiento={(oid:string,mid:string)=>{
-                      const its=[...nuevoTest.items] as any[]
-                      const mapa={...(its[i].objetivos_mov||{})}
-                      if (mid) mapa[oid]=mid; else delete mapa[oid]
-                      its[i]={...its[i], objetivos_mov: mapa}
-                      setNuevoTest(p=>({...p,items:its}))
-                    }}
-                    onToggle={(oid:string)=>{
-                    const its=[...nuevoTest.items] as any[]
-                    const act = its[i].objetivos||[]
-                    its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
-                    setNuevoTest(p=>({...p,items:its}))
-                  }}/>}
+                  {/* AQUI SE COLGABAN OBJETIVOS DE CADA ITEM. Se ha quitado: el
+                      enlace entre test y objetivo se decide desde el objetivo, en
+                      Biblioteca -> Objetivos, y dos sitios para la misma decision
+                      acaban contradiciendose. Lo ya guardado en `objetivos` y
+                      `objetivos_mov` de cada item sigue ahi y lo sigue usando el
+                      motor: solo deja de editarse aqui. */}
                 </div>
               ))}
               {/* Un ítem de test de puntuación nace ya midiendo puntos: es lo único que
@@ -1050,21 +1041,12 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
                     setTestEditando((p:any)=>({...p,items:its}))
                   }}/>}
-                  {!esSuma(testEditando) && !esBaremo(testEditando) && <PildorasObjetivos seleccionados={item.objetivos||[]} objetivos={objetivos} etiquetas={etiquetas}
-                    movimientos={item.objetivos_mov||{}}
-                    onMovimiento={(oid:string,mid:string)=>{
-                      const its=[...(testEditando.items||[])] as any[]
-                      const mapa={...(its[i].objetivos_mov||{})}
-                      if (mid) mapa[oid]=mid; else delete mapa[oid]
-                      its[i]={...its[i], objetivos_mov: mapa}
-                      setTestEditando((p:any)=>({...p,items:its}))
-                    }}
-                    onToggle={(oid:string)=>{
-                    const its=[...(testEditando.items||[])] as any[]
-                    const act = its[i].objetivos||[]
-                    its[i]={...its[i], objetivos: act.includes(oid)?act.filter((x:string)=>x!==oid):[...act,oid]}
-                    setTestEditando((p:any)=>({...p,items:its}))
-                  }}/>}
+                  {/* AQUI SE COLGABAN OBJETIVOS DE CADA ITEM. Se ha quitado: el
+                      enlace entre test y objetivo se decide desde el objetivo, en
+                      Biblioteca -> Objetivos, y dos sitios para la misma decision
+                      acaban contradiciendose. Lo ya guardado en `objetivos` y
+                      `objetivos_mov` de cada item sigue ahi y lo sigue usando el
+                      motor: solo deja de editarse aqui. */}
                 </div>
               ))}
               <button className="btn btn-t btn-sm" onClick={()=>setTestEditando((p:any)=>({...p,items:[...(p.items||[]),{nombre:'',unidad:esSuma(p)?'puntos':''}]}))}>+ Añadir ítem</button>

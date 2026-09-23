@@ -52,6 +52,15 @@ export type Asignacion = {
   fecha_fin?: string | null
   principal: boolean
   activo: boolean
+  /**
+   * Desde que fase arranca EN ESTE PACIENTE, cuando entra a mitad.
+   *
+   * En los sistemas por calendario esto se resuelve con la fecha de inicio: se
+   * calcula hacia atras y ya cae donde toca. Pero por objetivos no hay fechas
+   * que mover —se avanza logrando cosas—, asi que la fase de entrada no tenia
+   * donde guardarse y siempre se empezaba por la primera.
+   */
+  fase_inicial?: number | null
   nota?: string | null
   sistema?: Sistema | null
 }
@@ -60,6 +69,31 @@ export type Asignacion = {
 export type Tramo = { fase: Fase, desde: string | null, hasta: string | null }
 
 const orden = (f: Fase[]) => [...(f||[])].sort((a,b)=>(a.orden||0)-(b.orden||0))
+
+/**
+ * LOS OBJETIVOS DE UNA FASE SON LOS DE SUS SESIONES.
+ *
+ * Antes se le asignaban aparte, y eso permitia que la fase pidiera el objetivo A
+ * mientras sus sesiones trabajaban el B: una fase que no se cierra nunca y nadie
+ * avisando. Un objetivo que no se entrena en ninguna sesion de la fase no es un
+ * objetivo de esa fase, es una intencion. Si hay que exigirlo, se pone una sesion
+ * que lo trabaje.
+ */
+function objetivosDeLaFase(f: any): { objetivos: string[], movimientos: Record<string, string[]> } {
+  const objetivos: string[] = []
+  const movimientos: Record<string, string[]> = {}
+  ;(f?.sistema_fase_sesiones || []).forEach((x: any) => {
+    const ses = Array.isArray(x.sesiones) ? x.sesiones[0] : x.sesiones
+    ;(ses?.sesiones_objetivos || []).forEach((o: any) => {
+      if (objetivos.includes(o.objetivo_id) === false) objetivos.push(o.objetivo_id)
+      // Los especificos se suman: dos sesiones pueden trabajar partes distintas
+      // del mismo objetivo, y la fase las pide todas.
+      const ya = movimientos[o.objetivo_id] || []
+      movimientos[o.objetivo_id] = Array.from(new Set([...ya, ...(o.movimientos || [])]))
+    })
+  })
+  return { objetivos, movimientos }
+}
 
 /**
  * Las fases con fecha, para las progresiones que van por calendario.
@@ -184,6 +218,11 @@ export function faseEn(
   const fases = orden(sistema.fases)
   if (fases.length === 0) return null
 
+  // Antes de empezar no hay fase, tambien por objetivos. Sin esto el sistema
+  // etiquetaba y pintaba las citas anteriores a su fecha de inicio, que es justo
+  // lo que hace que la lista no cuadre con lo que pusiste.
+  if (a.fecha_inicio && fecha < a.fecha_inicio) return null
+
   if (sistema.progresion === 'objetivos') {
     const cerrada = (f: Fase) => {
       const ids = f.objetivos || []
@@ -193,8 +232,12 @@ export function faseEn(
         return !!d && d <= fecha
       })
     }
-    const i = fases.findIndex(f => !cerrada(f))
-    const fase = i === -1 ? fases[fases.length - 1] : fases[i]
+    // Se busca desde la fase en la que entro, no desde la primera: lo anterior
+    // no lo hizo con nosotros y no hay objetivos suyos que puedan estar logrados.
+    const desdeI = Math.max(0, Math.min(Number(a.fase_inicial) || 0, fases.length - 1))
+    const resto = fases.slice(desdeI)
+    const i = resto.findIndex(f => cerrada(f) === false)
+    const fase = i === -1 ? resto[resto.length - 1] : resto[i]
     return { fase, desde: a.fecha_inicio || null, hasta: null }
   }
 
@@ -211,10 +254,14 @@ export function principalDe(as: Asignacion[]): Asignacion | null {
 
 // ---- Carga -----------------------------------------------------------------
 
-/** Los sistemas de la biblioteca, con sus fases, objetivos y sesiones. */
+/** true si el sistema es un molde: existe sin dueno y sirve de plantilla. */
+export const esMolde = (s: any) => !s?.paciente_id
+
+/** Los MOLDES de la biblioteca. Las copias de cada paciente no salen aqui. */
 export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
   let q = supabase.from('sistemas')
-    .select('*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden))')
+    .select('*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden, sesiones(id, sesiones_objetivos(objetivo_id,movimientos))))')
+    .is('paciente_id', null)
     .order('nombre')
   if (soloActivos) q = q.eq('activo', true)
   const { data } = await q
@@ -222,9 +269,7 @@ export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
     ...s,
     fases: orden((s.sistema_fases || []).map((f: any) => ({
       ...f,
-      objetivos: (f.sistema_fase_objetivos || []).map((o: any) => o.objetivo_id),
-      movimientos: Object.fromEntries((f.sistema_fase_objetivos || [])
-        .map((o: any) => [o.objetivo_id, o.movimientos || []])),
+      ...objetivosDeLaFase(f),
       sesiones: [...(f.sistema_fase_sesiones || [])]
         .sort((a: any, b: any) => (a.orden||0)-(b.orden||0)).map((x: any) => x.sesion_id),
     }))),
@@ -241,7 +286,7 @@ export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
  */
 export async function historialSistemas(pacienteId: string): Promise<Asignacion[]> {
   const { data } = await supabase.from('pacientes_sistemas')
-    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden)))')
+    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden, sesiones(id, sesiones_objetivos(objetivo_id,movimientos)))))')
     .eq('paciente_id', pacienteId)
     .order('activo', { ascending: false }).order('created_at', { ascending: false })
   return (data || []).map(conFases)
@@ -256,9 +301,7 @@ function conFases(a: any): Asignacion {
       ...s,
       fases: orden((s.sistema_fases || []).map((f: any) => ({
         ...f,
-        objetivos: (f.sistema_fase_objetivos || []).map((o: any) => o.objetivo_id),
-        movimientos: Object.fromEntries((f.sistema_fase_objetivos || [])
-          .map((o: any) => [o.objetivo_id, o.movimientos || []])),
+        ...objetivosDeLaFase(f),
         sesiones: [...(f.sistema_fase_sesiones || [])]
           .sort((x: any, y: any) => (x.orden||0)-(y.orden||0)).map((x: any) => x.sesion_id),
       }))),
@@ -268,7 +311,7 @@ function conFases(a: any): Asignacion {
 
 export async function sistemasDePaciente(pacienteId: string): Promise<Asignacion[]> {
   const { data } = await supabase.from('pacientes_sistemas')
-    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden)))')
+    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden, sesiones(id, sesiones_objetivos(objetivo_id,movimientos)))))')
     .eq('paciente_id', pacienteId).eq('activo', true)
     .order('principal', { ascending: false }).order('created_at')
   return (data || []).map((a: any) => {
@@ -279,9 +322,7 @@ export async function sistemasDePaciente(pacienteId: string): Promise<Asignacion
         ...s,
         fases: orden((s.sistema_fases || []).map((f: any) => ({
           ...f,
-          objetivos: (f.sistema_fase_objetivos || []).map((o: any) => o.objetivo_id),
-          movimientos: Object.fromEntries((f.sistema_fase_objetivos || [])
-            .map((o: any) => [o.objetivo_id, o.movimientos || []])),
+          ...objetivosDeLaFase(f),
           sesiones: [...(f.sistema_fase_sesiones || [])]
             .sort((x: any, y: any) => (x.orden||0)-(y.orden||0)).map((x: any) => x.sesion_id),
         }))),
@@ -372,8 +413,53 @@ export async function fijarSesionesDeFase(faseId: string, ids: string[]) {
 // ---- Asignar a un paciente -------------------------------------------------
 
 /** El primero que se le pone es el marco; los siguientes entran por debajo. */
+/**
+ * COPIA el sistema para un paciente. Igual que una plantilla de sesion.
+ *
+ * Referenciar el molde hacia que tocarle las fases en la biblioteca cambiara la
+ * programacion de todos los que lo llevan, tambien hacia atras: una cita de hace
+ * un mes podia pasar a caer en otra fase. Copiandolo, lo prescrito es suyo y la
+ * biblioteca se puede corregir sin miedo —y de paso se le pueden hacer cambios
+ * solo a el, que es lo que hace falta a mitad de una recuperacion.
+ */
+export async function duplicarSistema(plantillaId: string, pacienteId: string) {
+  const { data: pl } = await supabase.from('sistemas')
+    .select('*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden, sesiones(id, sesiones_objetivos(objetivo_id,movimientos))))')
+    .eq('id', plantillaId).single()
+  if (pl == null) return { ok: false as const, error: 'No se encuentra el sistema' }
+
+  const { data: copia, error } = await supabase.from('sistemas').insert({
+    nombre: pl.nombre, descripcion: pl.descripcion, color: pl.color, icono: pl.icono,
+    progresion: pl.progresion, activo: true,
+    paciente_id: pacienteId, plantilla_id: pl.id,
+  }).select('id').single()
+  if (error || copia == null) return { ok: false as const, error: error?.message || 'No se pudo copiar' }
+
+  for (const f of orden(pl.sistema_fases || [])) {
+    const { data: nf } = await supabase.from('sistema_fases').insert({
+      sistema_id: copia.id, orden: f.orden, nombre: f.nombre,
+      descripcion: f.descripcion, dias: f.dias, unidad: (f as any).unidad || 'dias',
+    }).select('id').single()
+    if (nf == null) continue
+    const objs = (f as any).sistema_fase_objetivos || []
+    if (objs.length > 0) {
+      await supabase.from('sistema_fase_objetivos').insert(objs.map((o: any) => ({
+        fase_id: nf.id, objetivo_id: o.objetivo_id, movimientos: o.movimientos || [],
+      })))
+    }
+    const ses = (f as any).sistema_fase_sesiones || []
+    if (ses.length > 0) {
+      await supabase.from('sistema_fase_sesiones').insert(ses.map((x: any) => ({
+        fase_id: nf.id, sesion_id: x.sesion_id, orden: x.orden || 0,
+      })))
+    }
+  }
+  return { ok: true as const, id: copia.id }
+}
+
 export async function asignarSistema(pacienteId: string, sistemaId: string, d: {
-  fecha_inicio?: string | null, fecha_fin?: string | null, principal?: boolean, nota?: string | null,
+  fecha_inicio?: string | null, fecha_fin?: string | null, principal?: boolean,
+  nota?: string | null, faseInicial?: number,
 }) {
   const { data: ya } = await supabase.from('pacientes_sistemas')
     .select('id').eq('paciente_id', pacienteId).eq('activo', true)
@@ -382,9 +468,14 @@ export async function asignarSistema(pacienteId: string, sistemaId: string, d: {
     await supabase.from('pacientes_sistemas').update({ principal: false })
       .eq('paciente_id', pacienteId).eq('activo', true)
   }
+  // Se le pone SU copia, no el molde.
+  const cp = await duplicarSistema(sistemaId, pacienteId)
+  if (cp.ok === false) return cp
+
   const { error } = await supabase.from('pacientes_sistemas').insert({
-    paciente_id: pacienteId, sistema_id: sistemaId,
+    paciente_id: pacienteId, sistema_id: cp.id,
     fecha_inicio: d.fecha_inicio || null, fecha_fin: d.fecha_fin || null,
+    fase_inicial: d.faseInicial || 0,
     nota: d.nota || null, principal,
   })
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
@@ -393,10 +484,12 @@ export async function asignarSistema(pacienteId: string, sistemaId: string, d: {
 /** Cambiar las fechas de un sistema ya puesto, sin tener que quitarlo. */
 export async function actualizarAsignacion(id: string, d: {
   fecha_inicio?: string | null, fecha_fin?: string | null, nota?: string | null,
+  faseInicial?: number,
 }) {
   const { error } = await supabase.from('pacientes_sistemas').update({
     fecha_inicio: d.fecha_inicio || null,
     fecha_fin: d.fecha_fin || null,
+    fase_inicial: d.faseInicial || 0,
   }).eq('id', id)
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }

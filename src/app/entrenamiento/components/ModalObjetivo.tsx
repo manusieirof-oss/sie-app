@@ -10,7 +10,7 @@ import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { especificosDeObjetivo } from '@/lib/objetivos'
 import EspecificosEnPestanas from './EspecificosObjetivo'
 import SelectorEvaluadores from './SelectorEvaluadores'
-import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores } from '@/lib/objetivosTests'
+import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores, type Evaluador } from '@/lib/objetivosTests'
 
 // ---------------------------------------------------------------------------
 // CREAR Y EDITAR UN OBJETIVO
@@ -103,7 +103,7 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
 }) {
   const [guardando, setGuardando] = useState(false)
   // Con que se evalua este objetivo. Se carga aparte porque vive en su tabla.
-  const [evaluadores, setEvaluadores] = useState<string[]>([])
+  const [evaluadores, setEvaluadores] = useState<Evaluador[]>([])
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [eligiendo, setEligiendo] = useState(false)
   useEffect(() => {
@@ -157,7 +157,16 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
       await supabase.from('objetivos').update({ imagen_url: null }).eq('id', id)
     }
 
-    if (id) await fijarTestsDeObjetivo(id, evaluadores)
+    if (id) {
+      const re = await fijarTestsDeObjetivo(id, evaluadores)
+      // Fallaba en silencio: el objetivo se guardaba y sus tests no, y no habia
+      // forma de saberlo salvo volver a abrirlo y ver que estaba vacio.
+      if (re.ok === false) {
+        setGuardando(false)
+        alert('El objetivo se guardó, pero sus tests no: ' + re.error)
+        onGuardado(id); onCerrar(); return
+      }
+    }
 
     setGuardando(false)
     onGuardado(id)
@@ -300,27 +309,70 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                   letterSpacing:'.5px', textTransform:'uppercase' }}>Se evalúa con</label>
                 <button className="btn btn-s btn-sm" onClick={() => setEligiendo(true)}>+ Añadir</button>
               </div>
+              {/* SE PUEDE GUARDAR SIN ESTO, pero queda por completar. Bloquear el
+                  guardado te pararia justo cuando estas montando una sesion con
+                  prisa; avisar y dejarlo en la lista de pendientes hace el mismo
+                  trabajo sin cortarte. */}
               {evaluadores.length === 0
-                ? <div style={{ fontSize:11, color:'var(--gr)' }}>
-                    Nada todavía. Sin esto, el objetivo no entra en ninguna evaluación.
+                ? <div style={{ fontSize:11, color:'#7A5800', background:'var(--ambl)',
+                    border:'1px solid var(--amb)', borderRadius:6, padding:'7px 10px', lineHeight:1.5 }}>
+                    Sin forma de medirlo. Se guarda igual, pero queda <b>por completar</b>:
+                    no entra en ninguna evaluación y no puede cerrar una fase hasta que le
+                    pongas un test o un cuestionario.
                   </div>
-                : <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                    {evaluadores.map(id => {
-                      const t = catalogo.find((x: any) => x.id === id)
+                : <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                    {evaluadores.map((e, k) => {
+                      const t = catalogo.find((x: any) => x.id === e.test_id)
+                      const items = Array.isArray(t?.items) ? t.items : []
+                      const movs = form.movimientos || []
+                      const cambiar = (campos: any) =>
+                        setEvaluadores(p => p.map((y, m) => m === k ? { ...y, ...campos } : y))
                       return (
-                        <span key={id} className="pill pill-o on" style={{ cursor:'pointer' }}
-                          title="Quitar"
-                          onClick={() => setEvaluadores(p => p.filter(x => x !== id))}>
-                          {t?.tipo === 'cuestionario' ? '✎ ' : '◎ '}{t?.nombre || '—'} ✕
-                        </span>
+                        <div key={k} style={{ border:'1px solid var(--bd)', borderRadius:7,
+                          padding:'9px 11px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                          <span style={{ fontSize:12.5, flex:1, minWidth:150 }}>
+                            {t?.tipo === 'cuestionario' ? '✎ ' : '◎ '}{t?.nombre || '—'}
+                          </span>
+                          {/* TODO EL TEST O SOLO UN ITEM: con un item elegido, en la
+                              evaluacion sale ese y nada mas. Por nombre, no por
+                              posicion: reordenar los items del test cambiaria en
+                              silencio contra que se mide el objetivo. */}
+                          {items.length > 0 && (
+                            <select className="input" style={{ width:190, padding:'5px 8px', fontSize:12 }}
+                              value={e.item || ''} onChange={ev => cambiar({ item: ev.target.value || null })}>
+                              <option value="">Todo el test</option>
+                              {items.map((it: any, ii: number) => {
+                                const nom = typeof it === 'string' ? it : it?.nombre
+                                return nom ? <option key={ii} value={nom}>{nom}</option> : null
+                              })}
+                            </select>
+                          )}
+                          {movs.length > 0 && (
+                            <select className="input" style={{ width:170, padding:'5px 8px', fontSize:12 }}
+                              value={e.movimiento || ''} onChange={ev => cambiar({ movimiento: ev.target.value || null })}>
+                              <option value="">Todo el objetivo</option>
+                              {movs.map((mid: string) => (
+                                <option key={mid} value={mid}>
+                                  {etiquetas.find((x: any) => x.id === mid)?.nombre || mid}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <button className="btn btn-t btn-sm" title="Quitar"
+                            onClick={() => setEvaluadores(p => p.filter((_, m) => m !== k))}>
+                            <Ic name="cerrar" size={12}/>
+                          </button>
+                        </div>
                       )
                     })}
                   </div>}
             </div>
 
             {eligiendo && (
-              <SelectorEvaluadores ya={evaluadores} etiquetas={etiquetas} onCerrar={() => setEligiendo(false)}
-                onElegir={(ids: string[]) => setEvaluadores(p => [...p, ...ids])}/>
+              <SelectorEvaluadores etiquetas={etiquetas} onCerrar={() => setEligiendo(false)}
+                ya={evaluadores.filter(e => e.item == null && e.movimiento == null).map(e => e.test_id)}
+                onElegir={(ids: string[]) => setEvaluadores(p =>
+                  [...p, ...ids.map(id => ({ test_id: id, item: null, movimiento: null }))])}/>
             )}
 
             {/* AQUÍ IBAN LOS "LOGROS HABITUALES". Se han quitado con las metas y los
