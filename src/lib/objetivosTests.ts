@@ -52,10 +52,18 @@ export type Conteo = { tests: number, cuestionarios: number }
 /** Cuantos tests y cuantos cuestionarios evaluan cada objetivo. Para las tarjetas. */
 export async function conteoPorObjetivo(): Promise<Record<string, Conteo>> {
   const { data } = await supabase.from('objetivos_tests')
-    .select('objetivo_id, tests:test_id(tipo)')
+    .select('objetivo_id, test_id, tests:test_id(tipo)')
   const m: Record<string, Conteo> = {}
+  // POR TEST, NO POR FILA. Un mismo test puede estar colgado de varios especificos
+  // —o del objetivo entero y ademas de una parte—, y son varias filas de lo mismo:
+  // la tarjeta decia "4 tests" habiendo dos. Lo que se cuenta es con cuantas cosas
+  // distintas se comprueba.
+  const vistos = new Set<string>()
   ;(data || []).forEach((r: any) => {
     const t = Array.isArray(r.tests) ? r.tests[0] : r.tests
+    const clave = r.objetivo_id + '|' + r.test_id
+    if (vistos.has(clave)) return
+    vistos.add(clave)
     if (m[r.objetivo_id] == null) m[r.objetivo_id] = { tests: 0, cuestionarios: 0 }
     if (t?.tipo === 'cuestionario') m[r.objetivo_id].cuestionarios++
     else m[r.objetivo_id].tests++

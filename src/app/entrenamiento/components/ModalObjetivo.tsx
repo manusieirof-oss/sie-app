@@ -105,7 +105,9 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
   // Con que se evalua este objetivo. Se carga aparte porque vive en su tabla.
   const [evaluadores, setEvaluadores] = useState<Evaluador[]>([])
   const [catalogo, setCatalogo] = useState<any[]>([])
-  const [eligiendo, setEligiendo] = useState(false)
+  // Que se esta midiendo al abrir el selector: `null` el objetivo entero,
+  // un texto el especifico. `undefined` = cerrado.
+  const [eligiendo, setEligiendo] = useState<string | null | undefined>(undefined)
   useEffect(() => {
     cargarEvaluadores().then(setCatalogo)
     if (objetivo?.id) testsDeObjetivo(objetivo.id).then(setEvaluadores)
@@ -158,7 +160,9 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
     }
 
     if (id) {
-      const re = await fijarTestsDeObjetivo(id, evaluadores)
+      const vivos = (form.movimientos || []) as string[]
+      const limpios = evaluadores.filter(e => e.movimiento == null || vivos.includes(e.movimiento))
+      const re = await fijarTestsDeObjetivo(id, limpios)
       // Fallaba en silencio: el objetivo se guardaba y sus tests no, y no habia
       // forma de saberlo salvo volver a abrirlo y ver que estaba vacio.
       if (re.ok === false) {
@@ -171,6 +175,70 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
     setGuardando(false)
     onGuardado(id)
     onCerrar()
+  }
+
+  /**
+   * Lo que hay colgado a una parte —o al objetivo entero, si `mov` es null—.
+   * Se pinta aqui y se presta al panel del especifico: quien lo guarda es este
+   * modal, asi que el editor de pestanas no tiene por que saber de tests.
+   */
+  const filasEvaluadores = (mov: string | null) => {
+    const suyos = evaluadores.map((e, k) => ({ e, k })).filter(({ e }) => (e.movimiento || null) === mov)
+    if (suyos.length === 0) {
+      return <div style={{ fontSize: 12, color: 'var(--grl)' }}>Sin nada con lo que comprobarlo.</div>
+    }
+    return (
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {suyos.map(({ e, k }) => {
+          const t = catalogo.find((x: any) => x.id === e.test_id)
+          const items = Array.isArray(t?.items) ? t.items : []
+          const cambiar = (campos: any) =>
+            setEvaluadores(p => p.map((y, m) => m === k ? { ...y, ...campos } : y))
+          return (
+            <div key={k} style={{ width: 134, position: 'relative' }}>
+              <div style={{ width: 134, height: 90, borderRadius: 8, border: '1px solid var(--bd)',
+                background: 'var(--bm)', overflow: 'hidden', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
+                {t?.imagen_url
+                  ? <img src={t.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  : <Ic name={t?.tipo === 'cuestionario' ? 'nota' : 'test'} size={26} />}
+              </div>
+              <button className="btn btn-t btn-sm" title="Quitar"
+                onClick={() => setEvaluadores(p => p.filter((_, m) => m !== k))}
+                style={{ position: 'absolute', top: 3, right: 3, width: 20, height: 20, padding: 0,
+                  borderRadius: '50%', background: 'var(--w)', justifyContent: 'center' }}>
+                <Ic name="cerrar" size={11}/>
+              </button>
+              {/* La segunda linea ES el selector: puesto a "todo el test" dice el nombre
+                  del test, y en cuanto eliges un item dice el del item. Por nombre y no
+                  por posicion: reordenar los items cambiaria en silencio que se mide. */}
+              {/* El nombre del test SIEMPRE y entero: es lo que se reconoce. El item va
+                  debajo, en su propia linea, porque es una precision del test, no otro
+                  test. Por nombre y no por posicion: reordenar los items cambiaria en
+                  silencio que se mide. */}
+              <div style={{ marginTop: 5, fontSize: 12, lineHeight: 1.3, textAlign: 'center',
+                color: 'var(--n)', overflowWrap: 'anywhere' }}>
+                {t?.nombre || '—'}
+              </div>
+              {items.length > 0 && (
+                <select value={e.item || ''} onChange={ev => cambiar({ item: ev.target.value || null })}
+                  title="Todo el test o solo un ítem"
+                  style={{ width: '100%', marginTop: 2, fontFamily: 'inherit', fontSize: 11,
+                    lineHeight: 1.3, border: 'none', background: 'transparent',
+                    color: e.item ? 'var(--gd)' : 'var(--grl)',
+                    textAlign: 'center', cursor: 'pointer', padding: 0 }}>
+                  <option value="">Todo el test</option>
+                  {items.map((it: any, ii: number) => {
+                    const nom = typeof it === 'string' ? it : it?.nombre
+                    return nom ? <option key={ii} value={nom}>{nom}</option> : null
+                  })}
+                </select>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   return (
@@ -272,7 +340,15 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                 objetivoId={form.id}
                 etiquetas={etiquetas}
                 tests={tests || []}
-                onChange={(ids: string[]) => setForm((p: any) => ({ ...p, movimientos: ids }))} />
+                onChange={(ids: string[]) => {
+                  setForm((p: any) => ({ ...p, movimientos: ids }))
+                  // Y CON EL ESPECIFICO SE VAN SUS TESTS. Si no, la fila se queda
+                  // apuntando a algo que ya no existe: invisible en pantalla pero
+                  // contando en la tarjeta y entrando en las evaluaciones.
+                  setEvaluadores(prev => prev.filter(e => e.movimiento == null || ids.includes(e.movimiento)))
+                }}
+                onEvaluar={(mov: string | null) => setEligiendo(mov)}
+                evaluacion={(mov: string | null) => filasEvaluadores(mov)} />
             </div>
 
             {/* AQUÍ IBAN LAS FASES y sus condiciones de salida, y se han quitado por lo
@@ -303,76 +379,48 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
             {/* CON QUE SE EVALUA. Es otra relacion distinta de "que test lo abre":
                 aquella es diagnostico y vive en el item del test; esta dice con que
                 se mira si ya esta conseguido, y es la que arma las evaluaciones. */}
+            {/* CON QUE SE COMPRUEBA, COLGADO DE LO QUE MIDE.
+                Antes era una lista suelta con un desplegable para decir de que
+                parte respondia cada test. Puesto dentro de cada especifico sobra
+                el desplegable: donde esta ya lo dice. */}
             <div style={{ borderTop:'1px solid var(--bd)', marginTop:14, paddingTop:12 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:8 }}>
-                <label style={{ flex:1, fontSize:10, fontWeight:500, color:'var(--gr)',
-                  letterSpacing:'.5px', textTransform:'uppercase' }}>Se evalúa con</label>
-                <button className="btn btn-s btn-sm" onClick={() => setEligiendo(true)}>+ Añadir</button>
+              {/* El rotulo solo tiene sentido si debajo va la caja del objetivo entero;
+                  sin especificos lo unico que queda aqui es el aviso, que se explica solo. */}
+              {(form.movimientos || []).length > 0 && (
+                <label style={{ fontSize:10, fontWeight:500, color:'var(--gr)',
+                  letterSpacing:'.5px', textTransform:'uppercase' }}>Cómo se comprueba</label>
+              )}
+
+              {evaluadores.length === 0 && (
+                <div style={{ fontSize:11, color:'#7A5800', background:'var(--ambl)',
+                  border:'1px solid var(--amb)', borderRadius:6, padding:'7px 10px',
+                  lineHeight:1.5, margin:'7px 0' }}>
+                  Sin forma de medirlo. Se guarda igual, pero queda <b>por completar</b>:
+                  no entra en ninguna evaluación y no puede cerrar una fase.
+                </div>
+              )}
+
+              {/* Solo EL OBJETIVO ENTERO, y solo si hay especificos: sin ellos esto
+                  mismo ya sale dentro del panel de arriba. Lo de cada parte se edita
+                  dentro de su pestana, al lado del boton de quitarla. */}
+              {(form.movimientos || []).length > 0 && (
+              <div style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '9px 11px', marginTop: 7 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
+                  <span style={{ flex: 1, fontSize: 12, color: 'var(--gr)' }}>El objetivo entero</span>
+                  <button className="btn btn-s btn-sm" onClick={() => setEligiendo(null)}>
+                    + Añadir
+                  </button>
+                </div>
+                {filasEvaluadores(null)}
               </div>
-              {/* SE PUEDE GUARDAR SIN ESTO, pero queda por completar. Bloquear el
-                  guardado te pararia justo cuando estas montando una sesion con
-                  prisa; avisar y dejarlo en la lista de pendientes hace el mismo
-                  trabajo sin cortarte. */}
-              {evaluadores.length === 0
-                ? <div style={{ fontSize:11, color:'#7A5800', background:'var(--ambl)',
-                    border:'1px solid var(--amb)', borderRadius:6, padding:'7px 10px', lineHeight:1.5 }}>
-                    Sin forma de medirlo. Se guarda igual, pero queda <b>por completar</b>:
-                    no entra en ninguna evaluación y no puede cerrar una fase hasta que le
-                    pongas un test o un cuestionario.
-                  </div>
-                : <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                    {evaluadores.map((e, k) => {
-                      const t = catalogo.find((x: any) => x.id === e.test_id)
-                      const items = Array.isArray(t?.items) ? t.items : []
-                      const movs = form.movimientos || []
-                      const cambiar = (campos: any) =>
-                        setEvaluadores(p => p.map((y, m) => m === k ? { ...y, ...campos } : y))
-                      return (
-                        <div key={k} style={{ border:'1px solid var(--bd)', borderRadius:7,
-                          padding:'9px 11px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                          <span style={{ fontSize:12.5, flex:1, minWidth:150 }}>
-                            {t?.tipo === 'cuestionario' ? '✎ ' : '◎ '}{t?.nombre || '—'}
-                          </span>
-                          {/* TODO EL TEST O SOLO UN ITEM: con un item elegido, en la
-                              evaluacion sale ese y nada mas. Por nombre, no por
-                              posicion: reordenar los items del test cambiaria en
-                              silencio contra que se mide el objetivo. */}
-                          {items.length > 0 && (
-                            <select className="input" style={{ width:190, padding:'5px 8px', fontSize:12 }}
-                              value={e.item || ''} onChange={ev => cambiar({ item: ev.target.value || null })}>
-                              <option value="">Todo el test</option>
-                              {items.map((it: any, ii: number) => {
-                                const nom = typeof it === 'string' ? it : it?.nombre
-                                return nom ? <option key={ii} value={nom}>{nom}</option> : null
-                              })}
-                            </select>
-                          )}
-                          {movs.length > 0 && (
-                            <select className="input" style={{ width:170, padding:'5px 8px', fontSize:12 }}
-                              value={e.movimiento || ''} onChange={ev => cambiar({ movimiento: ev.target.value || null })}>
-                              <option value="">Todo el objetivo</option>
-                              {movs.map((mid: string) => (
-                                <option key={mid} value={mid}>
-                                  {etiquetas.find((x: any) => x.id === mid)?.nombre || mid}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          <button className="btn btn-t btn-sm" title="Quitar"
-                            onClick={() => setEvaluadores(p => p.filter((_, m) => m !== k))}>
-                            <Ic name="cerrar" size={12}/>
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>}
+              )}
             </div>
 
-            {eligiendo && (
-              <SelectorEvaluadores etiquetas={etiquetas} onCerrar={() => setEligiendo(false)}
-                ya={evaluadores.filter(e => e.item == null && e.movimiento == null).map(e => e.test_id)}
+            {eligiendo !== undefined && (
+              <SelectorEvaluadores etiquetas={etiquetas} onCerrar={() => setEligiendo(undefined)}
+                ya={evaluadores.filter(e => (e.movimiento || null) === eligiendo && e.item == null).map(e => e.test_id)}
                 onElegir={(ids: string[]) => setEvaluadores(p =>
-                  [...p, ...ids.map(id => ({ test_id: id, item: null, movimiento: null }))])}/>
+                  [...p, ...ids.map(id => ({ test_id: id, item: null, movimiento: eligiendo ?? null }))])}/>
             )}
 
             {/* AQUÍ IBAN LOS "LOGROS HABITUALES". Se han quitado con las metas y los

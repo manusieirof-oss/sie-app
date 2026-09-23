@@ -22,13 +22,17 @@ import { bandasDe } from '@/lib/tests'
  * NO CAMBIA NADA POR DEBAJO. Los específicos siguen siendo la misma lista de etiquetas en
  * `objetivos.movimientos`; lo único distinto es cómo se miran.
  */
-export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, tests, onChange }: {
+export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, tests, onChange, onEvaluar, evaluacion }: {
   ids: string[]
   /** Vacío en un objetivo que aún no se ha guardado: entonces no hay nada que colgar. */
   objetivoId?: string
   etiquetas: any[]
   tests: any[]
   onChange: (ids: string[]) => void
+  /** Colgar un test a ESTA parte —o al objetivo entero, con null—. Sin esto, no sale el botón. */
+  onEvaluar?: (especifico: string | null) => void
+  /** Lo que ya tiene colgado, pintado por quien lo guarda. null = el objetivo entero. */
+  evaluacion?: (especifico: string | null) => any
 }) {
   const [activa, setActiva] = useState(0)
   const [anadiendo, setAnadiendo] = useState(false)
@@ -143,18 +147,43 @@ export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, test
               onChange={(sel: string[]) => onChange([...puestos.filter(v => !esEtiqueta(v)), ...sel])} />
           </>
         ) : puestos.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'var(--grl)' }}>
-            Sin específicos. Pulsa <b>+</b> para añadir en qué se concreta este objetivo.
-          </div>
+          /* SIN ESPECÍFICOS el panel no se queda en blanco: lo que se mide es el objetivo
+             entero, así que aquí va lo mismo que en una parte, sin la parte. */
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--grl)' }}>
+                Sin específicos. Pulsa <b>+</b> para añadir en qué se concreta este objetivo.
+              </span>
+              {onEvaluar && (
+                <button type="button" className="btn btn-s btn-sm" style={{ marginLeft: 'auto', flexShrink: 0 }}
+                  onClick={() => onEvaluar(null)}>
+                  <Ic name="mas" size={11} /> Evaluar
+                </button>
+              )}
+            </div>
+            {evaluacion && (
+              <div style={{ borderTop: '1px solid var(--bd2)', paddingTop: 9 }}>
+                {evaluacion(null)}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 14, color: 'var(--n)' }}>{nombreDe(actual)}</span>
-              <span style={{ fontSize: 12, color: 'var(--grl)' }}>· parte {i + 1} de {puestos.length}</span>
-              <button type="button" className="btn btn-d btn-sm" style={{ marginLeft: 'auto' }}
-                onClick={() => quitar(actual)}>
-                <Ic name="papelera" size={11} /> Quitar
-              </button>
+              {/* Ni el nombre ni "parte 1 de 3": la lengueta de arriba ya dice en cual
+                  estas y cuantas hay. Aqui solo lo que se puede hacer. */}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                {/* EVALUAR, aquí y no en una lista aparte: se cuelga el test estando
+                    dentro de la parte que mide, así no hay que decir de cuál es. */}
+                {onEvaluar && (
+                  <button type="button" className="btn btn-s btn-sm" onClick={() => onEvaluar(actual)}>
+                    <Ic name="mas" size={11} /> Evaluar
+                  </button>
+                )}
+                <button type="button" className="btn btn-d btn-sm" onClick={() => quitar(actual)}>
+                  <Ic name="papelera" size={11} /> Quitar
+                </button>
+              </div>
             </div>
 
             {/* DE DÓNDE SALE y CON QUÉ SE MIDE son dos cosas distintas, y juntarlas era el
@@ -163,24 +192,15 @@ export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, test
                 aquí ponía "ningún test", que se lee como que el objetivo no sale de ningún
                 sitio. Salir sale; lo que no hay es un ítem con ese nombre del que sacar un
                 número. */}
-            <div className="et-mini" style={{ marginBottom: 5 }}>De dónde sale</div>
+            {/* El rotulo va DENTRO: sin nada que contar no hay nada que rotular. */}
             {(() => {
               const a = objetivoId ? abren(actual) : []
               const suyos = a.filter((x: any) => x.esta)
               const generales = a.filter((x: any) => x.sinMov)
-              if (!objetivoId) {
-                return <div style={{ fontSize: 12, color: 'var(--grl)' }}>Guarda el objetivo para ver qué tests lo abren.</div>
-              }
-              if (a.length === 0) {
-                return (
-                  <div style={{ fontSize: 12, color: '#8A6410', lineHeight: 1.5 }}>
-                    <Ic name="alerta" size={11} /> Ningún test abre este objetivo. Se cuelga
-                    desde el propio test, en su ítem o en su banda.
-                  </div>
-                )
-              }
+              if (a.length === 0) return null
               return (
                 <div style={{ display: 'grid', gap: 4, marginBottom: 10 }}>
+                  <div className="et-mini">De dónde sale</div>
                   {suyos.map((x: any, k: number) => (
                     <div key={'s' + k} style={{ fontSize: 12, color: 'var(--gd)', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Ic name="check" size={11} />
@@ -206,36 +226,14 @@ export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, test
               )
             })()}
 
-            <div className="et-mini" style={{ marginBottom: 5 }}>Con qué se mide</div>
-            {!esEtiqueta(actual) ? (
-              <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5 }}>
-                Escrita a mano, así que ningún test puede medirla: se cierra marcándola en la
-                ficha del paciente.
+            {/* CON QUÉ SE COMPRUEBA. Lo de arriba es deducido —un test con un ítem que se
+                llama igual—; esto es lo que alguien ha colgado a mano, y es lo que arma
+                las evaluaciones. */}
+            {evaluacion && (
+              <div style={{ borderTop: '1px solid var(--bd2)', marginTop: 11, paddingTop: 9 }}>
+                {evaluacion(actual)}
               </div>
-            ) : (() => {
-              const m = miden(actual)
-              if (m.length === 0) {
-                return (
-                  <div style={{ fontSize: 12, color: 'var(--gr)', lineHeight: 1.5 }}>
-                    Ningún test tiene un ítem llamado «{nombreDe(actual)}», así que esta parte
-                    se cierra marcándola. Para ponerle un número, el ítem que la mide tiene que
-                    llamarse igual.
-                  </div>
-                )
-              }
-              return (
-                <div style={{ display: 'grid', gap: 4 }}>
-                  {m.map((x: any) => (
-                    <div key={x.test.id} style={{ fontSize: 12, color: 'var(--gr)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Ic name="test" size={11} />
-                      <span style={{ color: 'var(--n)' }}>{x.test.nombre}</span>
-                      <span>· ítem «{x.item.nombre}»</span>
-                      {x.item.unidad && <span className="badge badge-b">{x.item.unidad}</span>}
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
+            )}
           </>
         )}
       </div>
