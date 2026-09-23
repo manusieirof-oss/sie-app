@@ -18,11 +18,12 @@ import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esV
 import { hoyISO } from '@/lib/fechas'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
-import { sistemasDePaciente, logradosDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase } from '@/lib/sistemas'
+import SelectorSesiones from '@/app/entrenamiento/components/SelectorSesiones'
+import { sistemasDePaciente, historialSistemas, logradosDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
-  const [seccion, setSeccion] = useState<'activo'|'sesiones'|'historial'|'ejecucion'>('activo')
+  const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   /**
    * La cita cuya sesión se está ajustando. Distinto de editar la sesión: aquí lo
@@ -33,6 +34,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [historialDe, setHistorialDe] = useState<any>(null)
   const [sistemasPac, setSistemasPac] = useState<Asignacion[]>([])
   const [logrados, setLogrados] = useState<Record<string,string|null>>({})
+  const [todosSistemas, setTodosSistemas] = useState<Asignacion[]>([])
+  const [eligiendoSesion, setEligiendoSesion] = useState(false)
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
   const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
@@ -123,6 +126,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // Los sistemas que lleva hoy. Pintan las citas y dicen que sesiones tocan.
     sistemasDePaciente(pacienteId).then(setSistemasPac)
     logradosDe(pacienteId).then(setLogrados)
+    historialSistemas(pacienteId).then(setTodosSistemas)
 
     // El contador de Ejecución era un 0 literal. Se cuentan los ejercicios
     // distintos que tienen alguna evaluación, que es lo que muestra la sección.
@@ -538,7 +542,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {/* Mismo conmutador que en Salud (.vista-sw): era el cuarto estilo de pestañas
           de la app, hecho a mano y con tipografía de 11px. */}
       <div className="vista-sw">
-        {([['activo','calendario','Planificación',citasFuturas.length],['sesiones','lista','Sesiones',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',nEjecuciones]] as const).map(([k,ic,l,n])=>(
+        {([['activo','calendario','Planificación',citasFuturas.length],['sistemas','objetivo','Sistemas',todosSistemas.length],['sesiones','lista','Sesiones',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',nEjecuciones]] as const).map(([k,ic,l,n])=>(
           <button key={k} className={`vista-b ${seccion===k?'on':''}`} onClick={()=>setSeccion(k)}>
             <Ic name={ic} size={13}/> {l}
             <span className="cnt">{n}</span>
@@ -614,10 +618,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             {seleccionadas.length>0&&(
               <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:'var(--r)',padding:'10px 13px',marginBottom:12,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 <span style={{fontSize:13,color:'var(--n)'}}>{seleccionadas.length} cita{seleccionadas.length>1?'s':''} seleccionada{seleccionadas.length>1?'s':''}</span>
-                <select className="input" style={{flex:1,minWidth:200}} value={sesionAsignar} onChange={e=>setSesionAsignar(e.target.value)}>
-                  <option value="">Seleccionar sesión…</option>
-                  {sesionesDisp.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
+                {/* Se elige como en la biblioteca: de un desplegable con el nombre
+                    no se sabe si esa sesion es la de fuerza o la de movilidad. */}
+                <button className="btn btn-s btn-sm" style={{flex:1,minWidth:200,textAlign:'left'}}
+                  onClick={()=>setEligiendoSesion(true)}>
+                  {sesionAsignar
+                    ? (sesionesDisp.find((x:any)=>x.id===sesionAsignar)?.nombre || 'Seleccionar sesión…')
+                    : 'Seleccionar sesión…'}
+                </button>
                 <button className="btn btn-p btn-sm" onClick={asignarEnBloque} disabled={guardando}>
                   {guardando?'Asignando…':'Asignar'}
                 </button>
@@ -702,6 +710,57 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         </div>
         )
       })()}
+
+      {seccion==='sistemas'&&(
+        <div className="panel">
+          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados}
+            onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac);historialSistemas(pacienteId).then(setTodosSistemas)}}
+            onRecargar={cargarDatos}/>
+
+          {/* POR DONDE HA PASADO. Un sistema que se quita no se borra, y saber que
+              ya hizo una readaptacion entera es lo primero antes de ponerle otra. */}
+          {(() => {
+            const pasados = todosSistemas.filter(a=>a.activo===false)
+            if (pasados.length===0) return null
+            return (
+              <div className="sec">
+                <div className="sec-h">
+                  <span className="sh-l"><span className="ct-l"><Ic name="carpeta" size={13}/> Ya terminados</span></span>
+                  <span className="sh-r">{pasados.length}</span>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                  {pasados.map(a=>{
+                    const sis=a.sistema
+                    if (!sis) return null
+                    const t=tramos(sis,a)
+                    const ini=a.fecha_inicio
+                    const fin=t.length>0 ? t[t.length-1].hasta : null
+                    const corto=(iso:string)=>new Date(iso+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})
+                    return (
+                      <div key={a.id} style={{display:'flex',alignItems:'center',gap:9,background:'var(--w)',
+                        border:'1px solid var(--bd)',borderLeft:`4px solid ${sis.color}`,borderRadius:7,
+                        padding:'7px 11px 7px 9px',opacity:.75}}>
+                        <span style={{width:24,height:24,borderRadius:6,background:sis.color,color:'#fff',
+                          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          {sis.icono ? <Ic name={sis.icono} size={12}/> : null}
+                        </span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:12,color:'var(--n)'}}>{sis.nombre}</div>
+                          <div style={{fontSize:11,color:'var(--gr)'}}>
+                            {(sis.fases||[]).length} fase{(sis.fases||[]).length===1?'':'s'}
+                            {ini && ` · desde el ${corto(ini)}`}
+                            {fin && ` hasta el ${corto(fin)}`}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {seccion==='sesiones'&&(
         <div className="panel">
@@ -1172,6 +1231,13 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {/* Mismo editor, atado a la cita: lo que se guarde va a ese día, no al plan. */}
+    {eligiendoSesion && (
+      <SelectorSesiones sesiones={sesionesDisp} titulo="¿Qué sesión les pongo?"
+        ejercicios={ejerciciosBib} etiquetas={etiquetasBib}
+        colorDe={(x:any)=>deSistema(x)?.color || null}
+        onCerrar={()=>setEligiendoSesion(false)}
+        onElegir={(ids:string[])=>{ if (ids[0]) setSesionAsignar(ids[0]) }}/>
+    )}
     {historialDe&&<HistorialAjustes sesion={historialDe} onCerrar={()=>setHistorialDe(null)}/>}
     {ajustandoCita&&<ModalEditarSesion
       sesion={ajustandoCita.sesiones}

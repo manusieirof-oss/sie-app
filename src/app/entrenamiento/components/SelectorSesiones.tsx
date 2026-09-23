@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { contiene } from '@/lib/texto'
 import { modoDeSesion } from '@/lib/sesiones'
+import { tinte } from '@/lib/sistemas'
 import ModalEditarSesion from './ModalEditarSesion'
 
 // ---------------------------------------------------------------------------
@@ -14,7 +15,9 @@ import ModalEditarSesion from './ModalEditarSesion'
 // ---------------------------------------------------------------------------
 
 export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir sesiones',
-  ejercicios = [], etiquetas = [], onRecargarBiblio, onCerrar, onElegir }: any) {
+  ejercicios = [], etiquetas = [], onRecargarBiblio, onCerrar, onElegir,
+  /** De que color va cada sesion. Se reconoce el sistema del que salio sin leer. */
+  colorDe }: any) {
   const [creando, setCreando] = useState(false)
   const [busca, setBusca] = useState('')
   const [marcadas, setMarcadas] = useState<string[]>([])
@@ -64,10 +67,12 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
             const nEj = (s.partes || []).reduce((a: number, p: any) => a + (p.ejercicios || []).length, 0)
             const nP = (s.partes || []).length
             const on = marcadas.includes(s.id)
-            return (
+              const col = colorDe ? colorDe(s) : null
+              return (
               <div key={s.id} onClick={() => alternar(s.id)}
-                style={{ border:`1px solid ${on ? 'var(--g)' : 'var(--bd)'}`, borderRadius:8, padding:'10px 12px',
-                  cursor:'pointer', background: on ? 'var(--gl)' : 'var(--w)',
+                style={{ borderRadius:8, padding:'10px 12px', cursor:'pointer',
+                  border:`1px solid ${on ? 'var(--g)' : (col ? tinte(col,.45) : 'var(--bd)')}`,
+                  background: on ? 'var(--gl)' : (col ? tinte(col,.12) : 'var(--w)'),
                   display:'flex', flexDirection:'column', gap:7 }}>
                 <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
                   <span style={{ width:17, height:17, borderRadius:5, flexShrink:0, marginTop:1,

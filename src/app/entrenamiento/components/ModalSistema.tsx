@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
 import SelectorSesiones from './SelectorSesiones'
 import ModalEditarSesion from './ModalEditarSesion'
-import { modoDeSesion } from '@/lib/sesiones'
+import { modoDeSesion, esPlantilla } from '@/lib/sesiones'
+import { supabase } from '@/lib/supabase'
 import SelectorObjetivos from './SelectorObjetivos'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { PROGRESIONES, guardarSistema, guardarFase, borrarFase, tinte,
@@ -40,6 +41,21 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
   // La sesion se edita desde aqui mismo: montar la fase y tener que irte a la
   // biblioteca a cambiar una sesion es perder el hilo de lo que estabas montando.
   const [editandoSesion, setEditandoSesion] = useState<any>(null)
+
+  /**
+   * Las plantillas las relee el propio modal.
+   *
+   * Dependia de que quien lo abriera pasara un recargador, y desde la ficha del
+   * paciente no se pasaba: la sesion se creaba de verdad pero el sistema no se
+   * enteraba, asi que su tarjeta salia vacia y parecia que no se habia guardado.
+   */
+  const [sesionesLocal, setSesionesLocal] = useState<any[]>(sesiones)
+  useEffect(() => { setSesionesLocal(sesiones) }, [sesiones])
+  async function recargarSesiones() {
+    const { data } = await supabase.from('sesiones').select('*').order('nombre')
+    setSesionesLocal((data || []).filter(esPlantilla))
+    onRecargarBiblio?.()
+  }
   // Mismo arrastre que en las sesiones: manilla propia y no la fila entera, que
   // con `draggable` en la fila no se puede ni seleccionar texto en un input.
   const [arrastra, setArrastra] = useState<number|null>(null)
@@ -83,7 +99,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
 
   const nombreObj = (id: string) => objetivos.find((o: any) => o.id === id)?.nombre || '—'
   const nombreEt = (id: string) => etiquetas.find((e: any) => e.id === id)?.nombre || id
-  const nombreSes = (id: string) => sesiones.find((s: any) => s.id === id)?.nombre || '—'
+  const nombreSes = (id: string) => sesionesLocal.find((s: any) => s.id === id)?.nombre || '—'
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -247,7 +263,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(195px,1fr))',
                     gap: 8, marginBottom: 8 }}>
                     {(x.sesiones || []).map((id: string) => {
-                      const ses = sesiones.find((y: any) => y.id === id)
+                      const ses = sesionesLocal.find((y: any) => y.id === id)
                       const nEj = ((ses?.partes) || []).reduce((a: number, pp: any) => a + (pp.ejercicios || []).length, 0)
                       const nP = ((ses?.partes) || []).length
                       return (
@@ -283,7 +299,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
 
           {editandoSesion && (
             <ModalEditarSesion sesion={editandoSesion} ejercicios={ejercicios} etiquetas={etiquetas}
-              onGuardado={() => onRecargarBiblio?.()}
+              onGuardado={recargarSesiones}
               onCerrar={() => setEditandoSesion(null)}/>
           )}
 
@@ -300,8 +316,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
           )}
 
           {eligiendo !== null && (
-            <SelectorSesiones sesiones={sesiones} ya={fases[eligiendo]?.sesiones || []}
-              ejercicios={ejercicios} etiquetas={etiquetas} onRecargarBiblio={onRecargarBiblio}
+            <SelectorSesiones sesiones={sesionesLocal} ya={fases[eligiendo]?.sesiones || []}
+              ejercicios={ejercicios} etiquetas={etiquetas} onRecargarBiblio={recargarSesiones}
               titulo={`Sesiones de «${fases[eligiendo]?.nombre || 'la fase'}»`}
               onCerrar={() => setEligiendo(null)}
               onElegir={(ids: string[]) => setFases(p => p.map((y, j) =>

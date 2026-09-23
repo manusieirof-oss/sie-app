@@ -232,6 +232,40 @@ export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
 }
 
 /** Lo que lleva un paciente ahora, con el sistema entero dentro. */
+/**
+ * TODO lo que ha llevado, tambien lo terminado.
+ *
+ * Un sistema que se quita no se borra: se marca inactivo. Las citas de aquel
+ * tramo tienen que poder seguir diciendo en que fase cayeron, y por donde ha
+ * pasado alguien es justo lo que hay que mirar antes de ponerle lo siguiente.
+ */
+export async function historialSistemas(pacienteId: string): Promise<Asignacion[]> {
+  const { data } = await supabase.from('pacientes_sistemas')
+    .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden)))')
+    .eq('paciente_id', pacienteId)
+    .order('activo', { ascending: false }).order('created_at', { ascending: false })
+  return (data || []).map(conFases)
+}
+
+/** El sistema con sus fases ya ordenadas y resueltas. */
+function conFases(a: any): Asignacion {
+  const s = a.sistemas
+  return {
+    ...a,
+    sistema: s ? {
+      ...s,
+      fases: orden((s.sistema_fases || []).map((f: any) => ({
+        ...f,
+        objetivos: (f.sistema_fase_objetivos || []).map((o: any) => o.objetivo_id),
+        movimientos: Object.fromEntries((f.sistema_fase_objetivos || [])
+          .map((o: any) => [o.objetivo_id, o.movimientos || []])),
+        sesiones: [...(f.sistema_fase_sesiones || [])]
+          .sort((x: any, y: any) => (x.orden||0)-(y.orden||0)).map((x: any) => x.sesion_id),
+      }))),
+    } : null,
+  }
+}
+
 export async function sistemasDePaciente(pacienteId: string): Promise<Asignacion[]> {
   const { data } = await supabase.from('pacientes_sistemas')
     .select('*, sistemas(*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden)))')

@@ -4,6 +4,8 @@ import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 import EvaluacionFase from './EvaluacionFase'
 import { contiene } from '@/lib/texto'
+import ModalSistema from '@/app/entrenamiento/components/ModalSistema'
+import { esPlantilla } from '@/lib/sesiones'
 import { PROGRESIONES } from '@/lib/sistemas'
 import { duplicarSesion } from '@/lib/sesiones'
 import { hoyISO } from '@/lib/fechas'
@@ -30,6 +32,30 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
 }) {
   const [trayendo, setTrayendo] = useState('')
   const [busca, setBusca] = useState('')
+  // Crear el sistema sin salirse: te das cuenta de que hace falta justo cuando
+  // vas a ponerselo a alguien, y volver a la biblioteca pierde el paciente.
+  const [creando, setCreando] = useState(false)
+  const [biblio, setBiblio] = useState<any>(null)
+
+  async function abrirCreacion() {
+    if (biblio == null) {
+      const [o, se, ej, et, te] = await Promise.all([
+        supabase.from('objetivos').select('*').eq('activo', true).order('nombre'),
+        supabase.from('sesiones').select('*').order('nombre'),
+        supabase.from('ejercicios').select('*').order('nombre'),
+        supabase.from('etiquetas').select('*').order('nombre'),
+        supabase.from('tests').select('*').order('nombre'),
+      ])
+      setBiblio({
+        objetivos: o.data || [],
+        sesiones: (se.data || []).filter(esPlantilla),
+        ejercicios: ej.data || [],
+        etiquetas: et.data || [],
+        tests: te.data || [],
+      })
+    }
+    setCreando(true)
+  }
   const corto = (iso: string) => new Date(iso + 'T12:00:00')
     .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -123,6 +149,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
 
             <div style={{ padding:'13px 17px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 }}>
               <div style={{ flex:1, fontSize:16, fontWeight:500 }}>Añadir sistema</div>
+              <button className="btn btn-s btn-sm" onClick={abrirCreacion}>+ Nuevo sistema</button>
               <button className="modal-close" onClick={() => setAnadiendo(false)}>✕</button>
             </div>
 
@@ -258,6 +285,14 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
           </div>
         )
       })()}
+
+      {creando && biblio && (
+        <ModalSistema sistema={null}
+          objetivos={biblio.objetivos} sesiones={biblio.sesiones}
+          ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
+          onCerrar={() => setCreando(false)}
+          onGuardado={() => { setCatalogo([]); cargarSistemas(true).then(setCatalogo) }}/>
+      )}
 
       {asignaciones.length === 0 && !anadiendo && (
         <div className="muted">Sin sistema. Sus citas se ven como hasta ahora.</div>
