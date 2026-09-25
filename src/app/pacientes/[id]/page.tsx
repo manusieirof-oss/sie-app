@@ -927,6 +927,12 @@ export default function FichaPacientePage() {
           alertas={alertas}
           cerrarAlerta={cerrarAlerta} cambiarPago={cambiarPago}
           tiposClase={tiposClase} cambiarTipoClase={cambiarTipoClase}
+          /* Repetir un test desde el objetivo que abrió. Vive aquí porque aquí está
+             el formulario y el guardado; la ficha solo dice cuál y de qué lado. */
+          abrirTest={abrirTest}
+          /* Cambiar de pestaña desde dentro. `router.push('?tab=entreno')` no hacía nada:
+             el parámetro solo se lee al montar y aquí no se remonta nada. */
+          irA={(t:string)=>setTab(t)}
         />
       )}
 

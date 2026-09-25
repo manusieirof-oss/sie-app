@@ -24,7 +24,9 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
   /** Que hacer al pulsar uno que ya tiene. Sin esto, no se puede pulsar. */
   onExistente,
   /** Un aviso corto bajo el nombre, por ejemplo la patologia que lo propone. */
-  marcaDe }: any) {
+  marcaDe,
+  /** Lo que quiera poner quien abre el selector en el pie, junto a los botones. */
+  extra }: any) {
 
   const [busca, setBusca] = useState('')
   const [zona, setZona] = useState('')
@@ -155,7 +157,8 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
           )}
         </div>
 
-        <div style={{ padding:'12px 17px', borderTop:'1px solid var(--bd)', display:'flex', gap:8, alignItems:'center' }}>
+        <div style={{ padding:'12px 17px', borderTop:'1px solid var(--bd)', display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          {extra}
           <span style={{ fontSize:11, color:'var(--gr)' }}>
             {marcados.length === 0 ? 'Ninguno marcado' : `${marcados.length} marcado${marcados.length === 1 ? '' : 's'}`}
           </span>

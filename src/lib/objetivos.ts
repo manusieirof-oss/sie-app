@@ -307,8 +307,11 @@ export async function retratoObjetivo(objetivoId: string) {
 
 /** Crea el objetivo para el paciente con su primera vía, y con sus logros habituales. */
 export async function abrirObjetivo(pacienteId: string, objetivoId: string, via: Via, origen: string) {
+  // De que via sale, en los tres terminos que se leen en pantalla. Ver `viasObjetivo`.
+  const v = /test|ejecucion/.test(origen) ? 'test' : 'plan'
   const { error } = await supabase.from('pacientes_objetivos')
     .insert({ paciente_id: pacienteId, objetivo_id: objetivoId, origen, vias: [via],
+      vias_origen: [v],
       ...(await retratoObjetivo(objetivoId)) })
   if (error) return { ok: false as const, error: error.message }
   // Va aquí y no en quien llama: un objetivo se abre desde un test, desde el taller y desde

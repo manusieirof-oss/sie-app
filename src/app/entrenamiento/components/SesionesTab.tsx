@@ -34,7 +34,7 @@ type Parte = {
 const VARIANTES = ['Bilateral','Unilateral','Alterno','Unipodal','Supino','Prono','Decúbito lateral']
 const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resistencia','Propiocepción','Coordinación']
 
-export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial }: any) {
+export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial, objetivoInicial }: any) {
   const [buscarSes, setBuscarSes] = useState('')
   /**
    * De quién es la sesión. Por defecto, PLANTILLAS.
@@ -147,10 +147,12 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   }
 
   useEffect(() => {
+    // Llega con un objetivo puesto desde la ficha de un paciente: se filtra solo.
+    if (objetivoInicial) setFiltroObjetivos([objetivoInicial])
     if (pacienteIdInicial) {
       setSesionEditando({ paciente_id: pacienteIdInicial, nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })
     }
-  }, [pacienteIdInicial])
+  }, [pacienteIdInicial, objetivoInicial])
 
   const ejerciciosFiltrados = ejercicios.filter((e:any) => {
     const matchQ = !buscarBiblio || e.nombre.toLowerCase().includes(buscarBiblio.toLowerCase())

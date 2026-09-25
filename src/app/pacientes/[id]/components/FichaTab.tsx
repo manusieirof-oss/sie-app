@@ -1,4 +1,5 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -6,6 +7,12 @@ import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias, retratoDe } from '@/lib/objetivos'
+import { VIAS, viasDe, marcarVia, quitarVia, type ViaOrigen } from '@/lib/viasObjetivo'
+import { conteoPorObjetivo } from '@/lib/objetivosTests'
+import { sistemasDePaciente } from '@/lib/sistemas'
+import { soloVigentes } from '@/lib/linaje'
+import ModalObjetivo from '@/app/entrenamiento/components/ModalObjetivo'
+import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
@@ -42,9 +49,93 @@ const empiezaDespues = (b: any) => {
 const nombreMes = (b: any) =>
   new Date(b.anio, b.mes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 
-export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones }: any) {
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones, abrirTest, irA }: any) {
+  const router = useRouter()
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
+  const [viaAnadir, setViaAnadir] = useState<ViaOrigen>('plan')
+  const [filtroVia, setFiltroVia] = useState<string>('')
+  /**
+   * Los objetivos que cubre su CICLO, aunque todavía no estén enganchados a ninguna
+   * cita. Estar en la programación es las dos cosas: que una clase suya lo trabaje,
+   * o que lo persiga el sistema que lleva puesto.
+   */
+  const [objsDeSistema, setObjsDeSistema] = useState<string[]>([])
+  const [verSesion, setVerSesion] = useState<any>(null)
+  /**
+   * Lo que hay EN LA BIBLIOTECA para un objetivo: sesiones molde y ciclos que lo
+   * trabajan. Cuando el paciente no tiene nada suyo, decir "no hay nada" era falso:
+   * casi siempre está hecho y solo falta traérselo.
+   */
+  const [biblioObj, setBiblioObj] = useState<{sesiones:any[], sistemas:any[]}|null>(null)
+  const [ejerciciosLib, setEjerciciosLib] = useState<any[]>([])
+  // El objetivo cuya ficha de biblioteca se esta editando desde aqui, para ponerle
+  // con que se mide sin salir del paciente.
+  const [editandoObjetivo, setEditandoObjetivo] = useState<any>(null)
+
+  /**
+   * Ver la sesión de una cita sin salir de la ficha.
+   *
+   * Se abre el mismo editor de siempre —dos pantallas para mirar una sesión acabarían
+   * enseñando cosas distintas—, y sus ejercicios se piden solo cuando hace falta: son
+   * cientos y no se usan al abrir la ficha.
+   */
+  /** Se pide una sola vez, y solo cuando se abre un panel: no hace falta para la ficha. */
+  async function cargarBiblioObj() {
+    if (biblioObj != null) return
+    const [ses, sis] = await Promise.all([
+      // Enteras: para traérsela hay que copiarla, no solo nombrarla.
+      supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id)')
+        .is('paciente_id', null).order('nombre'),
+      supabase.from('sistemas')
+        .select('id,nombre,sistema_fases(sistema_fase_sesiones(sesiones(sesiones_objetivos(objetivo_id))))')
+        .is('paciente_id', null).order('nombre'),
+    ])
+    setBiblioObj({
+      sesiones: (ses.data||[]).map((x:any)=>({
+        ...x, objetivos:(x.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id),
+      })),
+      sistemas: (sis.data||[]).map((x:any)=>{
+        const ids:string[] = []
+        ;(x.sistema_fases||[]).forEach((f:any)=>(f.sistema_fase_sesiones||[]).forEach((y:any)=>{
+          const se = Array.isArray(y.sesiones) ? y.sesiones[0] : y.sesiones
+          ;(se?.sesiones_objetivos||[]).forEach((r:any)=>{ if (ids.includes(r.objetivo_id)===false) ids.push(r.objetivo_id) })
+        }))
+        return { id:x.id, nombre:x.nombre, objetivos:ids }
+      }),
+    })
+  }
+
+  async function verLaSesion(sesionId: string) {
+    const ses = (sesionesPac||[]).find((x:any)=>x.id===sesionId)
+    if (ses == null) return
+    if (ejerciciosLib.length === 0) {
+      const { data } = await supabase.from('ejercicios').select('*').order('nombre')
+      setEjerciciosLib(data||[])
+    }
+    setVerSesion(ses)
+  }
+
+  /**
+   * Sin NADA con lo que comprobarlo. No se puede cerrar nunca.
+   *
+   * Son dos relaciones y valen las dos: los tests que lo EVALÚAN —`objetivos_tests`,
+   * lo que se engancha desde la biblioteca— y los que ya lo ABRIERON, porque ese
+   * mismo test es el que lo cierra al volver a pasarlo. Mirando solo la primera, un
+   * objetivo abierto por el ítem de un test salía como que no había forma de medirlo
+   * teniendo su test delante.
+   */
+  const sinMedida = (o:any) => {
+    if (o.logrado) return false
+    const e = evalua[o.id]
+    if (((e?.tests || 0) + (e?.cuestionarios || 0)) > 0) return false
+    return (Array.isArray(o.vias) ? o.vias : [])
+      .some((v:any)=>v?.tipo === 'test' || v?.tipo === 'test_item') === false
+  }
+  // La frase de la valoracion que se esta convirtiendo en objetivo, si viene de ahi.
+  const [pideTexto, setPideTexto] = useState<string|null>(null)
+  // Con que se comprueba cada objetivo. Sin nada, no se puede cerrar nunca.
+  const [evalua, setEvalua] = useState<Record<string, any>>({})
   /**
    * Las sesiones de este paciente con los objetivos que trabajan.
    *
@@ -121,7 +212,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    * vía de relleno haría que `estaLogrado` lo diera por cumplido en cuanto alguien la
    * marcara, sin haber medido nada.
    */
-  async function anadirObjetivos(lista:any[], movs:Record<string,string[]> = espSel) {
+  async function anadirObjetivos(lista:any[], movs:Record<string,string[]> = espSel, via: ViaOrigen = 'plan', texto: string|null = null) {
     if (lista.length===0) return
     setGuardandoVia('anadir')
     const { error } = await supabase.from('pacientes_objetivos').insert(
@@ -136,7 +227,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           resuelto: false,
         }))
         // Y con el retrato del objetivo congelado: ver `retratoDe`.
-        return { paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias, ...retratoDe(o) }
+        // Puesto a mano desde la ficha: lo ponemos nosotros. Si ademas lo pide el
+        // paciente se marca en su moneda, que las vias se acumulan.
+        return { paciente_id: pac.id, objetivo_id: o.id, origen: 'manual', vias,
+          vias_origen: [via], pide_texto: texto, ...retratoDe(o) }
       }))
     if (error) { setGuardandoVia(null); alert(error.message); return }
     // Ya no se le copia ninguna parte: un objetivo añadido a mano nace sin nada y se cierra
@@ -189,7 +283,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // biblioteca: ver `retratoDe`. De la biblioteca solo se trae lo que no cambia el pasado
     // —la zona y la foto— y si esta archivado, que es lo unico que hay que decir de ella.
     supabase.from('pacientes_objetivos')
-      .select('objetivo_id, origen, vias, logrado, fecha_logrado, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
+      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
       .eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({
         ...r.objetivos,
@@ -198,26 +292,35 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         movimientos: Array.isArray(r.movimientos) ? r.movimientos : (r.objetivos?.movimientos || []),
         archivado: r.objetivos?.archivado_el != null,
         origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado,
+        vias_origen:r.vias_origen||[], pide_texto:r.pide_texto||null,
       })).filter((o:any)=>o.id))
     })
     supabase.from('resultados_tests').select('test_id,lado,fecha,items_resultado').eq('paciente_id', pac.id)
       .then(({data}) => setResultadosTests(data||[]))
     // `tipo_lado` hace falta para saber si un test va por lados o entero: es lo que decide
     // qué columnas ofrece el formulario de meta.
-    supabase.from('tests').select('id,nombre,items,etiquetas_relacionadas,tipo_lado').order('nombre').then(({data}) => setTestsLib(data||[]))
-    supabase.from('etiquetas').select('id,nombre').then(({data}) => setEtiquetasLib(data||[]))
+    supabase.from('tests').select('*').order('nombre').then(({data}) => setTestsLib(data||[]))
+    // Enteras: el modal del objetivo necesita la categoria para la zona y la patologia.
+    supabase.from('etiquetas').select('*').then(({data}) => setEtiquetasLib(data||[]))
     // `imagen_url`: el catálogo se pinta con monedas en el modal de añadir, igual que la ficha.
-    supabase.from('sesiones').select('id,nombre,sesiones_objetivos(objetivo_id)').eq('paciente_id', pac.id)
+    supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id)').eq('paciente_id', pac.id)
       .then(({data}) => setSesionesPac(data||[]))
     // Todas sus citas que cuentan como clase, pasadas y futuras. Las canceladas no: una
     // clase que no se dio ni se va a dar no trabaja nada.
-    supabase.from('citas').select('id,fecha,estado,sesion_id').eq('paciente_id', pac.id)
+    supabase.from('citas').select('id,fecha,hora,sala,estado,sesion_id').eq('paciente_id', pac.id)
       .in('estado', ['programada','realizada']).order('fecha')
       .then(({data}) => setCitasPac(data||[]))
     supabase.from('objetivos').select('id,nombre,descripcion,movimientos,articulacion_id,etiquetas,imagen_url')
       .eq('activo', true).is('archivado_el', null).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))
+    conteoPorObjetivo().then(setEvalua)
+    sistemasDePaciente(pac.id).then((asigs:any[])=>{
+      const ids: string[] = []
+      asigs.forEach((a:any)=>(a.sistema?.fases||[]).forEach((f:any)=>
+        (f.objetivos||[]).forEach((oid:string)=>{ if (ids.includes(oid)===false) ids.push(oid) })))
+      setObjsDeSistema(ids)
+    })
   }
 
   useEffect(() => {
@@ -325,17 +428,55 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const citasSinSesion = (citasPac||[]).filter((c:any)=>!c.sesion_id).length
 
   /** El aro de la moneda: gris si está logrado, si no el color del objetivo. */
-  const monedaDe = (o:any, grande=false) => (
-    <span className={`obj-moneda${grande?' g':''}`} style={{
-      background: o.imagen_url ? 'var(--bl)' : 'var(--gl)',
-      borderColor: o.logrado ? 'var(--gm)' : 'var(--g)',
-      opacity: o.logrado ? .55 : 1,
-    }}>
-      {o.imagen_url
-        ? <img src={o.imagen_url} alt=""/>
-        : <b style={{color:'var(--g)'}}>{(o.nombre||'?').trim().charAt(0).toUpperCase()}</b>}
-    </span>
-  )
+  /**
+   * LA MONEDA DICE DOS COSAS A LA VEZ.
+   *
+   *   - EL COLOR es la via por la que entro: morado lo que pide, verde lo que dice un
+   *     test, ambar lo que ponemos nosotros. Con varias manda la primera, y las demas
+   *     se leen en las chapas de debajo.
+   *   - LLENA O VACIA es si esta en la planificacion. Hueca —fondo blanco— significa
+   *     que ninguna de sus clases lo trabaja: esta escrito pero no se esta haciendo, y
+   *     eso es lo que hay que ver de un vistazo al abrir la ficha.
+   */
+  const monedaDe = (o:any, grande=false) => {
+    const v = VIAS.find(x => viasDe(o).includes(x.valor)) || VIAS[2]
+    // Está en la programación si alguna clase POR DELANTE lo trabaja —lo que ya pasó
+    // no es plan— o si lo persigue el ciclo que lleva puesto.
+    const enPlan = (clasesPorObjetivo[o.id]?.porDelante || 0) > 0 || objsDeSistema.includes(o.id)
+
+    /* PROGRAMADO = ESFERA DE VERDAD.
+       Un disco plano de color no se distinguía de la moneda de siempre. Con el
+       degradado radial, el brillo arriba a la izquierda y la sombra propia abajo,
+       la esfera se lee como un volumen y el aro vacío se lee como un hueco: la
+       diferencia se ve desde el otro lado de la fila, que es de lo que se trata. */
+    const esfera = {
+      background: `radial-gradient(circle at 33% 28%, #fff 0%, ${v.claro} 20%, ${v.color} 58%, ${v.oscuro} 100%)`,
+      // Sin borde: una esfera no tiene contorno, tiene volumen. El degradado y la
+      // sombra ya la separan del fondo.
+      borderWidth: 0,
+      boxShadow: `inset -3px -5px 9px ${v.oscuro}55, 0 3px 7px rgba(38,40,37,.28)`,
+    }
+    const hueco = {
+      background: 'var(--w)',
+      borderColor: v.color,
+      borderWidth: grande ? 1.5 : 1,
+      boxShadow: 'none',
+    }
+    return (
+      <span className={`obj-moneda${grande?' g':''}`} style={{
+        ...(enPlan ? esfera : hueco),
+        ...(o.imagen_url ? { background: 'var(--bl)' } : {}),
+        opacity: o.logrado ? .55 : 1,
+      }}>
+        {o.imagen_url
+          ? <img src={o.imagen_url} alt=""/>
+          : <b style={{ color: enPlan ? '#fff' : v.color,
+              textShadow: enPlan ? `0 1px 2px ${v.oscuro}` : 'none' }}>
+              {(o.nombre||'?').trim().charAt(0).toUpperCase()}
+            </b>}
+      </span>
+    )
+  }
 
   /**
    * La moneda de la rejilla. Las vías viven dentro y se abren
@@ -348,14 +489,46 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     return (
       <button key={o.id} type="button" className={`obj-mon-b${abierto?' on':''}`}
         title={esp.length ? `${o.nombre} · ${esp.join(' · ')}` : o.nombre}
-        onClick={()=>setObjAbierto(abierto ? null : o.id)}>
-        {monedaDe(o, true)}
+        onClick={()=>{ setObjAbierto(abierto ? null : o.id); if (abierto === false) cargarBiblioObj() }}>
+        {/* LA CHAPA DE "NO SE PUEDE MEDIR" va encima de la moneda, que es lo que se
+            mira. Al pulsarla se abre la ficha del objetivo con su apartado de con qué
+            se comprueba, y desde ahí se le engancha un test —o se crea el que falte—
+            sin salir del paciente. */}
+        <span style={{position:'relative',display:'inline-flex'}}>
+          {monedaDe(o, true)}
+          {sinMedida(o) && (
+            <span role="button" tabIndex={-1}
+              title="Sin forma de medirlo: engánchale un test"
+              onClick={(e:any)=>{ e.stopPropagation(); setEditandoObjetivo(catalogo.find((x:any)=>x.id===o.id) || o) }}
+              style={{position:'absolute',right:-3,bottom:-1,width:22,height:22,borderRadius:'50%',
+                background:'var(--amb)',color:'#fff',border:'2px solid var(--w)',cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                boxShadow:'0 1px 4px rgba(38,40,37,.25)'}}>
+              <Ic name="alerta" size={11}/>
+            </span>
+          )}
+        </span>
         {/* El general se escribe SIEMPRE. Mientras los objetivos no tengan foto la moneda
             es una letra, así que sin este renglón no hay forma de saber de qué zona es. */}
         <span className="obj-mon-g">{o.nombre}</span>
         {/* Uno por línea. Juntos con puntos se leían como una frase larga y no como lo que
             son: objetivos distintos, cada uno con su propio recorrido. */}
         {esp.map((e:string) => <span key={e} className="obj-mon-n">{e}</span>)}
+        {/* DE DONDE SALE, en la propia moneda: en una fila compartida hay que poder
+            leerlo sin abrir nada. Ver `viasObjetivo`. */}
+        {viasDe(o).length > 0 && (
+          <span style={{display:'flex',gap:3,flexWrap:'wrap',justifyContent:'center',marginTop:1}}>
+            {viasDe(o).map((v:any)=>{
+              const d = VIAS.find(x=>x.valor===v)!
+              return (
+                <span key={v} style={{fontSize:9,padding:'1px 6px',borderRadius:99,
+                  background:d.fondo,color:d.color,border:`1px solid ${d.color}`,opacity:o.logrado?.55:1}}>
+                  {d.corto}
+                </span>
+              )
+            })}
+          </span>
+        )}
         {/*
           EN CUÁNTAS CLASES SE TRABAJA. El aviso va en el CERO, no en los que sí se
           trabajan: con ocho objetivos, colorear los buenos obliga a buscar el que no
@@ -406,18 +579,65 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       grupos[titulo].items.push({ v: { ...v, _item: item }, vi })
     })
 
-    const pastilla = (x:{v:any,vi:number}) => (
-      <button key={x.vi} type="button" disabled={guardandoVia===o.id}
-        onClick={()=>toggleVia(o,x.vi)}
-        title={x.v.resuelto
-          ? `Resuelto${x.v.fecha_resuelto?' el '+fmtLargo(x.v.fecha_resuelto):''} · pulsa para reabrir`
-          : 'Pendiente · pulsa para darla por resuelta'}
-        className={`pill pill-o pill-b ${x.v.resuelto?'on':''}`}
-        style={{textDecoration:x.v.resuelto?'line-through':'none'}}>
-        <Ic name={x.v.resuelto ? 'check' : 'buscar'} size={10} style={{verticalAlign:'-1px',marginRight:3}}/>
-        {x.v._item || x.v.etiqueta || x.v.tipo}
-      </button>
-    )
+    /**
+     * CADA VÍA, UNA FICHA CON LA FOTO DEL TEST.
+     *
+     * Eran píldoras de texto y con tres o cuatro no se distinguía una de otra: un test
+     * se reconoce por la foto de la posición antes que por su nombre, igual que en la
+     * biblioteca y en la evaluación. Debajo, el ítem concreto que falta.
+     */
+    const pastilla = (x:{v:any,vi:number}) => {
+      /* SI VIENE DE UN TEST, SE PASA EL TEST.
+         Pulsarla la daba por resuelta al instante y el objetivo desaparecía de la
+         lista: un clic de más y no había forma de ver qué acababas de cerrar. Lo que
+         cierra un objetivo medido es volver a medirlo, así que esto abre el test en
+         el lado que abrió la vía. Las que no vienen de un test —ejecución, manual—
+         sí se marcan a mano, porque no hay nada que volver a pasar. */
+      const testId = (x.v.tipo === 'test' || x.v.tipo === 'test_item') && typeof x.v.ref === 'string'
+        ? String(x.v.ref).split(':')[0].split('|')[0] : ''
+      const puedeAbrir = testId !== '' && typeof abrirTest === 'function'
+      const t = (testsLib||[]).find((y:any)=>y.id===testId)
+      const hecho = !!x.v.resuelto
+      return (
+        <button key={x.vi} type="button" disabled={guardandoVia===o.id}
+          onClick={()=>{ if (puedeAbrir) abrirTest(testId, x.v.lado || 'bilateral'); else toggleVia(o,x.vi) }}
+          title={puedeAbrir
+            ? (hecho
+                ? `Resuelto${x.v.fecha_resuelto?' el '+fmtLargo(x.v.fecha_resuelto):''} · pulsa para volver a pasar el test`
+                : 'Pendiente · pulsa para pasar el test')
+            : (hecho
+                ? `Resuelto${x.v.fecha_resuelto?' el '+fmtLargo(x.v.fecha_resuelto):''} · pulsa para reabrir`
+                : 'Pendiente · pulsa para darla por resuelta')}
+          style={{display:'flex',gap:8,alignItems:'center',textAlign:'left',cursor:'pointer',
+            fontFamily:'inherit',padding:'5px 11px 5px 5px',borderRadius:9,
+            background: hecho ? 'var(--gl)' : 'var(--w)',
+            border:`1px solid ${hecho ? 'var(--gm)' : 'var(--bd)'}`,
+            opacity: hecho ? .7 : 1}}>
+          {t?.imagen_url
+            ? <img src={t.imagen_url} alt="" style={{width:46,height:38,objectFit:'cover',borderRadius:6,
+                background:'var(--bm)',flexShrink:0,display:'block'}}/>
+            : <span style={{width:46,height:38,borderRadius:6,background:'var(--bm)',color:'var(--grl)',
+                flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Ic name={x.v.tipo==='ejecucion'?'fuerza':'test'} size={16}/>
+              </span>}
+          <span style={{minWidth:0}}>
+            <span style={{display:'block',fontSize:12,color:'var(--n)',lineHeight:1.3,
+              textDecoration: hecho ? 'line-through' : 'none'}}>
+              {t?.nombre || String(x.v.etiqueta || x.v.tipo || '').split(' · ')[0]}
+            </span>
+            {/* El ítem concreto que falta: es lo único que se mira de ese test. */}
+            {x.v._item && (
+              <span style={{display:'block',fontSize:11,color: hecho ? 'var(--grl)' : 'var(--gd)',lineHeight:1.3}}>
+                {x.v._item}
+              </span>
+            )}
+            {x.v.lado && x.v.lado !== 'bilateral' && (
+              <span style={{display:'block',fontSize:10,color:'var(--grl)',lineHeight:1.3}}>{x.v.lado}</span>
+            )}
+          </span>
+        </button>
+      )
+    }
 
     return (
       <div style={{marginTop:7,display:'grid',gap:5}}>
@@ -426,8 +646,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           const cerrados = g.items.filter(x=>x.v.resuelto)
           return (
             <div key={g.titulo}>
-              <div style={{fontSize:11,color:'var(--grl)',marginBottom:3}}>{g.titulo}</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+              <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
                 {activos.map(pastilla)}
                 {activos.length===0 && cerrados.length>0 && (
                   <span style={{fontSize:12,color:'var(--gd)'}}>Nada pendiente aquí</span>
@@ -438,7 +657,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                   <summary className="det-sum" style={{fontSize:11}}>
                     Ya resueltos · {cerrados.length}
                   </summary>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:4}}>{cerrados.map(pastilla)}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:7,marginTop:4}}>{cerrados.map(pastilla)}</div>
                 </details>
               )}
             </div>
@@ -448,11 +667,83 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     )
   }
 
+  /**
+   * TODO LO DEL OBJETIVO, EN UN PANEL.
+   *
+   * Estaba desplegado debajo de la rejilla y empujaba la ficha entera hacia abajo: al
+   * abrir uno se perdía de vista la fila desde la que se había pulsado. Y lo que hay
+   * que saber de un objetivo —con qué se mide, de dónde salió, qué sesiones lo
+   * trabajan y en qué clases se trabajó— no cabe en una tira.
+   */
   const pintarObjetivo = (o:any) => {
     const vias = Array.isArray(o.vias)?o.vias:[]
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
+    const suyas = viasDe(o)
     return (
-      <div key={o.id} className="obj-t" style={{borderLeftColor:o.logrado?'var(--gm)':'var(--g)'}}>
+      <div key={o.id} className="modal-bg" onClick={e=>{ if (e.target===e.currentTarget) setObjAbierto(null) }}>
+      <div className="modal" style={{width:'min(720px, 94vw)', maxHeight:'88vh', overflowY:'auto'}}>
+        <div className="modal-title" style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{flexShrink:0}}>{monedaDe(o)}</span>
+          <span style={{flex:1,minWidth:0}}>
+            {o.nombre}
+            {especificosDe(o).length>0 && (
+              <div style={{fontSize:12,color:'var(--gr)',fontWeight:400,marginTop:2}}>
+                {especificosDe(o).join(' · ')}
+              </div>
+            )}
+          </span>
+          <button className="modal-close" onClick={()=>setObjAbierto(null)}><Ic name="cerrar" size={15}/></button>
+        </div>
+        {/* DE DONDE SALE. Tres vias y puede tener varias: que el paciente lo pida y
+            que ademas un test lo mida corto es mas fuerte que cualquiera de las dos
+            por separado, asi que se acumulan en vez de pisarse. Ver `viasObjetivo`. */}
+        <div className="et-mini" style={{marginBottom:4}}>¿De dónde sale?</div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
+          {VIAS.map(v=>{
+            const on = suyas.includes(v.valor)
+            // La del test no se pone a mano: la pone el test al dar positivo.
+            const fijo = v.valor === 'test'
+            if (fijo && !on) return null
+            return (
+              <button key={v.valor} type="button" title={fijo ? v.ayuda : (on ? 'Quitar · ' + v.ayuda : 'Marcar · ' + v.ayuda)}
+                disabled={fijo}
+                onClick={async ()=>{
+                  const r:any = on
+                    ? await quitarVia(pac.id, o.id, v.valor)
+                    : await marcarVia(pac.id, o.id, v.valor)
+                  if (r.ok === false) { alert(r.error); return }
+                  cargarObjetivos()
+                }}
+                style={{fontSize:10,padding:'2px 9px',borderRadius:99,cursor:fijo?'default':'pointer',
+                  fontFamily:'inherit',
+                  background:on?v.fondo:'transparent', color:on?v.color:'var(--grl)',
+                  border:`1px solid ${on?v.color:'var(--bd)'}`}}>
+                {v.nombre}
+              </button>
+            )
+          })}
+          {o.pide_texto && (
+            <span style={{fontSize:10.5,color:'var(--gr)',fontStyle:'italic'}}>«{o.pide_texto}»</span>
+          )}
+        </div>
+        {/* SIN FORMA DE MEDIRLO no se cierra nunca, ni entra en ninguna evaluacion.
+            Se dice aqui, con el paciente delante, y no solo en la biblioteca. */}
+        {(() => {
+          // La MISMA regla que la chapa de la moneda: cuenta lo enganchado desde la
+          // biblioteca y también el test que ya lo abrió, porque ese lo cierra.
+          if (sinMedida(o) === false) return null
+          return (
+            <div style={{fontSize:11,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',
+              borderRadius:6,padding:'6px 9px',marginBottom:7,lineHeight:1.5}}>
+              <Ic name="alerta" size={11}/> Sin forma de medirlo: no entra en ninguna
+              evaluación y no puede cerrar una fase.
+              <button className="btn btn-s btn-sm" style={{marginLeft:8}}
+                onClick={()=>setEditandoObjetivo(catalogo.find((x:any)=>x.id===o.id) || o)}>
+                Engancharle un test
+              </button>
+            </div>
+          )
+        })()}
         {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la
             moneda que se acaba de pulsar para llegar aquí: repetirlos empujaba hacia abajo
             lo único que se viene a ver. Solo queda el contador, que sí
@@ -499,35 +790,142 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             había forma de ver ni de resolver desde aquí. */}
         {vias.length>0 && pintarOrigen(o, vias)}
 
-        {/* CON QUÉ SE TRABAJA. Justo debajo de de dónde sale: arriba el test y el ítem que
-            lo abrió, aquí las sesiones que lo persiguen. Y cuando no hay ninguna se dice,
-            porque un objetivo abierto sin sesión detrás es un aviso sin salida — la ficha
-            dice qué hay que mejorar y no propone con qué. */}
-        {!o.logrado && (() => {
-          const suyas = (sesionesPac||[]).filter((s:any)=>
-            (s.sesiones_objetivos||[]).some((r:any)=>r.objetivo_id===o.id))
+        {/* SUS CLASES, CON LA SESIÓN ENGANCHADA.
+            Estaban en dos listas —las sesiones por un lado, las fechas por otro— y
+            había que cruzarlas de cabeza. Lo que se quiere saber es cuándo se trabaja
+            esto y con qué, así que va junto: la cita y su sesión en la misma línea. Lo
+            ya dado, tachado. Al pulsar se abre la sesión. */}
+        {(() => {
+          const suyas = soloVigentes(sesionesPac||[]).filter((x:any)=>
+            (x.sesiones_objetivos||[]).some((r:any)=>r.objetivo_id===o.id))
+          const idsSes = (sesionesPac||[])
+            .filter((x:any)=>(x.sesiones_objetivos||[]).some((r:any)=>r.objetivo_id===o.id))
+            .map((x:any)=>x.id)
+          const hoy = hoyISO()
+          const citas = (citasPac||[])
+            .filter((c:any)=>c.sesion_id && idsSes.includes(c.sesion_id))
+            .sort((a:any,b:any)=>String(a.fecha).localeCompare(String(b.fecha)))
+          const nombreSes = (id:string) => (sesionesPac||[]).find((x:any)=>x.id===id)?.nombre || 'Sesión'
+
           return (
-            <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bl)'}}>
+            <div style={{marginTop:10,paddingTop:9,borderTop:'1px solid var(--bl)'}}>
               <div className="et-mini" style={{marginBottom:5}}>
-                Se trabaja en{suyas.length>0?` ${suyas.length} sesi${suyas.length===1?'ón':'ones'}`:''}
+                {citas.length===0 ? 'Clases' : `${citas.length} clase${citas.length===1?'':'s'} lo trabajan`}
               </div>
-              {suyas.length===0 ? (
-                <div style={{fontSize:12,color:'#8A6410'}}>
-                  <Ic name="alerta" size={11}/> Ninguna sesión suya lo trabaja todavía. Se
-                  añaden desde Entreno &rarr; Sesiones, con el botón «Objetivos».
-                </div>
-              ) : (
-                <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                  {suyas.map((s:any)=>(
-                    <span key={s.id} className="badge badge-g" style={{display:'inline-flex',alignItems:'center',gap:4}}>
-                      <Ic name="fuerza" size={10}/> {s.nombre}
+
+              {suyas.length===0 ? (() => {
+                /* NADA SUYO, PERO EN LA BIBLIOTECA SÍ HAY.
+                   No se traen desde aquí: se va a la biblioteca con este objetivo ya
+                   filtrado y se eligen viéndolas como se ven allí, con su foto y sus
+                   ejercicios. Traerlas a ciegas desde un panel era decidir sin mirar. */
+                const sesB = (biblioObj?.sesiones||[]).filter((x:any)=>x.objetivos.includes(o.id))
+                const sisB = (biblioObj?.sistemas||[]).filter((x:any)=>x.objetivos.includes(o.id))
+                const n = sesB.length + sisB.length
+                return (
+                  <div style={{display:'flex',alignItems:'center',gap:9,flexWrap:'wrap',
+                    background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:7,
+                    padding:'8px 11px',fontSize:12,color:'#7A5800'}}>
+                    <span style={{flex:1,minWidth:200}}>
+                      Ninguna sesión suya lo trabaja todavía.
+                      {n>0 && ' En la biblioteca hay:'}
                     </span>
-                  ))}
+                    {sesB.length>0 && (
+                      <button className="btn btn-s btn-sm" style={{whiteSpace:'nowrap'}}
+                        onClick={()=>router.push(`/entrenamiento?tab=sesiones&objetivo=${o.id}`)}>
+                        {sesB.length} {sesB.length===1?'sesión':'sesiones'}
+                      </button>
+                    )}
+                    {sisB.length>0 && (
+                      <button className="btn btn-s btn-sm" style={{whiteSpace:'nowrap'}}
+                        onClick={()=>router.push(`/entrenamiento?tab=sistemas&objetivo=${o.id}`)}>
+                        {sisB.length} {sisB.length===1?'ciclo':'ciclos'}
+                      </button>
+                    )}
+                    {n===0 && (
+                      <button className="btn btn-s btn-sm" style={{whiteSpace:'nowrap'}}
+                        onClick={()=>router.push(`/entrenamiento?tab=sesiones&objetivo=${o.id}`)}>
+                        Ir a la biblioteca
+                      </button>
+                    )}
+                  </div>
+                )
+              })() : citas.length===0 ? (
+                /* HAY SESIONES PERO NINGUNA CITA LAS LLEVA.
+                   Decirlo en una frase dejaba el trabajo a medias: lo que hace falta es
+                   ver cuáles son y poder ponerlas. Es el caso más común mientras se monta
+                   el plan, así que se trata como un estado, no como un error. */
+                <>
+                  <div style={{display:'flex',alignItems:'center',gap:9,flexWrap:'wrap',
+                    background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:7,
+                    padding:'8px 11px',fontSize:12,color:'#7A5800',marginBottom:9}}>
+                    <span style={{flex:1,minWidth:220}}>
+                      {(() => {
+                        const n = new Set(suyas.map((x:any)=>x.nombre)).size
+                        return n===1 ? 'Lo trabaja 1 sesión suya' : `Lo trabajan ${n} sesiones suyas`
+                      })()}, pero ninguna está puesta en una cita.
+                    </span>
+                    <button className="btn btn-s btn-sm" style={{whiteSpace:'nowrap'}}
+                      onClick={()=>{ setObjAbierto(null); irA?.('entreno') }}>
+                      Ponerlas en sus citas
+                    </button>
+                  </div>
+                  {/* Por NOMBRE: seis copias suyas de la misma sesión son una línea, no
+                      seis idénticas que no dicen nada nueva. */}
+                  <div style={{display:'grid',gap:4}}>
+                    {Array.from(new Set(suyas.map((x:any)=>x.nombre))).map((nom:any)=>{
+                      const cuantas = suyas.filter((x:any)=>x.nombre===nom)
+                      return (
+                        <button key={nom} type="button" title="Ver la sesión"
+                          onClick={()=>verLaSesion(cuantas[0].id)}
+                          style={{display:'flex',alignItems:'center',gap:8,width:'100%',textAlign:'left',
+                            fontFamily:'inherit',cursor:'pointer',padding:'7px 11px',borderRadius:7,
+                            border:'1px solid var(--bd)',background:'var(--w)'}}>
+                          <span style={{color:'var(--gd)',flexShrink:0,display:'inline-flex'}}><Ic name="valoracion" size={12}/></span>
+                          <span style={{flex:1,minWidth:0,fontSize:12.5}}>
+                            {nom}
+                            {cuantas.length>1 && <span style={{color:'var(--grl)'}}> · {cuantas.length} copias</span>}
+                          </span>
+                          <span style={{fontSize:10.5,color:'var(--grl)',flexShrink:0}}>sin citas</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div style={{display:'grid',gap:3}}>
+                  {/* La cita arriba y su sesión debajo, como en la planificación: es la
+                      misma información y leerla de dos formas distintas cuesta. */}
+                  {citas.map((c:any)=>{
+                    const dada = c.fecha < hoy
+                    const tachado: any = dada ? { textDecoration:'line-through' } : {}
+                    return (
+                      <button key={c.id} type="button"
+                        title={dada ? 'Ya dada · pulsa para ver la sesión' : 'Por delante · pulsa para ver la sesión'}
+                        onClick={()=>verLaSesion(c.sesion_id)}
+                        style={{display:'block',width:'100%',textAlign:'left',fontFamily:'inherit',
+                          cursor:'pointer',padding:'6px 10px',borderRadius:7,
+                          borderLeft:`3px solid ${dada?'var(--bd)':'var(--g)'}`,
+                          borderTop:'1px solid var(--bd)',borderRight:'1px solid var(--bd)',
+                          borderBottom:'1px solid var(--bd)',
+                          background:dada?'var(--bl)':'var(--w)'}}>
+                        <span style={{display:'block',fontSize:13,color:dada?'var(--grl)':'var(--n)',...tachado}}>
+                          {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}
+                          {c.hora ? ` · ${String(c.hora).slice(0,5)}` : ''}
+                          {c.sala ? ` · Sala ${c.sala}` : ''}
+                        </span>
+                        <span style={{display:'flex',alignItems:'center',gap:4,marginTop:1,
+                          fontSize:12,color:dada?'var(--grl)':'var(--gd)',...tachado}}>
+                          <Ic name="valoracion" size={12}/> {nombreSes(c.sesion_id)}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
           )
         })()}
+      </div>
       </div>
     )
   }
@@ -587,78 +985,130 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       ) : null}
 
-      {/* 3. OBJETIVOS — el bloque principal, a ancho completo */}
-      {hayObjetivos && (
+      {/* 3. OBJETIVOS — el bloque principal, a ancho completo.
+
+          UNA SOLA FILA, y no dos columnas.
+
+          Estaban partidos en "lo que pide" y "lo que prescribimos", y eso los trataba
+          como dos cosas. No lo son: es la misma lista, lo único distinto es POR QUÉ VÍA
+          entró cada uno —lo pide él, lo dice un test, lo ponemos nosotros—, y un mismo
+          objetivo puede tener varias. Partirlos obligaba a mirar dos sitios para saber
+          adónde va este paciente, y no dejaba ver que lo que pide y lo que necesita a
+          veces es exactamente lo mismo.
+
+          Dentro van ordenados por vía, que es el orden en que se explican. */}
+      {hayObjetivos && (() => {
+        const ordenVia = (o:any) => {
+          const vs = viasDe(o)
+          const i = VIAS.findIndex(v => vs.includes(v.valor))
+          return i < 0 ? VIAS.length : i
+        }
+        const porVia = (lista:any[]) => [...lista].sort((a:any,b:any)=>
+          ordenVia(a)-ordenVia(b) || String(a.nombre||'').localeCompare(String(b.nombre||'')))
+
+        const visibles = porVia(filtroVia
+          ? objetivosActivos.filter((o:any)=>viasDe(o).includes(filtroVia as ViaOrigen))
+          : objetivosActivos)
+        // Lo que escribió en la valoración y todavía no es un objetivo de verdad.
+        const pendientesPide = (filtroVia === '' || filtroVia === 'pide')
+          ? objPide.filter((t:string)=>objetivosTrabajo.some((x:any)=>x.pide_texto===t) === false)
+          : []
+
+        return (
         <div className="sec">
           <div className="sec-h">
             <span className="ct-l"><Ic name="objetivo" size={13}/> Objetivos</span>
+            <span className="sh-r" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+              {VIAS.map(v=>{
+                const n = objetivosActivos.filter((o:any)=>viasDe(o).includes(v.valor)).length
+                  + (v.valor==='pide' ? objPide.filter((t:string)=>objetivosTrabajo.some((x:any)=>x.pide_texto===t)===false).length : 0)
+                return (
+                  <button key={v.valor} type="button" title={v.ayuda}
+                    onClick={()=>setFiltroVia(f=>f===v.valor?'':v.valor)}
+                    style={{fontSize:10,padding:'2px 9px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                      opacity:n===0?.45:1,
+                      background:filtroVia===v.valor?v.fondo:'transparent',
+                      color:filtroVia===v.valor?v.color:'var(--gr)',
+                      border:`1px solid ${filtroVia===v.valor?v.color:'var(--bd)'}`}}>
+                    {v.nombre} · {n}
+                  </button>
+                )
+              })}
+              <button className="btn btn-t btn-sm"
+                onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setPideTexto(null);setViaAnadir('plan');setModalAnadir(true)}}>
+                <Ic name="mas" size={12}/> Añadir
+              </button>
+            </span>
           </div>
-          <div className="g2">
-            <div>
-              <div className="sec-sub">
-                Lo que pide
-                {valoracion?.fecha && <> · {tipoVal.toLowerCase()} del {fmtLargo(valoracion.fecha)}, {haceCuanto(valoracion.fecha)}</>}
-              </div>
-              {objPide.length===0 && !valoracion?.deseo && <div className="muted">Sin objetivos recogidos</div>}
-              {/*
-                LO QUE PIDE EL PACIENTE, en monedas moradas.
-                
-                Mismo formato que los objetivos clínicos porque en la cabeza son lo mismo
-                —adónde quiere llegar— pero en morado y sin número de clases: estos no los
-                decide la clínica ni los mide ningún test, son sus palabras. Confundirlos
-                sería empezar a tratar un deseo como si fuera un hallazgo.
-              */}
-              {objPide.length > 0 && (
-                <div className="obj-rej" style={{gridTemplateColumns:'repeat(auto-fill,minmax(96px,1fr))'}}>
-                  {objPide.map((o:string,i:number)=>(
-                    <div key={i} className="obj-mon-b" style={{cursor:'default'}} title={o}>
-                      <span className="obj-moneda g pide">
-                        <b>{(o||'?').trim().charAt(0).toUpperCase()}</b>
-                      </span>
-                      <span className="obj-mon-n">{o}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {valoracion?.deseo && (
-                <div style={{marginTop:9,padding:'8px 10px',background:'var(--ambl)',fontSize:12,color:'#7A5800',display:'flex',gap:6,alignItems:'flex-start'}}>
-                  <span style={{display:'inline-flex',flexShrink:0,marginTop:1}}><Ic name="estrella" size={12}/></span>{valoracion.deseo}
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="sec-sub" style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{flex:1}}>Lo que prescribimos · de tests y ejercicios</span>
-                {/* Hasta ahora solo llegaban solos, cuando un test daba positivo. Los que se
-                    deciden mirando una medición casi nunca vienen de ahí. */}
-                <button className="btn btn-t btn-sm" onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setModalAnadir(true)}}>
-                  <Ic name="mas" size={12}/> Añadir
-                </button>
-              </div>
-              {objetivosTrabajo.length===0 && <div className="muted">Sin objetivos de trabajo</div>}
-              {objetivosActivos.length===0 && objetivosLogrados.length>0 && <div className="muted">Todos los objetivos logrados</div>}
-              {objetivosActivos.length>0 && (
-                <div className="obj-rej">{objetivosActivos.map(pintarMoneda)}</div>
-              )}
-              {/* El detalle va DEBAJO de la rejilla, no dentro de la moneda: así ocupa el
-                  ancho entero y no descoloca la cuadrícula al abrirse. */}
-              {objetivosActivos.filter((o:any)=>o.id===objAbierto).map(pintarObjetivo)}
 
-              {objetivosLogrados.length>0 && (
-                <details style={{marginTop:objetivosActivos.length>0?9:0}}>
-                  <summary className="det-sum">
-                    <Ic name="trofeo" size={12} style={{verticalAlign:'-2px',marginRight:5}}/>
-                    Logrados · {objetivosLogrados.length}
-                  </summary>
-                  <div style={{marginTop:6}}>
-                    <div className="obj-rej">{objetivosLogrados.map(pintarMoneda)}</div>
-                    {objetivosLogrados.filter((o:any)=>o.id===objAbierto).map(pintarObjetivo)}
-                  </div>
-                </details>
-              )}
+          {valoracion?.fecha && (
+            <div className="sec-sub" style={{marginBottom:6}}>
+              Lo que pide sale de la {tipoVal.toLowerCase()} del {fmtLargo(valoracion.fecha)}, {haceCuanto(valoracion.fecha)}
             </div>
-          </div>
+          )}
+
+          {objetivosTrabajo.length===0 && pendientesPide.length===0 && (
+            <div className="muted">Sin objetivos todavía</div>
+          )}
+          {objetivosTrabajo.length>0 && visibles.length===0 && pendientesPide.length===0 && (
+            <div className="muted">
+              {objetivosActivos.length===0 ? 'Todos los objetivos logrados' : 'Ninguno por esa vía'}
+            </div>
+          )}
+
+          {(visibles.length>0 || pendientesPide.length>0) && (
+            <div className="obj-rej">
+              {visibles.map(pintarMoneda)}
+              {/* Los deseos que aún no son objetivo, en la misma fila y al final: son lo
+                  que queda por convertir, no una categoría aparte. */}
+              {pendientesPide.map((t:string,i:number)=>(
+                <div key={'p'+i} className="obj-mon-b" title={t + ' · hazlo objetivo para poder medirlo'}
+                  onClick={()=>{ setPideTexto(t); setViaAnadir('pide'); setSelObj([]); setBuscarObj(''); setModalAnadir(true) }}>
+                  <span className="obj-moneda g pide"><b>{(t||'?').trim().charAt(0).toUpperCase()}</b></span>
+                  <span className="obj-mon-g">{t}</span>
+                  <span style={{fontSize:10,color:'#7B4E86'}}>+ hacerlo objetivo</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+
+          {objetivosLogrados.length>0 && (
+            <details style={{marginTop:9}}>
+              <summary className="det-sum">
+                <Ic name="trofeo" size={12} style={{verticalAlign:'-2px',marginRight:5}}/>
+                Logrados · {objetivosLogrados.length}
+              </summary>
+              <div style={{marginTop:6}}>
+                <div className="obj-rej">{porVia(objetivosLogrados).map(pintarMoneda)}</div>
+              </div>
+            </details>
+          )}
+
+          {valoracion?.deseo && (
+            <div style={{marginTop:9,padding:'8px 10px',background:'var(--ambl)',fontSize:12,color:'#7A5800',display:'flex',gap:6,alignItems:'flex-start'}}>
+              <span style={{display:'inline-flex',flexShrink:0,marginTop:1}}><Ic name="estrella" size={12}/></span>{valoracion.deseo}
+            </div>
+          )}
         </div>
+        )
+      })()}
+
+      {/* EL PANEL DEL OBJETIVO. Encima y no debajo de la rejilla: abriendo uno se
+          perdía de vista la fila desde la que se había pulsado. */}
+      {objetivosTrabajo.filter((o:any)=>o.id===objAbierto).map(pintarObjetivo)}
+
+      {verSesion && (
+        <ModalEditarSesion sesion={verSesion} ejercicios={ejerciciosLib} etiquetas={etiquetasLib}
+          onCerrar={()=>setVerSesion(null)} onGuardado={()=>{ setVerSesion(null); cargarObjetivos() }}/>
+      )}
+
+      {/* LA FICHA DEL OBJETIVO, desde el paciente. Es el mismo modal de la biblioteca:
+          dos formularios para lo mismo acabarían diciendo cosas distintas. */}
+      {editandoObjetivo && (
+        <ModalObjetivo objetivo={editandoObjetivo} tests={testsLib} etiquetas={etiquetasLib}
+          onCerrar={()=>setEditandoObjetivo(null)}
+          onGuardado={()=>{ conteoPorObjetivo().then(setEvalua); cargarObjetivos() }}/>
       )}
 
       {/* AÑADIR OBJETIVO · hasta ahora solo llegaban solos, desde un test o desde el taller */}
@@ -666,18 +1116,33 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         <SelectorObjetivos
           objetivos={catalogo}
           etiquetas={etiquetasLib}
-          titulo="Añadir objetivos"
+          titulo={pideTexto ? `«${pideTexto}» · elige el objetivo` : 'Añadir objetivos'}
           puestos={objetivosTrabajo.map((o:any)=>o.id)}
           marcaDe={(o:any)=>porPatologia[o.id] || null}
           onExistente={(o:any)=>{
             setModalAnadir(false); setSelObj([]); setBuscarObj('')
             setObjAbierto(o.id); setPedirMetaEn(o.id)
           }}
-          onCerrar={()=>{ setModalAnadir(false); setSelObj([]); setEspSel({}) }}
+          onCerrar={()=>{ setModalAnadir(false); setSelObj([]); setEspSel({}); setPideTexto(null) }}
           onElegir={(ids:string[], movs:Record<string,string[]>)=>{
             setEspSel(movs)
-            anadirObjetivos(catalogo.filter((o:any)=>ids.includes(o.id)), movs)
-          }}/>
+            anadirObjetivos(catalogo.filter((o:any)=>ids.includes(o.id)), movs, viaAnadir, pideTexto)
+          }}
+          /* DE DONDE SALE lo que estas anadiendo. Se pregunta aqui y no despues
+             porque en este momento lo sabes: o te lo ha pedido el, o lo pones tu. */
+          extra={
+            <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+              <span className="et-mini">De dónde sale</span>
+              {/* Si viene de una frase suya, la via no se elige: la pide el. */}
+              {pideTexto ? <span className="pill pill-o on">Lo pide</span>
+                : VIAS.filter(v=>v.valor!=='test').map(v=>(
+                <button key={v.valor} type="button" title={v.ayuda}
+                  className={`pill ${viaAnadir===v.valor?'pill-o on':'pill-soft'}`}
+                  style={{border:'none',cursor:'pointer'}}
+                  onClick={()=>setViaAnadir(v.valor)}>{v.nombre}</button>
+              ))}
+            </div>
+          }/>
       )}
 
       {/* 4. BONO Y TIPO DE CLASE — cada cosa en su columna */}

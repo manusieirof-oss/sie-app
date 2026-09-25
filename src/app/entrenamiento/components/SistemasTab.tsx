@@ -13,10 +13,30 @@ import ModalSistema from './ModalSistema'
 // y desde cuándo es cosa de la ficha del paciente, no de la biblioteca.
 // ---------------------------------------------------------------------------
 
-export default function SistemasTab({ objetivos = [], sesiones = [], ejercicios = [], etiquetas = [], testsLib = [], cargar: recargarBiblio }: any) {
+export default function SistemasTab({ objetivos = [], sesiones = [], ejercicios = [], etiquetas = [], testsLib = [], cargar: recargarBiblio, objetivoInicial }: any) {
   const [lista, setLista] = useState<Sistema[]>([])
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState<any>(undefined)
+  /**
+   * FILTRAR POR OBJETIVO.
+   *
+   * No lo había: con una docena de sistemas no hacía falta. Hace falta al llegar aquí
+   * desde la ficha de un paciente preguntando «¿qué ciclo sirve para esto?», que es
+   * una pregunta que no se responde leyendo doce nombres.
+   *
+   * Los objetivos de un sistema son los de las sesiones de sus fases, como en todo lo
+   * demás: no se guardan, se deducen.
+   */
+  const [filtroObj, setFiltroObj] = useState<string>('')
+  useEffect(() => { if (objetivoInicial) setFiltroObj(objetivoInicial) }, [objetivoInicial])
+
+  const objetivosDe = (s: any) => {
+    const ids: string[] = []
+    ;(s.fases || []).forEach((f: any) => (f.objetivos || []).forEach((oid: string) => {
+      if (ids.includes(oid) === false) ids.push(oid)
+    }))
+    return ids
+  }
 
   useEffect(() => { cargar() }, [])
   async function cargar() {
@@ -41,6 +61,17 @@ export default function SistemasTab({ objetivos = [], sesiones = [], ejercicios 
         <div style={{ flex: 1, fontSize: 12, color: 'var(--gr)' }}>
           {cargando ? 'Cargando…' : `${lista.length} sistema${lista.length === 1 ? '' : 's'}`}
         </div>
+        {filtroObj !== '' && (
+          <button className="pill pill-o on" style={{ border:'none', cursor:'pointer' }}
+            onClick={() => setFiltroObj('')}>
+            {objetivos.find((o:any)=>o.id===filtroObj)?.nombre || 'Objetivo'} ✕
+          </button>
+        )}
+        <select className="input" style={{ width: 210, fontSize: 12, padding: '5px 8px' }}
+          value={filtroObj} onChange={e => setFiltroObj(e.target.value)}>
+          <option value="">Todos los objetivos</option>
+          {objetivos.map((o:any)=><option key={o.id} value={o.id}>{o.nombre}</option>)}
+        </select>
         <button className="btn btn-p btn-sm" onClick={() => setEditando(null)}>+ Nuevo sistema</button>
       </div>
 
@@ -57,7 +88,9 @@ export default function SistemasTab({ objetivos = [], sesiones = [], ejercicios 
           Agrupar y no filtrar: con una docena de sistemas, un filtro es un control
           que hay que operar para no ahorrar nada. */}
       {PROGRESIONES.map(pr => {
-        const suyos = lista.filter(x => x.progresion === pr.valor)
+        const suyos = lista
+          .filter(x => filtroObj === '' || objetivosDe(x).includes(filtroObj))
+          .filter(x => x.progresion === pr.valor)
         if (suyos.length === 0) return null
         return (
         <div key={pr.valor} style={{ marginBottom: 18 }}>

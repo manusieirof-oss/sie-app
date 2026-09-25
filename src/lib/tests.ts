@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
+import { marcarVia } from './viasObjetivo'
 import { revisarMetas } from './metas'
 import { hoyISO, aISO } from '@/lib/fechas'
 import { evaluacionAbiertaPara } from './evaluaciones'
@@ -1038,7 +1039,7 @@ async function cerrarObjetivosQueEvalua(
         ? vias.map((x: any) => (x.tipo === v.tipo && x.ref === v.ref && x.lado === (lado || null)) ? { ...x, ...nueva } : x)
         : [...vias, nueva]
       tocada = true
-      if (resuelto === false) abiertos++
+      if (resuelto === false) { abiertos++; await marcarVia(pacienteId, po.objetivo_id, 'test') }
     }
 
     if (tocada === false) continue
@@ -1058,6 +1059,10 @@ async function abrirOReabrir(pacienteId: string, objetivoId: string, via: Via, c
     await abrirObjetivo(pacienteId, objetivoId, via, 'test')
     return
   }
+  // Un test que abre el objetivo es una de sus tres vias de origen, aunque el
+  // objetivo ya estuviera puesto a mano: que ademas lo diga una medicion no se
+  // pierde. Ver `viasObjetivo`.
+  await marcarVia(pacienteId, objetivoId, 'test')
   const vias: Via[] = Array.isArray(exist.vias) ? exist.vias : []
   const yaEsta = vias.some((v: any) => v.tipo === via.tipo && v.ref === via.ref)
   // Al reabrir se refrescan movimiento y lado: manda la medición de hoy, no la de marzo.

@@ -42,6 +42,7 @@ function EntrenamientoContent() {
   const [objetivos, setObjetivos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pacienteIdParam, setPacienteIdParam] = useState('')
+  const [objetivoParam, setObjetivoParam] = useState('')
   const [subsubAbiertas, setSubsubAbiertas] = useState<string[]>([])
 
   useEffect(() => { cargar() }, [])
@@ -54,6 +55,13 @@ function EntrenamientoContent() {
     // Sesiones. Miraba `asignar_cita`, que solo viene cuando hay una cita detrás, así que
     // desde la ficha del paciente se aterrizaba en Ejercicios.
     if (searchParams.get('asignar_paciente')) setTab('sesiones')
+    // Llegar con un objetivo ya filtrado: `/entrenamiento?tab=sesiones&objetivo=<id>`,
+    // que es a donde manda la ficha del paciente cuando un objetivo no tiene con qué
+    // trabajarse. Sin esto había que volver a buscarlo aquí a mano.
+    const t = searchParams.get('tab')
+    const obj = searchParams.get('objetivo')
+    if (t) setTab(t)
+    if (obj) setObjetivoParam(obj)
   }, [searchParams])
 
   /**
@@ -209,8 +217,8 @@ function EntrenamientoContent() {
       {loading?<div className="loading">Cargando...</div>:(
         <>
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
-          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam}/>}
-          {tab==='sistemas'&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar}/>}
+          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
+          {tab==='sistemas'&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}
           {tab==='cuestionarios'&&<CuestionariosTab/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
           {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,

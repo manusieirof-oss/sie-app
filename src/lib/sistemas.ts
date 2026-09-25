@@ -524,7 +524,8 @@ export async function sembrarObjetivos(pacienteId: string, sistemaId: string) {
 
   const { error } = await supabase.from('pacientes_objetivos').insert(
     faltan.map(id => ({
-      paciente_id: pacienteId, objetivo_id: id, origen: 'sistema', vias: [],
+      // Lo ponemos nosotros: viene de la programacion. Ver `viasObjetivo`.
+      paciente_id: pacienteId, objetivo_id: id, origen: 'sistema', vias: [], vias_origen: ['plan'],
       ...retratoDe((objs || []).find((o: any) => o.id === id)),
     })))
   return error ? { ok: false as const, error: error.message } : { ok: true as const, puestos: faltan.length }
