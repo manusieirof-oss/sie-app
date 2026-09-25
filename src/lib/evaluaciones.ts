@@ -105,8 +105,10 @@ export async function objetivosDeFaseDelPaciente(pacienteId: string, objetivosDe
  * evaluacion eternamente a medias sin que nadie supiera por que.
  */
 export async function evaluacionAbiertaPara(pacienteId: string, testId: string): Promise<string | null> {
+  // Sin filtrar por `estado`: nadie lo escribe al crearla, asi que exigir
+  // 'abierta' dejaba siempre cero evaluaciones y ningun resultado se atribuia.
   const { data: evs } = await supabase.from('evaluaciones')
-    .select('id,fase_id').eq('paciente_id', pacienteId).eq('estado', 'abierta')
+    .select('id,fase_id,fecha').eq('paciente_id', pacienteId)
   if (evs == null || evs.length === 0) return null
 
   const { data: objs } = await supabase.from('objetivos_tests')
@@ -114,11 +116,27 @@ export async function evaluacionAbiertaPara(pacienteId: string, testId: string):
   const ids = (objs || []).map((r: any) => r.objetivo_id)
   if (ids.length === 0) return null
 
-  const { data: enFase } = await supabase.from('sistema_fase_objetivos')
-    .select('fase_id').in('objetivo_id', ids)
-  const fases = new Set((enFase || []).map((r: any) => r.fase_id))
+  // Los objetivos de una fase salen de las SESIONES que lleva dentro; la tabla
+  // `sistema_fase_objetivos` quedo sin escribirse al hacer ese cambio, y mirarla
+  // aqui era mirar un sitio siempre vacio.
+  const fases = evs.map((e: any) => e.fase_id).filter(Boolean)
+  if (fases.length === 0) return null
+  const { data: rel } = await supabase.from('sistema_fase_sesiones')
+    .select('fase_id, sesiones(sesiones_objetivos(objetivo_id))').in('fase_id', fases)
 
-  return evs.find((e: any) => fases.has(e.fase_id))?.id || null
+  const conEsteTest = new Set<string>()
+  ;(rel || []).forEach((r: any) => {
+    const ses = Array.isArray(r.sesiones) ? r.sesiones[0] : r.sesiones
+    const tiene = (ses?.sesiones_objetivos || []).some((o: any) => ids.includes(o.objetivo_id))
+    if (tiene) conEsteTest.add(r.fase_id)
+  })
+
+  // La mas reciente de las que encajan: si hay dos fases con el mismo test, el
+  // resultado de hoy es de la que se esta evaluando ahora.
+  const candidatas = evs.filter((e: any) => conEsteTest.has(e.fase_id))
+  if (candidatas.length === 0) return null
+  candidatas.sort((a: any, b: any) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
+  return candidatas[0].id
 }
 
 /* ─── LO QUE DE VERDAD HAY QUE MIRAR ─────────────────────────────────────────

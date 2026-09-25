@@ -747,6 +747,16 @@ export async function registrarResultadoTest(
   }
   // 'sin_realizar' no toca ningún objetivo: no haber hecho el test no dice nada.
 
+  // Y LOS OBJETIVOS QUE SE COMPRUEBAN CON ESTE TEST (`objetivos_tests`).
+  //
+  // Son otra relacion distinta de "que test lo abre": aquella cuelga del item y es
+  // diagnostico; esta dice con que se mira si YA ESTA CONSEGUIDO. Nadie la leia al
+  // registrar, asi que un objetivo cuya unica medida era esta no se cerraba nunca
+  // por mucho que pasaras su test —que es justo para lo que se engancho—.
+  const ov = await cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, datos.contexto, lado)
+  logrados += ov.logrados
+  abiertos += ov.abiertos
+
   // Y las metas medibles, que es lo que cierra los objetivos con número. Un test es el
   // único momento en que un valor puede haber cambiado, así que se revisan aquí y no en
   // un proceso aparte que habría que acordarse de lanzar.
@@ -931,6 +941,115 @@ async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemT
  * Añade la vía al objetivo del paciente, creándolo si aún no lo tenía y reabriéndola si
  * ya estaba pero resuelta. Es el trozo que estaba copiado cuatro veces en la ficha.
  */
+/**
+ * LOS OBJETIVOS QUE SE COMPRUEBAN CON ESTE TEST.
+ *
+ * `objetivos_tests` dice con que se mira si un objetivo esta conseguido, y puede
+ * apuntar al test ENTERO o a un ITEM suelto. Se traduce a una VIA, que es la
+ * maquinaria que ya sabe abrir y cerrar objetivos: asi cuenta igual en la ficha,
+ * en la cronologia y para cerrar la fase.
+ *
+ *   - test entero: negativo cierra, positivo abre.
+ *   - un item: sin hallazgo en ESE item cierra; con hallazgo abre. Lo que digan
+ *     los otros doce items no es asunto de este objetivo.
+ *
+ * Al objetivo que el paciente no lleva no se le hace nada: ponerselo es una
+ * decision clinica, no la consecuencia de haber medido.
+ */
+async function cerrarObjetivosQueEvalua(
+  pacienteId: string, test: any, items: ItemTest[],
+  resultado: ResultadoTest, contexto?: string, lado?: string,
+) {
+  let logrados = 0, abiertos = 0
+  if (resultado === 'sin_realizar') return { logrados, abiertos }
+
+  // Los objetivos que se comprueban con ESTE test.
+  const { data: mios } = await supabase.from('objetivos_tests')
+    .select('objetivo_id').eq('test_id', test.id)
+  const ids = Array.from(new Set((mios || []).map((r: any) => r.objetivo_id)))
+  if (ids.length === 0) return { logrados, abiertos }
+
+  const { data: suyos } = await supabase.from('pacientes_objetivos')
+    .select('objetivo_id,vias,logrado').eq('paciente_id', pacienteId).in('objetivo_id', ids)
+  if (suyos == null || suyos.length === 0) return { logrados, abiertos }
+
+  // Y TODOS los evaluadores de esos objetivos, no solo los de este test: si un
+  // objetivo se comprueba con tres cosas, pasar una no puede darlo por logrado.
+  const { data: todos } = await supabase.from('objetivos_tests')
+    .select('objetivo_id,test_id,item').in('objetivo_id', suyos.map((r: any) => r.objetivo_id))
+
+  const otros = Array.from(new Set((todos || []).map((r: any) => r.test_id))).filter(id => id !== test.id)
+  const { data: libs } = otros.length > 0
+    ? await supabase.from('tests').select('id,nombre,items,archivado_el').in('id', otros)
+    : { data: [] as any[] }
+  const porId: Record<string, any> = { [test.id]: { ...test, items } }
+  ;(libs || []).forEach((t: any) => { porId[t.id] = t })
+
+  const norm = (x: any) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+  /** A que via corresponde un evaluador. null si el enlace esta roto. */
+  const viaDe = (e: any): { tipo: string, ref: string, etiqueta: string } | null => {
+    const t = porId[e.test_id]
+    if (t == null || t.archivado_el != null) return null
+    if (e.item == null) return { tipo: 'test', ref: t.id, etiqueta: 'Test: ' + (t.nombre || 'test') }
+    const its = Array.isArray(t.items) ? t.items : []
+    const i = its.findIndex((x: any) => norm(x?.nombre) === norm(e.item))
+    if (i < 0) return null
+    return { tipo: 'test_item', ref: t.id + ':' + i,
+      etiqueta: 'Test: ' + (t.nombre || 'test') + ' · ' + (its[i]?.nombre || `ítem ${i + 1}`) }
+  }
+
+  for (const po of suyos as any[]) {
+    const evs = (todos || []).filter((r: any) => r.objetivo_id === po.objetivo_id)
+    let vias: Via[] = Array.isArray(po.vias) ? [...po.vias] : []
+    let tocada = false
+
+    for (const e of evs) {
+      const v = viaDe(e)
+      if (v == null) continue
+      const deEsteTest = e.test_id === test.id
+
+      if (deEsteTest === false) {
+        /* PENDIENTE, aunque todavia no se haya pasado.
+           Sin esta via el evaluador no existia para nadie, y "logrado" —que es
+           tener todas las vias resueltas— se cumplia con la unica que si estaba:
+           un objetivo con tres pruebas se daba por bueno con una. */
+        if (vias.some((x: any) => x.tipo === v.tipo && x.ref === v.ref)) continue
+        vias.push({ tipo: v.tipo, ref: v.ref, etiqueta: v.etiqueta, lado: null,
+          resuelto: false, fecha_resuelto: null } as any)
+        tocada = true
+        continue
+      }
+
+      // De este test: manda lo que se acaba de medir.
+      let resuelto: boolean
+      if (e.item == null) resuelto = resultado === 'negativo'
+      else {
+        const i = Number(String(v.ref).slice(test.id.length + 1))
+        resuelto = items[i]?.marcado === false
+      }
+      // Fuera la version sin lado —es la pendiente, o la de antes de que hubiera
+      // lados—, y una via por lado: izquierdo y derecho son dos historias.
+      vias = vias.filter((x: any) => (x.tipo === v.tipo && x.ref === v.ref && x.lado == null) === false)
+      const yaEsta = vias.some((x: any) => x.tipo === v.tipo && x.ref === v.ref && x.lado === (lado || null))
+      const nueva: any = { tipo: v.tipo, ref: v.ref, etiqueta: v.etiqueta, lado: lado || null,
+        resuelto, fecha_resuelto: null }
+      vias = yaEsta
+        ? vias.map((x: any) => (x.tipo === v.tipo && x.ref === v.ref && x.lado === (lado || null)) ? { ...x, ...nueva } : x)
+        : [...vias, nueva]
+      tocada = true
+      if (resuelto === false) abiertos++
+    }
+
+    if (tocada === false) continue
+    const r = await guardarVias(pacienteId, po.objetivo_id, vias, {
+      logradoAntes: !!po.logrado, contexto: contexto || 'un test',
+    })
+    if (r.ok && r.logrado && po.logrado !== true) logrados++
+  }
+  return { logrados, abiertos }
+}
+
 async function abrirOReabrir(pacienteId: string, objetivoId: string, via: Via, contexto?: string) {
   const { data: exist } = await supabase.from('pacientes_objetivos')
     .select('vias,origen,logrado').eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId).maybeSingle()

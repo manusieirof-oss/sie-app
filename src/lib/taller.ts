@@ -66,7 +66,11 @@ const nombreDe = (p: any) =>
  */
 export function sesionQueToca(deLaCita: any | null, vigentes: any[]): { sesion: any | null, origen: PacienteDelDia['origen'] } {
   if (deLaCita) return { sesion: deLaCita, origen: 'cita' }
-  if (vigentes.length === 1) return { sesion: vigentes[0], origen: 'unica' }
+  /* AQUI SE CAIA A "su unica sesion vigente" cuando la cita venia sin ninguna, para no
+     dejar la pantalla en blanco. Se ha quitado: el taller pintaba una sesion con su
+     nombre mientras la ficha decia "0 de 28 con sesion", y no habia forma de saber cual
+     de las dos pantallas mentia. Si no esta asignada, no esta: sus sesiones siguen en
+     `disponibles`, a un clic del desplegable de arriba. */
   return { sesion: null, origen: 'ninguna' }
 }
 
