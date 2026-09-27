@@ -20,7 +20,7 @@ import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import SelectorSesiones from '@/app/entrenamiento/components/SelectorSesiones'
 import { testsPorDia } from '@/lib/evaluaciones'
-import { sistemasDePaciente, historialSistemas, logradosDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
+import { sistemasDePaciente, historialSistemas, logradosDe, escalonesDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
@@ -35,6 +35,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [historialDe, setHistorialDe] = useState<any>(null)
   const [sistemasPac, setSistemasPac] = useState<Asignacion[]>([])
   const [logrados, setLogrados] = useState<Record<string,string|null>>({})
+  const [escalones, setEscalones] = useState<Record<string,string|null>>({})
   const [todosSistemas, setTodosSistemas] = useState<Asignacion[]>([])
   const [eligiendoSesion, setEligiendoSesion] = useState(false)
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
@@ -136,6 +137,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // Los sistemas que lleva hoy. Pintan las citas y dicen que sesiones tocan.
     sistemasDePaciente(pacienteId).then(setSistemasPac)
     logradosDe(pacienteId).then(setLogrados)
+    // Los escalones: el número de cada fase. Manda sobre el logrado del objetivo.
+    escalonesDe(pacienteId).then(setEscalones)
     historialSistemas(pacienteId).then(setTodosSistemas)
 
     // El contador de Ejecución era un 0 literal. Se cuentan los ejercicios
@@ -435,7 +438,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const pintaMarco = principalDe(sistemasPac)
   const pinta = (fecha:string) => {
     if (!pintaMarco?.sistema) return null
-    const t = faseEn(pintaMarco.sistema, pintaMarco, fecha, logrados)
+    const t = faseEn(pintaMarco.sistema, pintaMarco, fecha, logrados, escalones)
     if (!t) return null
     const fases = pintaMarco.sistema.fases||[]
     const i = fases.findIndex(f=>f.id===t.fase.id)
@@ -583,7 +586,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           if (sis == null) return
           let ant: string | null = null
           citasFuturas.forEach((c:any) => {
-            const t = faseEn(sis, a, c.fecha, logrados)
+            const t = faseEn(sis, a, c.fecha, logrados, escalones)
             const id = t ? t.fase.id : null
             if (id !== ant && t) {
               if (cortesEn[c.id] == null) cortesEn[c.id] = []
@@ -613,7 +616,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
         return (
         <div className="panel">
-          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados}
+          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados} escalones={escalones}
             onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac)}} onRecargar={cargarDatos}/>
           <div className="sec">
             <div className="sec-h">
@@ -689,8 +692,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       <span className={`chk ${sel?'on':''}`}>{sel&&<Ic name="check" size={12}/>}</span>
                       {/* Los demas sistemas van de punto: la cita tambien cuenta para
                           ellos, pero el color lo pone el marco y no se parte. */}
-                      {otros.filter(o=>o.sistema&&faseEn(o.sistema,o,c.fecha,logrados)).map(o=>(
-                        <span key={o.id} title={`${o.sistema!.nombre} · ${faseEn(o.sistema!,o,c.fecha,logrados)?.fase.nombre}`}
+                      {otros.filter(o=>o.sistema&&faseEn(o.sistema,o,c.fecha,logrados,escalones)).map(o=>(
+                        <span key={o.id} title={`${o.sistema!.nombre} · ${faseEn(o.sistema!,o,c.fecha,logrados,escalones)?.fase.nombre}`}
                           style={{width:8,height:8,borderRadius:99,flexShrink:0,background:o.sistema!.color}}/>
                       ))}
                       <div style={{flex:1}}>
@@ -766,7 +769,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
       {seccion==='sistemas'&&(
         <div className="panel">
-          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados}
+          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados} escalones={escalones}
             onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac);historialSistemas(pacienteId).then(setTodosSistemas)}}
             onRecargar={cargarDatos}/>
 

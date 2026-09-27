@@ -176,3 +176,104 @@ export async function revisarMetasDeTest(
   }
   return { cumplidas, logrados }
 }
+
+/* ─── QUÉ SE PUEDE MEDIR DE UN OBJETIVO ──────────────────────────────────────
+ *
+ * Sale de las DOS relaciones, no de una: de los tests enganchados desde la
+ * biblioteca (`objetivos_tests`, "lo evalúa") y también de los que ya abrieron el
+ * objetivo por un ítem (la vía, "lo abre"). Ese ítem mide exactamente igual, y
+ * mirando solo la primera un objetivo con su vía delante salía sin ninguna medida.
+ *
+ * Solo entran los ítems que dan NÚMERO: en una casilla no hay meta posible.
+ * Un test lateral saca una fila por lado, que es el fallo que ya costó caro en las
+ * vías —con la rodilla derecha en 20 y la izquierda en 8, una sola meta daría el
+ * objetivo por bueno—.
+ */
+
+export type Medida = {
+  clave: string
+  test: any
+  item: any
+  ref: string
+  lado: string | null
+  unidad: string
+  /** La meta sin fase: la final. */
+  meta: any | null
+  hoy: number | null
+  fechaHoy: string | null
+}
+
+export async function medidasDeObjetivo(
+  pacienteId: string, objetivo: any, tests: any[],
+): Promise<Medida[]> {
+  const { testsDeObjetivo } = await import('./objetivosTests')
+  const { tieneBarra, unidadDe } = await import('./tests')
+  const n = (x: any) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+  const vias: any[] = Array.isArray(objetivo?.vias) ? objetivo.vias : []
+  const evs = await testsDeObjetivo(objetivo.id)
+  const candidatas: { testId: string, item: string | null, lado?: string | null }[] =
+    evs.map((e: any) => ({ testId: e.test_id, item: e.item || null }))
+
+  vias.forEach((v: any) => {
+    if (v?.tipo !== 'test' && v?.tipo !== 'test_item') return
+    const ref = String(v.ref || '')
+    const testId = ref.split(':')[0].split('|')[0]
+    if (testId === '') return
+    const idx = v.tipo === 'test_item' ? Number(ref.split(':')[1]) : null
+    candidatas.push({
+      testId,
+      item: idx != null && Number.isFinite(idx) ? '#' + idx : null,
+      lado: v.lado || null,
+    })
+  })
+
+  const out: Medida[] = []
+  const puestas = new Set<string>()
+
+  for (const c of candidatas) {
+    const t = (tests || []).find((x: any) => x.id === c.testId)
+    if (t == null || t.archivado_el != null) continue
+    const items = Array.isArray(t.items) ? t.items : []
+
+    let cuales: any[]
+    if (c.item && c.item.startsWith('#')) {
+      const it = items[Number(c.item.slice(1))]
+      cuales = it ? [it] : []
+    } else if (c.item) {
+      cuales = items.filter((i: any) => n(i?.nombre) === n(c.item))
+    } else {
+      cuales = items
+    }
+
+    for (const it of cuales) {
+      if (tieneBarra(it) === false) continue
+      const idx = items.indexOf(it)
+      const ref = t.id + ':' + idx
+      const lados: (string | null)[] = c.lado
+        ? [c.lado]
+        : (t.tipo_lado === 'lateral' ? ['izquierdo', 'derecho'] : ['bilateral'])
+      for (const lado of lados) {
+        const clave = ref + '|' + lado
+        if (puestas.has(clave)) continue
+        puestas.add(clave)
+        const meta = vias.find((v: any) => esMeta(v) && v.ref === ref
+          && (v.lado || null) === lado && (v.fase_id || null) === null) || null
+        const u = await ultimoValor(pacienteId, t.id, it.nombre, lado)
+        out.push({
+          clave, test: t, item: it, ref, lado,
+          unidad: (unidadDe(it)?.simbolo || '').trim() || unidadDe(it)?.id || '',
+          meta, hoy: u.valor, fechaHoy: u.fecha,
+        })
+      }
+    }
+  }
+  return out
+}
+
+/** La meta de una medida EN UNA FASE concreta: el escalón. */
+export function escalonDe(objetivo: any, ref: string, lado: string | null, faseId: string) {
+  const vias: any[] = Array.isArray(objetivo?.vias) ? objetivo.vias : []
+  return vias.find((v: any) => esMeta(v) && v.ref === ref
+    && (v.lado || null) === (lado || null) && v.fase_id === faseId) || null
+}

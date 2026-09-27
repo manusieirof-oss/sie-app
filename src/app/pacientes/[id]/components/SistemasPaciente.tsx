@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 import EvaluacionFase from './EvaluacionFase'
+import EscalonesAsignar from './EscalonesAsignar'
 import { contiene } from '@/lib/texto'
 import ModalSistema from '@/app/entrenamiento/components/ModalSistema'
 import { esPlantilla } from '@/lib/sesiones'
@@ -23,10 +24,12 @@ import { cargarSistemas, asignarSistema, quitarSistema, marcarPrincipal,
 // alguien lleve dos por tiempo.
 // ---------------------------------------------------------------------------
 
-export default function SistemasPaciente({ pacienteId, asignaciones, logrados, onCambio, onRecargar }: {
+export default function SistemasPaciente({ pacienteId, asignaciones, logrados, escalones, onCambio, onRecargar }: {
   pacienteId: string
   asignaciones: Asignacion[]
   logrados: Record<string, string | null>
+  /** El número de cada fase, si lo tiene. Ver `escalonesDe`. */
+  escalones?: Record<string, string | null>
   onCambio: () => void
   onRecargar?: () => void
 }) {
@@ -62,6 +65,12 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
     .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
 
   const [anadiendo, setAnadiendo] = useState(false)
+  /**
+   * El ciclo recién puesto, para seguir con sus escalones. Es el único momento en
+   * que están delante a la vez las fases del ciclo y el punto de partida del
+   * paciente. Ver `EscalonesAsignar`.
+   */
+  const [escalonando, setEscalonando] = useState('')
   const [catalogo, setCatalogo] = useState<Sistema[]>([])
   const [sel, setSel] = useState('')
   const [faseIni, setFaseIni] = useState(0)
@@ -94,6 +103,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
     })
     if (!r.ok) { alert(r.error); return }
     setAnadiendo(false); setSel(''); setFin(''); setFaseIni(0); onCambio()
+    if (r.sistemaId) setEscalonando(r.sistemaId)
   }
 
   /**
@@ -241,6 +251,11 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
         </div>
       )}
 
+      {escalonando !== '' && (
+        <EscalonesAsignar pacienteId={pacienteId} sistemaId={escalonando}
+          onHecho={() => { setEscalonando(''); onCambio() }}/>
+      )}
+
       {editando && (() => {
         const sis = editando.sistema
         const fin = sis?.progresion === 'fecha_fin'
@@ -322,7 +337,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, o
         {asignaciones.map(a => {
           const s = a.sistema
           if (!s) return null
-          const t = faseEn(s, a, hoy, logrados)
+          const t = faseEn(s, a, hoy, logrados, escalones)
           const todas = tramos(s, a)
           const i = t ? (s.fases || []).findIndex(f => f.id === t.fase.id) : -1
           /**

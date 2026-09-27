@@ -1,9 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { tieneBarra, unidadDe } from '@/lib/tests'
-import { testsDeObjetivo } from '@/lib/objetivosTests'
-import { esMeta, avanceDe, direccionDe, ultimoValor, ponerMeta, quitarMeta } from '@/lib/metasVia'
+import { avanceDe, direccionDe, ponerMeta, quitarMeta, medidasDeObjetivo, type Medida } from '@/lib/metasVia'
 
 /**
  * CON QUÉ SE MIDE, Y HASTA CUÁNTO.
@@ -24,19 +22,7 @@ import { esMeta, avanceDe, direccionDe, ultimoValor, ponerMeta, quitarMeta } fro
  * de tocar»— no hay meta posible, y forzarla sería inventar una escala.
  */
 
-const norm = (x: any) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-
-type Fila = {
-  clave: string
-  test: any
-  item: any
-  ref: string
-  lado: string | null
-  unidad: string
-  meta: any | null
-  hoy: number | null
-  fechaHoy: string | null
-}
+type Fila = Medida
 
 export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCambio, onAbrirTest }: {
   pacienteId: string
@@ -57,70 +43,7 @@ export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCa
 
   async function montar() {
     setCargando(true)
-    const vias: any[] = Array.isArray(objetivo.vias) ? objetivo.vias : []
-
-    /* DE DÓNDE SALEN LAS MEDIDAS: de las dos relaciones, no de una.
-       `objetivos_tests` dice qué test lo EVALÚA —lo que se engancha desde la
-       biblioteca—, pero la mayoría de los objetivos vienen de la relación vieja: un
-       ítem del test los ABRIÓ y dejó una vía. Ese ítem mide exactamente igual, así
-       que también admite meta. Mirando solo la primera, un objetivo con su vía
-       delante salía sin ninguna medida. */
-    const evs = await testsDeObjetivo(objetivo.id)
-    const candidatas: { testId: string, item: string | null, lado?: string | null }[] =
-      evs.map((e: any) => ({ testId: e.test_id, item: e.item || null }))
-
-    vias.forEach((v: any) => {
-      if (v?.tipo !== 'test' && v?.tipo !== 'test_item') return
-      const ref = String(v.ref || '')
-      const testId = ref.split(':')[0].split('|')[0]
-      if (testId === '') return
-      // En una vía de ítem el índice va en la referencia; el nombre se resuelve abajo.
-      const idx = v.tipo === 'test_item' ? Number(ref.split(':')[1]) : null
-      candidatas.push({ testId, item: idx != null && Number.isFinite(idx) ? '#' + idx : null, lado: v.lado || null })
-    })
-
-    const out: Fila[] = []
-    const puestas = new Set<string>()
-
-    for (const c of candidatas) {
-      const t = (tests || []).find((x: any) => x.id === c.testId)
-      if (t == null || t.archivado_el != null) continue
-      const items = Array.isArray(t.items) ? t.items : []
-
-      // El ítem puede venir por nombre (evaluador), por índice (vía) o no venir: entonces
-      // valen todos los que den número.
-      let cuales: any[]
-      if (c.item && c.item.startsWith('#')) {
-        const it = items[Number(c.item.slice(1))]
-        cuales = it ? [it] : []
-      } else if (c.item) {
-        cuales = items.filter((i: any) => norm(i?.nombre) === norm(c.item))
-      } else {
-        cuales = items
-      }
-
-      for (const it of cuales) {
-        if (tieneBarra(it) === false) continue
-        const idx = items.indexOf(it)
-        const ref = t.id + ':' + idx
-        const lados: (string | null)[] = c.lado
-          ? [c.lado]
-          : (t.tipo_lado === 'lateral' ? ['izquierdo', 'derecho'] : ['bilateral'])
-        for (const lado of lados) {
-          const clave = ref + '|' + lado
-          if (puestas.has(clave)) continue
-          puestas.add(clave)
-          const meta = vias.find((v: any) => esMeta(v) && v.ref === ref && (v.lado || null) === lado) || null
-          const u = await ultimoValor(pacienteId, t.id, it.nombre, lado)
-          out.push({
-            clave, test: t, item: it, ref, lado,
-            unidad: (unidadDe(it)?.simbolo || '').trim() || unidadDe(it)?.id || '',
-            meta, hoy: u.valor, fechaHoy: u.fecha,
-          })
-        }
-      }
-    }
-    setFilas(out)
+    setFilas(await medidasDeObjetivo(pacienteId, objetivo, tests))
     setCargando(false)
   }
 

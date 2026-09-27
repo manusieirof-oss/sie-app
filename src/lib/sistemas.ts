@@ -214,6 +214,16 @@ export function faseEn(
   a: Asignacion,
   fecha: string,
   logrados?: Record<string, string | null>,
+  /**
+   * LOS ESCALONES. Clave `faseId|objetivoId`, valor la fecha en que se cumplió —o
+   * null si sigue pendiente. Ver `escalonesDe`.
+   *
+   * Sin escalón, un objetivo de la fase se da por hecho cuando está LOGRADO, que es
+   * un sí o un no: la fase no distingue haber mejorado de no haber empezado. Con
+   * escalón, la fase se cierra por el número de ESA fase —12, luego 16, luego 20— y
+   * la progresión pasa a serlo de verdad en vez de tres cajones de tiempo.
+   */
+  escalones?: Record<string, string | null>,
 ): Tramo | null {
   if (!sistema || !a) return null
   const fases = orden(sistema.fases)
@@ -229,7 +239,10 @@ export function faseEn(
       const ids = f.objetivos || []
       if (ids.length === 0) return false          // sin condición no se sale sola
       return ids.every(id => {
-        const d = logrados?.[id]
+        // El escalón de ESTA fase manda sobre el logrado del objetivo entero: se sale
+        // de la fase 2 al llegar a 16, aunque la meta final sea 20 y falte.
+        const k = f.id + '|' + id
+        const d = (escalones && k in escalones) ? escalones[k] : logrados?.[id]
         return !!d && d <= fecha
       })
     }
@@ -275,6 +288,23 @@ export async function cargarSistemas(soloActivos = true): Promise<Sistema[]> {
         .sort((a: any, b: any) => (a.orden||0)-(b.orden||0)).map((x: any) => x.sesion_id),
     }))),
   }))
+}
+
+/** Un sistema concreto —normalmente la copia de un paciente— con sus fases. */
+export async function cargarSistema(sistemaId: string): Promise<Sistema | null> {
+  const { data } = await supabase.from('sistemas')
+    .select('*, sistema_fases(*, sistema_fase_objetivos(objetivo_id,movimientos), sistema_fase_sesiones(sesion_id,orden, sesiones(id, sesiones_objetivos(objetivo_id,movimientos))))')
+    .eq('id', sistemaId).maybeSingle()
+  if (data == null) return null
+  return {
+    ...data,
+    fases: orden((data.sistema_fases || []).map((f: any) => ({
+      ...f,
+      ...objetivosDeLaFase(f),
+      sesiones: [...(f.sistema_fase_sesiones || [])]
+        .sort((a: any, b: any) => (a.orden||0)-(b.orden||0)).map((x: any) => x.sesion_id),
+    }))),
+  } as Sistema
 }
 
 /** Lo que lleva un paciente ahora, con el sistema entero dentro. */
@@ -338,6 +368,32 @@ export async function logradosDe(pacienteId: string): Promise<Record<string, str
     .select('objetivo_id,logrado,fecha_logrado').eq('paciente_id', pacienteId).eq('logrado', true)
   const map: Record<string, string | null> = {}
   ;(data || []).forEach((o: any) => { map[o.objetivo_id] = o.fecha_logrado || hoyISO() })
+  return map
+}
+
+/**
+ * Los escalones cumplidos de un paciente, por fase y objetivo.
+ *
+ * Un escalón es una meta con `fase_id`: el número al que hay que llegar EN ESA FASE.
+ * Un objetivo puede tener varios en la misma fase —dos lados, dos ítems— y solo
+ * cuenta cuando están todos; la fecha que vale es la del último, que es cuando de
+ * verdad se completó.
+ */
+export async function escalonesDe(pacienteId: string): Promise<Record<string, string | null>> {
+  const { data } = await supabase.from('pacientes_objetivos')
+    .select('objetivo_id,vias').eq('paciente_id', pacienteId)
+
+  const map: Record<string, string | null> = {}
+  ;(data || []).forEach((o: any) => {
+    ;(Array.isArray(o.vias) ? o.vias : []).forEach((v: any) => {
+      if (v?.tipo !== 'meta' || !v?.fase_id) return
+      const k = v.fase_id + '|' + o.objetivo_id
+      if (v.resuelto !== true) { map[k] = null; return }   // uno pendiente lo tumba
+      if (map[k] === null) return
+      const f = v.fecha_resuelto || hoyISO()
+      map[k] = (map[k] == null || f > (map[k] as string)) ? f : map[k]
+    })
+  })
   return map
 }
 
@@ -481,7 +537,9 @@ export async function asignarSistema(pacienteId: string, sistemaId: string, d: {
   })
   if (error) return { ok: false as const, error: error.message }
   await sembrarObjetivos(pacienteId, cp.id)
-  return { ok: true as const }
+  // Se devuelve el id de SU copia: es lo que hace falta para seguir poniéndole los
+  // escalones sin tener que volver a buscar cuál acaba de crearse.
+  return { ok: true as const, sistemaId: cp.id }
 }
 
 /**
