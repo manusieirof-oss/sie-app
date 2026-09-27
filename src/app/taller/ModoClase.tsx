@@ -13,6 +13,7 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
 import { testsPorDia } from '@/lib/evaluaciones'
+import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import CircuitoGrid from './CircuitoGrid'
@@ -43,6 +44,8 @@ export default function ModoClase() {
    * de mirarlo, no serviria de nada haberlo programado.
    */
   const [testsHoy, setTestsHoy] = useState<Record<string, any[]>>({})
+  /** Logrados que toca confirmar y no tienen test: se miran y se dicen. */
+  const [sinTest, setSinTest] = useState<Record<string, any[]>>({})
   const [testEnCurso, setTestEnCurso] = useState<any>(null)
   const [guardandoTest, setGuardandoTest] = useState(false)
   const [listaTests, setListaTests] = useState(false)
@@ -95,8 +98,14 @@ export default function ModoClase() {
     setCtxPorPaciente(prev => ({ ...prev, [pid]: { molestias: rm.data||[], patologias: rp.data||[], alertas: ra.data||[] } }))
   }
   async function cargarTestsHoy(pid: string, dia: string) {
-    const porDia = await testsPorDia(pid)
-    const suyos = porDia[dia] || []
+    const [porDia, mant] = await Promise.all([testsPorDia(pid), testsPorConfirmar(pid, dia)])
+    const deEval = porDia[dia] || []
+    /* Y los que confirman lo ya logrado. No cuelgan de un dia: desde que vencen
+       salen en cualquier clase que tenga. Si el test ya venia por la evaluacion
+       es UNO, no dos: se pasa una vez. Ver `lib/mantenimiento`. */
+    const yaEsta = new Set(deEval.map((x: any) => x.test.id))
+    const suyos = [...deEval, ...mant.tests.filter((x: any) => yaEsta.has(x.test.id) === false)]
+    setSinTest(prev => ({ ...prev, [pid]: mant.sinTest }))
     // Lo ya pasado hoy no vuelve a pedirse: el icono se apaga solo.
     const ids = suyos.map((x:any)=>x.test.id)
     const { data: hechos } = ids.length > 0
@@ -105,6 +114,24 @@ export default function ModoClase() {
       : { data: [] as any[] }
     const ya = new Set((hechos||[]).map((r:any)=>r.test_id))
     setTestsHoy(prev => ({ ...prev, [pid]: suyos.map((x:any)=>({ ...x, hecho: ya.has(x.test.id) })) }))
+  }
+
+  /** Sigue bien: sube un escalon de la escalera de mantenimiento. */
+  async function confirmar(pid: string, o: any) {
+    await confirmarAMano(pid, o.objetivo_id, o.nombre)
+    setSinTest(prev => ({ ...prev, [pid]: (prev[pid]||[]).filter((x:any)=>x.objetivo_id!==o.objetivo_id) }))
+  }
+
+  /** Lo ha perdido: se reabre por la regla de siempre, abriendo sus vias. */
+  async function perdido(pid: string, o: any) {
+    if (confirm(`¿«${o.nombre}» ha dejado de estar logrado?`) === false) return
+    const { data } = await supabase.from('pacientes_objetivos').select('vias')
+      .eq('paciente_id', pid).eq('objetivo_id', o.objetivo_id).maybeSingle()
+    const vias = (Array.isArray(data?.vias) ? data!.vias : [])
+      .map((v:any)=>({ ...v, resuelto:false, fecha_resuelto:null }))
+    const r = await guardarVias(pid, o.objetivo_id, vias, { logradoAntes: true, contexto: 'el taller' })
+    if (!r.ok) { alert('No se pudo guardar: ' + r.error); return }
+    setSinTest(prev => ({ ...prev, [pid]: (prev[pid]||[]).filter((x:any)=>x.objetivo_id!==o.objetivo_id) }))
   }
 
   /** Abrirlo para pasarlo. Mismo formulario que la ficha y la valoracion. */
@@ -741,18 +768,21 @@ export default function ModoClase() {
                     sin preguntar, porque cambia lo que se espera de la sesión. */}
                 {/* LO QUE HAY QUE MEDIRLE HOY. Va con el nombre, no escondido: es parte de
                     lo que toca en esta clase, igual que la sesion. */}
-                {(testsHoy[act.paciente.id]||[]).length>0 && (()=>{
-                  const suyos = testsHoy[act.paciente.id]
-                  const faltan = suyos.filter((x:any)=>x.hecho===false).length
+                {((testsHoy[act.paciente.id]||[]).length + (sinTest[act.paciente.id]||[]).length)>0 && (()=>{
+                  const suyos = testsHoy[act.paciente.id]||[]
+                  // Los que se confirman mirandolos cuentan igual: si no salieran
+                  // aqui se quedarian escondidos en la ficha justo por no tener test.
+                  const otros = sinTest[act.paciente.id]||[]
+                  const faltan = suyos.filter((x:any)=>x.hecho===false).length + otros.length
                   return (
                     <span style={{position:'relative'}}>
                       <button className="btn btn-s btn-sm" style={{gap:5,
                         borderColor: faltan>0?'var(--amb)':'var(--gm)',
                         color: faltan>0?'#7A5800':'var(--gd)'}}
-                        title={suyos.map((x:any)=>x.test.nombre).join(', ')}
-                        onClick={()=>{ if (suyos.length===1 && faltan>0) abrirTest(suyos[0]); else setListaTests(v=>v===false) }}>
+                        title={[...suyos.map((x:any)=>x.test.nombre), ...otros.map((o:any)=>o.nombre)].join(', ')}
+                        onClick={()=>{ if (suyos.length===1 && otros.length===0 && faltan>0) abrirTest(suyos[0]); else setListaTests(v=>v===false) }}>
                         <Ic name="informe" size={13}/>
-                        {faltan>0 ? `${faltan} por medir` : 'medido'}
+                        {faltan>0 ? `${faltan} por comprobar` : 'comprobado'}
                       </button>
                       {/* Absoluto y no `menu-flot`, que es `position:fixed`: con top:100%
                           se iba al fondo de la pantalla y parecia que el boton no hacia nada. */}
@@ -771,9 +801,32 @@ export default function ModoClase() {
                                   {x.items.length>0 && (
                                     <span style={{fontSize:10.5,color:'var(--gd)',display:'block'}}>{x.items.join(' · ')}</span>
                                   )}
+                                  {x.motivo==='mantenimiento' && (
+                                    <span style={{fontSize:10,color:'#7A5800',display:'block'}}>
+                                      se mantiene · {x.objetivos.join(' · ')}
+                                    </span>
+                                  )}
                                 </span>
                               </span>
                             </button>
+                          ))}
+                          {otros.length>0 && suyos.length>0 && (
+                            <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
+                          )}
+                          {otros.map((o:any)=>(
+                            <div key={o.objetivo_id} style={{padding:'6px 8px'}}>
+                              <div style={{fontSize:12,color:'var(--n)'}}>{o.nombre}</div>
+                              <div style={{fontSize:10,color:'#7A5800',marginBottom:5}}>
+                                se mantiene · sin test, se mira
+                              </div>
+                              <div style={{display:'flex',gap:6}}>
+                                <button className="btn btn-s btn-sm"
+                                  onClick={()=>confirmar(act.paciente.id, o)}>Sigue bien</button>
+                                <button className="btn btn-s btn-sm"
+                                  style={{borderColor:'var(--bd)',color:'var(--gr)'}}
+                                  onClick={()=>perdido(act.paciente.id, o)}>Lo ha perdido</button>
+                              </div>
+                            </div>
                           ))}
                         </div>
                       )}

@@ -24,11 +24,13 @@ import { avanceDe, direccionDe, ponerMeta, quitarMeta, medidasDeObjetivo, type M
 
 type Fila = Medida
 
-export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCambio, onAbrirTest }: {
+export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], titulo, onCambio, onAbrirTest }: {
   pacienteId: string
   /** La fila del paciente: hace falta `vias`, que es donde vive la meta. */
   objetivo: any
   tests?: any[]
+  /** Lo mismo sirve para "con qué se confirma" cuando el objetivo ya está logrado. */
+  titulo?: string
   onCambio?: () => void
   /** Volver a pasar el test. Lo que mueve una meta es medir otra vez. */
   onAbrirTest?: (testId: string, lado: string) => void
@@ -82,7 +84,7 @@ export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCa
 
   return (
     <div style={{ display: 'grid', gap: 7, marginTop: 8 }}>
-      <div className="et-mini">Con qué se mide, y hasta cuánto</div>
+      <div className="et-mini">{titulo || 'Con qué se mide, y hasta cuánto'}</div>
       {filas.map(f => {
         const m = f.meta
         const avance = m ? avanceDe(m, f.hoy) : null

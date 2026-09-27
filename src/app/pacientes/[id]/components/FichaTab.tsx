@@ -8,6 +8,8 @@ import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import Consentimientos from './Consentimientos'
 import { guardarVias, retratoDe } from '@/lib/objetivos'
 import { VIAS, viasDe, marcarVia, quitarVia, type ViaOrigen } from '@/lib/viasObjetivo'
+import { urgenciaDe, COLOR_URGENCIA, textoRevision, fijarRevision,
+         confirmarAMano } from '@/lib/mantenimiento'
 import { conteoPorObjetivo } from '@/lib/objetivosTests'
 import { tieneBarra } from '@/lib/tests'
 import { sistemasDePaciente } from '@/lib/sistemas'
@@ -285,7 +287,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // biblioteca: ver `retratoDe`. De la biblioteca solo se trae lo que no cambia el pasado
     // —la zona y la foto— y si esta archivado, que es lo unico que hay que decir de ella.
     supabase.from('pacientes_objetivos')
-      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
+      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, revisar_el, confirmaciones, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
       .eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({
         ...r.objetivos,
@@ -294,6 +296,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         movimientos: Array.isArray(r.movimientos) ? r.movimientos : (r.objetivos?.movimientos || []),
         archivado: r.objetivos?.archivado_el != null,
         origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado,
+        revisar_el:r.revisar_el, confirmaciones:r.confirmaciones,
         vias_origen:r.vias_origen||[], pide_texto:r.pide_texto||null,
       })).filter((o:any)=>o.id))
     })
@@ -352,6 +355,25 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       fecha_resuelto:hoyISO() }
     setGuardandoVia(o.id)
     const r = await guardarVias(pac.id, o.id, [via], { logradoAntes: !!o.logrado, contexto: 'la ficha' })
+    setGuardandoVia(null)
+    if (!r.ok) { alert('No se pudo guardar: ' + r.error); return }
+    cargarObjetivos()
+  }
+
+  /** Sigue bien: sube un escalon de la escalera sin tocar las vias. */
+  async function seMantiene(o:any) {
+    setGuardandoVia(o.id)
+    await confirmarAMano(pac.id, o.id, o.nombre)
+    setGuardandoVia(null)
+    cargarObjetivos()
+  }
+
+  /** Lo ha perdido: se reabre por la regla de siempre, abriendo sus vias. */
+  async function loHaPerdido(o:any) {
+    if (confirm(`¿«${o.nombre}» ha dejado de estar logrado? Vuelve a la lista activa.`) === false) return
+    const vias = (Array.isArray(o.vias)?o.vias:[]).map((v:any)=>({ ...v, resuelto:false, fecha_resuelto:null }))
+    setGuardandoVia(o.id)
+    const r = await guardarVias(pac.id, o.id, vias, { logradoAntes: true, contexto: 'la ficha' })
     setGuardandoVia(null)
     if (!r.ok) { alert('No se pudo guardar: ' + r.error); return }
     cargarObjetivos()
@@ -464,11 +486,24 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       borderWidth: grande ? 1.5 : 1,
       boxShadow: 'none',
     }
+    /* POR CONFIRMAR: un aro alrededor, no un estado nuevo.
+       Lo logrado sigue logrado —no se reabre solo—, pero si hace tiempo que no
+       se comprueba el aro lo dice, y se oscurece con los meses. Ver
+       `lib/mantenimiento`. */
+    const urg = o.logrado ? urgenciaDe(o.revisar_el) : 0
+    const aro = urg > 0 ? `0 0 0 ${grande ? 2.5 : 2}px ${COLOR_URGENCIA[urg]}` : ''
+    const base = enPlan ? esfera : hueco
+
     return (
-      <span className={`obj-moneda${grande?' g':''}`} style={{
-        ...(enPlan ? esfera : hueco),
+      <span className={`obj-moneda${grande?' g':''}`}
+        title={urg > 0 ? textoRevision(o.revisar_el) : undefined}
+        style={{
+        ...base,
+        ...(aro ? { boxShadow: base.boxShadow === 'none' ? aro : `${base.boxShadow}, ${aro}` } : {}),
         ...(o.imagen_url ? { background: 'var(--bl)' } : {}),
-        opacity: o.logrado ? .55 : 1,
+        // Lo logrado se apaga para que no robe la vista; lo que toca confirmar
+        // no, que es justo lo que hay que ver.
+        opacity: o.logrado ? (urg > 0 ? .9 : .55) : 1,
       }}>
         {o.imagen_url
           ? <img src={o.imagen_url} alt=""/>
@@ -774,6 +809,55 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             onCambio={cargarObjetivos}
             onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
         )}
+
+        {/* MANTENIMIENTO. Lo logrado no lo es para siempre: pide confirmarse al
+            mes, luego a los tres, luego cada seis. La fecha se puede mover a mano
+            —la escalera es el punto de partida, no una norma— y el objetivo solo
+            vuelve a la lista activa si el test dice que se ha perdido. */}
+        {o.logrado === true && (() => {
+          const urg = urgenciaDe(o.revisar_el)
+          const col = urg > 0 ? COLOR_URGENCIA[urg] : 'var(--gm)'
+          const n = Number(o.confirmaciones || 0)
+          return (
+            <div style={{ border:`1px solid ${col}`, borderLeft:`3px solid ${col}`, borderRadius:7,
+              padding:'9px 11px', margin:'10px 0' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:9, flexWrap:'wrap' }}>
+              <span style={{ fontSize:9.5, fontWeight:600, letterSpacing:'.4px',
+                textTransform:'uppercase', color:'var(--gr)' }}>Se mantiene</span>
+              <span style={{ flex:1, minWidth:130, fontSize:12,
+                color: urg > 0 ? col : 'var(--gr)' }}>
+                {o.revisar_el ? textoRevision(o.revisar_el) : 'sin fecha de confirmación'}
+                {n > 0 && <span style={{ color:'var(--grl)' }}> · confirmado {n} {n===1?'vez':'veces'}</span>}
+              </span>
+              <input className="input" style={{ width:150 }} type="date"
+                value={o.revisar_el || ''}
+                onChange={async e => { await fijarRevision(pac.id, o.id, e.target.value || null); cargarObjetivos() }}/>
+              </div>
+              {/* LO QUE RESUELVE ESTO ES PASAR EL TEST, no meterle clases. Antes
+                  la tarjeta solo ofrecia ponerlo en sus citas, que es el paso de
+                  despues. */}
+              {urg > 0 && (
+                <>
+                  <MedidasObjetivo pacienteId={pac.id} objetivo={o} tests={testsLib}
+                    titulo="Con qué se confirma"
+                    onCambio={cargarObjetivos}
+                    onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
+                  {/* Los cerrados a mano no tienen test del que heredar nada, asi que
+                      se confirman igual que se cerraron: mirandolo. Los que si lo
+                      tienen se confirman solos al pasarlo, pero el boton sigue ahi
+                      por si lo viste en clase. */}
+                  <div style={{ display:'flex', gap:7, marginTop:9, flexWrap:'wrap' }}>
+                    <button className="btn btn-s btn-sm" disabled={guardandoVia===o.id}
+                      onClick={()=>seMantiene(o)}>Sigue bien</button>
+                    <button className="btn btn-s btn-sm" disabled={guardandoVia===o.id}
+                      style={{ borderColor:'var(--bd)', color:'var(--gr)' }}
+                      onClick={()=>loHaPerdido(o)}>Lo ha perdido</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })()}
 
         {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la
             moneda que se acaba de pulsar para llegar aquí: repetirlos empujaba hacia abajo

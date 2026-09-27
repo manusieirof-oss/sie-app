@@ -1052,6 +1052,8 @@ async function cerrarObjetivosQueEvalua(
     if (tocada === false) continue
     const r = await guardarVias(pacienteId, po.objetivo_id, vias, {
       logradoAntes: !!po.logrado, contexto: contexto || 'un test',
+      // Si ya estaba logrado, volver a pasarlo lo confirma: sube un escalon.
+      confirma: true,
     })
     if (r.ok && r.logrado && po.logrado !== true) logrados++
   }

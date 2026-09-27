@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { alLograr, alConfirmar, alReabrir } from './mantenimiento'
 import { hoyISO } from '@/lib/fechas'
 
 // ÚNICO sitio que decide si un objetivo está logrado y que registra el hito.
@@ -139,6 +140,8 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   logradoAntes?: boolean
   /** De dónde viene el cambio, para el texto del evento: "test", "ejecución"… */
   contexto?: string
+  /** Viene de una medición de verdad: si ya estaba logrado, esto lo confirma. */
+  confirma?: boolean
 }) {
   // Solo las vías. Ya no hay que leer metas ni logros ni preguntar por las fases: nada de
   // eso existe en un objetivo, y consultarlo era una vuelta a la base por dato que nadie
@@ -151,6 +154,18 @@ export async function guardarVias(pacienteId: string, objetivoId: string, vias: 
   const { error } = await supabase.from('pacientes_objetivos')
     .update(cambios).eq('paciente_id', pacienteId).eq('objetivo_id', objetivoId)
   if (error) return { ok: false as const, error: error.message, logrado }
+
+  /**
+   * LO LOGRADO PIDE CONFIRMACION. Al lograrse se le pone fecha; al volver a
+   * pasar el test estando logrado sube un escalon (1, 3, 6 meses); al
+   * reabrirse se le quita, que ya vuelve a la lista activa. Ver
+   * `lib/mantenimiento`.
+   */
+  if (opciones?.logradoAntes !== undefined) {
+    if (logrado && opciones.logradoAntes === false) await alLograr(pacienteId, objetivoId)
+    else if (logrado === false && opciones.logradoAntes) await alReabrir(pacienteId, objetivoId)
+    else if (logrado && opciones.confirma) await alConfirmar(pacienteId, objetivoId)
+  }
 
   // Solo se registra el cambio de estado, no cada retoque de una vía.
   if (opciones?.logradoAntes !== undefined && opciones.logradoAntes !== logrado) {
