@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
 import { marcarVia } from './viasObjetivo'
+import { revisarMetasDeTest } from './metasVia'
 import { revisarMetas } from './metas'
 import { hoyISO, aISO } from '@/lib/fechas'
 import { evaluacionAbiertaPara } from './evaluaciones'
@@ -757,6 +758,12 @@ export async function registrarResultadoTest(
   const ov = await cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, datos.contexto, lado)
   logrados += ov.logrados
   abiertos += ov.abiertos
+
+  // LAS METAS. Es lo que cierra —o reabre— un objetivo con número: el listón de ESTE
+  // paciente sobre un ítem que ya lo mide. Ver `lib/metasVia`. Va aquí por lo mismo que
+  // todo lo demás: un test es el único momento en que un valor puede haber cambiado.
+  const me = await revisarMetasDeTest(pacienteId, test.id, items, lado, datos.contexto)
+  logrados += me.logrados
 
   // Y las metas medibles, que es lo que cierra los objetivos con número. Un test es el
   // único momento en que un valor puede haber cambiado, así que se revisan aquí y no en

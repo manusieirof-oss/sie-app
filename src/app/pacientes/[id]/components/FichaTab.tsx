@@ -13,6 +13,7 @@ import { sistemasDePaciente } from '@/lib/sistemas'
 import { soloVigentes } from '@/lib/linaje'
 import ModalObjetivo from '@/app/entrenamiento/components/ModalObjetivo'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
+import MedidasObjetivo from './MedidasObjetivo'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
@@ -676,7 +677,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    * trabajan y en qué clases se trabajó— no cabe en una tira.
    */
   const pintarObjetivo = (o:any) => {
-    const vias = Array.isArray(o.vias)?o.vias:[]
+    // Las METAS son vías —para cerrar cuentan igual— pero no son origen: tienen su
+    // propia sección con su barra, y pintarlas dos veces confunde lo que cada lista
+    // está diciendo.
+    const vias = (Array.isArray(o.vias)?o.vias:[]).filter((v:any)=>v?.tipo !== 'meta')
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
     const suyas = viasDe(o)
     return (
@@ -744,6 +748,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </div>
           )
         })()}
+        {/* CON QUÉ SE MIDE, Y HASTA CUÁNTO. La meta de ESTE paciente sobre el ítem que
+            ya mide el objetivo: es lo que lo cierra por número en vez de por ausencia de
+            hallazgo, y lo que da un avance de verdad. Ver `lib/metasVia`. */}
+        {o.logrado === false && (
+          <MedidasObjetivo pacienteId={pac.id} objetivo={o} tests={testsLib}
+            onCambio={cargarObjetivos}/>
+        )}
+
         {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la
             moneda que se acaba de pulsar para llegar aquí: repetirlos empujaba hacia abajo
             lo único que se viene a ver. Solo queda el contador, que sí
