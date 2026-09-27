@@ -9,6 +9,7 @@ import Consentimientos from './Consentimientos'
 import { guardarVias, retratoDe } from '@/lib/objetivos'
 import { VIAS, viasDe, marcarVia, quitarVia, type ViaOrigen } from '@/lib/viasObjetivo'
 import { conteoPorObjetivo } from '@/lib/objetivosTests'
+import { tieneBarra } from '@/lib/tests'
 import { sistemasDePaciente } from '@/lib/sistemas'
 import { soloVigentes } from '@/lib/linaje'
 import ModalObjetivo from '@/app/entrenamiento/components/ModalObjetivo'
@@ -676,11 +677,28 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    * que saber de un objetivo —con qué se mide, de dónde salió, qué sesiones lo
    * trabajan y en qué clases se trabajó— no cabe en una tira.
    */
+  /**
+   * Una vía que ya sale arriba como MEDIDA.
+   *
+   * El ítem que abrió el objetivo es también el que lo mide, así que salía dos
+   * veces: como medida con su barra y como origen en una tira aparte. Se queda la
+   * de arriba, que dice lo mismo y más, y además abre el test al pulsarla.
+   */
+  const esMedible = (v:any) => {
+    if (v?.tipo !== 'test_item' || typeof v?.ref !== 'string') return false
+    const [testId, idx] = String(v.ref).split(':')
+    const t = (testsLib||[]).find((x:any)=>x.id===testId)
+    const it = Array.isArray(t?.items) ? t.items[Number(idx)] : null
+    return it != null && tieneBarra(it)
+  }
+
   const pintarObjetivo = (o:any) => {
-    // Las METAS son vías —para cerrar cuentan igual— pero no son origen: tienen su
-    // propia sección con su barra, y pintarlas dos veces confunde lo que cada lista
-    // está diciendo.
-    const vias = (Array.isArray(o.vias)?o.vias:[]).filter((v:any)=>v?.tipo !== 'meta')
+    // Las METAS son vías —para cerrar cuentan igual— pero no son origen. Y lo medible
+    // ya está arriba con su barra: aquí se quedan las casillas, la ejecución y los
+    // cierres a mano, que es lo que no se puede medir con un número.
+    const vias = (Array.isArray(o.vias)?o.vias:[])
+      .filter((v:any)=>v?.tipo !== 'meta')
+      .filter((v:any)=>esMedible(v) === false)
     const pendientes = vias.filter((v:any)=>!v.resuelto).length
     const suyas = viasDe(o)
     return (
@@ -753,7 +771,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             hallazgo, y lo que da un avance de verdad. Ver `lib/metasVia`. */}
         {o.logrado === false && (
           <MedidasObjetivo pacienteId={pac.id} objetivo={o} tests={testsLib}
-            onCambio={cargarObjetivos}/>
+            onCambio={cargarObjetivos}
+            onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
         )}
 
         {/* NI MONEDA NI NOMBRES NI DESCRIPCIÓN. Los tres estaban justo encima, en la

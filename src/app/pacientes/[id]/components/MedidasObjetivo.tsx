@@ -38,12 +38,14 @@ type Fila = {
   fechaHoy: string | null
 }
 
-export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCambio }: {
+export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCambio, onAbrirTest }: {
   pacienteId: string
   /** La fila del paciente: hace falta `vias`, que es donde vive la meta. */
   objetivo: any
   tests?: any[]
   onCambio?: () => void
+  /** Volver a pasar el test. Lo que mueve una meta es medir otra vez. */
+  onAbrirTest?: (testId: string, lado: string) => void
 }) {
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(true)
@@ -164,7 +166,11 @@ export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCa
         const abierto = editando === f.clave
         return (
           <div key={f.clave} style={{ border: '1px solid var(--bd)', borderRadius: 9, padding: '9px 11px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            {/* La ficha entera lleva al test: lo que mueve una meta es volver a medir,
+                y antes había que ir a buscarlo a la lista de «de dónde sale». */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9,
+              cursor: onAbrirTest ? 'pointer' : 'default' }}
+              onClick={() => onAbrirTest?.(f.test.id, f.lado || 'bilateral')}>
               {f.test.imagen_url
                 ? <img src={f.test.imagen_url} alt="" style={{ width: 46, height: 38, objectFit: 'cover',
                     borderRadius: 6, background: 'var(--bm)', flexShrink: 0, display: 'block' }}/>
@@ -181,7 +187,8 @@ export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], onCa
               </div>
 
               {/* Y HASTA CUÁNTO. Vacío = se cierra cuando el test salga limpio. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: 11.5, color: 'var(--gr)' }}>y hasta</span>
                 <input className="input" type="text" inputMode="decimal" disabled={guardando}
                   style={{ width: 54, padding: '3px 5px', fontSize: 12.5, textAlign: 'center' }}
