@@ -28,6 +28,22 @@ export async function evaluacionDe(asignacionId: string, faseId: string) {
   return data || null
 }
 
+/**
+ * LAS EVALUACIONES ABIERTAS DE UN PACIENTE, DE UNA SOLA VEZ.
+ *
+ * La tarjeta del sistema quiere decir "tiene evaluacion el 27" sin montar el
+ * bloque entero de la evaluacion, que solo se abre al pulsarla. Una consulta
+ * para todas sus asignaciones en vez de una por fase.
+ */
+export async function evaluacionesDe(pacienteId: string) {
+  const m: Record<string, { id: string, fecha: string | null }> = {}
+  if (!pacienteId) return m
+  const { data } = await supabase.from('evaluaciones')
+    .select('id,asignacion_id,fase_id,fecha').eq('paciente_id', pacienteId)
+  for (const e of data || []) m[e.asignacion_id + '|' + e.fase_id] = { id: e.id, fecha: e.fecha }
+  return m
+}
+
 export async function abrirEvaluacion(d: {
   pacienteId: string, asignacionId: string, faseId: string,
   fecha?: string | null, citaId?: string | null,

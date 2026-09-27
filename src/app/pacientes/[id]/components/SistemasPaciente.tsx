@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
-import EvaluacionFase from './EvaluacionFase'
 import EscalonesAsignar from './EscalonesAsignar'
+import TarjetaSistema from './TarjetaSistema'
+import { evaluacionesDe } from '@/lib/evaluaciones'
 import { contiene } from '@/lib/texto'
 import ModalSistema from '@/app/entrenamiento/components/ModalSistema'
 import { esPlantilla } from '@/lib/sesiones'
@@ -12,7 +13,7 @@ import { duplicarSesion } from '@/lib/sesiones'
 import { hoyISO } from '@/lib/fechas'
 import { inicioParaEmpezarEn, actualizarAsignacion, finPrevisto } from '@/lib/sistemas'
 import { cargarSistemas, asignarSistema, quitarSistema, marcarPrincipal,
-         faseEn, tramos, Sistema, Asignacion } from '@/lib/sistemas'
+         Sistema, Asignacion } from '@/lib/sistemas'
 
 // ---------------------------------------------------------------------------
 // QUÉ SISTEMAS LLEVA HOY ESTE PACIENTE
@@ -40,6 +41,10 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
   const [creando, setCreando] = useState(false)
   const [biblio, setBiblio] = useState<any>(null)
   const [editandoSistema, setEditandoSistema] = useState<any>(null)
+  // Para la banderita de la tarjeta: una consulta para todas sus fases, en vez
+  // de montar el bloque entero de la evaluacion solo para saber si la hay.
+  const [evs, setEvs] = useState<Record<string, { id: string, fecha: string | null }>>({})
+  useEffect(() => { evaluacionesDe(pacienteId).then(setEvs) }, [pacienteId, asignaciones.length])
 
   async function cargarBiblio() {
     if (biblio == null) {
@@ -333,94 +338,30 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
         <div className="muted">Sin sistema. Sus citas se ven como hasta ahora.</div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {asignaciones.map(a => {
-          const s = a.sistema
-          if (!s) return null
-          const t = faseEn(s, a, hoy, logrados, escalones)
-          const todas = tramos(s, a)
-          const i = t ? (s.fases || []).findIndex(f => f.id === t.fase.id) : -1
-          /**
-           * TODAVIA NO HA EMPEZADO.
-           *
-           * `faseEn` no devuelve nada antes de la fecha de inicio, y con razon: hoy
-           * no esta en ninguna fase. Pero entonces la tarjeta no decia ni que
-           * arrancaba el dia 30 ni dejaba dejar programada la evaluacion de la
-           * primera fase, que es justo lo que se hace al montar el plan.
-           */
-          const porEmpezar = t == null && a.fecha_inicio != null && hoy < a.fecha_inicio
-          const primeraFase = porEmpezar
-            ? (s.fases || [])[Math.max(0, Math.min(Number(a.fase_inicial) || 0, (s.fases || []).length - 1))]
-            : null
-          return (
-            <div key={a.id}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--w)',
-              border: '1px solid var(--bd)', borderLeft: `4px solid ${s.color}`, borderRadius: 7,
-              padding: '7px 11px 7px 9px' }}>
-              <span style={{ width: 24, height: 24, borderRadius: 6, background: s.color, color: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {s.icono ? <Ic name={s.icono} size={12}/> : null}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: 'var(--n)' }}>{s.nombre}</div>
-                <div style={{ fontSize: 11, color: 'var(--gr)' }}>
-                  {t ? `${t.fase.nombre}${i >= 0 && (s.fases||[]).length > 1 ? ` · ${i + 1} de ${(s.fases||[]).length}` : ''}`
-                     : (todas.length === 0 && s.progresion !== 'objetivos' ? 'Le faltan fechas' : 'Fuera de fase')}
-                </div>
-                {(() => {
-                  const f = finPrevisto(s, a)
-                  if (f == null) return null
-                  const cerrado = s.progresion === 'fecha_fin'
-                  return (
-                    <div style={{ fontSize: 10, color: 'var(--grl)' }}>
-                      {cerrado ? 'termina el' : 'posible fin'} {corto(f)}
-                    </div>
-                  )
-                })()}
-              </div>
-              {t && (t.fase.sesiones || []).length > 0 && (
-                <button className="pill pill-soft" style={{ border: 'none', cursor: 'pointer', flexShrink: 0 }}
-                  title="Copia a su ficha las sesiones que propone esta fase"
-                  disabled={trayendo === t.fase.id}
-                  onClick={() => traer(t.fase.id, t.fase.sesiones || [])}>
-                  {trayendo === t.fase.id ? '…' : `traer ${(t.fase.sesiones || []).length}`}
-                </button>
-              )}
-              {asignaciones.length > 1 && (a.principal
-                ? <span className="pill pill-o on" style={{ flexShrink: 0 }} title="Marca el color de las citas">marco</span>
-                : <button className="pill pill-soft" style={{ border: 'none', cursor: 'pointer', flexShrink: 0 }}
-                    title="Hacer que sea este el que pinta las citas"
-                    onClick={() => marcarPrincipal(pacienteId, a.id).then(onCambio)}>hacer marco</button>)}
-              <button className="btn btn-s btn-sm" title="Cambiar fechas o fase"
-                onClick={() => abrirEdicion(a)}><Ic name="calendario" size={12}/></button>
-              {/* El sistema es SUYO: una copia. Retocarle una fase aqui no toca
-                  el molde de la biblioteca ni a nadie mas que lo lleve. */}
-              <button className="btn btn-s btn-sm" title="Editar este sistema solo para él"
-                onClick={async () => { await cargarBiblio(); setEditandoSistema(s) }}>
-                <Ic name="editar" size={12}/>
-              </button>
-              <button className="btn btn-s btn-sm" title="Quitar" onClick={() => quitar(a)}>✕</button>
-            </div>
-            {/* La evaluacion cuelga de la fase en la que esta HOY: es lo que hay que
-                pasarle para poder salir de ella. */}
-            {t && (
-              <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={t.fase} color={s.color} onCambio={onRecargar}/>
-            )}
-            {porEmpezar && (
-              <>
-                <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 7 }}>
-                  Empieza el {new Date(a.fecha_inicio + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}.
-                  Hoy no está en ninguna fase todavía.
-                </div>
-                {primeraFase && (
-                  <EvaluacionFase pacienteId={pacienteId} asignacion={a} fase={primeraFase}
-                    color={s.color} onCambio={onRecargar}/>
-                )}
-              </>
-            )}
-            </div>
-          )
-        })}
+      {/* Cuadradas y en rejilla: el sistema se reconoce por su color y su
+          nombre, y todo lo que se puede hacer con el vive dentro. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(168px,1fr))',
+        gap: 11 }}>
+        {asignaciones.map(a => (
+          <TarjetaSistema key={a.id} pacienteId={pacienteId} a={a}
+            logrados={logrados} escalones={escalones}
+            varios={asignaciones.length > 1} evaluaciones={evs} trayendo={trayendo}
+            onTraer={traer}
+            onMarco={() => marcarPrincipal(pacienteId, a.id).then(onCambio)}
+            onFechas={() => abrirEdicion(a)}
+            onEditarSistema={async () => { await cargarBiblio(); setEditandoSistema(a.sistema) }}
+            onQuitar={() => quitar(a)}
+            onRecargar={() => { onRecargar?.(); evaluacionesDe(pacienteId).then(setEvs) }}/>
+        ))}
+
+        <div onClick={() => setAnadiendo(true)}
+          style={{ aspectRatio: '1 / 1', border: '1px dashed var(--bm)', borderRadius: 10,
+            background: 'var(--w)', cursor: 'pointer', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 7, color: 'var(--grl)',
+            fontSize: 12 }}>
+          <span style={{ fontSize: 22, color: 'var(--fant, var(--grl))', lineHeight: 1 }}>+</span>
+          <span>Añadir sistema</span>
+        </div>
       </div>
     </div>
   )
