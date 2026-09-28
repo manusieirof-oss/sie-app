@@ -14,6 +14,7 @@ import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
+import { avisosDeEjercicio, tituloAviso } from '@/lib/avisosZona'
 import { registrarResultadoTest } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import CircuitoGrid from './CircuitoGrid'
@@ -46,6 +47,8 @@ export default function ModoClase() {
   const [testsHoy, setTestsHoy] = useState<Record<string, any[]>>({})
   /** Logrados que toca confirmar y no tienen test: se miran y se dicen. */
   const [sinTest, setSinTest] = useState<Record<string, any[]>>({})
+  /** El arbol entero, para cruzar zona de molestia con etiqueta de ejercicio. */
+  const [etiquetas, setEtiquetas] = useState<any[]>([])
   const [testEnCurso, setTestEnCurso] = useState<any>(null)
   const [guardandoTest, setGuardandoTest] = useState(false)
   const [listaTests, setListaTests] = useState(false)
@@ -316,6 +319,8 @@ export default function ModoClase() {
     (async () => {
       const { data } = await supabase.from('objetivos').select('id,nombre').eq('activo',true).order('nombre')
       setObjetivosLib(data||[])
+      const { data: ets } = await supabase.from('etiquetas').select('id,nombre,categoria,padre_id')
+      setEtiquetas(ets||[])
     })()
   }, [])
 
@@ -392,7 +397,7 @@ export default function ModoClase() {
     })
     const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks').in('id', ids)
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks,etiquetas').in('id', ids)
       const tipoMap:Record<string,any>={}
       ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
       ejs.forEach(e=>{
@@ -400,10 +405,12 @@ export default function ModoClase() {
         e.tipo_medida = t?.tipo_medida || 'peso_reps'
         e.items = t?.items_ejecucion || []
         e.feedbacks = t?.feedbacks || []
+        // Para cruzar con la zona de sus molestias. Ver `lib/avisosZona`.
+        e.etiquetas = t?.etiquetas || []
         if (!e.items_evaluados) e.items_evaluados = {}
       })
     } else {
-      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; if(!e.items_evaluados) e.items_evaluados = {} })
+      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; e.etiquetas = []; if(!e.items_evaluados) e.items_evaluados = {} })
     }
     if (ids.length) {
       /**
@@ -1013,6 +1020,29 @@ export default function ModoClase() {
                     {ej.nombre}
                   </div>
                   {ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',display:'inline-block',marginTop:3}}>{ej.variante}</span>}
+                  {/* LA MOLESTIA, AQUI Y NO EN EL PACIENTE. El icono de "tiene cosas"
+                      salia igual en los doce ejercicios y se ignoraba; esto sale solo
+                      en los que tocan su zona. Ver `lib/avisosZona`. */}
+                  {(() => {
+                    const av = avisosDeEjercicio(
+                      (ctxPorPaciente[act.paciente.id]?.molestias)||[], etiquetas, ej.etiquetas||[])
+                    if (av.length === 0) return null
+                    return (
+                      <div style={{marginTop:4,display:'grid',gap:3}}>
+                        {av.map((a:any,k:number)=>(
+                          <div key={k} style={{display:'flex',gap:5,alignItems:'flex-start',
+                            fontSize:9,lineHeight:1.4,background:'var(--ambl)',color:'#7A5800',
+                            border:'1px solid var(--amb)',borderRadius:5,padding:'3px 6px'}}>
+                            <span style={{flexShrink:0}}>⚠</span>
+                            <span>
+                              <b style={{fontWeight:600}}>{tituloAviso(a)}</b>
+                              {a.nota ? ' — ' + a.nota : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                   {/* EL PLAN, SIEMPRE. Antes el peso planificado solo salia si el
                       paciente NO tenia registro previo, que es justo al reves: cuanto
                       mas histórico tiene, mas falta hace saber a que ibas hoy. */}
