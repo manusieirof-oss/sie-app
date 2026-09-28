@@ -5,8 +5,9 @@ import { hoyISO } from '@/lib/fechas'
 import { esCuestionario } from '@/lib/cuestionarios'
 import { sembrarObjetivos } from '@/lib/sistemas'
 import { evaluacionDe, abrirEvaluacion, moverEvaluacion, borrarEvaluacion,
-         resumenDeEvaluacion, diasDeEvaluacion, fijarDiaDeTest,
+         resumenDeEvaluacion, diasDeEvaluacion, fijarDiaDeTest, salidaDe, reabrirEvaluacion,
          type ObjetivoEnEvaluacion, type DiaDeTest } from '@/lib/evaluaciones'
+import CerrarEvaluacion from './CerrarEvaluacion'
 
 // ---------------------------------------------------------------------------
 // LA EVALUACION DE UNA FASE
@@ -33,6 +34,7 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
   const [abierto, setAbierto] = useState(false)
   // El dia propio de cada test, si se le ha puesto uno. Sin fila, va en el general.
   const [dias, setDias] = useState<Record<string, DiaDeTest>>({})
+  const [cerrando, setCerrando] = useState(false)
 
   useEffect(() => { cargar() }, [asignacion?.id, fase?.id])
 
@@ -108,6 +110,34 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
               <span style={{ flex: 1, fontSize: 11, color: 'var(--grl)' }}>Sin programar</span>
               <button className="btn btn-s btn-sm" onClick={abrir}>Evaluar esta fase</button>
             </>
+          ) : ev.cerrada_el ? (
+            /* CERRADA. Lo que se decidio manda la fila: la lista de lo que falta
+               ya no es la pregunta, y el porque si. */
+            (() => {
+              const sa = salidaDe(ev.salida)
+              return (
+                <>
+                  {sa && (
+                    <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 99,
+                      background: sa.fondo, color: sa.color, border: `1px solid ${sa.color}` }}>
+                      {sa.nombre}
+                    </span>
+                  )}
+                  <span style={{ flex: 1, minWidth: 100, fontSize: 11.5, color: 'var(--gr)' }}>
+                    {ev.conclusion || 'sin nota'}
+                  </span>
+                  <button className="pill pill-soft" style={{ border: 'none', cursor: 'pointer' }}
+                    onClick={() => setAbierto(v => v === false)}>
+                    {abierto ? 'ocultar' : 'ver'}
+                  </button>
+                  <button className="btn btn-s btn-sm" title="Volver a abrirla; se borra la conclusión"
+                    onClick={async () => {
+                      if (confirm('¿Reabrir la evaluación? Se borra la conclusión escrita.') === false) return
+                      await reabrirEvaluacion(ev.id); cargar(); onCambio?.()
+                    }}>Reabrir</button>
+                </>
+              )
+            })()
           ) : (
             <>
               <span className={`pill ${completa ? 'pill-o on' : 'pill-soft'}`}
@@ -122,10 +152,28 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
                 onClick={() => setAbierto(v => v === false)}>
                 {abierto ? 'ocultar' : 'ver qué falta'}
               </button>
+              {/* LA CONCLUSION. Guardaba que tests se pasaron y cuando, pero no lo
+                  que decidiste: dentro de un ano sabrias que avanzo de fase y no
+                  por que. Ver `lib/evaluaciones`. */}
+              <button className="btn btn-s btn-sm" onClick={() => setCerrando(true)}>Cerrar</button>
               <button className="btn btn-s btn-sm" title="Quitar" onClick={quitar}>✕</button>
             </>
           )}
       </div>
+
+      {cerrando && ev && (
+        <CerrarEvaluacion pacienteId={pacienteId} evaluacionId={ev.id} faseNombre={fase?.nombre}
+          lista={lista}
+          onCerrar={() => setCerrando(false)}
+          onHecho={() => { setCerrando(false); cargar(); onCambio?.() }}/>
+      )}
+
+      {ev?.cerrada_el && ev.cerrada_por && (
+        <div style={{ fontSize: 10, color: 'var(--grl)', marginTop: 4 }}>
+          cerrada por {ev.cerrada_por} el {new Date(ev.cerrada_el).toLocaleDateString('es-ES',
+            { day: 'numeric', month: 'short', year: 'numeric' })}
+        </div>
+      )}
 
       {ev && abierto && (
         <div style={{ marginTop: 9 }}>

@@ -365,3 +365,63 @@ export async function testsPorDia(pacienteId: string): Promise<Record<string, Te
   })
   return porDia
 }
+
+// ---------------------------------------------------------------------------
+// LA CONCLUSION DE LA EVALUACION
+//
+// La evaluacion se diseno como un contenedor DERIVADO: no guarda su contenido
+// a proposito, para que no envejezca al cambiar los objetivos de la fase. Eso
+// sigue igual. Pero la conclusion no es contenido derivado: es un dato nuevo
+// que solo existe ese dia -"sigue positivo pero mejora, mantenemos fase"- y
+// sin el, dentro de un ano, sabras que avanzo de fase pero no por que.
+//
+// No manda sobre nada: la fase sigue avanzando por sus objetivos. Si la
+// conclusion dice "avanza" y los objetivos no estan, esa contradiccion se ve,
+// que ya es informacion.
+// ---------------------------------------------------------------------------
+
+export const SALIDAS = [
+  { valor: 'avanza',    nombre: 'Avanza de fase',       color: '#3E7179', fondo: '#EBF4F5' },
+  { valor: 'repite',    nombre: 'Repite fase',          color: '#7A5800', fondo: '#FBF1DC' },
+  { valor: 'replantea', nombre: 'Se replantea el ciclo', color: '#B4544F', fondo: '#F9ECEB' },
+] as const
+
+export type Salida = typeof SALIDAS[number]['valor']
+
+export const salidaDe = (v?: string | null) => SALIDAS.find(s => s.valor === v) || null
+
+export async function cerrarEvaluacion(evaluacionId: string, d: {
+  pacienteId: string, faseNombre?: string, salida: Salida, conclusion?: string,
+}) {
+  let quien = ''
+  try {
+    const { data } = await supabase.auth.getUser()
+    quien = data?.user?.email || ''
+  } catch { /* sin sesion: se queda sin firma */ }
+
+  const { error } = await supabase.from('evaluaciones').update({
+    cerrada_el: new Date().toISOString(),
+    salida: d.salida,
+    conclusion: (d.conclusion || '').trim() || null,
+    cerrada_por: quien || null,
+  }).eq('id', evaluacionId)
+  if (error) return { ok: false as const, error: error.message }
+
+  const s = salidaDe(d.salida)
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: d.pacienteId,
+    tipo: 'evaluacion_cerrada',
+    titulo: `Evaluación cerrada${d.faseNombre ? ': ' + d.faseNombre : ''}`,
+    descripcion: [s?.nombre, (d.conclusion || '').trim()].filter(Boolean).join(' · ') || null,
+    fecha: hoyISO(),
+  })
+  return { ok: true as const }
+}
+
+/** Volver a abrirla. Lo escrito se borra: media conclusion miente mas que ninguna. */
+export async function reabrirEvaluacion(evaluacionId: string) {
+  const { error } = await supabase.from('evaluaciones')
+    .update({ cerrada_el: null, salida: null, conclusion: null, cerrada_por: null })
+    .eq('id', evaluacionId)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}

@@ -34,6 +34,7 @@ const TIPOS: Record<string,{icono:string,color:string,label:string,familia:strin
   objetivo_logrado:   {icono:'trofeo',     color:'var(--g)',   label:'Objetivo logrado',   familia:'entreno'},
   objetivo_reabierto: {icono:'objetivo',   color:'var(--amb)', label:'Objetivo reabierto', familia:'entreno'},
   objetivo_confirmado:{icono:'check',      color:'var(--gm)',  label:'Objetivo confirmado',familia:'entreno'},
+  evaluacion_cerrada: {icono:'informe',    color:'var(--gd)',  label:'Evaluación cerrada', familia:'entreno'},
 }
 
 // Un tono por familia, bien separados en el círculo cromático y todos desaturados
