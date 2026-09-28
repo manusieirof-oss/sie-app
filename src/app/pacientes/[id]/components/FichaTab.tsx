@@ -17,6 +17,7 @@ import { soloVigentes } from '@/lib/linaje'
 import ModalObjetivo from '@/app/entrenamiento/components/ModalObjetivo'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
 import MedidasObjetivo from './MedidasObjetivo'
+import DosisObjetivo from './DosisObjetivo'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
@@ -809,6 +810,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             onCambio={cargarObjetivos}
             onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
         )}
+
+        {/* CUANTO SE HA TRABAJADO. La ventana entre dos mediciones y lo que se hizo
+            dentro, sin etiquetar que ejercicio sirve para que: ver `lib/dosis`. */}
+        <DosisObjetivo pacienteId={pac.id} objetivo={o} tests={testsLib}/>
 
         {/* MANTENIMIENTO. Lo logrado no lo es para siempre: pide confirmarse al
             mes, luego a los tres, luego cada seis. La fecha se puede mover a mano
