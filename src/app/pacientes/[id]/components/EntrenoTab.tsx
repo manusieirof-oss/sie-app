@@ -1182,7 +1182,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           contar series que nunca se hicieron. Para avanzar desde una antigua está
           "Partir de esta", que la deja intacta y crea la siguiente del linaje. */}
       {sesionDetalle && (
-        <DetalleSesion
+        <DetalleSesion pacienteId={pacienteId}
           sesion={sesionDetalle}
           objetivos={objsDeSesion(sesionDetalle)}
           nCitas={citasFuturas.filter((c:any)=>c.sesion_id===sesionDetalle.id).length}
@@ -1228,7 +1228,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {/* Desde Historial se consulta el pasado: mismo detalle, sin acciones, y con
           lo que de verdad se hizo ese día debajo de lo prescrito. */}
       {verSesion && (
-        <DetalleSesion sesion={verSesion.sesion} ejecutado={verSesion.ejecutado}
+        <DetalleSesion pacienteId={pacienteId} sesion={verSesion.sesion} ejecutado={verSesion.ejecutado}
           onCerrar={()=>setVerSesion(null)}/>
       )}
 

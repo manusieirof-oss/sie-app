@@ -1,5 +1,6 @@
 'use client'
 import { Ic } from '@/lib/icons'
+import AvisoMolestia from './AvisoMolestia'
 import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -19,9 +20,11 @@ function medidaEj(ej: any): string {
 // desde Sesiones se veía con imágenes, series, pesos y notas; desde Historial,
 // solo una lista de nombres. Ahora es el mismo, y lo único que cambia son las
 // acciones: en Historial estás consultando el pasado, no editándolo.
-export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, textoAsignar, onPartir, textoPartir, nCitas, ejecutado, onHistorial }: {
+export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCerrar, onEditar, onDuplicar, onEliminar, onAsignar, textoAsignar, onPartir, textoPartir, nCitas, ejecutado, onHistorial }: {
   sesion: any
   objetivos?: any[]
+  /** Con el puesto, cada ejercicio avisa de las molestias que toca. */
+  pacienteId?: string | null
   onCerrar: () => void
   /** Ausente en las tandas que ya no son la vigente: editarlas reescribiría el pasado. */
   onEditar?: () => void
@@ -208,6 +211,8 @@ export default function DetalleSesion({ sesion, objetivos = [], onCerrar, onEdit
                               : <div className="ej-img ej-img-no"><Ic name="fuerza" size={24} /></div>}
                             <div style={{ minWidth: 0 }}>
                               <div className="ej-txt">{nombre}</div>
+                              {/* La molestia, antes de la sala. Ver `lib/avisosZona`. */}
+                              <AvisoMolestia pacienteId={pacienteId} ejercicioId={ej.ejercicio_id}/>
                               {(() => {
                                 const h = hizo(ej.ejercicio_id)
                                 const hecha = h?.variante || ''
