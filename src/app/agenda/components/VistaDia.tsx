@@ -3,9 +3,13 @@ import { useEffect, useRef } from 'react'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
+import ResponsableFranja from './ResponsableFranja'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'] }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos }: {
   fecha: string
+  turnos?: any[]
+  perfiles?: any[]
+  onTurnos?: () => void
   hoy: string
   fechaDisplay: string
   citas: any[]
@@ -93,6 +97,14 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     return citas.filter(c=>c.hora.startsWith(h)&&c.sala===sala&&c.fecha===fecha)
   }
 
+  /** La franja acaba donde empieza la siguiente; la ultima, una hora despues. */
+  const finDe = (h:string) => {
+    const i = HORAS.indexOf(h)
+    if (i >= 0 && i < HORAS.length - 1) return HORAS[i + 1]
+    const [hh, mm] = h.split(':').map(Number)
+    return String((hh + 1) % 24).padStart(2, '0') + ':' + String(mm || 0).padStart(2, '0')
+  }
+
   function abrirNueva(h:string, sala:string) {
     setNuevaCita((p:any)=>({...p,fecha,hora:h,sala})); setModal(true)
   }
@@ -175,7 +187,10 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                   <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:6,minHeight:52,minWidth:0}}>
                     <div style={{border:`1px solid ${sobre?'var(--amb)':'var(--bd)'}`,borderRadius:10,padding:'8px 9px',background:'var(--w)'}}>
                       {sc.length>0&&(
-                        <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',marginBottom:7}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,marginBottom:7}}>
+                          {/* QUIEN SE HACE CARGO. Ver `lib/turnos`. */}
+                          <ResponsableFranja turnos={turnos} perfiles={perfiles} fecha={fecha}
+                            hora={h} horaFin={finDe(h)} sala={sala} onCambio={onTurnos||(()=>{})}/>
                           <span style={{fontSize:10,fontWeight:600,flexShrink:0,borderRadius:99,padding:'2px 9px',color:sobre?'#8A6410':'var(--gd)',background:sobre?'var(--ambl)':'var(--gl)',border:sobre?'1px solid var(--amb)':'none'}}>{filtrando?sc.length:`${scActivas.length}/${MAX}`}</span>
                         </div>
                       )}

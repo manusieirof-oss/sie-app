@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { horasDeAgenda } from '@/lib/generarHoras'
+import { cargarTurnos } from '@/lib/turnos'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
@@ -29,6 +30,7 @@ export default function AgendaPage() {
   const [citas, setCitas] = useState<any[]>([])
   const [alertasPaciente, setAlertasPaciente] = useState<any[]>([])
   const [perfiles, setPerfiles] = useState<any[]>([])
+  const [turnos, setTurnos] = useState<any[]>([])
   const [userId, setUserId] = useState<string|null>(null)
   const [tareas, setTareas] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
@@ -168,8 +170,10 @@ export default function AgendaPage() {
     setCitas(todas)
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])
-    const { data: perf } = await supabase.from('perfiles').select('user_id,nombre,rol')
+    const { data: perf } = await supabase.from('perfiles').select('id,user_id,nombre,rol')
     setPerfiles(perf||[])
+    // Quien lleva cada franja. Ver `lib/turnos`.
+    setTurnos(await cargarTurnos())
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user?.id||null)
     const { data: tar } = await supabase.from('tareas').select('*').order('fecha_limite',{ascending:true,nullsFirst:false})
@@ -665,7 +669,8 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas}/>}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas}
+            turnos={turnos} perfiles={perfiles} onTurnos={cargar}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita} soloHueco={soloHueco} salas={salas}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string,pacienteId:string)=>setEditandoMulti({citas:cts,nombre,pacienteId})} maxPersonas={maxPersonas} eventos={eventos}/>}
         </>
