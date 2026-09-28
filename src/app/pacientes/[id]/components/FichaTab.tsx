@@ -10,6 +10,7 @@ import { guardarVias, retratoDe } from '@/lib/objetivos'
 import { VIAS, viasDe, marcarVia, quitarVia, type ViaOrigen } from '@/lib/viasObjetivo'
 import { urgenciaDe, COLOR_URGENCIA, textoRevision, fijarRevision,
          confirmarAMano } from '@/lib/mantenimiento'
+import { quietoDesde, hace, porParado } from '@/lib/antiguedad'
 import { conteoPorObjetivo } from '@/lib/objetivosTests'
 import { tieneBarra } from '@/lib/tests'
 import { sistemasDePaciente } from '@/lib/sistemas'
@@ -60,6 +61,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
   const [viaAnadir, setViaAnadir] = useState<ViaOrigen>('plan')
   const [filtroVia, setFiltroVia] = useState<string>('')
+  /** Por via (lo de siempre) o lo mas parado primero. Ver `lib/antiguedad`. */
+  const [orden, setOrden] = useState<'via'|'parado'>('via')
   /**
    * Los objetivos que cubre su CICLO, aunque todavía no estén enganchados a ninguna
    * cita. Estar en la programación es las dos cosas: que una clase suya lo trabaje,
@@ -288,7 +291,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // biblioteca: ver `retratoDe`. De la biblioteca solo se trae lo que no cambia el pasado
     // —la zona y la foto— y si esta archivado, que es lo unico que hay que decir de ella.
     supabase.from('pacientes_objetivos')
-      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, revisar_el, confirmaciones, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
+      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, revisar_el, confirmaciones, created_at, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
       .eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({
         ...r.objetivos,
@@ -298,6 +301,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         archivado: r.objetivos?.archivado_el != null,
         origen:r.origen, vias:r.vias||[], logrado:r.logrado, fecha_logrado:r.fecha_logrado,
         revisar_el:r.revisar_el, confirmaciones:r.confirmaciones,
+        created_at:r.created_at,
         vias_origen:r.vias_origen||[], pide_texto:r.pide_texto||null,
       })).filter((o:any)=>o.id))
     })
@@ -1124,7 +1128,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           return i < 0 ? VIAS.length : i
         }
         const porVia = (lista:any[]) => [...lista].sort((a:any,b:any)=>
-          ordenVia(a)-ordenVia(b) || String(a.nombre||'').localeCompare(String(b.nombre||'')))
+          orden==='parado'
+            ? porParado(a,b) || String(a.nombre||'').localeCompare(String(b.nombre||''))
+            : ordenVia(a)-ordenVia(b) || String(a.nombre||'').localeCompare(String(b.nombre||'')))
 
         const visibles = porVia(filtroVia
           ? objetivosActivos.filter((o:any)=>viasDe(o).includes(filtroVia as ViaOrigen))
@@ -1154,6 +1160,17 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                   </button>
                 )
               })}
+              {/* LO MAS PARADO PRIMERO. La fila estaba ordenada por via, que dice de
+                  donde sale cada uno pero no cual lleva medio ano sin que le pase
+                  nada. Ver `lib/antiguedad`. */}
+              <button type="button" title="Ordenar por el que lleva más tiempo sin que le pase nada"
+                onClick={()=>setOrden(x=>x==='parado'?'via':'parado')}
+                style={{fontSize:10,padding:'2px 9px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                  background:orden==='parado'?'var(--gl)':'transparent',
+                  color:orden==='parado'?'var(--gd)':'var(--gr)',
+                  border:`1px solid ${orden==='parado'?'var(--gm)':'var(--bd)'}`}}>
+                lo más parado
+              </button>
               <button className="btn btn-t btn-sm"
                 onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setPideTexto(null);setViaAnadir('plan');setModalAnadir(true)}}>
                 <Ic name="mas" size={12}/> Añadir

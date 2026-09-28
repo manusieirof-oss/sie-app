@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { dosisDeObjetivo, type Ventana, type EjercicioEnVentana } from '@/lib/dosis'
+import { hace } from '@/lib/antiguedad'
 
 // ---------------------------------------------------------------------------
 // LO QUE SE HA HECHO POR ESTE OBJETIVO
@@ -33,6 +34,16 @@ export default function DosisObjetivo({ pacienteId, objetivo, tests = [] }: {
 
   if (cargando || d == null) return null
 
+  /* LA ANTIGUEDAD, EN UNA LINEA. Un objetivo abierto hace ocho meses, sin
+     medir y sin clases, se veia igual que uno de ayer. */
+  const enCurso: Ventana | null = (d.ventanas || []).find((v: Ventana) => v.enCurso) || null
+  const resumen = [
+    objetivo?.created_at ? `abierto ${hace(String(objetivo.created_at).slice(0, 10))}` : '',
+    enCurso?.desde ? `medido ${hace(enCurso.desde)}` : '',
+    enCurso ? `${enCurso.clases} clase${enCurso.clases === 1 ? '' : 's'} desde entonces` : '',
+  ].filter(Boolean).join(' · ')
+  const parado = enCurso != null && enCurso.clases === 0
+
   const cerrada: Ventana | null = d.cerrada
   const ejercicios: EjercicioEnVentana[] = d.ejercicios || []
   const otras: Ventana[] = (d.ventanas || []).filter((v: Ventana) => v !== cerrada)
@@ -44,6 +55,11 @@ export default function DosisObjetivo({ pacienteId, objetivo, tests = [] }: {
     return (
       <div style={{ marginTop: 8 }}>
         <div className="et-mini">Trabajo hecho</div>
+        {objetivo?.created_at && (
+          <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 6 }}>
+            abierto {hace(String(objetivo.created_at).slice(0, 10))}
+          </div>
+        )}
         <div style={{ fontSize: 12, color: 'var(--gr)', background: 'var(--bl)',
           border: '1px dashed var(--bm)', borderRadius: 7, padding: '9px 11px', lineHeight: 1.6 }}>
           <b>{d.clasesTotales} clases dadas</b> en total. Este objetivo no se mide con un número,
@@ -56,6 +72,10 @@ export default function DosisObjetivo({ pacienteId, objetivo, tests = [] }: {
   return (
     <div style={{ marginTop: 8 }}>
       <div className="et-mini">Trabajo hecho</div>
+      {resumen && (
+        <div style={{ fontSize: 11, marginBottom: 6,
+          color: parado ? 'var(--ambt, #7A5800)' : 'var(--grl)' }}>{resumen}</div>
+      )}
 
       {cerrada && (
         <div style={{ border: '1px solid var(--bd)', borderRadius: 9, padding: '13px 15px 11px' }}>
