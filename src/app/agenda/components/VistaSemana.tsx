@@ -98,7 +98,11 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
               return (
                 <div key={f} style={{borderLeft:'1px solid var(--bl)',background:isH?'rgba(90,150,158,.03)':'transparent',minHeight:50,display:'grid',gridTemplateColumns:`repeat(${salas.length},1fr)`,gap:2,padding:2}}>
                   {salas.map(s=>{
-                    const cd=citas.filter(c=>c.fecha===f&&c.hora.startsWith(h)&&c.sala===s&&c.estado!=='cancelada')
+                    /* NI CANCELADAS NI FALTAS. La semanal es la foto de quien viene y de
+                       cuantas plazas quedan; quien avisó y quien no se ve en la vista de
+                       día y en su ficha, que es donde eso importa. */
+                    const cd=citas.filter(c=>c.fecha===f&&c.hora.startsWith(h)&&c.sala===s
+                      &&c.estado!=='cancelada'&&c.estado!=='falta')
                     return <SubCelda key={s} cd={cd} sala={s} f={f} h={h}/>
                   })}
                 </div>
