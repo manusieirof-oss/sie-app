@@ -1,9 +1,11 @@
 'use client'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
+import { responsableDe } from '@/lib/turnos'
 
-export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, salas=['A','B'] }: {
+export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, salas=['A','B'], turnos=[] }: {
   fecha: string
+  turnos?: any[]
   hoy: string
   citas: any[]
   getFechasSemana: () => string[]
@@ -43,6 +45,10 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
 
   function SubCelda({ cd, sala, f, h }: { cd:any[], sala:string, f:string, h:string }) {
     const n = cd.length
+    // Quien se hace cargo. Si nadie esta asignado a esta sala, el que este a esa
+    // hora, en cursiva: es deduccion, no decision. Ver `lib/turnos`.
+    const resp = responsableDe(turnos, f, h, sala)
+    const quien = resp.lista.map((t:any)=>(t.perfil?.nombre||'').trim()).filter(Boolean).join(' · ')
     if (n===0) {
       return (
         <div onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,fecha:f,hora:h,sala}));setModal(true)}}
@@ -58,6 +64,13 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
     return (
       <div style={{border:`1.5px solid ${borde}`,borderRadius:5,padding:'3px 4px',background:'var(--w)',opacity:atenuar?0.3:1,transition:'opacity .15s'}}>
         <div style={{fontSize:8,fontWeight:600,color:'var(--gr)',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sala} {n}/{MAX}{lleno?' · Completo':` · ${libres} libre${libres>1?'s':''}`}</div>
+        {quien && (
+          <div title={resp.deducido ? 'Nadie asignado a esta sala: es quien está a esa hora' : 'Se hace cargo'}
+            style={{fontSize:8,color:resp.deducido?'var(--grl)':'var(--gd)',fontStyle:resp.deducido?'italic':'normal',
+              marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:400}}>
+            {quien}
+          </div>
+        )}
         {cd.map((c:any)=>(
           <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})}
             style={{fontSize:9,color:'var(--n)',fontWeight:400,padding:'1px 4px',marginBottom:1,borderRadius:3,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.35,display:'flex',alignItems:'center',gap:4}}

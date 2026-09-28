@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { quienLleva, guardarTurno, borrarTurno, type Turno } from '@/lib/turnos'
+import { responsableDe, guardarTurno, borrarTurno, type Turno } from '@/lib/turnos'
 
 // ---------------------------------------------------------------------------
 // QUIEN LLEVA ESTA FRANJA, Y EL CAMBIO DE HOY
@@ -24,8 +24,8 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
   const [abierto, setAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
-  const lleva = quienLleva(turnos, fecha, hora, sala)
-  const nombres = lleva.map(t => (t.perfil?.nombre || '').trim()).filter(Boolean)
+  const { lista, deducido } = responsableDe(turnos, fecha, hora, sala)
+  const nombres = lista.map(t => (t.perfil?.nombre || '').trim()).filter(Boolean)
   // El de hoy, si lo hay: cambiarlo dos veces no puede dejar dos filas.
   const deHoy = turnos.filter(t => t.fecha === fecha && String(t.sala || '') === sala
     && String(t.hora_inicio).slice(0, 5) === hora.slice(0, 5))
@@ -42,11 +42,15 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
   return (
     <span style={{ position: 'relative', flex: 1, minWidth: 0 }}>
       <button type="button" onClick={() => setAbierto(v => v === false)}
-        title="Quién se hace cargo · pulsa para cambiarlo solo hoy"
+        title={deducido
+          ? 'Nadie asignado a esta sala: es quien está a esa hora. Pulsa para asignarlo hoy.'
+          : 'Quién se hace cargo · pulsa para cambiarlo solo hoy'}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10,
           fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none',
           padding: 0, maxWidth: '100%', overflow: 'hidden',
-          color: nombres.length > 0 ? 'var(--gd)' : 'var(--fant, var(--grl))' }}>
+          color: nombres.length === 0 ? 'var(--fant, var(--grl))'
+            : deducido ? 'var(--grl)' : 'var(--gd)',
+          fontStyle: deducido ? 'italic' : 'normal' }}>
         <Ic name="usuario" size={11}/>
         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nombres.length > 0 ? nombres.join(' · ') : 'sin asignar'}

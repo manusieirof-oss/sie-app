@@ -70,18 +70,31 @@ export function turnosDelDia(turnos: Turno[], fecha: string): Turno[] {
 }
 
 /**
- * Quien lleva una franja. `sala` vacia en el turno significa todas, asi que un
- * turno sin sala vale para cualquiera; el que la especifica manda sobre el que no.
+ * Quien lleva una franja, en tres escalones.
+ *
+ * 1. El turno de ESA sala. 2. El turno sin sala, que vale para todas. 3. Si no
+ * hay ninguno, quien este trabajando a esa hora, sea donde sea.
+ *
+ * El tercero es una deduccion y va marcado como tal: con gente citada y nadie
+ * asignado, decir quien esta a esa hora es mas util que dejarlo en blanco, pero
+ * no es lo mismo que haberlo decidido.
  */
-export function quienLleva(turnos: Turno[], fecha: string, hora: string, sala?: string | null) {
+export function responsableDe(turnos: Turno[], fecha: string, hora: string, sala?: string | null) {
   const h = min(hora)
-  if (h < 0) return [] as Turno[]
-  const suyos = turnosDelDia(turnos, fecha).filter(t =>
-    min(t.hora_inicio) <= h && h < min(t.hora_fin))
+  if (h < 0) return { lista: [] as Turno[], deducido: false }
+  const suyos = turnosDelDia(turnos, fecha)
+    .filter(t => min(t.hora_inicio) <= h && h < min(t.hora_fin))
+    .filter(t => t.perfil_id != null)
+
   const conSala = suyos.filter(t => sala && String(t.sala || '') === String(sala))
+  if (conSala.length > 0) return { lista: conSala, deducido: false }
   const sinSala = suyos.filter(t => (t.sala || '') === '')
-  const lista = conSala.length > 0 ? conSala : sinSala
-  return lista.filter(t => t.perfil_id != null)
+  if (sinSala.length > 0) return { lista: sinSala, deducido: false }
+  return { lista: suyos, deducido: suyos.length > 0 }
+}
+
+export function quienLleva(turnos: Turno[], fecha: string, hora: string, sala?: string | null) {
+  return responsableDe(turnos, fecha, hora, sala).lista
 }
 
 /** Los nombres, para pintarlos. "Ana · Marta", o vacio si nadie. */
