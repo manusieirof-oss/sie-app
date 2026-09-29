@@ -456,12 +456,21 @@ export default function ModoClase() {
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
           e.items_evaluados = ejec?.items ? { ...ejec.items } : (e.items_evaluados || {})
-          // precargar lo de la ultima vez como punto de partida editable
+          /* MANDA LO ULTIMO QUE HIZO. Lo planificado solo se ve la primera vez,
+             cuando no hay de donde partir: de ahi en adelante la carga real es
+             la que manda, porque es desde donde se progresa.
+             Un hueco vacio de la ultima vez NO borra lo planificado. */
           if (Array.isArray(e.ultimo) && e.ultimo.length>0) {
+            const lleno = (x:any) => x != null && String(x) !== ''
             e.series = e.series.map((orig:any, idx:number) => {
               const prev = e.ultimo[idx]
               if (!prev) return orig
-              return { ...orig, peso: prev.peso ?? '', reps: prev.reps ?? '', segundos: prev.segundos ?? '' }
+              return {
+                ...orig,
+                peso:     lleno(prev.peso)     ? prev.peso     : orig.peso,
+                reps:     lleno(prev.reps)     ? prev.reps     : orig.reps,
+                segundos: lleno(prev.segundos) ? prev.segundos : orig.segundos,
+              }
             })
             e.precargado = true
           }
