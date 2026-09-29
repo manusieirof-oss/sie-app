@@ -17,7 +17,7 @@ import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
-import ChapaEjecucion from './ChapaEjecucion'
+import IconosContexto from './IconosContexto'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
@@ -60,10 +60,9 @@ export default function ModoClase() {
     const ids = (rel||[]).map((r:any)=>r.objetivo_id).filter(Boolean)
     if (ids.length===0) { setObjsDeSesion(prev => ({ ...prev, [sesionId]: [] })); return }
     const { data: objs } = await supabase.from('objetivos')
-      .select('id,nombre').in('id', ids)
+      .select('id,nombre,imagen_url').in('id', ids)
     setObjsDeSesion(prev => ({ ...prev, [sesionId]: objs||[] }))
   }
-  const [ctxAbierto, setCtxAbierto] = useState<string>('')
   /**
    * Los cambios de sesión ya registrados en las citas de esta franja, por cita.
    *
@@ -277,7 +276,7 @@ export default function ModoClase() {
         let objetivosSesion: any[] = []
         if (d.sesion?.id) {
           const { data: rel } = await supabase.from('sesiones_objetivos')
-            .select('objetivos(id,nombre,color)').eq('sesion_id', d.sesion.id)
+            .select('objetivos(id,nombre,imagen_url)').eq('sesion_id', d.sesion.id)
           objetivosSesion = (rel||[]).map((r:any)=>r.objetivos).filter(Boolean)
         }
         lista.push({
@@ -506,12 +505,19 @@ export default function ModoClase() {
             e.precargado = true
           }
           const c = cursoMap[kv]
-          if (c && Array.isArray(c.series)) {
-            // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
-            const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
-            // si el borrador tenia mas series que la plantilla, añadirlas
-            for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
-            e.series = merged; e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
+          if (c) {
+            if (Array.isArray(c.series)) {
+              // fusionar: mantener nº de series de la plantilla, rellenar con lo guardado
+              const merged = e.series.map((orig:any, idx:number) => c.series[idx] || orig)
+              // si el borrador tenia mas series que la plantilla, añadirlas
+              for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
+              e.series = merged
+            }
+            /* EL COMENTARIO Y EL REGIMEN, AUNQUE NO HAYA SERIES. Colgaban del
+               mismo `if` que la fusion de series, asi que una nota escrita en un
+               ejercicio sin numeros se perdia al recargar: se habia guardado
+               bien y parecia que no. */
+            e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
             if (c.regimen) e.regimen = c.regimen
           }
           if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
@@ -921,50 +927,9 @@ export default function ModoClase() {
               </div>
             </div>
             <div style={{flex:1,display:'flex',justifyContent:'center'}}>
-              {(() => {
-                const ctx = ctxPorPaciente[act.paciente.id] || {}
-                const objsSesion = (objsDeSesion[act.sesionId]||act.objetivosSesion||[])
-                const grupos:any[] = [
-                  { k:'objetivos', icon:'objetivo', label:'Objetivos de la sesión', items:objsSesion, color:'var(--g)' },
-                  { k:'patologias', icon:'patologia', label:'Patologías', items:(ctx.patologias||[]), color:'var(--red)' },
-                  { k:'molestias', icon:'molestia', label:'Molestias', items:(ctx.molestias||[]), color:'var(--amb)' },
-                  { k:'alertas', icon:'alerta', label:'Alertas', items:(ctx.alertas||[]), color:'var(--red)' },
-                ].filter(g=>g.items.length>0)
-                if (grupos.length===0) return null
-                return (
-                  <div style={{display:'flex',alignItems:'center',gap:9}}>
-                    <div style={{display:'flex',gap:9,alignItems:'center'}}>
-                      {grupos.map(g=>{
-                        const abierto = ctxAbierto===g.k
-                        return (
-                          <span key={g.k} onClick={()=>setCtxAbierto(abierto?'':g.k)} title={g.label}
-                            style={{width:38,height:38,borderRadius:'50%',cursor:'pointer',flexShrink:0,
-                              background:abierto?g.color:'var(--w)',color:abierto?'#fff':g.color,border:'2px solid '+g.color,
-                              display:'inline-flex',alignItems:'center',justifyContent:'center',gap:2,fontSize:9,fontWeight:600,position:'relative'}}>
-                            <Ic name={g.icon} size={17}/>
-                            <span style={{position:'absolute',top:-4,right:-4,minWidth:17,height:17,borderRadius:'50%',background:g.color,color:'#fff',fontSize:10,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px',border:'2px solid var(--w)'}}>{g.items.length}</span>
-                          </span>
-                        )
-                      })}
-                    </div>
-                    {ctxAbierto && (() => {
-                      const g = grupos.find(x=>x.k===ctxAbierto)
-                      if (!g) return null
-                      return (
-                        <div style={{marginTop:6,padding:'7px 10px',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:6,maxWidth:420}}>
-                          <div style={{fontSize:8,fontWeight:600,color:'var(--grl)',textTransform:'uppercase',letterSpacing:.4,marginBottom:4}}>{g.label}</div>
-                          {g.items.map((it:any,i:number)=>(
-                            <div key={i} style={{fontSize:10,color:'var(--n)',padding:'2px 0'}}>
-                              · {it.nombre || it.titulo || it.texto || it.descripcion || '—'}
-                              {it.zona&&<span style={{color:'var(--grl)'}}> · {it.zona}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )
-              })()}
+              {/* Las patologias, molestias y alertas de este paciente, y los objetivos
+                  de la sesion con su moneda. Ver `IconosContexto`. */}
+              <IconosContexto ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
             </div>
             {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
                 existe para eso. Al asignar allí, vuelves aquí. */}
