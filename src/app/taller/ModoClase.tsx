@@ -1035,7 +1035,8 @@ export default function ModoClase() {
               mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
               addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={setRegimen}
-              molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]} etiquetas={etiquetas}
+              molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
+              patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
               toggleObjetivo={toggleObjetivo}/>
             </div>

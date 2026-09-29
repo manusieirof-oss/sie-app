@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { avisosDeEjercicio, tituloAviso, type AvisoZona } from '@/lib/avisosZona'
+import { avisosDeCondiciones, tituloAviso, type AvisoZona } from '@/lib/avisosZona'
 
 // ---------------------------------------------------------------------------
 // EL AVISO DE LA MOLESTIA, FUERA DEL TALLER
@@ -14,7 +14,7 @@ import { avisosDeEjercicio, tituloAviso, type AvisoZona } from '@/lib/avisosZona
 
 let arbol: any[] | null = null
 let cargandoArbol: Promise<any[]> | null = null
-const molPorPaciente: Record<string, any[]> = {}
+const molPorPaciente: Record<string, { molestias: any[], patologias: any[] }> = {}
 const etsPorEjercicio: Record<string, string[]> = {}
 
 async function etiquetasArbol(): Promise<any[]> {
@@ -29,11 +29,13 @@ async function etiquetasArbol(): Promise<any[]> {
   return cargandoArbol
 }
 
-async function molestiasDe(pacienteId: string) {
+async function condicionesDe(pacienteId: string) {
   if (molPorPaciente[pacienteId]) return molPorPaciente[pacienteId]
-  const { data } = await supabase.from('molestias').select('*')
-    .eq('paciente_id', pacienteId).eq('activa', true)
-  molPorPaciente[pacienteId] = data || []
+  const [m, p] = await Promise.all([
+    supabase.from('molestias').select('*').eq('paciente_id', pacienteId).eq('activa', true),
+    supabase.from('patologias').select('*').eq('paciente_id', pacienteId),
+  ])
+  molPorPaciente[pacienteId] = { molestias: m.data || [], patologias: p.data || [] }
   return molPorPaciente[pacienteId]
 }
 
@@ -63,10 +65,10 @@ export default function AvisoMolestia({ pacienteId, ejercicioId, compacto = fals
     let vivo = true
     if (!pacienteId || !ejercicioId) { setAvisos([]); return }
     ;(async () => {
-      const [ets, mol, ids] = await Promise.all([
-        etiquetasArbol(), molestiasDe(pacienteId), etiquetasDe(ejercicioId),
+      const [ets, cond, ids] = await Promise.all([
+        etiquetasArbol(), condicionesDe(pacienteId), etiquetasDe(ejercicioId),
       ])
-      if (vivo) setAvisos(avisosDeEjercicio(mol, ets, ids))
+      if (vivo) setAvisos(avisosDeCondiciones(cond, ets, ids))
     })()
     return () => { vivo = false }
   }, [pacienteId, ejercicioId])
@@ -76,9 +78,8 @@ export default function AvisoMolestia({ pacienteId, ejercicioId, compacto = fals
   return (
     <div style={{ display: 'grid', gap: 3, marginTop: 3 }}>
       {avisos.map((a, k) => (
-        <div key={k} style={{ display: 'flex', gap: 5, alignItems: 'flex-start', fontSize: 10,
-          lineHeight: 1.4, background: 'var(--ambl)', color: '#7A5800',
-          border: '1px solid var(--amb)', borderRadius: 5, padding: '3px 7px' }}
+        <div key={k} style={{ display: 'flex', gap: 5, alignItems: 'flex-start', fontSize: 10.5,
+          lineHeight: 1.4, color: a.clase === 'patologia' ? 'var(--rj, #B4544F)' : '#7A5800' }}
           title={a.nota || ''}>
           <span style={{ flexShrink: 0 }}>⚠</span>
           <span>

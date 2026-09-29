@@ -3,7 +3,7 @@ import { Ic } from '@/lib/icons'
 import ChapaEjecucion from './ChapaEjecucion'
 import { ChapaFeedback, ChapaComentario } from './ChapasEjercicio'
 import CasillaSeries from './CasillaSeries'
-import { avisosDeEjercicio, tituloAviso } from '@/lib/avisosZona'
+import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen from './PildoraRegimen'
 
@@ -23,7 +23,8 @@ import PildoraRegimen from './PildoraRegimen'
 
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
-  addSerie, quitarSerie, setRegimen, molestias = [], etiquetas = [], superserie = false }: any) {
+  addSerie, quitarSerie, setRegimen, molestias = [], patologias = [], etiquetas = [],
+  superserie = false }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -34,7 +35,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
         gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
 
         {ejercicios.map(({ ej, ei }: any) => {
-          const avisos = avisosDeEjercicio(molestias, etiquetas, ej.etiquetas || [])
+          const avisos = avisosDeCondiciones({ molestias, patologias }, etiquetas, ej.etiquetas || [])
           /* LA CAPACIDAD, SEGUN LO QUE DE VERDAD HACE. Prescribiste
              fuerza-resistencia, pero si acaba haciendo 25 repeticiones esta
              estimulando otra cosa y la etiqueta tiene que decirlo. Lo
@@ -116,10 +117,12 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   )}
                 </div>
               )}
+              {/* Solo el texto, sin recuadro: el color ya dice de donde viene
+                  -rojo la patologia, ambar la molestia- y el rectangulo pesaba
+                  mas que el aviso. */}
               {avisos.map((a: any, k: number) => (
-                <div key={k} style={{ fontSize: 9, lineHeight: 1.4, marginTop: 4, textAlign: 'left',
-                  background: 'var(--ambl)', color: '#7A5800', border: '1px solid var(--amb)',
-                  borderRadius: 5, padding: '3px 6px' }}>
+                <div key={k} style={{ fontSize: 10, lineHeight: 1.4, marginTop: 4, textAlign: 'left',
+                  color: a.clase === 'patologia' ? 'var(--rj, #B4544F)' : '#7A5800' }}>
                   ⚠ <b style={{ fontWeight: 600 }}>{tituloAviso(a)}</b>{a.nota ? ' — ' + a.nota : ''}
                 </div>
               ))}

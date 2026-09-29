@@ -32,6 +32,9 @@ export function raizDeZona(etiquetas: any[], zona: string): any | null {
 }
 
 export type AvisoZona = {
+  /** De donde sale el aviso: cambia el color y el texto, no el cruce. */
+  clase: 'molestia' | 'patologia'
+  nombre?: string | null
   zona: string
   lado?: string | null
   eva?: number | null
@@ -54,6 +57,7 @@ export function avisosDeEjercicio(
     if (raiz == null) continue
     if (casaZona(etiquetas, idsEjercicio, raiz.id) === false) continue
     salida.push({
+      clase: 'molestia',
       zona: m.zona, lado: m.lado, eva: m.eva,
       nota: m.observaciones || m.sensacion || null, tipo: m.tipo,
     })
@@ -62,10 +66,38 @@ export function avisosDeEjercicio(
   return salida.sort((a, b) => (Number(b.eva) || 0) - (Number(a.eva) || 0))
 }
 
-/** "hombro derecho · EVA 6" */
+/** "hombro derecho · EVA 6", o "Condromalacia rotuliana · rodilla derecha". */
 export function tituloAviso(a: AvisoZona): string {
-  return [
-    [a.zona, a.lado && a.lado !== 'bilateral' ? a.lado : ''].filter(Boolean).join(' '),
-    a.eva == null || a.eva === ('' as any) ? '' : `EVA ${a.eva}`,
-  ].filter(Boolean).join(' · ')
+  const donde = [a.zona, a.lado && a.lado !== 'bilateral' ? a.lado : ''].filter(Boolean).join(' ')
+  if (a.clase === 'patologia') return [a.nombre, donde].filter(Boolean).join(' · ')
+  return [donde, a.eva == null || a.eva === ('' as any) ? '' : `EVA ${a.eva}`]
+    .filter(Boolean).join(' · ')
+}
+
+/**
+ * LO MISMO PARA LAS PATOLOGIAS.
+ *
+ * Ya guardan zona y lado desde que se crean en Salud, asi que cruzan igual que
+ * la molestia: una condromalacia de rodilla avisa en la sentadilla y calla en
+ * el press de hombro. Sin zona puesta no avisa en ninguno -no se inventa donde
+ * duele- y se queda solo en la cabecera.
+ */
+export function avisosDeCondiciones(
+  fuentes: { molestias?: any[], patologias?: any[] }, etiquetas: any[], idsEjercicio: string[],
+): AvisoZona[] {
+  const mol = avisosDeEjercicio(fuentes.molestias || [], etiquetas, idsEjercicio)
+  const pat: AvisoZona[] = []
+  if (Array.isArray(idsEjercicio) && idsEjercicio.length > 0) {
+    for (const p of (fuentes.patologias || [])) {
+      const raiz = raizDeZona(etiquetas, p?.zona)
+      if (raiz == null) continue
+      if (casaZona(etiquetas, idsEjercicio, raiz.id) === false) continue
+      pat.push({
+        clase: 'patologia', nombre: p.nombre, zona: p.zona, lado: p.lado,
+        nota: p.descripcion || null, tipo: p.estado || null,
+      })
+    }
+  }
+  // La patologia primero: es la condicion de fondo; la molestia, lo de hoy.
+  return [...pat, ...mol]
 }
