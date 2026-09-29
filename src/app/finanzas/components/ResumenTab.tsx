@@ -6,13 +6,14 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { mesISO } from '@/lib/fechas'
 import { delMes, type Factura } from '@/lib/facturado'
 import { calcularImpuestos, rangoMes, rangoTrimestre } from '@/lib/impuestos'
+import { cuentaDelMes } from '@/lib/cuentaMes'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // mesRef ('YYYY-MM') existe para poder mirar un mes que no sea el de hoy, que es
 // lo que necesita el banco de pruebas. Por defecto es el mes en curso.
-export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[], ingresos=[] }: any) {
+export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[], ingresos=[], pagos={}, sueltas=[] }: any) {
   const [vista, setVista] = useState<'general'|'evolucion'>('general')
 
   const idxPlanes = indicePlanes(planes)
@@ -53,24 +54,24 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   const otrosDelMes = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===claveMesSel)
   const otrosIngresos = otrosDelMes.reduce((a:number,i:any)=>a+Number(i.importe||0),0)
   const otrosIngresosBase = otrosDelMes.reduce((a:number,i:any)=>a+Number(i.base_imponible ?? i.importe ?? 0),0)
-  const ingresosCobrados = facturado.total + otrosIngresos
-
   /**
-   * PENDIENTE = lo que toca cobrar MENOS lo ya facturado.
+   * COBRADO, PREVISTO Y PENDIENTE, BONO A BONO.
    *
-   * Antes se sumaban los bonos con `estado_pago = 'pendiente'`, y como ese campo
-   * no cambia al cobrar, el pendiente no bajaba nunca. Restando se corrige solo.
+   * Antes el pendiente era "previsto menos facturado en el mes", y la fecha de la
+   * factura no es el mes de la cuota: las cuotas de septiembre cobradas en agosto
+   * salian como pendientes (450 EUR en septiembre de 2026) y las valoraciones
+   * facturadas en septiembre tapaban deudas de otros. Ahora cada cuota cuenta en su
+   * mes con su propio cobro, sea de cuando sea. Ver lib/cuentaMes.
    *
-   * Nunca negativo: si has facturado de más —un extra, una valoración suelta— eso
-   * no significa que te deban dinero en contra.
+   * `facturado` sigue mandando en el beneficio y en Hacienda: eso va por fecha de
+   * factura y no puede ir de otra forma.
    */
-  const ingresosPrevistos = ingresosPrevistosCuotas + otrosIngresos
-  const pendiente = Math.max(0, ingresosPrevistos - ingresosCobrados)
-
+  const cuenta = cuentaDelMes({ bonos: bonosActivos, precioBono, pagos, sueltas, otros: otrosIngresos, clave: claveMesSel })
+  const ingresosCobrados = cuenta.cobrado
+  const ingresosPrevistos = cuenta.previsto
+  const pendiente = cuenta.pendiente
   /** Impago sigue siendo un JUICIO tuyo sobre lo que no se ha cobrado, no un hecho. */
-  const impago = bonosActivos
-    .filter((b: any) => b.estado_pago === 'impago')
-    .reduce((a: number, b: any) => a + precioBono(b), 0)
+  const impago = cuenta.impago
 
   /**
    * LOS GASTOS DEL MES INCLUYEN PREVISIONES, Y HAY QUE DECIRLO.
@@ -172,13 +173,11 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
     const bonosMes = bonosHist.filter((b: any) => b.mes === mes && b.anio === anio)
     // Con descuento, igual que la foto del mes actual. Sin esto, el mismo mes
     // salía con dos cifras distintas en dos gráficas de esta misma pestaña.
-    const previsto = bonosMes.reduce((a: number, b: any) => a + precioBono(b), 0)
-    // Cobrado desde las FACTURAS de ese mes, igual que la foto de arriba. Con
-    // `estado_pago` la línea de cobrado salía plana en cero y el beneficio con
-    // ella: parecía que la clínica no ingresaba nada.
-    const otrosEse = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===`${anio}-${String(mes).padStart(2,'0')}`)
+    const otrosEse = ingresos.filter((i:any)=>i.fecha?.slice(0,7)===clave)
       .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
-    const cobrado = delMes(facturas as Factura[], anio, mes).total + otrosEse
+    // Bono a bono, igual que la foto de arriba: cada cuota en su mes, se cobrara
+    // cuando se cobrara. Ver lib/cuentaMes.
+    const c = cuentaDelMes({ bonos: bonosMes, precioBono, pagos, sueltas, otros: otrosEse, clave })
     const gastoMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === clave).reduce((a: number, g: any) => a + Number(g.importe), 0)
     /**
      * EL BENEFICIO DEL MES, IGUAL QUE EN LA VISTA GENERAL.
@@ -195,10 +194,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
     const beneficioMes = imp.beneficio - imp.modelo130
     return {
       mes: `${MESES[mes-1]} ${String(anio).slice(2)}`,
-      // El previsto también cuenta lo cobrado fuera de cuota: sin ello la línea
-      // salía a cero en los meses de histórico mientras la de cobrado subía.
-      Previsto: Math.round(previsto + otrosEse),
-      Cobrado: Math.round(cobrado),
+      Previsto: Math.round(c.previsto),
+      Cobrado: Math.round(c.cobrado),
       Gastos: Math.round(gastoMes),
       Beneficio: Math.round(beneficioMes),
     }
@@ -263,6 +260,9 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
                 <div style={{textAlign:'center'}}>
                   <div style={{fontSize:22,fontWeight:200,color:G}}>{eur(ingresosCobrados)}</div>
                   <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>Cobrado</div>
+                  {cuenta.adelantado > 0 && (
+                    <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>de los que {eur(cuenta.adelantado)} se cobraron antes del mes</div>
+                  )}
                 </div>
                 <div style={{textAlign:'center'}}>
                   <div style={{fontSize:22,fontWeight:200,color:GREY}}>{eur(gastosConfirmadosMes)}</div>
@@ -383,7 +383,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
               cifras de dinero no se distinguen solos. */}
           <div style={{background:'var(--bl)',borderRadius:8,padding:'11px 14px',fontSize:9,color:'var(--grl)',lineHeight:1.7}}>
             <div style={{fontWeight:600,color:'var(--gr)',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Cómo leer estos números</div>
-            <div><strong style={{color:'var(--n)'}}>Real</strong> es lo que ya ha pasado: facturas emitidas y gastos con su factura encima de la mesa.</div>
+            <div><strong style={{color:'var(--n)'}}>Real</strong> es lo que ya ha pasado: lo cobrado de las cuotas de este mes y gastos con su factura encima de la mesa.</div>
             <div><strong style={{color:'var(--n)'}}>Previsto</strong> es el mes entero si se cumple: incluye las cuotas aún sin facturar y los gastos que todavía son una estimación.</div>
             <div style={{marginTop:7}}>
               <strong style={{color:'var(--n)'}}>El beneficio es lo que de verdad te queda</strong>, y por eso se calcula distinto que las otras cifras:
@@ -394,7 +394,9 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
               </div>
             </div>
             <div style={{marginTop:5}}>Las cifras de <strong style={{color:'var(--n)'}}>cobrado</strong> y <strong style={{color:'var(--n)'}}>gastos</strong> sí llevan IVA: son el dinero que entra y sale de la cuenta, no lo que ganas.</div>
-            <div style={{marginTop:5}}>El <strong style={{color:'var(--n)'}}>pendiente de cobro</strong> es lo previsto menos lo ya facturado. Lo marcado como impago va dentro, no aparte.</div>
+            <div style={{marginTop:5}}><strong style={{color:'var(--n)'}}>Cobrado</strong> cuenta cada cuota en su mes, aunque se cobrara antes: la de septiembre pagada en agosto es de septiembre. Suma también lo facturado sin cuota este mes (valoraciones, sesiones sueltas) y los otros ingresos.</div>
+            <div style={{marginTop:5}}>El <strong style={{color:'var(--n)'}}>pendiente de cobro</strong> son las cuotas de este mes que no tienen cobro, una a una. Lo marcado como impago va dentro, no aparte.</div>
+            <div style={{marginTop:5}}>El <strong style={{color:'var(--n)'}}>beneficio</strong> y lo de Hacienda van por la fecha de la factura, porque así los liquida Hacienda.</div>
           </div>
         </div>
       )}
@@ -457,7 +459,7 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
               <div style={{background:'var(--bl)',borderRadius:8,padding:'11px 14px',fontSize:9,color:'var(--grl)',lineHeight:1.7}}>
                 <div style={{fontWeight:600,color:'var(--gr)',marginBottom:5,textTransform:'uppercase',letterSpacing:.4}}>Qué entra en estas gráficas</div>
                 <div><strong style={{color:'var(--n)'}}>Previsto</strong>: las cuotas y ventas de cada mes más lo cobrado fuera de cuota. Con IVA.</div>
-                <div><strong style={{color:'var(--n)'}}>Cobrado</strong>: las facturas emitidas ese mes más los otros ingresos. Con IVA. Las rectificativas restan.</div>
+                <div><strong style={{color:'var(--n)'}}>Cobrado</strong>: lo cobrado de las cuotas de cada mes, se cobraran cuando se cobraran, más lo facturado sin cuota y los otros ingresos. Con IVA. Las rectificativas restan.</div>
                 <div><strong style={{color:'var(--n)'}}>Gastos</strong>: todo lo del mes, incluidas las previsiones sin confirmar. Con IVA.</div>
                 <div style={{marginTop:5}}><strong style={{color:'var(--n)'}}>Beneficio</strong>: lo que de verdad queda. Se mide sobre bases —el IVA no es tuyo, lo ingresas en el 303— y se le descuenta el modelo 130. No se le restan el 111 ni el 115 porque ya están dentro de las nóminas y del alquiler.</div>
                 <div style={{marginTop:6,color:'#7A5800'}}>

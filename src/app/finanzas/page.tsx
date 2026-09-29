@@ -15,6 +15,17 @@ import SimuladorTab from './components/SimuladorTab'
 import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes } from '@/lib/bonos'
 import { mesISO } from '@/lib/fechas'
 import { facturasDelAnio, type Factura } from '@/lib/facturado'
+import type { PagoBono } from '@/lib/cuentaMes'
+import { traerTodo } from '@/lib/paginar'
+
+/**
+ * `traerTodo` con la forma de una respuesta de Supabase, para que quepa en el
+ * Promise.all de abajo junto a las demas y sus errores se cuenten igual.
+ */
+const todo = async (construir: (d: number, h: number) => PromiseLike<any>) => {
+  const r = await traerTodo(construir)
+  return { data: r.filas, error: r.error ? { message: r.error } : null }
+}
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -32,7 +43,7 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
  * Esto desaparecerá cuando Finanzas cuente los ingresos desde `facturas`, que es
  * lo facturado de verdad y no admite duplicados por construcción.
  */
-function unoPorPacienteYMes(bonos: any[]): any[] {
+function unoPorPacienteYMes(bonos: any[], pagados: Set<string> = new Set()): any[] {
   const ultimo = new Map<string, any>()
   // Las VENTAS PUNTUALES no se deduplican: cada una es una venta de verdad.
   //
@@ -44,11 +55,15 @@ function unoPorPacienteYMes(bonos: any[]): any[] {
   for (const b of bonos.filter(b => !esVentaPuntual(b))) {
     const clave = `${b.paciente_id}·${b.anio}-${b.mes}`
     const previo = ultimo.get(clave)
-    // Vienen ordenados por created_at, pero no se da por hecho: manda el activo,
-    // y entre dos del mismo estado, el más nuevo.
+    // Manda el que está COBRADO: si hay dos cuotas del mismo mes y una tiene cobro,
+    // esa es la de verdad y la otra sobra. Quedarse con la otra dejaba como pendiente
+    // a alguien que ya había pagado (pasó con una cuota cobrada en agosto y otra
+    // creada después para septiembre). Luego el activo, y entre iguales el más nuevo.
+    const pb = pagados.has(b.id), pp = previo ? pagados.has(previo.id) : false
     if (!previo
-      || (b.activo && !previo.activo)
-      || (b.activo === previo.activo && String(b.created_at) > String(previo.created_at))) {
+      || (pb && !pp)
+      || (pb === pp && b.activo && !previo.activo)
+      || (pb === pp && b.activo === previo.activo && String(b.created_at) > String(previo.created_at))) {
       ultimo.set(clave, b)
     }
   }
@@ -70,6 +85,13 @@ export default function FinanzasPage() {
   const [facturas, setFacturas] = useState<Factura[]>([])
   /** Ingresos que no vienen de una cuota: charlas, alquiler de sala, histórico. */
   const [ingresos, setIngresos] = useState<any[]>([])
+  /**
+   * Lo cobrado de cada bono, sea de la fecha que sea, y lo facturado sin bono.
+   * Con esto el resumen cuenta cada cuota en SU mes aunque se cobrara antes.
+   * Ver lib/cuentaMes.
+   */
+  const [pagos, setPagos] = useState<Record<string, PagoBono>>({})
+  const [sueltas, setSueltas] = useState<{ fecha: string, total: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [fallos, setFallos] = useState<string[]>([])
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
@@ -100,7 +122,7 @@ export default function FinanzasPage() {
   async function cargar() {
     setLoading(true)
     setFallos([])
-    const [rp, rg, ri, rb, rbh] = await Promise.all([
+    const [rp, rg, ri, rb, rbh, rpg, rsu] = await Promise.all([
       supabase.from('planes').select('*').eq('activo', true).order('precio_base'),
       supabase.from('gastos').select('*').order('fecha', { ascending: false }),
       supabase.from('ingresos').select('*').order('fecha', { ascending: false }),
@@ -111,10 +133,21 @@ export default function FinanzasPage() {
       // `sesiones_totales` es lo que distingue una venta puntual de una cuota.
       // Sin traerlo, todo parecería cuota y los bonos de sesiones se sumarían
       // como si se cobraran cada mes.
-      supabase.from('bonos').select('paciente_id,tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor,sesiones_totales').order('created_at'),
+      // `id` para cruzarlo con su cobro.
+      //
+      // POR PAGINAS: son todos los bonos de la historia y pasan de las 1000 filas en
+      // las que Supabase corta sin avisar. Cortado por `created_at`, lo que se perdia
+      // eran justo los meses mas recientes. Lo mismo con los cobros de abajo: un cobro
+      // que no llega es una cuota pagada que sale como pendiente.
+      todo((d, h) => supabase.from('bonos').select('id,paciente_id,tipo,estado_pago,mes,anio,created_at,activo,descuento_tipo,descuento_valor,sesiones_totales').order('created_at').order('id').range(d, h)),
+      todo((d, h) => supabase.from('v_bonos_pago').select('bono_id,neto_cobrado,fecha_cobro').gt('neto_cobrado', 0).order('bono_id').range(d, h)),
+      // Solo lo que tiene factura, igual que "cobrado": un cobro sin factura no ha entrado.
+      todo((d, h) => supabase.from('cobro_lineas').select('id, total, cobros!inner(anulado, facturas!inner(fecha_expedicion))')
+        .is('bono_id', null).eq('cobros.anulado', false).order('id').range(d, h)),
     ])
     // Una consulta que falla no puede pintarse como "0 €". Se dice.
-    const errores = ([['planes', rp], ['gastos', rg], ['ingresos', ri], ['bonos', rb], ['histórico de bonos', rbh]] as const)
+    const errores = ([['planes', rp], ['gastos', rg], ['ingresos', ri], ['bonos', rb], ['histórico de bonos', rbh],
+      ['cobros por bono', rpg], ['cobros sin bono', rsu]] as const)
       .filter(([, r]) => r.error)
       .map(([nombre, r]) => `${nombre}: ${r.error!.message}`)
     setFallos(errores)
@@ -122,7 +155,14 @@ export default function FinanzasPage() {
     setGastos(rg.data || [])
     setIngresos(ri.data || [])
     setBonos(rb.data || [])
-    setBonosHist(unoPorPacienteYMes(rbh.data || []))
+    const mapaPagos: Record<string, PagoBono> = {}
+    ;(rpg.data || []).forEach((r: any) => { mapaPagos[r.bono_id] = { neto: Number(r.neto_cobrado), fecha: r.fecha_cobro } })
+    setPagos(mapaPagos)
+    setSueltas((rsu.data || []).map((r: any) => {
+      const fac = Array.isArray(r.cobros?.facturas) ? r.cobros.facturas[0] : r.cobros?.facturas
+      return { fecha: fac?.fecha_expedicion || '', total: Number(r.total || 0) }
+    }).filter((x: any) => x.fecha))
+    setBonosHist(unoPorPacienteYMes(rbh.data || [], new Set(Object.keys(mapaPagos))))
     setBonosTipos(await cargarBonosTipos(false, true))
 
     // Del año entero: Impuestos las reparte por trimestres y el Resumen por
@@ -244,7 +284,7 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas} pagos={pagos} sueltas={sueltas}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} ingresos={ingresos} facturas={facturas} recargar={cargar} mesRef={mesRef}/>}
           {tab==='ingresos' && <IngresosTab ingresos={ingresos} recargar={cargar} mesRef={mesRef}/>}
