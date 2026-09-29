@@ -18,6 +18,8 @@ import { registrarResultadoTest } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
 import IconosContexto from './IconosContexto'
+import HojaLibre from '@/components/HojaLibre'
+import { leerHoja, registrosDeHoja, type Hoja } from '@/lib/hoja'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
@@ -26,6 +28,20 @@ export default function ModoClase() {
   const [fecha, setFecha] = useState(hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
+
+  /**
+   * HOJA LIBRE. Una sesion dibujada no tiene partes: lo que se apunta son sus casillas.
+   *
+   * La hoja se lee por sesion y no viaja en `seleccion`: al cambiar la sesion de un
+   * paciente desde aqui se rehace su fila por otro camino, y asi no hay que acordarse
+   * de traerla en los dos. `undefined` = aun no leida; `null` = sesion normal.
+   *
+   * Lo apuntado se guarda tambien en sessionStorage mientras se escribe: si se recarga
+   * la pagina a media clase no se pierde. A la base va al "Guardar y finalizar".
+   */
+  const [hojas, setHojas] = useState<Record<string, Hoja | null>>({})
+  const [hechosHoja, setHechosHoja] = useState<Record<string, Record<string, string>>>({})
+  const claveHechos = (pid: string, sid: string) => `sie-hoja-hechos:${pid}:${sid}:${fecha}`
   const timers = useRef<Record<string, any>>({})
   const restaurado = useRef(false)
   // Un `ref` no vuelve a disparar los efectos al cambiar, así que la carga automática
@@ -759,6 +775,52 @@ export default function ModoClase() {
   }
 
   const act = seleccion.find(s=>s.paciente.id===activo)
+  const hojaAct = act?.sesionId ? hojas[act.sesionId] : null
+  useEffect(() => {
+    const sid = act?.sesionId, pid = act?.paciente?.id
+    if (!sid || !pid) return
+    if (!(sid in hojas)) {
+      supabase.from('sesiones').select('hoja').eq('id', sid).maybeSingle().then(({ data, error }) => {
+        if (error) return
+        setHojas(prev => ({ ...prev, [sid]: data?.hoja ? leerHoja(data.hoja) : null }))
+      })
+    }
+    const k = claveHechos(pid, sid)
+    if (!(k in hechosHoja)) {
+      let guardados: Record<string, string> = {}
+      try { guardados = JSON.parse(sessionStorage.getItem(k) || '{}') } catch {}
+      setHechosHoja(prev => ({ ...prev, [k]: guardados }))
+    }
+  }, [act?.sesionId, act?.paciente?.id, fecha]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function apuntarHoja(pid: string, sid: string, casilla: string, valor: string) {
+    const k = claveHechos(pid, sid)
+    setHechosHoja(prev => {
+      const nuevo = { ...(prev[k] || {}), [casilla]: valor }
+      try { sessionStorage.setItem(k, JSON.stringify(nuevo)) } catch {}
+      return { ...prev, [k]: nuevo }
+    })
+  }
+
+  /**
+   * Lo apuntado en la hoja pasa a `registros_ejercicio`, ya finalizado. Se borra antes lo
+   * de esta sesion y este dia: si se finaliza dos veces (se corrigio una cifra), la
+   * segunda sustituye a la primera en vez de duplicar el entrenamiento.
+   */
+  async function finalizarHoja(pid: string, sid: string, h: Hoja) {
+    const filas = registrosDeHoja(h, hechosHoja[claveHechos(pid, sid)] || {})
+    if (filas.length === 0 && !confirm('No hay nada apuntado en la hoja. ¿Finalizar igual?')) return
+    const { error: e1 } = await supabase.from('registros_ejercicio').delete()
+      .eq('paciente_id', pid).eq('sesion_id', sid).eq('fecha', fecha)
+    if (e1) { alert('Error al finalizar: ' + e1.message); return }
+    if (filas.length) {
+      const { error } = await supabase.from('registros_ejercicio')
+        .insert(filas.map(f => ({ ...f, paciente_id: pid, sesion_id: sid, finalizado: true, items_evaluados: {} })))
+      if (error) { alert('Error al finalizar: ' + error.message); return }
+    }
+    try { sessionStorage.removeItem(claveHechos(pid, sid)) } catch {}
+    setSeleccion(prev => prev.map(s => s.paciente.id === pid ? { ...s, finalizado: true } : s))
+  }
   // Derivado de la lista, no guardado: al poner una sesión, el número baja solo.
   const sinSesion = seleccion.filter(s=>!s.sesionId).length
   const progreso = (s:any)=> s.datos.length ? `${s.datos.filter((e:any)=>e.guardado).length}/${s.datos.length}` : ''
@@ -979,7 +1041,10 @@ export default function ModoClase() {
                 </div>
               )}
             </div>
-            {act.sesionId && act.datos.length>0 && (
+            {act.sesionId && hojaAct && (
+              <button className="btn btn-p btn-sm" onClick={()=>finalizarHoja(act.paciente.id, act.sesionId, hojaAct)}>✓ Guardar y finalizar</button>
+            )}
+            {act.sesionId && !hojaAct && act.datos.length>0 && (
               <button className="btn btn-p btn-sm" onClick={()=>finalizarPaciente(act.paciente.id)}>✓ Guardar y finalizar</button>
             )}
           </div>
@@ -992,6 +1057,13 @@ export default function ModoClase() {
 
           {!act.sesionId ? (
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Sin sesión para hoy. Dale a <b style={{color:'var(--gr)'}}>Asignar sesión</b> arriba.</div>
+          ) : hojaAct ? (
+            /* La hoja tal cual se dibujo; solo sus casillas se pueden tocar. */
+            <HojaLibre modo="taller" hoja={hojaAct} biblioteca={[]} objetivos={[]}
+              hechos={hechosHoja[claveHechos(act.paciente.id, act.sesionId)] || {}}
+              onHecho={(c, v)=>apuntarHoja(act.paciente.id, act.sesionId, c, v)}/>
+          ) : !(act.sesionId in hojas) ? (
+            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Cargando…</div>
           ) : act.datos.length===0 ? (
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Esta sesión no tiene ejercicios.</div>
           ) : act.datos.map((ej:any,ei:number)=>{
