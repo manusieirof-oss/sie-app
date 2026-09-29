@@ -11,6 +11,8 @@ import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/con
 import { contiene } from '@/lib/texto'
 import { aplicarAjustes, calcularAjustes, sinAjustes } from '@/lib/ajustesCita'
 import SelectorObjetivos from './SelectorObjetivos'
+import HojaLibre from '@/components/HojaLibre'
+import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -201,6 +203,35 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const [buscarObj, setBuscarObj] = useState('')
   const [abrirObj, setAbrirObj] = useState(false)
   const [verObj, setVerObj] = useState(false)
+
+  /**
+   * HOJA LIBRE: la sesion dibujada en vez de rellenada. null = sesion de formulario.
+   *
+   * Se lee aqui y no se fia de `sesion.hoja`: varias pantallas abren este modal con un
+   * select de columnas sueltas que no la trae, y entonces una hoja llegaria como null,
+   * se abriria como formulario y al guardar se borraria el dibujo. Por eso, hasta que
+   * no se ha leido (`hojaLeida`), al guardar no se toca la columna.
+   */
+  const [hoja, setHoja] = useState<Hoja | null>(null)
+  const [hojaLeida, setHojaLeida] = useState(!sesion.id)
+  const [objsPaciente, setObjsPaciente] = useState<{ id: string, nombre: string }[]>([])
+  useEffect(() => {
+    if (!sesion.id) return
+    supabase.from('sesiones').select('hoja').eq('id', sesion.id).maybeSingle().then(({ data, error }) => {
+      if (error) return
+      setHoja(data?.hoja ? leerHoja(data.hoja) : null)
+      setHojaLeida(true)
+    })
+  }, [sesion.id])
+  // Las pegatinas de objetivo ofrecen los objetivos ABIERTOS del paciente: poner en la
+  // hoja uno que no tiene no contaria para nada. Sin paciente (plantilla), el catalogo.
+  useEffect(() => {
+    const pid = sesion.paciente_id || pacienteSel
+    if (!pid) { setObjsPaciente(objetivosDisp.filter((o:any)=>o.archivado_el == null).map((o:any)=>({ id:o.id, nombre:o.nombre }))); return }
+    supabase.from('pacientes_objetivos').select('objetivo_id, logrado, nombre, objetivos(id,nombre)').eq('paciente_id', pid)
+      .then(({ data }) => setObjsPaciente((data||[]).filter((r:any)=>!r.logrado && r.objetivo_id)
+        .map((r:any)=>({ id:r.objetivo_id, nombre:r.objetivos?.nombre || r.nombre || 'Objetivo' }))))
+  }, [sesion.paciente_id, pacienteSel, objetivosDisp])
   const refObj = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -414,10 +445,14 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     const pid = sesion.paciente_id || pacienteSel || null
     setGuardando(true)
     let sesionId = sesion.id
-    const campos = {
+    const campos: any = {
       nombre: formSesion.nombre, descripcion: formSesion.descripcion,
       partes: formSesion.partes,
     }
+    if (hojaLeida) campos.hoja = hoja
+    // Los objetivos pegados en la hoja cuentan igual que los elegidos arriba: si no,
+    // habria que marcarlos dos veces, y el dia que no coincidieran no sabriamos cual vale.
+    const objsFinal = Array.from(new Set([...objetivosSel, ...(hoja ? objetivosDeHoja(hoja) : [])]))
     if (esNueva) {
       const { data, error } = await supabase.from('sesiones')
         .insert({ ...campos, paciente_id:pid, estado:'lista' })
@@ -438,8 +473,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     const { data: actuales } = await supabase.from('sesiones_objetivos')
       .select('objetivo_id').eq('sesion_id', sesionId)
     const previos: string[] = (actuales||[]).map((r:any)=>r.objetivo_id)
-    const aAnadir = objetivosSel.filter(id=>!previos.includes(id))
-    const aQuitar = previos.filter(id=>!objetivosSel.includes(id))
+    const aAnadir = objsFinal.filter(id=>!previos.includes(id))
+    const aQuitar = previos.filter(id=>!objsFinal.includes(id))
 
     if (aAnadir.length>0) {
       const { error } = await supabase.from('sesiones_objetivos')
@@ -447,7 +482,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       if (error) { alert('La sesión se guardó, pero sus objetivos no: '+error.message); setGuardando(false); onGuardado(); onCerrar(); return }
     }
     // Los que ya estaban pueden haber cambiado de especificos.
-    for (const oid of objetivosSel.filter(x=>previos.includes(x))) {
+    for (const oid of objsFinal.filter(x=>previos.includes(x))) {
       await supabase.from('sesiones_objetivos').update({ movimientos: movsSel[oid]||[] })
         .eq('sesion_id', sesionId).eq('objetivo_id', oid)
     }
@@ -527,6 +562,22 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
             <input className="input" value={formSesion.nombre} readOnly={modoCita} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',cursor:modoCita?'default':undefined,color:modoCita?'var(--gr)':undefined}} autoFocus={!modoCita}/>
             <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / motivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>
+          {!modoCita && hojaLeida && (
+            <div style={{display:'flex',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:99,padding:2,flexShrink:0}}>
+              {([['Formulario',false],['Hoja libre',true]] as const).map(([n,libre])=>{
+                const on = (hoja!==null)===libre
+                return <button key={n} type="button" aria-pressed={on}
+                  onClick={()=>{
+                    if (on) return
+                    if (!libre && hoja && (hoja.trazos.length||hoja.pegs.length)
+                      && !confirm('Al guardar como formulario se pierde el dibujo de la hoja. ¿Seguir?')) return
+                    setHoja(libre ? hojaVacia() : null)
+                  }}
+                  style={{fontFamily:'inherit',fontSize:12,border:'none',borderRadius:99,padding:'4px 12px',cursor:'pointer',
+                    background:on?'var(--gd)':'transparent',color:on?'#fff':'var(--gr)'}}>{n}</button>
+              })}
+            </div>
+          )}
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
           <button className="modal-close" onClick={onCerrar} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
         </div>
@@ -579,8 +630,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
         </div>
 
         <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden',position:'relative'}}>
-          {/* IZQUIERDA — PARTES */}
-          <div style={{overflowY:'auto',padding:14,flex:1}}>
+          {hoja && (
+            <div style={{overflowY:'auto',padding:14,flex:1}}>
+              <HojaLibre modo="preparar" hoja={hoja} onCambio={setHoja} objetivos={objsPaciente}
+                biblioteca={catalogo.map((e:any)=>({ id:e.id, nombre:e.nombre }))}/>
+            </div>
+          )}
+          {/* IZQUIERDA — PARTES. Con hoja libre se esconde pero no se desmonta: si se
+              vuelve al formulario, lo que hubiera sigue ahi. */}
+          <div style={{overflowY:'auto',padding:14,flex:1,display:hoja?'none':undefined}}>
             <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap',alignItems:'center'}}>
               {formSesion.partes.map((p:any,i:number)=>{
                 const activa = parteActiva===i
