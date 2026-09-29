@@ -211,14 +211,17 @@ export default function ModoClase() {
     let vigente = true
     setHorasListas(false)
     ;(async () => {
-      const hs = await horasDelDia(fecha, sala || undefined)
-      if (!vigente) return   // cambió de día o de sala mientras se leía: manda lo último
+      /* MANDA LA HORA, NO LA SALA. Las horas salen del dia ENTERO: filtrarlas
+         por sala hacia desaparecer las 07:00 del selector si ese dia solo habia
+         gente en la otra, y parecia que el taller no cargaba. */
+      const hs = await horasDelDia(fecha)
+      if (!vigente) return   // cambió de día mientras se leía: manda lo último
       setHoras(hs)
       setHora(prev => (prev && hs.some(h => h.hora === prev)) ? prev : horaActual(hs))
       setHorasListas(true)
     })()
     return () => { vigente = false }
-  }, [fecha, sala])
+  }, [fecha])
 
   // Las salas se leen de Ajustes, igual que en la agenda: si mañana hay una tercera sala,
   // el taller se entera solo.
@@ -250,7 +253,18 @@ export default function ModoClase() {
   async function traerDeAgenda() {
     setTrayendo(true); setAvisoAgenda('')
     try {
-      const delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
+      let delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
+      /* La sala es una PREFERENCIA, no un muro: si a esa hora no hay nadie en la
+         tuya pero si en otra, se enseñan igual y se dice. Dejar la pantalla vacia
+         con gente en la sala de al lado es el error que parecia un fallo. */
+      let otraSala = ''
+      if (delDia.length === 0 && sala) {
+        const todos = await pacientesDelDia(fecha, undefined, hora || undefined)
+        if (todos.length > 0) {
+          delDia = todos
+          otraSala = Array.from(new Set(todos.map((d:any)=>d.sala).filter(Boolean))).join(' y ')
+        }
+      }
       const previos = seleccionRef.current
       const lista: any[] = []
       for (const d of delDia) {
@@ -293,7 +307,11 @@ export default function ModoClase() {
       // momento que ya había pasado. Mismo motivo por el que la versión de una sesión sale
       // de la cadena y no de una columna.
       const donde = (hora ? 'a las ' + hora : 'todo el día') + (sala ? ' · sala ' + sala : '')
-      setAvisoAgenda(delDia.length === 0 ? `Nadie citado ${donde}.` : '')
+      setAvisoAgenda(delDia.length === 0
+        ? `Nadie citado ${donde}.`
+        : otraSala
+          ? `En la sala ${sala} no hay nadie ${hora ? 'a las ' + hora : 'hoy'}. Te enseño los de la sala ${otraSala}.`
+          : '')
     } catch (e: any) {
       // Antes esto no existía y el fallo salía como "no hay citas", que es mentira y manda
       // a buscar el problema al sitio equivocado.
