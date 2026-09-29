@@ -39,6 +39,15 @@ export default function ModoClase() {
    * Lo apuntado se guarda tambien en sessionStorage mientras se escribe: si se recarga
    * la pagina a media clase no se pierde. A la base va al "Guardar y finalizar".
    */
+  /**
+   * BLOQUES PLEGADOS. Plegar lo ya hecho deja a la vista lo que queda, que es lo que
+   * se mira en mitad de la clase. Por paciente y parte: plegar el calentamiento de uno
+   * no pliega el de otro. No se guarda: al recargar vuelven abiertos, que es lo seguro.
+   */
+  const [plegadas, setPlegadas] = useState<Set<string>>(new Set())
+  const alternarPlegada = (k: string) => setPlegadas(prev => {
+    const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n
+  })
   const [hojas, setHojas] = useState<Record<string, Hoja | null>>({})
   const [hechosHoja, setHechosHoja] = useState<Record<string, Record<string, string>>>({})
   const claveHechos = (pid: string, sid: string) => `sie-hoja-hechos:${pid}:${sid}:${fecha}`
@@ -1076,14 +1085,19 @@ export default function ModoClase() {
             const delaParte = act.datos.map((x:any,i:number)=>({ej:x, ei:i}))
               .filter((o:any)=>(o.ej.parte||'') === (ej.parte||''))
             if (!mostrarParte) return null
+            const kPlegada = `${act.paciente.id}|${ei}|${ej.parte||''}`
+            const plegada = plegadas.has(kPlegada)
             return (
             <div key={'w'+ei}>
             {(ej.parte||'') !== '' && (
               /* LA CABECERA DE LA PARTE, VISIBLE. En 9px y gris se perdia entre
                  las fotos, y es lo que dice como se trabaja ese bloque. */
-              <div style={{margin:'20px 0 9px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
+              <div role="button" tabIndex={0} aria-expanded={!plegada}
+                onClick={()=>alternarPlegada(kPlegada)}
+                onKeyDown={e=>{ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); alternarPlegada(kPlegada) } }}
+                style={{margin:'20px 0 9px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
                 background:'var(--bl)',borderLeft:'3px solid var(--g)',borderRadius:'0 7px 7px 0',
-                padding:'8px 12px'}}>
+                padding:'8px 12px',cursor:'pointer',userSelect:'none'}}>
                 <span style={{fontSize:13,fontWeight:600,color:'var(--n)',letterSpacing:.2}}>{ej.parte}</span>
                 {ej.parteObj && (
                   <span style={{fontSize:12.5,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:5}}>
@@ -1100,9 +1114,19 @@ export default function ModoClase() {
                     <Ic name="pausa" size={13}/> {transicionDeParte(ej.parteObj)!.texto} {transicionDeParte(ej.parteObj)!.cuando}
                   </span>
                 )}
+                {/* La flecha a la derecha: toda la cabecera pliega, la flecha solo lo dice. */}
+                <span style={{marginLeft:'auto',display:'inline-flex',alignItems:'center',gap:8,fontSize:12,color:'var(--gr)'}}>
+                  {plegada && <span>{delaParte.length} ejercicio{delaParte.length!==1?'s':''}</span>}
+                  <Ic name="abajo" size={14} style={{transform:plegada?'rotate(-90deg)':'none',transition:'transform .15s'}}/>
+                </span>
               </div>
             )}
-            <RejillaParte pacienteId={act.paciente.id} ejercicios={delaParte}
+            {plegada ? (
+              /* Plegado se leen los nombres: sirve de recordatorio sin ocupar la pantalla. */
+              <div style={{margin:'-3px 0 14px',paddingLeft:17,fontSize:11.5,color:'var(--grl)',lineHeight:1.6}}>
+                {delaParte.map((o:any)=>o.ej.nombre).join(' · ')}
+              </div>
+            ) : <RejillaParte pacienteId={act.paciente.id} ejercicios={delaParte}
               superserie={ej.parteObj?.modo==='superserie'}
               mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
@@ -1110,7 +1134,7 @@ export default function ModoClase() {
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
-              toggleObjetivo={toggleObjetivo}/>
+              toggleObjetivo={toggleObjetivo}/>}
             </div>
             )
           })}
