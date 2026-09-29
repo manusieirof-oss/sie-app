@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import Flotante from './Flotante'
 
 // ---------------------------------------------------------------------------
 // LA CHAPA DE EJECUCION
@@ -16,6 +17,7 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
   objetivosLib = [], objsPac = [], onObjetivo }: any) {
 
   const [abierto, setAbierto] = useState(false)
+  const ancla = useRef<HTMLButtonElement>(null)
   const items = ej.items || []
   const total = items.length
   const marcados = items.filter((it: any) => itemMarcado(ej.items_evaluados, textoDe(it), 0)).length
@@ -26,9 +28,9 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
 
   return (
     <>
-      <button onClick={e => { e.stopPropagation(); if (total > 0) setAbierto(v => v === false) }}
+      <button ref={ancla} onClick={e => { e.stopPropagation(); if (total > 0) setAbierto(v => v === false) }}
         title={total === 0 ? 'Sin ítems de ejecución' : 'Ejecución'}
-        style={{ position: 'absolute', right: -5, bottom: -5, minWidth: tam + 13, height: tam, borderRadius: 99,
+        style={{ position: 'absolute', right: 5, bottom: 5, minWidth: tam + 13, height: tam, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
           fontSize: tam > 21 ? 10.5 : 9.5, fontWeight: 600, fontFamily: 'inherit', padding: '0 7px',
           border: '2px solid var(--w)', cursor: total > 0 ? 'pointer' : 'default',
@@ -36,10 +38,7 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
         {total === 0 ? '—' : `${marcados}/${total}`}
       </button>
 
-      {abierto && total > 0 && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 9px)', left: '50%', transform: 'translateX(-50%)',
-          width: 246, background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 9,
-          boxShadow: '0 10px 28px rgba(38,40,37,.18)', padding: '11px 12px', zIndex: 20, textAlign: 'left' }}>
+      <Flotante abierto={abierto && total > 0} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={246}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
             <span style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .5,
               textTransform: 'uppercase' }}>Ejecución</span>
@@ -86,8 +85,7 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
               </div>
             )
           })}
-        </div>
-      )}
+      </Flotante>
     </>
   )
 }

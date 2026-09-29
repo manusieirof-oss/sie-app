@@ -14,10 +14,9 @@ import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
-import { avisosDeEjercicio, tituloAviso } from '@/lib/avisosZona'
 import { registrarResultadoTest } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
-import CircuitoGrid from './CircuitoGrid'
+import RejillaParte from './RejillaParte'
 import ChapaEjecucion from './ChapaEjecucion'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
@@ -964,191 +963,48 @@ export default function ModoClase() {
             <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Esta sesión no tiene ejercicios.</div>
           ) : act.datos.map((ej:any,ei:number)=>{
             const partePrev = ei>0 ? (act.datos[ei-1].parte||'') : null
-            const mostrarParte = (ej.parte||'') && (ej.parte||'') !== partePrev
-            // Un circuito se anota cruzando, no ejercicio a ejercicio: se pinta
-            // entero de una vez en su cabecera y los demas de la parte se saltan.
-            const esCircuito = ej.parteObj?.modo==='circuito'
-            const delCircuito = esCircuito
-              ? act.datos.map((x:any,i:number)=>({ej:x, ei:i})).filter((o:any)=>o.ej.parte===ej.parte)
-              : []
+            const mostrarParte = ei===0 || (ej.parte||'') !== partePrev
+            /* TODA LA PARTE DE UNA VEZ, de izquierda a derecha. Nacio para el
+               circuito -que se anota cruzando- y se lee mejor tambien en lo
+               demas: la parte entera de un vistazo, sin fondos ni recuadros, y
+               las siguientes debajo. Ver `RejillaParte`. */
+            const delaParte = act.datos.map((x:any,i:number)=>({ej:x, ei:i}))
+              .filter((o:any)=>(o.ej.parte||'') === (ej.parte||''))
+            if (!mostrarParte) return null
             return (
             <div key={'w'+ei}>
-            {mostrarParte && (
-              <div style={{margin:'14px 0 6px',paddingBottom:4,borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                <span style={{fontSize:9,fontWeight:600,color:'var(--gd)',textTransform:'uppercase',letterSpacing:.5}}>{ej.parte}</span>
+            {(ej.parte||'') !== '' && (
+              /* LA CABECERA DE LA PARTE, VISIBLE. En 9px y gris se perdia entre
+                 las fotos, y es lo que dice como se trabaja ese bloque. */
+              <div style={{margin:'20px 0 9px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
+                background:'var(--bl)',borderLeft:'3px solid var(--g)',borderRadius:'0 7px 7px 0',
+                padding:'8px 12px'}}>
+                <span style={{fontSize:13,fontWeight:600,color:'var(--n)',letterSpacing:.2}}>{ej.parte}</span>
                 {ej.parteObj && (
-                  <span style={{fontSize:9,color:'var(--g)',display:'inline-flex',alignItems:'center',gap:4}}>
-                    <Ic name={modoParte(ej.parteObj.modo).icono} size={10}/> {textoModo(ej.parteObj)}
+                  <span style={{fontSize:12.5,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:5}}>
+                    <Ic name={modoParte(ej.parteObj.modo).icono} size={13}/> {textoModo(ej.parteObj)}
                   </span>
                 )}
                 {ej.parteObj && descansoDeParte(ej.parteObj) && (
-                  <span style={{fontSize:9,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}>
-                    <Ic name="pausa" size={10}/> {descansoDeParte(ej.parteObj)!.texto} {descansoDeParte(ej.parteObj)!.cuando}
+                  <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
+                    <Ic name="pausa" size={13}/> {descansoDeParte(ej.parteObj)!.texto} {descansoDeParte(ej.parteObj)!.cuando}
                   </span>
                 )}
                 {ej.parteObj && transicionDeParte(ej.parteObj) && (
-                  <span style={{fontSize:9,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}>
-                    <Ic name="pausa" size={10}/> {transicionDeParte(ej.parteObj)!.texto} {transicionDeParte(ej.parteObj)!.cuando}
+                  <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
+                    <Ic name="pausa" size={13}/> {transicionDeParte(ej.parteObj)!.texto} {transicionDeParte(ej.parteObj)!.cuando}
                   </span>
                 )}
               </div>
             )}
-            {esCircuito ? (mostrarParte ? (
-              <CircuitoGrid pacienteId={act.paciente.id} ejercicios={delCircuito}
-                mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
-                marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
-                objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
-                toggleObjetivo={toggleObjetivo}/>
-            ) : null) : (
-            <div key={ei} style={{background:'var(--bl)',borderRadius:8,border:`1px solid ${ej.guardado?'var(--g)':'var(--bd)'}`,marginBottom:8,padding:'10px 12px',display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
-              <div style={{flex:'0 0 150px',minWidth:130,display:'flex',flexDirection:'column',gap:6,alignItems:'flex-start'}}>
-                <div style={{position:'relative',width:'100%'}}>
-                  {ej.imagen_url?<img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:110,objectFit:'contain',background:'var(--w)',borderRadius:7,display:'block',border:'1px solid var(--bd)'}}/>:<div style={{width:'100%',height:110,background:'var(--bm)',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}><Ic name="fuerza" size={32}/></div>}
-                  <ChapaEjecucion ej={ej} itemMarcado={itemMarcado}
-                    onToggle={(ii:number)=>toggleItem(act.paciente.id,ei,ii)}
-                    onTodos={(v:boolean)=>marcarTodosItems(act.paciente.id,ei,v)}
-                    objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
-                    onObjetivo={(oid:string)=>toggleObjetivo(act.paciente.id,oid,ej.ejercicio_id,ej.nombre)}/>
-                </div>
-                <div style={{width:'100%',minWidth:0}}>
-                  <div style={{fontSize:11,fontWeight:500,color:'var(--n)',lineHeight:1.3}}>
-                    {ej.grupo && ej.parteObj?.modo==='superserie' && (() => {
-                      const mismos = act.datos.filter((x:any)=>x.parte===ej.parte && x.grupo===ej.grupo)
-                      const pos = mismos.indexOf(ej)+1
-                      return <span style={{fontSize:8,fontWeight:600,padding:'1px 5px',borderRadius:4,background:'var(--gl)',color:'var(--gd)',marginRight:5}}>{ej.grupo}{pos}</span>
-                    })()}
-                    {ej.nombre}
-                  </div>
-                  {ej.variante&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',display:'inline-block',marginTop:3}}>{ej.variante}</span>}
-                  {/* LA MOLESTIA, AQUI Y NO EN EL PACIENTE. El icono de "tiene cosas"
-                      salia igual en los doce ejercicios y se ignoraba; esto sale solo
-                      en los que tocan su zona. Ver `lib/avisosZona`. */}
-                  {(() => {
-                    const av = avisosDeEjercicio(
-                      (ctxPorPaciente[act.paciente.id]?.molestias)||[], etiquetas, ej.etiquetas||[])
-                    if (av.length === 0) return null
-                    return (
-                      <div style={{marginTop:4,display:'grid',gap:3}}>
-                        {av.map((a:any,k:number)=>(
-                          <div key={k} style={{display:'flex',gap:5,alignItems:'flex-start',
-                            fontSize:9,lineHeight:1.4,background:'var(--ambl)',color:'#7A5800',
-                            border:'1px solid var(--amb)',borderRadius:5,padding:'3px 6px'}}>
-                            <span style={{flexShrink:0}}>⚠</span>
-                            <span>
-                              <b style={{fontWeight:600}}>{tituloAviso(a)}</b>
-                              {a.nota ? ' — ' + a.nota : ''}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                  {/* EL PLAN, SIEMPRE. Antes el peso planificado solo salia si el
-                      paciente NO tenia registro previo, que es justo al reves: cuanto
-                      mas histórico tiene, mas falta hace saber a que ibas hoy. */}
-                  {(() => {
-                    const pl = ej.plan || {}
-                    const tm = ej.tipo_medida || 'peso_reps'
-                    const t: string[] = []
-                    if (pl.series) t.push(`${pl.series} series`)
-                    if ((tm==='tiempo'||tm==='peso_tiempo') && pl.tiempo) t.push(`${pl.tiempo}s`)
-                    if (pl.reps) t.push(`${pl.reps} reps`)
-                    if (pl.peso) t.push(`${pl.peso} kg`)
-                    if (!t.length) return null
-                    return <div style={{fontSize:9,fontWeight:600,color:'var(--gd)',marginTop:4}}>{t.join(' · ')}</div>
-                  })()}
-                  {(ej.plan?.regimen || ej.plan?.capacidad) && (
-                    <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}>
-                      {ej.plan.regimen && <span style={{fontSize:8,padding:'1px 6px',borderRadius:4,background:'var(--bm)',color:'var(--gr)'}}>{ej.plan.regimen}</span>}
-                      {ej.plan.capacidad && <span style={{fontSize:8,padding:'1px 6px',borderRadius:4,background:'var(--ambl)',color:'#7A5800'}}>{ej.plan.capacidad}</span>}
-                    </div>
-                  )}
-                  {(() => {
-                    // Solo el SUYO: el heredado de la parte ya se enseña en su cabecera.
-                    const d = descansoEfectivo(ej.parteObj, { descanso: ej.plan?.descanso })
-                    if (!d.valor || d.heredado) return null
-                    return (
-                      <div style={{fontSize:9,color:'var(--grl)',marginTop:3,display:'inline-flex',alignItems:'center',gap:4}}>
-                        <Ic name="pausa" size={10}/> {textoDescanso(d.valor)} entre series
-                      </div>
-                    )
-                  })()}
-                  {!ej.ultimo&&<div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>Sin registro previo</div>}
-                  {ej.ultimoComent&&<div style={{fontSize:9,color:'var(--g)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'flex-start',gap:4}}><Ic name="mensaje" size={10}/> <span>última vez: {ej.ultimoComent}</span></div>}
-                  {ej.guardado&&<div style={{fontSize:9,color:'var(--g)',marginTop:3}}>✓ guardado</div>}
-                </div>
-              </div>
-              <div style={{flex:'1 1 340px',minWidth:300,display:'flex',flexWrap:'wrap',gap:14,alignItems:'flex-start'}}>
-                <div style={{flex:'1 1 210px',minWidth:200}}>
-              {ej.series.map((ser:any,si:number)=>{
-                const tm = ej.tipo_medida || 'peso_reps'
-                const fmtPrev = (x:any) => {
-                  if (!x) return null
-                  if (tm==='tiempo') return x.segundos?`${x.segundos}s`:null
-                  if (tm==='peso_tiempo') return (x.peso||x.segundos)?`${x.peso||'—'}kg·${x.segundos||'—'}s`:null
-                  return (x.peso||x.reps)?`${x.peso||'—'}${x.reps?'×'+x.reps:''}`:null
-                }
-                const prev = ej.ultimo && ej.ultimo[si] ? fmtPrev(ej.ultimo[si]) : null
-                return (
-                  <div key={si} style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
-                    <span style={{fontSize:10,color:'var(--grl)',width:16,textAlign:'center'}}>{si+1}</span>
-                    {tm!=='tiempo' && <>
-                      <input inputMode="decimal" value={ser.peso||''} onChange={e=>mutarSerie(act.paciente.id,ei,si,'peso',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
-                      <span style={{fontSize:9,color:'var(--grl)'}}>kg</span>
-                    </>}
-                    {tm==='peso_reps' && <>
-                      <span style={{fontSize:11,color:'var(--bm)'}}>×</span>
-                      <input inputMode="numeric" value={ser.reps||''} onChange={e=>mutarSerie(act.paciente.id,ei,si,'reps',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
-                      <span style={{fontSize:9,color:'var(--grl)'}}>reps</span>
-                    </>}
-                    {(tm==='tiempo'||tm==='peso_tiempo') && <>
-                      {tm==='peso_tiempo' && <span style={{fontSize:11,color:'var(--bm)'}}>·</span>}
-                      <input inputMode="numeric" value={ser.segundos||''} onChange={e=>mutarSerie(act.paciente.id,ei,si,'segundos',e.target.value)} placeholder="—" style={{width:56,fontSize:12,padding:'5px 6px',border:'1px solid var(--bd)',borderRadius:5,textAlign:'center'}}/>
-                      <span style={{fontSize:9,color:'var(--grl)'}}>seg</span>
-                    </>}
-                    <div style={{flex:1}}/>
-                    {prev&&<span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>ant: {prev}</span>}
-                    {ej.series.length>1&&<button onClick={()=>quitarSerie(act.paciente.id,ei,si)} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer',padding:'2px 5px'}}>✕</button>}
-                  </div>
-                )
-              })}
-              <div style={{display:'flex',alignItems:'flex-start',gap:8,marginTop:6}}>
-                <button onClick={()=>addSerie(act.paciente.id,ei)} style={{fontSize:9,color:'var(--g)',background:'none',border:'none',cursor:'pointer',paddingTop:6,whiteSpace:'nowrap'}}>+ serie</button>
-                {/* Varias lineas y no una: con un input de una linea, en cuanto el
-                    comentario pasaba del ancho se perdia de vista al salir del campo
-                    y no habia manera de llegar al final para corregirlo. */}
-                <textarea value={ej.comentario} rows={2}
-                  onChange={e=>setComent(act.paciente.id,ei,e.target.value)}
-                  onInput={e=>{const t=e.currentTarget; t.style.height='auto'; t.style.height=Math.min(140,t.scrollHeight)+'px'}}
-                  placeholder="Comentario..."
-                  style={{flex:1,fontFamily:'inherit',fontSize:12,lineHeight:1.45,padding:'6px 8px',
-                    border:'1px solid var(--bd)',borderRadius:5,background:'var(--w)',color:'var(--n)',
-                    minHeight:46,maxHeight:140,resize:'vertical',overflowY:'auto'}}/>
-              </div>
-                </div>
-                <div style={{flex:'1 1 190px',minWidth:180}}>
-              {/* LA NOTA, A TODO LO ANCHO Y EN AMBAR.
-                  Es lo unico de la prescripcion que avisa de algo —una rodilla, un
-                  rango que no se fuerza— y no llegaba a la sala. En la columna
-                  estrecha de la foto no se leeria, asi que ocupa su propia linea. */}
-              {ej.plan?.nota && (
-                <div style={{flexBasis:'100%',fontSize:10,color:'#7A5800',background:'var(--ambl)',
-                             border:'1px solid var(--amb)',borderRadius:6,padding:'6px 9px',
-                             display:'flex',gap:6,alignItems:'flex-start',lineHeight:1.5}}>
-                  <Ic name="alerta" size={11}/> <span style={{fontStyle:'italic'}}>{ej.plan.nota}</span>
-                </div>
-              )}
-              {(ej.feedbacks||[]).length>0 && (
-                <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {(ej.feedbacks||[]).map((fb:any,fi:number)=>(
-                    <span key={fi} style={{fontSize:9,padding:'2px 7px',borderRadius:99,background:'var(--w)',color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3,border:'1px solid var(--bd)'}}><Ic name="mensaje" size={9}/> {fb.texto}</span>
-                  ))}
-                </div>
-              )}
-                </div>
-              </div>
-            </div>
-            )}
+            <RejillaParte pacienteId={act.paciente.id} ejercicios={delaParte}
+              superserie={ej.parteObj?.modo==='superserie'}
+              mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
+              marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
+              addSerie={addSerie} quitarSerie={quitarSerie}
+              molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]} etiquetas={etiquetas}
+              objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
+              toggleObjetivo={toggleObjetivo}/>
             </div>
             )
           })}
