@@ -54,15 +54,24 @@ export function ChapaFeedback({ ej }: any) {
   )
 }
 
-/** Lo que pasó hoy. Ámbar en cuanto hay algo escrito. */
+/**
+ * LAS NOTAS DE ESTE EJERCICIO, EN UN SITIO.
+ *
+ * Dos cosas distintas que se leen en el mismo momento: lo que se dejo escrito
+ * al planificar -"ojo con la rodilla derecha"- y lo que pasa hoy. La primera
+ * ocupaba un recuadro ambar bajo la foto y la segunda una chapa; ahora
+ * comparten sitio, porque quien mira una quiere ver la otra.
+ */
 export function ChapaComentario({ pacienteId, ej, ei, setComent }: any) {
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
-  const hay = String(ej.comentario || '').trim() !== ''
+  const nota = String(ej.plan?.nota || '').trim()
+  const hoy = String(ej.comentario || '').trim()
+  const hay = hoy !== '' || nota !== ''
   return (
     <>
       <button ref={ancla} onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
-        title={hay ? ej.comentario : 'Comentar el ejercicio'}
+        title={[nota && 'Plan: ' + nota, hoy && 'Hoy: ' + hoy].filter(Boolean).join('\n') || 'Comentar el ejercicio'}
         style={base(hay
           ? { background: 'var(--amb)', color: '#fff', left: 5, top: 5 }
           : { background: 'var(--w)', color: 'var(--grl)', left: 5, top: 5 })}>
@@ -70,18 +79,40 @@ export function ChapaComentario({ pacienteId, ej, ei, setComent }: any) {
       </button>
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-          <span style={rotulo}>Comentario</span>
+          <span style={rotulo}>Notas</span>
           <button onClick={() => setAbierto(false)} style={{ marginLeft: 'auto', fontSize: 12,
             color: 'var(--gr)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
         </div>
+        {nota && (
+          <div style={{ marginBottom: 9 }}>
+            <div style={{ ...rotulo, marginBottom: 3 }}>De la planificación</div>
+            <div style={{ fontSize: 11.5, color: '#7A5800', background: 'var(--ambl)',
+              border: '1px solid var(--amb)', borderRadius: 6, padding: '6px 9px',
+              lineHeight: 1.5, fontStyle: 'italic' }}>{nota}</div>
+          </div>
+        )}
+        {nota && <div style={{ ...rotulo, marginBottom: 3 }}>Hoy</div>}
         <textarea value={ej.comentario || ''} rows={3} autoFocus placeholder="Qué ha pasado hoy…"
           onChange={e => setComent(pacienteId, ei, e.target.value)}
           style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, lineHeight: 1.45,
             padding: '6px 8px', border: '1px solid var(--bd)', borderRadius: 6, color: 'var(--n)',
             background: 'var(--w)', resize: 'vertical', minHeight: 58 }}/>
-        {ej.ultimoComent && (
-          <div style={{ fontSize: 10, color: 'var(--g)', marginTop: 6, fontStyle: 'italic',
-            lineHeight: 1.45 }}>última vez: {ej.ultimoComent}</div>
+        {(ej.comentarios || []).length > 0 && (
+          <div style={{ marginTop: 9 }}>
+            <div style={{ ...rotulo, marginBottom: 3 }}>Días anteriores</div>
+            {(ej.comentarios || []).map((c: any, k: number) => (
+              <div key={k} style={{ display: 'flex', gap: 7, alignItems: 'flex-start',
+                padding: '3px 0', borderTop: k > 0 ? '1px solid var(--bl)' : 'none' }}>
+                <span style={{ fontSize: 9.5, color: 'var(--grl)', flexShrink: 0, width: 46,
+                  paddingTop: 1 }}>
+                  {c.fecha ? new Date(c.fecha + 'T12:00:00').toLocaleDateString('es-ES',
+                    { day: 'numeric', month: 'short' }) : ''}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--gr)', lineHeight: 1.45,
+                  fontStyle: 'italic' }}>{c.texto}</span>
+              </div>
+            ))}
+          </div>
         )}
       </Flotante>
     </>

@@ -4,6 +4,8 @@ import ChapaEjecucion from './ChapaEjecucion'
 import { ChapaFeedback, ChapaComentario } from './ChapasEjercicio'
 import CasillaSeries from './CasillaSeries'
 import { avisosDeEjercicio, tituloAviso } from '@/lib/avisosZona'
+import { capacidadPorReps } from '@/lib/capacidades'
+import PildoraRegimen from './PildoraRegimen'
 
 // ---------------------------------------------------------------------------
 // UNA PARTE ENTERA, DE IZQUIERDA A DERECHA
@@ -21,7 +23,7 @@ import { avisosDeEjercicio, tituloAviso } from '@/lib/avisosZona'
 
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
-  addSerie, quitarSerie, molestias = [], etiquetas = [], superserie = false }: any) {
+  addSerie, quitarSerie, setRegimen, molestias = [], etiquetas = [], superserie = false }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -33,6 +35,18 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
 
         {ejercicios.map(({ ej, ei }: any) => {
           const avisos = avisosDeEjercicio(molestias, etiquetas, ej.etiquetas || [])
+          /* LA CAPACIDAD, SEGUN LO QUE DE VERDAD HACE. Prescribiste
+             fuerza-resistencia, pero si acaba haciendo 25 repeticiones esta
+             estimulando otra cosa y la etiqueta tiene que decirlo. Lo
+             planificado se guarda como punto de partida en la chapa. */
+          const reps = (ej.series || []).map((x: any) => parseInt(String(x?.reps || '')))
+            .filter((n: number) => Number.isFinite(n) && n > 0)
+          const mediaReps = reps.length > 0
+            ? Math.round(reps.reduce((a: number, b: number) => a + b, 0) / reps.length) : null
+          const capReal = mediaReps != null ? capacidadPorReps(mediaReps) : ''
+          const capPlan = ej.plan?.capacidad || ''
+          const capacidad = capReal || capPlan
+          const cambiada = capReal !== '' && capPlan !== '' && capReal !== capPlan
           return (
             <div key={ei} style={{ textAlign: 'center' }}>
               {/* LA FOTO, SIN MARCO Y LLENANDO. Con `contain` y un borde quedaba
@@ -67,15 +81,40 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 {ej.nombre}
                 {ej.guardado && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {/* LA VARIANTE SE LEE. En 8px y gris claro pasaba por una etiqueta
+                  cualquiera, y es lo que distingue este ejercicio de otro: a una
+                  pierna no es lo mismo que a dos. */}
               {ej.variante && (
-                <div style={{ fontSize: 8, marginTop: 2 }}>
-                  <span style={{ padding: '1px 5px', borderRadius: 99, background: 'var(--gl)', color: 'var(--gd)' }}>{ej.variante}</span>
+                <div style={{ fontSize: 11.5, marginTop: 3, color: 'var(--gd)', fontWeight: 500,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <Ic name="etiqueta" size={11}/> {ej.variante}
                 </div>
               )}
-              {ej.plan?.nota && (
-                <div style={{ fontSize: 9.5, color: '#7A5800', background: 'var(--ambl)',
-                  border: '1px solid var(--amb)', borderRadius: 6, padding: '4px 7px', marginTop: 5,
-                  lineHeight: 1.45, fontStyle: 'italic', textAlign: 'left' }}>{ej.plan.nota}</div>
+              {/* COMO SE HACE Y PARA QUE. Regimen -concentrico, isometrico,
+                  excentrico- y capacidad -fuerza, fuerza resistencia, maxima-.
+                  Estaban en el plan y no llegaban a la sala, que es donde hay que
+                  saberlos. Mismos colores que en el editor de la sesion. */}
+              {(ej.plan?.regimen || capacidad) && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap',
+                  marginTop: 4 }}>
+                  {/* EL REGIMEN SE PUEDE CAMBIAR EN LA SALA. No sale de ningun
+                      numero: si hoy lo hace excentrico, solo lo sabes mirandolo.
+                      Se guarda con el registro de hoy, no toca la sesion. */}
+                  {(ej.regimen || ej.plan?.regimen) && (
+                    <PildoraRegimen ej={ej} onCambio={(v: string) => setRegimen?.(pacienteId, ei, v)}/>
+                  )}
+                  {capacidad && (
+                    <span title={cambiada
+                      ? `Planificado: ${capPlan} · está haciendo ${mediaReps} repeticiones`
+                      : 'Capacidad'}
+                      style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99,
+                        border: '1px solid var(--amb)',
+                        color: cambiada ? '#fff' : '#7A5800',
+                        background: cambiada ? 'var(--amb)' : 'var(--w)' }}>
+                      {capacidad}
+                    </span>
+                  )}
+                </div>
               )}
               {avisos.map((a: any, k: number) => (
                 <div key={k} style={{ fontSize: 9, lineHeight: 1.4, marginTop: 4, textAlign: 'left',

@@ -75,6 +75,9 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
     border: '1px solid var(--bd)', background: 'var(--w)',
   }
   const etiqueta = (c: string) => c === 'peso' ? 'kg' : c === 'reps' ? 'reps' : 'seg'
+  /** La misma rejilla arriba y abajo: indice · casillas · hueco de la ✕. */
+  const fila: any = { display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }
+  const sep: any = { width: 8, textAlign: 'center', fontSize: 11, color: 'var(--bm)' }
 
   /** Lo que dice la chapa: "3×20×10", o solo las series si aun no hay nada. */
   const resumen = hayAlgo
@@ -104,11 +107,13 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
             </div>
 
             {/* ARRIBA SE ESCRIBE UNA VEZ Y VALEN TODAS, que es lo que pasa casi
-                siempre. El detalle de abajo es para cuando no coinciden. */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                siempre. El detalle de abajo es para cuando no coinciden — y va en
+                la MISMA rejilla, que si no las columnas bailaban. */}
+            <div style={fila}>
+              <span style={{ width: 14 }}/>
               {campos.map((c, k) => (
-                <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {k > 0 && <span style={{ fontSize: 11, color: 'var(--bm)' }}>{tm === 'peso_reps' ? '×' : '·'}</span>}
+                <span key={c} style={{ display: 'contents' }}>
+                  {k > 0 && <span style={sep}>{tm === 'peso_reps' ? '×' : '·'}</span>}
                   <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
                     <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={muestra(c)}
                       placeholder={hueco(c)} autoFocus={k === 0}
@@ -117,6 +122,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                   </span>
                 </span>
               ))}
+              <span style={{ width: 18 }}/>
             </div>
             {mezclado && (
               <div style={{ fontSize: 9.5, color: '#7A5800', textAlign: 'center', marginTop: 4 }}>
@@ -125,7 +131,25 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
             )}
             <div style={{ fontSize: 10, color: 'var(--grl)', textAlign: 'center', marginTop: 5,
               lineHeight: 1.5 }}>
-              {textoPlan && <div>toca <b style={{ color: 'var(--gd)', fontWeight: 600 }}>{series.length} × {textoPlan}{tm === 'tiempo' || tm === 'peso_tiempo' ? ' s' : ''}</b></div>}
+              {textoPlan && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, flexWrap: 'wrap' }}>
+                  <span>punto de partida <b style={{ color: 'var(--gd)', fontWeight: 600 }}>{series.length} × {textoPlan}{tm === 'tiempo' || tm === 'peso_tiempo' ? ' s' : ''}</b></span>
+                  {/* La misma chapa que fuera, para reconocerla de un vistazo. */}
+                  {plan.capacidad && (
+                    <span style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99,
+                      border: '1px solid var(--amb)', color: '#7A5800', background: 'var(--w)' }}>
+                      {plan.capacidad}
+                    </span>
+                  )}
+                  {plan.regimen && (
+                    <span style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99,
+                      border: '1px solid var(--gm)', color: 'var(--gd)', background: 'var(--w)' }}>
+                      {plan.regimen}
+                    </span>
+                  )}
+                </div>
+              )}
               {campos.some(c => ant[c]) && (
                 <div>última vez {campos.map(c => ant[c] || '—').join(tm === 'peso_reps' ? '×' : '·')}</div>
               )}
@@ -134,22 +158,23 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
             <div style={{ borderTop: '1px solid var(--bl)', margin: '10px 0 7px' }}/>
 
             {series.map((ser: any, si: number) => (
-              <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                <span style={{ width: 13, fontSize: 10, color: 'var(--grl)' }}>{si + 1}</span>
+              <div key={si} style={{ ...fila, marginBottom: 5 }}>
+                <span style={{ width: 14, fontSize: 10, color: 'var(--grl)', textAlign: 'center' }}>{si + 1}</span>
                 {campos.map((c, k) => (
-                  <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    {k > 0 && <span style={{ fontSize: 10, color: 'var(--bm)' }}>{tm === 'peso_reps' ? '×' : '·'}</span>}
+                  <span key={c} style={{ display: 'contents' }}>
+                    {k > 0 && <span style={sep}>{tm === 'peso_reps' ? '×' : '·'}</span>}
                     <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={ser?.[c] || ''}
                       placeholder={prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—'}
                       onChange={e => mutarSerie(pacienteId, ei, si, c, e.target.value)}
-                      style={{ ...celda, width: 46, height: 26, fontSize: 12 }}/>
+                      style={{ ...celda, height: 27 }}/>
                   </span>
                 ))}
-                <div style={{ flex: 1 }}/>
-                {series.length > 1 && quitarSerie && (
-                  <button onClick={() => quitarSerie(pacienteId, ei, si)} title="Quitar esta serie"
-                    style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none',
-                      cursor: 'pointer', padding: '2px 3px' }}>✕</button>
+                {quitarSerie && (
+                  <button onClick={() => series.length > 1 && quitarSerie(pacienteId, ei, si)}
+                    title="Quitar esta serie" disabled={series.length <= 1}
+                    style={{ width: 18, fontSize: 11, color: series.length > 1 ? 'var(--red)' : 'transparent',
+                      background: 'none', border: 'none', cursor: series.length > 1 ? 'pointer' : 'default',
+                      padding: 0 }}>✕</button>
                 )}
               </div>
             ))}

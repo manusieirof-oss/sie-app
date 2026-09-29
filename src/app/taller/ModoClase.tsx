@@ -455,13 +455,25 @@ export default function ModoClase() {
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
-      ;(fin||[]).forEach((r:any)=>{ const k=claveVar(r.ejercicio_id,r.variante); if(!ultMap[k]) ultMap[k]=r })
+      /* LAS DOS ULTIMAS NOTAS, con su fecha. Una sola y sin fecha no decia si
+         era de la semana pasada o de marzo, y lo que se escribe en la sala es
+         justo lo que hay que leer la proxima vez. */
+      const comentMap:Record<string,{fecha:string,texto:string}[]>={}
+      ;(fin||[]).forEach((r:any)=>{
+        const k=claveVar(r.ejercicio_id,r.variante)
+        if(!ultMap[k]) ultMap[k]=r
+        const t = String(r.comentario||'').trim()
+        if (t !== '') {
+          if (comentMap[k] == null) comentMap[k] = []
+          if (comentMap[k].length < 2) comentMap[k].push({ fecha: r.fecha, texto: t })
+        }
+      })
       const { data: ejec } = await supabase.from('ejecucion_paciente')
         .select('ejercicio_id,items,fecha').eq('paciente_id', pid).in('ejercicio_id', ids)
       const ejecMap:Record<string,any>={}
       ;(ejec||[]).forEach((r:any)=>{ ejecMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,variante,series,comentario,items_evaluados')
+        .select('ejercicio_id,variante,series,comentario,items_evaluados,regimen')
         .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).in('ejercicio_id', ids)
       const cursoMap:Record<string,any>={}
       ;(curso||[]).forEach((r:any)=>{ cursoMap[claveVar(r.ejercicio_id,r.variante)]=r })
@@ -470,6 +482,7 @@ export default function ModoClase() {
           const kv = claveVar(e.ejercicio_id, e.variante)
           e.ultimo = ultMap[kv]?.series || null
           e.ultimoComent = ultMap[kv]?.comentario || ''
+          e.comentarios = comentMap[kv] || []
           const ejec = ejecMap[e.ejercicio_id]
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
@@ -499,6 +512,7 @@ export default function ModoClase() {
             // si el borrador tenia mas series que la plantilla, añadirlas
             for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
             e.series = merged; e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
+            if (c.regimen) e.regimen = c.regimen
           }
           if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
         }
@@ -581,6 +595,8 @@ export default function ModoClase() {
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
+      // Como se hizo HOY, que puede no ser como estaba prescrito.
+      regimen: ej.regimen || ej.plan?.regimen || null,
       // Sin esto, la progresión de cargas mezclaba unilateral y bilateral.
       variante: ej.variante || null,
     }
@@ -596,7 +612,7 @@ export default function ModoClase() {
       const { data: existe } = await q.maybeSingle()
       if (existe){
         ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null })
+          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null })
           .eq('id', existe.id))
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))
@@ -639,6 +655,23 @@ export default function ModoClase() {
       return {...s,datos}
     }))
   }
+  /**
+   * EL REGIMEN DEL DIA.
+   *
+   * La capacidad se deduce de las repeticiones, pero el regimen no sale de
+   * ningun numero: si hoy lo hace excentrico porque no controla la subida, eso
+   * solo lo sabes mirandolo. Se guarda en el registro de hoy y no toca la
+   * sesion: manana vuelve a salir lo planificado.
+   */
+  function setRegimen(pid:string, ei:number, val:string){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; datos[ei]={...datos[ei],regimen:val,guardado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
   function setComent(pid:string, ei:number, val:string){
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
@@ -1036,7 +1069,7 @@ export default function ModoClase() {
               superserie={ej.parteObj?.modo==='superserie'}
               mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
-              addSerie={addSerie} quitarSerie={quitarSerie}
+              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={setRegimen}
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
               toggleObjetivo={toggleObjetivo}/>
