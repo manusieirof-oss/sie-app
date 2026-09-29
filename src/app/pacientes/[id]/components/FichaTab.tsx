@@ -1455,7 +1455,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               <button key={v} className="menu-it" onClick={()=>{setMenuPago(null);cambiarPago(v)}}>
                 <span style={{width:7,height:7,borderRadius:'50%',background:DOT_PAGO[v],flexShrink:0}}/>
                 {LBL_PAGO[v]}
-                {bono?.estado_pago===v && <span style={{marginLeft:'auto',color:'var(--g)',display:'inline-flex'}}><Ic name="check" size={13}/></span>}
+                {/* El tilde mira lo MISMO que la chapa. Miraba la columna del bono,
+                    que se queda en 'pendiente' cuando el cobro existe aparte: la
+                    chapa decia Pagado y el menu marcaba Pendiente a la vez. */}
+                {estadoPago===v && <span style={{marginLeft:'auto',color:'var(--g)',display:'inline-flex'}}><Ic name="check" size={13}/></span>}
               </button>
             ))}
           </div>

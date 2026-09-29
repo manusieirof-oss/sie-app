@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
-import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual } from '@/lib/bonos'
+import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
 import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
 import { cargarTarifas } from '@/lib/tarifas'
@@ -48,6 +48,10 @@ export default function CobrosPage() {
   // Cuántas clases lleva cada paciente este mes, sacadas de la AGENDA.
   // Es el contraste que descubre a quien viene y no paga.
   const [clasesDe, setClasesDe] = useState<Record<string, number>>({})
+  /** Solo las ya dadas. Ver el aviso de "N clases ya". */
+  const [dadasDe, setDadasDe] = useState<Record<string, number>>({})
+  /** A quien se le esta adelantando la cuota ahora mismo. */
+  const [adelantando, setAdelantando] = useState<string|null>(null)
   /**
    * LA AGENDA DEL MES, POR PERSONA Y NO POR CITA.
    *
@@ -209,6 +213,7 @@ export default function CobrosPage() {
     }
 
     const cuenta: Record<string, number> = {}
+    const dadas: Record<string, number> = {}
     const nombreDe: Record<string, string> = {}
     const hoy = hoyISO()
     const anotados = new Set<string>(), vino = new Set<string>(), futura = new Set<string>()
@@ -221,9 +226,13 @@ export default function CobrosPage() {
       if (c.estado === 'realizada' || c.estado === 'programada') {
         cuenta[c.paciente_id] = (cuenta[c.paciente_id] || 0) + 1
       }
+      /* Y APARTE LAS QUE YA SE DIERON. "9 clases ya" es un argumento para
+         cobrar -entreno y no ha pagado- y en un mes que no ha empezado era
+         mentira: lo que hay son nueve citas puestas. */
+      if (c.estado === 'realizada') dadas[c.paciente_id] = (dadas[c.paciente_id] || 0) + 1
       if (c.pacientes) nombreDe[c.paciente_id] = `${c.pacientes.nombre} ${c.pacientes.apellidos}`
     })
-    setClasesDe(cuenta)
+    setClasesDe(cuenta); setDadasDe(dadas)
     setAgenda({
       anotados: anotados.size,
       vino: vino.size,
@@ -377,7 +386,8 @@ export default function CobrosPage() {
          * "Cobrado" y parecia que habias cobrado el mes entero.
          */
         const cobrado = Number(pago[bono.id]?.neto_cobrado ?? 0)
-        return { p, bono, pagado, impago, importe, cobrado, clases, mostrarClases: !esVentaPuntual(bono) }
+        return { p, bono, pagado, impago, importe, cobrado, clases,
+          dadas: dadasDe[bono.paciente_id] || 0, mostrarClases: !esVentaPuntual(bono) }
       })
       // UNA FILA POR BONO, Y TAMBIEN POR SERVICIO SUELTO.
       //
@@ -390,7 +400,7 @@ export default function CobrosPage() {
         .map(pid => ({
           p: pacienteDe[pid], bono: null as any, pagado: true, impago: false,
           importe: sueltosMes[pid]?.total || 0, cobrado: sueltosMes[pid]?.total || 0,
-          clases: clasesDe[pid] || 0, mostrarClases: true,
+          clases: clasesDe[pid] || 0, dadas: dadasDe[pid] || 0, mostrarClases: true,
         })))
       .filter(f => !!f.p)
       .filter(f => !t || contiene(`${f.p.nombre} ${f.p.apellidos}`, t))
@@ -400,7 +410,7 @@ export default function CobrosPage() {
       .sort((a, b) => Number(a.pagado) - Number(b.pagado)
         || b.clases - a.clases
         || `${a.p.nombre} ${a.p.apellidos}`.localeCompare(`${b.p.nombre} ${b.p.apellidos}`))
-  }, [bonos, pacienteDe, pago, idx, busca, clasesDe, cobradoMes, sueltosMes])
+  }, [bonos, pacienteDe, pago, idx, busca, clasesDe, dadasDe, cobradoMes, sueltosMes])
 
   /** Qué entra en cada vista. Una sola definición para el contador y la lista. */
   const DE_VISTA: Record<string, (f: any) => boolean> = {
@@ -445,6 +455,24 @@ export default function CobrosPage() {
       .map(p => ({ ...p, empiezaEn: empiezaEn.get(p.id) || null }))
       .sort((a, b) => Number(!!a.empiezaEn) - Number(!!b.empiezaEn))
   }, [pacientes, bonos, bonosFuturos, busca, cobradoMes])
+
+  /**
+   * El mes que se esta mirando todavia no ha empezado.
+   *
+   * Entonces "no tiene cuota" no es un olvido: es que la renovacion corre el
+   * dia 1 y aun no ha pasado. Lo que hace falta ahi no es avisar, es poder
+   * adelantarla para cobrar a quien viene a pagar antes de tiempo.
+   */
+  const mesPorLlegar = anio > hoy.getFullYear()
+    || (anio === hoy.getFullYear() && mes > hoy.getMonth() + 1)
+
+  async function adelantar(p: any) {
+    setAdelantando(p.id)
+    const r = await adelantarCuota(p.id, mes, anio)
+    setAdelantando(null)
+    if (!r.ok) { alert(r.error); return }
+    await cargar()
+  }
 
   /** De los de arriba, los que de verdad no tienen nada previsto. */
   const faltanDeVerdad = sinCuota.filter(p => !p.empiezaEn).length
@@ -682,9 +710,18 @@ export default function CobrosPage() {
           <>
             <div style={{fontSize:10,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',
                          borderRadius:8,padding:'10px 13px',marginBottom:10,lineHeight:1.6}}>
-              <strong>{faltanDeVerdad} clientes sin bono de {MESES[mes-1].toLowerCase()}.</strong> No aparecen
-              en la lista de cobros porque no hay nada que cobrarles: hay que asignarles el bono desde su ficha.
-              {' '}Los que están <strong>en pausa</strong> también cuentan — pausa es que está de vacaciones, y el mes se cobra igual.
+              {/* En un mes que no ha llegado esto no es un olvido: es que la
+                  renovacion corre el dia 1. Decirles que "les falta el bono"
+                  seria acusar a 136 personas de algo que no ha pasado. */}
+              {mesPorLlegar ? <>
+                <strong>{MESES[mes-1]} todavía no ha empezado.</strong> Las cuotas se crean solas el día 1,
+                así que aquí está todo el que aún no la tiene. Si alguien viene a pagar por adelantado,
+                adelántale la suya y pasa a Pendientes.
+              </> : <>
+                <strong>{faltanDeVerdad} clientes sin bono de {MESES[mes-1].toLowerCase()}.</strong> No aparecen
+                en la lista de cobros porque no hay nada que cobrarles: hay que asignarles el bono desde su ficha.
+                {' '}Los que están <strong>en pausa</strong> también cuentan — pausa es que está de vacaciones, y el mes se cobra igual.
+              </>}
               {sinCuota.length > faltanDeVerdad && <>
                 {' '}Los {sinCuota.length - faltanDeVerdad} de abajo del todo ya tienen bono para más adelante: esos están resueltos.
               </>}
@@ -703,9 +740,16 @@ export default function CobrosPage() {
                     empieza en {MESES[Number(p.empiezaEn.split('-')[1])-1].toLowerCase()}
                   </span>
                 )}
-                {(clasesDe[p.id]||0) > 0 && (
+                {mesPorLlegar && !p.empiezaEn && (
+                  <button className="btn btn-s btn-sm" disabled={adelantando===p.id}
+                    onClick={e=>{e.preventDefault();e.stopPropagation();adelantar(p)}}
+                    title={`Le crea ya la cuota de ${MESES[mes-1].toLowerCase()} para poder cobrarla`}>
+                    {adelantando===p.id ? 'Creando…' : `Adelantar ${MESES[mes-1].toLowerCase()}`}
+                  </button>
+                )}
+                {(dadasDe[p.id]||0) > 0 && (
                   <span style={{fontSize:9,color:'var(--red)',fontWeight:600}}>
-                    {clasesDe[p.id]} {clasesDe[p.id]===1?'clase':'clases'} este mes
+                    {dadasDe[p.id]} {dadasDe[p.id]===1?'clase':'clases'} este mes
                   </span>
                 )}
                 {!p.empiezaEn && <span style={{fontSize:10,color:'var(--gd)'}}>Asignar bono →</span>}
@@ -720,7 +764,7 @@ export default function CobrosPage() {
            : vista==='vinieron' ? 'Nadie con cuota ha venido todavía este mes.'
            : 'Nadie tiene cuota asignada ni ha consumido nada este mes.'}
         </div>
-      ) : filas.map(({ p, bono, pagado, impago, importe, cobrado, clases, mostrarClases }: any) => (
+      ) : filas.map(({ p, bono, pagado, impago, importe, cobrado, clases, dadas, mostrarClases }: any) => (
         <div key={bono?.id || p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 13px',borderRadius:8,
                                 border:`1px solid ${impago?'var(--red)':'var(--bd)'}`,marginBottom:6,
                                 background:pagado?'var(--gl)':impago?'var(--redl)':'var(--w)'}}>
@@ -747,10 +791,17 @@ export default function CobrosPage() {
                   como una duplicada. */}
               {bono && esVentaPuntual(bono) && <span style={{color:'var(--gd)'}}>{' · '}{bono.sesiones_totales} sesiones</span>}
               {!p.dni && ' · sin DNI'}
-              {/* Lo que ya ha entrenado sin haber pagado. Cuanto más alto, más urge. */}
-              {!pagado && mostrarClases && clases > 0 && (
-                <span style={{color:clases>=4?'var(--red)':'#7A5800',fontWeight:600}}>
-                  {' · '}{clases} {clases===1?'clase':'clases'} ya
+              {/* Lo que ya ha entrenado sin haber pagado. Cuanto más alto, más urge.
+                  Y lo que solo esta puesto en la agenda no es un argumento para
+                  cobrar: en un mes que no ha empezado, "9 clases ya" era mentira. */}
+              {!pagado && mostrarClases && dadas > 0 && (
+                <span style={{color:dadas>=4?'var(--red)':'#7A5800',fontWeight:600}}>
+                  {' · '}{dadas} {dadas===1?'clase':'clases'} ya
+                </span>
+              )}
+              {!pagado && mostrarClases && dadas === 0 && clases > 0 && (
+                <span style={{color:'var(--grl)'}}>
+                  {' · '}{clases} {clases===1?'clase prevista':'clases previstas'}
                 </span>
               )}
             </div>

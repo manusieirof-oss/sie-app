@@ -415,3 +415,50 @@ export async function bonosActivos(): Promise<any[]> {
   }
   return filas
 }
+
+/**
+ * ADELANTAR LA CUOTA DE UN MES QUE AUN NO HA LLEGADO.
+ *
+ * La renovacion automatica corre el dia 1 y solo crea las cuotas del mes en
+ * curso, asi que el 29 de septiembre las de octubre no existen. Quien venia a
+ * pagar octubre por adelantado no aparecia por ningun lado y no se le podia
+ * cobrar: habia que ir a su ficha y ponerle un bono con fecha de inicio a mano.
+ *
+ * Esto hace eso mismo en un clic, copiando su cuota vigente -tipo, dias y
+ * descuento- como manda la renovacion.
+ *
+ * NO desactiva la cuota del mes en curso: septiembre sigue vivo y puede estar
+ * sin cobrar. De retirarla ya se encarga la renovacion del dia 1, que reconoce
+ * a quien ya tiene la del mes puesta a mano y no le crea una segunda.
+ */
+export async function adelantarCuota(pacienteId: string, mes: number, anio: number) {
+  const { data: suyos, error } = await supabase.from('bonos').select('*')
+    .eq('paciente_id', pacienteId).eq('activo', true)
+  if (error) return { ok: false as const, error: error.message }
+
+  const mensuales = (suyos || []).filter((b: any) => b.sesiones_totales == null)
+  if (mensuales.some((b: any) => b.mes === mes && b.anio === anio)) {
+    return { ok: false as const, error: 'Ya tiene cuota de ese mes.' }
+  }
+  // La mas reciente: es la que se renovaria, con el descuento al dia.
+  const base = mensuales.sort((a: any, b: any) =>
+    (b.anio - a.anio) || (b.mes - a.mes))[0]
+  if (!base) return { ok: false as const, error: 'No tiene cuota que adelantar. Asignale un bono desde su ficha.' }
+
+  const { error: errIns } = await supabase.from('bonos').insert({
+    paciente_id: pacienteId, tipo: base.tipo, dias_semana: base.dias_semana,
+    estado_pago: 'pendiente', mes, anio,
+    fecha_inicio: inicioDeMes(anio, mes), activo: true,
+    descuento_tipo: base.descuento_tipo, descuento_valor: base.descuento_valor,
+    descuento_motivo: base.descuento_motivo,
+  })
+  if (errIns) return { ok: false as const, error: errIns.message }
+
+  await supabase.from('eventos_paciente').insert({
+    paciente_id: pacienteId, tipo: 'cambio_bono',
+    titulo: `Cuota de ${mes}/${anio} adelantada`,
+    descripcion: `Creada antes de tiempo para poder cobrarla por adelantado.${base.descuento_tipo?' Descuento mantenido.':''}`,
+    fecha: hoyISO(),
+  })
+  return { ok: true as const }
+}
