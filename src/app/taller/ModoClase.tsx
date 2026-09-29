@@ -389,7 +389,15 @@ export default function ModoClase() {
             series:ej.series, peso:ej.peso, reps:ej.reps, tiempo:ej.tiempo,
             capacidad:ej.capacidad, regimen:ej.regimen, descanso:ej.descanso, nota:ej.nota,
           },
-          series: Array.from({length:n},()=>({peso:'',reps:''})),
+          /* LAS CASILLAS EMPIEZAN CON LO PRESCRITO. En la sala se sale de lo
+             planificado y se corrige lo que cambie, que es casi nada; con las
+             casillas vacias habia que teclear de nuevo lo que ya estaba escrito
+             en la ficha. */
+          series: Array.from({length:n},()=>({
+            peso: ej.peso == null ? '' : String(ej.peso),
+            reps: ej.reps == null ? '' : String(ej.reps),
+            segundos: ej.tiempo == null ? '' : String(ej.tiempo),
+          })),
           comentario:'', ultimo:null, guardado:false,
         })
       })

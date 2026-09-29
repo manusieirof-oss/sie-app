@@ -57,6 +57,18 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   }
 
   const ant = (ej.ultimo || [])[0] || {}
+  /* LO PRESCRITO, AQUI. Estaba suelto bajo el nombre -"45s"- sin decir si era
+     lo que tocaba, lo de la ultima vez o lo de hoy. Es lo que hay que hacer,
+     asi que va donde se escribe: de hueco en la casilla y en la chapa mientras
+     no haya nada apuntado. */
+  const plan: any = ej.plan || {}
+  const prescrito = (c: string) => {
+    const v = c === 'peso' ? plan.peso : c === 'reps' ? plan.reps : plan.tiempo
+    return v == null || v === '' ? '' : String(v)
+  }
+  const hueco = (c: string) => prescrito(c) || ant[c] || '—'
+  const textoPlan = campos.map(c => prescrito(c)).filter(Boolean)
+    .map((v, i) => campos.length > 1 && i > 0 ? v : v).join(tm === 'peso_reps' ? '×' : '·')
   const celda = {
     width: 52, height: 30, fontFamily: 'inherit', fontSize: 14, padding: '0 3px',
     textAlign: 'center' as const, borderRadius: 6, color: 'var(--n)',
@@ -67,7 +79,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   /** Lo que dice la chapa: "3×20×10", o solo las series si aun no hay nada. */
   const resumen = hayAlgo
     ? String(series.length) + '×' + campos.map(c => muestra(c) || '—').join('×')
-    : String(series.length) + '×'
+    : String(series.length) + (textoPlan ? '× ' + textoPlan + (tm === 'tiempo' || tm === 'peso_tiempo' ? 's' : '') : '×')
 
   return (
     <>
@@ -99,7 +111,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                   {k > 0 && <span style={{ fontSize: 11, color: 'var(--bm)' }}>{tm === 'peso_reps' ? '×' : '·'}</span>}
                   <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
                     <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={muestra(c)}
-                      placeholder={ant[c] || '—'} autoFocus={k === 0}
+                      placeholder={hueco(c)} autoFocus={k === 0}
                       onChange={e => ponerEnTodas(c, e.target.value)} style={celda}/>
                     <span style={{ fontSize: 8.5, color: 'var(--grl)', marginTop: 2 }}>{etiqueta(c)}</span>
                   </span>
@@ -111,6 +123,13 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                 es la media · escribir aquí iguala todas
               </div>
             )}
+            <div style={{ fontSize: 10, color: 'var(--grl)', textAlign: 'center', marginTop: 5,
+              lineHeight: 1.5 }}>
+              {textoPlan && <div>toca <b style={{ color: 'var(--gd)', fontWeight: 600 }}>{series.length} × {textoPlan}{tm === 'tiempo' || tm === 'peso_tiempo' ? ' s' : ''}</b></div>}
+              {campos.some(c => ant[c]) && (
+                <div>última vez {campos.map(c => ant[c] || '—').join(tm === 'peso_reps' ? '×' : '·')}</div>
+              )}
+            </div>
 
             <div style={{ borderTop: '1px solid var(--bl)', margin: '10px 0 7px' }}/>
 
@@ -121,7 +140,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                   <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                     {k > 0 && <span style={{ fontSize: 10, color: 'var(--bm)' }}>{tm === 'peso_reps' ? '×' : '·'}</span>}
                     <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={ser?.[c] || ''}
-                      placeholder={((ej.ultimo || [])[si] || {})[c] || '—'}
+                      placeholder={prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—'}
                       onChange={e => mutarSerie(pacienteId, ei, si, c, e.target.value)}
                       style={{ ...celda, width: 46, height: 26, fontSize: 12 }}/>
                   </span>

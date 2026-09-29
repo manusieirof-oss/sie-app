@@ -72,17 +72,6 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   <span style={{ padding: '1px 5px', borderRadius: 99, background: 'var(--gl)', color: 'var(--gd)' }}>{ej.variante}</span>
                 </div>
               )}
-              {(() => {
-                const pl = ej.plan || {}
-                const t: string[] = []
-                if (pl.reps) t.push(`${pl.reps} reps`)
-                if (pl.tiempo) t.push(`${pl.tiempo}s`)
-                if (pl.peso) t.push(`${pl.peso} kg`)
-                return t.length > 0
-                  ? <div style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--gd)', marginTop: 2 }}>{t.join(' · ')}</div>
-                  : null
-              })()}
-
               {ej.plan?.nota && (
                 <div style={{ fontSize: 9.5, color: '#7A5800', background: 'var(--ambl)',
                   border: '1px solid var(--amb)', borderRadius: 6, padding: '4px 7px', marginTop: 5,
