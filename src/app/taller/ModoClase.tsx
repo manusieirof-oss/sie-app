@@ -48,6 +48,46 @@ export default function ModoClase() {
   const alternarPlegada = (k: string) => setPlegadas(prev => {
     const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n
   })
+  /**
+   * EJERCICIOS QUE NO SE HICIERON. Se parte de que la sesion se hace entera: lo que
+   * se marca es la excepcion, no cada ejercicio hecho. Por paciente, sesion y dia; va
+   * a sessionStorage para que recargar a media clase no lo pierda.
+   */
+  const [noHechos, setNoHechos] = useState<Record<string, number[]>>({})
+  const claveNoHecho = (pid: string, sid: string) => `sie-nohecho:${pid}:${sid}:${fecha}`
+  const leerNoHechos = (pid: string, sid: string): number[] => {
+    const k = claveNoHecho(pid, sid)
+    if (k in noHechos) return noHechos[k]
+    try { return JSON.parse(sessionStorage.getItem(k) || '[]') } catch { return [] }
+  }
+  function ponerNoHechos(pid: string, sid: string, lista: number[]) {
+    const k = claveNoHecho(pid, sid)
+    try { sessionStorage.setItem(k, JSON.stringify(lista)) } catch {}
+    setNoHechos(prev => ({ ...prev, [k]: lista }))
+  }
+  /**
+   * Marcar "no lo hizo" borra lo que hubiera apuntado de ese ejercicio hoy: si no se
+   * hizo, sus cifras no pueden llegar a la progresion. Desmarcar no recupera nada.
+   */
+  async function alternarNoHecho(pid: string, sid: string, ei: number) {
+    const lista = leerNoHechos(pid, sid)
+    if (lista.includes(ei)) { ponerNoHechos(pid, sid, lista.filter(x => x !== ei)); return }
+    ponerNoHechos(pid, sid, [...lista, ei])
+    const key = `${pid}_${ei}`
+    if (timers.current[key]) { clearTimeout(timers.current[key]); delete timers.current[key]; setPendientes(p=>Math.max(0,p-1)) }
+    const ej = seleccion.find(s=>s.paciente.id===pid)?.datos?.[ei]
+    if (!ej) return
+    let q = supabase.from('registros_ejercicio').delete()
+      .eq('paciente_id', pid).eq('sesion_id', sid).eq('finalizado', false)
+    q = ej.ejercicio_id ? q.eq('ejercicio_id', ej.ejercicio_id) : q.is('ejercicio_id', null).eq('ejercicio_nombre', ej.nombre)
+    q = ej.variante ? q.eq('variante', ej.variante) : q.is('variante', null)
+    await q
+    setSeleccion(prev => prev.map(s => {
+      if (s.paciente.id !== pid) return s
+      const datos = [...s.datos]; if (datos[ei]) datos[ei] = { ...datos[ei], guardado: false }
+      return { ...s, datos }
+    }))
+  }
   const [hojas, setHojas] = useState<Record<string, Hoja | null>>({})
   const [hechosHoja, setHechosHoja] = useState<Record<string, Record<string, string>>>({})
   const claveHechos = (pid: string, sid: string) => `sie-hoja-hechos:${pid}:${sid}:${fecha}`
@@ -485,7 +525,10 @@ export default function ModoClase() {
       const comentMap:Record<string,{fecha:string,texto:string}[]>={}
       ;(fin||[]).forEach((r:any)=>{
         const k=claveVar(r.ejercicio_id,r.variante)
-        if(!ultMap[k]) ultMap[k]=r
+        // Un registro SIN series (hecho, sin cifras) no sirve de "ultima vez": si
+        // lo cogiera, la carga de partida volveria a la del plan y se perderia la
+        // progresion. Se salta hasta el ultimo que tenga numeros.
+        if(!ultMap[k] && Array.isArray(r.series) && r.series.length>0) ultMap[k]=r
         const t = String(r.comentario||'').trim()
         if (t !== '') {
           if (comentMap[k] == null) comentMap[k] = []
@@ -610,6 +653,9 @@ export default function ModoClase() {
    */
 
   function programarAutosave(pid:string, ei:number, ejData:any, sesionId:string){
+    // Si se apunta algo en uno marcado como "no lo hizo", es que si lo hizo.
+    const nh = leerNoHechos(pid, sesionId)
+    if (nh.includes(ei)) ponerNoHechos(pid, sesionId, nh.filter(x => x !== ei))
     const key = `${pid}_${ei}`
     if (timers.current[key]) clearTimeout(timers.current[key])
     else setPendientes(p=>p+1)
@@ -764,11 +810,38 @@ export default function ModoClase() {
     const item = seleccion.find(s=>s.paciente.id===pid); if(!item) return
     // forzar guardado de todo lo lleno
     Object.keys(timers.current).forEach(k=>{ if(k.startsWith(pid+'_')){ clearTimeout(timers.current[k]); delete timers.current[k] } })
+    const noHizo = leerNoHechos(pid, item.sesionId)
     for (let i=0;i<item.datos.length;i++){
+      if (noHizo.includes(i)) continue
       const ej=item.datos[i]
       const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
       const hayComent=(ej.comentario||'').trim()!==''
       if (llenas.length>0 || hayComent) await autoguardar(pid,i,ej,item.sesionId)
+    }
+    /**
+     * LO QUE NO SE MARCO COMO "NO LO HIZO", SE HIZO.
+     *
+     * Antes solo quedaba registro de lo que tenia cifras o comentario: unos burpees o
+     * una cuerda, que no se miden, no constaban nunca, y para la dosis de los objetivos
+     * era como si no se hubieran hecho. Ahora cada ejercicio hecho deja su registro,
+     * sin series si no se apunto ninguna: consta que se hizo, sin inventar cifras.
+     */
+    const { data: yaHay } = await supabase.from('registros_ejercicio')
+      .select('ejercicio_id,ejercicio_nombre,variante')
+      .eq('paciente_id', pid).eq('sesion_id', item.sesionId).eq('finalizado', false)
+    const claveReg = (id: any, nombre: any, variante: any) => `${id || 'n:' + (nombre || '')}|${variante || ''}`
+    const existentes = new Set((yaHay || []).map((r: any) => claveReg(r.ejercicio_id, r.ejercicio_nombre, r.variante)))
+    const vacios = item.datos
+      .map((ej: any, i: number) => ({ ej, i }))
+      .filter(({ ej, i }: any) => !noHizo.includes(i) && !existentes.has(claveReg(ej.ejercicio_id, ej.nombre, ej.variante)))
+      .map(({ ej }: any) => ({
+        paciente_id: pid, ejercicio_id: ej.ejercicio_id || null, ejercicio_nombre: ej.nombre,
+        sesion_id: item.sesionId, series: [], comentario: null, items_evaluados: {}, finalizado: false,
+        regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
+      }))
+    if (vacios.length) {
+      const { error } = await supabase.from('registros_ejercicio').insert(vacios)
+      if (error) { alert('Error al finalizar: ' + error.message); return }
     }
     // limpiar finalizados previos del dia y marcar
     const ids = item.datos.map((e:any)=>e.ejercicio_id).filter(Boolean)
@@ -1134,7 +1207,9 @@ export default function ModoClase() {
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
-              toggleObjetivo={toggleObjetivo}/>}
+              toggleObjetivo={toggleObjetivo}
+              noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
+              onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}/>}
             </div>
             )
           })}

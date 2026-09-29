@@ -24,7 +24,7 @@ import PildoraRegimen from './PildoraRegimen'
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false }: any) {
+  superserie = false, noHechos = [], onNoHecho }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -48,12 +48,15 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
           const capPlan = ej.plan?.capacidad || ''
           const capacidad = capReal || capPlan
           const cambiada = capReal !== '' && capPlan !== '' && capReal !== capPlan
+          const noLoHizo = noHechos.includes(ei)
           return (
             <div key={ei} style={{ textAlign: 'center' }}>
               {/* LA FOTO, SIN MARCO Y LLENANDO. Con `contain` y un borde quedaba
                   una imagen pequeña dentro de un rectangulo, que es justo lo que
                   no queremos: manda la imagen. */}
-              <div style={{ position: 'relative', display: 'block' }}>
+              {/* NO LO HIZO: la foto se apaga y el nombre se tacha. Lo normal es hacerlo
+                  todo, asi que es lo unico que se marca y tiene que verse de lejos. */}
+              <div style={{ position: 'relative', display: 'block', opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s' }}>
                 {ej.imagen_url
                   ? <img src={ej.imagen_url} alt={ej.nombre}
                       style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover',
@@ -79,9 +82,17 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 5px', borderRadius: 4,
                     background: 'var(--gl)', color: 'var(--gd)', marginRight: 5 }}>{ej.grupo}</span>
                 )}
-                {ej.nombre}
-                {ej.guardado && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
+                <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
+                {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {onNoHecho && (
+                <button type="button" onClick={() => onNoHecho(ei)} aria-pressed={noLoHizo}
+                  style={{ marginTop: 4, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer', borderRadius: 99, padding: '2px 9px',
+                    border: `1px solid ${noLoHizo ? 'var(--gr)' : 'var(--bd)'}`,
+                    background: noLoHizo ? 'var(--gr)' : 'transparent', color: noLoHizo ? '#fff' : 'var(--grl)' }}>
+                  {noLoHizo ? 'No lo hizo · deshacer' : 'No lo hizo'}
+                </button>
+              )}
               {/* LA VARIANTE SE LEE. En 8px y gris claro pasaba por una etiqueta
                   cualquiera, y es lo que distingue este ejercicio de otro: a una
                   pierna no es lo mismo que a dos. */}
