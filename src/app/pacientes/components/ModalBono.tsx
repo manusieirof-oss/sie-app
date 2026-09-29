@@ -247,7 +247,36 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         fecha_inicio: inicio, activo: true,
       })
       if (error) { setError(mensajeBono(error.message)); setGuardando(false); return }
-      if (sustituye) await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
+      /**
+       * SI LA NUEVA ES DE UN MES POSTERIOR, LA VIEJA NO SE DESACTIVA: SE ANULA O SE QUEDA.
+       *
+       * Desactivarla la dejaba en un limbo. A Noelia, Ornella, Carmen y Maria Francisca
+       * se les paso el inicio al 1 de octubre y su cuota de septiembre, sin cobrar, quedo
+       * desactivada: Cobros no la veia (solo mira las activas) pero Finanzas si (tiene que
+       * mirar las inactivas, porque la renovacion desactiva las de meses pasados), y la
+       * contaba como 304 EUR de deuda que nadie debia.
+       *
+       * Ahora, si la vieja es de este mes o de uno futuro:
+       *   · sin cobrar -> se borra, como "Quitar este bono". Cambiar el inicio a un mes
+       *     posterior es decir que ese mes no se cobra.
+       *   · cobrada    -> se queda ACTIVA. Tiene factura y es de su mes; ya la retirara
+       *     la renovacion cuando llegue la nueva.
+       * Si es de un mes ya pasado no se borra nunca: ahi puede haber una deuda de verdad
+       * de alguien que vino ese mes, y eso no se cancela cambiando el bono de ahora.
+       */
+      if (sustituye) {
+        const posterior = anio > bonoActual.anio || (anio === bonoActual.anio && mes > bonoActual.mes)
+        const [ha, hm] = hoyStr.split('-').map(Number)
+        const viejaNoPasada = bonoActual.anio > ha || (bonoActual.anio === ha && bonoActual.mes >= hm)
+        if (!posterior) {
+          await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
+        } else if (viejaNoPasada) {
+          const r = await quitarBono(bonoActual)
+          if (!r.ok && !r.cobrado) { setError(r.error); setGuardando(false); onGuardado?.(); return }
+        } else {
+          await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
+        }
+      }
     }
 
     const txtDesc = descTipo
