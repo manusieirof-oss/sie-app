@@ -961,8 +961,16 @@ async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemT
  *   - un item: sin hallazgo en ESE item cierra; con hallazgo abre. Lo que digan
  *     los otros doce items no es asunto de este objetivo.
  *
- * Al objetivo que el paciente no lleva no se le hace nada: ponerselo es una
- * decision clinica, no la consecuencia de haber medido.
+ * Y SI EL PACIENTE NO LO LLEVA, UN POSITIVO SE LO PONE.
+ *
+ * Antes no se le hacia nada, con la idea de que ponerlo era una decision clinica y
+ * no la consecuencia de medir. Pero la decision clinica ya esta tomada al enganchar
+ * el objetivo al test: se crea el test "Conciencia corporal", se dice que lo comprueba
+ * "Mejorar la propiocepcion postural", sale positivo en Veronica... y no pasaba nada,
+ * porque el objetivo no colgaba de ningun item. Dos enlaces que parecen el mismo y
+ * solo uno abria. Ahora los dos abren:
+ *   - enganchado al test entero: cualquier positivo lo pone.
+ *   - enganchado a un item: solo si ESE item ha dado hallazgo.
  */
 async function cerrarObjetivosQueEvalua(
   pacienteId: string, test: any, items: ItemTest[],
@@ -979,6 +987,34 @@ async function cerrarObjetivosQueEvalua(
 
   const { data: suyos } = await supabase.from('pacientes_objetivos')
     .select('objetivo_id,vias,logrado').eq('paciente_id', pacienteId).in('objetivo_id', ids)
+
+  if (resultado === 'positivo') {
+    const tiene = new Set((suyos || []).map((r: any) => r.objetivo_id))
+    const nuevos = ids.filter(id => !tiene.has(id))
+    if (nuevos.length > 0) {
+      const { data: evs } = await supabase.from('objetivos_tests')
+        .select('objetivo_id,item').eq('test_id', test.id).in('objetivo_id', nuevos)
+      const n = (x: any) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+      for (const oid of nuevos) {
+        let via: Via | null = null
+        for (const e of (evs || []).filter((x: any) => x.objetivo_id === oid)) {
+          if (e.item == null) {
+            via = { tipo: 'test', ref: test.id, etiqueta: 'Test: ' + (test.nombre || 'test'), resuelto: false, fecha_resuelto: null, lado: lado || null }
+            break
+          }
+          const i = items.findIndex(it => n(it?.nombre) === n(e.item))
+          if (i >= 0 && items[i].marcado) {
+            via = { tipo: 'test_item', ref: test.id + ':' + i, etiqueta: 'Test: ' + (test.nombre || 'test') + ' · ' + (items[i].nombre || `ítem ${i + 1}`),
+              resuelto: false, fecha_resuelto: null, lado: lado || null }
+            break
+          }
+        }
+        if (via == null) continue
+        await abrirOReabrir(pacienteId, oid, via, contexto)
+        abiertos++
+      }
+    }
+  }
   if (suyos == null || suyos.length === 0) return { logrados, abiertos }
 
   // Y TODOS los evaluadores de esos objetivos, no solo los de este test: si un
