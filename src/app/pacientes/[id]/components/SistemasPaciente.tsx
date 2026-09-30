@@ -41,6 +41,23 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
   const [creando, setCreando] = useState(false)
   const [biblio, setBiblio] = useState<any>(null)
   const [editandoSistema, setEditandoSistema] = useState<any>(null)
+  /**
+   * EL PROGRAMA QUE SE DEJO DICHO EN LA VALORACION: nombre del ciclo, como progresa y
+   * las notas del plan. Se ofrece al ponerle el ciclo para no volver a pensar lo que
+   * ya se hablo con el paciente. Se lee aqui y no se pide al padre: son dos pantallas
+   * las que montan este bloque y asi no hay que acordarse de pasarlo en las dos.
+   */
+  const [programa, setPrograma] = useState<{ nombre: string, progresion: string, notas: string } | null>(null)
+  const [crearDesdePrograma, setCrearDesdePrograma] = useState(false)
+  useEffect(() => {
+    supabase.from('valoraciones').select('estado_general').eq('paciente_id', pacienteId)
+      .order('fecha', { ascending: false }).limit(1).then(({ data }) => {
+        let eg: any = {}
+        try { eg = data?.[0]?.estado_general ? JSON.parse(data[0].estado_general) : {} } catch {}
+        const p = { nombre: eg.programa_nombre || '', progresion: eg.programa_progresion || '', notas: eg.notas_plan || '' }
+        setPrograma(p.nombre || p.progresion || p.notas ? p : null)
+      })
+  }, [pacienteId])
   // Para la banderita de la tarjeta: una consulta para todas sus fases, en vez
   // de montar el bloque entero de la evaluacion solo para saber si la hay.
   const [evs, setEvs] = useState<Record<string, { id: string, fecha: string | null }>>({})
@@ -65,7 +82,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
     }
   }
 
-  async function abrirCreacion() { await cargarBiblio(); setCreando(true) }
+  async function abrirCreacion(desdePrograma = false) { await cargarBiblio(); setCrearDesdePrograma(desdePrograma); setCreando(true) }
   const corto = (iso: string) => new Date(iso + 'T12:00:00')
     .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -176,9 +193,29 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
 
             <div style={{ padding:'13px 17px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 }}>
               <div style={{ flex:1, fontSize:16, fontWeight:500 }}>Añadir sistema</div>
-              <button className="btn btn-s btn-sm" onClick={abrirCreacion}>+ Nuevo sistema</button>
+              <button className="btn btn-s btn-sm" onClick={() => abrirCreacion(false)}>+ Nuevo sistema</button>
               <button className="modal-close" onClick={() => setAnadiendo(false)}>✕</button>
             </div>
+
+            {programa && (
+              <div style={{ margin:'11px 17px 0', padding:'10px 12px', background:'var(--gl)', border:'1px solid var(--gm)',
+                borderRadius:8, fontSize:12, color:'var(--gd)', lineHeight:1.5 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                  <span style={{ fontSize:10, fontWeight:600, letterSpacing:.5, textTransform:'uppercase' }}>De la valoración</span>
+                  {programa.nombre && <b style={{ fontWeight:600, color:'var(--n)' }}>{programa.nombre}</b>}
+                  {programa.progresion && (
+                    <span className="pill pill-o on">{PROGRESIONES.find(p => p.valor === programa.progresion)?.nombre || programa.progresion}</span>
+                  )}
+                  <span style={{ flex:1 }}/>
+                  {programa.nombre && (
+                    <button className="btn btn-p btn-sm" onClick={() => abrirCreacion(true)}>Crear este ciclo</button>
+                  )}
+                </div>
+                {programa.notas && (
+                  <div style={{ marginTop:5, color:'var(--gr)', whiteSpace:'pre-line', maxHeight:90, overflowY:'auto' }}>{programa.notas}</div>
+                )}
+              </div>
+            )}
 
             <div style={{ padding:'11px 17px 0' }}>
               <input className="input" autoFocus value={busca} onChange={e => setBusca(e.target.value)}
@@ -327,7 +364,14 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
       )}
 
       {creando && biblio && (
-        <ModalSistema sistema={null}
+        <ModalSistema
+          // Desde el programa de la valoracion nace con su nombre, su progresion y las
+          // notas como descripcion. Sin `id`: es un sistema nuevo igual que el otro boton.
+          sistema={crearDesdePrograma && programa ? {
+            nombre: programa.nombre,
+            ...(programa.progresion ? { progresion: programa.progresion } : {}),
+            descripcion: programa.notas || '',
+          } : null}
           objetivos={biblio.objetivos} sesiones={biblio.sesiones}
           ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
           onCerrar={() => setCreando(false)}

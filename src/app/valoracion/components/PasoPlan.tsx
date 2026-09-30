@@ -3,6 +3,7 @@ import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 
 import { textoModalidad, esAsignable } from '@/lib/bonoSesiones'
+import { PROGRESIONES } from '@/lib/sistemas'
 
 export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
   const hp = form.horario_pref || {modo:'general',franja_general:'manana',franjas_dia:{},alterno:'manana_tarde',hora_exacta:'',notas_horario:''}
@@ -137,10 +138,33 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
           </div>
         </div>
 
+        {/* PROGRAMA DE ENTRENAMIENTO. Las notas del plan quedaban sueltas en la ficha y el
+            ciclo se montaba despues desde cero, volviendo a pensar lo que ya se habia hablado
+            con el paciente en la valoracion. Aqui se deja el nombre del ciclo y como va a
+            progresar, y la ficha lo ofrece al ponerle el ciclo. No crea el ciclo: al terminar
+            la valoracion todavia faltan tests y objetivos, y decidir su contenido aqui seria
+            decidir sin los datos. */}
         <div className="card">
-          <div className="card-title">Notas del plan</div>
+          <div className="card-title">Programa de entrenamiento</div>
+          <div className="field"><label>Nombre del ciclo (opcional)</label>
+            <input className="input" value={form.programa_nombre||''} onChange={e=>up('programa_nombre',e.target.value)}
+              placeholder="ej. Lumbar · vuelta a la carga"/>
+          </div>
+          <div className="field"><label>Cómo progresa (opcional, si ya lo tienes claro)</label>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {PROGRESIONES.map(p=>(
+                <button key={p.valor} type="button" title={p.ayuda}
+                  className={`chip-sel ${form.programa_progresion===p.valor?'on':''}`}
+                  onClick={()=>up('programa_progresion', form.programa_progresion===p.valor?'':p.valor)}>
+                  {p.nombre}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="field" style={{marginBottom:0}}><label>Notas del plan</label>
           <textarea className="input" style={{minHeight:120}} value={form.notas_plan} onChange={e=>up('notas_plan',e.target.value)}
             placeholder={`Resumen orientativo:\n· Objetivos: ${form.objetivo1||'—'}\n· Tipo de trabajo propuesto\n· Limitaciones a considerar\n· Progresión`}/>
+          </div>
         </div>
       </div>
     </div>

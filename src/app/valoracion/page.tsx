@@ -49,7 +49,7 @@ const FORM_VACIO = {
   plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
   medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
   patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
-  tipo_clase_def:'entrenamiento',bono:'',dias_asistencia:'',franja:'manana',notas_plan:'',
+  tipo_clase_def:'entrenamiento',bono:'',dias_asistencia:'',franja:'manana',notas_plan:'',programa_nombre:'',programa_progresion:'',
   horario_pref:{modo:'general',franja_general:'manana',franjas_dia:{} as Record<string,string>,alterno:'manana_tarde',hora_exacta:'',notas_horario:''},
 }
 
@@ -268,7 +268,7 @@ export default function ValoracionPage() {
         // crea bono: se cobra en el momento y ahí acaba. Abrirle una fila en
         // `bonos` le montaría una cuota mensual que nadie ha contratado.
         ...(esRevaloracion || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
-        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
+        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,programa_nombre:form.programa_nombre,programa_progresion:form.programa_progresion,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar
         // nombres, que es lo que se separa solo en cuanto alguien teclea una variante.
