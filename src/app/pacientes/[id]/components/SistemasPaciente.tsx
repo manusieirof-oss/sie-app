@@ -207,9 +207,11 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
                     <span className="pill pill-o on">{PROGRESIONES.find(p => p.valor === programa.progresion)?.nombre || programa.progresion}</span>
                   )}
                   <span style={{ flex:1 }}/>
-                  {programa.nombre && (
-                    <button className="btn btn-p btn-sm" onClick={() => abrirCreacion(true)}>Crear este ciclo</button>
-                  )}
+                  {/* Tambien sin nombre: las valoraciones de antes solo tienen notas, y
+                      esas notas son justo la descripcion del ciclo. */}
+                  <button className="btn btn-p btn-sm" onClick={() => abrirCreacion(true)}>
+                    {programa.nombre ? 'Crear este ciclo' : 'Crear ciclo con estas notas'}
+                  </button>
                 </div>
                 {programa.notas && (
                   <div style={{ marginTop:5, color:'var(--gr)', whiteSpace:'pre-line', maxHeight:90, overflowY:'auto' }}>{programa.notas}</div>
