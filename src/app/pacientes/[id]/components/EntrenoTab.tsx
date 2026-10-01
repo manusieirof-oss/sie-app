@@ -1288,7 +1288,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {/* Mismo editor, atado a la cita: lo que se guarde va a ese día, no al plan. */}
     {eligiendoSesion && (
-      <SelectorSesiones sesiones={sesionesDisp} titulo="¿Qué sesión les pongo?"
+      <SelectorSesiones sesiones={sesionesDisp} titulo="¿Qué sesión les pongo?" pacienteId={pacienteId}
         ejercicios={ejerciciosBib} etiquetas={etiquetasBib}
         colorDe={(x:any)=>deSistema(x)?.color || null}
         onCerrar={()=>setEligiendoSesion(false)}

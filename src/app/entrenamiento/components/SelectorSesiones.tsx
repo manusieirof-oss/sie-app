@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { contiene } from '@/lib/texto'
 import { modoDeSesion } from '@/lib/sesiones'
 import { tinte } from '@/lib/sistemas'
@@ -17,10 +18,45 @@ import ModalEditarSesion from './ModalEditarSesion'
 export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir sesiones',
   ejercicios = [], etiquetas = [], onRecargarBiblio, onCerrar, onElegir,
   /** De que color va cada sesion. Se reconoce el sistema del que salio sin leer. */
-  colorDe }: any) {
+  colorDe,
+  /** Si se elige para un paciente: se puede filtrar por sus objetivos abiertos. */
+  pacienteId }: any) {
   const [creando, setCreando] = useState(false)
   const [busca, setBusca] = useState('')
   const [marcadas, setMarcadas] = useState<string[]>([])
+
+  /**
+   * POR SUS OBJETIVOS. Programando a alguien la pregunta no es "que sesion se llama
+   * asi", es "que sesion trabaja lo que tiene abierto". Se leen aqui sus objetivos
+   * abiertos y los objetivos de cada sesion, sin depender de que quien abre el
+   * selector los traiga: lo abren dos pantallas y cada una trae las sesiones a su modo.
+   * Varios marcados = cualquiera de ellos.
+   */
+  const [objsPac, setObjsPac] = useState<{ id: string, nombre: string }[]>([])
+  const [objsSes, setObjsSes] = useState<Record<string, string[]>>({})
+  const [filtroObj, setFiltroObj] = useState<string[]>([])
+  useEffect(() => {
+    if (!pacienteId) return
+    supabase.from('pacientes_objetivos').select('objetivo_id, nombre, logrado, objetivos(nombre)')
+      .eq('paciente_id', pacienteId).then(({ data }) => setObjsPac((data || [])
+        .filter((r: any) => !r.logrado && r.objetivo_id)
+        .map((r: any) => ({ id: r.objetivo_id, nombre: r.nombre || r.objetivos?.nombre || 'Objetivo' }))))
+  }, [pacienteId])
+  // Por la lista de ids y no por el array: quien abre el selector puede rehacerlo en
+  // cada render, y eso relanzaria la consulta sin que haya cambiado nada.
+  const claveIds = (sesiones || []).map((s: any) => s.id).filter(Boolean).join(',')
+  useEffect(() => {
+    if (!pacienteId) return
+    const ids = claveIds ? claveIds.split(',') : []
+    if (ids.length === 0) return
+    supabase.from('sesiones_objetivos').select('sesion_id, objetivo_id').in('sesion_id', ids).then(({ data }) => {
+      const m: Record<string, string[]> = {}
+      ;(data || []).forEach((r: any) => { (m[r.sesion_id] = m[r.sesion_id] || []).push(r.objetivo_id) })
+      setObjsSes(m)
+    })
+  }, [pacienteId, claveIds])
+  const susObjs = new Set(objsPac.map(o => o.id))
+  const deSusObjs = (s: any) => (objsSes[s.id] || []).filter(id => susObjs.has(id))
 
   const alternar = (id: string) =>
     setMarcadas(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
@@ -35,6 +71,7 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
   const lista = (sesiones || [])
     .filter((s: any) => ya.includes(s.id) === false)
     .filter((s: any) => contiene(s.nombre || '', busca) || contiene(s.descripcion || '', busca))
+    .filter((s: any) => filtroObj.length === 0 || (objsSes[s.id] || []).some(id => filtroObj.includes(id)))
 
   return (
     <div className="modal-bg" style={{ zIndex: 150 }}
@@ -52,6 +89,21 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
         <div style={{ padding:'11px 17px 0' }}>
           <input className="input" autoFocus value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar sesión…"/>
+          {objsPac.length > 0 && (
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center', marginTop:8 }}>
+              <span style={{ fontSize:10, fontWeight:600, color:'var(--grl)', letterSpacing:.5, textTransform:'uppercase' }}>Sus objetivos</span>
+              {objsPac.map(o => (
+                <button key={o.id} type="button"
+                  className={`chip-sel ${filtroObj.includes(o.id) ? 'on' : ''}`}
+                  onClick={() => setFiltroObj(p => p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id])}>
+                  {o.nombre}
+                </button>
+              ))}
+              {filtroObj.length > 0 && (
+                <button type="button" className="btn btn-t btn-sm" onClick={() => setFiltroObj([])}>Quitar</button>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ flex:1, overflowY:'auto', padding:'12px 17px', display:'grid',
@@ -60,6 +112,8 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
             <div className="muted">
               {(sesiones || []).length === 0
                 ? 'No hay plantillas en la biblioteca todavía.'
+                : filtroObj.length > 0
+                ? 'Ninguna sesión trabaja esos objetivos. Puedes crearla con + Nueva sesión.'
                 : 'Ninguna coincide, o ya están todas en esta fase.'}
             </div>
           )}
@@ -93,6 +147,12 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
                   {nEj > 0 && <span className="pill pill-o on">{modoDeSesion(s.partes || []).nombre}</span>}
                   <span className="pill pill-soft">{nP} {nP === 1 ? 'parte' : 'partes'}</span>
                   <span className="pill pill-soft">{nEj} {nEj === 1 ? 'ejercicio' : 'ejercicios'}</span>
+                  {/* Cuantos de SUS objetivos trabaja: se ve sin filtrar. */}
+                  {deSusObjs(s).length > 0 && (
+                    <span className="pill pill-o on" title={objsPac.filter(o => deSusObjs(s).includes(o.id)).map(o => o.nombre).join(' · ')}>
+                      ◎ {deSusObjs(s).length} suyo{deSusObjs(s).length === 1 ? '' : 's'}
+                    </span>
+                  )}
                 </div>
               </div>
             )
