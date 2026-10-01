@@ -20,11 +20,21 @@ export type Pendiente = {
   fecha?: string | null
 }
 
-/** La evaluacion de esa fase, si existe. Una por fase. */
-export async function evaluacionDe(asignacionId: string, faseId: string) {
+/**
+ * AL EMPEZAR o AL SALIR de la fase.
+ *
+ * La de salida es la de siempre: dice si se pasa a la siguiente. La inicial es el
+ * punto de partida y, sobre todo, el sitio donde dejar programados los tests que hoy
+ * no se pueden hacer por como esta el paciente y tocan al empezar una fase posterior.
+ * No decide nada: no se cierra con una salida ni mueve la fase.
+ */
+export type Momento = 'inicial' | 'final'
+
+/** La evaluacion de esa fase y ese momento, si existe. Una de cada por fase. */
+export async function evaluacionDe(asignacionId: string, faseId: string, momento: Momento = 'final') {
   if (!asignacionId || !faseId) return null
   const { data } = await supabase.from('evaluaciones').select('*')
-    .eq('asignacion_id', asignacionId).eq('fase_id', faseId).maybeSingle()
+    .eq('asignacion_id', asignacionId).eq('fase_id', faseId).eq('momento', momento).maybeSingle()
   return data || null
 }
 
@@ -38,19 +48,20 @@ export async function evaluacionDe(asignacionId: string, faseId: string) {
 export async function evaluacionesDe(pacienteId: string) {
   const m: Record<string, { id: string, fecha: string | null }> = {}
   if (!pacienteId) return m
+  // Solo las de salida: la banderita de la tarjeta dice cuando se decide la fase.
   const { data } = await supabase.from('evaluaciones')
-    .select('id,asignacion_id,fase_id,fecha').eq('paciente_id', pacienteId)
+    .select('id,asignacion_id,fase_id,fecha').eq('paciente_id', pacienteId).eq('momento', 'final')
   for (const e of data || []) m[e.asignacion_id + '|' + e.fase_id] = { id: e.id, fecha: e.fecha }
   return m
 }
 
 export async function abrirEvaluacion(d: {
   pacienteId: string, asignacionId: string, faseId: string,
-  fecha?: string | null, citaId?: string | null,
+  fecha?: string | null, citaId?: string | null, momento?: Momento,
 }) {
   const { data, error } = await supabase.from('evaluaciones').insert({
     paciente_id: d.pacienteId, asignacion_id: d.asignacionId, fase_id: d.faseId,
-    fecha: d.fecha || hoyISO(), cita_id: d.citaId || null,
+    fecha: d.fecha || hoyISO(), cita_id: d.citaId || null, momento: d.momento || 'final',
   }).select().single()
   return error ? { ok: false as const, error: error.message } : { ok: true as const, evaluacion: data }
 }
@@ -64,6 +75,41 @@ export async function moverEvaluacion(id: string, d: { fecha?: string | null, ci
 export async function borrarEvaluacion(id: string) {
   const { error } = await supabase.from('evaluaciones').delete().eq('id', id)
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+export type Hecho = { fecha: string, resultado: string | null, banda: string | null }
+
+/**
+ * LO YA PASADO PARA ESTA EVALUACION.
+ *
+ * Un resultado se atribuye a UNA evaluacion (`evaluacion_id`), pero la salida de la fase
+ * 1 y la entrada de la 2 piden muchas veces el mismo test el mismo dia: es una sola
+ * medicion y no se repite. Por eso tambien cuenta lo atribuido a OTRA evaluacion del
+ * paciente mientras esta estaba abierta (desde que se creo hasta que se cerro).
+ *
+ * Lo pasado sin evaluacion sigue sin contar: un test pasado por otro motivo no es
+ * parte de ninguna evaluacion.
+ */
+export async function hechosDe(evaluacionId: string): Promise<Record<string, Hecho>> {
+  const { data: ev } = await supabase.from('evaluaciones')
+    .select('id,paciente_id,created_at,cerrada_el').eq('id', evaluacionId).maybeSingle()
+  if (ev == null) return {}
+  const { data: suyas } = await supabase.from('evaluaciones').select('id').eq('paciente_id', ev.paciente_id)
+  const ids = (suyas || []).map((e: any) => e.id)
+  if (ids.length === 0) return {}
+  const { data } = await supabase.from('resultados_tests')
+    .select('test_id,fecha,resultado,banda,evaluacion_id').in('evaluacion_id', ids)
+    .order('fecha', { ascending: false })
+  const desde = String(ev.created_at || '').slice(0, 10)
+  const hasta = ev.cerrada_el ? String(ev.cerrada_el).slice(0, 10) : null
+  const m: Record<string, Hecho> = {}
+  for (const r of (data || []) as any[]) {
+    const propio = r.evaluacion_id === evaluacionId
+    const enSuVentana = r.fecha >= desde && (hasta == null || r.fecha <= hasta)
+    if (!propio && !enSuVentana) continue
+    if (m[r.test_id] == null) m[r.test_id] = { fecha: r.fecha, resultado: r.resultado || null, banda: r.banda || null }
+  }
+  return m
 }
 
 /**
@@ -94,10 +140,9 @@ export async function contenidoDe(evaluacionId: string, objetivosDeLaFase: strin
   const ids = Object.keys(porTest)
   if (ids.length === 0) return []
 
-  const { data: hechos } = await supabase.from('resultados_tests')
-    .select('test_id,fecha').eq('evaluacion_id', evaluacionId).in('test_id', ids)
-  ;(hechos || []).forEach((r: any) => {
-    if (porTest[r.test_id]) { porTest[r.test_id].hecho = true; porTest[r.test_id].fecha = r.fecha }
+  const hechos = await hechosDe(evaluacionId)
+  Object.entries(hechos).forEach(([tid, h]) => {
+    if (porTest[tid]) { porTest[tid].hecho = true; porTest[tid].fecha = h.fecha }
   })
 
   return Object.values(porTest)
@@ -123,8 +168,10 @@ export async function objetivosDeFaseDelPaciente(pacienteId: string, objetivosDe
 export async function evaluacionAbiertaPara(pacienteId: string, testId: string): Promise<string | null> {
   // Sin filtrar por `estado`: nadie lo escribe al crearla, asi que exigir
   // 'abierta' dejaba siempre cero evaluaciones y ningun resultado se atribuia.
+  // Solo las que siguen abiertas: un resultado de hoy no pertenece a una evaluacion
+  // que ya se cerro con su conclusion.
   const { data: evs } = await supabase.from('evaluaciones')
-    .select('id,fase_id,fecha').eq('paciente_id', pacienteId)
+    .select('id,fase_id,fecha').eq('paciente_id', pacienteId).is('cerrada_el', null)
   if (evs == null || evs.length === 0) return null
 
   const { data: objs } = await supabase.from('objetivos_tests')
@@ -171,6 +218,9 @@ export type TestEnEvaluacion = {
   fecha?: string | null
   /** Los items concretos con los que se comprueba. Vacio = el test entero. */
   items: string[]
+  /** Lo que dio, si ya se paso: positivo/negativo y, en los de puntuacion, la banda. */
+  resultado?: string | null
+  banda?: string | null
 }
 
 export type ObjetivoEnEvaluacion = {
@@ -199,12 +249,10 @@ export async function resumenDeEvaluacion(
       .in('objetivo_id', objetivosDeLaFase),
   ])
 
-  // Lo ya registrado DENTRO de esta evaluacion. Un test pasado por otro motivo
-  // no cuenta: por eso los resultados llevan `evaluacion_id`.
-  const { data: dHechos } = await supabase.from('resultados_tests')
-    .select('test_id,fecha').eq('evaluacion_id', evaluacionId)
+  // Lo ya registrado para esta evaluacion. Ver `hechosDe`.
+  const hechos = await hechosDe(evaluacionId)
   const hecho: Record<string, string> = {}
-  ;(dHechos || []).forEach((r: any) => { hecho[r.test_id] = r.fecha })
+  Object.entries(hechos).forEach(([tid, h]) => { hecho[tid] = h.fecha })
 
   const delPaciente: Record<string, any> = {}
   ;(dPac || []).forEach((r: any) => { delPaciente[r.objetivo_id] = r })
@@ -219,7 +267,8 @@ export async function resumenDeEvaluacion(
     if (porObjetivo[e.objetivo_id] == null) porObjetivo[e.objetivo_id] = []
     let fila = porObjetivo[e.objetivo_id].find(p => p.test.id === t.id)
     if (fila == null) {
-      fila = { test: t, hecho: hecho[t.id] != null, fecha: hecho[t.id] || null, items: [] }
+      fila = { test: t, hecho: hecho[t.id] != null, fecha: hecho[t.id] || null, items: [],
+        resultado: hechos[t.id]?.resultado || null, banda: hechos[t.id]?.banda || null }
       porObjetivo[e.objetivo_id].push(fila)
     }
     if (e.item && fila.items.includes(e.item) === false) fila.items.push(e.item)

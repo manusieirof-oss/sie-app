@@ -5,8 +5,8 @@ import { hoyISO } from '@/lib/fechas'
 import { esCuestionario } from '@/lib/cuestionarios'
 import { sembrarObjetivos } from '@/lib/sistemas'
 import { evaluacionDe, abrirEvaluacion, moverEvaluacion, borrarEvaluacion,
-         resumenDeEvaluacion, diasDeEvaluacion, fijarDiaDeTest, salidaDe, reabrirEvaluacion,
-         type ObjetivoEnEvaluacion, type DiaDeTest } from '@/lib/evaluaciones'
+         resumenDeEvaluacion, diasDeEvaluacion, fijarDiaDeTest, salidaDe, reabrirEvaluacion, hechosDe,
+         type ObjetivoEnEvaluacion, type DiaDeTest, type Momento, type Hecho } from '@/lib/evaluaciones'
 import CerrarEvaluacion from './CerrarEvaluacion'
 
 // ---------------------------------------------------------------------------
@@ -19,11 +19,21 @@ import CerrarEvaluacion from './CerrarEvaluacion'
 // Por eso puede quedarse a medias sin problema: dos el jueves, tres el lunes.
 // ---------------------------------------------------------------------------
 
-export default function EvaluacionFase({ pacienteId, asignacion, fase, color, onCambio }: {
+/** Lo que dio un test, en pocas palabras: la banda si la tiene, si no positivo/negativo. */
+const textoResultado = (h?: { resultado?: string | null, banda?: string | null } | null) =>
+  h == null ? '' : (h.banda || (h.resultado === 'positivo' ? 'positivo' : h.resultado === 'negativo' ? 'negativo' : (h.resultado || '')))
+
+export default function EvaluacionFase({ pacienteId, asignacion, fase, color, onCambio, momento = 'final' }: {
   pacienteId: string
   asignacion: any
   fase: any
   color: string
+  /**
+   * 'final' es la de siempre: decide si se sale de la fase. 'inicial' es el punto de
+   * partida al empezarla, y el sitio para dejar programados los tests que hoy no se
+   * pueden hacer. No decide nada: ni se cierra con una salida ni le da objetivos.
+   */
+  momento?: Momento
   /** Solo al abrir, mover o quitar: la planificación marca el día. No al cargar,
    *  que volvería a montar esto y se quedaría dando vueltas. */
   onCambio?: () => void
@@ -35,12 +45,19 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
   // El dia propio de cada test, si se le ha puesto uno. Sin fila, va en el general.
   const [dias, setDias] = useState<Record<string, DiaDeTest>>({})
   const [cerrando, setCerrando] = useState(false)
+  // En la de salida, lo que dio cada test al empezar la fase, para comparar.
+  const [partida, setPartida] = useState<Record<string, Hecho>>({})
+  const inicial = momento === 'inicial'
 
   useEffect(() => { cargar() }, [asignacion?.id, fase?.id])
 
   async function cargar() {
     setCargando(true)
-    const e = await evaluacionDe(asignacion.id, fase.id)
+    const e = await evaluacionDe(asignacion.id, fase.id, momento)
+    if (!inicial) {
+      const ini = await evaluacionDe(asignacion.id, fase.id, 'inicial')
+      setPartida(ini ? await hechosDe(ini.id) : {})
+    }
     setEv(e)
     // TODOS los objetivos de la fase, no solo los que el paciente lleva: que no
     // lleve uno es justo uno de los motivos por los que la fase no cierra, y
@@ -53,11 +70,13 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
   }
 
   async function abrir() {
-    const r = await abrirEvaluacion({ pacienteId, asignacionId: asignacion.id, faseId: fase.id })
+    const r = await abrirEvaluacion({ pacienteId, asignacionId: asignacion.id, faseId: fase.id, momento })
     if (r.ok === false) { alert(r.error); return }
-    // Evaluar la fase implica que el paciente lleve sus objetivos: sin ellos en la
-    // ficha no hay nada que pedirle y la fase no puede cerrarse nunca.
-    await sembrarObjetivos(pacienteId, asignacion.sistema_id)
+    // Evaluar la SALIDA implica que el paciente lleve sus objetivos: sin ellos en la
+    // ficha no hay nada que pedirle y la fase no puede cerrarse nunca. La inicial no:
+    // medir el punto de partida de una fase que aun no ha empezado no es ponerle sus
+    // objetivos. Si un test sale positivo, ya abre el suyo como siempre.
+    if (!inicial) await sembrarObjetivos(pacienteId, asignacion.sistema_id)
     setAbierto(true); cargar(); onCambio?.()
   }
 
@@ -91,24 +110,26 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
 
   // Se cuenta en OBJETIVOS y no en tests: la fase no se cierra pasando tests,
   // se cierra cuando sus objetivos estan logrados.
-  const hechos = lista.filter(o => o.logrado).length
-  const total = lista.length
+  // La inicial no cierra objetivos: lo que se cuenta ahi son los tests pasados.
+  const testsUnicos = Array.from(new Map(lista.flatMap(o => o.tests).map(t => [t.test.id, t])).values())
+  const hechos = inicial ? testsUnicos.filter(t => t.hecho).length : lista.filter(o => o.logrado).length
+  const total = inicial ? testsUnicos.length : lista.length
   const completa = total > 0 && hechos === total
 
   return (
-    <div style={{ border: '1px solid var(--bd)', borderLeft: `3px solid ${color}`, borderRadius: 7,
+    <div style={{ border: '1px solid var(--bd)', borderLeft: `3px ${inicial ? 'dashed' : 'solid'} ${color}`, borderRadius: 7,
       padding: '8px 11px', marginTop: 8, background: 'var(--w)' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--gr)', letterSpacing: '.5px',
-          textTransform: 'uppercase' }}>Evaluación</span>
+          textTransform: 'uppercase' }}>{inicial ? 'Al empezar' : 'Al salir'}</span>
         <span style={{ fontSize: 12, color: 'var(--n)' }}>{fase.nombre}</span>
 
         {cargando ? <span style={{ fontSize: 11, color: 'var(--grl)' }}>…</span>
           : ev == null ? (
             <>
               <span style={{ flex: 1, fontSize: 11, color: 'var(--grl)' }}>Sin programar</span>
-              <button className="btn btn-s btn-sm" onClick={abrir}>Evaluar esta fase</button>
+              <button className="btn btn-s btn-sm" onClick={abrir}>{inicial ? 'Medir al empezar' : 'Evaluar esta fase'}</button>
             </>
           ) : ev.cerrada_el ? (
             /* CERRADA. Lo que se decidio manda la fila: la lista de lo que falta
@@ -141,8 +162,8 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
           ) : (
             <>
               <span className={`pill ${completa ? 'pill-o on' : 'pill-soft'}`}
-                title="Objetivos logrados de los que tiene la fase">
-                {hechos} de {total}
+                title={inicial ? 'Tests pasados de los que pide la fase' : 'Objetivos logrados de los que tiene la fase'}>
+                {hechos} de {total}{inicial ? ' tests' : ''}
               </span>
               <input className="input" type="date" style={{ width: 145, padding: '4px 8px', fontSize: 12 }}
                 value={ev.fecha || hoyISO()}
@@ -155,7 +176,7 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
               {/* LA CONCLUSION. Guardaba que tests se pasaron y cuando, pero no lo
                   que decidiste: dentro de un ano sabrias que avanzo de fase y no
                   por que. Ver `lib/evaluaciones`. */}
-              <button className="btn btn-s btn-sm" onClick={() => setCerrando(true)}>Cerrar</button>
+              {!inicial && <button className="btn btn-s btn-sm" onClick={() => setCerrando(true)}>Cerrar</button>}
               <button className="btn btn-s btn-sm" title="Quitar" onClick={quitar}>✕</button>
             </>
           )}
@@ -186,7 +207,7 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
               tests no lo contestaba: los tres motivos por los que un objetivo no cierra
               —falta pasar su test, el paciente no lo lleva, o no tiene con que medirse—
               se arreglan en sitios distintos. */}
-          {lista.some(o => o.lleva === false) && (
+          {!inicial && lista.some(o => o.lleva === false) && (
             <div style={{ fontSize: 11, color: '#7A5800', background: 'var(--ambl)',
               border: '1px solid var(--amb)', borderRadius: 6, padding: '7px 10px',
               marginBottom: 8, display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
@@ -219,7 +240,7 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
                   {o.logrado && <span style={{ fontSize: 11, color: 'var(--gd)' }}><Ic name="check" size={11}/></span>}
                 </div>
 
-                {o.logrado === false && (
+                {!inicial && o.logrado === false && (
                   <div style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5,
                     color: o.lleva && o.tests.length > 0 ? 'var(--gr)' : '#8A6410' }}>
                     {o.motivo}
@@ -252,9 +273,19 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
                               {p.items.join(' · ')}
                             </div>
                           )}
+                          {p.hecho && textoResultado(p) && (
+                            <div style={{ fontSize: 10.5, lineHeight: 1.3,
+                              color: p.resultado === 'positivo' ? '#B4544F' : 'var(--gd)' }}>{textoResultado(p)}</div>
+                          )}
                           {p.hecho && p.fecha && (
                             <div style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.3 }}>
                               {new Date(p.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                            </div>
+                          )}
+                          {/* Al salir, lo que dio al empezar: es con lo que se compara. */}
+                          {!inicial && partida[p.test.id] && (
+                            <div style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.3 }}>
+                              al empezar: {textoResultado(partida[p.test.id]) || 'pasado'}
                             </div>
                           )}
                           {/* PARA CUANDO. Una evaluacion se reparte: tres el jueves y el
@@ -282,6 +313,7 @@ export default function EvaluacionFase({ pacienteId, asignacion, fase, color, on
           ))}
           {total > 0 && (
             <div style={{ fontSize: 10, color: 'var(--grl)', marginTop: 7, lineHeight: 1.6 }}>
+              {inicial && 'Es el punto de partida de la fase: no cierra nada ni decide si se avanza. '}
               Se pasan donde siempre, desde su ficha. Al registrarlos se marcan aquí solos.
             </div>
           )}

@@ -191,6 +191,20 @@ export default function TarjetaSistema({ pacienteId, a, logrados, escalones, var
                       onClick={onMarco}>hacer marco</button></>}/>
               )}
 
+              {/* AL EMPEZAR: la de la fase en curso y la de la siguiente. La de la
+                  siguiente es la que mas se usa: dejar programado lo que hoy no se
+                  puede medir y tocara al cambiar de fase. */}
+              {faseViva && (
+                <>
+                  <div className="ct-l" style={{ margin: '17px 0 8px' }}>Medir al empezar</div>
+                  <EvaluacionFase momento="inicial" pacienteId={pacienteId} asignacion={a} fase={faseViva}
+                    color={s.color} onCambio={onRecargar}/>
+                  {iViva >= 0 && fases[iViva + 1] && (
+                    <EvaluacionFase momento="inicial" pacienteId={pacienteId} asignacion={a} fase={fases[iViva + 1]}
+                      color={s.color} onCambio={onRecargar}/>
+                  )}
+                </>
+              )}
               {faseViva && (
                 <>
                   <div className="ct-l" style={{ margin: '17px 0 8px' }}>
