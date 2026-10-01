@@ -24,7 +24,13 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
   // Ya viene filtrada por el mes elegido desde la página. Volver a filtrar por
   // `activo` aquí dejaría vacío cualquier mes ya cerrado, porque la renovación
   // desactiva las cuotas del mes anterior al crear las del siguiente.
-  const bonosActivos = bonos
+  //
+  // Y en los meses anteriores a cobrar con la app solo cuentan las cuotas cobradas aqui:
+  // lo demas se cobro fuera y se apunta en Ingresos. Contar esas cuotas daria unos
+  // ingresos previstos, unos descuentos y un desglose por bono que se suman al ingreso
+  // apuntado a mano. Ver `cobrosDesde` en lib/bonos.
+  const antesApp = antesDeCobrarConLaApp(mesRef || mesISO(), cobrosDesde)
+  const bonosActivos = antesApp ? bonos.filter((b: any) => Number(pagos[b.id]?.neto || 0) > 0) : bonos
   const precioBono = (b: any) => precioDeBono(b, idxPlanes)
   const nVentas = bonosActivos.filter(esVentaPuntual).length
   const nCuotas = bonosActivos.length - nVentas

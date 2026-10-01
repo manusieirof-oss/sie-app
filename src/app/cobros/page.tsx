@@ -33,6 +33,8 @@ export default function CobrosPage() {
   const router = useRouter()
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
   const [cargando, setCargando] = useState(true)
+  /** El mes mirado es anterior a cobrar con la app: solo cuentan los cobros hechos aqui. */
+  const [antesApp, setAntesApp] = useState(false)
   const [fallos, setFallos] = useState<string[]>([])
 
   const hoy = new Date()
@@ -269,7 +271,7 @@ export default function CobrosPage() {
     const { data: pagadosMes } = idsTodos.length
       ? await supabase.from('v_bonos_pago').select('bono_id').in('bono_id', idsTodos).eq('pagado', true)
       : { data: [] as any[] }
-    const bonosMes = unaCuotaPorPacienteYMes(rb.data || [], new Set((pagadosMes || []).map((r: any) => r.bono_id)))
+    let bonosMes = unaCuotaPorPacienteYMes(rb.data || [], new Set((pagadosMes || []).map((r: any) => r.bono_id)))
     const conBono = new Set(bonosMes.map((b:any) => b.paciente_id))
     setVinieronSinBono(
       Object.entries(cuenta)
@@ -285,17 +287,20 @@ export default function CobrosPage() {
       if (rv.error) errs.push(`estado de pago: ${rv.error.message}`)
       mapaPago = Object.fromEntries((rv.data || []).map((r:any) => [r.bono_id, r]))
     }
-    // MESES ANTERIORES A COBRAR CON LA APP: lo que no tiene cobro aqui se cobro fuera.
-    // Se da por cobrado con su precio y una marca, para que la fila lo diga en vez de
-    // fingir una factura que no existe. Ver `cobrosDesde`.
-    const desde = await cobrosDesde()
-    if (antesDeCobrarConLaApp(`${anio}-${String(mes).padStart(2,'0')}`, desde)) {
-      const idxPl = indicePlanes(rpl.data || [])
-      for (const b of bonosMes as any[]) {
-        if (mapaPago[b.id]?.pagado) continue
-        mapaPago[b.id] = { bono_id: b.id, pagado: true, fuera: true,
-          neto_cobrado: precioConDescuento(precioFinalPlan(idxPl[b.tipo]), b) }
-      }
+    /**
+     * MESES ANTERIORES A COBRAR CON LA APP: NO SE CONTABILIZA A NADIE.
+     *
+     * Lo de esos meses se cobro fuera y se apunta a mano en Finanzas -> Ingresos. Si
+     * aqui se diera ademas por cobrada cada cuota, ese dinero contaria dos veces. Asi
+     * que solo queda lo cobrado de verdad en la app; ni pendientes, ni impagos, ni
+     * "sin cuota", ni "vino sin bono". Ver `cobrosDesde` en lib/bonos.
+     */
+    const antes = antesDeCobrarConLaApp(`${anio}-${String(mes).padStart(2,'0')}`, await cobrosDesde())
+    setAntesApp(antes)
+    if (antes) {
+      bonosMes = bonosMes.filter((b: any) => mapaPago[b.id]?.pagado)
+      setIdsMes(prev => ({ anotados: [], vino: prev.vino }))
+      setVinieronSinBono([])
     }
 
     setFallos(errs)
@@ -458,6 +463,7 @@ export default function CobrosPage() {
    * embargo se le cobra el mes igual.
    */
   const sinCuota = useMemo(() => {
+    if (antesApp) return []
     const conBono = new Set(bonos.map(b => b.paciente_id))
     // Quien empieza más adelante NO es un olvido. Se marca aparte y va al final
     // de la lista, para que los que de verdad faltan no queden diluidos entre
@@ -477,7 +483,7 @@ export default function CobrosPage() {
       .filter(p => !t || contiene(`${p.nombre} ${p.apellidos}`, t))
       .map(p => ({ ...p, empiezaEn: empiezaEn.get(p.id) || null }))
       .sort((a, b) => Number(!!a.empiezaEn) - Number(!!b.empiezaEn))
-  }, [pacientes, bonos, bonosFuturos, busca, cobradoMes])
+  }, [pacientes, bonos, bonosFuturos, busca, cobradoMes, antesApp])
 
   /**
    * El mes que se esta mirando todavia no ha empezado.
@@ -840,7 +846,7 @@ export default function CobrosPage() {
           </div>
           {pagado ? (
             <span style={{fontSize:10,color:'#3E7179',display:'inline-flex',alignItems:'center',gap:4,minWidth:130,justifyContent:'flex-end'}}>
-              <Ic name="check" size={13}/> {bono && pago[bono.id]?.fuera ? 'Cobrado fuera de la app' : 'Cobrado'}
+              <Ic name="check" size={13}/> Cobrado
             </span>
           ) : (
             <div style={{display:'flex',gap:5,minWidth:130,justifyContent:'flex-end'}}>
