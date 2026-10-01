@@ -13,7 +13,7 @@ import { urgenciaDe, COLOR_URGENCIA, textoRevision, fijarRevision,
 import { quietoDesde, hace, porParado } from '@/lib/antiguedad'
 import { conteoPorObjetivo } from '@/lib/objetivosTests'
 import { tieneBarra } from '@/lib/tests'
-import { sistemasDePaciente, PROGRESIONES } from '@/lib/sistemas'
+import { sistemasDePaciente } from '@/lib/sistemas'
 import { soloVigentes } from '@/lib/linaje'
 import ModalObjetivo from '@/app/entrenamiento/components/ModalObjetivo'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
@@ -1421,22 +1421,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       )}
 
-      {/* 6. PROGRAMA DE ENTRENAMIENTO: lo que se hablo en la valoracion sobre el ciclo.
-          Lo mismo se ofrece al ponerle el ciclo en Entreno (ver SistemasPaciente). */}
-      {(valoracion?.notas_plan || valoracion?.programa_nombre || valoracion?.programa_progresion) && (
-        <div className="sec">
-          <div className="sec-h"><span className="ct-l"><Ic name="nota" size={13}/> Programa de entrenamiento</span></div>
-          {(valoracion.programa_nombre || valoracion.programa_progresion) && (
-            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:valoracion.notas_plan?6:0}}>
-              {valoracion.programa_nombre && <span style={{fontSize:14,fontWeight:500,color:'var(--n)'}}>{valoracion.programa_nombre}</span>}
-              {valoracion.programa_progresion && (
-                <span className="pill pill-o on">{PROGRESIONES.find(p=>p.valor===valoracion.programa_progresion)?.nombre || valoracion.programa_progresion}</span>
-              )}
-            </div>
-          )}
-          {valoracion.notas_plan && <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>{valoracion.notas_plan}</div>}
-        </div>
-      )}
+      {/* 6. EL PROGRAMA DE ENTRENAMIENTO YA NO VA AQUI. Nombre, progresion y notas del plan
+          salen al ponerle el ciclo (Entreno -> Anadir sistema) y pasan a su descripcion;
+          repetirlo en la ficha era tener la misma informacion en dos sitios. */}
 
       {/* 7. PREFERENCIAS DE HORARIO */}
       {valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
