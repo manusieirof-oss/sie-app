@@ -53,6 +53,12 @@ export default function ExploradorEjercicios({
 }) {
   const [buscar, setBuscar] = useState('')
   const [filtroEt, setFiltroEt] = useState<string[]>([])
+  /**
+   * LOS FILTROS POR ETIQUETA, PLEGADOS. Desplegados ocupaban media pantalla encima de
+   * la rejilla y, montando sesiones, se busca por nombre casi siempre: eran mucha
+   * informacion que solo estorbaba. Siguen a un clic, y el boton dice cuantos hay puestos.
+   */
+  const [verFiltros, setVerFiltros] = useState(false)
   /** Categorías con las subetiquetas a la vista. Se recuerda por categoría, no global. */
   const [desplegadas, setDesplegadas] = useState<string[]>([])
   /** Ver solo los que tienen huecos. Ver `problemasDeEjercicio` en lib/ejercicios. */
@@ -247,6 +253,12 @@ export default function ExploradorEjercicios({
         <span style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap' }}>
           {filtrados.length} {filtrados.length === 1 ? 'ejercicio' : 'ejercicios'}
         </span>
+        {grupos.length > 0 && (
+          <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
+            onClick={() => setVerFiltros(v => !v)} aria-expanded={verFiltros}>
+            Filtros{filtroEt.length > 0 ? ` · ${filtroEt.length}` : ''}
+          </button>
+        )}
         {nPendientes > 0 && (
           <button type="button" className={`chip-sel ${soloPendientes ? 'on' : ''}`}
             onClick={() => setSoloPendientes(v => !v)}
@@ -300,7 +312,7 @@ export default function ExploradorEjercicios({
         </div>
       )}
 
-      {grupos.length > 0 && (
+      {grupos.length > 0 && verFiltros && (
         <div className="filtros-et">
           {grupos.map(g => {
             // Por defecto solo las raíces. Con todos los niveles a la vez, Músculo
