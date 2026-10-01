@@ -139,6 +139,10 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
     const { data: yaTiene } = await supabase.from('sesiones')
       .select('plantilla_id').eq('paciente_id', pacienteId).in('plantilla_id', ids)
     const puestas = new Set((yaTiene || []).map((x: any) => x.plantilla_id))
+    // Las que ya son SUYAS (copias hechas al editarlas en su programacion) no se vuelven
+    // a copiar: ya estan en su ficha.
+    const { data: suyas } = await supabase.from('sesiones').select('id').eq('paciente_id', pacienteId).in('id', ids)
+    ;(suyas || []).forEach((x: any) => puestas.add(x.id))
     const faltan = ids.filter(id => !puestas.has(id))
     if (faltan.length === 0) { setTrayendo(''); alert('Ya las tiene todas.'); return }
     const { data: plantillas } = await supabase.from('sesiones').select('*').in('id', faltan)

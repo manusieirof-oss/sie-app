@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
 import SelectorSesiones from './SelectorSesiones'
 import ModalEditarSesion from './ModalEditarSesion'
-import { modoDeSesion, esPlantilla } from '@/lib/sesiones'
+import { modoDeSesion, esPlantilla, duplicarSesion } from '@/lib/sesiones'
 import { supabase } from '@/lib/supabase'
 import SelectorObjetivos from './SelectorObjetivos'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -51,10 +51,43 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
    */
   const [sesionesLocal, setSesionesLocal] = useState<any[]>(sesiones)
   useEffect(() => { setSesionesLocal(sesiones) }, [sesiones])
+  /**
+   * EL CICLO DE UN PACIENTE ES SUYO, Y SUS SESIONES TAMBIEN.
+   *
+   * El ciclo se copia al ponerselo (ver `duplicarSistema`), pero sus fases seguian
+   * apuntando a las sesiones de la BIBLIOTECA. Editar una sesion desde la programacion
+   * de un paciente cambiaba la plantilla para todos: se cambio "Movilidad de cadera" por
+   * "Desbloqueo de cadera" en la de Veronica y cambio tambien la de la biblioteca.
+   *
+   * Ahora, en el ciclo de un paciente, la primera vez que se edita una plantilla se le
+   * hace una copia suya y la fase pasa a apuntar a la copia. La biblioteca no se toca.
+   */
+  const delPaciente: string | null = sistema?.paciente_id || null
   async function recargarSesiones() {
     const { data } = await supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id,movimientos)').order('nombre')
-    setSesionesLocal((data || []).filter(esPlantilla))
+    setSesionesLocal((data || []).filter((s: any) => esPlantilla(s) || (delPaciente != null && s.paciente_id === delPaciente)))
     onRecargarBiblio?.()
+  }
+  // Las copias suyas no vienen en las plantillas que llegan por props.
+  useEffect(() => { if (delPaciente) recargarSesiones() }, [delPaciente]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function editarSesion(i: number, ses: any) {
+    if (delPaciente == null || !esPlantilla(ses)) { setEditandoSesion(ses); return }
+    const r = await duplicarSesion(ses, delPaciente, { sufijo: '', plantillaId: ses.id, motivo: 'Ajustada en su programación' })
+    if (!r.ok || !r.sesion) { alert('No se ha podido hacer su copia de la sesión: ' + (r as any).error); return }
+    const nueva = r.sesion
+    // Se guarda ya, sin esperar a "Guardar" el ciclo: si se cerrara sin guardar, la
+    // copia quedaria suelta en su ficha y la fase seguiria apuntando a la plantilla.
+    const fid = fases[i]?.id
+    if (fid) {
+      await supabase.from('sistema_fase_sesiones').update({ sesion_id: nueva.id })
+        .eq('fase_id', fid).eq('sesion_id', ses.id)
+    }
+    setFase(i, 'sesiones', (fases[i]?.sesiones || []).map((y: string) => y === ses.id ? nueva.id : y))
+    await recargarSesiones()
+    const { data: completa } = await supabase.from('sesiones')
+      .select('*, sesiones_objetivos(objetivo_id,movimientos)').eq('id', nueva.id).maybeSingle()
+    setEditandoSesion(completa || nueva)
   }
   // Mismo arrastre que en las sesiones: manilla propia y no la fila entera, que
   // con `draggable` en la fila no se puede ni seleccionar texto en un input.
@@ -278,8 +311,9 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
                           padding: '9px 10px', background: 'var(--w)' }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                             <div style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{nombreSes(id)}</div>
-                            <button className="btn btn-t btn-sm" title="Editar la sesión"
-                              onClick={() => ses && setEditandoSesion(ses)}>
+                            <button className="btn btn-t btn-sm"
+                              title={delPaciente && ses && esPlantilla(ses) ? 'Editar: se le hace una copia suya, la biblioteca no cambia' : 'Editar la sesión'}
+                              onClick={() => ses && editarSesion(i, ses)}>
                               <Ic name="editar" size={12}/>
                             </button>
                             <button className="btn btn-t btn-sm" title="Quitarla de la fase"
