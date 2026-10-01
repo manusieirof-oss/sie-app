@@ -12,6 +12,7 @@ import { contiene } from '@/lib/texto'
 import { aplicarAjustes, calcularAjustes, sinAjustes } from '@/lib/ajustesCita'
 import SelectorObjetivos from './SelectorObjetivos'
 import HojaLibre from '@/components/HojaLibre'
+import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 
 /**
@@ -192,7 +193,21 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    */
   const [nuevosEj, setNuevosEj] = useState<any[]>([])
   const [ultimoCreado, setUltimoCreado] = useState('')
-  const catalogo = [...(ejercicios || []), ...nuevosEj.filter(n => !(ejercicios || []).some((e: any) => e.id === n.id))]
+  /**
+   * LA BIBLIOTECA SE LEE AL ABRIR, NO SE FIA DE LA QUE LLEGA POR PROPS.
+   *
+   * Quien abre este modal le pasa el catalogo que cargo EL una vez. Desde un ciclo se
+   * creaban ejercicios en la primera sesion, se abria la segunda... y no estaban: el
+   * ciclo seguia pasando el catalogo de antes. Los ejercicios si existian, pero esta
+   * pantalla no los veia. Mientras llega la lectura se usa el de props.
+   */
+  const [frescos, setFrescos] = useState<any[] | null>(null)
+  useEffect(() => {
+    traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
+      .then(r => { if (!r.error) setFrescos(r.filas) })
+  }, [])
+  const base = frescos ?? (ejercicios || [])
+  const catalogo = [...base, ...nuevosEj.filter(n => !base.some((e: any) => e.id === n.id))]
   const [guardando, setGuardando] = useState(false)
   const [objetivosDisp, setObjetivosDisp] = useState<any[]>([])
   const [objetivosSel, setObjetivosSel] = useState<string[]>([])
