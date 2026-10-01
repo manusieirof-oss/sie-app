@@ -7,13 +7,14 @@ import { mesISO } from '@/lib/fechas'
 import { delMes, type Factura } from '@/lib/facturado'
 import { calcularImpuestos, rangoMes, rangoTrimestre } from '@/lib/impuestos'
 import { cuentaDelMes } from '@/lib/cuentaMes'
+import { antesDeCobrarConLaApp } from '@/lib/bonos'
 
 const G='#5A969E', GD='#3E7179', GL='#EBF4F5', RED='#C25B5B', AMB='#D4A24E', GREY='#9CA3AF'
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // mesRef ('YYYY-MM') existe para poder mirar un mes que no sea el de hoy, que es
 // lo que necesita el banco de pruebas. Por defecto es el mes en curso.
-export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[], ingresos=[], pagos={}, sueltas=[] }: any) {
+export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef, facturas=[], ingresos=[], pagos={}, sueltas=[], cobrosDesde=null }: any) {
   const [vista, setVista] = useState<'general'|'evolucion'>('general')
 
   const idxPlanes = indicePlanes(planes)
@@ -66,7 +67,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
    * `facturado` sigue mandando en el beneficio y en Hacienda: eso va por fecha de
    * factura y no puede ir de otra forma.
    */
-  const cuenta = cuentaDelMes({ bonos: bonosActivos, precioBono, pagos, sueltas, otros: otrosIngresos, clave: claveMesSel })
+  const cuenta = cuentaDelMes({ bonos: bonosActivos, precioBono, pagos, sueltas, otros: otrosIngresos, clave: claveMesSel,
+    antesDeLaApp: antesDeCobrarConLaApp(claveMesSel, cobrosDesde) })
   const ingresosCobrados = cuenta.cobrado
   const ingresosPrevistos = cuenta.previsto
   const pendiente = cuenta.pendiente
@@ -177,7 +179,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
       .reduce((a:number,i:any)=>a+Number(i.importe||0),0)
     // Bono a bono, igual que la foto de arriba: cada cuota en su mes, se cobrara
     // cuando se cobrara. Ver lib/cuentaMes.
-    const c = cuentaDelMes({ bonos: bonosMes, precioBono, pagos, sueltas, otros: otrosEse, clave })
+    const c = cuentaDelMes({ bonos: bonosMes, precioBono, pagos, sueltas, otros: otrosEse, clave,
+      antesDeLaApp: antesDeCobrarConLaApp(clave, cobrosDesde) })
     const gastoMes = gastos.filter((g: any) => g.fecha?.slice(0, 7) === clave).reduce((a: number, g: any) => a + Number(g.importe), 0)
     /**
      * EL BENEFICIO DEL MES, IGUAL QUE EN LA VISTA GENERAL.

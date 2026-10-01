@@ -33,7 +33,7 @@ export type CuentaMes = {
   sueltas: number
 }
 
-export function cuentaDelMes({ bonos, precioBono, pagos, sueltas, otros, clave }: {
+export function cuentaDelMes({ bonos, precioBono, pagos, sueltas, otros, clave, antesDeLaApp = false }: {
   bonos: any[]
   precioBono: (b: any) => number
   pagos: Record<string, PagoBono>
@@ -43,6 +43,8 @@ export function cuentaDelMes({ bonos, precioBono, pagos, sueltas, otros, clave }
   otros: number
   /** 'YYYY-MM' */
   clave: string
+  /** Mes anterior a cobrar con la app: lo que no tiene cobro aqui se cobro fuera. Ver lib/bonos `cobrosDesde`. */
+  antesDeLaApp?: boolean
 }): CuentaMes {
   let previsto = 0, cobrado = 0, pendiente = 0, impago = 0, adelantado = 0
   const inicioMes = `${clave}-01`
@@ -57,6 +59,9 @@ export function cuentaDelMes({ bonos, precioBono, pagos, sueltas, otros, clave }
       previsto += neto
       cobrado += neto
       if (p?.fecha && p.fecha < inicioMes) adelantado += neto
+    } else if (antesDeLaApp) {
+      previsto += precio
+      cobrado += precio
     } else {
       previsto += precio
       pendiente += precio

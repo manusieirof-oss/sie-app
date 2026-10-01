@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
-import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota, unaCuotaPorPacienteYMes } from '@/lib/bonos'
+import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota, unaCuotaPorPacienteYMes,
+         cobrosDesde, antesDeCobrarConLaApp } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
 import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
 import { cargarTarifas } from '@/lib/tarifas'
@@ -283,6 +284,18 @@ export default function CobrosPage() {
       const rv = await supabase.from('v_bonos_pago').select('*').in('bono_id', ids)
       if (rv.error) errs.push(`estado de pago: ${rv.error.message}`)
       mapaPago = Object.fromEntries((rv.data || []).map((r:any) => [r.bono_id, r]))
+    }
+    // MESES ANTERIORES A COBRAR CON LA APP: lo que no tiene cobro aqui se cobro fuera.
+    // Se da por cobrado con su precio y una marca, para que la fila lo diga en vez de
+    // fingir una factura que no existe. Ver `cobrosDesde`.
+    const desde = await cobrosDesde()
+    if (antesDeCobrarConLaApp(`${anio}-${String(mes).padStart(2,'0')}`, desde)) {
+      const idxPl = indicePlanes(rpl.data || [])
+      for (const b of bonosMes as any[]) {
+        if (mapaPago[b.id]?.pagado) continue
+        mapaPago[b.id] = { bono_id: b.id, pagado: true, fuera: true,
+          neto_cobrado: precioConDescuento(precioFinalPlan(idxPl[b.tipo]), b) }
+      }
     }
 
     setFallos(errs)
@@ -827,7 +840,7 @@ export default function CobrosPage() {
           </div>
           {pagado ? (
             <span style={{fontSize:10,color:'#3E7179',display:'inline-flex',alignItems:'center',gap:4,minWidth:130,justifyContent:'flex-end'}}>
-              <Ic name="check" size={13}/> Cobrado
+              <Ic name="check" size={13}/> {bono && pago[bono.id]?.fuera ? 'Cobrado fuera de la app' : 'Cobrado'}
             </span>
           ) : (
             <div style={{display:'flex',gap:5,minWidth:130,justifyContent:'flex-end'}}>

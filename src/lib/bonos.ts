@@ -502,3 +502,23 @@ export function unaCuotaPorPacienteYMes(bonos: any[], pagados: Set<string> = new
   }
   return [...Array.from(ultimo.values()), ...puntuales]
 }
+
+/**
+ * DESDE QUE MES SE COBRA CON LA APP ('YYYY-MM'), de `ajustes.cobros_desde`.
+ *
+ * Antes de ese mes las cuotas se cobraban fuera (efectivo, transferencias apuntadas en
+ * otro sitio), asi que no tienen cobro aqui. Contarlas como pendientes llenaba agosto y
+ * los meses anteriores de deudas que no existen. Para esos meses una cuota sin cobro se
+ * da por cobrada fuera de la app; desde ese mes en adelante, sin cobro es pendiente.
+ *
+ * Sin el ajuste (null) no se presupone nada: todo se trata como siempre.
+ */
+export async function cobrosDesde(): Promise<string | null> {
+  const { data } = await supabase.from('ajustes').select('valor').eq('clave', 'cobros_desde').maybeSingle()
+  const v = String(data?.valor || '').trim()
+  return /^\d{4}-\d{2}$/.test(v) ? v : null
+}
+
+/** El mes ('YYYY-MM') es anterior a cobrar con la app. */
+export const antesDeCobrarConLaApp = (clave: string, desde: string | null) => !!desde && clave < desde
+

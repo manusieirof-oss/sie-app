@@ -12,7 +12,7 @@ import ImpuestosTab from './components/ImpuestosTab'
 import RentabilidadTab from './components/RentabilidadTab'
 import PrevisionTab from './components/PrevisionTab'
 import SimuladorTab from './components/SimuladorTab'
-import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes, unaCuotaPorPacienteYMes } from '@/lib/bonos'
+import { cargarBonosTipos, BonoTipo, esVentaPuntual, ingresoDelMes, cuotasRecurrentes, unaCuotaPorPacienteYMes, cobrosDesde } from '@/lib/bonos'
 import { mesISO } from '@/lib/fechas'
 import { facturasDelAnio, type Factura } from '@/lib/facturado'
 import type { PagoBono } from '@/lib/cuentaMes'
@@ -52,6 +52,8 @@ export default function FinanzasPage() {
    */
   const [pagos, setPagos] = useState<Record<string, PagoBono>>({})
   const [sueltas, setSueltas] = useState<{ fecha: string, total: number }[]>([])
+  /** Desde que mes se cobra con la app. Lo de antes sin cobro aqui se cobro fuera. */
+  const [desde, setDesde] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [fallos, setFallos] = useState<string[]>([])
   const [autorizado, setAutorizado] = useState<boolean|null>(null)
@@ -118,6 +120,7 @@ export default function FinanzasPage() {
     const mapaPagos: Record<string, PagoBono> = {}
     ;(rpg.data || []).forEach((r: any) => { mapaPagos[r.bono_id] = { neto: Number(r.neto_cobrado), fecha: r.fecha_cobro } })
     setPagos(mapaPagos)
+    setDesde(await cobrosDesde())
     setSueltas((rsu.data || []).map((r: any) => {
       const fac = Array.isArray(r.cobros?.facturas) ? r.cobros.facturas[0] : r.cobros?.facturas
       return { fecha: fac?.fecha_expedicion || '', total: Number(r.total || 0) }
@@ -244,7 +247,7 @@ export default function FinanzasPage() {
         <div style={{fontSize:11,color:'var(--grl)',padding:20}}>Cargando finanzas...</div>
       ) : (
         <>
-          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas} pagos={pagos} sueltas={sueltas}/>}
+          {tab==='resumen' && <ResumenTab planes={planes} gastos={gastos} bonos={bonosMes} ingresos={ingresos} bonosHist={bonosHist} mesRef={mesRef} facturas={facturas} pagos={pagos} sueltas={sueltas} cobrosDesde={desde}/>}
           {tab==='planes' && <PlanesTab planes={planes} bonos={bonosMes} bonosTipos={bonosTipos} recargar={cargar}/>}
           {tab==='gastos' && <GastosTab gastos={gastos} ingresos={ingresos} facturas={facturas} recargar={cargar} mesRef={mesRef}/>}
           {tab==='ingresos' && <IngresosTab ingresos={ingresos} recargar={cargar} mesRef={mesRef}/>}
