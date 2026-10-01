@@ -20,7 +20,9 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
   /** De que color va cada sesion. Se reconoce el sistema del que salio sin leer. */
   colorDe,
   /** Si se elige para un paciente: se puede filtrar por sus objetivos abiertos. */
-  pacienteId }: any) {
+  pacienteId,
+  /** Los objetivos de la FASE a la que se anaden, si los tiene: [{ id, nombre }]. */
+  objetivosFase = [] }: any) {
   const [creando, setCreando] = useState(false)
   const [busca, setBusca] = useState('')
   const [marcadas, setMarcadas] = useState<string[]>([])
@@ -36,7 +38,7 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
   const [objsSes, setObjsSes] = useState<Record<string, string[]>>({})
   const [filtroObj, setFiltroObj] = useState<string[]>([])
   useEffect(() => {
-    if (!pacienteId) return
+    if (!pacienteId) { setObjsPac([]); return }
     supabase.from('pacientes_objetivos').select('objetivo_id, nombre, logrado, objetivos(nombre)')
       .eq('paciente_id', pacienteId).then(({ data }) => setObjsPac((data || [])
         .filter((r: any) => !r.logrado && r.objetivo_id)
@@ -45,8 +47,9 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
   // Por la lista de ids y no por el array: quien abre el selector puede rehacerlo en
   // cada render, y eso relanzaria la consulta sin que haya cambiado nada.
   const claveIds = (sesiones || []).map((s: any) => s.id).filter(Boolean).join(',')
+  const hayFiltro = !!pacienteId || (objetivosFase || []).length > 0
   useEffect(() => {
-    if (!pacienteId) return
+    if (!hayFiltro) return
     const ids = claveIds ? claveIds.split(',') : []
     if (ids.length === 0) return
     supabase.from('sesiones_objetivos').select('sesion_id, objetivo_id').in('sesion_id', ids).then(({ data }) => {
@@ -54,8 +57,15 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
       ;(data || []).forEach((r: any) => { (m[r.sesion_id] = m[r.sesion_id] || []).push(r.objetivo_id) })
       setObjsSes(m)
     })
-  }, [pacienteId, claveIds])
-  const susObjs = new Set(objsPac.map(o => o.id))
+  }, [hayFiltro, claveIds])
+  /**
+   * Las dos listas por las que se filtra: la de la FASE (montando un ciclo, lo que esa
+   * fase tiene que conseguir) y la del PACIENTE (lo que tiene abierto). En el ciclo de
+   * un paciente salen las dos; un objetivo que esta en ambas sale una vez, en la fase.
+   */
+  const deFase = (objetivosFase || []) as { id: string, nombre: string }[]
+  const delPac = objsPac.filter(o => !deFase.some(x => x.id === o.id))
+  const susObjs = new Set([...deFase, ...objsPac].map(o => o.id))
   const deSusObjs = (s: any) => (objsSes[s.id] || []).filter(id => susObjs.has(id))
 
   const alternar = (id: string) =>
@@ -89,20 +99,20 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
         <div style={{ padding:'11px 17px 0' }}>
           <input className="input" autoFocus value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar sesión…"/>
-          {objsPac.length > 0 && (
-            <div style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center', marginTop:8 }}>
-              <span style={{ fontSize:10, fontWeight:600, color:'var(--grl)', letterSpacing:.5, textTransform:'uppercase' }}>Sus objetivos</span>
-              {objsPac.map(o => (
+          {[['De la fase', deFase], ['Sus objetivos', delPac]].map(([titulo, lista]: any) => lista.length > 0 && (
+            <div key={titulo} style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center', marginTop:8 }}>
+              <span style={{ fontSize:10, fontWeight:600, color:'var(--grl)', letterSpacing:.5, textTransform:'uppercase' }}>{titulo}</span>
+              {lista.map((o: any) => (
                 <button key={o.id} type="button"
                   className={`chip-sel ${filtroObj.includes(o.id) ? 'on' : ''}`}
                   onClick={() => setFiltroObj(p => p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id])}>
                   {o.nombre}
                 </button>
               ))}
-              {filtroObj.length > 0 && (
-                <button type="button" className="btn btn-t btn-sm" onClick={() => setFiltroObj([])}>Quitar</button>
-              )}
             </div>
+          ))}
+          {filtroObj.length > 0 && (
+            <button type="button" className="btn btn-t btn-sm" style={{ marginTop:6 }} onClick={() => setFiltroObj([])}>Quitar filtro</button>
           )}
         </div>
 
@@ -149,8 +159,8 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
                   <span className="pill pill-soft">{nEj} {nEj === 1 ? 'ejercicio' : 'ejercicios'}</span>
                   {/* Cuantos de SUS objetivos trabaja: se ve sin filtrar. */}
                   {deSusObjs(s).length > 0 && (
-                    <span className="pill pill-o on" title={objsPac.filter(o => deSusObjs(s).includes(o.id)).map(o => o.nombre).join(' · ')}>
-                      ◎ {deSusObjs(s).length} suyo{deSusObjs(s).length === 1 ? '' : 's'}
+                    <span className="pill pill-o on" title={[...deFase, ...delPac].filter(o => deSusObjs(s).includes(o.id)).map(o => o.nombre).join(' · ')}>
+                      ◎ {deSusObjs(s).length} objetivo{deSusObjs(s).length === 1 ? '' : 's'}
                     </span>
                   )}
                 </div>

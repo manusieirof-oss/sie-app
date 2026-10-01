@@ -436,6 +436,8 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
 
           {eligiendo !== null && (
             <SelectorSesiones sesiones={sesionesLocal} ya={fases[eligiendo]?.sesiones || []} pacienteId={delPaciente}
+              objetivosFase={(fases[eligiendo]?.objetivos || []).map((id: string) => ({
+                id, nombre: (objetivos || []).find((o: any) => o.id === id)?.nombre || 'Objetivo' }))}
               ejercicios={ejercicios} etiquetas={etiquetas} onRecargarBiblio={recargarSesiones}
               titulo={`Sesiones de «${fases[eligiendo]?.nombre || 'la fase'}»`}
               onCerrar={() => setEligiendo(null)}
