@@ -1049,9 +1049,29 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </div>
           )
         })()}
+        {/* QUITARLO DE SU FICHA. No habia forma: un objetivo abierto por error, o que
+            ya no toca, se quedaba para siempre contando como abierto. Se quita su copia
+            y sus vias; la biblioteca, los tests pasados y las sesiones no se tocan. */}
+        <div style={{display:'flex',justifyContent:'flex-end',marginTop:14,paddingTop:12,borderTop:'1px solid var(--bd2)'}}>
+          <button className="btn btn-s btn-sm" style={{color:'var(--gr)',borderColor:'var(--bd)'}}
+            onClick={()=>quitarObjetivo(o)}>Quitar de su ficha</button>
+        </div>
       </div>
       </div>
     )
+  }
+
+  async function quitarObjetivo(o:any) {
+    if (!confirm(`¿Quitar «${o.nombre}» de su ficha? Los tests pasados se quedan. Si vuelve a dar positivo un test que lo abre, se le volverá a poner.`)) return
+    const { error } = await supabase.from('pacientes_objetivos').delete()
+      .eq('paciente_id', pac.id).eq('objetivo_id', o.id)
+    if (error) { alert('No se ha podido quitar: ' + error.message); return }
+    await supabase.from('eventos_paciente').insert({
+      paciente_id: pac.id, tipo: 'objetivo', titulo: `Objetivo quitado: ${o.nombre}`,
+      descripcion: 'Quitado desde la ficha', fecha: hoyISO(),
+    })
+    setObjAbierto(null)
+    cargarObjetivos()
   }
 
   const recPendientes = (recuperaciones||[]).filter((r:any)=>r.estado==='pendiente')
