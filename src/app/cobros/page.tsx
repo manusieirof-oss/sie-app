@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
-import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota } from '@/lib/bonos'
+import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota, unaCuotaPorPacienteYMes } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
 import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
 import { cargarTarifas } from '@/lib/tarifas'
@@ -144,9 +144,12 @@ export default function CobrosPage() {
       supabase.from('pacientes')
         .select('id,nombre,apellidos,dni,estado,direccion,codigo_postal,localidad')
         .in('estado',['activo','pausa']).order('nombre'),
-      // Solo los bonos vigentes: un paciente al que se le corrigió el bono a
-      // mitad de mes tiene la fila vieja desactivada, y contarla sería cobrar dos veces.
-      supabase.from('bonos').select('*').eq('mes', mes).eq('anio', anio).eq('activo', true),
+      // TODOS los del mes, activos o no. Filtrar por `activo` dejaba vacio cualquier mes
+      // ya pasado: la renovacion del dia 1 desactiva las cuotas del mes anterior, asi que
+      // el 1 de octubre todo septiembre salia "sin cuota", tambien quien la tenia cobrada
+      // (Alan, cobrado en agosto). Y quien sale sin cuota es candidato a cobrarle otra vez.
+      // Los duplicados del mismo mes los resuelve `unaCuotaPorPacienteYMes`, mas abajo.
+      supabase.from('bonos').select('*').eq('mes', mes).eq('anio', anio),
       // Quién tiene ya bono de un mes POSTERIOR al que se mira. No entra en la
       // lista de cobros —todavía no hay nada que cobrarle— pero tampoco puede
       // salir como "le falta bono": no está olvidado, está programado.
@@ -259,7 +262,14 @@ export default function CobrosPage() {
     setSueltosMes(det)
     setCobradoMes(idsCobro)
 
-    const conBono = new Set((rb.data || []).map((b:any) => b.paciente_id))
+    // Una cuota por persona y mes: la cobrada si la hay, si no la activa, si no la ultima.
+    // Ver lib/bonos. Necesita saber cuales estan cobradas, asi que se lee el pago antes.
+    const idsTodos = (rb.data || []).map((b:any) => b.id)
+    const { data: pagadosMes } = idsTodos.length
+      ? await supabase.from('v_bonos_pago').select('bono_id').in('bono_id', idsTodos).eq('pagado', true)
+      : { data: [] as any[] }
+    const bonosMes = unaCuotaPorPacienteYMes(rb.data || [], new Set((pagadosMes || []).map((r: any) => r.bono_id)))
+    const conBono = new Set(bonosMes.map((b:any) => b.paciente_id))
     setVinieronSinBono(
       Object.entries(cuenta)
         .filter(([pid]) => !conBono.has(pid))
@@ -267,7 +277,7 @@ export default function CobrosPage() {
         .sort((a, b) => b.clases - a.clases)
     )
 
-    const ids = (rb.data || []).map((b:any) => b.id)
+    const ids = bonosMes.map((b:any) => b.id)
     let mapaPago: Record<string, any> = {}
     if (ids.length) {
       const rv = await supabase.from('v_bonos_pago').select('*').in('bono_id', ids)
@@ -279,7 +289,7 @@ export default function CobrosPage() {
     // Los que tienen bono del mes y no están en la lista de clientes: se cargan aparte
     // para que su fila no se caiga. Una deuda no se cancela porque alguien deje de venir.
     const idsClientes = new Set((rp.data || []).map((x: any) => x.id))
-    const faltan = Array.from(new Set([...(rb.data || []).map((b: any) => b.paciente_id), ...idsCobro]
+    const faltan = Array.from(new Set([...bonosMes.map((b: any) => b.paciente_id), ...idsCobro]
       .filter((pid: string) => pid && !idsClientes.has(pid))))
     if (faltan.length > 0) {
       const rex = await supabase.from('pacientes')
@@ -288,7 +298,7 @@ export default function CobrosPage() {
       setExClientes(rex.data || [])
     } else setExClientes([])
 
-    setPacientes(rp.data || []); setBonos(rb.data || []); setPlanes(rpl.data || [])
+    setPacientes(rp.data || []); setBonos(bonosMes); setPlanes(rpl.data || [])
     setBonosFuturos(rfut.data || [])
     setFacturas(rf.data || []); setPago(mapaPago)
     setCargando(false)

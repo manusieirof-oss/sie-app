@@ -462,3 +462,43 @@ export async function adelantarCuota(pacienteId: string, mes: number, anio: numb
   })
   return { ok: true as const }
 }
+
+/**
+ * Un bono por paciente y mes, el más reciente.
+ *
+ * Cambiar el bono de alguien a mitad de mes deja dos filas del mismo mes: la
+ * vieja desactivada y la nueva activa. Sumarlas cobraba dos veces a esa persona
+ * en la evolución mensual y, peor, en el IVA repercutido de Impuestos.
+ *
+ * No vale filtrar por `activo`: un bono de mayo está desactivado porque lo
+ * sustituyó la renovación de junio, y sin él la gráfica perdería mayo entero.
+ * Lo que hay que resolver es la duplicidad dentro de un mismo mes.
+ *
+ * La usan Finanzas y Cobros: las dos tienen que ver el mismo mes con las mismas cuotas.
+ */
+export function unaCuotaPorPacienteYMes(bonos: any[], pagados: Set<string> = new Set()): any[] {
+  const ultimo = new Map<string, any>()
+  // Las VENTAS PUNTUALES no se deduplican: cada una es una venta de verdad.
+  //
+  // Alguien puede pagar su cuota de septiembre Y comprar ocho sesiones en
+  // septiembre, y son dos ingresos distintos. Si pasaran por aquí, la clave
+  // paciente·mes las juntaría y una de las dos desaparecería de la evolución y
+  // del IVA repercutido. Peor que contar de más: contar de menos y en silencio.
+  const puntuales = bonos.filter(esVentaPuntual)
+  for (const b of bonos.filter(b => !esVentaPuntual(b))) {
+    const clave = `${b.paciente_id}·${b.anio}-${b.mes}`
+    const previo = ultimo.get(clave)
+    // Manda el que está COBRADO: si hay dos cuotas del mismo mes y una tiene cobro,
+    // esa es la de verdad y la otra sobra. Quedarse con la otra dejaba como pendiente
+    // a alguien que ya había pagado (pasó con una cuota cobrada en agosto y otra
+    // creada después para septiembre). Luego el activo, y entre iguales el más nuevo.
+    const pb = pagados.has(b.id), pp = previo ? pagados.has(previo.id) : false
+    if (!previo
+      || (pb && !pp)
+      || (pb === pp && b.activo && !previo.activo)
+      || (pb === pp && b.activo === previo.activo && String(b.created_at) > String(previo.created_at))) {
+      ultimo.set(clave, b)
+    }
+  }
+  return [...Array.from(ultimo.values()), ...puntuales]
+}
