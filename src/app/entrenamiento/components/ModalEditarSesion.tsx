@@ -176,6 +176,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     partes: (cita?.id ? aplicarAjustes(sesion, cita.ajustes) : sesion).partes || [],
   })
   const [parteActiva, setParteActiva] = useState(0)
+  // Lo que habia al abrir, para saber si al cerrar se pierde algo. La hoja y los
+  // objetivos llegan despues (se leen de la base), asi que se marcan aparte al tocarlos.
+  const alAbrir = useRef(JSON.stringify(formSesion))
+  const tocadoAparte = useRef(false)
+  function cerrarSinGuardar() {
+    const sucio = tocadoAparte.current || JSON.stringify(formSesion) !== alAbrir.current
+    if (sucio && !confirm('Hay cambios sin guardar en esta sesión. ¿Salir y perderlos?')) return
+    onCerrar()
+  }
   // Arrastrar para reordenar las partes. Con el arrastre nativo del navegador:
   // meter una libreria de drag-and-drop para mover cuatro chips no se sostiene.
   const [arrastra, setArrastra] = useState<number|null>(null)
@@ -518,13 +527,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       titulo="Objetivos que cubre la sesión"
       onCerrar={()=>setEligiendoObj(false)}
       onElegir={(ids:string[], movs:Record<string,string[]>)=>{
+        tocadoAparte.current = true
         setObjetivosSel(prev=>[...prev, ...ids])
         setMovsSel(prev=>({...prev, ...movs}))
       }}/>
   ) : null
 
   return (
-    <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
+    /* PINCHAR FUERA YA NO CIERRA. Montando una sesion se pincha fuera sin querer y se
+       perdia todo lo hecho. Solo se sale con la X, que avisa si hay cambios sin guardar. */
+    <div className="modal-bg">
       {/* Alto fijo, no "lo que ocupe el contenido". Con una sesión vacía el modal se
           encogía a cuatro dedos y la biblioteca, que se abre dentro, salía del mismo
           tamaño: no cabían ni dos filas de ejercicios. Además evita que el modal pegue
@@ -594,7 +606,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
             </div>
           )}
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
-          <button className="modal-close" onClick={onCerrar} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
+          <button className="modal-close" onClick={cerrarSinGuardar} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
         </div>
 
         {/* OBJETIVOS */}
@@ -624,7 +636,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   if (!o) return null
                   return (
                     <button key={id} type="button" title={`${o.nombre} · pulsa para quitarlo`}
-                      onClick={()=>setObjetivosSel(prev=>prev.filter(x=>x!==id))}
+                      onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.filter(x=>x!==id)) }}
                       style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:70,background:'none',border:'none',padding:0,cursor:'pointer'}}>
                       <MonedaObjetivo objetivo={o}/>
                       <span className="obj-mon-g">{o.nombre}</span>
@@ -647,7 +659,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
         <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden',position:'relative'}}>
           {hoja && (
             <div style={{overflowY:'auto',padding:14,flex:1}}>
-              <HojaLibre modo="preparar" hoja={hoja} onCambio={setHoja} objetivos={objsPaciente}
+              <HojaLibre modo="preparar" hoja={hoja} onCambio={h=>{ tocadoAparte.current = true; setHoja(h) }} objetivos={objsPaciente}
                 biblioteca={catalogo.map((e:any)=>({ id:e.id, nombre:e.nombre }))}/>
             </div>
           )}

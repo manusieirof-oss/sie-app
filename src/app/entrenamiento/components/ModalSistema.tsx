@@ -148,6 +148,13 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
 
   const porTiempo = f.progresion === 'tiempo' || f.progresion === 'fecha_fin'
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }))
+  // Lo que habia al abrir el ciclo, para avisar antes de perder cambios al cerrar.
+  const [snap] = useState(() => ({ f: JSON.stringify(f), fases: JSON.stringify(fases) }))
+  function cerrarSinGuardar() {
+    const sucio = JSON.stringify(f) !== snap.f || JSON.stringify(fases) !== snap.fases
+    if (sucio && !confirm('Hay cambios sin guardar en este ciclo. ¿Salir y perderlos?')) return
+    onCerrar()
+  }
   const setFase = (i: number, k: string, v: any) =>
     setFases(p => p.map((x, j) => j === i ? { ...x, [k]: v } : x))
 
@@ -184,7 +191,9 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
   const nombreSes = (id: string) => sesionesLocal.find((s: any) => s.id === id)?.nombre || '—'
 
   return (
-    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
+    /* Pinchar fuera ya no cierra: montando un ciclo se pierde todo sin querer. Solo la X
+       o Cancelar, que avisan si hay cambios sin guardar. */
+    <div className="modal-bg">
       <div style={{ background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 14,
                     width: '94vw', maxWidth: 820, maxHeight: '90vh', display: 'flex',
                     flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--sh-md)' }}>
@@ -197,7 +206,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
           <div style={{ flex: 1, fontSize: 16, fontWeight: 500, color: 'var(--n)' }}>
             {f.id ? 'Editar sistema' : 'Nuevo sistema'}
           </div>
-          <button className="modal-close" onClick={onCerrar}>✕</button>
+          <button className="modal-close" onClick={cerrarSinGuardar}>✕</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
@@ -476,7 +485,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
         )}
 
         <div style={{ padding: '12px 18px', borderTop: '1px solid var(--bd)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn btn-s" onClick={onCerrar}>Cancelar</button>
+          <button className="btn btn-s" onClick={cerrarSinGuardar}>Cancelar</button>
           <button className="btn btn-p" onClick={guardar} disabled={guardando}>
             {guardando ? 'Guardando…' : 'Guardar sistema'}
           </button>
