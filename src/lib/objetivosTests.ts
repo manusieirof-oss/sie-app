@@ -80,3 +80,31 @@ export async function cargarEvaluadores() {
   const { data } = await supabase.from('tests').select('id,nombre,descripcion,tipo,items,imagen_url,etiquetas_relacionadas,archivado_el').order('nombre')
   return data || []
 }
+
+/**
+ * LOS TESTS QUE ABREN UN OBJETIVO, mirando el TEST: el item (casillas) o la banda
+ * (puntuacion y baremo) que lo lleva colgado.
+ *
+ * Es la otra mitad del enlace. `objetivos_tests` dice con que se COMPRUEBA; esto dice
+ * que lo ABRE. El objetivo solo ensenaba la primera, y para saber que lo abria habia
+ * que ir test por test: "Recuperar falso ciatico" decia 2 tests y lo abrian 3, y
+ * "Vigilar ciatico" salia "por completar" aunque dos tests lo abren.
+ *
+ * Solo lectura: el enlace se hace desde el test, que es donde vive.
+ */
+export type Abridor = { test: any, que: string }
+export function abridoresDe(tests: any[], objetivoId: string): Abridor[] {
+  const out: Abridor[] = []
+  if (!objetivoId) return out
+  for (const t of tests || []) {
+    if (t?.archivado_el != null) continue
+    for (const it of (Array.isArray(t.items) ? t.items : [])) {
+      if (Array.isArray(it?.objetivos) && it.objetivos.includes(objetivoId)) out.push({ test: t, que: it.nombre || 'un ítem' })
+    }
+    for (const b of (Array.isArray(t.bandas) ? t.bandas : [])) {
+      if (Array.isArray(b?.objetivos) && b.objetivos.includes(objetivoId)) out.push({ test: t, que: 'banda ' + (b.etiqueta || '') })
+    }
+  }
+  return out
+}
+

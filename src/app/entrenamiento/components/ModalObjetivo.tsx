@@ -10,7 +10,7 @@ import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { especificosDeObjetivo } from '@/lib/objetivos'
 import EspecificosEnPestanas from './EspecificosObjetivo'
 import SelectorEvaluadores from './SelectorEvaluadores'
-import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores, type Evaluador } from '@/lib/objetivosTests'
+import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores, abridoresDe, type Evaluador } from '@/lib/objetivosTests'
 
 // ---------------------------------------------------------------------------
 // CREAR Y EDITAR UN OBJETIVO
@@ -407,6 +407,27 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                   no entra en ninguna evaluación y no puede cerrar una fase.
                 </div>
               )}
+
+              {/* LO ABREN: la otra mitad del enlace, que vive en el test. Solo se lee: se
+                  cambia desde el test, en el item o la banda. Ver `abridoresDe`. */}
+              {form.id && (() => {
+                const abren = abridoresDe(tests || [], form.id)
+                if (abren.length === 0) return null
+                return (
+                  <div style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '9px 11px', marginTop: 7 }}>
+                    <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>
+                      Lo abren · se cambia desde cada test
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {abren.map((a, k) => (
+                        <div key={k} style={{ fontSize: 12.5 }}>
+                          ↗ {a.test.nombre} <span style={{ color: 'var(--gr)' }}>· {a.que}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Solo EL OBJETIVO ENTERO, y solo si hay especificos: sin ellos esto
                   mismo ya sale dentro del panel de arriba. Lo de cada parte se edita
