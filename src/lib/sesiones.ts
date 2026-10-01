@@ -212,6 +212,32 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
 export const esPlantilla = (s: any) => !s?.paciente_id
 
 /**
+ * Una VARIANTE de una plantilla: otra plantilla de la biblioteca, sin dueño, con las
+ * mismas partes y objetivos y otro nombre.
+ *
+ * Nace al editar desde un ciclo de la biblioteca una sesion que tambien usan otros
+ * ciclos: en vez de cambiarla para todos, se decide hacerle una variante para este.
+ * No es `duplicarSesion`, que hace la copia de un PACIENTE y la apunta en su historial.
+ */
+export async function duplicarPlantilla(sesion: any, nombre: string) {
+  const { data: nueva, error } = await supabase.from('sesiones').insert({
+    paciente_id: null, nombre, descripcion: sesion.descripcion,
+    duracion_min: sesion.duracion_min, estado: sesion.estado || 'lista',
+    partes: JSON.parse(JSON.stringify(sesion.partes || [])),
+    hoja: sesion.hoja ?? null,
+  }).select().single()
+  if (error || !nueva) return { ok: false as const, error: error?.message || 'No se pudo crear la variante' }
+  const { data: objs } = await supabase.from('sesiones_objetivos')
+    .select('objetivo_id,movimientos').eq('sesion_id', sesion.id)
+  if ((objs || []).length > 0) {
+    const { error: e2 } = await supabase.from('sesiones_objetivos')
+      .insert((objs || []).map((o: any) => ({ sesion_id: nueva.id, objetivo_id: o.objetivo_id, movimientos: o.movimientos || [] })))
+    if (e2) return { ok: false as const, error: 'La variante se creó pero sus objetivos no: ' + e2.message, sesion: nueva }
+  }
+  return { ok: true as const, sesion: nueva }
+}
+
+/**
  * Asigna una plantilla a un paciente creando una COPIA suya.
  *
  * No se cambia el `paciente_id` de la plantilla ni se enlaza: se copia. A partir de

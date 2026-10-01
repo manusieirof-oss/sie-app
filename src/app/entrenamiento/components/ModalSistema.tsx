@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Ic, ICON_NAMES } from '@/lib/icons'
 import SelectorSesiones from './SelectorSesiones'
 import ModalEditarSesion from './ModalEditarSesion'
-import { modoDeSesion, esPlantilla, duplicarSesion } from '@/lib/sesiones'
+import { modoDeSesion, esPlantilla, duplicarSesion, duplicarPlantilla } from '@/lib/sesiones'
 import { supabase } from '@/lib/supabase'
 import SelectorObjetivos from './SelectorObjetivos'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -71,7 +71,57 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
   // Las copias suyas no vienen en las plantillas que llegan por props.
   useEffect(() => { if (delPaciente) recargarSesiones() }, [delPaciente]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * EN LA BIBLIOTECA, UNA SESION PUEDE ESTAR EN VARIOS CICLOS. Cambiarla pensando en
+   * este la cambia en todos. Antes de editarla se dice en cuales mas esta, y se puede
+   * elegir entre cambiarla para todos o hacerle una variante solo para este ciclo.
+   */
+  const [decidiendo, setDecidiendo] = useState<{ i: number, ses: any, otros: string[] } | null>(null)
+  const [haciendoVariante, setHaciendoVariante] = useState(false)
+
+  /** Cambia en la fase `i` una sesion por otra: en pantalla y, si la fase existe, ya en la base. */
+  async function sustituirEnFase(i: number, viejaId: string, nuevaId: string) {
+    const fid = fases[i]?.id
+    if (fid) {
+      await supabase.from('sistema_fase_sesiones').update({ sesion_id: nuevaId })
+        .eq('fase_id', fid).eq('sesion_id', viejaId)
+    }
+    setFase(i, 'sesiones', (fases[i]?.sesiones || []).map((y: string) => y === viejaId ? nuevaId : y))
+  }
+
+  async function abrirCompleta(id: string, respaldo: any) {
+    await recargarSesiones()
+    const { data } = await supabase.from('sesiones')
+      .select('*, sesiones_objetivos(objetivo_id,movimientos)').eq('id', id).maybeSingle()
+    setEditandoSesion(data || respaldo)
+  }
+
+  async function hacerVariante() {
+    if (decidiendo == null) return
+    setHaciendoVariante(true)
+    const { i, ses } = decidiendo
+    const nombre = `${ses.nombre} (variante para ${f.nombre || 'este ciclo'})`
+    const r = await duplicarPlantilla(ses, nombre)
+    setHaciendoVariante(false)
+    if (!r.ok || !r.sesion) { alert('No se ha podido crear la variante: ' + (r as any).error); return }
+    await sustituirEnFase(i, ses.id, r.sesion.id)
+    setDecidiendo(null)
+    await abrirCompleta(r.sesion.id, r.sesion)
+  }
+
   async function editarSesion(i: number, ses: any) {
+    if (delPaciente == null && esPlantilla(ses)) {
+      const { data } = await supabase.from('sistema_fase_sesiones')
+        .select('sistema_fases(sistema_id, sistemas(id,nombre,paciente_id))').eq('sesion_id', ses.id)
+      const otros = Array.from(new Set((data || [])
+        .map((r: any) => {
+          const fa = Array.isArray(r.sistema_fases) ? r.sistema_fases[0] : r.sistema_fases
+          const si = Array.isArray(fa?.sistemas) ? fa.sistemas[0] : fa?.sistemas
+          return si && si.paciente_id == null && si.id !== f.id ? String(si.nombre || 'Sin nombre') : null
+        })
+        .filter(Boolean))) as string[]
+      if (otros.length > 0) { setDecidiendo({ i, ses, otros }); return }
+    }
     if (delPaciente == null || !esPlantilla(ses)) { setEditandoSesion(ses); return }
     const r = await duplicarSesion(ses, delPaciente, { sufijo: '', plantillaId: ses.id, motivo: 'Ajustada en su programación' })
     if (!r.ok || !r.sesion) { alert('No se ha podido hacer su copia de la sesión: ' + (r as any).error); return }
@@ -337,6 +387,34 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
               </div>
             ))}
           </div>
+
+          {decidiendo && (
+            <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setDecidiendo(null) }}>
+              <div className="modal" style={{ width: 'min(480px, 94vw)' }}>
+                <div className="modal-title">
+                  {decidiendo.ses.nombre}
+                  <button className="modal-close" onClick={() => setDecidiendo(null)}>✕</button>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--gr)', lineHeight: 1.6, marginBottom: 12 }}>
+                  Esta sesión también está en{' '}
+                  <b style={{ color: 'var(--n)', fontWeight: 600 }}>{decidiendo.otros.join(', ')}</b>.
+                  Si la cambias, cambia en todos. A los pacientes que ya la tienen no les afecta: llevan su copia.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button className="btn btn-p" disabled={haciendoVariante} onClick={hacerVariante}>
+                    {haciendoVariante ? 'Creando…' : `Crear una variante para «${f.nombre || 'este ciclo'}»`}
+                  </button>
+                  <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: -3, lineHeight: 1.5 }}>
+                    Se llamará «{decidiendo.ses.nombre} (variante para {f.nombre || 'este ciclo'})» y solo este ciclo la usará.
+                    Queda en la biblioteca de sesiones como una más.
+                  </div>
+                  <button className="btn btn-s" onClick={() => { const s = decidiendo.ses; setDecidiendo(null); setEditandoSesion(s) }}>
+                    Cambiarla para todos
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {editandoSesion && (
             <ModalEditarSesion sesion={editandoSesion} ejercicios={ejercicios} etiquetas={etiquetas}
