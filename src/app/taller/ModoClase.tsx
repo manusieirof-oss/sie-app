@@ -829,16 +829,36 @@ export default function ModoClase() {
     const { data: yaHay } = await supabase.from('registros_ejercicio')
       .select('ejercicio_id,ejercicio_nombre,variante')
       .eq('paciente_id', pid).eq('sesion_id', item.sesionId).eq('finalizado', false)
-    const claveReg = (id: any, nombre: any, variante: any) => `${id || 'n:' + (nombre || '')}|${variante || ''}`
-    const existentes = new Set((yaHay || []).map((r: any) => claveReg(r.ejercicio_id, r.ejercicio_nombre, r.variante)))
-    const vacios = item.datos
-      .map((ej: any, i: number) => ({ ej, i }))
-      .filter(({ ej, i }: any) => !noHizo.includes(i) && !existentes.has(claveReg(ej.ejercicio_id, ej.nombre, ej.variante)))
-      .map(({ ej }: any) => ({
+    /**
+     * LA CLAVE ES LA DEL INDICE DE LA BASE, NO OTRA.
+     *
+     * `uniq_regej_borrador` admite un solo borrador por paciente, EJERCICIO y sesion,
+     * sin mirar la variante. Aqui se comparaba ademas por variante, y un mismo ejercicio
+     * que sale dos veces en la sesion (en dos bloques, o en circuito y suelto) generaba
+     * dos filas iguales: "duplicate key value violates unique constraint
+     * uniq_regej_borrador" al finalizar, y la clase se quedaba sin cerrar. Paso con tres
+     * pacientes el 1 de octubre a las 21:00.
+     *
+     * Ahora: por ejercicio si lo tiene (como el indice), por nombre si no; y cada clave
+     * una sola vez. El registro vacio solo dice "se hizo", asi que con uno basta.
+     */
+    const claveReg = (id: any, nombre: any) => id ? `id:${id}` : `n:${nombre || ''}`
+    const existentes = new Set((yaHay || []).map((r: any) => claveReg(r.ejercicio_id, r.ejercicio_nombre)))
+    const vacios: any[] = []
+    item.datos.forEach((ej: any, i: number) => {
+      if (noHizo.includes(i)) return
+      const k = claveReg(ej.ejercicio_id, ej.nombre)
+      if (existentes.has(k)) return
+      existentes.add(k)
+      vacios.push({
         paciente_id: pid, ejercicio_id: ej.ejercicio_id || null, ejercicio_nombre: ej.nombre,
         sesion_id: item.sesionId, series: [], comentario: null, items_evaluados: {}, finalizado: false,
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
-      }))
+        // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
+        // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
+        fecha,
+      })
+    })
     if (vacios.length) {
       const { error } = await supabase.from('registros_ejercicio').insert(vacios)
       if (error) { alert('Error al finalizar: ' + error.message); return }
@@ -890,14 +910,26 @@ export default function ModoClase() {
    * segunda sustituye a la primera en vez de duplicar el entrenamiento.
    */
   async function finalizarHoja(pid: string, sid: string, h: Hoja) {
-    const filas = registrosDeHoja(h, hechosHoja[claveHechos(pid, sid)] || {})
+    // Dos pegatinas del mismo ejercicio son UNA fila: `uniq_regej_finalizado_dia` admite
+    // un registro finalizado por ejercicio y dia. Se juntan sus series.
+    const porEj: Record<string, any> = {}
+    const filas: any[] = []
+    for (const f of registrosDeHoja(h, hechosHoja[claveHechos(pid, sid)] || {})) {
+      if (f.ejercicio_id && porEj[f.ejercicio_id]) {
+        porEj[f.ejercicio_id].series = [...porEj[f.ejercicio_id].series, ...f.series]
+        porEj[f.ejercicio_id].comentario = [porEj[f.ejercicio_id].comentario, f.comentario].filter(Boolean).join(' · ') || null
+        continue
+      }
+      if (f.ejercicio_id) porEj[f.ejercicio_id] = f
+      filas.push(f)
+    }
     if (filas.length === 0 && !confirm('No hay nada apuntado en la hoja. ¿Finalizar igual?')) return
     const { error: e1 } = await supabase.from('registros_ejercicio').delete()
       .eq('paciente_id', pid).eq('sesion_id', sid).eq('fecha', fecha)
     if (e1) { alert('Error al finalizar: ' + e1.message); return }
     if (filas.length) {
       const { error } = await supabase.from('registros_ejercicio')
-        .insert(filas.map(f => ({ ...f, paciente_id: pid, sesion_id: sid, finalizado: true, items_evaluados: {} })))
+        .insert(filas.map(f => ({ ...f, paciente_id: pid, sesion_id: sid, finalizado: true, items_evaluados: {}, fecha })))
       if (error) { alert('Error al finalizar: ' + error.message); return }
     }
     try { sessionStorage.removeItem(claveHechos(pid, sid)) } catch {}
