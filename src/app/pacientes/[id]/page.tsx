@@ -234,9 +234,12 @@ export default function FichaPacientePage() {
 
     const ventana = window.open('', '_blank')
     if (ventana) {
-      ventana.document.write(html)
-      ventana.document.close()
-      setTimeout(()=>ventana.print(), 500)
+      // Blob con URL propia y no document.write: con about:blank el PDF salia en
+      // blanco, porque al guardar el navegador recarga esa URL vacia.
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
+      ventana.location.href = url
+      ventana.addEventListener('load', ()=>setTimeout(()=>ventana.print(), 300))
+      setTimeout(()=>URL.revokeObjectURL(url), 5*60*1000)
     }
   }
 

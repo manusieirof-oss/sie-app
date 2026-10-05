@@ -206,7 +206,15 @@ export async function abrirFactura(facturaId: string): Promise<{ ok: boolean, er
   // bloquea. Como aquí ya hemos hecho un await, puede pasar: se avisa.
   const v = window.open('', '_blank')
   if (!v) return { ok: false, error: 'El navegador ha bloqueado la ventana. Permite las ventanas emergentes para este sitio.' }
-  v.document.write(htmlFactura(r.datos))
-  v.document.close()
+  // LA FACTURA VA EN UN BLOB CON SU PROPIA URL, NO ESCRITA CON document.write.
+  //
+  // Antes se escribia dentro de una ventana en blanco (about:blank). En pantalla
+  // se veia bien, pero al guardar en PDF el navegador vuelve a pedir la pagina
+  // por su URL, y about:blank esta vacia: el PDF salia en blanco. Con un blob la
+  // ventana tiene una URL real que contiene la factura entera.
+  const url = URL.createObjectURL(new Blob([htmlFactura(r.datos)], { type: 'text/html;charset=utf-8' }))
+  v.location.href = url
+  // Se libera pasado un rato; la ventana ya tiene el documento cargado.
+  setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000)
   return { ok: true }
 }

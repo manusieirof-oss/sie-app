@@ -169,7 +169,10 @@ export async function abrirDocumentoFirmado(c: Consentimiento) {
 
   const v = window.open('', '_blank')
   if (!v) return { ok: false as const, error: 'El navegador bloqueó la ventana. Permite las ventanas emergentes.' }
-  v.document.write(html)
-  v.document.close()
+  // Blob con URL propia y no document.write: con about:blank el PDF salia en
+  // blanco, porque al guardar el navegador recarga esa URL vacia. Igual que la factura.
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
+  v.location.href = url
+  setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000)
   return { ok: true as const }
 }
