@@ -8,6 +8,7 @@ import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota, unaCuotaPorPacienteYMes,
          cobrosDesde, antesDeCobrarConLaApp } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
+import { xlsx, descargarXlsx } from '@/lib/xlsx'
 import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
 import { cargarTarifas } from '@/lib/tarifas'
 import { abrirFactura } from '@/lib/factura'
@@ -582,20 +583,26 @@ export default function CobrosPage() {
     const r = await listadoGestoria(desde, hasta)
     if (!r.ok) { setAviso(`No se ha podido generar el listado: ${r.error}`); return }
     if (!r.filas.length) { setAviso('No hay facturas emitidas en ese mes.'); return }
-    const cols = ['serie','numero','fecha','cliente','nif','servicios','base','iva','retencion','total','forma_pago']
-    /* IMPORTES CON COMA DECIMAL. El Excel en castellano lee "49.5" como TEXTO y no lo
-       suma: el listado de septiembre de 2026 daba 8298 EUR de total cuando las facturas
-       suman 8500,50, porque se saltaba las cinco con decimales (49,5 · 85,5 · 67,5…), y
-       las columnas de base e IVA sumaban 0. Con coma y dos decimales los suma bien. */
-    const NUM = new Set(['base','iva','retencion','total'])
-    const celda = (c: string, v: any) => NUM.has(c)
-      ? (v == null || v === '' ? '' : Number(v).toFixed(2).replace('.', ','))
-      : String(v ?? '').replace(/;/g, ',')
-    const csv = [cols.join(';'), ...r.filas.map((f:any) => cols.map(c => celda(c, f[c])).join(';'))].join('\n')
-    const url = URL.createObjectURL(new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url; a.download = `facturas-${anio}-${String(mes).padStart(2,'0')}.csv`; a.click()
-    URL.revokeObjectURL(url)
+    /* EXCEL DE VERDAD (.xlsx) Y NO CSV. El CSV dependia de como lo abriera cada Excel:
+       el de castellano leia "49.5" como texto y no lo sumaba (septiembre de 2026 daba
+       8298 EUR en vez de 8500,50) y las tildes salian rotas. En .xlsx los importes son
+       numeros, el texto va en UTF-8 y abajo va una fila de totales con formulas. */
+    const fechaES = (iso: string) => iso ? iso.split('-').reverse().join('/') : ''
+    const filas = r.filas.map((f: any) => ({ ...f, fecha: fechaES(f.fecha) }))
+    const bytes = xlsx(`Facturas ${anio}-${String(mes).padStart(2,'0')}`, [
+      { clave: 'serie', titulo: 'Serie', ancho: 7 },
+      { clave: 'numero', titulo: 'Número', ancho: 9 },
+      { clave: 'fecha', titulo: 'Fecha', ancho: 12 },
+      { clave: 'cliente', titulo: 'Cliente', ancho: 34 },
+      { clave: 'nif', titulo: 'NIF', ancho: 13 },
+      { clave: 'servicios', titulo: 'Servicios', ancho: 60 },
+      { clave: 'base', titulo: 'Base', numero: true, ancho: 11 },
+      { clave: 'iva', titulo: 'IVA', numero: true, ancho: 10 },
+      { clave: 'retencion', titulo: 'Retención', numero: true, ancho: 10 },
+      { clave: 'total', titulo: 'Total', numero: true, ancho: 11 },
+      { clave: 'forma_pago', titulo: 'Forma de pago', ancho: 14 },
+    ], filas, { totales: true })
+    descargarXlsx(bytes, `facturas-${anio}-${String(mes).padStart(2,'0')}.xlsx`)
   }
 
   if (autorizado === null) return <div style={{fontSize:12,color:'var(--grl)',padding:20}}>Verificando acceso...</div>
