@@ -583,7 +583,15 @@ export default function CobrosPage() {
     if (!r.ok) { setAviso(`No se ha podido generar el listado: ${r.error}`); return }
     if (!r.filas.length) { setAviso('No hay facturas emitidas en ese mes.'); return }
     const cols = ['serie','numero','fecha','cliente','nif','servicios','base','iva','retencion','total','forma_pago']
-    const csv = [cols.join(';'), ...r.filas.map((f:any) => cols.map(c => String(f[c] ?? '').replace(/;/g,',')).join(';'))].join('\n')
+    /* IMPORTES CON COMA DECIMAL. El Excel en castellano lee "49.5" como TEXTO y no lo
+       suma: el listado de septiembre de 2026 daba 8298 EUR de total cuando las facturas
+       suman 8500,50, porque se saltaba las cinco con decimales (49,5 · 85,5 · 67,5…), y
+       las columnas de base e IVA sumaban 0. Con coma y dos decimales los suma bien. */
+    const NUM = new Set(['base','iva','retencion','total'])
+    const celda = (c: string, v: any) => NUM.has(c)
+      ? (v == null || v === '' ? '' : Number(v).toFixed(2).replace('.', ','))
+      : String(v ?? '').replace(/;/g, ',')
+    const csv = [cols.join(';'), ...r.filas.map((f:any) => cols.map(c => celda(c, f[c])).join(';'))].join('\n')
     const url = URL.createObjectURL(new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url; a.download = `facturas-${anio}-${String(mes).padStart(2,'0')}.csv`; a.click()
