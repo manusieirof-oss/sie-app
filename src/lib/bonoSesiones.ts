@@ -206,6 +206,44 @@ export async function atarCitaABono(citaId: string, pacienteId: string, fecha: s
 }
 
 /**
+ * Engancha a un bono recien creado las citas que el paciente YA TENIA en la agenda.
+ *
+ * Antes solo se enganchaban las citas creadas despues del bono. Pero lo normal es
+ * tener la serie puesta y asignar el bono despues, y entonces ninguna de esas
+ * citas descontaba: Jose, Jesus y Patricia salian con el bono entero sin estrenar
+ * y Beatriz con 3 de 4 habiendo venido cuatro veces desde que lo compro.
+ *
+ * Toma las citas sin bono desde el dia de compra (hechas, faltas y programadas,
+ * dentro de la caducidad), por orden de fecha, hasta llenar las sesiones. Las de
+ * antes de la compra no se tocan: se pagaron de otra forma.
+ */
+export async function engancharCitas(bonoId: string) {
+  const { data: b, error: eb } = await supabase.from('bonos')
+    .select('paciente_id,fecha_inicio,caduca,sesiones_totales').eq('id', bonoId).maybeSingle()
+  if (eb || !b) return { ok: false as const, error: eb?.message || 'No existe el bono' }
+  if (!b.sesiones_totales || !b.fecha_inicio) return { ok: true as const, enganchadas: 0 }
+
+  const { count: ya } = await supabase.from('citas').select('id', { count: 'exact', head: true })
+    .eq('bono_id', bonoId).in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA])
+  const hueco = b.sesiones_totales - (ya || 0)
+  if (hueco <= 0) return { ok: true as const, enganchadas: 0 }
+
+  let q = supabase.from('citas').select('id')
+    .eq('paciente_id', b.paciente_id).is('bono_id', null)
+    .in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA])
+    .gte('fecha', b.fecha_inicio)
+  if (b.caduca) q = q.lte('fecha', b.caduca)
+  const { data: citas, error: ec } = await q.order('fecha').order('hora').limit(hueco)
+  if (ec) return { ok: false as const, error: ec.message }
+  const ids = (citas || []).map((c: any) => c.id)
+  if (!ids.length) return { ok: true as const, enganchadas: 0 }
+
+  const { error } = await supabase.from('citas').update({ bono_id: bonoId }).in('id', ids)
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, enganchadas: ids.length }
+}
+
+/**
  * Renueva un bono de sesiones: crea otro igual, listo para cobrar.
  *
  * Copia el TIPO, no el bono viejo: las sesiones y la caducidad se releen de
@@ -248,6 +286,8 @@ export async function renovarBonoSesiones(bonoViejo: { bono_id: string, paciente
     descuento_motivo: viejo?.descuento_motivo ?? null,
   }).select().single()
   if (error) return { ok: false as const, error: error.message }
+  // Las citas que ya tenia puestas y se quedaron sin bono al agotarse el viejo.
+  await engancharCitas(nuevo.id)
 
   await supabase.from('eventos_paciente').insert({
     paciente_id: bonoViejo.paciente_id,

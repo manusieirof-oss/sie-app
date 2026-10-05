@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BonoTipo, TIPOS_DESCUENTO, quitarBono } from '@/lib/bonos'
-import { esDeSesiones, caducidadDesde, textoModalidad } from '@/lib/bonoSesiones'
+import { esDeSesiones, caducidadDesde, textoModalidad, engancharCitas } from '@/lib/bonoSesiones'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { cargarTarifas, type Descuento } from '@/lib/tarifas'
 import { hoyISO } from '@/lib/fechas'
@@ -170,11 +170,14 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
         sesiones_totales: tipoSel?.sesiones || null,
         caduca: cad,
       }))
-      const { error } = await supabase.from('bonos').insert(filas)
+      const { data: creados, error } = await supabase.from('bonos').insert(filas).select('id')
       // Se insertan los dos de golpe: o entran los dos o no entra ninguno. Si
       // fueran dos inserciones seguidas y fallara la segunda, uno se quedaría
       // con bono y el otro no, y nadie se enteraría hasta el mes siguiente.
       if (error) { setError(mensajeBono(error.message)); setGuardando(false); return }
+      // Las citas que ya tenia en la agenda desde la fecha de compra pasan a
+      // descontar de este bono. Antes se quedaban fuera y el bono salia sin usar.
+      for (const c of creados || []) await engancharCitas(c.id)
       await supabase.from('eventos_paciente').insert(destinos.map(pid => ({
         paciente_id: pid, tipo: 'cambio_bono',
         titulo: `Bono de sesiones: ${LBL_BONO[form.tipo]||form.tipo}`,
