@@ -1330,8 +1330,13 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </>
           ) : (
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              <span className="muted">{bonosSesiones.length > 0 ? 'Sin cuota mensual' : 'Sin bono activo'}</span>
-              <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>+ Asignar bono</button>
+              {/* Con un bono de sesiones debajo, "Sin cuota mensual + Asignar bono" parecia
+                  decir que no tenia bono. Ahora la cuota va en su linea y se dice que no tiene. */}
+              {bonosSesiones.length > 0
+                ? <><span style={{fontSize:11.5,color:'var(--gr)',width:110}}>Cuota mensual</span><span className="muted">No tiene</span></>
+                : <span className="muted">Sin bono activo</span>}
+              <span style={{flex:1}}/>
+              <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bonosSesiones.length > 0 ? '+ Asignar cuota o bono' : '+ Asignar bono'}</button>
             </div>
           )}
 

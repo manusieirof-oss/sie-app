@@ -1,8 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { supabase } from '@/lib/supabase'
 import {
   type BonoSesiones, estadoDe, LBL_ESTADO, COLOR_ESTADO, resumenDe, UMBRAL_POCAS, bonosDe,
+  ESTADOS_QUE_GASTAN, ESTADO_RESERVA,
 } from '@/lib/bonoSesiones'
 
 // Cuántas sesiones le quedan de un bono. Se pinta donde haga falta: la ficha del
@@ -29,89 +31,159 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
   onRetirar?: (bono: BonoSesiones) => void
 }) {
   const [retirando, setRetirando] = useState(false)
+  const [citas, setCitas] = useState<{ fecha: string, estado: string }[]>([])
+  const [pago, setPago] = useState<'cobrado' | 'impago' | 'pendiente' | null>(null)
   const estado = estadoDe(bono)
   const color = COLOR_ESTADO[estado]
   const total = bono.sesiones_totales || 0
   const gastadas = Math.min(bono.gastadas, total)
   const reservadas = Math.min(bono.reservadas, Math.max(0, total - gastadas))
-  const pctGast = total ? (gastadas / total) * 100 : 0
-  const pctRes = total ? (reservadas / total) * 100 : 0
+  const restantes = Math.max(0, bono.restantes)
+  const libres = Math.max(0, bono.libres)
+
+  // Las fechas de cada sesion y si esta cobrado. Antes la tarjeta solo tenia
+  // numeros sueltos ("3 de 4" dos veces, "1 usadas") y no decia si el bono se
+  // habia pagado, asi que habia que ir a Cobros para saberlo. Los NUMEROS siguen
+  // saliendo de la vista; las citas solo ponen fecha a cada casilla.
+  useEffect(() => {
+    if (compacto) return
+    let vivo = true
+    ;(async () => {
+      const [c, vp, bo] = await Promise.all([
+        supabase.from('citas').select('fecha,estado').eq('bono_id', bono.bono_id)
+          .in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA]).order('fecha'),
+        supabase.from('v_bonos_pago').select('pagado').eq('bono_id', bono.bono_id).maybeSingle(),
+        supabase.from('bonos').select('estado_pago').eq('id', bono.bono_id).maybeSingle(),
+      ])
+      if (!vivo) return
+      setCitas((c.data || []) as any)
+      // Igual que la cuota: cobrado lo dice el cobro, impago lo marca uno a mano.
+      setPago(vp.data?.pagado ? 'cobrado' : bo.data?.estado_pago === 'impago' ? 'impago' : 'pendiente')
+    })()
+    return () => { vivo = false }
+  }, [bono.bono_id, compacto])
 
   if (compacto) {
     return (
       <span title={resumenDe(bono)} style={{fontSize:10,fontWeight:600,color,whiteSpace:'nowrap'}}>
-        {Math.max(0, bono.restantes)}/{total}
+        {restantes}/{total}
       </span>
     )
   }
 
+  // Una casilla por sesion comprada: primero las gastadas, luego las citadas y
+  // el resto en blanco. Asi se lee de un vistazo sin interpretar una barra.
+  const hechas = citas.filter(c => (ESTADOS_QUE_GASTAN as readonly string[]).includes(c.estado))
+  const citadas = citas.filter(c => c.estado === ESTADO_RESERVA)
+  const casillas = Array.from({ length: total }, (_, i) => {
+    if (i < gastadas) { const c = hechas[i]; return { tipo: 'usada', fecha: c?.fecha, txt: c?.estado === 'falta' ? 'no vino' : 'hecha' } }
+    if (i < gastadas + reservadas) { const c = citadas[i - gastadas]; return { tipo: 'citada', fecha: c?.fecha, txt: 'con cita' } }
+    return { tipo: 'libre', fecha: undefined, txt: 'sin cita' }
+  })
+
+  const ses = (n: number) => `${n} ${n === 1 ? 'sesión' : 'sesiones'}`
+  const frase = restantes <= 0
+    ? <>Ha gastado las <b>{total}</b> sesiones.</>
+    : reservadas <= 0
+      ? <>Le quedan <b>{ses(restantes)}</b>, ninguna con cita.</>
+      : libres <= 0
+        ? <>Le quedan <b>{ses(restantes)}</b> y {restantes === 1 ? 'ya tiene cita' : 'todas tienen cita'}.</>
+        : <>Le quedan <b>{ses(restantes)}</b>: {reservadas === 1 ? 'una ya tiene cita' : `${reservadas} ya tienen cita`} y <b>{libres === 1 ? '1 está sin citar' : `${libres} están sin citar`}</b>.</>
+
+  const semanas = bono.caduca && !bono.caducado
+    ? Math.round((new Date(bono.caduca + 'T12:00:00').getTime() - Date.now()) / (7 * 864e5)) : null
+
+  const PILL: Record<string, [string, string, string]> = {
+    cobrado: ['Cobrado', 'var(--gl)', 'var(--gd)'],
+    pendiente: ['Sin cobrar', 'var(--ambl)', '#8A6410'],
+    impago: ['Impago', 'var(--redl)', 'var(--red)'],
+  }
+
   return (
-    <div style={{border:`1px solid ${estado==='ok'?'var(--bd)':color}`,borderRadius:8,padding:'11px 13px',
+    <div style={{border:`1px solid ${estado==='ok'?'var(--bd)':color}`,borderRadius:10,padding:'13px 15px',
                  background: estado==='ok' ? 'var(--w)' : estado==='pocas' ? 'var(--ambl)' : 'var(--redl)'}}>
-      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:8}}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:500,color:'var(--n)'}}>{nombre || 'Bono de sesiones'}</div>
-          <div style={{fontSize:9,color:'var(--grl)'}}>{resumenDe(bono)}</div>
+          <div style={{fontSize:14,fontWeight:500,color:'var(--n)'}}>{nombre || 'Bono de sesiones'}</div>
+          <div style={{fontSize:11.5,color:'var(--gr)',marginTop:2}}>
+            {[bono.fecha_inicio && `Comprado el ${fechaCorta(bono.fecha_inicio)}`,
+              bono.caduca && `${bono.caducado ? 'caducó' : 'caduca'} el ${fechaCorta(bono.caduca)}`]
+              .filter(Boolean).join(' · ')}
+          </div>
         </div>
-        <div style={{fontSize:20,fontWeight:300,color}}>{Math.max(0, bono.restantes)}</div>
-        <div style={{fontSize:9,color:'var(--grl)'}}>de {total}</div>
+        {pago && (
+          <span style={{fontSize:11,padding:'2px 10px',borderRadius:99,whiteSpace:'nowrap',
+                        background:PILL[pago][1],color:PILL[pago][2],border:`1px solid ${PILL[pago][2]}55`}}>
+            {PILL[pago][0]}
+          </span>
+        )}
       </div>
 
-      {/* Gastadas en sólido, reservadas rayadas. La distinción importa: seis
-          restantes de las que cuatro ya están citadas no son seis disponibles. */}
-      <div style={{height:8,borderRadius:99,background:'var(--bm)',overflow:'hidden',display:'flex'}}>
-        <div style={{width:`${pctGast}%`,background:color}}/>
-        <div style={{width:`${pctRes}%`,background:color,opacity:.35}}/>
+      <div style={{display:'grid',gridTemplateColumns:`repeat(auto-fill,minmax(64px,1fr))`,gap:6,margin:'14px 0 6px'}}
+           aria-label={`Las ${total} sesiones del bono`}>
+        {casillas.map((c, i) => (
+          <div key={i} style={{borderRadius:7,padding:'8px 4px',textAlign:'center',fontSize:11,lineHeight:1.35,
+            border: c.tipo==='usada' ? '1px solid var(--gd)' : c.tipo==='citada' ? '1px solid var(--gm)' : '1px dashed var(--bd)',
+            background: c.tipo==='usada' ? 'var(--gd)' : c.tipo==='citada' ? 'var(--gl)' : 'var(--w)',
+            color: c.tipo==='usada' ? '#fff' : c.tipo==='citada' ? 'var(--gd)' : 'var(--gr)'}}>
+            <b style={{display:'block',fontSize:12,fontWeight:600}}>{c.fecha ? fechaCorta(c.fecha) : '—'}</b>{c.txt}
+          </div>
+        ))}
       </div>
-
-      <div style={{display:'flex',gap:10,marginTop:6,fontSize:9,color:'var(--grl)',flexWrap:'wrap'}}>
-        <span>{gastadas} usadas</span>
-        {reservadas > 0 && <span>{reservadas} ya citadas</span>}
-        {bono.libres > 0 ? <span style={{color:'var(--gd)',fontWeight:600}}>{bono.libres} por citar</span>
-                         : <span style={{color:'var(--red)',fontWeight:600}}>nada libre</span>}
-        {bono.ultima && <span style={{marginLeft:'auto'}}>última: {new Date(bono.ultima+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>}
-      </div>
+      <div style={{fontSize:13,color:'var(--n)',marginTop:4}}>{frase}</div>
 
       {estado !== 'ok' && (
-        <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${color}33`,fontSize:9.5,color,display:'flex',alignItems:'center',gap:5,lineHeight:1.5}}>
+        <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${color}33`,fontSize:11,color,display:'flex',alignItems:'center',gap:5,lineHeight:1.5}}>
           <Ic name="alerta" size={11}/>
-          {estado === 'caducado' ? <span><strong>{LBL_ESTADO[estado]}.</strong> Le quedaban {Math.max(0,bono.restantes)} sin usar. Puedes dejárselas gastar igual: la app avisa, no impide.</span>
+          {estado === 'caducado' ? <span><strong>{LBL_ESTADO[estado]}.</strong> Le quedaban {restantes} sin usar. Puedes dejárselas gastar igual: la app avisa, no impide.</span>
            : estado === 'agotado' ? <span><strong>{LBL_ESTADO[estado]}.</strong> Toca ofrecerle uno nuevo.</span>
-           : <span>Le quedan {bono.restantes} {bono.restantes===1?'sesión':'sesiones'}. Buen momento para hablar de la renovación.</span>}
+           : <span>Buen momento para hablar de la renovación.</span>}
         </div>
       )}
 
-      {/* El botón va donde está el aviso, no en una pantalla aparte: el momento
-          de renovar es este, mirando que se acabó. También sale con "pocas",
-          porque lo que interesa es renovar ANTES de que se quede a cero y haya
-          que mandarle a casa. */}
+      {/* El boton va donde esta el aviso: el momento de renovar es este. Tambien
+          sale con "pocas", para renovar ANTES de quedarse a cero. */}
       {onRenovar && estado !== 'ok' && (
         <button className="btn btn-p btn-sm" style={{marginTop:8,width:'100%'}} onClick={()=>onRenovar(bono)}>
           <Ic name="euro" size={12}/> Renovar y cobrar
         </button>
       )}
 
-      {/* RETIRAR. Pide confirmación en el sitio, sin `confirm` del navegador: se explica
-          qué se va a borrar y qué no se pierde. Si el bono está cobrado no se llega aquí
-          —lo corta `quitarBono`— y se dice por qué: se deshace con una rectificativa. */}
-      {onRetirar && (retirando ? (
-        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
-          <span style={{fontSize:9.5,color:'var(--gr)',flex:1,lineHeight:1.5}}>
-            ¿Retirar este bono? {gastadas > 0
-              ? `Ya tiene ${gastadas} ${gastadas===1?'sesión usada':'sesiones usadas'}: esas citas se quedarán sin bono al que descontar.`
-              : 'No se ha usado ninguna sesión.'}
-          </span>
-          <button className="btn btn-t btn-sm" style={{fontSize:10}} onClick={()=>setRetirando(false)}>No</button>
-          <button className="btn btn-d btn-sm" style={{fontSize:10}} onClick={()=>{setRetirando(false);onRetirar(bono)}}>Sí, retirar</button>
-        </div>
-      ) : (
-        <button className="btn btn-t btn-sm" style={{marginTop:6,width:'100%',fontSize:10}} onClick={()=>setRetirando(true)}>
-          <Ic name="papelera" size={11}/> Retirar
-        </button>
-      ))}
+      {/* RETIRAR. Antes era el boton mas grande de la tarjeta y es lo que menos se
+          usa; ahora es un enlace en el pie. Pide confirmacion en el sitio y, si el
+          bono esta cobrado, lo corta `quitarBono` y explica por que. */}
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',marginTop:12,paddingTop:10,
+                   borderTop:'1px solid var(--bd)',fontSize:11.5,color:'var(--grl)'}}>
+        {retirando ? (
+          <>
+            <span style={{color:'var(--gr)',flex:1,lineHeight:1.5}}>
+              ¿Retirar este bono? {gastadas > 0
+                ? `Ya tiene ${gastadas} ${gastadas===1?'sesión gastada':'sesiones gastadas'}: esas citas se quedarán sin bono al que descontar.`
+                : 'No se ha gastado ninguna sesión.'}
+            </span>
+            <button className="btn btn-t btn-sm" style={{fontSize:10}} onClick={()=>setRetirando(false)}>No</button>
+            <button className="btn btn-d btn-sm" style={{fontSize:10}} onClick={()=>{setRetirando(false);onRetirar?.(bono)}}>Sí, retirar</button>
+          </>
+        ) : (
+          <>
+            <span>{semanas == null ? (bono.caducado ? 'Caducado' : 'Sin caducidad')
+                   : semanas <= 0 ? 'Caduca esta semana' : `Caduca en ${semanas} ${semanas===1?'semana':'semanas'}`}</span>
+            <span style={{flex:1}}/>
+            {onRetirar && (
+              <button type="button" onClick={()=>setRetirando(true)}
+                style={{font:'inherit',fontSize:11.5,background:'none',border:'none',color:'var(--gr)',cursor:'pointer',textDecoration:'underline',padding:0}}>
+                Retirar bono
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
+
+const fechaCorta = (f: string) =>
+  new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 
 /** Aviso corto para cabeceras y listas: solo aparece si hay algo que decir. */
 export function AvisoSesiones({ bonos }: { bonos: BonoSesiones[] }) {
