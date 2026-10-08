@@ -37,7 +37,12 @@ export const CAMPOS_AJUSTABLES = [
 ] as const
 
 export type CampoAjustable = typeof CAMPOS_AJUSTABLES[number]['id']
-export type AjusteEj = Partial<Record<CampoAjustable, string>> & { nombre?: string }
+/**
+ * `sustituto`: ese dia se hace OTRO ejercicio en ese hueco (material ocupado, la sala
+ * no da...). Se guarda aqui y no se toca la sesion: el plan sigue siendo el plan.
+ */
+export type Sustituto = { ejercicio_id: string, nombre: string, imagen_url?: string | null }
+export type AjusteEj = Partial<Record<CampoAjustable, string>> & { nombre?: string, sustituto?: Sustituto }
 export type AjustesCita = { v: 1, ejercicios: Record<string, AjusteEj> }
 
 export const clave = (pi: number, ei: number) => `${pi}.${ei}`
@@ -66,6 +71,14 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
       CAMPOS_AJUSTABLES.forEach(c => {
         if (a[c.id] !== undefined) copia[c.id] = a[c.id]
       })
+      if (a.sustituto?.ejercicio_id) {
+        copia.ejercicio_id = a.sustituto.ejercicio_id
+        copia.nombre = a.sustituto.nombre
+        copia.imagen_url = a.sustituto.imagen_url || ''
+        copia.variante = ''
+        // Lo que habia en el plan, para poder decir "en lugar de".
+        copia.sustituye = ej.nombre || ''
+      }
       return copia
     }),
   }))
@@ -79,7 +92,7 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
  * ejercicio un día concreto NO es un ajuste: eso es otra sesión, y mezclarlo
  * aquí haría que un ajuste pudiera contradecir al plan en vez de matizarlo.
  */
-export function calcularAjustes(base: any, editada: any): AjustesCita {
+export function calcularAjustes(base: any, editada: any, previos?: AjustesCita | null): AjustesCita {
   const out: AjustesCita = { v: 1, ejercicios: {} }
   ;(base?.partes || []).forEach((p: any, pi: number) => {
     const pe = editada?.partes?.[pi]
@@ -88,7 +101,15 @@ export function calcularAjustes(base: any, editada: any): AjustesCita {
       const ee = pe.ejercicios?.[ei]
       if (!ee) return
       // Si en esa posición hay otro ejercicio, no es un ajuste: es otra sesión.
-      if (txt(ee.ejercicio_id) !== txt(ej.ejercicio_id)) return
+      // SALVO que sea la sustitucion que ya se hizo ese dia en el taller: se conserva,
+      // si no al tocar el dia desde la ficha se perdia el cambio de ejercicio.
+      if (txt(ee.ejercicio_id) !== txt(ej.ejercicio_id)) {
+        const prev = previos?.ejercicios?.[clave(pi, ei)]
+        if (prev?.sustituto && txt(prev.sustituto.ejercicio_id) === txt(ee.ejercicio_id)) {
+          out.ejercicios[clave(pi, ei)] = { nombre: ej.nombre || '', sustituto: prev.sustituto }
+        }
+        return
+      }
       const dif: AjusteEj = {}
       CAMPOS_AJUSTABLES.forEach(c => {
         if (txt(ee[c.id]) !== txt(ej[c.id])) dif[c.id] = txt(ee[c.id])

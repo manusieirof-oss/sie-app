@@ -453,7 +453,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     // MODO CITA: se guarda la diferencia contra el plan, no el plan.
     if (modoCita) {
       setGuardando(true)
-      const ajustes = calcularAjustes(sesion, { partes: formSesion.partes })
+      const ajustes = calcularAjustes(sesion, { partes: formSesion.partes }, cita?.ajustes)
       // Sin cambios se escribe null y no un objeto vacio: asi "no tiene ajustes"
       // es una sola cosa en la base y no dos que hay que acordarse de mirar.
       const { error } = await supabase.from('citas')

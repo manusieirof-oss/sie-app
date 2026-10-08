@@ -24,7 +24,7 @@ import PildoraRegimen from './PildoraRegimen'
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho }: any) {
+  superserie = false, noHechos = [], onNoHecho, onSustituir }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -85,6 +85,17 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {/* CAMBIADO HOY. Se dice de que se cambio: el plan sigue diciendo el otro. */}
+              {ej.sustituye && (
+                <div style={{ fontSize: 10.5, color: '#8A6410', marginTop: 2 }}>en lugar de {ej.sustituye}</div>
+              )}
+              {onSustituir && !ej.guardado && (
+                <button type="button" onClick={() => onSustituir(ei)} title="Cambiar este ejercicio solo hoy"
+                  style={{ marginTop: 4, marginRight: 4, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer', borderRadius: 99, padding: '2px 9px',
+                    border: '1px solid var(--bd)', background: 'transparent', color: 'var(--grl)' }}>
+                  ⇄ Cambiar
+                </button>
+              )}
               {onNoHecho && (
                 <button type="button" onClick={() => onNoHecho(ei)} aria-pressed={noLoHizo}
                   style={{ marginTop: 4, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer', borderRadius: 99, padding: '2px 9px',

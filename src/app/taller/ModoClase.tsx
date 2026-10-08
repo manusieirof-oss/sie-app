@@ -17,6 +17,8 @@ import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
+import ExploradorEjercicios from '@/components/ExploradorEjercicios'
+import { traerTodo } from '@/lib/paginar'
 import IconosContexto from './IconosContexto'
 import HojaLibre from '@/components/HojaLibre'
 import { leerHoja, registrosDeHoja, type Hoja } from '@/lib/hoja'
@@ -113,6 +115,10 @@ export default function ModoClase() {
   const [sinTest, setSinTest] = useState<Record<string, any[]>>({})
   /** El arbol entero, para cruzar zona de molestia con etiqueta de ejercicio. */
   const [etiquetas, setEtiquetas] = useState<any[]>([])
+  // CAMBIAR UN EJERCICIO SOLO HOY (material ocupado, la sala no da...). Que ficha y
+  // que hueco se esta cambiando; el catalogo se lee la primera vez que hace falta.
+  const [sustituyendo, setSustituyendo] = useState<{ pid: string, i: number } | null>(null)
+  const [catalogoEj, setCatalogoEj] = useState<any[]>([])
   const [testEnCurso, setTestEnCurso] = useState<any>(null)
   const [guardandoTest, setGuardandoTest] = useState(false)
   const [listaTests, setListaTests] = useState(false)
@@ -446,11 +452,54 @@ export default function ModoClase() {
   /** Ejercicio + variante. Para el historial son dos cosas distintas. */
   const claveVar = (id: string, v: any) => `${id}|${String(v || '').trim()}`
 
+  async function abrirSustituir(pid: string, i: number) {
+    setSustituyendo({ pid, i })
+    if (catalogoEj.length === 0) {
+      const r = await traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
+      setCatalogoEj(r.filas)
+    }
+  }
+
+  /**
+   * Pone otro ejercicio en ese hueco SOLO PARA ESTA CITA.
+   *
+   * Se guarda como ajuste del dia (`citas.ajustes`), igual que un cambio de peso o de
+   * variante: la sesion no se toca, las demas citas siguen con el ejercicio del plan,
+   * y si se recarga el taller el cambio sigue ahi. Lo que se apunte se registra con el
+   * ejercicio que de verdad se hizo.
+   */
+  async function sustituir(pid: string, i: number, nuevo: any) {
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    const ej = item?.datos?.[i]
+    if (!item || !ej) return
+    setSustituyendo(null)
+    const sustituto = { ejercicio_id: nuevo.id, nombre: nuevo.nombre, imagen_url: nuevo.imagen_url || null }
+    if (item.citaId && ej.pos) {
+      const { data: c } = await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle()
+      const aj: any = c?.ajustes && c.ajustes.ejercicios ? c.ajustes : { v: 1, ejercicios: {} }
+      const previo = aj.ejercicios[ej.pos] || {}
+      aj.ejercicios[ej.pos] = { ...previo, nombre: previo.nombre || ej.sustituye || ej.nombre, sustituto }
+      const { error } = await supabase.from('citas').update({ ajustes: aj }).eq('id', item.citaId)
+      if (error) { alert('No se ha podido guardar el cambio: ' + error.message); return }
+    }
+    setSeleccion(prev => prev.map((s:any) => s.paciente.id !== pid ? s : {
+      ...s,
+      datos: s.datos.map((e:any, k:number) => k !== i ? e : {
+        ...e,
+        ejercicio_id: nuevo.id, nombre: nuevo.nombre, imagen_url: nuevo.imagen_url || '', variante: '',
+        sustituye: e.sustituye || e.nombre,
+        tipo_medida: nuevo.tipo_medida || 'peso_reps', items: nuevo.items_ejecucion || [],
+        feedbacks: nuevo.feedbacks || [], etiquetas: nuevo.etiquetas || [],
+        items_evaluados: {}, ultimo: null, guardado: false,
+      }),
+    }))
+  }
+
   async function cargarDatosSesion(pid: string, ses: any) {
     if (ses?.id) cargarObjsDeSesion(ses.id)
     const ejs: any[] = []
-    ;(ses.partes||[]).forEach((parte:any)=>{
-      ;(parte.ejercicios||[]).forEach((ej:any)=>{
+    ;(ses.partes||[]).forEach((parte:any, pi:number)=>{
+      ;(parte.ejercicios||[]).forEach((ej:any, pe:number)=>{
         const esCircuito = parte.modo === 'circuito'
         const n = esCircuito ? (parseInt(parte.vueltas)||parseInt(ej.series)||4) : (parseInt(ej.series)||4)
         ejs.push({
@@ -459,6 +508,8 @@ export default function ModoClase() {
           grupo: ej.grupo || '',
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
+          // Su hueco en la sesion (parte.ejercicio): es la clave de los ajustes del dia.
+          pos: `${pi}.${pe}`, sustituye: ej.sustituye || '',
           /**
            * LO PRESCRITO VIAJA ENTERO A LA SALA.
            *
@@ -988,11 +1039,15 @@ export default function ModoClase() {
             return (
             <div key={s.paciente.id} onClick={()=>setActivo(s.paciente.id)}
               title={estado==='fin'?'Finalizado':estado==='curso'?'En curso, sin finalizar':'Sin empezar'}
+              /* EL SELECCIONADO VA EN OSCURO, el guardado en verde claro. Antes los dos
+                 iban en el verde de la app (relleno uno, claro el otro) y en la sala se
+                 confundian: no se sabia si estabas en ese paciente o si ya estaba hecho. */
               style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:99,cursor:'pointer',
-                border:`1.5px solid ${activoChip?'var(--g)':(estado==='fin'?'var(--g)':'var(--bd)')}`,
-                background:activoChip?'var(--g)':(estado==='fin'?'var(--gl)':'var(--w)'),
-                color:activoChip?'#fff':(estado==='fin'?'var(--gd)':'var(--gr)')}}>
-              <span style={{width:7,height:7,borderRadius:'50%',flexShrink:0,background:activoChip?'#fff':colorEstado}}/>
+                border:`1.5px solid ${activoChip?'var(--n)':(estado==='fin'?'var(--g)':'var(--bd)')}`,
+                background:activoChip?'var(--n)':(estado==='fin'?'var(--gl)':'var(--w)'),
+                color:activoChip?'var(--w)':(estado==='fin'?'var(--gd)':'var(--gr)'),
+                boxShadow:activoChip?'0 2px 6px rgba(0,0,0,.18)':'none'}}>
+              <span style={{width:7,height:7,borderRadius:'50%',flexShrink:0,background:colorEstado,boxShadow:activoChip?'0 0 0 1.5px var(--w)':'none'}}/>
               {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
               {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
@@ -1254,10 +1309,27 @@ export default function ModoClase() {
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
               toggleObjetivo={toggleObjetivo}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
-              onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}/>}
+              onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
+              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}/>}
             </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
+      {sustituyendo && (
+        <div className="modal-bg" style={{zIndex:150}} onClick={e=>{if(e.target===e.currentTarget)setSustituyendo(null)}}>
+          <div className="modal" style={{width:'min(900px, 96vw)',maxHeight:'90vh',overflowY:'auto'}}>
+            <div className="modal-title">
+              Cambiar «{seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]?.nombre}» solo hoy
+              <button className="modal-close" onClick={()=>setSustituyendo(null)}>✕</button>
+            </div>
+            {catalogoEj.length === 0
+              ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
+              : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
+                  onAbrir={(ej:any)=>sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
+          </div>
         </div>
       )}
 
