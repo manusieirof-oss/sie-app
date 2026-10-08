@@ -7,7 +7,7 @@ import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
 import { rutaDeAsignacion } from '@/lib/asignarCita'
-import { MOTIVOS_CAMBIO, nombreMotivo, cambiosDeCitas, type CambioSesion } from '@/lib/cambioSesion'
+import { MOTIVOS_CAMBIO, nombreMotivo, cambiosDeCitas, registrarCambio, type CambioSesion } from '@/lib/cambioSesion'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
@@ -1152,6 +1152,19 @@ export default function ModoClase() {
                       onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
                       onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{l}</div>
                   ))}
+                  {/* QUITARLA SIN PONER OTRA. Antes cambiar obligaba a elegir una nueva,
+                      asi que para dejar a alguien hoy sin sesion no habia forma: la de la
+                      cita seguia saliendo. Pide motivo igual que un cambio. */}
+                  {act.sesionId && act.citaId && (
+                    <div onClick={()=>{
+                      setEligiendo(null)
+                      const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
+                      setCambiando({ destino:'quitar', encargo:{ citaId: act.citaId, pacienteId: act.paciente.id },
+                        motivo:'', nota:'', antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
+                    }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,color:'var(--red)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--redl)'}
+                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>Quitar, hoy sin sesión</div>
+                  )}
                 </div>
               )}
             </div>
@@ -1286,16 +1299,26 @@ export default function ModoClase() {
                   estarían sin motivo y el registro no valdría para nada. */}
               <button className="btn btn-p btn-sm"
                 disabled={!cambiando.motivo || (cambiando.motivo==='otro' && !cambiando.nota.trim())}
-                onClick={()=>{
+                onClick={async ()=>{
                   const c = cambiando
                   setCambiando(null)
+                  if (c.destino === 'quitar') {
+                    const { error } = await supabase.from('citas').update({ sesion_id: null }).eq('id', c.encargo.citaId)
+                    if (error) { alert('No se ha podido quitar la sesión: ' + error.message); return }
+                    await registrarCambio({ citaId: c.encargo.citaId, pacienteId: c.encargo.pacienteId, fecha,
+                      antesId: c.antesId, antesNombre: c.antesNombre, despuesId: null, despuesNombre: null,
+                      motivo: c.motivo, nota: c.nota })
+                    setSeleccion(prev => prev.map(s => s.citaId === c.encargo.citaId
+                      ? { ...s, sesionId: '', datos: [], cargado: false, objetivosSesion: [] } : s))
+                    return
+                  }
                   router.push(rutaDeAsignacion(c.destino, {
                     ...c.encargo,
                     antesId: c.antesId, antesNombre: c.antesNombre,
                     motivo: c.motivo, nota: c.nota.trim() || undefined,
                   }))
                 }}>
-                Elegir la nueva sesión
+                {cambiando.destino === 'quitar' ? 'Quitar la sesión' : 'Elegir la nueva sesión'}
               </button>
             </div>
             {!cambiando.motivo && (
