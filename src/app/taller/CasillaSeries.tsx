@@ -55,9 +55,10 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   const esHoy = (si: number, c: string) => !!hoy[`${si}.${c}`]
   const todasHoy = (c: string) => series.length > 0 && series.every((_, si) => esHoy(si, c))
   const algoHoy = Object.keys(hoy).length > 0
+  // Mas contraste: la primera version (gris contra negro) apenas se distinguia en la tablet.
   const tinta = (deHoy: boolean) => deHoy
-    ? { color: 'var(--n)', fontWeight: 600, borderColor: 'var(--gr)' }
-    : { color: 'var(--grl)', fontWeight: 400 }
+    ? { color: 'var(--n)', fontWeight: 700, borderColor: 'var(--gd)', background: 'var(--w)' }
+    : { color: '#B3B1AC', fontWeight: 400, background: 'var(--bl)', borderStyle: 'dashed' }
   const mezclado = campos.some(c => iguales(c) === false)
   const hayAlgo = series.some(s => campos.some(c => num(s?.[c]) != null))
 
@@ -100,11 +101,12 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
         title={mezclado ? 'Las series no son iguales · pulsa para verlas' : 'Peso y repeticiones'}
         style={{ position: 'absolute', left: 5, bottom: 5, height: 23, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 600, fontFamily: 'inherit', padding: '0 9px',
+          fontSize: 11, fontFamily: 'inherit', padding: '0 9px',
           border: '2px solid var(--w)', cursor: 'pointer',
           boxShadow: '0 1px 5px rgba(38,40,37,.20)',
-          background: hayAlgo ? (algoHoy ? 'var(--gd)' : 'var(--gl)') : 'var(--w)',
-          color: hayAlgo ? (algoHoy ? '#fff' : 'var(--gd)') : 'var(--grl)' }}>
+          background: algoHoy ? 'var(--gd)' : 'var(--w)',
+          color: algoHoy ? '#fff' : (hayAlgo ? '#A9A7A2' : 'var(--grl)'),
+          fontWeight: algoHoy ? 700 : 500 }}>
         {resumen}{mezclado ? ' ~' : ''}
       </button>
 
