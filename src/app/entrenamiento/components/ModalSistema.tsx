@@ -109,6 +109,21 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
     await abrirCompleta(r.sesion.id, r.sesion)
   }
 
+  /**
+   * DUPLICAR UNA SESION DE LA FASE para hacer otra parecida. La copia entra en la
+   * misma fase y se abre para editarla. En el ciclo de un paciente la copia es suya;
+   * en uno de la biblioteca es otra plantilla. Antes no habia forma de hacerlo desde
+   * aqui: habia que ir a la ficha o a la biblioteca y volver a traerla.
+   */
+  async function duplicarEnFase(i: number, ses: any) {
+    const r: any = delPaciente
+      ? await duplicarSesion(ses, delPaciente, { sufijo: ' (copia)', motivo: 'Duplicada desde su ciclo' })
+      : await duplicarPlantilla(ses, `${ses.nombre} (copia)`)
+    if (!r.ok || !r.sesion) { alert('No se ha podido duplicar: ' + r.error); return }
+    setFase(i, 'sesiones', [...(fases[i]?.sesiones || []), r.sesion.id])
+    await abrirCompleta(r.sesion.id, r.sesion)
+  }
+
   async function editarSesion(i: number, ses: any) {
     if (delPaciente == null && esPlantilla(ses)) {
       const { data } = await supabase.from('sistema_fase_sesiones')
@@ -374,6 +389,10 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
                               title={delPaciente && ses && esPlantilla(ses) ? 'Editar: se le hace una copia suya, la biblioteca no cambia' : 'Editar la sesión'}
                               onClick={() => ses && editarSesion(i, ses)}>
                               <Ic name="editar" size={12}/>
+                            </button>
+                            <button className="btn btn-t btn-sm" title="Duplicar para hacer una parecida"
+                              onClick={() => ses && duplicarEnFase(i, ses)}>
+                              <Ic name="copiar" size={12}/>
                             </button>
                             <button className="btn btn-t btn-sm" title="Quitarla de la fase"
                               onClick={() => setFase(i, 'sesiones', x.sesiones.filter((y: string) => y !== id))}>
