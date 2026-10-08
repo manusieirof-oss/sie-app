@@ -490,7 +490,7 @@ export default function ModoClase() {
         sustituye: e.sustituye || e.nombre,
         tipo_medida: nuevo.tipo_medida || 'peso_reps', items: nuevo.items_ejecucion || [],
         feedbacks: nuevo.feedbacks || [], etiquetas: nuevo.etiquetas || [],
-        items_evaluados: {}, ultimo: null, guardado: false,
+        items_evaluados: {}, ultimo: null, guardado: false, hoy: {},
       }),
     }))
   }
@@ -532,6 +532,9 @@ export default function ModoClase() {
             segundos: ej.tiempo == null ? '' : String(ej.tiempo),
           })),
           comentario:'', ultimo:null, guardado:false,
+          // Casillas escritas HOY ('serie.campo'). Lo que viene de la ultima vez o
+          // del plan se pinta claro; lo de hoy, oscuro. Ver CasillaSeries.
+          hoy: {},
         })
       })
     })
@@ -622,6 +625,14 @@ export default function ModoClase() {
               }
             })
             e.precargado = true
+            // Si "la ultima vez" es HOY (ya finalizado en esta clase), es de hoy.
+            if (ultMap[kv]?.fecha === fecha) {
+              const hoy: Record<string, boolean> = {}
+              e.ultimo.forEach((x:any, k:number) => ['peso','reps','segundos'].forEach(f => {
+                if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
+              }))
+              e.hoy = hoy
+            }
           }
           const c = cursoMap[kv]
           if (c) {
@@ -631,6 +642,12 @@ export default function ModoClase() {
               // si el borrador tenia mas series que la plantilla, añadirlas
               for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
               e.series = merged
+              // Lo del borrador es de hoy: se escribio en esta clase antes de recargar.
+              const hoy: Record<string, boolean> = {}
+              c.series.forEach((x:any, k:number) => ['peso','reps','segundos'].forEach(f => {
+                if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
+              }))
+              e.hoy = hoy
             }
             /* EL COMENTARIO Y EL REGIMEN, AUNQUE NO HAYA SERIES. Colgaban del
                mismo `if` que la fusion de series, asi que una nota escrita en un
@@ -763,7 +780,7 @@ export default function ModoClase() {
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; const series=[...datos[ei].series]
       series[si]={...series[si],[campo]:val}
-      datos[ei]={...datos[ei],series,guardado:false,precargado:false}
+      datos[ei]={...datos[ei],series,guardado:false,precargado:false,hoy:{...(datos[ei].hoy||{}),[`${si}.${campo}`]:true}}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))

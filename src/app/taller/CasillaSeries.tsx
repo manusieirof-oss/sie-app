@@ -48,6 +48,16 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
     const m = media(valoresDe(c))
     return m == null ? '' : String(m)
   }
+  /* HOY OSCURO, LO DE ANTES CLARO. Las casillas salen rellenas con lo de la ultima
+     vez (o lo planificado) y se veian igual que lo apuntado hoy: no se sabia si ya
+     se habia anotado o era el punto de partida. */
+  const hoy: Record<string, boolean> = ej.hoy || {}
+  const esHoy = (si: number, c: string) => !!hoy[`${si}.${c}`]
+  const todasHoy = (c: string) => series.length > 0 && series.every((_, si) => esHoy(si, c))
+  const algoHoy = Object.keys(hoy).length > 0
+  const tinta = (deHoy: boolean) => deHoy
+    ? { color: 'var(--n)', fontWeight: 600, borderColor: 'var(--gr)' }
+    : { color: 'var(--grl)', fontWeight: 400 }
   const mezclado = campos.some(c => iguales(c) === false)
   const hayAlgo = series.some(s => campos.some(c => num(s?.[c]) != null))
 
@@ -93,8 +103,8 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
           fontSize: 11, fontWeight: 600, fontFamily: 'inherit', padding: '0 9px',
           border: '2px solid var(--w)', cursor: 'pointer',
           boxShadow: '0 1px 5px rgba(38,40,37,.20)',
-          background: hayAlgo ? 'var(--g)' : 'var(--w)',
-          color: hayAlgo ? '#fff' : 'var(--grl)' }}>
+          background: hayAlgo ? (algoHoy ? 'var(--gd)' : 'var(--gl)') : 'var(--w)',
+          color: hayAlgo ? (algoHoy ? '#fff' : 'var(--gd)') : 'var(--grl)' }}>
         {resumen}{mezclado ? ' ~' : ''}
       </button>
 
@@ -117,7 +127,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                   <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
                     <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={muestra(c)}
                       placeholder={hueco(c)} autoFocus={k === 0}
-                      onChange={e => ponerEnTodas(c, e.target.value)} style={celda}/>
+                      onChange={e => ponerEnTodas(c, e.target.value)} style={{ ...celda, ...tinta(todasHoy(c)) }}/>
                     <span style={{ fontSize: 8.5, color: 'var(--grl)', marginTop: 2 }}>{etiqueta(c)}</span>
                   </span>
                 </span>
@@ -166,7 +176,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                     <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={ser?.[c] || ''}
                       placeholder={prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—'}
                       onChange={e => mutarSerie(pacienteId, ei, si, c, e.target.value)}
-                      style={{ ...celda, height: 27 }}/>
+                      style={{ ...celda, height: 27, ...tinta(esHoy(si, c)) }}/>
                   </span>
                 ))}
                 {quitarSerie && (
