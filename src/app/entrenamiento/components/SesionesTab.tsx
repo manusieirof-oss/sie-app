@@ -369,16 +369,21 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   {(() => {
                     const ss = parte.modo==='superserie'
                     const ejs = (parte.ejercicios||[]).map((ej:any,ei:number)=>({ej,ei}))
+                    // Por LETRA y no por orden: si los ejercicios estaban guardados
+                    // intercalados (A, B, A...) salia "Grupo A" dos veces.
                     const grupos: {g:string, items:any[]}[] = []
                     ejs.forEach((x:any)=>{
                       const g = ss ? (x.ej.grupo||'A') : ''
-                      const ult = grupos[grupos.length-1]
-                      if (ult && ult.g===g) ult.items.push(x); else grupos.push({g, items:[x]})
+                      const ya = grupos.find(y=>y.g===g)
+                      if (ya) ya.items.push(x); else grupos.push({g, items:[x]})
                     })
                     const chip = (t:string, fondo='var(--bl)', color='var(--gr)') =>
                       <span style={{fontSize:10.5,padding:'1px 8px',borderRadius:99,background:fondo,color}}>{t}</span>
-                    return grupos.map((gr,gi)=>(
-                      <div key={gi} style={{paddingLeft:14,marginBottom:10}}>
+                    // Los grupos van uno AL LADO del otro y las fotos a tamano fijo: con
+                    // la rejilla a todo el ancho cada grupo ocupaba una fila y sobraba
+                    // media pantalla a la derecha.
+                    return <div style={{display:'flex',flexWrap:'wrap',gap:'14px 30px',paddingLeft:14}}>{grupos.map((gr,gi)=>(
+                      <div key={gi}>
                         {ss&&(
                           <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:6}}>
                             <span style={{fontSize:12,fontWeight:600,color:'var(--gd)'}}>Grupo {gr.g}</span>
@@ -386,9 +391,9 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                             {parte.descanso&&<span style={{fontSize:11,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="pausa" size={10}/> {textoDescanso(parte.descanso)} tras cada vuelta</span>}
                           </div>
                         )}
-                        <div style={{display:'grid',gap:10,gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))'}}>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
                           {gr.items.map(({ej,ei}:any)=>(
-                            <div key={ei} style={{textAlign:'center'}}>
+                            <div key={ei} style={{textAlign:'center',width:132}}>
                               <div style={{position:'relative',aspectRatio:'1/1',background:'var(--bm)',borderRadius:10,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}>
                                 {ej.imagen_url
                                   ? <img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
@@ -409,7 +414,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                           ))}
                         </div>
                       </div>
-                    ))
+                    ))}</div>
                   })()}
                   {(parte.ejercicios||[]).length===0&&<div style={{paddingLeft:14,fontSize:11,color:'var(--grl)'}}>Sin ejercicios</div>}
                 </div>
