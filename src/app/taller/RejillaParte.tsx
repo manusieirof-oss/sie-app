@@ -38,12 +38,28 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
      arrastrar nada en mitad de una clase. */
+  /* EN SUPERSERIE, UNA FILA POR GRUPO: A arriba, B debajo... Todos seguidos no se
+     veia donde acababa un par y empezaba el otro. Por letra y no por orden, por si
+     estan guardados intercalados. */
+  const grupos: { g: string, items: any[] }[] = []
+  ejercicios.forEach((o: any) => {
+    const g = superserie ? (o.ej.grupo || 'A') : ''
+    const ya = grupos.find(x => x.g === g)
+    if (ya) ya.items.push(o); else grupos.push({ g, items: [o] })
+  })
+  grupos.sort((a, b) => a.g.localeCompare(b.g))
+
   return (
     <div style={{ marginBottom: 14, paddingLeft: 14 }}>
+      {grupos.map(gr => (
+      <div key={gr.g || '-'} style={{ marginBottom: superserie ? 14 : 0 }}>
+      {superserie && (
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--gd)', marginBottom: 6 }}>Grupo {gr.g}</div>
+      )}
       <div style={{ display: 'grid', gap: 9,
         gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
 
-        {ejercicios.map(({ ej, ei }: any) => {
+        {gr.items.map(({ ej, ei }: any) => {
           const avisos = avisosDeCondiciones({ molestias, patologias }, etiquetas, ej.etiquetas || [])
           /* LA CAPACIDAD, SEGUN LO QUE DE VERDAD HACE. Prescribiste
              fuerza-resistencia, pero si acaba haciendo 25 repeticiones esta
@@ -165,6 +181,8 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
           )
         })}
       </div>
+      </div>
+      ))}
     </div>
   )
 }
