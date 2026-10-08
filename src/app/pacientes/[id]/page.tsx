@@ -976,7 +976,7 @@ export default function FichaPacientePage() {
       {testEnCurso && (
         <ModalRealizarTest
           test={testEnCurso.test} tv={testEnCurso.tv}
-          paciente={{ sexo: pac.sexo, fecha_nacimiento: pac.fecha_nacimiento }}
+          paciente={{ id: pac.id, sexo: pac.sexo, fecha_nacimiento: pac.fecha_nacimiento }}
           onCambiar={(tv:any)=>setTestEnCurso((p:any)=>({...p,tv}))}
           onCerrar={()=>setTestEnCurso(null)}
           pie={<>

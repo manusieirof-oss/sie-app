@@ -56,16 +56,36 @@ export function ConfigBarra({ item, onCambia, soloRango = false }: { item: any, 
   return (
     <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--bd)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10, color: 'var(--grl)' }}>Positivo si es</span>
-        <select className="input" style={{ width: 128, fontSize: 11 }} value={item.regla || ''}
+        <span style={{ fontSize: 10, color: 'var(--grl)' }}>Cómo se lee</span>
+        <select className="input" style={{ width: 200, fontSize: 11 }} value={item.regla || ''}
           onChange={e => onCambia({ regla: e.target.value || undefined })}>
-          <option value="">— sin barra —</option>
-          <option value="menor">menor que</option>
-          <option value="mayor">mayor que</option>
-          <option value="entre">está entre</option>
-          <option value="fuera">está fuera de</option>
+          <option value="">— casilla, sin barra —</option>
+          <option value="medir">Solo medir y comparar</option>
+          <option value="menor">Positivo si es menor que</option>
+          <option value="mayor">Positivo si es mayor que</option>
+          <option value="entre">Positivo si está entre</option>
+          <option value="fuera">Positivo si está fuera de</option>
         </select>
-        {item.regla && (
+        {/* SOLO MEDIR: sin umbral. Se elige hacia donde es mejorar y, si se quiere,
+            el limite de la barra; sin maximo se escribe el numero a secas. */}
+        {item.regla === 'medir' && (
+          <>
+            <span style={{ fontSize: 10, color: 'var(--grl)', marginLeft: 8 }}>Mejor cuanto</span>
+            <select className="input" style={{ width: 96, fontSize: 11 }} value={item.mejor || 'mas'}
+              onChange={e => onCambia({ mejor: e.target.value })}>
+              <option value="mas">más alto</option>
+              <option value="menos">más bajo</option>
+            </select>
+            <span style={{ fontSize: 10, color: 'var(--grl)', marginLeft: 8 }}>Barra de</span>
+            <input className="input" type="number" style={{ width: 66, fontSize: 11 }} value={item.min ?? ''}
+              onChange={e => onCambia({ min: num(e.target.value) })} placeholder="0" />
+            <span style={{ fontSize: 10, color: 'var(--grl)' }}>a</span>
+            <input className="input" type="number" style={{ width: 80, fontSize: 11 }} value={item.max ?? ''}
+              onChange={e => onCambia({ max: num(e.target.value) })} placeholder="sin límite" />
+            <span style={{ fontSize: 10, color: 'var(--grl)' }}>{u}</span>
+          </>
+        )}
+        {item.regla && item.regla !== 'medir' && (
           <>
             <input className="input" type="number" style={{ width: 74, fontSize: 11 }} value={item.umbral ?? ''}
               onChange={e => onCambia({ umbral: num(e.target.value) })} placeholder="valor" />

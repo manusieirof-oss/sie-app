@@ -1314,7 +1314,7 @@ export default function ModoClase() {
         <ModalRealizarTest
           test={testEnCurso.test} tv={testEnCurso.tv}
           soloItems={testEnCurso.items.length > 0 ? testEnCurso.items : undefined}
-          paciente={{ sexo: act?.paciente?.sexo, fecha_nacimiento: act?.paciente?.fecha_nacimiento }}
+          paciente={{ id: act?.paciente?.id, sexo: act?.paciente?.sexo, fecha_nacimiento: act?.paciente?.fecha_nacimiento }}
           onCambiar={(tv:any)=>setTestEnCurso((p:any)=>({...p,tv}))}
           onCerrar={()=>setTestEnCurso(null)}
           pie={<>

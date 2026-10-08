@@ -1,9 +1,11 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { ultimoValor } from '@/lib/metasVia'
 import {
   resultadoDeTest, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla, medicionesPendientes,
   esSuma, puntuacionDe, puntuacionesPendientes, bandaDe, rangoTotal,
-  esBaremo, evaluarBaremo, edadEn, textoNorma,
+  esBaremo, evaluarBaremo, edadEn, textoNorma, soloMide,
 } from '@/lib/tests'
 import { hoyISO, aISO } from '@/lib/fechas'
 
@@ -58,7 +60,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
    * depende del sexo y la edad. Se pasa desde fuera —la ficha y la valoración ya lo
    * tienen— en vez de consultarlo aquí, porque este componente no escribe ni lee nada.
    */
-  paciente?: { sexo?: string | null, fecha_nacimiento?: string | null }
+  paciente?: { id?: string | null, sexo?: string | null, fecha_nacimiento?: string | null }
   /**
    * Enseñar SOLO estos ítems, por nombre.
    *
@@ -106,6 +108,20 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
 
   // Con qué se compara este paciente. Solo lo usa el baremo; en el resto es inofensivo.
   const ctx = { sexo: paciente?.sexo || null, edad: edadEn(paciente?.fecha_nacimiento) }
+
+  // LO DE LA VEZ ANTERIOR, para los items que solo miden. Es para lo que existen: un
+  // test de fuerza no dice positivo o negativo, dice si ha mejorado. Se busca por lado
+  // en los laterales, porque comparar la pierna derecha con la izquierda no dice nada.
+  const [previos, setPrevios] = useState<Record<string, { valor: number | null, fecha: string | null }>>({})
+  const conMedir = items.filter((it: any) => it?.regla === 'medir').map((it: any) => it.nombre).join('|')
+  useEffect(() => {
+    if (!paciente?.id || !test?.id || !conMedir || !ladoActivo) { setPrevios({}); return }
+    let vivo = true
+    const lado = test?.tipo_lado === 'lateral' ? ladoActivo : null
+    Promise.all(conMedir.split('|').map(async (n: string) => [n, await ultimoValor(paciente.id as string, test.id, n, lado)] as const))
+      .then(r => { if (vivo) setPrevios(Object.fromEntries(r)) })
+    return () => { vivo = false }
+  }, [paciente?.id, test?.id, conMedir, ladoActivo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
@@ -337,8 +353,13 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                        así que la casilla sobra y encima invitaba a contradecirlo. */
                     if (tieneBarra(item)) {
                       const hallazgo = evaluaItem(item)
-                      const min = Number(item.min ?? 0), max = Number(item.max ?? 100)
                       const v = valorDe(item)
+                      const medir = item.regla === 'medir'
+                      const sinLimite = medir && (item.max === undefined || item.max === null || item.max === '')
+                      const min = Number(item.min ?? 0), max = Number(item.max ?? 100)
+                      const prev = medir ? previos[item.nombre] : undefined
+                      const dif = prev?.valor != null && v !== '' && isFinite(parseFloat(v)) ? parseFloat(v) - prev.valor : null
+                      const mejora = dif == null || dif === 0 ? null : (item.mejor === 'menos' ? dif < 0 : dif > 0)
                       const col = hallazgo === true ? 'var(--red)' : hallazgo === false ? 'var(--g)' : 'var(--bd)'
                       const ponValor = (x: string) => {
                         const its = [...base]; its[ii] = { ...its[ii], valor: x }
@@ -353,6 +374,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                             </span>
                             <span style={{ fontSize: 12, color: 'var(--grl)' }}>{unidadDe(item).simbolo.trim()}</span>
                           </div>
+                          {!sinLimite && <>
                           <input type="range" min={min} max={max} step={item.paso ?? 1}
                             value={v === '' ? String((min + max) / 2) : v}
                             onChange={e => ponValor(e.target.value)}
@@ -364,6 +386,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                             </span>
                             <span style={{ fontSize: 10, color: 'var(--grl)' }}>{max}</span>
                           </div>
+                          </>}
                           {/* Se puede teclear: con la tablet en la mano la barra es cómoda,
                               pero un 10,5 exacto con el dedo no se acierta. */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
@@ -377,6 +400,26 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                               </button>
                             )}
                           </div>
+                          {/* La comparacion con la vez anterior, que es lo que interesa de
+                              una medida sin veredicto. Verde si mejora, rojo si empeora,
+                              segun hacia donde se dijo en la biblioteca que es mejorar. */}
+                          {medir && prev?.valor != null && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 9, padding: '7px 10px', borderRadius: 7, background: 'var(--bl)', fontSize: 12, color: 'var(--gr)' }}>
+                              <span>La otra vez{prev.fecha ? ` · ${new Date(prev.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : ''}: <b style={{ color: 'var(--n)' }}>{prev.valor} {unidadDe(item).simbolo.trim()}</b></span>
+                              <span style={{ flex: 1 }} />
+                              {dif != null && (
+                                <span style={{ fontWeight: 600, padding: '2px 9px', borderRadius: 99, fontSize: 12,
+                                  background: mejora === null ? 'var(--w)' : mejora ? 'var(--gl)' : 'var(--redl)',
+                                  color: mejora === null ? 'var(--gr)' : mejora ? 'var(--gd)' : 'var(--red)',
+                                  border: `1px solid ${mejora === null ? 'var(--bd)' : mejora ? 'var(--gm)' : '#E8C4C4'}` }}>
+                                  {dif === 0 ? '= igual' : `${dif > 0 ? '▲ +' : '▼ −'}${Math.round(Math.abs(dif) * 100) / 100} ${unidadDe(item).simbolo.trim()} · ${mejora ? 'mejora' : 'empeora'}`}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {medir && paciente?.id && prev && prev.valor == null && (
+                            <div style={{ marginTop: 7, fontSize: 11, color: 'var(--grl)' }}>Primera vez que se mide: la próxima se comparará con esta.</div>
+                          )}
                         </div>
                       )
                     }
@@ -401,8 +444,12 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                   })}
 
                   <div style={{ padding: '9px 12px', borderRadius: 7, background: d.resultado === 'positivo' ? 'var(--redl)' : d.resultado === 'negativo' ? 'var(--gl)' : 'var(--bl)', border: `1px solid ${d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gm)' : 'var(--bd)'}`, fontSize: 12, fontWeight: 500, color: d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gd)' : 'var(--grl)', marginTop: 8 }}>
+                    {soloMide(base)
+                      ? 'Medición · se guarda el número y se compara con la vez anterior'
+                      : <>
                     {d.resultado === 'positivo' ? '+ Positivo' : d.resultado === 'negativo' ? '− Negativo' : 'Marca los ítems observados'}
                     {d.resultado !== 'sin_realizar' && (pendientes.length > 0 ? ' · con mediciones sin hacer' : ' · calculado automáticamente')}
+                      </>}
                   </div>
 
                   {/* UNA BARRA SIN VALOR NO ES UN CERO.

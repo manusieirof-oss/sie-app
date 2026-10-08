@@ -459,7 +459,7 @@ export default function ValoracionPage() {
       {paso==='Completar'&&<PasoCompletar form={form} up={up} etiquetasLib={etiquetasLib} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {/* Los archivados no se pueden pasar a nadie mas: fuera del paso de elegir. */}
       {paso==='Tests'&&<PasoTests testsLib={testsLib.filter((t:any)=>t.archivado_el == null)} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}
-        paciente={{ sexo: form.sexo, fecha_nacimiento: form.fecha_nacimiento }}/>}
+        paciente={{ id: form.paciente_id, sexo: form.sexo, fecha_nacimiento: form.fecha_nacimiento }}/>}
       {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
       {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo} clinica={clinica}/>}
 

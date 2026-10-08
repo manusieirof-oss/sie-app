@@ -52,11 +52,27 @@ export type ItemTest = {
   min?: number
   max?: number
   /** Qué valor lo hace POSITIVO (hallazgo). Sin regla, manda la casilla de siempre. */
-  regla?: 'menor' | 'mayor' | 'entre' | 'fuera'
+  //
+  // 'medir' es una barra SIN veredicto: se guarda el numero y se compara con la vez
+  // anterior. Antes la barra solo aparecia si ponias "mayor que", "menor que"..., asi
+  // que un test de fuerza general, donde lo que importa es si ha mejorado y no si pasa
+  // un umbral, obligaba a inventarse un umbral.
+  regla?: 'menor' | 'mayor' | 'entre' | 'fuera' | 'medir'
+  /** Solo en 'medir': si mejorar es subir (fuerza, grados) o bajar (tiempo, dolor). */
+  mejor?: 'mas' | 'menos'
   umbral?: number
   /** Segundo extremo, solo en 'entre' y 'fuera'. */
   umbral2?: number
 }
+
+/** true si el ítem se mide para comparar, sin decidir positivo ni negativo. */
+export const soloMideItem = (i: any) => i?.regla === 'medir' && mide(i)
+
+/**
+ * Un test hecho solo de medidas sin veredicto. No cierra objetivos por su resultado:
+ * su "negativo" no significa "esta bien", significa que ningun item decide nada.
+ */
+export const soloMide = (items: any[]) => (items || []).length > 0 && (items || []).every(soloMideItem)
 
 /** true si el ítem se rellena con la barra y no con la casilla. */
 export const tieneBarra = (i: any) => !!i?.regla && mide(i)
@@ -92,6 +108,7 @@ export function textoRegla(item: any): string {
     case 'mayor': return `Positivo por encima de ${a}${u}`
     case 'entre': return `Positivo entre ${Math.min(a, b)} y ${Math.max(a, b)}${u}`
     case 'fuera': return `Positivo fuera de ${Math.min(a, b)}–${Math.max(a, b)}${u}`
+    case 'medir': return `Sin positivo · mejor cuanto más ${item.mejor === 'menos' ? 'bajo' : 'alto'}`
     default: return ''
   }
 }
@@ -423,6 +440,14 @@ export function problemasDelTest(test: any): string[] {
       return
     }
 
+    // Solo medir: no hay umbral, y el limite de la barra es opcional (sin maximo se
+    // escribe el numero). Lo unico que puede estar mal es un rango al reves.
+    if (it.regla === 'medir') {
+      const mn = num(it.min), mx = num(it.max)
+      if (isFinite(mn) && isFinite(mx) && mn >= mx) p.push(`${como}: el mínimo de la barra (${mn}) no es menor que el máximo (${mx}).`)
+      return
+    }
+
     const dos = it.regla === 'entre' || it.regla === 'fuera'
     const a = num(it.umbral), b = num(it.umbral2)
     if (!isFinite(a)) p.push(`${como}: falta el valor del umbral.`)
@@ -702,7 +727,7 @@ export async function registrarResultadoTest(
       // La REGLA se congela igual que la unidad. Si mañana subes el umbral del lunge de 10
       // a 12, el registro de marzo tiene que seguir explicando por qué salió positivo
       // aquel día. Sin esto, el histórico cambiaría de sentido al tocar la biblioteca.
-      ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2 } : {}),
+      ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, ...(i.mejor ? { mejor: i.mejor } : {}) } : {}),
     })),
   })
   if (error) return { ok: false, error: error.message }
@@ -711,7 +736,10 @@ export async function registrarResultadoTest(
   // negativo en marzo es información clínica, no ausencia de ella.
   // En un test de puntuación lo que hay que leer en la cronología es el total y su banda:
   // la lista de ítems marcados está vacía porque ahí no se marca nada.
-  const marcados = esBaremo(test)
+  const medidas = soloMide(items)
+  const marcados = medidas
+    ? (items.map(i => { const m = textoMedida(i); return m ? `${i.nombre} ${m}` : null }).filter(Boolean).join(', ') || null)
+    : esBaremo(test)
     ? `${puntuacion} de ${items.length} por debajo de su norma${banda ? ` · ${banda.etiqueta}` : ''}`
     : esSuma(test)
     ? (puntuacion === null ? null : `Total ${puntuacion}${banda ? ` · ${banda.etiqueta}` : ''}`)
@@ -719,7 +747,7 @@ export async function registrarResultadoTest(
         .map(i => { const m = textoMedida(i); return i.nombre + (m ? ` (${m})` : '') }).join(', ') || null)
   await supabase.from('eventos_paciente').insert({
     paciente_id: pacienteId, tipo: 'test',
-    titulo: `Test ${resultado}: ${test.nombre || 'test'}${lado && lado !== 'bilateral' ? ' · ' + lado : ''}`,
+    titulo: `${medidas ? 'Medición' : `Test ${resultado}`}: ${test.nombre || 'test'}${lado && lado !== 'bilateral' ? ' · ' + lado : ''}`,
     descripcion: [marcados, datos.observaciones || null, datos.contexto ? `Desde ${datos.contexto}` : null]
       .filter(Boolean).join(' · ') || null,
     fecha,
@@ -755,7 +783,10 @@ export async function registrarResultadoTest(
   // diagnostico; esta dice con que se mira si YA ESTA CONSEGUIDO. Nadie la leia al
   // registrar, asi que un objetivo cuya unica medida era esta no se cerraba nunca
   // por mucho que pasaras su test —que es justo para lo que se engancho—.
-  const ov = await cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, datos.contexto, lado)
+  // Un test que solo mide no cierra ni abre objetivos por su resultado: su "negativo"
+  // solo quiere decir que no hay veredicto. Las METAS con numero, mas abajo, si cuentan.
+  const ov = soloMide(items) ? { logrados: 0, abiertos: 0 }
+    : await cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, datos.contexto, lado)
   logrados += ov.logrados
   abiertos += ov.abiertos
 
