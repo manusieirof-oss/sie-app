@@ -11,7 +11,7 @@ import { VIAS, viasDe, marcarVia, quitarVia, type ViaOrigen } from '@/lib/viasOb
 import { urgenciaDe, COLOR_URGENCIA, textoRevision, fijarRevision,
          confirmarAMano } from '@/lib/mantenimiento'
 import { quietoDesde, hace, porParado } from '@/lib/antiguedad'
-import { conteoPorObjetivo } from '@/lib/objetivosTests'
+import { conteoPorObjetivo, testsDeObjetivo, type Evaluador } from '@/lib/objetivosTests'
 import { tieneBarra } from '@/lib/tests'
 import { sistemasDePaciente } from '@/lib/sistemas'
 import { soloVigentes } from '@/lib/linaje'
@@ -167,6 +167,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
   /** Qué moneda está abierta. Solo una: dos paneles abiertos ya no son una lista. */
   const [objAbierto, setObjAbierto] = useState<string|null>(null)
+  // Con que se comprueba el objetivo abierto, tal cual esta enganchado en la biblioteca.
+  const [evsAbierto, setEvsAbierto] = useState<Evaluador[]>([])
+  useEffect(() => {
+    let vivo = true
+    if (!objAbierto) { setEvsAbierto([]); return }
+    testsDeObjetivo(objAbierto).then(r => { if (vivo) setEvsAbierto(r) })
+    return () => { vivo = false }
+  }, [objAbierto])
   const [modalAnadir, setModalAnadir] = useState(false)
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
@@ -814,6 +822,43 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             onCambio={cargarObjetivos}
             onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
         )}
+
+        {/* LOS TESTS ENGANCHADOS QUE NO TIENEN BARRA. Antes no salian en ningun sitio:
+            MedidasObjetivo solo pinta los items con barra, y la lista de vias solo
+            los tests que ya lo habian abierto. Un objetivo comprobado con un test de
+            casillas, sin pasar todavia, no ofrecia ninguna forma de medirlo. */}
+        {o.logrado === false && (() => {
+          const nrm = (x:any) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+          const enVias = new Set((Array.isArray(o.vias) ? o.vias : [])
+            .filter((v:any) => v?.tipo === 'test' || v?.tipo === 'test_item')
+            .map((v:any) => String(v.ref || '').split(':')[0].split('|')[0]))
+          const vistos = new Set<string>()
+          const filas = evsAbierto.map(e => {
+            const t = testsLib.find((x:any) => x.id === e.test_id)
+            if (!t || t.archivado_el != null || enVias.has(t.id)) return null
+            const its = Array.isArray(t.items) ? t.items : []
+            const cuales = e.item ? its.filter((i:any) => nrm(i?.nombre) === nrm(e.item)) : its
+            if (cuales.some((i:any) => tieneBarra(i))) return null
+            const clave = t.id + '|' + (e.item || '')
+            if (vistos.has(clave)) return null
+            vistos.add(clave)
+            return { t, item: e.item || null, clave }
+          }).filter(Boolean) as { t:any, item:string|null, clave:string }[]
+          if (filas.length === 0) return null
+          return (
+            <div style={{ margin:'10px 0' }}>
+              <div className="et-mini" style={{ marginBottom:5 }}>Se comprueba con</div>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {filas.map(f => (
+                  <button key={f.clave} className="btn btn-s btn-sm" disabled={typeof abrirTest !== 'function'}
+                    onClick={() => abrirTest?.(f.t.id, 'bilateral')}>
+                    <Ic name="test" size={12}/> {f.t.nombre}{f.item ? ` · ${f.item}` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* CUANTO SE HA TRABAJADO. La ventana entre dos mediciones y lo que se hizo
             dentro, sin etiquetar que ejercicio sirve para que: ver `lib/dosis`. */}
