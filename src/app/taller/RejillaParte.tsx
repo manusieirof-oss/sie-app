@@ -21,6 +21,15 @@ import PildoraRegimen from './PildoraRegimen'
 // eso hay que verlo sin pedirlo.
 // ---------------------------------------------------------------------------
 
+/** Mismo aspecto que las chapas de notas y feedback (ChapasEjercicio). */
+const chapa = (pos: any): any => ({
+  position: 'absolute', minWidth: 23, height: 23, borderRadius: 99,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+  fontSize: 11, fontWeight: 600, fontFamily: 'inherit', padding: '0 6px',
+  border: '2px solid var(--w)', cursor: 'pointer',
+  boxShadow: '0 1px 5px rgba(38,40,37,.20)', ...pos,
+})
+
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, molestias = [], patologias = [], etiquetas = [],
@@ -56,7 +65,10 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   no queremos: manda la imagen. */}
               {/* NO LO HIZO: la foto se apaga y el nombre se tacha. Lo normal es hacerlo
                   todo, asi que es lo unico que se marca y tiene que verse de lejos. */}
-              <div style={{ position: 'relative', display: 'block', opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s' }}>
+              <div style={{ position: 'relative', display: 'block' }}>
+                {/* Se apaga solo la foto: la chapa de "no lo hizo" tiene que seguir viva
+                    para poder deshacerlo. */}
+                <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s' }}>
                 {ej.imagen_url
                   ? <img src={ej.imagen_url} alt={ej.nombre}
                       style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover',
@@ -65,6 +77,22 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                       display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
                       <Ic name="fuerza" size={34}/>
                     </div>}
+                </div>
+                {/* CAMBIAR Y NO LO HIZO, COMO CHAPAS EN LA FOTO, igual que notas y series.
+                    Eran botones de texto bajo el nombre y alargaban cada tarjeta. */}
+                {onSustituir && !ej.guardado && !noLoHizo && (
+                  <button type="button" onClick={e => { e.stopPropagation(); onSustituir(ei) }}
+                    title="Cambiar este ejercicio solo hoy" aria-label="Cambiar este ejercicio solo hoy"
+                    style={chapa({ left: 5, top: 33, background: 'var(--w)', color: 'var(--gd)' })}>⇄</button>
+                )}
+                {onNoHecho && (
+                  <button type="button" onClick={e => { e.stopPropagation(); onNoHecho(ei) }} aria-pressed={noLoHizo}
+                    title={noLoHizo ? 'No lo hizo · pulsa para deshacer' : 'Marcar que no lo hizo'}
+                    style={chapa({ right: 5, top: 33,
+                      background: noLoHizo ? 'var(--gr)' : 'var(--w)', color: noLoHizo ? '#fff' : 'var(--grl)' })}>
+                    {noLoHizo ? 'No lo hizo ↺' : '⊘'}
+                  </button>
+                )}
                 <ChapaEjecucion ej={ej} itemMarcado={itemMarcado}
                   onToggle={(ii: number) => toggleItem(pacienteId, ei, ii)}
                   onTodos={(v: boolean) => marcarTodosItems(pacienteId, ei, v)}
@@ -88,21 +116,6 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               {/* CAMBIADO HOY. Se dice de que se cambio: el plan sigue diciendo el otro. */}
               {ej.sustituye && (
                 <div style={{ fontSize: 10.5, color: '#8A6410', marginTop: 2 }}>en lugar de {ej.sustituye}</div>
-              )}
-              {onSustituir && !ej.guardado && (
-                <button type="button" onClick={() => onSustituir(ei)} title="Cambiar este ejercicio solo hoy"
-                  style={{ marginTop: 4, marginRight: 4, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer', borderRadius: 99, padding: '2px 9px',
-                    border: '1px solid var(--bd)', background: 'transparent', color: 'var(--grl)' }}>
-                  ⇄ Cambiar
-                </button>
-              )}
-              {onNoHecho && (
-                <button type="button" onClick={() => onNoHecho(ei)} aria-pressed={noLoHizo}
-                  style={{ marginTop: 4, fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer', borderRadius: 99, padding: '2px 9px',
-                    border: `1px solid ${noLoHizo ? 'var(--gr)' : 'var(--bd)'}`,
-                    background: noLoHizo ? 'var(--gr)' : 'transparent', color: noLoHizo ? '#fff' : 'var(--grl)' }}>
-                  {noLoHizo ? 'No lo hizo · deshacer' : 'No lo hizo'}
-                </button>
               )}
               {/* LA VARIANTE SE LEE. En 8px y gris claro pasaba por una etiqueta
                   cualquiera, y es lo que distingue este ejercicio de otro: a una
