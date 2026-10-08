@@ -447,10 +447,15 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   }
 
   function deSistema(ses:any) {
-    if (!ses?.plantilla_id) return null
+    // La fase puede apuntar a la plantilla de la que salio la sesion O A LA PROPIA
+    // SESION: al editar una sesion desde el ciclo del paciente se hace una copia suya
+    // y la fase pasa a apuntar a la copia. Mirando solo la plantilla, esas copias
+    // salian sin el color del ciclo aunque estuvieran dentro.
+    const ids = [ses?.id, ses?.plantilla_id].filter(Boolean)
+    if (ids.length === 0) return null
     for (const a of sistemasPac) {
       for (const f of (a.sistema?.fases||[])) {
-        if ((f.sesiones||[]).includes(ses.plantilla_id))
+        if ((f.sesiones||[]).some((x:string)=>ids.includes(x)))
           return { color: a.sistema!.color, sistema: a.sistema!.nombre, fase: f.nombre }
       }
     }
@@ -877,7 +882,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   return (
                     <div key={s.id} onClick={()=>setSesionDetalle(s)}
                       className={`tarj-s est-${estadoSesion(s)}`}
-                      style={sis?{background:tinte(sis.color,.12),borderColor:tinte(sis.color,.45)}:undefined}
+                      style={{minWidth:0,overflow:'hidden',...(sis?{background:tinte(sis.color,.12),borderColor:tinte(sis.color,.45)}:{})}}
                       title={estadoSesion(s)==='cumplida'
                         ? 'Sus objetivos ya están logrados'
                         : estadoSesion(s)==='activa' ? 'Trabaja objetivos aún abiertos' : undefined}>
@@ -920,7 +925,9 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         {/* Calculado de las partes, nunca guardado en la sesión. */}
                         {sis && (
                           <span className="pill" title={`${sis.sistema} · ${sis.fase}`}
-                            style={{background:tinte(sis.color,.16),color:sis.color,border:`1px solid ${tinte(sis.color,.5)}`}}>
+                            style={{background:tinte(sis.color,.16),color:sis.color,border:`1px solid ${tinte(sis.color,.5)}`,
+                              // Nombres de fase largos se salian de la tarjeta.
+                              maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                             {sis.fase}
                           </span>
                         )}
