@@ -127,8 +127,11 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                 <span key={c} style={{ display: 'contents' }}>
                   {k > 0 && <span style={sep}>{tm === 'peso_reps' ? '×' : '·'}</span>}
                   <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={muestra(c)}
-                      placeholder={hueco(c)} autoFocus={k === 0}
+                    {/* LO DE ANTES VA DE HUECO, NO DE VALOR. Estaba escrito dentro de la
+                        casilla, asi que al teclear se sumaba: tenia 8, apuntabas 9 y
+                        quedaba 89. Como hueco se ve igual de claro y se escribe encima. */}
+                    <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={todasHoy(c) ? muestra(c) : ''}
+                      placeholder={muestra(c) || hueco(c)} autoFocus={k === 0}
                       onChange={e => ponerEnTodas(c, e.target.value)} style={{ ...celda, ...tinta(todasHoy(c)) }}/>
                     <span style={{ fontSize: 8.5, color: 'var(--grl)', marginTop: 2 }}>{etiqueta(c)}</span>
                   </span>
@@ -175,8 +178,8 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                 {campos.map((c, k) => (
                   <span key={c} style={{ display: 'contents' }}>
                     {k > 0 && <span style={sep}>{tm === 'peso_reps' ? '×' : '·'}</span>}
-                    <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={ser?.[c] || ''}
-                      placeholder={prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—'}
+                    <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={esHoy(si, c) ? (ser?.[c] || '') : ''}
+                      placeholder={(ser?.[c] != null && String(ser[c]) !== '' ? String(ser[c]) : '') || prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—'}
                       onChange={e => mutarSerie(pacienteId, ei, si, c, e.target.value)}
                       style={{ ...celda, height: 27, ...tinta(esHoy(si, c)) }}/>
                   </span>
