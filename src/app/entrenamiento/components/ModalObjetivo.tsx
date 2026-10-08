@@ -194,6 +194,16 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
           const items = Array.isArray(t?.items) ? t.items : []
           const cambiar = (campos: any) =>
             setEvaluadores(p => p.map((y, m) => m === k ? { ...y, ...campos } : y))
+          // VARIOS ITEMS DEL MISMO TEST. Cada uno es su propia fila en objetivos_tests
+          // (y su propia via): el objetivo se da por logrado cuando TODOS los elegidos
+          // salen sin hallazgo. Antes el selector solo dejaba uno, asi que para medir
+          // dos items del mismo test habia que elegir el test entero.
+          const usados = evaluadores
+            .filter((y, m) => m !== k && y.test_id === e.test_id && (y.movimiento || null) === mov && y.item)
+            .map(y => y.item)
+          const nomDe = (it: any) => typeof it === 'string' ? it : it?.nombre
+          const libres = items.map(nomDe).filter((nm: any) => nm && nm !== e.item && !usados.includes(nm))
+          const otroItem = () => setEvaluadores(p => [...p.slice(0, k + 1), { ...e, item: libres[0] }, ...p.slice(k + 1)])
           return (
             <div key={k} style={{ width: 134, position: 'relative' }}>
               <div style={{ width: 134, height: 90, borderRadius: 8, border: '1px solid var(--bd)',
@@ -238,9 +248,17 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                   <option value="">Todo el test</option>
                   {items.map((it: any, ii: number) => {
                     const nom = typeof it === 'string' ? it : it?.nombre
-                    return nom ? <option key={ii} value={nom}>{nom}</option> : null
+                    // Los que ya estan en otra tarjeta de este test no se repiten.
+                    return nom && !usados.includes(nom) ? <option key={ii} value={nom}>{nom}</option> : null
                   })}
                 </select>
+              )}
+              {e.item && libres.length > 0 && (
+                <button type="button" onClick={otroItem}
+                  style={{ display: 'block', margin: '3px auto 0', fontFamily: 'inherit', fontSize: 10.5,
+                    background: 'none', border: 'none', color: 'var(--gd)', cursor: 'pointer', padding: 0 }}>
+                  + otro ítem
+                </button>
               )}
             </div>
           )
