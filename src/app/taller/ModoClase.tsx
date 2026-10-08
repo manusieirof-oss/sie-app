@@ -918,9 +918,15 @@ export default function ModoClase() {
       const k = claveReg(ej.ejercicio_id, ej.nombre)
       if (existentes.has(k)) return
       existentes.add(k)
+      /* LO QUE SE VE EN GRIS ES LO QUE SE GUARDA. Una sola regla: el gris es lo
+         ultimo anotado de ese ejercicio o, si nunca se anoto, lo de la sesion. Si no
+         se toca, se hizo eso. Sin nada de base (ni historial ni sesion), consta que se
+         hizo sin inventar cifras. */
+      const lleno = (x: any) => x != null && String(x).trim() !== ''
+      const seriesPlan = (ej.series || []).filter((x: any) => lleno(x?.peso) || lleno(x?.reps) || lleno(x?.segundos))
       vacios.push({
         paciente_id: pid, ejercicio_id: ej.ejercicio_id || null, ejercicio_nombre: ej.nombre,
-        sesion_id: item.sesionId, series: [], comentario: null, items_evaluados: {}, finalizado: false,
+        sesion_id: item.sesionId, series: seriesPlan, comentario: null, items_evaluados: {}, finalizado: false,
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
         // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
         // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
