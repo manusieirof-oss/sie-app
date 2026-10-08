@@ -30,7 +30,17 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
   const series: any[] = ej.series || []
-  const tm = ej.tipo_medida || 'peso_reps'
+  /* ISOMETRICO SE MIDE EN TIEMPO. La medida salia solo del ejercicio del catalogo
+     (casi todos peso y reps), asi que al marcarlo isometrico seguia pidiendo kg y
+     repeticiones. Con regimen isometrico: segundos, y kg ademas si lleva carga. */
+  const regimen = String(ej.regimen || ej.plan?.regimen || '').toLowerCase()
+  const isometrico = regimen.startsWith('isom')
+  const base = ej.tipo_medida || 'peso_reps'
+  const conCarga = (ej.plan?.peso != null && String(ej.plan.peso) !== '') || base === 'peso_tiempo'
+    || (ej.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')
+  const tm = isometrico && (base === 'peso_reps' || base === 'reps')
+    ? (conCarga ? 'peso_tiempo' : 'tiempo')
+    : base
   const campos: string[] = tm === 'tiempo' ? ['segundos']
     : tm === 'peso_tiempo' ? ['peso', 'segundos'] : ['peso', 'reps']
 

@@ -294,9 +294,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    * nada que pudiera estar ya relleno.
    */
   function medida(ej: any): string {
-    if (ej?.tipo_medida) return ej.tipo_medida
     const bib = catalogo.find((e:any)=>e.id===ej?.ejercicio_id)
-    return bib?.tipo_medida || 'peso_tiempo'
+    const base = ej?.tipo_medida || bib?.tipo_medida || 'peso_tiempo'
+    // Isometrico se prescribe en segundos (con kg si lleva carga), aunque el
+    // ejercicio del catalogo vaya por repeticiones. Igual que en el taller.
+    if (String(ej?.regimen || '').toLowerCase().startsWith('isom') && (base === 'peso_reps' || base === 'reps')) return 'peso_tiempo'
+    return base
   }
 
   /**
