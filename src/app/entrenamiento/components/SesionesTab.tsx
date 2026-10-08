@@ -10,7 +10,7 @@ import { encargoDeLaUrl, asignarSesionYVolver, type Encargo } from '@/lib/asigna
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { textoDescanso } from '@/lib/capacidades'
-import { esPlantilla, asignarPlantilla, duplicarSesion, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, transicionDeParte, modoDeSesion } from '@/lib/sesiones'
+import { esPlantilla, asignarPlantilla, duplicarSesion, duplicarPlantilla, usosDeSesion, eliminarSesion, modoParte, textoModo, descansoDeParte, transicionDeParte, modoDeSesion } from '@/lib/sesiones'
 import HistorialAjustes from './HistorialAjustes'
 
 type EjercicioSesion = {
@@ -118,9 +118,13 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   }
 
   async function duplicarPara(s: any) {
-    if (!s?.paciente_id) return
     setOcupado(true)
-    const r = await duplicarSesion(s, s.paciente_id)
+    // Una plantilla de la biblioteca se duplica como otra plantilla. Antes el boton
+    // solo existia para las sesiones de paciente: en la biblioteca no habia forma de
+    // partir de una sesion para hacer otra parecida.
+    const r: any = s?.paciente_id
+      ? await duplicarSesion(s, s.paciente_id)
+      : await duplicarPlantilla(s, `${s.nombre} (copia)`)
     setOcupado(false)
     if (!r.ok) { alert('No se pudo duplicar: ' + r.error); return }
     setSesionVista(null); cargar()
@@ -282,11 +286,14 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
 
       {sesionVista&&(
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setSesionVista(null)}}>
-          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'92vw',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
-            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',background:'var(--bl)',display:'flex',alignItems:'center',gap:10}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:14,fontWeight:400,color:'var(--n)'}}>{sesionVista.nombre}</div>
-                {sesionVista.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,marginTop:2}}>{sesionVista.descripcion}</div>}
+          {/* EN BLANCO Y A LO ANCHO, como el taller. Antes el fondo era el gris de la app
+              con cada parte en otra caja gris, y el titulo y los botones compartian fila:
+              el nombre se partia en cuatro lineas y los ejercicios iban uno por fila. */}
+          <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'96vw',maxWidth:1180,maxHeight:'92vh',display:'flex',flexDirection:'column',boxShadow:'0 4px 32px rgba(38,40,37,.15)',overflow:'hidden'}}>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',background:'var(--w)',display:'flex',alignItems:'flex-start',gap:10,flexWrap:'wrap'}}>
+              <div style={{flex:'1 1 320px',minWidth:0}}>
+                <div style={{fontSize:17,fontWeight:400,color:'var(--n)'}}>{sesionVista.nombre}</div>
+                {sesionVista.descripcion&&<div style={{fontSize:12,color:'var(--gr)',fontWeight:300,marginTop:3,lineHeight:1.45}}>{sesionVista.descripcion}</div>}
                 {/* Abierta sí caben con su nombre, como en la ficha del paciente. */}
                 {objsDeSesion(sesionVista).length>0&&(
                   <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:7}}>
@@ -318,6 +325,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                         calendario en vez de en una sola cita. Va al lado y no dentro:
                         son dos decisiones distintas, no un modo de la misma. */}
                     <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setGrupo(s)}} disabled={ocupado}><Ic name="pacientes" size={12}/> Programar a un grupo</button>
+                    <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>
                   </>
                 : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}
               {/* SOLO MIRAR. Qué se cambió cada día y qué está previsto: la sesión
@@ -330,14 +338,14 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
               <button className="btn btn-d btn-sm" onClick={()=>borrar(sesionVista)} disabled={ocupado} title="Eliminar la sesión"><Ic name="papelera" size={12}/></button>
               <button onClick={()=>setSesionVista(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
             </div>
-            <div style={{flex:1,overflowY:'auto',padding:16}}>
+            <div style={{flex:1,overflowY:'auto',padding:'14px 18px',background:'var(--w)'}}>
               {(sesionVista.partes||[]).map((parte:any,pi:number)=>(
-                <div key={pi} style={{marginBottom:10,background:'var(--bl)',borderRadius:6,overflow:'hidden',border:'1px solid var(--bd)'}}>
+                <div key={pi} style={{marginBottom:16}}>
                   {/* Cómo se recorre la parte y con qué descansos. Sin esto la vista
                       enseñaba los ejercicios pero no si iban en circuito, en superserie
                       o sueltos, que es lo que decide cómo se hace la sesión entera. */}
-                  <div style={{padding:'6px 12px',borderBottom:'1px solid var(--bm)',display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
-                    <span style={{fontSize:11,fontWeight:500,color:'var(--n)'}}>{parte.nombre}</span>
+                  <div style={{padding:'8px 12px',background:'var(--bl)',borderLeft:'3px solid var(--g)',borderRadius:'0 8px 8px 0',display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap',marginBottom:10}}>
+                    <span style={{fontSize:14,fontWeight:600,color:'var(--n)'}}>{parte.nombre}</span>
                     {(parte.ejercicios||[]).length>0&&(
                       <span style={{fontSize:10,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}>
                         <Ic name={modoParte(parte.modo).icono} size={10}/> {textoModo(parte)}
@@ -356,51 +364,54 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                       </span>
                     )}
                   </div>
-                  {(parte.ejercicios||[]).map((ej:any,ei:number)=>{
-                  // En superserie, cabecera al empezar cada grupo. Sin ella la lista
-                  // era una fila de cuatro ejercicios seguidos y no se veía dónde
-                  // acababa un par y empezaba el otro, que es lo único que hay que
-                  // entender de este modo.
-                  const ss = parte.modo==='superserie'
-                  const g = ej.grupo||'A'
-                  const abreGrupo = ss && (ei===0 || (parte.ejercicios[ei-1]?.grupo||'A')!==g)
-                  const nGrupo = ss ? parte.ejercicios.filter((x:any)=>(x.grupo||'A')===g).length : 0
-                  return (
-                  <div key={ei}>
-                  {abreGrupo&&(
-                    <div style={{padding:'5px 12px',background:'var(--gl)',borderTop:ei>0?'1px solid var(--bm)':'none',display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
-                      <span style={{fontSize:10,fontWeight:600,color:'var(--gd)'}}>Grupo {g}</span>
-                      {/* Solo vueltas y descanso. Lo de "sin descanso entre ellos" se
-                          quita: si no hay descanso escrito, no hay descanso, y decirlo
-                          en cada grupo era repetir una regla que ya vale para todo. */}
-                      {ej.series&&<span style={{fontSize:10,color:'var(--gr)'}}>{ej.series} vueltas</span>}
-                      {parte.descanso&&(
-                        <span style={{fontSize:10,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}
-                          title="Una serie de cada ejercicio del grupo, seguidas, y aquí el descanso">
-                          <Ic name="pausa" size={10}/> {textoDescanso(parte.descanso)} tras cada vuelta
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div style={{padding:'8px 12px',borderBottom:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',gap:10}}>
-                    {ss&&<span style={{flexShrink:0,fontSize:10,fontWeight:600,color:'var(--gd)',background:'var(--gl)',borderRadius:4,padding:'2px 5px',marginTop:2}}>{g}{parte.ejercicios.slice(0,ei+1).filter((x:any)=>(x.grupo||'A')===g).length}</span>}
-                      {ej.imagen_url&&<img src={ej.imagen_url} alt={ej.nombre} style={{width:44,height:44,objectFit:'contain',background:'var(--bm)',borderRadius:4,flexShrink:0}}/>}
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:3}}>{ej.nombre||ej}</div>
-                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                          {ej.variante&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{ej.variante}</span>}
-                          {ej.capacidad&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--ambl)',color:'#7A5800'}}>{ej.capacidad}</span>}
-                          {parte.modo!=='circuito'&&parte.modo!=='superserie'&&ej.series&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.series} series</span>}
-                          {ej.reps&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.reps} reps</span>}
-                          {ej.peso&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.peso} kg</span>}
-                          {ej.tiempo&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{ej.tiempo} seg</span>}
+                  {/* Rejilla de fotos como en el taller. En superserie, un bloque por grupo
+                      para que se vea donde acaba un par y empieza el otro. */}
+                  {(() => {
+                    const ss = parte.modo==='superserie'
+                    const ejs = (parte.ejercicios||[]).map((ej:any,ei:number)=>({ej,ei}))
+                    const grupos: {g:string, items:any[]}[] = []
+                    ejs.forEach((x:any)=>{
+                      const g = ss ? (x.ej.grupo||'A') : ''
+                      const ult = grupos[grupos.length-1]
+                      if (ult && ult.g===g) ult.items.push(x); else grupos.push({g, items:[x]})
+                    })
+                    const chip = (t:string, fondo='var(--bl)', color='var(--gr)') =>
+                      <span style={{fontSize:10.5,padding:'1px 8px',borderRadius:99,background:fondo,color}}>{t}</span>
+                    return grupos.map((gr,gi)=>(
+                      <div key={gi} style={{paddingLeft:14,marginBottom:10}}>
+                        {ss&&(
+                          <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:6}}>
+                            <span style={{fontSize:12,fontWeight:600,color:'var(--gd)'}}>Grupo {gr.g}</span>
+                            {gr.items[0]?.ej.series&&<span style={{fontSize:11,color:'var(--gr)'}}>{gr.items[0].ej.series} vueltas</span>}
+                            {parte.descanso&&<span style={{fontSize:11,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:3}}><Ic name="pausa" size={10}/> {textoDescanso(parte.descanso)} tras cada vuelta</span>}
+                          </div>
+                        )}
+                        <div style={{display:'grid',gap:10,gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))'}}>
+                          {gr.items.map(({ej,ei}:any)=>(
+                            <div key={ei} style={{textAlign:'center'}}>
+                              <div style={{position:'relative',aspectRatio:'1/1',background:'var(--bm)',borderRadius:10,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}>
+                                {ej.imagen_url
+                                  ? <img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+                                  : <Ic name="fuerza" size={30}/>}
+                                {ss&&<span style={{position:'absolute',top:6,left:6,fontSize:10.5,fontWeight:600,color:'var(--gd)',background:'var(--w)',borderRadius:99,padding:'1px 7px'}}>{gr.g}{gr.items.findIndex((x:any)=>x.ei===ei)+1}</span>}
+                              </div>
+                              <div style={{fontSize:12.5,color:'var(--n)',marginTop:6,lineHeight:1.3}}>{ej.nombre||ej}</div>
+                              <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'center',marginTop:4}}>
+                                {ej.variante&&chip(ej.variante,'var(--gl)','var(--gd)')}
+                                {ej.capacidad&&chip(ej.capacidad,'var(--ambl)','#7A5800')}
+                                {parte.modo!=='circuito'&&parte.modo!=='superserie'&&ej.series&&chip(`${ej.series} series`)}
+                                {ej.reps&&chip(`${ej.reps} reps`)}
+                                {ej.peso&&chip(`${ej.peso} kg`)}
+                                {ej.tiempo&&chip(`${ej.tiempo} seg`)}
+                              </div>
+                              {ej.nota&&<div style={{fontSize:10.5,color:'#7A5800',marginTop:4,fontStyle:'italic'}}>{ej.nota}</div>}
+                            </div>
+                          ))}
                         </div>
-                        {ej.nota&&<div style={{fontSize:9,color:'var(--amb)',marginTop:3,fontStyle:'italic',display:'flex',alignItems:'center',gap:4}}><Ic name="nota" size={10}/> {ej.nota}</div>}
                       </div>
-                    </div>
-                  </div>
-                  )})}
-                  {(parte.ejercicios||[]).length===0&&<div style={{padding:'6px 12px',fontSize:9,color:'var(--grl)'}}>Sin ejercicios</div>}
+                    ))
+                  })()}
+                  {(parte.ejercicios||[]).length===0&&<div style={{paddingLeft:14,fontSize:11,color:'var(--grl)'}}>Sin ejercicios</div>}
                 </div>
               ))}
             </div>
