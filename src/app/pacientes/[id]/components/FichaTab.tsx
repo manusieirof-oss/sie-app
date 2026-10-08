@@ -175,6 +175,18 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     testsDeObjetivo(objAbierto).then(r => { if (vivo) setEvsAbierto(r) })
     return () => { vivo = false }
   }, [objAbierto])
+  /**
+   * Que items ensenar al pasar un test desde un objetivo. Si el objetivo cuelga del
+   * test ENTERO, todos (undefined). Si cuelga de items sueltos, solo esos: los que
+   * tenga enganchados de ese test y el de la via que se pulso.
+   */
+  const itemsPara = (testId: string, propio?: string | null): string[] | undefined => {
+    const es = evsAbierto.filter(e => e.test_id === testId)
+    if (es.some(e => !e.item) && !propio) return undefined
+    const n = new Set<string>(es.map(e => e.item).filter(Boolean) as string[])
+    if (propio) n.add(propio)
+    return n.size ? Array.from(n) : undefined
+  }
   const [modalAnadir, setModalAnadir] = useState(false)
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
@@ -650,7 +662,12 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       const hecho = !!x.v.resuelto
       return (
         <button key={x.vi} type="button" disabled={guardandoVia===o.id}
-          onClick={()=>{ if (puedeAbrir) abrirTest(testId, x.v.lado || 'bilateral'); else toggleVia(o,x.vi) }}
+          onClick={()=>{ if (puedeAbrir) {
+            // La via de un item apunta a 'test:posicion': se traduce al nombre.
+            const pos = x.v.tipo === 'test_item' ? Number(String(x.v.ref).split(':')[1]) : NaN
+            const propio = Number.isFinite(pos) ? (t?.items?.[pos]?.nombre || null) : null
+            abrirTest(testId, x.v.lado || 'bilateral', itemsPara(testId, propio))
+          } else toggleVia(o,x.vi) }}
           title={puedeAbrir
             ? (hecho
                 ? `Resuelto${x.v.fecha_resuelto?' el '+fmtLargo(x.v.fecha_resuelto):''} · pulsa para volver a pasar el test`
@@ -820,7 +837,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         {o.logrado === false && (
           <MedidasObjetivo pacienteId={pac.id} objetivo={o} tests={testsLib}
             onCambio={cargarObjetivos}
-            onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
+            onAbrirTest={(id:string, lado:string, item?:string)=>abrirTest?.(id, lado, itemsPara(id, item))}/>
         )}
 
         {/* LOS TESTS ENGANCHADOS QUE NO TIENEN BARRA. Antes no salian en ningun sitio:
@@ -851,7 +868,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                 {filas.map(f => (
                   <button key={f.clave} className="btn btn-s btn-sm" disabled={typeof abrirTest !== 'function'}
-                    onClick={() => abrirTest?.(f.t.id, 'bilateral')}>
+                    onClick={() => abrirTest?.(f.t.id, 'bilateral', itemsPara(f.t.id, f.item))}>
                     <Ic name="test" size={12}/> {f.t.nombre}{f.item ? ` · ${f.item}` : ''}
                   </button>
                 ))}
@@ -895,7 +912,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
                   <MedidasObjetivo pacienteId={pac.id} objetivo={o} tests={testsLib}
                     titulo="Con qué se confirma"
                     onCambio={cargarObjetivos}
-                    onAbrirTest={(id:string, lado:string)=>abrirTest?.(id, lado)}/>
+                    onAbrirTest={(id:string, lado:string, item?:string)=>abrirTest?.(id, lado, itemsPara(id, item))}/>
                   {/* Los cerrados a mano no tienen test del que heredar nada, asi que
                       se confirman igual que se cerraron: mirandolo. Los que si lo
                       tienen se confirman solos al pasarlo, pero el boton sigue ahi

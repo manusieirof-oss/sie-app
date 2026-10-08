@@ -92,7 +92,7 @@ export default function FichaPacientePage() {
   // elegirlo el mismo explorador (`ExploradorTests`). Aquí había un formulario propio de
   // 95 líneas con un desplegable de 49 tests: la cuarta copia, y la peor de ver.
   const [eligiendoTest, setEligiendoTest] = useState(false)
-  const [testEnCurso, setTestEnCurso] = useState<{test:any,tv:any}|null>(null)
+  const [testEnCurso, setTestEnCurso] = useState<{test:any,tv:any,items?:string[]}|null>(null)
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
   const [procesando, setProcesando] = useState(false)
   const [menuAcc, setMenuAcc] = useState<any>(null)
@@ -399,7 +399,9 @@ export default function FichaPacientePage() {
    * Reevaluar un test concreto, desde Salud o desde el detalle de un resultado.
    * Se abre ya en el lado que se venía mirando: es el que se va a repetir.
    */
-  function abrirTest(testId: string, lado: string) {
+  // `items`: si el objetivo se mide con items sueltos, solo se ensenan esos. Antes
+  // salia el test entero y habia que buscar entre todos el que tocaba.
+  function abrirTest(testId: string, lado: string, items?: string[]) {
     const test = testsDisp.find((t:any)=>t.id===testId)
     if (!test) { alert('Ese test ya no está en la biblioteca'); return }
     /**
@@ -416,7 +418,8 @@ export default function FichaPacientePage() {
     const lateral = test.tipo_lado === 'lateral'
     const valido = lateral ? (lado==='izquierdo' || lado==='derecho') : (lado==='bilateral')
     const l = valido ? lado : (lateral ? '' : 'bilateral')
-    setTestEnCurso({ test, tv: { ladoActivo:l, frecuencia_meses:test.frecuencia_meses,
+    setTestEnCurso({ test, items: items && items.length ? items : undefined,
+      tv: { ladoActivo:l, frecuencia_meses:test.frecuencia_meses,
       lados: l ? { [l]: ladoVacio(test) } : {} } })
   }
 
@@ -976,6 +979,7 @@ export default function FichaPacientePage() {
       {testEnCurso && (
         <ModalRealizarTest
           test={testEnCurso.test} tv={testEnCurso.tv}
+          soloItems={testEnCurso.items}
           paciente={{ id: pac.id, sexo: pac.sexo, fecha_nacimiento: pac.fecha_nacimiento }}
           onCambiar={(tv:any)=>setTestEnCurso((p:any)=>({...p,tv}))}
           onCerrar={()=>setTestEnCurso(null)}

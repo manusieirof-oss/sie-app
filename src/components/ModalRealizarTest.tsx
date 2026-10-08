@@ -104,7 +104,8 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
 
   // Barras sin valor. El veredicto se sigue calculando igual, pero deja de anunciarse como
   // si estuviera el test entero mirado.
-  const pendientes = medicionesPendientes(base)
+  // Solo lo que se ensena: si se pasa un item suelto, los otros no estan pendientes.
+  const pendientes = medicionesPendientes(soloItems ? base.filter((it: any) => soloItems.includes(it?.nombre)) : base)
 
   // Con qué se compara este paciente. Solo lo usa el baremo; en el resto es inofensivo.
   const ctx = { sexo: paciente?.sexo || null, edad: edadEn(paciente?.fecha_nacimiento) }

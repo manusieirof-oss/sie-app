@@ -33,7 +33,7 @@ export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], titu
   titulo?: string
   onCambio?: () => void
   /** Volver a pasar el test. Lo que mueve una meta es medir otra vez. */
-  onAbrirTest?: (testId: string, lado: string) => void
+  onAbrirTest?: (testId: string, lado: string, item?: string) => void
 }) {
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(true)
@@ -95,7 +95,7 @@ export default function MedidasObjetivo({ pacienteId, objetivo, tests = [], titu
                 y antes había que ir a buscarlo a la lista de «de dónde sale». */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 9,
               cursor: onAbrirTest ? 'pointer' : 'default' }}
-              onClick={() => onAbrirTest?.(f.test.id, f.lado || 'bilateral')}>
+              onClick={() => onAbrirTest?.(f.test.id, f.lado || 'bilateral', f.item?.nombre)}>
               {f.test.imagen_url
                 ? <img src={f.test.imagen_url} alt="" style={{ width: 46, height: 38, objectFit: 'cover',
                     borderRadius: 6, background: 'var(--bm)', flexShrink: 0, display: 'block' }}/>
