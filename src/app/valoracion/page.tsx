@@ -261,7 +261,10 @@ export default function ValoracionPage() {
       // Los días por semana son los del bono elegido. Estaban en un mapa fijo aquí
       // dentro, así que un bono nuevo de Ajustes entraba siempre con 2 días.
       const bonoSel = bonosOpts.find(b => b.id === form.bono)
-      await Promise.all([
+      /* LOS FALLOS SE MIRAN. Supabase no lanza: devuelve { error }. Este Promise.all no
+         miraba nada, asi que si la fila de la valoracion (o una molestia, o el bono) no
+         entraba, la pantalla decia "guardado" igual. */
+      const resultados: any[] = await Promise.all([
         // El bono es cosa de la valoración inicial. Una revaloración abría uno nuevo
         // en paralelo al que el paciente ya estaba pagando.
         // Y SOLO SI HAY ALGO QUE ASIGNAR. Un suelto —una valoración a secas— no
@@ -280,6 +283,12 @@ export default function ValoracionPage() {
         ...((form.borg!=null||form.estres!=null) ? [supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:hoyISO(), borg:form.borg, estres:form.estres })] : []),
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
+      const fallos = resultados.map((r:any) => r?.error?.message).filter(Boolean)
+      if (fallos.length > 0) {
+        alert('ATENCIÓN: parte de la valoración NO se ha guardado.\n\n' + fallos.join('\n') + '\n\nNo cierres esta pantalla: haz una captura y avisa.')
+        setGuardando(false)
+        return
+      }
       // Alergias, intolerancias y operaciones van a SUS TABLAS, no solo al JSON de la
       // valoración. Antes se guardaban únicamente dentro de `estado_general` y por eso una
       // alergia apuntada aquí no aparecía en Salud: quedaba escrita donde nadie mira.
