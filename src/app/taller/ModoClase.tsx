@@ -400,18 +400,50 @@ export default function ModoClase() {
      taller esta abierto; esto mira la base al entrar, asi que sobrevive a cerrar la
      pagina. Solo se guarda lo que se llego a apuntar: lo no tocado de esos dias no
      se reconstruye. */
+  /* CLASES SIN GUARDAR, SACADAS DE LA AGENDA. Antes el aviso salia de lo apuntado,
+     y una clase en la que no se escribio nada (lo normal con la regla del gris) no
+     dejaba rastro: no se avisaba y se perdia. Ahora: citas ya pasadas, con sesion,
+     a las que vino (o sin marcar), y sin nada finalizado ese dia. Ultimos 7 dias. */
   const [viejos, setViejos] = useState<any[]>([])
   const [guardandoViejos, setGuardandoViejos] = useState(false)
   async function buscarViejos() {
-    const { data } = await supabase.from('registros_ejercicio')
-      .select('id,paciente_id,ejercicio_id,fecha, pacientes(nombre,apellidos,nombre_clinica)')
-      .eq('finalizado', false).lt('fecha', hoy()).order('fecha')
-    setViejos(data || [])
+    const d = new Date(hoy() + 'T12:00:00'); d.setDate(d.getDate() - 7)
+    const desde = d.toISOString().slice(0, 10)
+    const { data: citas } = await supabase.from('citas')
+      .select('id,fecha,hora,estado,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento), sesiones:sesion_id(*)')
+      .not('sesion_id', 'is', null).not('paciente_id', 'is', null)
+      .in('estado', ['programada', 'realizada']).gte('fecha', desde).lte('fecha', hoy())
+      .order('fecha').order('hora')
+    const ahora = new Date()
+    const minAhora = ahora.getHours() * 60 + ahora.getMinutes()
+    // Las de hoy, solo si ya acabaron (hora + 90 min): la que esta en marcha no es pendiente.
+    const pasadas = (citas || []).filter((c: any) => {
+      // Las de hoja libre se guardan por su propio camino; aqui no hay series que cerrar.
+      const ses = Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
+      if (!ses || ses.hoja) return false
+      if (c.fecha < hoy()) return true
+      const [h, m] = String(c.hora || '00:00').split(':').map(Number)
+      return h * 60 + m + 90 < minAhora
+    })
+    if (pasadas.length === 0) { setViejos([]); return }
+    const pids = Array.from(new Set(pasadas.map((c: any) => c.paciente_id)))
+    const { data: fin } = await supabase.from('registros_ejercicio').select('paciente_id,fecha')
+      .eq('finalizado', true).in('paciente_id', pids).gte('fecha', desde)
+    const hechas = new Set((fin || []).map((r: any) => r.paciente_id + '|' + r.fecha))
+    setViejos(pasadas.filter((c: any) => !hechas.has(c.paciente_id + '|' + c.fecha)))
   }
   useEffect(() => { buscarViejos() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Guarda cada clase pendiente como si se hubiera pulsado Finalizar ese dia. */
   async function guardarViejos() {
     setGuardandoViejos(true)
-    for (const r of viejos) await cerrarBorrador(r)
+    for (const c of viejos) {
+      const ses = Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
+      const pac = Array.isArray(c.pacientes) ? c.pacientes[0] : c.pacientes
+      if (!ses || !pac) continue
+      const datos = await cargarDatosSesion(c.paciente_id, aplicarAjustes(ses, c.ajustes), c.fecha)
+      await finalizarPaciente(c.paciente_id, { paciente: pac, sesionId: ses.id, datos, citaId: c.id,
+        estado: c.estado, hora: (c.hora || '').slice(0, 5), fechaClase: c.fecha })
+    }
     setGuardandoViejos(false)
     buscarViejos()
   }
@@ -525,7 +557,7 @@ export default function ModoClase() {
     }))
   }
 
-  async function cargarDatosSesion(pid: string, ses: any) {
+  async function cargarDatosSesion(pid: string, ses: any, fechaC: string = fecha) {
     if (ses?.id) cargarObjsDeSesion(ses.id)
     const ejs: any[] = []
     ;(ses.partes||[]).forEach((parte:any, pi:number)=>{
@@ -600,7 +632,7 @@ export default function ModoClase() {
        */
       const { data: fin } = await supabase.from('registros_ejercicio')
         .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados')
-        .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids)
+        .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids).lte('fecha', fechaC)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
       /* LAS DOS ULTIMAS NOTAS, con su fecha. Una sola y sin fecha no decia si
@@ -625,7 +657,7 @@ export default function ModoClase() {
       ;(ejec||[]).forEach((r:any)=>{ ejecMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
         .select('ejercicio_id,variante,series,comentario,items_evaluados,regimen')
-        .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).eq('fecha', fecha).in('ejercicio_id', ids)
+        .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).eq('fecha', fechaC).in('ejercicio_id', ids)
       // Solo el borrador de ESTE dia. Sin la fecha, uno olvidado de otra clase de la
       // misma sesion aparecia como apuntado hoy.
       const cursoMap:Record<string,any>={}
@@ -658,7 +690,7 @@ export default function ModoClase() {
             })
             e.precargado = true
             // Si "la ultima vez" es HOY (ya finalizado en esta clase), es de hoy.
-            if (ultMap[kv]?.fecha === fecha) {
+            if (ultMap[kv]?.fecha === fechaC) {
               const hoy: Record<string, boolean> = {}
               e.ultimo.forEach((x:any, k:number) => ['peso','reps','segundos'].forEach(f => {
                 if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
@@ -775,7 +807,7 @@ export default function ModoClase() {
     return supabase.from('registros_ejercicio').update({ finalizado: true }).eq('id', r.id)
   }
 
-  async function autoguardar(pid:string, ei:number, ej:any, sesionId:string){
+  async function autoguardar(pid:string, ei:number, ej:any, sesionId:string, fechaC:string = fecha){
     const seriesLlenas = ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
     const hayComent = (ej.comentario||'').trim()!==''
     const iv = ej.items_evaluados || {}
@@ -785,7 +817,7 @@ export default function ModoClase() {
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
-      fecha,
+      fecha: fechaC,
       // Como se hizo HOY, que puede no ser como estaba prescrito.
       regimen: ej.regimen || ej.plan?.regimen || null,
       // Sin esto, la progresión de cargas mezclaba unilateral y bilateral.
@@ -803,7 +835,7 @@ export default function ModoClase() {
       let { data: existe } = await q.maybeSingle()
       // Borrador de OTRO dia que se quedo sin guardar: se cierra con su fecha y se
       // empieza uno nuevo. Si se actualizara, lo de hoy quedaria con la fecha vieja.
-      if (existe && existe.fecha && existe.fecha !== fecha) {
+      if (existe && existe.fecha && existe.fecha !== fechaC) {
         await cerrarBorrador({ id: existe.id, paciente_id: pid, ejercicio_id: ej.ejercicio_id, fecha: existe.fecha })
         existe = null
       }
@@ -948,7 +980,7 @@ export default function ModoClase() {
       const ej=item.datos[i]
       const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
       const hayComent=(ej.comentario||'').trim()!==''
-      if (llenas.length>0 || hayComent) await autoguardar(pid,i,ej,item.sesionId)
+      if (llenas.length>0 || hayComent) await autoguardar(pid,i,ej,item.sesionId,fechaC)
     }
     /**
      * LO QUE NO SE MARCO COMO "NO LO HIZO", SE HIZO.
@@ -1017,6 +1049,7 @@ export default function ModoClase() {
     if (error){ alert('Error al finalizar: '+error.message); return false }
     setSeleccion(prev => prev.map(s=>s.paciente.id===pid?{...s,finalizado:true}:s))
     setPendClase(prev => prev.filter((x:any) => !(x.paciente.id===pid && x.citaId===item.citaId)))
+    if (!itemArg) buscarViejos()
     return true
   }
 
@@ -1141,18 +1174,18 @@ export default function ModoClase() {
       </div>
 
       {viejos.length > 0 && (() => {
-        const quien = Array.from(new Map(viejos.map((r:any) => {
+        const quien = viejos.map((r:any) => {
           const p = Array.isArray(r.pacientes) ? r.pacientes[0] : r.pacientes
           const n = (p?.nombre_clinica || `${p?.nombre||''} ${p?.apellidos||''}`).trim() || 'Paciente'
-          const d = new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})
-          return [r.paciente_id+'|'+r.fecha, `${n} (${d})`]
-        })).values())
+          const d = r.fecha === hoy() ? 'hoy' : new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+          return `${n} (${d} ${(r.hora||'').slice(0,5)})`
+        })
         return (
           <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10,padding:'9px 12px',
             borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800',fontSize:12.5}}>
             <Ic name="alerta" size={14}/>
             <span style={{flex:1,minWidth:200,lineHeight:1.5}}>
-              <b>Clases de días anteriores sin guardar</b> · {quien.join(', ')}.
+              <b>{viejos.length} {viejos.length===1?'clase':'clases'} sin guardar</b> · {quien.join(', ')}.
               {' '}Si no se guardan, lo apuntado no cuenta como hecho.
             </span>
             <button className="btn btn-p btn-sm" disabled={guardandoViejos} onClick={guardarViejos}>
