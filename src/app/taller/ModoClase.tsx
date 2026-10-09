@@ -1575,6 +1575,16 @@ export default function ModoClase() {
                     <Ic name={modoParte(ej.parteObj.modo).icono} size={13}/> {textoModo(ej.parteObj)}
                   </span>
                 )}
+                {/* AÑADIR A SU SESION, en la cabecera del bloque: un cuadrado pequeño que
+                    no ocupa sitio. Entra con las condiciones de este bloque. */}
+                {ej.pos != null && (
+                  <button type="button" title="Añadir un ejercicio a este bloque de su sesión"
+                    aria-label="Añadir un ejercicio a este bloque de su sesión"
+                    onClick={e=>{ e.stopPropagation(); setAnadiendo({ pid: act.paciente.id, pi: Number(String(ej.pos).split('.')[0]) }); cargarCatalogo() }}
+                    style={{width:26,height:26,borderRadius:6,border:'1.5px dashed var(--gm)',background:'var(--w)',
+                      color:'var(--gd)',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',
+                      fontFamily:'inherit',fontSize:14,fontWeight:700,padding:0,lineHeight:1}}>…</button>
+                )}
                 {ej.parteObj && descansoDeParte(ej.parteObj) && (
                   <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
                     <Ic name="pausa" size={13}/> {descansoDeParte(ej.parteObj)!.texto} {descansoDeParte(ej.parteObj)!.cuando}
@@ -1608,8 +1618,7 @@ export default function ModoClase() {
               toggleObjetivo={toggleObjetivo}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
-              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}
-              onAnadir={(pi:number)=>{ setAnadiendo({ pid: act.paciente.id, pi }); cargarCatalogo() }}/>}
+              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}/>}
             </div>
             )
           })}
