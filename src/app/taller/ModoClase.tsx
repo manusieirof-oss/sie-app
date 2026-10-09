@@ -31,6 +31,46 @@ export default function ModoClase() {
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
 
+  /* ── QUIEN ESTA CON CADA PACIENTE (presencia en directo) ─────────────────────
+     Varias tablets y ordenadores trabajan a la vez. Si dos apuntan al mismo
+     paciente, se queda lo ultimo que se escribio. Cada dispositivo anuncia que
+     paciente tiene abierto (canal de presencia de Supabase, sin tocar la base) y
+     los demas lo ven en su chip. No bloquea: avisa. */
+  const [enOtros, setEnOtros] = useState<Record<string, string[]>>({})
+  const canalRef = useRef<any>(null)
+  const quienRef = useRef<string>('Otro dispositivo')
+  const listoCanal = useRef(false)
+  useEffect(() => {
+    let yo = ''
+    try { yo = sessionStorage.getItem('sie-dispositivo') || '' } catch {}
+    if (!yo) { yo = Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem('sie-dispositivo', yo) } catch {} }
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+    const tipo = /iPad|Tablet|Android/i.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document) ? 'tablet' : 'ordenador'
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user?.email?.split('@')[0]
+      quienRef.current = u ? `${u} · ${tipo}` : `otro ${tipo}`
+    })
+    const ch = supabase.channel('taller-presencia', { config: { presence: { key: yo } } })
+    ch.on('presence', { event: 'sync' }, () => {
+      const st: any = ch.presenceState()
+      const m: Record<string, string[]> = {}
+      Object.entries(st).forEach(([k, metas]: any) => {
+        if (k === yo) return
+        ;(metas || []).forEach((x: any) => { if (x?.pid) (m[x.pid] ||= []).push(x.quien || 'otro dispositivo') })
+      })
+      setEnOtros(m)
+    }).subscribe((estado: string) => {
+      if (estado === 'SUBSCRIBED') { listoCanal.current = true; ch.track({ pid: activoRef.current || null, quien: quienRef.current }) }
+    })
+    canalRef.current = ch
+    return () => { listoCanal.current = false; supabase.removeChannel(ch) }
+  }, [])
+  const activoRef = useRef<string>('')
+  useEffect(() => {
+    activoRef.current = activo
+    if (listoCanal.current) canalRef.current?.track({ pid: activo || null, quien: quienRef.current })
+  }, [activo])
+
   /**
    * HOJA LIBRE. Una sesion dibujada no tiene partes: lo que se apunta son sus casillas.
    *
@@ -1374,6 +1414,10 @@ export default function ModoClase() {
                 boxShadow:activoChip?'0 2px 6px rgba(0,0,0,.18)':'none'}}>
               <span style={{width:7,height:7,borderRadius:'50%',flexShrink:0,background:colorEstado,boxShadow:activoChip?'0 0 0 1.5px var(--w)':'none'}}/>
               {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
+              {enOtros[s.paciente.id] && (
+                <span title={'Abierto también en: ' + enOtros[s.paciente.id].join(', ')}
+                  style={{width:8,height:8,borderRadius:99,flexShrink:0,background:'#D4A24E',boxShadow:'0 0 0 2px #fff'}}/>
+              )}
               {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
               <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
@@ -1399,6 +1443,11 @@ export default function ModoClase() {
                 <span>{nombrePac(act.paciente)}</span>
                 {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
                 {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
+                {enOtros[act.paciente.id] && (
+                  <span style={{fontSize:11,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:99,padding:'2px 9px',marginLeft:8}}>
+                    También abierto en {enOtros[act.paciente.id].join(', ')} · si apuntáis los dos, se queda lo último
+                  </span>
+                )}
                 {/* LO QUE ESTÁ HACIENDO NO ES LO QUE SE LE PLANIFICÓ. Va aquí arriba y no
                     escondido junto al botón: quien entra a mitad de clase tiene que verlo
                     sin preguntar, porque cambia lo que se espera de la sesión. */}
