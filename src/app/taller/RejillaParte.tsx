@@ -33,7 +33,7 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, onSustituir }: any) {
+  superserie = false, noHechos = [], onNoHecho, onSustituir, onAnadir }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -183,6 +183,14 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
       </div>
       </div>
       ))}
+      {/* AÑADIR A SU SESION, al final del bloque: entra con sus condiciones. */}
+      {onAnadir && ejercicios[0]?.ej?.pos != null && (
+        <button type="button" onClick={() => onAnadir(Number(String(ejercicios[0].ej.pos).split('.')[0]))}
+          style={{ marginTop: 8, fontFamily: 'inherit', fontSize: 11.5, cursor: 'pointer', borderRadius: 99, padding: '3px 11px',
+            border: '1px dashed var(--gm)', background: 'transparent', color: 'var(--gd)' }}>
+          + Añadir ejercicio a su sesión
+        </button>
+      )}
     </div>
   )
 }

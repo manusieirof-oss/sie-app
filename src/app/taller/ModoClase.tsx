@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo } from '@/lib/sesiones'
+import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
@@ -369,7 +369,15 @@ export default function ModoClase() {
       /* LA CLASE QUE SE DEJA SIN GUARDAR SE AVISA. Al cambiar de franja, quien sale de
          pantalla sin finalizar pasa a un aviso con "Guardar ahora": si no se guarda,
          lo apuntado no cuenta como hecho. */
-      const dejados = porCerrar(previos.filter((s:any) => !final.includes(s)))
+      /* SOLO SI ESA CLASE YA ACABO. Cambiar de sala o mirar otra hora no deja nada
+         pendiente: en la tablet de una compania salia "sin guardar" Marisa, que
+         estaba entrenando en la otra sala con otra tablet. */
+      const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes()
+      const acabada = (x:any) => (x.fechaClase || fecha) < hoy() || (() => {
+        const [h, m] = String(x.hora || '00:00').split(':').map(Number)
+        return h * 60 + m + 90 < ahoraMin
+      })()
+      const dejados = porCerrar(previos.filter((s:any) => !final.includes(s))).filter(acabada)
       if (dejados.length > 0) setPendClase(prev => [
         ...prev.filter((x:any) => !dejados.some((d:any) => d.citaId === x.citaId)), ...dejados])
       setSeleccion(final)
@@ -513,6 +521,101 @@ export default function ModoClase() {
   // cargar ejercicios+borrador de una sesion sin depender del estado (para restaurar)
   /** Ejercicio + variante. Para el historial son dos cosas distintas. */
   const claveVar = (id: string, v: any) => `${id}|${String(v || '').trim()}`
+
+  // Añadir un ejercicio a una parte de SU sesion (para siempre). pi = indice de la parte.
+  const [anadiendo, setAnadiendo] = useState<{ pid: string, pi: number } | null>(null)
+  async function cargarCatalogo() {
+    if (catalogoEj.length > 0) return
+    const r = await traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
+    setCatalogoEj(r.filas)
+  }
+
+  /**
+   * CAMBIAR SU SESION DESDE LA SALA, PARA SIEMPRE: quitar o añadir un ejercicio.
+   *
+   * Lo de "Cambiar" y "No lo hizo" vale solo para el dia; esto cambia la sesion del
+   * paciente y sale asi en sus proximas citas. Solo la suya: si la cita apuntaba a
+   * una sesion que no es suya (de la biblioteca o compartida), primero se le hace
+   * su copia y sus citas de hoy en adelante pasan a ella.
+   *
+   * Lo ya hecho no cambia: sus registros guardan lo que se hizo cada dia.
+   */
+  async function editarSuSesion(pid: string, cambiar: (partes: any[]) => any[], quitado?: { pi: number, pe: number }, texto?: string) {
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    if (!item?.sesionId) return
+    const fechaC = item.fechaClase || fecha
+    const { data: ses, error: e1 } = await supabase.from('sesiones').select('*').eq('id', item.sesionId).maybeSingle()
+    if (e1 || !ses) { alert('No se ha podido leer su sesión'); return }
+    let destino: any = ses
+    if (ses.paciente_id !== pid) {
+      const r: any = await duplicarSesion(ses, pid, { sufijo: '', plantillaId: ses.id, motivo: 'Ajustada en el taller' })
+      if (!r.ok || !r.sesion) { alert('No se ha podido hacer su copia de la sesión: ' + r.error); return }
+      destino = r.sesion
+      await supabase.from('citas').update({ sesion_id: destino.id })
+        .eq('paciente_id', pid).eq('sesion_id', ses.id).gte('fecha', fechaC)
+    }
+    const partes = cambiar(JSON.parse(JSON.stringify(destino.partes || [])))
+    const { error: e2 } = await supabase.from('sesiones').update({ partes }).eq('id', destino.id)
+    if (e2) { alert('No se ha podido cambiar su sesión: ' + e2.message); return }
+
+    /* Los ajustes del dia van por POSICION (parte.ejercicio). Al quitar uno, los de
+       detras de esa parte se corren un puesto en sus citas de hoy en adelante; si
+       no, el ajuste de un ejercicio caeria en el siguiente. */
+    if (quitado) {
+      const { data: cs } = await supabase.from('citas').select('id,ajustes')
+        .eq('paciente_id', pid).eq('sesion_id', destino.id).gte('fecha', fechaC).not('ajustes', 'is', null)
+      for (const c of (cs || [])) {
+        const ej = c.ajustes?.ejercicios || {}
+        const nuevo: Record<string, any> = {}
+        Object.entries(ej).forEach(([k, v]) => {
+          const [a, b] = k.split('.').map(Number)
+          if (a !== quitado.pi) { nuevo[k] = v; return }
+          if (b === quitado.pe) return
+          nuevo[`${a}.${b > quitado.pe ? b - 1 : b}`] = v
+        })
+        await supabase.from('citas').update({ ajustes: Object.keys(nuevo).length ? { ...c.ajustes, ejercicios: nuevo } : null }).eq('id', c.id)
+      }
+    }
+    if (texto) await supabase.from('eventos_paciente').insert({ paciente_id: pid, tipo: 'sesion', titulo: texto, fecha: fechaC })
+
+    // Se recarga su clase con la sesion nueva y los ajustes del dia.
+    const { data: cita } = item.citaId ? await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle() : { data: null }
+    const datos = await cargarDatosSesion(pid, aplicarAjustes({ ...destino, partes }, cita?.ajustes), fechaC)
+    ponerNoHechos(pid, item.sesionId, [])
+    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, sesionId: destino.id, datos }))
+  }
+
+  async function quitarDeSuSesion(pid: string, i: number) {
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    const ej = item?.datos?.[i]
+    if (!ej?.pos) return
+    if (!confirm(`¿Quitar «${ej.sustituye || ej.nombre}» de su sesión? Dejará de salir en sus próximas clases. Lo que ya hizo no se pierde.`)) return
+    setSustituyendo(null)
+    const [pi, pe] = String(ej.pos).split('.').map(Number)
+    await editarSuSesion(pid, partes => {
+      if (partes[pi]?.ejercicios) partes[pi].ejercicios.splice(pe, 1)
+      return partes
+    }, { pi, pe }, `Ejercicio quitado de su sesión en el taller: ${ej.sustituye || ej.nombre}`)
+  }
+
+  /** Lo nuevo entra con las condiciones del bloque: copia series, repes y modo del ultimo de esa parte. */
+  async function anadirASuSesion(pid: string, pi: number, nuevo: any) {
+    setAnadiendo(null)
+    await editarSuSesion(pid, partes => {
+      const parte = partes[pi]
+      if (!parte) return partes
+      const ref = (parte.ejercicios || [])[(parte.ejercicios || []).length - 1] || {}
+      ;(parte.ejercicios ||= []).push({
+        ejercicio_id: nuevo.id, nombre: nuevo.nombre, imagen_url: nuevo.imagen_url || '',
+        tipo_medida: nuevo.tipo_medida || 'peso_reps', variantes_disp: nuevo.variantes || [],
+        variante: '', capacidad: ref.capacidad || '', regimen: ref.regimen || 'Concéntrico',
+        series: ref.series || '3', reps: ref.reps || '', tiempo: ref.tiempo || '', peso: '', nota: '',
+        ...(ref.grupo ? { grupo: ref.grupo } : {}),
+        ...(ref.descanso ? { descanso: ref.descanso } : {}),
+      })
+      return partes
+    }, undefined, `Ejercicio añadido a su sesión en el taller: ${nuevo.nombre}`)
+  }
 
   async function abrirSustituir(pid: string, i: number) {
     setSustituyendo({ pid, i })
@@ -1505,7 +1608,8 @@ export default function ModoClase() {
               toggleObjetivo={toggleObjetivo}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
-              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}/>}
+              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}
+              onAnadir={(pi:number)=>{ setAnadiendo({ pid: act.paciente.id, pi }); cargarCatalogo() }}/>}
             </div>
             )
           })}
@@ -1520,10 +1624,31 @@ export default function ModoClase() {
               Cambiar «{seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]?.nombre}» solo hoy
               <button className="modal-close" onClick={()=>setSustituyendo(null)}>✕</button>
             </div>
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'-4px 0 12px',padding:'8px 11px',
+              borderRadius:7,background:'var(--redl)',border:'1px solid #E8C4C4'}}>
+              <span style={{flex:1,minWidth:200,fontSize:12,color:'var(--gr)'}}>¿No es solo hoy? Quítalo de su sesión y no volverá a salir en sus clases.</span>
+              <button className="btn btn-d btn-sm" onClick={()=>quitarDeSuSesion(sustituyendo.pid, sustituyendo.i)}>Quitar de su sesión</button>
+            </div>
             {catalogoEj.length === 0
               ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
               : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
                   onAbrir={(ej:any)=>sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
+          </div>
+        </div>
+      )}
+
+      {anadiendo && (
+        <div className="modal-bg" style={{zIndex:150}} onClick={e=>{if(e.target===e.currentTarget)setAnadiendo(null)}}>
+          <div className="modal" style={{width:'min(900px, 96vw)',maxHeight:'90vh',overflowY:'auto'}}>
+            <div className="modal-title">
+              Añadir a su sesión · {seleccion.find((x:any)=>x.paciente.id===anadiendo.pid)?.datos?.find((e:any)=>String(e.pos||'').startsWith(anadiendo.pi+'.'))?.parte || 'esta parte'}
+              <button className="modal-close" onClick={()=>setAnadiendo(null)}>✕</button>
+            </div>
+            <div style={{fontSize:12,color:'var(--gr)',marginBottom:10}}>Entra con las series y repes del bloque y se queda en su sesión para las próximas clases.</div>
+            {catalogoEj.length === 0
+              ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
+              : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
+                  onAbrir={(ej:any)=>anadirASuSesion(anadiendo.pid, anadiendo.pi, ej)}/>}
           </div>
         </div>
       )}
