@@ -1077,6 +1077,20 @@ export default function ModoClase() {
   async function finalizarPaciente(pid:string, itemArg?:any): Promise<boolean>{
     const item = itemArg || seleccion.find(s=>s.paciente.id===pid); if(!item) return false
     const fechaC: string = item.fechaClase || fecha
+    /* VARIOS DISPOSITIVOS. Cada tablet ve lo que cargo al abrir y no se refresca sola.
+       Si otro dispositivo ya guardo esta clase, guardar desde aqui la rehace con lo
+       que hay en ESTA pantalla, que puede estar viejo. Desde un aviso o "Finalizar
+       clase" se salta sin preguntar; con el boton del paciente, se pregunta. */
+    const { data: yaFin } = await supabase.from('registros_ejercicio').select('id')
+      .eq('paciente_id', pid).eq('sesion_id', item.sesionId).eq('fecha', fechaC).eq('finalizado', true).limit(1)
+    if ((yaFin || []).length > 0 && !item.finalizado) {
+      if (itemArg) {
+        setPendClase(prev => prev.filter((x:any) => !(x.paciente.id===pid && x.citaId===item.citaId)))
+        setSeleccion(prev => prev.map(s=>s.paciente.id===pid?{...s,finalizado:true}:s))
+        return true
+      }
+      if (!confirm(`${nombrePac(item.paciente)} ya está guardado desde otro dispositivo.\n\n¿Guardar otra vez con lo que se ve en esta pantalla? Sustituye lo guardado.`)) return false
+    }
     // Borradores de otro dia de esta misma sesion: se cierran antes con su fecha, si
     // no chocan con los de hoy (un solo borrador por ejercicio y sesion).
     const { data: otrosDias } = await supabase.from('registros_ejercicio')
