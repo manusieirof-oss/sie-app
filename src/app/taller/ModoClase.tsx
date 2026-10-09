@@ -678,6 +678,14 @@ export default function ModoClase() {
              Un hueco vacio de la ultima vez NO borra lo planificado. */
           if (Array.isArray(e.ultimo) && e.ultimo.length>0) {
             const lleno = (x:any) => x != null && String(x) !== ''
+            /* CUANTAS SERIES, TAMBIEN DE LA ULTIMA VEZ. Si en la sala se quitaron series
+               (la sesion se quedaba larga, o habia una errata en el plan), la clase
+               siguiente volvia a salir con las del plan. Ahora manda lo que se hizo, igual
+               que con el peso y las repes. */
+            if (e.ultimo.length !== e.series.length) {
+              const molde = e.series[0] || { peso:'', reps:'', segundos:'' }
+              e.series = Array.from({ length: e.ultimo.length }, (_:any, k:number) => e.series[k] || { ...molde })
+            }
             e.series = e.series.map((orig:any, idx:number) => {
               const prev = e.ultimo[idx]
               if (!prev) return orig
