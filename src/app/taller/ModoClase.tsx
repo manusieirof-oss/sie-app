@@ -1697,24 +1697,17 @@ export default function ModoClase() {
         <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setCambiando(null)}}>
           <div className="modal" style={{width:460}}>
             <div className="modal-title">
-              ¿Por qué cambias la sesión?
+              Cambiar la sesión
               <button className="modal-close" onClick={()=>setCambiando(null)}>✕</button>
             </div>
             <div style={{fontSize:11,color:'var(--gr)',marginBottom:14}}>
               Tenía puesta <b style={{fontWeight:600,color:'var(--n)'}}>«{cambiando.antesNombre || 'una sesión'}»</b>.
               Queda anotado en su historial junto con lo que elijas.
             </div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:12}}>
-              {MOTIVOS_CAMBIO.map(m=>(
-                <button key={m.id} title={m.ayuda}
-                  onClick={()=>setCambiando((p:any)=>({...p,motivo:p.motivo===m.id?'':m.id}))}
-                  className={`chip-sel ${cambiando.motivo===m.id?'on':''}`}>
-                  {m.nombre}
-                </button>
-              ))}
-            </div>
             <div className="field">
-              <label>Nota {cambiando.motivo==='otro' ? '*' : '(opcional)'}</label>
+              {/* SOLO UNA NOTA. Antes habia que elegir un motivo de una lista y, en
+                  "Otro", escribir: demasiado para algo que se decide en la sala. */}
+              <label>Nota (opcional)</label>
               <textarea className="input" value={cambiando.nota} autoFocus
                 onChange={e=>setCambiando((p:any)=>({...p,nota:e.target.value}))}
                 placeholder="Ej: fue a correr por la mañana y no tiene bien las piernas"
@@ -1723,12 +1716,11 @@ export default function ModoClase() {
             <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
               <button className="btn btn-d btn-sm" onClick={()=>setCambiando(null)}>Cancelar</button>
               <div style={{flex:1}}/>
-              {/* Sin motivo no se sale. Si se pudiera saltar, en tres semanas la mitad
-                  estarían sin motivo y el registro no valdría para nada. */}
+              {/* El cambio queda anotado con la sesion de antes y la de despues; la nota
+                  es opcional. */}
               <button className="btn btn-p btn-sm"
-                disabled={!cambiando.motivo || (cambiando.motivo==='otro' && !cambiando.nota.trim())}
                 onClick={async ()=>{
-                  const c = cambiando
+                  const c = { ...cambiando, motivo: cambiando.motivo || 'nota' }
                   setCambiando(null)
                   if (c.destino === 'quitar') {
                     const { error } = await supabase.from('citas').update({ sesion_id: null }).eq('id', c.encargo.citaId)

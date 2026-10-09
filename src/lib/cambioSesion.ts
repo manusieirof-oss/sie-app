@@ -107,7 +107,7 @@ export async function registrarCambio(c: {
   await supabase.from('eventos_paciente').insert({
     paciente_id: c.pacienteId,
     tipo: 'sesion',
-    titulo: `Sesión cambiada en clase · ${nombreMotivo(c.motivo)}`,
+    titulo: c.motivo === 'nota' ? 'Sesión cambiada en clase' : `Sesión cambiada en clase · ${nombreMotivo(c.motivo)}`,
     descripcion: `«${antes}» → «${despues}».` + ((c.nota || '').trim() ? ` ${c.nota!.trim()}` : ''),
     fecha,
   })
