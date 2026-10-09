@@ -396,6 +396,26 @@ export default function ModoClase() {
     } finally { setTrayendo(false) }
   }
 
+  /* CLASES DE DIAS ANTERIORES SIN GUARDAR. El aviso de franja solo vive mientras el
+     taller esta abierto; esto mira la base al entrar, asi que sobrevive a cerrar la
+     pagina. Solo se guarda lo que se llego a apuntar: lo no tocado de esos dias no
+     se reconstruye. */
+  const [viejos, setViejos] = useState<any[]>([])
+  const [guardandoViejos, setGuardandoViejos] = useState(false)
+  async function buscarViejos() {
+    const { data } = await supabase.from('registros_ejercicio')
+      .select('id,paciente_id,ejercicio_id,fecha, pacientes(nombre,apellidos,nombre_clinica)')
+      .eq('finalizado', false).lt('fecha', hoy()).order('fecha')
+    setViejos(data || [])
+  }
+  useEffect(() => { buscarViejos() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  async function guardarViejos() {
+    setGuardandoViejos(true)
+    for (const r of viejos) await cerrarBorrador(r)
+    setGuardandoViejos(false)
+    buscarViejos()
+  }
+
   // Gente de una franja anterior que se quedo sin guardar al cambiar de franja.
   const [pendClase, setPendClase] = useState<any[]>([])
   const [cerrandoClase, setCerrandoClase] = useState(false)
@@ -605,7 +625,9 @@ export default function ModoClase() {
       ;(ejec||[]).forEach((r:any)=>{ ejecMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
         .select('ejercicio_id,variante,series,comentario,items_evaluados,regimen')
-        .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).in('ejercicio_id', ids)
+        .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).eq('fecha', fecha).in('ejercicio_id', ids)
+      // Solo el borrador de ESTE dia. Sin la fecha, uno olvidado de otra clase de la
+      // misma sesion aparecia como apuntado hoy.
       const cursoMap:Record<string,any>={}
       ;(curso||[]).forEach((r:any)=>{ cursoMap[claveVar(r.ejercicio_id,r.variante)]=r })
       ejs.forEach(e=>{
@@ -740,6 +762,19 @@ export default function ModoClase() {
     timers.current[key] = setTimeout(()=>{ delete timers.current[key]; autoguardar(pid, ei, ejData, sesionId) }, 700)
   }
 
+  /**
+   * Da por guardado un borrador con SU fecha. Si ese dia ya habia uno finalizado del
+   * mismo ejercicio (se corrigio despues de finalizar), manda el borrador, que es lo
+   * ultimo que se apunto: el indice uniq_regej_finalizado_dia no admite dos.
+   */
+  async function cerrarBorrador(r: { id: string, paciente_id: string, ejercicio_id: string | null, fecha: string }) {
+    if (r.ejercicio_id) {
+      await supabase.from('registros_ejercicio').delete()
+        .eq('paciente_id', r.paciente_id).eq('ejercicio_id', r.ejercicio_id).eq('fecha', r.fecha).eq('finalizado', true)
+    }
+    return supabase.from('registros_ejercicio').update({ finalizado: true }).eq('id', r.id)
+  }
+
   async function autoguardar(pid:string, ei:number, ej:any, sesionId:string){
     const seriesLlenas = ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
     const hayComent = (ej.comentario||'').trim()!==''
@@ -750,6 +785,7 @@ export default function ModoClase() {
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
+      fecha,
       // Como se hizo HOY, que puede no ser como estaba prescrito.
       regimen: ej.regimen || ej.plan?.regimen || null,
       // Sin esto, la progresión de cargas mezclaba unilateral y bilateral.
@@ -761,10 +797,16 @@ export default function ModoClase() {
       // la misma sesion —bilateral y unilateral— y sin esto el segundo pisaba al
       // primero, o `maybeSingle` fallaba por encontrar dos.
       let q = supabase.from('registros_ejercicio')
-        .select('id').eq('paciente_id',pid).eq('ejercicio_id',ej.ejercicio_id)
+        .select('id,fecha').eq('paciente_id',pid).eq('ejercicio_id',ej.ejercicio_id)
         .eq('sesion_id',sesionId).eq('finalizado',false)
       q = ej.variante ? q.eq('variante', ej.variante) : q.is('variante', null)
-      const { data: existe } = await q.maybeSingle()
+      let { data: existe } = await q.maybeSingle()
+      // Borrador de OTRO dia que se quedo sin guardar: se cierra con su fecha y se
+      // empieza uno nuevo. Si se actualizara, lo de hoy quedaria con la fecha vieja.
+      if (existe && existe.fecha && existe.fecha !== fecha) {
+        await cerrarBorrador({ id: existe.id, paciente_id: pid, ejercicio_id: ej.ejercicio_id, fecha: existe.fecha })
+        existe = null
+      }
       if (existe){
         ({ error } = await supabase.from('registros_ejercicio')
           .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null })
@@ -892,6 +934,12 @@ export default function ModoClase() {
   async function finalizarPaciente(pid:string, itemArg?:any): Promise<boolean>{
     const item = itemArg || seleccion.find(s=>s.paciente.id===pid); if(!item) return false
     const fechaC: string = item.fechaClase || fecha
+    // Borradores de otro dia de esta misma sesion: se cierran antes con su fecha, si
+    // no chocan con los de hoy (un solo borrador por ejercicio y sesion).
+    const { data: otrosDias } = await supabase.from('registros_ejercicio')
+      .select('id,paciente_id,ejercicio_id,fecha').eq('paciente_id', pid).eq('sesion_id', item.sesionId)
+      .eq('finalizado', false).neq('fecha', fechaC)
+    for (const r of (otrosDias || [])) await cerrarBorrador(r)
     // forzar guardado de todo lo lleno
     Object.keys(timers.current).forEach(k=>{ if(k.startsWith(pid+'_')){ clearTimeout(timers.current[k]); delete timers.current[k] } })
     const noHizo = leerNoHechos(pid, item.sesionId)
@@ -1091,6 +1139,28 @@ export default function ModoClase() {
           </button>
         )}
       </div>
+
+      {viejos.length > 0 && (() => {
+        const quien = Array.from(new Map(viejos.map((r:any) => {
+          const p = Array.isArray(r.pacientes) ? r.pacientes[0] : r.pacientes
+          const n = (p?.nombre_clinica || `${p?.nombre||''} ${p?.apellidos||''}`).trim() || 'Paciente'
+          const d = new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})
+          return [r.paciente_id+'|'+r.fecha, `${n} (${d})`]
+        })).values())
+        return (
+          <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10,padding:'9px 12px',
+            borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800',fontSize:12.5}}>
+            <Ic name="alerta" size={14}/>
+            <span style={{flex:1,minWidth:200,lineHeight:1.5}}>
+              <b>Clases de días anteriores sin guardar</b> · {quien.join(', ')}.
+              {' '}Si no se guardan, lo apuntado no cuenta como hecho.
+            </span>
+            <button className="btn btn-p btn-sm" disabled={guardandoViejos} onClick={guardarViejos}>
+              {guardandoViejos ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        )
+      })()}
 
       {pendClase.length > 0 && (
         <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10,padding:'9px 12px',
