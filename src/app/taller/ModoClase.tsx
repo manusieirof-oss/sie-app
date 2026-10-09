@@ -351,6 +351,7 @@ export default function ModoClase() {
           objetivosSesion = (rel||[]).map((r:any)=>r.objetivos).filter(Boolean)
         }
         lista.push({
+          fechaClase: fecha,
           paciente: d.paciente,
           objetivosSesion,
           sesionId: d.sesion?.id || '',
@@ -365,6 +366,12 @@ export default function ModoClase() {
       }
 
       const final = lista
+      /* LA CLASE QUE SE DEJA SIN GUARDAR SE AVISA. Al cambiar de franja, quien sale de
+         pantalla sin finalizar pasa a un aviso con "Guardar ahora": si no se guarda,
+         lo apuntado no cuenta como hecho. */
+      const dejados = porCerrar(previos.filter((s:any) => !final.includes(s)))
+      if (dejados.length > 0) setPendClase(prev => [
+        ...prev.filter((x:any) => !dejados.some((d:any) => d.citaId === x.citaId)), ...dejados])
       setSeleccion(final)
       // Quién trae hoy una sesión distinta de la que se le había planificado.
       setCambios(await cambiosDeCitas(delDia.map(d => d.citaId).filter(Boolean)))
@@ -389,6 +396,9 @@ export default function ModoClase() {
     } finally { setTrayendo(false) }
   }
 
+  // Gente de una franja anterior que se quedo sin guardar al cambiar de franja.
+  const [pendClase, setPendClase] = useState<any[]>([])
+  const [cerrandoClase, setCerrandoClase] = useState(false)
   const seleccionRef = useRef<any[]>([])
   useEffect(() => { seleccionRef.current = seleccion }, [seleccion])
 
@@ -874,8 +884,14 @@ export default function ModoClase() {
     }))
   }
 
-  async function finalizarPaciente(pid:string){
-    const item = seleccion.find(s=>s.paciente.id===pid); if(!item) return
+  /**
+   * `itemArg` permite cerrar a alguien que ya no esta en pantalla (la clase anterior
+   * que quedo sin guardar). `fechaC` es el dia de ESA clase, no el que se esta mirando.
+   * Devuelve true si se cerro.
+   */
+  async function finalizarPaciente(pid:string, itemArg?:any): Promise<boolean>{
+    const item = itemArg || seleccion.find(s=>s.paciente.id===pid); if(!item) return false
+    const fechaC: string = item.fechaClase || fecha
     // forzar guardado de todo lo lleno
     Object.keys(timers.current).forEach(k=>{ if(k.startsWith(pid+'_')){ clearTimeout(timers.current[k]); delete timers.current[k] } })
     const noHizo = leerNoHechos(pid, item.sesionId)
@@ -934,24 +950,43 @@ export default function ModoClase() {
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
         // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
         // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
-        fecha,
+        fecha: fechaC,
       })
     })
     if (vacios.length) {
       const { error } = await supabase.from('registros_ejercicio').insert(vacios)
-      if (error) { alert('Error al finalizar: ' + error.message); return }
+      if (error) { alert('Error al finalizar: ' + error.message); return false }
     }
     // limpiar finalizados previos del dia y marcar
     const ids = item.datos.map((e:any)=>e.ejercicio_id).filter(Boolean)
     if (ids.length){
       await supabase.from('registros_ejercicio').delete()
-        .eq('paciente_id',pid).eq('fecha',fecha).eq('finalizado',true).in('ejercicio_id',ids)
+        .eq('paciente_id',pid).eq('fecha',fechaC).eq('finalizado',true).in('ejercicio_id',ids)
     }
     const { error } = await supabase.from('registros_ejercicio')
       .update({ finalizado:true })
       .eq('paciente_id',pid).eq('sesion_id',item.sesionId).eq('finalizado',false)
-    if (error){ alert('Error al finalizar: '+error.message); return }
+    if (error){ alert('Error al finalizar: '+error.message); return false }
     setSeleccion(prev => prev.map(s=>s.paciente.id===pid?{...s,finalizado:true}:s))
+    setPendClase(prev => prev.filter((x:any) => !(x.paciente.id===pid && x.citaId===item.citaId)))
+    return true
+  }
+
+  /** Quien de esta lista se cierra con "Finalizar clase": con sesion, sin cerrar, y que vino. */
+  const porCerrar = (lista:any[]) => lista.filter((x:any) => x.sesionId && !x.finalizado && x.estado !== 'falta')
+
+  /**
+   * FINALIZAR LA CLASE ENTERA. Ir paciente a paciente se olvidaba; esto cierra a todos
+   * los de la franja de una vez, con la misma regla (lo gris se guarda). El boton de
+   * cada paciente sigue para quien se va antes.
+   */
+  async function finalizarClase(lista:any[]) {
+    const quienes = porCerrar(lista)
+    if (quienes.length === 0) return
+    if (!confirm(`Se guardará la clase de ${quienes.length} ${quienes.length===1?'persona':'personas'}: ${quienes.map((x:any)=>nombrePac(x.paciente)).join(', ')}.\n\nLo que no se haya apuntado se guarda tal como sale en gris.`)) return
+    setCerrandoClase(true)
+    for (const q of quienes) await finalizarPaciente(q.paciente.id, q)
+    setCerrandoClase(false)
   }
 
   const act = seleccion.find(s=>s.paciente.id===activo)
@@ -1049,7 +1084,29 @@ export default function ModoClase() {
             : '')}
         </span>
         <div style={{flex:1}}/>
+        {porCerrar(seleccion).length > 0 && (
+          <button className="btn btn-p btn-sm" disabled={cerrandoClase} onClick={()=>finalizarClase(seleccion)}
+            title="Guarda y finaliza a todos los de esta franja">
+            {cerrandoClase ? 'Guardando…' : `✓ Finalizar clase · ${porCerrar(seleccion).length}`}
+          </button>
+        )}
       </div>
+
+      {pendClase.length > 0 && (
+        <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10,padding:'9px 12px',
+          borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800',fontSize:12.5}}>
+          <Ic name="alerta" size={14}/>
+          <span style={{flex:1,minWidth:200,lineHeight:1.5}}>
+            <b>Clase anterior sin guardar</b>
+            {' · '}{Array.from(new Set(pendClase.map((x:any)=>x.hora).filter(Boolean))).join(', ')}
+            {' · '}{pendClase.map((x:any)=>nombrePac(x.paciente)).join(', ')}.
+            {' '}Si no se guarda, lo apuntado no cuenta como hecho.
+          </span>
+          <button className="btn btn-p btn-sm" disabled={cerrandoClase} onClick={()=>finalizarClase(pendClase)}>
+            {cerrandoClase ? 'Guardando…' : 'Guardar ahora'}
+          </button>
+        </div>
+      )}
 
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && (
