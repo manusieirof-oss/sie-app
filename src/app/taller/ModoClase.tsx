@@ -926,7 +926,11 @@ export default function ModoClase() {
       const seriesPlan = (ej.series || []).filter((x: any) => lleno(x?.peso) || lleno(x?.reps) || lleno(x?.segundos))
       vacios.push({
         paciente_id: pid, ejercicio_id: ej.ejercicio_id || null, ejercicio_nombre: ej.nombre,
-        sesion_id: item.sesionId, series: seriesPlan, comentario: null, items_evaluados: {}, finalizado: false,
+        sesion_id: item.sesionId, series: seriesPlan,
+        // Lo que haya en pantalla, no vacio: al volver a finalizar una clase ya
+        // finalizada se borran los registros del dia y se rehacen desde aqui, y con
+        // null se perdian la nota y la ejecucion de los ejercicios no retocados.
+        comentario: (ej.comentario || '').trim() || null, items_evaluados: ej.items_evaluados || {}, finalizado: false,
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
         // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
         // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
