@@ -436,8 +436,11 @@ export default function ModoClase() {
     })
     if (pasadas.length === 0) { setViejos([]); return }
     const pids = Array.from(new Set(pasadas.map((c: any) => c.paciente_id)))
-    const { data: fin } = await supabase.from('registros_ejercicio').select('paciente_id,fecha')
-      .eq('finalizado', true).in('paciente_id', pids).gte('fecha', desde)
+    /* PAGINADO. Supabase corta en 1000 filas sin avisar: con toda la semana de todos
+       los pacientes se pasaba de largo, los registros de Marisa y Jacobo de hoy
+       quedaban fuera del corte y salian como "sin guardar" estando guardados. */
+    const { filas: fin } = await traerTodo((d, h) => supabase.from('registros_ejercicio').select('id,paciente_id,fecha')
+      .eq('finalizado', true).in('paciente_id', pids).gte('fecha', desde).order('id').range(d, h))
     const hechas = new Set((fin || []).map((r: any) => r.paciente_id + '|' + r.fecha))
     setViejos(pasadas.filter((c: any) => !hechas.has(c.paciente_id + '|' + c.fecha)))
   }
