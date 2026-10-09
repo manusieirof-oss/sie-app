@@ -37,6 +37,9 @@ export default function ModoClase() {
      paciente tiene abierto (canal de presencia de Supabase, sin tocar la base) y
      los demas lo ven en su chip. No bloquea: avisa. */
   const [enOtros, setEnOtros] = useState<Record<string, string[]>>({})
+  // Cuantos dispositivos hay en cada sala (lo que tienen elegido arriba). Si alguien
+  // se mueve de sala, se ve en el selector.
+  const [otrosPorSala, setOtrosPorSala] = useState<Record<string, number>>({})
   const canalRef = useRef<any>(null)
   const quienRef = useRef<string>('Otro dispositivo')
   const listoCanal = useRef(false)
@@ -54,22 +57,27 @@ export default function ModoClase() {
     ch.on('presence', { event: 'sync' }, () => {
       const st: any = ch.presenceState()
       const m: Record<string, string[]> = {}
+      const ps: Record<string, number> = {}
       Object.entries(st).forEach(([k, metas]: any) => {
         if (k === yo) return
-        ;(metas || []).forEach((x: any) => { if (x?.pid) (m[x.pid] ||= []).push(x.quien || 'otro dispositivo') })
+        ;(metas || []).forEach((x: any) => {
+          if (x?.pid) (m[x.pid] ||= []).push(x.quien || 'otro dispositivo')
+          if (x?.sala) ps[x.sala] = (ps[x.sala] || 0) + 1
+        })
       })
-      setEnOtros(m)
+      setEnOtros(m); setOtrosPorSala(ps)
     }).subscribe((estado: string) => {
-      if (estado === 'SUBSCRIBED') { listoCanal.current = true; ch.track({ pid: activoRef.current || null, quien: quienRef.current }) }
+      if (estado === 'SUBSCRIBED') { listoCanal.current = true; anunciar() }
     })
     canalRef.current = ch
     return () => { listoCanal.current = false; supabase.removeChannel(ch) }
   }, [])
   const activoRef = useRef<string>('')
-  useEffect(() => {
-    activoRef.current = activo
-    if (listoCanal.current) canalRef.current?.track({ pid: activo || null, quien: quienRef.current })
-  }, [activo])
+  const salaRef = useRef<string>('')
+  function anunciar() {
+    if (!listoCanal.current) return
+    canalRef.current?.track({ pid: activoRef.current || null, sala: salaRef.current || null, quien: quienRef.current })
+  }
 
   /**
    * HOJA LIBRE. Una sesion dibujada no tiene partes: lo que se apunta son sus casillas.
@@ -293,6 +301,8 @@ export default function ModoClase() {
   }
 
   const [sala, setSala] = useState('')
+  // Se anuncia el paciente abierto y la sala elegida a los demas dispositivos.
+  useEffect(() => { activoRef.current = activo; salaRef.current = sala; anunciar() }, [activo, sala]) // eslint-disable-line react-hooks/exhaustive-deps
   // A y B por defecto, igual que la agenda: si `clinica_salas` no está puesto en Ajustes,
   // antes se quedaba en lista vacía y el selector de sala no llegaba a pintarse nunca.
   const [salas, setSalas] = useState<string[]>(['A','B'])
@@ -1329,7 +1339,8 @@ export default function ModoClase() {
         {salas.length>1 && (
           <select className="input" value={sala} onChange={e=>setSala(e.target.value)} style={{maxWidth:110,fontSize:11}}>
             <option value="">Todas las salas</option>
-            {salas.map(x=><option key={x} value={x}>Sala {x}</option>)}
+            {/* "● 1": otro dispositivo trabajando en esa sala ahora mismo. */}
+            {salas.map(x=><option key={x} value={x}>Sala {x}{otrosPorSala[x] ? ` · ● ${otrosPorSala[x]}` : ''}</option>)}
           </select>
         )}
         <select className="input" value={hora} onChange={e=>setHora(e.target.value)} style={{maxWidth:150,fontSize:11}}>
