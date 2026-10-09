@@ -100,6 +100,52 @@ export default function ValoracionPage() {
 
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
 
+  /* ── BORRADOR: LA VALORACION SE VA GUARDANDO SOLA ─────────────────────────────
+     Antes nada se guardaba hasta "Finalizar": si la pantalla se cerraba, se recargaba
+     o se cambiaba de pagina, se perdia todo. Asi se perdio la de Monica Cochon.
+     Ahora cada cambio se copia en este dispositivo y, al volver, se ofrece seguir.
+     Es por dispositivo (la tablet donde se esta haciendo), no se comparte. */
+  const CLAVE_BORRADOR = 'sie-valoracion-borrador'
+  const [borradorPend, setBorradorPend] = useState<any>(null)
+  const hayContenido = !!(form.paciente_id || form.nombre || form.apellidos || form.anamnesis || testsValoracion.length > 0)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CLAVE_BORRADOR)
+      if (!raw) return
+      const b = JSON.parse(raw)
+      // Mas de 14 dias: ya no es una valoracion a medias, es un resto.
+      if (!b?.t || Date.now() - b.t > 14 * 864e5) { localStorage.removeItem(CLAVE_BORRADOR); return }
+      setBorradorPend(b)
+    } catch {}
+  }, [])
+  useEffect(() => {
+    // Mientras se decide si recuperar el anterior, no se pisa.
+    if (borradorPend || exito || !hayContenido) return
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(CLAVE_BORRADOR, JSON.stringify({
+          t: Date.now(), modo, step, form, testsValoracion,
+          firmaAceptada, imagenesAceptada, clinicaAceptada, firmaCanvas,
+        }))
+      } catch {}
+    }, 500)
+    return () => clearTimeout(t)
+  }, [modo, step, form, testsValoracion, firmaAceptada, imagenesAceptada, clinicaAceptada, firmaCanvas, borradorPend, exito, hayContenido])
+  function recuperarBorrador() {
+    const b = borradorPend
+    if (!b) return
+    setModo(b.modo || 'inicial'); setStep(b.step || 1)
+    setForm({ ...FORM_VACIO, ...(b.form || {}) }); setTestsValoracion(b.testsValoracion || [])
+    setFirmaAceptada(!!b.firmaAceptada); setImagenesAceptada(!!b.imagenesAceptada)
+    setClinicaAceptada(!!b.clinicaAceptada); setFirmaCanvas(b.firmaCanvas || '')
+    setBorradorPend(null)
+  }
+  function descartarBorrador() {
+    if (!confirm('Se borrará la valoración a medias. No se puede deshacer.')) return
+    try { localStorage.removeItem(CLAVE_BORRADOR) } catch {}
+    setBorradorPend(null)
+  }
+
   const STEPS = STEPS_POR_MODO[modo]
   const esRevaloracion = modo === 'revaloracion'
 
@@ -363,6 +409,8 @@ export default function ValoracionPage() {
       // hay que poder dejarlo para luego sin perder al paciente: no se marca nada, la
       // lista de pacientes ya avisa de quién se quedó sin citas.
       setGuardado({ id: pacienteId, nombre: `${form.nombre} ${form.apellidos}`.trim() })
+      // Guardada de verdad: el borrador ya no hace falta.
+      try { localStorage.removeItem(CLAVE_BORRADOR) } catch {}
       setExito(true)
     } catch(e) { alert('Error al guardar: '+String(e)) }
     setGuardando(false)
@@ -409,6 +457,23 @@ export default function ValoracionPage() {
 
   return (
     <>
+      {borradorPend && (() => {
+        const f = borradorPend.form || {}
+        const quien = `${f.nombre||''} ${f.apellidos||''}`.trim() || pacientes.find((x:any)=>x.id===f.paciente_id)?.nombre || 'sin nombre'
+        const cuando = new Date(borradorPend.t).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+        return (
+          <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:12,padding:'10px 13px',
+            borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800',fontSize:13}}>
+            <Ic name="alerta" size={14}/>
+            <span style={{flex:1,minWidth:220,lineHeight:1.5}}>
+              <b>Hay una valoración sin terminar</b> · {quien} · {cuando}. Puedes seguir donde se quedó.
+            </span>
+            <button className="btn btn-s btn-sm" onClick={descartarBorrador}>Descartar</button>
+            <button className="btn btn-p btn-sm" onClick={recuperarBorrador}>Seguir con ella</button>
+          </div>
+        )
+      })()}
+
       {/* PESTAÑAS · valoración inicial o revaloración */}
       <div style={{display:'flex',gap:3,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,marginBottom:10,width:'fit-content'}}>
         {([['inicial','Valoración','valoracion'],['revaloracion','Revaloración','recuperar']] as const).map(([m,label,icono])=>(
