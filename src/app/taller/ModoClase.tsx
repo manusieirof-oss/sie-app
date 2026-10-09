@@ -378,6 +378,7 @@ export default function ModoClase() {
         return h * 60 + m + 90 < ahoraMin
       })()
       const dejados = porCerrar(previos.filter((s:any) => !final.includes(s))).filter(acabada)
+      buscarViejos()
       if (dejados.length > 0) setPendClase(prev => [
         ...prev.filter((x:any) => !dejados.some((d:any) => d.citaId === x.citaId)), ...dejados])
       setSeleccion(final)
@@ -440,7 +441,16 @@ export default function ModoClase() {
     const hechas = new Set((fin || []).map((r: any) => r.paciente_id + '|' + r.fecha))
     setViejos(pasadas.filter((c: any) => !hechas.has(c.paciente_id + '|' + c.fecha)))
   }
-  useEffect(() => { buscarViejos() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  /* SE VUELVE A MIRAR SOLO. Se calculaba una vez al abrir el taller: si otra tablet
+     guardaba a Marisa despues, aqui seguia saliendo "sin guardar" hasta recargar.
+     Ahora se repasa cada minuto, al volver a la pestaña y al cambiar de franja. */
+  useEffect(() => {
+    buscarViejos()
+    const t = setInterval(buscarViejos, 60 * 1000)
+    const alVolver = () => { if (document.visibilityState === 'visible') buscarViejos() }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   /** Guarda cada clase pendiente como si se hubiera pulsado Finalizar ese dia. */
   async function guardarViejos() {
     setGuardandoViejos(true)
