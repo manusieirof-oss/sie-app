@@ -415,6 +415,14 @@ export default function ModoClase() {
     setGuardandoViejos(false)
     buscarViejos()
   }
+  /** No guardarlas: se tiran los borradores de esos dias. */
+  async function descartarViejos() {
+    if (!confirm('Se borrará lo apuntado en esas clases sin guardar. No se puede deshacer.')) return
+    setGuardandoViejos(true)
+    await supabase.from('registros_ejercicio').delete().in('id', viejos.map((r:any) => r.id))
+    setGuardandoViejos(false)
+    buscarViejos()
+  }
 
   // Gente de una franja anterior que se quedo sin guardar al cambiar de franja.
   const [pendClase, setPendClase] = useState<any[]>([])
@@ -768,9 +776,12 @@ export default function ModoClase() {
    * ultimo que se apunto: el indice uniq_regej_finalizado_dia no admite dos.
    */
   async function cerrarBorrador(r: { id: string, paciente_id: string, ejercicio_id: string | null, fecha: string }) {
+    // SI ESE DIA YA ESTA GUARDADO, MANDA LO GUARDADO. La clase se finalizo y el
+    // borrador es un resto: no se vuelve a guardar encima, se tira.
     if (r.ejercicio_id) {
-      await supabase.from('registros_ejercicio').delete()
-        .eq('paciente_id', r.paciente_id).eq('ejercicio_id', r.ejercicio_id).eq('fecha', r.fecha).eq('finalizado', true)
+      const { data: ya } = await supabase.from('registros_ejercicio').select('id')
+        .eq('paciente_id', r.paciente_id).eq('ejercicio_id', r.ejercicio_id).eq('fecha', r.fecha).eq('finalizado', true).limit(1)
+      if ((ya || []).length > 0) return supabase.from('registros_ejercicio').delete().eq('id', r.id)
     }
     return supabase.from('registros_ejercicio').update({ finalizado: true }).eq('id', r.id)
   }
@@ -1155,6 +1166,7 @@ export default function ModoClase() {
               <b>Clases de días anteriores sin guardar</b> · {quien.join(', ')}.
               {' '}Si no se guardan, lo apuntado no cuenta como hecho.
             </span>
+            <button className="btn btn-s btn-sm" disabled={guardandoViejos} onClick={descartarViejos}>Descartar</button>
             <button className="btn btn-p btn-sm" disabled={guardandoViejos} onClick={guardarViejos}>
               {guardandoViejos ? 'Guardando…' : 'Guardar'}
             </button>
