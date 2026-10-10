@@ -144,7 +144,9 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
     const { data: suyas } = await supabase.from('sesiones').select('id').eq('paciente_id', pacienteId).in('id', ids)
     ;(suyas || []).forEach((x: any) => puestas.add(x.id))
     const faltan = ids.filter(id => !puestas.has(id))
-    if (faltan.length === 0) { setTrayendo(''); alert('Ya las tiene todas.'); return }
+    // Se recarga también aquí: las pudo copiar el ciclo al editarlas (son suyas) sin que
+    // la pestaña Sesiones se enterara, y seguía diciendo 0 aunque ya las tuviera.
+    if (faltan.length === 0) { setTrayendo(''); onRecargar?.(); alert('Ya las tiene todas: están en su pestaña Sesiones.'); return }
     const { data: plantillas, error: errPl } = await supabase.from('sesiones').select('*').in('id', faltan)
     if (errPl) { setTrayendo(''); alert('No se pudieron leer las sesiones de la fase: ' + errPl.message); return }
     let n = 0
@@ -376,7 +378,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
           objetivos={biblio.objetivos} sesiones={biblio.sesiones}
           ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
           paraPaciente={pacienteId}
-          onCerrar={() => setEditandoSistema(null)}
+          onCerrar={() => { setEditandoSistema(null); onRecargar?.() }}
           onGuardado={onCambio}/>
       )}
 
@@ -392,7 +394,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
           objetivos={biblio.objetivos} sesiones={biblio.sesiones}
           ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
           paraPaciente={pacienteId}
-          onCerrar={() => setCreando(false)}
+          onCerrar={() => { setCreando(false); onRecargar?.() }}
           onGuardado={() => { setCatalogo([]); cargarSistemas(true).then(setCatalogo) }}/>
       )}
 
