@@ -181,7 +181,7 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
 
         {creando && (
           <ModalEditarSesion sesion={{ nombre: '', partes: [] }}
-            ejercicios={ejercicios} etiquetas={etiquetas}
+            ejercicios={ejercicios} etiquetas={etiquetas} paraPaciente={pacienteId || undefined}
             onGuardado={nacida} onCerrar={() => setCreando(false)}/>
         )}
       </div>

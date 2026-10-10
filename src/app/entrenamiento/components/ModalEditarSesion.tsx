@@ -133,7 +133,7 @@ function ChipMenu({ valor, opciones, onElegir, clase = '', vacio = '—', titulo
   )
 }
 
-export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], onGuardado, onCerrar, pacientes, cita }: {
+export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], onGuardado, onCerrar, pacientes, cita, paraPaciente }: {
   sesion: any
   ejercicios: any[]
   etiquetas?: any[]
@@ -141,6 +141,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   onGuardado: (sesionId?: string) => void
   onCerrar: () => void
   pacientes?: any[]
+  /**
+   * Para quién se está creando, SIN hacerla suya: solo resalta sus objetivos al
+   * elegirlos. Al crear una sesión desde "¿Qué sesión les pongo?" de un paciente,
+   * la sesión nacía sin paciente y el selector no marcaba los de su ficha.
+   */
+  paraPaciente?: string
   /**
    * MISMA PANTALLA, DISTINTO DESTINO.
    *
@@ -256,6 +262,14 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       .then(({ data }) => setObjsPaciente((data||[]).filter((r:any)=>!r.logrado && r.objetivo_id)
         .map((r:any)=>({ id:r.objetivo_id, nombre:r.objetivos?.nombre || r.nombre || 'Objetivo' }))))
   }, [sesion.paciente_id, pacienteSel, objetivosDisp])
+  // Sus objetivos abiertos, solo para resaltarlos en el selector (ver `paraPaciente`).
+  const [objsDestacar, setObjsDestacar] = useState<string[]>([])
+  useEffect(() => {
+    const pid = sesion.paciente_id || pacienteSel || paraPaciente
+    if (!pid) { setObjsDestacar([]); return }
+    supabase.from('pacientes_objetivos').select('objetivo_id, logrado').eq('paciente_id', pid)
+      .then(({ data }) => setObjsDestacar((data||[]).filter((r:any)=>!r.logrado && r.objetivo_id).map((r:any)=>r.objetivo_id)))
+  }, [sesion.paciente_id, pacienteSel, paraPaciente])
   const refObj = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -527,7 +541,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   // lo que no se ofrece es ponerlo de nuevo.
   const selectorObjetivos = eligiendoObj ? (
     <SelectorObjetivos objetivos={objetivosDisp.filter((o:any)=>o.archivado_el == null)} ya={objetivosSel} etiquetas={etiquetas}
-      destacados={(sesion.paciente_id || pacienteSel) ? objsPaciente.map(o=>o.id) : []}
+      destacados={objsDestacar}
       titulo="Objetivos que cubre la sesión"
       onCerrar={()=>setEligiendoObj(false)}
       onElegir={(ids:string[], movs:Record<string,string[]>)=>{
