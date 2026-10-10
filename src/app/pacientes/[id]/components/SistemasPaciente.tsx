@@ -145,16 +145,26 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
     ;(suyas || []).forEach((x: any) => puestas.add(x.id))
     const faltan = ids.filter(id => !puestas.has(id))
     if (faltan.length === 0) { setTrayendo(''); alert('Ya las tiene todas.'); return }
-    const { data: plantillas } = await supabase.from('sesiones').select('*').in('id', faltan)
+    const { data: plantillas, error: errPl } = await supabase.from('sesiones').select('*').in('id', faltan)
+    if (errPl) { setTrayendo(''); alert('No se pudieron leer las sesiones de la fase: ' + errPl.message); return }
     let n = 0
+    const fallos: string[] = []
     for (const pl of plantillas || []) {
       const r = await duplicarSesion(pl, pacienteId, { sufijo: '', plantillaId: pl.id,
         motivo: 'Desde el sistema' })
       if (r.ok) n++
+      else fallos.push(`${pl.nombre || 'Sesión'}: ${r.error}`)
     }
     setTrayendo('')
     onRecargar?.()
-    alert(`${n} sesión${n === 1 ? '' : 'es'} a la ficha. Ya puedes asignarlas a sus citas.`)
+    // ANTES SOLO DECÍA "0 sesiones" y no se sabía por qué. Ahora dice qué pasó: las
+    // que ya tenía, las que la fase apunta pero ya no existen (borradas) y los fallos.
+    const borradas = faltan.length - (plantillas || []).length
+    const lineas = [`${n} sesión${n === 1 ? '' : 'es'} a la ficha.`]
+    if (puestas.size > 0) lineas.push(`${puestas.size} ya las tenía.`)
+    if (borradas > 0) lineas.push(`${borradas} ya no existe${borradas === 1 ? '' : 'n'}: se borr${borradas === 1 ? 'ó' : 'aron'}. Quítala${borradas === 1 ? '' : 's'} de la fase y pon otra${borradas === 1 ? '' : 's'}.`)
+    if (fallos.length > 0) lineas.push('', 'No se pudieron copiar:', ...fallos)
+    alert(lineas.join('\n'))
   }
 
   function abrirEdicion(a: Asignacion) {
