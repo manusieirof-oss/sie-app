@@ -369,8 +369,9 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                       const dif = prev?.valor != null && v !== '' && isFinite(parseFloat(v)) ? parseFloat(v) - prev.valor : null
                       const mejora = dif == null || dif === 0 ? null : (item.mejor === 'menos' ? dif < 0 : dif > 0)
                       const col = hallazgo === true ? 'var(--red)' : hallazgo === false ? 'var(--g)' : 'var(--bd)'
-                      const ponValor = (x: string) => {
-                        const its = [...base]; its[ii] = { ...its[ii], valor: x }
+                      const ponValor = (x: string) => ponCampos({ valor: x })
+                      const ponCampos = (campos: any) => {
+                        const its = [...base]; its[ii] = { ...its[ii], ...campos }
                         const nuevos: Record<string, any> = { ...(tv.lados || {}),
                           [ladoActivo]: { ...d, items_resultado: its, resultado: resultadoDeTest(test, conOtroLado(its, otrosItems), 'positivo', ctx) } }
                         // Con asimetría, este número cambia también el veredicto del OTRO
@@ -447,6 +448,26 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                                     {Math.round(asim.pct)}% de diferencia · {asim.pct === 0 ? 'iguales' : asim.debil ? 'este es el débil' : 'este es el fuerte'}
                                   </span>
                                 </>}
+                            </div>
+                          )}
+                          {/* A MANO: positivo o negativo lo decide quien lo mira. Manda sobre
+                              la asimetría. Sin marcar, decide la asimetría si la hay, y si no,
+                              es solo una medida. Pulsar otra vez lo desmarca. */}
+                          {medir && (
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                              {(['positivo', 'negativo'] as const).map(m => {
+                                const on = item.manual === m
+                                const rojo = m === 'positivo'
+                                return (
+                                  <button key={m} type="button" onClick={() => ponCampos({ manual: on ? undefined : m })}
+                                    style={{ flex: 1, padding: '7px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500,
+                                      border: `1.5px solid ${on ? (rojo ? 'var(--red)' : 'var(--g)') : 'var(--bd)'}`,
+                                      background: on ? (rojo ? 'var(--redl)' : 'var(--gl)') : 'var(--w)',
+                                      color: on ? (rojo ? 'var(--red)' : 'var(--gd)') : 'var(--grl)' }}>
+                                    {rojo ? '+ Positivo' : '− Negativo'}
+                                  </button>
+                                )
+                              })}
                             </div>
                           )}
                           {medir && paciente?.id && prev && prev.valor == null && (

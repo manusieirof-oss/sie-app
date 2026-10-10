@@ -68,13 +68,19 @@ export type ItemTest = {
   asimetria?: number
   /** Lo que midió el OTRO lado. No viene de la biblioteca: se pone al evaluar. */
   otro?: number
+  /**
+   * Solo en 'medir': el veredicto puesto A MANO al pasar el test. Manda sobre la
+   * asimetría. La fuerza o los grados no siempre se pueden leer con una regla, y
+   * quien lo está mirando sabe si es un hallazgo o no.
+   */
+  manual?: 'positivo' | 'negativo'
   umbral?: number
   /** Segundo extremo, solo en 'entre' y 'fuera'. */
   umbral2?: number
 }
 
 /** true si el ítem se mide para comparar, sin decidir positivo ni negativo. */
-export const soloMideItem = (i: any) => i?.regla === 'medir' && mide(i) && asimetriaDe(i) == null
+export const soloMideItem = (i: any) => i?.regla === 'medir' && mide(i) && i?.manual == null && asimetriaDe(i) == null
 
 /**
  * LA DIFERENCIA ENTRE LADOS de un ítem que solo mide. null si no hay con qué
@@ -130,6 +136,8 @@ export const tieneBarra = (i: any) => !!i?.regla && mide(i)
  */
 export function evaluaItem(item: any): boolean | null {
   if (!tieneBarra(item)) return null
+  // El veredicto a mano vale aunque no se haya escrito el número.
+  if (item.regla === 'medir' && (item.manual === 'positivo' || item.manual === 'negativo')) return item.manual === 'positivo'
   const v = parseFloat(valorDe(item))
   if (!isFinite(v)) return null
   const a = Number(item.umbral)
@@ -140,6 +148,7 @@ export function evaluaItem(item: any): boolean | null {
     case 'entre': return v >= Math.min(a, b) && v <= Math.max(a, b)
     case 'fuera': return v < Math.min(a, b) || v > Math.max(a, b)
     // Solo medir no decide nada... salvo que compare lados y tenga los dos.
+    // A mano manda; si no, la asimetría si la hay.
     case 'medir': { const as = asimetriaDe(item); return as ? as.hallazgo : null }
     default: return null
   }
@@ -775,6 +784,7 @@ export async function registrarResultadoTest(
       ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, ...(i.mejor ? { mejor: i.mejor } : {}) } : {}),
       // La asimetría también: el % que se usó y lo que midió el otro lado ese día.
       ...(i.regla === 'medir' && Number(i.asimetria) > 0 ? { asimetria: i.asimetria, ...(i.otro != null ? { otro: i.otro } : {}) } : {}),
+      ...(i.regla === 'medir' && i.manual ? { manual: i.manual } : {}),
     })),
   })
   if (error) return { ok: false, error: error.message }
