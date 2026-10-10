@@ -10,7 +10,8 @@ import { subirImagenObjetivo } from '@/lib/ejercicios'
 import { especificosDeObjetivo } from '@/lib/objetivos'
 import EspecificosEnPestanas from './EspecificosObjetivo'
 import SelectorEvaluadores from './SelectorEvaluadores'
-import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores, abridoresDe, type Evaluador } from '@/lib/objetivosTests'
+import { testsDeObjetivo, fijarTestsDeObjetivo, cargarEvaluadores, type Evaluador } from '@/lib/objetivosTests'
+import { esSuma, esBaremo, bandasDe } from '@/lib/tests'
 
 // ---------------------------------------------------------------------------
 // CREAR Y EDITAR UN OBJETIVO
@@ -191,7 +192,14 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {suyos.map(({ e, k }) => {
           const t = catalogo.find((x: any) => x.id === e.test_id)
-          const items = Array.isArray(t?.items) ? t.items : []
+          // EN UN TEST DE PUNTUACIÓN O DE BAREMO se elige BANDA, no ítem: ahí un ítem
+          // suelto no dice nada (un +1 del FPI-6 no es una pronación) y lo que decide
+          // qué trabajo toca es la banda. Se elige con el mismo desplegable.
+          const porBanda = t != null && (esSuma(t) || esBaremo(t))
+          const campo: 'item' | 'banda' = porBanda ? 'banda' : 'item'
+          const items = porBanda
+            ? bandasDe(t).filter(b => b.hallazgo).map(b => b.etiqueta).filter(Boolean)
+            : (Array.isArray(t?.items) ? t.items : [])
           const cambiar = (campos: any) =>
             setEvaluadores(p => p.map((y, m) => m === k ? { ...y, ...campos } : y))
           // VARIOS ITEMS DEL MISMO TEST. Cada uno es su propia fila en objetivos_tests
@@ -199,11 +207,11 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
           // salen sin hallazgo. Antes el selector solo dejaba uno, asi que para medir
           // dos items del mismo test habia que elegir el test entero.
           const usados = evaluadores
-            .filter((y, m) => m !== k && y.test_id === e.test_id && (y.movimiento || null) === mov && y.item)
-            .map(y => y.item)
+            .filter((y, m) => m !== k && y.test_id === e.test_id && (y.movimiento || null) === mov && y[campo])
+            .map(y => y[campo])
           const nomDe = (it: any) => typeof it === 'string' ? it : it?.nombre
-          const libres = items.map(nomDe).filter((nm: any) => nm && nm !== e.item && !usados.includes(nm))
-          const otroItem = () => setEvaluadores(p => [...p.slice(0, k + 1), { ...e, item: libres[0] }, ...p.slice(k + 1)])
+          const libres = items.map(nomDe).filter((nm: any) => nm && nm !== e[campo] && !usados.includes(nm))
+          const otroItem = () => setEvaluadores(p => [...p.slice(0, k + 1), { ...e, [campo]: libres[0] }, ...p.slice(k + 1)])
           return (
             <div key={k} style={{ width: 134, position: 'relative' }}>
               <div style={{ width: 134, height: 90, borderRadius: 8, border: '1px solid var(--bd)',
@@ -239,11 +247,11 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                 </div>
               )}
               {items.length > 0 && (
-                <select value={e.item || ''} onChange={ev => cambiar({ item: ev.target.value || null })}
-                  title="Todo el test o solo un ítem"
+                <select value={e[campo] || ''} onChange={ev => cambiar({ item: null, banda: null, [campo]: ev.target.value || null })}
+                  title={porBanda ? 'Todo el test o solo una banda' : 'Todo el test o solo un ítem'}
                   style={{ width: '100%', marginTop: 2, fontFamily: 'inherit', fontSize: 11,
                     lineHeight: 1.3, border: 'none', background: 'transparent',
-                    color: e.item ? 'var(--gd)' : 'var(--grl)',
+                    color: e[campo] ? 'var(--gd)' : 'var(--grl)',
                     textAlign: 'center', cursor: 'pointer', padding: 0 }}>
                   <option value="">Todo el test</option>
                   {items.map((it: any, ii: number) => {
@@ -253,11 +261,11 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                   })}
                 </select>
               )}
-              {e.item && libres.length > 0 && (
+              {e[campo] && libres.length > 0 && (
                 <button type="button" onClick={otroItem}
                   style={{ display: 'block', margin: '3px auto 0', fontFamily: 'inherit', fontSize: 10.5,
                     background: 'none', border: 'none', color: 'var(--gd)', cursor: 'pointer', padding: 0 }}>
-                  + otro ítem
+                  {porBanda ? '+ otra banda' : '+ otro ítem'}
                 </button>
               )}
             </div>
@@ -426,26 +434,8 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
                 </div>
               )}
 
-              {/* LO ABREN: la otra mitad del enlace, que vive en el test. Solo se lee: se
-                  cambia desde el test, en el item o la banda. Ver `abridoresDe`. */}
-              {form.id && (() => {
-                const abren = abridoresDe(tests || [], form.id)
-                if (abren.length === 0) return null
-                return (
-                  <div style={{ border: '1px solid var(--bd)', borderRadius: 7, padding: '9px 11px', marginTop: 7 }}>
-                    <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>
-                      Lo abren · se cambia desde cada test
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {abren.map((a, k) => (
-                        <div key={k} style={{ fontSize: 12.5 }}>
-                          ↗ {a.test.nombre} <span style={{ color: 'var(--gr)' }}>· {a.que}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
+              {/* Aquí iba "LO ABREN", lo que colgaba del ítem o la banda del test. Se
+                  quitó: ahora el test de "Cómo se evalúa" es el que abre y el que cierra. */}
 
               {/* Solo EL OBJETIVO ENTERO, y solo si hay especificos: sin ellos esto
                   mismo ya sale dentro del panel de arriba. Lo de cada parte se edita
@@ -465,7 +455,7 @@ export default function ModalObjetivo({ objetivo, tests = [], etiquetas = [], on
 
             {eligiendo !== undefined && (
               <SelectorEvaluadores etiquetas={etiquetas} onCerrar={() => setEligiendo(undefined)}
-                ya={evaluadores.filter(e => (e.movimiento || null) === eligiendo && e.item == null).map(e => e.test_id)}
+                ya={evaluadores.filter(e => (e.movimiento || null) === eligiendo && e.item == null && e.banda == null).map(e => e.test_id)}
                 onElegir={(ids: string[]) => setEvaluadores(p =>
                   [...p, ...ids.map(id => ({ test_id: id, item: null, movimiento: eligiendo ?? null }))])}/>
             )}

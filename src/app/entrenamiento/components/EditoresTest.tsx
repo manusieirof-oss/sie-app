@@ -168,24 +168,9 @@ export function EditorBandas({ bandas, items, onCambia, porRecuento = false, obj
             style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
           </div>
 
-          {/* LOS OBJETIVOS SE CUELGAN DE LA BANDA.
-              Es lo que el ítem es en un test de casillas: el sitio concreto que dice qué
-              trabajo abre este resultado. Un FPI-6 positivo no dice qué hacer —supinado y
-              pronado piden lo contrario—; la banda sí. Y una misma banda puede abrir varios,
-              cada uno con su específico. */}
-          {b?.hallazgo && (
-            <PildorasObjetivos seleccionados={b.objetivos || []} objetivos={objetivos} etiquetas={etiquetas}
-              movimientos={b.objetivos_mov || {}}
-              onMovimiento={(oid: string, mid: string) => {
-                const mapa = { ...(b.objetivos_mov || {}) }
-                if (mid) mapa[oid] = mid; else delete mapa[oid]
-                set(i, { objetivos_mov: mapa })
-              }}
-              onToggle={(oid: string) => {
-                const act = b.objetivos || []
-                set(i, { objetivos: act.includes(oid) ? act.filter((x: string) => x !== oid) : [...act, oid] })
-              }} />
-          )}
+          {/* Aquí se colgaban de la banda los objetivos que abría. Se quitó: ahora se
+              engancha desde el objetivo, en "Cómo se evalúa", eligiendo esta banda. Dos
+              sitios para lo mismo se contradecían. */}
         </div>
       ))}
 

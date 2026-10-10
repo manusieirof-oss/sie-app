@@ -191,7 +191,6 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                       <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:5}}>Ítems · {esSuma(testDetalle)?'Suma · manda el total':esBaremo(testDetalle)?'Baremo · cada ítem contra su norma':testDetalle.logica==='todos'?'Todos = positivo':'Cualquiera = positivo'}</div>
                       {(testDetalle.items||[]).map((item:any,i:number)=>{
                         const regla = textoRegla(item)
-                        const objs = (item.objetivos||[]).map((id:string)=>(objetivos||[]).find((o:any)=>o.id===id)).filter(Boolean)
                         return (
                           <div key={i} style={{padding:'5px 0',borderTop:i===0?'none':'1px solid var(--bl)'}}>
                             <div style={{fontSize:11,color:'var(--n)',fontWeight:300}}>
@@ -211,25 +210,6 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                                   {regla} · barra {item.min ?? '?'} a {item.max ?? '?'}
                                 </div>
                               )}
-                            {/* En un test de puntuación los ítems no abren objetivos: lo
-                                hace el test entero. Enseñar aquí un "Abre: ninguno" haría
-                                pensar que falta engancharlos ítem a ítem. */}
-                            {!esSuma(testDetalle) && !esBaremo(testDetalle) && (
-                              <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3,alignItems:'center'}}>
-                                <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
-                                {objs.length===0
-                                  ? <span style={{fontSize:9,color:'var(--grl)'}}>ningún objetivo</span>
-                                  : objs.map((o:any)=>{
-                                      const movId=(item.objetivos_mov||{})[o.id]
-                                      const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
-                                      return (
-                                        <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:'var(--g)',color:'#fff'}}>
-                                          {o.nombre}{mov?` · ${mov}`:''}
-                                        </span>
-                                      )
-                                    })}
-                              </div>
-                            )}
                           </div>
                         )
                       })}
@@ -268,10 +248,8 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                           ? <div style={{fontSize:10,color:'var(--grl)'}}>Sin bandas: este test no puede dar resultado.</div>
                           : bandas.map((b,i)=>{
                               const desde = i===0 ? (rango?rango.min:'−∞') : bandas[i-1].hasta+1
-                              /* Qué abre cada banda. En un test de puntuación es donde
-                                 cuelga el trabajo, igual que el ítem en uno de casillas, y
-                                 sin enseñarlo aquí había que entrar a editar para saberlo. */
-                              const objs = (b.objetivos||[]).map((id:string)=>(objetivos||[]).find((o:any)=>o.id===id)).filter(Boolean)
+                              /* Aquí salía qué objetivos abría cada banda. Ya no abre nada:
+                                 se engancha desde el objetivo, en "Cómo se evalúa". */
                               return (
                                 <div key={i} style={{padding:'2px 0'}}>
                                   <div style={{fontSize:11,color:'var(--n)',fontWeight:300,display:'flex',alignItems:'center',gap:6}}>
@@ -279,22 +257,6 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                                     <span style={{color:'var(--grl)',minWidth:64}}>{desde} a {b.hasta}</span>
                                     <span>{b.etiqueta||'sin nombre'}</span>
                                   </div>
-                                  {b.hallazgo && (
-                                    <div style={{display:'flex',flexWrap:'wrap',gap:3,margin:'2px 0 0 15px',alignItems:'center'}}>
-                                      <span style={{fontSize:9,color:'var(--grl)'}}>Abre:</span>
-                                      {objs.length===0
-                                        ? <span style={{fontSize:9,color:'var(--red)'}}>ningún objetivo</span>
-                                        : objs.map((o:any)=>{
-                                            const movId=(b.objetivos_mov||{})[o.id]
-                                            const mov=movId?((etiquetas||[]).find((e:any)=>e.id===movId)?.nombre||''):''
-                                            return (
-                                              <span key={o.id} style={{fontSize:9,padding:'1px 8px',borderRadius:99,background:'var(--g)',color:'#fff'}}>
-                                                {o.nombre}{mov?` · ${mov}`:''}
-                                              </span>
-                                            )
-                                          })}
-                                    </div>
-                                  )}
                                 </div>
                               )
                             })}

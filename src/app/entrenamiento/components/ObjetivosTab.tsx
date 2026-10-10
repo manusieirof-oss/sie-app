@@ -6,7 +6,7 @@ import { categoriaDe, zonasDe, casaZona } from '@/lib/etiquetas'
 import FiltroZonas from '@/components/FiltroZonas'
 import { contiene } from '@/lib/texto'
 import { especificosDeObjetivo, alcanceObjetivo, archivarObjetivo, borrarObjetivo } from '@/lib/objetivos'
-import { conteoPorObjetivo, abridoresDe, type Conteo } from '@/lib/objetivosTests'
+import { conteoPorObjetivo, type Conteo } from '@/lib/objetivosTests'
 import ModalObjetivo from './ModalObjetivo'
 
 /**
@@ -178,8 +178,6 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                 const movs = especificosDeObjetivo(etiquetas, o.movimientos).map((e: any) => e.nombre)
                 const n = enUso[o.id] || 0
                 const ev = evalua[o.id] || { tests: 0, cuestionarios: 0 }
-                const abren = abridoresDe(testsLib || [], o.id)
-                const nAbren = new Set(abren.map(a => a.test.id)).size
                 return (
                   <div key={o.id} className="obj-card">
                     {/* La imagen manda: es lo primero que se reconoce. Sin ella, la inicial
@@ -240,17 +238,12 @@ export default function ObjetivosTab({ objetivos, testsLib, etiquetas = [], carg
                             ✎ {ev.cuestionarios} cuestionario{ev.cuestionarios === 1 ? '' : 's'}
                           </span>
                         )}
-                        {/* LO QUE LO ABRE, que vive en el test. Sin esto la tarjeta decia
-                            "por completar" de objetivos que dos tests abren. */}
-                        {nAbren > 0 && (
-                          <span className="pill pill-soft" title={'Lo abren: ' + abren.map(a => `${a.test.nombre} (${a.que})`).join(' · ')}>
-                            ↗ {nAbren} lo abre{nAbren === 1 ? '' : 'n'}
-                          </span>
-                        )}
+                        {/* Aquí iba "N lo abren", lo que colgaba de los tests. Ya no: el
+                            test que lo evalúa es el que lo abre, y eso ya se cuenta arriba. */}
                         {ev.tests === 0 && ev.cuestionarios === 0 && (
                           <span className="pill" title="Sin forma de comprobarlo: no entra en ninguna evaluación"
                             style={{ background:'var(--ambl)', border:'1px solid var(--amb)', color:'#7A5800' }}>
-                            {nAbren > 0 ? 'nada lo comprueba' : 'por completar'}
+                            por completar
                           </span>
                         )}
                       </div>

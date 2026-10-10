@@ -3,10 +3,11 @@ import { supabase } from './supabase'
 /**
  * QUE EVALUA UN OBJETIVO.
  *
- * Ojo, que son dos relaciones distintas y conviene no confundirlas:
- *
- *   - que test lo ABRE  → vive en el item o la banda del test. Es diagnostico.
- *   - que tests lo EVALUAN → esto. Es con lo que se mira si ya esta conseguido.
+ * UNA SOLA RELACION: el test que lo evalua es el que lo abre (positivo) y el que
+ * lo cierra (negativo). Antes habia otra, "que test lo ABRE", colgada del item o de
+ * la banda dentro del test. Eran dos sitios para la misma decision y se
+ * contradecian: un objetivo evaluado por dos tests salia como que nadie lo abria.
+ * Lo que habia ahi se ha pasado a esta tabla y ya no lo lee nadie.
  *
  * Una sola tabla, `objetivos_tests`, editable desde el objetivo y visible desde
  * el test. Los cuestionarios entran aqui igual que los tests: comparten tabla.
@@ -25,13 +26,20 @@ import { supabase } from './supabase'
 export type Evaluador = {
   test_id: string
   item?: string | null
+  /**
+   * Solo en tests de puntuacion o de baremo (FPI-6): la BANDA del resultado.
+   * Un FPI-6 da positivo con el pie pronado y con el supinado, y el trabajo es el
+   * contrario. Enganchado al test entero, cualquier pie raro abriria los dos.
+   * Por nombre de la banda, igual que el item.
+   */
+  banda?: string | null
   movimiento?: string | null
 }
 
 export async function testsDeObjetivo(objetivoId: string): Promise<Evaluador[]> {
   if (!objetivoId) return []
   const { data } = await supabase.from('objetivos_tests')
-    .select('test_id,item,movimiento').eq('objetivo_id', objetivoId)
+    .select('test_id,item,banda,movimiento').eq('objetivo_id', objetivoId)
   return (data || []) as Evaluador[]
 }
 
@@ -42,7 +50,7 @@ export async function fijarTestsDeObjetivo(objetivoId: string, evs: Evaluador[])
   const { error } = await supabase.from('objetivos_tests')
     .insert(evs.map(e => ({
       objetivo_id: objetivoId, test_id: e.test_id,
-      item: e.item || null, movimiento: e.movimiento || null,
+      item: e.item || null, banda: e.banda || null, movimiento: e.movimiento || null,
     })))
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
@@ -77,34 +85,6 @@ export async function conteoPorObjetivo(): Promise<Record<string, Conteo>> {
 
 /** Todos los tests y cuestionarios de la biblioteca, para elegir. */
 export async function cargarEvaluadores() {
-  const { data } = await supabase.from('tests').select('id,nombre,descripcion,tipo,items,imagen_url,etiquetas_relacionadas,archivado_el').order('nombre')
+  const { data } = await supabase.from('tests').select('id,nombre,descripcion,tipo,items,logica,bandas,imagen_url,etiquetas_relacionadas,archivado_el').order('nombre')
   return data || []
 }
-
-/**
- * LOS TESTS QUE ABREN UN OBJETIVO, mirando el TEST: el item (casillas) o la banda
- * (puntuacion y baremo) que lo lleva colgado.
- *
- * Es la otra mitad del enlace. `objetivos_tests` dice con que se COMPRUEBA; esto dice
- * que lo ABRE. El objetivo solo ensenaba la primera, y para saber que lo abria habia
- * que ir test por test: "Recuperar falso ciatico" decia 2 tests y lo abrian 3, y
- * "Vigilar ciatico" salia "por completar" aunque dos tests lo abren.
- *
- * Solo lectura: el enlace se hace desde el test, que es donde vive.
- */
-export type Abridor = { test: any, que: string }
-export function abridoresDe(tests: any[], objetivoId: string): Abridor[] {
-  const out: Abridor[] = []
-  if (!objetivoId) return out
-  for (const t of tests || []) {
-    if (t?.archivado_el != null) continue
-    for (const it of (Array.isArray(t.items) ? t.items : [])) {
-      if (Array.isArray(it?.objetivos) && it.objetivos.includes(objetivoId)) out.push({ test: t, que: it.nombre || 'un ítem' })
-    }
-    for (const b of (Array.isArray(t.bandas) ? t.bandas : [])) {
-      if (Array.isArray(b?.objetivos) && b.objetivos.includes(objetivoId)) out.push({ test: t, que: 'banda ' + (b.etiqueta || '') })
-    }
-  }
-  return out
-}
-

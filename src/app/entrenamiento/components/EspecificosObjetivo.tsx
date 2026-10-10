@@ -68,25 +68,6 @@ export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, test
     })
   }
 
-  /**
-   * Dónde está colgado este objetivo: qué ítems y qué bandas lo abren, y si además dicen
-   * que la parte que abren es ESTA.
-   *
-   * Es el enlace de verdad —`items[].objetivos` y `bandas[].objetivos`—, no la coincidencia
-   * de nombres. El ítem que abre un objetivo puede llamarse de otra forma que el específico.
-   */
-  const abren = (valor: string) => (tests || []).flatMap((t: any) => {
-    const filas: any[] = []
-    const mira = (cont: any, donde: string) => {
-      if (!((cont?.objetivos || []).includes(objetivoId))) return
-      const mov = (cont?.objetivos_mov || {})[objetivoId as string] || null
-      filas.push({ test: t, donde, esta: mov === valor, sinMov: !mov })
-    }
-    ;(t.items || []).forEach((it: any, i: number) => mira(it, `ítem «${it?.nombre || i + 1}»`))
-    ;(t.bandas || []).forEach((b: any) => mira(b, `banda «${b?.etiqueta || '?'}»`))
-    return filas
-  })
-
   const quitar = (id: string) => { onChange(puestos.filter(x => x !== id)); setActiva(0) }
 
   return (
@@ -193,39 +174,8 @@ export default function EspecificosEnPestanas({ ids, objetivoId, etiquetas, test
                 sitio. Salir sale; lo que no hay es un ítem con ese nombre del que sacar un
                 número. */}
             {/* El rotulo va DENTRO: sin nada que contar no hay nada que rotular. */}
-            {(() => {
-              const a = objetivoId ? abren(actual) : []
-              const suyos = a.filter((x: any) => x.esta)
-              const generales = a.filter((x: any) => x.sinMov)
-              if (a.length === 0) return null
-              return (
-                <div style={{ display: 'grid', gap: 4, marginBottom: 10 }}>
-                  <div className="et-mini">De dónde sale</div>
-                  {suyos.map((x: any, k: number) => (
-                    <div key={'s' + k} style={{ fontSize: 12, color: 'var(--gd)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Ic name="check" size={11} />
-                      <span style={{ color: 'var(--n)' }}>{x.test.nombre}</span>
-                      <span>· {x.donde}</span>
-                      <span className="badge badge-g">abre esta parte</span>
-                    </div>
-                  ))}
-                  {generales.map((x: any, k: number) => (
-                    <div key={'g' + k} style={{ fontSize: 12, color: 'var(--gr)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Ic name="test" size={11} />
-                      <span style={{ color: 'var(--n)' }}>{x.test.nombre}</span>
-                      <span>· {x.donde}</span>
-                      <span className="badge badge-b">abre el objetivo, sin decir qué parte</span>
-                    </div>
-                  ))}
-                  {suyos.length === 0 && generales.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--gr)' }}>
-                      Lo abren {a.length} sitio{a.length > 1 ? 's' : ''}, pero apuntando a otra parte.
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
+            {/* Aquí salía "De dónde sale": los ítems y bandas de test que abrían este
+                objetivo. Ya no abren nada; lo abre y lo cierra lo de "Cómo se evalúa". */}
             {/* CON QUÉ SE COMPRUEBA. Lo de arriba es deducido —un test con un ítem que se
                 llama igual—; esto es lo que alguien ha colgado a mano, y es lo que arma
                 las evaluaciones. */}

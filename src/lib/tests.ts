@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { guardarVias, abrirObjetivo, resolverVia, resolverViasDeTest, type Via } from './objetivos'
+import { guardarVias, abrirObjetivo, resolverViasDeTest, type Via } from './objetivos'
 import { marcarVia } from './viasObjetivo'
 import { revisarMetasDeTest } from './metasVia'
 import { revisarMetas } from './metas'
@@ -480,7 +480,6 @@ export function problemasDelTest(test: any): string[] {
         p.push(`${como}: el mínimo (${it.min}) no es menor que el máximo (${it.max}).`)
       }
       if (it?.regla) p.push(`${como}: tiene regla propia, y en un test de puntuación el veredicto lo da el total. Quítasela para que no parezca que decide algo.`)
-      if ((it?.objetivos || []).length > 0) p.push(`${como}: tiene objetivos colgados, y en un test de puntuación no se abren: el hallazgo es del total. El objetivo se engancha al test entero desde la biblioteca de objetivos.`)
     })
 
     p.push(...problemasDeBandas(test, rangoTotal(items)?.max, 'el total'))
@@ -494,7 +493,6 @@ export function problemasDelTest(test: any): string[] {
     items.forEach((it, i) => {
       const como = `«${nombreItem(it, i)}»`
       if (it?.regla) p.push(`${como}: tiene regla propia, y en un test de baremo el umbral lo pone la tabla de normas. Quítasela para que no parezca que decide algo.`)
-      if ((it?.objetivos || []).length > 0) p.push(`${como}: tiene objetivos colgados, y en un test de baremo no se abren: el hallazgo es del conjunto. El objetivo se engancha al test entero.`)
       if (!mide(it)) { p.push(`${como}: en un test de baremo todos los ítems se miden, así que necesita unidad.`); return }
       const suyas = filas.filter(b => String(b.item).trim().toLowerCase() === nombreItem(it, i).toLowerCase())
       if (suyas.length === 0) p.push(`${como}: no tiene ninguna condición de baremo. Sin norma no se puede decir si el resultado está bien o mal.`)
@@ -528,12 +526,8 @@ function problemasDeBandas(test: any, techoNecesario: number | undefined, queEs:
     p.push(`No hay bandas. Sin ellas ${queEs} es un número suelto y el test no puede dar ni positivo ni negativo.`)
   } else {
     if (bandas.some(b => !b.etiqueta.trim())) p.push('Hay bandas sin nombre. El nombre de la banda es lo que se guarda en el historial y lo que se lee luego.')
-    // En estos tests el trabajo cuelga de la banda. Una banda que es hallazgo y no abre nada
-    // deja un resultado positivo sin consecuencia, que es el fallo mudo de siempre.
-    const mudas = bandas.filter(b => b.hallazgo && (b.objetivos || []).length === 0).map(b => b.etiqueta || 'sin nombre')
-    if (mudas.length > 0) {
-      p.push(`Estas bandas son hallazgo y no abren ningún objetivo: ${mudas.join(', ')}. Un resultado que caiga ahí saldrá positivo y no aparecerá nada en la ficha.`)
-    }
+    // Aquí se avisaba de las bandas que no abrían ningún objetivo. Ya no cuelga nada de
+    // la banda: el objetivo se engancha a ella desde "Cómo se evalúa".
     const techos = bandas.map(b => b.hasta)
     if (new Set(techos).size !== techos.length) p.push('Hay dos bandas con el mismo techo: la segunda nunca se alcanzaría.')
     const ultima = bandas[bandas.length - 1].hasta
@@ -756,20 +750,13 @@ export async function registrarResultadoTest(
   let logrados = 0
   let abiertos = 0
 
-  if (resultado === 'positivo') {
-    const a = await abrirObjetivosDelTest(pacienteId, test, datos.contexto, lado, banda)
-    abiertos += a
-    // En puntuación y en baremo el hallazgo es del CONJUNTO, así que solo cuenta el
-    // objetivo del test entero. Recorrer los ítems abriría objetivos por un ítem que por
-    // sí solo no significa nada —un +1 de un FPI-6 que suma 3 no es una pronación—.
-    if (!esSuma(test) && !esBaremo(test)) {
-      // Los ítems marcados que NO llevan objetivo colgado no abren nada. Es legítimo —hay
-      // ítems que solo describen— pero si no abre ninguno el test entero, hay que decirlo.
-      const b = await moverObjetivosDeItems(pacienteId, test, items, datos.contexto, lado)
-      logrados += b.logrados
-      abiertos += b.abiertos
-    }
-  } else if (resultado === 'negativo') {
+  // YA NO SE ABRE NADA DESDE EL TEST. Antes el ítem o la banda llevaban colgados los
+  // objetivos que abrían (`items[].objetivos`, `bandas[].objetivos`), y aparte el
+  // objetivo decía con qué test se evaluaba. Dos sitios para lo mismo: un objetivo
+  // evaluado por dos tests salía como que no lo abría ninguno. Ahora solo manda
+  // "Cómo se evalúa" del objetivo (`cerrarObjetivosQueEvalua`, más abajo), que abre
+  // con positivo y cierra con negativo. Lo que había colgado se pasó a esa tabla.
+  if (resultado === 'negativo') {
     // Negativo = no queda nada marcado, así que se cierran la vía del test y las de sus
     // ítems de una vez. Hacerlo ítem a ítem dejaba abierta la del test entero.
     const r = await resolverViasDeTest(pacienteId, test.id, datos.contexto || 'un test', lado)
@@ -786,7 +773,7 @@ export async function registrarResultadoTest(
   // Un test que solo mide no cierra ni abre objetivos por su resultado: su "negativo"
   // solo quiere decir que no hay veredicto. Las METAS con numero, mas abajo, si cuentan.
   const ov = soloMide(items) ? { logrados: 0, abiertos: 0 }
-    : await cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, datos.contexto, lado)
+    : await cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, datos.contexto, lado, banda)
   logrados += ov.logrados
   abiertos += ov.abiertos
 
@@ -860,121 +847,8 @@ export async function testsPositivosDe(pacienteId: string): Promise<UltimoResult
   return (await ultimosResultadosDe(pacienteId)).filter(r => r.resultado === 'positivo')
 }
 
-/**
- * Objetivos vinculados al test entero (`objetivos.test_id`).
- *
- * El LADO viaja también por aquí. Un objetivo puede colgar del test entero y no de un
- * ítem —es lo normal cuando la ficha mide una sola cosa— y sin esto la meta del paciente
- * nacía sin lado justo en el caso más frecuente.
- */
-async function abrirObjetivosDelTest(pacienteId: string, test: any, contexto?: string, lado?: string, banda?: Banda | null) {
-  const base = 'Test: ' + (test.nombre || 'test')
-
-  /**
-   * CADA TIPO DE TEST CUELGA SUS OBJETIVOS DONDE LE CORRESPONDE.
-   *
-   * En un test de casillas, del ÍTEM. En uno de puntuación o de baremo, de la BANDA, que es
-   * su equivalente: el sitio concreto que dice qué trabajo abre este resultado.
-   *
-   * Hacía falta porque "positivo" no siempre significa lo mismo: un FPI-6 sale positivo con
-   * el pie supinado y con el pronado, y el trabajo es el contrario. Colgarlo del test entero
-   * abría el objetivo de la pronación a un pie supinado, y nadie se enteraba.
-   *
-   * La vía lleva la banda en su `ref`, así que un resultado que cambia de banda cierra lo
-   * que abrió la anterior en vez de dejar las dos cosas abiertas a la vez.
-   */
-  if (esSuma(test) || esBaremo(test)) {
-    if (!banda) return 0
-    await resolverViasDeOtrasBandas(pacienteId, test.id, banda.etiqueta, contexto)
-    const ids = Array.isArray(banda.objetivos) ? banda.objetivos : []
-    const movs = banda.objetivos_mov || {}
-    for (const oid of ids) {
-      await abrirOReabrir(pacienteId, oid, {
-        tipo: 'test', ref: refDeBanda(test.id, banda.etiqueta), etiqueta: `${base} · ${banda.etiqueta}`,
-        resuelto: false, fecha_resuelto: null, mov: movs[oid] || null, lado: lado || null,
-      }, contexto)
-    }
-    return ids.length
-  }
-
-  /**
-   * En un test de casillas ya no cuelga nada del test entero.
-   *
-   * `objetivos.test_id` era la segunda forma de decir lo mismo: el test colgaba objetivos de
-   * sus ítems, y el objetivo podía colgarse a sí mismo del test completo. Dos sitios para
-   * una decisión acaban contradiciéndose, y quien mira uno no ve lo que dice el otro.
-   *
-   * Ahora hay una sola vía y vive en el test: el ítem si es de casillas, la banda si puntúa.
-   * La columna se queda en la base para no borrar de golpe lo que hubiera configurado antes,
-   * pero no la lee nadie.
-   */
-  return 0
-}
-
 /** La referencia de una vía abierta por una banda. Lleva el test y la banda dentro. */
 export const refDeBanda = (testId: string, etiqueta: string) => `${testId}|${String(etiqueta || '').trim()}`
-
-/**
- * Cierra lo que abrieron OTRAS bandas del mismo test.
- *
- * Un pie que pasa de supinado a pronado sigue dando el test positivo, así que nada lo
- * cerraría: se abrirían los objetivos de la pronación y los de la supinación se quedarían
- * abiertos para siempre, con el paciente arrastrando trabajo de una situación que ya no
- * tiene. Cambiar de banda es dejar atrás la anterior.
- */
-async function resolverViasDeOtrasBandas(pacienteId: string, testId: string, etiquetaActual: string, contexto?: string) {
-  const actual = refDeBanda(testId, etiquetaActual)
-  const { data: pos } = await supabase.from('pacientes_objetivos')
-    .select('objetivo_id,vias,logrado').eq('paciente_id', pacienteId)
-
-  for (const po of (pos || [])) {
-    const vias: Via[] = Array.isArray(po.vias) ? po.vias : []
-    let cambio = false
-    const nuevas = vias.map((v: any) => {
-      const deOtraBanda = v.tipo === 'test' && typeof v.ref === 'string'
-        && v.ref.startsWith(testId + '|') && v.ref !== actual && !v.resuelto
-      if (!deOtraBanda) return v
-      cambio = true
-      return { ...v, resuelto: true, fecha_resuelto: hoy() }
-    })
-    if (!cambio) continue
-    await guardarVias(pacienteId, po.objetivo_id, nuevas, {
-      logradoAntes: !!po.logrado, contexto: contexto || 'un cambio de banda del test',
-    })
-  }
-}
-
-/**
- * Objetivos que cuelgan de un ítem concreto: se abren si queda marcado y se resuelven
- * si no. La referencia es `testId:índice`, que es lo que `resolverViasDeTest` sabe leer.
- */
-async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemTest[], contexto?: string, lado?: string) {
-  let logrados = 0
-  let abiertos = 0
-  for (let i = 0; i < items.length; i++) {
-    const it = items[i]
-    const objIds = it.objetivos || []
-    if (objIds.length === 0) continue
-    const ref = test.id + ':' + i
-    const etiqueta = 'Test: ' + (test.nombre || 'test') + ' · ' + (it.nombre || `ítem ${i + 1}`)
-    // Qué movimiento del objetivo mide este ítem, si se dejó dicho en la biblioteca.
-    // Se apunta en la vía para que la meta del paciente nazca ya concretada.
-    const movs = (it as any).objetivos_mov || {}
-    for (const oid of objIds) {
-      if (it.marcado) {
-        await abrirOReabrir(pacienteId, oid, {
-          tipo: 'test_item', ref, etiqueta, resuelto: false, fecha_resuelto: null,
-          mov: movs[oid] || null, lado: lado || null,
-        }, contexto)
-        abiertos++
-      } else {
-        const r = await resolverVia(pacienteId, oid, 'test_item', ref, true, contexto || 'un test')
-        if (r.ok && r.logrado) logrados++
-      }
-    }
-  }
-  return { logrados, abiertos }
-}
 
 /**
  * Añade la vía al objetivo del paciente, creándolo si aún no lo tenía y reabriéndola si
@@ -1005,8 +879,13 @@ async function moverObjetivosDeItems(pacienteId: string, test: any, items: ItemT
  */
 async function cerrarObjetivosQueEvalua(
   pacienteId: string, test: any, items: ItemTest[],
-  resultado: ResultadoTest, contexto?: string, lado?: string,
+  resultado: ResultadoTest, contexto?: string, lado?: string, banda?: Banda | null,
 ) {
+  // ENGANCHADO A UNA BANDA (FPI-6 y parecidos): abre solo si el resultado cae en ESA
+  // banda; cualquier otro resultado la da por resuelta. Así un pie supinado no abre
+  // el trabajo del pronado, y un pie que pasa de pronado a normal lo cierra.
+  const nb = (x: any) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const enEsaBanda = (b: any) => resultado === 'positivo' && banda != null && nb(banda.etiqueta) === nb(b)
   let logrados = 0, abiertos = 0
   if (resultado === 'sin_realizar') return { logrados, abiertos }
 
@@ -1024,19 +903,28 @@ async function cerrarObjetivosQueEvalua(
     const nuevos = ids.filter(id => !tiene.has(id))
     if (nuevos.length > 0) {
       const { data: evs } = await supabase.from('objetivos_tests')
-        .select('objetivo_id,item').eq('test_id', test.id).in('objetivo_id', nuevos)
+        .select('objetivo_id,item,banda,movimiento').eq('test_id', test.id).in('objetivo_id', nuevos)
       const n = (x: any) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
       for (const oid of nuevos) {
         let via: Via | null = null
         for (const e of (evs || []).filter((x: any) => x.objetivo_id === oid)) {
+          // `mov`: qué parte del objetivo es, para que la meta nazca ya concretada.
+          // Antes lo ponía el ítem del test (`objetivos_mov`); ahora el evaluador.
+          const mov = e.movimiento || null
+          if (e.banda) {
+            if (!enEsaBanda(e.banda)) continue
+            via = { tipo: 'test', ref: refDeBanda(test.id, e.banda), etiqueta: 'Test: ' + (test.nombre || 'test') + ' · ' + e.banda,
+              resuelto: false, fecha_resuelto: null, mov, lado: lado || null } as Via
+            break
+          }
           if (e.item == null) {
-            via = { tipo: 'test', ref: test.id, etiqueta: 'Test: ' + (test.nombre || 'test'), resuelto: false, fecha_resuelto: null, lado: lado || null }
+            via = { tipo: 'test', ref: test.id, etiqueta: 'Test: ' + (test.nombre || 'test'), resuelto: false, fecha_resuelto: null, mov, lado: lado || null } as Via
             break
           }
           const i = items.findIndex(it => n(it?.nombre) === n(e.item))
           if (i >= 0 && items[i].marcado) {
             via = { tipo: 'test_item', ref: test.id + ':' + i, etiqueta: 'Test: ' + (test.nombre || 'test') + ' · ' + (items[i].nombre || `ítem ${i + 1}`),
-              resuelto: false, fecha_resuelto: null, lado: lado || null }
+              resuelto: false, fecha_resuelto: null, mov, lado: lado || null } as Via
             break
           }
         }
@@ -1051,7 +939,7 @@ async function cerrarObjetivosQueEvalua(
   // Y TODOS los evaluadores de esos objetivos, no solo los de este test: si un
   // objetivo se comprueba con tres cosas, pasar una no puede darlo por logrado.
   const { data: todos } = await supabase.from('objetivos_tests')
-    .select('objetivo_id,test_id,item').in('objetivo_id', suyos.map((r: any) => r.objetivo_id))
+    .select('objetivo_id,test_id,item,banda').in('objetivo_id', suyos.map((r: any) => r.objetivo_id))
 
   const otros = Array.from(new Set((todos || []).map((r: any) => r.test_id))).filter(id => id !== test.id)
   const { data: libs } = otros.length > 0
@@ -1066,6 +954,9 @@ async function cerrarObjetivosQueEvalua(
   const viaDe = (e: any): { tipo: string, ref: string, etiqueta: string } | null => {
     const t = porId[e.test_id]
     if (t == null || t.archivado_el != null) return null
+    // La banda va en la `ref`, con el mismo formato que usaba el test: las vías que
+    // abrió antes una banda se siguen reconociendo y cerrando.
+    if (e.banda) return { tipo: 'test', ref: refDeBanda(t.id, e.banda), etiqueta: 'Test: ' + (t.nombre || 'test') + ' · ' + e.banda }
     if (e.item == null) return { tipo: 'test', ref: t.id, etiqueta: 'Test: ' + (t.nombre || 'test') }
     const its = Array.isArray(t.items) ? t.items : []
     const i = its.findIndex((x: any) => norm(x?.nombre) === norm(e.item))
@@ -1098,7 +989,8 @@ async function cerrarObjetivosQueEvalua(
 
       // De este test: manda lo que se acaba de medir.
       let resuelto: boolean
-      if (e.item == null) resuelto = resultado === 'negativo'
+      if (e.banda) resuelto = !enEsaBanda(e.banda)
+      else if (e.item == null) resuelto = resultado === 'negativo'
       else {
         const i = Number(String(v.ref).slice(test.id.length + 1))
         resuelto = items[i]?.marcado === false
@@ -1194,10 +1086,10 @@ export async function alcanceBorradoTest(testId: string): Promise<AlcanceBorrado
     supabase.from('pacientes_objetivos').select('paciente_id,vias'),
   ])
 
-  const ids = Array.from(new Set([
-    ...(Array.isArray(t?.items) ? t!.items : []).flatMap((i: any) => Array.isArray(i?.objetivos) ? i.objetivos : []),
-    ...(Array.isArray(t?.bandas) ? t!.bandas : []).flatMap((b: any) => Array.isArray(b?.objetivos) ? b.objetivos : []),
-  ])) as string[]
+  // Lo que colgaba de ítems y bandas ya no abre nada (se pasó a `objetivos_tests`, que
+  // es `evaluan`, abajo). Contarlo aquí lo repetía dos veces en el aviso.
+  void t
+  const ids: string[] = []
   const { data: objs } = ids.length > 0
     ? await supabase.from('objetivos').select('nombre').in('id', ids)
     : { data: [] as any[] }
