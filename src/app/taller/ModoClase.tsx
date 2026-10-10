@@ -14,7 +14,7 @@ import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes } from '@/lib/ajustesCita'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
-import { registrarResultadoTest } from '@/lib/tests'
+import { registrarResultadoTest, ladoOpuesto } from '@/lib/tests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
@@ -289,6 +289,7 @@ export default function ModoClase() {
         observaciones: d.observaciones, lado,
         fechaRepeticion: d.fecha_repeticion || null,
         contexto: 'el taller',
+        otrosItems: tv.lados[ladoOpuesto(lado) || '']?.items_resultado || null,
       })
       if (r.ok === false) { alert('No se pudo guardar el resultado: ' + r.error); setGuardandoTest(false); return }
       logrados += r.logrados

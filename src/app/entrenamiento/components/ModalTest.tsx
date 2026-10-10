@@ -167,7 +167,7 @@ export default function ModalTest({ etiquetas = [], objetivos = [], z, onCerrar,
                   </div>
                   {/* En baremo el ítem no lleva ni regla ni rango propios: el umbral lo
                       pone la tabla de normas, que depende del paciente. */}
-                  {!esBaremo(nuevoTest) && <ConfigBarra item={item} soloRango={esSuma(nuevoTest)} onCambia={(campos:any)=>{
+                  {!esBaremo(nuevoTest) && <ConfigBarra item={item} soloRango={esSuma(nuevoTest)} lateral={(nuevoTest as any)?.tipo_lado==='lateral'} onCambia={(campos:any)=>{
                     const its=[...nuevoTest.items] as any[]; its[i]={...its[i],...campos}
                     setNuevoTest(p=>({...p,items:its}))
                   }}/>}

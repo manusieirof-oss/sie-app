@@ -5,7 +5,7 @@ import { ultimoValor } from '@/lib/metasVia'
 import {
   resultadoDeTest, mide, unidadDe, valorDe, tieneBarra, evaluaItem, textoRegla, medicionesPendientes,
   esSuma, puntuacionDe, puntuacionesPendientes, bandaDe, rangoTotal,
-  esBaremo, evaluarBaremo, edadEn, textoNorma, soloMide,
+  esBaremo, evaluarBaremo, edadEn, textoNorma, soloMide, conOtroLado, ladoOpuesto, asimetriaDe,
 } from '@/lib/tests'
 import { hoyISO, aISO } from '@/lib/fechas'
 
@@ -101,6 +101,12 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
 
   // Los ítems del lado, cayendo en la definición vigente del test si aún no se ha tocado.
   const base = d.items_resultado?.length ? d.items_resultado : items.map((it: any) => ({ ...it, marcado: false, valor: '' }))
+  // ASIMETRÍA: lo que midió el otro lado, para saber cuál es el débil. `vista` es lo
+  // que se evalúa y se pinta; `base` es lo que se guarda (el otro lado se pone al
+  // registrar, que es cuando ya están los dos).
+  const op = ladoOpuesto(ladoActivo)
+  const otrosItems = op ? (tv.lados?.[op]?.items_resultado || null) : null
+  const vista = conOtroLado(base, otrosItems)
 
   // Barras sin valor. El veredicto se sigue calculando igual, pero deja de anunciarse como
   // si estuviera el test entero mirado.
@@ -353,7 +359,8 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                     /* ÍTEM CON BARRA: no se marca, se mide. El veredicto sale del número,
                        así que la casilla sobra y encima invitaba a contradecirlo. */
                     if (tieneBarra(item)) {
-                      const hallazgo = evaluaItem(item)
+                      const hallazgo = evaluaItem(vista[ii])
+                      const asim = asimetriaDe(vista[ii])
                       const v = valorDe(item)
                       const medir = item.regla === 'medir'
                       const sinLimite = medir && (item.max === undefined || item.max === null || item.max === '')
@@ -364,7 +371,14 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                       const col = hallazgo === true ? 'var(--red)' : hallazgo === false ? 'var(--g)' : 'var(--bd)'
                       const ponValor = (x: string) => {
                         const its = [...base]; its[ii] = { ...its[ii], valor: x }
-                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its, 'positivo', ctx) })
+                        const nuevos: Record<string, any> = { ...(tv.lados || {}),
+                          [ladoActivo]: { ...d, items_resultado: its, resultado: resultadoDeTest(test, conOtroLado(its, otrosItems), 'positivo', ctx) } }
+                        // Con asimetría, este número cambia también el veredicto del OTRO
+                        // lado: si este baja, el otro puede dejar de ser el débil.
+                        const o = op ? tv.lados?.[op] : null
+                        if (op && o?.items_resultado?.length && o.resultado && o.resultado !== 'sin_realizar')
+                          nuevos[op] = { ...o, resultado: resultadoDeTest(test, conOtroLado(o.items_resultado, its), 'positivo', ctx) }
+                        onCambiar({ ...tv, lados: nuevos })
                       }
                       return (
                         <div key={ii} style={{ padding: '12px 13px', background: hallazgo === true ? 'var(--redl)' : hallazgo === false ? 'var(--gl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${col}`, marginBottom: 5 }}>
@@ -418,6 +432,23 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                               )}
                             </div>
                           )}
+                          {/* LA DIFERENCIA CON EL OTRO LADO, si el ítem compara lados. */}
+                          {medir && Number(item.asimetria) > 0 && v !== '' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 7, padding: '7px 10px', borderRadius: 7, background: 'var(--bl)', fontSize: 12, color: 'var(--gr)' }}>
+                              {asim == null
+                                ? <span>Falta medir el otro lado para comparar.</span>
+                                : <>
+                                  <span>Otro lado: <b style={{ color: 'var(--n)' }}>{vista[ii].otro} {unidadDe(item).simbolo.trim()}</b></span>
+                                  <span style={{ flex: 1 }} />
+                                  <span style={{ fontWeight: 600, padding: '2px 9px', borderRadius: 99, fontSize: 12,
+                                    background: asim.hallazgo ? 'var(--redl)' : 'var(--gl)',
+                                    color: asim.hallazgo ? 'var(--red)' : 'var(--gd)',
+                                    border: `1px solid ${asim.hallazgo ? '#E8C4C4' : 'var(--gm)'}` }}>
+                                    {Math.round(asim.pct)}% de diferencia · {asim.pct === 0 ? 'iguales' : asim.debil ? 'este es el débil' : 'este es el fuerte'}
+                                  </span>
+                                </>}
+                            </div>
+                          )}
                           {medir && paciente?.id && prev && prev.valor == null && (
                             <div style={{ marginTop: 7, fontSize: 11, color: 'var(--grl)' }}>Primera vez que se mide: la próxima se comparará con esta.</div>
                           )}
@@ -428,7 +459,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                     <label key={ii} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', background: item.marcado ? 'var(--redl)' : 'var(--w)', borderRadius: 7, border: `1px solid ${item.marcado ? '#F5C8C8' : 'var(--bd)'}`, marginBottom: 5, cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!item.marcado} onChange={e => {
                         const its = [...base]; its[ii] = { ...its[ii], marcado: e.target.checked }
-                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, its, 'positivo', ctx) })
+                        actualizar({ items_resultado: its, resultado: resultadoDeTest(test, conOtroLado(its, otrosItems), 'positivo', ctx) })
                       }} style={{ width: 19, height: 19, accentColor: 'var(--red)', cursor: 'pointer', flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 13, color: 'var(--n)', fontWeight: item.marcado ? 400 : 300 }}>{item.nombre}</span>
                       {mide(item) && item.marcado && (
@@ -445,7 +476,7 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
                   })}
 
                   <div style={{ padding: '9px 12px', borderRadius: 7, background: d.resultado === 'positivo' ? 'var(--redl)' : d.resultado === 'negativo' ? 'var(--gl)' : 'var(--bl)', border: `1px solid ${d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gm)' : 'var(--bd)'}`, fontSize: 12, fontWeight: 500, color: d.resultado === 'positivo' ? 'var(--red)' : d.resultado === 'negativo' ? 'var(--gd)' : 'var(--grl)', marginTop: 8 }}>
-                    {soloMide(base)
+                    {soloMide(vista)
                       ? 'Medición · se guarda el número y se compara con la vez anterior'
                       : <>
                     {d.resultado === 'positivo' ? '+ Positivo' : d.resultado === 'negativo' ? '− Negativo' : 'Marca los ítems observados'}

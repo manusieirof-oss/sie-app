@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
-import { registrarResultadoTest, testsPositivosDe } from '@/lib/tests'
+import { registrarResultadoTest, testsPositivosDe, ladoOpuesto } from '@/lib/tests'
 import { anadirALista, leerLista } from '@/lib/listasPaciente'
 import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
 import { esAsignable } from '@/lib/bonoSesiones'
@@ -399,6 +399,7 @@ export default function ValoracionPage() {
             observaciones: d.observaciones, lado: ladoKey,
             fechaRepeticion: d.fecha_repeticion || null,
             contexto: esRevaloracion ? 'la revaloración' : 'la valoración inicial',
+            otrosItems: lados[ladoOpuesto(ladoKey) || '']?.items_resultado || null,
           })
           if (!r.ok) alert(`Aviso: no se pudo guardar el test "${t.nombre || ''}" (${r.error}). El resto de la valoración sí se ha guardado.`)
         }

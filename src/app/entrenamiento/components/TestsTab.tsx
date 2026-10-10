@@ -372,7 +372,7 @@ export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, 
                     </select>
                     <button onClick={()=>setTestEditando((p:any)=>({...p,items:(p.items||[]).filter((_:any,j:number)=>j!==i)}))} style={{fontSize:11,color:'var(--red)',background:'none',border:'none',cursor:'pointer'}}>✕</button>
                   </div>
-                  {!esBaremo(testEditando) && <ConfigBarra item={item} soloRango={esSuma(testEditando)} onCambia={(campos:any)=>{
+                  {!esBaremo(testEditando) && <ConfigBarra item={item} soloRango={esSuma(testEditando)} lateral={testEditando?.tipo_lado==='lateral'} onCambia={(campos:any)=>{
                     const its=[...(testEditando.items||[])] as any[]; its[i]={...its[i],...campos}
                     setTestEditando((p:any)=>({...p,items:its}))
                   }}/>}

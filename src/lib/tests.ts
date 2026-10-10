@@ -60,13 +60,58 @@ export type ItemTest = {
   regla?: 'menor' | 'mayor' | 'entre' | 'fuera' | 'medir'
   /** Solo en 'medir': si mejorar es subir (fuerza, grados) o bajar (tiempo, dolor). */
   mejor?: 'mas' | 'menos'
+  /**
+   * Solo en 'medir' y en tests de izquierdo/derecho: el % de diferencia entre lados a
+   * partir del cual el lado PEOR da positivo. La fuerza "buena" depende de demasiadas
+   * cosas para poner un umbral fijo; la diferencia con el otro lado no.
+   */
+  asimetria?: number
+  /** Lo que midió el OTRO lado. No viene de la biblioteca: se pone al evaluar. */
+  otro?: number
   umbral?: number
   /** Segundo extremo, solo en 'entre' y 'fuera'. */
   umbral2?: number
 }
 
 /** true si el ítem se mide para comparar, sin decidir positivo ni negativo. */
-export const soloMideItem = (i: any) => i?.regla === 'medir' && mide(i)
+export const soloMideItem = (i: any) => i?.regla === 'medir' && mide(i) && asimetriaDe(i) == null
+
+/**
+ * LA DIFERENCIA ENTRE LADOS de un ítem que solo mide. null si no hay con qué
+ * compararlo: sin % puesto, o sin el valor de alguno de los dos lados. En ese caso
+ * el ítem sigue siendo una medida sin veredicto, como antes.
+ *
+ * Solo da positivo el lado PEOR (el más débil si mejor es más alto). El otro lado
+ * sale negativo: está bien, es el de referencia.
+ */
+export function asimetriaDe(i: any): { pct: number, debil: boolean, hallazgo: boolean } | null {
+  const lim = Number(i?.asimetria)
+  if (i?.regla !== 'medir' || !(lim > 0)) return null
+  const v = parseFloat(valorDe(i))
+  const o = i?.otro == null ? NaN : Number(i.otro)
+  if (!isFinite(v) || !isFinite(o)) return null
+  const ref = Math.max(Math.abs(v), Math.abs(o))
+  if (ref === 0) return { pct: 0, debil: false, hallazgo: false }
+  const pct = Math.abs(v - o) / ref * 100
+  const debil = i.mejor === 'menos' ? v > o : v < o
+  return { pct, debil, hallazgo: debil && pct > lim }
+}
+
+export const ladoOpuesto = (l?: string | null) => l === 'izquierdo' ? 'derecho' : l === 'derecho' ? 'izquierdo' : null
+
+/**
+ * Le pone a cada ítem con asimetría lo que midió el otro lado (`otro`), emparejando
+ * por nombre. Hace falta antes de evaluar: un lado solo no sabe si es el débil.
+ */
+export function conOtroLado(items: any[], otros?: any[] | null): any[] {
+  const n = (x: any) => String(x || '').toLowerCase().trim()
+  return (items || []).map((i: any) => {
+    if (!(i?.regla === 'medir' && Number(i?.asimetria) > 0)) return i
+    const o = (otros || []).find((x: any) => n(x?.nombre) === n(i?.nombre))
+    const ov = o ? parseFloat(valorDe(o)) : NaN
+    return { ...i, otro: isFinite(ov) ? ov : undefined }
+  })
+}
 
 /**
  * Un test hecho solo de medidas sin veredicto. No cierra objetivos por su resultado:
@@ -94,6 +139,8 @@ export function evaluaItem(item: any): boolean | null {
     case 'mayor': return v > a
     case 'entre': return v >= Math.min(a, b) && v <= Math.max(a, b)
     case 'fuera': return v < Math.min(a, b) || v > Math.max(a, b)
+    // Solo medir no decide nada... salvo que compare lados y tenga los dos.
+    case 'medir': { const as = asimetriaDe(item); return as ? as.hallazgo : null }
     default: return null
   }
 }
@@ -108,7 +155,9 @@ export function textoRegla(item: any): string {
     case 'mayor': return `Positivo por encima de ${a}${u}`
     case 'entre': return `Positivo entre ${Math.min(a, b)} y ${Math.max(a, b)}${u}`
     case 'fuera': return `Positivo fuera de ${Math.min(a, b)}–${Math.max(a, b)}${u}`
-    case 'medir': return `Sin positivo · mejor cuanto más ${item.mejor === 'menos' ? 'bajo' : 'alto'}`
+    case 'medir': return Number(item.asimetria) > 0
+      ? `Positivo si este lado rinde más de un ${item.asimetria}% peor que el otro`
+      : `Sin positivo · mejor cuanto más ${item.mejor === 'menos' ? 'bajo' : 'alto'}`
     default: return ''
   }
 }
@@ -602,6 +651,8 @@ export type DatosResultado = {
   fecha?: string
   /** De dónde viene, para que el historial lo diga: 'la valoración', 'la ficha'... */
   contexto?: string
+  /** Los ítems del OTRO lado, pasados a la vez. Solo los usa la asimetría. */
+  otrosItems?: ItemTest[] | null
 }
 
 export type ResultadoRegistro = {
@@ -651,7 +702,7 @@ export async function registrarResultadoTest(
    * se abría. Peor: se iba por la rama del `else` y RESOLVÍA la vía, cerrando por buena
    * una restricción que se acababa de medir.
    */
-  const items = (datos.items || []).map(i => ({
+  const items = conOtroLado(datos.items || [], datos.otrosItems).map((i: any) => ({
     ...i, marcado: tieneBarra(i) ? evaluaItem(i) === true : !!i.marcado,
   }))
   const lado = datos.lado || 'bilateral'
@@ -722,6 +773,8 @@ export async function registrarResultadoTest(
       // a 12, el registro de marzo tiene que seguir explicando por qué salió positivo
       // aquel día. Sin esto, el histórico cambiaría de sentido al tocar la biblioteca.
       ...(tieneBarra(i) ? { regla: i.regla, umbral: i.umbral, umbral2: i.umbral2, ...(i.mejor ? { mejor: i.mejor } : {}) } : {}),
+      // La asimetría también: el % que se usó y lo que midió el otro lado ese día.
+      ...(i.regla === 'medir' && Number(i.asimetria) > 0 ? { asimetria: i.asimetria, ...(i.otro != null ? { otro: i.otro } : {}) } : {}),
     })),
   })
   if (error) return { ok: false, error: error.message }

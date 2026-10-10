@@ -11,7 +11,7 @@ import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
-import { registrarResultadoTest, textoMedida, esSuma } from '@/lib/tests'
+import { registrarResultadoTest, textoMedida, esSuma, ladoOpuesto } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
 import ModalCobro from '@/components/ModalCobro'
 import { cargarTarifas } from '@/lib/tarifas'
@@ -452,6 +452,7 @@ export default function FichaPacientePage() {
         observaciones: d.observaciones, lado,
         fechaRepeticion: d.fecha_repeticion || null,
         contexto: 'la ficha',
+        otrosItems: tv.lados[ladoOpuesto(lado) || '']?.items_resultado || null,
       })
       if (!r.ok) { alert('No se pudo guardar el resultado: ' + r.error); setProcesando(false); return }
       logrados += r.logrados
@@ -464,8 +465,8 @@ export default function FichaPacientePage() {
         // entero, y se engancha desde la ficha del objetivo. Mandar ahí a buscar "el ítem
         // que ha dado positivo" sería mandar a buscar algo que no existe.
         alert(esSuma(test)
-          ? `El test ha salido POSITIVO en ${lado} (${r.banda || 'sin banda'}) pero no tiene ningún objetivo enganchado, así que no va a aparecer nada en la ficha.\n\nEngánchalo en Biblioteca → Objetivos: el objetivo apunta al test «${test.nombre}» entero.`
-          : `El test ha salido POSITIVO en ${lado} pero no tiene ningún objetivo enganchado, así que no va a aparecer nada en la ficha.\n\nEngánchalo en Biblioteca → Tests → ${test.nombre}: en el ÍTEM que ha dado positivo, no en otro.`)
+          ? `El test ha salido POSITIVO en ${lado} (${r.banda || 'sin banda'}) pero no tiene ningún objetivo enganchado, así que no va a aparecer nada en la ficha.\n\nEngánchalo en Biblioteca → Objetivos: en «Cómo se evalúa» del objetivo, con el test «${test.nombre}» y la banda.`
+          : `El test ha salido POSITIVO en ${lado} pero no tiene ningún objetivo enganchado, así que no va a aparecer nada en la ficha.\n\nEngánchalo en Biblioteca → Objetivos: en «Cómo se evalúa» del objetivo, con el test «${test.nombre}» o el ítem que ha dado positivo.`)
       }
     }
     setProcesando(false)

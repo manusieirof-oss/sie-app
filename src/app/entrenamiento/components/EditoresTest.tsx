@@ -30,7 +30,7 @@ import FiltroZonas from '@/components/FiltroZonas'
  * Va en un componente y no copiado en los dos formularios —crear y editar— porque son el
  * mismo formulario dos veces y ya se nota: el de editar arrastra diferencias del de crear.
  */
-export function ConfigBarra({ item, onCambia, soloRango = false }: { item: any, onCambia: (campos: any) => void, soloRango?: boolean }) {
+export function ConfigBarra({ item, onCambia, soloRango = false, lateral = false }: { item: any, onCambia: (campos: any) => void, soloRango?: boolean, lateral?: boolean }) {
   if (!mide(item)) return null
   const u = unidadDe(item).simbolo.trim()
   const dosUmbrales = item.regla === 'entre' || item.regla === 'fuera'
@@ -83,6 +83,17 @@ export function ConfigBarra({ item, onCambia, soloRango = false }: { item: any, 
             <input className="input" type="number" style={{ width: 80, fontSize: 11 }} value={item.max ?? ''}
               onChange={e => onCambia({ max: num(e.target.value) })} placeholder="sin límite" />
             <span style={{ fontSize: 10, color: 'var(--grl)' }}>{u}</span>
+            {/* COMPARAR LADOS. La fuerza o los grados "buenos" dependen de demasiadas
+                cosas para un umbral fijo; la diferencia con el otro lado no. Solo en
+                tests de izquierdo/derecho. Vacío = solo mide, como antes. */}
+            {lateral && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexBasis: '100%', marginTop: 4 }}>
+                <span style={{ fontSize: 10, color: 'var(--grl)' }}>Positivo si un lado es más de un</span>
+                <input className="input" type="number" style={{ width: 56, fontSize: 11 }} value={item.asimetria ?? ''}
+                  onChange={e => onCambia({ asimetria: num(e.target.value) })} placeholder="—" />
+                <span style={{ fontSize: 10, color: 'var(--grl)' }}>% peor que el otro</span>
+              </span>
+            )}
           </>
         )}
         {item.regla && item.regla !== 'medir' && (
