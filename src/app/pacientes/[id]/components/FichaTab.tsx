@@ -505,11 +505,14 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       borderWidth: 0,
       boxShadow: `inset -3px -5px 9px ${v.oscuro}55, 0 3px 7px rgba(38,40,37,.28)`,
     }
+    /* SIN CLASES = ESFERA PALIDA, no un aro. Todo son esferas (lo pidio Manu: los
+       aros vacios se leian como otra cosa). La diferencia queda en la intensidad:
+       color fuerte y letra blanca si se trabaja; casi blanca con la letra de color
+       si ninguna clase lo trabaja. El color sigue diciendo de donde sale. */
     const hueco = {
-      background: 'var(--w)',
-      borderColor: v.color,
-      borderWidth: grande ? 1.5 : 1,
-      boxShadow: 'none',
+      background: `radial-gradient(circle at 33% 28%, #fff 0%, #fff 22%, ${v.claro} 68%, ${v.color}88 100%)`,
+      borderWidth: 0,
+      boxShadow: `inset -2px -4px 7px ${v.color}33, 0 2px 5px rgba(38,40,37,.16)`,
     }
     /* POR CONFIRMAR: un aro alrededor, no un estado nuevo.
        Lo logrado sigue logrado —no se reabre solo—, pero si hace tiempo que no

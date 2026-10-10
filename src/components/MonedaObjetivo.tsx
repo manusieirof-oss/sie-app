@@ -21,15 +21,18 @@ export default function MonedaObjetivo({ objetivo, tam = 'normal', titulo }: {
   return (
     <span className={clase} title={titulo ?? objetivo?.nombre}
       style={{
-        background: objetivo?.imagen_url ? 'var(--bl)' : 'var(--gl)',
-        // Gris y apagada si ya está logrado: se sigue viendo que la sesión lo trabajaba,
+        // ESFERA, como en la ficha: todo objetivo se pinta como una bola, no como un aro.
+        background: objetivo?.imagen_url ? 'var(--bl)'
+          : 'radial-gradient(circle at 33% 28%, #fff 0%, var(--gm) 22%, var(--g) 60%, var(--gd) 100%)',
+        borderWidth: 0,
+        boxShadow: 'inset -2px -4px 7px rgba(0,0,0,.18), 0 2px 5px rgba(38,40,37,.22)',
+        // Apagada si ya está logrado: se sigue viendo que la sesión lo trabajaba,
         // pero no compite con lo que queda abierto.
-        borderColor: objetivo?.logrado ? 'var(--gm)' : 'var(--g)',
         opacity: objetivo?.logrado ? .55 : 1,
       }}>
       {objetivo?.imagen_url
         ? <img src={objetivo.imagen_url} alt="" />
-        : <b style={{ color: 'var(--g)' }}>{String(objetivo?.nombre || '?').trim().charAt(0).toUpperCase()}</b>}
+        : <b style={{ color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.3)' }}>{String(objetivo?.nombre || '?').trim().charAt(0).toUpperCase()}</b>}
     </span>
   )
 }
