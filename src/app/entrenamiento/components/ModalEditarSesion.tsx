@@ -527,6 +527,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   // lo que no se ofrece es ponerlo de nuevo.
   const selectorObjetivos = eligiendoObj ? (
     <SelectorObjetivos objetivos={objetivosDisp.filter((o:any)=>o.archivado_el == null)} ya={objetivosSel} etiquetas={etiquetas}
+      destacados={(sesion.paciente_id || pacienteSel) ? objsPaciente.map(o=>o.id) : []}
       titulo="Objetivos que cubre la sesión"
       onCerrar={()=>setEligiendoObj(false)}
       onElegir={(ids:string[], movs:Record<string,string[]>)=>{

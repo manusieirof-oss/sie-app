@@ -26,7 +26,13 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
   /** Un aviso corto bajo el nombre, por ejemplo la patologia que lo propone. */
   marcaDe,
   /** Lo que quiera poner quien abre el selector en el pie, junto a los botones. */
-  extra }: any) {
+  extra,
+  /**
+   * Los objetivos que el paciente tiene ABIERTOS en su ficha. Se resaltan, salen
+   * primero y se pueden filtrar. Montando su sesion, lo normal es trabajar esos.
+   */
+  destacados = [] as string[] }: any) {
+  const [soloDest, setSoloDest] = useState<boolean>((destacados || []).length > 0)
 
   const [busca, setBusca] = useState('')
   const [zona, setZona] = useState('')
@@ -52,10 +58,14 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
     onRecargarBiblio?.()
   }
 
+  const esDest = (o: any) => (destacados || []).includes(o.id)
   const lista = (objetivos || [])
     .filter((o: any) => ya.includes(o.id) === false)
     .filter((o: any) => contiene(o.nombre || '', busca) || contiene(o.descripcion || '', busca))
     .filter((o: any) => casaZona(etiquetas, zonaIdsDe(o), zona))
+    .filter((o: any) => !soloDest || esDest(o))
+    .sort((a: any, b: any) => Number(esDest(b)) - Number(esDest(a)))
+  const nDest = (objetivos || []).filter((o: any) => esDest(o) && !ya.includes(o.id)).length
 
   const conEsp = (objetivos || []).filter((o: any) =>
     marcados.includes(o.id) && (o.movimientos || []).length > 0)
@@ -76,6 +86,16 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
         <div style={{ padding:'11px 17px 0' }}>
           <input className="input" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar objetivo por nombre…"/>
+          {(destacados || []).length > 0 && (
+            <div style={{ display:'flex', gap:6, marginTop:9, flexWrap:'wrap' }}>
+              <button className={`chip-sel ${soloDest ? 'on' : ''}`} onClick={() => setSoloDest(true)}>
+                Los de su ficha · {nDest}
+              </button>
+              <button className={`chip-sel ${!soloDest ? 'on' : ''}`} onClick={() => setSoloDest(false)}>
+                Todos
+              </button>
+            </div>
+          )}
           {zonasUsadas.length > 0 && (
             <div style={{ display:'flex', alignItems:'flex-start', gap:6, marginTop:9 }}>
               <span style={{ fontSize:8, fontWeight:600, color:'var(--grl)', letterSpacing:.4,
@@ -101,11 +121,12 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
                   style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'10px 6px',
                     borderRadius:9, cursor: (tiene && onExistente == null) ? 'default' : 'pointer',
                     opacity: tiene ? .75 : 1,
-                    border:`1px solid ${on ? 'var(--g)' : 'var(--bd)'}`,
+                    border:`${esDest(o) && !on ? 2 : 1}px solid ${on ? 'var(--g)' : esDest(o) ? 'var(--gm)' : 'var(--bd)'}`,
                     background: on ? 'var(--gl)' : 'var(--w)' }}>
                   <MonedaObjetivo objetivo={o} tam="g"/>
                   <span style={{ fontSize:10.5, textAlign:'center', lineHeight:1.3, color:'var(--n)' }}>{o.nombre}</span>
                   {marca && <span style={{ fontSize:9, color:'var(--gd)', textAlign:'center' }}>{marca}</span>}
+                  {esDest(o) && <span style={{ fontSize:9, fontWeight:600, color:'var(--gd)' }}>● en su ficha</span>}
                   {tiene
                     ? <span style={{ fontSize:9, color:'var(--gd)' }}>ya lo tiene</span>
                     : (o.movimientos || []).length > 0 && (
@@ -121,6 +142,8 @@ export default function SelectorObjetivos({ objetivos, ya = [], titulo = 'Añadi
             <div className="muted">
               {(objetivos || []).length === 0
                 ? 'No hay objetivos en la biblioteca todavía.'
+                : soloDest
+                ? 'De los de su ficha no queda ninguno por poner. Pulsa «Todos» para ver el resto.'
                 : 'Ninguno coincide, o ya están todos puestos.'}
             </div>
           )}
