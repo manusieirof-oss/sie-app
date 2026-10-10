@@ -25,7 +25,7 @@ function Fila({ etiqueta, children }: any) {
 }
 
 export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
-  ejercicios = [], etiquetas = [], tests = [], onRecargarBiblio, onCerrar, onGuardado }: any) {
+  ejercicios = [], etiquetas = [], tests = [], onRecargarBiblio, onCerrar, onGuardado, paraPaciente }: any) {
   const [f, setF] = useState<any>({
     id: sistema?.id, nombre: sistema?.nombre || '', descripcion: sistema?.descripcion || '',
     color: sistema?.color || '#5A969E', icono: sistema?.icono || '',
@@ -63,6 +63,19 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
    * hace una copia suya y la fase pasa a apuntar a la copia. La biblioteca no se toca.
    */
   const delPaciente: string | null = sistema?.paciente_id || null
+  /**
+   * PARA QUIÉN SE ESTÁ HACIENDO, aunque el ciclo no sea suyo. Un ciclo creado desde la
+   * ficha nace en la biblioteca (sin paciente), y por eso ni el selector de objetivos
+   * ni el de sesiones ni una sesión nueva marcaban los objetivos de su ficha. Esto solo
+   * sirve para resaltarlos: no cambia de quién es nada.
+   */
+  const destacarPara: string | null = delPaciente || paraPaciente || null
+  const [objsDestacar, setObjsDestacar] = useState<string[]>([])
+  useEffect(() => {
+    if (!destacarPara) { setObjsDestacar([]); return }
+    supabase.from('pacientes_objetivos').select('objetivo_id, logrado').eq('paciente_id', destacarPara)
+      .then(({ data }) => setObjsDestacar((data || []).filter((r: any) => !r.logrado && r.objetivo_id).map((r: any) => r.objetivo_id)))
+  }, [destacarPara])
   async function recargarSesiones() {
     const { data } = await supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id,movimientos)').order('nombre')
     setSesionesLocal((data || []).filter((s: any) => esPlantilla(s) || (delPaciente != null && s.paciente_id === delPaciente)))
@@ -446,12 +459,14 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
 
           {editandoSesion && (
             <ModalEditarSesion sesion={editandoSesion} ejercicios={ejercicios} etiquetas={etiquetas}
+              paraPaciente={destacarPara || undefined}
               onGuardado={recargarSesiones}
               onCerrar={() => setEditandoSesion(null)}/>
           )}
 
           {eligiendoObj !== null && (
             <SelectorObjetivos objetivos={objetivos} ya={fases[eligiendoObj]?.objetivos || []}
+              destacados={objsDestacar}
               tests={tests} etiquetas={etiquetas} onRecargarBiblio={onRecargarBiblio}
               titulo={`Condiciones de salida de «${fases[eligiendoObj]?.nombre || 'la fase'}»`}
               onCerrar={() => setEligiendoObj(null)}
@@ -463,7 +478,7 @@ export default function ModalSistema({ sistema, objetivos = [], sesiones = [],
           )}
 
           {eligiendo !== null && (
-            <SelectorSesiones sesiones={sesionesLocal} ya={fases[eligiendo]?.sesiones || []} pacienteId={delPaciente}
+            <SelectorSesiones sesiones={sesionesLocal} ya={fases[eligiendo]?.sesiones || []} pacienteId={destacarPara}
               objetivosFase={(fases[eligiendo]?.objetivos || []).map((id: string) => ({
                 id, nombre: (objetivos || []).find((o: any) => o.id === id)?.nombre || 'Objetivo' }))}
               ejercicios={ejercicios} etiquetas={etiquetas} onRecargarBiblio={recargarSesiones}

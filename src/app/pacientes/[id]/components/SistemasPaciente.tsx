@@ -365,6 +365,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
         <ModalSistema sistema={editandoSistema}
           objetivos={biblio.objetivos} sesiones={biblio.sesiones}
           ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
+          paraPaciente={pacienteId}
           onCerrar={() => setEditandoSistema(null)}
           onGuardado={onCambio}/>
       )}
@@ -380,6 +381,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
           } : null}
           objetivos={biblio.objetivos} sesiones={biblio.sesiones}
           ejercicios={biblio.ejercicios} etiquetas={biblio.etiquetas} tests={biblio.tests}
+          paraPaciente={pacienteId}
           onCerrar={() => setCreando(false)}
           onGuardado={() => { setCatalogo([]); cargarSistemas(true).then(setCatalogo) }}/>
       )}
