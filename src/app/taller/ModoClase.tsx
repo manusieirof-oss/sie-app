@@ -15,6 +15,7 @@ import { aplicarAjustes } from '@/lib/ajustesCita'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest, ladoOpuesto } from '@/lib/tests'
+import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
@@ -740,7 +741,8 @@ export default function ModoClase() {
           // Su hueco en la sesion (parte.ejercicio): es la clave de los ajustes del dia.
           pos: `${pi}.${pe}`, sustituye: ej.sustituye || '',
           // Qué objetivos trabaja este ejercicio, tal cual se dejó en la sesión.
-          objetivos: Array.isArray(ej.objetivos) ? ej.objetivos : [],
+          // null = la sesión es de antes del vínculo: se sugiere abajo por etiquetas.
+          objetivos: Array.isArray(ej.objetivos) ? ej.objetivos : null,
           /**
            * LO PRESCRITO VIAJA ENTERO A LA SALA.
            *
@@ -786,6 +788,18 @@ export default function ModoClase() {
     } else {
       ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; e.etiquetas = []; if(!e.items_evaluados) e.items_evaluados = {} })
     }
+    /* SESIONES DE ANTES DEL VÍNCULO EJERCICIO-OBJETIVO. No lo llevan guardado hasta
+       que se abren y se guardan, y en sala no salía nada. Se sugiere aquí igual que al
+       editarla: por las etiquetas del ejercicio y las del objetivo. */
+    if (ses?.id && ejs.some(e => e.objetivos == null)) {
+      const { data: rel } = await supabase.from('sesiones_objetivos')
+        .select('objetivo_id, movimientos, objetivos(id,articulacion_id,etiquetas,movimientos)').eq('sesion_id', ses.id)
+      const objs = (rel || []).map((x: any) => x.objetivos).filter(Boolean)
+      const movs: Record<string, string[]> = {}
+      ;(rel || []).forEach((x: any) => { if (Array.isArray(x.movimientos)) movs[x.objetivo_id] = x.movimientos })
+      ejs.forEach(e => { if (e.objetivos == null) e.objetivos = sugerirObjetivos(e.etiquetas || [], objs, movs) })
+    }
+    ejs.forEach(e => { if (e.objetivos == null) e.objetivos = [] })
     if (ids.length) {
       /**
        * UNA VARIANTE ES OTRO EJERCICIO a efectos de progresion.
