@@ -14,6 +14,7 @@ import SelectorObjetivos from './SelectorObjetivos'
 import HojaLibre from '@/components/HojaLibre'
 import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
+import { objetivosDeEjercicio } from '@/lib/ejercicioObjetivos'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -353,6 +354,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     })
   }
 
+  // QUÉ OBJETIVO TRABAJA CADA EJERCICIO. Ver `lib/ejercicioObjetivos`.
+  const objsSesion = objetivosSel.map(id => objetivosDisp.find((o: any) => o.id === id)).filter(Boolean)
+  const etiquetasDeEj = (ej: any) => (catalogo.find((e: any) => e.id === ej?.ejercicio_id)?.etiquetas) || []
+  const objsDeEj = (ej: any) => objetivosDeEjercicio(ej, etiquetasDeEj(ej), objsSesion, movsSel)
+
   function editarEjercicio(ei: number, cambios: any) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
@@ -486,9 +492,14 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     const pid = sesion.paciente_id || pacienteSel || null
     setGuardando(true)
     let sesionId = sesion.id
+    // Se guarda lo que se ve: lo marcado a mano y, si no se tocó, lo sugerido. Así el
+    // taller y la ficha leen el vínculo tal cual, sin recalcular etiquetas.
+    const partesConObj = (formSesion.partes || []).map((p: any) => ({
+      ...p, ejercicios: (p.ejercicios || []).map((ej: any) => ({ ...ej, objetivos: objsDeEj(ej) })),
+    }))
     const campos: any = {
       nombre: formSesion.nombre, descripcion: formSesion.descripcion,
-      partes: formSesion.partes,
+      partes: partesConObj,
     }
     if (hojaLeida) campos.hoja = hoja
     // Los objetivos pegados en la hoja cuentan igual que los elegidos arriba: si no,
@@ -881,6 +892,29 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             una variante que la biblioteca ya no ofrece —se quitó después de
                             montar la sesión—: entonces se enseña igual, y se puede quitar.
                             Esconderla la dejaría guardándose sin que nadie la vea. */}
+                        {/* LOS OBJETIVOS DE ESTE EJERCICIO. Todos los de la sesión en
+                            pequeño: en color los que trabaja, apagados los que no. Pulsar
+                            cambia. Sale sugerido por etiquetas; tocarlo lo deja a mano. */}
+                        {objsSesion.length > 0 && (() => {
+                          const suyos = objsDeEj(ej)
+                          return (
+                            <div className="ej-sub" style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                              {objsSesion.map((o:any)=>{
+                                const on = suyos.includes(o.id)
+                                return (
+                                  <button key={o.id} type="button" disabled={modoCita}
+                                    title={`${o.nombre} · ${on ? 'lo trabaja' : 'no lo trabaja'}${modoCita ? '' : ' · pulsa para cambiar'}${on && !ej.objetivos_manual ? ' (sugerido por etiquetas)' : ''}`}
+                                    onClick={()=>editarEjercicio(ei,{ objetivos_manual:true,
+                                      objetivos: on ? suyos.filter((x:string)=>x!==o.id) : [...suyos, o.id] })}
+                                    style={{background:'none',border:'none',padding:0,cursor:modoCita?'default':'pointer',lineHeight:0,
+                                      opacity:on?1:.22,filter:on?'none':'grayscale(1)',transition:'opacity .12s'}}>
+                                    <MonedaObjetivo objetivo={o} tam="mini" titulo=""/>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )
+                        })()}
                         {(() => {
                           const vars = variantesDe(ej)
                           if (vars.length === 0 && !ej.variante) return null
