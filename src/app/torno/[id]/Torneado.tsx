@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
+import { guardarSesionTorno, guardarCicloTorno } from '@/lib/tornoGuardar'
 
 // ---------------------------------------------------------------------------
 // TORNEAR Y ARRASTRAR
@@ -24,7 +25,7 @@ import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
 
 export type DestParte = { nombre: string, orden: number, base?: any, ejercicios: any[] }
 export type DestSesion = { key: string, nombre: string, origenId?: string | null, partes: DestParte[] }
-export type DestFase = { key: string, nombre: string, sesiones: DestSesion[] }
+export type DestFase = { key: string, nombre: string, sesiones: DestSesion[], dias?: number | null, unidad?: string | null }
 type Carga =
   | { tipo: 'c', id: string }
   | { tipo: 's', id: string }
@@ -58,8 +59,10 @@ const ejDeCatalogo = (e: any) => ({ ejercicio_id: e.id, nombre: e.nombre, imagen
 const meterEjercicio = (partes: DestParte[], ej: any) =>
   meterParte(partes, { nombre: 'Nueva', orden: 999, ejercicios: [copia(ej)] })
 
-export default function Torneado({ modo, elegidos, bib, objs }: {
+export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, prog, fin, onGuardado }: {
   modo: 'ciclo' | 'sesion'
+  pid: string, paciente: string, prog: string, fin?: string
+  onGuardado: () => void
   elegidos: { tipo: 'c' | 's' | 'e', id: string, nombre: string, color?: string }[]
   bib: { ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any> }
   objs: any[]
@@ -71,6 +74,20 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
   const [sobre, setSobre] = useState<string | null>(null)
   const [partes, setPartes] = useState<DestParte[]>([])
   const [fases, setFases] = useState<DestFase[]>([{ key: nk(), nombre: 'Fase 1', sesiones: [] }])
+  // El nombre de lo que se crea: el del primer ciclo o sesión que se suelte, si no se ha escrito otro.
+  const [nombre, setNombre] = useState('')
+  const [color, setColor] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  async function guardar() {
+    setGuardando(true)
+    const r = modo === 'sesion'
+      ? await guardarSesionTorno(pid, nombre || `Sesión de ${paciente}`, partes, objsEj)
+      : await guardarCicloTorno(pid, { nombre: nombre || `Ciclo de ${paciente}`, color, progresion: prog, fin: fin || null }, fases, objsEj)
+    setGuardando(false)
+    if (r.ok === false) { alert('No se ha guardado: ' + r.error); return }
+    onGuardado()
+  }
+  const vacio = modo === 'sesion' ? partes.every(p => p.ejercicios.length === 0) : fases.every(f => f.sesiones.length === 0)
 
   // Un ciclo puede llevar sesiones que no estaban en la lista de plantillas.
   useEffect(() => {
@@ -95,6 +112,10 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
   function soltar(c: Carga | null, sitio: Sitio) {
     if (!c) return
     setCarga(null); setEnMano(null); setSobre(null)
+    if (!nombre) {
+      if (c.tipo === 'c' && modo === 'ciclo') { setNombre(bib.ciclos[c.id]?.nombre || ''); setColor(bib.ciclos[c.id]?.color || '') }
+      if (c.tipo === 's' && modo === 'sesion') setNombre(ses[c.id]?.nombre || '')
+    }
     // Lo que una carga añade a una lista de partes.
     const aPartes = (lista: DestParte[]): DestParte[] => {
       if (c.tipo === 's') return partesDe(ses[c.id]).reduce(meterParte, lista)
@@ -108,7 +129,7 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
       if (c.tipo === 'c') {
         const ci = bib.ciclos[c.id]
         const nuevas: DestFase[] = (ci?.fases || []).map((f: any, i: number) => ({
-          key: nk(), nombre: f.nombre || `Fase ${i + 1}`,
+          key: nk(), nombre: f.nombre || `Fase ${i + 1}`, dias: f.dias ?? null, unidad: f.unidad || null,
           sesiones: (f.sesiones || []).map(sesDest).filter(Boolean) as DestSesion[],
         }))
         // Si lo que había era la fase vacía de partida, se sustituye.
@@ -291,6 +312,14 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
       {/* DERECHA: lo que se le programa. */}
       <div>
         <div className="b-rot" style={{ textAlign: 'left' }}>Lo que se le programa</div>
+        {/* NOMBRE Y GUARDAR: arriba, que es donde se mira al acabar. */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+          <input className="input" value={nombre} onChange={e => setNombre(e.target.value)}
+            placeholder={modo === 'sesion' ? `Sesión de ${paciente}` : `Ciclo de ${paciente}`} style={{ flex: 1, fontSize: 13 }}/>
+          <button className="btn btn-p" disabled={vacio || guardando} onClick={guardar}>
+            {guardando ? 'Guardando…' : 'Guardar como suyo'}
+          </button>
+        </div>
         {modo === 'sesion' ? (
           <div {...destino('S', {})} className={`tn-dest ${vivo('S') ? 'vivo' : ''}`}
             style={{ minHeight: 380, border: '1.5px dashed var(--bd)', padding: 14, display: 'grid', gap: 10, alignContent: 'start' }}>
@@ -352,7 +381,9 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
             </button>
           </div>
         )}
-        <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Guardarlo como suyo llega en el siguiente paso.</div>
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>
+          Se crea {modo === 'sesion' ? 'una sesión suya' : 'un ciclo suyo, con sus sesiones, y se le pone desde hoy'}. La biblioteca no cambia.
+        </div>
       </div>
     </div>
   )
