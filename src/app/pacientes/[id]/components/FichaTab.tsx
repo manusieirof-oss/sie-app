@@ -22,6 +22,7 @@ import DosisObjetivo from './DosisObjetivo'
 import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
+import TrabajoObjetivo from './TrabajoObjetivo'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -1114,6 +1115,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             </div>
           )
         })()}
+        {/* CON QUÉ EJERCICIOS SE TRABAJA Y CÓMO HAN IDO. Ver `TrabajoObjetivo`. */}
+        <TrabajoObjetivo pacienteId={pac.id} sesiones={sesionesPac}
+          objetivo={{ ...((catalogo||[]).find((c:any)=>c.id===o.id) || {}), ...o, id: o.id }}/>
         {/* QUITARLO DE SU FICHA. No habia forma: un objetivo abierto por error, o que
             ya no toca, se quedaba para siempre contando como abierto. Se quita su copia
             y sus vias; la biblioteca, los tests pasados y las sesiones no se tocan. */}
