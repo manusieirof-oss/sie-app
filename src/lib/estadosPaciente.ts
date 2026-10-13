@@ -183,6 +183,25 @@ export function esNuevo(p: { created_at?: string | null }): boolean {
   return dias >= 0 && dias <= DIAS_NUEVO
 }
 
+/**
+ * RECIENTES: ya no son nuevos (pasó el mes) pero llevan poco, hasta los 3 meses.
+ * Siguen necesitando algo más de atención —horarios, adaptación, si se quedan— y
+ * mezclados con los de siempre no se distinguían.
+ */
+export const DIAS_RECIENTE_ALTA = 90
+
+/**
+ * true entre el día 31 y el 90 desde el alta de la ficha. Ver `esNuevo`.
+ * No confundir con `esReciente`, que es "acaba de cambiar de estado".
+ */
+export function esRecienteAlta(p: { created_at?: string | null }): boolean {
+  if (!p?.created_at) return false
+  const t = new Date(p.created_at).getTime()
+  if (isNaN(t)) return false
+  const dias = Math.floor((Date.now() - t) / 86400000)
+  return dias > DIAS_NUEVO && dias <= DIAS_RECIENTE_ALTA
+}
+
 export type EstadoPrevisto = {
   paciente_id: string
   nombre: string

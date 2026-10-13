@@ -11,7 +11,7 @@ import { resumenCitasFuturas, CITAS_POCAS, type ResumenCitas } from '@/lib/citas
 import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
          mesesDesde, MESES_HASTA_REVISAR,
          estadosPrevistos, textoCuando, esReciente, DIAS_RECIENTE,
-         esNuevo, DIAS_NUEVO, type EstadoPrevisto } from '@/lib/estadosPaciente'
+         esNuevo, DIAS_NUEVO, esRecienteAlta, DIAS_RECIENTE_ALTA, type EstadoPrevisto } from '@/lib/estadosPaciente'
 import { cargarTarifas } from '@/lib/tarifas'
 import { useVolverALaFila, idFila } from '@/lib/scrollRecordado'
 import { contiene } from '@/lib/texto'
@@ -37,6 +37,9 @@ export default function PacientesPage() {
    * "nuevos sin citas" son las dos preguntas que se hacen de verdad con esto.
    */
   const [soloNuevos, setSoloNuevos] = useState(false)
+  // Los que ya no son nuevos pero llevan menos de 3 meses. Excluye a "Nuevos": son
+  // dos grupos seguidos, y marcar los dos a la vez daría siempre una lista vacía.
+  const [soloRecientes, setSoloRecientes] = useState(false)
   /**
    * Por qué columna se ordena y en qué sentido.
    *
@@ -246,7 +249,7 @@ export default function PacientesPage() {
     // "Los que faltan" es lo que hace que la ronda se termine: recorrer cien filas con la
     // vista buscando huecos es la hoja de Excel otra vez.
     const matchRonda = !soloFaltan || !ronda || !respuestas[p.id]
-    const matchNuevo = !soloNuevos || esNuevo(p)
+    const matchNuevo = (!soloNuevos || esNuevo(p)) && (!soloRecientes || esRecienteAlta(p))
     return matchQ && matchPago && matchTipo && matchEstado && matchBono && matchRonda && matchNuevo
   })
 
@@ -296,13 +299,14 @@ export default function PacientesPage() {
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
       const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
       const matchBono = excluir==='bono' || filtroBono==='todos' || esDeBono(p.id, filtroBono)
-      const matchNuevo = excluir==='nuevo' || !soloNuevos || esNuevo(p)
+      const matchNuevo = excluir==='nuevo' || ((!soloNuevos || esNuevo(p)) && (!soloRecientes || esRecienteAlta(p)))
       return matchQ && matchPago && matchEstado && matchTipo && matchBono && matchNuevo
     })
   }
 
   /** Cuántos nuevos hay dentro de lo que ya está filtrado por lo demás. */
   const nNuevos = baseFiltrada('nuevo').filter(esNuevo).length
+  const nRecientes = baseFiltrada('nuevo').filter(esRecienteAlta).length
 
   /**
    * ¿Este paciente es de ese bono?
@@ -390,13 +394,22 @@ export default function PacientesPage() {
             llegado está activo igual que el resto. Es un interruptor que se cruza con
             todo lo demás. */}
         <div style={{width:1,height:18,background:'var(--bd)'}}/>
-        <span onClick={()=>setSoloNuevos(v=>!v)}
+        <span onClick={()=>{setSoloNuevos(v=>!v);setSoloRecientes(false)}}
           title={`Los que se dieron de alta en los últimos ${DIAS_NUEVO} días`}
           style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
             border:`1px solid ${soloNuevos?'#5B7F4A':'#BBD3AC'}`,
             background:soloNuevos?'#5B7F4A':'#F1F7ED',color:soloNuevos?'#fff':'#4A6B3B',
             display:'flex',alignItems:'center',gap:4,fontWeight:600}}>
           Nuevos <b style={{fontWeight:700}}>{nNuevos}</b>
+        </span>
+        {/* RECIENTES: el mismo verde, apagado. Solo borde, sin relleno. */}
+        <span onClick={()=>{setSoloRecientes(v=>!v);setSoloNuevos(false)}}
+          title={`Los que se dieron de alta hace entre ${DIAS_NUEVO + 1} días y ${DIAS_RECIENTE_ALTA / 30} meses`}
+          style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
+            border:`1px solid ${soloRecientes?'#7C9A6B':'#BBD3AC'}`,
+            background:soloRecientes?'#7C9A6B':'var(--w)',color:soloRecientes?'#fff':'#5B7F4A',
+            display:'flex',alignItems:'center',gap:4,fontWeight:500}}>
+          Recientes <b style={{fontWeight:700}}>{nRecientes}</b>
         </span>
       </div>
 
@@ -490,13 +503,16 @@ export default function PacientesPage() {
              * es el que cuesta dinero.
              */
             const nuevo = esNuevo(p)
+            const reciente = !nuevo && esRecienteAlta(p)
             const fondo = pago==='impago' ? 'var(--redl)' : nuevo ? '#F3F9EE' : 'var(--w)'
             const fondoHover = pago==='impago' ? '#fce8e8' : nuevo ? '#E9F3E1' : 'var(--gl)'
             return (
               <Link key={p.id} id={idFila('pacientes', p.id)} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:fondo,transition:'background .1s',
                 // Marca lateral, no borde: un borde de verdad correría las columnas y
                 // desalinearía la fila del nuevo respecto a todas las demás.
-                boxShadow: nuevo && pago!=='impago' ? 'inset 3px 0 0 #7C9A6B' : 'none'}}
+                // Reciente: solo la marca, más clara, y sin fondo. Se lee como "aún algo
+                // nuevo" sin competir con los nuevos.
+                boxShadow: pago==='impago' ? 'none' : nuevo ? 'inset 3px 0 0 #7C9A6B' : reciente ? 'inset 3px 0 0 #C6DBB8' : 'none'}}
                 onMouseDown={()=>recordarFila(p.id)}
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=fondoHover}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=fondo}>
@@ -509,6 +525,12 @@ export default function PacientesPage() {
                       <span title={`Alta el ${new Date(p.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'long'})}`}
                         style={{fontSize:8,fontWeight:700,padding:'2px 7px',borderRadius:99,background:'#5B7F4A',color:'#fff',whiteSpace:'nowrap',letterSpacing:.3}}>
                         NUEVO · {new Date(p.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                      </span>
+                    )}
+                    {reciente && (
+                      <span title={`Alta el ${new Date(p.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'long'})}`}
+                        style={{fontSize:8,fontWeight:600,padding:'1px 7px',borderRadius:99,border:'1px solid #A9C79A',color:'#5B7F4A',background:'transparent',whiteSpace:'nowrap',letterSpacing:.3}}>
+                        RECIENTE · {new Date(p.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
                       </span>
                     )}
                     {p.pendiente_valoracion&&<span style={{fontSize:8,fontWeight:600,padding:'2px 7px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',whiteSpace:'nowrap'}}>Pendiente valoración</span>}</div>
