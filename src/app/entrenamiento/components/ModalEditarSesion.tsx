@@ -906,9 +906,18 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                                     title={`${o.nombre} · ${on ? 'lo trabaja' : 'no lo trabaja'}${modoCita ? '' : ' · pulsa para cambiar'}${on && !ej.objetivos_manual ? ' (sugerido por etiquetas)' : ''}`}
                                     onClick={()=>editarEjercicio(ei,{ objetivos_manual:true,
                                       objetivos: on ? suyos.filter((x:string)=>x!==o.id) : [...suyos, o.id] })}
-                                    style={{background:'none',border:'none',padding:0,cursor:modoCita?'default':'pointer',lineHeight:0,
-                                      opacity:on?1:.22,filter:on?'none':'grayscale(1)',transition:'opacity .12s'}}>
-                                    <MonedaObjetivo objetivo={o} tam="mini" titulo=""/>
+                                    // CON NOMBRE: solo la esfera no decía cuál era —sin foto todas son
+                                    // la misma bola verde con una inicial—. Encendido = lo trabaja.
+                                    style={{display:'inline-flex',alignItems:'center',gap:5,maxWidth:190,
+                                      padding:'2px 9px 2px 2px',borderRadius:99,fontFamily:'inherit',fontSize:11,
+                                      cursor:modoCita?'default':'pointer',transition:'all .12s',
+                                      border:on?'1px solid var(--gm)':'1px dashed var(--bd)',
+                                      background:on?'var(--gl)':'transparent',
+                                      color:on?'var(--gd)':'var(--grl)'}}>
+                                    <span style={{lineHeight:0,opacity:on?1:.3,filter:on?'none':'grayscale(1)',flexShrink:0}}>
+                                      <MonedaObjetivo objetivo={o} tam="mini" titulo=""/>
+                                    </span>
+                                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{o.nombre}</span>
                                   </button>
                                 )
                               })}
