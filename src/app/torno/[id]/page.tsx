@@ -7,6 +7,7 @@ import { traerTodo } from '@/lib/paginar'
 import { cargarSistemas, PROGRESIONES } from '@/lib/sistemas'
 import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
+import Torneado from './Torneado'
 
 // ---------------------------------------------------------------------------
 // EL BANCO DEL TORNO
@@ -57,6 +58,8 @@ export default function BancoPage({ params }: { params: { id: string } }) {
   const [elegidos, setElegidos] = useState<string[]>([])
   const [encima, setEncima] = useState<string | null>(null)
   const [aceptado, setAceptado] = useState(false)
+  // Lo crudo de la biblioteca, para poder tornearlo después de aceptar.
+  const [bib, setBib] = useState<{ ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any> }>({ ses: {}, ciclos: {}, ej: {} })
 
   useEffect(() => { cargar() }, [pid]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,6 +121,11 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       }
     }).filter(i => i.objs.length > 0)
 
+    setBib({
+      ses: Object.fromEntries(ses.map((s: any) => [s.id, s])),
+      ciclos: Object.fromEntries((ciclos || []).map((c: any) => [c.id, c])),
+      ej: Object.fromEntries(ejs.map((e: any) => [e.id, e])),
+    })
     // En modo SESIÓN los ciclos no se programan: no salen.
     setItems([...(cfg.modo === 'ciclo' ? cicItems : []), ...sesItems, ...ejItems])
     setCargando(false)
@@ -277,29 +285,8 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       {/* DESPUÉS DE ACEPTAR: solo lo elegido. A la izquierda lo que hay, a la derecha
           lo que se le va a programar. (Arrastrar y tornear, en el siguiente paso.) */}
       {aceptado && (
-        <div style={{ position: 'relative', zIndex: 2, display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(320px, 1.3fr)', gap: 22, maxWidth: 1300, margin: '0 auto' }}>
-          <div>
-            <div className="b-rot" style={{ textAlign: 'left' }}>Lo elegido</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {elegidosItems.map((it, i) => (
-                <Tarjeta key={it.clave} it={it} cls="b-it" objs={objs}
-                  estilo={{ animationDelay: `${i * 40}ms, ${(i * 0.37) % 3}s` }}
-                  refEl={() => {}} onClick={() => {}} onEncima={() => {}}/>
-              ))}
-            </div>
-          </div>
-          <div style={{ border: '1.5px dashed var(--bd)', borderRadius: 14, minHeight: 360, padding: 16 }}>
-            <div className="b-rot" style={{ textAlign: 'left' }}>Lo que se le programa</div>
-            {cfg.modo === 'ciclo' ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, minHeight: 280, borderRadius: 10, background: 'var(--bl)', padding: 10, fontSize: 12, color: 'var(--gr)' }}>Fase 1</div>
-                <div style={{ width: 90, minHeight: 280, borderRadius: 10, border: '1px dashed var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--grl)' }}>+ Fase</div>
-              </div>
-            ) : (
-              <div style={{ minHeight: 280, borderRadius: 10, background: 'var(--bl)', padding: 10, fontSize: 12, color: 'var(--gr)' }}>Sesión nueva</div>
-            )}
-          </div>
-        </div>
+        <Torneado modo={cfg.modo === 'ciclo' ? 'ciclo' : 'sesion'} bib={bib} objs={objs}
+          elegidos={elegidosItems.map(it => ({ tipo: it.tipo, id: it.id, nombre: it.nombre, color: it.color }))}/>
       )}
 
       {/* ACEPTAR, abajo y fijo: se ve siempre lo elegido. */}
