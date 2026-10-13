@@ -204,32 +204,49 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
         .tn-x:hover { color: var(--red) }
       `}</style>
 
-      {/* IZQUIERDA: lo elegido, para tornear. */}
+      {/* IZQUIERDA: lo elegido, para tornear. Como en el banco: tarjetas flotando sin
+          caja alrededor y los ejercicios en fila, de izquierda a derecha. Lo torneado se
+          abre debajo, a todo el ancho. */}
       <div>
         <div className="b-rot" style={{ textAlign: 'left' }}>Lo elegido · tornéalo y arrastra</div>
         {enMano && <div style={{ fontSize: 11.5, color: 'var(--gd)', marginBottom: 8 }}>En la mano · toca a la derecha dónde ponerlo</div>}
-        <div style={{ display: 'grid', gap: 12 }}>
-          {elegidos.map((it, i) => {
-            const c: Carga = it.tipo === 'e' ? { tipo: 'e', ej: ejDeCatalogo(bib.ej[it.id] || { id: it.id, nombre: it.nombre }) } : { tipo: it.tipo, id: it.id } as Carga
-            if (it.tipo === 'e') return (
-              <div key={it.id} className="tn-it" style={{ animationDelay: `${i * 40}ms` }}>
-                {verEj((c as any).ej, c)}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start' }}>
+          {elegidos.filter(it => it.tipo !== 'e').flatMap((it, i) => {
+            const c = { tipo: it.tipo, id: it.id } as Carga
+            const abierto = abiertos.includes(it.tipo + it.id)
+            const esCiclo = it.tipo === 'c'
+            const s = ses[it.id]
+            const nombre = esCiclo ? bib.ciclos[it.id]?.nombre : s?.nombre
+            const ejIds: string[] = esCiclo ? [] : (s?.partes || []).flatMap((p: any) => (p.ejercicios || []).map((e: any) => e.ejercicio_id)).filter(Boolean)
+            const imgs = Array.from(new Set(ejIds.map(id => bib.ej[id]?.imagen_url).filter(Boolean))).slice(0, 3) as string[]
+            const nf = (bib.ciclos[it.id]?.fases || []).length
+            const tarjeta = (
+              <div key={'t' + it.tipo + it.id} {...(modo === 'sesion' && esCiclo ? {} : cogible(c))}
+                className={`b-it ${enLaMano(c) ? 'elegido' : ''}`}
+                style={{ animationDelay: `${i * 40}ms, ${(i * 0.37) % 3}s`, width: esCiclo ? 230 : 176, background: '#fff',
+                  borderRadius: esCiclo ? 14 : 12, border: '1px solid var(--bd)', overflow: 'hidden', cursor: 'grab' }}>
+                {esCiclo
+                  ? <div style={{ height: 8, background: it.color || 'var(--g)' }}/>
+                  : <div style={{ display: 'flex', height: 70, background: 'var(--bl)' }}>
+                      {imgs.map((src, k) => <img key={k} src={src} alt="" draggable={false} style={{ flex: 1, minWidth: 0, objectFit: 'cover' }}/>)}
+                    </div>}
+                <div style={{ padding: '8px 10px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: esCiclo ? 14 : 12.5, lineHeight: 1.3 }}>{nombre || it.nombre}</div>
+                  <div style={{ fontSize: 10, color: 'var(--grl)', marginTop: 1 }}>
+                    {esCiclo ? `ciclo · ${nf} fase${nf === 1 ? '' : 's'}` : `${(s?.partes || []).length} partes · ${ejIds.length} ejercicios`}
+                  </div>
+                  <button className="btn btn-s btn-sm" style={{ marginTop: 7 }}
+                    onClick={e => { e.stopPropagation(); tornea(it.tipo + it.id) }}>{abierto ? 'Cerrar' : 'Tornear'}</button>
+                </div>
               </div>
             )
-            const abierto = abiertos.includes(it.tipo + it.id)
-            const nombre = it.tipo === 'c' ? bib.ciclos[it.id]?.nombre : ses[it.id]?.nombre
-            return (
-              <div key={it.tipo + it.id} className="tn-it" style={{ animationDelay: `${i * 40}ms`, borderTop: it.tipo === 'c' ? `5px solid ${it.color || 'var(--g)'}` : undefined }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span {...(modo === 'sesion' && it.tipo === 'c' ? {} : cogible(c))} className={`tn-ses ${enLaMano(c) ? 'mano' : ''}`} style={{ flex: 1, border: 'none', padding: 0 }}>
-                    ⠿ <span style={{ fontSize: 14 }}>{nombre || it.nombre}</span>
-                    <span style={{ fontSize: 10.5, color: 'var(--grl)' }}>{it.tipo === 'c' ? 'ciclo entero' : 'sesión entera'}</span>
-                  </span>
-                  <button className="btn btn-s btn-sm" onClick={() => tornea(it.tipo + it.id)}>{abierto ? 'Cerrar' : 'Tornear'}</button>
-                </div>
-                {abierto && it.tipo === 's' && <div style={{ marginTop: 10 }}>{sesionAbierta(it.id)}</div>}
-                {abierto && it.tipo === 'c' && (
-                  <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+            if (!abierto) return [tarjeta]
+            // Lo torneado, debajo y a todo el ancho.
+            return [tarjeta, (
+              <div key={'a' + it.tipo + it.id} style={{ flexBasis: '100%', padding: '4px 2px 6px', animation: 'b-entra .35s ease backwards' }}>
+                {!esCiclo && sesionAbierta(it.id)}
+                {esCiclo && (
+                  <div style={{ display: 'grid', gap: 10 }}>
                     {(bib.ciclos[it.id]?.fases || []).map((f: any, fi: number) => (
                       <div key={fi}>
                         <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', marginBottom: 5 }}>{f.nombre || `Fase ${fi + 1}`}</div>
@@ -253,9 +270,22 @@ export default function Torneado({ modo, elegidos, bib, objs }: {
                   </div>
                 )}
               </div>
-            )
+            )]
           })}
         </div>
+        {/* Los ejercicios sueltos, en fila. */}
+        {elegidos.some(it => it.tipo === 'e') && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 18 }}>
+            {elegidos.filter(it => it.tipo === 'e').map((it, i) => {
+              const c: Carga = { tipo: 'e', ej: ejDeCatalogo(bib.ej[it.id] || { id: it.id, nombre: it.nombre }) }
+              return (
+                <div key={it.id} className="b-it" style={{ animationDelay: `${i * 30}ms, ${(i * 0.37) % 3}s`, background: '#fff', borderRadius: 10, padding: 4 }}>
+                  {verEj((c as any).ej, c)}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* DERECHA: lo que se le programa. */}
