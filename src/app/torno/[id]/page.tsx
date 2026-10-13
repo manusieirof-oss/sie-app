@@ -1,0 +1,361 @@
+'use client'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
+import { traerTodo } from '@/lib/paginar'
+import { cargarSistemas, PROGRESIONES } from '@/lib/sistemas'
+import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
+
+// ---------------------------------------------------------------------------
+// EL BANCO DEL TORNO
+//
+// Donde se programa a mano, pero sin escribir: se eligen sus objetivos (las
+// esferas de arriba) y se ve flotando lo que la biblioteca ya tiene para ellos
+// —ciclos, sesiones y ejercicios—. Se elige lo que sirve y se acepta.
+//
+// La idea es aprovechar lo que ya está hecho: un ciclo, una sesión o un
+// ejercicio de la biblioteca ya dicen qué objetivo trabajan, así que no hay que
+// buscar a ciegas. Lo que no trabaja ninguno de sus objetivos ni sale.
+//
+// Las tres alturas van a distinta "distancia": ciclos delante y grandes,
+// sesiones detrás, ejercicios al fondo y pequeños. Al pinchar una esfera, lo que
+// la trabaja sube, se ilumina y se une a ella con un hilo; lo demás se hunde.
+// ---------------------------------------------------------------------------
+
+type Item = {
+  clave: string
+  tipo: 'c' | 's' | 'e'
+  id: string
+  nombre: string
+  imagen?: string
+  imagenes?: string[]
+  color?: string
+  sub?: string
+  /** Objetivos SUYOS que trabaja. Fuera de sus objetivos no interesa. */
+  objs: string[]
+  /** Lo que lleva dentro: sesiones de un ciclo, ejercicios de una sesión. */
+  dentro: string[]
+}
+
+const leerParams = () => {
+  if (typeof window === 'undefined') return { modo: 'sesion', prog: 'objetivos', fin: '' }
+  const q = new URLSearchParams(window.location.search)
+  return { modo: q.get('modo') || 'sesion', prog: q.get('prog') || 'objetivos', fin: q.get('fin') || '' }
+}
+
+export default function BancoPage({ params }: { params: { id: string } }) {
+  const router = useRouter()
+  const pid = params.id
+  const [cfg] = useState(leerParams)
+  const [nombre, setNombre] = useState('')
+  const [objs, setObjs] = useState<any[]>([])
+  const [items, setItems] = useState<Item[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [selObj, setSelObj] = useState<string[]>([])
+  const [elegidos, setElegidos] = useState<string[]>([])
+  const [encima, setEncima] = useState<string | null>(null)
+  const [aceptado, setAceptado] = useState(false)
+
+  useEffect(() => { cargar() }, [pid]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function cargar() {
+    setCargando(true)
+    const [{ data: p }, { data: po }] = await Promise.all([
+      supabase.from('pacientes').select('nombre,apellidos,nombre_clinica').eq('id', pid).maybeSingle(),
+      supabase.from('pacientes_objetivos')
+        .select('objetivo_id,logrado,nombre,objetivos(id,nombre,imagen_url,etiquetas,articulacion_id,movimientos)')
+        .eq('paciente_id', pid),
+    ])
+    setNombre((p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim())
+    // Solo los abiertos: lo ya logrado no se programa.
+    const abiertos = (po || []).filter((r: any) => !r.logrado && r.objetivos)
+      .map((r: any) => ({ ...r.objetivos, nombre: r.nombre || r.objetivos.nombre }))
+    setObjs(abiertos)
+    const suyos = new Set(abiertos.map((o: any) => o.id))
+    const corta = (ids: string[]) => Array.from(new Set(ids.filter(id => suyos.has(id))))
+
+    const [ciclos, { filas: ses }, { filas: ejs }] = await Promise.all([
+      cargarSistemas(),
+      traerTodo<any>((d, h) => supabase.from('sesiones')
+        .select('id,nombre,partes,sesiones_objetivos(objetivo_id)').is('paciente_id', null).order('id').range(d, h)),
+      traerTodo<any>((d, h) => supabase.from('ejercicios')
+        .select('id,nombre,imagen_url,etiquetas').order('id').range(d, h)),
+    ])
+
+    // EJERCICIOS: por lo que dicen las sesiones (el vínculo guardado) y, si no, por
+    // etiquetas, igual que la sugerencia al montar una sesión.
+    const porVinculo: Record<string, string[]> = {}
+    ses.forEach((s: any) => (s.partes || []).forEach((pt: any) => (pt.ejercicios || []).forEach((ej: any) => {
+      if (ej?.ejercicio_id && Array.isArray(ej.objetivos)) porVinculo[ej.ejercicio_id] = [...(porVinculo[ej.ejercicio_id] || []), ...ej.objetivos]
+    })))
+    const ejItems: Item[] = ejs.map((e: any) => ({
+      clave: 'e:' + e.id, tipo: 'e' as const, id: e.id, nombre: e.nombre, imagen: e.imagen_url || '',
+      objs: corta([...(porVinculo[e.id] || []), ...sugerirObjetivos(e.etiquetas || [], abiertos)]), dentro: [],
+    })).filter(i => i.objs.length > 0)
+
+    const imgDe: Record<string, string> = {}
+    ejs.forEach((e: any) => { if (e.imagen_url) imgDe[e.id] = e.imagen_url })
+    const sesItems: Item[] = ses.map((s: any) => {
+      const ejIds = (s.partes || []).flatMap((pt: any) => (pt.ejercicios || []).map((ej: any) => ej.ejercicio_id)).filter(Boolean)
+      return {
+        clave: 's:' + s.id, tipo: 's' as const, id: s.id, nombre: s.nombre || 'Sesión',
+        imagenes: Array.from(new Set(ejIds.map((id: string) => imgDe[id]).filter(Boolean))).slice(0, 3) as string[],
+        sub: `${(s.partes || []).length} partes · ${ejIds.length} ejercicios`,
+        objs: corta((s.sesiones_objetivos || []).map((r: any) => r.objetivo_id)),
+        dentro: Array.from(new Set<string>(ejIds.map((id: string) => 'e:' + id))),
+      }
+    }).filter(i => i.objs.length > 0)
+
+    const cicItems: Item[] = (ciclos || []).map((c: any) => {
+      const sesIds = (c.fases || []).flatMap((f: any) => f.sesiones || [])
+      return {
+        clave: 'c:' + c.id, tipo: 'c' as const, id: c.id, nombre: c.nombre, color: c.color || '#5A969E',
+        sub: `${(c.fases || []).length} fase${(c.fases || []).length === 1 ? '' : 's'} · ${PROGRESIONES.find(p => p.valor === c.progresion)?.nombre || ''}`,
+        objs: corta((c.fases || []).flatMap((f: any) => f.objetivos || [])),
+        dentro: sesIds.map((id: string) => 's:' + id),
+      }
+    }).filter(i => i.objs.length > 0)
+
+    // En modo SESIÓN los ciclos no se programan: no salen.
+    setItems([...(cfg.modo === 'ciclo' ? cicItems : []), ...sesItems, ...ejItems])
+    setCargando(false)
+  }
+
+  // ---- Qué se ve encendido -------------------------------------------------
+  const nivel = (i: Item) => {
+    if (selObj.length === 0) return 1
+    const n = i.objs.filter(o => selObj.includes(o)).length
+    return n === 0 ? 0 : n === selObj.length ? 2 : 1
+  }
+  // Lo que hay dentro de lo que tienes debajo del dedo: se ilumina.
+  const relacionados = useMemo(() => {
+    if (!encima) return new Set<string>()
+    const it = items.find(i => i.clave === encima)
+    const out = new Set<string>(it?.dentro || [])
+    // Un ciclo ilumina también los ejercicios de sus sesiones.
+    ;(it?.dentro || []).forEach(k => items.find(i => i.clave === k)?.dentro.forEach(x => out.add(x)))
+    return out
+  }, [encima, items])
+
+  const ordenar = (lista: Item[]) => [...lista].sort((a, b) =>
+    (nivel(b) - nivel(a)) || (b.objs.length - a.objs.length) || a.nombre.localeCompare(b.nombre))
+
+  const banda = (tipo: Item['tipo']) => ordenar(items.filter(i => i.tipo === tipo))
+  const toggle = (k: string) => setElegidos(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])
+
+  // ---- Los hilos ------------------------------------------------------------
+  // Del pie de cada esfera pinchada a lo que la trabaja. Se redibujan en cada
+  // fotograma porque las tarjetas flotan; se pinta el SVG a mano para no volver
+  // a pintar toda la página sesenta veces por segundo.
+  const lienzo = useRef<HTMLDivElement>(null)
+  const svg = useRef<SVGSVGElement>(null)
+  const refs = useRef<Record<string, HTMLElement | null>>({})
+  useLayoutEffect(() => {
+    if (aceptado || selObj.length === 0) { if (svg.current) svg.current.innerHTML = ''; return }
+    let vivo = true
+    const pinta = () => {
+      if (!vivo || !svg.current || !lienzo.current) return
+      const base = lienzo.current.getBoundingClientRect()
+      let html = ''
+      let n = 0
+      for (const oid of selObj) {
+        const esf = refs.current['o:' + oid]
+        if (!esf) continue
+        const a = esf.getBoundingClientRect()
+        const x1 = a.left + a.width / 2 - base.left, y1 = a.bottom - base.top
+        for (const it of items) {
+          if (n > 140) break
+          if (!it.objs.includes(oid) || it.tipo === 'e') continue
+          const el = refs.current[it.clave]
+          if (!el) continue
+          const b = el.getBoundingClientRect()
+          const x2 = b.left + b.width / 2 - base.left, y2 = b.top - base.top
+          const my = (y1 + y2) / 2
+          html += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}" />`
+          n++
+        }
+      }
+      svg.current.innerHTML = html
+      requestAnimationFrame(pinta)
+    }
+    requestAnimationFrame(pinta)
+    return () => { vivo = false }
+  }, [selObj, items, aceptado])
+
+  const elegidosItems = elegidos.map(k => items.find(i => i.clave === k)).filter(Boolean) as Item[]
+  const modoTxt = cfg.modo === 'ciclo'
+    ? `Ciclo · ${PROGRESIONES.find(p => p.valor === cfg.prog)?.nombre || ''}${cfg.fin ? ` hasta el ${new Date(cfg.fin + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : ''}`
+    : 'Sesión'
+
+  return (
+    <div className="banco" ref={lienzo}>
+      <style>{`
+        .banco { background:#fff; margin:-16px -18px; padding:18px 22px 110px; min-height:calc(100vh - 32px);
+                 position:relative; overflow:hidden }
+        .banco svg.hilos { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1 }
+        .banco svg.hilos path { fill:none; stroke:var(--g); stroke-width:1; opacity:.28 }
+        @keyframes b-flota { 0%,100% { translate:0 0 } 50% { translate:0 -5px } }
+        /* La entrada solo con 'backwards': si se quedara puesta al acabar, taparía la
+           opacidad y el hundido de lo apagado. Flotar va en 'translate' y lo apagado en
+           'transform': son propiedades distintas y no se pisan. */
+        @keyframes b-entra { from { opacity:0; scale:.96 } to { opacity:1; scale:1 } }
+        .b-it { position:relative; z-index:2; cursor:pointer; animation: b-entra .5s ease backwards, b-flota 6s ease-in-out infinite;
+                transition: opacity .35s ease, transform .35s ease, filter .35s ease, box-shadow .2s ease }
+        .b-it.apagado { opacity:.14; transform:translateY(10px) scale(.95); filter:grayscale(.7) }
+        .b-it.sube { transform:translateY(-6px) }
+        .b-it.rel { box-shadow:0 0 0 2px var(--gm) }
+        .b-it.elegido { box-shadow:0 0 0 3px var(--g), 0 14px 30px rgba(38,40,37,.16) }
+        .b-esf { display:flex; flex-direction:column; align-items:center; gap:5px; width:92px; background:none; border:none;
+                 cursor:pointer; font-family:inherit; transition: transform .25s ease, opacity .25s ease }
+        .b-esf:hover { transform:translateY(-3px) }
+        .b-esf.off { opacity:.35 }
+        .b-esf.on .obj-moneda { box-shadow: 0 0 0 4px var(--gl), 0 0 0 6px var(--g), 0 6px 18px rgba(38,40,37,.25) !important }
+        .b-banda { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin:0 auto 34px; max-width:1200px }
+        .b-rot { text-align:center; font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--grl); margin-bottom:12px }
+      `}</style>
+      <svg className="hilos" ref={svg}/>
+
+      {/* CABECERA: quién y qué se le está haciendo. */}
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+        <button className="btn btn-t btn-sm" onClick={() => aceptado ? setAceptado(false) : router.push('/torno')}>
+          ← {aceptado ? 'Volver a elegir' : 'Torno'}
+        </button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 17 }}>{nombre || '…'}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>{modoTxt}</div>
+        </div>
+        <div style={{ width: 90 }}/>
+      </div>
+
+      {/* LAS ESFERAS: lo que manda. Centradas, de izquierda a derecha. */}
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginBottom: 40 }}>
+        {objs.map(o => {
+          const on = selObj.includes(o.id)
+          return (
+            <button key={o.id} type="button" ref={el => { refs.current['o:' + o.id] = el }}
+              className={`b-esf ${on ? 'on' : selObj.length > 0 ? 'off' : ''}`}
+              onClick={() => setSelObj(p => p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id])}
+              title={on ? 'Pulsa para soltarlo' : 'Ver lo que lo trabaja'}>
+              <MonedaObjetivo objetivo={o} titulo=""/>
+              <span style={{ fontSize: 11, lineHeight: 1.25, textAlign: 'center', color: on ? 'var(--gd)' : 'var(--n)', fontWeight: on ? 600 : 400 }}>{o.nombre}</span>
+            </button>
+          )
+        })}
+        {!cargando && objs.length === 0 && (
+          <div style={{ fontSize: 13, color: 'var(--gr)' }}>No tiene objetivos abiertos. Pónselos en su ficha y vuelve.</div>
+        )}
+      </div>
+
+      {cargando && <div className="muted" style={{ textAlign: 'center', padding: 40, position: 'relative', zIndex: 2 }}>Trayendo la biblioteca…</div>}
+
+      {/* LO ELEGIBLE, a tres distancias. */}
+      {!cargando && !aceptado && (['c', 's', 'e'] as const).map(tipo => {
+        const lista = banda(tipo)
+        if (lista.length === 0) return null
+        return (
+          <div key={tipo} style={{ position: 'relative', zIndex: 2 }}>
+            <div className="b-rot">{tipo === 'c' ? 'Ciclos' : tipo === 's' ? 'Sesiones' : 'Ejercicios'}</div>
+            <div className="b-banda">
+              {lista.map((it, i) => {
+                const nv = nivel(it)
+                const cls = `b-it ${nv === 0 ? 'apagado' : nv === 2 && selObj.length > 0 ? 'sube' : ''} ${relacionados.has(it.clave) ? 'rel' : ''} ${elegidos.includes(it.clave) ? 'elegido' : ''}`
+                const anim = { animationDelay: `${Math.min(i, 20) * 30}ms, ${(i * 0.37) % 3}s`, animationDuration: `.5s, ${5 + (i % 4)}s` }
+                return (
+                  <Tarjeta key={it.clave} it={it} cls={cls} estilo={anim} objs={objs}
+                    refEl={el => { refs.current[it.clave] = el }}
+                    onClick={() => toggle(it.clave)}
+                    onEncima={v => setEncima(v ? it.clave : null)}/>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* DESPUÉS DE ACEPTAR: solo lo elegido. A la izquierda lo que hay, a la derecha
+          lo que se le va a programar. (Arrastrar y tornear, en el siguiente paso.) */}
+      {aceptado && (
+        <div style={{ position: 'relative', zIndex: 2, display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(320px, 1.3fr)', gap: 22, maxWidth: 1300, margin: '0 auto' }}>
+          <div>
+            <div className="b-rot" style={{ textAlign: 'left' }}>Lo elegido</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {elegidosItems.map((it, i) => (
+                <Tarjeta key={it.clave} it={it} cls="b-it" objs={objs}
+                  estilo={{ animationDelay: `${i * 40}ms, ${(i * 0.37) % 3}s` }}
+                  refEl={() => {}} onClick={() => {}} onEncima={() => {}}/>
+              ))}
+            </div>
+          </div>
+          <div style={{ border: '1.5px dashed var(--bd)', borderRadius: 14, minHeight: 360, padding: 16 }}>
+            <div className="b-rot" style={{ textAlign: 'left' }}>Lo que se le programa</div>
+            {cfg.modo === 'ciclo' ? (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1, minHeight: 280, borderRadius: 10, background: 'var(--bl)', padding: 10, fontSize: 12, color: 'var(--gr)' }}>Fase 1</div>
+                <div style={{ width: 90, minHeight: 280, borderRadius: 10, border: '1px dashed var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--grl)' }}>+ Fase</div>
+              </div>
+            ) : (
+              <div style={{ minHeight: 280, borderRadius: 10, background: 'var(--bl)', padding: 10, fontSize: 12, color: 'var(--gr)' }}>Sesión nueva</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ACEPTAR, abajo y fijo: se ve siempre lo elegido. */}
+      {!aceptado && elegidos.length > 0 && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
+          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--w)', border: '1px solid var(--bd)',
+            borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)', animation: 'b-entra .3s ease backwards' }}>
+            <span style={{ fontSize: 13 }}>{elegidos.length} elegido{elegidos.length === 1 ? '' : 's'}</span>
+            <button className="btn btn-t btn-sm" onClick={() => setElegidos([])}>Quitar</button>
+            <button className="btn btn-p" onClick={() => setAceptado(true)}><Ic name="ok" size={13}/> Aceptar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Una tarjeta del banco: ciclo grande, sesión mediana, ejercicio pequeño. */
+function Tarjeta({ it, cls, estilo, objs, refEl, onClick, onEncima }: {
+  it: Item, cls: string, estilo: any, objs: any[],
+  refEl: (el: HTMLElement | null) => void, onClick: () => void, onEncima: (v: boolean) => void,
+}) {
+  const esferas = (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 6 }}>
+      {it.objs.map(id => { const o = objs.find(x => x.id === id); return o ? <MonedaObjetivo key={id} objetivo={o} tam="mini"/> : null })}
+    </div>
+  )
+  const comun = { ref: refEl as any, className: cls, onClick, onMouseEnter: () => onEncima(true), onMouseLeave: () => onEncima(false) }
+  if (it.tipo === 'c') return (
+    <div {...comun} style={{ ...estilo, width: 230, background: '#fff', borderRadius: 14, border: '1px solid var(--bd)', overflow: 'hidden' }}>
+      <div style={{ height: 8, background: it.color }}/>
+      <div style={{ padding: '12px 14px', textAlign: 'center' }}>
+        <div style={{ fontSize: 14 }}>{it.nombre}</div>
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 2 }}>{it.sub}</div>
+        {esferas}
+      </div>
+    </div>
+  )
+  if (it.tipo === 's') return (
+    <div {...comun} style={{ ...estilo, width: 176, background: '#fff', borderRadius: 12, border: '1px solid var(--bd)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', height: 70, background: 'var(--bl)' }}>
+        {(it.imagenes || []).map((src, k) => <img key={k} src={src} alt="" style={{ flex: 1, minWidth: 0, objectFit: 'cover' }}/>)}
+      </div>
+      <div style={{ padding: '8px 10px', textAlign: 'center' }}>
+        <div style={{ fontSize: 12.5, lineHeight: 1.3 }}>{it.nombre}</div>
+        <div style={{ fontSize: 10, color: 'var(--grl)', marginTop: 1 }}>{it.sub}</div>
+        {esferas}
+      </div>
+    </div>
+  )
+  return (
+    <div {...comun} style={{ ...estilo, width: 96, textAlign: 'center', borderRadius: 10, background: '#fff', padding: 4 }}>
+      {it.imagen
+        ? <img src={it.imagen} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 8, display: 'block' }}/>
+        : <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 8, background: 'var(--bl)' }}/>}
+      <div style={{ fontSize: 10, lineHeight: 1.25, marginTop: 4 }}>{it.nombre}</div>
+    </div>
+  )
+}

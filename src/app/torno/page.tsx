@@ -7,6 +7,7 @@ import { contiene } from '@/lib/texto'
 import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
+import { PROGRESIONES } from '@/lib/sistemas'
 
 // ---------------------------------------------------------------------------
 // EL TORNO
@@ -50,6 +51,18 @@ export default function TornoPage() {
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
+  // EL PANEL DEL NOMBRE: qué se le prepara. Ciclo (y cómo avanza) o una sesión.
+  const [panel, setPanel] = useState<Fila | null>(null)
+  const [tipo, setTipo] = useState<'ciclo' | 'sesion' | null>(null)
+  const [prog, setProg] = useState<string>('objetivos')
+  const [fin, setFin] = useState('')
+  function empezar() {
+    if (!panel || !tipo) return
+    const q = new URLSearchParams({ modo: tipo })
+    if (tipo === 'ciclo') { q.set('prog', prog); if (prog === 'fecha_fin' && fin) q.set('fin', fin) }
+    setYendo(panel.id)
+    setTimeout(() => router.push(`/torno/${panel.id}?${q.toString()}`), 360)
+  }
 
   useEffect(() => {
     supabase.from('ajustes').select('valor').eq('clave', 'clinica_logo').maybeSingle()
@@ -259,10 +272,7 @@ export default function TornoPage() {
                       style={{ animationDelay: `${Math.min(i, 12) * 26}ms`,
                         background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 10,
                         padding: '13px 14px', cursor: 'pointer' }}
-                      onClick={() => {
-                        setYendo(f.id)
-                        setTimeout(() => router.push(`/pacientes/${f.id}?tab=entreno`), 360)
-                      }}>
+                      onClick={() => { setPanel(f); setTipo(null); setFin('') }}>
                       <div style={{ fontSize: 14, color: 'var(--n)' }}>{f.nombre}</div>
                       {f.reciente && (
                         <div style={{ fontSize: 9, color: 'var(--gd)', fontWeight: 600, marginTop: 2 }}>
@@ -291,6 +301,56 @@ export default function TornoPage() {
                 )}
               </>
             )}
+        </div>
+      )}
+      {/* EL PANEL: qué se le prepara. Flota sobre el blanco; fuera de él, se cierra. */}
+      {panel && !yendo && (
+        <div onClick={() => setPanel(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(3px)' }}>
+          <div className="t-fade" onClick={e => e.stopPropagation()}
+            style={{ width: 'min(520px, 92vw)', background: 'var(--w)', borderRadius: 18, padding: '22px 22px 18px',
+              boxShadow: '0 24px 60px rgba(38,40,37,.18)', border: '1px solid var(--bd2)' }}>
+            <div style={{ textAlign: 'center', fontSize: 18 }}>{panel.nombre}</div>
+            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>¿Qué le preparamos?</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
+              {([['ciclo', 'Un ciclo', 'Fases con sus sesiones'], ['sesion', 'Una sesión', 'Partes y ejercicios']] as const).map(([v, n, a]) => (
+                <button key={v} type="button" className="t-card" onClick={() => setTipo(v)}
+                  style={{ fontFamily: 'inherit', cursor: 'pointer', textAlign: 'center', padding: '16px 10px', borderRadius: 12,
+                    background: tipo === v ? 'var(--gl)' : 'var(--w)', border: `1.5px solid ${tipo === v ? 'var(--g)' : 'var(--bd)'}` }}>
+                  <div style={{ fontSize: 15, color: tipo === v ? 'var(--gd)' : 'var(--n)' }}>{n}</div>
+                  <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 3 }}>{a}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* EL CICLO PIDE CÓMO AVANZA: por objetivos, por tiempo o hasta una fecha. */}
+            {tipo === 'ciclo' && (
+              <div className="t-fade" style={{ marginTop: 14, display: 'grid', gap: 6 }}>
+                {PROGRESIONES.map(p => (
+                  <label key={p.valor} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', cursor: 'pointer', padding: '8px 10px',
+                    borderRadius: 9, border: `1px solid ${prog === p.valor ? 'var(--gm)' : 'var(--bd2)'}`, background: prog === p.valor ? 'var(--gl)' : 'transparent' }}>
+                    <input type="radio" checked={prog === p.valor} onChange={() => setProg(p.valor)} style={{ marginTop: 3, accentColor: 'var(--g)' }}/>
+                    <span>
+                      <span style={{ display: 'block', fontSize: 13 }}>{p.nombre}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--grl)' }}>{p.ayuda}</span>
+                    </span>
+                  </label>
+                ))}
+                {prog === 'fecha_fin' && (
+                  <input type="date" className="input" value={fin} min={hoyISO()} onChange={e => setFin(e.target.value)}/>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
+              <button className="btn btn-t btn-sm" onClick={() => router.push(`/pacientes/${panel.id}?tab=entreno`)}>Ver su ficha</button>
+              <div style={{ flex: 1 }}/>
+              <button className="btn btn-s" onClick={() => setPanel(null)}>Cancelar</button>
+              <button className="btn btn-p" disabled={!tipo || (tipo === 'ciclo' && prog === 'fecha_fin' && !fin)} onClick={empezar}>Empezar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
