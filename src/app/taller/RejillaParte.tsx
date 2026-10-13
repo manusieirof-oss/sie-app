@@ -7,6 +7,7 @@ import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
+import { useState } from 'react'
 
 // ---------------------------------------------------------------------------
 // UNA PARTE ENTERA, DE IZQUIERDA A DERECHA
@@ -132,25 +133,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               </div>
               {/* PARA QUÉ ES. Los objetivos que trabaja este ejercicio, como se dejó en la
                   sesión: que en sala se vea para qué sirve lo que se está haciendo. */}
-              {(ej.objetivos || []).length > 0 && (
-                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
-                  {(ej.objetivos || []).map((oid: string) => {
-                    const o = (objetivosLib || []).find((x: any) => x.id === oid)
-                    if (!o) return null
-                    return (
-                      <span key={oid} title={o.nombre}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%',
-                          padding: '1px 7px 1px 1px', borderRadius: 99, background: 'var(--gl)',
-                          border: '1px solid var(--gm)', fontSize: 10, color: 'var(--gd)' }}>
-                        <span style={{ lineHeight: 0, flexShrink: 0, transform: 'scale(.75)', margin: '-3px -3px' }}>
-                          <MonedaObjetivo objetivo={o} tam="mini" titulo="" />
-                        </span>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.nombre}</span>
-                      </span>
-                    )
-                  })}
-                </div>
-              )}
+              <ObjetivosEj ids={ej.objetivos || []} objetivosLib={objetivosLib}/>
               {/* CAMBIADO HOY. Se dice de que se cambio: el plan sigue diciendo el otro. */}
               {ej.sustituye && (
                 <div style={{ fontSize: 10.5, color: '#8A6410', marginTop: 2 }}>en lugar de {ej.sustituye}</div>
@@ -205,6 +188,44 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
       </div>
       </div>
       ))}
+    </div>
+  )
+}
+
+
+/**
+ * LOS OBJETIVOS DE UN EJERCICIO, PLEGADOS. Con tres o cuatro por ejercicio la tarjeta
+ * se alargaba el doble y la rejilla dejaba de leerse. Sale el primero con su nombre y
+ * un "+N"; pulsando se ven todos.
+ */
+function ObjetivosEj({ ids, objetivosLib }: { ids: string[], objetivosLib: any[] }) {
+  const [abierto, setAbierto] = useState(false)
+  const objs = ids.map(id => (objetivosLib || []).find((x: any) => x.id === id)).filter(Boolean)
+  if (objs.length === 0) return null
+  const vistos = abierto ? objs : objs.slice(0, 1)
+  const resto = objs.length - 1
+  const pastilla = (o: any) => (
+    <span key={o.id} title={o.nombre}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%',
+        padding: '1px 7px 1px 1px', borderRadius: 99, background: 'var(--gl)',
+        border: '1px solid var(--gm)', fontSize: 10, color: 'var(--gd)' }}>
+      <span style={{ lineHeight: 0, flexShrink: 0, transform: 'scale(.75)', margin: '-3px -3px' }}>
+        <MonedaObjetivo objetivo={o} tam="mini" titulo="" />
+      </span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.nombre}</span>
+    </span>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
+      {vistos.map(pastilla)}
+      {resto > 0 && (
+        <button type="button" onClick={e => { e.stopPropagation(); setAbierto(v => !v) }}
+          title={abierto ? 'Ver menos' : objs.slice(1).map((o: any) => o.nombre).join(' · ')}
+          style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 8px', borderRadius: 99, cursor: 'pointer',
+            border: '1px solid var(--gm)', background: 'var(--w)', color: 'var(--gd)', fontWeight: 600 }}>
+          {abierto ? 'menos' : `+${resto}`}
+        </button>
+      )}
     </div>
   )
 }
