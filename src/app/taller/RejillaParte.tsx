@@ -6,6 +6,7 @@ import CasillaSeries from './CasillaSeries'
 import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen from './PildoraRegimen'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 
 // ---------------------------------------------------------------------------
 // UNA PARTE ENTERA, DE IZQUIERDA A DERECHA
@@ -129,6 +130,27 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {/* PARA QUÉ ES. Los objetivos que trabaja este ejercicio, como se dejó en la
+                  sesión: que en sala se vea para qué sirve lo que se está haciendo. */}
+              {(ej.objetivos || []).length > 0 && (
+                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
+                  {(ej.objetivos || []).map((oid: string) => {
+                    const o = (objetivosLib || []).find((x: any) => x.id === oid)
+                    if (!o) return null
+                    return (
+                      <span key={oid} title={o.nombre}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%',
+                          padding: '1px 7px 1px 1px', borderRadius: 99, background: 'var(--gl)',
+                          border: '1px solid var(--gm)', fontSize: 10, color: 'var(--gd)' }}>
+                        <span style={{ lineHeight: 0, flexShrink: 0, transform: 'scale(.75)', margin: '-3px -3px' }}>
+                          <MonedaObjetivo objetivo={o} tam="mini" titulo="" />
+                        </span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.nombre}</span>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
               {/* CAMBIADO HOY. Se dice de que se cambio: el plan sigue diciendo el otro. */}
               {ej.sustituye && (
                 <div style={{ fontSize: 10.5, color: '#8A6410', marginTop: 2 }}>en lugar de {ej.sustituye}</div>

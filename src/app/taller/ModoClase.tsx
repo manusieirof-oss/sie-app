@@ -538,7 +538,7 @@ export default function ModoClase() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('objetivos').select('id,nombre').eq('activo',true).order('nombre')
+      const { data } = await supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre')
       setObjetivosLib(data||[])
       const { data: ets } = await supabase.from('etiquetas').select('id,nombre,categoria,padre_id')
       setEtiquetas(ets||[])
@@ -739,6 +739,8 @@ export default function ModoClase() {
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
           // Su hueco en la sesion (parte.ejercicio): es la clave de los ajustes del dia.
           pos: `${pi}.${pe}`, sustituye: ej.sustituye || '',
+          // Qué objetivos trabaja este ejercicio, tal cual se dejó en la sesión.
+          objetivos: Array.isArray(ej.objetivos) ? ej.objetivos : [],
           /**
            * LO PRESCRITO VIAJA ENTERO A LA SALA.
            *
