@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
@@ -30,11 +30,6 @@ type Cita = { id: string, fecha: string, hora: string | null, sala: string | nul
 type Ses = { id: string, nombre: string, color: string, desde: string | null, hasta: string | null, fase?: string }
 
 const COLORES = ['#5A969E', '#C9A84C', '#B0708C', '#6E8FC7', '#7C9A6B', '#C77F5A', '#8A7CC7', '#4F9C8A']
-const leer = () => {
-  if (typeof window === 'undefined') return { ses: [] as string[], sis: '' }
-  const q = new URLSearchParams(window.location.search)
-  return { ses: (q.get('ses') || '').split(',').filter(Boolean), sis: q.get('sis') || '' }
-}
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const corta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
@@ -42,7 +37,10 @@ const corta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES
 export default function CitasTorno({ params }: { params: { id: string } }) {
   const router = useRouter()
   const pid = params.id
-  const [q] = useState(leer)
+  // useSearchParams y no window.location: al llegar navegando, en el primer render
+  // la dirección todavía es la de antes, y salía sin ninguna sesión.
+  const sp = useSearchParams()
+  const q = { ses: (sp.get('ses') || '').split(',').filter(Boolean), sis: (sp.get('sis') || '').split(',').filter(Boolean) }
   const [nombre, setNombre] = useState('')
   const [citas, setCitas] = useState<Cita[]>([])
   const [sesiones, setSesiones] = useState<Ses[]>([])
@@ -59,7 +57,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [hasta, setHasta] = useState('')
   const [pisar, setPisar] = useState(false)
 
-  useEffect(() => { cargar() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { cargar() }, [sp.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function cargar() {
     const hoy = hoyISO()
@@ -73,26 +71,32 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
 
     // Las sesiones: las de la URL, o las del ciclo con las fechas de su fase.
     let lista: Ses[] = []
-    if (q.sis) {
-      const [sis, asig] = await Promise.all([cargarSistema(q.sis), sistemasDePaciente(pid)])
-      const a = asig.find(x => x.sistema_id === q.sis)
-      const tr = sis && a ? tramos(sis, a) : []
-      const ids = (sis?.fases || []).flatMap(f => f.sesiones || [])
-      const { data: ss } = ids.length ? await supabase.from('sesiones').select('id,nombre').in('id', ids) : { data: [] as any[] }
-      let k = 0
-      ;(sis?.fases || []).forEach(f => {
-        const t = tr.find(x => x.fase.id === f.id)
-        ;(f.sesiones || []).forEach(sid => {
-          const s = (ss || []).find((x: any) => x.id === sid)
-          if (s) lista.push({ id: s.id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: t?.desde || null, hasta: t?.hasta || null, fase: f.nombre })
+    let k = 0
+    // Los ciclos, con las fechas de cada fase.
+    if (q.sis.length) {
+      const asig = await sistemasDePaciente(pid)
+      for (const sisId of q.sis) {
+        const sis = await cargarSistema(sisId)
+        const a = asig.find(x => x.sistema_id === sisId)
+        const tr = sis && a ? tramos(sis, a) : []
+        const ids = (sis?.fases || []).flatMap(f => f.sesiones || [])
+        const { data: ss } = ids.length ? await supabase.from('sesiones').select('id,nombre').in('id', ids) : { data: [] as any[] }
+        ;(sis?.fases || []).forEach(f => {
+          const t = tr.find(x => x.fase.id === f.id)
+          ;(f.sesiones || []).forEach(sid => {
+            const s = (ss || []).find((x: any) => x.id === sid)
+            if (s) lista.push({ id: s.id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: t?.desde || null, hasta: t?.hasta || null, fase: f.nombre })
+          })
         })
-      })
-    } else if (q.ses.length) {
+      }
+    }
+    // Las sesiones sueltas.
+    if (q.ses.length) {
       const { data: ss } = await supabase.from('sesiones').select('id,nombre').in('id', q.ses)
-      lista = q.ses.map((id, k) => {
+      q.ses.forEach(id => {
         const s = (ss || []).find((x: any) => x.id === id)
-        return s ? { id, nombre: s.nombre, color: COLORES[k % COLORES.length], desde: null, hasta: null } : null
-      }).filter(Boolean) as Ses[]
+        if (s) lista.push({ id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null })
+      })
     }
     setSesiones(lista)
     setRot(lista.slice(0, 1).map(s => s.id))
@@ -185,7 +189,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     font-family:inherit; font-size:12.5px; background:#fff; transition: transform .15s ease, box-shadow .15s ease }
         .tc-ficha:hover { transform: translateY(-2px) }
         .tc-mes { animation: tc-entra .45s ease backwards }
-        .tc-cita { display:block; width:100%; border:none; border-radius:6px; padding:3px 4px; margin-top:3px; cursor:pointer;
+        .tc-cita { display:block; width:100%; min-width:0; overflow:hidden; border:none; border-radius:6px; padding:3px 4px; margin-top:3px; cursor:pointer;
                    font-family:inherit; font-size:10.5px; line-height:1.25; text-align:left; transition: transform .12s ease }
         .tc-cita:hover { transform: scale(1.04) }
       `}</style>
@@ -255,24 +259,26 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           </div>
 
           {/* EL CALENDARIO */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 22, maxWidth: 1300, margin: '0 auto' }}>
+          {/* Meses de ancho fijo, centrados. Con 1fr las celdas con cita se ensanchaban
+              y descuadraban la semana entera. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 28, maxWidth: 1300, margin: '0 auto' }}>
             {meses.map((m, mi) => {
               const primero = (new Date(m.getFullYear(), m.getMonth(), 1).getDay() + 6) % 7
               const nDias = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()
               const celdas: (string | null)[] = [...Array(primero).fill(null), ...Array.from({ length: nDias }, (_, i) => iso(new Date(m.getFullYear(), m.getMonth(), i + 1)))]
               return (
-                <div key={mi} className="tc-mes" style={{ animationDelay: `${mi * 60}ms` }}>
-                  <div style={{ fontSize: 14, marginBottom: 8, textTransform: 'capitalize' }}>
+                <div key={mi} className="tc-mes" style={{ animationDelay: `${mi * 60}ms`, width: 336 }}>
+                  <div style={{ fontSize: 14, marginBottom: 8, textAlign: 'center', textTransform: 'capitalize' }}>
                     {m.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 4 }}>
                     {DIAS.map(d => <div key={d} style={{ fontSize: 10, color: 'var(--grl)', textAlign: 'center' }}>{d}</div>)}
                     {celdas.map((f, i) => {
                       if (!f) return <div key={i}/>
                       const cs = porDia[f] || []
                       const pasado = f < hoy
                       return (
-                        <div key={i} style={{ minHeight: 46, borderRadius: 8, padding: 3, background: cs.length ? 'var(--bl)' : 'transparent', opacity: pasado ? .35 : 1 }}>
+                        <div key={i} style={{ minHeight: 50, minWidth: 0, borderRadius: 8, padding: 3, background: cs.length ? 'var(--bl)' : 'transparent', opacity: pasado ? .35 : 1 }}>
                           <div style={{ fontSize: 10, color: f === hoy ? 'var(--gd)' : 'var(--grl)', fontWeight: f === hoy ? 700 : 400 }}>{Number(f.slice(8))}</div>
                           {cs.map(c => {
                             const sid = plan[c.id]

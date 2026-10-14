@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
@@ -40,16 +40,14 @@ type Item = {
   dentro: string[]
 }
 
-const leerParams = () => {
-  if (typeof window === 'undefined') return { modo: 'sesion', prog: 'objetivos', fin: '' }
-  const q = new URLSearchParams(window.location.search)
-  return { modo: q.get('modo') || 'sesion', prog: q.get('prog') || 'objetivos', fin: q.get('fin') || '' }
-}
 
 export default function BancoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const pid = params.id
-  const [cfg] = useState(leerParams)
+  // Con useSearchParams y no con window.location: al llegar navegando, durante el
+  // primer render la barra de direcciones todavía tiene la URL de la página anterior.
+  const sp = useSearchParams()
+  const cfg = { modo: sp.get('modo') || 'sesion', prog: sp.get('prog') || 'objetivos', fin: sp.get('fin') || '' }
   const [nombre, setNombre] = useState('')
   const [objs, setObjs] = useState<any[]>([])
   const [items, setItems] = useState<Item[]>([])
@@ -287,7 +285,11 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       {aceptado && (
         <Torneado modo={cfg.modo === 'ciclo' ? 'ciclo' : 'sesion'} bib={bib} objs={objs}
           pid={pid} paciente={nombre} prog={cfg.prog} fin={cfg.fin}
-          onGuardado={r => router.push(`/torno/${pid}/citas?${r.tipo === 'ciclo' ? 'sis' : 'ses'}=${r.id}`)}
+          onACitas={(g: { tipo: 'sesion' | 'ciclo', id: string }[]) => {
+            const ses = g.filter(x => x.tipo === 'sesion').map(x => x.id).join(',')
+            const sis = g.filter(x => x.tipo === 'ciclo').map(x => x.id).join(',')
+            router.push(`/torno/${pid}/citas?${new URLSearchParams({ ...(ses ? { ses } : {}), ...(sis ? { sis } : {}) }).toString()}`)
+          }}
           elegidos={elegidosItems.map(it => ({ tipo: it.tipo, id: it.id, nombre: it.nombre, color: it.color }))}/>
       )}
 

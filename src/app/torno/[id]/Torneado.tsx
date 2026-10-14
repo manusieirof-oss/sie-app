@@ -59,11 +59,11 @@ const ejDeCatalogo = (e: any) => ({ ejercicio_id: e.id, nombre: e.nombre, imagen
 const meterEjercicio = (partes: DestParte[], ej: any) =>
   meterParte(partes, { nombre: 'Nueva', orden: 999, ejercicios: [copia(ej)] })
 
-export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, prog, fin, onGuardado }: {
+export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, prog, fin, onACitas }: {
   modo: 'ciclo' | 'sesion'
   pid: string, paciente: string, prog: string, fin?: string
-  /** Lo creado: la sesión, o el ciclo. Para seguir con ponerlo en sus citas. */
-  onGuardado: (r: { tipo: 'sesion' | 'ciclo', id: string }) => void
+  /** Lo guardado hasta ahora, para ponerlo en sus citas cuando se acabe. */
+  onACitas: (g: { tipo: 'sesion' | 'ciclo', id: string }[]) => void
   elegidos: { tipo: 'c' | 's' | 'e', id: string, nombre: string, color?: string }[]
   bib: { ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any> }
   objs: any[]
@@ -86,8 +86,13 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       : await guardarCicloTorno(pid, { nombre: nombre || `Ciclo de ${paciente}`, color, progresion: prog, fin: fin || null }, fases, objsEj)
     setGuardando(false)
     if (r.ok === false) { alert('No se ha guardado: ' + r.error); return }
-    onGuardado({ tipo: modo, id: r.id })
+    // GUARDAR Y SEGUIR. Antes saltaba directo al calendario y no se podía hacer una
+    // segunda sesión. Ahora lo guardado se apunta, la derecha se vacía para la
+    // siguiente, y a las citas se va cuando se quiera, con todo lo hecho.
+    setGuardadas(g => [...g, { tipo: modo, id: r.id, nombre: nombre || (modo === 'sesion' ? `Sesión de ${paciente}` : `Ciclo de ${paciente}`) }])
+    setPartes([]); setFases([{ key: nk(), nombre: 'Fase 1', sesiones: [] }]); setNombre(''); setColor('')
   }
+  const [guardadas, setGuardadas] = useState<{ tipo: 'sesion' | 'ciclo', id: string, nombre: string }[]>([])
   const vacio = modo === 'sesion' ? partes.every(p => p.ejercicios.length === 0) : fases.every(f => f.sesiones.length === 0)
 
   // Un ciclo puede llevar sesiones que no estaban en la lista de plantillas.
@@ -313,12 +318,22 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       {/* DERECHA: lo que se le programa. */}
       <div>
         <div className="b-rot" style={{ textAlign: 'left' }}>Lo que se le programa</div>
+        {/* LO YA GUARDADO, y el paso siguiente: ponerlo en sus citas. */}
+        {guardadas.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10, padding: '9px 12px',
+            borderRadius: 12, background: 'var(--gl)', border: '1px solid var(--gm)', animation: 'b-entra .35s ease backwards' }}>
+            <span style={{ fontSize: 12.5, color: 'var(--gd)' }}>✓ Guardado:</span>
+            {guardadas.map(g => <span key={g.id} className="pill pill-o on">{g.nombre}</span>)}
+            <span style={{ flex: 1 }}/>
+            <button className="btn btn-p btn-sm" onClick={() => onACitas(guardadas)}>Ponerlo en sus citas →</button>
+          </div>
+        )}
         {/* NOMBRE Y GUARDAR: arriba, que es donde se mira al acabar. */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <input className="input" value={nombre} onChange={e => setNombre(e.target.value)}
             placeholder={modo === 'sesion' ? `Sesión de ${paciente}` : `Ciclo de ${paciente}`} style={{ flex: 1, fontSize: 13 }}/>
           <button className="btn btn-p" disabled={vacio || guardando} onClick={guardar}>
-            {guardando ? 'Guardando…' : 'Guardar como suyo'}
+            {guardando ? 'Guardando…' : guardadas.length > 0 ? 'Guardar otra' : 'Guardar como suyo'}
           </button>
         </div>
         {modo === 'sesion' ? (
