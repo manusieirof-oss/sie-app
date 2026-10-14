@@ -441,13 +441,40 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                   {fases.length > 1 && <button className="tn-x" title="Quitar la fase" onClick={e => { e.stopPropagation(); setFases(l => l.filter(x => x.key !== f.key)) }}>✕</button>}
                 </div>
                 {f.sesiones.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 11.5, textAlign: 'center', padding: '30px 6px' }}>Suelta aquí {fi === 0 ? 'el ciclo, ' : ''}sesiones, partes o ejercicios</div>}
-                {/* Sus sesiones en cuadrado; soltar encima mete lo que traes dentro. */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-                  {f.sesiones.map(sd => verSes(sd, { tam: 128, key: sd.key,
-                    extra: { ...destino(sd.key, { fase: f.key, sesion: sd.key }), style: undefined },
-                    quitar: () => setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.filter(y => y.key !== sd.key) } : x)),
-                    pie: sobre === sd.key ? <span style={{ fontSize: 10.5, color: 'var(--gd)' }}>soltar dentro</span> : null }))}
-                </div>
+                {/* SUS SESIONES, DESPLEGADAS: nombre, y debajo cada parte con sus ejercicios.
+                    En cuadrado no se veía lo que se acababa de soltar —una parte suelta
+                    parecía una sesión cerrada—. Soltar encima de una mete lo que traes dentro. */}
+                {f.sesiones.map(sd => (
+                  <div key={sd.key} {...destino(sd.key, { fase: f.key, sesion: sd.key })}
+                    className={`tn-dest ${sobre === sd.key ? 'vivo' : ''}`}
+                    style={{ padding: '6px 8px 10px', animation: 'b-entra .35s ease backwards' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <input value={sd.nombre} onClick={e => e.stopPropagation()}
+                        onChange={e => setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.map(y => y.key === sd.key ? { ...y, nombre: e.target.value } : y) } : x))}
+                        style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 14, color: 'var(--n)' }}/>
+                      <button className="tn-x" title="Quitar la sesión"
+                        onClick={e => { e.stopPropagation(); setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.filter(y => y.key !== sd.key) } : x)) }}>✕</button>
+                    </div>
+                    {sd.partes.map((pt, pi) => (
+                      <div key={pi} style={{ marginTop: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--gd)' }}>{pt.nombre}</span>
+                          <button className="tn-x" title="Quitar la parte"
+                            onClick={e => { e.stopPropagation(); setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.map(y => y.key === sd.key ? { ...y, partes: y.partes.filter((_, k) => k !== pi) } : y) } : x)) }}>✕</button>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                          {pt.ejercicios.map((ej, ei) => (
+                            <div key={ei} style={{ position: 'relative' }}>
+                              {verEj(ej, undefined, true)}
+                              <button className="tn-x" style={{ position: 'absolute', top: -4, right: -4, background: '#fff', borderRadius: 99 }}
+                                onClick={e => { e.stopPropagation(); setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.map(y => y.key === sd.key ? { ...y, partes: y.partes.map((q, k) => k === pi ? { ...q, ejercicios: q.ejercicios.filter((_, m) => m !== ei) } : q).filter(q => q.ejercicios.length > 0) } : y) } : x)) }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             ))}
             <button type="button" onClick={() => setFases(l => [...l, { key: nk(), nombre: `Fase ${l.length + 1}`, sesiones: [] }])}
