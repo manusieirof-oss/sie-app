@@ -190,6 +190,51 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
     </div>
   )
 
+  /** Los objetivos SUYOS que trabaja una sesión: lo que diga la sesión y lo de sus ejercicios. */
+  const objsSes = (s: any): string[] => {
+    const suyos = objs.map(o => o.id)
+    const deSes = (s?.sesiones_objetivos || []).map((r: any) => r.objetivo_id).filter((id: string) => suyos.includes(id))
+    const deEj = (s?.partes || []).flatMap((p: any) => (p.ejercicios || []).flatMap((e: any) => objsEj(e)))
+    return Array.from(new Set([...deSes, ...deEj]))
+  }
+
+  /**
+   * UNA SESIÓN EN CUADRADO. Las fotos de sus ejercicios en mosaico y el nombre encima.
+   * Al pasar por encima crece y cuenta lo que no cabe: qué objetivos trabaja y qué
+   * partes lleva. Era una fila de texto en un rectángulo, que no decía nada.
+   */
+  const verSes = (s: any, o: { c?: Carga, tam?: number, quitar?: () => void, extra?: any, key?: any, pie?: any }) => {
+    const ejs = (s?.partes || []).flatMap((p: any) => p.ejercicios || [])
+    const imgs = Array.from(new Set(ejs.map((e: any) => e.imagen_url || bib.ej[e.ejercicio_id]?.imagen_url).filter(Boolean))).slice(0, 4) as string[]
+    const ob = objsSes(s)
+    const tam = o.tam || 150
+    return (
+      <div key={o.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <div {...(o.c ? cogible(o.c) : {})} {...(o.extra || {})} className={`tn-sq ${o.c && enLaMano(o.c) ? 'mano' : ''}`} style={{ width: tam, height: tam }}>
+          <div className="tn-sq-fotos" style={{ gridTemplateColumns: imgs.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: imgs.length > 2 ? '1fr 1fr' : '1fr' }}>
+            {imgs.map((src, k) => <img key={k} src={src} alt="" draggable={false}/>)}
+          </div>
+          <div className="tn-sq-nom" style={{ fontSize: tam < 130 ? 11 : 12.5 }}>{s?.nombre || 'Sesión'}</div>
+          {o.quitar && <button className="tn-x tn-sq-x" title="Quitar" onClick={e => { e.stopPropagation(); o.quitar!() }}>✕</button>}
+          <div className="tn-sq-info">
+            {ob.length > 0 && (
+              <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
+                {ob.map(id => { const x = objs.find(y => y.id === id); return x ? (
+                  <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
+                    <MonedaObjetivo objetivo={x} tam="mini"/> {x.nombre}
+                  </div>) : null })}
+              </div>
+            )}
+            {(s?.partes || []).map((p: any, pi: number) => (
+              <div key={pi} style={{ fontSize: 11, color: 'var(--gr)' }}>{p.nombre || `Parte ${pi + 1}`} · {(p.ejercicios || []).length}</div>
+            ))}
+          </div>
+        </div>
+        {o.pie}
+      </div>
+    )
+  }
+
   /** Una sesión abierta por dentro: sus partes, y en cada parte sus ejercicios. */
   const sesionAbierta = (id: string) => {
     const s = ses[id]
@@ -221,7 +266,20 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       <style>{`
         .tn [draggable=true] { user-select:none }
         .tn-it { background:#fff; border:1px solid var(--bd); border-radius:14px; padding:12px 14px; animation: b-entra .45s ease backwards }
-        .tn-cab { font-size:12px; font-weight:600; color:var(--gd); background:var(--gl); border-radius:8px; padding:5px 9px; cursor:grab; display:inline-block }
+        .tn-cab { font-size:13px; font-weight:600; color:var(--gd); padding:2px 0; cursor:grab; display:inline-block; border-bottom:1.5px solid transparent }
+        .tn-cab:hover { border-bottom-color: var(--gm) }
+        .tn-sq { position:relative; border-radius:16px; background:#fff; box-shadow:0 3px 12px rgba(38,40,37,.12); cursor:grab;
+                 transition: transform .2s ease, box-shadow .2s ease; animation: b-entra .45s ease backwards }
+        .tn-sq:hover { transform: scale(1.07); z-index:8; box-shadow:0 16px 34px rgba(38,40,37,.2) }
+        .tn-sq.mano { box-shadow:0 0 0 3px var(--g), 0 12px 26px rgba(38,40,37,.16) }
+        .tn-sq-fotos { position:absolute; inset:0; border-radius:16px; overflow:hidden; display:grid; background:var(--bl) }
+        .tn-sq-fotos img { width:100%; height:100%; object-fit:cover; display:block; min-width:0; min-height:0 }
+        .tn-sq-nom { position:absolute; left:0; right:0; bottom:0; padding:26px 8px 8px; text-align:center; line-height:1.25;
+                     background:linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.96) 48%); border-radius:0 0 16px 16px }
+        .tn-sq-x { position:absolute; top:5px; right:5px; background:#fff; border-radius:99px; z-index:2 }
+        .tn-sq-info { display:none; position:absolute; left:50%; top:calc(100% + 8px); transform:translateX(-50%); width:240px;
+                      background:#fff; border-radius:12px; box-shadow:0 14px 32px rgba(38,40,37,.2); padding:10px 12px; z-index:9; text-align:left; cursor:default }
+        .tn-sq:hover .tn-sq-info { display:block; animation: b-entra .2s ease backwards }
         .tn-cab.mano, .tn-ej.mano, .tn-ses.mano { box-shadow:0 0 0 3px var(--g); border-radius:9px }
         .tn-ej { transition: transform .15s ease } .tn-ej:hover { transform: translateY(-2px) }
         .tn-ses { cursor:grab; display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:9px; border:1px solid var(--bd); background:#fff; font-size:12.5px }
@@ -229,6 +287,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         .tn-dest.vivo { background: var(--gl); box-shadow: inset 0 0 0 2px var(--gm) }
         .tn-x { border:none; background:none; color:var(--grl); cursor:pointer; font-size:13px; padding:0 3px }
         .tn-x:hover { color: var(--red) }
+        .tn-dest.vivo .tn-sq { box-shadow: 0 0 0 2px var(--gm), 0 3px 12px rgba(38,40,37,.12) }
       `}</style>
 
       {/* IZQUIERDA: lo elegido, para tornear. Como en el banco: tarjetas flotando sin
@@ -267,9 +326,12 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                 </div>
               </div>
             )
-            if (!abierto) return [tarjeta]
+            const cuadrado = !esCiclo ? verSes(s, { c, tam: 170, key: 't' + it.id,
+              pie: <button className="btn btn-s btn-sm" onClick={e => { e.stopPropagation(); tornea(it.tipo + it.id) }}>{abierto ? 'Cerrar' : 'Tornear'}</button> }) : null
+            const pieza = cuadrado || tarjeta
+            if (!abierto) return [pieza]
             // Lo torneado, debajo y a todo el ancho.
-            return [tarjeta, (
+            return [pieza, (
               <div key={'a' + it.tipo + it.id} style={{ flexBasis: '100%', padding: '4px 2px 6px', animation: 'b-entra .35s ease backwards' }}>
                 {!esCiclo && sesionAbierta(it.id)}
                 {esCiclo && (
@@ -277,21 +339,19 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                     {(bib.ciclos[it.id]?.fases || []).map((f: any, fi: number) => (
                       <div key={fi}>
                         <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', marginBottom: 5 }}>{f.nombre || `Fase ${fi + 1}`}</div>
-                        <div style={{ display: 'grid', gap: 6 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
                           {(f.sesiones || []).map((sid: string) => {
-                            const cs: Carga = { tipo: 's', id: sid }
                             const ab = abiertos.includes('s' + sid + ':' + it.id)
-                            return (
-                              <div key={sid}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <span {...cogible(cs)} className={`tn-ses ${enLaMano(cs) ? 'mano' : ''}`} style={{ flex: 1 }}>⠿ {ses[sid]?.nombre || 'Sesión'}</span>
-                                  <button className="btn btn-t btn-sm" onClick={() => tornea('s' + sid + ':' + it.id)}>{ab ? '▴' : '▾'}</button>
-                                </div>
-                                {ab && <div style={{ margin: '8px 0 4px 10px' }}>{sesionAbierta(sid)}</div>}
-                              </div>
-                            )
+                            return verSes(ses[sid], { c: { tipo: 's', id: sid }, tam: 120, key: sid,
+                              pie: <button className="btn btn-t btn-sm" onClick={e => { e.stopPropagation(); tornea('s' + sid + ':' + it.id) }}>{ab ? 'Cerrar' : 'Tornear'}</button> })
                           })}
                         </div>
+                        {(f.sesiones || []).filter((sid: string) => abiertos.includes('s' + sid + ':' + it.id)).map((sid: string) => (
+                          <div key={'ab' + sid} style={{ margin: '12px 0 4px' }}>
+                            <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>{ses[sid]?.nombre}</div>
+                            {sesionAbierta(sid)}
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -338,12 +398,12 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         </div>
         {modo === 'sesion' ? (
           <div {...destino('S', {})} className={`tn-dest ${vivo('S') ? 'vivo' : ''}`}
-            style={{ minHeight: 380, border: '1.5px dashed var(--bd)', padding: 14, display: 'grid', gap: 10, alignContent: 'start' }}>
+            style={{ minHeight: 380, background: 'var(--bl)', borderRadius: 18, padding: 16, display: 'grid', gap: 16, alignContent: 'start' }}>
             {partes.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 12.5, textAlign: 'center', padding: 40 }}>Suelta aquí sesiones, partes o ejercicios</div>}
             {partes.map((p, pi) => (
-              <div key={pi} style={{ background: '#fff', border: '1px solid var(--bd)', borderRadius: 10, padding: '8px 10px' }}>
+              <div key={pi} style={{ animation: 'b-entra .35s ease backwards' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre}</span>
                   <button className="tn-x" title="Quitar la parte" onClick={() => setPartes(l => l.filter((_, j) => j !== pi))}>✕</button>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 6 }}>
@@ -362,7 +422,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
           <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', overflowX: 'auto', paddingBottom: 6 }}>
             {fases.map((f, fi) => (
               <div key={f.key} {...destino(f.key, { fase: f.key })} className={`tn-dest ${vivo(f.key) ? 'vivo' : ''}`}
-                style={{ flex: '1 0 220px', minHeight: 380, border: '1.5px dashed var(--bd)', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                style={{ flex: '1 0 240px', minHeight: 380, background: 'var(--bl)', borderRadius: 18, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <input value={f.nombre} onChange={e => setFases(l => l.map(x => x.key === f.key ? { ...x, nombre: e.target.value } : x))}
                     onClick={e => e.stopPropagation()}
@@ -370,25 +430,13 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                   {fases.length > 1 && <button className="tn-x" title="Quitar la fase" onClick={e => { e.stopPropagation(); setFases(l => l.filter(x => x.key !== f.key)) }}>✕</button>}
                 </div>
                 {f.sesiones.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 11.5, textAlign: 'center', padding: '30px 6px' }}>Suelta aquí {fi === 0 ? 'el ciclo, ' : ''}sesiones, partes o ejercicios</div>}
-                {f.sesiones.map(s => (
-                  <div key={s.key} {...destino(s.key, { fase: f.key, sesion: s.key })} className={`tn-dest ${sobre === s.key ? 'vivo' : ''}`}
-                    style={{ background: '#fff', border: '1px solid var(--bd)', padding: '8px 9px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ flex: 1, fontSize: 12.5 }}>{s.nombre}</span>
-                      <button className="tn-x" title="Quitar la sesión" onClick={e => { e.stopPropagation(); setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.filter(y => y.key !== s.key) } : x)) }}>✕</button>
-                    </div>
-                    {s.partes.map((p, pi) => (
-                      <div key={pi} style={{ marginTop: 5 }}>
-                        <div style={{ fontSize: 10, color: 'var(--gd)', fontWeight: 600 }}>{p.nombre}</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 2 }}>
-                          {p.ejercicios.map((ej, ei) => ej.imagen_url
-                            ? <img key={ei} src={ej.imagen_url} alt="" title={ej.nombre} draggable={false} style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 5 }}/>
-                            : <span key={ei} title={ej.nombre} style={{ width: 30, height: 30, borderRadius: 5, background: 'var(--bl)' }}/>)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                {/* Sus sesiones en cuadrado; soltar encima mete lo que traes dentro. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
+                  {f.sesiones.map(sd => verSes(sd, { tam: 128, key: sd.key,
+                    extra: { ...destino(sd.key, { fase: f.key, sesion: sd.key }), style: undefined },
+                    quitar: () => setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.filter(y => y.key !== sd.key) } : x)),
+                    pie: sobre === sd.key ? <span style={{ fontSize: 10.5, color: 'var(--gd)' }}>soltar dentro</span> : null }))}
+                </div>
               </div>
             ))}
             <button type="button" onClick={() => setFases(l => [...l, { key: nk(), nombre: `Fase ${l.length + 1}`, sesiones: [] }])}

@@ -45,7 +45,14 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [citas, setCitas] = useState<Cita[]>([])
   const [sesiones, setSesiones] = useState<Ses[]>([])
   const [otras, setOtras] = useState<Record<string, string>>({})
-  const [plan, setPlan] = useState<Record<string, string | null>>({})
+  /**
+   * LO QUE SE VE = lo que ya tenía + lo último pintado + lo tocado a mano.
+   * Antes "Pintar" escribía encima del plan, así que la segunda vez partía de la
+   * primera y no se podía probar otra combinación. Ahora cada "Pintar" sale de lo
+   * que había, y lo tocado a mano se respeta encima.
+   */
+  const [pintado, setPintado] = useState<Record<string, string | null>>({})
+  const [aMano, setAMano] = useState<Record<string, string | null>>({})
   const [pincel, setPincel] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -109,10 +116,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       const { data: aj } = await supabase.from('sesiones').select('id,nombre').in('id', ajenas)
       setOtras(Object.fromEntries((aj || []).map((x: any) => [x.id, x.nombre])))
     }
-    setPlan(Object.fromEntries((cs || []).map((c: any) => [c.id, c.sesion_id || null])))
     setCargando(false)
   }
 
+  const original: Record<string, string | null> = useMemo(() => Object.fromEntries(citas.map(c => [c.id, c.sesion_id || null])), [citas])
+  const plan: Record<string, string | null> = { ...original, ...pintado, ...aMano }
   const sesDe = (id: string | null) => sesiones.find(s => s.id === id)
   const cabe = (s: Ses, f: string) => (!s.desde || f >= s.desde) && (!s.hasta || f <= s.hasta)
 
@@ -120,17 +128,18 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     if (!pincel) return
     const s = sesDe(pincel)!
     if (!cabe(s, c.fecha)) { alert(`«${s.nombre}» es de ${s.fase || 'otra fase'}: ese día cae fuera.`); return }
-    setPlan(p => ({ ...p, [c.id]: p[c.id] === pincel ? null : pincel }))
+    setAMano(m => ({ ...m, [c.id]: plan[c.id] === pincel ? null : pincel }))
   }
 
   /** REPARTIR: misma regla para la vista y para lo que se guarda. */
   function repartir() {
     if (rot.length === 0) return
-    const nuevo = { ...plan }
+    const nuevo: Record<string, string | null> = { ...original }
     let puestas = 0, paso = 0, i = 0
     for (const c of citas) {
       if (limite === 'hasta' && hasta && c.fecha > hasta) break
       if (limite === 'veces' && puestas >= veces) break
+      if (c.id in aMano) continue
       const actual = nuevo[c.id]
       const libre = !actual || sesiones.some(s => s.id === actual) || pisar
       if (!libre) continue
@@ -144,7 +153,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       }
       if (puesta) puestas++
     }
-    setPlan(nuevo)
+    // Solo lo que cambia respecto a lo que había.
+    setPintado(Object.fromEntries(Object.entries(nuevo).filter(([id, v]) => v !== original[id])))
   }
 
   const cambios = citas.filter(c => (plan[c.id] || null) !== (c.sesion_id || null))
@@ -258,6 +268,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             <button className="btn btn-s btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
           </div>
 
+          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--gr)', marginBottom: 14 }}>
+            {pincel
+              ? <>Pintando con <b style={{ color: sesDe(pincel)?.color }}>{sesDe(pincel)?.nombre}</b> · toca los días; tocar otra vez lo quita</>
+              : 'Toca una ficha de arriba y después los días del calendario'}
+          </div>
           {/* EL CALENDARIO */}
           {/* Meses de ancho fijo, centrados. Con 1fr las celdas con cita se ensanchaban
               y descuadraban la semana entera. */}
@@ -278,7 +293,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                       const cs = porDia[f] || []
                       const pasado = f < hoy
                       return (
-                        <div key={i} style={{ minHeight: 50, minWidth: 0, borderRadius: 8, padding: 3, background: cs.length ? 'var(--bl)' : 'transparent', opacity: pasado ? .35 : 1 }}>
+                        <div key={i} onClick={() => { if (cs.length === 1) tocarCita(cs[0]) }}
+                          style={{ minHeight: 50, minWidth: 0, borderRadius: 8, padding: 3, cursor: cs.length ? 'pointer' : 'default',
+                            background: cs.length ? 'var(--bl)' : 'transparent', opacity: pasado ? .35 : 1 }}>
                           <div style={{ fontSize: 10, color: f === hoy ? 'var(--gd)' : 'var(--grl)', fontWeight: f === hoy ? 700 : 400 }}>{Number(f.slice(8))}</div>
                           {cs.map(c => {
                             const sid = plan[c.id]
@@ -286,7 +303,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             const ajena = sid && !s ? otras[sid] || 'otra sesión' : null
                             const cambiada = (sid || null) !== (c.sesion_id || null)
                             return (
-                              <button key={c.id} className="tc-cita" onClick={() => tocarCita(c)}
+                              <button key={c.id} className="tc-cita" onClick={e => { e.stopPropagation(); tocarCita(c) }}
                                 title={`${c.hora ? String(c.hora).slice(0, 5) : ''} ${s ? s.nombre : ajena || 'sin sesión'}`}
                                 style={{ background: s ? s.color : ajena ? 'var(--bm)' : '#fff', color: s ? '#fff' : 'var(--gr)',
                                   border: s ? 'none' : '1px dashed var(--bd)', boxShadow: cambiada ? '0 0 0 2px var(--n)' : 'none' }}>
@@ -314,8 +331,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--w)', border: '1px solid var(--bd)',
             borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
             <span style={{ fontSize: 13 }}>{cambios.length} cita{cambios.length === 1 ? '' : 's'} cambiada{cambios.length === 1 ? '' : 's'}</span>
-            <button className="btn btn-t btn-sm" onClick={() => setPlan(Object.fromEntries(citas.map(c => [c.id, c.sesion_id || null])))}>Deshacer</button>
-            <button className="btn btn-p" disabled={guardando} onClick={confirmar}><Ic name="ok" size={13}/> {guardando ? 'Guardando…' : 'Confirmar'}</button>
+            <button className="btn btn-t btn-sm" onClick={() => { setPintado({}); setAMano({}) }}>Deshacer todo</button>
+            <button className="btn btn-p" disabled={guardando} onClick={confirmar}><Ic name="ok" size={13}/> {guardando ? 'Guardando…' : 'Programar'}</button>
           </div>
         </div>
       )}
