@@ -33,7 +33,7 @@ type Carga =
   | { tipo: 'p', sesId: string, pi: number }
   | { tipo: 'e', ej: any }
 /** Dónde se suelta. `parte`: dentro de esa parte de la sesión, no como parte nueva. */
-type Sitio = { fase?: string, sesion?: string, parte?: number }
+type Sitio = { fase?: string, sesion?: string, parte?: number, nueva?: boolean }
 
 let cuenta = 0
 const nk = () => `k${++cuenta}`
@@ -131,6 +131,12 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       if (sitio.parte != null && lista[sitio.parte] && (c.tipo === 'e' || c.tipo === 'p')) {
         const mas = c.tipo === 'e' ? [copia(c.ej)] : parteDe(ses[c.sesId], c.pi).ejercicios
         return lista.map((q, k) => k === sitio.parte ? { ...q, ejercicios: [...q.ejercicios, ...mas] } : q)
+      }
+      // EN EL HUECO DE "PARTE NUEVA": siempre una parte más al final, aunque ya haya
+      // una que se llame igual (no se mezcla con ella).
+      if (sitio.nueva && (c.tipo === 'e' || c.tipo === 'p')) {
+        const pt = c.tipo === 'p' ? parteDe(ses[c.sesId], c.pi) : { nombre: 'Nueva', orden: 999, ejercicios: [copia(c.ej)] }
+        return [...lista, { ...pt, orden: 1000 + lista.length }]
       }
       if (c.tipo === 's') return partesDe(ses[c.id]).reduce(meterParte, lista)
       if (c.tipo === 'p') return meterParte(lista, parteDe(ses[c.sesId], c.pi))
@@ -482,6 +488,17 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                         </div>
                       </div>
                     ))}
+                    {/* PARTE NUEVA DENTRO DE ESTA SESIÓN. Soltar debajo de las partes caía ya
+                        en la fase y creaba otra sesión. Mientras se arrastra (o hay algo en la
+                        mano) sale este hueco al final de cada sesión. */}
+                    {(carga || enMano) && (
+                      <div {...destino(sd.key + ':nueva', { fase: f.key, sesion: sd.key, nueva: true })}
+                        className={`tn-dest ${sobre === sd.key + ':nueva' ? 'vivo' : ''}`}
+                        style={{ marginTop: 8, border: '1.5px dashed var(--gm)', borderRadius: 10, padding: '9px 8px',
+                          fontSize: 11.5, color: 'var(--gd)', textAlign: 'center' }}>
+                        + Parte nueva en esta sesión
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
