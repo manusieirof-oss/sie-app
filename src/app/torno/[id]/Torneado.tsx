@@ -32,7 +32,8 @@ type Carga =
   | { tipo: 's', id: string }
   | { tipo: 'p', sesId: string, pi: number }
   | { tipo: 'e', ej: any }
-type Sitio = { fase?: string, sesion?: string }
+/** Dónde se suelta. `parte`: dentro de esa parte de la sesión, no como parte nueva. */
+type Sitio = { fase?: string, sesion?: string, parte?: number }
 
 let cuenta = 0
 const nk = () => `k${++cuenta}`
@@ -125,6 +126,12 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
     }
     // Lo que una carga añade a una lista de partes.
     const aPartes = (lista: DestParte[]): DestParte[] => {
+      // DENTRO DE UNA PARTE: un ejercicio se suma a ella, y una parte entera vuelca
+      // sus ejercicios en ella. Antes todo acababa como una parte nueva.
+      if (sitio.parte != null && lista[sitio.parte] && (c.tipo === 'e' || c.tipo === 'p')) {
+        const mas = c.tipo === 'e' ? [copia(c.ej)] : parteDe(ses[c.sesId], c.pi).ejercicios
+        return lista.map((q, k) => k === sitio.parte ? { ...q, ejercicios: [...q.ejercicios, ...mas] } : q)
+      }
       if (c.tipo === 's') return partesDe(ses[c.id]).reduce(meterParte, lista)
       if (c.tipo === 'p') return meterParte(lista, parteDe(ses[c.sesId], c.pi))
       if (c.tipo === 'e') return meterEjercicio(lista, c.ej)
@@ -412,7 +419,8 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
             style={{ minHeight: 380, borderRadius: 18, padding: 16, display: 'grid', gap: 16, alignContent: 'start' }}>
             {partes.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 12.5, textAlign: 'center', padding: 40 }}>Suelta aquí sesiones, partes o ejercicios</div>}
             {partes.map((p, pi) => (
-              <div key={pi} style={{ animation: 'b-entra .35s ease backwards' }}>
+              <div key={pi} {...destino('S:' + pi, { parte: pi })} className={`tn-dest ${sobre === 'S:' + pi ? 'vivo' : ''}`}
+                style={{ animation: 'b-entra .35s ease backwards', padding: '4px 6px 6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre}</span>
                   <button className="tn-x" title="Quitar la parte" onClick={() => setPartes(l => l.filter((_, j) => j !== pi))}>✕</button>
@@ -456,7 +464,8 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                         onClick={e => { e.stopPropagation(); setFases(l => l.map(x => x.key === f.key ? { ...x, sesiones: x.sesiones.filter(y => y.key !== sd.key) } : x)) }}>✕</button>
                     </div>
                     {sd.partes.map((pt, pi) => (
-                      <div key={pi} style={{ marginTop: 6 }}>
+                      <div key={pi} {...destino(sd.key + ':' + pi, { fase: f.key, sesion: sd.key, parte: pi })}
+                        className={`tn-dest ${sobre === sd.key + ':' + pi ? 'vivo' : ''}`} style={{ marginTop: 6, padding: '3px 5px 5px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--gd)' }}>{pt.nombre}</span>
                           <button className="tn-x" title="Quitar la parte"
