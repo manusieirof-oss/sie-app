@@ -62,7 +62,8 @@ const meterEjercicio = (partes: DestParte[], ej: any) =>
 export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, prog, fin, onGuardado }: {
   modo: 'ciclo' | 'sesion'
   pid: string, paciente: string, prog: string, fin?: string
-  onGuardado: () => void
+  /** Lo creado: la sesión, o el ciclo. Para seguir con ponerlo en sus citas. */
+  onGuardado: (r: { tipo: 'sesion' | 'ciclo', id: string }) => void
   elegidos: { tipo: 'c' | 's' | 'e', id: string, nombre: string, color?: string }[]
   bib: { ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any> }
   objs: any[]
@@ -85,7 +86,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       : await guardarCicloTorno(pid, { nombre: nombre || `Ciclo de ${paciente}`, color, progresion: prog, fin: fin || null }, fases, objsEj)
     setGuardando(false)
     if (r.ok === false) { alert('No se ha guardado: ' + r.error); return }
-    onGuardado()
+    onGuardado({ tipo: modo, id: r.id })
   }
   const vacio = modo === 'sesion' ? partes.every(p => p.ejercicios.length === 0) : fases.every(f => f.sesiones.length === 0)
 

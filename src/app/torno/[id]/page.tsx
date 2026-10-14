@@ -287,7 +287,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       {aceptado && (
         <Torneado modo={cfg.modo === 'ciclo' ? 'ciclo' : 'sesion'} bib={bib} objs={objs}
           pid={pid} paciente={nombre} prog={cfg.prog} fin={cfg.fin}
-          onGuardado={() => router.push(`/pacientes/${pid}?tab=entreno`)}
+          onGuardado={r => router.push(`/torno/${pid}/citas?${r.tipo === 'ciclo' ? 'sis' : 'ses'}=${r.id}`)}
           elegidos={elegidosItems.map(it => ({ tipo: it.tipo, id: it.id, nombre: it.nombre, color: it.color }))}/>
       )}
 
