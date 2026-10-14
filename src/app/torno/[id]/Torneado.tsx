@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
+import { Ic } from '@/lib/icons'
 import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
 import { guardarSesionTorno, guardarCicloTorno } from '@/lib/tornoGuardar'
 
@@ -184,7 +185,8 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       style={{ width: peq ? 64 : 82, textAlign: 'center', cursor: c ? 'grab' : 'default' }}>
       {ej.imagen_url
         ? <img src={ej.imagen_url} alt="" draggable={false} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 8, display: 'block' }}/>
-        : <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 8, background: 'var(--bl)' }}/>}
+        : <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 8, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--bd)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)' }}><Ic name="fuerza" size={26}/></div>}
       <div style={{ fontSize: 9.5, lineHeight: 1.2, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ej.nombre}</div>
       {!peq && <div style={{ marginTop: 2 }}>{esferas(objsEj(ej))}</div>}
     </div>
@@ -205,16 +207,22 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
    */
   const verSes = (s: any, o: { c?: Carga, tam?: number, quitar?: () => void, extra?: any, key?: any, pie?: any }) => {
     const ejs = (s?.partes || []).flatMap((p: any) => p.ejercicios || [])
-    const imgs = Array.from(new Set(ejs.map((e: any) => e.imagen_url || bib.ej[e.ejercicio_id]?.imagen_url).filter(Boolean))).slice(0, 4) as string[]
+    // Por ejercicio, tenga foto o no: el que no la tiene ocupaba nada y parecía que no
+    // se había soltado. Los últimos primero, que es lo que se acaba de meter.
+    const fotos = [...ejs].reverse().slice(0, 4).map((e: any) => e.imagen_url || bib.ej[e.ejercicio_id]?.imagen_url || '')
+    const imgs = fotos
     const ob = objsSes(s)
     const tam = o.tam || 150
     return (
       <div key={o.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <div {...(o.c ? cogible(o.c) : {})} {...(o.extra || {})} className={`tn-sq ${o.c && enLaMano(o.c) ? 'mano' : ''}`} style={{ width: tam, height: tam }}>
           <div className="tn-sq-fotos" style={{ gridTemplateColumns: imgs.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: imgs.length > 2 ? '1fr 1fr' : '1fr' }}>
-            {imgs.map((src, k) => <img key={k} src={src} alt="" draggable={false}/>)}
+            {imgs.map((src, k) => src
+              ? <img key={k} src={src} alt="" draggable={false}/>
+              : <span key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', background: '#fff' }}><Ic name="fuerza" size={22}/></span>)}
           </div>
           <div className="tn-sq-nom" style={{ fontSize: tam < 130 ? 11 : 12.5 }}>{s?.nombre || 'Sesión'}</div>
+          {ejs.length > 0 && <span className="tn-sq-n">{ejs.length}</span>}
           {o.quitar && <button className="tn-x tn-sq-x" title="Quitar" onClick={e => { e.stopPropagation(); o.quitar!() }}>✕</button>}
           <div className="tn-sq-info">
             {ob.length > 0 && (
@@ -276,6 +284,9 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         .tn-sq-fotos img { width:100%; height:100%; object-fit:cover; display:block; min-width:0; min-height:0 }
         .tn-sq-nom { position:absolute; left:0; right:0; bottom:0; padding:26px 8px 8px; text-align:center; line-height:1.25;
                      background:linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.96) 48%); border-radius:0 0 16px 16px }
+        .tn-sq-n { position:absolute; top:6px; left:6px; z-index:2; min-width:20px; height:20px; padding:0 6px; border-radius:99px;
+                   background:#fff; color:var(--gd); font-size:10.5px; font-weight:600; display:flex; align-items:center; justify-content:center;
+                   box-shadow:0 1px 4px rgba(38,40,37,.15) }
         .tn-sq-x { position:absolute; top:5px; right:5px; background:#fff; border-radius:99px; z-index:2 }
         .tn-sq-info { display:none; position:absolute; left:50%; top:calc(100% + 8px); transform:translateX(-50%); width:240px;
                       background:#fff; border-radius:12px; box-shadow:0 14px 32px rgba(38,40,37,.2); padding:10px 12px; z-index:9; text-align:left; cursor:default }
@@ -398,7 +409,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         </div>
         {modo === 'sesion' ? (
           <div {...destino('S', {})} className={`tn-dest ${vivo('S') ? 'vivo' : ''}`}
-            style={{ minHeight: 380, background: 'var(--bl)', borderRadius: 18, padding: 16, display: 'grid', gap: 16, alignContent: 'start' }}>
+            style={{ minHeight: 380, borderRadius: 18, padding: 16, display: 'grid', gap: 16, alignContent: 'start' }}>
             {partes.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 12.5, textAlign: 'center', padding: 40 }}>Suelta aquí sesiones, partes o ejercicios</div>}
             {partes.map((p, pi) => (
               <div key={pi} style={{ animation: 'b-entra .35s ease backwards' }}>
@@ -422,7 +433,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
           <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', overflowX: 'auto', paddingBottom: 6 }}>
             {fases.map((f, fi) => (
               <div key={f.key} {...destino(f.key, { fase: f.key })} className={`tn-dest ${vivo(f.key) ? 'vivo' : ''}`}
-                style={{ flex: '1 0 240px', minHeight: 380, background: 'var(--bl)', borderRadius: 18, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                style={{ flex: '1 0 240px', minHeight: 380, borderRadius: 18, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <input value={f.nombre} onChange={e => setFases(l => l.map(x => x.key === f.key ? { ...x, nombre: e.target.value } : x))}
                     onClick={e => e.stopPropagation()}
@@ -440,7 +451,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
               </div>
             ))}
             <button type="button" onClick={() => setFases(l => [...l, { key: nk(), nombre: `Fase ${l.length + 1}`, sesiones: [] }])}
-              style={{ flex: '0 0 84px', border: '1.5px dashed var(--bd)', borderRadius: 12, background: 'transparent', color: 'var(--grl)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>
+              style={{ flex: '0 0 84px', border: 'none', borderRadius: 12, background: 'transparent', color: 'var(--gd)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
               + Fase
             </button>
           </div>
