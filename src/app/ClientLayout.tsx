@@ -106,8 +106,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const veCobros   = veFinanzas || perfil?.permisos?.cobros===true
 
   return (
-    <div className={`shell ${pathname === '/torno' ? 'inmersivo' : ''}`}>
-      {pathname === '/torno' && <div className="borde-izq"/>}
+    <div className={`shell ${pathname.startsWith('/torno') ? 'inmersivo' : ''}`}>
+      {/* Todo el torno es inmersivo, no solo su primera pantalla: el menú negro
+          aparecía en cuanto entrabas a programar a alguien. */}
+      {pathname.startsWith('/torno') && <div className="borde-izq"/>}
       <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
         {/* El logo de la clínica manda; sin logo se queda el "SIE" vertical de siempre.

@@ -6,6 +6,7 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { cargarSistema, sistemasDePaciente, tramos } from '@/lib/sistemas'
 import { registrarSesion } from '@/lib/sesiones'
+import MonedaObjetivo from '@/components/MonedaObjetivo'
 
 // ---------------------------------------------------------------------------
 // PONERLO EN SUS CITAS
@@ -27,7 +28,8 @@ import { registrarSesion } from '@/lib/sesiones'
 // ---------------------------------------------------------------------------
 
 type Cita = { id: string, fecha: string, hora: string | null, sala: string | null, sesion_id: string | null }
-type Ses = { id: string, nombre: string, color: string, desde: string | null, hasta: string | null, fase?: string }
+type Ses = { id: string, nombre: string, color: string, desde: string | null, hasta: string | null, fase?: string, ciclo?: string, partes?: any[], objs?: any[] }
+type Ciclo = { id: string, nombre: string, color: string, fases: { nombre: string, desde: string | null, hasta: string | null, sesiones: string[] }[] }
 
 const COLORES = ['#5A969E', '#C9A84C', '#B0708C', '#6E8FC7', '#7C9A6B', '#C77F5A', '#8A7CC7', '#4F9C8A']
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -44,6 +46,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [nombre, setNombre] = useState('')
   const [citas, setCitas] = useState<Cita[]>([])
   const [sesiones, setSesiones] = useState<Ses[]>([])
+  const [ciclos, setCiclos] = useState<Ciclo[]>([])
+  /** El cuadrado abierto (grande, con lo que lleva dentro): 's:<id>' o 'c:<id>'. */
+  const [abierto, setAbierto] = useState<string | null>(null)
   const [otras, setOtras] = useState<Record<string, string>>({})
   /**
    * LO QUE SE VE = lo que ya tenía + lo último pintado + lo tocado a mano.
@@ -78,6 +83,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
 
     // Las sesiones: las de la URL, o las del ciclo con las fechas de su fase.
     let lista: Ses[] = []
+    const cics: Ciclo[] = []
     let k = 0
     // Los ciclos, con las fechas de cada fase.
     if (q.sis.length) {
@@ -87,25 +93,27 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         const a = asig.find(x => x.sistema_id === sisId)
         const tr = sis && a ? tramos(sis, a) : []
         const ids = (sis?.fases || []).flatMap(f => f.sesiones || [])
-        const { data: ss } = ids.length ? await supabase.from('sesiones').select('id,nombre').in('id', ids) : { data: [] as any[] }
+        const { data: ss } = ids.length ? await supabase.from('sesiones').select('id,nombre,partes,sesiones_objetivos(objetivos(id,nombre,imagen_url))').in('id', ids) : { data: [] as any[] }
+        if (sis) cics.push({ id: sis.id, nombre: sis.nombre, color: sis.color || '#5A969E', fases: (sis.fases || []).map(f => { const t = tr.find(x => x.fase.id === f.id); return { nombre: f.nombre, desde: t?.desde || null, hasta: t?.hasta || null, sesiones: f.sesiones || [] } }) })
         ;(sis?.fases || []).forEach(f => {
           const t = tr.find(x => x.fase.id === f.id)
           ;(f.sesiones || []).forEach(sid => {
             const s = (ss || []).find((x: any) => x.id === sid)
-            if (s) lista.push({ id: s.id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: t?.desde || null, hasta: t?.hasta || null, fase: f.nombre })
+            if (s) lista.push({ id: s.id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: t?.desde || null, hasta: t?.hasta || null, fase: f.nombre, ciclo: sisId, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
           })
         })
       }
     }
     // Las sesiones sueltas.
     if (q.ses.length) {
-      const { data: ss } = await supabase.from('sesiones').select('id,nombre').in('id', q.ses)
+      const { data: ss } = await supabase.from('sesiones').select('id,nombre,partes,sesiones_objetivos(objetivos(id,nombre,imagen_url))').in('id', q.ses)
       q.ses.forEach(id => {
         const s = (ss || []).find((x: any) => x.id === id)
-        if (s) lista.push({ id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null })
+        if (s) lista.push({ id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
       })
     }
     setSesiones(lista)
+    setCiclos(cics)
     setRot(lista.slice(0, 1).map(s => s.id))
     setPincel(lista[0]?.id || null)
 
@@ -199,6 +207,19 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     font-family:inherit; font-size:12.5px; background:#fff; transition: transform .15s ease, box-shadow .15s ease }
         .tc-ficha:hover { transform: translateY(-2px) }
         .tc-mes { animation: tc-entra .45s ease backwards }
+        .tc-sq-w { position:relative }
+        .tc-sq { position:relative; width:104px; height:104px; border:none; border-radius:16px; background:#fff; cursor:pointer; padding:0;
+                 display:flex; flex-direction:column; align-items:center; font-family:inherit; text-align:center;
+                 box-shadow:0 3px 12px rgba(38,40,37,.12); transition: transform .2s ease, box-shadow .2s ease; animation: tc-entra .45s ease backwards }
+        .tc-sq:hover { transform: scale(1.06) }
+        .tc-sq-fotos { position:absolute; inset:0; border-radius:16px; overflow:hidden; display:grid; background:var(--bl) }
+        .tc-sq-fotos img { width:100%; height:100%; object-fit:cover; display:block; min-width:0; min-height:0 }
+        .tc-sq-nom { position:absolute; left:0; right:0; bottom:0; padding:22px 6px 7px; font-size:11px; line-height:1.2; color:var(--n);
+                     background:linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.96) 48%); border-radius:0 0 16px 16px }
+        .tc-sq-n { position:absolute; top:6px; left:6px; min-width:20px; height:20px; padding:0 6px; border-radius:99px; color:#fff;
+                   font-size:10.5px; font-weight:600; display:flex; align-items:center; justify-content:center }
+        .tc-info { position:absolute; left:50%; top:calc(100% + 10px); transform:translateX(-50%); width:260px; z-index:15; text-align:left;
+                   background:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 16px 36px rgba(38,40,37,.2); animation: tc-entra .2s ease backwards }
         .tc-cita { display:block; width:100%; min-width:0; overflow:hidden; border:none; border-radius:6px; padding:3px 4px; margin-top:3px; cursor:pointer;
                    font-family:inherit; font-size:10.5px; line-height:1.25; text-align:left; transition: transform .12s ease }
         .tc-cita:hover { transform: scale(1.04) }
@@ -219,23 +240,83 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         </div>
       ) : (
         <>
-          {/* LAS FICHAS: el pincel. Tocas una y tocas citas. */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 14 }}>
-            {sesiones.map(s => {
-              const on = pincel === s.id
-              const n = citas.filter(c => plan[c.id] === s.id).length
-              return (
-                <button key={s.id} className="tc-ficha" onClick={() => setPincel(on ? null : s.id)}
-                  title={s.desde || s.hasta ? `${s.fase} · ${s.desde ? corta(s.desde) : '…'} – ${s.hasta ? corta(s.hasta) : '…'}` : ''}
-                  style={{ border: `2px solid ${s.color}`, boxShadow: on ? `0 0 0 3px ${s.color}40, 0 8px 18px rgba(38,40,37,.14)` : 'none',
-                    background: on ? s.color : '#fff', color: on ? '#fff' : 'var(--n)' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 99, background: on ? '#fff' : s.color }}/>
-                  {s.nombre}
-                  {s.fase && <span style={{ opacity: .7, fontSize: 11 }}>· {s.fase}</span>}
-                  <b style={{ fontWeight: 600 }}>{n}</b>
-                </button>
-              )
-            })}
+          {/* LAS FICHAS, EN CUADRADO: el mosaico de sus ejercicios y su color (el que se
+              ve en el calendario). Tocar una la coge como pincel y la abre en grande con
+              lo que lleva. Las de un ciclo van detrás del cuadrado de su ciclo. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, justifyContent: 'center', alignItems: 'flex-start', marginBottom: 18 }}>
+            {[...ciclos.map(c => ({ ciclo: c as Ciclo | null, ses: sesiones.filter(s => s.ciclo === c.id) })),
+              ...(sesiones.some(s => !s.ciclo) ? [{ ciclo: null as Ciclo | null, ses: sesiones.filter(s => !s.ciclo) }] : [])].map((g, gi) => (
+              <div key={gi} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {g.ciclo && (() => {
+                  const c = g.ciclo!
+                  const ab = abierto === 'c:' + c.id
+                  return (
+                    <div className="tc-sq-w">
+                      <button type="button" className="tc-sq" onClick={() => setAbierto(ab ? null : 'c:' + c.id)}
+                        style={{ background: c.color, color: '#fff', justifyContent: 'center', padding: 10 }}>
+                        <span style={{ fontSize: 10, letterSpacing: .6, textTransform: 'uppercase', opacity: .85 }}>Ciclo</span>
+                        <span style={{ fontSize: 12.5, lineHeight: 1.25, marginTop: 3 }}>{c.nombre}</span>
+                        <span style={{ fontSize: 10.5, opacity: .85, marginTop: 3 }}>{c.fases.length} fase{c.fases.length === 1 ? '' : 's'}</span>
+                      </button>
+                      {ab && (
+                        <div className="tc-info">
+                          {c.fases.map((f, fi) => (
+                            <div key={fi} style={{ marginBottom: 7 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)' }}>{f.nombre}</div>
+                              <div style={{ fontSize: 11, color: 'var(--grl)' }}>{f.desde ? corta(f.desde) : '…'} – {f.hasta ? corta(f.hasta) : 'sin fin'}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--gr)' }}>{f.sesiones.map(id => sesiones.find(x => x.id === id)?.nombre).filter(Boolean).join(' · ')}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+                {g.ses.map(s => {
+                  const on = pincel === s.id
+                  const ab = abierto === 's:' + s.id
+                  const n = citas.filter(c => plan[c.id] === s.id).length
+                  const ejs = (s.partes || []).flatMap((p: any) => p.ejercicios || [])
+                  const fotos = ejs.slice(0, 4).map((e: any) => e.imagen_url || '')
+                  return (
+                    <div key={s.id} className="tc-sq-w">
+                      <button type="button" className={`tc-sq ${on ? 'on' : ''}`}
+                        onClick={() => { setPincel(s.id); setAbierto(ab ? null : 's:' + s.id) }}
+                        style={{ boxShadow: on ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined }}>
+                        <span className="tc-sq-fotos" style={{ gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
+                          {fotos.map((src: string, k: number) => src
+                            ? <img key={k} src={src} alt=""/>
+                            : <span key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', background: '#fff' }}><Ic name="fuerza" size={18}/></span>)}
+                        </span>
+                        <span className="tc-sq-nom">{s.nombre}</span>
+                        <span className="tc-sq-n" style={{ background: s.color }}>{n}</span>
+                      </button>
+                      {ab && (
+                        <div className="tc-info">
+                          {s.fase && <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 6 }}>{s.fase}{s.desde ? ` · desde ${corta(s.desde)}` : ''}{s.hasta ? ` hasta ${corta(s.hasta)}` : ''}</div>}
+                          {(s.objs || []).length > 0 && (
+                            <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
+                              {(s.objs || []).map((o: any) => (
+                                <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
+                                  <MonedaObjetivo objetivo={o} tam="mini"/> {o.nombre}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {(s.partes || []).map((p: any, pi: number) => (
+                            <div key={pi} style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre || `Parte ${pi + 1}`}</div>
+                              <div style={{ fontSize: 11, color: 'var(--gr)', lineHeight: 1.4 }}>{(p.ejercicios || []).map((e: any) => e.nombre).join(' · ')}</div>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 4 }}>{n} cita{n === 1 ? '' : 's'} con ella</div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
           </div>
 
           {/* REPARTIR: rotación, cada cuántas y hasta cuándo. */}
