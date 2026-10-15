@@ -15,6 +15,7 @@ import { ESTADOS_PACIENTE, estadoDe as situacionDe, ultimaClaseDe, textoDesde,
 import { cargarTarifas } from '@/lib/tarifas'
 import { useVolverALaFila, idFila } from '@/lib/scrollRecordado'
 import { contiene } from '@/lib/texto'
+import { consumoDe, UMBRAL_POCAS, type BonoSesiones } from '@/lib/bonoSesiones'
 
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
@@ -40,6 +41,11 @@ export default function PacientesPage() {
   // Los que ya no son nuevos pero llevan menos de 3 meses. Excluye a "Nuevos": son
   // dos grupos seguidos, y marcar los dos a la vez daría siempre una lista vacía.
   const [soloRecientes, setSoloRecientes] = useState(false)
+  // BONOS POR ACABAR: a quién le quedan pocas sesiones o ya no le quedan. Antes la
+  // lista solo decía "8 sesiones" (las compradas) y no había forma de verlo sin
+  // entrar ficha por ficha.
+  const [soloPorAcabar, setSoloPorAcabar] = useState(false)
+  const [consumo, setConsumo] = useState<Map<string, BonoSesiones>>(new Map())
   /**
    * Por qué columna se ordena y en qué sentido.
    *
@@ -99,6 +105,16 @@ export default function PacientesPage() {
     ])
     setPacientes(p || [])
     setBonos(b || [])
+    // Lo gastado de cada bono de sesiones, en tandas para no pasarse de largo en la URL.
+    {
+      const ids = (b || []).filter((x: any) => x.sesiones_totales != null).map((x: any) => x.id)
+      const mapa = new Map<string, BonoSesiones>()
+      for (let i = 0; i < ids.length; i += 150) {
+        const r = await consumoDe(ids.slice(i, i + 150))
+        if (r.ok) r.mapa.forEach((v, k) => mapa.set(k, v))
+      }
+      setConsumo(mapa)
+    }
 
     // Estado de pago DERIVADO: un bono está pagado si existe un cobro que lo
     // cubre. `bonos.estado_pago` solo se sigue leyendo para distinguir
@@ -170,6 +186,19 @@ export default function PacientesPage() {
    * encima. Es justo lo que ha pasado.
    */
   const sesionesDe = (pacienteId: string) => sesionesDeBonos(bonos, pacienteId)
+  /**
+   * Cómo va de sesiones: las que le quedan entre todos sus bonos vivos (sin caducar).
+   * null si no tiene bonos de sesiones.
+   */
+  const sesionesQuedan = (pacienteId: string): { quedan: number, total: number, estado: 'ok' | 'pocas' | 'agotado' } | null => {
+    const bs = sesionesDe(pacienteId).map((b: any) => consumo.get(b.id)).filter(Boolean) as BonoSesiones[]
+    if (bs.length === 0) return null
+    const vivos = bs.filter(b => !b.caducado)
+    const quedan = vivos.reduce((n, b) => n + Math.max(0, b.restantes), 0)
+    const total = vivos.reduce((n, b) => n + (b.sesiones_totales || 0), 0)
+    return { quedan, total, estado: quedan <= 0 ? 'agotado' : quedan <= UMBRAL_POCAS ? 'pocas' : 'ok' }
+  }
+  const porAcabar = (p: any) => { const q = sesionesQuedan(p.id); return q != null && q.estado !== 'ok' }
 
   // Los que se valoraron y nunca dieron una clase. Derivado, no marcado.
 
@@ -249,7 +278,7 @@ export default function PacientesPage() {
     // "Los que faltan" es lo que hace que la ronda se termine: recorrer cien filas con la
     // vista buscando huecos es la hoja de Excel otra vez.
     const matchRonda = !soloFaltan || !ronda || !respuestas[p.id]
-    const matchNuevo = (!soloNuevos || esNuevo(p)) && (!soloRecientes || esRecienteAlta(p))
+    const matchNuevo = (!soloNuevos || esNuevo(p)) && (!soloRecientes || esRecienteAlta(p)) && (!soloPorAcabar || porAcabar(p))
     return matchQ && matchPago && matchTipo && matchEstado && matchBono && matchRonda && matchNuevo
   })
 
@@ -299,7 +328,7 @@ export default function PacientesPage() {
       const matchEstado = excluir==='estado' || filtroEstado==='todos' || p.estado===filtroEstado
       const matchTipo = excluir==='tipo' || filtroTipo==='todos' || p.tipo_clase===filtroTipo
       const matchBono = excluir==='bono' || filtroBono==='todos' || esDeBono(p.id, filtroBono)
-      const matchNuevo = excluir==='nuevo' || ((!soloNuevos || esNuevo(p)) && (!soloRecientes || esRecienteAlta(p)))
+      const matchNuevo = excluir==='nuevo' || ((!soloNuevos || esNuevo(p)) && (!soloRecientes || esRecienteAlta(p)) && (!soloPorAcabar || porAcabar(p)))
       return matchQ && matchPago && matchEstado && matchTipo && matchBono && matchNuevo
     })
   }
@@ -307,6 +336,7 @@ export default function PacientesPage() {
   /** Cuántos nuevos hay dentro de lo que ya está filtrado por lo demás. */
   const nNuevos = baseFiltrada('nuevo').filter(esNuevo).length
   const nRecientes = baseFiltrada('nuevo').filter(esRecienteAlta).length
+  const nPorAcabar = baseFiltrada('nuevo').filter(porAcabar).length
 
   /**
    * ¿Este paciente es de ese bono?
@@ -394,7 +424,7 @@ export default function PacientesPage() {
             llegado está activo igual que el resto. Es un interruptor que se cruza con
             todo lo demás. */}
         <div style={{width:1,height:18,background:'var(--bd)'}}/>
-        <span onClick={()=>{setSoloNuevos(v=>!v);setSoloRecientes(false)}}
+        <span onClick={()=>{setSoloNuevos(v=>!v);setSoloRecientes(false);setSoloPorAcabar(false)}}
           title={`Los que se dieron de alta en los últimos ${DIAS_NUEVO} días`}
           style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
             border:`1px solid ${soloNuevos?'#5B7F4A':'#BBD3AC'}`,
@@ -403,13 +433,22 @@ export default function PacientesPage() {
           Nuevos <b style={{fontWeight:700}}>{nNuevos}</b>
         </span>
         {/* RECIENTES: el mismo verde, apagado. Solo borde, sin relleno. */}
-        <span onClick={()=>{setSoloRecientes(v=>!v);setSoloNuevos(false)}}
+        <span onClick={()=>{setSoloRecientes(v=>!v);setSoloNuevos(false);setSoloPorAcabar(false)}}
           title={`Los que se dieron de alta hace entre ${DIAS_NUEVO + 1} días y ${DIAS_RECIENTE_ALTA / 30} meses`}
           style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
             border:`1px solid ${soloRecientes?'#7C9A6B':'#BBD3AC'}`,
             background:soloRecientes?'#7C9A6B':'var(--w)',color:soloRecientes?'#fff':'#5B7F4A',
             display:'flex',alignItems:'center',gap:4,fontWeight:500}}>
           Recientes <b style={{fontWeight:700}}>{nRecientes}</b>
+        </span>
+        {/* BONOS POR ACABAR: le quedan pocas sesiones o ninguna. En ámbar, que es aviso. */}
+        <span onClick={()=>{setSoloPorAcabar(v=>!v);setSoloNuevos(false);setSoloRecientes(false)}}
+          title={`Bonos de sesiones a los que les quedan ${UMBRAL_POCAS} o menos, o ninguna`}
+          style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
+            border:`1px solid ${soloPorAcabar?'#8A6410':'var(--amb)'}`,
+            background:soloPorAcabar?'#8A6410':'var(--ambl)',color:soloPorAcabar?'#fff':'#7A5800',
+            display:'flex',alignItems:'center',gap:4,fontWeight:600}}>
+          Bonos por acabar <b style={{fontWeight:700}}>{nPorAcabar}</b>
         </span>
       </div>
 
@@ -597,12 +636,18 @@ export default function PacientesPage() {
                   ) : (()=>{
                     const ses = sesionesDe(p.id)
                     const nSes = ses.reduce((n:number,b:any)=>n+(b.sesiones_totales||0),0)
+                    const q = sesionesQuedan(p.id)
+                    // LO QUE LE QUEDA, no lo que compró: es lo que dice si hay que renovar.
+                    const est = q?.estado || 'ok'
                     return (
                       <>
                         {ses.length>0 && (
                           <div title={`${ses.length} bono${ses.length>1?'s':''} de sesiones`}
-                            style={{fontSize:9,fontWeight:500,padding:'2px 8px',borderRadius:99,background:'var(--ambl)',color:'#7A5800',whiteSpace:'nowrap',display:'inline-block',marginBottom:3}}>
-                            {nSes} sesiones
+                            style={{fontSize:9,fontWeight:est==='ok'?500:600,padding:'2px 8px',borderRadius:99,whiteSpace:'nowrap',display:'inline-block',marginBottom:3,
+                              background: est==='agotado' ? 'var(--redl)' : est==='pocas' ? 'var(--ambl)' : 'var(--gl)',
+                              color: est==='agotado' ? 'var(--red)' : est==='pocas' ? '#7A5800' : 'var(--gd)',
+                              border: `1px solid ${est==='agotado' ? '#F5C8C8' : est==='pocas' ? 'var(--amb)' : 'var(--gm)'}`}}>
+                            {q == null ? `${nSes} sesiones` : est==='agotado' ? 'Bono agotado' : `Quedan ${q.quedan} de ${q.total}`}
                           </div>
                         )}
                         {/* AQUÍ NO SE ASIGNA. Los bonos se ponen solo desde la ficha.
