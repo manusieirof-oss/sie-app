@@ -41,7 +41,9 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
   const [cat, setCat] = useState<Catalogo | null>(listo)
   useEffect(() => { if (!src && !cat) catalogo().then(setCat).catch(() => {}) }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
   const caja = relleno
-    ? { position: 'relative' as const, width: '100%', height: '100%', overflow: 'hidden', borderRadius: radio }
+    // display:block hace falta: la figura va en un <span>, que en línea ignora ancho y alto
+    // y se queda en 0x0 (por eso el centro del rosco salía en blanco).
+    ? { position: 'relative' as const, width: '100%', height: '100%', overflow: 'hidden', borderRadius: radio, display: 'block' }
     : { position: 'relative' as const, width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: radio, display: 'block' }
   if (src) return <img src={src} alt={alt} draggable={false} style={{ ...caja, objectFit: 'cover', display: 'block' }}/>
   const ets = etiquetasEj || (ejercicioId && cat ? cat.deEj[ejercicioId] : undefined) || []
