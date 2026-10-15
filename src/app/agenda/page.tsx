@@ -386,9 +386,10 @@ export default function AgendaPage() {
       ]
       const r = await crearCitasPlan(items, datos)
       if (!r.ok) { alert(`Error al crear las citas (${r.error}). Se crearon ${r.creadas} de ${items.length}.`); setGuardando(false); return }
-      const aviso = r.sinBono ? `\n\n${r.sinBono} no descuentan del bono de sesiones: se le habían acabado.` : ''
+      const aviso = (r.sinBono ? `\n\n${r.sinBono} no descuentan del bono de sesiones: se le habían acabado.` : '')
+        + (r.yaTenia ? `\n\n${r.yaTenia} no se han creado: ya tenía cita ese día a esa hora.` : '')
       if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:r.creadas})
-      else if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas (horario alterno)${aviso}`)
+      else if (r.creadas>0 || r.yaTenia) alert(`✓ ${r.creadas} citas creadas (horario alterno)${aviso}`)
     } else {
       if (nuevaCita.dias_repetir.length===0) { alert('Selecciona al menos un día'); setGuardando(false); return }
       const fechaFin = nuevaCita.fecha_fin || finDePeriodo(fechaCita, nuevaCita.periodo as Periodo)
@@ -399,9 +400,10 @@ export default function AgendaPage() {
       // ahora. Un alert se cierra sin leer y el paciente se queda sin sesiones.
       // Las que no cupieron en el bono se dicen aquí. Callarlo dejaría creer que
       // las doce descuentan sesiones cuando solo lo hacen ocho.
-      const aviso = r.sinBono ? `\n\n${r.sinBono} no descuentan del bono de sesiones: se le habían acabado.` : ''
+      const aviso = (r.sinBono ? `\n\n${r.sinBono} no descuentan del bono de sesiones: se le habían acabado.` : '')
+        + (r.yaTenia ? `\n\n${r.yaTenia} no se han creado: ya tenía cita ese día a esa hora.` : '')
       if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:r.creadas})
-      else if (r.creadas>0) alert(`✓ ${r.creadas} citas creadas${aviso}`)
+      else if (r.creadas>0 || r.yaTenia) alert(`✓ ${r.creadas} citas creadas${aviso}`)
     }
     setModal(false)
     const eraNuevo = nuevaCita.nuevo

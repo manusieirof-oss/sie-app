@@ -26,8 +26,8 @@ import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
 import { cerrarCuotasFuturas } from '@/lib/estadosPaciente'
 import { useParams, useRouter } from 'next/navigation'
 import { hoyISO } from '@/lib/fechas'
-import { recuperacionAlCambiarEstado } from '@/lib/recuperaciones'
-import { soltarDelBono } from '@/lib/bonoSesiones'
+import { recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
+import { soltarDelBono, atarCitaABono } from '@/lib/bonoSesiones'
 
 
 export default function FichaPacientePage() {
@@ -623,11 +623,50 @@ export default function FichaPacientePage() {
     cargar()
   }
 
+  /**
+   * REACTIVAR, Y QUÉ PASA CON LAS CITAS QUE CANCELÓ LA PAUSA.
+   *
+   * Antes se quedaban canceladas en la agenda; luego se le creaban las nuevas en los
+   * mismos huecos y salía dos veces (en clase y cancelada). Ahora, si quedan citas de
+   * la pausa de hoy en adelante, se pregunta:
+   *   - mismo horario → vuelven a programarse (con su bono) y se quitan sus
+   *     recuperaciones: esas clases ya no se pierden.
+   *   - otro horario → se borran, para que no queden debajo de las nuevas.
+   * Las de días ya pasados no se tocan: esas sí se perdieron y siguen para recuperar.
+   */
   async function reactivar() {
     if (!confirm(`¿Reactivar a ${pac.nombre} ${pac.apellidos}?`)) return
-    await supabase.from('pacientes').update({ estado:'activo', estado_desde:hoyISO(), pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    setProcesando(true)
+    const hoy = hoyISO()
+    let txtCitas = 'Recuerda crear sus nuevas citas en la agenda.'
+    if (pac.pausa_desde) {
+      let q = supabase.from('citas').select('id,fecha,hora,paciente_id').eq('paciente_id',id).eq('estado','cancelada')
+        .gte('fecha', pac.pausa_desde > hoy ? pac.pausa_desde : hoy)
+      if (pac.pausa_hasta) q = q.lte('fecha', pac.pausa_hasta)
+      const { data: dePausa, error } = await q
+      if (error) { setProcesando(false); alert('No se han podido mirar sus citas: ' + error.message); return }
+      if (dePausa && dePausa.length > 0) {
+        const n = dePausa.length
+        if (confirm(`Le quedan ${n} cita${n===1?'':'s'} canceladas por la pausa, de hoy en adelante.\n\n¿Vuelve con el MISMO horario?\n\nAceptar: se vuelven a programar.\nCancelar: vuelve con otro horario (te preguntaré si borrarlas).`)) {
+          const { error: e2 } = await supabase.from('citas').update({ estado:'programada' }).in('id', dePausa.map((c:any)=>c.id))
+          if (e2) { setProcesando(false); alert('No se han podido programar: ' + e2.message); return }
+          for (const c of dePausa) {
+            await recuperacionAlCambiarEstado(c, 'programada')
+            await atarCitaABono(c.id, String(id), c.fecha)
+          }
+          txtCitas = `${n} cita${n===1?'':'s'} de la pausa vuelven a estar programadas.`
+        } else if (confirm(`Se borrarán esas ${n} cita${n===1?'':'s'} canceladas (y sus recuperaciones) para que no se dupliquen con las nuevas.\n\n¿Borrarlas?`)) {
+          for (const c of dePausa) await recuperacionAlEliminar(c.id)
+          const { error: e3 } = await supabase.from('citas').delete().in('id', dePausa.map((c:any)=>c.id))
+          if (e3) { setProcesando(false); alert('No se han podido borrar: ' + e3.message); return }
+          txtCitas = `${n} cita${n===1?'':'s'} de la pausa borradas. Crea sus nuevas citas en la agenda.`
+        }
+      }
+    }
+    await supabase.from('pacientes').update({ estado:'activo', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
     await registrarEvento('reactivacion', 'Reactivación del servicio', null)
-    alert('✓ Paciente reactivado. Recuerda crear sus nuevas citas en la agenda.')
+    setProcesando(false)
+    alert('✓ Paciente reactivado. ' + txtCitas)
     cargar()
   }
 

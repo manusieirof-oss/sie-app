@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { hoyISO } from '@/lib/fechas'
+import { recuperacionAlEliminar } from './recuperaciones'
 
 /**
  * Crear citas. UN SOLO SITIO.
@@ -151,7 +152,49 @@ export async function ocupacionPorSala(fecha: string, hora: string) {
   return { ok: true as const, error: null, porSala }
 }
 
+/**
+ * NUNCA DOS CITAS DEL MISMO PACIENTE EL MISMO DÍA A LA MISMA HORA.
+ *
+ * Pasó con una pausa: sus citas se cancelaron, se le reactivó, se le crearon otra
+ * vez y salía dos veces en la misma clase (una en clase y otra cancelada, o las dos
+ * en clase). Antes de crear se mira lo que ya tiene en esos huecos:
+ *   - una cita viva (programada, realizada, falta): ese hueco se salta.
+ *   - una cancelada: se borra (con su recuperación) y se crea la nueva. Si viene
+ *     a esa clase, la cancelación ya no vale y no debe quedar debajo.
+ * Otra hora del mismo día sí se permite: puede tener dos clases.
+ */
+async function quitarRepetidas<T extends { fecha: string, hora: string }>(pacienteId: string, items: T[]):
+  Promise<{ ok: true, libres: T[], yaTenia: number } | { ok: false, error: string }> {
+  const hh = (h: string) => (h || '').length === 5 ? h + ':00' : (h || '')
+  const fechas = Array.from(new Set(items.map(x => x.fecha)))
+  const tiene: any[] = []
+  for (let i = 0; i < fechas.length; i += 200) {
+    const { data, error } = await supabase.from('citas').select('id,fecha,hora,estado')
+      .eq('paciente_id', pacienteId).in('fecha', fechas.slice(i, i + 200))
+    if (error) return { ok: false, error: error.message }
+    tiene.push(...(data || []))
+  }
+  const clave = (f: string, h: string) => `${f}|${hh(h)}`
+  const pedidas = new Set(items.map(x => clave(x.fecha, x.hora)))
+  const vivas = new Set(tiene.filter(c => c.estado !== 'cancelada').map(c => clave(c.fecha, c.hora)))
+  const canceladas = tiene.filter(c => c.estado === 'cancelada' && pedidas.has(clave(c.fecha, c.hora)) && !vivas.has(clave(c.fecha, c.hora)))
+  for (const c of canceladas) {
+    const r = await recuperacionAlEliminar(c.id)
+    if (r.ok === false) return r
+  }
+  const ids = canceladas.map(c => c.id)
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await supabase.from('citas').delete().in('id', ids.slice(i, i + 200))
+    if (error) return { ok: false, error: error.message }
+  }
+  const libres = items.filter(x => !vivas.has(clave(x.fecha, x.hora)))
+  return { ok: true, libres, yaTenia: items.length - libres.length }
+}
+
 export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true; cita: any; sinBono?: number } | { ok: false; error: string }> {
+  const rep = await quitarRepetidas(d.pacienteId, [{ fecha, hora: d.hora }])
+  if (rep.ok === false) return rep
+  if (rep.yaTenia > 0) return { ok: false, error: 'Ya tiene una cita ese día a esa hora' }
   const { bonoId } = await bonoDisponible(d.pacienteId, fecha)
   const { data, error } = await supabase.from('citas').insert({ ...fila(fecha, d), bono_id: bonoId }).select().single()
   if (error) return { ok: false, error: error.message }
@@ -165,8 +208,12 @@ export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true
  * saber cuáles entraron. Si un lote falla se para y se dice cuántas se escribieron, que es
  * lo que hace falta para arreglarlo a mano.
  */
-export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: true; creadas: number; sinBono?: number } | { ok: false; error: string; creadas: number }> {
-  if (!fechas.length) return { ok: true, creadas: 0 }
+export async function crearCitas(fechasPedidas: string[], d: DatosCita): Promise<{ ok: true; creadas: number; sinBono?: number; yaTenia?: number } | { ok: false; error: string; creadas: number }> {
+  if (!fechasPedidas.length) return { ok: true, creadas: 0 }
+  const rep = await quitarRepetidas(d.pacienteId, fechasPedidas.map(fecha => ({ fecha, hora: d.hora })))
+  if (rep.ok === false) return { ok: false, error: rep.error, creadas: 0 }
+  const fechas = rep.libres.map(x => x.fecha)
+  if (!fechas.length) return { ok: true, creadas: 0, yaTenia: rep.yaTenia }
 
   // ¿Tira de un bono de sesiones? Se resuelve UNA vez, antes del bucle: la
   // función de Postgres devuelve el bono más antiguo con sesiones libres, y si
@@ -188,7 +235,7 @@ export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: 
     if (error) return { ok: false, error: error.message, creadas }
     creadas += lote.length
   }
-  return { ok: true, creadas, sinBono }
+  return { ok: true, creadas, sinBono, yaTenia: rep.yaTenia }
 }
 
 /**
@@ -199,8 +246,12 @@ export async function crearCitas(fechas: string[], d: DatosCita): Promise<{ ok: 
  * ordenado, no por bloque: si se resolviera por separado, las dos semanas creerían tener
  * las mismas sesiones libres y se descontaría de más.
  */
-export async function crearCitasPlan(items: { fecha: string; hora: string; sala?: string }[], base: DatosCita): Promise<{ ok: true; creadas: number; sinBono?: number } | { ok: false; error: string; creadas: number }> {
-  if (!items.length) return { ok: true, creadas: 0 }
+export async function crearCitasPlan(pedidos: { fecha: string; hora: string; sala?: string }[], base: DatosCita): Promise<{ ok: true; creadas: number; sinBono?: number; yaTenia?: number } | { ok: false; error: string; creadas: number }> {
+  if (!pedidos.length) return { ok: true, creadas: 0 }
+  const rep = await quitarRepetidas(base.pacienteId, pedidos)
+  if (rep.ok === false) return { ok: false, error: rep.error, creadas: 0 }
+  const items = rep.libres
+  if (!items.length) return { ok: true, creadas: 0, yaTenia: rep.yaTenia }
   const orden = items.slice().sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')))
   const { bonoId, libres } = await bonoDisponible(base.pacienteId, orden[0].fecha)
   const filas = orden.map((it, i) => ({ ...fila(it.fecha, { ...base, hora: it.hora, sala: it.sala || base.sala }), bono_id: i < libres ? bonoId : null }))
@@ -212,7 +263,7 @@ export async function crearCitasPlan(items: { fecha: string; hora: string; sala?
     if (error) return { ok: false, error: error.message, creadas }
     creadas += lote.length
   }
-  return { ok: true, creadas, sinBono }
+  return { ok: true, creadas, sinBono, yaTenia: rep.yaTenia }
 }
 
 /** Con estas o menos citas por delante, el aviso se pone en rojo. */
