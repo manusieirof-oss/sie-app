@@ -6,9 +6,9 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
-import { EditorItems, EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
+import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 
 // ---------------------------------------------------------------------------
 // AMASAR · EL ROSCO
@@ -56,13 +56,14 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [aviso, setAviso] = useState('')
   const [buscaEt, setBuscaEt] = useState('')
   const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
+  const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
 
   useEffect(() => { cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
     const [a, b, o] = await Promise.all([
       traerTodo((dd, h) => supabase.from('etiquetas').select('*').order('id').range(dd, h)),
       traerTodo((dd, h) => supabase.from('ejercicios').select('id,nombre,portada_id').order('nombre').order('id').range(dd, h)),
-      supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo', true).order('nombre'),
+      supabase.from('objetivos').select('id,nombre,imagen_url,articulacion_id,etiquetas,movimientos').eq('activo', true).order('nombre'),
     ])
     setEts(a.filas); setEjs(b.filas); setObjetivos(o.data || [])
     if (!nuevo) {
@@ -80,18 +81,23 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
   // ---- Los quesitos -----------------------------------------------------------
   const nEt = d.etiquetas.length
-  const QUESITOS: { k: Clave, t: string, ic: string, lleno: boolean, sub: string }[] = [
+  const variantes = ejs.filter(x => !nuevo && x.portada_id === params.id)
+  const QUESITOS: { k: Clave, t: string, ic: string, lleno: boolean, sub: string, opcional?: boolean }[] = [
     { k: 'nombre', t: 'Nombre', ic: 'editar', lleno: !!d.nombre.trim(), sub: d.nombre || 'Sin nombre' },
     { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
     { k: 'etiquetas', t: 'Etiquetas', ic: 'etiqueta', lleno: nEt > 0, sub: nEt ? `${nEt} puesta${nEt === 1 ? '' : 's'}` : 'Ninguna' },
     { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'Sin decidir' },
     { k: 'ejecucion', t: 'Ejecución', ic: 'ok', lleno: d.items_ejecucion.some(i => i.texto?.trim()), sub: `${d.items_ejecucion.filter(i => i.texto?.trim()).length} criterios` },
     { k: 'feedbacks', t: 'Feedbacks', ic: 'mensaje', lleno: d.feedbacks.some(i => i.texto?.trim()), sub: `${d.feedbacks.filter(i => i.texto?.trim()).length} frases` },
-    { k: 'foto', t: 'Foto y vídeo', ic: 'camara', lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
-    { k: 'familia', t: 'Familia', ic: 'plantillas', lleno: !!d.portada_id, sub: d.portada_id ? (ejs.find(x => x.id === d.portada_id)?.nombre || 'Variante') : 'Suelto o portada' },
+    // OPCIONALES: no cuentan para "listo". Sin foto ya sale la figura, y suelto es un
+    // estado válido; si contaran, el rosco nunca se completaría.
+    { k: 'foto', t: 'Foto y vídeo', ic: 'camara', opcional: true, lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
+    { k: 'familia', t: 'Familia', ic: 'plantillas', opcional: true, lleno: !!d.portada_id || variantes.length > 0,
+      sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otra'}` : variantes.length ? `Portada · ${variantes.length}` : 'Suelto' },
   ]
   const paso = 360 / QUESITOS.length
-  const llenos = QUESITOS.filter(q => q.lleno).length
+  const necesarios = QUESITOS.filter(q => !q.opcional)
+  const llenos = necesarios.filter(q => q.lleno).length
 
   const cambiado = JSON.stringify(d) !== JSON.stringify(orig) || !!foto
   const repetido = useMemo(() => ejs.some(x => x.id !== params.id && normalizar(x.nombre).trim() === normalizar(d.nombre).trim()), [ejs, d.nombre, params.id])
@@ -135,12 +141,24 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     Object.values(m).forEach(l => l.sort((a, b) => a.nombre.localeCompare(b.nombre)))
     return m
   }, [ets])
+  /** Etiquetas que usan los objetivos para sugerirse (articulación, etiquetas, específicos). */
+  const usadasObj = useMemo(() => {
+    const s = new Set<string>()
+    objetivos.forEach((o: any) => [o.articulacion_id, ...(o.etiquetas || []), ...(o.movimientos || [])].forEach((id: any) => { if (id) s.add(String(id)) }))
+    // La raíz también, para que se vea desde fuera que dentro hay algo que importa.
+    Array.from(s).forEach(id => { let e = ets.find(x => x.id === id); while (e?.padre_id) { s.add(e.padre_id); e = ets.find(x => x.id === e.padre_id) } })
+    return s
+  }, [objetivos, ets])
+  const IMPORTA: Record<string, string> = { musculo: 'Dibuja la figura · sugiere objetivos', articulacion: 'Sugiere objetivos', movimiento: 'Sugiere objetivos' }
   const hijas = (id: string) => ets.filter(e => e.padre_id === id).sort((a, b) => a.nombre.localeCompare(b.nombre))
   const togEt = (id: string) => set('etiquetas', d.etiquetas.includes(id) ? d.etiquetas.filter(x => x !== id) : [...d.etiquetas, id])
   const chipEt = (e: any) => {
     const on = d.etiquetas.includes(e.id)
     return (
-      <button key={e.id} type="button" className={`chip-sel ${on ? 'on' : ''}`} style={{ fontSize: 12 }} onClick={() => togEt(e.id)}>
+      <button key={e.id} type="button" className={`chip-sel ${on ? 'on' : ''}`} onClick={() => togEt(e.id)}
+        title={usadasObj.has(e.id) ? 'La usan los objetivos para sugerirse' : undefined}
+        style={{ fontSize: 12.5, padding: '5px 11px', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        {usadasObj.has(e.id) && <span style={{ width: 6, height: 6, borderRadius: 99, background: on ? '#fff' : '#D4A24E', flexShrink: 0 }}/>}
         {e.nombre}
       </button>
     )
@@ -161,19 +179,33 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         const q = buscaEt.trim()
         const encontradas = q ? ets.filter(e => contiene(e.nombre, q)).slice(0, 30) : []
         return (<>
+          {/* LO PUESTO, por categoría: así se ve si falta el músculo o la posición. */}
           {d.etiquetas.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-              {d.etiquetas.map(id => ets.find(e => e.id === id)).filter(Boolean).map((e: any) => (
-                <span key={e.id} className="chip-sel on" style={{ fontSize: 12 }} onClick={() => togEt(e.id)}>{e.nombre} ✕</span>
-              ))}
+            <div style={{ display: 'grid', gap: 6, marginBottom: 12, padding: '10px 12px', borderRadius: 14, background: 'var(--gl)' }}>
+              {CATEGORIAS_ETIQUETA.map(c => {
+                const suyas = d.etiquetas.map(id => ets.find(e => e.id === id)).filter((e: any) => e && categoriaDe(ets, e) === c.key)
+                if (!suyas.length) return null
+                return (
+                  <div key={c.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <span className="et-mini" style={{ minWidth: 86 }}>{c.label}</span>
+                    {suyas.map((e: any) => <span key={e.id} className="chip-sel on" style={{ fontSize: 12.5 }} onClick={() => togEt(e.id)}>{e.nombre} ✕</span>)}
+                  </div>
+                )
+              })}
             </div>
           )}
+          <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 99, background: '#D4A24E' }}/> la usan los objetivos
+          </div>
           <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ marginBottom: 10 }}/>
           {q
             ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(chipEt)}</div>
             : CATEGORIAS_ETIQUETA.filter(c => (porCat[c.key] || []).length).map(c => (
               <div key={c.key} style={{ marginBottom: 10 }}>
-                <div className="et-mini" style={{ marginBottom: 5 }}>{c.label}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                  <span className="et-mini">{c.label}</span>
+                  {IMPORTA[c.key] && <span style={{ fontSize: 10.5, color: '#A87E2C' }}>{IMPORTA[c.key]}</span>}
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {porCat[c.key].map(r => (
                     <span key={r.id} style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
@@ -210,7 +242,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           ))}
         </div>
       )
-      case 'ejecucion': return <EditorItems items={d.items_ejecucion} onChange={(v: any[]) => set('items_ejecucion', v)} objetivos={objetivos}/>
+      // Solo los criterios, sin objetivos por criterio (de momento): era demasiado aquí.
+      // Los que ya tenían objetivos los conservan (EditorLista solo toca el texto).
+      case 'ejecucion': return <EditorLista items={d.items_ejecucion} onChange={(v: any[]) => set('items_ejecucion', v)} label="Qué tiene que cumplir" placeholder="Ej. Rodilla alineada con el pie" icono="ok"/>
       case 'feedbacks': return <EditorLista items={d.feedbacks} onChange={(v: any[]) => set('feedbacks', v)} label="Lo que se le dice en la sala" placeholder="Ej. Rodilla hacia fuera" icono="mensaje"/>
       case 'foto': return (<>
         <label style={{ display: 'block', cursor: 'pointer' }}>
@@ -227,21 +261,56 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           <input className="input" value={d.video_url} onChange={e => set('video_url', e.target.value)} placeholder="https://…"/></div>
       </>)
       case 'familia': {
-        const raiz = d.portada_id
-        const hermanos = raiz ? ejs.filter(x => x.portada_id === raiz && x.id !== params.id) : ejs.filter(x => x.portada_id === params.id)
+        const modo = modoFam || (d.portada_id ? 'variante' : variantes.length ? 'portada' : 'suelto')
+        const tarjeta = (m: 'suelto' | 'variante' | 'portada', t: string, a: string) => (
+          <button key={m} type="button" onClick={() => { setModoFam(m); if (m !== 'variante') set('portada_id', null) }}
+            style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', border: 'none',
+              background: modo === m ? 'var(--g)' : '#fff', color: modo === m ? '#fff' : 'var(--n)', boxShadow: '0 3px 12px rgba(38,40,37,.10)' }}>
+            <div style={{ fontSize: 14 }}>{t}</div><div style={{ fontSize: 11.5, opacity: .8, marginTop: 2 }}>{a}</div>
+          </button>
+        )
         return (<>
-          <div className="field"><label>Es variante de</label>
-            <select className="input" value={d.portada_id || ''} onChange={e => set('portada_id', e.target.value || null)}>
-              <option value="">Ninguno: es suelto o es portada</option>
-              {ejs.filter(x => !x.portada_id && x.id !== params.id).map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-            </select>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {tarjeta('suelto', 'Suelto', 'Sin familia: un ejercicio por su cuenta')}
+            {tarjeta('variante', 'Variante de otro', 'Pertenece a la familia de una portada')}
+            {tarjeta('portada', 'Portada de una familia', 'Él es el principal y de él salen variantes')}
           </div>
-          {hermanos.length > 0 && (<>
-            <div className="et-mini" style={{ margin: '10px 0 6px' }}>{raiz ? 'Su familia' : 'Sus variantes'}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-              {hermanos.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => router.push(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
+          {modo === 'variante' && (
+            <div className="field" style={{ marginTop: 12 }}><label>¿De qué ejercicio?</label>
+              <select className="input" value={d.portada_id || ''} onChange={e => set('portada_id', e.target.value || null)}>
+                <option value="" disabled>Elige la portada…</option>
+                {ejs.filter(x => !x.portada_id && x.id !== params.id).map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+              </select>
             </div>
-          </>)}
+          )}
+          {modo === 'portada' && (
+            <div style={{ marginTop: 12 }}>
+              {variantes.length > 0 && (<>
+                <div className="et-mini" style={{ marginBottom: 6 }}>Sus variantes</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                  {variantes.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => router.push(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
+                </div>
+              </>)}
+              {nuevo
+                ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>Créalo primero y luego podrás sacarle variantes.</div>
+                : <button className="btn btn-s btn-sm" onClick={async () => {
+                    const n = prompt('Nombre de la nueva variante:', `${d.nombre} · `)
+                    if (!n || !n.trim()) return
+                    const r = await crearVariante({ ...d, id: params.id, portada_id: null }, n)
+                    if (r.ok === false) { alert('No se pudo crear: ' + r.error); return }
+                    router.push(`/torno/amasar/${r.ejercicio.id}`)
+                  }}>+ Amasar una variante de este</button>}
+            </div>
+          )}
+          {d.portada_id && modo === 'variante' && (() => {
+            const her = ejs.filter(x => x.portada_id === d.portada_id && x.id !== params.id)
+            return her.length ? (<>
+              <div className="et-mini" style={{ margin: '12px 0 6px' }}>Su familia</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {her.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => router.push(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
+              </div>
+            </>) : null
+          })()}
         </>)
       }
     }
@@ -263,7 +332,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         .am-et { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:96px;
                  transition: transform .22s ease; animation: am-et .5s ease backwards }
         @keyframes am-et { from { opacity:0 } to { opacity:1 } }
-        .am-centro { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; aspect-ratio:1; border-radius:50%;
+        .am-centro { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; height:52%; border-radius:50%;
                      overflow:hidden; background:#fff; box-shadow:0 10px 34px rgba(38,40,37,.16); animation: am-pella .7s cubic-bezier(.2,.9,.3,1.2) backwards }
         @keyframes am-pella { from { transform:translate(-50%,-50%) scale(.3,.15) } 60% { transform:translate(-50%,-50%) scale(1.06,.95) } to { transform:translate(-50%,-50%) } }
         .am-panel { width:min(440px, 42vw); max-height:calc(100vh - 170px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
@@ -275,7 +344,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         <button className="btn btn-t btn-sm" onClick={() => router.push('/torno/amasar')}><Ic name="atras" size={13}/> Biblioteca</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {QUESITOS.length}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}</div>
         </div>
         <div style={{ width: 90 }}/>
       </div>
@@ -291,7 +360,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 return (
                   <path key={x.k} className="am-q" d={quesito(a0, a1)}
                     style={{ animationDelay: `${i * 55}ms`, transform: `translate(${Math.cos(mid) * fuera}px, ${Math.sin(mid) * fuera}px)` }}
-                    fill={abierto === x.k ? 'var(--g)' : x.lleno ? 'var(--gl)' : '#fff'}
+                    fill={abierto === x.k ? 'var(--g)' : x.lleno ? 'var(--gl)' : '#fff'} fillOpacity={x.opcional && !x.lleno && abierto !== x.k ? .6 : 1}
                     stroke={x.lleno ? 'var(--gm)' : 'var(--bd)'} strokeWidth={1.2}
                     onMouseEnter={() => setEncima(x.k)} onMouseLeave={() => setEncima(null)}
                     onClick={() => setAbierto(abierto === x.k ? null : x.k)}/>
@@ -320,7 +389,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           </div>
 
           {q && (
-            <div key={q.k} className="am-panel">
+            <div key={q.k} className="am-panel" style={q.k === 'etiquetas' ? { width: 'min(600px, 50vw)' } : undefined}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <span style={{ color: 'var(--g)', lineHeight: 0 }}><Ic name={q.ic} size={18}/></span>
                 <span style={{ flex: 1, fontSize: 15 }}>{q.t}</span>
