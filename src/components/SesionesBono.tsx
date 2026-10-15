@@ -70,7 +70,10 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
       setPago(vp.data?.pagado ? 'cobrado' : bo.data?.estado_pago === 'impago' ? 'impago' : 'pendiente')
     })()
     return () => { vivo = false }
-  }, [bono.bono_id, compacto])
+    // Con lo gastado y el inicio en las dependencias: al cambiar cuándo empezó, el
+    // bono es el mismo pero sus citas no, y las casillas se quedaban con las de antes
+    // ("hecha" sin fecha).
+  }, [bono.bono_id, compacto, bono.fecha_inicio, bono.gastadas, bono.reservadas])
 
   if (compacto) {
     return (
