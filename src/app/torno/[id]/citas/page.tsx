@@ -285,6 +285,13 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-ficha:hover { transform: translateY(-2px) }
         .tc-mes { animation: tc-entra .45s ease backwards }
         .tc-sq-w { position:relative }
+        .tc-tres { display:grid; grid-template-columns: 130px minmax(0,1fr) 130px; gap:26px; align-items:start; max-width:1500px; margin:0 auto }
+        .tc-lado { position:sticky; top:12px; display:flex; flex-direction:column; align-items:center; gap:12px;
+                   padding:4px 0 20px; z-index:5 }
+        .tc-lado-rot { font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--grl) }
+        .tc-centro { min-width:0 }
+        .tc-lado .tc-info { left:calc(100% + 10px); top:0; transform:none }
+        .tc-lado:last-child .tc-info { left:auto; right:calc(100% + 10px) }
         .tc-cita { position:relative }
         .tc-ev { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:99px; background:#fff;
                  display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(38,40,37,.25) }
@@ -335,10 +342,14 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           {/* LAS FICHAS, EN CUADRADO: el mosaico de sus ejercicios y su color (el que se
               ve en el calendario). Tocar una la coge como pincel y la abre en grande con
               lo que lleva. Las de un ciclo van detrás del cuadrado de su ciclo. */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, justifyContent: 'center', alignItems: 'flex-start', marginBottom: 18 }}>
+          {/* TRES COLUMNAS: a la izquierda sesiones y ciclos, en el centro el calendario y a
+              la derecha las evaluaciones. Todo en una fila arriba era un lío. */}
+          <div className="tc-tres">
+          <div className="tc-lado">
+            <div className="tc-lado-rot">Sesiones</div>
             {[...ciclos.map(c => ({ ciclo: c as Ciclo | null, ses: sesiones.filter(s => s.ciclo === c.id) })),
               ...(sesiones.some(s => !s.ciclo) ? [{ ciclo: null as Ciclo | null, ses: sesiones.filter(s => !s.ciclo) }] : [])].map((g, gi) => (
-              <div key={gi} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                 {g.ciclo && (() => {
                   const c = g.ciclo!
                   const ab = abierto === 'c:' + c.id
@@ -425,38 +436,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     </div>
                   )
                 })}
-                {/* LAS EVALUACIONES DE SU CICLO: cuadrados blancos con el borde del ciclo y
-                    el icono de test, para no confundirlos con las sesiones. */}
-                {g.ciclo && evals.filter(e => e.ciclo === g.ciclo!.id).map(e => {
-                  const on = pincelEval === e.key
-                  const ab = abierto === 'e:' + e.key
-                  const cita = citas.find(c => c.id === evalPlan[e.key])
-                  return (
-                    <div key={e.key} className="tc-sq-w">
-                      <button type="button" className="tc-sq tc-ev-sq" onClick={() => { setPincelEval(on ? null : e.key); if (!on) setPincel(null) }}
-                        style={{ border: `2px solid ${e.color}`, boxShadow: on ? `0 0 0 3px ${e.color}55, 0 12px 26px rgba(38,40,37,.18)` : undefined, justifyContent: 'center', padding: 8 }}>
-                        <span style={{ color: e.color, lineHeight: 0 }}><Ic name="test" size={22}/></span>
-                        <span style={{ fontSize: 11.5, marginTop: 5, lineHeight: 1.2 }}>{e.momento === 'inicial' ? 'Al empezar' : 'Al salir'}</span>
-                        <span style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.2 }}>{e.faseNombre}</span>
-                        <span style={{ fontSize: 10, color: cita ? 'var(--gd)' : 'var(--grl)', marginTop: 3 }}>{cita ? corta(cita.fecha) : 'sin día'}</span>
-                        <span className="tc-sq-i" title="Qué se mide" onClick={ev => { ev.stopPropagation(); setAbierto(ab ? null : 'e:' + e.key) }}>i</span>
-                      </button>
-                      {ab && (
-                        <div className="tc-info">
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)', marginBottom: 4 }}>
-                            {e.momento === 'inicial' ? 'Medir al empezar' : 'Evaluar para salir'} · {e.faseNombre}
-                          </div>
-                          {e.tests.length > 0
-                            ? e.tests.map(t => <div key={t} style={{ fontSize: 11.5, color: 'var(--gr)' }}>· {t}</div>)
-                            : <div style={{ fontSize: 11.5, color: 'var(--grl)' }}>Los objetivos de esta fase no tienen tests en "Cómo se evalúa".</div>}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
               </div>
             ))}
           </div>
+          <div className="tc-centro">
 
           {/* REPARTIR. Qué sesiones se eligen arriba, tocando los cuadrados; aquí solo
               cada cuántas, hasta cuándo y pintar. Sobre blanco, como una frase. */}
@@ -528,6 +511,40 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                 </div>
               )
             })}
+          </div>
+          </div>
+          <div className="tc-lado">
+            {evals.length > 0 && <div className="tc-lado-rot">Evaluaciones</div>}
+                {/* LAS EVALUACIONES DE SU CICLO: cuadrados blancos con el borde del ciclo y
+                    el icono de test, para no confundirlos con las sesiones. */}
+                {evals.map(e => {
+                  const on = pincelEval === e.key
+                  const ab = abierto === 'e:' + e.key
+                  const cita = citas.find(c => c.id === evalPlan[e.key])
+                  return (
+                    <div key={e.key} className="tc-sq-w">
+                      <button type="button" className="tc-sq tc-ev-sq" onClick={() => { setPincelEval(on ? null : e.key); if (!on) setPincel(null) }}
+                        style={{ border: `2px solid ${e.color}`, boxShadow: on ? `0 0 0 3px ${e.color}55, 0 12px 26px rgba(38,40,37,.18)` : undefined, justifyContent: 'center', padding: 8 }}>
+                        <span style={{ color: e.color, lineHeight: 0 }}><Ic name="test" size={22}/></span>
+                        <span style={{ fontSize: 11.5, marginTop: 5, lineHeight: 1.2 }}>{e.momento === 'inicial' ? 'Al empezar' : 'Al salir'}</span>
+                        <span style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.2 }}>{e.faseNombre}</span>
+                        <span style={{ fontSize: 10, color: cita ? 'var(--gd)' : 'var(--grl)', marginTop: 3 }}>{cita ? corta(cita.fecha) : 'sin día'}</span>
+                        <span className="tc-sq-i" title="Qué se mide" onClick={ev => { ev.stopPropagation(); setAbierto(ab ? null : 'e:' + e.key) }}>i</span>
+                      </button>
+                      {ab && (
+                        <div className="tc-info">
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)', marginBottom: 4 }}>
+                            {e.momento === 'inicial' ? 'Medir al empezar' : 'Evaluar para salir'} · {e.faseNombre}
+                          </div>
+                          {e.tests.length > 0
+                            ? e.tests.map(t => <div key={t} style={{ fontSize: 11.5, color: 'var(--gr)' }}>· {t}</div>)
+                            : <div style={{ fontSize: 11.5, color: 'var(--grl)' }}>Los objetivos de esta fase no tienen tests en "Cómo se evalúa".</div>}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+          </div>
           </div>
         </>
       )}
