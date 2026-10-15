@@ -253,6 +253,16 @@ export default function TornoPage() {
         </div>
       </div>
 
+      {/* AMASAR: el otro lado del torno. Aquí no hay paciente: se prepara el barro
+          (los ejercicios) con el que luego se tornea. */}
+      {abierto === false && (
+        <div className="t-fade" style={{ position: 'absolute', left: 0, right: 0, top: 'calc(50% + 46px)', display: 'flex',
+          justifyContent: 'center', gap: 10, animationDelay: '.9s' }}>
+          <button className="btn btn-s btn-sm" onClick={() => router.push('/torno/amasar/nuevo')}>Amasar un ejercicio nuevo</button>
+          <button className="btn btn-t btn-sm" onClick={() => router.push('/torno/amasar')}>Amasar uno existente</button>
+        </div>
+      )}
+
       {abierto === false && <div style={{ flex: 1 }}/>}
 
       {abierto && (

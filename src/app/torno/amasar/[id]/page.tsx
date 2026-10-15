@@ -1,0 +1,351 @@
+'use client'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { Ic } from '@/lib/icons'
+import { traerTodo } from '@/lib/paginar'
+import { normalizar, contiene } from '@/lib/texto'
+import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia } from '@/lib/ejercicios'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
+import { EditorItems, EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
+
+// ---------------------------------------------------------------------------
+// AMASAR · EL ROSCO
+//
+// La pella en el centro —su foto o, mientras no tenga, la figura de sus músculos, que
+// se va formando según le pones etiquetas— y alrededor, como un rosco, todo lo que se
+// le puede dar: nombre, descripción, etiquetas, cómo se mide, ejecución, feedbacks,
+// foto y familia. Cada quesito se rellena de color cuando ya tiene lo suyo, así se ve
+// de un vistazo qué le falta. Tocar uno lo abre al lado; el rosco se aparta sin irse.
+//
+// Nada se escribe hasta "Guardar". Lo nuevo se crea entonces; lo existente se actualiza.
+// ---------------------------------------------------------------------------
+
+type Clave = 'nombre' | 'descripcion' | 'etiquetas' | 'medida' | 'ejecucion' | 'feedbacks' | 'foto' | 'familia'
+type Datos = { nombre: string, descripcion: string, video_url: string, imagen_url: string, etiquetas: string[],
+  tipo_medida: string, items_ejecucion: any[], feedbacks: any[], portada_id: string | null }
+
+const VACIO: Datos = { nombre: '', descripcion: '', video_url: '', imagen_url: '', etiquetas: [], tipo_medida: '',
+  items_ejecucion: [], feedbacks: [], portada_id: null }
+
+// Geometría del rosco (viewBox 600 x 600).
+const C = 300, R0 = 168, R1 = 286, HUECO = 1.6
+
+const polar = (r: number, a: number) => [C + r * Math.cos(a * Math.PI / 180), C + r * Math.sin(a * Math.PI / 180)]
+function quesito(a0: number, a1: number) {
+  const [x0, y0] = polar(R1, a0), [x1, y1] = polar(R1, a1), [x2, y2] = polar(R0, a1), [x3, y3] = polar(R0, a0)
+  const g = a1 - a0 > 180 ? 1 : 0
+  return `M${x0},${y0} A${R1},${R1} 0 ${g} 1 ${x1},${y1} L${x2},${y2} A${R0},${R0} 0 ${g} 0 ${x3},${y3} Z`
+}
+
+export default function AmasarRosco({ params }: { params: { id: string } }) {
+  const router = useRouter()
+  const nuevo = params.id === 'nuevo'
+  const [d, setD] = useState<Datos>(VACIO)
+  const [orig, setOrig] = useState<Datos>(VACIO)
+  const [ets, setEts] = useState<any[]>([])
+  const [ejs, setEjs] = useState<any[]>([])
+  const [objetivos, setObjetivos] = useState<any[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [abierto, setAbierto] = useState<Clave | null>(null)
+  const [encima, setEncima] = useState<Clave | null>(null)
+  const [foto, setFoto] = useState<File | null>(null)
+  const [preview, setPreview] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const [buscaEt, setBuscaEt] = useState('')
+  const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
+
+  useEffect(() => { cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function cargar() {
+    const [a, b, o] = await Promise.all([
+      traerTodo((dd, h) => supabase.from('etiquetas').select('*').order('id').range(dd, h)),
+      traerTodo((dd, h) => supabase.from('ejercicios').select('id,nombre,portada_id').order('nombre').order('id').range(dd, h)),
+      supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo', true).order('nombre'),
+    ])
+    setEts(a.filas); setEjs(b.filas); setObjetivos(o.data || [])
+    if (!nuevo) {
+      const { data: e } = await supabase.from('ejercicios').select('*').eq('id', params.id).maybeSingle()
+      if (e) {
+        const x: Datos = { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
+          etiquetas: e.etiquetas || [], tipo_medida: e.tipo_medida || '', items_ejecucion: e.items_ejecucion || [],
+          feedbacks: e.feedbacks || [], portada_id: e.portada_id || null }
+        setD(x); setOrig(x)
+      }
+    }
+    setCargando(false)
+  }
+  const set = (k: keyof Datos, v: any) => setD(p => ({ ...p, [k]: v }))
+
+  // ---- Los quesitos -----------------------------------------------------------
+  const nEt = d.etiquetas.length
+  const QUESITOS: { k: Clave, t: string, ic: string, lleno: boolean, sub: string }[] = [
+    { k: 'nombre', t: 'Nombre', ic: 'editar', lleno: !!d.nombre.trim(), sub: d.nombre || 'Sin nombre' },
+    { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
+    { k: 'etiquetas', t: 'Etiquetas', ic: 'etiqueta', lleno: nEt > 0, sub: nEt ? `${nEt} puesta${nEt === 1 ? '' : 's'}` : 'Ninguna' },
+    { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'Sin decidir' },
+    { k: 'ejecucion', t: 'Ejecución', ic: 'ok', lleno: d.items_ejecucion.some(i => i.texto?.trim()), sub: `${d.items_ejecucion.filter(i => i.texto?.trim()).length} criterios` },
+    { k: 'feedbacks', t: 'Feedbacks', ic: 'mensaje', lleno: d.feedbacks.some(i => i.texto?.trim()), sub: `${d.feedbacks.filter(i => i.texto?.trim()).length} frases` },
+    { k: 'foto', t: 'Foto y vídeo', ic: 'camara', lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
+    { k: 'familia', t: 'Familia', ic: 'plantillas', lleno: !!d.portada_id, sub: d.portada_id ? (ejs.find(x => x.id === d.portada_id)?.nombre || 'Variante') : 'Suelto o portada' },
+  ]
+  const paso = 360 / QUESITOS.length
+  const llenos = QUESITOS.filter(q => q.lleno).length
+
+  const cambiado = JSON.stringify(d) !== JSON.stringify(orig) || !!foto
+  const repetido = useMemo(() => ejs.some(x => x.id !== params.id && normalizar(x.nombre).trim() === normalizar(d.nombre).trim()), [ejs, d.nombre, params.id])
+  const puedeGuardar = !!d.nombre.trim() && !!d.tipo_medida && !repetido && cambiado && !guardando
+
+  async function guardar() {
+    setGuardando(true); setAviso('')
+    const fila: any = { nombre: d.nombre.trim(), descripcion: d.descripcion, video_url: d.video_url, etiquetas: d.etiquetas,
+      tipo_medida: d.tipo_medida, items_ejecucion: d.items_ejecucion.filter(i => i.texto?.trim()),
+      feedbacks: d.feedbacks.filter(i => i.texto?.trim()) }
+    let id = params.id
+    if (nuevo) {
+      const { data, error } = await supabase.from('ejercicios')
+        .insert({ ...fila, imagen_url: '', variantes: [], portada_id: d.portada_id }).select('id').single()
+      if (error || !data) { setGuardando(false); setAviso('No se ha guardado: ' + (error?.message || '')); return }
+      id = data.id
+    } else {
+      const { error } = await supabase.from('ejercicios').update(fila).eq('id', id)
+      if (error) { setGuardando(false); setAviso('No se ha guardado: ' + error.message); return }
+      // La familia, por sus funciones: si tenía variantes, se mueven con él.
+      if (d.portada_id !== orig.portada_id) {
+        const r = d.portada_id ? await moverAFamilia(id, { id: d.portada_id }) : await sacarDeFamilia(id)
+        if (r.ok === false) setAviso('Guardado, pero la familia no: ' + r.error)
+      }
+    }
+    if (foto) {
+      const r = await subirImagenEjercicio(id, foto)
+      if (r.ok === false) setAviso('Guardado, pero la foto no: ' + r.error)
+      else await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
+    }
+    setGuardando(false); setFoto(null)
+    if (nuevo) { router.replace(`/torno/amasar/${id}`); return }
+    cargar(); setAviso('✓ Amasado')
+    setTimeout(() => setAviso(a => a === '✓ Amasado' ? '' : a), 2500)
+  }
+
+  // ---- Etiquetas: raíces por categoría, sus hijas al abrir ----------------------
+  const porCat = useMemo(() => {
+    const m: Record<string, any[]> = {}
+    ets.filter(e => !e.padre_id).forEach(e => { const c = categoriaDe(ets, e); (m[c] = m[c] || []).push(e) })
+    Object.values(m).forEach(l => l.sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    return m
+  }, [ets])
+  const hijas = (id: string) => ets.filter(e => e.padre_id === id).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  const togEt = (id: string) => set('etiquetas', d.etiquetas.includes(id) ? d.etiquetas.filter(x => x !== id) : [...d.etiquetas, id])
+  const chipEt = (e: any) => {
+    const on = d.etiquetas.includes(e.id)
+    return (
+      <button key={e.id} type="button" className={`chip-sel ${on ? 'on' : ''}`} style={{ fontSize: 12 }} onClick={() => togEt(e.id)}>
+        {e.nombre}
+      </button>
+    )
+  }
+
+  function editor(k: Clave) {
+    switch (k) {
+      case 'nombre': return (<>
+        <input className="input" autoFocus value={d.nombre} onChange={e => set('nombre', e.target.value)}
+          placeholder="Ej. Sentadilla búlgara con mancuernas" style={{ fontSize: 16, padding: '12px 14px' }}/>
+        {repetido && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>Ya hay un ejercicio con ese nombre.</div>}
+      </>)
+      case 'descripcion': return (
+        <textarea className="input" autoFocus value={d.descripcion} onChange={e => set('descripcion', e.target.value)}
+          placeholder="Cómo se hace, paso a paso" style={{ minHeight: 180, fontSize: 13.5, lineHeight: 1.5 }}/>
+      )
+      case 'etiquetas': {
+        const q = buscaEt.trim()
+        const encontradas = q ? ets.filter(e => contiene(e.nombre, q)).slice(0, 30) : []
+        return (<>
+          {d.etiquetas.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+              {d.etiquetas.map(id => ets.find(e => e.id === id)).filter(Boolean).map((e: any) => (
+                <span key={e.id} className="chip-sel on" style={{ fontSize: 12 }} onClick={() => togEt(e.id)}>{e.nombre} ✕</span>
+              ))}
+            </div>
+          )}
+          <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ marginBottom: 10 }}/>
+          {q
+            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(chipEt)}</div>
+            : CATEGORIAS_ETIQUETA.filter(c => (porCat[c.key] || []).length).map(c => (
+              <div key={c.key} style={{ marginBottom: 10 }}>
+                <div className="et-mini" style={{ marginBottom: 5 }}>{c.label}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {porCat[c.key].map(r => (
+                    <span key={r.id} style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
+                      {chipEt(r)}
+                      {hijas(r.id).length > 0 && (
+                        <button type="button" onClick={() => setRaizAbierta(raizAbierta === r.id ? null : r.id)}
+                          style={{ border: 'none', background: 'none', color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '0 3px' }}>
+                          {raizAbierta === r.id ? '▴' : `${hijas(r.id).length}▾`}
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                {porCat[c.key].some(r => r.id === raizAbierta) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '6px 0 0 12px' }}>
+                    {ets.filter(e => e.padre_id === raizAbierta || ets.find(p => p.id === e.padre_id)?.padre_id === raizAbierta)
+                      .sort((a, b) => nivelDe(ets, a) - nivelDe(ets, b) || a.nombre.localeCompare(b.nombre)).map(chipEt)}
+                  </div>
+                )}
+              </div>
+            ))}
+        </>)
+      }
+      case 'medida': return (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {TIPOS_MEDIDA.map(m => (
+            <button key={m.id} type="button" onClick={() => set('tipo_medida', m.id)}
+              style={{ textAlign: 'left', padding: '14px 16px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
+                border: 'none', background: d.tipo_medida === m.id ? 'var(--g)' : '#fff', color: d.tipo_medida === m.id ? '#fff' : 'var(--n)',
+                boxShadow: '0 3px 12px rgba(38,40,37,.10)' }}>
+              <div style={{ fontSize: 14 }}>{m.nombre}</div>
+              <div style={{ fontSize: 11.5, opacity: .8, marginTop: 2 }}>{m.ayuda}</div>
+            </button>
+          ))}
+        </div>
+      )
+      case 'ejecucion': return <EditorItems items={d.items_ejecucion} onChange={(v: any[]) => set('items_ejecucion', v)} objetivos={objetivos}/>
+      case 'feedbacks': return <EditorLista items={d.feedbacks} onChange={(v: any[]) => set('feedbacks', v)} label="Lo que se le dice en la sala" placeholder="Ej. Rodilla hacia fuera" icono="mensaje"/>
+      case 'foto': return (<>
+        <label style={{ display: 'block', cursor: 'pointer' }}>
+          <div className="btn btn-s" style={{ justifyContent: 'center', width: '100%' }}><Ic name="camara" size={13}/> {preview || d.imagen_url ? 'Cambiar foto' : 'Subir foto'}</div>
+          <input type="file" accept="image/*" style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) { setFoto(f); setPreview(URL.createObjectURL(f)) } }}/>
+        </label>
+        {(preview || d.imagen_url) && (
+          <button className="btn btn-t btn-sm" style={{ marginTop: 8 }} onClick={() => { setFoto(null); setPreview(''); set('imagen_url', '') }}>
+            Quitar la foto (vuelve la figura automática)
+          </button>
+        )}
+        <div className="field" style={{ marginTop: 14 }}><label>Enlace de vídeo</label>
+          <input className="input" value={d.video_url} onChange={e => set('video_url', e.target.value)} placeholder="https://…"/></div>
+      </>)
+      case 'familia': {
+        const raiz = d.portada_id
+        const hermanos = raiz ? ejs.filter(x => x.portada_id === raiz && x.id !== params.id) : ejs.filter(x => x.portada_id === params.id)
+        return (<>
+          <div className="field"><label>Es variante de</label>
+            <select className="input" value={d.portada_id || ''} onChange={e => set('portada_id', e.target.value || null)}>
+              <option value="">Ninguno: es suelto o es portada</option>
+              {ejs.filter(x => !x.portada_id && x.id !== params.id).map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+            </select>
+          </div>
+          {hermanos.length > 0 && (<>
+            <div className="et-mini" style={{ margin: '10px 0 6px' }}>{raiz ? 'Su familia' : 'Sus variantes'}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {hermanos.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => router.push(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
+            </div>
+          </>)}
+        </>)
+      }
+    }
+  }
+
+  const q = QUESITOS.find(x => x.k === abierto)
+
+  return (
+    <div className="am">
+      <style>{`
+        .am { background:#fff; margin:-16px -18px; padding:18px 22px 120px; min-height:calc(100vh - 32px); overflow:hidden }
+        .am-zona { display:flex; align-items:center; justify-content:center; gap:28px; min-height:calc(100vh - 160px) }
+        .am-rosco { position:relative; width:min(600px, 90vw); aspect-ratio:1; flex-shrink:0;
+                    transition: transform .5s cubic-bezier(.3,.8,.3,1), width .5s ease }
+        .am-abierto .am-rosco { width:min(460px, 50vw) }
+        .am-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
+                transition: transform .22s ease, fill .2s ease; animation: am-sale .55s cubic-bezier(.2,.9,.3,1.25) backwards }
+        @keyframes am-sale { from { transform: scale(.55) rotate(-25deg); opacity:0 } to { transform:none; opacity:1 } }
+        .am-et { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:96px;
+                 transition: transform .22s ease; animation: am-et .5s ease backwards }
+        @keyframes am-et { from { opacity:0 } to { opacity:1 } }
+        .am-centro { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; aspect-ratio:1; border-radius:50%;
+                     overflow:hidden; background:#fff; box-shadow:0 10px 34px rgba(38,40,37,.16); animation: am-pella .7s cubic-bezier(.2,.9,.3,1.2) backwards }
+        @keyframes am-pella { from { transform:translate(-50%,-50%) scale(.3,.15) } 60% { transform:translate(-50%,-50%) scale(1.06,.95) } to { transform:translate(-50%,-50%) } }
+        .am-panel { width:min(440px, 42vw); max-height:calc(100vh - 170px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
+                    box-shadow:0 18px 44px rgba(38,40,37,.16); animation: am-panel .4s cubic-bezier(.2,.9,.3,1.1) backwards }
+        @keyframes am-panel { from { opacity:0; transform: translateX(40px) scale(.96) } to { opacity:1; transform:none } }
+      `}</style>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button className="btn btn-t btn-sm" onClick={() => router.push('/torno/amasar')}><Ic name="atras" size={13}/> Biblioteca</button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {QUESITOS.length}</div>
+        </div>
+        <div style={{ width: 90 }}/>
+      </div>
+
+      {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 60 }}>Preparando el barro…</div> : (
+        <div className={`am-zona ${abierto ? 'am-abierto' : ''}`}>
+          <div className="am-rosco">
+            <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+              {QUESITOS.map((x, i) => {
+                const a0 = -90 + i * paso + HUECO, a1 = -90 + (i + 1) * paso - HUECO
+                const mid = (a0 + a1) / 2 * Math.PI / 180
+                const fuera = encima === x.k || abierto === x.k ? 10 : 0
+                return (
+                  <path key={x.k} className="am-q" d={quesito(a0, a1)}
+                    style={{ animationDelay: `${i * 55}ms`, transform: `translate(${Math.cos(mid) * fuera}px, ${Math.sin(mid) * fuera}px)` }}
+                    fill={abierto === x.k ? 'var(--g)' : x.lleno ? 'var(--gl)' : '#fff'}
+                    stroke={x.lleno ? 'var(--gm)' : 'var(--bd)'} strokeWidth={1.2}
+                    onMouseEnter={() => setEncima(x.k)} onMouseLeave={() => setEncima(null)}
+                    onClick={() => setAbierto(abierto === x.k ? null : x.k)}/>
+                )
+              })}
+            </svg>
+            {/* Las etiquetas de cada quesito, en HTML encima del SVG: se maquetan mejor. */}
+            {QUESITOS.map((x, i) => {
+              const mid = (-90 + (i + .5) * paso) * Math.PI / 180
+              const r = (R0 + R1) / 2 / 600 * 100
+              const on = abierto === x.k
+              const fuera = encima === x.k || on ? 1.6 : 0
+              return (
+                <div key={x.k} className="am-et" style={{ left: `${50 + Math.cos(mid) * (r + fuera)}%`, top: `${50 + Math.sin(mid) * (r + fuera)}%`,
+                  color: on ? '#fff' : x.lleno ? 'var(--gd)' : 'var(--gr)', animationDelay: `${300 + i * 55}ms` }}>
+                  <Ic name={x.ic} size={18}/>
+                  <div style={{ fontSize: 12, marginTop: 2, lineHeight: 1.15 }}>{x.t}</div>
+                  <div style={{ fontSize: 9.5, opacity: .75, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.sub}</div>
+                </div>
+              )
+            })}
+            {/* LA PELLA: su foto o la figura de sus músculos, que cambia con las etiquetas. */}
+            <div className="am-centro">
+              <ImagenEjercicio src={preview || d.imagen_url} etiquetasEj={d.etiquetas} relleno radio={0} fondo="#fff" icono={60}/>
+            </div>
+          </div>
+
+          {q && (
+            <div key={q.k} className="am-panel">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ color: 'var(--g)', lineHeight: 0 }}><Ic name={q.ic} size={18}/></span>
+                <span style={{ flex: 1, fontSize: 15 }}>{q.t}</span>
+                <button className="btn btn-p btn-sm" onClick={() => setAbierto(null)}>Hecho</button>
+              </div>
+              {editor(q.k)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GUARDAR, abajo y fijo, como en el resto del torno. */}
+      {!cargando && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
+          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderRadius: 99,
+            padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
+            <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
+              {aviso || (!d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta cómo se mide' : repetido ? 'Ese nombre ya existe' : cambiado ? 'Sin guardar' : 'Todo guardado')}
+            </span>
+            <button className="btn btn-p" disabled={!puedeGuardar} onClick={guardar}>
+              <Ic name="guardar" size={13}/> {guardando ? 'Guardando…' : nuevo ? 'Crear' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

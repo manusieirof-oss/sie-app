@@ -9,7 +9,7 @@ import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
 import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido } from '@/lib/ejercicios'
 
 
-function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
+export function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
   const add = () => onChange([...(items||[]), { texto:'' }])
   const upd = (i:number, val:string) => onChange(items.map((v:any,idx:number)=>idx===i?{...v,texto:val}:v))
   const del = (i:number) => onChange(items.filter((_:any,idx:number)=>idx!==i))
@@ -91,7 +91,7 @@ function ElegirObjetivos({ objetivos, seleccionados, onToggle, disabled }: any) 
   )
 }
 
-function EditorItems({ items, onChange, disabled, objetivos }: any) {
+export function EditorItems({ items, onChange, disabled, objetivos }: any) {
   const add = () => onChange([...(items||[]), { texto:'', objetivos:[] }])
   const upd = (i:number, campo:string, val:any) => onChange(items.map((v:any,idx:number)=>idx===i?{...v,[campo]:val}:v))
   const del = (i:number) => onChange(items.filter((_:any,idx:number)=>idx!==i))
