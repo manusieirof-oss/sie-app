@@ -922,6 +922,7 @@ export default function FichaPacientePage() {
           bonosSesiones={bonosSesiones}
           onRenovarSesiones={renovarSesiones}
           onRetirarSesiones={retirarSesiones}
+          onCambioSesiones={cargar}
           onCobrar={()=>setCobrando(bono)}
           recuperaciones={recuperaciones}
           editando={editando}

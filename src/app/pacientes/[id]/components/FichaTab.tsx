@@ -56,7 +56,7 @@ const empiezaDespues = (b: any) => {
 const nombreMes = (b: any) =>
   new Date(b.anio, b.mes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 
-export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones, abrirTest, irA }: any) {
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones, onCambioSesiones, abrirTest, irA }: any) {
   const router = useRouter()
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
@@ -1426,7 +1426,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           {bonosSesiones.length > 0 && (
             <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
               {bonosSesiones.map((bs:any)=>(
-                <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones} onRetirar={onRetirarSesiones}/>
+                <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones} onRetirar={onRetirarSesiones} onCambio={onCambioSesiones}/>
               ))}
             </div>
           )}

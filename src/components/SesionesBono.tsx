@@ -4,8 +4,7 @@ import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 import {
   type BonoSesiones, estadoDe, LBL_ESTADO, COLOR_ESTADO, resumenDe, UMBRAL_POCAS, bonosDe,
-  ESTADOS_QUE_GASTAN, ESTADO_RESERVA,
-} from '@/lib/bonoSesiones'
+  ESTADOS_QUE_GASTAN, ESTADO_RESERVA, cambiarInicioBono } from '@/lib/bonoSesiones'
 
 // Cuántas sesiones le quedan de un bono. Se pinta donde haga falta: la ficha del
 // paciente, la lista y el panel de la agenda.
@@ -14,7 +13,7 @@ import {
 // las citas. Este componente no suma ni resta nada: si lo hiciera, sería una
 // segunda forma de contar el consumo y acabaría discrepando de la primera.
 
-export default function SesionesBono({ bono, nombre, compacto, onRenovar, onRetirar }: {
+export default function SesionesBono({ bono, nombre, compacto, onRenovar, onRetirar, onCambio }: {
   bono: BonoSesiones
   nombre?: string
   compacto?: boolean
@@ -29,7 +28,17 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
    * salió esto.
    */
   onRetirar?: (bono: BonoSesiones) => void
+  /** Tras cambiar cuándo empezó: hay que releer el bono, sus casillas han cambiado. */
+  onCambio?: () => void
 }) {
+  const [cambiandoInicio, setCambiandoInicio] = useState(false)
+  async function nuevoInicio(f: string) {
+    if (!f || f === bono.fecha_inicio) { setCambiandoInicio(false); return }
+    const r = await cambiarInicioBono(bono.bono_id, f)
+    setCambiandoInicio(false)
+    if (r.ok === false) { alert('No se ha cambiado: ' + r.error); return }
+    onCambio?.()
+  }
   const [retirando, setRetirando] = useState(false)
   const [citas, setCitas] = useState<{ fecha: string, estado: string }[]>([])
   const [pago, setPago] = useState<'cobrado' | 'impago' | 'pendiente' | null>(null)
@@ -106,9 +115,17 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:14,fontWeight:500,color:'var(--n)'}}>{nombre || 'Bono de sesiones'}</div>
           <div style={{fontSize:11.5,color:'var(--gr)',marginTop:2}}>
-            {[bono.fecha_inicio && `Comprado el ${fechaCorta(bono.fecha_inicio)}`,
-              bono.caduca && `${bono.caducado ? 'caducó' : 'caduca'} el ${fechaCorta(bono.caduca)}`]
-              .filter(Boolean).join(' · ')}
+            {/* EMPEZÓ EL: se puede cambiar. Si el bono se creó después de la primera
+                clase, se pone aquí el día de esa clase y la recoge. */}
+            {cambiandoInicio
+              ? <input type="date" className="input" autoFocus defaultValue={bono.fecha_inicio || ''}
+                  onBlur={e => nuevoInicio(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') nuevoInicio((e.target as HTMLInputElement).value) }}
+                  style={{ width: 'auto', fontSize: 12, padding: '3px 6px' }}/>
+              : <button type="button" onClick={() => setCambiandoInicio(true)} title="Cambiar cuándo empezó (recoge las clases desde ese día)"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, color: 'var(--gd)', textDecoration: 'underline dotted' }}>
+                  {bono.fecha_inicio ? `Empezó el ${fechaCorta(bono.fecha_inicio)}` : 'Poner cuándo empezó'}
+                </button>}
+            {bono.caduca && ` · ${bono.caducado ? 'caducó' : 'caduca'} el ${fechaCorta(bono.caduca)}`}
           </div>
         </div>
         {pago && (

@@ -244,6 +244,28 @@ export async function engancharCitas(bonoId: string) {
 }
 
 /**
+ * CAMBIAR CUÁNDO EMPEZÓ un bono de sesiones.
+ *
+ * Caso real: viene a clase, y el bono se le crea días después. El bono nacía
+ * con la fecha de ese día y la clase ya hecha se quedaba fuera, sin descontar.
+ * Al cambiar el inicio se sueltan sus citas, se recalcula la caducidad desde la
+ * fecha nueva (con los meses de su tipo) y se vuelven a enganchar por orden de
+ * fecha desde ahí: las primeras del bono pasan a ser las de verdad.
+ */
+export async function cambiarInicioBono(bonoId: string, fecha: string) {
+  if (!fecha) return { ok: false as const, error: 'Falta la fecha' }
+  const { data: b, error: eb } = await supabase.from('bonos').select('tipo').eq('id', bonoId).maybeSingle()
+  if (eb || !b) return { ok: false as const, error: eb?.message || 'No existe el bono' }
+  const { data: t } = await supabase.from('bonos_tipos').select('caduca_meses').eq('id', b.tipo).maybeSingle()
+  const { error: e1 } = await supabase.from('bonos')
+    .update({ fecha_inicio: fecha, caduca: caducidadDesde(fecha, t?.caduca_meses) }).eq('id', bonoId)
+  if (e1) return { ok: false as const, error: e1.message }
+  const { error: e2 } = await supabase.from('citas').update({ bono_id: null }).eq('bono_id', bonoId)
+  if (e2) return { ok: false as const, error: e2.message }
+  return engancharCitas(bonoId)
+}
+
+/**
  * Renueva un bono de sesiones: crea otro igual, listo para cobrar.
  *
  * Copia el TIPO, no el bono viejo: las sesiones y la caducidad se releen de
