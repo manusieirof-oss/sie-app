@@ -410,7 +410,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                         const img = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.imagen_url || ejSeleccionado.imagen_url) : ejSeleccionado.imagen_url
                         if (img) return <img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',aspectRatio:'1',objectFit:'cover',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)',display:'block'}}/>
                         // Sin foto: la figura con sus músculos (lib/cuerpo), o el icono si no hay capa.
-                        return <div style={{width:'100%',aspectRatio:'1',background:'var(--bl)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gr)',padding:12}}>
+                        return <div style={{position:'relative',overflow:'hidden',width:'100%',aspectRatio:'1',background:'var(--bl)',borderRadius:8,border:'1px solid var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gr)'}}>
                           {figuraDe(ejSeleccionado.etiquetas||[], etiquetas) ? <FiguraMusculos etiquetasEj={ejSeleccionado.etiquetas} etiquetas={etiquetas}/> : <Ic name="fuerza" size={56}/>}
                         </div>
                       })()}

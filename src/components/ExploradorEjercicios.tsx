@@ -216,7 +216,7 @@ export default function ExploradorEjercicios({
             ? <img src={img} alt={vc ? `${e.nombre} · ${vc.nombre}` : e.nombre} />
             /* Sin foto: la figura con sus músculos, si sus etiquetas lo permiten. */
             : figuraDe(e.etiquetas || [], etiquetas)
-              ? <span style={{ display: 'block', height: '100%', padding: '6px 0', background: 'var(--bl)' }}><FiguraMusculos etiquetasEj={e.etiquetas} etiquetas={etiquetas}/></span>
+              ? <FiguraMusculos etiquetasEj={e.etiquetas} etiquetas={etiquetas}/>
               : <span className="sin"><Ic name="fuerza" size={30} /></span>}
           {seleccion && sel && <span className="marca"><Ic name="check" size={13} /></span>}
         </div>
