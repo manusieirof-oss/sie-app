@@ -85,6 +85,15 @@ export default function PiezaTorno({ estado, error, filas, nombre, onFicha, onVo
         .pz-mos { width:46px; height:46px; border-radius:11px; overflow:hidden; display:grid; flex-shrink:0; background:var(--bl) }
         .pz-mos img { width:100%; height:100%; object-fit:cover; display:block; min-width:0; min-height:0 }
         .pz-abre { animation: pz-entra .25s ease backwards; margin-top:9px; padding-top:9px; border-top:1px solid var(--bd2) }
+        .pz-parte { font-size:10px; letter-spacing:.7px; text-transform:uppercase; color:var(--grl); margin-bottom:6px }
+        .pz-ejs { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 4px }
+        .pz-ej { flex:0 0 74px; display:flex; flex-direction:column; align-items:center; text-align:center; animation: pz-entra .3s ease backwards }
+        .pz-ej-f { width:64px; height:64px; border-radius:14px; overflow:hidden; background:var(--bl); color:var(--gm);
+                   display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(38,40,37,.08) }
+        .pz-ej-f img { width:100%; height:100%; object-fit:cover; display:block }
+        .pz-ej-n { font-size:10.5px; line-height:1.2; color:var(--n); margin-top:5px; overflow:hidden; display:-webkit-box;
+                   -webkit-line-clamp:2; -webkit-box-orient:vertical; max-width:74px }
+        .pz-ej-d { font-size:10px; color:var(--grl); margin-top:1px }
         .pz-pie { position:fixed; left:0; right:0; bottom:22px; display:flex; justify-content:center; gap:10px; pointer-events:none;
                   animation: pz-entra .5s ease 1s backwards }
         .pz-pie > * { pointer-events:auto; box-shadow:0 10px 26px rgba(38,40,37,.16) }
@@ -186,10 +195,23 @@ export default function PiezaTorno({ estado, error, filas, nombre, onFicha, onVo
                       ))}
                       {ab && (
                         <div className="pz-abre">
+                          {/* POR DENTRO, EN IMÁGENES: cada parte es una fila de fichas de sus
+                              ejercicios (foto, nombre corto y series × reps). Antes era un
+                              párrafo de nombres seguidos que no se leía. */}
                           {(f.ses?.partes || []).map((p: any, pi: number) => (
-                            <div key={pi} style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre || `Parte ${pi + 1}`}</div>
-                              <div style={{ fontSize: 11.5, color: 'var(--gr)', lineHeight: 1.45 }}>{(p.ejercicios || []).map((e: any) => e.nombre).join(' · ')}</div>
+                            <div key={pi} style={{ marginBottom: 10 }}>
+                              <div className="pz-parte">{p.nombre || `Parte ${pi + 1}`}</div>
+                              <div className="pz-ejs">
+                                {(p.ejercicios || []).map((e: any, ei: number) => (
+                                  <span key={ei} className="pz-ej" title={e.nombre} style={{ animationDelay: `${ei * 35}ms` }}>
+                                    <span className="pz-ej-f">
+                                      {e.imagen_url ? <img src={e.imagen_url} alt=""/> : <Ic name="fuerza" size={18}/>}
+                                    </span>
+                                    <span className="pz-ej-n">{e.nombre}</span>
+                                    {(e.series || e.reps) && <span className="pz-ej-d">{[e.series, e.reps].filter(Boolean).join(' × ')}</span>}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           ))}
                           {f.evs.flatMap(e => e.tests).map(t => (
