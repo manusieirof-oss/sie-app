@@ -36,6 +36,8 @@ type Ses = { id: string, nombre: string, color: string, desde: string | null, ha
  */
 type Ev = { key: string, asig: string, fase: string, faseNombre: string, momento: 'inicial' | 'final', ciclo: string, color: string,
   desde: string | null, hasta: string | null, existente: string | null, cita: string | null,
+  /** Las sesiones de esa fase: sus citas son donde tiene sentido evaluar. */
+  sesiones: string[],
   /** Los tests de "Cómo se evalúa" de los objetivos de la fase, con su foto y qué ítem se mira. */
   tests: { id: string, nombre: string, imagen: string, items: string[] }[] }
 type Ciclo = { id: string, nombre: string, color: string, asig?: string | null, fases: { id?: string, nombre: string, desde: string | null, hasta: string | null, sesiones: string[], objetivos?: string[] }[] }
@@ -172,7 +174,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             const citaEx = e ? (e.cita_id || cl.find(x => x.fecha === e.fecha)?.id || null) : null
             const key = `${c.asig}|${f.id}|${momento}`
             lista2.push({ key, asig: c.asig, fase: f.id, faseNombre: f.nombre, momento, ciclo: c.id, color: c.color,
-              desde: f.desde, hasta: f.hasta, existente: e?.id || null, cita: citaEx, tests })
+              desde: f.desde, hasta: f.hasta, existente: e?.id || null, cita: citaEx, tests, sesiones: f.sesiones || [] })
             let propuesta = citaEx
             if (!e) {
               if (momento === 'inicial') propuesta = enFase[0]?.id || null
@@ -504,6 +506,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             const evs = evals.filter(e => evalPlan[e.key] === c.id)
                             const ev = pincelEval ? evals.find(e => e.key === pincelEval) : null
                             const fueraEv = ev ? ((ev.desde && c.fecha < ev.desde) || (ev.hasta && c.fecha > ev.hasta)) : false
+                            // Se iluminan solo las citas con una sesión de ESA fase: en una fase por
+                            // objetivos no hay fecha de fin y antes se encendían todas.
+                            const deSuFase = ev ? !fueraEv && (ev.sesiones || []).includes(plan[c.id] || '') : false
                             return (
                               <button key={c.id} className="tc-cita" onClick={e => { e.stopPropagation(); tocarCita(c) }}
                                 title={`${c.hora ? String(c.hora).slice(0, 5) : ''} ${s ? s.nombre : ajena || 'sin sesión'}`}
@@ -511,8 +516,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   border: s ? 'none' : '1px dashed var(--bd)',
                                   // Eligiendo una evaluación: las citas de su fase se iluminan con el
                                   // color del ciclo y las de fuera se apagan.
-                                  opacity: fueraEv ? .25 : 1,
-                                  boxShadow: ev && !fueraEv ? `0 0 0 2px ${ev.color}88` : 'none' }}>
+                                  opacity: !ev || deSuFase ? 1 : fueraEv ? .2 : .4,
+                                  boxShadow: deSuFase ? `0 0 0 2px ${ev!.color}` : 'none' }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
                                 {evs.length > 0 && (
                                   <span className="tc-ev" title={evs.map(e => `${e.momento === 'inicial' ? 'Al empezar' : 'Al salir'} · ${e.faseNombre}`).join('\n')}
