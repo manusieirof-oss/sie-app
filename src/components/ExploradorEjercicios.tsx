@@ -64,6 +64,22 @@ export default function ExploradorEjercicios({
   /** Ver solo los que tienen huecos. Ver `problemasDeEjercicio` en lib/ejercicios. */
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [creando, setCreando] = useState(false)
+  /**
+   * FAMILIAS. Una variante es un ejercicio completo con `portada_id` apuntando a su
+   * portada. Sin buscar ni filtrar se ven solo las portadas (y los sueltos), con "N
+   * variantes": así no salen 25 curls seguidos. Tocar esa marca despliega la familia.
+   * Buscando o filtrando sale todo lo que casa, variantes incluidas: ahí ya sabes qué
+   * quieres y esconderlas sería no encontrarlas.
+   */
+  const [familiasAbiertas, setFamiliasAbiertas] = useState<string[]>([])
+  const hijosDe = (() => {
+    const ids = new Set(ejercicios.map(e => e.id))
+    const m: Record<string, any[]> = {}
+    ejercicios.forEach(e => { if (e.portada_id && ids.has(e.portada_id)) (m[e.portada_id] = m[e.portada_id] || []).push(e) })
+    return m
+  })()
+  /** Es variante de una portada que está en la lista. Si la portada no está, va como suelto. */
+  const esHijo = (e: any) => !!e.portada_id && ejercicios.some(x => x.id === e.portada_id)
 
   // Solo las etiquetas que algún ejercicio tiene de verdad —o que son madre de una
   // usada— y agrupadas por categoría. Ofrecer el árbol entero llenaría la barra de
@@ -170,6 +186,10 @@ export default function ExploradorEjercicios({
   const puedeCrear = aCrear.length >= 3 && !duplicado
 
   const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes
+  const nombrePortada = (e: any) => ejercicios.find(x => x.id === e.portada_id)?.nombre || ''
+  /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
+  const visibles = hayFiltro ? filtrados : filtrados.filter(e => !esHijo(e)).flatMap(e =>
+    familiasAbiertas.includes(e.id) ? [e, ...(hijosDe[e.id] || [])] : [e])
   const marcado = (e: any) => !!seleccion?.includes(e.id)
 
   function Tarjeta({ e }: { e: any }) {
@@ -181,7 +201,7 @@ export default function ExploradorEjercicios({
     const vc = varianteQueCasa(e)
     const img = (vc?.imagen_url) || e.imagen_url
     return (
-      <div className={`tarj-ej ${sel ? 'on' : ''}`}
+      <div className={`tarj-ej ${sel ? 'on' : ''} ${esHijo(e) && !hayFiltro ? 'tarj-hijo' : ''}`}
         onClick={() => (onAlternar ? onAlternar(e) : onAbrir?.(e))}>
         <div className="tarj-img">
           {img
@@ -194,6 +214,8 @@ export default function ExploradorEjercicios({
               del ejercicio queda debajo, en pequeño: hay que saber de dónde sale. */}
           <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.3 }}>{vc ? vc.nombre : e.nombre}</div>
           {vc && <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>{e.nombre}</div>}
+          {/* Buscando, una variante sale suelta: se dice de qué familia es. */}
+          {esHijo(e) && hayFiltro && <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>de {nombrePortada(e)}</div>}
           {/* Cómo se mide decide qué campos pedirá la sesión: conviene saberlo antes. */}
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {MEDIDA[e.tipo_medida] || MEDIDA.peso_reps}
@@ -201,6 +223,14 @@ export default function ExploradorEjercicios({
           {/* QUE TIENE VARIANTES SE SABE AQUI. Antes solo se veía si por casualidad
               buscabas el nombre de una: al montar la sesión elegías el ejercicio a
               secas sin saber que había una unilateral esperando. */}
+          {/* LA FAMILIA: se despliega aquí mismo, sin abrir el ejercicio. */}
+          {(hijosDe[e.id] || []).length > 0 && !hayFiltro && (
+            <button type="button" className={`chip-sel ${familiasAbiertas.includes(e.id) ? 'on' : ''}`}
+              style={{ marginTop: 5, fontSize: 11, padding: '2px 9px' }}
+              onClick={ev => { ev.stopPropagation(); setFamiliasAbiertas(l => l.includes(e.id) ? l.filter(x => x !== e.id) : [...l, e.id]) }}>
+              {hijosDe[e.id].length} {hijosDe[e.id].length === 1 ? 'variante' : 'variantes'} {familiasAbiertas.includes(e.id) ? '▴' : '▾'}
+            </button>
+          )}
           {!vc && (e.variantes || []).length > 0 && (
             <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 3 }}
               title={(e.variantes || []).map((v: any) => v?.nombre).filter(Boolean).join(' · ')}>
@@ -251,7 +281,7 @@ export default function ExploradorEjercicios({
         <input className="input" placeholder="Buscar ejercicio…" value={buscar}
           onChange={e => setBuscar(e.target.value)} style={{ flex: 1, minWidth: 190 }} />
         <span style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap' }}>
-          {filtrados.length} {filtrados.length === 1 ? 'ejercicio' : 'ejercicios'}
+          {hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length} {(hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length) === 1 ? 'ejercicio' : 'ejercicios'}
         </span>
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
@@ -374,7 +404,7 @@ export default function ExploradorEjercicios({
         ? <div className="muted">{ejercicios.length === 0 ? 'No hay ejercicios en la biblioteca.'
             : soloPendientes && !buscar && filtroEt.length === 0 ? 'No queda ningún ejercicio por completar.'
             : 'Ningún ejercicio coincide.'}</div>
-        : <div className="rej-ej">{filtrados.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
+        : <div className="rej-ej">{visibles.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
     </div>
   )
 }

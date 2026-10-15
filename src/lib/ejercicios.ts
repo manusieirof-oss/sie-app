@@ -308,3 +308,58 @@ export async function eliminarEjercicio(ejercicioId: string) {
 
   return { ok: true as const }
 }
+
+// ---------------------------------------------------------------------------
+// FAMILIAS DE EJERCICIOS.
+//
+// Una variante es un ejercicio completo (sus criterios, feedbacks, objetivos y su
+// propia progresión) con `portada_id` apuntando al ejercicio de portada. La familia
+// tiene UN solo nivel: una variante no tiene variantes. En la biblioteca se ven las
+// portadas con "N variantes" y se despliegan. Ver `entrenamiento/familias`.
+// ---------------------------------------------------------------------------
+
+const malE = (e: any) => ({ ok: false as const, error: e?.message || String(e) })
+
+/** Nueva variante a partir de un ejercicio: copia lo que define el movimiento, con otro nombre. */
+export async function crearVariante(base: any, nombre: string) {
+  const portada = base.portada_id || base.id
+  const { data, error } = await supabase.from('ejercicios').insert({
+    nombre: nombre.trim(), portada_id: portada,
+    descripcion: base.descripcion || '', video_url: '', imagen_url: base.imagen_url || '',
+    etiquetas: base.etiquetas || [], tipo_medida: base.tipo_medida || 'peso_reps',
+    items_ejecucion: base.items_ejecucion || [], feedbacks: base.feedbacks || [], variantes: [],
+  }).select().single()
+  if (error || !data) return malE(error || 'No se pudo crear')
+  return { ok: true as const, ejercicio: data }
+}
+
+/**
+ * Mete un ejercicio en la familia de otro. Si el que se mueve tenía su propia
+ * familia, se va entera con él: no hay variantes de variantes.
+ */
+export async function moverAFamilia(ejId: string, destino: any) {
+  const portada = destino.portada_id || destino.id
+  if (portada === ejId) return { ok: false as const, error: 'No puede ser variante de sí mismo' }
+  const { error: e1 } = await supabase.from('ejercicios').update({ portada_id: portada }).eq('portada_id', ejId)
+  if (e1) return malE(e1)
+  const { error } = await supabase.from('ejercicios').update({ portada_id: portada }).eq('id', ejId)
+  return error ? malE(error) : { ok: true as const }
+}
+
+/** Esta variante pasa a ser la portada: la antigua y las demás cuelgan de ella. */
+export async function hacerPortada(ej: any) {
+  const antigua = ej.portada_id
+  if (!antigua) return { ok: true as const }
+  const { error: e1 } = await supabase.from('ejercicios').update({ portada_id: ej.id }).eq('portada_id', antigua).neq('id', ej.id)
+  if (e1) return malE(e1)
+  const { error: e2 } = await supabase.from('ejercicios').update({ portada_id: ej.id }).eq('id', antigua)
+  if (e2) return malE(e2)
+  const { error } = await supabase.from('ejercicios').update({ portada_id: null }).eq('id', ej.id)
+  return error ? malE(error) : { ok: true as const }
+}
+
+/** Sale de su familia y queda suelto. */
+export async function sacarDeFamilia(ejId: string) {
+  const { error } = await supabase.from('ejercicios').update({ portada_id: null }).eq('id', ejId)
+  return error ? malE(error) : { ok: true as const }
+}

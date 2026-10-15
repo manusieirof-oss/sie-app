@@ -38,6 +38,10 @@ type Item = {
   objs: string[]
   /** Lo que lleva dentro: sesiones de un ciclo, ejercicios de una sesión. */
   dentro: string[]
+  /** Ejercicio: la portada de su familia, si es variante. */
+  portada?: string
+  /** Ejercicio portada: las claves de sus variantes que trabajan algo suyo. */
+  familia?: string[]
 }
 
 
@@ -82,7 +86,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       traerTodo<any>((d, h) => supabase.from('sesiones')
         .select('id,nombre,partes,sesiones_objetivos(objetivo_id)').is('paciente_id', null).order('id').range(d, h)),
       traerTodo<any>((d, h) => supabase.from('ejercicios')
-        .select('id,nombre,imagen_url,etiquetas').order('id').range(d, h)),
+        .select('id,nombre,imagen_url,etiquetas,portada_id').order('id').range(d, h)),
     ])
 
     // EJERCICIOS: por lo que dicen las sesiones (el vínculo guardado) y, si no, por
@@ -91,10 +95,24 @@ export default function BancoPage({ params }: { params: { id: string } }) {
     ses.forEach((s: any) => (s.partes || []).forEach((pt: any) => (pt.ejercicios || []).forEach((ej: any) => {
       if (ej?.ejercicio_id && Array.isArray(ej.objetivos)) porVinculo[ej.ejercicio_id] = [...(porVinculo[ej.ejercicio_id] || []), ...ej.objetivos]
     })))
-    const ejItems: Item[] = ejs.map((e: any) => ({
+    const ejTodos: Item[] = ejs.map((e: any) => ({
       clave: 'e:' + e.id, tipo: 'e' as const, id: e.id, nombre: e.nombre, imagen: e.imagen_url || '',
       objs: corta([...(porVinculo[e.id] || []), ...sugerirObjetivos(e.etiquetas || [], abiertos)]), dentro: [],
-    })).filter(i => i.objs.length > 0)
+      portada: e.portada_id || undefined,
+    }))
+    /* FAMILIAS: en la banda sale la portada con sus variantes plegadas. La portada
+       entra si ella o alguna variante trabaja algo suyo, y lleva los objetivos de toda
+       la familia; así no salen 25 curls flotando. */
+    const hayId = new Set(ejTodos.map(i => i.id))
+    const vars = (pid: string) => ejTodos.filter(i => i.portada === pid && i.objs.length > 0)
+    const ejItems: Item[] = []
+    ejTodos.forEach(i => {
+      if (i.portada && hayId.has(i.portada)) { if (i.objs.length > 0) ejItems.push(i); return }
+      const v = vars(i.id)
+      const objsFam = corta([...i.objs, ...v.flatMap(x => x.objs)])
+      if (objsFam.length === 0) return
+      ejItems.push({ ...i, objs: objsFam, portada: undefined, familia: v.map(x => x.clave) })
+    })
 
     const imgDe: Record<string, string> = {}
     ejs.forEach((e: any) => { if (e.imagen_url) imgDe[e.id] = e.imagen_url })
@@ -148,7 +166,15 @@ export default function BancoPage({ params }: { params: { id: string } }) {
   const ordenar = (lista: Item[]) => [...lista].sort((a, b) =>
     (nivel(b) - nivel(a)) || (b.objs.length - a.objs.length) || a.nombre.localeCompare(b.nombre))
 
-  const banda = (tipo: Item['tipo']) => ordenar(items.filter(i => i.tipo === tipo))
+  // Familias desplegadas en la banda de ejercicios.
+  const [familiasAbiertas, setFamiliasAbiertas] = useState<string[]>([])
+  const banda = (tipo: Item['tipo']) => {
+    const lista = ordenar(items.filter(i => i.tipo === tipo && !(tipo === 'e' && i.portada)))
+    if (tipo !== 'e') return lista
+    // Cada portada abierta lleva detrás sus variantes.
+    return lista.flatMap(i => familiasAbiertas.includes(i.clave)
+      ? [i, ...items.filter(x => (i.familia || []).includes(x.clave))] : [i])
+  }
   const toggle = (k: string) => setElegidos(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])
 
   // ---- Los hilos ------------------------------------------------------------
@@ -211,6 +237,8 @@ export default function BancoPage({ params }: { params: { id: string } }) {
                 transition: opacity .35s ease, transform .35s ease, filter .35s ease, box-shadow .2s ease }
         .b-it.apagado { opacity:.14; transform:translateY(10px) scale(.95); filter:grayscale(.7) }
         .b-it.sube { transform:translateY(-6px) }
+        /* Variante desplegada: junto a su portada, algo más pequeña. scale y no transform, para no pisar la flotación. */
+        .b-it.b-var { scale:.86; box-shadow:0 0 0 1.5px var(--gm) }
         .b-it.rel { box-shadow:0 0 0 2px var(--gm) }
         .b-it.elegido { box-shadow:0 0 0 3px var(--g), 0 14px 30px rgba(38,40,37,.16) }
         .b-esf { display:flex; flex-direction:column; align-items:center; gap:5px; width:92px; background:none; border:none;
@@ -269,7 +297,9 @@ export default function BancoPage({ params }: { params: { id: string } }) {
                 const cls = `b-it ${nv === 0 ? 'apagado' : nv === 2 && selObj.length > 0 ? 'sube' : ''} ${relacionados.has(it.clave) ? 'rel' : ''} ${elegidos.includes(it.clave) ? 'elegido' : ''}`
                 const anim = { animationDelay: `${Math.min(i, 20) * 30}ms, ${(i * 0.37) % 3}s`, animationDuration: `.5s, ${5 + (i % 4)}s` }
                 return (
-                  <Tarjeta key={it.clave} it={it} cls={cls} estilo={anim} objs={objs}
+                  <Tarjeta key={it.clave} it={it} cls={cls + (it.portada ? ' b-var' : '')} estilo={anim} objs={objs}
+                    abierta={familiasAbiertas.includes(it.clave)}
+                    onFamilia={() => setFamiliasAbiertas(l => l.includes(it.clave) ? l.filter(x => x !== it.clave) : [...l, it.clave])}
                     refEl={el => { refs.current[it.clave] = el }}
                     onClick={() => toggle(it.clave)}
                     onEncima={v => setEncima(v ? it.clave : null)}/>
@@ -309,8 +339,8 @@ export default function BancoPage({ params }: { params: { id: string } }) {
 }
 
 /** Una tarjeta del banco: ciclo grande, sesión mediana, ejercicio pequeño. */
-function Tarjeta({ it, cls, estilo, objs, refEl, onClick, onEncima }: {
-  it: Item, cls: string, estilo: any, objs: any[],
+function Tarjeta({ it, cls, estilo, objs, refEl, onClick, onEncima, abierta, onFamilia }: {
+  it: Item, cls: string, estilo: any, objs: any[], abierta?: boolean, onFamilia?: () => void,
   refEl: (el: HTMLElement | null) => void, onClick: () => void, onEncima: (v: boolean) => void,
 }) {
   const esferas = (
@@ -342,7 +372,16 @@ function Tarjeta({ it, cls, estilo, objs, refEl, onClick, onEncima }: {
     </div>
   )
   return (
-    <div {...comun} style={{ ...estilo, width: 96, textAlign: 'center', borderRadius: 10, background: '#fff', padding: 4 }}>
+    <div {...comun} style={{ ...estilo, width: 96, textAlign: 'center', borderRadius: 10, background: '#fff', padding: 4, position: 'relative' }}>
+      {/* Sus variantes: tocar el número las despliega a su lado. */}
+      {(it.familia || []).length > 0 && (
+        <span onClick={e => { e.stopPropagation(); onFamilia?.() }} title={abierta ? 'Plegar sus variantes' : 'Ver sus variantes'}
+          style={{ position: 'absolute', top: -6, right: -6, minWidth: 22, height: 22, padding: '0 6px', borderRadius: 99, zIndex: 3,
+            background: abierta ? 'var(--g)' : '#fff', color: abierta ? '#fff' : 'var(--gd)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(38,40,37,.2)' }}>
+          {abierta ? '−' : `+${it.familia!.length}`}
+        </span>
+      )}
       {it.imagen
         ? <img src={it.imagen} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 8, display: 'block' }}/>
         : <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 8, background: 'var(--bl)' }}/>}

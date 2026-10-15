@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
-import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido } from '@/lib/ejercicios'
+import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido } from '@/lib/ejercicios'
 
 
 function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
@@ -267,6 +267,31 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
     setEjSeleccionado(r.ejercicio); setVarianteActiva(-1); setEditando(false)
   }
 
+  // ---- FAMILIA (ver lib/ejercicios) -----------------------------------------
+  const [moviendo, setMoviendo] = useState(false)
+  const portadaDe = (e: any) => e?.portada_id ? ejercicios.find((x: any) => x.id === e.portada_id) : null
+  const familiaDe = (e: any) => {
+    const raiz = e?.portada_id || e?.id
+    return ejercicios.filter((x: any) => x.portada_id === raiz)
+  }
+  async function trasFamilia(r: any, abrir?: any) {
+    setGuardando(false)
+    if (r.ok === false) { alert('No se ha podido: ' + r.error); return }
+    await cargar()
+    if (abrir) setEjSeleccionado(abrir); else { setEjSeleccionado(null); setEditando(false) }
+  }
+  async function nuevaVariante() {
+    const nombre = prompt(`Nombre de la nueva variante de «${(portadaDe(ejSeleccionado) || ejSeleccionado).nombre}»:`, `${(portadaDe(ejSeleccionado) || ejSeleccionado).nombre} · `)
+    if (!nombre || !nombre.trim()) return
+    setGuardando(true)
+    const r = await crearVariante(ejSeleccionado, nombre)
+    setGuardando(false)
+    if (r.ok === false) { alert('No se pudo crear: ' + r.error); return }
+    await cargar()
+    // Se abre para completarla: foto, descripción y lo que la diferencie.
+    setEjSeleccionado(r.ejercicio); setEditando(false)
+  }
+
   /**
    * Crear desde el buscador, con lo mínimo. Aquí SÍ se abre la ficha después: estás en
    * la biblioteca, o sea que has venido a trabajar el catálogo. En el editor de sesión
@@ -342,7 +367,6 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       <div className="field"><label>Descripción</label><textarea className="input" value={editEj.descripcion} onChange={e=>setEditEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
-                      <EditorVariantes variantes={editEj.variantes} onChange={(v:any[])=>setEditEj(p=>({...p,variantes:v}))} disabled={guardando} ejercicioId={editEj.id}/>
                       <EditorItems items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
                       <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
                       <div className="field">
@@ -409,6 +433,46 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       {(() => {
                         const vurl = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.video_url||'') : (ejSeleccionado.video_url||'')
                         return vurl ? <a href={vurl} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}><Ic name="play" size={12}/> Ver vídeo{varianteActiva>=0?` · ${ejSeleccionado.variantes[varianteActiva]?.nombre||''}`:''}</a> : null
+                      })()}
+                      {/* SU FAMILIA: portada y variantes. Tocar una la abre. */}
+                      {(() => {
+                        const portada = portadaDe(ejSeleccionado)
+                        const raiz = portada || ejSeleccionado
+                        const fam = familiaDe(ejSeleccionado)
+                        const chip = (x: any) => (
+                          <button key={x.id} type="button" className={`chip-sel ${x.id===ejSeleccionado.id?'on':''}`} style={{fontSize:12}}
+                            onClick={()=>{ if (x.id!==ejSeleccionado.id) { setEjSeleccionado(x); setVarianteActiva(-1) } }}>
+                            {x.id===raiz.id && <span style={{opacity:.7,marginRight:4}}>Portada ·</span>}{x.nombre}
+                          </button>
+                        )
+                        return (
+                          <div style={{marginBottom:14}}>
+                            <div className="et-mini" style={{marginBottom:6}}>Familia</div>
+                            {fam.length > 0 || portada
+                              ? <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{[raiz, ...fam].map(chip)}</div>
+                              : <div style={{fontSize:12,color:'var(--grl)'}}>Suelto, sin variantes</div>}
+                            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:8}}>
+                              <button className="btn btn-s btn-sm" disabled={guardando} onClick={nuevaVariante}>+ Crear variante</button>
+                              {portada && <button className="btn btn-t btn-sm" disabled={guardando}
+                                onClick={async()=>{ setGuardando(true); trasFamilia(await hacerPortada(ejSeleccionado), { ...ejSeleccionado, portada_id: null }) }}>Hacer portada</button>}
+                              {portada && <button className="btn btn-t btn-sm" disabled={guardando}
+                                onClick={async()=>{ if(!confirm(`¿Sacar «${ejSeleccionado.nombre}» de la familia de «${portada.nombre}»?`))return; setGuardando(true); trasFamilia(await sacarDeFamilia(ejSeleccionado.id), { ...ejSeleccionado, portada_id: null }) }}>Sacar de la familia</button>}
+                              {!moviendo
+                                ? <button className="btn btn-t btn-sm" disabled={guardando} onClick={()=>setMoviendo(true)}>Mover a otra familia</button>
+                                : <select className="input" autoFocus style={{maxWidth:260,fontSize:12.5}} defaultValue=""
+                                    onBlur={()=>setMoviendo(false)}
+                                    onChange={async e=>{
+                                      const dest = ejercicios.find((x:any)=>x.id===e.target.value); setMoviendo(false)
+                                      if (!dest) return
+                                      if (!confirm(`¿Meter «${ejSeleccionado.nombre}»${fam.length&&!portada?` (y sus ${fam.length} variantes)`:''} en la familia de «${dest.nombre}»?`)) return
+                                      setGuardando(true); trasFamilia(await moverAFamilia(ejSeleccionado.id, dest), { ...ejSeleccionado, portada_id: dest.portada_id || dest.id })
+                                    }}>
+                                    <option value="" disabled>Elige la portada…</option>
+                                    {ejercicios.filter((x:any)=>!x.portada_id && x.id!==raiz.id).map((x:any)=><option key={x.id} value={x.id}>{x.nombre}</option>)}
+                                  </select>}
+                            </div>
+                          </div>
+                        )
                       })()}
                       <div style={{marginBottom:14}}>
                         <div className="et-mini" style={{marginBottom:6}}>Se mide en</div>
@@ -508,7 +572,6 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
             <div className="field"><label>Descripción</label><textarea className="input" value={nuevoEj.descripcion} onChange={e=>setNuevoEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
             <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
-            <EditorVariantes variantes={nuevoEj.variantes} onChange={(v:any[])=>setNuevoEj(p=>({...p,variantes:v}))} disabled={guardando}/>
             <EditorItems items={nuevoEj.items_ejecucion} onChange={(v:any[])=>setNuevoEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
             <EditorLista items={nuevoEj.feedbacks} onChange={(v:any[])=>setNuevoEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
             <div className="field">
