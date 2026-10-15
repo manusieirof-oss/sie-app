@@ -357,7 +357,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           {/* REPARTIR. Qué sesiones se eligen arriba, tocando los cuadrados; aquí solo
               cada cuántas, hasta cuándo y pintar. Sobre blanco, como una frase. */}
           <div className="tc-rep">
-            <span>Repartir {rot.length > 0 ? <b>{rot.length === 1 ? sesDe(rot[0])?.nombre : `${rot.length} sesiones en rotación`}</b> : <em>elige arriba una o varias</em>}</span>
+            <span>Repartir</span>
             <select value={cada} onChange={e => setCada(Number(e.target.value))}>
               {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 1 ? 'en cada cita' : `cada ${n} citas`}</option>)}
             </select>
@@ -372,15 +372,6 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             <button className="btn btn-p btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
           </div>
 
-          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--gr)', marginBottom: 14 }}>
-            {/* UNA SOLA FRASE para las dos formas, para que no parezcan contradecirse:
-                Pintar reparte todas las elegidas; tocar un día pone solo la última tocada. */}
-            {!pincel
-              ? 'Elige arriba una o varias sesiones'
-              : rot.length > 1
-                ? <>Al tocar un día se pone <b style={{ color: sesDe(pincel)?.color }}>{sesDe(pincel)?.nombre}</b> (la última que elegiste) · Pintar reparte las {rot.length} en rotación</>
-                : <>Al tocar un día se pone <b style={{ color: sesDe(pincel)?.color }}>{sesDe(pincel)?.nombre}</b>; tocarlo otra vez lo quita</>}
-          </div>
           {/* EL CALENDARIO */}
           {/* Meses de ancho fijo, centrados. Con 1fr las celdas con cita se ensanchaban
               y descuadraban la semana entera. */}
