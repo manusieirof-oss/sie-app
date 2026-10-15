@@ -328,8 +328,9 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // Cancelada no gasta del bono, igual que desde la agenda (aquí no se soltaba).
     if (estado==='cancelada') await soltarDelBono(cita.id)
     // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
-    const rr = await recuperacionAlCambiarEstado({ id: cita.id, paciente_id: cita.paciente_id||pacienteId, fecha: cita.fecha }, estado)
+    const rr = await recuperacionAlCambiarEstado({ id: cita.id, paciente_id: cita.paciente_id||pacienteId, fecha: cita.fecha, hora: cita.hora }, estado)
     if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
+    else if (rr.motivo) alert('Cancelada sin recuperación: '+rr.motivo+'.')
     setEditandoCita(null); cargarDatos(); onRefresh()
   }
 

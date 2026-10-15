@@ -26,6 +26,8 @@ import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
 import { cerrarCuotasFuturas } from '@/lib/estadosPaciente'
 import { useParams, useRouter } from 'next/navigation'
 import { hoyISO } from '@/lib/fechas'
+import { recuperacionAlCambiarEstado } from '@/lib/recuperaciones'
+import { soltarDelBono } from '@/lib/bonoSesiones'
 
 
 export default function FichaPacientePage() {
@@ -533,15 +535,29 @@ export default function FichaPacientePage() {
     if (!pausa.hasta) { alert('Indica la fecha de vuelta'); return }
     if (pausa.hasta <= pausa.desde) { alert('La fecha de vuelta debe ser posterior a la de inicio'); return }
     setProcesando(true)
-    const { data: citasPausa } = await supabase.from('citas').select('id').eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
+    const { data: citasPausa } = await supabase.from('citas').select('id,paciente_id,fecha,hora').eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
+    let recuperables = 0
+    const sinRec: string[] = []
     if (citasPausa && citasPausa.length > 0) {
-      await supabase.from('citas').update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
+      const { error: errPausa } = await supabase.from('citas').update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',pausa.desde).lte('fecha',pausa.hasta).eq('estado','programada')
+      if (errPausa) { setProcesando(false); alert('No se han podido cancelar sus citas: ' + errPausa.message); return }
+      // LA PAUSA ACUMULA CLASES PARA RECUPERAR: es para vacaciones o salidas, y la
+      // cuota se cobra igual. Cada cita cancelada pasa por la regla de siempre
+      // (lib/recuperaciones), con el plazo contado desde la vuelta. Y como cualquier
+      // cancelada, no gasta del bono. Antes solo se cancelaban y se perdían.
+      for (const c of citasPausa) {
+        await soltarDelBono(c.id)
+        const r = await recuperacionAlCambiarEstado(c, 'cancelada', { pausaHasta: pausa.hasta })
+        if (r.ok === false) sinRec.push(r.error)
+        else if (r.motivo) { if (!sinRec.includes(r.motivo)) sinRec.push(r.motivo) }
+        else recuperables++
+      }
     }
     await supabase.from('pacientes').update({ estado:'pausa', estado_desde:pausa.desde, pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
     await registrarEvento('pausa', `Pausa del ${pausa.desde} al ${pausa.hasta}`, `${citasPausa?.length||0} citas canceladas en ese periodo.`)
     setProcesando(false)
     setModalPausa(false)
-    alert(`✓ Pausa aplicada. ${citasPausa?.length||0} citas canceladas del ${pausa.desde} al ${pausa.hasta}.\nEl paciente se reactivará automáticamente al volver.`)
+    alert(`✓ Pausa aplicada. ${citasPausa?.length||0} citas canceladas del ${pausa.desde} al ${pausa.hasta}.\n${recuperables} quedan para recuperar a la vuelta.${sinRec.length ? `\nSin recuperación: ${sinRec.join(' · ')}.` : ''}\nEl paciente se reactivará automáticamente al volver.`)
     cargar()
   }
 
@@ -1105,7 +1121,7 @@ export default function FichaPacientePage() {
           <div className="modal">
             <div className="modal-title"><span className="ct-l"><Ic name="pausa" size={16}/> Pausa temporal</span><button className="modal-close" onClick={()=>setModalPausa(false)}>✕</button></div>
             <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,fontWeight:300}}>
-              Las citas del periodo seleccionado se cancelarán automáticamente. El paciente podrá reactivarse cuando vuelva.
+              Las citas del periodo seleccionado se cancelarán y quedarán para recuperar a la vuelta. El paciente podrá reactivarse cuando vuelva.
             </div>
             <div className="g2">
               <div className="field"><label>Desde</label><input type="date" className="input" value={pausa.desde} onChange={e=>setPausa(p=>({...p,desde:e.target.value}))}/></div>

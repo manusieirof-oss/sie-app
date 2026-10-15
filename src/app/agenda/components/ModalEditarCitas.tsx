@@ -18,9 +18,9 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
   const [flash, setFlash] = useState('')
   const avisar = (t:string) => { setFlash(t); setTimeout(()=>setFlash(''), 2600) }
   const GT = '1.2fr 0.8fr 0.7fr 1fr 82px'
-  const cancelarCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'cancelada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'cancelada'}:x)); setHechas(h=>({...h,canceladas:h.canceladas+1})); avisar('Cita cancelada · se ha generado su recuperación'); setBusy(false) }
-  const deshacerCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'programada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'programada'}:x)); setHechas(h=>({...h,canceladas:Math.max(0,h.canceladas-1)})); avisar('Cancelación deshecha'); setBusy(false) }
-  const eliminarUna = async (r:any) => { if(!onEliminar) return; if(!confirm('¿Eliminar esta cita definitivamente? Se usa para errores: no guarda falta ni recuperación.')) return; setBusy(true); await onEliminar(orig(r.id)); setRows(p=>p.filter(x=>x.id!==r.id)); setHechas(h=>({...h,eliminadas:h.eliminadas+1})); avisar('Cita eliminada'); setBusy(false) }
+  const cancelarCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'cancelada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'cancelada'}:x)); setHechas(h=>({...h,canceladas:h.canceladas+1})); avisar('Cita cancelada'); refrescarOcup(r.id); setBusy(false) }
+  const deshacerCita = async (r:any) => { if(!onEstado) return; setBusy(true); await onEstado(orig(r.id),'programada'); setRows(p=>p.map(x=>x.id===r.id?{...x,estado:'programada'}:x)); setHechas(h=>({...h,canceladas:Math.max(0,h.canceladas-1)})); avisar('Cancelación deshecha'); refrescarOcup(r.id); setBusy(false) }
+  const eliminarUna = async (r:any) => { if(!onEliminar) return; if(!confirm('¿Eliminar esta cita definitivamente? Se usa para errores: no guarda falta ni recuperación.')) return; setBusy(true); await onEliminar(orig(r.id)); setRows(p=>p.filter(x=>x.id!==r.id)); setHechas(h=>({...h,eliminadas:h.eliminadas+1})); avisar('Cita eliminada'); refrescarOcup(r.id); setBusy(false) }
   const HORAS = horas && horas.length>0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   const colorTipo = (t:string) => (tiposClase.find((x:any)=>x.valor===t)?.color) || '#5A969E'
   const set = (id:string, k:string, v:string) => setRows(p=>p.map(r=>{
@@ -33,6 +33,13 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
   }))
   // `pedirOcup` se declara mas abajo; el ref evita tener que reordenar medio fichero.
   const pedirOcupRef = useRef<((f:string,h:string)=>void)|null>(null)
+  /**
+   * Cancelar, deshacer o eliminar cambia cuánta gente hay en ese hueco. La ocupación
+   * estaba guardada de antes y seguía diciendo "llena" con la plaza ya libre: se
+   * olvida y se vuelve a mirar en la base.
+   */
+  const refrescarOcupRef = useRef<((f:string,h:string)=>void)|null>(null)
+  const refrescarOcup = (id:string) => { const o = orig(id); if (o) refrescarOcupRef.current?.(o.fecha, (o.hora||'').slice(0,5)) }
 
   // Tambien mira en `rows`: una cita creada aqui mismo no esta en las que
   // llegaron por props, y cancelarla o borrarla se quedaba sin objeto.
@@ -83,6 +90,7 @@ export default function ModalEditarCitas({ citas, pacienteNombre, pacienteId, ho
   }
 
   pedirOcupRef.current = pedirOcup
+  refrescarOcupRef.current = (f:string, h:string) => { pedidas.current.delete(claveOcup(f, h)); pedirOcup(f, h) }
 
   useEffect(() => { pedirOcup(nueva.fecha, nueva.hora) }, [nueva.fecha, nueva.hora])
 

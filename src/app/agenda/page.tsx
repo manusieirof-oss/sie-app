@@ -415,8 +415,12 @@ export default function AgendaPage() {
     if (estado==='cancelada') await soltarDelBono(id)
     // Recuperaciones: la misma regla que en todos los sitios (lib/recuperaciones).
     // Aquí antes la daba la FALTA, al revés que en el resto.
-    const { data: cRec } = await supabase.from('citas').select('id,paciente_id,fecha').eq('id',id).maybeSingle()
-    if (cRec) { const rr = await recuperacionAlCambiarEstado(cRec, estado); if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error) }
+    const { data: cRec } = await supabase.from('citas').select('id,paciente_id,fecha,hora').eq('id',id).maybeSingle()
+    if (cRec) {
+      const rr = await recuperacionAlCambiarEstado(cRec, estado)
+      if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
+      else if (rr.motivo) alert('Cancelada sin recuperación: '+rr.motivo+'.')
+    }
     setPanelPac((prev:any)=>prev?{...prev,estado}:null)
     cargar()
   }
@@ -428,6 +432,7 @@ export default function AgendaPage() {
     // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
     const rr = await recuperacionAlCambiarEstado(cita, estado)
     if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
+    else if (rr.motivo) alert('Cancelada sin recuperación: '+rr.motivo+'.')
     setEditandoCita(null); cargar()
   }
 
