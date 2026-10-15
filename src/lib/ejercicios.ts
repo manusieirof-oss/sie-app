@@ -144,8 +144,13 @@ export function similaresA(ejercicios: any[], ejercicio: any, max = 6, etiquetas
   const propias = (ejercicio?.etiquetas || []).filter(relevante)
   if (propias.length === 0) return []
 
+  /* FAMILIAS: los de su propia familia ya se ven en "Familia", así que aquí no se
+     repiten; y de cada familia parecida sale solo la portada, una vez. Si no, el curl
+     con barra enseñaba sus propias dos variantes como "similares". */
+  const raiz = (e: any) => e?.portada_id && ejercicios.some(x => x.id === e.portada_id) ? e.portada_id : e?.id
+  const suya = raiz(ejercicio)
   return ejercicios
-    .filter(e => e.id !== ejercicio.id)
+    .filter(e => e.id !== ejercicio.id && raiz(e) !== suya && raiz(e) === e.id)
     .map(e => ({
       ejercicio: e,
       comunes: (e.etiquetas || []).filter((id: string) => propias.includes(id) && relevante(id)).length,
