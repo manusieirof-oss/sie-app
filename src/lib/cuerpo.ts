@@ -41,11 +41,11 @@ const CAPA: Record<string, [Vista, string]> = {
   'cuadriceps>recto femoral': ['perfil', 'recto_femoral'],
   'cuadriceps>vasto intermedio': ['perfil', 'cuadriceps'],
   'cuadriceps>vasto lateral': ['perfil', 'cuadriceps'],
-  'cuadriceps>vasto medial': ['perfil', 'cuadriceps'],
+  'cuadriceps>vasto medial': ['frente', 'vasto_medial'],
   'espalda': ['espalda', 'erectores_espinales'],                    // ≈
   'espalda>cuadrado lumbar': ['perfil', 'cuadrado_lumbar'],
   'espalda>dorsal ancho': ['espalda', 'dorsal_ancho'],
-  'espalda>elevador de la escapula': ['espalda', 'trapecio'],       // ≈
+  'espalda>elevador de la escapula': ['espalda', 'elevador_escapula'],
   'espalda>erectores espinales': ['espalda', 'erectores_espinales'],
   'espalda>multifidos': ['espalda', 'erectores_espinales'],         // ≈
   'espalda>semiespinoso': ['espalda', 'erectores_espinales'],       // ≈
@@ -61,7 +61,7 @@ const CAPA: Record<string, [Vista, string]> = {
   'gluteo>gluteo mayor': ['espalda', 'gluteo_mayor'],
   'gluteo>gluteo medio': ['espalda', 'gluteo_medio'],
   'gluteo>gluteo menor': ['espalda', 'gluteo_medio'],              // ≈
-  'gluteo - piramidal': ['espalda', 'gluteo_mayor'],                // ≈
+  'gluteo - piramidal': ['espalda', 'piramidal'],
   'hombro': ['frente', 'deltoides'],
   'hombro>deltoides': ['frente', 'deltoides'],
   'hombro>anterior': ['frente', 'deltoides'],
@@ -70,7 +70,7 @@ const CAPA: Record<string, [Vista, string]> = {
   'hombro>manguito rotador': ['espalda', 'infraespinoso'],          // ≈
   'hombro>infraespinoso': ['espalda', 'infraespinoso'],
   'hombro>redondo menor': ['espalda', 'infraespinoso'],             // ≈
-  'hombro>supraespinoso': ['espalda', 'infraespinoso'],             // ≈
+  'hombro>supraespinoso': ['espalda', 'supraespinoso'],
   'hombro>subescapular': ['espalda', 'infraespinoso'],              // ≈
   'isquiotibial': ['espalda', 'isquiotibiales'],
   'isquiotibial>biceps femoral': ['espalda', 'isquiotibiales'],
@@ -81,6 +81,15 @@ const CAPA: Record<string, [Vista, string]> = {
   'psoas': ['frente', 'psoas_iliaco'],
   'tibial': ['frente', 'tibial_anterior'],
   'tibial>tibial anterior': ['frente', 'tibial_anterior'],
+  'tibial>tibial posterior': ['espalda', 'tibial_posterior'],
+  'peroneos': ['espalda', 'peroneos'],
+  'sartorio': ['frente', 'sartorio'],
+  'diafragma': ['frente', 'diafragma'],
+  'intercostales': ['frente', 'intercostales'],
+  'dedos': ['frente', 'dedos'],
+  'dedos>extrinseca': ['frente', 'dedos'],
+  'dedos>intrinseca': ['frente', 'mano'],
+  'dedos>1º metacarpiano': ['frente', 'mano'],
   'trapecio': ['espalda', 'trapecio'],
   'trapecio>inferior': ['espalda', 'trapecio'], 'trapecio>medio': ['espalda', 'trapecio'],
   'trapecio>superior': ['espalda', 'trapecio'],
@@ -133,14 +142,17 @@ export const urlCapa = (vista: Vista, capa: string) => `/cuerpo/${vista}_${capa}
  * Medido de las capas al generarlas.
  */
 const ALTURA: Record<string, [number, number]> = {
-  espalda_dorsal_ancho:[.297,.442], espalda_erectores_espinales:[.258,.456], espalda_extensores_antebrazo:[.373,.527],
-  espalda_gemelos:[.72,.856], espalda_gluteo_mayor:[.453,.555], espalda_gluteo_medio:[.481,.566], espalda_infraespinoso:[.206,.258],
-  espalda_isquiotibiales:[.558,.723], espalda_romboides:[.209,.311], espalda_trapecio:[.134,.334], espalda_triceps:[.281,.388],
-  frente_abdominales:[.333,.492], frente_aductores:[.522,.655], frente_biceps:[.275,.38], frente_deltoides:[.197,.281],
-  frente_esternocleidomastoideo:[.15,.212], frente_flexores_antebrazo:[.347,.473], frente_oblicuos:[.312,.455], frente_pectoral:[.234,.333],
-  frente_psoas_iliaco:[.403,.506], frente_serrato_anterior:[.305,.38], frente_tibial_anterior:[.736,.87],
-  perfil_cuadrado_lumbar:[.352,.441], perfil_cuadriceps:[.527,.689], perfil_deltoides_posterior:[.191,.294], perfil_gemelos:[.706,.869],
-  perfil_gluteo_mayor:[.438,.527], perfil_isquiotibiales:[.559,.691], perfil_recto_femoral:[.461,.692], perfil_tensor_fascia_lata:[.427,.558],
+  espalda_dorsal_ancho:[0.297,0.442], espalda_elevador_escapula:[0.142,0.220], espalda_erectores_espinales:[0.258,0.456], espalda_extensores_antebrazo:[0.373,0.527],
+  espalda_gemelos:[0.720,0.856], espalda_gluteo_mayor:[0.453,0.555], espalda_gluteo_medio:[0.481,0.566], espalda_infraespinoso:[0.206,0.258],
+  espalda_isquiotibiales:[0.558,0.723], espalda_peroneos:[0.719,0.923], espalda_piramidal:[0.533,0.567], espalda_romboides:[0.209,0.311],
+  espalda_supraespinoso:[0.211,0.234], espalda_tibial_posterior:[0.789,0.936], espalda_trapecio:[0.134,0.334], espalda_triceps:[0.281,0.388],
+  frente_abdominales:[0.333,0.492], frente_aductores:[0.522,0.655], frente_biceps:[0.275,0.380], frente_dedos:[0.541,0.577],
+  frente_deltoides:[0.197,0.281], frente_diafragma:[0.292,0.352], frente_esternocleidomastoideo:[0.150,0.212], frente_flexores_antebrazo:[0.347,0.473],
+  frente_intercostales:[0.242,0.375], frente_mano:[0.487,0.548], frente_oblicuos:[0.312,0.455], frente_pectoral:[0.234,0.333],
+  frente_psoas_iliaco:[0.403,0.506], frente_sartorio:[0.469,0.709], frente_serrato_anterior:[0.305,0.380], frente_tibial_anterior:[0.736,0.870],
+  frente_vasto_medial:[0.548,0.670], perfil_cuadrado_lumbar:[0.352,0.441], perfil_cuadriceps:[0.527,0.689], perfil_deltoides_posterior:[0.191,0.294],
+  perfil_gemelos:[0.706,0.869], perfil_gluteo_mayor:[0.438,0.527], perfil_isquiotibiales:[0.559,0.691], perfil_recto_femoral:[0.461,0.692],
+  perfil_tensor_fascia_lata:[0.427,0.558],
 }
 
 /** Proporción alto/ancho de las capas (360 x 640). */
