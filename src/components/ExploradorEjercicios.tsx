@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
+import FiguraMusculos from './FiguraMusculos'
+import { figuraDe } from '@/lib/cuerpo'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
@@ -212,7 +214,10 @@ export default function ExploradorEjercicios({
         <div className="tarj-img">
           {img
             ? <img src={img} alt={vc ? `${e.nombre} · ${vc.nombre}` : e.nombre} />
-            : <span className="sin"><Ic name="fuerza" size={30} /></span>}
+            /* Sin foto: la figura con sus músculos, si sus etiquetas lo permiten. */
+            : figuraDe(e.etiquetas || [], etiquetas)
+              ? <span style={{ display: 'block', height: '100%', padding: '6px 0', background: 'var(--bl)' }}><FiguraMusculos etiquetasEj={e.etiquetas} etiquetas={etiquetas}/></span>
+              : <span className="sin"><Ic name="fuerza" size={30} /></span>}
           {seleccion && sel && <span className="marca"><Ic name="check" size={13} /></span>}
         </div>
         <div style={{ padding: '8px 10px' }}>

@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
+import FiguraMusculos from '@/components/FiguraMusculos'
+import { figuraDe } from '@/lib/cuerpo'
 import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
 import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido } from '@/lib/ejercicios'
 
@@ -406,7 +408,11 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                     <div>
                       {(() => {
                         const img = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.imagen_url || ejSeleccionado.imagen_url) : ejSeleccionado.imagen_url
-                        return img?<img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',aspectRatio:'1',objectFit:'cover',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)',display:'block'}}/>:<div style={{width:'100%',aspectRatio:'1',background:'var(--bm)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gr)'}}><Ic name="fuerza" size={56}/></div>
+                        if (img) return <img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',aspectRatio:'1',objectFit:'cover',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)',display:'block'}}/>
+                        // Sin foto: la figura con sus músculos (lib/cuerpo), o el icono si no hay capa.
+                        return <div style={{width:'100%',aspectRatio:'1',background:'var(--bl)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gr)',padding:12}}>
+                          {figuraDe(ejSeleccionado.etiquetas||[], etiquetas) ? <FiguraMusculos etiquetasEj={ejSeleccionado.etiquetas} etiquetas={etiquetas}/> : <Ic name="fuerza" size={56}/>}
+                        </div>
                       })()}
                     </div>
                     <div>
