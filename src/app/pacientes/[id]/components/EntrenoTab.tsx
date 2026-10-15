@@ -16,6 +16,7 @@ import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 import { hoyISO } from '@/lib/fechas'
+import { estadoRecuperacion, soltarRecuperacion } from '@/lib/recuperaciones'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
@@ -324,6 +325,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function cambiarEstadoCita(cita:any, estado:string) {
     await supabase.from('citas').update({estado}).eq('id',cita.id)
     if (estado==='cancelada') {
+      // Si era la recuperación de otra falta, la falta vuelve al banco.
+      await soltarRecuperacion(cita.id)
       const fechaFalta=new Date(cita.fecha+'T12:00:00')
       const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
       const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()
@@ -337,6 +340,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function eliminarCita(cita:any) {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
+    await soltarRecuperacion(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     setEditandoCita(null); cargarDatos(); onRefresh()
   }
@@ -497,9 +501,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   function recuperacionDe(cita:any) {
     const perdida = recuperaciones.find((r:any)=>r.cita_falta_id===cita.id)
     if (perdida) {
-      if (perdida.estado==='recuperada') return { txt:'Recuperada', clase:'pill-o on' }
-      const vencida = perdida.fecha_limite && perdida.fecha_limite < hoyISO()
-      return vencida
+      const est = estadoRecuperacion(perdida)
+      if (est==='recuperada') return { txt:'Recuperada', clase:'pill-o on' }
+      // Ya tiene su cita de recuperación: antes seguía diciendo "Por recuperar".
+      if (est==='agendada') return { txt:'Recuperación agendada', clase:'pill-o on' }
+      return est==='caducada'
         ? { txt:'Sin recuperar · plazo vencido', clase:'pill-r' }
         : { txt:`Por recuperar antes del ${fmtCorto(perdida.fecha_limite)}`, clase:'pill-a' }
     }

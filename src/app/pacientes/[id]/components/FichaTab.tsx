@@ -23,6 +23,7 @@ import { ordenAnatomico } from '@/lib/anatomia'
 import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
 import TrabajoObjetivo from './TrabajoObjetivo'
+import { porRecuperar } from '@/lib/recuperaciones'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -1143,7 +1144,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     cargarObjetivos()
   }
 
-  const recPendientes = (recuperaciones||[]).filter((r:any)=>r.estado==='pendiente')
+  // Solo sin cita y en plazo: las agendadas y las caducadas ya no son "sin recuperar".
+  const recPendientes = porRecuperar(recuperaciones||[])
   const recVence = recPendientes.map((r:any)=>r.fecha_limite).filter(Boolean).sort()[0]
   const hayAtencion = (alertas?.length>0) || recPendientes.length>0 || estadoPago==='impago'
   const objPide = valoracion?.objetivos || []

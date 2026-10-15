@@ -21,6 +21,7 @@ import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, pl
 import { useRouter } from 'next/navigation'
 import { ultimasDeBono, soltarDelBono, engancharCitas } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
+import { porRecuperar, soltarRecuperacion } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -368,7 +369,9 @@ export default function AgendaPage() {
       const r = await crearUnaCita(fechaCita, datos)
       if (!r.ok) { alert('Error: '+r.error); setGuardando(false); return }
       if (nuevaCita.es_recuperacion && nuevaCita.recuperacion_id) {
-        await supabase.from('recuperaciones').update({cita_recuperacion_id:r.cita.id}).eq('id',nuevaCita.recuperacion_id)
+        // Si falla, la cita queda creada pero la falta seguiría en el banco: se avisa.
+        const { error } = await supabase.from('recuperaciones').update({cita_recuperacion_id:r.cita.id}).eq('id',nuevaCita.recuperacion_id)
+        if (error) alert('La cita se ha creado, pero no se ha marcado como recuperación: '+error.message)
       }
       if (desdeValoracion===pid) setOfrecerSesiones({pacienteId:pid,citas:1})
     } else if (nuevaCita.alterno) {
@@ -410,7 +413,7 @@ export default function AgendaPage() {
     await supabase.from('citas').update({estado}).eq('id',id)
     // Cancelada no gasta: el hueco del bono lo coge su siguiente cita.
     if (estado==='cancelada') await soltarDelBono(id)
-    if (estado==='cancelada') await supabase.from('recuperaciones').update({estado:'pendiente',cita_recuperacion_id:null}).eq('cita_recuperacion_id',id)
+    if (estado==='cancelada') await soltarRecuperacion(id)
     if (estado==='falta' && panelPac) {
       const fechaFalta=new Date(panelPac.fecha+'T12:00:00')
       const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
@@ -428,6 +431,9 @@ export default function AgendaPage() {
     if (estado==='cancelada') {
       // Y no gasta: el hueco del bono lo coge su siguiente cita.
       await soltarDelBono(cita.id)
+      // Si era la recuperación de otra, esa falta vuelve al banco. Desde el panel ya
+      // se hacía; desde aquí se quedaba enganchada a una cita cancelada.
+      await soltarRecuperacion(cita.id)
       const fechaFalta=new Date(cita.fecha+'T12:00:00')
       const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
       const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()
@@ -443,6 +449,8 @@ export default function AgendaPage() {
   async function eliminarCita(cita:any) {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
+    // Si era la recuperación de otra falta, la falta vuelve al banco.
+    await soltarRecuperacion(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     // Si gastaba de un bono, el hueco lo coge su siguiente cita sin bono.
     if (cita.bono_id) await engancharCitas(cita.bono_id)
@@ -451,6 +459,7 @@ export default function AgendaPage() {
 
   async function borrarCitaDirecto(cita:any) {
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
+    await soltarRecuperacion(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     if (cita.bono_id) await engancharCitas(cita.bono_id)
     cargar()
@@ -495,7 +504,8 @@ export default function AgendaPage() {
   async function cargarRecuperaciones(pacienteId: string) {
     if (!pacienteId) { setRecuperacionesPaciente([]); return }
     const { data } = await supabase.from('recuperaciones').select('*').eq('paciente_id',pacienteId).eq('estado','pendiente').is('cita_recuperacion_id',null).order('fecha_limite')
-    setRecuperacionesPaciente(data||[])
+    // Solo las que siguen en plazo: las caducadas ya no se ofrecen para recuperar.
+    setRecuperacionesPaciente(porRecuperar(data||[]))
   }
 
   function SesionSelector({ pacienteId, sesionId, onChange }: { pacienteId: string, sesionId: string, onChange: (id: string) => void }) {
