@@ -19,6 +19,7 @@ import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
+import { ultimasDeBono, soltarDelBono } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 
@@ -167,6 +168,9 @@ export default function AgendaPage() {
       todas.push(...pagina)
       if (pagina.length < TAM_PAGINA) break
     }
+    // LA ÚLTIMA SESIÓN DEL BONO, marcada: es la que dice que toca renovar.
+    const ultimas = await ultimasDeBono(todas)
+    todas.forEach(c => { c._ultimaBono = ultimas.has(c.id) })
     setCitas(todas)
     const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
     setAlertasPaciente(alPac||[])
@@ -404,6 +408,8 @@ export default function AgendaPage() {
 
   async function cambiarEstado(id:string,estado:string) {
     await supabase.from('citas').update({estado}).eq('id',id)
+    // Cancelada no gasta: el hueco del bono lo coge su siguiente cita.
+    if (estado==='cancelada') await soltarDelBono(id)
     if (estado==='cancelada') await supabase.from('recuperaciones').update({estado:'pendiente',cita_recuperacion_id:null}).eq('cita_recuperacion_id',id)
     if (estado==='falta' && panelPac) {
       const fechaFalta=new Date(panelPac.fecha+'T12:00:00')
@@ -420,6 +426,8 @@ export default function AgendaPage() {
     await supabase.from('citas').update({estado}).eq('id',cita.id)
     // Cancelada (avisa) -> genera recuperacion
     if (estado==='cancelada') {
+      // Y no gasta: el hueco del bono lo coge su siguiente cita.
+      await soltarDelBono(cita.id)
       const fechaFalta=new Date(cita.fecha+'T12:00:00')
       const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
       const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()

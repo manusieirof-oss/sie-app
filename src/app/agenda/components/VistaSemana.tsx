@@ -80,6 +80,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
             <span style={{display:'inline-flex',color:colorTipo(c.tipo),flexShrink:0}}><Ic name={iconTipo(c.tipo)} size={9}/></span>
             {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={9}/></span>}
             <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
+            {c._ultimaBono&&<span title="Gasta la última sesión de su bono: toca renovar" style={{fontSize:8,fontWeight:700,padding:'0 6px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',flexShrink:0,letterSpacing:.3}}>ÚLTIMA</span>}
           </div>
         ))}
       </div>

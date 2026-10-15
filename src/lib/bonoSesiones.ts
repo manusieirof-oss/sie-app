@@ -244,6 +244,43 @@ export async function engancharCitas(bonoId: string) {
 }
 
 /**
+ * LA CITA QUE GASTA LA ÚLTIMA SESIÓN de cada bono, entre las citas dadas.
+ *
+ * Se calcula al vuelo, por orden de fecha y hora de las citas que cuentan
+ * (hechas, faltas y reservadas): si una se cancela o se mueve, la marca pasa sola
+ * a la que le toque. Es para avisar en la agenda de que toca renovar.
+ */
+export async function ultimasDeBono(citas: { id: string, bono_id?: string | null }[]): Promise<Set<string>> {
+  const ids = Array.from(new Set(citas.map(c => c.bono_id).filter(Boolean))) as string[]
+  const out = new Set<string>()
+  for (let i = 0; i < ids.length; i += 100) {
+    const lote = ids.slice(i, i + 100)
+    const [{ data: bs }, { data: cs }] = await Promise.all([
+      supabase.from('bonos').select('id,sesiones_totales').in('id', lote),
+      supabase.from('citas').select('id,bono_id').in('bono_id', lote)
+        .in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA]).order('fecha').order('hora').order('id'),
+    ])
+    for (const b of bs || []) {
+      if (!b.sesiones_totales) continue
+      const suyas = (cs || []).filter((c: any) => c.bono_id === b.id)
+      if (suyas.length >= b.sesiones_totales) out.add(suyas[b.sesiones_totales - 1].id)
+    }
+  }
+  return out
+}
+
+/**
+ * Una cita cancelada deja de gastar: se suelta del bono y el hueco lo coge la
+ * siguiente cita suya sin bono, si la hay. Así la última del bono "corre" sola.
+ */
+export async function soltarDelBono(citaId: string) {
+  const { data: c } = await supabase.from('citas').select('bono_id').eq('id', citaId).maybeSingle()
+  if (!c?.bono_id) return
+  await supabase.from('citas').update({ bono_id: null }).eq('id', citaId)
+  await engancharCitas(c.bono_id)
+}
+
+/**
  * CAMBIAR CUÁNDO EMPEZÓ un bono de sesiones.
  *
  * Caso real: viene a clase, y el bono se le crea días después. El bono nacía
