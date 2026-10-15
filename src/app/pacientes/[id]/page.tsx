@@ -575,12 +575,20 @@ export default function FichaPacientePage() {
    * la tiene haría que la reactivación automática se lo llevara por delante.
    */
   async function marcarPuedeVolver() {
-    if (!confirm(`¿Marcar a ${pac.nombre} ${pac.apellidos} como "puede volver"?\n\nDeja de contar como cliente y no se le cobra el mes. Sus citas programadas se cancelan, pero sigue apareciendo en su lista de seguimiento.`)) return
+    if (!confirm(`¿Marcar a ${pac.nombre} ${pac.apellidos} como "puede volver"?\n\nDeja de contar como cliente y no se le cobra el mes. Sus citas futuras se eliminan, pero sigue apareciendo en su lista de seguimiento.`)) return
     setProcesando(true)
     const hoy = hoyISO()
-    const { error: errCitas } = await supabase.from('citas')
-      .update({ estado:'cancelada' }).eq('paciente_id',id).gte('fecha',hoy).eq('estado','programada')
-    if (errCitas) { setProcesando(false); alert('No se han podido cancelar sus citas futuras: ' + errCitas.message); return }
+    /* SUS CITAS FUTURAS SE BORRAN, como en la baja. Antes se cancelaban y se quedaban
+       en la agenda para siempre: no recuperan (no paga), no ocupan plaza, y si vuelve
+       es incierto cuándo y a qué hora. Primero se sueltan sus recuperaciones, por si
+       alguna era la recuperación de otra falta. */
+    const { data: futuras, error: errLeer } = await supabase.from('citas').select('id')
+      .eq('paciente_id',id).gte('fecha',hoy).in('estado',['programada','cancelada'])
+    if (errLeer) { setProcesando(false); alert('No se han podido leer sus citas futuras: ' + errLeer.message); return }
+    for (const c of futuras || []) await recuperacionAlEliminar(c.id)
+    const { error: errCitas } = await supabase.from('citas').delete()
+      .eq('paciente_id',id).gte('fecha',hoy).in('estado',['programada','cancelada'])
+    if (errCitas) { setProcesando(false); alert('No se han podido eliminar sus citas futuras: ' + errCitas.message); return }
     const { error } = await supabase.from('pacientes')
       .update({ estado:'puede_volver', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
     if (error) { setProcesando(false); alert('No se ha podido cambiar el estado: ' + error.message); return }
@@ -598,7 +606,7 @@ export default function FichaPacientePage() {
     if (!rc.ok) alert('El estado se ha cambiado, pero sus cuotas futuras no se han podido cerrar: ' + rc.error)
 
     await registrarEvento('pausa', 'Marcado como "puede volver"',
-      `Sin fecha de vuelta. Sus citas programadas se han cancelado.${rc.ok && rc.cerradas > 0 ? ` Se cerraron ${rc.cerradas} cuota${rc.cerradas>1?'s':''} de meses posteriores.` : ''}`)
+      `Sin fecha de vuelta. Sus citas futuras se han eliminado.${rc.ok && rc.cerradas > 0 ? ` Se cerraron ${rc.cerradas} cuota${rc.cerradas>1?'s':''} de meses posteriores.` : ''}`)
     setProcesando(false)
     cargar()
   }
