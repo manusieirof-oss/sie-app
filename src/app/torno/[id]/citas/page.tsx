@@ -6,6 +6,7 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { cargarSistema, sistemasDePaciente, tramos } from '@/lib/sistemas'
 import { registrarSesion } from '@/lib/sesiones'
+import { abrirEvaluacion, moverEvaluacion } from '@/lib/evaluaciones'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 
 // ---------------------------------------------------------------------------
@@ -29,7 +30,13 @@ import MonedaObjetivo from '@/components/MonedaObjetivo'
 
 type Cita = { id: string, fecha: string, hora: string | null, sala: string | null, sesion_id: string | null }
 type Ses = { id: string, nombre: string, color: string, desde: string | null, hasta: string | null, fase?: string, ciclo?: string, partes?: any[], objs?: any[] }
-type Ciclo = { id: string, nombre: string, color: string, fases: { nombre: string, desde: string | null, hasta: string | null, sesiones: string[] }[] }
+/**
+ * UNA EVALUACIÓN POR PONER: al empezar o al salir de una fase de un ciclo.
+ * `cita` es la que tiene ahora en la base; lo que se ve sale de `evalPlan`.
+ */
+type Ev = { key: string, asig: string, fase: string, faseNombre: string, momento: 'inicial' | 'final', ciclo: string, color: string,
+  desde: string | null, hasta: string | null, existente: string | null, cita: string | null, tests: string[] }
+type Ciclo = { id: string, nombre: string, color: string, asig?: string | null, fases: { id?: string, nombre: string, desde: string | null, hasta: string | null, sesiones: string[], objetivos?: string[] }[] }
 
 const COLORES = ['#5A969E', '#C9A84C', '#B0708C', '#6E8FC7', '#7C9A6B', '#C77F5A', '#8A7CC7', '#4F9C8A']
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -49,6 +56,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   /** El cuadrado abierto (grande, con lo que lleva dentro): 's:<id>' o 'c:<id>'. */
   const [abierto, setAbierto] = useState<string | null>(null)
+  // LAS EVALUACIONES: se ponen igual que las sesiones, tocando su cuadrado y luego la cita.
+  const [evals, setEvals] = useState<Ev[]>([])
+  const [evalPlan, setEvalPlan] = useState<Record<string, string | null>>({})
+  const [pincelEval, setPincelEval] = useState<string | null>(null)
   // La información abierta se cierra al tocar fuera o con Escape: antes no había forma.
   useEffect(() => {
     if (!abierto) return
@@ -99,10 +110,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       for (const sisId of q.sis) {
         const sis = await cargarSistema(sisId)
         const a = asig.find(x => x.sistema_id === sisId)
+        if (sis && a) (sis as any)._asig = a.id
         const tr = sis && a ? tramos(sis, a) : []
         const ids = (sis?.fases || []).flatMap(f => f.sesiones || [])
         const { data: ss } = ids.length ? await supabase.from('sesiones').select('id,nombre,partes,sesiones_objetivos(objetivos(id,nombre,imagen_url))').in('id', ids) : { data: [] as any[] }
-        if (sis) cics.push({ id: sis.id, nombre: sis.nombre, color: sis.color || '#5A969E', fases: (sis.fases || []).map(f => { const t = tr.find(x => x.fase.id === f.id); return { nombre: f.nombre, desde: t?.desde || null, hasta: t?.hasta || null, sesiones: f.sesiones || [] } }) })
+        if (sis) cics.push({ id: sis.id, nombre: sis.nombre, color: sis.color || '#5A969E', asig: (sis as any)._asig || null, fases: (sis.fases || []).map(f => { const t = tr.find(x => x.fase.id === f.id); return { id: f.id, nombre: f.nombre, desde: t?.desde || null, hasta: t?.hasta || null, sesiones: f.sesiones || [], objetivos: f.objetivos || [] } }) })
         ;(sis?.fases || []).forEach(f => {
           const t = tr.find(x => x.fase.id === f.id)
           ;(f.sesiones || []).forEach(sid => {
@@ -122,6 +134,47 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     }
     setSesiones(lista)
     setCiclos(cics)
+
+    // LAS EVALUACIONES DE CADA FASE. Las que ya existen, en su cita; las que no,
+    // propuestas: al empezar en la primera cita de la fase, al salir en la última (si la
+    // fase tiene fin) o a las 5 semanas (si avanza por objetivos). Se corrigen tocando.
+    const asigs = cics.map(c => c.asig).filter(Boolean) as string[]
+    if (asigs.length) {
+      const { data: ex } = await supabase.from('evaluaciones').select('id,asignacion_id,fase_id,momento,fecha,cita_id').in('asignacion_id', asigs)
+      const objIds = Array.from(new Set(cics.flatMap(c => c.fases.flatMap(f => f.objetivos || []))))
+      const { data: ot } = objIds.length
+        ? await supabase.from('objetivos_tests').select('objetivo_id, tests:test_id(nombre)').in('objetivo_id', objIds)
+        : { data: [] as any[] }
+      const cl = (cs || []) as Cita[]
+      const sumar = (f: string, d: number) => { const x = new Date(f + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10) }
+      const lista2: Ev[] = []
+      const plan0: Record<string, string | null> = {}
+      for (const c of cics) {
+        if (!c.asig) continue
+        for (const f of c.fases) {
+          if (!f.id) continue
+          const enFase = cl.filter(x => (!f.desde || x.fecha >= f.desde) && (!f.hasta || x.fecha <= f.hasta))
+          const tests = Array.from(new Set((ot || []).filter((r: any) => (f.objetivos || []).includes(r.objetivo_id))
+            .map((r: any) => (Array.isArray(r.tests) ? r.tests[0] : r.tests)?.nombre).filter(Boolean))) as string[]
+          for (const momento of ['inicial', 'final'] as const) {
+            const e = (ex || []).find((x: any) => x.asignacion_id === c.asig && x.fase_id === f.id && (x.momento || 'final') === momento)
+            const citaEx = e ? (e.cita_id || cl.find(x => x.fecha === e.fecha)?.id || null) : null
+            const key = `${c.asig}|${f.id}|${momento}`
+            lista2.push({ key, asig: c.asig, fase: f.id, faseNombre: f.nombre, momento, ciclo: c.id, color: c.color,
+              desde: f.desde, hasta: f.hasta, existente: e?.id || null, cita: citaEx, tests })
+            let propuesta = citaEx
+            if (!e) {
+              if (momento === 'inicial') propuesta = enFase[0]?.id || null
+              else if (f.hasta) propuesta = enFase[enFase.length - 1]?.id || null
+              else if (f.desde) propuesta = enFase.find(x => x.fecha >= sumar(f.desde!, 35))?.id || null
+            }
+            plan0[key] = propuesta
+          }
+        }
+      }
+      setEvals(lista2)
+      setEvalPlan(plan0)
+    }
     setRot(lista.slice(0, 1).map(s => s.id))
     setPincel(lista[0]?.id || null)
 
@@ -141,6 +194,13 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const cabe = (s: Ses, f: string) => (!s.desde || f >= s.desde) && (!s.hasta || f <= s.hasta)
 
   function tocarCita(c: Cita) {
+    if (pincelEval) {
+      const e = evals.find(x => x.key === pincelEval)
+      if (!e) return
+      if ((e.desde && c.fecha < e.desde) || (e.hasta && c.fecha > e.hasta)) { alert(`Ese día cae fuera de ${e.faseNombre}.`); return }
+      setEvalPlan(p => ({ ...p, [e.key]: p[e.key] === c.id ? null : c.id }))
+      return
+    }
     if (!pincel) return
     const s = sesDe(pincel)!
     if (!cabe(s, c.fecha)) { alert(`«${s.nombre}» es de ${s.fase || 'otra fase'}: ese día cae fuera.`); return }
@@ -174,6 +234,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   }
 
   const cambios = citas.filter(c => (plan[c.id] || null) !== (c.sesion_id || null))
+  const cambiosEval = evals.filter(e => (evalPlan[e.key] || null) !== (e.cita || null))
 
   async function confirmar() {
     setGuardando(true)
@@ -184,7 +245,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       const { error } = await supabase.from('citas').update({ sesion_id: k === '∅' ? null : k }).in('id', ids)
       if (error) { setGuardando(false); alert('No se han guardado todas: ' + error.message); return }
     }
-    await registrarSesion(pid, `Sesiones puestas en ${cambios.length} cita${cambios.length === 1 ? '' : 's'}`, 'Desde el torno')
+    // Las evaluaciones: la que existe se mueve a su cita; la que no, se crea.
+    for (const e of cambiosEval) {
+      const cita = citas.find(c => c.id === evalPlan[e.key]) || null
+      const r = e.existente
+        ? await moverEvaluacion(e.existente, { fecha: cita?.fecha || null, citaId: cita?.id || null })
+        : cita ? await abrirEvaluacion({ pacienteId: pid, asignacionId: e.asig, faseId: e.fase, fecha: cita.fecha, citaId: cita.id, momento: e.momento }) : { ok: true as const }
+      if (r.ok === false) { setGuardando(false); alert('Una evaluación no se ha guardado: ' + r.error); return }
+    }
+    if (cambios.length > 0) await registrarSesion(pid, `Sesiones puestas en ${cambios.length} cita${cambios.length === 1 ? '' : 's'}`, 'Desde el torno')
     setGuardando(false)
     router.push(`/pacientes/${pid}?tab=entreno`)
   }
@@ -216,6 +285,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-ficha:hover { transform: translateY(-2px) }
         .tc-mes { animation: tc-entra .45s ease backwards }
         .tc-sq-w { position:relative }
+        .tc-cita { position:relative }
+        .tc-ev { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:99px; background:#fff;
+                 display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(38,40,37,.25) }
+        .tc-ev-sq { background:#fff }
         .tc-sq-orden { position:absolute; top:6px; right:6px; min-width:22px; height:20px; padding:0 5px; border-radius:99px; background:#fff;
                        font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(38,40,37,.18); z-index:2 }
         .tc-sq-i { position:absolute; bottom:6px; right:6px; width:18px; height:18px; border-radius:99px; background:#fff; color:var(--gd);
@@ -273,6 +346,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     <div className="tc-sq-w">
                       <button type="button" className="tc-sq" onClick={() => {
                           // El ciclo entero: todas sus sesiones al reparto, en su orden.
+                          setPincelEval(null)
                           const suyas = sesiones.filter(x => x.ciclo === c.id).map(x => x.id)
                           const todas = suyas.every(id => rot.includes(id))
                           setRot(r => todas ? r.filter(x => !suyas.includes(x)) : [...r.filter(x => !suyas.includes(x)), ...suyas])
@@ -310,6 +384,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                         onClick={() => {
                           // TOCAR = ELEGIRLA. Entra en el reparto (en el orden en que se tocan) y
                           // es el pincel para tocar días. Tocar otra vez la saca.
+                          setPincelEval(null)
                           const dentro = rot.includes(s.id)
                           setRot(r => dentro ? r.filter(x => x !== s.id) : [...r, s.id])
                           setPincel(dentro ? (rot.filter(x => x !== s.id).slice(-1)[0] || null) : s.id)
@@ -345,6 +420,35 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             </div>
                           ))}
                           <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 4 }}>{n} cita{n === 1 ? '' : 's'} con ella</div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {/* LAS EVALUACIONES DE SU CICLO: cuadrados blancos con el borde del ciclo y
+                    el icono de test, para no confundirlos con las sesiones. */}
+                {g.ciclo && evals.filter(e => e.ciclo === g.ciclo!.id).map(e => {
+                  const on = pincelEval === e.key
+                  const ab = abierto === 'e:' + e.key
+                  const cita = citas.find(c => c.id === evalPlan[e.key])
+                  return (
+                    <div key={e.key} className="tc-sq-w">
+                      <button type="button" className="tc-sq tc-ev-sq" onClick={() => { setPincelEval(on ? null : e.key); if (!on) setPincel(null) }}
+                        style={{ border: `2px solid ${e.color}`, boxShadow: on ? `0 0 0 3px ${e.color}55, 0 12px 26px rgba(38,40,37,.18)` : undefined, justifyContent: 'center', padding: 8 }}>
+                        <span style={{ color: e.color, lineHeight: 0 }}><Ic name="test" size={22}/></span>
+                        <span style={{ fontSize: 11.5, marginTop: 5, lineHeight: 1.2 }}>{e.momento === 'inicial' ? 'Al empezar' : 'Al salir'}</span>
+                        <span style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.2 }}>{e.faseNombre}</span>
+                        <span style={{ fontSize: 10, color: cita ? 'var(--gd)' : 'var(--grl)', marginTop: 3 }}>{cita ? corta(cita.fecha) : 'sin día'}</span>
+                        <span className="tc-sq-i" title="Qué se mide" onClick={ev => { ev.stopPropagation(); setAbierto(ab ? null : 'e:' + e.key) }}>i</span>
+                      </button>
+                      {ab && (
+                        <div className="tc-info">
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)', marginBottom: 4 }}>
+                            {e.momento === 'inicial' ? 'Medir al empezar' : 'Evaluar para salir'} · {e.faseNombre}
+                          </div>
+                          {e.tests.length > 0
+                            ? e.tests.map(t => <div key={t} style={{ fontSize: 11.5, color: 'var(--gr)' }}>· {t}</div>)
+                            : <div style={{ fontSize: 11.5, color: 'var(--grl)' }}>Los objetivos de esta fase no tienen tests en "Cómo se evalúa".</div>}
                         </div>
                       )}
                     </div>
@@ -400,12 +504,17 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             const sid = plan[c.id]
                             const s = sesDe(sid || null)
                             const ajena = sid && !s ? otras[sid] || 'otra sesión' : null
+                            const evs = evals.filter(e => evalPlan[e.key] === c.id)
                             return (
                               <button key={c.id} className="tc-cita" onClick={e => { e.stopPropagation(); tocarCita(c) }}
                                 title={`${c.hora ? String(c.hora).slice(0, 5) : ''} ${s ? s.nombre : ajena || 'sin sesión'}`}
                                 style={{ background: s ? s.color : ajena ? 'var(--bm)' : '#fff', color: s ? '#fff' : 'var(--gr)',
                                   border: s ? 'none' : '1px dashed var(--bd)' }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
+                                {evs.length > 0 && (
+                                  <span className="tc-ev" title={evs.map(e => `${e.momento === 'inicial' ? 'Al empezar' : 'Al salir'} · ${e.faseNombre}`).join('\n')}
+                                    style={{ color: evs[0].color }}><Ic name="test" size={10}/></span>
+                                )}
                                 <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9.5, opacity: .9 }}>
                                   {s ? s.nombre : ajena || ''}
                                 </span>
@@ -424,12 +533,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       )}
 
       {/* CONFIRMAR, abajo y fijo. */}
-      {cambios.length > 0 && (
+      {(cambios.length > 0 || cambiosEval.length > 0) && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--w)', border: '1px solid var(--bd)',
             borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
-            <span style={{ fontSize: 13 }}>{cambios.length} cita{cambios.length === 1 ? '' : 's'} cambiada{cambios.length === 1 ? '' : 's'}</span>
-            <button className="btn btn-t btn-sm" onClick={() => { setPintado({}); setAMano({}) }}>Deshacer todo</button>
+            <span style={{ fontSize: 13 }}>
+              {[cambios.length > 0 && `${cambios.length} cita${cambios.length === 1 ? '' : 's'} cambiada${cambios.length === 1 ? '' : 's'}`,
+                cambiosEval.length > 0 && `${cambiosEval.length} evaluaci${cambiosEval.length === 1 ? 'ón' : 'ones'}`].filter(Boolean).join(' · ')}
+            </span>
+            <button className="btn btn-t btn-sm" onClick={() => { setPintado({}); setAMano({}); setEvalPlan(Object.fromEntries(evals.map(e => [e.key, e.cita]))) }}>Deshacer todo</button>
             <button className="btn btn-p" disabled={guardando} onClick={confirmar}><Ic name="ok" size={13}/> {guardando ? 'Guardando…' : 'Programar'}</button>
           </div>
         </div>
