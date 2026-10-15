@@ -75,7 +75,6 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
   const [carga, setCarga] = useState<Carga | null>(null)
   const [enMano, setEnMano] = useState<Carga | null>(null)
   const [sobre, setSobre] = useState<string | null>(null)
-  const [partes, setPartes] = useState<DestParte[]>([])
   const [fases, setFases] = useState<DestFase[]>([{ key: nk(), nombre: 'Fase 1', sesiones: [] }])
   // El nombre de lo que se crea: el del primer ciclo o sesión que se suelte, si no se ha escrito otro.
   const [nombre, setNombre] = useState('')
@@ -83,19 +82,40 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
   const [guardando, setGuardando] = useState(false)
   async function guardar() {
     setGuardando(true)
-    const r = modo === 'sesion'
-      ? await guardarSesionTorno(pid, nombre || `Sesión de ${paciente}`, partes, objsEj)
-      : await guardarCicloTorno(pid, { nombre: nombre || `Ciclo de ${paciente}`, color, progresion: prog, fin: fin || null }, fases, objsEj)
+    // SESIONES SUELTAS: cada sesión de la derecha se guarda como una sesión suya. Antes
+    // la derecha era UNA sesión y soltar otra la mezclaba dentro, así que no se podían
+    // preparar dos para repartirlas en sus citas sin hacer un ciclo.
+    if (modo === 'sesion') {
+      const lista = fases[0].sesiones.filter(sd => sd.partes.some(pt => pt.ejercicios.length > 0))
+      const hechas: { tipo: 'sesion', id: string, nombre: string }[] = []
+      const hechasKeys: string[] = []
+      let fallo = ''
+      for (const sd of lista) {
+        const nom = !sd.nombre.trim() || sd.nombre === 'Sesión nueva' ? `Sesión de ${paciente}` : sd.nombre
+        const r = await guardarSesionTorno(pid, nom, sd.partes, objsEj)
+        if (r.ok === false) { fallo = r.error; break }
+        hechas.push({ tipo: 'sesion', id: r.id, nombre: nom }); hechasKeys.push(sd.key)
+      }
+      setGuardando(false)
+      setGuardadas(g => [...g, ...hechas])
+      // Las guardadas se quitan; si alguna falla, se queda a la vista para reintentar.
+      setFases(l => [{ ...l[0], sesiones: l[0].sesiones.filter(sd => !hechasKeys.includes(sd.key)) }])
+      if (fallo) alert('No se han guardado todas: ' + fallo)
+      return
+    }
+    const r = await guardarCicloTorno(pid, { nombre: nombre || `Ciclo de ${paciente}`, color, progresion: prog, fin: fin || null }, fases, objsEj)
     setGuardando(false)
     if (r.ok === false) { alert('No se ha guardado: ' + r.error); return }
     // GUARDAR Y SEGUIR. Antes saltaba directo al calendario y no se podía hacer una
     // segunda sesión. Ahora lo guardado se apunta, la derecha se vacía para la
     // siguiente, y a las citas se va cuando se quiera, con todo lo hecho.
-    setGuardadas(g => [...g, { tipo: modo, id: r.id, nombre: nombre || (modo === 'sesion' ? `Sesión de ${paciente}` : `Ciclo de ${paciente}`) }])
-    setPartes([]); setFases([{ key: nk(), nombre: 'Fase 1', sesiones: [] }]); setNombre(''); setColor('')
+    setGuardadas(g => [...g, { tipo: 'ciclo', id: r.id, nombre: nombre || `Ciclo de ${paciente}` }])
+    setFases([{ key: nk(), nombre: 'Fase 1', sesiones: [] }]); setNombre(''); setColor('')
   }
   const [guardadas, setGuardadas] = useState<{ tipo: 'sesion' | 'ciclo', id: string, nombre: string }[]>([])
-  const vacio = modo === 'sesion' ? partes.every(p => p.ejercicios.length === 0) : fases.every(f => f.sesiones.length === 0)
+  const vacio = modo === 'sesion'
+    ? fases[0].sesiones.every(sd => sd.partes.every(pt => pt.ejercicios.length === 0))
+    : fases.every(f => f.sesiones.length === 0)
 
   // Un ciclo puede llevar sesiones que no estaban en la lista de plantillas.
   useEffect(() => {
@@ -143,7 +163,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       if (c.tipo === 'e') return meterEjercicio(lista, c.ej)
       return lista
     }
-    if (modo === 'sesion') { if (c.tipo !== 'c') setPartes(aPartes); return }
+    if (modo === 'sesion' && c.tipo === 'c') return
 
     setFases(prev => {
       if (c.tipo === 'c') {
@@ -163,6 +183,12 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         if (sitio.sesion) return { ...f, sesiones: f.sesiones.map(s => s.key === sitio.sesion ? { ...s, partes: aPartes(s.partes) } : s) }
         // Una sesión entera, como sesión nueva de la fase.
         if (c.tipo === 's') { const d = sesDest(c.id); return d ? { ...f, sesiones: [...f.sesiones, d] } : f }
+        // Sesiones sueltas: una parte o un ejercicio fuera de una sesión va a la última
+        // (o a una nueva si no hay), para no crear una sesión por cada ejercicio.
+        if (modo === 'sesion' && f.sesiones.length > 0) {
+          const ult = f.sesiones[f.sesiones.length - 1].key
+          return { ...f, sesiones: f.sesiones.map(s => s.key === ult ? { ...s, partes: aPartes(s.partes) } : s) }
+        }
         // Una parte o un ejercicio sobre la fase: sesión nueva con eso dentro.
         return { ...f, sesiones: [...f.sesiones, { key: nk(), nombre: 'Sesión nueva', origenId: null, partes: aPartes([]) }] }
       })
@@ -414,48 +440,31 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         )}
         {/* NOMBRE Y GUARDAR: arriba, que es donde se mira al acabar. */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <input className="input" value={nombre} onChange={e => setNombre(e.target.value)}
-            placeholder={modo === 'sesion' ? `Sesión de ${paciente}` : `Ciclo de ${paciente}`} style={{ flex: 1, fontSize: 13 }}/>
+          {/* En sesiones sueltas cada una lleva su nombre en su columna. */}
+          {modo === 'ciclo'
+            ? <input className="input" value={nombre} onChange={e => setNombre(e.target.value)}
+                placeholder={`Ciclo de ${paciente}`} style={{ flex: 1, fontSize: 13 }}/>
+            : <span style={{ flex: 1 }}/>}
           <button className="btn btn-p" disabled={vacio || guardando} onClick={guardar}>
-            {guardando ? 'Guardando…' : guardadas.length > 0 ? 'Guardar otra' : 'Guardar como suyo'}
+            {guardando ? 'Guardando…' : modo === 'sesion' && fases[0].sesiones.length > 1 ? `Guardar las ${fases[0].sesiones.length}` : guardadas.length > 0 ? 'Guardar otra' : 'Guardar como suyo'}
           </button>
         </div>
-        {modo === 'sesion' ? (
-          <div {...destino('S', {})} className={`tn-dest ${vivo('S') ? 'vivo' : ''}`}
-            style={{ minHeight: 380, borderRadius: 18, padding: 16, display: 'grid', gap: 16, alignContent: 'start' }}>
-            {partes.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 12.5, textAlign: 'center', padding: 40 }}>Suelta aquí sesiones, partes o ejercicios</div>}
-            {partes.map((p, pi) => (
-              <div key={pi} {...destino('S:' + pi, { parte: pi })} className={`tn-dest ${sobre === 'S:' + pi ? 'vivo' : ''}`}
-                style={{ animation: 'b-entra .35s ease backwards', padding: '4px 6px 6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre}</span>
-                  <button className="tn-x" title="Quitar la parte" onClick={() => setPartes(l => l.filter((_, j) => j !== pi))}>✕</button>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 6 }}>
-                  {p.ejercicios.map((ej, ei) => (
-                    <div key={ei} style={{ position: 'relative' }}>
-                      {verEj(ej, undefined, true)}
-                      <button className="tn-x" style={{ position: 'absolute', top: -4, right: -4, background: '#fff', borderRadius: 99 }}
-                        onClick={() => setPartes(l => l.map((x, j) => j === pi ? { ...x, ejercicios: x.ejercicios.filter((_, m) => m !== ei) } : x).filter(x => x.ejercicios.length > 0))}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
+        {(
           <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', overflowX: 'auto', paddingBottom: 6 }}>
             {fases.map((f, fi) => (
               <div key={f.key} {...destino(f.key, { fase: f.key })} className={`tn-dest ${vivo(f.key) ? 'vivo' : ''}`}
-                style={{ flex: '1 0 240px', minHeight: 380, borderRadius: 18, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                // Sesiones sueltas: una sola zona, con sus sesiones en columnas una al lado de otra.
+                style={modo === 'sesion'
+                  ? { flex: 1, minHeight: 380, borderRadius: 18, padding: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, alignContent: 'start' }
+                  : { flex: '1 0 240px', minHeight: 380, borderRadius: 18, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {modo === 'ciclo' && <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <input value={f.nombre} onChange={e => setFases(l => l.map(x => x.key === f.key ? { ...x, nombre: e.target.value } : x))}
                     onClick={e => e.stopPropagation()}
                     style={{ flex: 1, border: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--gd)' }}/>
                   {fases.length > 1 && <button className="tn-x" title="Quitar la fase" onClick={e => { e.stopPropagation(); setFases(l => l.filter(x => x.key !== f.key)) }}>✕</button>}
-                </div>
+                </div>}
                 {/* Centrado en la fase, como "+ Fase": arriba del todo parecía colgado. */}
-                {f.sesiones.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 11.5, textAlign: 'center', padding: '30px 6px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Suelta aquí {fi === 0 ? 'el ciclo, ' : ''}sesiones, partes o ejercicios</div>}
+                {f.sesiones.length === 0 && <div style={{ gridColumn: '1 / -1', color: 'var(--grl)', fontSize: 11.5, textAlign: 'center', padding: '30px 6px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Suelta aquí {fi === 0 && modo === 'ciclo' ? 'el ciclo, ' : ''}sesiones, partes o ejercicios</div>}
                 {/* SUS SESIONES, DESPLEGADAS: nombre, y debajo cada parte con sus ejercicios.
                     En cuadrado no se veía lo que se acababa de soltar —una parte suelta
                     parecía una sesión cerrada—. Soltar encima de una mete lo que traes dentro. */}
@@ -504,14 +513,14 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                 ))}
               </div>
             ))}
-            <button type="button" onClick={() => setFases(l => [...l, { key: nk(), nombre: `Fase ${l.length + 1}`, sesiones: [] }])}
+            {modo === 'ciclo' && <button type="button" onClick={() => setFases(l => [...l, { key: nk(), nombre: `Fase ${l.length + 1}`, sesiones: [] }])}
               style={{ flex: '0 0 84px', border: 'none', borderRadius: 12, background: 'transparent', color: 'var(--gd)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
               + Fase
-            </button>
+            </button>}
           </div>
         )}
         <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>
-          Se crea {modo === 'sesion' ? 'una sesión suya' : 'un ciclo suyo, con sus sesiones, y se le pone desde hoy'}. La biblioteca no cambia.
+          Se crea {modo === 'sesion' ? 'cada sesión como suya' : 'un ciclo suyo, con sus sesiones, y se le pone desde hoy'}. La biblioteca no cambia.
         </div>
       </div>
     </div>
