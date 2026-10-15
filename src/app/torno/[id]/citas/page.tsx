@@ -562,7 +562,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                     : <span style={{ width: 54, height: 54, borderRadius: 9, background: 'var(--bl)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', flexShrink: 0 }}><Ic name="test" size={20}/></span>}
                                   <span>
                                     <span style={{ display: 'block', fontSize: 12.5, color: 'var(--n)' }}>{t.nombre}</span>
-                                    {t.items.map(it => <span key={it} style={{ display: 'block', fontSize: 11, color: 'var(--gr)' }}>· {it}</span>)}
+                                    {(t.items || []).map(it => <span key={it} style={{ display: 'block', fontSize: 11, color: 'var(--gr)' }}>· {it}</span>)}
                                   </span>
                                 </div>
                               ))
