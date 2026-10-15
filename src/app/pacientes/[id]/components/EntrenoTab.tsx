@@ -16,7 +16,8 @@ import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 import { hoyISO } from '@/lib/fechas'
-import { estadoRecuperacion, soltarRecuperacion } from '@/lib/recuperaciones'
+import { estadoRecuperacion, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
+import { soltarDelBono } from '@/lib/bonoSesiones'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
@@ -324,23 +325,17 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
   async function cambiarEstadoCita(cita:any, estado:string) {
     await supabase.from('citas').update({estado}).eq('id',cita.id)
-    if (estado==='cancelada') {
-      // Si era la recuperación de otra falta, la falta vuelve al banco.
-      await soltarRecuperacion(cita.id)
-      const fechaFalta=new Date(cita.fecha+'T12:00:00')
-      const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
-      const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()
-      if (!existing) await supabase.from('recuperaciones').insert({paciente_id:cita.paciente_id||pacienteId,cita_falta_id:cita.id,fecha_falta:cita.fecha,fecha_limite:fechaLimite.toISOString().split('T')[0],estado:'pendiente'})
-    }
-    if (estado==='falta') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
-    if (estado==='realizada'||estado==='programada') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
+    // Cancelada no gasta del bono, igual que desde la agenda (aquí no se soltaba).
+    if (estado==='cancelada') await soltarDelBono(cita.id)
+    // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
+    const rr = await recuperacionAlCambiarEstado({ id: cita.id, paciente_id: cita.paciente_id||pacienteId, fecha: cita.fecha }, estado)
+    if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
     setEditandoCita(null); cargarDatos(); onRefresh()
   }
 
   async function eliminarCita(cita:any) {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
-    await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
-    await soltarRecuperacion(cita.id)
+    await recuperacionAlEliminar(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     setEditandoCita(null); cargarDatos(); onRefresh()
   }

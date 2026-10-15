@@ -21,7 +21,7 @@ import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, pl
 import { useRouter } from 'next/navigation'
 import { ultimasDeBono, soltarDelBono, engancharCitas } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
-import { porRecuperar, soltarRecuperacion } from '@/lib/recuperaciones'
+import { porRecuperar, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -413,44 +413,28 @@ export default function AgendaPage() {
     await supabase.from('citas').update({estado}).eq('id',id)
     // Cancelada no gasta: el hueco del bono lo coge su siguiente cita.
     if (estado==='cancelada') await soltarDelBono(id)
-    if (estado==='cancelada') await soltarRecuperacion(id)
-    if (estado==='falta' && panelPac) {
-      const fechaFalta=new Date(panelPac.fecha+'T12:00:00')
-      const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
-      const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',id).maybeSingle()
-      if (!existing) await supabase.from('recuperaciones').insert({paciente_id:panelPac.paciente_id,cita_falta_id:id,fecha_falta:panelPac.fecha,fecha_limite:fechaLimite.toISOString().split('T')[0],estado:'pendiente'})
-    }
-    if (estado==='realizada' && panelPac) await supabase.from('recuperaciones').delete().eq('cita_falta_id',id).eq('estado','pendiente')
+    // Recuperaciones: la misma regla que en todos los sitios (lib/recuperaciones).
+    // Aquí antes la daba la FALTA, al revés que en el resto.
+    const { data: cRec } = await supabase.from('citas').select('id,paciente_id,fecha').eq('id',id).maybeSingle()
+    if (cRec) { const rr = await recuperacionAlCambiarEstado(cRec, estado); if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error) }
     setPanelPac((prev:any)=>prev?{...prev,estado}:null)
     cargar()
   }
 
   async function cambiarEstadoCita(cita:any, estado:string) {
     await supabase.from('citas').update({estado}).eq('id',cita.id)
-    // Cancelada (avisa) -> genera recuperacion
-    if (estado==='cancelada') {
-      // Y no gasta: el hueco del bono lo coge su siguiente cita.
-      await soltarDelBono(cita.id)
-      // Si era la recuperación de otra, esa falta vuelve al banco. Desde el panel ya
-      // se hacía; desde aquí se quedaba enganchada a una cita cancelada.
-      await soltarRecuperacion(cita.id)
-      const fechaFalta=new Date(cita.fecha+'T12:00:00')
-      const fechaLimite=new Date(fechaFalta); fechaLimite.setDate(fechaLimite.getDate()+30)
-      const { data: existing } = await supabase.from('recuperaciones').select('id').eq('cita_falta_id',cita.id).maybeSingle()
-      if (!existing) await supabase.from('recuperaciones').insert({paciente_id:cita.paciente_id,cita_falta_id:cita.id,fecha_falta:cita.fecha,fecha_limite:fechaLimite.toISOString().split('T')[0],estado:'pendiente'})
-    }
-    // Falta (no avisa) -> NO recupera, y elimina recuperacion previa si la hubiera
-    if (estado==='falta') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
-    // Volver a realizada/programada -> quitar recuperacion pendiente
-    if (estado==='realizada'||estado==='programada') await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id).eq('estado','pendiente')
+    // Cancelada no gasta: el hueco del bono lo coge su siguiente cita.
+    if (estado==='cancelada') await soltarDelBono(cita.id)
+    // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
+    const rr = await recuperacionAlCambiarEstado(cita, estado)
+    if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
     setEditandoCita(null); cargar()
   }
 
   async function eliminarCita(cita:any) {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
-    await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
-    // Si era la recuperación de otra falta, la falta vuelve al banco.
-    await soltarRecuperacion(cita.id)
+    // Fuera su recuperación; y si recuperaba otra falta, esa vuelve al banco.
+    await recuperacionAlEliminar(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     // Si gastaba de un bono, el hueco lo coge su siguiente cita sin bono.
     if (cita.bono_id) await engancharCitas(cita.bono_id)
@@ -458,8 +442,7 @@ export default function AgendaPage() {
   }
 
   async function borrarCitaDirecto(cita:any) {
-    await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
-    await soltarRecuperacion(cita.id)
+    await recuperacionAlEliminar(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     if (cita.bono_id) await engancharCitas(cita.bono_id)
     cargar()

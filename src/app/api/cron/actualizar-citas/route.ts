@@ -27,8 +27,17 @@ export async function GET(request: Request) {
     .update({ estado: 'realizada' })
     .eq('estado', 'programada')
     .lt('fecha', hoy)
+    .select('id')
 
   if (error) return NextResponse.json({ error }, { status: 500 })
+
+  // Las que eran la recuperación de otra falta: ya están recuperadas. Antes nadie
+  // marcaba 'recuperada' y en Estadísticas salían siempre a cero. En tandas, que
+  // un .in() con muchas ids no cabe en la URL.
+  const ids = (data || []).map((c: any) => c.id)
+  for (let i = 0; i < ids.length; i += 200) {
+    await supabase.from('recuperaciones').update({ estado: 'recuperada' }).in('cita_recuperacion_id', ids.slice(i, i + 200))
+  }
 
   // Devolver a activo a quien ya ha vuelto de su pausa. La ficha promete que
   // "se reactivará automáticamente al volver" y hasta ahora no lo hacía nadie:
