@@ -373,9 +373,13 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           </div>
 
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--gr)', marginBottom: 14 }}>
-            {pincel
-              ? <>Pintando con <b style={{ color: sesDe(pincel)?.color }}>{sesDe(pincel)?.nombre}</b> · toca los días; tocar otra vez lo quita</>
-              : 'Toca una ficha de arriba y después los días del calendario'}
+            {/* UNA SOLA FRASE para las dos formas, para que no parezcan contradecirse:
+                Pintar reparte todas las elegidas; tocar un día pone solo la última tocada. */}
+            {!pincel
+              ? 'Elige arriba una o varias sesiones'
+              : rot.length > 1
+                ? <>Al tocar un día se pone <b style={{ color: sesDe(pincel)?.color }}>{sesDe(pincel)?.nombre}</b> (la última que elegiste) · Pintar reparte las {rot.length} en rotación</>
+                : <>Al tocar un día se pone <b style={{ color: sesDe(pincel)?.color }}>{sesDe(pincel)?.nombre}</b>; tocarlo otra vez lo quita</>}
           </div>
           {/* EL CALENDARIO */}
           {/* Meses de ancho fijo, centrados. Con 1fr las celdas con cita se ensanchaban
