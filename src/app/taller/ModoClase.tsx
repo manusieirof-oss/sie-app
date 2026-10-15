@@ -876,7 +876,7 @@ export default function ModoClase() {
       const ejecMap:Record<string,any>={}
       ;(ejec||[]).forEach((r:any)=>{ ejecMap[r.ejercicio_id]=r })
       const { data: curso } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,variante,series,comentario,items_evaluados,regimen')
+        .select('*')
         .eq('paciente_id', pid).eq('sesion_id', ses.id).eq('finalizado', false).eq('fecha', fechaC).in('ejercicio_id', ids)
       // Solo el borrador de ESTE dia. Sin la fecha, uno olvidado de otra clase de la
       // misma sesion aparecia como apuntado hoy.
@@ -934,6 +934,13 @@ export default function ModoClase() {
               // si el borrador tenia mas series que la plantilla, añadirlas
               for (let k=e.series.length; k<c.series.length; k++) merged.push(c.series[k])
               e.series = merged
+              /* MANDA EL NÚMERO DE SERIES DE HOY. Si en la clase se quitó una, el
+                 borrador lo sabe y al recargar no vuelve la del plan. */
+              const n = Number(c.n_series) || 0
+              if (n > 0 && n !== e.series.length) {
+                e.series = n < e.series.length ? e.series.slice(0, n)
+                  : [...e.series, ...Array.from({ length: n - e.series.length }, () => ({ peso:'', reps:'', segundos:'' }))]
+              }
               // Lo del borrador es de hoy: se escribio en esta clase antes de recargar.
               const hoy: Record<string, boolean> = {}
               c.series.forEach((x:any, k:number) => ['peso','reps','segundos'].forEach(f => {
@@ -1050,6 +1057,9 @@ export default function ModoClase() {
       regimen: ej.regimen || ej.plan?.regimen || null,
       // Sin esto, la progresión de cargas mezclaba unilateral y bilateral.
       variante: ej.variante || null,
+      /* CUÁNTAS SERIES HAY HOY, no solo las rellenas. Al recargar el taller se
+         fusionaba con las del plan y una serie quitada en la clase volvía a salir. */
+      n_series: (ej.series || []).length,
     }
     let error
     if (ej.ejercicio_id){
@@ -1068,14 +1078,17 @@ export default function ModoClase() {
         existe = null
       }
       if (existe){
-        ({ error } = await supabase.from('registros_ejercicio')
-          .update({ series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null })
-          .eq('id', existe.id))
+        const cambios: any = { series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series }
+        ;({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id))
+        // Sin la columna n_series (falta el SQL) no se pierde lo apuntado: se guarda sin ella.
+        if (error && /n_series/.test(error.message)) { delete cambios.n_series; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
       } else {
         ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+        if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       }
     } else {
       ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+      if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     }
     if (error){ console.error('autoguardar clase', error.message); setPendientes(p=>Math.max(0,p-1)); return }
     setPendientes(p=>Math.max(0,p-1))
@@ -1100,14 +1113,25 @@ export default function ModoClase() {
   function addSerie(pid:string, ei:number){
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],series:[...datos[ei].series,{peso:'',reps:''}]}
+      const datos=[...s.datos]; datos[ei]={...datos[ei],series:[...datos[ei].series,{peso:'',reps:''}],guardado:false,precargado:false}
+      // Se apunta el número de series: si se recarga antes de escribir nada, sigue ahí.
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
   }
   function quitarSerie(pid:string, ei:number, si:number){
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],series:datos[ei].series.filter((_:any,i:number)=>i!==si),guardado:false}
+      /* Quitar una serie ES un cambio de hoy. Antes, si las series venían precargadas
+         de la última vez, el autoguardado lo ignoraba (no habías escrito nada) y al
+         recargar la serie volvía. Y las marcas de "escrito hoy" iban por posición: al
+         quitar una del medio se quedaban en la serie de al lado. */
+      const datos=[...s.datos]
+      const hoyAnt = datos[ei].hoy || {}
+      const hoyN: Record<string, boolean> = {}
+      Object.keys(hoyAnt).forEach(k => { const [i, c] = k.split('.'); const n = Number(i)
+        if (n < si) hoyN[k] = hoyAnt[k]; else if (n > si) hoyN[`${n - 1}.${c}`] = hoyAnt[k] })
+      datos[ei]={...datos[ei],series:datos[ei].series.filter((_:any,i:number)=>i!==si),guardado:false,precargado:false,hoy:hoyN}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
