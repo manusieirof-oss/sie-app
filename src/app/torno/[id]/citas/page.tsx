@@ -49,6 +49,14 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
   /** El cuadrado abierto (grande, con lo que lleva dentro): 's:<id>' o 'c:<id>'. */
   const [abierto, setAbierto] = useState<string | null>(null)
+  // La información abierta se cierra al tocar fuera o con Escape: antes no había forma.
+  useEffect(() => {
+    if (!abierto) return
+    const fuera = (e: MouseEvent) => { if (!(e.target as HTMLElement)?.closest?.('.tc-sq-w')) setAbierto(null) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(null) }
+    document.addEventListener('mousedown', fuera); document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc) }
+  }, [abierto])
   const [otras, setOtras] = useState<Record<string, string>>({})
   /**
    * LO QUE SE VE = lo que ya tenía + lo último pintado + lo tocado a mano.
@@ -382,12 +390,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             const sid = plan[c.id]
                             const s = sesDe(sid || null)
                             const ajena = sid && !s ? otras[sid] || 'otra sesión' : null
-                            const cambiada = (sid || null) !== (c.sesion_id || null)
                             return (
                               <button key={c.id} className="tc-cita" onClick={e => { e.stopPropagation(); tocarCita(c) }}
                                 title={`${c.hora ? String(c.hora).slice(0, 5) : ''} ${s ? s.nombre : ajena || 'sin sesión'}`}
                                 style={{ background: s ? s.color : ajena ? 'var(--bm)' : '#fff', color: s ? '#fff' : 'var(--gr)',
-                                  border: s ? 'none' : '1px dashed var(--bd)', boxShadow: cambiada ? '0 0 0 2px var(--n)' : 'none' }}>
+                                  border: s ? 'none' : '1px dashed var(--bd)' }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
                                 <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9.5, opacity: .9 }}>
                                   {s ? s.nombre : ajena || ''}

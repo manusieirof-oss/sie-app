@@ -454,7 +454,8 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
                     style={{ flex: 1, border: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--gd)' }}/>
                   {fases.length > 1 && <button className="tn-x" title="Quitar la fase" onClick={e => { e.stopPropagation(); setFases(l => l.filter(x => x.key !== f.key)) }}>✕</button>}
                 </div>
-                {f.sesiones.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 11.5, textAlign: 'center', padding: '30px 6px' }}>Suelta aquí {fi === 0 ? 'el ciclo, ' : ''}sesiones, partes o ejercicios</div>}
+                {/* Centrado en la fase, como "+ Fase": arriba del todo parecía colgado. */}
+                {f.sesiones.length === 0 && <div style={{ color: 'var(--grl)', fontSize: 11.5, textAlign: 'center', padding: '30px 6px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Suelta aquí {fi === 0 ? 'el ciclo, ' : ''}sesiones, partes o ejercicios</div>}
                 {/* SUS SESIONES, DESPLEGADAS: nombre, y debajo cada parte con sus ejercicios.
                     En cuadrado no se veía lo que se acababa de soltar —una parte suelta
                     parecía una sesión cerrada—. Soltar encima de una mete lo que traes dentro. */}
