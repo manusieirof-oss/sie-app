@@ -8,6 +8,7 @@ import { cargarSistema, sistemasDePaciente, tramos } from '@/lib/sistemas'
 import { registrarSesion } from '@/lib/sesiones'
 import { abrirEvaluacion, moverEvaluacion } from '@/lib/evaluaciones'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
+import PiezaTorno, { FilaPieza } from './PiezaTorno'
 
 // ---------------------------------------------------------------------------
 // PONERLO EN SUS CITAS
@@ -84,6 +85,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [pincel, setPincel] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  // La pieza que se ve al programar: girando mientras guarda, y luego sus citas.
+  const [pieza, setPieza] = useState<{ estado: 'girando' | 'lista' | 'error', error?: string, filas: FilaPieza[] } | null>(null)
   // Repartir
   const [rot, setRot] = useState<string[]>([])
   const [cada, setCada] = useState(1)
@@ -251,12 +254,25 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
 
   async function confirmar() {
     setGuardando(true)
+    // Lo que va a quedar, sacado ANTES de guardar: es lo que enseña la pieza.
+    const filas: FilaPieza[] = citas.map(c => {
+      const s = sesDe(plan[c.id] || null)
+      const evs = evals.filter(e => evalPlan[e.key] === c.id)
+      return { id: c.id, fecha: c.fecha, hora: c.hora,
+        ses: s ? { nombre: s.nombre, color: s.color, fase: s.fase, partes: s.partes } : null,
+        evs: evs.map(e => ({ momento: e.momento, faseNombre: e.faseNombre, color: e.color, tests: e.tests })),
+        nueva: (plan[c.id] || null) !== (c.sesion_id || null) || evs.some(e => e.cita !== c.id) }
+    }).filter(f => f.ses || f.evs.length > 0)
+    setPieza({ estado: 'girando', filas })
+    // El torno gira al menos lo que dura la animación, aunque guardar sea más rápido.
+    const t0 = Date.now()
+    const falla = (m: string) => { setGuardando(false); setPieza(p => p && { ...p, estado: 'error', error: m }) }
     // Agrupado por sesión: una actualización por cada una, no una por cita.
     const grupos: Record<string, string[]> = {}
     cambios.forEach(c => { const k = plan[c.id] || '∅'; (grupos[k] = grupos[k] || []).push(c.id) })
     for (const [k, ids] of Object.entries(grupos)) {
       const { error } = await supabase.from('citas').update({ sesion_id: k === '∅' ? null : k }).in('id', ids)
-      if (error) { setGuardando(false); alert('No se han guardado todas: ' + error.message); return }
+      if (error) { falla('Las citas: ' + error.message); return }
     }
     // Las evaluaciones: la que existe se mueve a su cita; la que no, se crea.
     for (const e of cambiosEval) {
@@ -264,11 +280,12 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       const r = e.existente
         ? await moverEvaluacion(e.existente, { fecha: cita?.fecha || null, citaId: cita?.id || null })
         : cita ? await abrirEvaluacion({ pacienteId: pid, asignacionId: e.asig, faseId: e.fase, fecha: cita.fecha, citaId: cita.id, momento: e.momento }) : { ok: true as const }
-      if (r.ok === false) { setGuardando(false); alert('Una evaluación no se ha guardado: ' + r.error); return }
+      if (r.ok === false) { falla('Una evaluación: ' + r.error); return }
     }
     if (cambios.length > 0) await registrarSesion(pid, `Sesiones puestas en ${cambios.length} cita${cambios.length === 1 ? '' : 's'}`, 'Desde el torno')
+    await new Promise(res => setTimeout(res, Math.max(0, 1600 - (Date.now() - t0))))
     setGuardando(false)
-    router.push(`/pacientes/${pid}?tab=entreno`)
+    setPieza(p => p && { ...p, estado: 'lista' })
   }
 
   // ---- El calendario: de este mes al de la última cita ----------------------
@@ -303,6 +320,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                    padding:4px 0 20px; z-index:5 }
         .tc-lado-rot { font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--grl) }
         .tc-centro { min-width:0 }
+        /* Al programar, todo se va al centro girando, como el barro al centrarlo. */
+        .tc-recoge { animation: tc-recoge .6s ease-in forwards; transform-origin:50% 30vh; pointer-events:none }
+        @keyframes tc-recoge { to { opacity:0; transform: scale(.15) rotate(40deg); filter: blur(3px) } }
         .tc-lado .tc-rep { flex-direction:column; align-items:stretch; gap:10px; margin:0 0 8px; padding-bottom:12px; border-bottom:1px solid var(--bd2); width:150px; font-size:12.5px }
         .tc-lado .tc-rep select, .tc-lado .tc-rep input[type=number], .tc-lado .tc-rep input[type=date] { width:100% }
         .tc-lado .tc-rep label { font-size:11.5px; line-height:1.3; align-items:flex-start }
@@ -361,7 +381,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
               lo que lleva. Las de un ciclo van detrás del cuadrado de su ciclo. */}
           {/* TRES COLUMNAS: a la izquierda sesiones y ciclos, en el centro el calendario y a
               la derecha las evaluaciones. Todo en una fila arriba era un lío. */}
-          <div className="tc-tres">
+          <div className={`tc-tres ${pieza ? 'tc-recoge' : ''}`}>
           <div className="tc-lado">
             {/* REPARTIR, arriba del todo y en vertical: es lo primero que se mira. */}
           <div className="tc-rep">
@@ -589,7 +609,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       )}
 
       {/* CONFIRMAR, abajo y fijo. */}
-      {(cambios.length > 0 || cambiosEval.length > 0) && (
+      {pieza && (
+        <PiezaTorno estado={pieza.estado} error={pieza.error} filas={pieza.filas} nombre={nombre}
+          onFicha={() => router.push(`/pacientes/${pid}?tab=entreno`)}
+          onVolver={() => router.push(`/torno/${pid}`)}
+          // Al volver se recargan sus citas: lo que sí se guardó no se repite al reintentar.
+          onCerrar={() => { setPieza(null); cargar() }}/>
+      )}
+
+      {!pieza && (cambios.length > 0 || cambiosEval.length > 0) && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--w)', border: '1px solid var(--bd)',
             borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
