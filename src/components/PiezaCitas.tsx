@@ -1,4 +1,5 @@
 'use client'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 
@@ -60,7 +61,7 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
         const d = new Date(f.fecha + 'T12:00:00')
         const ab = abierta === f.id
         const ejs = (f.ses?.partes || []).flatMap((p: any) => p.ejercicios || [])
-        const fotos = ejs.slice(0, 4).map((e: any) => e.imagen_url || '')
+        const fotos = ejs.slice(0, 4)
         const color = f.ses?.color || f.evs[0]?.color || 'var(--gm)'
         return (
           <button key={f.id} type="button" className="pz-fila" onClick={() => setAbierta(ab ? null : f.id)}
@@ -80,9 +81,7 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
                   <span className="pz-mos" style={{ boxShadow: `0 0 0 2px ${f.ses.color}`,
                     gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
                     {fotos.length === 0 && <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)' }}><Ic name="fuerza" size={16}/></span>}
-                    {fotos.map((src: string, k: number) => src
-                      ? <img key={k} src={src} alt=""/>
-                      : <span key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', background: '#fff' }}><Ic name="fuerza" size={13}/></span>)}
+                    {fotos.map((e: any, k: number) => <ImagenEjercicio key={k} relleno radio={0} fondo="#fff" icono={13} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
                   </span>
                 )}
                 <span style={{ flex: 1, minWidth: 0 }}>
@@ -113,7 +112,7 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
                         {(p.ejercicios || []).map((e: any, ei: number) => (
                           <span key={ei} className="pz-ej" title={e.nombre} style={{ animationDelay: `${ei * 35}ms` }}>
                             <span className="pz-ej-f">
-                              {e.imagen_url ? <img src={e.imagen_url} alt=""/> : <Ic name="fuerza" size={18}/>}
+                              <ImagenEjercicio relleno radio={0} fondo="transparent" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>
                             </span>
                             <span className="pz-ej-n">{e.nombre}</span>
                             {(e.series || e.reps) && <span className="pz-ej-d">{[e.series, e.reps].filter(Boolean).join(' × ')}</span>}

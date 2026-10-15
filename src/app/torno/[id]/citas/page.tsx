@@ -1,4 +1,5 @@
 'use client'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -441,7 +442,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                   const ab = abierto === 's:' + s.id
                   const n = citas.filter(c => plan[c.id] === s.id).length
                   const ejs = (s.partes || []).flatMap((p: any) => p.ejercicios || [])
-                  const fotos = ejs.slice(0, 4).map((e: any) => e.imagen_url || '')
+                  const fotos = ejs.slice(0, 4)
                   return (
                     <div key={s.id} className="tc-sq-w">
                       <button type="button" className={`tc-sq ${on ? 'on' : ''}`}
@@ -456,9 +457,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                         style={{ boxShadow: rot.includes(s.id) ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined,
                           opacity: rot.length > 0 && !rot.includes(s.id) ? .55 : 1 }}>
                         <span className="tc-sq-fotos" style={{ gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
-                          {fotos.map((src: string, k: number) => src
-                            ? <img key={k} src={src} alt=""/>
-                            : <span key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', background: '#fff' }}><Ic name="fuerza" size={18}/></span>)}
+                          {/* Foto, o la figura con sus músculos, o el icono (ImagenEjercicio). */}
+                          {fotos.map((e: any, k: number) => <ImagenEjercicio key={k} relleno radio={0} fondo="#fff" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
                         </span>
                         <span className="tc-sq-nom">{s.nombre}</span>
                         <span className="tc-sq-n" style={{ background: s.color }} title="Citas con ella">{n}</span>

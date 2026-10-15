@@ -1,4 +1,5 @@
 'use client'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -222,10 +223,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
   const verEj = (ej: any, c?: Carga, peq?: boolean, key?: any) => (
     <div key={key} {...(c ? cogible(c) : {})} className={`tn-ej ${c && enLaMano(c) ? 'mano' : ''}`} title={ej.nombre}
       style={{ width: peq ? 64 : 82, textAlign: 'center', cursor: c ? 'grab' : 'default' }}>
-      {ej.imagen_url
-        ? <img src={ej.imagen_url} alt="" draggable={false} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 8, display: 'block' }}/>
-        : <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 8, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--bd)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)' }}><Ic name="fuerza" size={26}/></div>}
+      <ImagenEjercicio src={ej.imagen_url} ejercicioId={ej.ejercicio_id || ej.id} fondo="#fff"/>
       <div style={{ fontSize: 9.5, lineHeight: 1.2, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ej.nombre}</div>
       {!peq && <div style={{ marginTop: 2 }}>{esferas(objsEj(ej))}</div>}
     </div>
@@ -248,17 +246,15 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
     const ejs = (s?.partes || []).flatMap((p: any) => p.ejercicios || [])
     // Por ejercicio, tenga foto o no: el que no la tiene ocupaba nada y parecía que no
     // se había soltado. Los últimos primero, que es lo que se acaba de meter.
-    const fotos = [...ejs].reverse().slice(0, 4).map((e: any) => e.imagen_url || bib.ej[e.ejercicio_id]?.imagen_url || '')
-    const imgs = fotos
+    const imgs = [...ejs].reverse().slice(0, 4)
     const ob = objsSes(s)
     const tam = o.tam || 150
     return (
       <div key={o.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <div {...(o.c ? cogible(o.c) : {})} {...(o.extra || {})} className={`tn-sq ${o.c && enLaMano(o.c) ? 'mano' : ''}`} style={{ width: tam, height: tam }}>
           <div className="tn-sq-fotos" style={{ gridTemplateColumns: imgs.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: imgs.length > 2 ? '1fr 1fr' : '1fr' }}>
-            {imgs.map((src, k) => src
-              ? <img key={k} src={src} alt="" draggable={false}/>
-              : <span key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', background: '#fff' }}><Ic name="fuerza" size={22}/></span>)}
+            {imgs.map((e: any, k: number) => <ImagenEjercicio key={k} relleno radio={0} fondo="#fff" icono={22}
+              src={e.imagen_url || bib.ej[e.ejercicio_id]?.imagen_url} ejercicioId={e.ejercicio_id}/>)}
           </div>
           <div className="tn-sq-nom" style={{ fontSize: tam < 130 ? 11 : 12.5 }}>{s?.nombre || 'Sesión'}</div>
           {ejs.length > 0 && <span className="tn-sq-n">{ejs.length}</span>}

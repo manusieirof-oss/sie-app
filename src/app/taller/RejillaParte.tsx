@@ -1,4 +1,5 @@
 'use client'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { Ic } from '@/lib/icons'
 import ChapaEjecucion from './ChapaEjecucion'
 import { ChapaFeedback, ChapaComentario } from './ChapasEjercicio'
@@ -87,14 +88,9 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 {/* Se apaga solo la foto: la chapa de "no lo hizo" tiene que seguir viva
                     para poder deshacerlo. */}
                 <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s' }}>
-                {ej.imagen_url
-                  ? <img src={ej.imagen_url} alt={ej.nombre}
-                      style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover',
-                        borderRadius: 10, display: 'block' }}/>
-                  : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bm)', borderRadius: 10,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
-                      <Ic name="fuerza" size={34}/>
-                    </div>}
+                {/* Su foto, o la figura con sus músculos, o el icono. */}
+                <ImagenEjercicio src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
+                  radio={10} icono={34} alt={ej.nombre}/>
                 </div>
                 {/* CAMBIAR Y NO LO HIZO, COMO CHAPAS EN LA FOTO, igual que notas y series.
                     Eran botones de texto bajo el nombre y alargaban cada tarjeta. */}

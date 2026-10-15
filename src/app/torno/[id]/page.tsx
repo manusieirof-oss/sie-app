@@ -1,4 +1,5 @@
 'use client'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -382,9 +383,7 @@ function Tarjeta({ it, cls, estilo, objs, refEl, onClick, onEncima, abierta, onF
           {abierta ? '−' : `+${it.familia!.length}`}
         </span>
       )}
-      {it.imagen
-        ? <img src={it.imagen} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 8, display: 'block' }}/>
-        : <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 8, background: 'var(--bl)' }}/>}
+      <ImagenEjercicio src={it.imagen} ejercicioId={it.id} fondo="var(--bl)"/>
       <div style={{ fontSize: 10, lineHeight: 1.25, marginTop: 4 }}>{it.nombre}</div>
     </div>
   )
