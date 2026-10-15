@@ -19,7 +19,7 @@ import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
-import { ultimasDeBono, soltarDelBono } from '@/lib/bonoSesiones'
+import { ultimasDeBono, soltarDelBono, engancharCitas } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 
@@ -444,12 +444,15 @@ export default function AgendaPage() {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
+    // Si gastaba de un bono, el hueco lo coge su siguiente cita sin bono.
+    if (cita.bono_id) await engancharCitas(cita.bono_id)
     setEditandoCita(null); cargar()
   }
 
   async function borrarCitaDirecto(cita:any) {
     await supabase.from('recuperaciones').delete().eq('cita_falta_id',cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
+    if (cita.bono_id) await engancharCitas(cita.bono_id)
     cargar()
   }
 
