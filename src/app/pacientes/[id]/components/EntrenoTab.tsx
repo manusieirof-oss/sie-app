@@ -18,6 +18,7 @@ import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esV
 import { hoyISO } from '@/lib/fechas'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
+import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
 import SelectorSesiones from '@/app/entrenamiento/components/SelectorSesiones'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { sistemasDePaciente, historialSistemas, logradosDe, escalonesDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
@@ -26,6 +27,8 @@ import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
+  // Planificación en lista (la de siempre) o como la presentación final del torno.
+  const [vistaPlan, setVistaPlan] = useState<'lista'|'interactiva'>('lista')
   /**
    * La cita cuya sesión se está ajustando. Distinto de editar la sesión: aquí lo
    * que se guarde va a ESA cita, no al plan que comparten todas.
@@ -111,7 +114,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // Las evaluaciones que tenga puestas, para marcarlas en la planificacion: poner
     // la fecha en la tarjeta del sistema y que no se viera en las citas obligaba a
     // recordar de memoria que dia tocaba.
-    supabase.from('evaluaciones').select('id,fecha,cita_id,fase_id,asignacion_id').eq('paciente_id',pacienteId)
+    supabase.from('evaluaciones').select('id,fecha,cita_id,fase_id,asignacion_id,momento').eq('paciente_id',pacienteId)
       .then(({data})=>setEvaluaciones(data||[]))
     // Y que test toca cada dia, para los que se han repartido a mano.
     testsPorDia(pacienteId).then(setTestsDia)
@@ -619,8 +622,42 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           return { nombre: f?.nombre || 'fase', color: a?.sistema?.color || 'var(--g)' }
         }
 
+        // Lista o vista interactiva: el mismo conmutador pequeño arriba en las dos.
+        const conmutador = (
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+            <div className="vista-sw" style={{margin:0}}>
+              {([['lista','lista','Lista'],['interactiva','calendario','Vista interactiva']] as const).map(([k,ic,l])=>(
+                <button key={k} className={`vista-b ${vistaPlan===k?'on':''}`} onClick={()=>setVistaPlan(k)}><Ic name={ic} size={12}/> {l}</button>
+              ))}
+            </div>
+          </div>
+        )
+
+        // VISTA INTERACTIVA: sus citas como al acabar en el torno. Un color por sesión
+        // (en el orden en que salen), la fase del sistema que manda y sus evaluaciones.
+        if (vistaPlan==='interactiva') {
+          const PALETA = ['#5A969E','#C9A84C','#B0708C','#6E8FC7','#7C9A6B','#C77F5A','#8A7CC7','#4F9C8A']
+          const colorSes: Record<string,string> = {}
+          citasFuturas.forEach((c:any)=>{ if (c.sesion_id && !colorSes[c.sesion_id]) colorSes[c.sesion_id]=PALETA[Object.keys(colorSes).length%PALETA.length] })
+          const filas: FilaPieza[] = citasFuturas.map((c:any): FilaPieza=>{
+            const fase = marco?.sistema ? faseEn(marco.sistema, marco, c.fecha, logrados, escalones) : null
+            return { id: c.id, fecha: c.fecha, hora: c.hora || null, nueva: false,
+              ses: c.sesiones ? { nombre: c.sesiones.nombre, color: colorSes[c.sesion_id] || PALETA[0], fase: fase?.fase?.nombre, partes: c.sesiones.partes || [] } : null,
+              evs: evalDe(c).map((e:any)=>{ const fd=faseDeEval(e); return { momento: (e.momento==='inicial'?'inicial':'final') as 'inicial'|'final', faseNombre: fd.nombre, color: fd.color, tests: [] } }) }
+          }).filter(f=>f.ses||f.evs.length>0)
+          return (
+            <div className="panel">
+              {conmutador}
+              {filas.length===0
+                ? <div className="muted" style={{textAlign:'center',padding:30}}>Ninguna cita por delante tiene sesión todavía.</div>
+                : <div style={{maxWidth:620,margin:'0 auto',padding:'6px 0 20px'}}><PiezaCitas filas={filas}/></div>}
+            </div>
+          )
+        }
+
         return (
         <div className="panel">
+          {conmutador}
           <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados} escalones={escalones}
             onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac)}} onRecargar={cargarDatos}/>
           <div className="sec">
