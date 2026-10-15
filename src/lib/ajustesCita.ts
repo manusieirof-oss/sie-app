@@ -68,6 +68,12 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
       const a = ajustes!.ejercicios[clave(pi, ei)]
       if (!a) return ej
       const copia = { ...ej }
+      // Otro ejercicio en ese hueco: lo prescrito era para el de antes (su peso, sus
+      // reps, su nota). Se quita ANTES de aplicar los ajustes, para que lo ajustado
+      // ese día al sustituto sí se quede.
+      if (a.sustituto?.ejercicio_id) {
+        ;['peso', 'reps', 'tiempo', 'capacidad', 'regimen', 'nota', 'objetivos'].forEach(k => { delete copia[k] })
+      }
       CAMPOS_AJUSTABLES.forEach(c => {
         if (a[c.id] !== undefined) copia[c.id] = a[c.id]
       })

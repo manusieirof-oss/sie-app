@@ -708,7 +708,9 @@ export default function ModoClase() {
       const { data: c } = await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle()
       const aj: any = c?.ajustes && c.ajustes.ejercicios ? c.ajustes : { v: 1, ejercicios: {} }
       const previo = aj.ejercicios[ej.pos] || {}
-      aj.ejercicios[ej.pos] = { ...previo, nombre: previo.nombre || ej.sustituye || ej.nombre, sustituto }
+      // Solo el nombre del original y el sustituto: los ajustes de peso o reps que
+      // hubiera eran del ejercicio de antes y no valen para el nuevo.
+      aj.ejercicios[ej.pos] = { nombre: previo.nombre || ej.sustituye || ej.nombre, sustituto }
       const { error } = await supabase.from('citas').update({ ajustes: aj }).eq('id', item.citaId)
       if (error) { alert('No se ha podido guardar el cambio: ' + error.message); return }
     }
@@ -721,6 +723,41 @@ export default function ModoClase() {
         tipo_medida: nuevo.tipo_medida || 'peso_reps', items: nuevo.items_ejecucion || [],
         feedbacks: nuevo.feedbacks || [], etiquetas: nuevo.etiquetas || [],
         items_evaluados: {}, ultimo: null, guardado: false, hoy: {},
+        /* NADA DEL EJERCICIO DE ANTES. Se quedaban su nota del plan, sus dos últimas
+           notas de sala, su última evaluación y las casillas con su peso y sus reps:
+           parecía que el nuevo ya tenía historia y era la del otro. Se conservan solo
+           el número de series y el descanso, que son de la sesión, no del ejercicio. */
+        plan: { series: e.plan?.series, descanso: e.plan?.descanso },
+        series: (e.series || []).map(() => ({ peso: '', reps: '', segundos: '' })),
+        comentarios: [], ultimoComent: '', ultimaEval: null, ultimaEvalFecha: null, precargado: false,
+      }),
+    }))
+    // Y la historia DEL NUEVO: su última vez (peso, reps, notas) y su última evaluación.
+    const [{ data: fin }, { data: ejec }] = await Promise.all([
+      supabase.from('registros_ejercicio').select('variante,series,fecha,created_at,comentario')
+        .eq('paciente_id', pid).eq('finalizado', true).eq('ejercicio_id', nuevo.id).lte('fecha', fecha)
+        .order('fecha', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('ejecucion_paciente').select('items,fecha').eq('paciente_id', pid).eq('ejercicio_id', nuevo.id)
+        .order('fecha', { ascending: false }).limit(1),
+    ])
+    // Sin variante: el sustituto entra sin ella, igual que en cargarDatosSesion.
+    const suyos = (fin || []).filter((r: any) => String(r.variante || '').trim() === '')
+    const ult = suyos.find((r: any) => Array.isArray(r.series) && r.series.length > 0)
+    const coms = suyos.filter((r: any) => String(r.comentario || '').trim() !== '').slice(0, 2)
+      .map((r: any) => ({ fecha: r.fecha, texto: String(r.comentario).trim() }))
+    const ev = (ejec || [])[0]
+    setSeleccion(prev => prev.map((s:any) => s.paciente.id !== pid ? s : {
+      ...s,
+      datos: s.datos.map((e:any, k:number) => {
+        // Si mientras tanto se cambió por otro, no se pisa.
+        if (k !== i || e.ejercicio_id !== nuevo.id) return e
+        const lleno = (x:any) => x != null && String(x) !== ''
+        const series = ult
+          ? ult.series.map((x:any) => ({ peso: lleno(x?.peso) ? x.peso : '', reps: lleno(x?.reps) ? x.reps : '', segundos: lleno(x?.segundos) ? x.segundos : '' }))
+          : e.series
+        return { ...e, ultimo: ult?.series || null, ultimoComent: ult?.comentario || '', comentarios: coms,
+          ultimaEval: ev?.items || null, ultimaEvalFecha: ev?.fecha || null,
+          items_evaluados: ev?.items ? { ...ev.items } : {}, series, precargado: !!ult }
       }),
     }))
   }
