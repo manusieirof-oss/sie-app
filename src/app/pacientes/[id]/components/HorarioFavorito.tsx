@@ -66,12 +66,25 @@ export default function HorarioFavorito({ pacienteId, tipoClase, onCreadas }: { 
   const cambiar = (i: number, k: keyof Fila, v: any) => setFilas(l => l.map((f, j) => j === i ? { ...f, [k]: v } : f))
 
   async function crear() {
+    /* CLASES LLENAS: decide el entrenador. Antes se saltaban solas y esa semana se
+       quedaba sin su clase sin que nadie lo decidiera. Ahora se enseñan y se pregunta:
+       ponerla igualmente (la sala va con uno más) o saltarla. */
+    const llenas: { fecha: string, hora: string, sala: string }[] = []
+    filas.forEach((f, i) => (ocup[i]?.llenas || []).forEach(fecha => llenas.push({ fecha, hora: f.hora, sala: f.sala })))
+    let ponerLlenas = false
+    if (llenas.length > 0) {
+      const fmtL = (x: { fecha: string, hora: string, sala: string }) =>
+        `· ${new Date(x.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} ${x.hora} Sala ${x.sala}`
+      ponerLlenas = confirm(`${llenas.length === 1 ? 'Esta clase está llena' : `Estas ${llenas.length} clases están llenas`}:\n\n`
+        + llenas.sort((a, b) => a.fecha.localeCompare(b.fecha)).map(fmtL).join('\n')
+        + `\n\nAceptar: poner la cita igualmente.\nCancelar: saltar ${llenas.length === 1 ? 'esa fecha' : 'esas fechas'}.`)
+    }
     const items: { fecha: string, hora: string, sala: string }[] = []
     let saltadas = 0
     filas.forEach((f, i) => {
-      const llenas = new Set(ocup[i]?.llenas || [])
+      const llenasF = new Set(ocup[i]?.llenas || [])
       planDeFechas(desde, hasta, [DIAS_SEMANA[f.dia]]).forEach(fecha => {
-        if (llenas.has(fecha)) saltadas++
+        if (llenasF.has(fecha) && !ponerLlenas) saltadas++
         else items.push({ fecha, hora: f.hora, sala: f.sala })
       })
     })
@@ -82,6 +95,7 @@ export default function HorarioFavorito({ pacienteId, tipoClase, onCreadas }: { 
     if (!r.ok) { alert(`Error al crear las citas (${r.error}). Se crearon ${r.creadas}.`); return }
     alert(`✓ ${r.creadas} citas creadas con su horario.`
       + (saltadas ? `\n${saltadas} no se han puesto: la clase estaba llena.` : '')
+      + (ponerLlenas && llenas.length ? `\n${llenas.length} van en clase llena.` : '')
       + (r.yaTenia ? `\n${r.yaTenia} ya las tenía.` : '')
       + (r.sinBono ? `\n${r.sinBono} no descuentan del bono: se le habían acabado.` : ''))
     setAbierto(false)
