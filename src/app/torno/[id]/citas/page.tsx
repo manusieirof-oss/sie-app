@@ -310,7 +310,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-cita { position:relative }
         .tc-ev { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:99px; background:#fff;
                  display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(38,40,37,.25) }
-        .tc-ev-sq { background:#fff }
+        .tc-ev-sq { background:#fff; height:auto !important; min-height:104px }
         .tc-sq-orden { position:absolute; top:6px; right:6px; min-width:22px; height:20px; padding:0 5px; border-radius:99px; background:#fff;
                        font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(38,40,37,.18); z-index:2 }
         .tc-sq-i { position:absolute; bottom:6px; right:6px; width:18px; height:18px; border-radius:99px; background:#fff; color:var(--gd);
@@ -502,11 +502,17 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             const s = sesDe(sid || null)
                             const ajena = sid && !s ? otras[sid] || 'otra sesión' : null
                             const evs = evals.filter(e => evalPlan[e.key] === c.id)
+                            const ev = pincelEval ? evals.find(e => e.key === pincelEval) : null
+                            const fueraEv = ev ? ((ev.desde && c.fecha < ev.desde) || (ev.hasta && c.fecha > ev.hasta)) : false
                             return (
                               <button key={c.id} className="tc-cita" onClick={e => { e.stopPropagation(); tocarCita(c) }}
                                 title={`${c.hora ? String(c.hora).slice(0, 5) : ''} ${s ? s.nombre : ajena || 'sin sesión'}`}
                                 style={{ background: s ? s.color : ajena ? 'var(--bm)' : '#fff', color: s ? '#fff' : 'var(--gr)',
-                                  border: s ? 'none' : '1px dashed var(--bd)' }}>
+                                  border: s ? 'none' : '1px dashed var(--bd)',
+                                  // Eligiendo una evaluación: las citas de su fase se iluminan con el
+                                  // color del ciclo y las de fuera se apagan.
+                                  opacity: fueraEv ? .25 : 1,
+                                  boxShadow: ev && !fueraEv ? `0 0 0 2px ${ev.color}88` : 'none' }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
                                 {evs.length > 0 && (
                                   <span className="tc-ev" title={evs.map(e => `${e.momento === 'inicial' ? 'Al empezar' : 'Al salir'} · ${e.faseNombre}`).join('\n')}
@@ -545,7 +551,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             </span>
                           : <span style={{ color: e.color, lineHeight: 0 }}><Ic name="test" size={22}/></span>}
                         <span style={{ fontSize: 11.5, marginTop: 5, lineHeight: 1.2 }}>{e.momento === 'inicial' ? 'Al empezar' : 'Al salir'}</span>
-                        <span style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.2 }}>{e.faseNombre}</span>
+                        <span title={e.faseNombre} style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', maxWidth: '100%' }}>{e.faseNombre}</span>
                         <span style={{ fontSize: 10, color: cita ? 'var(--gd)' : 'var(--grl)', marginTop: 3 }}>{cita ? corta(cita.fecha) : 'sin día'}</span>
                         <span className="tc-sq-i" title="Qué se mide" onClick={ev => { ev.stopPropagation(); setAbierto(ab ? null : 'e:' + e.key) }}>i</span>
                       </button>
