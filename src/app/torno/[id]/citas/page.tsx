@@ -285,11 +285,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-ficha:hover { transform: translateY(-2px) }
         .tc-mes { animation: tc-entra .45s ease backwards }
         .tc-sq-w { position:relative }
-        .tc-tres { display:grid; grid-template-columns: 130px minmax(0,1fr) 130px; gap:26px; align-items:start; max-width:1500px; margin:0 auto }
+        .tc-tres { display:grid; grid-template-columns: 160px minmax(0,1fr) 140px; gap:26px; align-items:start; max-width:1500px; margin:0 auto }
         .tc-lado { position:sticky; top:12px; display:flex; flex-direction:column; align-items:center; gap:12px;
                    padding:4px 0 20px; z-index:5 }
         .tc-lado-rot { font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--grl) }
         .tc-centro { min-width:0 }
+        .tc-lado .tc-rep { flex-direction:column; align-items:stretch; gap:10px; margin:8px 0 0; padding-top:12px; border-top:1px solid var(--bd2); width:150px; font-size:12.5px }
+        .tc-lado .tc-rep select, .tc-lado .tc-rep input[type=number], .tc-lado .tc-rep input[type=date] { width:100% }
+        .tc-lado .tc-rep label { font-size:11.5px; line-height:1.3; align-items:flex-start }
+        .tc-lado .tc-rep .btn { align-self:center; margin-top:2px }
         .tc-lado .tc-info { left:calc(100% + 10px); top:0; transform:none }
         .tc-lado:last-child .tc-info { left:auto; right:calc(100% + 10px) }
         .tc-cita { position:relative }
@@ -438,11 +442,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                 })}
               </div>
             ))}
-          </div>
-          <div className="tc-centro">
-
-          {/* REPARTIR. Qué sesiones se eligen arriba, tocando los cuadrados; aquí solo
-              cada cuántas, hasta cuándo y pintar. Sobre blanco, como una frase. */}
+            {/* REPARTIR, debajo de las sesiones y en vertical: es lo que se hace con ellas. */}
           <div className="tc-rep">
             <span>Repartir</span>
             <select value={cada} onChange={e => setCada(Number(e.target.value))}>
@@ -458,6 +458,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             <label><input type="checkbox" checked={pisar} onChange={e => setPisar(e.target.checked)}/> pisar las que ya tienen otra</label>
             <button className="btn btn-p btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
           </div>
+          </div>
+          <div className="tc-centro">
+
 
           {/* EL CALENDARIO */}
           {/* Meses de ancho fijo, centrados. Con 1fr las celdas con cita se ensanchaban
