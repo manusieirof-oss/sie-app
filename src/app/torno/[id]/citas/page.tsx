@@ -35,7 +35,9 @@ type Ses = { id: string, nombre: string, color: string, desde: string | null, ha
  * `cita` es la que tiene ahora en la base; lo que se ve sale de `evalPlan`.
  */
 type Ev = { key: string, asig: string, fase: string, faseNombre: string, momento: 'inicial' | 'final', ciclo: string, color: string,
-  desde: string | null, hasta: string | null, existente: string | null, cita: string | null, tests: string[] }
+  desde: string | null, hasta: string | null, existente: string | null, cita: string | null,
+  /** Los tests de "Cómo se evalúa" de los objetivos de la fase, con su foto y qué ítem se mira. */
+  tests: { id: string, nombre: string, imagen: string, items: string[] }[] }
 type Ciclo = { id: string, nombre: string, color: string, asig?: string | null, fases: { id?: string, nombre: string, desde: string | null, hasta: string | null, sesiones: string[], objetivos?: string[] }[] }
 
 const COLORES = ['#5A969E', '#C9A84C', '#B0708C', '#6E8FC7', '#7C9A6B', '#C77F5A', '#8A7CC7', '#4F9C8A']
@@ -143,7 +145,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       const { data: ex } = await supabase.from('evaluaciones').select('id,asignacion_id,fase_id,momento,fecha,cita_id').in('asignacion_id', asigs)
       const objIds = Array.from(new Set(cics.flatMap(c => c.fases.flatMap(f => f.objetivos || []))))
       const { data: ot } = objIds.length
-        ? await supabase.from('objetivos_tests').select('objetivo_id, tests:test_id(nombre)').in('objetivo_id', objIds)
+        ? await supabase.from('objetivos_tests').select('objetivo_id, item, tests:test_id(id,nombre,imagen_url)').in('objetivo_id', objIds)
         : { data: [] as any[] }
       const cl = (cs || []) as Cita[]
       const sumar = (f: string, d: number) => { const x = new Date(f + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10) }
@@ -154,8 +156,17 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         for (const f of c.fases) {
           if (!f.id) continue
           const enFase = cl.filter(x => (!f.desde || x.fecha >= f.desde) && (!f.hasta || x.fecha <= f.hasta))
-          const tests = Array.from(new Set((ot || []).filter((r: any) => (f.objetivos || []).includes(r.objetivo_id))
-            .map((r: any) => (Array.isArray(r.tests) ? r.tests[0] : r.tests)?.nombre).filter(Boolean))) as string[]
+          // Solo los de los objetivos de ESTA fase (los de sus sesiones), no todos los tests.
+          const porTest = new Map<string, { id: string, nombre: string, imagen: string, items: string[] }>()
+          ;(ot || []).filter((r: any) => (f.objetivos || []).includes(r.objetivo_id)).forEach((r: any) => {
+            const t = Array.isArray(r.tests) ? r.tests[0] : r.tests
+            if (!t?.id) return
+            const x = porTest.get(t.id) || { id: t.id, nombre: t.nombre, imagen: t.imagen_url || '', items: [] as string[] }
+            const it = r.item || 'Todo el test'
+            if (!x.items.includes(it)) x.items.push(it)
+            porTest.set(t.id, x)
+          })
+          const tests = Array.from(porTest.values())
           for (const momento of ['inicial', 'final'] as const) {
             const e = (ex || []).find((x: any) => x.asignacion_id === c.asig && x.fase_id === f.id && (x.momento || 'final') === momento)
             const citaEx = e ? (e.cita_id || cl.find(x => x.fecha === e.fecha)?.id || null) : null
@@ -290,11 +301,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                    padding:4px 0 20px; z-index:5 }
         .tc-lado-rot { font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--grl) }
         .tc-centro { min-width:0 }
-        .tc-lado .tc-rep { flex-direction:column; align-items:stretch; gap:10px; margin:8px 0 0; padding-top:12px; border-top:1px solid var(--bd2); width:150px; font-size:12.5px }
+        .tc-lado .tc-rep { flex-direction:column; align-items:stretch; gap:10px; margin:0 0 8px; padding-bottom:12px; border-bottom:1px solid var(--bd2); width:150px; font-size:12.5px }
         .tc-lado .tc-rep select, .tc-lado .tc-rep input[type=number], .tc-lado .tc-rep input[type=date] { width:100% }
         .tc-lado .tc-rep label { font-size:11.5px; line-height:1.3; align-items:flex-start }
         .tc-lado .tc-rep .btn { align-self:center; margin-top:2px }
-        .tc-lado .tc-info { left:calc(100% + 10px); top:0; transform:none }
+        .tc-lado .tc-info { left:calc(100% + 10px); top:0; transform:none; width:290px }
         .tc-lado:last-child .tc-info { left:auto; right:calc(100% + 10px) }
         .tc-cita { position:relative }
         .tc-ev { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:99px; background:#fff;
@@ -350,6 +361,22 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
               la derecha las evaluaciones. Todo en una fila arriba era un lío. */}
           <div className="tc-tres">
           <div className="tc-lado">
+            {/* REPARTIR, arriba del todo y en vertical: es lo primero que se mira. */}
+          <div className="tc-rep">
+            <span>Repartir</span>
+            <select value={cada} onChange={e => setCada(Number(e.target.value))}>
+              {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 1 ? 'en cada cita' : `cada ${n} citas`}</option>)}
+            </select>
+            <select value={limite} onChange={e => setLimite(e.target.value as any)}>
+              <option value="todas">en todas las citas</option>
+              <option value="veces">un número de veces</option>
+              <option value="hasta">hasta una fecha</option>
+            </select>
+            {limite === 'veces' && <input type="number" min={1} value={veces} onChange={e => setVeces(Math.max(1, Number(e.target.value) || 1))} style={{ width: 54 }}/>}
+            {limite === 'hasta' && <input type="date" value={hasta} min={hoy} onChange={e => setHasta(e.target.value)}/>}
+            <label><input type="checkbox" checked={pisar} onChange={e => setPisar(e.target.checked)}/> pisar las que ya tienen otra</label>
+            <button className="btn btn-p btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
+          </div>
             <div className="tc-lado-rot">Sesiones</div>
             {[...ciclos.map(c => ({ ciclo: c as Ciclo | null, ses: sesiones.filter(s => s.ciclo === c.id) })),
               ...(sesiones.some(s => !s.ciclo) ? [{ ciclo: null as Ciclo | null, ses: sesiones.filter(s => !s.ciclo) }] : [])].map((g, gi) => (
@@ -442,22 +469,6 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                 })}
               </div>
             ))}
-            {/* REPARTIR, debajo de las sesiones y en vertical: es lo que se hace con ellas. */}
-          <div className="tc-rep">
-            <span>Repartir</span>
-            <select value={cada} onChange={e => setCada(Number(e.target.value))}>
-              {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 1 ? 'en cada cita' : `cada ${n} citas`}</option>)}
-            </select>
-            <select value={limite} onChange={e => setLimite(e.target.value as any)}>
-              <option value="todas">en todas las citas</option>
-              <option value="veces">un número de veces</option>
-              <option value="hasta">hasta una fecha</option>
-            </select>
-            {limite === 'veces' && <input type="number" min={1} value={veces} onChange={e => setVeces(Math.max(1, Number(e.target.value) || 1))} style={{ width: 54 }}/>}
-            {limite === 'hasta' && <input type="date" value={hasta} min={hoy} onChange={e => setHasta(e.target.value)}/>}
-            <label><input type="checkbox" checked={pisar} onChange={e => setPisar(e.target.checked)}/> pisar las que ya tienen otra</label>
-            <button className="btn btn-p btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
-          </div>
           </div>
           <div className="tc-centro">
 
@@ -528,7 +539,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     <div key={e.key} className="tc-sq-w">
                       <button type="button" className="tc-sq tc-ev-sq" onClick={() => { setPincelEval(on ? null : e.key); if (!on) setPincel(null) }}
                         style={{ border: `2px solid ${e.color}`, boxShadow: on ? `0 0 0 3px ${e.color}55, 0 12px 26px rgba(38,40,37,.18)` : undefined, justifyContent: 'center', padding: 8 }}>
-                        <span style={{ color: e.color, lineHeight: 0 }}><Ic name="test" size={22}/></span>
+                        {e.tests.some(t => t.imagen)
+                          ? <span style={{ display: 'flex', gap: 3, marginBottom: 2 }}>
+                              {e.tests.filter(t => t.imagen).slice(0, 3).map(t => <img key={t.id} src={t.imagen} alt="" style={{ width: 26, height: 26, objectFit: 'cover', borderRadius: 6 }}/>)}
+                            </span>
+                          : <span style={{ color: e.color, lineHeight: 0 }}><Ic name="test" size={22}/></span>}
                         <span style={{ fontSize: 11.5, marginTop: 5, lineHeight: 1.2 }}>{e.momento === 'inicial' ? 'Al empezar' : 'Al salir'}</span>
                         <span style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.2 }}>{e.faseNombre}</span>
                         <span style={{ fontSize: 10, color: cita ? 'var(--gd)' : 'var(--grl)', marginTop: 3 }}>{cita ? corta(cita.fecha) : 'sin día'}</span>
@@ -540,7 +555,17 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             {e.momento === 'inicial' ? 'Medir al empezar' : 'Evaluar para salir'} · {e.faseNombre}
                           </div>
                           {e.tests.length > 0
-                            ? e.tests.map(t => <div key={t} style={{ fontSize: 11.5, color: 'var(--gr)' }}>· {t}</div>)
+                            ? e.tests.map(t => (
+                                <div key={t.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 8 }}>
+                                  {t.imagen
+                                    ? <img src={t.imagen} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 9, flexShrink: 0 }}/>
+                                    : <span style={{ width: 54, height: 54, borderRadius: 9, background: 'var(--bl)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', flexShrink: 0 }}><Ic name="test" size={20}/></span>}
+                                  <span>
+                                    <span style={{ display: 'block', fontSize: 12.5, color: 'var(--n)' }}>{t.nombre}</span>
+                                    {t.items.map(it => <span key={it} style={{ display: 'block', fontSize: 11, color: 'var(--gr)' }}>· {it}</span>)}
+                                  </span>
+                                </div>
+                              ))
                             : <div style={{ fontSize: 11.5, color: 'var(--grl)' }}>Los objetivos de esta fase no tienen tests en "Cómo se evalúa".</div>}
                         </div>
                       )}
