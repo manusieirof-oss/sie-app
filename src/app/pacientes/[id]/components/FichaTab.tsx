@@ -24,6 +24,7 @@ import { hoyISO } from '@/lib/fechas'
 import SelectorObjetivos from '@/app/entrenamiento/components/SelectorObjetivos'
 import TrabajoObjetivo from './TrabajoObjetivo'
 import { porRecuperar } from '@/lib/recuperaciones'
+import HorarioFavorito from './HorarioFavorito'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -1199,6 +1200,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           {pac.notas_fijas}
         </div>
       ) : null}
+
+      {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
+          agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
+      <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>
 
       {/* 3. OBJETIVOS — el bloque principal, a ancho completo.
 
