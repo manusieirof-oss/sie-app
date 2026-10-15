@@ -8,6 +8,8 @@ import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { PROGRESIONES } from '@/lib/sistemas'
+import { problemasDeEjercicio } from '@/lib/ejercicios'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 
 // ---------------------------------------------------------------------------
 // EL TORNO
@@ -48,6 +50,11 @@ export default function TornoPage() {
   const [busca, setBusca] = useState('')
   const [camino, setCamino] = useState<string>('falta')
   const [menu, setMenu] = useState(false)
+  /* QUÉ SE BUSCA: gente (tornear su entreno) o ejercicios (amasar el barro). El mismo
+     buscador: a su derecha se elige. Los ejercicios se traen al abrir, como la gente. */
+  const [que, setQue] = useState<'pacientes' | 'ejercicios'>('pacientes')
+  const [ejs, setEjs] = useState<any[] | null>(null)
+  const [soloIncompletos, setSoloIncompletos] = useState(false)
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
@@ -70,7 +77,16 @@ export default function TornoPage() {
   }, [])
 
   // Solo al abrir, y una vez.
-  useEffect(() => { if (abierto && filas.length === 0 && cargando === false) cargar() }, [abierto])
+  useEffect(() => { if (abierto && que === 'pacientes' && filas.length === 0 && cargando === false) cargar() }, [abierto, que]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!abierto || que !== 'ejercicios' || ejs) return
+    traerTodo<any>((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => setEjs(r.filas))
+  }, [abierto, que]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Los ejercicios que se enseñan: buscando, todo lo que casa; si no, las portadas y los sueltos. */
+  const listaEj = (ejs || [])
+    .filter(e => busca.trim() ? contiene(e.nombre, busca) : !e.portada_id)
+    .filter(e => !soloIncompletos || problemasDeEjercicio(e).length > 0)
+  function amasar(id: string) { setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}`), 360) }
 
   function abrir(c?: string) {
     if (c) setCamino(c)
@@ -215,7 +231,7 @@ export default function TornoPage() {
 
         {abierto === false && (
           <div className="t-fade" style={{ fontSize: 17, marginTop: 16 }}>
-            ¿A quién le preparamos el entreno?
+            {que === 'pacientes' ? '¿A quién le preparamos el entreno?' : '¿Qué ejercicio amasamos?'}
           </div>
         )}
         </div>
@@ -226,9 +242,20 @@ export default function TornoPage() {
           <input className="input" value={busca}
             onFocus={() => setAbierto(true)}
             onChange={e => { setBusca(e.target.value); setAbierto(true) }}
-            placeholder="Busca a alguien de la clínica…"
+            placeholder={que === 'pacientes' ? 'Busca a alguien de la clínica…' : 'Busca un ejercicio…'}
             style={{ flex: 1, fontSize: 14, padding: '11px 14px' }}/>
 
+          {/* GENTE O EJERCICIOS: lo que se busca. */}
+          <div style={{ display: 'inline-flex', background: 'var(--bl)', borderRadius: 99, padding: 3, gap: 2 }}>
+            {([['pacientes', 'pacientes', 'Pacientes'], ['ejercicios', 'fuerza', 'Ejercicios']] as const).map(([v, ic, t]) => (
+              <button key={v} type="button" title={t} onClick={() => { setQue(v); setMenu(false); setBusca('') }}
+                style={{ border: 'none', cursor: 'pointer', borderRadius: 99, padding: '7px 11px', lineHeight: 0,
+                  background: que === v ? '#fff' : 'transparent', color: que === v ? 'var(--gd)' : 'var(--grl)',
+                  boxShadow: que === v ? '0 1px 5px rgba(38,40,37,.15)' : 'none' }}>
+                <Ic name={ic} size={15}/>
+              </button>
+            ))}
+          </div>
           {/* Los caminos, escondidos: son atajos, no la forma normal de entrar. */}
           <div style={{ position: 'relative' }}>
             <button className="btn btn-s" onClick={() => setMenu(v => v === false)}
@@ -239,7 +266,16 @@ export default function TornoPage() {
               <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 250,
                 background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 9,
                 boxShadow: '0 10px 28px rgba(38,40,37,.16)', padding: 5, zIndex: 30 }}>
-                {CAMINOS.map(c => (
+                {que === 'ejercicios' ? (<>
+                  <div className="t-menu-it" onClick={() => { setMenu(false); router.push('/torno/amasar/nuevo') }}>
+                    <div style={{ fontSize: 12.5 }}>+ Amasar uno nuevo</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Un ejercicio que aún no está en la biblioteca</div>
+                  </div>
+                  <div className="t-menu-it" onClick={() => { setSoloIncompletos(v => !v); setMenu(false); setAbierto(true) }}>
+                    <div style={{ fontSize: 12.5, color: soloIncompletos ? 'var(--gd)' : 'var(--n)' }}>{soloIncompletos ? '✓ ' : ''}Por completar</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Los que les falta foto, etiquetas, descripción…</div>
+                  </div>
+                </>) : CAMINOS.map(c => (
                   <div key={c.valor} className="t-menu-it" onClick={() => abrir(c.valor)}>
                     <div style={{ fontSize: 12.5, color: camino === c.valor ? 'var(--gd)' : 'var(--n)' }}>
                       {camino === c.valor ? '✓ ' : ''}{c.nombre}
@@ -253,19 +289,37 @@ export default function TornoPage() {
         </div>
       </div>
 
-      {/* AMASAR: el otro lado del torno. Aquí no hay paciente: se prepara el barro
-          (los ejercicios) con el que luego se tornea. */}
-      {abierto === false && (
-        <div className="t-fade" style={{ position: 'absolute', left: 0, right: 0, top: 'calc(50% + 46px)', display: 'flex',
-          justifyContent: 'center', gap: 10, animationDelay: '.9s' }}>
-          <button className="btn btn-s btn-sm" onClick={() => router.push('/torno/amasar/nuevo')}>Amasar un ejercicio nuevo</button>
-          <button className="btn btn-t btn-sm" onClick={() => router.push('/torno/amasar')}>Amasar uno existente</button>
+      {abierto === false && <div style={{ flex: 1 }}/>}
+
+      {/* LOS EJERCICIOS: tarjetas con su imagen; tocar una va a su rosco. */}
+      {abierto && que === 'ejercicios' && (
+        <div className="t-fade" style={{ width: '100%', maxWidth: 980, margin: '16px auto 40px' }}>
+          {!ejs ? <div className="muted" style={{ textAlign: 'center', padding: 30 }}>Trayendo la biblioteca…</div> : (<>
+            <div style={{ fontSize: 11, color: 'var(--gr)', marginBottom: 11, textAlign: 'center' }}>
+              {soloIncompletos ? 'Por completar' : busca.trim() ? 'Lo que casa' : 'Portadas y sueltos'} · {listaEj.length}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 }}>
+              {listaEj.map((e, i) => {
+                const faltan = problemasDeEjercicio(e).length
+                return (
+                  <div key={e.id} className={`t-card t-fade ${yendo === e.id ? 't-elegida' : ''}`} onClick={() => amasar(e.id)}
+                    style={{ animationDelay: `${Math.min(i, 14) * 22}ms`, background: '#fff', borderRadius: 14, overflow: 'hidden',
+                      cursor: 'pointer', boxShadow: '0 3px 12px rgba(38,40,37,.08)' }}>
+                    <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} radio={0} fondo="var(--bl)" icono={30}/>
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.nombre}</div>
+                      {faltan > 0 && <div style={{ fontSize: 10.5, color: '#A87E2C', marginTop: 3 }}>Falta{faltan > 1 ? `n ${faltan} cosas` : ' 1 cosa'}</div>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {listaEj.length === 0 && <div className="muted" style={{ textAlign: 'center', padding: 24 }}>Ningún ejercicio coincide.</div>}
+          </>)}
         </div>
       )}
 
-      {abierto === false && <div style={{ flex: 1 }}/>}
-
-      {abierto && (
+      {abierto && que === 'pacientes' && (
         <div className="t-fade" style={{ width: '100%', maxWidth: 820, margin: '16px auto 40px' }}>
           {cargando
             ? <div className="muted" style={{ textAlign: 'center', padding: 30 }}>Trayendo a la gente…</div>

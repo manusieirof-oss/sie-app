@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
@@ -42,6 +42,10 @@ function quesito(a0: number, a1: number) {
 export default function AmasarRosco({ params }: { params: { id: string } }) {
   const router = useRouter()
   const nuevo = params.id === 'nuevo'
+  // Recién creado: se dice, y la pella late. Antes se quedaba igual y solo cambiaba
+  // el botón de abajo, que no decía nada.
+  const sp = useSearchParams()
+  const recien = sp.get('creado') === '1'
   const [d, setD] = useState<Datos>(VACIO)
   const [orig, setOrig] = useState<Datos>(VACIO)
   const [ets, setEts] = useState<any[]>([])
@@ -76,6 +80,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       }
     }
     setCargando(false)
+    if (recien) { setAviso('✓ Creado. Ya está en la biblioteca'); setTimeout(() => setAviso(''), 4000) }
   }
   const set = (k: keyof Datos, v: any) => setD(p => ({ ...p, [k]: v }))
 
@@ -129,7 +134,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       else await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
     }
     setGuardando(false); setFoto(null)
-    if (nuevo) { router.replace(`/torno/amasar/${id}`); return }
+    if (nuevo) { router.replace(`/torno/amasar/${id}?creado=1`); return }
     cargar(); setAviso('✓ Amasado')
     setTimeout(() => setAviso(a => a === '✓ Amasado' ? '' : a), 2500)
   }
@@ -332,6 +337,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         .am-et { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:96px;
                  transition: transform .22s ease; animation: am-et .5s ease backwards }
         @keyframes am-et { from { opacity:0 } to { opacity:1 } }
+.am-late { animation: am-late 1.1s ease 2 }
+        @keyframes am-late { 50% { box-shadow:0 0 0 14px rgba(90,150,158,.18), 0 10px 34px rgba(38,40,37,.16) } }
         .am-centro { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; height:52%; border-radius:50%;
                      overflow:hidden; background:#fff; box-shadow:0 10px 34px rgba(38,40,37,.16); animation: am-pella .7s cubic-bezier(.2,.9,.3,1.2) backwards }
         @keyframes am-pella { from { transform:translate(-50%,-50%) scale(.3,.15) } 60% { transform:translate(-50%,-50%) scale(1.06,.95) } to { transform:translate(-50%,-50%) } }
@@ -341,7 +348,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       `}</style>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button className="btn btn-t btn-sm" onClick={() => router.push('/torno/amasar')}><Ic name="atras" size={13}/> Biblioteca</button>
+        <button onClick={() => router.push('/torno')} title="Volver al torno"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '9px 15px 9px 11px', fontSize: 13,
+            boxShadow: '0 3px 14px rgba(38,40,37,.14)' }}><Ic name="atras" size={15}/> Torno</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
           <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}</div>
@@ -383,7 +393,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               )
             })}
             {/* LA PELLA: su foto o la figura de sus músculos, que cambia con las etiquetas. */}
-            <div className="am-centro">
+            <div className={`am-centro ${recien ? 'am-late' : ''}`}>
               <ImagenEjercicio src={preview || d.imagen_url} etiquetasEj={d.etiquetas} relleno radio={0} fondo="#fff" icono={60}/>
             </div>
           </div>
