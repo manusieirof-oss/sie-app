@@ -216,6 +216,17 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-ficha:hover { transform: translateY(-2px) }
         .tc-mes { animation: tc-entra .45s ease backwards }
         .tc-sq-w { position:relative }
+        .tc-sq-orden { position:absolute; top:6px; right:6px; min-width:22px; height:20px; padding:0 5px; border-radius:99px; background:#fff;
+                       font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(38,40,37,.18); z-index:2 }
+        .tc-sq-i { position:absolute; bottom:6px; right:6px; width:18px; height:18px; border-radius:99px; background:#fff; color:var(--gd);
+                   font-size:11px; font-style:italic; font-weight:700; display:flex; align-items:center; justify-content:center; z-index:3;
+                   box-shadow:0 1px 4px rgba(38,40,37,.18); cursor:pointer }
+        .tc-rep { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; justify-content:center; max-width:980px; margin:0 auto 18px;
+                  font-size:13px; color:var(--gr) }
+        .tc-rep b { color:var(--n); font-weight:500 } .tc-rep em { color:var(--grl) }
+        .tc-rep select, .tc-rep input[type=number], .tc-rep input[type=date] { font-family:inherit; font-size:13px; color:var(--gd); background:transparent;
+                  border:none; border-bottom:1.5px solid var(--gm); padding:2px 2px; cursor:pointer; outline:none }
+        .tc-rep label { display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer }
         .tc-sq { position:relative; width:104px; height:104px; border:none; border-radius:16px; background:#fff; cursor:pointer; padding:0;
                  display:flex; flex-direction:column; align-items:center; font-family:inherit; text-align:center;
                  box-shadow:0 3px 12px rgba(38,40,37,.12); transition: transform .2s ease, box-shadow .2s ease; animation: tc-entra .45s ease backwards }
@@ -260,11 +271,18 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                   const ab = abierto === 'c:' + c.id
                   return (
                     <div className="tc-sq-w">
-                      <button type="button" className="tc-sq" onClick={() => setAbierto(ab ? null : 'c:' + c.id)}
+                      <button type="button" className="tc-sq" onClick={() => {
+                          // El ciclo entero: todas sus sesiones al reparto, en su orden.
+                          const suyas = sesiones.filter(x => x.ciclo === c.id).map(x => x.id)
+                          const todas = suyas.every(id => rot.includes(id))
+                          setRot(r => todas ? r.filter(x => !suyas.includes(x)) : [...r.filter(x => !suyas.includes(x)), ...suyas])
+                          setPincel(todas ? null : suyas[0] || null)
+                        }}
                         style={{ background: c.color, color: '#fff', justifyContent: 'center', padding: 10 }}>
                         <span style={{ fontSize: 10, letterSpacing: .6, textTransform: 'uppercase', opacity: .85 }}>Ciclo</span>
                         <span style={{ fontSize: 12.5, lineHeight: 1.25, marginTop: 3 }}>{c.nombre}</span>
                         <span style={{ fontSize: 10.5, opacity: .85, marginTop: 3 }}>{c.fases.length} fase{c.fases.length === 1 ? '' : 's'}</span>
+                        <span className="tc-sq-i" title="Ver qué lleva" onClick={e => { e.stopPropagation(); setAbierto(ab ? null : 'c:' + c.id) }}>i</span>
                       </button>
                       {ab && (
                         <div className="tc-info">
@@ -289,15 +307,24 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                   return (
                     <div key={s.id} className="tc-sq-w">
                       <button type="button" className={`tc-sq ${on ? 'on' : ''}`}
-                        onClick={() => { setPincel(s.id); setAbierto(ab ? null : 's:' + s.id) }}
-                        style={{ boxShadow: on ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined }}>
+                        onClick={() => {
+                          // TOCAR = ELEGIRLA. Entra en el reparto (en el orden en que se tocan) y
+                          // es el pincel para tocar días. Tocar otra vez la saca.
+                          const dentro = rot.includes(s.id)
+                          setRot(r => dentro ? r.filter(x => x !== s.id) : [...r, s.id])
+                          setPincel(dentro ? (rot.filter(x => x !== s.id).slice(-1)[0] || null) : s.id)
+                        }}
+                        style={{ boxShadow: rot.includes(s.id) ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined,
+                          opacity: rot.length > 0 && !rot.includes(s.id) ? .55 : 1 }}>
                         <span className="tc-sq-fotos" style={{ gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
                           {fotos.map((src: string, k: number) => src
                             ? <img key={k} src={src} alt=""/>
                             : <span key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)', background: '#fff' }}><Ic name="fuerza" size={18}/></span>)}
                         </span>
                         <span className="tc-sq-nom">{s.nombre}</span>
-                        <span className="tc-sq-n" style={{ background: s.color }}>{n}</span>
+                        <span className="tc-sq-n" style={{ background: s.color }} title="Citas con ella">{n}</span>
+                        {rot.includes(s.id) && <span className="tc-sq-orden" style={{ color: s.color }}>{rot.indexOf(s.id) + 1}º</span>}
+                        <span className="tc-sq-i" title="Ver qué lleva" onClick={e => { e.stopPropagation(); setAbierto(ab ? null : 's:' + s.id) }}>i</span>
                       </button>
                       {ab && (
                         <div className="tc-info">
@@ -327,34 +354,22 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             ))}
           </div>
 
-          {/* REPARTIR: rotación, cada cuántas y hasta cuándo. */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'center',
-            padding: '10px 14px', borderRadius: 14, background: 'var(--bl)', maxWidth: 980, margin: '0 auto 20px', fontSize: 12.5 }}>
-            <span style={{ color: 'var(--gr)' }}>Repartir</span>
-            {sesiones.map(s => {
-              const k = rot.indexOf(s.id)
-              return (
-                <button key={s.id} type="button" onClick={() => setRot(r => r.includes(s.id) ? r.filter(x => x !== s.id) : [...r, s.id])}
-                  style={{ fontFamily: 'inherit', fontSize: 11.5, padding: '3px 9px', borderRadius: 99, cursor: 'pointer',
-                    border: `1px solid ${s.color}`, background: k >= 0 ? s.color : 'transparent', color: k >= 0 ? '#fff' : 'var(--gr)' }}>
-                  {k >= 0 ? `${k + 1}. ` : ''}{s.nombre}
-                </button>
-              )
-            })}
-            <select className="input" value={cada} onChange={e => setCada(Number(e.target.value))} style={{ width: 'auto', fontSize: 12 }}>
-              {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 1 ? 'cada cita' : `cada ${n} citas`}</option>)}
+          {/* REPARTIR. Qué sesiones se eligen arriba, tocando los cuadrados; aquí solo
+              cada cuántas, hasta cuándo y pintar. Sobre blanco, como una frase. */}
+          <div className="tc-rep">
+            <span>Repartir {rot.length > 0 ? <b>{rot.length === 1 ? sesDe(rot[0])?.nombre : `${rot.length} sesiones en rotación`}</b> : <em>elige arriba una o varias</em>}</span>
+            <select value={cada} onChange={e => setCada(Number(e.target.value))}>
+              {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 1 ? 'en cada cita' : `cada ${n} citas`}</option>)}
             </select>
-            <select className="input" value={limite} onChange={e => setLimite(e.target.value as any)} style={{ width: 'auto', fontSize: 12 }}>
-              <option value="todas">todas las citas</option>
+            <select value={limite} onChange={e => setLimite(e.target.value as any)}>
+              <option value="todas">en todas las citas</option>
               <option value="veces">un número de veces</option>
               <option value="hasta">hasta una fecha</option>
             </select>
-            {limite === 'veces' && <input className="input" type="number" min={1} value={veces} onChange={e => setVeces(Math.max(1, Number(e.target.value) || 1))} style={{ width: 64, fontSize: 12 }}/>}
-            {limite === 'hasta' && <input className="input" type="date" value={hasta} min={hoy} onChange={e => setHasta(e.target.value)} style={{ width: 'auto', fontSize: 12 }}/>}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--gr)', fontSize: 11.5 }}>
-              <input type="checkbox" checked={pisar} onChange={e => setPisar(e.target.checked)}/> pisar las que ya tienen otra
-            </label>
-            <button className="btn btn-s btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
+            {limite === 'veces' && <input type="number" min={1} value={veces} onChange={e => setVeces(Math.max(1, Number(e.target.value) || 1))} style={{ width: 54 }}/>}
+            {limite === 'hasta' && <input type="date" value={hasta} min={hoy} onChange={e => setHasta(e.target.value)}/>}
+            <label><input type="checkbox" checked={pisar} onChange={e => setPisar(e.target.checked)}/> pisar las que ya tienen otra</label>
+            <button className="btn btn-p btn-sm" disabled={rot.length === 0} onClick={repartir}>Pintar</button>
           </div>
 
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--gr)', marginBottom: 14 }}>
