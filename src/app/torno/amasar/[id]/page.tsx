@@ -65,6 +65,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
   const [nombreVar, setNombreVar] = useState<string | null>(null)
+  // La ficha sale para revisar lo hecho: al crear y al guardar. En cuanto se abre un
+  // quesito o se cierra, se va, y no vuelve hasta el siguiente guardado (o "Ver ficha").
+  const [fichaOn, setFichaOn] = useState(recien)
 
   useEffect(() => { cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
@@ -96,7 +99,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const r = await hacerPortada({ id: params.id, portada_id: orig.portada_id })
     setGuardando(false)
     if (r.ok === false) { setAviso('No se pudo: ' + r.error); return }
-    await cargar(); setAviso('✓ Ahora es el principal de la familia')
+    await cargar(); setFichaOn(true); setAviso('✓ Ahora es el principal de la familia')
   }
 
   // ---- Los quesitos -----------------------------------------------------------
@@ -155,7 +158,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     }
     setGuardando(false); setFoto(null)
     if (nuevo) { router.replace(`/torno/amasar/${id}?creado=1`); return }
-    cargar(); setAviso('✓ Amasado')
+    cargar(); setFichaOn(true); setAviso('✓ Amasado')
     setTimeout(() => setAviso(a => a === '✓ Amasado' ? '' : a), 2500)
   }
 
@@ -318,7 +321,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               </>)}
               {nuevo
                 ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>Créalo primero y luego podrás sacarle variantes.</div>
-                : <button className="btn btn-s btn-sm" onClick={() => { setAbierto(null); setNombreVar(`${d.nombre} · `) }}>+ Amasar una variante de este</button>}
+                : <button className="btn btn-s btn-sm" onClick={() => { setAbierto(null); setFichaOn(true); setNombreVar(`${d.nombre} · `) }}>+ Amasar una variante de este</button>}
             </div>
           )}
           {orig.portada_id && d.portada_id === orig.portada_id && modo === 'variante' && (
@@ -346,7 +349,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // sigue amasando: otro nuevo o una variante. Una variante copia todo (etiquetas,
   // medida, ejecución, feedbacks) y este pasa a ser la portada de la familia; si este ya
   // es variante, la nueva va a la misma familia (no hay variantes de variantes).
-  const verFicha = !abierto && !nuevo
+  const verFicha = fichaOn && !abierto && !nuevo
   async function nuevaVariante() {
     if (!nombreVar?.trim()) return
     if (ejs.some(x => normalizar(x.nombre).trim() === normalizar(nombreVar).trim())) { setAviso('Ese nombre ya existe'); return }
@@ -362,7 +365,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   }
   function ficha() {
     const sec = (k: Clave, titulo: string, hijos: any, vacio: boolean) => (
-      <div className="am-sec" onClick={() => setAbierto(k)} title="Tocar para cambiar" style={rev(k) ? { background: '#FBF1D3' } : undefined}>
+      <div className="am-sec" onClick={() => { setFichaOn(false); setAbierto(k) }} title="Tocar para cambiar" style={rev(k) ? { background: '#FBF1D3' } : undefined}>
         <div className="et-mini" style={{ marginBottom: 5 }}>{titulo}{rev(k) && <span style={{ color: '#8A6410', textTransform: 'none', letterSpacing: 0 }}>· copiado, por revisar</span>}</div>
         {vacio ? <div style={{ fontSize: 12.5, color: 'var(--grl)' }}>Nada todavía</div> : hijos}
       </div>
@@ -373,8 +376,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const fbs = d.feedbacks.filter(i => i.texto?.trim())
     return (
       <div className="am-panel am-ficha">
-        <div style={{ fontSize: 20, lineHeight: 1.2 }}>{d.nombre}</div>
-        <div style={{ fontSize: 12, color: 'var(--gd)', margin: '4px 0 14px', cursor: 'pointer' }} onClick={() => setAbierto('familia')}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ flex: 1, fontSize: 20, lineHeight: 1.2 }}>{d.nombre}</div>
+          <button className="btn btn-t btn-sm" onClick={() => { setFichaOn(false); setNombreVar(null) }}>Cerrar</button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--gd)', margin: '4px 0 14px', cursor: 'pointer' }} onClick={() => { setFichaOn(false); setAbierto('familia') }}>
           {medida || 'Sin medida'} · {portada ? `Variante de ${portada.nombre}` : variantes.length ? `Principal · ${variantes.length} variante${variantes.length === 1 ? '' : 's'}` : 'Suelto'}
           {portada && !cambiado && <button className="btn btn-t btn-sm" style={{ marginLeft: 8, padding: '2px 9px', fontSize: 11.5 }}
             disabled={guardando} onClick={ev => { ev.stopPropagation(); pasarAPrincipal() }}>Hacer principal</button>}
@@ -486,7 +492,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                     fill={abierto === x.k ? 'var(--g)' : x.rev ? '#FBF1D3' : x.lleno ? 'var(--gl)' : '#fff'} fillOpacity={x.opcional && !x.lleno && abierto !== x.k ? .6 : 1}
                     stroke={x.rev ? '#E3BF5C' : x.lleno ? 'var(--gm)' : 'var(--bd)'} strokeWidth={1.2}
                     onMouseEnter={() => setEncima(x.k)} onMouseLeave={() => setEncima(null)}
-                    onClick={() => setAbierto(abierto === x.k ? null : x.k)}/>
+                    onClick={() => { setFichaOn(false); setAbierto(abierto === x.k ? null : x.k) }}/>
                 )
               })}
             </svg>
@@ -542,6 +548,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
               {aviso || (!d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta cómo se mide' : repetido ? 'Ese nombre ya existe' : cambiado ? 'Sin guardar' : 'Todo guardado')}
             </span>
+            {!nuevo && !verFicha && !abierto && (
+              <button className="btn btn-t btn-sm" onClick={() => setFichaOn(true)}>Ver ficha</button>
+            )}
             <button className="btn btn-p" disabled={!puedeGuardar} onClick={guardar}>
               <Ic name="guardar" size={13}/> {guardando ? 'Guardando…' : nuevo ? 'Crear' : 'Guardar'}
             </button>
