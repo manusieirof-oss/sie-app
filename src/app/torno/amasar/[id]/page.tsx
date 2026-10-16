@@ -6,7 +6,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, similaresA, leerCola, leerGrupo, ponerEnComun } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 
@@ -48,6 +48,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // elegidos en el torno. d guarda lo que se va a añadir, no un ejercicio.
   const grupo = params.id === 'varios'
   const [grupoEjs, setGrupoEjs] = useState<any[]>([])
+  // Tras aplicar: el panel con cómo han quedado los elegidos (si no, no se veía nada).
+  const [resumenOn, setResumenOn] = useState(false)
   // Recién creado: se dice, y la pella late. Antes se quedaba igual y solo cambiaba
   // el botón de abajo, que no decía nada.
   const sp = useSearchParams()
@@ -399,7 +401,45 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     if (r.ok === false) { setAviso('No se ha podido: ' + r.error); return }
     // Vacío otra vez: lo siguiente que se ponga es otra tanda.
     setD(VACIO); setOrig(VACIO); setAbierto(null)
-    await cargar(); setAviso(`✓ Añadido a los ${grupoEjs.length}`)
+    await cargar(); setResumenOn(true); setAviso(`✓ Guardado en los ${grupoEjs.length}`)
+  }
+  /** Cómo han quedado los elegidos: lo que aún les falta, y seguir uno a uno. */
+  function resumen() {
+    return (
+      <div className="am-panel am-ficha">
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ flex: 1, fontSize: 18 }}>Así han quedado</div>
+          <button className="btn btn-t btn-sm" onClick={() => setResumenOn(false)}>Cerrar</button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--gr)', margin: '3px 0 12px' }}>Ya está guardado en los {grupoEjs.length}. Puedes seguir poniendo cosas en común.</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {grupoEjs.map(e => {
+            const f = faltasAmasar(e)
+            return (
+              <div key={e.id} className="am-sec" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}
+                onClick={() => router.push(`/torno/amasar/${e.id}`)} title="Abrir su rosco">
+                <div style={{ width: 46, flexShrink: 0, borderRadius: 10, overflow: 'hidden' }}>
+                  <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} radio={0} fondo="var(--bl)" icono={18}/>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5 }}>{e.nombre}</div>
+                  <div style={{ fontSize: 11.5, color: f.length ? '#A87E2C' : 'var(--gd)' }}>
+                    {f.length ? 'Le falta: ' + FALTAS_AMASAR.filter(x => f.includes(x.k)).map(x => x.t.toLowerCase()).join(', ') : '✓ Completo'}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 14 }}>
+          <button className="btn btn-p btn-sm" onClick={() => {
+            const ids = grupoEjs.map(e => e.id); guardarCola(ids)
+            router.push(`/torno/amasar/${ids[0]}?cola=1`)
+          }}>Completar uno a uno</button>
+          <button className="btn btn-t btn-sm" onClick={() => router.push('/torno')}>Volver al torno</button>
+        </div>
+      </div>
+    )
   }
 
   // ---- La cola: anterior / siguiente ---------------------------------------------
@@ -567,7 +607,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       </div>
 
       {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 60 }}>Preparando el barro…</div> : (
-        <div className={`am-zona ${abierto || verFicha ? 'am-abierto' : ''}`}>
+        <div className={`am-zona ${abierto || verFicha || (grupo && resumenOn) ? 'am-abierto' : ''}`}>
           <div className="am-rosco">
             <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               {QUESITOS.map((x, i) => {
@@ -580,7 +620,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                     fill={abierto === x.k ? 'var(--g)' : x.rev ? '#FBF1D3' : x.lleno ? 'var(--gl)' : '#fff'} fillOpacity={x.opcional && !x.lleno && abierto !== x.k ? .6 : 1}
                     stroke={x.rev ? '#E3BF5C' : x.lleno ? 'var(--gm)' : 'var(--bd)'} strokeWidth={1.2}
                     onMouseEnter={() => setEncima(x.k)} onMouseLeave={() => setEncima(null)}
-                    onClick={() => { setFichaOn(false); setAbierto(abierto === x.k ? null : x.k) }}/>
+                    onClick={() => { setFichaOn(false); setResumenOn(false); setAbierto(abierto === x.k ? null : x.k) }}/>
                 )
               })}
             </svg>
@@ -604,8 +644,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               {grupo ? (
                 // Hasta cuatro de los elegidos en mosaico, y cuántos son.
                 <div style={{ position: 'relative', width: '100%', height: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
-                  {grupoEjs.slice(0, 4).map(e => (
-                    <div key={e.id} style={{ position: 'relative', overflow: 'hidden' }}>
+                  {grupoEjs.slice(0, 4).map((e, i) => (
+                    <div key={e.id} style={{ position: 'relative', overflow: 'hidden',
+                      gridColumn: (grupoEjs.length === 3 && i === 2) || grupoEjs.length === 1 ? '1 / 3' : undefined,
+                      gridRow: grupoEjs.length <= 2 ? '1 / 3' : undefined }}>
                       <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} relleno radio={0} fondo="var(--bl)" icono={26}/>
                     </div>
                   ))}
@@ -636,6 +678,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             </div>
           )}
           {verFicha && ficha()}
+          {grupo && resumenOn && !abierto && resumen()}
         </div>
       )}
 
