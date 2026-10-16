@@ -223,7 +223,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
   const verEj = (ej: any, c?: Carga, peq?: boolean, key?: any) => (
     <div key={key} {...(c ? cogible(c) : {})} className={`tn-ej ${c && enLaMano(c) ? 'mano' : ''}`} title={ej.nombre}
       style={{ width: peq ? 64 : 82, textAlign: 'center', cursor: c ? 'grab' : 'default' }}>
-      <ImagenEjercicio src={ej.imagen_url} ejercicioId={ej.ejercicio_id || ej.id} fondo="#fff"/>
+      <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id || ej.id} fondo="#fff"/>
       <div style={{ fontSize: 9.5, lineHeight: 1.2, marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ej.nombre}</div>
       {!peq && <div style={{ marginTop: 2 }}>{esferas(objsEj(ej))}</div>}
     </div>
@@ -253,7 +253,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       <div key={o.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <div {...(o.c ? cogible(o.c) : {})} {...(o.extra || {})} className={`tn-sq ${o.c && enLaMano(o.c) ? 'mano' : ''}`} style={{ width: tam, height: tam }}>
           <div className="tn-sq-fotos" style={{ gridTemplateColumns: imgs.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: imgs.length > 2 ? '1fr 1fr' : '1fr' }}>
-            {imgs.map((e: any, k: number) => <ImagenEjercicio key={k} relleno radio={0} fondo="#fff" icono={22}
+            {imgs.map((e: any, k: number) => <ImagenEjercicio insignias={false} key={k} relleno radio={0} fondo="#fff" icono={22}
               src={e.imagen_url || bib.ej[e.ejercicio_id]?.imagen_url} ejercicioId={e.ejercicio_id}/>)}
           </div>
           <div className="tn-sq-nom" style={{ fontSize: tam < 130 ? 11 : 12.5 }}>{s?.nombre || 'Sesión'}</div>

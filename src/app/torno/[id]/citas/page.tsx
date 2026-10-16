@@ -458,7 +458,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                           opacity: rot.length > 0 && !rot.includes(s.id) ? .55 : 1 }}>
                         <span className="tc-sq-fotos" style={{ gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
                           {/* Foto, o la figura con sus músculos, o el icono (ImagenEjercicio). */}
-                          {fotos.map((e: any, k: number) => <ImagenEjercicio key={k} relleno radio={0} fondo="#fff" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
+                          {fotos.map((e: any, k: number) => <ImagenEjercicio insignias={false} key={k} relleno radio={0} fondo="#fff" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
                         </span>
                         <span className="tc-sq-nom">{s.nombre}</span>
                         <span className="tc-sq-n" style={{ background: s.color }} title="Citas con ella">{n}</span>

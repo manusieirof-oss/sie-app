@@ -383,7 +383,7 @@ function Tarjeta({ it, cls, estilo, objs, refEl, onClick, onEncima, abierta, onF
           {abierta ? '−' : `+${it.familia!.length}`}
         </span>
       )}
-      <ImagenEjercicio src={it.imagen} ejercicioId={it.id} fondo="var(--bl)"/>
+      <ImagenEjercicio insignias={false} src={it.imagen} ejercicioId={it.id} fondo="var(--bl)"/>
       <div style={{ fontSize: 10, lineHeight: 1.25, marginTop: 4 }}>{it.nombre}</div>
     </div>
   )

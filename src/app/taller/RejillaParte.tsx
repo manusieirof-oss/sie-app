@@ -89,7 +89,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                     para poder deshacerlo. */}
                 <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s' }}>
                 {/* Su foto, o la figura con sus músculos, o el icono. */}
-                <ImagenEjercicio src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
+                <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
                   radio={10} icono={34} alt={ej.nombre}/>
                 </div>
                 {/* CAMBIAR Y NO LO HIZO, COMO CHAPAS EN LA FOTO, igual que notas y series.

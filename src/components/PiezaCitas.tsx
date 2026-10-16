@@ -81,7 +81,7 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
                   <span className="pz-mos" style={{ boxShadow: `0 0 0 2px ${f.ses.color}`,
                     gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
                     {fotos.length === 0 && <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gm)' }}><Ic name="fuerza" size={16}/></span>}
-                    {fotos.map((e: any, k: number) => <ImagenEjercicio key={k} relleno radio={0} fondo="#fff" icono={13} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
+                    {fotos.map((e: any, k: number) => <ImagenEjercicio insignias={false} key={k} relleno radio={0} fondo="#fff" icono={13} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
                   </span>
                 )}
                 <span style={{ flex: 1, minWidth: 0 }}>
@@ -112,7 +112,7 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
                         {(p.ejercicios || []).map((e: any, ei: number) => (
                           <span key={ei} className="pz-ej" title={e.nombre} style={{ animationDelay: `${ei * 35}ms` }}>
                             <span className="pz-ej-f">
-                              <ImagenEjercicio relleno radio={0} fondo="transparent" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>
+                              <ImagenEjercicio insignias={false} relleno radio={0} fondo="transparent" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>
                             </span>
                             <span className="pz-ej-n">{e.nombre}</span>
                             {(e.series || e.reps) && <span className="pz-ej-d">{[e.series, e.reps].filter(Boolean).join(' × ')}</span>}

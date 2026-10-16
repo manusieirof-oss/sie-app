@@ -32,11 +32,14 @@ function catalogo(): Promise<Catalogo> {
   return pedido
 }
 
-export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio = 8, fondo = 'var(--bm)', icono = 26, relleno = false, alt = '' }: {
+export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio = 8, fondo = 'var(--bm)', icono = 26, relleno = false, alt = '', insignias: conInsignias = true }: {
   src?: string | null, ejercicioId?: string | null, etiquetasEj?: string[],
   radio?: number, fondo?: string, icono?: number,
   /** true: ocupa todo su hueco (mosaicos). false: cuadrado a todo lo ancho. */
   relleno?: boolean, alt?: string,
+  /** false: sin la chapa del material. En el taller las esquinas son de los botones
+   *  (anotar, evaluar) y la chapa los tapaba; allí la foto ya enseña el material. */
+  insignias?: boolean,
 }) {
   /* FOTO HEREDADA: una variante (de agarre, de material…) se queda con la foto del
      ejercicio del que salió, que vive en la carpeta de ESE ejercicio. Entonces la foto
@@ -54,8 +57,8 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
   // Sin foto, por orden: su postura, sus músculos, su material solo, y el icono.
   // El material va además como insignia en la esquina de la postura o los músculos.
   const { postura, materiales: mats } = cat ? figuraCompleta(ets, cat.etiquetas) : { postura: null, materiales: [] as string[] }
-  const insignias = mats.length > 0 && (
-    <span style={{ position: 'absolute', right: '5%', bottom: '5%', width: `${mats.length * 25}%`, display: 'flex', gap: '6%', zIndex: 2 }}>
+  const insignias = conInsignias && mats.length > 0 && (
+    <span style={{ position: 'absolute', right: '5%', bottom: '5%', width: `${mats.length * 21}%`, display: 'flex', gap: '6%', zIndex: 2 }}>
       {mats.map(m => (
         <span key={m} style={{ flex: 1, aspectRatio: '1', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 6px rgba(38,40,37,.18)',
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
