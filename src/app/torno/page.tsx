@@ -365,7 +365,7 @@ export default function TornoPage() {
                         background: sel ? 'var(--g)' : 'rgba(255,255,255,.9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxShadow: '0 1px 5px rgba(38,40,37,.2)', fontSize: 13 }}>{sel ? '✓' : ''}</span>
                     )}
-                    <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} radio={0} fondo="var(--bl)" icono={30}/>
+                    <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={30}/>
                     <div style={{ padding: '8px 10px' }}>
                       <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.nombre}</div>
                       {faltan > 0 && <div style={{ fontSize: 10.5, color: '#A87E2C', marginTop: 3 }}>Falta{faltan > 1 ? `n ${faltan} cosas` : ' 1 cosa'}</div>}

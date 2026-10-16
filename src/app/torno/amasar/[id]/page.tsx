@@ -72,6 +72,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
   const [nombreVar, setNombreVar] = useState<string | null>(null)
+  // VARIAR: variantes que cambian una sola cosa (agarre, material, posición, apoyo).
+  const [variar, setVariar] = useState<{ cat: string, sel: string[] } | null>(null)
   // La ficha sale para revisar lo hecho: al crear y al guardar. En cuanto se abre un
   // quesito o se cierra, se va, y no vuelve hasta el siguiente guardado (o "Ver ficha").
   const [fichaOn, setFichaOn] = useState(recien)
@@ -492,7 +494,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               <div key={e.id} className="am-sec" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}
                 onClick={() => ir(`/torno/amasar/${e.id}`)} title="Abrir su rosco">
                 <div style={{ width: 46, flexShrink: 0, borderRadius: 10, overflow: 'hidden' }}>
-                  <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} radio={0} fondo="var(--bl)" icono={18}/>
+                  <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={18}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5 }}>{e.nombre}</div>
@@ -545,6 +547,63 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     if (copiado.length) await supabase.from('ejercicios').update({ por_revisar: copiado }).eq('id', r.ejercicio.id)
     setNombreVar(null)
     router.push(`/torno/amasar/${r.ejercicio.id}?creado=1`)
+  }
+  /* VARIANTE RÁPIDA: una por cada etiqueta elegida de UNA categoría. Copia todo (foto,
+     descripción, medida, músculos y el resto de etiquetas) y solo cambia las etiquetas
+     de esa categoría. Ejecución y feedbacks llegan en amarillo, por si el cambio de
+     agarre o de material cambia alguna indicación. */
+  const CATS_VARIAR = ['agarre', 'material', 'posicion', 'apoyo']
+  async function crearVariantesRapidas() {
+    if (!variar || !variar.sel.length) return
+    const paso = await guardarOSalir()
+    if (paso === 'no') return
+    const base = paso === 'descartar' ? orig : d
+    const fuera = new Set(base.etiquetas.filter(id => { const e = ets.find(x => x.id === id); return e && categoriaDe(ets, e) === variar.cat }))
+    const raiz = (base.nombre || '').split(' · ')[0]
+    setGuardando(true)
+    let n = 0, saltados: string[] = []
+    for (const id of variar.sel) {
+      const e = ets.find(x => x.id === id); if (!e) continue
+      const nombre = `${raiz} · ${e.nombre}`
+      if (ejs.some(x => normalizar(x.nombre).trim() === normalizar(nombre).trim())) { saltados.push(e.nombre); continue }
+      const r = await crearVariante({ ...base, id: params.id, portada_id: orig.portada_id,
+        etiquetas: [...base.etiquetas.filter(x => !fuera.has(x)), id],
+        items_ejecucion: base.items_ejecucion.filter(i => i.texto?.trim()), feedbacks: base.feedbacks.filter(i => i.texto?.trim()) }, nombre)
+      if (r.ok === false) { setGuardando(false); setAviso('No se pudo crear: ' + r.error); return }
+      const copiado = [base.items_ejecucion.some(i => i.texto?.trim()) ? 'ejecucion' : '', base.feedbacks.some(i => i.texto?.trim()) ? 'feedbacks' : ''].filter(Boolean)
+      if (copiado.length) await supabase.from('ejercicios').update({ por_revisar: copiado }).eq('id', r.ejercicio.id)
+      n++
+    }
+    setGuardando(false); setVariar(null)
+    await cargar()
+    setAviso(`✓ ${n} variante${n === 1 ? '' : 's'} creada${n === 1 ? '' : 's'}` + (saltados.length ? ` · ya existían: ${saltados.join(', ')}` : ''))
+  }
+  function panelVariar() {
+    if (!variar) return null
+    const lista = ets.filter(e => categoriaDe(ets, e) === variar.cat && !d.etiquetas.includes(e.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    const tog = (id: string) => setVariar(v => v && ({ ...v, sel: v.sel.includes(id) ? v.sel.filter(x => x !== id) : [...v.sel, id] }))
+    return (
+      <div>
+        <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 8 }}>¿Qué cambia? Se hace una variante por cada una que marques; el resto se copia igual.</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {CATS_VARIAR.map(c => (
+            <span key={c} className={`chip-sel ${variar.cat === c ? 'on' : ''}`} style={{ fontSize: 12.5 }}
+              onClick={() => setVariar({ cat: c, sel: [] })}>{CATEGORIAS_ETIQUETA.find(x => x.key === c)?.label}</span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', maxHeight: 180, overflow: 'auto', padding: '2px 0' }}>
+          {lista.map(e => <span key={e.id} className={`chip-sel ${variar.sel.includes(e.id) ? 'on' : ''}`} style={{ fontSize: 12 }} onClick={() => tog(e.id)}>{e.nombre}</span>)}
+          {lista.length === 0 && <span style={{ fontSize: 12, color: 'var(--grl)' }}>No hay más etiquetas de este tipo.</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button className="btn btn-p btn-sm" disabled={guardando || !variar.sel.length} onClick={crearVariantesRapidas}>
+            {guardando ? 'Creando…' : `Crear ${variar.sel.length || ''} variante${variar.sel.length === 1 ? '' : 's'}`}
+          </button>
+          <button className="btn btn-t btn-sm" onClick={() => setVariar(null)}>Cancelar</button>
+        </div>
+      </div>
+    )
   }
   function ficha() {
     const sec = (k: Clave, titulo: string, hijos: any, vacio: boolean) => (
@@ -603,7 +662,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               {parecidos.map((x: any) => (
                 <div key={x.id} onClick={() => ir(`/torno/amasar/${x.id}`)} title="Abrir su rosco"
                   style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 9px rgba(38,40,37,.10)' }}>
-                  <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} radio={0} fondo="var(--bl)" icono={20}/>
+                  <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={20}/>
                   <div style={{ fontSize: 11, padding: '5px 7px', lineHeight: 1.2 }}>{x.nombre}</div>
                 </div>
               ))}
@@ -613,10 +672,12 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
         {/* SEGUIR AMASANDO */}
         <div style={{ borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 14 }}>
-          {nombreVar === null ? (
+          {variar ? panelVariar() : nombreVar === null ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-s btn-sm" disabled={cambiado} title={cambiado ? 'Guarda antes los cambios' : ''}
                 onClick={() => setNombreVar(`${d.nombre} · `)}>+ {portada ? 'Otra variante de su familia' : 'Variante de este'}</button>
+              <button className="btn btn-s btn-sm" title="Variantes que cambian solo el agarre, el material, la posición o el apoyo"
+                onClick={() => setVariar({ cat: 'agarre', sel: [] })}>Variar…</button>
               <button className="btn btn-t btn-sm" onClick={() => ir('/torno/amasar/nuevo')}>+ Otro ejercicio</button>
             </div>
           ) : (
@@ -731,13 +792,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                     <div key={e.id} style={{ position: 'relative', overflow: 'hidden',
                       gridColumn: (grupoEjs.length === 3 && i === 2) || grupoEjs.length === 1 ? '1 / 3' : undefined,
                       gridRow: grupoEjs.length <= 2 ? '1 / 3' : undefined }}>
-                      <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} relleno radio={0} fondo="var(--bl)" icono={26}/>
+                      <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} relleno radio={0} fondo="var(--bl)" icono={26}/>
                     </div>
                   ))}
                   <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 99,
                     padding: '8px 16px', fontSize: 20, color: 'var(--gd)', boxShadow: '0 4px 16px rgba(38,40,37,.18)' }}>{grupoEjs.length}</div>
                 </div>
-              ) : <ImagenEjercicio src={preview || d.imagen_url} etiquetasEj={d.etiquetas} relleno radio={0} fondo="#fff" icono={60}/>}
+              ) : <ImagenEjercicio src={preview || d.imagen_url} etiquetasEj={d.etiquetas} ejercicioId={nuevo || grupo ? null : params.id} relleno radio={0} fondo="#fff" icono={60}/>}
             </div>
           </div>
 

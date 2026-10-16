@@ -38,20 +38,18 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
   /** true: ocupa todo su hueco (mosaicos). false: cuadrado a todo lo ancho. */
   relleno?: boolean, alt?: string,
 }) {
+  /* FOTO HEREDADA: una variante (de agarre, de material…) se queda con la foto del
+     ejercicio del que salió, que vive en la carpeta de ESE ejercicio. Entonces la foto
+     puede enseñar otro material, así que encima va la insignia del suyo. */
+  const duenoFoto = src ? /\/ejercicios\/([^/]+)\//.exec(src)?.[1] : null
+  const heredada = !!(src && ejercicioId && duenoFoto && duenoFoto !== ejercicioId)
   const [cat, setCat] = useState<Catalogo | null>(listo)
-  useEffect(() => { if (!src && !cat) catalogo().then(setCat).catch(() => {}) }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if ((!src || heredada) && !cat) catalogo().then(setCat).catch(() => {}) }, [src, heredada]) // eslint-disable-line react-hooks/exhaustive-deps
   const caja = relleno
     // display:block hace falta: la figura va en un <span>, que en línea ignora ancho y alto
     // y se queda en 0x0 (por eso el centro del rosco salía en blanco).
     ? { position: 'relative' as const, width: '100%', height: '100%', overflow: 'hidden', borderRadius: radio, display: 'block' }
     : { position: 'relative' as const, width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: radio, display: 'block' }
-  // Un dibujo en SVG (subido como ilustración) se ve entero y con aire; una foto llena.
-  if (src && /\.svg(\?|$)/i.test(src)) return (
-    <span style={{ ...caja, background: '#fff' }}>
-      <img src={src} alt={alt} draggable={false} style={{ position: 'absolute', inset: '7%', width: '86%', height: '86%', objectFit: 'contain' }}/>
-    </span>
-  )
-  if (src) return <img src={src} alt={alt} draggable={false} style={{ ...caja, objectFit: 'cover', display: 'block' }}/>
   const ets = etiquetasEj || (ejercicioId && cat ? cat.deEj[ejercicioId] : undefined) || []
   // Sin foto, por orden: su postura, sus músculos, su material solo, y el icono.
   // El material va además como insignia en la esquina de la postura o los músculos.
@@ -66,6 +64,20 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
       ))}
     </span>
   )
+  // Un dibujo en SVG (subido como ilustración) se ve entero y con aire; una foto llena.
+  if (src && /\.svg(\?|$)/i.test(src)) return (
+    <span style={{ ...caja, background: '#fff' }}>
+      <img src={src} alt={alt} draggable={false} style={{ position: 'absolute', inset: '7%', width: '86%', height: '86%', objectFit: 'contain' }}/>
+      {heredada && insignias}
+    </span>
+  )
+  if (src && heredada && insignias) return (
+    <span style={caja}>
+      <img src={src} alt={alt} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}/>
+      {insignias}
+    </span>
+  )
+  if (src) return <img src={src} alt={alt} draggable={false} style={{ ...caja, objectFit: 'cover', display: 'block' }}/>
   if (postura) return (
     <span style={{ ...caja, background: '#fff' }} title="Imagen automática por su postura">
       <img src={urlPostura(postura)} alt={postura} draggable={false}
