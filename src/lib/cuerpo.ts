@@ -1,4 +1,5 @@
 import { normalizar } from './texto'
+import { categoriaDe } from './etiquetas'
 
 // ---------------------------------------------------------------------------
 // LA FIGURA DE LOS MÚSCULOS: imagen automática de un ejercicio por sus etiquetas.
@@ -123,7 +124,8 @@ export function figuraDe(etiquetasEj: string[] = [], etiquetas: any[] = []): { v
   const porVista: Record<Vista, Set<string>> = { frente: new Set(), espalda: new Set(), perfil: new Set() }
   for (const id of etiquetasEj || []) {
     const et = etiquetas.find(e => e.id === id)
-    if (!et) continue
+    // Solo músculos: un nombre repetido en otra categoría no debe pintar nada.
+    if (!et || categoriaDe(etiquetas, et) !== 'musculo') continue
     const c = CAPA[camino(etiquetas, et)]
     if (c) porVista[c[0]].add(c[1])
   }
@@ -215,19 +217,22 @@ const MATERIAL: Record<string, string> = {
   'polea': 'polea', 'rack': 'rack',
   'roller': 'roller', 'rueda abdominal': 'rueda_abdominal', 'saco': 'saco', 'stick': 'stick', 'valla': 'valla',
 }
-const caminosDe = (etiquetasEj: string[], etiquetas: any[]) =>
-  (etiquetasEj || []).map(id => etiquetas.find(e => e.id === id)).filter(Boolean).map(et => camino(etiquetas, et))
+/* Solo las de SU categoría: "Prono" es una posición y también un agarre, y un
+   ejercicio con agarre prono salía dibujado tumbado boca abajo. */
+const caminosDe = (etiquetasEj: string[], etiquetas: any[], categoria: string) =>
+  (etiquetasEj || []).map(id => etiquetas.find(e => e.id === id))
+    .filter(et => et && categoriaDe(etiquetas, et) === categoria).map(et => camino(etiquetas, et))
 
 /** La postura que dibujar, o null. Una hija ("supino>en banco") gana a su raíz. */
 export function posturaDe(etiquetasEj: string[] = [], etiquetas: any[] = []): string | null {
-  const cs = caminosDe(etiquetasEj, etiquetas).filter(c => POSTURA[c])
+  const cs = caminosDe(etiquetasEj, etiquetas, 'posicion').filter(c => POSTURA[c])
   const c = cs.find(x => x.includes('>')) || cs[0]
   return c ? POSTURA[c] : null
 }
 
 /** Los materiales con dibujo, sin repetir; si está la hija, la raíz sobra. */
 export function materialesDe(etiquetasEj: string[] = [], etiquetas: any[] = [], max = 2): string[] {
-  const cs = caminosDe(etiquetasEj, etiquetas).filter(c => MATERIAL[c])
+  const cs = caminosDe(etiquetasEj, etiquetas, 'material').filter(c => MATERIAL[c])
   const sin = cs.filter(c => c.includes('>') || !cs.some(x => x.startsWith(c + '>')))
   return Array.from(new Set(sin.map(c => MATERIAL[c]))).slice(0, max)
 }
