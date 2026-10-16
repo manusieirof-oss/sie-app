@@ -6,7 +6,7 @@ import { normalizar } from './texto'
 // Para los ejercicios sin foto. Una figura base (de frente, de espalda o de perfil)
 // y encima, en amarillo, las capas de los músculos que lleva el ejercicio. Las capas
 // salen de hojas hechas en Canva, separadas por color y encajadas a la figura de su
-// vista; viven en /public/cuerpo como `vista_musculo.webp`, todas del mismo tamaño
+// vista; viven en /public/cuerpo como `vista_musculo.svg`, todas del mismo tamaño
 // (360 x 640) para apilarlas sin colocar nada.
 //
 // No dibuja el gesto (codo doblado o estirado): enseña QUÉ trabaja. Es la imagen de
@@ -133,7 +133,9 @@ export function figuraDe(etiquetasEj: string[] = [], etiquetas: any[] = []): { v
   return { vista, capas: Array.from(porVista[vista]) }
 }
 
-export const urlCapa = (vista: Vista, capa: string) => `/cuerpo/${vista}_${capa}.webp`
+// SVG: las capas se redibujaron como vector desde las webp (potrace). Se ven nítidas a
+// cualquier tamaño; las webp de 360x640 se veían borrosas al ampliarlas en el rosco.
+export const urlCapa = (vista: Vista, capa: string) => `/cuerpo/${vista}_${capa}.svg`
 
 /**
  * Altura de cada capa dentro de la figura (de 0, la cabeza, a 1, los pies), para
