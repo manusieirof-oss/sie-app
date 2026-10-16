@@ -12,6 +12,9 @@ import { FALTAS_AMASAR, faltasAmasar, guardarCola } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import EnComun from './components/EnComun'
 
+// Los mismos iconos que los quesitos del rosco de Amasar.
+const ICONO_FALTA: Record<string, string> = { etiquetas: 'etiqueta', descripcion: 'nota', medida: 'regla', ejecucion: 'ok', feedbacks: 'mensaje', revisar: 'editar' }
+
 // ---------------------------------------------------------------------------
 // EL TORNO
 //
@@ -203,6 +206,10 @@ export default function TornoPage() {
         .t-logo { animation: t-asoma .75s cubic-bezier(.2,.9,.3,1.2) .64s both }
         .t-fade { animation: t-entra .45s ease both }
         .t-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease }
+        .t-falta { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:99px; font-size:12.5px;
+                   color:var(--gr); cursor:pointer; user-select:none; transition: color .15s, background .15s }
+        .t-falta:hover { color:var(--gd) }
+        .t-falta.on { color:var(--gd); background:#fff; box-shadow:0 2px 9px rgba(38,40,37,.12) }
         .t-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(38,40,37,.13); border-color: var(--g) }
         .t-menu-it { padding: 9px 12px; cursor: pointer; border-radius: 7px }
         .t-menu-it:hover { background: var(--bl) }
@@ -317,25 +324,27 @@ export default function TornoPage() {
               <span style={{ fontSize: 11, color: 'var(--gr)' }}>
                 {soloIncompletos ? 'Por completar' : busca.trim() ? 'Lo que casa' : 'Principales y sueltos'} · {listaEj.length}
               </span>
-              <button className="btn btn-t btn-sm" style={{ padding: '2px 10px', fontSize: 11.5 }}
-                onClick={() => { setModoSel(v => !v); setSelec([]) }}>{modoSel ? 'Dejar de elegir' : 'Elegir varios'}</button>
+              <span className={`t-falta ${modoSel ? 'on' : ''}`} onClick={() => { setModoSel(v => !v); setSelec([]) }}>
+                <Ic name="ok" size={13}/> {modoSel ? 'Dejar de elegir' : 'Elegir varios'}</span>
               {modoSel && listaEj.length > 0 && (
-                <button className="btn btn-t btn-sm" style={{ padding: '2px 10px', fontSize: 11.5 }}
-                  onClick={() => setSelec(selec.length === listaEj.length ? [] : listaEj.map(e => e.id))}>
-                  {selec.length === listaEj.length ? 'Ninguno' : 'Todos'}</button>
+                <span className="t-falta" onClick={() => setSelec(selec.length === listaEj.length ? [] : listaEj.map(e => e.id))}>
+                  {selec.length === listaEj.length ? 'Ninguno' : 'Todos'}</span>
               )}
             </div>
             {/* QUÉ FALTA: filtra la cola. Cada uno con cuántos hay. */}
             {soloIncompletos && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 4, marginBottom: 16 }}>
+                <span style={{ fontSize: 11, color: 'var(--grl)', marginRight: 4 }}>Le falta</span>
                 {FALTAS_AMASAR.map(f => {
                   const n = (ejs || []).filter(e => (!busca.trim() || contiene(e.nombre, busca)) && f.falta(e)).length
                   if (!n) return null
                   const on = faltaFiltro.includes(f.k)
+                  // Texto con su icono, sin caja ni número (el número va al pasar el ratón):
+                  // se lee como una frase, "lo que falta: etiquetas, feedbacks…".
                   return (
-                    <span key={f.k} className={`chip-sel ${on ? 'on' : ''}`} style={{ fontSize: 12 }}
+                    <span key={f.k} className={`t-falta ${on ? 'on' : ''}`} title={`${n} ejercicios`}
                       onClick={() => setFaltaFiltro(l => on ? l.filter(x => x !== f.k) : [...l, f.k])}>
-                      Sin {f.t.toLowerCase()} · {n}
+                      <Ic name={ICONO_FALTA[f.k] || 'ok'} size={13}/> {f.t}
                     </span>
                   )
                 })}
