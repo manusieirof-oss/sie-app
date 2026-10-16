@@ -78,66 +78,122 @@ export function porMes(citas: any[], n = 6) {
 /**
  * Evolución de la carga por ejercicio, a partir de lo registrado en el taller.
  *
- * De cada día se toma la serie más pesada, no la media: lo que dice si alguien
+ * De cada día se toma la serie más exigente, no la media: lo que dice si alguien
  * progresa es el tope que mueve, y promediar con las series de aproximación lo
- * enmascara. En ejercicios por tiempo se toma el más largo.
+ * enmascara.
+ *
+ * QUÉ SE MIDE, POR ORDEN: kg; si no hay kg, la banda (su puesto en la escala de
+ * Ajustes, de la más suave a la más dura); si no, segundos; si no, metros; y si no
+ * hay nada más, las repeticiones. Antes solo contaban kg, segundos y metros, así que
+ * una flexión o un ejercicio con banda nunca salían aunque se anotaran cada día.
+ *
+ * Un ejercicio se pinta en UNA unidad: la que más días tenga. Si un día se anotó en
+ * kg y otro en segundos, mezclarlos en la misma línea dibujaría un salto falso.
  */
-export function cargaPorEjercicio(registros: any[]) {
-  const porEj: Record<string, { nombre: string, variante: string, fechaNombre: string, puntos: { fecha: string, valor: number, unidad: string }[] }> = {}
+export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
+  type Punto = { fecha: string, valor: number, unidad: string }
+  const porEj: Record<string, { nombre: string, variante: string, fechaNombre: string, puntos: Punto[] }> = {}
+  const nivel = (b: any) => {
+    const i = bandas.findIndex(x => x.toLowerCase() === String(b ?? '').toLowerCase().trim())
+    return i < 0 ? NaN : i + 1
+  }
+  const ORDEN = ['kg', 'banda', 's', 'm', 'reps']
 
   registros.forEach(r => {
     const series = Array.isArray(r.series) ? r.series : []
     if (series.length === 0 || !r.ejercicio_id || !r.fecha) return
 
-    let mejor = 0
-    let unidad = ''
+    // El mejor valor de cada unidad en el día; luego se queda la de más rango.
+    const mejor: Record<string, number> = {}
     series.forEach((s: any) => {
-      const peso = parseFloat(s?.peso)
-      const seg = parseFloat(s?.segundos)
-      const m = parseFloat(s?.metros)
-      if (!isNaN(peso) && peso > mejor) { mejor = peso; unidad = 'kg' }
-      else if (isNaN(peso) && !isNaN(seg) && seg > mejor) { mejor = seg; unidad = 's' }
-      // Distancia (paseos, trineo) sin peso: los metros. La banda no entra en esta
-      // gráfica de carga: no tiene kg (se ve en "Se trabaja con" del objetivo).
-      else if (isNaN(peso) && isNaN(seg) && !isNaN(m) && m > mejor) { mejor = m; unidad = 'm' }
+      const vals: [string, number][] = [
+        ['kg', parseFloat(s?.peso)], ['banda', nivel(s?.banda)], ['s', parseFloat(s?.segundos)],
+        ['m', parseFloat(s?.metros)], ['reps', parseFloat(s?.reps)],
+      ]
+      vals.forEach(([u, v]) => { if (!isNaN(v) && v > 0 && v > (mejor[u] || 0)) mejor[u] = v })
     })
-    if (mejor <= 0) return
+    const unidad = ORDEN.find(u => mejor[u] > 0)
+    if (!unidad) return
+    const valor = mejor[unidad]
 
-    // Una serie por ejercicio Y VARIANTE: un unilateral no se compara con un
-    // bilateral, y antes se pintaban en la misma línea porque la variante no se
-    // guardaba en el registro.
+    // Una serie por ejercicio Y VARIANTE: un unilateral no se compara con un bilateral.
     const clave = `${r.ejercicio_id}|${r.variante || ''}`
     const ej = porEj[clave] || (porEj[clave] = {
       nombre: r.ejercicio_nombre || 'Ejercicio', variante: r.variante || '', fechaNombre: r.fecha, puntos: [],
     })
-    // El nombre, del registro más reciente: si el ejercicio se renombró, el viejo
-    // seguiría saliendo solo por haberse procesado antes.
+    // El nombre, del registro más reciente: si el ejercicio se renombró, manda el nuevo.
     if (r.fecha >= ej.fechaNombre) { ej.nombre = r.ejercicio_nombre || ej.nombre; ej.fechaNombre = r.fecha }
 
-    // Varios registros el mismo día (misma sesión repetida): se queda el mayor.
-    const ya = ej.puntos.find(p => p.fecha === r.fecha)
-    if (ya) { if (mejor > ya.valor) { ya.valor = mejor; ya.unidad = unidad } }
-    else ej.puntos.push({ fecha: r.fecha, valor: mejor, unidad })
+    // Varios registros el mismo día y misma unidad: se queda el mayor.
+    const ya = ej.puntos.find(p => p.fecha === r.fecha && p.unidad === unidad)
+    if (ya) { if (valor > ya.valor) ya.valor = valor }
+    else ej.puntos.push({ fecha: r.fecha, valor, unidad })
   })
 
   return Object.entries(porEj)
     .map(([clave, v]) => {
-      const puntos = v.puntos.sort((a, b) => a.fecha.localeCompare(b.fecha))
+      const cuenta: Record<string, number> = {}
+      v.puntos.forEach(p => { cuenta[p.unidad] = (cuenta[p.unidad] || 0) + 1 })
+      const unidad = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a] || ORDEN.indexOf(a) - ORDEN.indexOf(b))[0] || ''
+      const puntos = v.puntos.filter(p => p.unidad === unidad).sort((a, b) => a.fecha.localeCompare(b.fecha))
       const primero = puntos[0]?.valor || 0
       const ultimo = puntos[puntos.length - 1]?.valor || 0
       return {
-        ejercicio_id: clave,
-        nombre: v.nombre,
-        variante: v.variante,
-        unidad: puntos[0]?.unidad || '',
-        puntos,
-        primero, ultimo,
-        delta: ultimo - primero,
+        ejercicio_id: clave, nombre: v.nombre, variante: v.variante,
+        unidad, puntos, primero, ultimo, delta: ultimo - primero,
       }
     })
     // Con un solo punto no hay evolución que enseñar, solo un dato suelto.
     .filter(e => e.puntos.length >= 2)
     .sort((a, b) => b.puntos.length - a.puntos.length)
+}
+
+/** Cómo se lee un valor de carga: "20 kg", "Roja", "45 s", "12 reps". */
+export function textoCarga(valor: number, unidad: string, bandas: string[] = []) {
+  if (unidad === 'banda') return bandas[Math.round(valor) - 1] || `Banda ${valor}`
+  const v = Math.round(valor * 10) / 10
+  return unidad === 'kg' ? `${v} kg` : unidad === 's' ? `${v} s` : unidad === 'm' ? `${v} m` : `${v} reps`
+}
+
+/**
+ * ESFUERZO Y DOLOR ANOTADOS EN LA SALA, por ejercicio y día.
+ *
+ * RPE, RIR y dolor se apuntan serie a serie (si están encendidos en Ajustes) y hasta
+ * ahora no se veían en ningún sitio. Del día se toma la MEDIA de las series: aquí no
+ * interesa el tope sino cómo lo vivió. El dolor es lo más útil: un ejercicio que
+ * duele cada vez menos con la misma carga es la mejor noticia en rehabilitación.
+ */
+export function esfuerzoPorEjercicio(registros: any[]) {
+  type Dia = { fecha: string, rpe?: number, rir?: number, dolor?: number }
+  const porEj: Record<string, { nombre: string, fechaNombre: string, dias: Dia[] }> = {}
+  const CAMPOS = ['rpe', 'rir', 'dolor'] as const
+
+  registros.forEach(r => {
+    const series = Array.isArray(r.series) ? r.series : []
+    if (series.length === 0 || !r.ejercicio_id || !r.fecha) return
+    const dia: Dia = { fecha: r.fecha }
+    CAMPOS.forEach(c => {
+      const vals = series.map((s: any) => parseFloat(s?.[c])).filter((n: number) => !isNaN(n))
+      if (vals.length) dia[c] = Math.round(vals.reduce((a: number, b: number) => a + b, 0) / vals.length * 10) / 10
+    })
+    if (CAMPOS.every(c => dia[c] == null)) return
+    const ej = porEj[r.ejercicio_id] || (porEj[r.ejercicio_id] = { nombre: r.ejercicio_nombre || 'Ejercicio', fechaNombre: r.fecha, dias: [] })
+    if (r.fecha >= ej.fechaNombre) { ej.nombre = r.ejercicio_nombre || ej.nombre; ej.fechaNombre = r.fecha }
+    if (!ej.dias.some(d => d.fecha === r.fecha)) ej.dias.push(dia)
+  })
+
+  return Object.entries(porEj)
+    .map(([id, v]) => {
+      const dias = v.dias.sort((a, b) => a.fecha.localeCompare(b.fecha))
+      const campos = CAMPOS.filter(c => dias.some(d => d[c] != null))
+      const ultimoDolor = [...dias].reverse().find(d => d.dolor != null)?.dolor
+      const primerDolor = dias.find(d => d.dolor != null)?.dolor
+      return { ejercicio_id: id, nombre: v.nombre, dias, campos,
+        dolor: ultimoDolor, deltaDolor: ultimoDolor != null && primerDolor != null ? ultimoDolor - primerDolor : 0 }
+    })
+    .filter(e => e.dias.length >= 2)
+    // Primero los que duelen: es lo que hay que mirar antes.
+    .sort((a, b) => (b.dolor || 0) - (a.dolor || 0) || b.dias.length - a.dias.length)
 }
 
 /**

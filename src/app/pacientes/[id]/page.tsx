@@ -26,6 +26,7 @@ import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
 import { cerrarCuotasFuturas } from '@/lib/estadosPaciente'
 import { useParams, useRouter } from 'next/navigation'
 import { hoyISO } from '@/lib/fechas'
+import { traerTodo } from '@/lib/paginar'
 import { recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { soltarDelBono, atarCitaABono } from '@/lib/bonoSesiones'
 
@@ -356,8 +357,10 @@ export default function FichaPacientePage() {
     const { data: rec } = await supabase.from('recuperaciones').select('id,estado,fecha_falta,fecha_limite,cita_recuperacion_id').eq('paciente_id',id).order('fecha_falta',{ascending:false})
     setRecuperaciones(rec||[])
     // Lo anotado en el taller: alimenta la progresión de cargas y de ejecución.
-    const { data: regsEj } = await supabase.from('registros_ejercicio')
-      .select('fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados,variante').eq('paciente_id',id)
+    // Paginado: Supabase devuelve como mucho 1000 filas y un paciente de años las pasa;
+    // sin esto la progresion se cortaba en silencio y parecia que dejo de entrenar.
+    const { filas: regsEj } = await traerTodo((d,h)=>supabase.from('registros_ejercicio')
+      .select('id,fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados,variante').eq('paciente_id',id).order('id').range(d,h))
     setRegistrosEj(regsEj||[])
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])

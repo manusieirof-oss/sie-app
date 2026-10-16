@@ -1,10 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
 import { Ic } from '@/lib/icons'
 import ResumenVolumen from '@/components/ResumenVolumen'
 
-import { COLOR, asistencia, porMes, cargaPorEjercicio, ejecucionPorEjercicio, evaPorZona } from '@/lib/resultados'
+import { COLOR, asistencia, porMes, cargaPorEjercicio, ejecucionPorEjercicio, evaPorZona, esfuerzoPorEjercicio, textoCarga } from '@/lib/resultados'
+import { ajustesMedida } from '@/lib/medida'
 
 // Alias cortos: las gráficas los usan mucho y `COLOR.g` en cada propiedad no se lee.
 const G = COLOR.g, GD = COLOR.gd, GL = COLOR.gl, RED = COLOR.red, AMB = COLOR.amb, GREY = COLOR.gris
@@ -29,7 +30,11 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
   // Una serie POR ZONA. Antes se unían todas en una línea y enlazaba el dolor de
   // rodilla con el de hombro, dibujando una evolución que no existía.
   const zonasEva = evaPorZona(molestias)
-  const cargas = cargaPorEjercicio(registros)
+  // La escala de bandas de Ajustes: sin ella una banda no tiene "más" ni "menos".
+  const [bandas, setBandas] = useState<string[]>([])
+  useEffect(() => { ajustesMedida().then(a => setBandas(a.bandas)) }, [])
+  const cargas = cargaPorEjercicio(registros, bandas)
+  const esfuerzos = esfuerzoPorEjercicio(registros)
   const gestos = ejecucionPorEjercicio(registros)
 
   // Patologias por estado
@@ -70,7 +75,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           <div className="sec">
             <div className="sec-h">
               <span className="sh-l"><span className="ct-l"><Ic name="fuerza" size={13}/> Evolución de la carga</span></span>
-              <span className="sh-r">La serie más pesada de cada día</span>
+              <span className="sh-r">La mejor serie de cada día: kg, banda, tiempo, metros o reps</span>
             </div>
             {cargas.length===0
               ? <div className="muted">Aún no hay suficientes registros. Hacen falta al menos dos días con el mismo ejercicio anotado desde el taller.</div>
@@ -85,10 +90,12 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                               un bilateral y ahora van en gráficas separadas. */}
                           {e.variante && <span style={{color:'var(--gr)'}}> · {e.variante}</span>}
                         </span>
-                        <span style={{fontSize:13,color:'var(--n)'}}>{e.ultimo}{e.unidad}</span>
+                        <span style={{fontSize:13,color:'var(--n)'}}>{textoCarga(e.ultimo,e.unidad,bandas)}</span>
                         {e.delta!==0 && (
                           <span className={`pill ${e.delta>0?'pill-o on':'pill-r'}`}>
-                            {e.delta>0?'+':''}{Math.round(e.delta*10)/10}{e.unidad}
+                            {e.delta>0?'+':''}{e.unidad==='banda'
+                              ? `${Math.round(e.delta)} banda${Math.abs(e.delta)===1?'':'s'}`
+                              : textoCarga(e.delta,e.unidad).replace('-','−')}
                           </span>
                         )}
                       </div>
@@ -97,9 +104,11 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                           margin={{top:5,right:10,left:-22,bottom:0}}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
                           <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
-                          <YAxis tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
+                          <YAxis tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={e.unidad==='banda'?56:38}
+                            allowDecimals={e.unidad!=='banda' && e.unidad!=='reps'}
+                            tickFormatter={(v:any)=>e.unidad==='banda'?textoCarga(v,'banda',bandas):v}/>
                           <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
-                            formatter={(v:any)=>[`${v}${e.unidad}`,'Máximo']}/>
+                            formatter={(v:any)=>[textoCarga(v,e.unidad,bandas),'Máximo']}/>
                           <Line type="monotone" dataKey="valor" stroke={G} strokeWidth={2} dot={{r:3}}/>
                         </LineChart>
                       </ResponsiveContainer>
@@ -108,6 +117,43 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                 </div>
               )}
           </div>
+
+          {/* ESFUERZO Y DOLOR EN LA SALA. Lo que se anota serie a serie (RPE, RIR,
+              dolor) y no se veia en ningun sitio. Solo sale si hay algo anotado. */}
+          {esfuerzos.length>0 && (
+          <div className="sec">
+            <div className="sec-h">
+              <span className="sh-l"><span className="ct-l"><Ic name="molestia" size={13}/> Esfuerzo y dolor en la sala</span></span>
+              <span className="sh-r">Media de las series de cada día · de 0 a 10</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
+              {esfuerzos.map(e=>(
+                <div key={e.ejercicio_id}>
+                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+                    <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
+                    {e.dolor!=null && <span style={{fontSize:13,color:e.dolor>=4?RED:'var(--n)'}}>dolor {e.dolor}</span>}
+                    {/* Aqui bajar es lo bueno: el verde va cuando el dolor baja. */}
+                    {e.deltaDolor!==0 && (
+                      <span className={`pill ${e.deltaDolor<0?'pill-o on':'pill-r'}`}>{e.deltaDolor>0?'+':'−'}{Math.abs(Math.round(e.deltaDolor*10)/10)}</span>
+                    )}
+                  </div>
+                  <ResponsiveContainer width="100%" height={130}>
+                    <LineChart data={e.dias.map(d=>({...d, dia:new Date(d.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
+                      margin={{top:5,right:10,left:-22,bottom:0}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
+                      <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                      <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
+                      <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
+                      {e.campos.includes('dolor') && <Line type="monotone" dataKey="dolor" name="Dolor" stroke={RED} strokeWidth={2} dot={{r:3}} connectNulls/>}
+                      {e.campos.includes('rpe') && <Line type="monotone" dataKey="rpe" name="RPE" stroke={G} strokeWidth={2} dot={{r:3}} connectNulls/>}
+                      {e.campos.includes('rir') && <Line type="monotone" dataKey="rir" name="RIR" stroke={AMB} strokeWidth={2} dot={{r:3}} connectNulls/>}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ))}
+            </div>
+          </div>
+          )}
 
           {/* GESTO. El % de criterios técnicos cumplidos a lo largo del tiempo. La
               sección Ejecución solo enseña el último, que dice cómo está hoy pero no
