@@ -682,7 +682,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
           {q && (
             <div key={q.k} className="am-panel" style={q.k === 'etiquetas' ? { width: 'min(600px, 50vw)' } : undefined}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              {/* La cabecera con "Hecho" se queda pegada arriba: con muchas etiquetas el
+                  panel hace scroll y había que volver a subir para cerrarlo. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, position: 'sticky', top: -18, zIndex: 3,
+                background: '#fff', margin: '-18px -20px 12px', padding: '14px 20px 10px', borderRadius: '20px 20px 0 0',
+                boxShadow: '0 6px 10px -8px rgba(38,40,37,.18)' }}>
                 <span style={{ color: 'var(--g)', lineHeight: 0 }}><Ic name={q.ic} size={18}/></span>
                 <span style={{ flex: 1, fontSize: 15 }}>{q.t}</span>
                 <button className="btn btn-p btn-sm" onClick={() => setAbierto(null)}>Hecho</button>
