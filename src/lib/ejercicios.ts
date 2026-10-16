@@ -33,6 +33,28 @@ export const nombreMedida = (id?: string | null) =>
   TIPOS_MEDIDA.find(m => m.id === id)?.nombre || TIPOS_MEDIDA[0].nombre
 
 // ---------------------------------------------------------------------------
+// LO QUE LE FALTA PARA EL ROSCO DE AMASAR: los mismos quesitos que cuentan allí, para
+// que "Por completar" del torno y el "x de 6" del rosco digan lo mismo. La foto no
+// cuenta: sin ella sale la figura.
+// ---------------------------------------------------------------------------
+const conTexto = (l: any[] | null | undefined) => (l || []).some((i: any) => i?.texto?.trim())
+export const FALTAS_AMASAR = [
+  { k: 'etiquetas', t: 'Etiquetas', falta: (e: any) => !(e.etiquetas || []).length },
+  { k: 'descripcion', t: 'Descripción', falta: (e: any) => !(e.descripcion || '').trim() },
+  { k: 'medida', t: 'Cómo se mide', falta: (e: any) => !e.tipo_medida },
+  { k: 'ejecucion', t: 'Ejecución', falta: (e: any) => !conTexto(e.items_ejecucion) },
+  { k: 'feedbacks', t: 'Feedbacks', falta: (e: any) => !conTexto(e.feedbacks) },
+  { k: 'revisar', t: 'Copiado sin revisar', falta: (e: any) => (e.por_revisar || []).length > 0 },
+]
+export const faltasAmasar = (e: any) => FALTAS_AMASAR.filter(f => f.falta(e)).map(f => f.k)
+
+/* LA COLA DE AMASAR: los ejercicios que se van a ir completando uno detrás de otro.
+   Va en sessionStorage (solo esta pestaña, solo esta tanda): no es un dato del centro. */
+const CLAVE_COLA = 'amasar_cola'
+export function guardarCola(ids: string[]) { try { sessionStorage.setItem(CLAVE_COLA, JSON.stringify(ids)) } catch {} }
+export function leerCola(): string[] { try { return JSON.parse(sessionStorage.getItem(CLAVE_COLA) || '[]') } catch { return [] } }
+
+// ---------------------------------------------------------------------------
 // EJERCICIOS POR COMPLETAR
 //
 // Montando una sesión hace falta un ejercicio que no está en la biblioteca y no hay

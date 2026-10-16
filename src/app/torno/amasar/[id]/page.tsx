@@ -6,7 +6,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, similaresA, leerCola } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 
@@ -68,12 +68,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // La ficha sale para revisar lo hecho: al crear y al guardar. En cuanto se abre un
   // quesito o se cierra, se va, y no vuelve hasta el siguiente guardado (o "Ver ficha").
   const [fichaOn, setFichaOn] = useState(recien)
+  // La cola de ejercicios a completar seguidos (elegidos en el torno).
+  const [cola, setCola] = useState<string[]>([])
+  useEffect(() => { if (sp.get('cola')) setCola(leerCola()) }, [sp])
 
   useEffect(() => { cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
     const [a, b, o] = await Promise.all([
       traerTodo((dd, h) => supabase.from('etiquetas').select('*').order('id').range(dd, h)),
-      traerTodo((dd, h) => supabase.from('ejercicios').select('id,nombre,portada_id').order('nombre').order('id').range(dd, h)),
+      traerTodo((dd, h) => supabase.from('ejercicios').select('id,nombre,portada_id,etiquetas,imagen_url').order('nombre').order('id').range(dd, h)),
       supabase.from('objetivos').select('id,nombre,imagen_url,articulacion_id,etiquetas,movimientos').eq('activo', true).order('nombre'),
     ])
     setEts(a.filas); setEjs(b.filas); setObjetivos(o.data || [])
@@ -350,6 +353,22 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // medida, ejecución, feedbacks) y este pasa a ser la portada de la familia; si este ya
   // es variante, la nueva va a la misma familia (no hay variantes de variantes).
   const verFicha = fichaOn && !abierto && !nuevo
+
+  // ---- La cola: anterior / siguiente ---------------------------------------------
+  const iCola = cola.indexOf(params.id)
+  const enCola = cola.length > 1 && iCola >= 0
+  /** Pasa a otro de la cola guardando antes lo hecho; si no se puede guardar, pregunta. */
+  async function irCola(paso: number) {
+    const id = cola[iCola + paso]
+    if (!id) return
+    if (cambiado) {
+      if (puedeGuardar) await guardar()
+      else if (!confirm('Hay cambios que aún no se pueden guardar (falta nombre o cómo se mide). ¿Pasar sin guardarlos?')) return
+    }
+    router.push(`/torno/amasar/${id}?cola=1`)
+  }
+  // Los parecidos por etiquetas (fuera de su familia, que ya sale aparte).
+  const parecidos = useMemo(() => nuevo ? [] : similaresA(ejs, { ...d, id: params.id }, 8, ets), [ejs, d.etiquetas, ets]) // eslint-disable-line react-hooks/exhaustive-deps
   async function nuevaVariante() {
     if (!nombreVar?.trim()) return
     if (ejs.some(x => normalizar(x.nombre).trim() === normalizar(nombreVar).trim())) { setAviso('Ese nombre ya existe'); return }
@@ -412,6 +431,21 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={ev => { ev.stopPropagation(); router.push(`/torno/amasar/${x.id}`) }}>{x.nombre}</span>)}
           </div>
         ), false)}
+
+        {parecidos.length > 0 && (
+          <div className="am-sec" style={{ cursor: 'default' }}>
+            <div className="et-mini" style={{ marginBottom: 7 }}>Con sus mismas etiquetas</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(88px,1fr))', gap: 8 }}>
+              {parecidos.map((x: any) => (
+                <div key={x.id} onClick={() => router.push(`/torno/amasar/${x.id}`)} title="Abrir su rosco"
+                  style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 9px rgba(38,40,37,.10)' }}>
+                  <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} radio={0} fondo="var(--bl)" icono={20}/>
+                  <div style={{ fontSize: 11, padding: '5px 7px', lineHeight: 1.2 }}>{x.nombre}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* SEGUIR AMASANDO */}
         <div style={{ borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 14 }}>
@@ -548,6 +582,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
               {aviso || (!d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta cómo se mide' : repetido ? 'Ese nombre ya existe' : cambiado ? 'Sin guardar' : 'Todo guardado')}
             </span>
+            {enCola && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <button className="btn btn-t btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)} title="Anterior">‹</button>
+                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>{iCola + 1} de {cola.length}</span>
+                <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)}>Siguiente ›</button>
+              </span>
+            )}
             {!nuevo && !verFicha && !abierto && (
               <button className="btn btn-t btn-sm" onClick={() => setFichaOn(true)}>Ver ficha</button>
             )}

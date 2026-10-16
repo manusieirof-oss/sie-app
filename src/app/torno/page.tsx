@@ -8,8 +8,9 @@ import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { PROGRESIONES } from '@/lib/sistemas'
-import { problemasDeEjercicio } from '@/lib/ejercicios'
+import { FALTAS_AMASAR, faltasAmasar, guardarCola } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
+import EnComun from './components/EnComun'
 
 // ---------------------------------------------------------------------------
 // EL TORNO
@@ -55,6 +56,12 @@ export default function TornoPage() {
   const [que, setQue] = useState<'pacientes' | 'ejercicios'>('pacientes')
   const [ejs, setEjs] = useState<any[] | null>(null)
   const [soloIncompletos, setSoloIncompletos] = useState(false)
+  // Por completar: qué falta (vacío = cualquier cosa).
+  const [faltaFiltro, setFaltaFiltro] = useState<string[]>([])
+  // Elegir varios: para completarlos seguidos o ponerles algo en común.
+  const [modoSel, setModoSel] = useState(false)
+  const [selec, setSelec] = useState<string[]>([])
+  const [enComun, setEnComun] = useState(false)
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
@@ -80,13 +87,24 @@ export default function TornoPage() {
   useEffect(() => { if (abierto && que === 'pacientes' && filas.length === 0 && cargando === false) cargar() }, [abierto, que]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!abierto || que !== 'ejercicios' || ejs) return
-    traerTodo<any>((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => setEjs(r.filas))
+    recargarEjs()
   }, [abierto, que]) // eslint-disable-line react-hooks/exhaustive-deps
-  /** Los ejercicios que se enseñan: buscando, todo lo que casa; si no, las portadas y los sueltos. */
+  const recargarEjs = () => traerTodo<any>((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => setEjs(r.filas))
+  /** Los ejercicios que se enseñan: buscando, todo lo que casa; por completar, todos
+   *  (las variantes también se rellenan); si no, las portadas y los sueltos. */
   const listaEj = (ejs || [])
-    .filter(e => busca.trim() ? contiene(e.nombre, busca) : !e.portada_id)
-    .filter(e => !soloIncompletos || problemasDeEjercicio(e).length > 0)
-  function amasar(id: string) { setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}`), 360) }
+    .filter(e => busca.trim() ? contiene(e.nombre, busca) : soloIncompletos || !e.portada_id)
+    .filter(e => {
+      if (!soloIncompletos) return true
+      const f = faltasAmasar(e)
+      return f.length > 0 && (faltaFiltro.length === 0 || faltaFiltro.some(k => f.includes(k)))
+    })
+  /** Abre su rosco. Desde una lista, la lista entera queda de cola para ir pasando al siguiente. */
+  function amasar(id: string, cola?: string[]) {
+    if (cola && cola.length > 1) guardarCola(cola)
+    setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}${cola && cola.length > 1 ? '?cola=1' : ''}`), 360)
+  }
+  const elegidos = (ejs || []).filter(e => selec.includes(e.id))
 
   function abrir(c?: string) {
     if (c) setCamino(c)
@@ -295,16 +313,51 @@ export default function TornoPage() {
       {abierto && que === 'ejercicios' && (
         <div className="t-fade" style={{ width: '100%', maxWidth: 980, margin: '16px auto 40px' }}>
           {!ejs ? <div className="muted" style={{ textAlign: 'center', padding: 30 }}>Trayendo la biblioteca…</div> : (<>
-            <div style={{ fontSize: 11, color: 'var(--gr)', marginBottom: 11, textAlign: 'center' }}>
-              {soloIncompletos ? 'Por completar' : busca.trim() ? 'Lo que casa' : 'Portadas y sueltos'} · {listaEj.length}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 11 }}>
+              <span style={{ fontSize: 11, color: 'var(--gr)' }}>
+                {soloIncompletos ? 'Por completar' : busca.trim() ? 'Lo que casa' : 'Principales y sueltos'} · {listaEj.length}
+              </span>
+              <button className="btn btn-t btn-sm" style={{ padding: '2px 10px', fontSize: 11.5 }}
+                onClick={() => { setModoSel(v => !v); setSelec([]) }}>{modoSel ? 'Dejar de elegir' : 'Elegir varios'}</button>
+              {modoSel && listaEj.length > 0 && (
+                <button className="btn btn-t btn-sm" style={{ padding: '2px 10px', fontSize: 11.5 }}
+                  onClick={() => setSelec(selec.length === listaEj.length ? [] : listaEj.map(e => e.id))}>
+                  {selec.length === listaEj.length ? 'Ninguno' : 'Todos'}</button>
+              )}
             </div>
+            {/* QUÉ FALTA: filtra la cola. Cada uno con cuántos hay. */}
+            {soloIncompletos && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
+                {FALTAS_AMASAR.map(f => {
+                  const n = (ejs || []).filter(e => (!busca.trim() || contiene(e.nombre, busca)) && f.falta(e)).length
+                  if (!n) return null
+                  const on = faltaFiltro.includes(f.k)
+                  return (
+                    <span key={f.k} className={`chip-sel ${on ? 'on' : ''}`} style={{ fontSize: 12 }}
+                      onClick={() => setFaltaFiltro(l => on ? l.filter(x => x !== f.k) : [...l, f.k])}>
+                      Sin {f.t.toLowerCase()} · {n}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 }}>
               {listaEj.map((e, i) => {
-                const faltan = problemasDeEjercicio(e).length
+                const fs = faltasAmasar(e)
+                const faltan = fs.length
+                const sel = selec.includes(e.id)
                 return (
-                  <div key={e.id} className={`t-card t-fade ${yendo === e.id ? 't-elegida' : ''}`} onClick={() => amasar(e.id)}
-                    style={{ animationDelay: `${Math.min(i, 14) * 22}ms`, background: '#fff', borderRadius: 14, overflow: 'hidden',
-                      cursor: 'pointer', boxShadow: '0 3px 12px rgba(38,40,37,.08)' }}>
+                  <div key={e.id} className={`t-card t-fade ${yendo === e.id ? 't-elegida' : ''}`}
+                    title={faltan ? 'Falta: ' + FALTAS_AMASAR.filter(f => fs.includes(f.k)).map(f => f.t.toLowerCase()).join(', ') : ''}
+                    onClick={() => modoSel ? setSelec(l => sel ? l.filter(x => x !== e.id) : [...l, e.id])
+                      : amasar(e.id, soloIncompletos ? listaEj.map(x => x.id) : undefined)}
+                    style={{ animationDelay: `${Math.min(i, 14) * 22}ms`, background: '#fff', borderRadius: 14, overflow: 'hidden', position: 'relative',
+                      cursor: 'pointer', boxShadow: sel ? '0 0 0 2.5px var(--g), 0 6px 18px rgba(38,40,37,.14)' : '0 3px 12px rgba(38,40,37,.08)' }}>
+                    {modoSel && (
+                      <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, width: 22, height: 22, borderRadius: 99,
+                        background: sel ? 'var(--g)' : 'rgba(255,255,255,.9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 1px 5px rgba(38,40,37,.2)', fontSize: 13 }}>{sel ? '✓' : ''}</span>
+                    )}
                     <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} radio={0} fondo="var(--bl)" icono={30}/>
                     <div style={{ padding: '8px 10px' }}>
                       <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.nombre}</div>
@@ -316,6 +369,24 @@ export default function TornoPage() {
             </div>
             {listaEj.length === 0 && <div className="muted" style={{ textAlign: 'center', padding: 24 }}>Ningún ejercicio coincide.</div>}
           </>)}
+          {modoSel && selec.length > 0 && (
+            <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 40, pointerEvents: 'none' }}>
+              <div className="t-fade" style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 99,
+                padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
+                <span style={{ fontSize: 12.5, color: 'var(--gd)' }}>{selec.length} elegido{selec.length === 1 ? '' : 's'}</span>
+                <button className="btn btn-s btn-sm" onClick={() => setEnComun(true)}>Poner en común</button>
+                <button className="btn btn-p btn-sm" onClick={() => {
+                  // En el orden en que se ven en la rejilla.
+                  const cola = listaEj.map(e => e.id).filter(id => selec.includes(id))
+                  amasar(cola[0], cola)
+                }}>Completar uno a uno</button>
+              </div>
+            </div>
+          )}
+          {enComun && (
+            <EnComun elegidos={elegidos} todos={ejs || []} onCerrar={() => setEnComun(false)}
+              onHecho={async () => { setEnComun(false); await recargarEjs() }}/>
+          )}
         </div>
       )}
 
