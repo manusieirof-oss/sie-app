@@ -637,7 +637,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
      descripción, medida, músculos y el resto de etiquetas) y solo cambia las etiquetas
      de esa categoría. Ejecución y feedbacks llegan en amarillo, por si el cambio de
      agarre o de material cambia alguna indicación. */
-  const CATS_VARIAR = ['agarre', 'material', 'posicion', 'apoyo']
+  // Músculo: para familias que solo cambian de zona (masajes, estiramientos).
+  const CATS_VARIAR = ['agarre', 'material', 'posicion', 'apoyo', 'musculo']
   async function crearVariantesRapidas() {
     if (!variar || !variar.sel.length) return
     const paso = await guardarOSalir()
@@ -761,7 +762,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-s btn-sm" disabled={cambiado} title={cambiado ? 'Guarda antes los cambios' : ''}
                 onClick={() => setNombreVar(`${d.nombre} · `)}>+ {portada ? 'Otra variante de su familia' : 'Variante de este'}</button>
-              <button className="btn btn-s btn-sm" title="Variantes que cambian solo el agarre, el material, la posición o el apoyo"
+              <button className="btn btn-s btn-sm" title="Variantes que cambian solo el agarre, el material, la posición, el apoyo o el músculo"
                 onClick={() => setVariar({ cat: 'agarre', sel: [] })}>Variar…</button>
               <button className="btn btn-t btn-sm" onClick={() => ir(aEj('nuevo'))}>+ Otro ejercicio</button>
             </div>
