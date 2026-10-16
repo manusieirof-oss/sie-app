@@ -32,6 +32,25 @@ type Datos = { nombre: string, descripcion: string, video_url: string, imagen_ur
 const VACIO: Datos = { nombre: '', descripcion: '', video_url: '', imagen_url: '', etiquetas: [], tipo_medida: '',
   items_ejecucion: [], feedbacks: [], portada_id: null, por_revisar: [] }
 
+// ---------------------------------------------------------------------------
+// BORRADORES DE LA TANDA. Trabajando varios ejercicios a la vez (la tanda de "completar
+// uno a uno"), se salta de uno a otro desde la columna de la izquierda SIN guardar: lo
+// tocado se queda aquí, cada ejercicio con su borrador, hasta "Guardar" (ese) o
+// "Guardar todo". En sessionStorage para que una recarga no los tire.
+// ---------------------------------------------------------------------------
+type Borrador = { d: Datos, orig: Datos }
+const CLAVE_BORR = 'amasar_borradores'
+function leerBorradores(): Record<string, Borrador> {
+  try { return JSON.parse(sessionStorage.getItem(CLAVE_BORR) || '{}') } catch { return {} }
+}
+function ponerBorrador(id: string, b: Borrador | null) {
+  try {
+    const t = leerBorradores()
+    if (b) t[id] = b; else delete t[id]
+    sessionStorage.setItem(CLAVE_BORR, JSON.stringify(t))
+  } catch {}
+}
+
 // Geometría del rosco (viewBox 600 x 600).
 const C = 300, R0 = 168, R1 = 286, HUECO = 1.6
 
@@ -80,6 +99,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // La cola de ejercicios a completar seguidos (elegidos en el torno).
   const [cola, setCola] = useState<string[]>([])
   useEffect(() => { if (sp.get('cola')) setCola(leerCola()) }, [sp])
+  // La columna de la tanda: sus ejercicios (nombre, imagen, qué les falta).
+  const [colaEjs, setColaEjs] = useState<any[]>([])
+  const [pendientes, setPendientes] = useState<Record<string, Borrador>>({})
+  useEffect(() => { setPendientes(leerBorradores()) }, [params.id])
+  useEffect(() => {
+    if (cola.length < 2) return
+    supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) =>
+      setColaEjs(cola.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean)))
+  }, [cola.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setModoFam(null); cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
@@ -100,7 +128,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         const x: Datos = { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
           etiquetas: e.etiquetas || [], tipo_medida: e.tipo_medida || '', items_ejecucion: e.items_ejecucion || [],
           feedbacks: e.feedbacks || [], portada_id: e.portada_id || null, por_revisar: e.por_revisar || [] }
-        setD(x); setOrig(x)
+        // Lo tocado y sin guardar en la tanda se retoma tal cual se dejó.
+        const b = leerBorradores()[params.id]
+        setD(b ? b.d : x); setOrig(x)
       }
     }
     setCargando(false)
@@ -220,6 +250,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       }
     }
     setGuardando(false); setFoto(null)
+    if (!nuevo) { ponerBorrador(id, null); setPendientes(leerBorradores()) }
     if (nuevo) { router.replace(aEj(id, true)); return true }
     const msg = vectorizada ? '✓ Amasado · dibujo pasado a SVG' : '✓ Amasado'
     cargar(); setFichaOn(true); setAviso(msg)
@@ -253,11 +284,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   }
   // Y si se cierra la pestaña o se recarga, el navegador avisa.
   useEffect(() => {
-    if (!cambiado) return
+    if (!cambiado && Object.keys(pendientes).length === 0) return
     const f = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', f)
     return () => window.removeEventListener('beforeunload', f)
-  }, [cambiado])
+  }, [cambiado, pendientes])
 
   // ---- Etiquetas: raíces por categoría, sus hijas al abrir ----------------------
   const porCat = useMemo(() => {
@@ -542,10 +573,45 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   /** Pasa a otro de la cola guardando antes lo hecho; si no se puede guardar, pregunta. */
   async function irCola(paso: number) {
     const id = cola[iCola + paso]
-    if (!id) return
-    if (!(await asegurarGuardado())) return
-    router.push(`/torno/amasar/${id}?cola=1`)
+    if (id) cambiarA(id)
   }
+  /** Salta a otro de la tanda dejando lo de este como borrador (sin guardar). */
+  function cambiarA(id: string) {
+    if (id === params.id) return
+    if (!nuevo && !grupo) ponerBorrador(params.id, cambiado ? { d, orig } : null)
+    setAbierto(null)
+    router.push(aEj(id))
+  }
+  /** Guarda todos los borradores de la tanda (y el de pantalla). Los que no se pueden
+   *  guardar (sin nombre o sin cómo se mide) se quedan como borrador y se dice. */
+  async function guardarTodo() {
+    if (cambiado && puedeGuardar) { if (!(await guardar())) return }
+    const todos = leerBorradores()
+    let ok = 0; const no: string[] = []
+    setGuardando(true)
+    for (const [id, b] of Object.entries(todos)) {
+      if (id === params.id) continue
+      const x = b.d
+      if (!x.nombre.trim() || !x.tipo_medida) { no.push(x.nombre || 'sin nombre'); continue }
+      const fila: any = { nombre: x.nombre.trim(), descripcion: x.descripcion, video_url: x.video_url, etiquetas: x.etiquetas,
+        tipo_medida: x.tipo_medida, items_ejecucion: x.items_ejecucion.filter(i => i.texto?.trim()),
+        feedbacks: x.feedbacks.filter(i => i.texto?.trim()) }
+      if (JSON.stringify(x.por_revisar) !== JSON.stringify(b.orig.por_revisar)) fila.por_revisar = x.por_revisar
+      const { error } = await supabase.from('ejercicios').update(fila).eq('id', id)
+      if (error) { no.push(x.nombre); continue }
+      if (x.portada_id !== b.orig.portada_id) {
+        const r = x.portada_id ? await moverAFamilia(id, { id: x.portada_id }) : await sacarDeFamilia(id)
+        if (r.ok === false) no.push(x.nombre)
+      }
+      ponerBorrador(id, null); ok++
+    }
+    setGuardando(false)
+    setPendientes(leerBorradores())
+    supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) =>
+      setColaEjs(cola.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean)))
+    setAviso(`✓ Guardados ${ok + (cambiado ? 1 : 0)}` + (no.length ? ` · sin guardar: ${no.join(', ')}` : ''))
+  }
+  const nPendientes = Object.keys(pendientes).filter(id => id !== params.id && cola.includes(id)).length + (cambiado ? 1 : 0)
   // Los parecidos por etiquetas (fuera de su familia, que ya sale aparte).
   const parecidos = useMemo(() => nuevo || grupo ? [] : similaresA(ejs, { ...d, id: params.id }, 8, ets), [ejs, d.etiquetas, ets]) // eslint-disable-line react-hooks/exhaustive-deps
   async function nuevaVariante() {
@@ -726,6 +792,16 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                     transition: transform .5s cubic-bezier(.3,.8,.3,1), width .5s ease }
         .am-abierto .am-rosco { width:min(460px, 50vw) }
         .am-ficha { width:min(460px, 44vw) }
+        .am-tanda { position:fixed; left:max(14px, calc((100vw - 1400px) / 2)); top:110px; bottom:100px; width:86px; overflow-y:auto; z-index:15;
+                    display:flex; flex-direction:column; gap:10px; padding:4px 6px 20px }
+        .am-tanda-it { cursor:pointer; opacity:.62; transform:scale(.9); transform-origin:left center;
+                       transition: transform .25s cubic-bezier(.2,.9,.3,1.2), opacity .2s }
+        .am-tanda-it:hover { opacity:.9; transform:scale(.96) }
+        .am-tanda-it.on { opacity:1; transform:scale(1); filter: drop-shadow(0 6px 14px rgba(38,40,37,.18)) }
+        .am-tanda-it.on > div:first-child { outline:2.5px solid var(--g); outline-offset:-2.5px }
+        .am-tanda-nom { font-size:10px; line-height:1.15; color:var(--gd); margin-top:4px; overflow:hidden; display:-webkit-box;
+                        -webkit-line-clamp:2; -webkit-box-orient:vertical }
+        .am-punto { position:absolute; top:6px; right:6px; width:10px; height:10px; border-radius:99px; border:2px solid #fff }
         .am-borrar { width:34px; height:34px; border-radius:99px; border:none; background:transparent; color:var(--grl);
                      cursor:pointer; display:flex; align-items:center; justify-content:center; transition: color .15s, background .15s }
         .am-borrar:hover { color:var(--red); background:#fff; box-shadow:0 3px 12px rgba(38,40,37,.12) }
@@ -770,7 +846,31 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       </div>
 
       {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 60 }}>Preparando el barro…</div> : (
-        <div className={`am-zona ${abierto || verFicha || (grupo && resumenOn) ? 'am-abierto' : ''}`}>
+        <>
+        {/* LA TANDA, A UN LADO: pequeños; el que se toca pasa al centro. Punto ámbar =
+            tocado sin guardar; verde = completo. */}
+        {enCola && colaEjs.length > 1 && (
+          <div className="am-tanda">
+            {colaEjs.map((e: any) => {
+              const actual = e.id === params.id
+              const pend = !actual && !!pendientes[e.id]
+              const datos = actual ? d : pend ? pendientes[e.id].d : e
+              const completo = faltasAmasar({ ...datos, items_ejecucion: datos.items_ejecucion, feedbacks: datos.feedbacks }).length === 0
+              return (
+                <div key={e.id} className={`am-tanda-it ${actual ? 'on' : ''}`} onClick={() => cambiarA(e.id)} title={datos.nombre}>
+                  <div style={{ position: 'relative', width: '100%', borderRadius: 12, overflow: 'hidden' }}>
+                    <ImagenEjercicio src={datos.imagen_url} etiquetasEj={datos.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
+                    {(pend || (actual && cambiado)) && <span className="am-punto" style={{ background: 'var(--amb)' }}/>}
+                    {!(pend || (actual && cambiado)) && completo && <span className="am-punto" style={{ background: 'var(--g)' }}/>}
+                  </div>
+                  <div className="am-tanda-nom">{datos.nombre}</div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className={`am-zona ${abierto || verFicha || (grupo && resumenOn) ? 'am-abierto' : ''}`}
+          style={enCola && colaEjs.length > 1 ? { paddingLeft: 108 } : undefined}>
           <div className="am-rosco">
             <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               {QUESITOS.map((x, i) => {
@@ -847,6 +947,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           {verFicha && ficha()}
           {grupo && resumenOn && !abierto && resumen()}
         </div>
+        </>
       )}
 
       {/* GUARDAR, abajo y fijo, como en el resto del torno. */}
@@ -867,6 +968,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>{iCola + 1} de {cola.length}</span>
                 <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)}>Siguiente ›</button>
               </span>
+            )}
+            {enCola && nPendientes > 1 && (
+              <button className="btn btn-s btn-sm" disabled={guardando} onClick={guardarTodo}
+                title="Guarda todos los de la tanda que has tocado">Guardar todo ({nPendientes})</button>
             )}
             {!nuevo && !grupo && !verFicha && !abierto && (
               <button className="btn btn-t btn-sm" onClick={() => setFichaOn(true)}>Ver ficha</button>
