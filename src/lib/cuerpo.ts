@@ -231,5 +231,25 @@ export function materialesDe(etiquetasEj: string[] = [], etiquetas: any[] = [], 
   return Array.from(new Set(sin.map(c => MATERIAL[c]))).slice(0, max)
 }
 
+/* COMBINACIONES: una postura con un material puede ser otro dibujo (supino con los
+   pies en el fitball no es "supino" con una pelota en la esquina). Clave
+   "postura+material" con los nombres de archivo de arriba; el dibujo vive en
+   public/postura. Si la combinación no tiene dibujo, se queda la postura y el
+   material en la insignia, como hasta ahora. Se van añadiendo según haya imágenes. */
+const COMBINADA: Record<string, string> = {
+}
+
+/** La imagen completa: la postura (o su combinación con un material) y las insignias que sobran. */
+export function figuraCompleta(etiquetasEj: string[] = [], etiquetas: any[] = []): { postura: string | null, materiales: string[] } {
+  const postura = posturaDe(etiquetasEj, etiquetas)
+  const materiales = materialesDe(etiquetasEj, etiquetas, 3)
+  if (postura) for (const m of materiales) {
+    const c = COMBINADA[`${postura}+${m}`]
+    // El material ya sale dibujado en la postura: no se repite en la esquina.
+    if (c) return { postura: c, materiales: materiales.filter(x => x !== m).slice(0, 2) }
+  }
+  return { postura, materiales: materiales.slice(0, 2) }
+}
+
 export const urlPostura = (p: string) => `/postura/${p}.svg`
 export const urlMaterial = (m: string) => `/material/${m}.svg`

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
 import { Ic } from '@/lib/icons'
-import { figuraDe, posturaDe, materialesDe, urlPostura, urlMaterial } from '@/lib/cuerpo'
+import { figuraDe, figuraCompleta, urlPostura, urlMaterial } from '@/lib/cuerpo'
 import FiguraMusculos from './FiguraMusculos'
 
 // ---------------------------------------------------------------------------
@@ -49,8 +49,7 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
   const ets = etiquetasEj || (ejercicioId && cat ? cat.deEj[ejercicioId] : undefined) || []
   // Sin foto, por orden: su postura, sus músculos, su material solo, y el icono.
   // El material va además como insignia en la esquina de la postura o los músculos.
-  const postura = cat ? posturaDe(ets, cat.etiquetas) : null
-  const mats = cat ? materialesDe(ets, cat.etiquetas) : []
+  const { postura, materiales: mats } = cat ? figuraCompleta(ets, cat.etiquetas) : { postura: null, materiales: [] as string[] }
   const insignias = mats.length > 0 && (
     <span style={{ position: 'absolute', right: '5%', bottom: '5%', width: `${mats.length * 25}%`, display: 'flex', gap: '6%', zIndex: 2 }}>
       {mats.map(m => (
