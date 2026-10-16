@@ -4,6 +4,7 @@ import AvisoMolestia from './AvisoMolestia'
 import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
+import { camposSerie } from '@/lib/medida'
 
 /**
  * Cómo se mide el ejercicio. Aquí solo se puede mirar lo guardado en la sesión: el
@@ -66,11 +67,15 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
     // unilateral en vez de bilateral se leía como si se hubiera hecho lo prescrito.
     const variante = reg?.variante || ''
     if (series.length === 0) return reg?.comentario || variante ? { texto: '', comentario: reg?.comentario || '', variante } : null
+    // Cada serie con lo que tenga: "Roja · 12", "40×10", "30 s", "20 m", y el
+    // esfuerzo detrás si se apuntó ("· RPE 7").
+    const ll = (x: any) => x !== '' && x != null
     const texto = series.map((s: any) => {
-      if (s.segundos !== '' && s.segundos != null) return `${s.segundos} s`
-      if (s.peso !== '' && s.peso != null && s.reps !== '' && s.reps != null) return `${s.peso}×${s.reps}`
-      if (s.reps !== '' && s.reps != null) return `${s.reps} reps`
-      return null
+      const vol = ll(s.segundos) ? `${s.segundos} s` : ll(s.metros) ? `${s.metros} m` : ll(s.reps) ? `${s.reps}` : ''
+      const carga = ll(s.peso) ? `${s.peso}` : ll(s.banda) ? `${s.banda}` : ''
+      const base = carga && vol ? (ll(s.peso) && ll(s.reps) ? `${carga}×${vol}` : `${carga} · ${vol}`) : (vol ? (ll(s.reps) ? `${vol} reps` : vol) : carga)
+      const esf = [ll(s.rpe) && `RPE ${s.rpe}`, ll(s.rir) && `RIR ${s.rir}`, ll(s.dolor) && `dolor ${s.dolor}`].filter(Boolean).join(' ')
+      return base ? base + (esf ? ` · ${esf}` : '') : null
     }).filter(Boolean).join(', ')
     return { texto, comentario: reg?.comentario || '', variante }
   }
@@ -243,12 +248,18 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
                           </div>
 
                           <div className="celda" data-l="Series"><span className="val">{parte.modo === 'circuito' ? (parte.vueltas || '—') : parte.modo === 'superserie' ? '—' : (ej.series || '—')}</span></div>
-                          <div className="celda" data-l={med === 'tiempo' ? 'Duración' : 'Repeticiones'}>
-                            <span className="val">{med === 'tiempo' ? (ej.tiempo ? `${ej.tiempo} s` : '—') : (ej.reps || '—')}</span>
-                          </div>
-                          <div className="celda" data-l="Peso">
-                            <span className="val">{med === 'tiempo' ? '—' : (ej.peso ? `${ej.peso} kg` : '—')}</span>
-                          </div>
+                          {(() => {
+                            // Carga × volumen del ejercicio (lib/medida).
+                            const cs = camposSerie(med, { isometrico: String(ej.regimen || '').toLowerCase().startsWith('isom') })
+                            return (<>
+                              <div className="celda" data-l={cs.includes('segundos') ? 'Duración' : cs.includes('metros') ? 'Distancia' : 'Repeticiones'}>
+                                <span className="val">{cs.includes('segundos') ? (ej.tiempo ? `${ej.tiempo} s` : '—') : cs.includes('metros') ? (ej.metros ? `${ej.metros} m` : '—') : (ej.reps || '—')}</span>
+                              </div>
+                              <div className="celda" data-l={cs.includes('banda') ? 'Banda' : 'Peso'}>
+                                <span className="val">{cs.includes('peso') ? (ej.peso ? `${ej.peso} kg` : '—') : cs.includes('banda') ? (ej.banda || '—') : '—'}</span>
+                              </div>
+                            </>)
+                          })()}
                           <div className="celda" data-l="Descanso">
                             {/* El de la parte es el general y el del ejercicio lo pisa:
                                 se calcula en un solo sitio para que la ficha diga lo

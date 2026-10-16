@@ -6,7 +6,7 @@ import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import FiguraMusculos from '@/components/FiguraMusculos'
 import { figuraDe } from '@/lib/cuerpo'
 import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
-import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido } from '@/lib/ejercicios'
+import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido, TIPOS_MEDIDA, nombreMedida } from '@/lib/ejercicios'
 
 
 export function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
@@ -368,7 +368,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       <div className="field"><label>Nombre *</label><input className="input" value={editEj.nombre} onChange={e=>setEditEj(p=>({...p,nombre:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Descripción</label><textarea className="input" value={editEj.descripcion} onChange={e=>setEditEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
-                      <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
+                      <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}>{TIPOS_MEDIDA.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div>
                       <EditorItems items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
                       <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
                       <div className="field">
@@ -482,7 +482,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       })()}
                       <div style={{marginBottom:14}}>
                         <div className="et-mini" style={{marginBottom:6}}>Se mide en</div>
-                        <span style={{fontSize:12,padding:'3px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>{ejSeleccionado.tipo_medida==='tiempo'?'Tiempo (segundos)':ejSeleccionado.tipo_medida==='peso_tiempo'?'Peso y tiempo':'Peso y repeticiones'}</span>
+                        <span style={{fontSize:12,padding:'3px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>{nombreMedida(ejSeleccionado.tipo_medida)}</span>
                       </div>
                       <div>
                         <div className="et-mini" style={{marginBottom:6}}>Etiquetas</div>
@@ -577,7 +577,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
             <div className="field"><label>Nombre *</label><input className="input" value={nuevoEj.nombre} onChange={e=>setNuevoEj(p=>({...p,nombre:e.target.value}))} autoFocus disabled={guardando}/></div>
             <div className="field"><label>Descripción</label><textarea className="input" value={nuevoEj.descripcion} onChange={e=>setNuevoEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
             <div className="field"><label>Enlace vídeo</label><input className="input" value={nuevoEj.video_url} onChange={e=>setNuevoEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
-            <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}><option value="peso_reps">Peso y repeticiones</option><option value="tiempo">Tiempo (segundos)</option><option value="peso_tiempo">Peso y tiempo</option></select></div>
+            <div className="field"><label>Se mide en</label><select className="input" value={nuevoEj.tipo_medida} onChange={e=>setNuevoEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}>{TIPOS_MEDIDA.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div>
             <EditorItems items={nuevoEj.items_ejecucion} onChange={(v:any[])=>setNuevoEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
             <EditorLista items={nuevoEj.feedbacks} onChange={(v:any[])=>setNuevoEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
             <div className="field">

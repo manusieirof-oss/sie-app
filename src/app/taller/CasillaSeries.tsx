@@ -1,6 +1,7 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Flotante from './Flotante'
+import { camposSerie, partesMedida, ajustesMedida, ESFUERZOS, UNIDAD, COLOR_BANDA, type AjustesMedida } from '@/lib/medida'
 
 // ---------------------------------------------------------------------------
 // LO QUE SE ESCRIBE EN LA SALA
@@ -28,6 +29,9 @@ const media = (xs: (number | null)[]) => {
 
 export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie, quitarSerie }: any) {
   const [abierto, setAbierto] = useState(false)
+  // Bandas y escalas de esfuerzo, de Ajustes (una sola consulta por página).
+  const [aj, setAj] = useState<AjustesMedida | null>(null)
+  useEffect(() => { ajustesMedida().then(setAj) }, [])
   const ancla = useRef<HTMLButtonElement>(null)
   const series: any[] = ej.series || []
   /* ISOMETRICO SE MIDE EN TIEMPO. La medida salia solo del ejercicio del catalogo
@@ -38,19 +42,26 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   const base = ej.tipo_medida || 'peso_reps'
   const conCarga = (ej.plan?.peso != null && String(ej.plan.peso) !== '') || base === 'peso_tiempo'
     || (ej.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')
-  const tm = isometrico && (base === 'peso_reps' || base === 'reps')
-    ? (conCarga ? 'peso_tiempo' : 'tiempo')
-    : base
-  const campos: string[] = tm === 'tiempo' ? ['segundos']
-    : tm === 'peso_tiempo' ? ['peso', 'segundos'] : ['peso', 'reps']
+  /* CARGA × VOLUMEN (lib/medida): con peso pide kg, peso corporal nada, banda cuál;
+     y luego reps, segundos o metros. Isométrico sin carga apuntada: solo segundos. */
+  let campos: string[] = camposSerie(base, { isometrico })
+  if (isometrico && partesMedida(base).carga === 'kg' && !conCarga) campos = campos.filter(c => c !== 'peso')
+  // El esfuerzo no va en la chapa: se apunta en el detalle si está encendido en Ajustes.
+  const esfuerzos = ESFUERZOS.filter(x => (aj?.esfuerzo || []).includes(x.id))
+  const bandas = aj?.bandas || []
+  const porTiempo = campos.includes('segundos')
+  const tm = campos.includes('reps') && campos.length > 1 ? 'peso_reps' : 'otro'
 
-  const valoresDe = (c: string) => series.map(s => num(s?.[c]))
+  // La banda es un nombre, no un número: se compara como texto y no hay media.
+  const valoresDe = (c: string): any[] => c === 'banda'
+    ? series.map(s => (s?.banda ? String(s.banda) : null)) : series.map(s => num(s?.[c]))
   const iguales = (c: string) => {
     const v = valoresDe(c).filter(x => x != null)
     return v.length === 0 || v.every(x => x === v[0])
   }
   /** Lo que se enseña en la casilla: el valor si todas coinciden, la media si no. */
   const muestra = (c: string) => {
+    if (c === 'banda') return valoresDe(c).find(x => x != null) || ''
     if (iguales(c)) {
       const v = valoresDe(c).find(x => x != null)
       return v == null ? '' : String(v)
@@ -70,7 +81,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
     ? { color: 'var(--n)', fontWeight: 700, borderColor: 'var(--gd)', background: 'var(--w)' }
     : { color: '#B3B1AC', fontWeight: 400, background: 'var(--bl)', borderStyle: 'dashed' }
   const mezclado = campos.some(c => iguales(c) === false)
-  const hayAlgo = series.some(s => campos.some(c => num(s?.[c]) != null))
+  const hayAlgo = series.some(s => campos.some(c => c === 'banda' ? !!s?.banda : num(s?.[c]) != null))
 
   /** Escribir arriba rellena TODAS: es lo que pasa el 90% de las veces. */
   const ponerEnTodas = (campo: string, valor: string) => {
@@ -84,7 +95,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
      no haya nada apuntado. */
   const plan: any = ej.plan || {}
   const prescrito = (c: string) => {
-    const v = c === 'peso' ? plan.peso : c === 'reps' ? plan.reps : plan.tiempo
+    const v = c === 'peso' ? plan.peso : c === 'reps' ? plan.reps : c === 'segundos' ? plan.tiempo : plan[c]
     return v == null || v === '' ? '' : String(v)
   }
   const hueco = (c: string) => prescrito(c) || ant[c] || '—'
@@ -95,7 +106,20 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
     textAlign: 'center' as const, borderRadius: 6, color: 'var(--n)',
     border: '1px solid var(--bd)', background: 'var(--w)',
   }
-  const etiqueta = (c: string) => c === 'peso' ? 'kg' : c === 'reps' ? 'reps' : 'seg'
+  const etiqueta = (c: string) => UNIDAD[c] || ESFUERZOS.find(x => x.id === c)?.nombre || c
+  /** La casilla de cada campo: la banda se elige de la lista de Ajustes; el resto se teclea. */
+  const casilla = (c: string, valor: string, hueco: string, onChange: (v: string) => void, estilo: any, autoFocus?: boolean) => c === 'banda'
+    ? (
+      <select value={valor} onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
+        style={{ ...estilo, width: 78, fontSize: 12, padding: '0 2px', borderLeft: `5px solid ${COLOR_BANDA[valor || hueco] || 'var(--bd)'}` }}>
+        <option value="">{hueco && hueco !== '—' ? hueco : 'banda'}</option>
+        {bandas.map(b => <option key={b} value={b}>{b}</option>)}
+      </select>
+    )
+    : (
+      <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={valor} placeholder={hueco} autoFocus={autoFocus}
+        onChange={e => onChange(e.target.value)} style={estilo}/>
+    )
   /** La misma rejilla arriba y abajo: indice · casillas · hueco de la ✕. */
   const fila: any = { display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }
   const sep: any = { width: 8, textAlign: 'center', fontSize: 11, color: 'var(--bm)' }
@@ -103,12 +127,12 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   /** Lo que dice la chapa: "3×20×10", o solo las series si aun no hay nada. */
   const resumen = hayAlgo
     ? String(series.length) + '×' + campos.map(c => muestra(c) || '—').join('×')
-    : String(series.length) + (textoPlan ? '× ' + textoPlan + (tm === 'tiempo' || tm === 'peso_tiempo' ? 's' : '') : '×')
+    : String(series.length) + (textoPlan ? '× ' + textoPlan + (porTiempo ? 's' : campos.includes('metros') ? 'm' : '') : '×')
 
   return (
     <>
       <button ref={ancla} onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
-        title={mezclado ? 'Las series no son iguales · pulsa para verlas' : 'Peso y repeticiones'}
+        title={mezclado ? 'Las series no son iguales · pulsa para verlas' : 'Apuntar las series'}
         style={{ position: 'absolute', left: 5, bottom: 5, height: 23, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontFamily: 'inherit', padding: '0 9px',
@@ -120,7 +144,8 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
         {resumen}{mezclado ? ' ~' : ''}
       </button>
 
-      <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={224}>
+      <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)}
+        ancho={224 + (campos.includes('banda') ? 30 : 0) + esfuerzos.length * 46}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
               <span style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .5,
                 textTransform: 'uppercase' }}>Todas las series</span>
@@ -140,11 +165,19 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                     {/* LO DE ANTES VA DE HUECO, NO DE VALOR. Estaba escrito dentro de la
                         casilla, asi que al teclear se sumaba: tenia 8, apuntabas 9 y
                         quedaba 89. Como hueco se ve igual de claro y se escribe encima. */}
-                    <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={todasHoy(c) ? muestra(c) : ''}
-                      placeholder={muestra(c) || hueco(c)} autoFocus={k === 0}
-                      onChange={e => ponerEnTodas(c, e.target.value)} style={{ ...celda, ...tinta(todasHoy(c)) }}/>
+                    {casilla(c, todasHoy(c) ? muestra(c) : '', muestra(c) || hueco(c), v => ponerEnTodas(c, v),
+                      { ...celda, ...tinta(todasHoy(c)) }, k === 0)}
                     <span style={{ fontSize: 8.5, color: 'var(--grl)', marginTop: 2 }}>{etiqueta(c)}</span>
                   </span>
+                </span>
+              ))}
+              {/* ESFUERZO: opcional, en otra tinta, para que no parezca obligatorio. */}
+              {esfuerzos.map(x => (
+                <span key={x.id} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', marginLeft: 4 }}>
+                  <input inputMode="numeric" value={todasHoy(x.id) ? muestra(x.id) : ''} placeholder={muestra(x.id) || '·'} title={x.ayuda}
+                    onChange={e => ponerEnTodas(x.id, e.target.value)}
+                    style={{ ...celda, width: 38, borderColor: 'var(--amb)', ...(todasHoy(x.id) ? { color: '#7A5800', fontWeight: 700 } : { background: 'var(--w)' }) }}/>
+                  <span style={{ fontSize: 8.5, color: '#A87E2C', marginTop: 2 }}>{x.nombre}</span>
                 </span>
               ))}
               <span style={{ width: 18 }}/>
@@ -159,7 +192,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
               {textoPlan && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
                   gap: 6, flexWrap: 'wrap' }}>
-                  <span>punto de partida <b style={{ color: 'var(--gd)', fontWeight: 600 }}>{series.length} × {textoPlan}{tm === 'tiempo' || tm === 'peso_tiempo' ? ' s' : ''}</b></span>
+                  <span>punto de partida <b style={{ color: 'var(--gd)', fontWeight: 600 }}>{series.length} × {textoPlan}{porTiempo ? ' s' : campos.includes('metros') ? ' m' : ''}</b></span>
                   {/* La misma chapa que fuera, para reconocerla de un vistazo. */}
                   {plan.capacidad && (
                     <span style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99,
@@ -188,11 +221,15 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                 {campos.map((c, k) => (
                   <span key={c} style={{ display: 'contents' }}>
                     {k > 0 && <span style={sep}>{tm === 'peso_reps' ? '×' : '·'}</span>}
-                    <input inputMode={c === 'peso' ? 'decimal' : 'numeric'} value={esHoy(si, c) ? (ser?.[c] || '') : ''}
-                      placeholder={(ser?.[c] != null && String(ser[c]) !== '' ? String(ser[c]) : '') || prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—'}
-                      onChange={e => mutarSerie(pacienteId, ei, si, c, e.target.value)}
-                      style={{ ...celda, height: 27, ...tinta(esHoy(si, c)) }}/>
+                    {casilla(c, esHoy(si, c) ? (ser?.[c] || '') : '',
+                      (ser?.[c] != null && String(ser[c]) !== '' ? String(ser[c]) : '') || prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—',
+                      v => mutarSerie(pacienteId, ei, si, c, v), { ...celda, height: 27, ...tinta(esHoy(si, c)) })}
                   </span>
+                ))}
+                {esfuerzos.map(x => (
+                  <input key={x.id} inputMode="numeric" value={ser?.[x.id] ?? ''} placeholder="·" title={`${x.nombre}: ${x.ayuda}`}
+                    onChange={e => mutarSerie(pacienteId, ei, si, x.id, e.target.value)}
+                    style={{ ...celda, height: 27, width: 38, marginLeft: 4, borderColor: 'var(--amb)', color: '#7A5800' }}/>
                 ))}
                 {quitarSerie && (
                   <button onClick={() => series.length > 1 && quitarSerie(pacienteId, ei, si)}

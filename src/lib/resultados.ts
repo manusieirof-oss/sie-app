@@ -94,8 +94,12 @@ export function cargaPorEjercicio(registros: any[]) {
     series.forEach((s: any) => {
       const peso = parseFloat(s?.peso)
       const seg = parseFloat(s?.segundos)
+      const m = parseFloat(s?.metros)
       if (!isNaN(peso) && peso > mejor) { mejor = peso; unidad = 'kg' }
       else if (isNaN(peso) && !isNaN(seg) && seg > mejor) { mejor = seg; unidad = 's' }
+      // Distancia (paseos, trineo) sin peso: los metros. La banda no entra en esta
+      // gráfica de carga: no tiene kg (se ve en "Se trabaja con" del objetivo).
+      else if (isNaN(peso) && isNaN(seg) && !isNaN(m) && m > mejor) { mejor = m; unidad = 'm' }
     })
     if (mejor <= 0) return
 

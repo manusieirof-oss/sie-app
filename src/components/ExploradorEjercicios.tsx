@@ -4,7 +4,7 @@ import { Ic } from '@/lib/icons'
 import FiguraMusculos from './FiguraMusculos'
 import { figuraDe } from '@/lib/cuerpo'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, problemasDeEjercicio } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
 
 // Explorador del catálogo de ejercicios: buscador, filtro por etiquetas y rejilla de
@@ -26,11 +26,8 @@ const FALTA: Record<string, string> = {
   ejecucion: 'la ejecución',
 }
 
-const MEDIDA: Record<string, string> = {
-  peso_reps: 'Peso y reps',
-  tiempo: 'Tiempo',
-  peso_tiempo: 'Peso y tiempo',
-}
+// Al crear rápido desde aquí, solo las cuatro de siempre; el resto se afina en Amasar.
+const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
   ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true,
@@ -231,7 +228,7 @@ export default function ExploradorEjercicios({
           {vc && <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>{e.nombre}</div>}
           {/* Cómo se mide decide qué campos pedirá la sesión: conviene saberlo antes. */}
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
-            {MEDIDA[e.tipo_medida] || MEDIDA.peso_reps}
+            {nombreMedida(e.tipo_medida)}
           </div>
           {/* QUE TIENE VARIANTES SE SABE AQUI. Antes solo se veía si por casualidad
               buscabas el nombre de una: al montar la sesión elegías el ejercicio a
@@ -335,7 +332,7 @@ export default function ExploradorEjercicios({
             </span>
           )}
           <span style={{ fontSize: 12, color: 'var(--gr)' }}>&iquest;C&oacute;mo se mide?</span>
-          {TIPOS_MEDIDA.map(m => (
+          {TIPOS_MEDIDA.filter(m => RAPIDAS.includes(m.id)).map(m => (
             <button key={m.id} type="button" className="chip-sel" title={m.ayuda} disabled={creando || !puedeCrear}
               style={!puedeCrear ? { opacity: .45, cursor: 'not-allowed' } : undefined}
               onClick={async () => {

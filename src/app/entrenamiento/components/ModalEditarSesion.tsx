@@ -15,6 +15,7 @@ import HojaLibre from '@/components/HojaLibre'
 import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 import { objetivosDeEjercicio } from '@/lib/ejercicioObjetivos'
+import { camposSerie, ajustesMedida, COLOR_BANDA } from '@/lib/medida'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -175,6 +176,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     contraindicacionesDe(pacienteSel).then(setContra)
   }, [pacienteSel])
   const [busquedaPacModal, setBusquedaPacModal] = useState('')
+  // Las bandas del centro (Ajustes), para prescribir con cuál.
+  const [bandas, setBandas] = useState<string[]>([])
+  useEffect(() => { ajustesMedida().then(a => setBandas(a.bandas)) }, [])
   const [formSesion, setFormSesion] = useState({
     nombre: sesion.nombre || '',
     descripcion: sesion.descripcion || '',
@@ -308,13 +312,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    * por `ejercicio_id`; si tampoco aparece, se enseñan ambos campos y no se oculta
    * nada que pudiera estar ya relleno.
    */
-  function medida(ej: any): string {
+  function medida(ej: any): string[] {
     const bib = catalogo.find((e:any)=>e.id===ej?.ejercicio_id)
-    const base = ej?.tipo_medida || bib?.tipo_medida || 'peso_tiempo'
-    // Isometrico se prescribe en segundos (con kg si lleva carga), aunque el
-    // ejercicio del catalogo vaya por repeticiones. Igual que en el taller.
-    if (String(ej?.regimen || '').toLowerCase().startsWith('isom') && (base === 'peso_reps' || base === 'reps')) return 'peso_tiempo'
-    return base
+    const base = ej?.tipo_medida || bib?.tipo_medida || 'peso_reps'
+    // Los campos de carga × volumen (lib/medida). Isométrico se prescribe en segundos
+    // aunque el ejercicio vaya por repeticiones. Igual que en el taller.
+    return camposSerie(base, { isometrico: String(ej?.regimen || '').toLowerCase().startsWith('isom') })
   }
 
   /**
@@ -983,11 +986,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                     {/* Una sola columna: repeticiones o duración, según cómo se mida
                         el ejercicio en la biblioteca. Nunca las dos. */}
-                    <div className="celda" data-l={med==='tiempo'?'Duración · s':'Repeticiones'}>
-                      {med==='tiempo'
+                    <div className="celda" data-l={med.includes('segundos')?'Duración · s':med.includes('metros')?'Distancia · m':'Repeticiones'}>
+                      {med.includes('segundos')
                         ? <input type="number" className="c" value={ej.tiempo||''} placeholder="seg"
                             title="Lo que dura cada serie, en segundos"
                             onChange={e=>editarEjercicio(ei,{tiempo:e.target.value})}/>
+                        : med.includes('metros')
+                        ? <input type="number" className="c" value={ej.metros||''} placeholder="m"
+                            title="Metros en cada serie"
+                            onChange={e=>editarEjercicio(ei,{metros:e.target.value})}/>
                         : <input type="number" className="c" value={ej.reps||''} placeholder="10"
                             title="Repeticiones en cada serie"
                             onChange={e=>{
@@ -997,12 +1004,19 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             }}/>}
                     </div>
 
-                    <div className="celda" data-l="Peso · kg">
-                      {med==='tiempo'
-                        ? <span className="vacio" title="Este ejercicio no se mide con carga">—</span>
-                        : <input type="number" className="c" value={ej.peso||''} placeholder="kg"
+                    <div className="celda" data-l={med.includes('banda')?'Banda':'Peso · kg'}>
+                      {med.includes('peso')
+                        ? <input type="number" className="c" value={ej.peso||''} placeholder="kg"
                             title="Carga en kilos"
-                            onChange={e=>editarEjercicio(ei,{peso:e.target.value})}/>}
+                            onChange={e=>editarEjercicio(ei,{peso:e.target.value})}/>
+                        : med.includes('banda')
+                        ? <select className="c" value={ej.banda||''} title="Con qué banda"
+                            style={{borderLeft:`4px solid ${COLOR_BANDA[ej.banda]||'var(--bd)'}`}}
+                            onChange={e=>editarEjercicio(ei,{banda:e.target.value})}>
+                            <option value="">—</option>
+                            {bandas.map(b=><option key={b} value={b}>{b}</option>)}
+                          </select>
+                        : <span className="vacio" title="Peso corporal: no lleva carga">—</span>}
                     </div>
 
                     {/* El descanso propio del ejercicio solo manda cuando los ejercicios

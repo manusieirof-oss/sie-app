@@ -24,6 +24,12 @@ import IconosContexto from './IconosContexto'
 import HojaLibre from '@/components/HojaLibre'
 import { leerHoja, registrosDeHoja, type Hoja } from '@/lib/hoja'
 
+/* LOS CAMPOS DE UNA SERIE (lib/medida). Antes solo se miraban peso, reps y segundos:
+   una serie de banda o de metros se daba por vacía y no se guardaba. */
+const CAMPOS_MEDIDA = ['peso', 'banda', 'reps', 'segundos', 'metros']
+const CAMPOS_SERIE = [...CAMPOS_MEDIDA, 'rpe', 'rir', 'dolor']
+const serieLlena = (x: any) => CAMPOS_MEDIDA.some(f => x?.[f] != null && String(x[f]).trim() !== '')
+
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
 
@@ -753,7 +759,7 @@ export default function ModoClase() {
         if (k !== i || e.ejercicio_id !== nuevo.id) return e
         const lleno = (x:any) => x != null && String(x) !== ''
         const series = ult
-          ? ult.series.map((x:any) => ({ peso: lleno(x?.peso) ? x.peso : '', reps: lleno(x?.reps) ? x.reps : '', segundos: lleno(x?.segundos) ? x.segundos : '' }))
+          ? ult.series.map((x:any) => Object.fromEntries(CAMPOS_MEDIDA.map(f => [f, lleno(x?.[f]) ? x[f] : ''])))
           : e.series
         return { ...e, ultimo: ult?.series || null, ultimoComent: ult?.comentario || '', comentarios: coms,
           ultimaEval: ev?.items || null, ultimaEvalFecha: ev?.fecha || null,
@@ -789,7 +795,7 @@ export default function ModoClase() {
            * salia el nombre, la foto y unas casillas vacias.
            */
           plan:{
-            series:ej.series, peso:ej.peso, reps:ej.reps, tiempo:ej.tiempo,
+            series:ej.series, peso:ej.peso, reps:ej.reps, tiempo:ej.tiempo, metros:ej.metros, banda:ej.banda,
             capacidad:ej.capacidad, regimen:ej.regimen, descanso:ej.descanso, nota:ej.nota,
           },
           /* LAS CASILLAS EMPIEZAN CON LO PRESCRITO. En la sala se sale de lo
@@ -800,6 +806,8 @@ export default function ModoClase() {
             peso: ej.peso == null ? '' : String(ej.peso),
             reps: ej.reps == null ? '' : String(ej.reps),
             segundos: ej.tiempo == null ? '' : String(ej.tiempo),
+            metros: ej.metros == null ? '' : String(ej.metros),
+            banda: ej.banda == null ? '' : String(ej.banda),
           })),
           comentario:'', ultimo:null, guardado:false,
           // Casillas escritas HOY ('serie.campo'). Lo que viene de la ultima vez o
@@ -909,18 +917,15 @@ export default function ModoClase() {
             e.series = e.series.map((orig:any, idx:number) => {
               const prev = e.ultimo[idx]
               if (!prev) return orig
-              return {
-                ...orig,
-                peso:     lleno(prev.peso)     ? prev.peso     : orig.peso,
-                reps:     lleno(prev.reps)     ? prev.reps     : orig.reps,
-                segundos: lleno(prev.segundos) ? prev.segundos : orig.segundos,
-              }
+              // Lo de la última vez manda en cada campo de la medida (no en el esfuerzo:
+              // el RPE de otro día no es punto de partida de nada).
+              return { ...orig, ...Object.fromEntries(CAMPOS_MEDIDA.map(f => [f, lleno(prev[f]) ? prev[f] : orig[f]])) }
             })
             e.precargado = true
             // Si "la ultima vez" es HOY (ya finalizado en esta clase), es de hoy.
             if (ultMap[kv]?.fecha === fechaC) {
               const hoy: Record<string, boolean> = {}
-              e.ultimo.forEach((x:any, k:number) => ['peso','reps','segundos'].forEach(f => {
+              e.ultimo.forEach((x:any, k:number) => CAMPOS_SERIE.forEach(f => {
                 if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
               }))
               e.hoy = hoy
@@ -943,7 +948,7 @@ export default function ModoClase() {
               }
               // Lo del borrador es de hoy: se escribio en esta clase antes de recargar.
               const hoy: Record<string, boolean> = {}
-              c.series.forEach((x:any, k:number) => ['peso','reps','segundos'].forEach(f => {
+              c.series.forEach((x:any, k:number) => CAMPOS_SERIE.forEach(f => {
                 if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
               }))
               e.hoy = hoy
@@ -1043,7 +1048,7 @@ export default function ModoClase() {
   }
 
   async function autoguardar(pid:string, ei:number, ej:any, sesionId:string, fechaC:string = fecha){
-    const seriesLlenas = ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
+    const seriesLlenas = ej.series.filter(serieLlena)
     const hayComent = (ej.comentario||'').trim()!==''
     const iv = ej.items_evaluados || {}
     const hayItems = Object.values(iv).some((v:any)=>v===true)
@@ -1244,7 +1249,7 @@ export default function ModoClase() {
     for (let i=0;i<item.datos.length;i++){
       if (noHizo.includes(i)) continue
       const ej=item.datos[i]
-      const llenas=ej.series.filter((x:any)=>x.peso!==''||x.reps!==''||(x.segundos!==''&&x.segundos!==undefined))
+      const llenas=ej.series.filter(serieLlena)
       const hayComent=(ej.comentario||'').trim()!==''
       if (llenas.length>0 || hayComent) await autoguardar(pid,i,ej,item.sesionId,fechaC)
     }
@@ -1285,7 +1290,7 @@ export default function ModoClase() {
          se toca, se hizo eso. Sin nada de base (ni historial ni sesion), consta que se
          hizo sin inventar cifras. */
       const lleno = (x: any) => x != null && String(x).trim() !== ''
-      const seriesPlan = (ej.series || []).filter((x: any) => lleno(x?.peso) || lleno(x?.reps) || lleno(x?.segundos))
+      const seriesPlan = (ej.series || []).filter(serieLlena)
       vacios.push({
         paciente_id: pid, ejercicio_id: ej.ejercicio_id || null, ejercicio_nombre: ej.nombre,
         sesion_id: item.sesionId, series: seriesPlan,

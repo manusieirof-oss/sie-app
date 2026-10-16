@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { comprimirImagen, MAX_EJERCICIO } from './imagen'
 import { categoriaDe } from './etiquetas'
 import { normalizar } from './texto'
+import { TODAS_MEDIDAS, partesMedida, nombreMedida as nombreMedidaLib, CARGAS, VOLUMENES } from './medida'
 
 // Ejercicios de la biblioteca: subida de imágenes y borrado.
 //
@@ -23,14 +24,15 @@ export const LATERALIDADES = ['Bilateral', 'Unilateral', 'Alterno', 'Unipodal', 
  * así que no se puede dejar en blanco ni adivinar: una plancha creada con el valor por
  * defecto pediría kilos y nadie sabría por qué.
  */
-export const TIPOS_MEDIDA = [
-  { id: 'peso_reps', nombre: 'Peso y reps', ayuda: 'Series de repeticiones, con carga.' },
-  { id: 'tiempo', nombre: 'Tiempo', ayuda: 'Se aguanta o se sostiene. Segundos, sin carga.' },
-  { id: 'peso_tiempo', nombre: 'Peso y tiempo', ayuda: 'Segundos con carga: isométricos cargados, paseos.' },
-] as const
+// Todas las combinaciones de carga × volumen (ver lib/medida). Los tres primeros son
+// los de siempre; el resto llegaron con peso corporal, bandas y distancia.
+export const TIPOS_MEDIDA: { id: string, nombre: string, ayuda: string }[] = TODAS_MEDIDAS.map(id => {
+  const { carga, volumen } = partesMedida(id)
+  return { id, nombre: nombreMedidaLib(id),
+    ayuda: `${CARGAS.find(c => c.id === carga)!.nombre} · ${VOLUMENES.find(v => v.id === volumen)!.nombre.toLowerCase()}` }
+})
 
-export const nombreMedida = (id?: string | null) =>
-  TIPOS_MEDIDA.find(m => m.id === id)?.nombre || TIPOS_MEDIDA[0].nombre
+export const nombreMedida = (id?: string | null) => nombreMedidaLib(id)
 
 // ---------------------------------------------------------------------------
 // LO QUE LE FALTA PARA EL ROSCO DE AMASAR: los mismos quesitos que cuentan allí, para
