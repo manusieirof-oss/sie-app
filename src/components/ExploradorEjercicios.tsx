@@ -1,8 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
-import FiguraMusculos from './FiguraMusculos'
-import { figuraDe } from '@/lib/cuerpo'
+import ImagenEjercicio from './ImagenEjercicio'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
@@ -209,12 +208,12 @@ export default function ExploradorEjercicios({
       <div className={`tarj-ej ${sel ? 'on' : ''} ${esHijo(e) && !hayFiltro ? 'tarj-hijo' : ''}`}
         onClick={() => (onAlternar ? onAlternar(e) : onAbrir?.(e))}>
         <div className="tarj-img">
-          {img
-            ? <img src={img} alt={vc ? `${e.nombre} · ${vc.nombre}` : e.nombre} />
-            /* Sin foto: la figura con sus músculos, si sus etiquetas lo permiten. */
-            : figuraDe(e.etiquetas || [], etiquetas)
-              ? <FiguraMusculos etiquetasEj={e.etiquetas} etiquetas={etiquetas}/>
-              : <span className="sin"><Ic name="fuerza" size={30} /></span>}
+          {/* LA MISMA IMAGEN QUE EN EL RESTO DE LA APP (ImagenEjercicio): foto, o la postura
+              con su material, o los músculos. Aquí se pintaba aún la figura de músculos
+              antigua, así que un ejercicio se veía distinto en la biblioteca que en el
+              taller o el torno y parecía otro. */}
+          <ImagenEjercicio src={img} ejercicioId={vc?.id || e.id} etiquetasEj={e.etiquetas || []}
+            relleno radio={0} fondo="var(--bl)" icono={30} alt={vc ? `${e.nombre} · ${vc.nombre}` : e.nombre}/>
           {seleccion && sel && <span className="marca"><Ic name="check" size={13} /></span>}
         </div>
         <div style={{ padding: '8px 10px' }}>
