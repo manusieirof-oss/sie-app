@@ -360,7 +360,7 @@ export default function FichaPacientePage() {
     // Paginado: Supabase devuelve como mucho 1000 filas y un paciente de años las pasa;
     // sin esto la progresion se cortaba en silencio y parecia que dejo de entrenar.
     const { filas: regsEj } = await traerTodo((d,h)=>supabase.from('registros_ejercicio')
-      .select('id,fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados,variante').eq('paciente_id',id).order('id').range(d,h))
+      .select('id,fecha,ejercicio_id,ejercicio_nombre,series,items_evaluados,variante,sesion_id').eq('paciente_id',id).order('id').range(d,h))
     setRegistrosEj(regsEj||[])
     const { data: al } = await supabase.from('alertas_paciente').select('*').eq('paciente_id',id).eq('activa',true).order('created_at',{ascending:false})
     setAlertas(al||[])

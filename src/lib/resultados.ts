@@ -7,6 +7,7 @@
 // pintándose en un rojo y un ámbar que no eran los de la clínica.
 //
 import { resumen } from './ejecucion'
+import { nombreMotivo } from './cambioSesion'
 
 // Recharts y el HTML del PDF necesitan hex de verdad, no `var(--x)`, así que la
 // constante hace falta. Lo que no hacía falta era tenerla tres veces.
@@ -76,6 +77,18 @@ export function porMes(citas: any[], n = 6) {
 }
 
 /**
+ * 1RM ESTIMADO (Epley): peso × (1 + reps / 30).
+ *
+ * El peso máximo del día engaña: 20 kg × 12 y 22 kg × 6 dicen "subió" y no es verdad.
+ * El 1RM estimado pone las dos series en la misma escala. Por encima de 12 repeticiones
+ * la fórmula se vuelve poco fiable (mide más resistencia que fuerza), así que no se usa.
+ */
+export function rm1(peso: number, reps: number): number {
+  if (!(peso > 0) || !(reps > 0) || reps > 12) return 0
+  return reps === 1 ? peso : peso * (1 + reps / 30)
+}
+
+/**
  * Evolución de la carga por ejercicio, a partir de lo registrado en el taller.
  *
  * De cada día se toma la serie más exigente, no la media: lo que dice si alguien
@@ -91,7 +104,7 @@ export function porMes(citas: any[], n = 6) {
  * kg y otro en segundos, mezclarlos en la misma línea dibujaría un salto falso.
  */
 export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
-  type Punto = { fecha: string, valor: number, unidad: string }
+  type Punto = { fecha: string, valor: number, unidad: string, rm?: number }
   const porEj: Record<string, { nombre: string, variante: string, fechaNombre: string, puntos: Punto[] }> = {}
   const nivel = (b: any) => {
     const i = bandas.findIndex(x => x.toLowerCase() === String(b ?? '').toLowerCase().trim())
@@ -105,7 +118,10 @@ export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
 
     // El mejor valor de cada unidad en el día; luego se queda la de más rango.
     const mejor: Record<string, number> = {}
+    let mejorRm = 0
     series.forEach((s: any) => {
+      const r1 = rm1(parseFloat(s?.peso), parseFloat(s?.reps))
+      if (r1 > mejorRm) mejorRm = r1
       const vals: [string, number][] = [
         ['kg', parseFloat(s?.peso)], ['banda', nivel(s?.banda)], ['s', parseFloat(s?.segundos)],
         ['m', parseFloat(s?.metros)], ['reps', parseFloat(s?.reps)],
@@ -125,9 +141,10 @@ export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
     if (r.fecha >= ej.fechaNombre) { ej.nombre = r.ejercicio_nombre || ej.nombre; ej.fechaNombre = r.fecha }
 
     // Varios registros el mismo día y misma unidad: se queda el mayor.
+    const rm = unidad === 'kg' && mejorRm > 0 ? Math.round(mejorRm * 10) / 10 : undefined
     const ya = ej.puntos.find(p => p.fecha === r.fecha && p.unidad === unidad)
-    if (ya) { if (valor > ya.valor) ya.valor = valor }
-    else ej.puntos.push({ fecha: r.fecha, valor, unidad })
+    if (ya) { if (valor > ya.valor) ya.valor = valor; if (rm && rm > (ya.rm || 0)) ya.rm = rm }
+    else ej.puntos.push({ fecha: r.fecha, valor, unidad, rm })
   })
 
   return Object.entries(porEj)
@@ -257,4 +274,92 @@ export function evaPorZona(molestias: any[]) {
       })
     })
   return Object.entries(zonas).map(([zona, puntos]) => ({ zona, puntos }))
+}
+
+
+/** Lunes de la semana de una fecha "aaaa-mm-dd", en el mismo formato. */
+function lunesDe(f: string): string {
+  const d = new Date(f + 'T12:00:00')
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * CARGA SEMANA A SEMANA, con aviso de picos.
+ *
+ * Por semana: series hechas (vale para todo, se mida como se mida), tonelaje (kg × reps,
+ * solo lo que va con peso) y el RPE medio si se apunta. Las recaídas aparecen sobre todo
+ * cuando la carga sube de golpe: si una semana supera en más de un 30% la media de las
+ * cuatro anteriores (la relación aguda:crónica), se marca como PICO.
+ */
+export function cargaSemanal(registros: any[]) {
+  const sem: Record<string, { series: number, tonelaje: number, rpe: number[] }> = {}
+  registros.forEach(r => {
+    if (!r.fecha) return
+    const k = lunesDe(r.fecha)
+    const w = sem[k] || (sem[k] = { series: 0, tonelaje: 0, rpe: [] })
+    ;(Array.isArray(r.series) ? r.series : []).forEach((s: any) => {
+      const vals = ['peso', 'banda', 'reps', 'segundos', 'metros'].map(c => s?.[c]).filter(v => v != null && String(v).trim() !== '')
+      if (!vals.length) return
+      w.series++
+      const kg = parseFloat(s?.peso), reps = parseFloat(s?.reps)
+      if (kg > 0 && reps > 0) w.tonelaje += kg * reps
+      const rpe = parseFloat(s?.rpe); if (!isNaN(rpe)) w.rpe.push(rpe)
+    })
+  })
+  const semanas = Object.keys(sem).sort()
+  return semanas.map((k, i) => {
+    const w = sem[k]
+    const previas = semanas.slice(Math.max(0, i - 4), i).map(x => sem[x].series)
+    const media = previas.length ? previas.reduce((a, b) => a + b, 0) / previas.length : 0
+    return {
+      semana: k, series: w.series, tonelaje: Math.round(w.tonelaje),
+      rpe: w.rpe.length ? Math.round(w.rpe.reduce((a, b) => a + b, 0) / w.rpe.length * 10) / 10 : null,
+      // Hacen falta al menos dos semanas previas para que "la media" signifique algo.
+      ratio: previas.length >= 2 && media > 0 ? Math.round(w.series / media * 100) / 100 : null,
+      pico: previas.length >= 2 && media > 0 && w.series > media * 1.3,
+    }
+  })
+}
+
+/**
+ * ADHERENCIA AL PLAN: lo que hizo de lo que tenía programado.
+ *
+ * Cada día con registros de una sesión se compara con la sesión: los ejercicios del
+ * plan que no dejaron registro son los que no hizo ("No lo hizo" en el taller no deja
+ * registro, a propósito) o los que se le cambiaron por otro ese día. Y aparte, los
+ * cambios de sesión entera con su motivo (cambios_sesion), que es el dato clínico:
+ * si siempre se cambia "por dolor", algo pasa.
+ */
+export function adherencia(registros: any[], sesiones: Record<string, any>, cambios: any[] = []) {
+  const dias: Record<string, { sesion: string, hechos: Set<string> }> = {}
+  registros.forEach(r => {
+    if (!r.sesion_id || !r.fecha || !sesiones[r.sesion_id]) return
+    const k = r.fecha + '|' + r.sesion_id
+    const d = dias[k] || (dias[k] = { sesion: r.sesion_id, hechos: new Set() })
+    d.hechos.add(r.ejercicio_id || 'n:' + r.ejercicio_nombre)
+  })
+  let plan = 0, hechos = 0
+  const saltados: Record<string, { nombre: string, veces: number, de: number }> = {}
+  Object.values(dias).forEach(d => {
+    const ejs = (sesiones[d.sesion].partes || []).flatMap((p: any) => p.ejercicios || [])
+    const vistos = new Set<string>()
+    ejs.forEach((e: any) => {
+      const k = e.ejercicio_id || 'n:' + e.nombre
+      if (vistos.has(k)) return
+      vistos.add(k); plan++
+      const s = saltados[k] || (saltados[k] = { nombre: e.nombre || 'Ejercicio', veces: 0, de: 0 })
+      s.de++
+      if (d.hechos.has(k)) hechos++; else s.veces++
+    })
+  })
+  const motivos: Record<string, number> = {}
+  cambios.forEach(c => { const m = c.motivo === 'nota' ? 'Otro' : c.motivo ? nombreMotivo(c.motivo) : 'Sin motivo'; motivos[m] = (motivos[m] || 0) + 1 })
+  return {
+    clases: Object.keys(dias).length, plan, hechos,
+    pct: plan ? Math.round(hechos / plan * 100) : null,
+    saltados: Object.values(saltados).filter(s => s.veces > 0).sort((a, b) => b.veces - a.veces || b.veces / b.de - a.veces / a.de),
+    cambios: cambios.length,
+    motivos: Object.entries(motivos).sort((a, b) => b[1] - a[1]),
+  }
 }

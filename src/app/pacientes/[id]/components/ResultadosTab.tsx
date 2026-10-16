@@ -67,7 +67,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
       </div>
 
       {/* Un ejercicio, una tarjeta: carga, técnica y esfuerzo juntos. Ver ProgresionEjercicios. */}
-      {vista==='progreso'&&<ProgresionEjercicios registros={registros} bandas={bandas}/>}
+      {vista==='progreso'&&<ProgresionEjercicios registros={registros} bandas={bandas} pacienteId={pac?.id} pesoKg={parseFloat(pac?.peso_kg)||null}/>}
 
       {vista==='analisis'&&(
         <div style={{display:'flex',flexDirection:'column',gap:30}}>
