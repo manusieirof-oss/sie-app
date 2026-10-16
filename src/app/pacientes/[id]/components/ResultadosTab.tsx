@@ -138,6 +138,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                   <span key={e.ejercicio_id} style={{fontSize:12,padding:'4px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>
                     {e.nombre}{e.variante?` · ${e.variante}`:''} <b style={{fontWeight:600,color:'var(--gd)'}}>{textoCarga(e.ultimo,e.unidad,bandas)}</b>
                     <span style={{color:'var(--grl)'}}> · {fechaCorta(e.puntos[0].fecha)}</span>
+                    {e.otros>0 && <span style={{color:'var(--grl)'}} title="Esos días se anotó en otra medida (kg, tiempo, reps…) y no se pueden comparar"> · +{e.otros} día{e.otros>1?'s':''} en otra medida</span>}
                   </span>
                 ))}
               </div>

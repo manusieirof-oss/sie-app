@@ -141,6 +141,9 @@ export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
       return {
         ejercicio_id: clave, nombre: v.nombre, variante: v.variante,
         unidad, puntos, primero, ultimo, delta: ultimo - primero,
+        // Días anotados en otra medida (un día en kg, otro en segundos): no van en la
+        // línea, pero se cuentan para no esconder que existen.
+        otros: v.puntos.length - puntos.length,
       }
     })
     // Los de un solo día también se devuelven: no hay línea que pintar, pero sí un dato,
