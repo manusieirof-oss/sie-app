@@ -278,6 +278,18 @@ export async function promoverVariante(padre: any, indice: number) {
  * nombre basado en la extensión original: subir un PNG y luego un JPG dejaba los dos.
  */
 export async function subirImagenEjercicio(ejercicioId: string, file: File) {
+  /* DIBUJO PLANO → SVG. Las ilustraciones hechas con IA (silueta, fondo blanco) se
+     redibujan como vector: sin fondo y nítidas en el rosco. Una foto sigue su camino. */
+  const svg = typeof window !== 'undefined' ? await (await import('./vectorizar')).vectorizarSiDibujo(file) : null
+  if (svg) {
+    const rutaSvg = `ejercicios/${ejercicioId}/figura.svg`
+    const { error } = await supabase.storage.from(BUCKET).upload(rutaSvg, svg, { contentType: 'image/svg+xml', upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(rutaSvg)
+      return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}`, vector: true }
+    }
+    // Si el almacén no acepta SVG, se sube como imagen normal: mejor eso que nada.
+  }
   let preparado: File
   try { preparado = await comprimirImagen(file, MAX_EJERCICIO) }
   catch { return { ok: false as const, error: 'No se pudo procesar la imagen. Prueba con un JPG.' } }

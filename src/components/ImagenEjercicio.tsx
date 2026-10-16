@@ -45,6 +45,12 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
     // y se queda en 0x0 (por eso el centro del rosco salía en blanco).
     ? { position: 'relative' as const, width: '100%', height: '100%', overflow: 'hidden', borderRadius: radio, display: 'block' }
     : { position: 'relative' as const, width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: radio, display: 'block' }
+  // Un dibujo en SVG (subido como ilustración) se ve entero y con aire; una foto llena.
+  if (src && /\.svg(\?|$)/i.test(src)) return (
+    <span style={{ ...caja, background: '#fff' }}>
+      <img src={src} alt={alt} draggable={false} style={{ position: 'absolute', inset: '7%', width: '86%', height: '86%', objectFit: 'contain' }}/>
+    </span>
+  )
   if (src) return <img src={src} alt={alt} draggable={false} style={{ ...caja, objectFit: 'cover', display: 'block' }}/>
   const ets = etiquetasEj || (ejercicioId && cat ? cat.deEj[ejercicioId] : undefined) || []
   // Sin foto, por orden: su postura, sus músculos, su material solo, y el icono.

@@ -176,15 +176,20 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         if (r.ok === false) setAviso('Guardado, pero la familia no: ' + r.error)
       }
     }
+    let vectorizada = false
     if (foto) {
       const r = await subirImagenEjercicio(id, foto)
       if (r.ok === false) setAviso('Guardado, pero la foto no: ' + r.error)
-      else await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
+      else {
+        await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
+        if ('vector' in r && r.vector) vectorizada = true
+      }
     }
     setGuardando(false); setFoto(null)
     if (nuevo) { router.replace(`/torno/amasar/${id}?creado=1`); return }
-    cargar(); setFichaOn(true); setAviso('✓ Amasado')
-    setTimeout(() => setAviso(a => a === '✓ Amasado' ? '' : a), 2500)
+    const msg = vectorizada ? '✓ Amasado · dibujo pasado a SVG' : '✓ Amasado'
+    cargar(); setFichaOn(true); setAviso(msg)
+    setTimeout(() => setAviso(a => a === msg ? '' : a), 3000)
   }
 
   // ---- Etiquetas: raíces por categoría, sus hijas al abrir ----------------------
