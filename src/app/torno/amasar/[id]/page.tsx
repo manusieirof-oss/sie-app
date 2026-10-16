@@ -220,7 +220,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       }
     }
     setGuardando(false); setFoto(null)
-    if (nuevo) { router.replace(`/torno/amasar/${id}?creado=1`); return true }
+    if (nuevo) { router.replace(aEj(id, true)); return true }
     const msg = vectorizada ? '✓ Amasado · dibujo pasado a SVG' : '✓ Amasado'
     cargar(); setFichaOn(true); setAviso(msg)
     setTimeout(() => setAviso(a => a === msg ? '' : a), 3000)
@@ -240,6 +240,17 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     return confirm('Hay cambios sin guardar' + (!d.nombre.trim() ? ' (falta el nombre)' : !d.tipo_medida ? ' (falta cómo se mide)' : '') + '. ¿Salir y perderlos?') ? 'descartar' : 'no'
   }
   const ir = async (url: string) => { if (await asegurarGuardado()) router.push(url) }
+  /* LA TANDA NO SE PIERDE. Desde un ejercicio de la cola se puede ir a su variante, a
+     uno de su familia o a un parecido; antes eso soltaba la cola y había que volver a
+     elegirlos todos. Ahora la cola viaja con la URL y "desde" dice a cuál volver. */
+  const desdeTanda = sp.get('desde')
+  function aEj(id: string, creado = false) {
+    const q = new URLSearchParams()
+    if (creado) q.set('creado', '1')
+    if (cola.length > 1) { q.set('cola', '1'); const vuelta = cola.includes(params.id) ? params.id : desdeTanda; if (vuelta) q.set('desde', vuelta) }
+    const t = q.toString()
+    return `/torno/amasar/${id}${t ? '?' + t : ''}`
+  }
   // Y si se cierra la pestaña o se recarga, el navegador avisa.
   useEffect(() => {
     if (!cambiado) return
@@ -431,7 +442,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               {variantes.length > 0 && (<>
                 <div className="et-mini" style={{ marginBottom: 6 }}>Sus variantes</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                  {variantes.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
+                  {variantes.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(aEj(x.id))}>{x.nombre}</span>)}
                 </div>
               </>)}
               {variantes.length === 0 && !nuevo && (
@@ -453,7 +464,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             return her.length ? (<>
               <div className="et-mini" style={{ margin: '12px 0 6px' }}>Su familia</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {her.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
+                {her.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(aEj(x.id))}>{x.nombre}</span>)}
               </div>
             </>) : null
           })()}
@@ -500,7 +511,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             const f = faltasAmasar(e)
             return (
               <div key={e.id} className="am-sec" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}
-                onClick={() => ir(`/torno/amasar/${e.id}`)} title="Abrir su rosco">
+                onClick={() => ir(aEj(e.id))} title="Abrir su rosco">
                 <div style={{ width: 46, flexShrink: 0, borderRadius: 10, overflow: 'hidden' }}>
                   <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={18}/>
                 </div>
@@ -554,7 +565,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const copiado = [base.items_ejecucion.some(i => i.texto?.trim()) ? 'ejecucion' : '', base.feedbacks.some(i => i.texto?.trim()) ? 'feedbacks' : ''].filter(Boolean)
     if (copiado.length) await supabase.from('ejercicios').update({ por_revisar: copiado }).eq('id', r.ejercicio.id)
     setNombreVar(null)
-    router.push(`/torno/amasar/${r.ejercicio.id}?creado=1`)
+    router.push(aEj(r.ejercicio.id, true))
   }
   /* VARIANTE RÁPIDA: una por cada etiqueta elegida de UNA categoría. Copia todo (foto,
      descripción, medida, músculos y el resto de etiquetas) y solo cambia las etiquetas
@@ -659,7 +670,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         {(variantes.length > 0 || portada) && sec('familia', 'Familia', (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {(portada ? [portada, ...ejs.filter(x => x.portada_id === portada.id && x.id !== params.id)] : variantes).map(x =>
-              <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={ev => { ev.stopPropagation(); ir(`/torno/amasar/${x.id}`) }}>{x.nombre}</span>)}
+              <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={ev => { ev.stopPropagation(); ir(aEj(x.id)) }}>{x.nombre}</span>)}
           </div>
         ), false)}
 
@@ -668,7 +679,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             <div className="et-mini" style={{ marginBottom: 7 }}>Con sus mismas etiquetas</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(88px,1fr))', gap: 8 }}>
               {parecidos.map((x: any) => (
-                <div key={x.id} onClick={() => ir(`/torno/amasar/${x.id}`)} title="Abrir su rosco"
+                <div key={x.id} onClick={() => ir(aEj(x.id))} title="Abrir su rosco"
                   style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 9px rgba(38,40,37,.10)' }}>
                   <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={20}/>
                   <div style={{ fontSize: 11, padding: '5px 7px', lineHeight: 1.2 }}>{x.nombre}</div>
@@ -686,7 +697,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 onClick={() => setNombreVar(`${d.nombre} · `)}>+ {portada ? 'Otra variante de su familia' : 'Variante de este'}</button>
               <button className="btn btn-s btn-sm" title="Variantes que cambian solo el agarre, el material, la posición o el apoyo"
                 onClick={() => setVariar({ cat: 'agarre', sel: [] })}>Variar…</button>
-              <button className="btn btn-t btn-sm" onClick={() => ir('/torno/amasar/nuevo')}>+ Otro ejercicio</button>
+              <button className="btn btn-t btn-sm" onClick={() => ir(aEj('nuevo'))}>+ Otro ejercicio</button>
             </div>
           ) : (
             <div>
@@ -846,6 +857,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
               {aviso || (grupo ? (hayAlgoGrupo ? 'Sin aplicar' : 'Toca un quesito: lo que pongas se añade a todos') : !d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta cómo se mide' : repetido ? 'Ese nombre ya existe' : cambiado ? 'Sin guardar' : 'Todo guardado')}
             </span>
+            {!enCola && cola.length > 1 && desdeTanda && (
+              <button className="btn btn-s btn-sm" onClick={() => ir(`/torno/amasar/${desdeTanda}?cola=1`)}
+                title="Volver al ejercicio de la tanda del que saliste">↩ Volver a la tanda</button>
+            )}
             {enCola && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <button className="btn btn-t btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)} title="Anterior">‹</button>
