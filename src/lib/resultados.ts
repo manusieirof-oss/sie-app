@@ -143,8 +143,8 @@ export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
         unidad, puntos, primero, ultimo, delta: ultimo - primero,
       }
     })
-    // Con un solo punto no hay evolución que enseñar, solo un dato suelto.
-    .filter(e => e.puntos.length >= 2)
+    // Los de un solo día también se devuelven: no hay línea que pintar, pero sí un dato,
+    // y ocultarlos hacía parecer que faltaban ejercicios. Quien pinta decide cómo.
     .sort((a, b) => b.puntos.length - a.puntos.length)
 }
 

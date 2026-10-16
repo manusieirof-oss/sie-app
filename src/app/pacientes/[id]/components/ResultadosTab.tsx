@@ -33,7 +33,14 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
   // La escala de bandas de Ajustes: sin ella una banda no tiene "más" ni "menos".
   const [bandas, setBandas] = useState<string[]>([])
   useEffect(() => { ajustesMedida().then(a => setBandas(a.bandas)) }, [])
-  const cargas = cargaPorEjercicio(registros, bandas)
+  const todasCargas = cargaPorEjercicio(registros, bandas)
+  // Con dos días o más hay evolución; con uno solo, el dato va en una lista aparte.
+  const cargas = todasCargas.filter(e => e.puntos.length >= 2)
+  const sueltos = todasCargas.filter(e => e.puntos.length === 1)
+  /** Eje X por FECHA real (no por el texto "15 oct"): dos días con la misma etiqueta
+   *  —el 15 de octubre de dos años— se juntaban en uno. El año sale si cambia. */
+  const variosAnios = new Set(registros.map((r:any)=>String(r.fecha||'').slice(0,4))).size > 1
+  const fechaCorta = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES', variosAnios ? {day:'numeric',month:'short',year:'2-digit'} : {day:'numeric',month:'short'})
   const esfuerzos = esfuerzoPorEjercicio(registros)
   const gestos = ejecucionPorEjercicio(registros)
 
@@ -101,13 +108,13 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                       </div>
                       <ResponsiveContainer width="100%" height={130}>
                         <LineChart data={e.puntos.map(p=>({...p, dia:new Date(p.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
-                          margin={{top:5,right:10,left:-22,bottom:0}}>
+                          margin={{top:5,right:12,left:0,bottom:0}}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                          <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                          <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} minTickGap={16}/>
                           <YAxis tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={e.unidad==='banda'?56:38}
                             allowDecimals={e.unidad!=='banda' && e.unidad!=='reps'}
                             tickFormatter={(v:any)=>e.unidad==='banda'?textoCarga(v,'banda',bandas):v}/>
-                          <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
+                          <Tooltip labelFormatter={(f:any)=>fechaCorta(String(f))} contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
                             formatter={(v:any)=>[textoCarga(v,e.unidad,bandas),'Máximo']}/>
                           <Line type="monotone" dataKey="valor" stroke={G} strokeWidth={2} dot={{r:3}}/>
                         </LineChart>
@@ -117,6 +124,25 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                 </div>
               )}
           </div>
+
+          {/* UN SOLO DÍA ANOTADO. Sin línea que pintar todavía, pero el dato está:
+              antes no salían y parecía que faltaban ejercicios. */}
+          {sueltos.length>0 && (
+            <div className="sec">
+              <div className="sec-h">
+                <span className="sh-l"><span className="ct-l"><Ic name="calendario" size={13}/> Anotados un solo día</span></span>
+                <span className="sh-r">La gráfica sale a partir del segundo día</span>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {sueltos.map(e=>(
+                  <span key={e.ejercicio_id} style={{fontSize:12,padding:'4px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>
+                    {e.nombre}{e.variante?` · ${e.variante}`:''} <b style={{fontWeight:600,color:'var(--gd)'}}>{textoCarga(e.ultimo,e.unidad,bandas)}</b>
+                    <span style={{color:'var(--grl)'}}> · {fechaCorta(e.puntos[0].fecha)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ESFUERZO Y DOLOR EN LA SALA. Lo que se anota serie a serie (RPE, RIR,
               dolor) y no se veia en ningun sitio. Solo sale si hay algo anotado. */}
@@ -139,11 +165,11 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                   </div>
                   <ResponsiveContainer width="100%" height={130}>
                     <LineChart data={e.dias.map(d=>({...d, dia:new Date(d.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
-                      margin={{top:5,right:10,left:-22,bottom:0}}>
+                      margin={{top:5,right:12,left:0,bottom:0}}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                      <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                      <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} minTickGap={16}/>
                       <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
-                      <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
+                      <Tooltip labelFormatter={(f:any)=>fechaCorta(String(f))} contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
                       {e.campos.includes('dolor') && <Line type="monotone" dataKey="dolor" name="Dolor" stroke={RED} strokeWidth={2} dot={{r:3}} connectNulls/>}
                       {e.campos.includes('rpe') && <Line type="monotone" dataKey="rpe" name="RPE" stroke={G} strokeWidth={2} dot={{r:3}} connectNulls/>}
                       {e.campos.includes('rir') && <Line type="monotone" dataKey="rir" name="RIR" stroke={AMB} strokeWidth={2} dot={{r:3}} connectNulls/>}
@@ -180,11 +206,11 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                         </div>
                         <ResponsiveContainer width="100%" height={130}>
                           <LineChart data={e.puntos.map(p=>({...p, dia:new Date(p.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
-                            margin={{top:5,right:10,left:-22,bottom:0}}>
+                            margin={{top:5,right:12,left:0,bottom:0}}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                            <XAxis dataKey="dia" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
+                            <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} minTickGap={16}/>
                             <YAxis domain={[0,100]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
-                            <Tooltip contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
+                            <Tooltip labelFormatter={(f:any)=>fechaCorta(String(f))} contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
                               formatter={(v:any,n:any,o:any)=>[`${v}% · ${o?.payload?.ok} de ${o?.payload?.total}`,'Cumple']}/>
                             <Line type="monotone" dataKey="pct" stroke={GD} strokeWidth={2} dot={{r:3}}/>
                           </LineChart>
@@ -300,7 +326,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
                       {z.puntos.length===1 && <span style={{fontSize:12,color:'var(--gr)'}}> · un solo registro</span>}
                     </div>
                     <ResponsiveContainer width="100%" height={140}>
-                      <LineChart data={z.puntos} margin={{top:5,right:10,left:-22,bottom:0}}>
+                      <LineChart data={z.puntos} margin={{top:5,right:12,left:0,bottom:0}}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
                         <XAxis dataKey="fecha" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
                         <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
