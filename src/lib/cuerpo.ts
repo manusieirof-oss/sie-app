@@ -195,6 +195,7 @@ const POSTURA: Record<string, string> = {
   'sentado': 'sentado', 'sentado>en el suelo': 'sentado_en_el_suelo',
   'supino': 'supino', 'supino>rodillas flexionadas': 'supino_rodillas_flexionadas',
   'supino>piernas a 90': 'supino_piernas_a_90', 'supino>en banco': 'supino_en_banco',
+  'supino>rodillas al pecho': 'supino_rodillas_al_pecho',
   'prono': 'prono', 'prono>sobre antebrazos': 'prono_sobre_antebrazos', 'prono>brazos estirados': 'prono_brazos_estirados',
   'decubito lateral': 'decubito_lateral', 'decubito lateral>rodillas flexionadas': 'decubito_lateral_rodillas_flexionadas',
   'decubito lateral>plancha lateral': 'decubito_lateral_plancha_lateral',
@@ -211,6 +212,7 @@ const MATERIAL: Record<string, string> = {
   'deslizador': 'deslizador', 'disco': 'disco', 'fitball': 'fitball', 'kettlebell': 'kettlebell',
   'landmine': 'landmine', 'mancuerna': 'mancuerna', 'pared': 'pared', 'pelota': 'pelota',
   'polea': 'polea', 'rack': 'rack',
+  'roller': 'roller', 'rueda abdominal': 'rueda_abdominal', 'saco': 'saco', 'stick': 'stick', 'valla': 'valla',
 }
 const caminosDe = (etiquetasEj: string[], etiquetas: any[]) =>
   (etiquetasEj || []).map(id => etiquetas.find(e => e.id === id)).filter(Boolean).map(et => camino(etiquetas, et))
