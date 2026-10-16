@@ -79,7 +79,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [cola, setCola] = useState<string[]>([])
   useEffect(() => { if (sp.get('cola')) setCola(leerCola()) }, [sp])
 
-  useEffect(() => { cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setModoFam(null); cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
     const [a, b, o] = await Promise.all([
       traerTodo((dd, h) => supabase.from('etiquetas').select('*').order('id').range(dd, h)),
@@ -134,8 +134,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     // OPCIONALES: no cuentan para "listo". Sin foto ya sale la figura, y suelto es un
     // estado válido; si contaran, el rosco nunca se completaría.
     { k: 'foto', t: 'Foto y vídeo', ic: 'camara', opcional: true, lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
-    { k: 'familia', t: 'Familia', ic: 'plantillas', opcional: true, lleno: !!d.portada_id || variantes.length > 0,
-      sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otra'}` : variantes.length ? `Portada · ${variantes.length}` : 'Suelto' },
+    // Elegir "Suelto" o "Principal" también es decidir: el quesito se marca aunque
+    // en la base no cambie nada (suelto es no tener familia; principal sin variantes, igual).
+    { k: 'familia', t: 'Familia', ic: 'plantillas', opcional: true, lleno: !!d.portada_id || variantes.length > 0 || modoFam !== null,
+      sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otra'}`
+        : variantes.length ? `Principal · ${variantes.length}` : modoFam === 'portada' ? 'Principal' : 'Suelto' },
   ]
   // En VARIOS solo lo que se puede compartir; nombre, descripción y foto son de cada uno.
   const nTxt = (l: any[]) => l.filter(i => i.texto?.trim()).length
@@ -401,6 +404,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                   {variantes.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(`/torno/amasar/${x.id}`)}>{x.nombre}</span>)}
                 </div>
               </>)}
+              {variantes.length === 0 && !nuevo && (
+                <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 8 }}>
+                  Será el principal en cuanto tenga su primera variante. Sácala desde aquí:
+                </div>
+              )}
               {nuevo
                 ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>Créalo primero y luego podrás sacarle variantes.</div>
                 : <button className="btn btn-s btn-sm" onClick={() => { setAbierto(null); setFichaOn(true); setNombreVar(`${d.nombre} · `) }}>+ Amasar una variante de este</button>}
