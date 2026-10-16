@@ -6,7 +6,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
@@ -109,6 +109,26 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const setRev = (k: 'items_ejecucion' | 'feedbacks', clave: Clave, v: any) =>
     setD(p => ({ ...p, [k]: v, por_revisar: p.por_revisar.filter(x => x !== clave) }))
   const rev = (k: Clave) => d.por_revisar.includes(k)
+  /* BORRAR, con la papelera discreta de arriba. Lo hecho en sala se conserva (los
+     registros guardan el nombre). Si es el principal de una familia, la familia no se
+     queda huérfana: su primera variante pasa a ser la principal antes de borrarlo. */
+  async function borrar() {
+    const usos = await usosDeEjercicio(params.id)
+    const hereda = variantes[0]
+    const aviso = `¿Eliminar "${d.nombre || orig.nombre}"?`
+      + (usos > 0 ? `\n\nSe ha hecho ${usos} ${usos === 1 ? 'vez' : 'veces'} en sala: esos registros se guardan con su nombre, pero sin ficha.` : '\n\nNunca se ha hecho en sala.')
+      + (hereda ? `\n\nSus ${variantes.length} variante${variantes.length === 1 ? '' : 's'} se quedan: "${hereda.nombre}" pasa a ser la principal.` : '')
+    if (!confirm(aviso)) return
+    setGuardando(true)
+    if (hereda) {
+      const h = await hacerPortada({ id: hereda.id, portada_id: params.id })
+      if (h.ok === false) { setGuardando(false); setAviso('No se pudo: ' + h.error); return }
+    }
+    const r = await eliminarEjercicio(params.id)
+    setGuardando(false)
+    if (r.ok === false) { setAviso('No se pudo eliminar: ' + r.error); return }
+    router.push('/torno')
+  }
   async function pasarAPrincipal() {
     if (!(await asegurarGuardado())) return
     setGuardando(true)
@@ -626,6 +646,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                     transition: transform .5s cubic-bezier(.3,.8,.3,1), width .5s ease }
         .am-abierto .am-rosco { width:min(460px, 50vw) }
         .am-ficha { width:min(460px, 44vw) }
+        .am-borrar { width:34px; height:34px; border-radius:99px; border:none; background:transparent; color:var(--grl);
+                     cursor:pointer; display:flex; align-items:center; justify-content:center; transition: color .15s, background .15s }
+        .am-borrar:hover { color:var(--red); background:#fff; box-shadow:0 3px 12px rgba(38,40,37,.12) }
         .am-sec { padding:9px 10px; margin:0 -10px 4px; border-radius:12px; cursor:pointer; transition:background .15s }
         .am-sec:hover { background:var(--gl) }
         .am-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
@@ -659,7 +682,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}</div>
           </>)}
         </div>
-        <div style={{ width: 90 }}/>
+        {!nuevo && !grupo && !cargando ? (
+          <div style={{ width: 90, display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="am-borrar" onClick={borrar} disabled={guardando} title="Eliminar este ejercicio"><Ic name="papelera" size={15}/></button>
+          </div>
+        ) : <div style={{ width: 90 }}/>}
       </div>
 
       {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 60 }}>Preparando el barro…</div> : (
