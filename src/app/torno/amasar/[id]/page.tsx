@@ -201,7 +201,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     Array.from(s).forEach(id => { let e = ets.find(x => x.id === id); while (e?.padre_id) { s.add(e.padre_id); e = ets.find(x => x.id === e.padre_id) } })
     return s
   }, [objetivos, ets])
-  const IMPORTA: Record<string, string> = { musculo: 'Dibuja la figura · sugiere objetivos', articulacion: 'Sugiere objetivos', movimiento: 'Sugiere objetivos' }
+  const IMPORTA: Record<string, string> = { musculo: 'Dibuja la figura · sugiere objetivos', articulacion: 'Sugiere objetivos', movimiento: 'Sugiere objetivos',
+    posicion: 'Dibuja la postura', material: 'Sale en la imagen' }
   const hijas = (id: string) => ets.filter(e => e.padre_id === id).sort((a, b) => a.nombre.localeCompare(b.nombre))
   const togEt = (id: string) => set('etiquetas', d.etiquetas.includes(id) ? d.etiquetas.filter(x => x !== id) : [...d.etiquetas, id])
   const chipEt = (e: any) => {

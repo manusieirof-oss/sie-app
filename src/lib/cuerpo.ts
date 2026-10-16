@@ -177,3 +177,57 @@ export function encuadre(vista: Vista, capas: string[]): { ancho: number, arriba
   if (alto >= 1) arriba = Math.min(0, Math.max(1 - alto, arriba)) // sin dejar huecos arriba ni abajo
   return { ancho: k * 100, arriba: arriba * 100 }
 }
+
+// ---------------------------------------------------------------------------
+// POSTURA Y MATERIAL: otras dos piezas de la imagen automática.
+//
+// Si el ejercicio tiene una etiqueta de Posición con dibujo (tumbado, sentado,
+// cuadrupedia…), la imagen es esa postura: dice más del ejercicio que los músculos
+// sobre un cuerpo de pie. Las variantes son etiquetas hijas ("Supino > Rodillas
+// flexionadas"); si solo tiene la raíz, sale la postura básica. Bipedestación y
+// Cambiante no tienen dibujo: ahí siguen los músculos.
+//
+// El material va como insignia en una esquina (hasta dos). Dibujarlo en la mano de
+// cada postura serían cientos de dibujos; en la esquina se reconoce igual.
+// Todo son SVG redibujados desde hojas de Canva (public/postura, public/material).
+// ---------------------------------------------------------------------------
+const POSTURA: Record<string, string> = {
+  'sentado': 'sentado', 'sentado>en el suelo': 'sentado_en_el_suelo',
+  'supino': 'supino', 'supino>rodillas flexionadas': 'supino_rodillas_flexionadas',
+  'supino>piernas a 90': 'supino_piernas_a_90', 'supino>en banco': 'supino_en_banco',
+  'prono': 'prono', 'prono>sobre antebrazos': 'prono_sobre_antebrazos', 'prono>brazos estirados': 'prono_brazos_estirados',
+  'decubito lateral': 'decubito_lateral', 'decubito lateral>rodillas flexionadas': 'decubito_lateral_rodillas_flexionadas',
+  'decubito lateral>plancha lateral': 'decubito_lateral_plancha_lateral',
+  'cuadrupedia': 'cuadrupedia', 'arrodillado': 'arrodillado', 'caballero': 'caballero',
+}
+// Los parecidos comparten dibujo (Goma = Banda elástica, Cajón pliométrico = Cajón).
+const MATERIAL: Record<string, string> = {
+  'aro': 'aro', 'balon medicinal': 'balon_medicinal', 'banco': 'banco',
+  'banda elastica': 'banda_elastica', 'goma': 'banda_elastica', 'mini band': 'mini_band',
+  'barra': 'barra_olimpica', 'barra>barra olimpica': 'barra_olimpica', 'barra>barra corta': 'barra_corta',
+  'barra de dominadas': 'barra_de_dominadas', 'bosu': 'bosu',
+  'cajon': 'cajon', 'cajon pliometrico': 'cajon', 'plataforma': 'plataforma',
+  'cinchas de suspension': 'cinchas_de_suspension', 'cuerda': 'cuerda', 'cuna': 'cuna',
+  'deslizador': 'deslizador', 'disco': 'disco', 'fitball': 'fitball', 'kettlebell': 'kettlebell',
+  'landmine': 'landmine', 'mancuerna': 'mancuerna', 'pared': 'pared', 'pelota': 'pelota',
+  'polea': 'polea', 'rack': 'rack',
+}
+const caminosDe = (etiquetasEj: string[], etiquetas: any[]) =>
+  (etiquetasEj || []).map(id => etiquetas.find(e => e.id === id)).filter(Boolean).map(et => camino(etiquetas, et))
+
+/** La postura que dibujar, o null. Una hija ("supino>en banco") gana a su raíz. */
+export function posturaDe(etiquetasEj: string[] = [], etiquetas: any[] = []): string | null {
+  const cs = caminosDe(etiquetasEj, etiquetas).filter(c => POSTURA[c])
+  const c = cs.find(x => x.includes('>')) || cs[0]
+  return c ? POSTURA[c] : null
+}
+
+/** Los materiales con dibujo, sin repetir; si está la hija, la raíz sobra. */
+export function materialesDe(etiquetasEj: string[] = [], etiquetas: any[] = [], max = 2): string[] {
+  const cs = caminosDe(etiquetasEj, etiquetas).filter(c => MATERIAL[c])
+  const sin = cs.filter(c => c.includes('>') || !cs.some(x => x.startsWith(c + '>')))
+  return Array.from(new Set(sin.map(c => MATERIAL[c]))).slice(0, max)
+}
+
+export const urlPostura = (p: string) => `/postura/${p}.svg`
+export const urlMaterial = (m: string) => `/material/${m}.svg`
