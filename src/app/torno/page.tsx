@@ -49,6 +49,10 @@ export default function TornoPage() {
   const router = useRouter()
   const [logo, setLogo] = useState('')
   const [abierto, setAbierto] = useState(false)
+  // Al volver de Amasar se vuelve a los ejercicios, no a los pacientes.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('que') === 'ejercicios') { setQue('ejercicios'); setAbierto(true) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(false)
   const [busca, setBusca] = useState('')

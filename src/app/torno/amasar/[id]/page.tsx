@@ -129,7 +129,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const r = await eliminarEjercicio(params.id)
     setGuardando(false)
     if (r.ok === false) { setAviso('No se pudo eliminar: ' + r.error); return }
-    router.push('/torno')
+    /* EN UNA TANDA (completar uno a uno) se sigue con el siguiente, no se vuelve al
+       torno: se perdía la selección a mitad de trabajo. Sale de la cola y listo. */
+    if (enCola) {
+      const resto = cola.filter(x => x !== params.id)
+      const sig = cola[iCola + 1] || cola[iCola - 1]
+      guardarCola(resto)
+      if (sig) { router.push(`/torno/amasar/${sig}?cola=1`); return }
+    }
+    router.push('/torno?que=ejercicios')
   }
   async function pasarAPrincipal() {
     if (!(await asegurarGuardado())) return
@@ -511,7 +519,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             const ids = grupoEjs.map(e => e.id); guardarCola(ids)
             router.push(`/torno/amasar/${ids[0]}?cola=1`)
           }}>Completar uno a uno</button>
-          <button className="btn btn-t btn-sm" onClick={() => ir('/torno')}>Volver al torno</button>
+          <button className="btn btn-t btn-sm" onClick={() => ir('/torno?que=ejercicios')}>Volver al torno</button>
         </div>
       </div>
     )
@@ -729,7 +737,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       `}</style>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => ir('/torno')} title="Volver al torno"
+        <button onClick={() => ir('/torno?que=ejercicios')} title="Volver al torno"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
             background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '9px 15px 9px 11px', fontSize: 13,
             boxShadow: '0 3px 14px rgba(38,40,37,.14)' }}><Ic name="atras" size={15}/> Torno</button>

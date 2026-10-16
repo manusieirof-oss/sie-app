@@ -29,7 +29,7 @@ export default function AmasarElegir() {
   return (
     <div style={{ background: '#fff', margin: '-16px -18px', padding: '18px 22px 60px', minHeight: 'calc(100vh - 32px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <button onClick={() => router.push('/torno')} title="Volver al torno"
+        <button onClick={() => router.push('/torno?que=ejercicios')} title="Volver al torno"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
             background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '9px 15px 9px 11px', fontSize: 13,
             boxShadow: '0 3px 14px rgba(38,40,37,.14)' }}><Ic name="atras" size={15}/> Torno</button>
