@@ -4,7 +4,8 @@ import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, Cartesia
 import { Ic } from '@/lib/icons'
 import ResumenVolumen from '@/components/ResumenVolumen'
 
-import { COLOR, asistencia, porMes, cargaPorEjercicio, ejecucionPorEjercicio, evaPorZona, esfuerzoPorEjercicio, textoCarga } from '@/lib/resultados'
+import { COLOR, asistencia, porMes, evaPorZona } from '@/lib/resultados'
+import ProgresionEjercicios from './ProgresionEjercicios'
 import { ajustesMedida } from '@/lib/medida'
 
 // Alias cortos: las gráficas los usan mucho y `COLOR.g` en cada propiedad no se lee.
@@ -33,16 +34,6 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
   // La escala de bandas de Ajustes: sin ella una banda no tiene "más" ni "menos".
   const [bandas, setBandas] = useState<string[]>([])
   useEffect(() => { ajustesMedida().then(a => setBandas(a.bandas)) }, [])
-  const todasCargas = cargaPorEjercicio(registros, bandas)
-  // Con dos días o más hay evolución; con uno solo, el dato va en una lista aparte.
-  const cargas = todasCargas.filter(e => e.puntos.length >= 2)
-  const sueltos = todasCargas.filter(e => e.puntos.length === 1)
-  /** Eje X por FECHA real (no por el texto "15 oct"): dos días con la misma etiqueta
-   *  —el 15 de octubre de dos años— se juntaban en uno. El año sale si cambia. */
-  const variosAnios = new Set(registros.map((r:any)=>String(r.fecha||'').slice(0,4))).size > 1
-  const fechaCorta = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES', variosAnios ? {day:'numeric',month:'short',year:'2-digit'} : {day:'numeric',month:'short'})
-  const esfuerzos = esfuerzoPorEjercicio(registros)
-  const gestos = ejecucionPorEjercicio(registros)
 
   // Patologias por estado
   const patEstados = { activa:0, cronica:0, resuelta:0 } as Record<string,number>
@@ -75,155 +66,8 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
         <button className="btn btn-p btn-sm" onClick={generarPDF}><Ic name="informe" size={12}/> PDF</button>
       </div>
 
-      {vista==='progreso'&&(
-        <div className="panel">
-          {/* CARGAS. Lo que de verdad se movió, de los registros del taller. Hasta
-              ahora esos datos solo se veían sesión a sesión, nunca en conjunto. */}
-          <div className="sec">
-            <div className="sec-h">
-              <span className="sh-l"><span className="ct-l"><Ic name="fuerza" size={13}/> Evolución de la carga</span></span>
-              <span className="sh-r">La mejor serie de cada día: kg, banda, tiempo, metros o reps</span>
-            </div>
-            {cargas.length===0
-              ? <div className="muted">Aún no hay suficientes registros. Hacen falta al menos dos días con el mismo ejercicio anotado desde el taller.</div>
-              : (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
-                  {cargas.map(e=>(
-                    <div key={e.ejercicio_id}>
-                      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
-                        <span style={{fontSize:13,color:'var(--n)',flex:1}}>
-                          {e.nombre}
-                          {/* La variante, si se anotó: un unilateral no se compara con
-                              un bilateral y ahora van en gráficas separadas. */}
-                          {e.variante && <span style={{color:'var(--gr)'}}> · {e.variante}</span>}
-                        </span>
-                        <span style={{fontSize:13,color:'var(--n)'}}>{textoCarga(e.ultimo,e.unidad,bandas)}</span>
-                        {e.delta!==0 && (
-                          <span className={`pill ${e.delta>0?'pill-o on':'pill-r'}`}>
-                            {e.delta>0?'+':''}{e.unidad==='banda'
-                              ? `${Math.round(e.delta)} banda${Math.abs(e.delta)===1?'':'s'}`
-                              : textoCarga(e.delta,e.unidad).replace('-','−')}
-                          </span>
-                        )}
-                      </div>
-                      <ResponsiveContainer width="100%" height={130}>
-                        <LineChart data={e.puntos.map(p=>({...p, dia:new Date(p.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
-                          margin={{top:5,right:12,left:0,bottom:0}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                          <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} minTickGap={16}/>
-                          <YAxis tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={e.unidad==='banda'?56:38}
-                            allowDecimals={e.unidad!=='banda' && e.unidad!=='reps'}
-                            tickFormatter={(v:any)=>e.unidad==='banda'?textoCarga(v,'banda',bandas):v}/>
-                          <Tooltip labelFormatter={(f:any)=>fechaCorta(String(f))} contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
-                            formatter={(v:any)=>[textoCarga(v,e.unidad,bandas),'Máximo']}/>
-                          <Line type="monotone" dataKey="valor" stroke={G} strokeWidth={2} dot={{r:3}}/>
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ))}
-                </div>
-              )}
-          </div>
-
-          {/* UN SOLO DÍA ANOTADO. Sin línea que pintar todavía, pero el dato está:
-              antes no salían y parecía que faltaban ejercicios. */}
-          {sueltos.length>0 && (
-            <div className="sec">
-              <div className="sec-h">
-                <span className="sh-l"><span className="ct-l"><Ic name="calendario" size={13}/> Anotados un solo día</span></span>
-                <span className="sh-r">La gráfica sale a partir del segundo día</span>
-              </div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                {sueltos.map(e=>(
-                  <span key={e.ejercicio_id} style={{fontSize:12,padding:'4px 10px',borderRadius:99,background:'var(--bl)',color:'var(--n)'}}>
-                    {e.nombre}{e.variante?` · ${e.variante}`:''} <b style={{fontWeight:600,color:'var(--gd)'}}>{textoCarga(e.ultimo,e.unidad,bandas)}</b>
-                    <span style={{color:'var(--grl)'}}> · {fechaCorta(e.puntos[0].fecha)}</span>
-                    {e.otros>0 && <span style={{color:'var(--grl)'}} title="Esos días se anotó en otra medida (kg, tiempo, reps…) y no se pueden comparar"> · +{e.otros} día{e.otros>1?'s':''} en otra medida</span>}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ESFUERZO Y DOLOR EN LA SALA. Lo que se anota serie a serie (RPE, RIR,
-              dolor) y no se veia en ningun sitio. Solo sale si hay algo anotado. */}
-          {esfuerzos.length>0 && (
-          <div className="sec">
-            <div className="sec-h">
-              <span className="sh-l"><span className="ct-l"><Ic name="molestia" size={13}/> Esfuerzo y dolor en la sala</span></span>
-              <span className="sh-r">Media de las series de cada día · de 0 a 10</span>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
-              {esfuerzos.map(e=>(
-                <div key={e.ejercicio_id}>
-                  <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
-                    <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
-                    {e.dolor!=null && <span style={{fontSize:13,color:e.dolor>=4?RED:'var(--n)'}}>dolor {e.dolor}</span>}
-                    {/* Aqui bajar es lo bueno: el verde va cuando el dolor baja. */}
-                    {e.deltaDolor!==0 && (
-                      <span className={`pill ${e.deltaDolor<0?'pill-o on':'pill-r'}`}>{e.deltaDolor>0?'+':'−'}{Math.abs(Math.round(e.deltaDolor*10)/10)}</span>
-                    )}
-                  </div>
-                  <ResponsiveContainer width="100%" height={130}>
-                    <LineChart data={e.dias.map(d=>({...d, dia:new Date(d.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
-                      margin={{top:5,right:12,left:0,bottom:0}}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                      <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} minTickGap={16}/>
-                      <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
-                      <Tooltip labelFormatter={(f:any)=>fechaCorta(String(f))} contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}/>
-                      {e.campos.includes('dolor') && <Line type="monotone" dataKey="dolor" name="Dolor" stroke={RED} strokeWidth={2} dot={{r:3}} connectNulls/>}
-                      {e.campos.includes('rpe') && <Line type="monotone" dataKey="rpe" name="RPE" stroke={G} strokeWidth={2} dot={{r:3}} connectNulls/>}
-                      {e.campos.includes('rir') && <Line type="monotone" dataKey="rir" name="RIR" stroke={AMB} strokeWidth={2} dot={{r:3}} connectNulls/>}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ))}
-            </div>
-          </div>
-          )}
-
-          {/* GESTO. El % de criterios técnicos cumplidos a lo largo del tiempo. La
-              sección Ejecución solo enseña el último, que dice cómo está hoy pero no
-              si va a mejor: un 40% que sube vale más que un 80% estancado. */}
-          <div className="sec">
-            <div className="sec-h">
-              <span className="sh-l"><span className="ct-l"><Ic name="ok" size={13}/> Cómo ejecuta</span></span>
-              <span className="sh-r">Criterios técnicos cumplidos</span>
-            </div>
-            {gestos.length===0
-              ? <div className="muted">Sin evaluaciones repetidas todavía.</div>
-              : (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
-                  {gestos.map(e=>{
-                    const dif = e.ultimo - e.primero
-                    return (
-                      <div key={e.ejercicio_id}>
-                        <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
-                          <span style={{fontSize:13,color:'var(--n)',flex:1}}>{e.nombre}</span>
-                          <span style={{fontSize:13,color:'var(--n)'}}>{e.ultimo}%</span>
-                          {dif!==0 && (
-                            <span className={`pill ${dif>0?'pill-o on':'pill-r'}`}>{dif>0?'+':''}{dif} pts</span>
-                          )}
-                        </div>
-                        <ResponsiveContainer width="100%" height={130}>
-                          <LineChart data={e.puntos.map(p=>({...p, dia:new Date(p.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}))}
-                            margin={{top:5,right:12,left:0,bottom:0}}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
-                            <XAxis dataKey="fecha" tickFormatter={fechaCorta} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} minTickGap={16}/>
-                            <YAxis domain={[0,100]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false} width={38}/>
-                            <Tooltip labelFormatter={(f:any)=>fechaCorta(String(f))} contentStyle={{fontSize:13,borderRadius:8,border:'1px solid #eee'}}
-                              formatter={(v:any,n:any,o:any)=>[`${v}% · ${o?.payload?.ok} de ${o?.payload?.total}`,'Cumple']}/>
-                            <Line type="monotone" dataKey="pct" stroke={GD} strokeWidth={2} dot={{r:3}}/>
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-          </div>
-        </div>
-      )}
+      {/* Un ejercicio, una tarjeta: carga, técnica y esfuerzo juntos. Ver ProgresionEjercicios. */}
+      {vista==='progreso'&&<ProgresionEjercicios registros={registros} bandas={bandas}/>}
 
       {vista==='analisis'&&(
         <div style={{display:'flex',flexDirection:'column',gap:30}}>
