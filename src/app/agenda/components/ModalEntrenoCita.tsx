@@ -7,7 +7,7 @@ export default function ModalEntrenoCita({ verEntrenoCita, sesionDetalle, sesion
   const alertasSesion = (alertasPaciente||[]).filter((a:any)=>a.paciente_id===verEntrenoCita.paciente_id && a.afecta_sesion)
   return (
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
-      <div className="modal" style={{width:'min(820px,94vw)',maxWidth:'none',maxHeight:'88vh',overflowY:'auto'}}>
+      <div className="modal" style={{width:'fit-content',minWidth:'min(440px,94vw)',maxWidth:'94vw',maxHeight:'88vh',overflowY:'auto'}}>
         <div className="modal-title">
           Entrenamiento · {verEntrenoCita.pacientes?.nombre} {verEntrenoCita.pacientes?.apellidos}
           <button className="modal-close" onClick={onCerrar}>✕</button>

@@ -70,8 +70,9 @@ export default function PanelSesion({ panelPac, sesionDetalle, sesionesPaciente,
 
   return (
     <div style={{padding:11}}>
-      <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:10}}>
-        <div style={{flex:1}}>
+      <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:14}}>
+        {/* width 0: el texto largo de la descripción se adapta al ancho y no lo empuja. */}
+        <div style={{flex:1,width:0}}>
           <div style={{fontSize:12,fontWeight:400,color:'var(--n)'}}>{sesionDetalle.nombre}</div>
           {sesionDetalle.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300,marginTop:1}}>{sesionDetalle.descripcion}</div>}
         </div>

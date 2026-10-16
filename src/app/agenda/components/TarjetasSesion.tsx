@@ -1,5 +1,5 @@
 'use client'
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { partesMedida } from '@/lib/medida'
@@ -28,12 +28,26 @@ const HOJAS: { id: Hoja, icono: string, nombre: string }[] = [
   { id: 'nota', icono: 'nota', nombre: 'Nota' },
 ]
 
+/** Ancho fijo de cada tarjeta: pequeña, para que la sesión entera quepa de una vista. */
+const ANCHO = 104
+
 const textos = (l: any) => (Array.isArray(l) ? l : []).map((i: any) => (typeof i === 'string' ? i : i?.texto || '').trim()).filter(Boolean)
 
 export default function TarjetasSesion({ partes, pesos, setPesos, anotaciones, setAnotaciones, guardarAnotacion, guardandoAnot }: any) {
   const [lib, setLib] = useState<Record<string, any>>({})
   const [abierta, setAbierta] = useState<string | null>(null)
   const [hoja, setHoja] = useState<Hoja | null>(null)
+  const raiz = useRef<HTMLDivElement>(null)
+
+  // Tocar fuera de la tarjeta abierta (y de su hoja) la cierra, como un menú.
+  useEffect(() => {
+    if (!abierta) return
+    const fuera = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement)?.closest?.('[data-tarjeta]')) { setAbierta(null); setHoja(null) }
+    }
+    document.addEventListener('mousedown', fuera)
+    return () => document.removeEventListener('mousedown', fuera)
+  }, [abierta])
 
   const ids = Array.from(new Set((partes || []).flatMap((p: any) => (p.ejercicios || []).map((e: any) => e.ejercicio_id)).filter(Boolean))) as string[]
   useEffect(() => {
@@ -119,47 +133,52 @@ export default function TarjetasSesion({ partes, pesos, setPesos, anotaciones, s
     return null
   }
 
+  // El ejercicio de la tarjeta abierta, para pintar su hoja debajo de todo.
+  const [pa, ea] = (abierta || '').split('-').map(Number)
+  const ejAbierto = abierta ? (partes || [])[pa]?.ejercicios?.[ea] : null
+
   return (
-    <div>
+    <div ref={raiz}>
       <style>{`.ts-entra{animation:ts-entra .18s ease both}@keyframes ts-entra{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}`}</style>
-      {(partes || []).map((parte: any, pi: number) => (
-        <div key={pi} style={{ marginBottom: 16 }}>
-          {parte.nombre && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--g)', letterSpacing: .5, textTransform: 'uppercase', marginBottom: 8 }}>{parte.nombre}</div>}
-          {/* "dense": la hoja ocupa toda la fila y la tarjeta de al lado sube a rellenar el hueco. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(86px,1fr))', gridAutoFlow: 'row dense', gap: 8 }}>
-            {(parte.ejercicios || []).map((ej: any, ei: number) => {
-              const clave = `${pi}-${ei}`
-              const abierto = abierta === clave
-              const l = lib[ej.ejercicio_id] || {}
-              const conNota = !!(anotaciones[ej.ejercicio_id] || '').trim()
-              const d = dosis(ej)
-              return (
-                <Fragment key={clave}>
-                  <div style={{ minWidth: 0 }}>
-                    <div onClick={() => tocar(clave)} style={{ position: 'relative', cursor: 'pointer', borderRadius: 10, overflow: 'hidden',
+      {/* Las partes van una al lado de la otra y saltan de línea solo si no caben:
+          así una sesión normal se ve entera en una o dos filas, sin huecos a la derecha. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 26, rowGap: 16 }}>
+        {(partes || []).map((parte: any, pi: number) => (
+          <div key={pi} style={{ minWidth: 0 }}>
+            {parte.nombre && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--g)', letterSpacing: .5, textTransform: 'uppercase', marginBottom: 8 }}>{parte.nombre}</div>}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {(parte.ejercicios || []).map((ej: any, ei: number) => {
+                const clave = `${pi}-${ei}`
+                const abierto = abierta === clave
+                const l = lib[ej.ejercicio_id] || {}
+                const conNota = !!(anotaciones[ej.ejercicio_id] || '').trim()
+                const d = dosis(ej)
+                return (
+                  <div key={clave} data-tarjeta style={{ width: ANCHO }}>
+                    <div onClick={() => tocar(clave)} style={{ position: 'relative', cursor: 'pointer', borderRadius: 12, overflow: 'hidden',
                       boxShadow: abierto ? '0 0 0 2px var(--g)' : '0 2px 9px rgba(38,40,37,.10)', transition: 'box-shadow .15s' }}>
                       <ImagenEjercicio src={ej.imagen_url || l.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={l.etiquetas}
-                        radio={0} fondo="var(--bl)" icono={18} insignias={!abierto}/>
+                        radio={0} fondo="var(--bl)" icono={20} insignias={!abierto}/>
                       {abierto && (
-                        <div className="ts-entra" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,.78)', backdropFilter: 'blur(2px)',
-                          display: 'grid', gridTemplateColumns: '1fr 1fr', placeItems: 'center', padding: 5 }}>
+                        <div className="ts-entra" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,.8)', backdropFilter: 'blur(2px)',
+                          display: 'grid', gridTemplateColumns: '1fr 1fr', placeItems: 'center', padding: 8 }}>
                           {HOJAS.map(h => {
                             const on = hoja === h.id
                             return (
                               <button key={h.id} title={h.nombre} onClick={e => { e.stopPropagation(); setHoja(on ? null : h.id) }}
-                                style={{ width: 30, height: 30, borderRadius: 99, border: 'none', cursor: 'pointer', position: 'relative',
+                                style={{ width: 36, height: 36, borderRadius: 99, border: 'none', cursor: 'pointer', position: 'relative',
                                   background: on ? 'var(--g)' : '#fff', color: on ? '#fff' : 'var(--gd)',
                                   boxShadow: '0 2px 8px rgba(38,40,37,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Ic name={h.icono} size={14}/>
-                                {h.id === 'nota' && conNota && !on && <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: 99, background: 'var(--amb)' }}/>}
+                                <Ic name={h.icono} size={15}/>
+                                {h.id === 'nota' && conNota && !on && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: 99, background: 'var(--amb)' }}/>}
                               </button>
                             )
                           })}
                         </div>
                       )}
                     </div>
-                    <div style={{ padding: '5px 1px 0' }}>
-                      <div style={{ fontSize: 11, color: 'var(--n)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ej.nombre}</div>
+                    <div style={{ padding: '6px 1px 0' }}>
+                      <div title={ej.nombre} style={{ fontSize: 11.5, color: 'var(--n)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ej.nombre}</div>
                       {(d || conNota) && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>
                           {d && <span>{d}</span>}
@@ -168,22 +187,22 @@ export default function TarjetasSesion({ partes, pesos, setPesos, anotaciones, s
                       )}
                     </div>
                   </div>
-                  {abierto && hoja && (
-                    <div className="ts-entra" style={{ gridColumn: '1 / -1', background: '#fff', borderRadius: 14, padding: '12px 14px', boxShadow: '0 4px 16px rgba(38,40,37,.10)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                        <Ic name={HOJAS.find(h => h.id === hoja)!.icono} size={13} style={{ color: 'var(--g)' }}/>
-                        <span style={{ fontSize: 12, color: 'var(--gd)', flex: 1 }}>{HOJAS.find(h => h.id === hoja)!.nombre} · {ej.nombre}</span>
-                        <button className="btn btn-t btn-sm" style={{ padding: '1px 7px' }} onClick={() => setHoja(null)}><Ic name="cerrar" size={11}/></button>
-                      </div>
-                      {hojaDe(ej)}
-                    </div>
-                  )}
-                </Fragment>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
+        ))}
+      </div>
+      {ejAbierto && hoja && (
+        <div data-tarjeta className="ts-entra" style={{ marginTop: 16, background: '#fff', borderRadius: 14, padding: '12px 14px', boxShadow: '0 4px 16px rgba(38,40,37,.10)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ic name={HOJAS.find(h => h.id === hoja)!.icono} size={13} style={{ color: 'var(--g)' }}/>
+            <span style={{ fontSize: 12, color: 'var(--gd)', flex: 1 }}>{HOJAS.find(h => h.id === hoja)!.nombre} · {ejAbierto.nombre}</span>
+            <button className="btn btn-t btn-sm" style={{ padding: '1px 7px' }} onClick={() => setHoja(null)}><Ic name="cerrar" size={11}/></button>
+          </div>
+          {hojaDe(ejAbierto)}
         </div>
-      ))}
+      )}
     </div>
   )
 }
