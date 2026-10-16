@@ -6,7 +6,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, similaresA, leerCola } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, similaresA, leerCola, leerGrupo, ponerEnComun } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 
@@ -44,6 +44,10 @@ function quesito(a0: number, a1: number) {
 export default function AmasarRosco({ params }: { params: { id: string } }) {
   const router = useRouter()
   const nuevo = params.id === 'nuevo'
+  // VARIOS: el mismo rosco, pero lo que se pone en cada quesito se AÑADE a todos los
+  // elegidos en el torno. d guarda lo que se va a añadir, no un ejercicio.
+  const grupo = params.id === 'varios'
+  const [grupoEjs, setGrupoEjs] = useState<any[]>([])
   // Recién creado: se dice, y la pella late. Antes se quedaba igual y solo cambiaba
   // el botón de abajo, que no decía nada.
   const sp = useSearchParams()
@@ -80,7 +84,12 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       supabase.from('objetivos').select('id,nombre,imagen_url,articulacion_id,etiquetas,movimientos').eq('activo', true).order('nombre'),
     ])
     setEts(a.filas); setEjs(b.filas); setObjetivos(o.data || [])
-    if (!nuevo) {
+    if (grupo) {
+      const ids = leerGrupo()
+      const { data } = ids.length ? await supabase.from('ejercicios').select('*').in('id', ids) : { data: [] }
+      // En el orden en que se eligieron.
+      setGrupoEjs(ids.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean))
+    } else if (!nuevo) {
       const { data: e } = await supabase.from('ejercicios').select('*').eq('id', params.id).maybeSingle()
       if (e) {
         const x: Datos = { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
@@ -108,7 +117,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // ---- Los quesitos -----------------------------------------------------------
   const nEt = d.etiquetas.length
   const variantes = ejs.filter(x => !nuevo && x.portada_id === params.id)
-  const QUESITOS: { k: Clave, t: string, ic: string, lleno: boolean, sub: string, opcional?: boolean, rev?: boolean }[] = [
+  const UNO: { k: Clave, t: string, ic: string, lleno: boolean, sub: string, opcional?: boolean, rev?: boolean }[] = [
     { k: 'nombre', t: 'Nombre', ic: 'editar', lleno: !!d.nombre.trim(), sub: d.nombre || 'Sin nombre' },
     { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
     { k: 'etiquetas', t: 'Etiquetas', ic: 'etiqueta', lleno: nEt > 0, sub: nEt ? `${nEt} puesta${nEt === 1 ? '' : 's'}` : 'Ninguna' },
@@ -124,6 +133,16 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     { k: 'familia', t: 'Familia', ic: 'plantillas', opcional: true, lleno: !!d.portada_id || variantes.length > 0,
       sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otra'}` : variantes.length ? `Portada · ${variantes.length}` : 'Suelto' },
   ]
+  // En VARIOS solo lo que se puede compartir; nombre, descripción y foto son de cada uno.
+  const nTxt = (l: any[]) => l.filter(i => i.texto?.trim()).length
+  const VARIOS: typeof UNO = [
+    { k: 'etiquetas', t: 'Etiquetas', ic: 'etiqueta', lleno: nEt > 0, sub: nEt ? `+${nEt} a todos` : 'Nada' },
+    { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'No cambiar' },
+    { k: 'ejecucion', t: 'Ejecución', ic: 'ok', lleno: nTxt(d.items_ejecucion) > 0, sub: nTxt(d.items_ejecucion) ? `+${nTxt(d.items_ejecucion)} a todos` : 'Nada' },
+    { k: 'feedbacks', t: 'Feedbacks', ic: 'mensaje', lleno: nTxt(d.feedbacks) > 0, sub: nTxt(d.feedbacks) ? `+${nTxt(d.feedbacks)} a todos` : 'Nada' },
+    { k: 'familia', t: 'Familia', ic: 'plantillas', lleno: !!d.portada_id, sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otro'}` : 'No cambiar' },
+  ]
+  const QUESITOS = grupo ? VARIOS : UNO
   const paso = 360 / QUESITOS.length
   const necesarios = QUESITOS.filter(q => !q.opcional)
   const llenos = necesarios.filter(q => q.lleno).length
@@ -196,6 +215,19 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   }
 
   function editor(k: Clave) {
+    if (grupo && k === 'familia') {
+      const ids = grupoEjs.map(e => e.id)
+      return (<>
+        <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 10 }}>Elige el principal: el resto pasan a ser sus variantes.</div>
+        <select className="input" value={d.portada_id || ''} onChange={e => set('portada_id', e.target.value || null)}>
+          <option value="">No cambiar</option>
+          <optgroup label="Uno de los elegidos">{grupoEjs.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}</optgroup>
+          <optgroup label="Otro principal de la biblioteca">
+            {ejs.filter(x => !x.portada_id && !ids.includes(x.id)).map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+          </optgroup>
+        </select>
+      </>)
+    }
     switch (k) {
       case 'nombre': return (<>
         <input className="input" autoFocus value={d.nombre} onChange={e => set('nombre', e.target.value)}
@@ -262,7 +294,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       }
       case 'medida': return (
         <div style={{ display: 'grid', gap: 10 }}>
-          {TIPOS_MEDIDA.map(m => (
+          {[...(grupo ? [{ id: '', nombre: 'No cambiar', ayuda: 'Cada uno se queda con la suya' }] : []), ...TIPOS_MEDIDA].map(m => (
             <button key={m.id} type="button" onClick={() => set('tipo_medida', m.id)}
               style={{ textAlign: 'left', padding: '14px 16px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
                 border: 'none', background: d.tipo_medida === m.id ? 'var(--g)' : '#fff', color: d.tipo_medida === m.id ? '#fff' : 'var(--n)',
@@ -352,7 +384,23 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // sigue amasando: otro nuevo o una variante. Una variante copia todo (etiquetas,
   // medida, ejecución, feedbacks) y este pasa a ser la portada de la familia; si este ya
   // es variante, la nueva va a la misma familia (no hay variantes de variantes).
-  const verFicha = fichaOn && !abierto && !nuevo
+  const verFicha = fichaOn && !abierto && !nuevo && !grupo
+
+  // ---- Varios: aplicar --------------------------------------------------------------
+  const hayAlgoGrupo = nEt > 0 || !!d.tipo_medida || nTxt(d.items_ejecucion) > 0 || nTxt(d.feedbacks) > 0 || !!d.portada_id
+  async function aplicarGrupo() {
+    setGuardando(true); setAviso('')
+    const r = await ponerEnComun(grupoEjs, ejs, {
+      etiquetas: d.etiquetas, tipo_medida: d.tipo_medida, portada_id: d.portada_id,
+      ejecucion: d.items_ejecucion.map(i => i.texto?.trim()).filter(Boolean),
+      feedbacks: d.feedbacks.map(i => i.texto?.trim()).filter(Boolean),
+    })
+    setGuardando(false)
+    if (r.ok === false) { setAviso('No se ha podido: ' + r.error); return }
+    // Vacío otra vez: lo siguiente que se ponga es otra tanda.
+    setD(VACIO); setOrig(VACIO); setAbierto(null)
+    await cargar(); setAviso(`✓ Añadido a los ${grupoEjs.length}`)
+  }
 
   // ---- La cola: anterior / siguiente ---------------------------------------------
   const iCola = cola.indexOf(params.id)
@@ -368,7 +416,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     router.push(`/torno/amasar/${id}?cola=1`)
   }
   // Los parecidos por etiquetas (fuera de su familia, que ya sale aparte).
-  const parecidos = useMemo(() => nuevo ? [] : similaresA(ejs, { ...d, id: params.id }, 8, ets), [ejs, d.etiquetas, ets]) // eslint-disable-line react-hooks/exhaustive-deps
+  const parecidos = useMemo(() => nuevo || grupo ? [] : similaresA(ejs, { ...d, id: params.id }, 8, ets), [ejs, d.etiquetas, ets]) // eslint-disable-line react-hooks/exhaustive-deps
   async function nuevaVariante() {
     if (!nombreVar?.trim()) return
     if (ejs.some(x => normalizar(x.nombre).trim() === normalizar(nombreVar).trim())) { setAviso('Ese nombre ya existe'); return }
@@ -506,8 +554,14 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '9px 15px 9px 11px', fontSize: 13,
             boxShadow: '0 3px 14px rgba(38,40,37,.14)' }}><Ic name="atras" size={15}/> Torno</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}</div>
+          {grupo ? (<>
+            <div style={{ fontSize: 17 }}>En común a {grupoEjs.length} ejercicios</div>
+            <div style={{ fontSize: 11.5, color: 'var(--gd)', maxWidth: 640, margin: '0 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={grupoEjs.map(e => e.nombre).join('\n')}>{grupoEjs.map(e => e.nombre).join(' · ')}</div>
+          </>) : (<>
+            <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}</div>
+          </>)}
         </div>
         <div style={{ width: 90 }}/>
       </div>
@@ -547,7 +601,18 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             })}
             {/* LA PELLA: su foto o la figura de sus músculos, que cambia con las etiquetas. */}
             <div className={`am-centro ${recien ? 'am-late' : ''}`}>
-              <ImagenEjercicio src={preview || d.imagen_url} etiquetasEj={d.etiquetas} relleno radio={0} fondo="#fff" icono={60}/>
+              {grupo ? (
+                // Hasta cuatro de los elegidos en mosaico, y cuántos son.
+                <div style={{ position: 'relative', width: '100%', height: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }}>
+                  {grupoEjs.slice(0, 4).map(e => (
+                    <div key={e.id} style={{ position: 'relative', overflow: 'hidden' }}>
+                      <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} relleno radio={0} fondo="var(--bl)" icono={26}/>
+                    </div>
+                  ))}
+                  <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 99,
+                    padding: '8px 16px', fontSize: 20, color: 'var(--gd)', boxShadow: '0 4px 16px rgba(38,40,37,.18)' }}>{grupoEjs.length}</div>
+                </div>
+              ) : <ImagenEjercicio src={preview || d.imagen_url} etiquetasEj={d.etiquetas} relleno radio={0} fondo="#fff" icono={60}/>}
             </div>
           </div>
 
@@ -580,7 +645,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderRadius: 99,
             padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
             <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
-              {aviso || (!d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta cómo se mide' : repetido ? 'Ese nombre ya existe' : cambiado ? 'Sin guardar' : 'Todo guardado')}
+              {aviso || (grupo ? (hayAlgoGrupo ? 'Sin aplicar' : 'Toca un quesito: lo que pongas se añade a todos') : !d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta cómo se mide' : repetido ? 'Ese nombre ya existe' : cambiado ? 'Sin guardar' : 'Todo guardado')}
             </span>
             {enCola && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -589,12 +654,18 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)}>Siguiente ›</button>
               </span>
             )}
-            {!nuevo && !verFicha && !abierto && (
+            {!nuevo && !grupo && !verFicha && !abierto && (
               <button className="btn btn-t btn-sm" onClick={() => setFichaOn(true)}>Ver ficha</button>
             )}
-            <button className="btn btn-p" disabled={!puedeGuardar} onClick={guardar}>
-              <Ic name="guardar" size={13}/> {guardando ? 'Guardando…' : nuevo ? 'Crear' : 'Guardar'}
-            </button>
+            {grupo ? (
+              <button className="btn btn-p" disabled={!hayAlgoGrupo || guardando || !grupoEjs.length} onClick={aplicarGrupo}>
+                <Ic name="guardar" size={13}/> {guardando ? 'Añadiendo…' : `Añadir a los ${grupoEjs.length}`}
+              </button>
+            ) : (
+              <button className="btn btn-p" disabled={!puedeGuardar} onClick={guardar}>
+                <Ic name="guardar" size={13}/> {guardando ? 'Guardando…' : nuevo ? 'Crear' : 'Guardar'}
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -9,9 +9,8 @@ import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { PROGRESIONES } from '@/lib/sistemas'
-import { FALTAS_AMASAR, faltasAmasar, guardarCola } from '@/lib/ejercicios'
+import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
-import EnComun from './components/EnComun'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
 const ICONO_FALTA: Record<string, string> = { etiquetas: 'etiqueta', descripcion: 'nota', medida: 'regla', ejecucion: 'ok', feedbacks: 'mensaje', revisar: 'editar' }
@@ -65,7 +64,6 @@ export default function TornoPage() {
   // Elegir varios: para completarlos seguidos o ponerles algo en común.
   const [modoSel, setModoSel] = useState(false)
   const [selec, setSelec] = useState<string[]>([])
-  const [enComun, setEnComun] = useState(false)
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
@@ -108,7 +106,6 @@ export default function TornoPage() {
     if (cola && cola.length > 1) guardarCola(cola)
     setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}${cola && cola.length > 1 ? '?cola=1' : ''}`), 360)
   }
-  const elegidos = (ejs || []).filter(e => selec.includes(e.id))
 
   function abrir(c?: string) {
     if (c) setCamino(c)
@@ -387,7 +384,11 @@ export default function TornoPage() {
               <div className="t-fade" style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 99,
                 padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
                 <span style={{ fontSize: 12.5, color: 'var(--gd)' }}>{selec.length} elegido{selec.length === 1 ? '' : 's'}</span>
-                <button className="btn btn-s btn-sm" onClick={() => setEnComun(true)}>Poner en común</button>
+                <button className="btn btn-s btn-sm" onClick={() => {
+                  // Al rosco de varios: el mismo que uno a uno, pero lo que se pone va a todos.
+                  guardarGrupo(listaEj.map(e => e.id).filter(id => selec.includes(id)))
+                  router.push('/torno/amasar/varios')
+                }}>Poner en común</button>
                 <button className="btn btn-p btn-sm" onClick={() => {
                   // En el orden en que se ven en la rejilla.
                   const cola = listaEj.map(e => e.id).filter(id => selec.includes(id))
@@ -395,10 +396,6 @@ export default function TornoPage() {
                 }}>Completar uno a uno</button>
               </div>
             </div>, document.body
-          )}
-          {enComun && createPortal(
-            <EnComun elegidos={elegidos} todos={ejs || []} onCerrar={() => setEnComun(false)}
-              onHecho={async () => { setEnComun(false); await recargarEjs() }}/>, document.body
           )}
           {/* Hueco al final para que la barra no tape la última fila. */}
           {modoSel && <div style={{ height: 90 }}/>}

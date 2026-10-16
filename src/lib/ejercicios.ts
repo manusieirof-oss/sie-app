@@ -53,6 +53,48 @@ export const faltasAmasar = (e: any) => FALTAS_AMASAR.filter(f => f.falta(e)).ma
 const CLAVE_COLA = 'amasar_cola'
 export function guardarCola(ids: string[]) { try { sessionStorage.setItem(CLAVE_COLA, JSON.stringify(ids)) } catch {} }
 export function leerCola(): string[] { try { return JSON.parse(sessionStorage.getItem(CLAVE_COLA) || '[]') } catch { return [] } }
+// Los elegidos para "poner en común" (rosco de varios, /torno/amasar/varios).
+const CLAVE_GRUPO = 'amasar_grupo'
+export function guardarGrupo(ids: string[]) { try { sessionStorage.setItem(CLAVE_GRUPO, JSON.stringify(ids)) } catch {} }
+export function leerGrupo(): string[] { try { return JSON.parse(sessionStorage.getItem(CLAVE_GRUPO) || '[]') } catch { return [] } }
+
+/**
+ * PONER EN COMÚN: lo mismo a varios ejercicios de una vez.
+ *
+ * SOLO AÑADE, NUNCA QUITA. Etiquetas y frases se suman a las que ya tenga cada uno
+ * (sin repetir, sin mirar mayúsculas ni tildes); así aplicarlo a uno ya hecho no le
+ * borra nada. Lo único que se sustituye es "cómo se mide", porque solo hay uno.
+ * La familia va al final: si el principal es uno de ellos, los demás cuelgan de él.
+ */
+export async function ponerEnComun(elegidos: any[], todos: any[], c: {
+  etiquetas: string[], tipo_medida: string, ejecucion: string[], feedbacks: string[], portada_id: string | null,
+}) {
+  const sumar = (lista: any[] | null, nuevas: string[]) => {
+    const l = (lista || []).filter((i: any) => i?.texto?.trim())
+    const tiene = new Set(l.map((i: any) => normalizar(i.texto).trim()))
+    return [...l, ...nuevas.filter(t => !tiene.has(normalizar(t).trim())).map(texto => ({ texto }))]
+  }
+  for (const e of elegidos) {
+    const cambio: any = {}
+    if (c.etiquetas.length) cambio.etiquetas = Array.from(new Set([...(e.etiquetas || []), ...c.etiquetas]))
+    if (c.tipo_medida) cambio.tipo_medida = c.tipo_medida
+    if (c.ejecucion.length) cambio.items_ejecucion = sumar(e.items_ejecucion, c.ejecucion)
+    if (c.feedbacks.length) cambio.feedbacks = sumar(e.feedbacks, c.feedbacks)
+    if (!Object.keys(cambio).length) continue
+    const { error } = await supabase.from('ejercicios').update(cambio).eq('id', e.id)
+    if (error) return { ok: false as const, error: `${e.nombre}: ${error.message}` }
+  }
+  if (c.portada_id) {
+    const destino = todos.find(x => x.id === c.portada_id) || { id: c.portada_id }
+    const raiz = destino.portada_id || destino.id
+    for (const e of elegidos) {
+      if (e.id === raiz || e.portada_id === raiz) continue
+      const r = await moverAFamilia(e.id, destino)
+      if (r.ok === false) return { ok: false as const, error: `${e.nombre}: ${r.error}` }
+    }
+  }
+  return { ok: true as const }
+}
 
 // ---------------------------------------------------------------------------
 // EJERCICIOS POR COMPLETAR
