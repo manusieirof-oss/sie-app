@@ -61,6 +61,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [buscaEt, setBuscaEt] = useState('')
   const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
+  // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
+  const [nombreVar, setNombreVar] = useState<string | null>(null)
 
   useEffect(() => { cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
@@ -298,13 +300,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               </>)}
               {nuevo
                 ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>Créalo primero y luego podrás sacarle variantes.</div>
-                : <button className="btn btn-s btn-sm" onClick={async () => {
-                    const n = prompt('Nombre de la nueva variante:', `${d.nombre} · `)
-                    if (!n || !n.trim()) return
-                    const r = await crearVariante({ ...d, id: params.id, portada_id: null }, n)
-                    if (r.ok === false) { alert('No se pudo crear: ' + r.error); return }
-                    router.push(`/torno/amasar/${r.ejercicio.id}`)
-                  }}>+ Amasar una variante de este</button>}
+                : <button className="btn btn-s btn-sm" onClick={() => { setAbierto(null); setNombreVar(`${d.nombre} · `) }}>+ Amasar una variante de este</button>}
             </div>
           )}
           {d.portada_id && modo === 'variante' && (() => {
@@ -323,6 +319,93 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
   const q = QUESITOS.find(x => x.k === abierto)
 
+  // ---- La ficha -------------------------------------------------------------------
+  // Con el rosco cerrado se ve TODO el ejercicio a la derecha, ya hecho, y desde ahí se
+  // sigue amasando: otro nuevo o una variante. Una variante copia todo (etiquetas,
+  // medida, ejecución, feedbacks) y este pasa a ser la portada de la familia; si este ya
+  // es variante, la nueva va a la misma familia (no hay variantes de variantes).
+  const verFicha = !abierto && !nuevo
+  async function nuevaVariante() {
+    if (!nombreVar?.trim()) return
+    if (ejs.some(x => normalizar(x.nombre).trim() === normalizar(nombreVar).trim())) { setAviso('Ese nombre ya existe'); return }
+    setGuardando(true)
+    const r = await crearVariante({ ...orig, id: params.id }, nombreVar)
+    setGuardando(false)
+    if (r.ok === false) { setAviso('No se pudo crear: ' + r.error); return }
+    setNombreVar(null)
+    router.push(`/torno/amasar/${r.ejercicio.id}?creado=1`)
+  }
+  function ficha() {
+    const sec = (k: Clave, titulo: string, hijos: any, vacio: boolean) => (
+      <div className="am-sec" onClick={() => setAbierto(k)} title="Tocar para cambiar">
+        <div className="et-mini" style={{ marginBottom: 5 }}>{titulo}</div>
+        {vacio ? <div style={{ fontSize: 12.5, color: 'var(--grl)' }}>Nada todavía</div> : hijos}
+      </div>
+    )
+    const medida = TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre
+    const portada = d.portada_id ? ejs.find(x => x.id === d.portada_id) : null
+    const ejec = d.items_ejecucion.filter(i => i.texto?.trim())
+    const fbs = d.feedbacks.filter(i => i.texto?.trim())
+    return (
+      <div className="am-panel am-ficha">
+        <div style={{ fontSize: 20, lineHeight: 1.2 }}>{d.nombre}</div>
+        <div style={{ fontSize: 12, color: 'var(--gd)', margin: '4px 0 14px', cursor: 'pointer' }} onClick={() => setAbierto('familia')}>
+          {medida || 'Sin medida'} · {portada ? `Variante de ${portada.nombre}` : variantes.length ? `Portada · ${variantes.length} variante${variantes.length === 1 ? '' : 's'}` : 'Suelto'}
+        </div>
+        {sec('descripcion', 'Descripción', <div style={{ fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', color: 'var(--n)' }}>{d.descripcion}</div>, !d.descripcion.trim())}
+        {sec('etiquetas', 'Etiquetas', (
+          <div style={{ display: 'grid', gap: 5 }}>
+            {CATEGORIAS_ETIQUETA.map(c => {
+              const suyas = d.etiquetas.map(id => ets.find(e => e.id === id)).filter((e: any) => e && categoriaDe(ets, e) === c.key)
+              if (!suyas.length) return null
+              return (
+                <div key={c.key} style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, color: 'var(--grl)', minWidth: 78 }}>{c.label}</span>
+                  {suyas.map((e: any) => <span key={e.id} className="chip-sel on" style={{ fontSize: 12 }}>{e.nombre}</span>)}
+                </div>
+              )
+            })}
+          </div>
+        ), !d.etiquetas.length)}
+        {sec('ejecucion', 'Ejecución', (
+          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.55 }}>{ejec.map((i, n) => <li key={n}>{i.texto}</li>)}</ol>
+        ), !ejec.length)}
+        {sec('feedbacks', 'Feedbacks', (
+          <div style={{ display: 'grid', gap: 4 }}>{fbs.map((i, n) => <div key={n} style={{ fontSize: 13.5, fontStyle: 'italic', color: 'var(--gd)' }}>«{i.texto}»</div>)}</div>
+        ), !fbs.length)}
+        {(variantes.length > 0 || portada) && sec('familia', 'Familia', (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {(portada ? [portada, ...ejs.filter(x => x.portada_id === portada.id && x.id !== params.id)] : variantes).map(x =>
+              <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={ev => { ev.stopPropagation(); router.push(`/torno/amasar/${x.id}`) }}>{x.nombre}</span>)}
+          </div>
+        ), false)}
+
+        {/* SEGUIR AMASANDO */}
+        <div style={{ borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 14 }}>
+          {nombreVar === null ? (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-s btn-sm" disabled={cambiado} title={cambiado ? 'Guarda antes los cambios' : ''}
+                onClick={() => setNombreVar(`${d.nombre} · `)}>+ {portada ? 'Otra variante de su familia' : 'Variante de este'}</button>
+              <button className="btn btn-t btn-sm" onClick={() => router.push('/torno/amasar/nuevo')}>+ Otro ejercicio</button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>
+                Nombre de la variante. Sale con todo lo de este; luego cambias lo que la hace distinta.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="input" autoFocus value={nombreVar} onChange={e => setNombreVar(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') nuevaVariante(); if (e.key === 'Escape') setNombreVar(null) }} style={{ flex: 1 }}/>
+                <button className="btn btn-p btn-sm" disabled={guardando || !nombreVar.trim()} onClick={nuevaVariante}>Crear</button>
+                <button className="btn btn-t btn-sm" onClick={() => setNombreVar(null)}>✕</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="am">
       <style>{`
@@ -331,6 +414,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         .am-rosco { position:relative; width:min(600px, 90vw); aspect-ratio:1; flex-shrink:0;
                     transition: transform .5s cubic-bezier(.3,.8,.3,1), width .5s ease }
         .am-abierto .am-rosco { width:min(460px, 50vw) }
+        .am-ficha { width:min(460px, 44vw) }
+        .am-sec { padding:9px 10px; margin:0 -10px 4px; border-radius:12px; cursor:pointer; transition:background .15s }
+        .am-sec:hover { background:var(--gl) }
         .am-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
                 transition: transform .22s ease, fill .2s ease; animation: am-sale .55s cubic-bezier(.2,.9,.3,1.25) backwards }
         @keyframes am-sale { from { transform: scale(.55) rotate(-25deg); opacity:0 } to { transform:none; opacity:1 } }
@@ -360,7 +446,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       </div>
 
       {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 60 }}>Preparando el barro…</div> : (
-        <div className={`am-zona ${abierto ? 'am-abierto' : ''}`}>
+        <div className={`am-zona ${abierto || verFicha ? 'am-abierto' : ''}`}>
           <div className="am-rosco">
             <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               {QUESITOS.map((x, i) => {
@@ -408,6 +494,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               {editor(q.k)}
             </div>
           )}
+          {verFicha && ficha()}
         </div>
       )}
 
