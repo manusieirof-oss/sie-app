@@ -195,7 +195,8 @@ const POSTURA: Record<string, string> = {
   'sentado': 'sentado', 'sentado>en el suelo': 'sentado_en_el_suelo',
   'supino': 'supino', 'supino>rodillas flexionadas': 'supino_rodillas_flexionadas',
   'supino>piernas a 90': 'supino_piernas_a_90', 'supino>en banco': 'supino_en_banco',
-  'supino>rodillas al pecho': 'supino_rodillas_al_pecho',
+  'supino>rodillas al pecho': 'supino_rodillas_al_pecho', 'supino>puente': 'supino_puente',
+  'prono>esfinge': 'prono_esfinge', 'cuadrupedia>rodillas elevadas': 'cuadrupedia_rodillas_elevadas',
   'prono': 'prono', 'prono>sobre antebrazos': 'prono_sobre_antebrazos', 'prono>brazos estirados': 'prono_brazos_estirados',
   'decubito lateral': 'decubito_lateral', 'decubito lateral>rodillas flexionadas': 'decubito_lateral_rodillas_flexionadas',
   'decubito lateral>plancha lateral': 'decubito_lateral_plancha_lateral',
@@ -236,7 +237,20 @@ export function materialesDe(etiquetasEj: string[] = [], etiquetas: any[] = [], 
    "postura+material" con los nombres de archivo de arriba; el dibujo vive en
    public/postura. Si la combinación no tiene dibujo, se queda la postura y el
    material en la insignia, como hasta ahora. Se van añadiendo según haya imágenes. */
+// Las de rodillas flexionadas valen también para la raíz: "supino + mini band" casi
+// siempre es con las rodillas dobladas, y si no, mejor eso que una pelota en la esquina.
 const COMBINADA: Record<string, string> = {
+  'supino+fitball': 'supino_con_fitball', 'sentado+fitball': 'sentado_con_fitball', 'prono+fitball': 'prono_con_fitball',
+  'supino_rodillas_flexionadas+mini_band': 'supino_rodillas_flexionadas_con_mini_band',
+  'supino+mini_band': 'supino_rodillas_flexionadas_con_mini_band',
+  'decubito_lateral_rodillas_flexionadas+mini_band': 'decubito_lateral_rodillas_flexionadas_con_mini_band',
+  'decubito_lateral+mini_band': 'decubito_lateral_rodillas_flexionadas_con_mini_band',
+  'caballero+banda_elastica': 'caballero_con_banda', 'caballero+polea': 'caballero_con_polea',
+  'supino_rodillas_flexionadas+roller': 'supino_rodillas_flexionadas_con_roller',
+  'supino+roller': 'supino_rodillas_flexionadas_con_roller',
+  'decubito_lateral+roller': 'decubito_lateral_con_roller',
+  'sentado_en_el_suelo+roller': 'sentado_en_el_suelo_con_roller',
+  'prono+banco': 'prono_con_banco', 'cuadrupedia+bosu': 'cuadrupedia_con_bosu',
 }
 
 /** La imagen completa: la postura (o su combinación con un material) y las insignias que sobran. */
