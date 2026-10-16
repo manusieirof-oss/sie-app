@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { contiene } from '@/lib/texto'
@@ -378,7 +379,10 @@ export default function TornoPage() {
             </div>
             {listaEj.length === 0 && <div className="muted" style={{ textAlign: 'center', padding: 24 }}>Ningún ejercicio coincide.</div>}
           </>)}
-          {modoSel && selec.length > 0 && (
+          {/* La barra y el panel van al <body> con un portal: dentro de .t-fade (que anima
+              con transform) un position:fixed se pega a ese contenedor y no a la pantalla,
+              así que la barra acababa al final de la lista y el panel ni se veía. */}
+          {modoSel && selec.length > 0 && createPortal(
             <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 40, pointerEvents: 'none' }}>
               <div className="t-fade" style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 99,
                 padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
@@ -390,12 +394,14 @@ export default function TornoPage() {
                   amasar(cola[0], cola)
                 }}>Completar uno a uno</button>
               </div>
-            </div>
+            </div>, document.body
           )}
-          {enComun && (
+          {enComun && createPortal(
             <EnComun elegidos={elegidos} todos={ejs || []} onCerrar={() => setEnComun(false)}
-              onHecho={async () => { setEnComun(false); await recargarEjs() }}/>
+              onHecho={async () => { setEnComun(false); await recargarEjs() }}/>, document.body
           )}
+          {/* Hueco al final para que la barra no tape la última fila. */}
+          {modoSel && <div style={{ height: 90 }}/>}
         </div>
       )}
 
