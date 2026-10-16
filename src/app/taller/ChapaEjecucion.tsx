@@ -1,9 +1,14 @@
 'use client'
 import { useRef, useState } from 'react'
 import Flotante from './Flotante'
+import { Ic } from '@/lib/icons'
 
 // ---------------------------------------------------------------------------
-// LA CHAPA DE EJECUCION
+// LA CHAPA DE EJECUCION (Y FEEDBACKS)
+//
+// Ejecucion y feedbacks se miran en el mismo momento -como se hace y como
+// corregirlo- y eran dos chapas en dos esquinas. Ahora es una: el contador de
+// ejecucion con un bocadillo si hay feedbacks, y al abrirla las dos listas.
 //
 // Cuantos items van bien —1/4— sobre la foto del ejercicio, y al pulsarla la
 // lista para marcarlos. Antes la lista estaba siempre desplegada en su columna:
@@ -21,6 +26,8 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
   const items = ej.items || []
   const total = items.length
   const marcados = items.filter((it: any) => itemMarcado(ej.items_evaluados, textoDe(it), 0)).length
+  const fbs = (ej.feedbacks || []).filter((f: any) => textoDe(f))
+  const hay = total > 0 || fbs.length > 0
 
   const col = total === 0 || marcados === 0 ? { background: 'var(--bm)', color: 'var(--gr)' }
     : marcados === total ? { background: 'var(--g)', color: '#fff' }
@@ -28,27 +35,28 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
 
   return (
     <>
-      <button ref={ancla} onClick={e => { e.stopPropagation(); if (total > 0) setAbierto(v => v === false) }}
-        title={total === 0 ? 'Sin ítems de ejecución' : 'Ejecución'}
-        style={{ position: 'absolute', right: 5, bottom: 5, minWidth: tam + 13, height: tam, borderRadius: 99,
+      <button ref={ancla} onClick={e => { e.stopPropagation(); if (hay) setAbierto(v => v === false) }}
+        title={!hay ? 'Sin ejecución ni feedbacks' : 'Ejecución y feedbacks'}
+        style={{ position: 'absolute', right: 5, bottom: 5, minWidth: total ? tam + 13 : tam, height: tam, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
           fontSize: tam > 21 ? 10.5 : 9.5, fontWeight: 600, fontFamily: 'inherit', padding: '0 7px',
-          border: '2px solid var(--w)', cursor: total > 0 ? 'pointer' : 'default',
+          border: '2px solid var(--w)', cursor: hay ? 'pointer' : 'default',
           boxShadow: '0 1px 5px rgba(38,40,37,.20)', ...col }}>
-        {total === 0 ? '—' : `${marcados}/${total}`}
+        {total === 0 ? (fbs.length ? '' : '—') : `${marcados}/${total}`}
+        {fbs.length > 0 && <Ic name="mensaje" size={11}/>}
       </button>
 
-      <Flotante abierto={abierto && total > 0} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={246}>
+      <Flotante abierto={abierto && hay} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={262}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
             <span style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .5,
               textTransform: 'uppercase' }}>Ejecución</span>
-            <button onClick={() => onTodos(marcados < total)}
+            {total > 0 && <button onClick={() => onTodos(marcados < total)}
               style={{ marginLeft: 'auto', fontSize: 8, padding: '2px 8px', borderRadius: 99, cursor: 'pointer',
                 fontFamily: 'inherit', border: '1px solid ' + (marcados === total ? 'var(--g)' : 'var(--bd)'),
                 background: marcados === total ? 'var(--gl)' : 'var(--w)',
                 color: marcados === total ? 'var(--gd)' : 'var(--gr)' }}>
               {marcados === total ? '✓ Todo correcto' : 'Marcar todo'}
-            </button>
+            </button>}
             <button onClick={() => setAbierto(false)} style={{ fontSize: 12, color: 'var(--gr)',
               background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
           </div>
@@ -85,6 +93,20 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
               </div>
             )
           })}
+          {total === 0 && <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 2 }}>Sin ítems de ejecución.</div>}
+
+          {fbs.length > 0 && (
+            <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid var(--bl)' }}>
+              <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .5,
+                textTransform: 'uppercase', marginBottom: 6 }}>Cómo hacerlo mejor</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {fbs.map((f: any, fi: number) => (
+                  <span key={fi} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99,
+                    background: 'var(--bl)', color: 'var(--n)', lineHeight: 1.4 }}>«{textoDe(f)}»</span>
+                ))}
+              </div>
+            </div>
+          )}
       </Flotante>
     </>
   )

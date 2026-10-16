@@ -2,13 +2,14 @@
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { Ic } from '@/lib/icons'
 import ChapaEjecucion from './ChapaEjecucion'
-import { ChapaFeedback, ChapaComentario } from './ChapasEjercicio'
+import { ChapaComentario } from './ChapasEjercicio'
+import Flotante from './Flotante'
 import CasillaSeries from './CasillaSeries'
 import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 // ---------------------------------------------------------------------------
 // UNA PARTE ENTERA, DE IZQUIERDA A DERECHA
@@ -87,32 +88,23 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               <div style={{ position: 'relative', display: 'block' }}>
                 {/* Se apaga solo la foto: la chapa de "no lo hizo" tiene que seguir viva
                     para poder deshacerlo. */}
-                <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s' }}>
+                <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s', borderRadius: 12,
+                  overflow: 'hidden', boxShadow: '0 2px 10px rgba(38,40,37,.10)' }}>
                 {/* Su foto, o la figura con sus músculos, o el icono. */}
                 <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
-                  radio={10} icono={34} alt={ej.nombre}/>
+                  radio={12} icono={34} alt={ej.nombre}/>
                 </div>
-                {/* CAMBIAR Y NO LO HIZO, COMO CHAPAS EN LA FOTO, igual que notas y series.
-                    Eran botones de texto bajo el nombre y alargaban cada tarjeta. */}
-                {onSustituir && !ej.guardado && !noLoHizo && (
-                  <button type="button" onClick={e => { e.stopPropagation(); onSustituir(ei) }}
-                    title="Cambiar este ejercicio solo hoy" aria-label="Cambiar este ejercicio solo hoy"
-                    style={chapa({ left: 5, top: 33, background: 'var(--w)', color: 'var(--gd)' })}>⇄</button>
-                )}
-                {onNoHecho && (
-                  <button type="button" onClick={e => { e.stopPropagation(); onNoHecho(ei) }} aria-pressed={noLoHizo}
-                    title={noLoHizo ? 'No lo hizo · pulsa para deshacer' : 'Marcar que no lo hizo'}
-                    style={chapa({ right: 5, top: 33,
-                      background: noLoHizo ? 'var(--gr)' : 'var(--w)', color: noLoHizo ? '#fff' : 'var(--grl)' })}>
-                    {noLoHizo ? 'No lo hizo ↺' : '⊘'}
-                  </button>
-                )}
+                {/* CAMBIAR Y NO LO HIZO, EN UNA CHAPA. Las dos son "hoy no va como estaba
+                    previsto", asi que comparten boton: un menu con las dos. Si ya no lo hizo,
+                    la chapa lo dice y deshace con un toque. */}
+                <ChapaHoy noLoHizo={noLoHizo}
+                  onSustituir={onSustituir && !ej.guardado ? () => onSustituir(ei) : undefined}
+                  onNoHecho={onNoHecho ? () => onNoHecho(ei) : undefined}/>
                 <ChapaEjecucion ej={ej} itemMarcado={itemMarcado}
                   onToggle={(ii: number) => toggleItem(pacienteId, ei, ii)}
                   onTodos={(v: boolean) => marcarTodosItems(pacienteId, ei, v)}
                   objetivosLib={objetivosLib} objsPac={objsPac}
                   onObjetivo={(oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre)}/>
-                <ChapaFeedback ej={ej}/>
                 <ChapaComentario pacienteId={pacienteId} ej={ej} ei={ei} setComent={setComent}/>
                 <CasillaSeries pacienteId={pacienteId} ej={ej} ei={ei}
                   mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>
@@ -223,5 +215,43 @@ function ObjetivosEj({ ids, objetivosLib }: { ids: string[], objetivosLib: any[]
         </button>
       )}
     </div>
+  )
+}
+
+
+/**
+ * "HOY NO VA COMO ESTABA": cambiar el ejercicio solo hoy o marcar que no lo hizo.
+ * Arriba a la derecha, donde antes iba la chapa de feedbacks (que ahora va con la
+ * de ejecucion). Si no lo hizo, la chapa lo dice y un toque lo deshace.
+ */
+function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onSustituir?: () => void, onNoHecho?: () => void }) {
+  const [abierto, setAbierto] = useState(false)
+  const ancla = useRef<HTMLButtonElement>(null)
+  if (!onSustituir && !onNoHecho) return null
+  if (noLoHizo) return (
+    <button type="button" onClick={e => { e.stopPropagation(); onNoHecho?.() }} aria-pressed
+      title="No lo hizo · pulsa para deshacer"
+      style={chapa({ right: 5, top: 5, background: 'var(--gr)', color: '#fff' })}>No lo hizo ↺</button>
+  )
+  const opcion = (icono: string, texto: string, fn?: () => void) => fn && (
+    <button type="button" onClick={() => { setAbierto(false); fn() }}
+      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 6px', border: 'none',
+        background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, color: 'var(--n)',
+        borderRadius: 8, textAlign: 'left' }}
+      onMouseOver={e => (e.currentTarget.style.background = 'var(--bl)')}
+      onMouseOut={e => (e.currentTarget.style.background = 'none')}>
+      <span style={{ width: 22, textAlign: 'center', color: 'var(--gd)' }}>{icono}</span>{texto}
+    </button>
+  )
+  return (
+    <>
+      <button ref={ancla} type="button" onClick={e => { e.stopPropagation(); setAbierto(v => !v) }}
+        title="Cambiar solo hoy o marcar que no lo hizo"
+        style={chapa({ right: 5, top: 5, background: abierto ? 'var(--g)' : 'var(--w)', color: abierto ? '#fff' : 'var(--gd)' })}>⇄</button>
+      <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={210}>
+        {opcion('⇄', 'Cambiar solo hoy', onSustituir)}
+        {opcion('⊘', 'No lo hizo', onNoHecho)}
+      </Flotante>
+    </>
   )
 }
