@@ -71,6 +71,9 @@ export function problemasDeEjercicio(ej: any): ProblemaEjercicio[] {
   if (!(ej.descripcion || '').trim()) p.push({ campo: 'descripcion', texto: 'Sin descripción' })
   if ((ej.items_ejecucion || []).length === 0)
     p.push({ campo: 'ejecucion', texto: 'Sin ítems de ejecución correcta' })
+  // Variante recién sacada: su ejecución o feedbacks son los de otro hasta que se confirman.
+  if ((ej.por_revisar || []).length)
+    p.push({ campo: 'ejecucion', texto: 'Ejecución o feedbacks copiados sin revisar' })
 
   return p
 }

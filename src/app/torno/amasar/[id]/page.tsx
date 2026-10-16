@@ -6,7 +6,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 
@@ -24,10 +24,12 @@ import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 
 type Clave = 'nombre' | 'descripcion' | 'etiquetas' | 'medida' | 'ejecucion' | 'feedbacks' | 'foto' | 'familia'
 type Datos = { nombre: string, descripcion: string, video_url: string, imagen_url: string, etiquetas: string[],
-  tipo_medida: string, items_ejecucion: any[], feedbacks: any[], portada_id: string | null }
+  tipo_medida: string, items_ejecucion: any[], feedbacks: any[], portada_id: string | null,
+  /** Quesitos que vienen copiados al crear una variante y hay que confirmar ('ejecucion', 'feedbacks'). */
+  por_revisar: string[] }
 
 const VACIO: Datos = { nombre: '', descripcion: '', video_url: '', imagen_url: '', etiquetas: [], tipo_medida: '',
-  items_ejecucion: [], feedbacks: [], portada_id: null }
+  items_ejecucion: [], feedbacks: [], portada_id: null, por_revisar: [] }
 
 // Geometría del rosco (viewBox 600 x 600).
 const C = 300, R0 = 168, R1 = 286, HUECO = 1.6
@@ -77,7 +79,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       if (e) {
         const x: Datos = { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
           etiquetas: e.etiquetas || [], tipo_medida: e.tipo_medida || '', items_ejecucion: e.items_ejecucion || [],
-          feedbacks: e.feedbacks || [], portada_id: e.portada_id || null }
+          feedbacks: e.feedbacks || [], portada_id: e.portada_id || null, por_revisar: e.por_revisar || [] }
         setD(x); setOrig(x)
       }
     }
@@ -85,17 +87,31 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     if (recien) { setAviso('✓ Creado. Ya está en la biblioteca'); setTimeout(() => setAviso(''), 4000) }
   }
   const set = (k: keyof Datos, v: any) => setD(p => ({ ...p, [k]: v }))
+  // Tocar una lista copiada ya es revisarla: deja de estar en amarillo.
+  const setRev = (k: 'items_ejecucion' | 'feedbacks', clave: Clave, v: any) =>
+    setD(p => ({ ...p, [k]: v, por_revisar: p.por_revisar.filter(x => x !== clave) }))
+  const rev = (k: Clave) => d.por_revisar.includes(k)
+  async function pasarAPrincipal() {
+    setGuardando(true)
+    const r = await hacerPortada({ id: params.id, portada_id: orig.portada_id })
+    setGuardando(false)
+    if (r.ok === false) { setAviso('No se pudo: ' + r.error); return }
+    await cargar(); setAviso('✓ Ahora es el principal de la familia')
+  }
 
   // ---- Los quesitos -----------------------------------------------------------
   const nEt = d.etiquetas.length
   const variantes = ejs.filter(x => !nuevo && x.portada_id === params.id)
-  const QUESITOS: { k: Clave, t: string, ic: string, lleno: boolean, sub: string, opcional?: boolean }[] = [
+  const QUESITOS: { k: Clave, t: string, ic: string, lleno: boolean, sub: string, opcional?: boolean, rev?: boolean }[] = [
     { k: 'nombre', t: 'Nombre', ic: 'editar', lleno: !!d.nombre.trim(), sub: d.nombre || 'Sin nombre' },
     { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
     { k: 'etiquetas', t: 'Etiquetas', ic: 'etiqueta', lleno: nEt > 0, sub: nEt ? `${nEt} puesta${nEt === 1 ? '' : 's'}` : 'Ninguna' },
     { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'Sin decidir' },
-    { k: 'ejecucion', t: 'Ejecución', ic: 'ok', lleno: d.items_ejecucion.some(i => i.texto?.trim()), sub: `${d.items_ejecucion.filter(i => i.texto?.trim()).length} criterios` },
-    { k: 'feedbacks', t: 'Feedbacks', ic: 'mensaje', lleno: d.feedbacks.some(i => i.texto?.trim()), sub: `${d.feedbacks.filter(i => i.texto?.trim()).length} frases` },
+    // En amarillo y sin contar como lleno mientras sea lo copiado sin confirmar.
+    { k: 'ejecucion', t: 'Ejecución', ic: 'ok', rev: rev('ejecucion'), lleno: !rev('ejecucion') && d.items_ejecucion.some(i => i.texto?.trim()),
+      sub: rev('ejecucion') ? 'Por revisar' : `${d.items_ejecucion.filter(i => i.texto?.trim()).length} criterios` },
+    { k: 'feedbacks', t: 'Feedbacks', ic: 'mensaje', rev: rev('feedbacks'), lleno: !rev('feedbacks') && d.feedbacks.some(i => i.texto?.trim()),
+      sub: rev('feedbacks') ? 'Por revisar' : `${d.feedbacks.filter(i => i.texto?.trim()).length} frases` },
     // OPCIONALES: no cuentan para "listo". Sin foto ya sale la figura, y suelto es un
     // estado válido; si contaran, el rosco nunca se completaría.
     { k: 'foto', t: 'Foto y vídeo', ic: 'camara', opcional: true, lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
@@ -115,6 +131,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const fila: any = { nombre: d.nombre.trim(), descripcion: d.descripcion, video_url: d.video_url, etiquetas: d.etiquetas,
       tipo_medida: d.tipo_medida, items_ejecucion: d.items_ejecucion.filter(i => i.texto?.trim()),
       feedbacks: d.feedbacks.filter(i => i.texto?.trim()) }
+    // Solo si ha cambiado: así guardar no depende de la columna si nunca se usó.
+    if (JSON.stringify(d.por_revisar) !== JSON.stringify(orig.por_revisar)) fila.por_revisar = d.por_revisar
     let id = params.id
     if (nuevo) {
       const { data, error } = await supabase.from('ejercicios')
@@ -251,8 +269,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       )
       // Solo los criterios, sin objetivos por criterio (de momento): era demasiado aquí.
       // Los que ya tenían objetivos los conservan (EditorLista solo toca el texto).
-      case 'ejecucion': return <EditorLista items={d.items_ejecucion} onChange={(v: any[]) => set('items_ejecucion', v)} label="Qué tiene que cumplir" placeholder="Ej. Rodilla alineada con el pie" icono="ok"/>
-      case 'feedbacks': return <EditorLista items={d.feedbacks} onChange={(v: any[]) => set('feedbacks', v)} label="Lo que se le dice en la sala" placeholder="Ej. Rodilla hacia fuera" icono="mensaje"/>
+      case 'ejecucion': return <EditorLista items={d.items_ejecucion} onChange={(v: any[]) => setRev('items_ejecucion', 'ejecucion', v)} label="Qué tiene que cumplir" placeholder="Ej. Rodilla alineada con el pie" icono="ok"/>
+      case 'feedbacks': return <EditorLista items={d.feedbacks} onChange={(v: any[]) => setRev('feedbacks', 'feedbacks', v)} label="Lo que se le dice en la sala" placeholder="Ej. Rodilla hacia fuera" icono="mensaje"/>
       case 'foto': return (<>
         <label style={{ display: 'block', cursor: 'pointer' }}>
           <div className="btn btn-s" style={{ justifyContent: 'center', width: '100%' }}><Ic name="camara" size={13}/> {preview || d.imagen_url ? 'Cambiar foto' : 'Subir foto'}</div>
@@ -280,7 +298,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           <div style={{ display: 'grid', gap: 8 }}>
             {tarjeta('suelto', 'Suelto', 'Sin familia: un ejercicio por su cuenta')}
             {tarjeta('variante', 'Variante de otro', 'Pertenece a la familia de una portada')}
-            {tarjeta('portada', 'Portada de una familia', 'Él es el principal y de él salen variantes')}
+            {tarjeta('portada', 'Principal de una familia', 'De él salen las variantes')}
           </div>
           {modo === 'variante' && (
             <div className="field" style={{ marginTop: 12 }}><label>¿De qué ejercicio?</label>
@@ -302,6 +320,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>Créalo primero y luego podrás sacarle variantes.</div>
                 : <button className="btn btn-s btn-sm" onClick={() => { setAbierto(null); setNombreVar(`${d.nombre} · `) }}>+ Amasar una variante de este</button>}
             </div>
+          )}
+          {orig.portada_id && d.portada_id === orig.portada_id && modo === 'variante' && (
+            <button className="btn btn-s btn-sm" style={{ marginTop: 12 }} disabled={cambiado || guardando} title={cambiado ? 'Guarda antes los cambios' : ''}
+              onClick={pasarAPrincipal}>Hacer principal de la familia</button>
           )}
           {d.portada_id && modo === 'variante' && (() => {
             const her = ejs.filter(x => x.portada_id === d.portada_id && x.id !== params.id)
@@ -332,13 +354,16 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const r = await crearVariante({ ...orig, id: params.id }, nombreVar)
     setGuardando(false)
     if (r.ok === false) { setAviso('No se pudo crear: ' + r.error); return }
+    // Ejecución y feedbacks llegan copiados: se marcan para confirmarlos en la variante.
+    const copiado = [orig.items_ejecucion.length ? 'ejecucion' : '', orig.feedbacks.length ? 'feedbacks' : ''].filter(Boolean)
+    if (copiado.length) await supabase.from('ejercicios').update({ por_revisar: copiado }).eq('id', r.ejercicio.id)
     setNombreVar(null)
     router.push(`/torno/amasar/${r.ejercicio.id}?creado=1`)
   }
   function ficha() {
     const sec = (k: Clave, titulo: string, hijos: any, vacio: boolean) => (
-      <div className="am-sec" onClick={() => setAbierto(k)} title="Tocar para cambiar">
-        <div className="et-mini" style={{ marginBottom: 5 }}>{titulo}</div>
+      <div className="am-sec" onClick={() => setAbierto(k)} title="Tocar para cambiar" style={rev(k) ? { background: '#FBF1D3' } : undefined}>
+        <div className="et-mini" style={{ marginBottom: 5 }}>{titulo}{rev(k) && <span style={{ color: '#8A6410', textTransform: 'none', letterSpacing: 0 }}>· copiado, por revisar</span>}</div>
         {vacio ? <div style={{ fontSize: 12.5, color: 'var(--grl)' }}>Nada todavía</div> : hijos}
       </div>
     )
@@ -350,7 +375,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       <div className="am-panel am-ficha">
         <div style={{ fontSize: 20, lineHeight: 1.2 }}>{d.nombre}</div>
         <div style={{ fontSize: 12, color: 'var(--gd)', margin: '4px 0 14px', cursor: 'pointer' }} onClick={() => setAbierto('familia')}>
-          {medida || 'Sin medida'} · {portada ? `Variante de ${portada.nombre}` : variantes.length ? `Portada · ${variantes.length} variante${variantes.length === 1 ? '' : 's'}` : 'Suelto'}
+          {medida || 'Sin medida'} · {portada ? `Variante de ${portada.nombre}` : variantes.length ? `Principal · ${variantes.length} variante${variantes.length === 1 ? '' : 's'}` : 'Suelto'}
+          {portada && !cambiado && <button className="btn btn-t btn-sm" style={{ marginLeft: 8, padding: '2px 9px', fontSize: 11.5 }}
+            disabled={guardando} onClick={ev => { ev.stopPropagation(); pasarAPrincipal() }}>Hacer principal</button>}
         </div>
         {sec('descripcion', 'Descripción', <div style={{ fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', color: 'var(--n)' }}>{d.descripcion}</div>, !d.descripcion.trim())}
         {sec('etiquetas', 'Etiquetas', (
@@ -456,8 +483,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 return (
                   <path key={x.k} className="am-q" d={quesito(a0, a1)}
                     style={{ animationDelay: `${i * 55}ms`, transform: `translate(${Math.cos(mid) * fuera}px, ${Math.sin(mid) * fuera}px)` }}
-                    fill={abierto === x.k ? 'var(--g)' : x.lleno ? 'var(--gl)' : '#fff'} fillOpacity={x.opcional && !x.lleno && abierto !== x.k ? .6 : 1}
-                    stroke={x.lleno ? 'var(--gm)' : 'var(--bd)'} strokeWidth={1.2}
+                    fill={abierto === x.k ? 'var(--g)' : x.rev ? '#FBF1D3' : x.lleno ? 'var(--gl)' : '#fff'} fillOpacity={x.opcional && !x.lleno && abierto !== x.k ? .6 : 1}
+                    stroke={x.rev ? '#E3BF5C' : x.lleno ? 'var(--gm)' : 'var(--bd)'} strokeWidth={1.2}
                     onMouseEnter={() => setEncima(x.k)} onMouseLeave={() => setEncima(null)}
                     onClick={() => setAbierto(abierto === x.k ? null : x.k)}/>
                 )
@@ -471,7 +498,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               const fuera = encima === x.k || on ? 1.6 : 0
               return (
                 <div key={x.k} className="am-et" style={{ left: `${50 + Math.cos(mid) * (r + fuera)}%`, top: `${50 + Math.sin(mid) * (r + fuera)}%`,
-                  color: on ? '#fff' : x.lleno ? 'var(--gd)' : 'var(--gr)', animationDelay: `${300 + i * 55}ms` }}>
+                  color: on ? '#fff' : x.rev ? '#8A6410' : x.lleno ? 'var(--gd)' : 'var(--gr)', animationDelay: `${300 + i * 55}ms` }}>
                   <Ic name={x.ic} size={18}/>
                   <div style={{ fontSize: 12, marginTop: 2, lineHeight: 1.15 }}>{x.t}</div>
                   <div style={{ fontSize: 9.5, opacity: .75, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.sub}</div>
@@ -491,6 +518,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 <span style={{ flex: 1, fontSize: 15 }}>{q.t}</span>
                 <button className="btn btn-p btn-sm" onClick={() => setAbierto(null)}>Hecho</button>
               </div>
+              {rev(q.k) && (
+                <div style={{ background: '#FBF1D3', borderRadius: 14, padding: '10px 12px', marginBottom: 12, fontSize: 12.5, color: '#6E5010' }}>
+                  Viene copiado del ejercicio del que salió. Cambia lo que no valga para esta variante, o:
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="btn btn-p btn-sm" onClick={() => set('por_revisar', d.por_revisar.filter(x => x !== q.k))}>Sí, vale todo</button>
+                    <button className="btn btn-t btn-sm" onClick={() => setRev(q.k === 'ejecucion' ? 'items_ejecucion' : 'feedbacks', q.k, [])}>Empezar de cero</button>
+                  </div>
+                </div>
+              )}
               {editor(q.k)}
             </div>
           )}
