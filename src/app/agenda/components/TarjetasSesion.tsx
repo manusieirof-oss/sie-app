@@ -12,7 +12,8 @@ import ImagenEjercicio from '@/components/ImagenEjercicio'
 // vista: diez ejercicios eran una pared de casillas. Ahora se ve lo que se mira de un
 // vistazo —la imagen, el nombre y la dosis— y el resto se pide: al tocar la imagen
 // salen cuatro iconos (dosis, ejecución, feedbacks, nota) y cada uno abre su hoja
-// justo debajo de la tarjeta. Solo una tarjeta abierta a la vez.
+// justo debajo de la tarjeta. Solo una tarjeta abierta a la vez. Las tarjetas son
+// pequeñas a propósito: la sesión entera tiene que caber de una vista.
 //
 // La ejecución y los feedbacks no viven en la sesión sino en la biblioteca, así que se
 // piden una vez por sesión (como hace el taller). La nota y el peso se siguen guardando
@@ -125,7 +126,7 @@ export default function TarjetasSesion({ partes, pesos, setPesos, anotaciones, s
         <div key={pi} style={{ marginBottom: 16 }}>
           {parte.nombre && <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--g)', letterSpacing: .5, textTransform: 'uppercase', marginBottom: 8 }}>{parte.nombre}</div>}
           {/* "dense": la hoja ocupa toda la fila y la tarjeta de al lado sube a rellenar el hueco. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gridAutoFlow: 'row dense', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(86px,1fr))', gridAutoFlow: 'row dense', gap: 8 }}>
             {(parte.ejercicios || []).map((ej: any, ei: number) => {
               const clave = `${pi}-${ei}`
               const abierto = abierta === clave
@@ -135,32 +136,32 @@ export default function TarjetasSesion({ partes, pesos, setPesos, anotaciones, s
               return (
                 <Fragment key={clave}>
                   <div style={{ minWidth: 0 }}>
-                    <div onClick={() => tocar(clave)} style={{ position: 'relative', cursor: 'pointer', borderRadius: 14, overflow: 'hidden',
+                    <div onClick={() => tocar(clave)} style={{ position: 'relative', cursor: 'pointer', borderRadius: 10, overflow: 'hidden',
                       boxShadow: abierto ? '0 0 0 2px var(--g)' : '0 2px 9px rgba(38,40,37,.10)', transition: 'box-shadow .15s' }}>
                       <ImagenEjercicio src={ej.imagen_url || l.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={l.etiquetas}
-                        radio={0} fondo="var(--bl)" icono={24} insignias={!abierto}/>
+                        radio={0} fondo="var(--bl)" icono={18} insignias={!abierto}/>
                       {abierto && (
                         <div className="ts-entra" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,.78)', backdropFilter: 'blur(2px)',
-                          display: 'grid', gridTemplateColumns: '1fr 1fr', placeItems: 'center', padding: 10 }}>
+                          display: 'grid', gridTemplateColumns: '1fr 1fr', placeItems: 'center', padding: 5 }}>
                           {HOJAS.map(h => {
                             const on = hoja === h.id
                             return (
                               <button key={h.id} title={h.nombre} onClick={e => { e.stopPropagation(); setHoja(on ? null : h.id) }}
-                                style={{ width: 44, height: 44, borderRadius: 99, border: 'none', cursor: 'pointer', position: 'relative',
+                                style={{ width: 30, height: 30, borderRadius: 99, border: 'none', cursor: 'pointer', position: 'relative',
                                   background: on ? 'var(--g)' : '#fff', color: on ? '#fff' : 'var(--gd)',
                                   boxShadow: '0 2px 8px rgba(38,40,37,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Ic name={h.icono} size={18}/>
-                                {h.id === 'nota' && conNota && !on && <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 99, background: 'var(--amb)' }}/>}
+                                <Ic name={h.icono} size={14}/>
+                                {h.id === 'nota' && conNota && !on && <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: 99, background: 'var(--amb)' }}/>}
                               </button>
                             )
                           })}
                         </div>
                       )}
                     </div>
-                    <div style={{ padding: '7px 2px 0' }}>
-                      <div style={{ fontSize: 12, color: 'var(--n)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ej.nombre}</div>
+                    <div style={{ padding: '5px 1px 0' }}>
+                      <div style={{ fontSize: 11, color: 'var(--n)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ej.nombre}</div>
                       {(d || conNota) && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--grl)', marginTop: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>
                           {d && <span>{d}</span>}
                           {conNota && <span title="Tiene nota" style={{ display: 'inline-flex', color: 'var(--amb)' }}><Ic name="nota" size={11}/></span>}
                         </div>
