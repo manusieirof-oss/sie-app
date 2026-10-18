@@ -25,11 +25,11 @@ export type Punto3D = {
 
 const Z: Record<string, Def3D> = {
   // Cabeza y cuello
-  'cabeza':        { dx: 0,  y: 36,  z: 4,   cara: 'sup' },
-  'cara':          { dx: 0,  y: 62,  z: 31,  cara: 'ant' },
-  'mandibula':     { dx: 0,  y: 86,  z: 22,  cara: 'ant' },
-  'cervical':      { dx: 0,  y: 108, z: -20, cara: 'post' },
-  'cuello':        { dx: 0,  y: 108, z: 14,  cara: 'ant' },
+  'cabeza':        { dx: 0,  y: 43,  z: 4,   cara: 'sup' },
+  'cara':          { dx: 0,  y: 69,  z: 31,  cara: 'ant' },
+  'mandibula':     { dx: 0,  y: 93,  z: 22,  cara: 'ant' },
+  'cervical':      { dx: 0,  y: 112, z: -21, cara: 'post' },
+  'cuello':        { dx: 0,  y: 112, z: 16,  cara: 'ant' },
 
   // Tronco
   'hombro':        { dx: 72, y: 156, z: 0,   cara: 'lat' },
