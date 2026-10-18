@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { UNIDADES, unidadDe, problemasDelTest, planDeItems, alcanceItemsBorrados, aplicarCambioDeItems, esSuma, esBaremo } from '@/lib/tests'
@@ -287,6 +288,10 @@ export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCe
         </div>
       </div>
 
+      {/* Panel, selector y barra van al <body>: el mapa mueve y escala el rosco con
+          transform, y dentro de un transform un position:fixed deja de ser fijo a la
+          pantalla (la barra salía pegada al rosco). */}
+      {typeof document !== 'undefined' && createPortal(<>
       {q && (
         <div key={q.k} className="rt-panel">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', top: -18, zIndex: 3,
@@ -309,6 +314,7 @@ export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCe
           <button className="btn btn-p btn-sm" disabled={guardando || !cambiado} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button>
         </div>
       </div>
+      </>, document.body)}
     </div>
   )
 }

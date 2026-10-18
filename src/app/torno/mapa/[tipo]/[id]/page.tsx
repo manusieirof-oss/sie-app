@@ -60,7 +60,12 @@ export default function MapaPage() {
   const [enlaces, setEnlaces] = useState<any[]>([])
   const [cargado, setCargado] = useState(false)
   const [dim, setDim] = useState({ w: 1200, h: 800 })
-  const [camara, setCamara] = useState<{ x: number, y: number, s: number, anim: boolean }>({ x: 0, y: 0, s: 1, anim: false })
+  // EL VIAJE: el mundo se desliza hasta dejar en el centro el planeta tocado, mientras el
+  // de antes se encoge a planeta. Al llegar, la nueva colocación coincide con lo que se
+  // ve, así que no hay salto: el de antes queda justo donde quedó, en la dirección
+  // contraria a la que se fue. Por eso se guarda `entrada`: desde dónde se llegó.
+  const [viaje, setViaje] = useState<{ x: number, y: number, destino: string } | null>(null)
+  const [entrada, setEntrada] = useState<{ id: string, ang: number } | null>(null)
   const [llegando, setLlegando] = useState(true)      // los de fuera, saliendo del centro tras un viaje
   const [menuMas, setMenuMas] = useState(false)
   const [busca, setBusca] = useState('')
@@ -111,24 +116,33 @@ export default function MapaPage() {
   const D = Math.max(260, Math.min(480, dim.h * .56, anchoUtil * .5))  // diámetro del rosco
   const R1 = D / 2 + 92                                                // anillo de los vecinos
   const R2 = R1 + 96                                                   // los del siguiente salto
+  // El de donde se viene va primero y en su dirección; los demás, repartidos a partir de él.
+  const vecinosOrd = entrada && vecinos.some(v => v.id === entrada.id)
+    ? [vecinos.find(v => v.id === entrada.id), ...vecinos.filter(v => v.id !== entrada.id)] : vecinos
+  const base = entrada && vecinos.some(v => v.id === entrada.id) ? entrada.ang : -Math.PI / 2
   const nAnillo = vecinos.length + 1                                    // + el "+"
-  const angulo = (i: number) => (-90 + (360 / nAnillo) * i) * Math.PI / 180
+  const angulo = (i: number) => base + (2 * Math.PI / nAnillo) * i
   const en = (r: number, a: number) => ({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) })
 
   // ---- Viajar a otro planeta ----------------------------------------------------
-  function viajar(destino: Foco, desde?: { x: number, y: number }) {
+  /** `desde`: dónde está el planeta tocado. `via`: si es del siguiente salto, el vecino por el que se pasa. */
+  function viajar(destino: Foco, desde?: { x: number, y: number }, via?: { id: string, x: number, y: number }) {
     if (destino.id === foco.id && destino.tipo === foco.tipo) return
+    if (viaje) return
     if (sinGuardar.current && !confirm('Hay cambios sin guardar en este. ¿Irte igualmente?')) return
     sinGuardar.current = false
     setMenuMas(false); setBusca(''); setPanel(false)
-    if (!desde) { setFoco(destino); setLlegando(true); setTimeout(() => setLlegando(false), 60); return }
-    // La cámara se acerca al planeta tocado; al llegar, ese pasa al centro y todo se recoloca.
-    setCamara({ x: cx - desde.x, y: cy - desde.y, s: 1.7, anim: true })
+    if (!desde) { setEntrada(null); setFoco(destino); setLlegando(true); setTimeout(() => setLlegando(false), 60); return }
+    setViaje({ x: cx - desde.x, y: cy - desde.y, destino: destino.id })
+    // Al llegar, lo de donde se viene queda en la dirección contraria: si el test estaba
+    // arriba del objetivo, el objetivo queda abajo del test. Siguiendo la línea se vuelve.
+    const nueva = via
+      ? { id: via.id, ang: Math.atan2(via.y - desde.y, via.x - desde.x) }
+      : { id: foco.id, ang: Math.atan2(cy - desde.y, cx - desde.x) }
     setTimeout(() => {
-      setCamara({ x: 0, y: 0, s: 1, anim: false })
-      setFoco(destino); setLlegando(true)
-      setTimeout(() => setLlegando(false), 60)
-    }, 520)
+      setEntrada(nueva); setFoco(destino); setViaje(null); setLlegando(true)
+      setTimeout(() => setLlegando(false), 40)
+    }, 560)
   }
   useEffect(() => { if (cargado) setTimeout(() => setLlegando(false), 80) }, [cargado])
 
@@ -180,7 +194,7 @@ export default function MapaPage() {
         .esp-linea { transition: x1 .55s cubic-bezier(.2,.9,.3,1.15), y1 .55s cubic-bezier(.2,.9,.3,1.15), x2 .55s cubic-bezier(.2,.9,.3,1.15), y2 .55s cubic-bezier(.2,.9,.3,1.15), opacity .4s }
         .esp-pop { position:absolute; top:calc(100% + 8px); left:50%; transform:translateX(-50%); z-index:25; width:260px;
           background:#fff; border-radius:14px; padding:6px; box-shadow:0 12px 30px rgba(38,40,37,.18) }
-        @keyframes esp-centro { from { transform: translate(-50%,-50%) scale(.6); opacity:0 } to { transform: translate(-50%,-50%) scale(1); opacity:1 } }
+        @keyframes esp-centro { from { transform: translate(-50%,-50%) scale(var(--s0, .6)) } to { transform: translate(-50%,-50%) scale(1) } }
       `}</style>
       <div className="esp-fondo"/>
 
@@ -202,21 +216,22 @@ export default function MapaPage() {
           : !centro && foco.id !== 'nuevo' ? <div className="muted" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>No encuentro este {foco.tipo}.</div>
           : (
           // EL MUNDO: lo que mueve la cámara al viajar.
-          <div style={{ position: 'absolute', inset: 0, transformOrigin: `${cx}px ${cy}px`,
-            transform: `translate(${camara.x}px, ${camara.y}px) scale(${camara.s})`,
-            transition: camara.anim ? 'transform .52s cubic-bezier(.5,0,.3,1)' : 'none' }}>
+          <div style={{ position: 'absolute', inset: 0,
+            transform: viaje ? `translate(${viaje.x}px, ${viaje.y}px)` : 'none',
+            transition: viaje ? 'transform .56s cubic-bezier(.45,0,.25,1)' : 'none' }}>
 
             {/* Las líneas: del centro a cada vecino, y de cada vecino a los suyos. */}
             <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
-              {vecinos.map((v: any, i: number) => {
-                const p = llegando ? { x: cx, y: cy } : en(R1, angulo(i))
+              {vecinosOrd.map((v: any, i: number) => {
+                const p = llegando && v.id !== entrada?.id ? { x: cx, y: cy } : en(R1, angulo(i))
                 const lej = lejanosDe(v), sp = abanico(lej.length)
                 return (
                   <g key={v.id}>
-                    <line className="esp-linea" x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#9FC3C8" strokeWidth={1.4} opacity={llegando ? 0 : 1}/>
+                    <line className="esp-linea" x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#9FC3C8" strokeWidth={1.4}
+                      opacity={(llegando && v.id !== entrada?.id) || (viaje && viaje.destino !== v.id) ? 0 : 1}/>
                     {lej.map((lid, k) => {
                       const q = llegando ? p : en(R2, angulo(i) + (k - (lej.length - 1) / 2) * sp)
-                      return <line key={lid} className="esp-linea" x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="#C9DDE0" strokeWidth={1} strokeDasharray="3 4" opacity={llegando ? 0 : .8}/>
+                      return <line key={lid} className="esp-linea" x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="#C9DDE0" strokeWidth={1} strokeDasharray="3 4" opacity={llegando || (viaje && viaje.destino !== lid) ? 0 : .8}/>
                     })}
                   </g>
                 )
@@ -224,7 +239,7 @@ export default function MapaPage() {
             </svg>
 
             {/* EL SIGUIENTE SALTO: pequeños y apagados. Tocar uno también es ir a él. */}
-            {vecinos.map((v: any, i: number) => {
+            {vecinosOrd.map((v: any, i: number) => {
               const lej = lejanosDe(v), sp = abanico(lej.length)
               return lej.map((lid, k) => {
                 const x = listaDe(foco.tipo).find(o => o.id === lid)
@@ -232,9 +247,9 @@ export default function MapaPage() {
                 const pv = en(R1, angulo(i))
                 const p = llegando ? pv : en(R2, angulo(i) + (k - (lej.length - 1) / 2) * sp)
                 return (
-                  <div key={v.id + lid} className="esp-nodo" style={{ left: p.x, top: p.y, opacity: llegando ? 0 : .55, zIndex: 2 }}>
+                  <div key={v.id + lid} className="esp-nodo" style={{ left: p.x, top: p.y, opacity: llegando || (viaje && viaje.destino !== lid) ? 0 : .55, zIndex: 2 }}>
                     <div className="esp-plan esp-flota" title={x.nombre} style={{ animationDelay: `${(k + i) * .7}s` }}
-                      onClick={() => viajar({ tipo: foco.tipo, id: lid }, p)}>
+                      onClick={() => viajar({ tipo: foco.tipo, id: lid }, p, { id: v.id, ...pv })}>
                       <Planeta tipo={foco.tipo} x={x} tam={TAM_2}/>
                     </div>
                   </div>
@@ -243,11 +258,16 @@ export default function MapaPage() {
             })}
 
             {/* LOS VECINOS */}
-            {vecinos.map((v: any, i: number) => {
-              const p = llegando ? { x: cx, y: cy } : en(R1, angulo(i))
+            {vecinosOrd.map((v: any, i: number) => {
+              const vuelta = v.id === entrada?.id   // el de donde se viene: aparece ya en su sitio
+              const p = llegando && !vuelta ? { x: cx, y: cy } : en(R1, angulo(i))
               const partes = partesDe(v.id)
+              const destino = viaje?.destino === v.id
               return (
-                <div key={v.id} className="esp-nodo" style={{ left: p.x, top: p.y, opacity: llegando ? 0 : 1, transitionDelay: `${i * 40}ms`, zIndex: 5 }}>
+                <div key={v.id} className="esp-nodo" style={{ left: p.x, top: p.y, zIndex: destino ? 12 : 5,
+                  opacity: (llegando && !vuelta) || (viaje && !destino) ? 0 : 1, transitionDelay: viaje || vuelta ? '0ms' : `${i * 40}ms` }}>
+                  {/* Al viajar, el destino crece hacia el tamaño del centro. */}
+                  <div style={{ transform: destino ? 'scale(1.5)' : 'none', transition: 'transform .56s cubic-bezier(.45,0,.25,1)' }}>
                   <div className="esp-plan esp-flota" style={{ animationDelay: `${i * .9}s` }} title={`Ir a «${v.nombre}»`}
                     onClick={() => viajar({ tipo: otro, id: v.id }, p)}>
                     <Planeta tipo={otro} x={v} tam={TAM_V}/>
@@ -258,8 +278,9 @@ export default function MapaPage() {
                       style={{ position: 'absolute', bottom: -2, right: -2, width: 20, height: 20, borderRadius: 99, background: '#fff', color: 'var(--red)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 5px rgba(38,40,37,.25)' }}><Ic name="cerrar" size={11}/></span>
                   </div>
+                  </div>
                   <div style={{ width: 120, marginTop: 6, fontSize: 11.5, lineHeight: 1.25, color: 'var(--n)', textAlign: 'center', background: 'rgba(255,255,255,.8)', borderRadius: 6,
-                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{v.nombre}</div>
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', opacity: destino ? 0 : 1, transition: 'opacity .3s' }}>{v.nombre}</div>
                 </div>
               )
             })}
@@ -268,7 +289,7 @@ export default function MapaPage() {
             {foco.id !== 'nuevo' && (() => {
               const p = llegando ? { x: cx, y: cy } : en(R1, angulo(vecinos.length))
               return (
-                <div className="esp-nodo" style={{ left: p.x, top: p.y, opacity: llegando ? 0 : 1, zIndex: menuMas ? 26 : 5 }}>
+                <div className="esp-nodo" style={{ left: p.x, top: p.y, opacity: llegando || viaje ? 0 : 1, zIndex: menuMas ? 26 : 5 }}>
                   <button type="button" onClick={() => setMenuMas(v => !v)} title={`Añadir ${otro === 'test' ? 'un test' : 'un objetivo'}`}
                     style={{ width: 52, height: 52, borderRadius: '50%', border: '2px dashed var(--gm)', background: menuMas ? 'var(--gl)' : '#fff',
                       color: 'var(--g)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -300,8 +321,9 @@ export default function MapaPage() {
             })()}
 
             {/* EL CENTRO: abierto en quesitos. Cambia de clave al viajar, así entra de nuevo. */}
-            <div key={foco.tipo + foco.id} style={{ position: 'absolute', left: cx, top: cy, transform: 'translate(-50%,-50%)', zIndex: 10,
-              transition: 'left .45s ease', animation: 'esp-centro .5s cubic-bezier(.2,.9,.3,1.2) backwards' }}>
+            <div key={foco.tipo + foco.id} style={{ position: 'absolute', left: cx, top: cy, zIndex: 10, ['--s0' as any]: TAM_V * 1.5 / D,
+              transform: `translate(-50%,-50%) scale(${viaje ? TAM_V / D : 1})`,
+              transition: 'left .45s ease, transform .56s cubic-bezier(.45,0,.25,1)', animation: 'esp-centro .5s cubic-bezier(.2,.9,.3,1.1) backwards' }}>
               {foco.tipo === 'objetivo'
                 ? <RoscoObjetivo objetivo={centro || null} etiquetas={etiquetas} tests={tests} tam={D}
                     onGuardado={trasGuardar} onCambiado={v => { sinGuardar.current = v }} onPanel={setPanel}
