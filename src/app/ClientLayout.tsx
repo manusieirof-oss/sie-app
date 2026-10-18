@@ -8,16 +8,20 @@ import { renovarCuotas } from '@/lib/bonos'
 import { aplicarEstadosProgramados } from '@/lib/estadosPaciente'
 import { Ic } from '@/lib/icons'
 
-const NAV = [
+// Los pilares van en tres bloques, separados por una rayita: lo del día a día,
+// lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
+const NAV_DIA = [
   { href: '/agenda', icon: 'agenda', label: 'Agenda' },
   { href: '/pacientes', icon: 'pacientes', label: 'Pacientes' },
-  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca' },
   { href: '/taller', icon: 'taller', label: 'Taller' },
-  { href: '/torno', icon: 'recuperar', label: 'Torno' },
-  { href: '/valoracion', icon: 'valoracion', label: 'Valorac.' },
-  { href: '/estadisticas', icon: 'stats', label: 'Stats' },
-  { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' },
 ]
+const NAV_PROGRAMAR = [
+  { href: '/torno', icon: 'recuperar', label: 'El torno' },
+  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca' },
+  { href: '/valoracion', icon: 'valoracion', label: 'Valoración' },
+]
+const NAV_STATS = { href: '/estadisticas', icon: 'stats', label: 'Stats' }
+const NAV_AJUSTES = { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' }
 
 // Dos permisos distintos y a propósito: COBROS lo necesitan los empleados para
 // cobrar y facturar; FINANZAS es el dinero de la clínica y solo lo ve quien
@@ -30,6 +34,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [perfil, setPerfil] = useState<any>(null)
   /** El logo de Ajustes → Clínica. Sustituye al "SIE" vertical de la barra de pilares. */
   const [logo, setLogo] = useState<string>('')
+  /** Bonos activos sin cobrar (pendientes + impagos): el numerito de Cobros. */
+  const [porCobrar, setPorCobrar] = useState(0)
+  const [menuUsuario, setMenuUsuario] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -77,6 +84,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [user])
 
+  // El numerito de Cobros se refresca al cambiar de pantalla: así, al volver de cobrar,
+  // ya ha bajado sin tener que recargar.
+  useEffect(() => {
+    if (!user?.id) return
+    supabase.from('bonos').select('estado_pago').eq('activo', true).in('estado_pago', ['pendiente', 'impago'])
+      .then(({ data }) => setPorCobrar((data || []).length))
+  }, [user, pathname])
+
   useEffect(() => {
     if (user === null && pathname !== '/login') router.push('/login')
   }, [user, pathname])
@@ -95,15 +110,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   if (pathname === '/login') return <>{children}</>
   if (!user) return null
 
-  const todayStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const pageTitle: Record<string,string> = {
-    '/agenda':'Agenda','/pacientes':'Pacientes','/entrenamiento':'Biblioteca','/taller':'Taller','/torno':'El torno',
-    '/valoracion':'Valoración','/estadisticas':'Stats','/ajustes':'Ajustes','/finanzas':'Finanzas','/cobros':'Cobros',
-  }
-  const currentTitle = Object.entries(pageTitle).find(([k])=>pathname.startsWith(k))?.[1] ?? 'SIE'
-
   const veFinanzas = perfil?.rol==='admin' || perfil?.permisos?.finanzas===true
   const veCobros   = veFinanzas || perfil?.permisos?.cobros===true
+
+  // Un pilar de la barra: icono grande, el nombre en una burbuja al pasar el ratón y,
+  // si toca, un numerito (Cobros).
+  const enlace = (n: { href: string, icon: string, label: string, n?: number }) => (
+    <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href) ? 'active' : ''}`} aria-label={n.label}>
+      <Ic name={n.icon} size={21} strokeWidth={1.7}/>
+      {!!n.n && <span className="sb-b">{n.n > 99 ? '99+' : n.n}</span>}
+      <span className="sb-tip">{n.label}</span>
+    </Link>
+  )
 
   return (
     <div className={`shell ${pathname.startsWith('/torno') ? 'inmersivo' : ''}`}>
@@ -112,46 +130,38 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {pathname.startsWith('/torno') && <div className="borde-izq"/>}
       <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
-        {/* El logo de la clínica manda; sin logo se queda el "SIE" vertical de siempre.
-            La barra es oscura, así que un logo de trazo negro no se verá: por eso el
-            ajuste avisa de subirlo con fondo transparente. */}
+        {/* El logo de la clínica manda; sin logo, la pastilla verde con "SIE". */}
         {logo
           ? <img src={logo} alt="" className="sb-marca"/>
           : <div className="sb-logo">SIE</div>}
-        {NAV.map(n=>(
-          <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href)?'active':''}`}>
-            <Ic name={n.icon} size={20} strokeWidth={2}/>
-            <span className="nav-label">{n.label}</span>
-          </Link>
-        ))}
-        {veCobros && (
-          <Link href={NAV_COBROS.href} className={`nav-item ${pathname.startsWith(NAV_COBROS.href)?'active':''}`}>
-            <Ic name={NAV_COBROS.icon} size={20} strokeWidth={2}/>
-            <span className="nav-label">{NAV_COBROS.label}</span>
-          </Link>
-        )}
-        {veFinanzas && (
-          <Link href={NAV_FINANZAS.href} className={`nav-item ${pathname.startsWith(NAV_FINANZAS.href)?'active':''}`}>
-            <Ic name={NAV_FINANZAS.icon} size={20} strokeWidth={2}/>
-            <span className="nav-label">{NAV_FINANZAS.label}</span>
-          </Link>
-        )}
-        <div style={{marginTop:'auto'}}>
-          <button className="nav-item" onClick={handleLogout}>
-            <Ic name="salir" size={20} strokeWidth={2}/>
-            <span className="nav-label">Salir</span>
-          </button>
+        {NAV_DIA.map(enlace)}
+        <span className="sb-sep"/>
+        {NAV_PROGRAMAR.map(enlace)}
+        <span className="sb-sep"/>
+        {veCobros && enlace({ ...NAV_COBROS, n: porCobrar })}
+        {veFinanzas && enlace(NAV_FINANZAS)}
+        {enlace(NAV_STATS)}
+        <div className="sb-pie">
+          {enlace(NAV_AJUSTES)}
+          <div style={{ position: 'relative' }}>
+            <button className="sb-av" onClick={() => setMenuUsuario(v => !v)} title={perfil?.nombre || user.email}>
+              {((perfil?.nombre || user.email || '?').trim()[0] || '?').toUpperCase()}
+            </button>
+            {menuUsuario && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuUsuario(false)}/>
+                <div className="sb-menu">
+                  <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: 500 }}>{perfil?.nombre || 'Tu cuenta'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 8 }}>{user.email}</div>
+                  <button className="sb-menu-it" onClick={handleLogout}><Ic name="salir" size={15}/> Cerrar sesión</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </nav>
-      <header className="topbar">
-        <span className="tb-logo">SIE</span>
-        <span className="tb-title">{currentTitle}</span>
-        <span className="tb-sep"/>
-        <span className="tb-sub">{todayStr}</span>
-        <div className="tb-right">
-          <span style={{fontSize:10,color:'var(--grl)'}}>{user.email}</span>
-        </div>
-      </header>
+      {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
+          fecha en grande). Eran 52 px de alto en todas las pantallas. */}
       <main className="content">{children}</main>
     </div>
   )
