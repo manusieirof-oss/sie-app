@@ -736,3 +736,11 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .m-chip small{font-size:11px;color:var(--grl);margin-left:2px}
 .m-chip.on{background:var(--n);color:#fff}.m-chip.on small{color:rgba(255,255,255,.7)}
 .m-chip.llena{opacity:.5}
+.m-seg{display:flex;background:#ECE9E2;border-radius:14px;padding:3px;margin-bottom:12px}
+.m-seg button{flex:1;font-family:inherit;border:none;background:transparent;border-radius:11px;padding:9px 0;font-size:13px;font-weight:500;color:var(--gr)}
+.m-seg button.on{background:var(--w);color:var(--n);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.m-ent{padding:7px 0;border-top:1px solid #F1EEE8}
+.m-ent:first-of-type{border-top:none}
+.m-ent span{display:block;font-size:14px;color:var(--n)}
+.m-ent small{display:block;font-size:12.5px;color:var(--gd)}
+.m-ent em{display:block;font-size:12px;color:var(--grl);font-style:normal;margin-top:2px}

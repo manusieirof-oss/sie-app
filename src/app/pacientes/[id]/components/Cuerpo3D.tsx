@@ -194,6 +194,8 @@ export default function Cuerpo3D({ focos, onAbrir, onFallo, alto = 520 }: {
         // Un clic de verdad, no el final de un arrastre.
         if (arrastre && arrastre.total < 6) {
           const o = tocado(e)
+          // En pantallas táctiles no hay "pasar por encima": el toque muestra la etiqueta.
+          if (e.pointerType !== 'mouse') { encima = o; setHover(o ? o.f : null) }
           if (o) onAbrirRef.current?.(o.f.marcas)
         }
         arrastre = null
