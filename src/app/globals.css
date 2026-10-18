@@ -38,7 +38,7 @@ html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:
 .sidebar{transition:transform .22s ease;grid-row:1/2;background:var(--bl);display:flex;flex-direction:column;align-items:center;padding:16px 0 14px;gap:4px;z-index:20;}
 /* Barra clara, del color del fondo: la pantalla se ve más amplia. El pilar activo es
    una pastilla blanca con sombra suave; el nombre sale en burbuja al pasar el ratón. */
-.sb-marca{width:40px;height:40px;object-fit:contain;margin-bottom:14px;flex-shrink:0;}
+.sb-marca{width:48px;height:48px;object-fit:contain;margin-bottom:14px;flex-shrink:0;}
 .sb-logo{width:40px;height:40px;border-radius:12px;background:var(--g);color:#fff;font-weight:700;font-size:12px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex-shrink:0;}
 .nav-item{position:relative;width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#8A8C88;transition:background .15s,color .15s,box-shadow .15s;border:none;background:transparent;text-decoration:none;flex-shrink:0;}
 .nav-item:hover{background:#ECE9E2;color:var(--n);}

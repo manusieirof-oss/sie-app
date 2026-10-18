@@ -32,18 +32,11 @@ const NAV_FINANZAS = { href: '/finanzas', icon: 'finanzas', label: 'Finanzas' }
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined)
   const [perfil, setPerfil] = useState<any>(null)
-  /** El logo de Ajustes → Clínica. Sustituye al "SIE" vertical de la barra de pilares. */
-  const [logo, setLogo] = useState<string>('')
   /** Bonos activos sin cobrar (pendientes + impagos): el numerito de Cobros. */
   const [porCobrar, setPorCobrar] = useState(0)
   const [menuUsuario, setMenuUsuario] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-
-  useEffect(() => {
-    supabase.from('ajustes').select('valor').eq('clave','clinica_logo').maybeSingle()
-      .then(({ data }) => setLogo(data?.valor || ''))
-  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -139,10 +132,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {pathname.startsWith('/torno') && <div className="borde-izq"/>}
       <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
-        {/* El logo de la clínica manda; sin logo, el de SIE (public/marca). */}
-        {logo
-          ? <img src={logo} alt="" className="sb-marca"/>
-          : <img src="/marca/sie-logo.svg" alt="SIE" className="sb-marca"/>}
+        {/* El logo del PROGRAMA, siempre. El de Ajustes → Clínica es el de la clínica y va
+            en informes y facturas; mezclarlos obligaba a elegir entre los dos. */}
+        <img src="/marca/sie-logo.svg" alt="SIE" className="sb-marca"/>
         {NAV_DIA.map(enlace)}
         <span className="sb-sep"/>
         {NAV_PROGRAMAR.map(enlace)}
