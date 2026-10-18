@@ -70,10 +70,18 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
       {vista==='progreso'&&<ProgresionEjercicios registros={registros} bandas={bandas} pacienteId={pac?.id} pesoKg={parseFloat(pac?.peso_kg)||null}/>}
 
       {vista==='analisis'&&(
-        <div style={{display:'flex',flexDirection:'column',gap:30}}>
+        /* EN TARJETAS, COMO EL TORNO Y LA PROGRESIÓN. Antes era una columna de gráficas
+           sueltas separadas por aire, y no se sabía dónde acababa una y empezaba otra. Cada
+           bloque es ahora una tarjeta blanca; las pequeñas van de dos en dos y las anchas
+           (asistencia, trabajo, dolor, tests) ocupan la fila. */
+        <div className="res-grid">
+          <style>{`.res-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start}
+            .res-grid>div{background:#fff;border-radius:16px;padding:16px 18px;box-shadow:0 2px 12px rgba(38,40,37,.07);min-width:0}
+            .res-grid>.ancha{grid-column:1/-1}
+            .res-grid>.nota{background:none;box-shadow:none;padding:0}`}</style>
 
           {/* ASISTENCIA: donut + numeros */}
-          <div style={{display:'grid',gridTemplateColumns:'180px 1fr',gap:20,alignItems:'center'}}>
+          <div className="ancha" style={{display:'grid',gridTemplateColumns:'180px 1fr',gap:20,alignItems:'center'}}>
             <div style={{position:'relative',height:160}}>
               <ResponsiveContainer width="100%" height="100%">
                 <RadialBarChart innerRadius="70%" outerRadius="100%" data={dataDonut} startAngle={90} endAngle={-270}>
@@ -103,7 +111,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             <div>
               <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Asistencia por mes</div>
               <ResponsiveContainer width="100%" height={180}>
-                <AreaChart data={dataMeses} margin={{top:5,right:10,left:-20,bottom:0}}>
+                <AreaChart data={dataMeses} margin={{top:5,right:10,left:0,bottom:0}}>
                   <defs>
                     <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={G} stopOpacity={0.4}/>
@@ -126,7 +134,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             <div>
               <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Evolución de escalas</div>
               <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={dataEscalas} margin={{top:5,right:10,left:-20,bottom:0}}>
+                <LineChart data={dataEscalas} margin={{top:5,right:10,left:0,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false}/>
                   <XAxis dataKey="fecha" tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
                   <YAxis domain={[0,10]} tick={{fontSize:12,fill:GREY}} axisLine={false} tickLine={false}/>
@@ -146,7 +154,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
               la pregunta con la que se llega a revalorar: no cómo va lo que hace, sino
               qué se está quedando sin hacer. */}
           {pac?.id && (
-            <div className="sec">
+            <div className="sec ancha">
               <div className="sec-h">
                 <span className="sh-l"><span className="ct-l">Trabajo realizado</span></span>
                 <span className="sh-r">series por zona y por patrón</span>
@@ -158,7 +166,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
           {/* EVA POR ZONA. Una gráfica por zona, no una línea que las une todas:
               cada zona es una medida distinta y juntarlas inventaba evoluciones. */}
           {zonasEva.length>0&&(
-            <div className="sec">
+            <div className="sec ancha">
               <div className="sec-h">
                 <span className="sh-l"><span className="ct-l">Dolor percibido · EVA</span></span>
                 <span className="sh-r">Una línea por zona</span>
@@ -248,7 +256,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             const grupos: Record<string,any[]>={}
             tests.forEach((t:any)=>{const key=`${t.test_id}_${t.lado||'bilateral'}`;if(!grupos[key])grupos[key]=[];grupos[key].push(t)})
             return (
-              <div>
+              <div className="ancha">
                 <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:10}}>Evolución de tests funcionales</div>
                 {Object.values(grupos).map((grupo:any[],gi:number)=>{
                   const sorted=[...grupo].sort((a,b)=>a.fecha.localeCompare(b.fecha))
@@ -287,7 +295,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
             )
           })()}
 
-          <div style={{fontSize:12,color:'var(--gr)',textAlign:'center',fontWeight:400,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><Ic name="info" size={11}/> Las citas se actualizan a las 00:00</div>
+          <div className="ancha nota" style={{fontSize:12,color:'var(--gr)',textAlign:'center',fontWeight:400,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><Ic name="info" size={11}/> Las citas se actualizan a las 00:00</div>
         </div>
       )}
 
