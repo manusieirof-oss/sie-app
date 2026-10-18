@@ -104,6 +104,17 @@ export function puntoDeZona(zona: string, lado?: string | null): Punto[] {
   return [{ x: def.x - dx, y: def.y, cara }, { x: def.x + dx, y: def.y, cara }]
 }
 
+/**
+ * La clave de ZONAS a la que cae un nombre, con el mismo criterio que `puntoDeZona()`
+ * (exacta y, si no, por contención). La usa el cuerpo 3D, que tiene su propia tabla de
+ * coordenadas pero tiene que entender los nombres exactamente igual que la silueta.
+ */
+export function claveDeZona(zona: string): string | null {
+  const n = norm(zona)
+  if (ZONAS[n]) return n
+  return Object.keys(ZONAS).filter(k => n.includes(k)).sort((a, b) => b.length - a.length)[0] || null
+}
+
 export function zonaEstaMapeada(zona: string): boolean {
   return puntoDeZona(zona, 'bilateral').length > 0
 }

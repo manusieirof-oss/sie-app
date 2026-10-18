@@ -1,6 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { puntoDeZona, Cara } from '@/lib/anatomia'
+import { puntos3DDeZona } from '@/lib/anatomia3d'
+import Cuerpo3D, { Foco3D } from './Cuerpo3D'
 import { Ic } from '@/lib/icons'
 
 export type Indicador = {
@@ -65,6 +67,16 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
 }) {
   const [hover, setHover] = useState<string | null>(null)
   const [abierto, setAbierto] = useState<string | null>(null)
+  // 3D por defecto; la silueta plana queda como alternativa (y de red si no hay WebGL).
+  // Se recuerda en este navegador, que es una preferencia de quien mira, no del paciente.
+  const [modo, setModo] = useState<'3d' | '2d'>('3d')
+  useEffect(() => {
+    try { if (localStorage.getItem('sie_cuerpo_modo') === '2d') setModo('2d') } catch {}
+  }, [])
+  const cambiarModo = (m: '3d' | '2d') => {
+    setModo(m)
+    try { localStorage.setItem('sie_cuerpo_modo', m) } catch {}
+  }
 
   // En fila y sin recuadro: el icono a pelo, con su contador y su etiqueta.
   const fila = (inds: Indicador[]) => (
@@ -118,6 +130,26 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
     })
   })
 
+  // Lo mismo para el cuerpo 3D: se agrupa por punto y manda el estado más grave.
+  // useMemo para que el 3D no rehaga sus marcas en cada render, solo si cambian los datos.
+  const focos3D = useMemo(() => {
+    const fs: Foco3D[] = []
+    marcas.forEach(m => {
+      puntos3DDeZona(m.zona, m.lado).forEach(pt => {
+        const clave = pt.p.map(v => v.toFixed(2)).join('_')
+        const ya = fs.find(f => f.clave === clave)
+        if (ya) ya.marcas.push(m)
+        else fs.push({ clave, p: pt.p, n: pt.n, color: '', marcas: [m] })
+      })
+    })
+    fs.forEach(f => {
+      const peor = [...f.marcas].sort((a, b) => RANGO[b.estado] - RANGO[a.estado])[0]
+      f.color = COLOR[peor.estado]
+      f.apagado = peor.estado === 'resuelto'
+    })
+    return fs
+  }, [marcas])
+
   return (
     <div>
       {/* Banda propia: las etiquetas de los iconos cuelgan hacia abajo y sin este
@@ -129,7 +161,12 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
       )}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 24 }}>
       {flancoIzq && <div style={{ flex: 1, minWidth: 0 }}>{flancoIzq}</div>}
-      <div style={{ position: 'relative', width: '100%', maxWidth: 300, flexShrink: 0 }}>
+      <div style={{ width: '100%', maxWidth: modo === '3d' ? 320 : 300, flexShrink: 0 }}>
+      {modo === '3d' && (
+        <Cuerpo3D focos={focos3D} onAbrir={onAbrir} onFallo={() => setModo('2d')} />
+      )}
+      {modo === '2d' && (
+      <div style={{ position: 'relative', width: '100%' }}>
         <img src="/silueta.webp" alt="Silueta del paciente" style={{ width: '100%', display: 'block' }} />
 
         {situadas.map(s => {
@@ -175,8 +212,17 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
                 </div>
               )}
             </div>
-          )
+ )
         })}
+      </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+        <div className="vista-sw" style={{ margin: 0 }}>
+          {([['3d', '3D'], ['2d', 'Plano']] as const).map(([k, l]) => (
+            <button key={k} className={`vista-b ${modo === k ? 'on' : ''}`} onClick={() => cambiarModo(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
       </div>
       {flancoDer && <div style={{ flex: 1, minWidth: 0 }}>{flancoDer}</div>}
       </div>
@@ -196,6 +242,12 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
         ))}
       </div>
 
+      {modo === '3d' && (
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--grl)', marginTop: 6 }}>
+          Arrastra para girarlo · lo de detrás se ve a través del cuerpo
+        </div>
+      )}
+      {modo === '2d' && (
       <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 12, color: 'var(--gr)', marginTop: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--gr)', opacity: .55, filter: 'blur(1.2px)' }} />delante
@@ -204,6 +256,7 @@ export default function Silueta({ marcas, onAbrir, altura, peso, izquierda = [],
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b3b3b', border: '2px solid var(--w)' }} />detrás
         </span>
       </div>
+      )}
 
       {/* Red de seguridad: una zona sin coordenada no puede hacer desaparecer el dato. */}
       {sinSituar.length > 0 && (
