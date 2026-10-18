@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { UNIDADES, unidadDe, problemasDelTest, planDeItems, alcanceItemsBorrados, aplicarCambioDeItems, esSuma, esBaremo } from '@/lib/tests'
@@ -34,9 +34,17 @@ const LOGICAS = [
   { id: 'baremo', t: 'Baremo', ayuda: 'Cada ítem contra su norma por sexo y edad' },
 ]
 
-export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCerrar }: {
+export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCerrar, onCambiado, onPanel, tam = 520 }: {
   test: any | null, etiquetas: any[], objetivos: any[],
-  onGuardado: (id: string) => void, onCerrar: () => void,
+  onGuardado: (id: string) => void,
+  /** Solo si se puede salir sin más (uno nuevo): en el mapa no hay "salir", se viaja a otro. */
+  onCerrar?: () => void,
+  /** Avisa de si hay cambios sin guardar: el mapa pregunta antes de viajar a otro. */
+  onCambiado?: (v: boolean) => void,
+  /** Avisa de si el panel lateral está abierto: el mapa se aparta para que no lo tape. */
+  onPanel?: (v: boolean) => void,
+  /** Diámetro del rosco, en px: lo decide el mapa según la pantalla. */
+  tam?: number,
 }) {
   const [d, setD] = useState<any>(() => ({
     id: test?.id || '', nombre: test?.nombre || '', descripcion: test?.descripcion || '', video_url: test?.video_url || '',
@@ -223,24 +231,25 @@ export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCe
   }
 
   const q = QUESITOS.find(x => x.k === abierto)
+  useEffect(() => { onCambiado?.(cambiado) }, [cambiado]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onPanel?.(!!q) }, [!!q]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`rt ${q ? 'rt-abierto' : ''}`}>
       <style>{`
-        .rt { display:flex; align-items:center; justify-content:center; gap:28px; min-height:calc(100vh - 200px) }
-        .rt-rosco { position:relative; width:min(600px, 88vw); aspect-ratio:1; flex-shrink:0; transition: width .5s ease }
-        .rt-abierto .rt-rosco { width:min(460px, 46vw) }
+        .rt { position:relative }
+        .rt-rosco { position:relative; aspect-ratio:1; flex-shrink:0; transition: width .5s ease }
         .rt-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
                 transition: transform .22s ease, fill .2s ease; animation: rt-sale .55s cubic-bezier(.2,.9,.3,1.25) backwards }
         @keyframes rt-sale { from { transform: scale(.55) rotate(-25deg); opacity:0 } to { transform:none; opacity:1 } }
         .rt-et { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:92px; animation: rt-et .5s ease backwards }
         @keyframes rt-et { from { opacity:0 } to { opacity:1 } }
-        .rt-panel { width:min(520px, 46vw); max-height:calc(100vh - 200px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
+        .rt-panel { position:fixed; right:24px; top:110px; z-index:30; width:min(520px, 40vw); max-height:calc(100vh - 200px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
                     box-shadow:0 18px 44px rgba(38,40,37,.16); animation: rt-panel .4s cubic-bezier(.2,.9,.3,1.1) backwards }
         @keyframes rt-panel { from { opacity:0; transform: translateX(40px) scale(.96) } to { opacity:1; transform:none } }
       `}</style>
 
-      <div className="rt-rosco">
+      <div className="rt-rosco" style={{ width: tam }}>
         <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
           {QUESITOS.map((x, i) => {
             const a0 = -90 + i * paso + HUECO, a1 = -90 + (i + 1) * paso - HUECO
@@ -296,9 +305,7 @@ export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCe
           <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
             {aviso || (!d.nombre.trim() ? 'Falta el nombre' : cambiado ? 'Sin guardar' : `${llenos} de ${necesarios.length} · todo guardado`)}
           </span>
-          <button className="btn btn-t btn-sm" onClick={() => { if (cambiado && !confirm('Hay cambios sin guardar. ¿Salir igualmente?')) return; onCerrar() }}>
-            {d.id ? 'Ver sus objetivos' : 'Cancelar'}
-          </button>
+          {onCerrar && <button className="btn btn-t btn-sm" onClick={() => { if (cambiado && !confirm('Hay cambios sin guardar. ¿Salir igualmente?')) return; onCerrar() }}>Cancelar</button>}
           <button className="btn btn-p btn-sm" disabled={guardando || !cambiado} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button>
         </div>
       </div>

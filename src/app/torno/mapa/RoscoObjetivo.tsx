@@ -32,9 +32,17 @@ function quesito(a0: number, a1: number) {
 
 type Clave = 'nombre' | 'descripcion' | 'zona' | 'imagen' | 'especificos' | 'patologia'
 
-export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, onCerrar }: {
+export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, onCerrar, onCambiado, onPanel, tam = 520 }: {
   objetivo: any | null, etiquetas: any[], tests: any[],
-  onGuardado: (id: string) => void, onCerrar: () => void,
+  onGuardado: (id: string) => void,
+  /** Solo si se puede salir sin más (uno nuevo): en el mapa no hay "salir", se viaja a otro. */
+  onCerrar?: () => void,
+  /** Avisa de si hay cambios sin guardar: el mapa pregunta antes de viajar a otro. */
+  onCambiado?: (v: boolean) => void,
+  /** Avisa de si el panel lateral está abierto: el mapa se aparta para que no lo tape. */
+  onPanel?: (v: boolean) => void,
+  /** Diámetro del rosco, en px: lo decide el mapa según la pantalla. */
+  tam?: number,
 }) {
   const [d, setD] = useState<any>({
     id: objetivo?.id || '', nombre: objetivo?.nombre || '', descripcion: objetivo?.descripcion || '',
@@ -182,24 +190,25 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
   }
 
   const q = QUESITOS.find(x => x.k === abierto)
+  useEffect(() => { onCambiado?.(cambiado) }, [cambiado]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onPanel?.(!!q) }, [!!q]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`ro ${q ? 'ro-abierto' : ''}`}>
       <style>{`
-        .ro { display:flex; align-items:center; justify-content:center; gap:28px; min-height:calc(100vh - 200px) }
-        .ro-rosco { position:relative; width:min(600px, 88vw); aspect-ratio:1; flex-shrink:0; transition: width .5s ease }
-        .ro-abierto .ro-rosco { width:min(460px, 50vw) }
+        .ro { position:relative }
+        .ro-rosco { position:relative; aspect-ratio:1; flex-shrink:0; transition: width .5s ease }
         .ro-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
                 transition: transform .22s ease, fill .2s ease; animation: ro-sale .55s cubic-bezier(.2,.9,.3,1.25) backwards }
         @keyframes ro-sale { from { transform: scale(.55) rotate(-25deg); opacity:0 } to { transform:none; opacity:1 } }
         .ro-et { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:96px; animation: ro-et .5s ease backwards }
         @keyframes ro-et { from { opacity:0 } to { opacity:1 } }
-        .ro-panel { width:min(440px, 42vw); max-height:calc(100vh - 200px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
+        .ro-panel { position:fixed; right:24px; top:110px; z-index:30; width:min(440px, 40vw); max-height:calc(100vh - 200px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
                     box-shadow:0 18px 44px rgba(38,40,37,.16); animation: ro-panel .4s cubic-bezier(.2,.9,.3,1.1) backwards }
         @keyframes ro-panel { from { opacity:0; transform: translateX(40px) scale(.96) } to { opacity:1; transform:none } }
       `}</style>
 
-      <div className="ro-rosco">
+      <div className="ro-rosco" style={{ width: tam }}>
         <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
           {QUESITOS.map((x, i) => {
             const a0 = -90 + i * paso + HUECO, a1 = -90 + (i + 1) * paso - HUECO
@@ -264,9 +273,7 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
           <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>
             {aviso || (!d.nombre.trim() ? 'Falta el nombre' : cambiado ? 'Sin guardar' : `${llenos} de ${necesarios.length} · todo guardado`)}
           </span>
-          <button className="btn btn-t btn-sm" onClick={() => { if (cambiado && !confirm('Hay cambios sin guardar. ¿Salir igualmente?')) return; onCerrar() }}>
-            {d.id ? 'Ver sus tests' : 'Cancelar'}
-          </button>
+          {onCerrar && <button className="btn btn-t btn-sm" onClick={() => { if (cambiado && !confirm('Hay cambios sin guardar. ¿Salir igualmente?')) return; onCerrar() }}>Cancelar</button>}
           <button className="btn btn-p btn-sm" disabled={guardando || !cambiado} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button>
         </div>
       </div>
