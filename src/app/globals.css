@@ -454,3 +454,79 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .tarj-s.est-activa{border-color:var(--g);box-shadow:inset 0 0 0 1px var(--g);}
 .tarj-s.est-cumplida{opacity:.55;}
 .tarj-s.est-cumplida:hover{opacity:1;}
+
+/* ── AGENDA · cabecera en una línea y rejilla limpia ──────────────────────────
+   Una sola barra sin caja: la fecha grande manda y lo demás son iconos con su
+   número. La rejilla quita bordes de celda y bandas; cada clase es una tarjeta
+   suave y los iconos de cada paciente solo salen al pasar el ratón. */
+.ag-cab{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ag-fecha{position:relative;display:flex;align-items:baseline;gap:9px;border:none;background:none;cursor:pointer;font-family:inherit;padding:0;margin-right:4px}
+.ag-fecha-g{font-size:22px;font-weight:600;letter-spacing:-.4px;color:var(--n);text-transform:capitalize}
+.ag-fecha-p{font-size:13px;color:var(--grl)}
+.ag-fecha:hover .ag-fecha-g{color:var(--gd)}
+.ag-ic{position:relative;width:34px;height:34px;border-radius:99px;border:none;background:transparent;color:var(--gr);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s,color .12s}
+.ag-ic:hover{background:var(--w);color:var(--n)}
+.ag-ic.activo{background:var(--gl);color:var(--gd)}
+.ag-badge{position:absolute;top:1px;right:0;min-width:16px;height:16px;border-radius:99px;font-size:9.5px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--bl)}
+.ag-hoy{font-family:inherit;font-size:12px;padding:5px 12px;border-radius:99px;border:1px solid var(--bd);background:var(--w);color:var(--gr);cursor:pointer}
+.ag-hoy:hover,.ag-hoy.on{border-color:var(--g);color:var(--gd);background:var(--gl)}
+.ag-seg{display:flex;background:#ECE9E2;border-radius:99px;padding:3px}
+.ag-seg button{font-family:inherit;border:none;background:transparent;font-size:12px;padding:5px 13px;border-radius:99px;color:var(--gr);cursor:pointer}
+.ag-seg button.on{background:var(--w);color:var(--n);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.ag-resumen{font-size:12px;color:var(--grl);white-space:nowrap}
+.ag-resumen b{color:var(--n);font-weight:600}
+.ag-nueva{font-family:inherit;border:none;background:var(--n);color:#fff;font-size:13px;font-weight:500;padding:8px 16px;border-radius:99px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.ag-nueva:hover{background:var(--gd)}
+.ag-pop{position:absolute;top:40px;right:0;background:var(--w);border-radius:12px;box-shadow:var(--sh-md);padding:12px;z-index:50;text-align:left}
+.ag-pop-t{font-size:10.5px;color:var(--grl);font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px}
+.ag-pop-chk{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0;color:var(--n);cursor:pointer}
+.ag-pop-chk input{accent-color:var(--g)}
+.ag-pop-it{padding:8px 10px;border-radius:8px;cursor:pointer}
+.ag-pop-it:hover{background:var(--gl)}
+.ag-pop-quitar{margin-top:6px;font-family:inherit;font-size:11.5px;border:none;background:none;color:var(--g);cursor:pointer;padding:0}
+.ag-punto{width:7px;height:7px;border-radius:99px;flex-shrink:0;display:inline-block}
+
+.ag-dia{background:var(--w);border-radius:18px;box-shadow:0 1px 2px rgba(38,40,37,.04),0 6px 24px rgba(38,40,37,.05);overflow:hidden;height:calc(100vh - 140px)}
+.ag-fila{display:grid;gap:14px;padding:0 18px}
+.ag-salas{position:sticky;top:0;z-index:3;background:var(--w);padding-top:12px;padding-bottom:8px}
+.ag-salas div{font-size:11px;font-weight:600;color:var(--grl);letter-spacing:.8px;text-transform:uppercase}
+.ag-sep{border-top:1px solid #F1EEE8}
+.ag-hora{font-size:13px;font-weight:600;color:var(--n);padding-top:12px;font-variant-numeric:tabular-nums}
+.ag-hora small{display:block;font-size:10.5px;font-weight:400;color:var(--grl);margin-top:1px}
+.ag-compacta .ag-hora{padding-top:9px;font-weight:500;color:var(--grl)}
+.ag-franja{padding:6px 0 10px;min-width:0}
+.ag-compacta .ag-franja{padding:2px 0}
+.ag-clase{border-radius:14px;background:#FAF9F6;padding:9px 9px 5px}
+.ag-clase.sobre{box-shadow:inset 0 0 0 1px var(--amb)}
+.ag-clase-cab{display:flex;align-items:center;gap:8px;margin:0 2px 6px;min-width:0}
+.ag-aforo{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11px;color:var(--grl);font-variant-numeric:tabular-nums;flex-shrink:0}
+.ag-barra{width:44px;height:4px;border-radius:99px;background:var(--bm);overflow:hidden}
+.ag-barra i{display:block;height:100%;background:var(--g);border-radius:99px}
+.ag-clase.llena .ag-barra i,.ag-clase.sobre .ag-barra i{background:var(--amb)}
+.ag-pac{display:flex;align-items:center;gap:9px;padding:5px 6px;border-radius:9px;cursor:pointer;min-width:0;transition:background .12s,box-shadow .12s}
+.ag-pac:hover{background:var(--w);box-shadow:0 1px 4px rgba(38,40,37,.07)}
+.ag-av{width:26px;height:26px;border-radius:99px;font-size:10.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gd);background:var(--gl)}
+.ag-nom{font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--n)}
+.ag-tag{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:99px;flex-shrink:0}
+.ag-acc{display:none;gap:1px;flex-shrink:0}
+.ag-pac:hover .ag-acc{display:flex}
+.ag-acc button{width:26px;height:26px;border:none;background:transparent;border-radius:7px;color:var(--grl);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.ag-acc button:hover{background:var(--gl);color:var(--gd)}
+/* En pantallas táctiles no hay "pasar el ratón": los iconos se quedan a la vista. */
+@media (hover:none){.ag-acc{display:flex}}
+.ag-pac.falta .ag-nom{color:var(--red);text-decoration:line-through;text-decoration-color:rgba(176,90,90,.45)}
+.ag-pac.falta .ag-av{background:var(--redl);color:var(--red)}
+.ag-libre{font-size:12px;color:var(--grl);padding:6px 8px;border-radius:9px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.ag-libre:hover{color:var(--gd);background:var(--gl)}
+.ag-bajas{font-size:11px;color:var(--grl);padding:4px 8px 2px}
+.ag-bajas span{text-decoration:line-through;cursor:pointer}
+.ag-bajas span:hover{color:var(--n)}
+.ag-vacia{display:flex;align-items:center;min-height:36px;border-radius:12px;color:#CFCABE;font-size:12px;padding:0 12px;cursor:pointer;transition:background .12s,color .12s}
+.ag-vacia:hover{background:var(--gl);color:var(--gd)}
+.ag-vacia.quieta{cursor:default}
+.ag-vacia.quieta:hover{background:none;color:#CFCABE}
+.ag-ahora{position:relative;height:0;z-index:2}
+.ag-ahora::before{content:'';position:absolute;left:18px;right:18px;top:-1px;border-top:1.5px solid var(--red)}
+.ag-ahora span{position:absolute;left:18px;top:-9px;background:var(--red);color:#fff;font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px}
+.ag-pausa{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--grl);font-size:11.5px}
+.ag-pausa::before,.ag-pausa::after{content:'';flex:1;border-top:1px dashed var(--bm)}

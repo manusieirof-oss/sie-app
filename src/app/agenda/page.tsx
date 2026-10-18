@@ -62,6 +62,9 @@ export default function AgendaPage() {
   const [salas, setSalas] = useState<string[]>(['A','B'])
   const [soloHueco, setSoloHueco] = useState(false)
   const [panelAbierto, setPanelAbierto] = useState<null|'alertas'|'tareas'>(null)
+  const [buscando, setBuscando] = useState(false)
+  const [filtroAbierto, setFiltroAbierto] = useState(false)
+  const fechaInputRef = useRef<HTMLInputElement|null>(null)
   const [eventos, setEventos] = useState<any[]>([])
   const [nuevaCita, setNuevaCita] = useState({
     paciente_id:'', fecha:'', hora:'08:30', sala:'A', tipo:'entrenamiento', notas:'',
@@ -537,94 +540,114 @@ export default function AgendaPage() {
 
   return (
     <>
-      {/* BARRA CONTROLES */}
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px',flexWrap:'wrap'}}>
-        <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:2}}>
+      {/* CABECERA · una sola línea y sin caja.
+          Antes eran dos filas (controles + tipos de clase y resumen) que se comían media
+          pantalla en tablet. Lo de consulta puntual (buscar, filtrar, alertas, tareas)
+          pasa a iconos con su número: está a un toque, pero no ocupa sitio en reposo. */}
+      <div className="ag-cab">
+        <button className="ag-fecha" onClick={()=>{const el=fechaInputRef.current as any; if(el?.showPicker) el.showPicker(); else el?.focus()}} title="Elegir fecha">
+          <span className="ag-fecha-g">{vista==='dia'
+            ? fechaObj.toLocaleDateString('es-ES',{weekday:'long',day:'numeric'})
+            : vista==='semana' ? 'Semana del '+new Date(getFechasSemana()[0]+'T12:00:00').getDate()
+            : fechaObj.toLocaleDateString('es-ES',{month:'long'})}</span>
+          <span className="ag-fecha-p">{vista==='mes' ? fechaObj.getFullYear() : fechaObj.toLocaleDateString('es-ES',{month:'long',year:'numeric'})}</span>
+          <input ref={fechaInputRef} type="date" value={fecha} onChange={e=>e.target.value&&setFecha(e.target.value)} tabIndex={-1}
+            style={{position:'absolute',left:0,bottom:0,width:1,height:1,opacity:0,pointerEvents:'none'}}/>
+        </button>
+        <div style={{display:'flex',gap:2}}>
+          <button className="ag-ic" onClick={prevPeriodo} title="Anterior"><Ic name="izq" size={18}/></button>
+          <button className="ag-ic" onClick={nextPeriodo} title="Siguiente"><Ic name="der" size={18}/></button>
+        </div>
+        {fecha!==hoy&&<button className="ag-hoy" onClick={()=>setFecha(hoy)}>Hoy</button>}
+        <div className="ag-seg">
           {(['dia','semana','mes'] as const).map(v=>(
-            <button key={v} onClick={()=>setVista(v)} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===v?'var(--w)':'transparent',color:vista===v?'var(--n)':'var(--grl)',fontWeight:vista===v?500:300,boxShadow:vista===v?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
-              {v==='dia'?'Día':v==='semana'?'Semana':'Mes'}
-            </button>
+            <button key={v} className={vista===v?'on':''} onClick={()=>setVista(v)}>{v==='dia'?'Día':v==='semana'?'Semana':'Mes'}</button>
           ))}
         </div>
-        <button className="btn btn-s btn-sm" onClick={prevPeriodo}>‹</button>
-        <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{width:'auto',maxWidth:160,flexShrink:0}}/>
-        <span style={{fontSize:11,fontWeight:400,color:'var(--n)',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-          {vista==='semana'?'Semana del '+fechaDisplay:vista==='mes'?fechaObj.toLocaleDateString('es-ES',{month:'long',year:'numeric'}):''}
-        </span>
-        {fecha!==hoy&&<button className="btn btn-t btn-sm" onClick={()=>setFecha(hoy)}>Hoy</button>}
-        <button className="btn btn-s btn-sm" onClick={nextPeriodo}>›</button>
+
+        <div style={{flex:1}}/>
+
+        {vista==='dia'&&<span className="ag-resumen" title="Personas distintas y clases del día"><b>{totalPersonas}</b> personas · <b>{clases}</b> clases</span>}
         {vista==='dia'&&salas.length>1&&(
-          <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:2}}>
-            {[{v:'ambas',l:'Ambas'},...salas.map(s=>({v:s,l:'Sala '+s}))].map(({v,l})=>(
-              <button key={v} onClick={()=>setSalaFiltro(v)} style={{fontSize:10,padding:'4px 10px',borderRadius:4,border:'none',cursor:'pointer',fontFamily:'system-ui',background:salaFiltro===v?'var(--g)':'transparent',color:salaFiltro===v?'#fff':'var(--grl)',fontWeight:salaFiltro===v?500:300}}>{l}</button>
+          <div className="ag-seg">
+            {[{v:'ambas',l:'Ambas'},...salas.map(s=>({v:s,l:s}))].map(({v,l})=>(
+              <button key={v} className={salaFiltro===v?'on':''} onClick={()=>setSalaFiltro(v)} title={v==='ambas'?'Las dos salas':'Sala '+v}>{l}</button>
             ))}
           </div>
         )}
         {vista==='semana'&&(
-          <button onClick={()=>setSoloHueco(v=>!v)} title="Mostrar solo clases con hueco"
-            style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'5px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${soloHueco?'var(--g)':'var(--bd)'}`,background:soloHueco?'var(--gl)':'var(--w)',color:soloHueco?'var(--gd)':'var(--gr)',fontWeight:soloHueco?500:400}}>
-            <span className={`toggle ${soloHueco?'on':''}`} style={{pointerEvents:'none'}}/>
-            Solo con hueco
-          </button>
+          <button onClick={()=>setSoloHueco(v=>!v)} title="Mostrar solo clases con hueco" className={`ag-hoy ${soloHueco?'on':''}`}>Solo con hueco</button>
         )}
+
+        {/* Buscar: el icono se abre en campo al pulsarlo y vuelve a icono si se deja vacío. */}
         <div style={{position:'relative'}}>
-          <input className="input" placeholder="Buscar paciente..." value={buscarPac} onChange={e=>buscarPacienteDirecto(e.target.value)} style={{width:180,fontSize:11}}/>
+          {buscando||buscarPac ? (
+            <input className="input" autoFocus placeholder="Buscar paciente..." value={buscarPac}
+              onChange={e=>buscarPacienteDirecto(e.target.value)}
+              onBlur={()=>{ if(!buscarPac) setBuscando(false) }}
+              onKeyDown={e=>{ if(e.key==='Escape'){ buscarPacienteDirecto(''); setBuscando(false) } }}
+              style={{width:200,fontSize:12,borderRadius:99,padding:'6px 12px'}}/>
+          ) : (
+            <button className="ag-ic" onClick={()=>setBuscando(true)} title="Buscar paciente"><Ic name="buscar" size={16}/></button>
+          )}
           {buscarPac && resultadosBusqueda.length>0 && (
-            <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'0 4px 12px rgba(0,0,0,.1)',zIndex:50,maxHeight:280,overflowY:'auto',marginTop:3}}>
+            <div className="ag-pop" style={{left:0,right:'auto',width:260,padding:4,maxHeight:300,overflowY:'auto'}}>
               {resultadosBusqueda.map(c=>(
-                <div key={c.id} onClick={()=>{setFecha(c.fecha);setBuscarPac('');setResultadosBusqueda([]);setVista('dia')}}
-                  style={{padding:'8px 11px',cursor:'pointer',borderBottom:'1px solid var(--bl)'}}
-                  onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
-                  onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                  <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}{c.pacientes?.nombre_clinica?<span style={{color:'var(--grl)'}}> · "{c.pacientes.nombre_clinica}"</span>:null}</div>
-                  <div style={{fontSize:9,color:'var(--grl)',marginTop:1}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
+                <div key={c.id} className="ag-pop-it" onMouseDown={e=>e.preventDefault()}
+                  onClick={()=>{setFecha(c.fecha);buscarPacienteDirecto('');setBuscando(false);setVista('dia')}}>
+                  <div style={{fontSize:12,color:'var(--n)'}}>{c.pacientes?.nombre} {c.pacientes?.apellidos}{c.pacientes?.nombre_clinica?<span style={{color:'var(--grl)'}}> · "{c.pacientes.nombre_clinica}"</span>:null}</div>
+                  <div style={{fontSize:10,color:'var(--grl)',marginTop:1}}>{new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                 </div>
               ))}
             </div>
           )}
           {buscarPac && resultadosBusqueda.length===0 && buscarPac.length>1 && (
-            <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'10px',fontSize:10,color:'var(--grl)',zIndex:50,marginTop:3}}>Sin citas futuras</div>
+            <div className="ag-pop" style={{left:0,right:'auto',width:200,fontSize:11,color:'var(--grl)'}}>Sin citas futuras</div>
           )}
         </div>
-        <button className="btn btn-p btn-sm" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:'',sala:salas[0]||'A',nuevo:false,nuevo_nombre:'',nuevo_telefono:''}));setModal(true)}}>+ Nueva cita</button>
-      </div>
 
-      {vista==='dia'&&(
-        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:10}}>
-          <span style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginRight:2}}>Tipo</span>
-          <button onClick={()=>setTiposFiltro([])} style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${tiposFiltro.length===0?'var(--g)':'var(--bd)'}`,background:tiposFiltro.length===0?'var(--gl)':'var(--w)',color:tiposFiltro.length===0?'var(--gd)':'var(--grl)',fontWeight:tiposFiltro.length===0?500:400}}>Todos</button>
-          {tiposClase.map((t:any)=>{
-            const on=tipoActivo(t.valor)
-            const col=t.color||'#5A969E'
-            return (
-              <button key={t.valor} onClick={()=>toggleTipo(t.valor)} title={t.nombre}
-                style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${on?(col+'99'):'var(--bd)'}`,background:on?(col+'22'):'var(--w)',color:on?'var(--n)':'var(--grl)',fontWeight:on?500:400,opacity:on?1:.7}}>
-                <span style={{display:'inline-flex',color:col}}><Ic name={iconTipoClase(t.valor,t.icono)} size={14}/></span>
-                {t.nombre}
-              </button>
-            )
-          })}
-
-          {/* Resumen del día y accesos. Sustituye al panel lateral: la rejilla se queda
-              con todo el ancho y lo de consulta puntual se despliega solo al pedirlo. */}
-          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-            <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}} title="Personas distintas que asisten hoy">
-              <Ic name="pacientes" size={14} style={{color:'var(--g)'}}/><b style={{fontWeight:600,color:'var(--n)'}}>{totalPersonas}</b> personas
-            </span>
-            <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,border:'1px solid var(--bd)',background:'var(--w)',color:'var(--gr)'}} title="Clases del día">
-              <Ic name="agenda" size={14} style={{color:'var(--g)'}}/><b style={{fontWeight:600,color:'var(--n)'}}>{clases}</b> clases
-            </span>
-            <button onClick={()=>setPanelAbierto(p=>p==='alertas'?null:'alertas')} title="Alertas de los pacientes de hoy"
-              style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${panelAbierto==='alertas'?'var(--red)':(alertasHoy.length>0?'#F0C9C9':'var(--bd)')}`,background:panelAbierto==='alertas'?'var(--redl)':'var(--w)',color:alertasHoy.length>0?'var(--red)':'var(--grl)',fontWeight:panelAbierto==='alertas'?500:400}}>
-              <Ic name="alerta" size={14}/> Alertas {alertasHoy.length>0&&<b style={{fontWeight:600}}>{alertasHoy.length}</b>}
+        {/* Los tipos de clase ya no están a la vista: quedan detrás de este icono, que
+            se marca en verde mientras haya un filtro puesto para que no se olvide. */}
+        {vista==='dia'&&(
+          <div style={{position:'relative'}}>
+            <button className={`ag-ic ${tiposFiltro.length>0?'activo':''}`} onClick={()=>setFiltroAbierto(v=>!v)} title="Filtrar por tipo de clase">
+              <Ic name="filtro" size={16}/>
+              {tiposFiltro.length>0&&<span className="ag-badge" style={{background:'var(--g)'}}>{tiposFiltro.length}</span>}
             </button>
-            <button onClick={()=>setPanelAbierto(p=>p==='tareas'?null:'tareas')} title="Tareas pendientes"
-              style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,padding:'4px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${panelAbierto==='tareas'?'var(--amb)':(tareasPend.length>0?'var(--amb)':'var(--bd)')}`,background:panelAbierto==='tareas'?'var(--ambl)':'var(--w)',color:tareasPend.length>0?'#8A6410':'var(--grl)',fontWeight:panelAbierto==='tareas'?500:400}}>
-              <Ic name="lista" size={14}/> Tareas {tareasPend.length>0&&<b style={{fontWeight:600}}>{tareasPend.length}</b>}
-            </button>
+            {filtroAbierto&&(
+              <>
+                <div style={{position:'fixed',inset:0,zIndex:40}} onClick={()=>setFiltroAbierto(false)}/>
+                <div className="ag-pop" style={{width:230}}>
+                  <div className="ag-pop-t">Ver solo</div>
+                  {tiposClase.map((t:any)=>(
+                    <label key={t.valor} className="ag-pop-chk">
+                      <input type="checkbox" checked={tiposFiltro.includes(t.valor)} onChange={()=>toggleTipo(t.valor)}/>
+                      <span className="ag-punto" style={{background:t.color||'#5A969E'}}/>{t.nombre}
+                    </label>
+                  ))}
+                  {tiposFiltro.length>0&&<button className="ag-pop-quitar" onClick={()=>setTiposFiltro([])}>Ver todos</button>}
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      )}
+        )}
+
+        {vista==='dia'&&(
+          <button className={`ag-ic ${panelAbierto==='alertas'?'activo':''}`} onClick={()=>setPanelAbierto(p=>p==='alertas'?null:'alertas')} title="Alertas de los pacientes de hoy">
+            <Ic name="alerta" size={16}/>
+            {alertasHoy.length>0&&<span className="ag-badge" style={{background:'var(--red)'}}>{alertasHoy.length}</span>}
+          </button>
+        )}
+        {vista==='dia'&&(
+          <button className={`ag-ic ${panelAbierto==='tareas'?'activo':''}`} onClick={()=>setPanelAbierto(p=>p==='tareas'?null:'tareas')} title="Tareas pendientes">
+            <Ic name="lista" size={16}/>
+            {tareasPend.length>0&&<span className="ag-badge" style={{background:'var(--amb)'}}>{tareasPend.length}</span>}
+          </button>
+        )}
+        <button className="ag-nueva" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:'',sala:salas[0]||'A',nuevo:false,nuevo_nombre:'',nuevo_telefono:''}));setModal(true)}}>
+          <Ic name="mas" size={14}/> Cita
+        </button>
+      </div>
 
       {vista==='dia'&&panelAbierto==='alertas'&&(
         <div className="card" style={{padding:'12px 14px',marginBottom:10}}>

@@ -45,14 +45,20 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
         title={deducido
           ? 'Nadie asignado a esta sala: es quien está a esa hora. Pulsa para asignarlo hoy.'
           : 'Quién se hace cargo · pulsa para cambiarlo solo hoy'}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10,
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12,
           fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none',
           padding: 0, maxWidth: '100%', overflow: 'hidden',
           color: nombres.length === 0 ? 'var(--fant, var(--grl))'
             : deducido ? 'var(--grl)' : 'var(--gd)',
           fontStyle: deducido ? 'italic' : 'normal' }}>
-        <Ic name="usuario" size={11}/>
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {/* Inicial en un circulito, como en la mock de la agenda nueva. Sin nadie, hueco. */}
+        <span style={{ width: 22, height: 22, borderRadius: 99, flexShrink: 0, display: 'inline-flex',
+          alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, fontStyle: 'normal',
+          color: nombres.length === 0 ? 'var(--grl)' : '#fff',
+          background: nombres.length === 0 ? 'var(--bm)' : deducido ? 'var(--gm)' : 'var(--gd)' }}>
+          {nombres.length === 0 ? '?' : (nombres[0] || '?').trim()[0]?.toUpperCase()}
+        </span>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12 }}>
           {nombres.length > 0 ? nombres.join(' · ') : 'sin asignar'}
         </span>
         {deHoy.length > 0 && (

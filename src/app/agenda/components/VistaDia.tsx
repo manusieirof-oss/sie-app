@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
@@ -46,7 +46,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
   // minmax(0,1fr) y no 1fr: con 1fr el mínimo es el contenido, así que una sala con
   // nombres largos (o los selects en tablet) le robaba ancho a la otra y las columnas
   // dejaban de medir lo mismo.
-  const GT = '56px '+SALAS.map(()=>'minmax(0,1fr)').join(' ')
+  const GT = '58px '+SALAS.map(()=>'minmax(0,1fr)').join(' ')
   const filtrando = (tiposFiltro?.length||0) > 0
 
   /**
@@ -77,7 +77,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     for (const h of HORAS) if (aMinutos(h) <= minAhora) destino = h
     const fila = cont.querySelector(`[data-hora="${destino}"]`) as HTMLElement|null
     if (!fila) return
-    const ALTO_CABECERA = 36
+    const ALTO_CABECERA = 40
     const y = fila.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop
     cont.scrollTop = Math.max(0, y - ALTO_CABECERA)
     yaColocado.current = clave
@@ -109,50 +109,68 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     setNuevaCita((p:any)=>({...p,fecha,hora:h,sala})); setModal(true)
   }
 
+  // Iniciales para el circulito: nombre y primer apellido.
+  const iniciales = (c:any) => (((c.pacientes?.nombre||'').trim()[0]||'') + ((c.pacientes?.apellidos||'').trim()[0]||'')).toUpperCase() || '·'
+
   function FilaPaciente({ c }: { c:any }) {
     const falta = c.estado==='falta'
     const tieneAlerta = alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)
+    // El tipo de clase ya no lleva icono ni filtro a la vista: queda como un punto de
+    // color al final, que se distingue de un vistazo sin ocupar sitio.
     const col = colorTipo(c.tipo)
-    // El tipo de clase lo dice el icono. El fondo se reserva para lo excepcional
-    // —una falta— y, mas adelante, para el sistema que lleve el paciente.
-    const bgBase = falta?'var(--redl)':'var(--w)'
-    const bgHover = falta?'#FBE8E8':'var(--bl)'
-    const bd = falta?'#F0C9C9':'var(--bd2)'
+    const accion = (titulo:string, icono:string, fn?:()=>void) => (
+      <button title={titulo} onClick={e=>{e.stopPropagation();fn&&fn()}}><Ic name={icono} size={15}/></button>
+    )
     return (
-      <div onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)} title={nombreTipo(c.tipo)}
-        style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',borderRadius:7,cursor:'pointer',marginBottom:3,background:bgBase,border:`1px solid ${bd}`,transition:'all .12s'}}
-        onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background=bgHover}}
-        onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background=bgBase}}>
-        <span style={{display:'inline-flex',color:col,flexShrink:0}}><Ic name={iconTipo(c.tipo)} size={16}/></span>
-        {tieneAlerta&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas activas"><Ic name="alerta" size={13}/></span>}
-        <span style={{fontSize:12,color:falta?'var(--red)':'var(--n)',flex:1,fontWeight:400,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-          {falta&&<span style={{fontWeight:600,marginRight:4}}>✗</span>}{c.pacientes?.nombre} {c.pacientes?.apellidos}
+      <div className={`ag-pac ${falta?'falta':''}`} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)} title={nombreTipo(c.tipo)}>
+        <span className="ag-av">{iniciales(c)}</span>
+        <span className="ag-nom">{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
+        {falta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}}>falta</span>}
+        {tieneAlerta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}} title="Tiene alertas activas">alerta</span>}
+        {c._ultimaBono&&<span className="ag-tag" style={{background:'var(--ambl)',color:'#8A6410'}} title="Gasta la última sesión de su bono: toca renovar">última</span>}
+        {/* Solo al pasar el ratón (en tablet, siempre: ver .ag-acc en globals.css). */}
+        <span className="ag-acc">
+          {accion('Entrenamiento','entreno',()=>abrirEntrenoCita&&abrirEntrenoCita(c))}
+          {accion('Ver datos','usuario',()=>abrirDatosCita&&abrirDatosCita(c))}
+          {accion('Editar cita','editar',()=>setEditandoCita&&setEditandoCita({...c}))}
         </span>
-        {c._ultimaBono&&<span title="Gasta la última sesión de su bono: toca renovar" style={{fontSize:8,fontWeight:700,padding:'0 6px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',flexShrink:0,letterSpacing:.3}}>ÚLTIMA</span>}
-        <span onClick={e=>{e.stopPropagation();abrirEntrenoCita&&abrirEntrenoCita(c)}} style={{display:'inline-flex',color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'2px'}} title="Entrenamiento" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}><Ic name="entreno" size={15}/></span>
-        <span onClick={e=>{e.stopPropagation();abrirDatosCita&&abrirDatosCita(c)}} style={{display:'inline-flex',color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'2px'}} title="Ver datos" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}><Ic name="usuario" size={15}/></span>
-        <span onClick={e=>{e.stopPropagation();setEditandoCita&&setEditandoCita({...c})}} style={{display:'inline-flex',color:'var(--grl)',cursor:'pointer',flexShrink:0,padding:'2px'}} title="Editar cita" onMouseOver={e=>(e.currentTarget as HTMLElement).style.color='var(--g)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.color='var(--grl)'}><Ic name="editar" size={15}/></span>
+        {!falta&&<span className="ag-punto" style={{background:col}}/>}
       </div>
     )
   }
 
+  // Línea de "ahora": solo en el día de hoy, y se mueve sola cada minuto.
+  const [, setTic] = useState(0)
+  useEffect(() => {
+    if (fecha !== hoy) return
+    const t = setInterval(() => setTic(x => x + 1), 60000)
+    return () => clearInterval(t)
+  }, [fecha, hoy])
+  const ahora = new Date()
+  const minAhora = ahora.getHours()*60 + ahora.getMinutes()
+  const aMin = (h:string) => { const [a,b] = h.split(':').map(Number); return (a||0)*60 + (b||0) }
+  const horaAhora = String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0')
+  // Va justo encima de la primera franja que aún no ha empezado.
+  const lineaAntesDe = fecha === hoy && minAhora >= aMin(HORAS[0])
+    ? HORAS.find(h => aMin(h) > minAhora) || null
+    : null
+
   return (
-    <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',background:'var(--w)',height:'calc(100vh - 150px)'}}>
+    <div className="ag-dia">
       <div ref={scrollRef} style={{overflowY:'auto',height:'100%'}}>
-        <div style={{display:'grid',gridTemplateColumns:GT,background:'var(--bl)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
+        <div className="ag-fila ag-salas" style={{gridTemplateColumns:GT}}>
           <div/>
-          {SALAS.map(s=><div key={s} style={{fontSize:11,fontWeight:600,color:'var(--gd)',padding:'9px 10px',textAlign:'center',letterSpacing:.4,borderLeft:'1px solid var(--bd)'}}>Sala {s}</div>)}
+          {SALAS.map(s=><div key={s}>Sala {s}</div>)}
         </div>
         {HORAS.map(h=>{
-          // Hora sin nadie en ninguna sala: ocupa menos. En tablet, con la agenda medio
-          // vacía, esas filas se comían la pantalla y había que hacer scroll para llegar
-          // a las horas que sí tienen gente.
+          // Hora sin nadie en ninguna sala: se encoge para no comerse la pantalla.
           const horaVacia = SALAS.every(s=>getCitasSlot(h,s).length===0)
           return (
           <div key={h} data-hora={h}>
-            {h===PAUSA_FIN&&<div style={{padding:'5px 12px',background:'var(--gl)',borderBottom:'1px solid var(--bd)',fontSize:11,color:'var(--gd)',display:'flex',alignItems:'center',gap:6}}><Ic name="pausa" size={12}/> Pausa · {PAUSA_INICIO}–{PAUSA_FIN}</div>}
-            <div style={{display:'grid',gridTemplateColumns:GT,borderBottom:'1px solid var(--bl)'}}>
-              <div style={{fontSize:horaVacia?12:13,color:horaVacia?'var(--grl)':'var(--gr)',padding:horaVacia?'6px 8px':'10px 8px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:500}}>{h}</div>
+            {h===PAUSA_FIN&&<div className="ag-pausa">Pausa · {PAUSA_INICIO} – {PAUSA_FIN}</div>}
+            {h===lineaAntesDe&&<div className="ag-ahora"><span>{horaAhora}</span></div>}
+            <div className={`ag-fila ag-sep ${horaVacia?'ag-compacta':''}`} style={{gridTemplateColumns:GT}}>
+              <div className="ag-hora">{h}{!horaVacia&&<small>{finDe(h)===PAUSA_FIN?PAUSA_INICIO:finDe(h)}</small>}</div>
               {SALAS.map(sala=>{
                 const scAll=getCitasSlot(h,sala)
                 const scActivas=scAll.filter((c:any)=>c.estado!=='cancelada').sort((a:any,b:any)=>(a.estado==='falta'?1:0)-(b.estado==='falta'?1:0))
@@ -161,56 +179,44 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 const scCanceladas = filtrando ? scCancAll.filter((c:any)=>tiposFiltro.includes(c.tipo)) : scCancAll
                 const sobre=!filtrando && scActivas.length>MAX
                 const libres=filtrando?0:Math.max(0,MAX-scActivas.length)
-                const renderCancelada=(c:any)=>(
-                  <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})} title="Cita cancelada · pulsa para editar/deshacer"
-                    style={{fontSize:11,color:'var(--grl)',textDecoration:'line-through',cursor:'pointer',padding:'2px 0',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                    {c.pacientes?.nombre} {c.pacientes?.apellidos}
-                  </div>
-                )
                 if (sc.length===0 && scCanceladas.length===0) {
-                  const alto = horaVacia ? 26 : 44
                   return (
-                    <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:horaVacia?4:6,minHeight:horaVacia?34:52,minWidth:0}}>
-                      {filtrando ? (
-                        <div style={{border:'1px dashed var(--bd2)',borderRadius:8,minHeight:alto,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'var(--bm)'}}>·</div>
-                      ):(
-                        <div onClick={()=>abrirNueva(h,sala)}
-                          style={{border:'1.5px dashed var(--bm)',borderRadius:8,minHeight:alto,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--grl)',cursor:'pointer',transition:'all .12s'}}
-                          onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)';el.style.background='var(--gl)'}}
-                          onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)';el.style.background=''}}>
-                          + libre
-                        </div>
-                      )}
+                    <div key={sala} className="ag-franja">
+                      {filtrando
+                        ? <div className="ag-vacia quieta">·</div>
+                        : <div className="ag-vacia" onClick={()=>abrirNueva(h,sala)}>+ libre</div>}
                     </div>
                   )
                 }
+                const pct = Math.min(100, Math.round(scActivas.length / MAX * 100))
                 return (
-                  <div key={sala} style={{borderLeft:'1px solid var(--bl)',padding:6,minHeight:52,minWidth:0}}>
-                    <div style={{border:`1px solid ${sobre?'var(--amb)':'var(--bd)'}`,borderRadius:10,padding:'8px 9px',background:'var(--w)'}}>
-                      {sc.length>0&&(
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,marginBottom:7}}>
-                          {/* QUIEN SE HACE CARGO. Ver `lib/turnos`. */}
-                          <ResponsableFranja turnos={turnos} perfiles={perfiles} fecha={fecha}
-                            hora={h} horaFin={finDe(h)} sala={sala} onCambio={onTurnos||(()=>{})}/>
-                          <span style={{fontSize:10,fontWeight:600,flexShrink:0,borderRadius:99,padding:'2px 9px',color:sobre?'#8A6410':'var(--gd)',background:sobre?'var(--ambl)':'var(--gl)',border:sobre?'1px solid var(--amb)':'none'}}>{filtrando?sc.length:`${scActivas.length}/${MAX}`}</span>
-                        </div>
-                      )}
+                  <div key={sala} className="ag-franja">
+                    <div className={`ag-clase ${sobre?'sobre':scActivas.length>=MAX?'llena':''}`}>
+                      <div className="ag-clase-cab">
+                        {/* QUIEN SE HACE CARGO. Ver `lib/turnos`. */}
+                        <ResponsableFranja turnos={turnos} perfiles={perfiles} fecha={fecha}
+                          hora={h} horaFin={finDe(h)} sala={sala} onCambio={onTurnos||(()=>{})}/>
+                        <span className="ag-aforo" title={sobre?'Grupo por encima del aforo':'Plazas ocupadas'}>
+                          {!filtrando&&<span className="ag-barra"><i style={{width:pct+'%'}}/></span>}
+                          {filtrando?sc.length:`${scActivas.length}/${MAX}`}
+                        </span>
+                      </div>
                       {sc.map((c:any)=><FilaPaciente key={c.id} c={c}/>)}
-                      {Array.from({length:libres}).map((_,i)=>(
-                        <div key={'libre'+i} onClick={()=>abrirNueva(h,sala)}
-                          style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'6px',marginBottom:3,borderRadius:7,border:'1.5px dashed var(--bm)',color:'var(--grl)',fontSize:11,cursor:'pointer',transition:'all .12s'}}
-                          onMouseOver={e=>{const el=e.currentTarget;el.style.borderColor='var(--g)';el.style.color='var(--g)'}}
-                          onMouseOut={e=>{const el=e.currentTarget;el.style.borderColor='var(--bm)';el.style.color='var(--grl)'}}>+ plaza libre</div>
-                      ))}
-                      {!filtrando&&libres===0&&(
-                        <div onClick={()=>abrirNueva(h,sala)} style={{textAlign:'center',fontSize:10,color:sobre?'#8A6410':'var(--g)',cursor:'pointer',fontWeight:500,padding:'4px'}}>
-                          {sobre?'Grupo por encima del aforo · + añadir':'+ añadir'}
+                      {/* Las plazas libres en UNA línea: antes era una caja punteada por plaza. */}
+                      {!filtrando&&(
+                        <div className="ag-libre" onClick={()=>abrirNueva(h,sala)}>
+                          <Ic name="mas" size={13}/>
+                          {libres>0 ? `${libres} ${libres===1?'plaza libre':'plazas libres'}` : sobre ? 'Por encima del aforo · añadir' : 'Completa · añadir'}
                         </div>
                       )}
                       {scCanceladas.length>0&&(
-                        <div style={{marginTop:8,paddingTop:7,borderTop:'1px dashed var(--bd)'}}>
-                          <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.4,textTransform:'uppercase',marginBottom:4}}>Bajas · liberan plaza</div>
-                          {scCanceladas.map(renderCancelada)}
+                        <div className="ag-bajas" title="Bajas: liberan plaza. Pulsa para editar o deshacer.">
+                          {scCanceladas.length===1?'Baja':'Bajas'} · {scCanceladas.map((c:any,i:number)=>(
+                            <span key={c.id}>
+                              {i>0&&<>, </>}
+                              <span onClick={()=>setEditandoCita&&setEditandoCita({...c})}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -218,17 +224,11 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 )
               })}
             </div>
-            {!horaVacia && (
-              <div style={{display:'grid',gridTemplateColumns:GT,background:'var(--bl)'}}>
-                <div style={{borderRight:'1px solid var(--bm)'}}/>
-                <div style={{gridColumn:'2/-1',padding:'1px 8px',borderLeft:'1px solid var(--bm)',fontSize:8,color:'var(--grl)'}}>{DESCANSO} min cambio</div>
-              </div>
-            )}
           </div>
           )
         })}
+        <div style={{height:14}}/>
       </div>
-
     </div>
   )
 }

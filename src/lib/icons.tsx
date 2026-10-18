@@ -11,10 +11,14 @@ import {
   Flag, MapPin, Camera, Image as ImageIcon, Download, Upload, Play, ListChecks,
   CalendarDays, Droplet, Utensils, Cross, Pause, Shuffle, UserMinus, ChevronDown,
   MoreHorizontal, ArrowLeft, IdCard, PersonStanding, Copy, ChevronUp,
+  ChevronLeft, ChevronRight, SlidersHorizontal,
 } from 'lucide-react'
 
 const MAP: Record<string, any> = {
   abajo: ChevronDown,
+  izq: ChevronLeft,
+  der: ChevronRight,
+  filtro: SlidersHorizontal,
   arriba: ChevronUp,
   acciones: MoreHorizontal,
   cuerpo: PersonStanding,
