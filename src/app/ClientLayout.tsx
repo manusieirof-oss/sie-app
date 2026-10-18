@@ -92,6 +92,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       .then(({ data }) => setPorCobrar((data || []).length))
   }, [user, pathname])
 
+  // Red de seguridad: la página en sí nunca debe quedar desplazada (lo que hace scroll
+  // es la caja de contenido). Si algo la ha movido, al cambiar de pantalla vuelve a su sitio.
+  useEffect(() => {
+    const raiz = document.scrollingElement
+    if (raiz && raiz.scrollTop) raiz.scrollTop = 0
+    const shell = document.querySelector('.shell') as HTMLElement | null
+    if (shell && shell.scrollTop) shell.scrollTop = 0
+  }, [pathname])
+
   useEffect(() => {
     if (user === null && pathname !== '/login') router.push('/login')
   }, [user, pathname])

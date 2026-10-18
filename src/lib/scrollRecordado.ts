@@ -70,10 +70,20 @@ export function useVolverALaFila(clave: string) {
         quieta = 0
       } else {
         const r = el.getBoundingClientRect()
+        // Se mueve SOLO la caja de contenido, a mano. `scrollIntoView` mueve todos los
+        // antecesores que pueden desplazarse, también el marco de la app y la propia
+        // página: al quitar la barra superior, el marco se iba hacia arriba con la barra
+        // de pilares y te quedabas atrapado sin poder volver.
+        const cont = el.closest('.content') as HTMLElement | null
+        const caja = cont ? cont.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
         // Con margen por arriba y por abajo: dejarla pegada al borde no es "verla".
-        const aLaVista = r.top >= 70 && r.bottom <= window.innerHeight - 24
+        const aLaVista = r.top >= caja.top + 70 && r.bottom <= caja.bottom - 24
         if (aLaVista) quieta++
-        else { el.scrollIntoView({ block: 'center' }); quieta = 0 }
+        else {
+          if (cont) cont.scrollTop += (r.top - caja.top) - (cont.clientHeight - r.height) / 2
+          else el.scrollIntoView({ block: 'center' })
+          quieta = 0
+        }
       }
       if (quieta >= QUIETA || Date.now() - desde > VIGILAR_MS) { parar(); return }
       marco = requestAnimationFrame(vigilar)
