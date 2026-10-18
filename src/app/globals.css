@@ -12,7 +12,12 @@
   --ring:0 0 0 3px rgba(90,150,158,.14);
 }
 html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:var(--bl);color:var(--n);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-.shell{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:1fr;height:100vh;overflow:hidden;}
+.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100vh;overflow:hidden;}
+/* Cada cosa en su celda a mano. Sin la barra de arriba, cualquier otro hijo del shell
+   (el aviso de renovación) se quedaba con la celda del contenido y este caía a una fila
+   nueva sin alto fijo: desaparecía la barra de scroll en todas las pantallas. */
+.shell > .sidebar{grid-column:1;grid-row:1;}
+.shell > .content{grid-column:2;grid-row:1;min-height:0;}
 /* INMERSIVO: en el torno la barra de pilares se aparta.
    Se asoma al llevar el raton al borde izquierdo, y vuelve a irse al salir.
    La rejilla NO cambia de columnas: el hueco se queda, asi nada salta. */
