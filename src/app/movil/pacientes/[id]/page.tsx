@@ -29,6 +29,8 @@ export default function MovilFicha() {
   const [cuidado, setCuidado] = useState<{ color: string, texto: string }[]>([])
   const [proximas, setProximas] = useState<any[]>([])
   const [hoja, setHoja] = useState(false)
+  // 'resumen' es la ficha de bolsillo; las otras tres son la ficha completa del móvil,
+  // que se abre con el botón "Ficha" (antes ese botón llevaba a la de escritorio).
   const [vista, setVista] = useState<'resumen' | 'cuerpo' | 'plan' | 'entrenos'>('resumen')
   const [marcas, setMarcas] = useState<any[]>([])
   const [plan, setPlan] = useState<FilaPieza[] | null>(null)
@@ -114,14 +116,14 @@ export default function MovilFicha() {
         <a href={tel ? `tel:${tel}` : undefined} className={tel ? '' : 'off'}><Ic name="telefono" size={19}/>Llamar</a>
         <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer" className={wa ? '' : 'off'}><Ic name="mensaje" size={19}/>WhatsApp</a>
         <button onClick={() => setHoja(true)}><Ic name="calendario" size={19}/>Cita</button>
-        <Link href={`/pacientes/${id}`}><Ic name="ficha" size={19}/>Ficha</Link>
+        <button className={vista !== 'resumen' ? 'on' : ''} onClick={() => setVista(v => v === 'resumen' ? 'cuerpo' : 'resumen')}><Ic name="ficha" size={19}/>Ficha</button>
       </div>
 
-      <div className="m-seg">
-        {([['resumen', 'Resumen'], ['cuerpo', 'Cuerpo'], ['plan', 'Programación'], ['entrenos', 'Entrenos']] as const).map(([k, l]) => (
+      {vista !== 'resumen' && <div className="m-seg">
+        {([['cuerpo', 'Cuerpo'], ['plan', 'Programación'], ['entrenos', 'Entrenos']] as const).map(([k, l]) => (
           <button key={k} className={vista === k ? 'on' : ''} onClick={() => setVista(k)}>{l}</button>
         ))}
-      </div>
+      </div>}
 
       {vista === 'cuerpo' && (
         <div className="m-tarj" style={{ padding: '6px 6px 12px' }}>
