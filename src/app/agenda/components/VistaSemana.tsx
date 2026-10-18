@@ -43,6 +43,8 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
   }
   const getNombreCorto = (c: any) => c.pacientes?.nombre_clinica || c.pacientes?.nombre || '?'
 
+  // Lo mismo que en la vista de día: tarjeta suave por clase, aforo en barrita y el
+  // tipo de clase como un punto de color. Sin bordes de celda ni rayas.
   function SubCelda({ cd, sala, f, h }: { cd:any[], sala:string, f:string, h:string }) {
     const n = cd.length
     // Quien se hace cargo. Si nadie esta asignado a esta sala, el que este a esa
@@ -51,80 +53,77 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
     const quien = resp.lista.map((t:any)=>(t.perfil?.nombre||'').trim()).filter(Boolean).join(' · ')
     if (n===0) {
       return (
-        <div onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,fecha:f,hora:h,sala}));setModal(true)}}
-          style={{display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'transparent',cursor:'pointer',borderRadius:4,minHeight:44}}
-          onMouseOver={e=>{const el=e.currentTarget;el.style.background='var(--gl)';el.style.color='var(--g)'}}
-          onMouseOut={e=>{const el=e.currentTarget;el.style.background='';el.style.color='transparent'}}>+</div>
+        <div className="sem-vacia" title={`Sala ${sala} · nueva cita`}
+          onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,fecha:f,hora:h,sala}));setModal(true)}}>+</div>
       )
     }
     const lleno = n>=MAX
-    const libres = Math.max(0, MAX-n)
-    const borde = lleno ? 'var(--amb)' : 'var(--g)'
     const atenuar = soloHueco && lleno
+    const pct = Math.min(100, Math.round(n/MAX*100))
     return (
-      <div style={{border:`1.5px solid ${borde}`,borderRadius:5,padding:'3px 4px',background:'var(--w)',opacity:atenuar?0.3:1,transition:'opacity .15s'}}>
-        <div style={{fontSize:8,fontWeight:600,color:'var(--gr)',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sala} {n}/{MAX}{lleno?' · Completo':` · ${libres} libre${libres>1?'s':''}`}</div>
+      <div className={`sem-clase ${lleno?'llena':''}`} style={{opacity:atenuar?0.3:1}}>
+        <div className="sem-cab" title={lleno?'Completa':`${MAX-n} libre${MAX-n>1?'s':''}`}>
+          {salas.length>1&&<b>{sala}</b>}
+          <span className="ag-barra" style={{flex:1,width:'auto'}}><i style={{width:pct+'%'}}/></span>
+          <span>{n}/{MAX}</span>
+        </div>
         {quien && (
-          <div title={resp.deducido ? 'Nadie asignado a esta sala: es quien está a esa hora' : 'Se hace cargo'}
-            style={{fontSize:8,color:resp.deducido?'var(--grl)':'var(--gd)',fontStyle:resp.deducido?'italic':'normal',
-              marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:400}}>
+          <div className="sem-quien" title={resp.deducido ? 'Nadie asignado a esta sala: es quien está a esa hora' : 'Se hace cargo'}
+            style={{fontStyle:resp.deducido?'italic':'normal',color:resp.deducido?'var(--grl)':'var(--gd)'}}>
             {quien}
           </div>
         )}
         {cd.map((c:any)=>(
-          <div key={c.id} onClick={()=>setEditandoCita&&setEditandoCita({...c})}
-            style={{fontSize:9,color:'var(--n)',fontWeight:400,padding:'1px 4px',marginBottom:1,borderRadius:3,cursor:'pointer',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.35,display:'flex',alignItems:'center',gap:4}}
+          <div key={c.id} className="sem-pac" onClick={()=>setEditandoCita&&setEditandoCita({...c})}
             title={`${getNombreCorto(c)} · ${nombreTipo(c.tipo)}`}>
-            {/* El tipo de clase se dice con el icono y no tiñendo el nombre entero:
-                el color de la fila lo va a necesitar el sistema del paciente. */}
-            <span style={{display:'inline-flex',color:colorTipo(c.tipo),flexShrink:0}}><Ic name={iconTipo(c.tipo)} size={9}/></span>
-            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={9}/></span>}
-            <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{getNombreCorto(c)}</span>
-            {c._ultimaBono&&<span title="Gasta la última sesión de su bono: toca renovar" style={{fontSize:8,fontWeight:700,padding:'0 6px',borderRadius:99,background:'var(--ambl)',color:'#8A6410',border:'1px solid var(--amb)',flexShrink:0,letterSpacing:.3}}>ÚLTIMA</span>}
+            <span className="ag-punto" style={{background:colorTipo(c.tipo),width:6,height:6}}/>
+            <span className="sem-nom">{getNombreCorto(c)}</span>
+            {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={10}/></span>}
+            {c._ultimaBono&&<span title="Gasta la última sesión de su bono: toca renovar" className="sem-ult">últ.</span>}
           </div>
         ))}
       </div>
     )
   }
 
+  const GT = '52px repeat(6,minmax(0,1fr))'
   return (
-    <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',background:'var(--w)',height:'calc(100vh - 150px)',overflowY:'auto'}}>
-      <div style={{display:'grid',gridTemplateColumns:'44px repeat(6,1fr)',background:'var(--bl)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
+    <div className="ag-dia" style={{overflowY:'auto'}}>
+      <div className="sem-fila sem-dias" style={{gridTemplateColumns:GT}}>
         <div/>
         {fs.map((f,i)=>{
           const isH=f===hoy,d=new Date(f+'T12:00:00')
           return (
-            <div key={f} onClick={()=>{setFecha(f);setVista('dia')}}
-              style={{padding:'6px 4px',textAlign:'center',borderLeft:'1px solid var(--bd)',cursor:'pointer',background:isH?'var(--gl)':'transparent'}}>
-              <div style={{fontSize:8,color:'var(--grl)',fontWeight:400}}>{dn[i]}</div>
-              <div style={{fontSize:13,fontWeight:isH?600:400,color:isH?'var(--g)':'var(--n)'}}>{d.getDate()}</div>
+            <div key={f} className={`sem-dia ${isH?'hoy':''}`} onClick={()=>{setFecha(f);setVista('dia')}} title="Ver el día">
+              <span>{dn[i]}</span><b>{d.getDate()}</b>
             </div>
           )
         })}
       </div>
-      {HORAS.map(h=>(
+      {HORAS.map(h=>{
+        const vacia = fs.every(f=>citas.every(c=>!(c.fecha===f&&c.hora.startsWith(h)&&c.estado!=='cancelada'&&c.estado!=='falta')))
+        return (
         <div key={h}>
-          {h===PAUSA_FIN&&<div style={{padding:'4px 10px',background:'var(--gl)',borderBottom:'1px solid var(--bd)',fontSize:9,color:'var(--gd)',display:'flex',alignItems:'center',gap:5}}><Ic name="pausa" size={11}/> Pausa {PAUSA_INICIO}–{PAUSA_FIN}</div>}
-          <div style={{display:'grid',gridTemplateColumns:'44px repeat(6,1fr)',borderBottom:'1px solid var(--bl)'}}>
-            <div style={{fontSize:9,color:'var(--gr)',padding:'5px 3px',borderRight:'1px solid var(--bl)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',fontWeight:500}}>{h}</div>
-            {fs.map(f=>{
-              const isH=f===hoy
-              return (
-                <div key={f} style={{borderLeft:'1px solid var(--bl)',background:isH?'rgba(90,150,158,.03)':'transparent',minHeight:50,display:'grid',gridTemplateColumns:`repeat(${salas.length},1fr)`,gap:2,padding:2}}>
-                  {salas.map(s=>{
-                    /* NI CANCELADAS NI FALTAS. La semanal es la foto de quien viene y de
-                       cuantas plazas quedan; quien avisó y quien no se ve en la vista de
-                       día y en su ficha, que es donde eso importa. */
-                    const cd=citas.filter(c=>c.fecha===f&&c.hora.startsWith(h)&&c.sala===s
-                      &&c.estado!=='cancelada'&&c.estado!=='falta')
-                    return <SubCelda key={s} cd={cd} sala={s} f={f} h={h}/>
-                  })}
-                </div>
-              )
-            })}
+          {h===PAUSA_FIN&&<div className="ag-pausa">Pausa · {PAUSA_INICIO} – {PAUSA_FIN}</div>}
+          <div className="sem-fila ag-sep" style={{gridTemplateColumns:GT}}>
+            <div className="ag-hora" style={{paddingTop:9,fontWeight:vacia?500:600,color:vacia?'var(--grl)':'var(--n)'}}>{h}</div>
+            {fs.map(f=>(
+              <div key={f} className={`sem-celda ${f===hoy?'hoy':''}`} style={{gridTemplateColumns:`repeat(${salas.length},minmax(0,1fr))`}}>
+                {salas.map(s=>{
+                  /* NI CANCELADAS NI FALTAS. La semanal es la foto de quien viene y de
+                     cuantas plazas quedan; quien avisó y quien no se ve en la vista de
+                     día y en su ficha, que es donde eso importa. */
+                  const cd=citas.filter(c=>c.fecha===f&&c.hora.startsWith(h)&&c.sala===s
+                    &&c.estado!=='cancelada'&&c.estado!=='falta')
+                  return <SubCelda key={s} cd={cd} sala={s} f={f} h={h}/>
+                })}
+              </div>
+            ))}
           </div>
         </div>
-      ))}
+        )
+      })}
+      <div style={{height:12}}/>
     </div>
   )
 }

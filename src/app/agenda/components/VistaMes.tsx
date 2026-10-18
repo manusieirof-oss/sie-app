@@ -70,7 +70,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
     .sort((a:any,b:any)=>a.fecha_nacimiento.slice(8,10).localeCompare(b.fecha_nacimiento.slice(8,10)))
 
   const StatCard = ({label,valor,color}:{label:string,valor:any,color?:string}) => (
-    <div style={{background:'var(--bl)',borderRadius:8,padding:'8px 10px'}}>
+    <div style={{background:'#FAF9F6',borderRadius:10,padding:'8px 10px'}}>
       <div style={{fontSize:20,fontWeight:300,color:color||'var(--n)'}}>{valor}</div>
       <div style={{fontSize:9,color:'var(--grl)'}}>{label}</div>
     </div>
@@ -82,7 +82,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap',flexShrink:0}}>
         {!pacSel ? (
           <div style={{position:'relative',width:260}}>
-            <input className="input" value={q} onChange={e=>setQ(e.target.value)} placeholder="Filtrar por paciente en el mes..." style={{fontSize:12,paddingLeft:30}}/>
+            <input className="input" value={q} onChange={e=>setQ(e.target.value)} placeholder="Filtrar por paciente en el mes..." style={{fontSize:12,paddingLeft:30,borderRadius:99}}/>
             <span style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:'var(--grl)',display:'inline-flex'}}><Ic name="buscar" size={14}/></span>
             {resultados.length>0 && (
               <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',boxShadow:'var(--sh-md)',zIndex:30,marginTop:3,maxHeight:260,overflowY:'auto'}}>
@@ -110,15 +110,15 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
 
       <div style={{flex:1,display:'flex',gap:10,minHeight:0}}>
         {/* Calendario */}
-        <div style={{flex:1,border:'1px solid var(--bd)',borderRadius:'var(--rl)',overflow:'hidden',background:'var(--w)',display:'flex',flexDirection:'column'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:'var(--bl)',borderBottom:'1px solid var(--bd)',flexShrink:0}}>
-            {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>(
-              <div key={d} style={{fontSize:9,fontWeight:600,color:'var(--grl)',padding:'7px',textAlign:'center',letterSpacing:.3}}>{d}</div>
-            ))}
+        {/* Mismo estilo que Día y Semana: tarjeta blanca sin bordes y cada día como
+            una baldosa suave, en vez de una cuadrícula de rayas. */}
+        <div className="ag-dia" style={{flex:1,height:'auto',display:'flex',flexDirection:'column'}}>
+          <div className="mes-cab">
+            {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=><div key={d}>{d}</div>)}
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:`repeat(${nRows},1fr)`,flex:1,overflowY:'auto'}}>
+          <div className="mes-rej" style={{gridTemplateRows:`repeat(${nRows},minmax(0,1fr))`}}>
             {padded.map((f,i)=>{
-              if (!f) return <div key={i} style={{borderRight:'1px solid var(--bl)',borderBottom:'1px solid var(--bl)',background:'var(--bl)'}}/>
+              if (!f) return <div key={i}/>
               const isH=f===hoy,d=new Date(f+'T12:00:00')
               const evFest = eventosDia(f,'festivo')[0]
               const fest = festivoDe(f) || (evFest ? { nombre: evFest.titulo || 'Festivo', tipo: 'local' as const } : null)
@@ -137,12 +137,10 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
                 else { setFecha(f); setVista('dia') }
               }
               return (
-                <div key={f} onClick={onClickDia}
-                  style={{minHeight:0,padding:'4px 5px',borderRight:'1px solid var(--bl)',borderBottom:'1px solid var(--bl)',cursor:'pointer',background:fest?tint(COLOR_FESTIVO[fest.tipo],0.08):cierre?'var(--bl)':(isH?'var(--gl)':'var(--w)'),opacity:atenuar?0.45:1,transition:'background .1s',overflowY:'auto',display:'flex',flexDirection:'column'}}
-                  onMouseOver={e=>{if(!isH&&!fest&&!cierre&&!atenuar)(e.currentTarget as HTMLElement).style.background='rgba(90,150,158,.05)'}}
-                  onMouseOut={e=>{if(!isH&&!fest)(e.currentTarget as HTMLElement).style.background=cierre?'var(--bl)':'var(--w)'}}>
+                <div key={f} onClick={onClickDia} className={`mes-dia ${isH?'hoy':''}`}
+                  style={{background:fest?tint(COLOR_FESTIVO[fest.tipo],0.08):cierre?'var(--bl)':undefined,opacity:atenuar?0.45:1}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-                    <span style={{fontSize:12,fontWeight:isH?600:400,color:isH?'var(--g)':'var(--n)'}}>{d.getDate()}</span>
+                    <span className="mes-num">{d.getDate()}</span>
                     {cumples.length>0&&<span style={{display:'inline-flex',color:'#C486A0'}} title={'Cumpleaños: '+cumples.map((p:any)=>`${p.nombre} ${p.apellidos||''}`.trim()).join(', ')}><Ic name="corazon" size={12}/></span>}
                   </div>
                   {fest&&<div style={{marginTop:3,fontSize:8,fontWeight:600,color:COLOR_FESTIVO[fest.tipo],background:'var(--w)',border:`1px solid ${COLOR_FESTIVO[fest.tipo]}`,borderRadius:4,padding:'1px 5px',lineHeight:1.25,flexShrink:0}} title={`${fest.nombre} · ${LABEL_FESTIVO[fest.tipo]}`}>{fest.nombre}</div>}
@@ -159,7 +157,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
                   ) : (!cierre && clasesDia>0) ? (
                     <div style={{marginTop:'auto',paddingTop:4,flexShrink:0}}>
                       <div style={{fontSize:9,color:'var(--grl)'}}>{clasesDia} clase{clasesDia>1?'s':''} · {cdAll.length}</div>
-                      <div style={{height:4,borderRadius:2,background:'var(--bm)',marginTop:2,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:barCol}}/></div>
+                      <div className="ag-barra" style={{width:'100%',marginTop:3}}><i style={{width:`${Math.min(100,pct)}%`,background:barCol}}/></div>
                     </div>
                   ) : null}
                 </div>
@@ -169,7 +167,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
         </div>
 
         {/* Panel de estadísticas del mes */}
-        <div style={{width:240,flexShrink:0,border:'1px solid var(--bd)',borderRadius:'var(--rl)',background:'var(--w)',overflowY:'auto',padding:'12px 13px'}}>
+        <div className="ag-dia" style={{width:240,flexShrink:0,height:'auto',overflowY:'auto',padding:'14px 15px'}}>
           <div style={{fontSize:12,fontWeight:500,color:'var(--n)',marginBottom:10,textTransform:'capitalize'}}>Resumen · {mesLabel}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
             <StatCard label="Personas" valor={personasMes}/>

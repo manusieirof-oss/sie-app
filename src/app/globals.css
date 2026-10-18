@@ -530,3 +530,34 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .ag-ahora span{position:absolute;left:18px;top:-9px;background:var(--red);color:#fff;font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px}
 .ag-pausa{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--grl);font-size:11.5px}
 .ag-pausa::before,.ag-pausa::after{content:'';flex:1;border-top:1px dashed var(--bm)}
+
+/* Agenda · Semana: mismo lenguaje que Día, más compacto. */
+.sem-fila{display:grid;gap:6px;padding:0 12px}
+.sem-dias{position:sticky;top:0;z-index:3;background:var(--w);padding-top:10px;padding-bottom:8px}
+.sem-dia{display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;padding:4px 0;border-radius:12px}
+.sem-dia:hover{background:var(--bl)}
+.sem-dia span{font-size:10.5px;font-weight:600;color:var(--grl);letter-spacing:.6px;text-transform:uppercase}
+.sem-dia b{font-size:17px;font-weight:500;color:var(--n);width:32px;height:32px;border-radius:99px;display:flex;align-items:center;justify-content:center}
+.sem-dia.hoy b{background:var(--g);color:#fff;font-weight:600}
+.sem-celda{display:grid;gap:3px;padding:5px 0;min-width:0;border-radius:10px}
+.sem-celda.hoy{background:rgba(90,150,158,.04)}
+.sem-vacia{min-height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;color:transparent;cursor:pointer;transition:background .12s,color .12s}
+.sem-vacia:hover{background:var(--gl);color:var(--gd)}
+.sem-clase{background:#FAF9F6;border-radius:10px;padding:6px 6px 4px;min-width:0;transition:opacity .15s}
+.sem-cab{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--grl);margin-bottom:3px;font-variant-numeric:tabular-nums}
+.sem-cab b{font-weight:700;color:var(--gr)}
+.sem-clase.llena .ag-barra i{background:var(--amb)}
+.sem-quien{font-size:9.5px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sem-pac{display:flex;align-items:center;gap:5px;font-size:11px;line-height:1.35;padding:2px 3px;border-radius:6px;cursor:pointer;min-width:0}
+.sem-pac:hover{background:var(--w)}
+.sem-nom{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--n)}
+.sem-ult{font-size:8.5px;font-weight:700;padding:0 5px;border-radius:99px;background:var(--ambl);color:#8A6410;flex-shrink:0}
+
+/* Agenda · Mes: cada día una baldosa suave. */
+.mes-cab{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;padding:12px 12px 6px}
+.mes-cab div{font-size:10.5px;font-weight:600;color:var(--grl);letter-spacing:.6px;text-transform:uppercase;text-align:center}
+.mes-rej{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;padding:0 12px 12px;flex:1;min-height:0;overflow-y:auto}
+.mes-dia{min-height:0;padding:6px 8px;border-radius:12px;background:#FAF9F6;cursor:pointer;overflow-y:auto;display:flex;flex-direction:column;transition:background .12s}
+.mes-dia:hover{background:var(--gl)}
+.mes-num{font-size:13px;font-weight:500;color:var(--n);min-width:24px;height:24px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center}
+.mes-dia.hoy .mes-num{background:var(--g);color:#fff;font-weight:600}
