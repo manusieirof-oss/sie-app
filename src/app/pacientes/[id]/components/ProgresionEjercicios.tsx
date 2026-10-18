@@ -45,6 +45,7 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
   const [info, setInfo] = useState<Record<string, any>>({})
   const [sesiones, setSesiones] = useState<Record<string, any>>({})
   const [cambios, setCambios] = useState<any[]>([])
+  const [noHechos, setNoHechos] = useState<any[]>([])
 
   const variosAnios = new Set(registros.map((r: any) => String(r.fecha || '').slice(0, 4))).size > 1
   const fechaCorta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES',
@@ -76,10 +77,12 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
   useEffect(() => {
     if (!pacienteId) return
     supabase.from('cambios_sesion').select('fecha,motivo').eq('paciente_id', pacienteId).then(({ data }) => setCambios(data || []))
+    // Si la tabla aún no existe, sale vacío y la adherencia cuenta como antes.
+    supabase.from('no_hechos').select('fecha,sesion_id,ejercicio_id,ejercicio_nombre').eq('paciente_id', pacienteId).then(({ data }) => setNoHechos(data || []))
   }, [pacienteId])
 
   const semanas = useMemo(() => cargaSemanal(registros), [registros])
-  const adh = useMemo(() => adherencia(registros, sesiones, cambios), [registros, sesiones, cambios])
+  const adh = useMemo(() => adherencia(registros, sesiones, cambios, noHechos), [registros, sesiones, cambios, noHechos])
 
   const tarjetas = useMemo(() => {
     const cargas = cargaPorEjercicio(registros, bandas)
@@ -316,7 +319,10 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
               </div>
               {adh.saltados.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>Los que más se quedan sin hacer (o se cambian ese día)</div>
+                  <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>
+                    Los que más se quedan sin hacer
+                    {(adh.noHizo > 0 || adh.cambiados > 0) && <> · {adh.noHizo} no los hizo, {adh.cambiados} se cambiaron ese día</>}
+                  </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {adh.saltados.slice(0, 6).map(s => (
                       <span key={s.nombre} style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, background: 'var(--bl)' }}>

@@ -1308,6 +1308,20 @@ export default function ModoClase() {
       const { error } = await supabase.from('registros_ejercicio').insert(vacios)
       if (error) { alert('Error al finalizar: ' + error.message); return false }
     }
+    /* "NO LO HIZO" SE GUARDA (sql/no_hechos.sql). Antes vivia solo en el navegador y se
+       perdia al cerrar la clase: la adherencia no distinguia lo que no hizo de lo que
+       se le cambio. Se rehace entero cada vez que se finaliza, como los registros. Si la
+       tabla aun no existe, se avisa en consola y la clase se cierra igual. */
+    {
+      await supabase.from('no_hechos').delete().eq('paciente_id', pid).eq('sesion_id', item.sesionId).eq('fecha', fechaC)
+      const filas = noHizo.map((i: number) => item.datos[i]).filter(Boolean).map((ej: any) => ({
+        paciente_id: pid, sesion_id: item.sesionId, fecha: fechaC, ejercicio_id: ej.ejercicio_id || null, ejercicio_nombre: ej.nombre || null,
+      }))
+      if (filas.length) {
+        const { error: eNo } = await supabase.from('no_hechos').insert(filas)
+        if (eNo) console.error('no_hechos', eNo.message)
+      }
+    }
     // limpiar finalizados previos del dia y marcar
     const ids = item.datos.map((e:any)=>e.ejercicio_id).filter(Boolean)
     if (ids.length){

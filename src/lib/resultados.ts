@@ -331,7 +331,8 @@ export function cargaSemanal(registros: any[]) {
  * cambios de sesión entera con su motivo (cambios_sesion), que es el dato clínico:
  * si siempre se cambia "por dolor", algo pasa.
  */
-export function adherencia(registros: any[], sesiones: Record<string, any>, cambios: any[] = []) {
+export function adherencia(registros: any[], sesiones: Record<string, any>, cambios: any[] = [], noHechos: any[] = []) {
+  const noSet = new Set(noHechos.map(n => `${n.fecha}|${n.sesion_id}|${n.ejercicio_id || 'n:' + n.ejercicio_nombre}`))
   const dias: Record<string, { sesion: string, hechos: Set<string> }> = {}
   registros.forEach(r => {
     if (!r.sesion_id || !r.fecha || !sesiones[r.sesion_id]) return
@@ -340,23 +341,29 @@ export function adherencia(registros: any[], sesiones: Record<string, any>, camb
     d.hechos.add(r.ejercicio_id || 'n:' + r.ejercicio_nombre)
   })
   let plan = 0, hechos = 0
-  const saltados: Record<string, { nombre: string, veces: number, de: number }> = {}
-  Object.values(dias).forEach(d => {
+  let noHizo = 0, cambiados = 0
+  const saltados: Record<string, { nombre: string, veces: number, de: number, no: number }> = {}
+  Object.entries(dias).forEach(([clave, d]) => {
+    const fecha = clave.split('|')[0]
     const ejs = (sesiones[d.sesion].partes || []).flatMap((p: any) => p.ejercicios || [])
     const vistos = new Set<string>()
     ejs.forEach((e: any) => {
       const k = e.ejercicio_id || 'n:' + e.nombre
       if (vistos.has(k)) return
       vistos.add(k); plan++
-      const s = saltados[k] || (saltados[k] = { nombre: e.nombre || 'Ejercicio', veces: 0, de: 0 })
+      const s = saltados[k] || (saltados[k] = { nombre: e.nombre || 'Ejercicio', veces: 0, de: 0, no: 0 })
       s.de++
-      if (d.hechos.has(k)) hechos++; else s.veces++
+      if (d.hechos.has(k)) { hechos++; return }
+      s.veces++
+      // Sin registro: o se marcó "no lo hizo" (guardado desde que existe no_hechos), o se le
+      // cambió por otro ese día.
+      if (noSet.has(`${fecha}|${d.sesion}|${k}`)) { noHizo++; s.no++ } else cambiados++
     })
   })
   const motivos: Record<string, number> = {}
   cambios.forEach(c => { const m = c.motivo === 'nota' ? 'Otro' : c.motivo ? nombreMotivo(c.motivo) : 'Sin motivo'; motivos[m] = (motivos[m] || 0) + 1 })
   return {
-    clases: Object.keys(dias).length, plan, hechos,
+    clases: Object.keys(dias).length, plan, hechos, noHizo, cambiados,
     pct: plan ? Math.round(hechos / plan * 100) : null,
     saltados: Object.values(saltados).filter(s => s.veces > 0).sort((a, b) => b.veces - a.veces || b.veces / b.de - a.veces / a.de),
     cambios: cambios.length,
