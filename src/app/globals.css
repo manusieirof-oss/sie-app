@@ -12,7 +12,7 @@
   --ring:0 0 0 3px rgba(90,150,158,.14);
 }
 html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:var(--bl);color:var(--n);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100vh;overflow:hidden;}
+.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100vh;overflow:hidden;overflow:clip;}
 /* Cada cosa en su celda a mano. Sin la barra de arriba, cualquier otro hijo del shell
    (el aviso de renovación) se quedaba con la celda del contenido y este caía a una fila
    nueva sin alto fijo: desaparecía la barra de scroll en todas las pantallas. */
@@ -49,6 +49,17 @@ html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:
 .sb-menu{position:absolute;left:46px;bottom:0;width:220px;background:var(--w);border-radius:12px;box-shadow:var(--sh-md);padding:12px;z-index:50;}
 .sb-menu-it{display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;font-family:inherit;font-size:12.5px;color:var(--red);padding:7px 6px;border-radius:8px;cursor:pointer;}
 .sb-menu-it:hover{background:var(--redl);}
+/* Pantallas bajas (portátil de 13"): la barra entera tiene que caber, porque si se
+   pasa de alto empuja la página y, al volver a una ficha, el navegador desplazaba el
+   marco entero y la barra desaparecía por arriba sin forma de volver. */
+@media (max-height:800px){
+  .sidebar{padding:10px 0 10px;gap:2px;}
+  .sb-logo,.sb-marca{width:34px;height:34px;margin-bottom:8px;}
+  .nav-item{width:40px;height:38px;border-radius:11px;}
+  .sb-sep{margin:4px 0;}
+  .sb-av{width:30px;height:30px;}
+  .sb-pie{gap:4px;}
+}
 .tb-logo{font-size:10px;font-weight:600;color:var(--g);letter-spacing:2px;border-right:1.5px solid var(--bm);padding-right:12px;}
 .tb-title{font-size:13px;font-weight:500;color:var(--n);}
 .tb-sep{width:3px;height:3px;border-radius:50%;background:var(--b);flex-shrink:0;}
