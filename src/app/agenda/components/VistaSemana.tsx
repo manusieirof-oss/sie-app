@@ -82,6 +82,12 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
             {c._ultimaBono&&<span title="Gasta la última sesión de su bono: toca renovar" className="sem-ult">últ.</span>}
           </div>
         ))}
+        {/* Apuntar a alguien más en esta misma clase. Antes solo se podía desde un hueco
+            vacío, así que una clase con una persona no dejaba añadir a nadie. */}
+        <div className="sem-mas" onClick={()=>{setFecha(f);setNuevaCita((p:any)=>({...p,fecha:f,hora:h,sala}));setModal(true)}}
+          title={lleno?'Clase completa: añadir igualmente':'Apuntar a alguien'}>
+          <Ic name="mas" size={10}/>{lleno?'añadir':`${MAX-n} libre${MAX-n>1?'s':''}`}
+        </div>
       </div>
     )
   }

@@ -561,3 +561,5 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .mes-dia:hover{background:var(--gl)}
 .mes-num{font-size:13px;font-weight:500;color:var(--n);min-width:24px;height:24px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center}
 .mes-dia.hoy .mes-num{background:var(--g);color:#fff;font-weight:600}
+.sem-mas{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--grl);padding:3px 3px 1px;border-radius:6px;cursor:pointer}
+.sem-mas:hover{color:var(--gd);background:var(--gl)}
