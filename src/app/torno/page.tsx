@@ -51,7 +51,8 @@ export default function TornoPage() {
   const [abierto, setAbierto] = useState(false)
   // Al volver de Amasar se vuelve a los ejercicios, no a los pacientes.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('que') === 'ejercicios') { setQue('ejercicios'); setAbierto(true) }
+    const q = new URLSearchParams(window.location.search).get('que')
+    if (q === 'ejercicios' || q === 'mapa') { setQue(q); setAbierto(true) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(false)
@@ -60,7 +61,31 @@ export default function TornoPage() {
   const [menu, setMenu] = useState(false)
   /* QUÉ SE BUSCA: gente (tornear su entreno) o ejercicios (amasar el barro). El mismo
      buscador: a su derecha se elige. Los ejercicios se traen al abrir, como la gente. */
-  const [que, setQue] = useState<'pacientes' | 'ejercicios'>('pacientes')
+  /* Y OBJETIVOS Y TESTS (el "mapa"): tocar uno abre su mapa, con lo que se relaciona
+     alrededor (ver torno/mapa). Un tercer botón en el mismo selector, nada más: la
+     pantalla de entrada no se llena de botones. */
+  const [que, setQue] = useState<'pacientes' | 'ejercicios' | 'mapa'>('pacientes')
+  const [mapa, setMapa] = useState<{ objetivos: any[], tests: any[] } | null>(null)
+  useEffect(() => {
+    if (!abierto || que !== 'mapa' || mapa) return
+    Promise.all([
+      supabase.from('objetivos').select('id,nombre,imagen_url,archivado_el').order('nombre'),
+      supabase.from('tests').select('id,nombre,imagen_url,tipo,archivado_el').order('nombre'),
+      supabase.from('objetivos_tests').select('objetivo_id,test_id'),
+    ]).then(([o, t, r]) => {
+      // Cuántos tiene alrededor cada uno: se ve qué objetivo no tiene con qué medirse.
+      const cuenta: Record<string, Set<string>> = {}
+      ;(r.data || []).forEach((x: any) => {
+        ;(cuenta[x.objetivo_id] = cuenta[x.objetivo_id] || new Set()).add(x.test_id)
+        ;(cuenta[x.test_id] = cuenta[x.test_id] || new Set()).add(x.objetivo_id)
+      })
+      const con = (l: any[]) => l.filter(x => x.archivado_el == null).map(x => ({ ...x, n: cuenta[x.id]?.size || 0 }))
+      setMapa({ objetivos: con(o.data || []), tests: con(t.data || []) })
+    })
+  }, [abierto, que]) // eslint-disable-line react-hooks/exhaustive-deps
+  function irMapa(t: 'objetivo' | 'test', id: string) {
+    setYendo(id); setTimeout(() => router.push(`/torno/mapa/${t}/${id}`), 360)
+  }
   const [ejs, setEjs] = useState<any[] | null>(null)
   const [soloIncompletos, setSoloIncompletos] = useState(false)
   // Por completar: qué falta (vacío = cualquier cosa).
@@ -258,7 +283,7 @@ export default function TornoPage() {
 
         {abierto === false && (
           <div className="t-fade" style={{ fontSize: 17, marginTop: 16 }}>
-            {que === 'pacientes' ? '¿A quién le preparamos el entreno?' : '¿Qué ejercicio amasamos?'}
+            {que === 'pacientes' ? '¿A quién le preparamos el entreno?' : que === 'ejercicios' ? '¿Qué ejercicio amasamos?' : '¿Qué objetivo o test miramos?'}
           </div>
         )}
         </div>
@@ -269,12 +294,12 @@ export default function TornoPage() {
           <input className="input" value={busca}
             onFocus={() => setAbierto(true)}
             onChange={e => { setBusca(e.target.value); setAbierto(true) }}
-            placeholder={que === 'pacientes' ? 'Busca a alguien de la clínica…' : 'Busca un ejercicio…'}
+            placeholder={que === 'pacientes' ? 'Busca a alguien de la clínica…' : que === 'ejercicios' ? 'Busca un ejercicio…' : 'Busca un objetivo o un test…'}
             style={{ flex: 1, fontSize: 14, padding: '11px 14px' }}/>
 
           {/* GENTE O EJERCICIOS: lo que se busca. */}
           <div style={{ display: 'inline-flex', background: 'var(--bl)', borderRadius: 99, padding: 3, gap: 2 }}>
-            {([['pacientes', 'pacientes', 'Pacientes'], ['ejercicios', 'fuerza', 'Ejercicios']] as const).map(([v, ic, t]) => (
+            {([['pacientes', 'pacientes', 'Pacientes'], ['ejercicios', 'fuerza', 'Ejercicios'], ['mapa', 'objetivo', 'Objetivos y tests']] as const).map(([v, ic, t]) => (
               <button key={v} type="button" title={t} onClick={() => { setQue(v); setMenu(false); setBusca('') }}
                 style={{ border: 'none', cursor: 'pointer', borderRadius: 99, padding: '7px 11px', lineHeight: 0,
                   background: que === v ? '#fff' : 'transparent', color: que === v ? 'var(--gd)' : 'var(--grl)',
@@ -293,7 +318,16 @@ export default function TornoPage() {
               <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 250,
                 background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 9,
                 boxShadow: '0 10px 28px rgba(38,40,37,.16)', padding: 5, zIndex: 30 }}>
-                {que === 'ejercicios' ? (<>
+                {que === 'mapa' ? (<>
+                  <div className="t-menu-it" onClick={() => { setMenu(false); router.push('/torno/mapa/objetivo/nuevo') }}>
+                    <div style={{ fontSize: 12.5 }}>+ Objetivo nuevo</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Y después, alrededor, los tests que lo evalúan</div>
+                  </div>
+                  <div className="t-menu-it" onClick={() => { setMenu(false); router.push('/torno/mapa/test/nuevo') }}>
+                    <div style={{ fontSize: 12.5 }}>+ Test nuevo</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Y después, alrededor, los objetivos que evalúa</div>
+                  </div>
+                </>) : que === 'ejercicios' ? (<>
                   <div className="t-menu-it" onClick={() => { setMenu(false); router.push('/torno/amasar/nuevo') }}>
                     <div style={{ fontSize: 12.5 }}>+ Amasar uno nuevo</div>
                     <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Un ejercicio que aún no está en la biblioteca</div>
@@ -403,6 +437,45 @@ export default function TornoPage() {
           )}
           {/* Hueco al final para que la barra no tape la última fila. */}
           {modoSel && <div style={{ height: 90 }}/>}
+        </div>
+      )}
+
+      {/* OBJETIVOS Y TESTS: círculos, como se ven en su mapa. Tocar uno lo abre. */}
+      {abierto && que === 'mapa' && (
+        <div className="t-fade" style={{ width: '100%', maxWidth: 980, margin: '16px auto 40px' }}>
+          {!mapa ? <div className="muted" style={{ textAlign: 'center', padding: 30 }}>Trayendo objetivos y tests…</div> : (
+            ([['objetivo', 'Objetivos', mapa.objetivos], ['test', 'Tests y cuestionarios', mapa.tests]] as const).map(([t, titulo, l]) => {
+              const vis = (l as any[]).filter(x => !busca.trim() || contiene(x.nombre, busca))
+              if (!vis.length) return null
+              return (
+                <div key={t} style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 11, color: 'var(--gr)', textAlign: 'center', marginBottom: 12 }}>{titulo} · {vis.length}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(104px,1fr))', gap: 14 }}>
+                    {vis.map((x: any) => (
+                      <div key={x.id} onClick={() => irMapa(t, x.id)} title={x.nombre}
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer',
+                          opacity: yendo && yendo !== x.id ? .25 : 1, transform: yendo === x.id ? 'scale(1.12)' : 'none', transition: 'opacity .3s, transform .3s' }}>
+                        <span style={{ position: 'relative', width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: '0 4px 12px rgba(38,40,37,.16)',
+                          background: x.imagen_url ? 'var(--bl)' : t === 'objetivo'
+                            ? 'radial-gradient(circle at 33% 28%, #fff 0%, #A8CDD1 20%, #3E7179 58%, #23474D 100%)'
+                            : 'radial-gradient(circle at 33% 28%, #fff 0%, #FBF1DC 35%, #E6CF8E 100%)',
+                          color: t === 'objetivo' ? '#fff' : '#7A5800', fontSize: 22, fontWeight: 500 }}>
+                          {x.imagen_url ? <img src={x.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                            : t === 'objetivo' ? String(x.nombre || '?').trim().charAt(0).toUpperCase() : <Ic name={x.tipo === 'cuestionario' ? 'anamnesis' : 'test'} size={24}/>}
+                        </span>
+                        <div style={{ fontSize: 11.5, lineHeight: 1.25, textAlign: 'center', marginTop: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{x.nombre}</div>
+                        {/* Un objetivo sin test no se puede abrir ni cerrar: se avisa aquí. */}
+                        <div style={{ fontSize: 10, color: x.n === 0 && t === 'objetivo' ? 'var(--amb)' : 'var(--grl)', marginTop: 1 }}>
+                          {x.n === 0 ? (t === 'objetivo' ? 'sin test' : 'sin objetivo') : `${x.n} ${t === 'objetivo' ? (x.n === 1 ? 'test' : 'tests') : (x.n === 1 ? 'objetivo' : 'objetivos')}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 

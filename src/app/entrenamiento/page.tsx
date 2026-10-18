@@ -220,7 +220,7 @@ function EntrenamientoContent() {
           {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
           {tab==='sistemas'&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}
           {tab==='cuestionarios'&&<CuestionariosTab/>}
-          {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas}/>}
+          {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas} abrirTestId={searchParams.get('test')}/>}
           {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,
               que es el dato con el que se decide si sobra, se fusiona o se borra. */}
           {tab==='etiquetas'&&<EtiquetasTab etiquetas={etiquetas} ejercicios={ejercicios} testsLib={testsLib} cargar={cargar}/>}

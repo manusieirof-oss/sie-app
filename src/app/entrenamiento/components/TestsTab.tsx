@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { UNIDADES, unidadDe, mide, textoRegla, problemasDelTest, alcanceBorradoTest, borrarTest, archivarTest, planDeItems, alcanceItemsBorrados, aplicarCambioDeItems, esSuma, esBaremo, bandasDe, baremosDe, rangoTotal, textoNorma } from '@/lib/tests'
@@ -11,9 +11,16 @@ import FiltroZonas from '@/components/FiltroZonas'
 import { ConfigBarra, EditorBandas, SelectorZona, EditorBaremos } from './EditoresTest'
 import ModalTest from './ModalTest'
 
-export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, SelectorColumnas }: any) {
+export default function TestsTab({ testsLib, etiquetas, objetivos, setTestsLib, SelectorColumnas, abrirTestId }: any) {
   const [modalTest, setModalTest] = useState(false)
   const [testDetalle, setTestDetalle] = useState<any>(null)
+  // Llegar con un test ya abierto (desde el mapa del torno: `?tab=tests&test=<id>`).
+  const [abiertoUnaVez, setAbiertoUnaVez] = useState(false)
+  useEffect(() => {
+    if (!abrirTestId || abiertoUnaVez) return
+    const t = (testsLib || []).find((x: any) => x.id === abrirTestId)
+    if (t) { setTestDetalle(t); setAbiertoUnaVez(true) }
+  }, [abrirTestId, testsLib, abiertoUnaVez])
   const [modalEditarTest, setModalEditarTest] = useState(false)
   const [testEditando, setTestEditando] = useState<any>(null)
   const [subiendoImgTest, setSubiendoImgTest] = useState(false)
