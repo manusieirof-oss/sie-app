@@ -7,6 +7,7 @@ import AvisoRenovacion from './AvisoRenovacion'
 import { renovarCuotas } from '@/lib/bonos'
 import { aplicarEstadosProgramados } from '@/lib/estadosPaciente'
 import { Ic } from '@/lib/icons'
+import HojaCita from './movil/components/HojaCita'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
 // lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
@@ -35,6 +36,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** Bonos activos sin cobrar (pendientes + impagos): el numerito de Cobros. */
   const [porCobrar, setPorCobrar] = useState(0)
   const [menuUsuario, setMenuUsuario] = useState(false)
+  const [citaMovil, setCitaMovil] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -98,6 +100,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (user === null && pathname !== '/login') router.push('/login')
   }, [user, pathname])
 
+  // EN EL MÓVIL, A LA VERSIÓN MÓVIL. Al abrir la app (o la agenda) en una pantalla
+  // estrecha se va a /movil. Si alguien eligió la versión completa desde "Yo", se
+  // respeta: queda apuntado en este móvil.
+  useEffect(() => {
+    if (!user) return
+    const estrecha = window.matchMedia?.('(max-width: 760px)').matches
+    let completa = false
+    try { completa = localStorage.getItem('sie_version') === 'completa' } catch {}
+    if (estrecha && !completa && (pathname === '/' || pathname === '/agenda')) router.replace('/movil')
+  }, [user, pathname])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -124,6 +137,27 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <span className="sb-tip">{n.label}</span>
     </Link>
   )
+
+  // VERSIÓN MÓVIL: sin barra lateral; abajo, una barra de pestañas a un pulgar.
+  if (pathname.startsWith('/movil')) {
+    const tab = (href: string, icono: string, txt: string) => {
+      const on = href === '/movil' ? pathname === '/movil' || pathname.startsWith('/movil/clase') : pathname.startsWith(href)
+      return <Link href={href} className={`m-tab ${on ? 'on' : ''}`}><Ic name={icono} size={21} strokeWidth={1.8}/>{txt}</Link>
+    }
+    return (
+      <div className="m-shell">
+        <main className="m-main">{children}</main>
+        <nav className="m-tabs">
+          {tab('/movil', 'agenda', 'Hoy')}
+          {tab('/movil/pacientes', 'pacientes', 'Pacientes')}
+          <button className="m-tab-mas" onClick={() => setCitaMovil(true)} aria-label="Nueva cita"><Ic name="mas" size={22}/></button>
+          {tab('/movil/avisos', 'campana', 'Avisos')}
+          {tab('/movil/yo', 'usuario', 'Yo')}
+        </nav>
+        {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
+      </div>
+    )
+  }
 
   return (
     <div className={`shell ${pathname.startsWith('/torno') ? 'inmersivo' : ''}`}>
@@ -154,6 +188,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 <div className="sb-menu">
                   <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: 500 }}>{perfil?.nombre || 'Tu cuenta'}</div>
                   <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 8 }}>{user.email}</div>
+                  <Link href="/movil" className="sb-menu-it" style={{ color: 'var(--gd)' }}
+                    onClick={() => { try { localStorage.removeItem('sie_version') } catch {}; setMenuUsuario(false) }}>
+                    <Ic name="telefono" size={15}/> Versión móvil
+                  </Link>
                   <button className="sb-menu-it" onClick={handleLogout}><Ic name="salir" size={15}/> Cerrar sesión</button>
                 </div>
               </>
