@@ -23,7 +23,7 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="login-box">
-        <div className="login-logo">SIE</div>
+        <img src="/marca/sie-logo.svg" alt="SIE" className="login-logo-img"/>
         <div className="login-sub">Gestión clínica · Acceso profesional</div>
         <form onSubmit={handleLogin}>
           <div className="field">

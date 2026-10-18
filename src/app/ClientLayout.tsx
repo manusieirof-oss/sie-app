@@ -139,10 +139,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {pathname.startsWith('/torno') && <div className="borde-izq"/>}
       <AvisoRenovacion visible={veFinanzas}/>
       <nav className="sidebar">
-        {/* El logo de la clínica manda; sin logo, la pastilla verde con "SIE". */}
+        {/* El logo de la clínica manda; sin logo, el de SIE (public/marca). */}
         {logo
           ? <img src={logo} alt="" className="sb-marca"/>
-          : <div className="sb-logo">SIE</div>}
+          : <img src="/marca/sie-logo.svg" alt="SIE" className="sb-marca"/>}
         {NAV_DIA.map(enlace)}
         <span className="sb-sep"/>
         {NAV_PROGRAMAR.map(enlace)}
