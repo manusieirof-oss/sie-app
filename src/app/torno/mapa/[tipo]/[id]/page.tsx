@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { contiene } from '@/lib/texto'
 import { cargarEvaluadores } from '@/lib/objetivosTests'
-import ModalObjetivo from '@/app/entrenamiento/components/ModalObjetivo'
+import RoscoObjetivo from '../../RoscoObjetivo'
 import ModalTest from '@/app/entrenamiento/components/ModalTest'
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ export default function MapaPage() {
   const [abierto, setAbierto] = useState(false)      // los de alrededor, desplegados
   const [menu, setMenu] = useState<string | null>(null) // id del círculo con su menú abierto, '+' o 'centro'
   const [busca, setBusca] = useState('')
-  const [editar, setEditar] = useState(false)          // ModalObjetivo del centro
+  const [editar, setEditar] = useState(false)          // el objetivo del centro, en quesitos
   const [crear, setCrear] = useState<Tipo | null>(null) // modal de crear (uno de fuera, o el centro si es nuevo)
   const escena = useRef<HTMLDivElement>(null)
 
@@ -81,9 +81,10 @@ export default function MapaPage() {
     setCargado(true)
   }
   useEffect(() => {
-    setAbierto(false); setMenu(null); setBusca(''); setCargado(false)
+    setAbierto(false); setMenu(null); setBusca(''); setCargado(false); setEditar(false)
     cargar().then(() => setTimeout(() => setAbierto(true), 120))
-    if (nuevo) setCrear(tipo)
+    // Un objetivo nuevo nace en quesitos; un test nuevo, con su formulario.
+    if (nuevo) { if (tipo === 'objetivo') setEditar(true); else setCrear('test') }
   }, [params.tipo, params.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tocar fuera cierra el menú de un círculo.
@@ -145,21 +146,37 @@ export default function MapaPage() {
   const candidatos = listaOtro.filter(x => !idsFuera.includes(x.id) && !ES_ARCH(x) && (busca.trim() ? contiene(x.nombre, busca) : true)).slice(0, 8)
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 16px 40px' }}>
+    // Fondo blanco, como el resto del torno (amasar, tornear): el arena era el de la app.
+    <div style={{ background: '#fff', margin: '-16px -18px', minHeight: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '18px 22px 120px', overflow: 'hidden' }}>
       <style>{`.mp-sale{transition:left .5s cubic-bezier(.2,.9,.3,1.2),top .5s cubic-bezier(.2,.9,.3,1.2),opacity .35s ease}
         .mp-linea{transition:stroke-dashoffset .5s ease .1s}`}</style>
 
       <div style={{ width: '100%', maxWidth: 900, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button className="btn btn-t btn-sm" onClick={() => router.push('/torno?que=mapa')}><Ic name="atras" size={13}/> Torno</button>
+        <button onClick={() => router.push('/torno?que=mapa')} title="Volver al torno"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '9px 15px 9px 11px', fontSize: 13,
+            boxShadow: '0 3px 14px rgba(38,40,37,.14)' }}><Ic name="atras" size={15}/> Torno</button>
         <div style={{ flex: 1 }}/>
         <span style={{ fontSize: 11.5, color: 'var(--grl)' }}>
-          {tipo === 'objetivo' ? 'Objetivo · alrededor, los tests que lo evalúan' : 'Test · alrededor, los objetivos que evalúa'}
+          {editar ? 'Objetivo · toca un quesito para cambiarlo' : tipo === 'objetivo' ? 'Objetivo · alrededor, los tests que lo evalúan' : 'Test · alrededor, los objetivos que evalúa'}
         </span>
       </div>
 
-      {!cargado ? <div className="muted" style={{ padding: 60 }}>Cargando…</div> : !centro && !nuevo ? (
+      {!cargado ? <div className="muted" style={{ padding: 60 }}>Cargando…</div> : editar && tipo === 'objetivo' ? (
+        <RoscoObjetivo key={centro?.id || 'nuevo'} objetivo={nuevo ? null : centro} etiquetas={etiquetas} tests={tests}
+          onGuardado={async (id: string) => {
+            // Nuevo: si se creó desde el + de un test, se engancha a él; y pasa a su mapa.
+            if (nuevo) {
+              const desde = new URLSearchParams(window.location.search).get('enlazar')
+              if (desde) await supabase.from('objetivos_tests').insert({ objetivo_id: id, test_id: desde })
+              router.replace(`/torno/mapa/objetivo/${id}`); return
+            }
+            await cargar()
+          }}
+          onCerrar={() => { if (nuevo) router.push('/torno?que=mapa'); else { setEditar(false); cargar() } }}/>
+      ) : !centro && !nuevo ? (
         <div className="muted" style={{ padding: 60 }}>No encuentro este {tipo}.</div>
-      ) : centro && (
+      ) : centro && !editar && (
         <div ref={escena} style={{ position: 'relative', width: 'min(620px, 92vw)', aspectRatio: '1', marginTop: 10 }}>
           {/* Las líneas del centro a cada uno: la relación, dibujada. */}
           <svg viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
@@ -172,7 +189,8 @@ export default function MapaPage() {
 
           {/* EL CENTRO */}
           <div data-mapa-menu style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 5 }}>
-            <div style={{ cursor: 'pointer' }} onClick={() => setMenu(m => m === 'centro' ? null : 'centro')}>
+            <div style={{ cursor: 'pointer' }} title={tipo === 'objetivo' ? 'Tocar para editarlo' : undefined}
+              onClick={() => tipo === 'objetivo' ? setEditar(true) : setMenu(m => m === 'centro' ? null : 'centro')}>
               <Circulo tipo={tipo} x={centro} tam={TAM_C} sel={menu === 'centro'}/>
             </div>
             <div style={{ marginTop: 10, fontSize: 15, color: 'var(--n)', textAlign: 'center', maxWidth: 220 }}>{centro.nombre}</div>
@@ -180,9 +198,7 @@ export default function MapaPage() {
             {menu === 'centro' && (
               <div style={{ ...pop, top: 'calc(100% + 4px)' }}>
                 {centro.descripcion && <div style={{ fontSize: 11.5, color: 'var(--gr)', padding: '4px 9px 8px', lineHeight: 1.45, maxWidth: 260 }}>{centro.descripcion}</div>}
-                {tipo === 'objetivo'
-                  ? opcion('editar', 'Editar el objetivo', () => { setMenu(null); setEditar(true) })
-                  : opcion('editar', 'Editar el test en la biblioteca', () => router.push(`/entrenamiento?tab=tests&test=${centro.id}`))}
+                {opcion('editar', 'Editar el test en la biblioteca', () => router.push(`/entrenamiento?tab=tests&test=${centro.id}`))}
               </div>
             )}
           </div>
@@ -226,7 +242,12 @@ export default function MapaPage() {
                 <div style={{ marginTop: 6, fontSize: 11, color: 'var(--grl)' }}>{otro === 'test' ? 'Test' : 'Objetivo'}</div>
                 {menu === '+' && (
                   <div style={{ ...pop, width: 260 }}>
-                    {opcion('mas', otro === 'test' ? 'Crear un test nuevo' : 'Crear un objetivo nuevo', () => { setMenu(null); setCrear(otro) })}
+                    {opcion('mas', otro === 'test' ? 'Crear un test nuevo' : 'Crear un objetivo nuevo', () => {
+                      setMenu(null)
+                      // Un objetivo se crea en quesitos, en su propio mapa, y se engancha a este test al guardarlo.
+                      if (otro === 'objetivo') router.push(`/torno/mapa/objetivo/nuevo?enlazar=${params.id}`)
+                      else setCrear('test')
+                    })}
                     <div style={{ borderTop: '1px solid var(--bl)', margin: '4px 0', padding: '6px 4px 2px' }}>
                       <input className="input" autoFocus value={busca} onChange={e => setBusca(e.target.value)}
                         placeholder={otro === 'test' ? 'O engancha un test que ya existe…' : 'O engancha un objetivo que ya existe…'} style={{ fontSize: 12.5, padding: '7px 9px' }}/>
@@ -247,7 +268,7 @@ export default function MapaPage() {
         </div>
       )}
 
-      {centro && fuera.length === 0 && abierto && (
+      {centro && !editar && fuera.length === 0 && abierto && (
         <div style={{ fontSize: 12.5, color: 'var(--gr)', marginTop: 4, textAlign: 'center', maxWidth: 420 }}>
           {tipo === 'objetivo'
             ? 'Aún no hay ningún test que lo evalúe: sin él no se puede abrir ni cerrar. Toca el + para crearlo o engancharlo.'
@@ -255,23 +276,6 @@ export default function MapaPage() {
         </div>
       )}
 
-      {/* EDITAR EL OBJETIVO DEL CENTRO: el mismo formulario de la biblioteca */}
-      {editar && centro && tipo === 'objetivo' && (
-        <ModalObjetivo objetivo={centro} tests={tests} etiquetas={etiquetas}
-          onCerrar={() => setEditar(false)} onGuardado={async () => { setEditar(false); await cargar() }}/>
-      )}
-
-      {/* CREAR: o el del centro (si se entró en "nuevo") o uno de fuera, que se engancha solo */}
-      {crear === 'objetivo' && (
-        <ModalObjetivo objetivo={null} tests={tests} etiquetas={etiquetas}
-          onCerrar={() => { setCrear(null); if (nuevo) router.push('/torno?que=mapa') }}
-          onGuardado={async (id?: string) => {
-            setCrear(null)
-            if (!id) return
-            if (nuevo) { router.replace(`/torno/mapa/objetivo/${id}`); return }
-            await enlazar(id)
-          }}/>
-      )}
       {crear === 'test' && (
         <ModalTest etiquetas={etiquetas} objetivos={objetivos}
           onCerrar={() => { setCrear(null); if (nuevo) router.push('/torno?que=mapa') }}

@@ -29,7 +29,7 @@ import { esSuma, esBaremo, bandasDe } from '@/lib/tests'
  * en pastillas ocupaba más que todo lo demás del formulario junto para un campo que se
  * rellena una vez y no se vuelve a mirar.
  */
-function PatologiasObjetivo({ todas, puestas, onChange }: {
+export function PatologiasObjetivo({ todas, puestas, onChange }: {
   todas: any[]
   puestas: string[]
   onChange: (ids: string[]) => void
