@@ -284,7 +284,18 @@ export default function RoscoTest({ test, etiquetas, objetivos, onGuardado, onCe
         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: '50%', height: '50%', borderRadius: '50%', overflow: 'hidden',
           boxShadow: '0 10px 34px rgba(38,40,37,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A5800',
           background: d.imagen_url ? 'var(--bl)' : 'radial-gradient(circle at 33% 28%, #fff 0%, #FBF1DC 35%, #E6CF8E 100%)' }}>
-          {d.imagen_url ? <img src={d.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <Ic name="test" size={70}/>}
+          {/* El nombre del test también, dentro del disco (como en el objetivo). */}
+          {d.imagen_url ? <>
+              <img src={d.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+              <span style={{ position: 'absolute', left: 0, right: 0, bottom: '14%', padding: '6px 18%', textAlign: 'center', fontSize: Math.round(tam * .045),
+                fontWeight: 500, color: '#fff', background: 'rgba(122,88,0,.55)' }}>{d.nombre}</span>
+            </> : (
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '0 14%', textAlign: 'center' }}>
+              <Ic name="test" size={Math.round(tam * .1)}/>
+              <span style={{ fontSize: Math.round(tam * ((d.nombre || '').length > 30 ? .05 : .062)), fontWeight: 500, lineHeight: 1.18,
+                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{d.nombre || 'Test nuevo'}</span>
+            </span>
+          )}
         </div>
       </div>
 

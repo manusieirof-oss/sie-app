@@ -244,8 +244,17 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
           boxShadow: '0 10px 34px rgba(38,40,37,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: d.imagen_url ? 'var(--bl)' : 'radial-gradient(circle at 33% 28%, #fff 0%, #A8CDD1 20%, #3E7179 58%, #23474D 100%)',
           color: '#fff', textShadow: '0 1px 3px #23474D' }}>
-          {d.imagen_url ? <img src={d.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-            : <span style={{ fontSize: 80, fontWeight: 500 }}>{(d.nombre || '?').trim().charAt(0).toUpperCase()}</span>}
+          {/* EL NOMBRE, DENTRO DE LA ESFERA: es lo que se mira, y la inicial sola no decía cuál
+              era. El tamaño de letra baja si el nombre es largo, hasta tres líneas. */}
+          {d.imagen_url ? <>
+              <img src={d.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+              <span style={{ position: 'absolute', left: 0, right: 0, bottom: '14%', padding: '6px 18%', textAlign: 'center', fontSize: Math.round(tam * .045),
+                fontWeight: 500, color: '#fff', background: 'rgba(35,71,77,.55)' }}>{d.nombre}</span>
+            </>
+            : <span style={{ padding: '0 14%', textAlign: 'center', lineHeight: 1.18, fontWeight: 500,
+                fontSize: Math.round(tam * ((d.nombre || '').length > 40 ? .05 : (d.nombre || '').length > 22 ? .06 : .075)),
+                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {d.nombre || 'Objetivo nuevo'}</span>}
         </div>
       </div>
 
