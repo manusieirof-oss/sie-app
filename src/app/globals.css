@@ -592,3 +592,31 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .mes-dia.hoy .mes-num{background:var(--g);color:#fff;font-weight:600}
 .sem-mas{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--grl);padding:3px 3px 1px;border-radius:6px;cursor:pointer}
 .sem-mas:hover{color:var(--gd);background:var(--gl)}
+
+/* Pacientes · cabecera como la de la agenda. Fija arriba al hacer scroll. */
+.pac-cab{position:sticky;top:0;z-index:20;background:var(--bl);margin:-24px -26px 12px;padding:22px 26px 12px;}
+.pac-cab-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pac-buscar{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:var(--w);border:1px solid var(--bd);border-radius:99px;padding:0 12px;color:var(--grl);height:36px}
+.pac-buscar:focus-within{border-color:var(--g);box-shadow:var(--ring)}
+.pac-buscar input{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:13px;color:var(--n);min-width:0}
+.pac-buscar button{border:none;background:none;color:var(--grl);cursor:pointer;display:flex}
+.pac-atajo{font-family:inherit;font-size:12px;padding:6px 12px;border-radius:99px;cursor:pointer;border:1px solid var(--bd);background:var(--w);color:var(--gr);white-space:nowrap}
+.pac-atajo b{font-weight:600;margin-left:2px}
+.pac-atajo.nuevo{border-color:#BBD3AC;color:#4A6B3B}
+.pac-atajo.nuevo.on{background:#5B7F4A;border-color:#5B7F4A;color:#fff}
+.pac-atajo.reciente{border-color:#D3E2C9;color:#5B7F4A}
+.pac-atajo.reciente.on{background:#7C9A6B;border-color:#7C9A6B;color:#fff}
+.pac-atajo.acabar{border-color:#E9D7A6;color:#7A5800}
+.pac-atajo.acabar.on{background:#8A6410;border-color:#8A6410;color:#fff}
+.pf-pop{width:min(560px,90vw);padding:14px 16px}
+.pf-grupo{margin-bottom:12px}
+.pf-ops{display:flex;flex-wrap:wrap;gap:5px}
+.pf-op{font-family:inherit;font-size:12px;padding:5px 11px;border-radius:99px;border:1px solid var(--bd);background:var(--w);color:var(--gr);cursor:pointer}
+.pf-op b{font-weight:600;margin-left:2px;color:var(--grl)}
+.pf-op:hover{border-color:var(--g)}
+.pf-op.on{background:var(--g);border-color:var(--g);color:#fff}
+.pf-op.on b{color:rgba(255,255,255,.8)}
+.pac-puestos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pac-puesto{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 6px 4px 11px;border-radius:99px;background:var(--gl);color:var(--gd)}
+.pac-puesto button{border:none;background:none;color:var(--gd);cursor:pointer;display:flex;padding:2px;border-radius:99px}
+.pac-puesto button:hover{background:rgba(62,113,121,.12)}

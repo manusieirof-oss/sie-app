@@ -72,6 +72,7 @@ export default function PacientesPage() {
   const [ronda, setRonda] = useState<Ronda|null>(null)
   const [respuestas, setRespuestas] = useState<Record<string,Respuesta>>({})
   const [soloFaltan, setSoloFaltan] = useState(false)
+  const [filtrosAbierto, setFiltrosAbierto] = useState(false)
   const [editRonda, setEditRonda] = useState<any>(null)
   const [nuevo, setNuevo] = useState({ nombre:'', apellidos:'', nombre_clinica:'', telefono:'', email:'', tipo_clase:'entrenamiento', dni:'', fecha_nacimiento:'', altura_cm:'', peso_kg:'' })
   
@@ -374,83 +375,84 @@ export default function PacientesPage() {
 
   return (
     <>
-      {/* FILTROS CON CONTADORES */}
-      <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'8px 12px'}}>
-        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
-          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Pago</span>
-          {[['todos','Todos'],['pagado','✓ Pagado'],['pendiente','Pendiente'],['impago','Impago']].map(([f,l])=>(
-            <span key={f} onClick={()=>setFiltroPago(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroPago===f?'var(--g)':'var(--w)',color:filtroPago===f?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
-              {l} <b style={{fontWeight:600}}>{nPago(f)}</b>
-            </span>
-          ))}
-        </div>
-        <div style={{width:1,height:18,background:'var(--bd)'}}/>
-        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
-          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Estado</span>
-          {[['activo','Activos'],['pausa','Pausas'],['puede_volver','Pueden volver'],['baja','Bajas'],['todos','Todos']].map(([f,l])=>(
-            <span key={f} onClick={()=>setFiltroEstado(f)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroEstado===f?'var(--g)':'var(--w)',color:filtroEstado===f?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
-              {l} <b style={{fontWeight:600}}>{nEstado(f)}</b>
-            </span>
-          ))}
-        </div>
-        <div style={{width:1,height:18,background:'var(--bd)'}}/>
-        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
-          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Tipo</span>
-          <span onClick={()=>setFiltroTipo('todos')} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroTipo==='todos'?'var(--g)':'var(--w)',color:filtroTipo==='todos'?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
-            Todos <b style={{fontWeight:600}}>{nTipo('todos')}</b>
-          </span>
-          {tiposClase.map((t:any)=>(
-            <span key={t.valor} onClick={()=>setFiltroTipo(t.valor)} style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',background:filtroTipo===t.valor?'var(--g)':'var(--w)',color:filtroTipo===t.valor?'#fff':'var(--gr)',display:'flex',alignItems:'center',gap:4}}>
-              {t.nombre} <b style={{fontWeight:600}}>{nTipo(t.valor)}</b>
-            </span>
-          ))}
-        </div>
-        <div style={{width:1,height:18,background:'var(--bd)'}}/>
-        {/* BONO. Se podía filtrar por estado, por pago y por tipo de clase, pero no por qué
-            cuota tiene. "Sin cuota" es el que más se va a usar: es la lista de a quién hay
-            que ponerle bono, que antes había que sacar mirando fila a fila. */}
-        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
-          <span style={{fontSize:9,color:'var(--grl)',marginRight:2}}>Bono</span>
-          {([['todos','Todos'],['sin','Sin cuota'],...bonosOpts.map(b=>[b.id,b.nombre] as [string,string])] as [string,string][]).map(([v,l])=>(
-            <span key={v} onClick={()=>setFiltroBono(v)}
-              style={{fontSize:9,padding:'3px 9px',borderRadius:99,border:'1px solid var(--bd)',cursor:'pointer',
-                background:filtroBono===v?'var(--g)':'var(--w)',color:filtroBono===v?'#fff':'var(--gr)',
-                display:'flex',alignItems:'center',gap:4}}>
-              {l} <b style={{fontWeight:600}}>{nBono(v)}</b>
-            </span>
-          ))}
-        </div>
-        {/* NUEVOS. Va suelto y no dentro de "Estado" porque no es un estado: un recién
-            llegado está activo igual que el resto. Es un interruptor que se cruza con
-            todo lo demás. */}
-        <div style={{width:1,height:18,background:'var(--bd)'}}/>
-        <span onClick={()=>{setSoloNuevos(v=>!v);setSoloRecientes(false);setSoloPorAcabar(false)}}
-          title={`Los que se dieron de alta en los últimos ${DIAS_NUEVO} días`}
-          style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
-            border:`1px solid ${soloNuevos?'#5B7F4A':'#BBD3AC'}`,
-            background:soloNuevos?'#5B7F4A':'#F1F7ED',color:soloNuevos?'#fff':'#4A6B3B',
-            display:'flex',alignItems:'center',gap:4,fontWeight:600}}>
-          Nuevos <b style={{fontWeight:700}}>{nNuevos}</b>
-        </span>
-        {/* RECIENTES: el mismo verde, apagado. Solo borde, sin relleno. */}
-        <span onClick={()=>{setSoloRecientes(v=>!v);setSoloNuevos(false);setSoloPorAcabar(false)}}
-          title={`Los que se dieron de alta hace entre ${DIAS_NUEVO + 1} días y ${DIAS_RECIENTE_ALTA / 30} meses`}
-          style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
-            border:`1px solid ${soloRecientes?'#7C9A6B':'#BBD3AC'}`,
-            background:soloRecientes?'#7C9A6B':'var(--w)',color:soloRecientes?'#fff':'#5B7F4A',
-            display:'flex',alignItems:'center',gap:4,fontWeight:500}}>
-          Recientes <b style={{fontWeight:700}}>{nRecientes}</b>
-        </span>
-        {/* BONOS POR ACABAR: le quedan pocas sesiones o ninguna. En ámbar, que es aviso. */}
-        <span onClick={()=>{setSoloPorAcabar(v=>!v);setSoloNuevos(false);setSoloRecientes(false)}}
-          title={`Bonos de sesiones a los que les quedan ${UMBRAL_POCAS} o menos, o ninguna`}
-          style={{fontSize:9,padding:'3px 9px',borderRadius:99,cursor:'pointer',
-            border:`1px solid ${soloPorAcabar?'#8A6410':'var(--amb)'}`,
-            background:soloPorAcabar?'#8A6410':'var(--ambl)',color:soloPorAcabar?'#fff':'#7A5800',
-            display:'flex',alignItems:'center',gap:4,fontWeight:600}}>
-          Bonos por acabar <b style={{fontWeight:700}}>{nPorAcabar}</b>
-        </span>
-      </div>
+      {/* CABECERA · como la de la agenda.
+          Antes eran tres filas de botones (pago, estado, tipo, bono…) que ocupaban media
+          pantalla y casi nunca se tocan. Ahora: título, buscador, los tres atajos que sí
+          se usan a diario y el resto de filtros recogidos en un icono, con su numerito
+          mientras haya alguno puesto. Toda la cabecera se queda fija al hacer scroll, así
+          que el buscador sigue a mano con la lista a medio bajar. */}
+      {(() => {
+        const ESTADOS_F: [string,string][] = [['activo','Activos'],['pausa','Pausas'],['puede_volver','Pueden volver'],['baja','Bajas'],['todos','Todos']]
+        const PAGOS_F: [string,string][] = [['todos','Todos'],['pagado','Pagado'],['pendiente','Pendiente'],['impago','Impago']]
+        const BONOS_F: [string,string][] = [['todos','Todos'],['sin','Sin cuota'],...bonosOpts.map(b=>[b.id,b.nombre] as [string,string])]
+        const TIPOS_F: [string,string][] = [['todos','Todos'],...tiposClase.map((t:any)=>[t.valor,t.nombre] as [string,string])]
+        // Lo que no está en su valor de siempre: eso es "un filtro puesto".
+        const puestos: { etiqueta:string, quitar:()=>void }[] = []
+        if (filtroEstado!=='activo') puestos.push({ etiqueta: ESTADOS_F.find(e=>e[0]===filtroEstado)?.[1]||filtroEstado, quitar:()=>setFiltroEstado('activo') })
+        if (filtroPago!=='todos') puestos.push({ etiqueta: 'Pago: '+(PAGOS_F.find(e=>e[0]===filtroPago)?.[1]||filtroPago), quitar:()=>setFiltroPago('todos') })
+        if (filtroTipo!=='todos') puestos.push({ etiqueta: TIPOS_F.find(e=>e[0]===filtroTipo)?.[1]||filtroTipo, quitar:()=>setFiltroTipo('todos') })
+        if (filtroBono!=='todos') puestos.push({ etiqueta: 'Bono: '+(BONOS_F.find(e=>e[0]===filtroBono)?.[1]||filtroBono), quitar:()=>setFiltroBono('todos') })
+        const grupo = (titulo:string, ops:[string,string][], valor:string, poner:(v:string)=>void, n:(v:string)=>number) => (
+          <div className="pf-grupo">
+            <div className="ag-pop-t">{titulo}</div>
+            <div className="pf-ops">
+              {ops.map(([v,l])=>(
+                <button key={v} className={`pf-op ${valor===v?'on':''}`} onClick={()=>poner(v)}>{l} <b>{n(v)}</b></button>
+              ))}
+            </div>
+          </div>
+        )
+        return (
+          <div className="pac-cab">
+            <div className="pac-cab-fila">
+              <div className="ag-fecha" style={{cursor:'default'}}>
+                <span className="ag-fecha-g">Pacientes</span>
+                <span className="ag-fecha-p">{filtrados.length}{filtrados.length!==pacientes.length?` de ${pacientes.length}`:''}</span>
+              </div>
+              <div className="pac-buscar">
+                <Ic name="buscar" size={15}/>
+                <input placeholder="Buscar por nombre, clínica o teléfono…" value={buscar} onChange={e=>setBuscar(e.target.value)}/>
+                {buscar && <button onClick={()=>setBuscar('')} title="Borrar"><Ic name="cerrar" size={13}/></button>}
+              </div>
+              {/* Los tres atajos de cada día. Se excluyen entre sí, como antes. */}
+              <button className={`pac-atajo nuevo ${soloNuevos?'on':''}`} title={`Alta en los últimos ${DIAS_NUEVO} días`}
+                onClick={()=>{setSoloNuevos(v=>!v);setSoloRecientes(false);setSoloPorAcabar(false)}}>Nuevos <b>{nNuevos}</b></button>
+              <button className={`pac-atajo reciente ${soloRecientes?'on':''}`} title={`Alta hace entre ${DIAS_NUEVO + 1} días y ${DIAS_RECIENTE_ALTA / 30} meses`}
+                onClick={()=>{setSoloRecientes(v=>!v);setSoloNuevos(false);setSoloPorAcabar(false)}}>Recientes <b>{nRecientes}</b></button>
+              <button className={`pac-atajo acabar ${soloPorAcabar?'on':''}`} title={`Bonos con ${UMBRAL_POCAS} sesiones o menos`}
+                onClick={()=>{setSoloPorAcabar(v=>!v);setSoloNuevos(false);setSoloRecientes(false)}}>Bonos por acabar <b>{nPorAcabar}</b></button>
+              <div style={{position:'relative'}}>
+                <button className={`ag-ic ${puestos.length>0||filtrosAbierto?'activo':''}`} onClick={()=>setFiltrosAbierto(v=>!v)} title="Filtrar por estado, pago, tipo y bono">
+                  <Ic name="filtro" size={16}/>
+                  {puestos.length>0 && <span className="ag-badge" style={{background:'var(--g)'}}>{puestos.length}</span>}
+                </button>
+                {filtrosAbierto && (
+                  <>
+                    <div style={{position:'fixed',inset:0,zIndex:40}} onClick={()=>setFiltrosAbierto(false)}/>
+                    <div className="ag-pop pf-pop">
+                      {grupo('Estado', ESTADOS_F, filtroEstado, setFiltroEstado, nEstado)}
+                      {grupo('Pago', PAGOS_F, filtroPago, setFiltroPago, nPago)}
+                      {grupo('Tipo de clase', TIPOS_F, filtroTipo, setFiltroTipo, nTipo)}
+                      {grupo('Bono', BONOS_F, filtroBono, setFiltroBono, nBono)}
+                      {puestos.length>0 && <button className="ag-pop-quitar" onClick={()=>puestos.forEach(p=>p.quitar())}>Quitar filtros</button>}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button className="ag-nueva" onClick={()=>setModal(true)}><Ic name="mas" size={14}/> Paciente</button>
+            </div>
+            {/* Lo que está filtrado, a la vista y con su × para quitarlo. Si no, se olvida
+                que hay un filtro puesto y parece que faltan pacientes. */}
+            {puestos.length>0 && (
+              <div className="pac-puestos">
+                {puestos.map(p=>(
+                  <span key={p.etiqueta} className="pac-puesto">{p.etiqueta}<button onClick={p.quitar} title="Quitar"><Ic name="cerrar" size={11}/></button></span>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* RONDA ABIERTA · el contador es lo que hace que la tarea se acabe */}
       {ronda && (
@@ -495,19 +497,6 @@ export default function PacientesPage() {
           </div>
         </div>
       )}
-
-      {/* BUSCADOR PEGADO A LA LISTA.
-          Estaba arriba del todo, encima de los filtros, asi que para buscar a
-          alguien con la lista a medio bajar habia que subir hasta el principio.
-          Va aqui —lo ultimo antes de la tabla— y se queda fijo al hacer scroll.
-          Fuera de la tabla a la fuerza: ese contenedor tiene `overflow:hidden`,
-          que anula cualquier `sticky` de dentro. */}
-      <div style={{position:'sticky',top:0,zIndex:20,display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',
-                   marginBottom:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',
-                   padding:'8px 12px',boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
-        <input className="input" placeholder="Buscar por nombre, clínica o teléfono..." value={buscar} onChange={e=>setBuscar(e.target.value)} style={{flex:1,minWidth:200}}/>
-        <button className="btn btn-p btn-sm" onClick={()=>setModal(true)}>+ Nuevo paciente</button>
-      </div>
 
       {/* TABLA */}
       {loading ? <div className="loading">Cargando pacientes...</div> : (
