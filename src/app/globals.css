@@ -18,6 +18,10 @@ html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:
    nueva sin alto fijo: desaparecía la barra de scroll en todas las pantallas. */
 .shell > .sidebar{grid-column:1;grid-row:1;}
 .shell > .content{grid-column:2;grid-row:1;min-height:0;}
+/* La caja que hace scroll de cada pantalla. Sin barra superior, con más aire arriba
+   para que los botones no queden pegados al borde. */
+.topbar{background:var(--w);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:10;}
+.content{overflow-y:auto;background:var(--bl);padding:24px 26px 20px;-webkit-overflow-scrolling:touch;}
 /* INMERSIVO: en el torno la barra de pilares se aparta.
    Se asoma al llevar el raton al borde izquierdo, y vuelve a irse al salir.
    La rejilla NO cambia de columnas: el hueco se queda, asi nada salta. */
@@ -510,7 +514,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .ag-pop-quitar{margin-top:6px;font-family:inherit;font-size:11.5px;border:none;background:none;color:var(--g);cursor:pointer;padding:0}
 .ag-punto{width:7px;height:7px;border-radius:99px;flex-shrink:0;display:inline-block}
 
-.ag-dia{background:var(--w);border-radius:18px;box-shadow:0 1px 2px rgba(38,40,37,.04),0 6px 24px rgba(38,40,37,.05);overflow:hidden;height:calc(100vh - 96px)}
+.ag-dia{background:var(--w);border-radius:18px;box-shadow:0 1px 2px rgba(38,40,37,.04),0 6px 24px rgba(38,40,37,.05);overflow:hidden;height:calc(100vh - 112px)}
 .ag-fila{display:grid;gap:14px;padding:0 18px}
 .ag-salas{position:sticky;top:0;z-index:3;background:var(--w);padding-top:12px;padding-bottom:8px}
 .ag-salas div{font-size:11px;font-weight:600;color:var(--grl);letter-spacing:.8px;text-transform:uppercase}

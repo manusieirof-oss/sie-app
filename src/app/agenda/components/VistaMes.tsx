@@ -77,7 +77,7 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
   )
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 96px)'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 112px)'}}>
       {/* Buscador / filtro por paciente */}
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap',flexShrink:0}}>
         {!pacSel ? (
