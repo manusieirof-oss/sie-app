@@ -6,6 +6,9 @@ import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import FiguraMusculos from '@/components/FiguraMusculos'
 import { figuraDe } from '@/lib/cuerpo'
 import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
+import { MediosEjercicio, EditorAnimacion, EditorVideos } from '@/components/MediosEjercicio'
+import { animacionDe } from '@/lib/anim3d/asignar'
+import { videosDe } from '@/lib/videos'
 import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido, TIPOS_MEDIDA, nombreMedida } from '@/lib/ejercicios'
 
 
@@ -182,7 +185,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
   useEffect(() => { setVarianteActiva(-1) }, [ejSeleccionado?.id])
   const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[] })
   const [editando, setEditando] = useState(false)
-  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[] })
+  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[], animacion:null as any, videos:[] as any[] })
   const [modalSelEtEdit, setModalSelEtEdit] = useState(false)
 
   async function handleImagenEjercicio(e: React.ChangeEvent<HTMLInputElement>) {
@@ -199,7 +202,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
 
   function abrirEdicion() {
     if (!ejSeleccionado) return
-    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps', variantes:ejSeleccionado.variantes||[], items_ejecucion:ejSeleccionado.items_ejecucion||[], feedbacks:ejSeleccionado.feedbacks||[] })
+    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps', variantes:ejSeleccionado.variantes||[], items_ejecucion:ejSeleccionado.items_ejecucion||[], feedbacks:ejSeleccionado.feedbacks||[], animacion:ejSeleccionado.animacion||null, videos:videosDe(ejSeleccionado) })
     setEditando(true)
   }
 
@@ -215,10 +218,13 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
       if (!r.ok) { alert('No se pudo subir la imagen: '+r.error); setSubiendoImg(false); setGuardando(false); return }
       imagenUrlFinal = r.url
     }
-    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks }).eq('id', editEj.id)
+    // Vídeos: la lista nueva manda; video_url se deja con el primero para lo que aún lo lee.
+    const videos = (editEj.videos || []).filter((v: any) => String(v.url || '').trim()).map((v: any) => ({ titulo: String(v.titulo || '').trim() || 'Vídeo', url: String(v.url).trim() }))
+    const videoUrl = videos[0]?.url || ''
+    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:videoUrl, videos, animacion:editEj.animacion, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks }).eq('id', editEj.id)
     setSubiendoImg(false); setGuardando(false)
     if (error) { alert('Error al actualizar'); return }
-    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:editEj.video_url, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks })
+    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:videoUrl, videos, animacion:editEj.animacion, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks })
     setEditando(false); cargar()
   }
 
@@ -367,7 +373,9 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                     <div>
                       <div className="field"><label>Nombre *</label><input className="input" value={editEj.nombre} onChange={e=>setEditEj(p=>({...p,nombre:e.target.value}))} disabled={guardando}/></div>
                       <div className="field"><label>Descripción</label><textarea className="input" value={editEj.descripcion} onChange={e=>setEditEj(p=>({...p,descripcion:e.target.value}))} disabled={guardando}/></div>
-                      <div className="field"><label>Enlace vídeo</label><input className="input" value={editEj.video_url} onChange={e=>setEditEj(p=>({...p,video_url:e.target.value}))} disabled={guardando}/></div>
+                      <div className="field"><label>Vídeos</label><EditorVideos videos={editEj.videos} onChange={v=>setEditEj(p=>({...p,videos:v}))} disabled={guardando}/></div>
+                      {/* Qué movimiento hace en 3D. "Automática" lo saca del nombre; si no cuadra con la foto, se elige aquí. */}
+                      <div className="field"><label>Animación 3D</label><EditorAnimacion nombre={editEj.nombre} valor={editEj.animacion} onChange={v=>setEditEj(p=>({...p,animacion:v}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}>{TIPOS_MEDIDA.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div>
                       <EditorItems items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
                       <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
@@ -407,12 +415,17 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                   <div style={{display:'grid',gridTemplateColumns:'1.1fr 1fr',gap:18}}>
                     <div>
                       {(() => {
-                        const img = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.imagen_url || ejSeleccionado.imagen_url) : ejSeleccionado.imagen_url
-                        if (img) return <img src={img} alt={ejSeleccionado.nombre} style={{width:'100%',aspectRatio:'1',objectFit:'cover',background:'var(--bm)',borderRadius:8,border:'1px solid var(--bd)',display:'block'}}/>
-                        // Sin foto: la figura con sus músculos (lib/cuerpo), o el icono si no hay capa.
-                        return <div style={{position:'relative',overflow:'hidden',width:'100%',aspectRatio:'1',background:'var(--bl)',borderRadius:8,border:'1px solid var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gr)'}}>
+                        const v = varianteActiva>=0 ? ejSeleccionado.variantes?.[varianteActiva] : null
+                        const img = v ? (v.imagen_url || ejSeleccionado.imagen_url) : ejSeleccionado.imagen_url
+                        // Animación 3D: la de la variante sale de su nombre ("Zancada · Atrás"); la del ejercicio, la guardada o la del nombre.
+                        const anim = v ? animacionDe({ nombre: `${ejSeleccionado.nombre} · ${v.nombre||''}` }) : animacionDe(ejSeleccionado)
+                        const vids = videosDe(ejSeleccionado)
+                        const videos = v?.video_url ? [{ titulo: v.nombre || 'Vídeo', url: v.video_url }, ...vids] : vids
+                        // Sin nada que enseñar: la figura con sus músculos (lib/cuerpo), o el icono si no hay capa.
+                        const vacio = <div style={{position:'relative',overflow:'hidden',width:'100%',aspectRatio:'1',background:'var(--bl)',borderRadius:8,border:'1px solid var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--gr)'}}>
                           {figuraDe(ejSeleccionado.etiquetas||[], etiquetas) ? <FiguraMusculos etiquetasEj={ejSeleccionado.etiquetas} etiquetas={etiquetas}/> : <Ic name="fuerza" size={56}/>}
                         </div>
+                        return <MediosEjercicio key={ejSeleccionado.id + ':' + varianteActiva} anim={anim} foto={img} videos={videos} vacio={vacio}/>
                       })()}
                     </div>
                     <div>
@@ -436,10 +449,6 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                           <Ic name="copiar" size={12}/> Convertir en ejercicio
                         </button>
                       )}
-                      {(() => {
-                        const vurl = varianteActiva>=0 ? (ejSeleccionado.variantes?.[varianteActiva]?.video_url||'') : (ejSeleccionado.video_url||'')
-                        return vurl ? <a href={vurl} target="_blank" rel="noopener noreferrer" className="btn btn-s btn-sm" style={{marginBottom:14,display:'inline-flex'}}><Ic name="play" size={12}/> Ver vídeo{varianteActiva>=0?` · ${ejSeleccionado.variantes[varianteActiva]?.nombre||''}`:''}</a> : null
-                      })()}
                       {/* SU FAMILIA: portada y variantes. Tocar una la abre. */}
                       {(() => {
                         const portada = portadaDe(ejSeleccionado)
