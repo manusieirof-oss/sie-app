@@ -191,7 +191,7 @@ export async function crearEjercicioRapido(nombre: string, tipoMedida: string) {
  * trabajan, qué articulación mueven y con qué patrón — no que se usen con el mismo
  * hierro. Lo mismo con el agarre, el apoyo o la posición.
  */
-const CATEGORIAS_SIMILITUD = ['musculo', 'articulacion', 'movimiento', 'patologia']
+const CATEGORIAS_SIMILITUD = ['musculo', 'articulacion', 'movimiento', 'patron', 'patologia']
 
 /**
  * Ejercicios parecidos al dado, ordenados por cuántas etiquetas relevantes comparten.

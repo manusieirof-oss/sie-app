@@ -97,7 +97,7 @@ export async function resumenVolumen(pacienteId: string, semanas = 8): Promise<R
   // Todos los patrones y todos los músculos raíz que EXISTEN, no solo los que salen.
   // El hueco es el dato: un músculo a cero tiene que aparecer, porque es justo lo que
   // se va a corregir en el programa siguiente.
-  const raizPatron = ets.find((e: any) => e.categoria === 'movimiento' && e.nombre === 'Patrón')
+  const raizPatron = ets.find((e: any) => (e.categoria === 'patron' || e.categoria === 'movimiento') && e.nombre === 'Patrón')
   const idsPatron = raizPatron
     ? conDescendientes(ets, raizPatron.id).filter(id => id !== raizPatron.id)
     : []
@@ -137,7 +137,8 @@ export async function resumenVolumen(pacienteId: string, semanas = 8): Promise<R
             ;(vistoEnSesion[raiz.id] ||= new Set()).add(String(c.id))
           }
           // El patrón es la etiqueta en sí, no su raíz: la raíz sería "Patrón".
-          if (cat === 'movimiento' && patr[idEt]) {
+          // Acepta las dos categorías mientras conviven datos de antes y después del cambio.
+          if ((cat === 'patron' || cat === 'movimiento') && patr[idEt]) {
             patr[idEt].series += n
             ;(vistoEnSesion[idEt] ||= new Set()).add(String(c.id))
           }

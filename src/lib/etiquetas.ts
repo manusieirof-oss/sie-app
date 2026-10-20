@@ -10,6 +10,10 @@ export const CATEGORIAS_ETIQUETA = [
   { key: 'musculo', label: 'Músculo' },
   { key: 'articulacion', label: 'Articulación' },
   { key: 'movimiento', label: 'Movimiento' },
+  // Patrones (sentadilla, bisagra…) y alcance (analítico/global/combinado) salen de
+  // Movimiento: no son un gesto de una articulación, y mezclados no dejaban repartir
+  // el trabajo de cada articulación por movimiento en el mapa de calor.
+  { key: 'patron', label: 'Patrón y alcance' },
   { key: 'posicion', label: 'Posición' },
   { key: 'material', label: 'Material' },
   { key: 'apoyo', label: 'Apoyo' },
