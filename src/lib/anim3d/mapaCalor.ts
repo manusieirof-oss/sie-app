@@ -43,13 +43,13 @@ export async function crearMapaCalor(el: HTMLElement, ev: { zona?: (k: string | 
   const uM = { value: new Array(NM).fill(0) }
   const rampa = RAMPA.map(c => new THREE.Color(c))
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uM, r0: { value: rampa[0] }, r1: { value: rampa[1] }, r2: { value: rampa[2] }, r3: { value: rampa[3] }, r4: { value: rampa[4] } },
+    uniforms: { uM, base: { value: new THREE.Color('#9FCFD3') }, r0: { value: rampa[0] }, r1: { value: rampa[1] }, r2: { value: rampa[2] }, r3: { value: rampa[3] }, r4: { value: rampa[4] } },
     vertexShader: `attribute float mid; attribute float mm; uniform float uM[${NM}];
       varying vec3 vN; varying vec3 vV; varying float vC;
       void main(){ vec4 mv = modelViewMatrix*vec4(position,1.);
         vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz);
         vC = uM[int(mid + .5)] * mm; gl_Position = projectionMatrix*mv; }`,
-    fragmentShader: `uniform vec3 r0; uniform vec3 r1; uniform vec3 r2; uniform vec3 r3; uniform vec3 r4;
+    fragmentShader: `uniform vec3 base; uniform vec3 r0; uniform vec3 r1; uniform vec3 r2; uniform vec3 r3; uniform vec3 r4;
       varying vec3 vN; varying vec3 vV; varying float vC;
       vec3 rampa(float x){ x = clamp(x,0.,1.)*4.;
         if (x < 1.) return mix(r0,r1,x); if (x < 2.) return mix(r1,r2,x-1.); if (x < 3.) return mix(r2,r3,x-2.); return mix(r3,r4,x-3.); }
@@ -58,7 +58,8 @@ export async function crearMapaCalor(el: HTMLElement, ev: { zona?: (k: string | 
         float d = max(dot(n,l1),0.)*.45 + max(dot(n,l2),0.)*.2 + .5;
         float rim = pow(1.-max(dot(n,v),0.), 3.)*.12;
         // El tinte del músculo entra suave: poco trabajo apenas colorea, mucho llega al rojo.
-        vec3 c = mix(r0, rampa(.15 + vC*.8), smoothstep(0., .3, vC));
+        // El cuerpo, del verde de la clínica (como en las animaciones); el calor encima.
+        vec3 c = mix(base, rampa(.15 + vC*.8), smoothstep(0., .3, vC));
         gl_FragColor = vec4(c*d + rim, 1.); }`,
   })
   const cuerpo = new THREE.Group()
