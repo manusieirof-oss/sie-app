@@ -10,6 +10,7 @@ import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crea
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
+import { EditorTrabajo, EditorAnatomia, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia, type TrabajoEj, type AnatomiaEj } from '@/components/TrabajoEjercicio'
 
 // ---------------------------------------------------------------------------
 // AMASAR · EL ROSCO
@@ -23,14 +24,16 @@ import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 // Nada se escribe hasta "Guardar". Lo nuevo se crea entonces; lo existente se actualiza.
 // ---------------------------------------------------------------------------
 
-type Clave = 'nombre' | 'descripcion' | 'etiquetas' | 'medida' | 'ejecucion' | 'feedbacks' | 'foto' | 'familia'
+type Clave = 'nombre' | 'descripcion' | 'etiquetas' | 'medida' | 'trabajo' | 'ejecucion' | 'feedbacks' | 'foto' | 'familia'
 type Datos = { nombre: string, descripcion: string, video_url: string, imagen_url: string, etiquetas: string[],
   tipo_medida: string, items_ejecucion: any[], feedbacks: any[], portada_id: string | null,
+  /** Qué trabaja (ver components/TrabajoEjercicio): intensidades que admite, ejecución y anatomía. */
+  trabajo: TrabajoEj, anatomia: AnatomiaEj,
   /** Quesitos que vienen copiados al crear una variante y hay que confirmar ('ejecucion', 'feedbacks'). */
   por_revisar: string[] }
 
 const VACIO: Datos = { nombre: '', descripcion: '', video_url: '', imagen_url: '', etiquetas: [], tipo_medida: '',
-  items_ejecucion: [], feedbacks: [], portada_id: null, por_revisar: [] }
+  items_ejecucion: [], feedbacks: [], portada_id: null, por_revisar: [], trabajo: trabajoVacio(), anatomia: anatomiaVacia() }
 
 // ---------------------------------------------------------------------------
 // BORRADORES DE LA TANDA. Trabajando varios ejercicios a la vez (la tanda de "completar
@@ -77,6 +80,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [d, setD] = useState<Datos>(VACIO)
   const [orig, setOrig] = useState<Datos>(VACIO)
   const [ets, setEts] = useState<any[]>([])
+  const cfgTrabajo = useConfigTrabajo()
   const [ejs, setEjs] = useState<any[]>([])
   const [objetivos, setObjetivos] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
@@ -127,10 +131,12 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       if (e) {
         const x: Datos = { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
           etiquetas: e.etiquetas || [], tipo_medida: e.tipo_medida || '', items_ejecucion: e.items_ejecucion || [],
-          feedbacks: e.feedbacks || [], portada_id: e.portada_id || null, por_revisar: e.por_revisar || [] }
+          feedbacks: e.feedbacks || [], portada_id: e.portada_id || null, por_revisar: e.por_revisar || [],
+          trabajo: trabajoDe(e), anatomia: anatomiaDe(e) }
         // Lo tocado y sin guardar en la tanda se retoma tal cual se dejó.
         const b = leerBorradores()[params.id]
-        setD(b ? b.d : x); setOrig(x)
+        // Un borrador de antes de existir "Qué trabaja" no lo trae: se completa con lo guardado.
+        setD(b ? { ...x, ...b.d, trabajo: b.d.trabajo || x.trabajo, anatomia: b.d.anatomia || x.anatomia } : x); setOrig(x)
       }
     }
     setCargando(false)
@@ -186,6 +192,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
     { k: 'etiquetas', t: 'Etiquetas', ic: 'etiqueta', lleno: nEt > 0, sub: nEt ? `${nEt} puesta${nEt === 1 ? '' : 's'}` : 'Ninguna' },
     { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'Sin decidir' },
+    // Lo que usa el mapa de calor y el generador de sesiones: sin anatomía ni intensidades
+    // el ejercicio no cuenta en ninguna zona.
+    { k: 'trabajo', t: 'Qué trabaja', ic: 'fuerza', lleno: d.anatomia.acc.length > 0 && d.trabajo.int.length > 0,
+      sub: d.anatomia.acc.length ? `${new Set(d.anatomia.acc.map(a => a.a)).size} articulaciones · ${d.trabajo.int.length} intens.` : 'Sin poner' },
     // En amarillo y sin contar como lleno mientras sea lo copiado sin confirmar.
     { k: 'ejecucion', t: 'Ejecución', ic: 'ok', rev: rev('ejecucion'), lleno: !rev('ejecucion') && d.items_ejecucion.some(i => i.texto?.trim()),
       sub: rev('ejecucion') ? 'Por revisar' : `${d.items_ejecucion.filter(i => i.texto?.trim()).length} criterios` },
@@ -222,7 +232,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     setGuardando(true); setAviso('')
     const fila: any = { nombre: d.nombre.trim(), descripcion: d.descripcion, video_url: d.video_url, etiquetas: d.etiquetas,
       tipo_medida: d.tipo_medida, items_ejecucion: d.items_ejecucion.filter(i => i.texto?.trim()),
-      feedbacks: d.feedbacks.filter(i => i.texto?.trim()) }
+      feedbacks: d.feedbacks.filter(i => i.texto?.trim()), trabajo: d.trabajo, anatomia: d.anatomia }
     // Solo si ha cambiado: así guardar no depende de la columna si nunca se usó.
     if (JSON.stringify(d.por_revisar) !== JSON.stringify(orig.por_revisar)) fila.por_revisar = d.por_revisar
     let id = params.id
@@ -429,6 +439,14 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       }
       // Solo los criterios, sin objetivos por criterio (de momento): era demasiado aquí.
       // Los que ya tenían objetivos los conservan (EditorLista solo toca el texto).
+      case 'trabajo': return (<>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Intensidades que admite y ejecución</div>
+        <EditorTrabajo valor={d.trabajo} cfg={cfgTrabajo} onChange={v => setD(p => ({ ...p, trabajo: v }))}/>
+        <div style={{ fontSize: 12, fontWeight: 600, margin: '14px 0 6px' }}>Anatomía</div>
+        {/* Lo que se quita aquí sale también de las etiquetas, y lo que se añade entra. */}
+        <EditorAnatomia valor={d.anatomia} etiquetas={ets}
+          onChange={v => setD(p => { const antes = idsAnatomia(p.anatomia), ahora = idsAnatomia(v); return { ...p, anatomia: v, etiquetas: Array.from(new Set([...p.etiquetas.filter(x => !antes.includes(x) || ahora.includes(x)), ...ahora])) } })}/>
+      </>)
       case 'ejecucion': return <EditorLista items={d.items_ejecucion} onChange={(v: any[]) => setRev('items_ejecucion', 'ejecucion', v)} label="Qué tiene que cumplir" placeholder="Ej. Rodilla alineada con el pie" icono="ok"/>
       case 'feedbacks': return <EditorLista items={d.feedbacks} onChange={(v: any[]) => setRev('feedbacks', 'feedbacks', v)} label="Lo que se le dice en la sala" placeholder="Ej. Rodilla hacia fuera" icono="mensaje"/>
       case 'foto': return (<>
@@ -596,6 +614,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       const fila: any = { nombre: x.nombre.trim(), descripcion: x.descripcion, video_url: x.video_url, etiquetas: x.etiquetas,
         tipo_medida: x.tipo_medida, items_ejecucion: x.items_ejecucion.filter(i => i.texto?.trim()),
         feedbacks: x.feedbacks.filter(i => i.texto?.trim()) }
+      // Solo si el borrador lo trae: uno de antes no lo tiene y no debe borrar lo guardado.
+      if (x.trabajo) fila.trabajo = x.trabajo
+      if (x.anatomia) fila.anatomia = x.anatomia
       if (JSON.stringify(x.por_revisar) !== JSON.stringify(b.orig.por_revisar)) fila.por_revisar = x.por_revisar
       const { error } = await supabase.from('ejercicios').update(fila).eq('id', id)
       if (error) { no.push(x.nombre); continue }
