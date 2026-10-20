@@ -51,6 +51,21 @@ function EntrenamientoContent() {
 
   useEffect(() => { cargar() }, [])
 
+  /* LAS SESIONES, SOLO CUANDO HACEN FALTA. Son la consulta más pesada de la app (unos
+     3 MB: cada sesión con todas sus partes) y solo las usan Sesiones y Sistemas. Se
+     traían siempre al entrar en Entrenamiento, también para mirar un ejercicio, y con
+     el servidor pequeño de Supabase eso bastaba para que todo fuese a tirones. */
+  const sesionesCargadas = useRef(false)
+  const [cargandoSesiones, setCargandoSesiones] = useState(false)
+  async function cargarSesiones() {
+    setCargandoSesiones(true)
+    const { data } = await supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id,movimientos)').order('created_at',{ascending:false})
+    setSesiones(data||[]); sesionesCargadas.current = true; setCargandoSesiones(false)
+  }
+  useEffect(() => {
+    if ((tab === 'sesiones' || tab === 'sistemas') && !sesionesCargadas.current && !cargandoSesiones) cargarSesiones()
+  }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const nuevaSesion = searchParams.get('nueva_sesion')
     const pacienteId = searchParams.get('paciente_id')
@@ -78,7 +93,7 @@ function EntrenamientoContent() {
   const yaCargado = useRef(false)
   async function cargar() {
     if (yaCargado.current === false) setLoading(true)
-    const [{ data: e },p,{ data: s },{ data: et },{ data: tl }] = await Promise.all([
+    const [{ data: e },p,{ data: et },{ data: tl }] = await Promise.all([
       supabase.from('ejercicios').select('*').order('nombre'),
       // Activos y los que tienen la vuelta programada: a alguien que vuelve el 1 de
       // octubre hay que poder dejarle las sesiones de octubre montadas.
@@ -86,11 +101,12 @@ function EntrenamientoContent() {
       // Sin `limit`. Estaba en 20 y la biblioteca enseñaba las 20 últimas creadas, que con
       // el tiempo son casi todas de pacientes: las plantillas quedaban fuera de la lista y
       // parecía que no había. El filtro por origen va en la pestaña, no en la consulta.
-      supabase.from('sesiones').select('*, pacientes(nombre,apellidos), sesiones_objetivos(objetivo_id,movimientos)').order('created_at',{ascending:false}),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
       supabase.from('tests').select('*').or('tipo.is.null,tipo.neq.cuestionario').order('nombre'),
     ])
-    setEjercicios(e||[]); setPacientes(p||[]); setSesiones(s||[]); setEtiquetas(et||[]); setTestsLib(tl||[])
+    setEjercicios(e||[]); setPacientes(p||[]); setEtiquetas(et||[]); setTestsLib(tl||[])
+    // Recargar (al guardar algo) refresca las sesiones solo si ya se habían traído.
+    if (sesionesCargadas.current) cargarSesiones()
     const [{ data: meds },{ data: alerg },{ data: intol },{ data: ops },{ data: pats },{ data: mols },{ data: objs }] = await Promise.all([
       supabase.from('medicamentos_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
       supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('categoria').order('nombre'),
@@ -221,8 +237,9 @@ function EntrenamientoContent() {
       {loading?<div className="loading">Cargando...</div>:(
         <>
           {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
-          {tab==='sesiones'&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
-          {tab==='sistemas'&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}
+          {(tab==='sesiones'||tab==='sistemas')&&!sesionesCargadas.current&&<div className="loading">Cargando sesiones...</div>}
+          {tab==='sesiones'&&sesionesCargadas.current&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
+          {tab==='sistemas'&&sesionesCargadas.current&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}
           {tab==='cuestionarios'&&<CuestionariosTab/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas} abrirTestId={searchParams.get('test')}/>}
           {/* Necesita ejercicios y tests para contar en cuántos se usa cada etiqueta,
