@@ -116,6 +116,8 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
       </div>
     ))
   }
+  // Ejecución y movimiento en gris: el verde ya es el cuerpo y los cálidos son el calor y
+  // las intensidades; con otro color de barra se confundían.
   const titulo = (t: string) => <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--grl)', textTransform: 'uppercase', letterSpacing: '.04em', margin: '14px 0 6px' }}>{t}</div>
 
   const Z = zona ? m.zonas[zona] : null
@@ -185,7 +187,7 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
             {titulo('Intención')}
             {barras(m.porInt, k => int(k)?.nombre || 'Sin intensidad', k => int(k)?.color || '#bbb', m.total)}
             {titulo('Ejecución')}
-            {barras(m.porEje, k => eje(k)?.nombre || k, () => 'var(--g)', m.total)}
+            {barras(m.porEje, k => eje(k)?.nombre || k, () => '#9A9C97', m.total)}
           </>}
           {Z && zDef && <>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
@@ -195,11 +197,11 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
             </div>
             {Object.keys(Z.porArt).length > 1 && <>{titulo('Articulación')}{barras(Z.porArt, nombreEt, () => 'var(--gd)', Z.seg)}</>}
             {titulo('Movimiento')}
-            {barras(Z.porMov, nombreEt, () => 'var(--g)', Z.seg)}
+            {barras(Z.porMov, nombreEt, () => '#6E716C', Z.seg)}
             {titulo('Intención')}
             {barras(Z.porInt, k => int(k)?.nombre || 'Sin intensidad', k => int(k)?.color || '#bbb', Z.seg)}
             {titulo('Ejecución')}
-            {barras(Z.porEje, k => eje(k)?.nombre || k, () => 'var(--g)', Z.seg)}
+            {barras(Z.porEje, k => eje(k)?.nombre || k, () => '#9A9C97', Z.seg)}
             {titulo('Ejercicios que más aportan')}
             {barras(Z.porEj, k => ejs[k]?.nombre || '—', () => 'var(--gl)', Z.seg, 6)}
           </>}
