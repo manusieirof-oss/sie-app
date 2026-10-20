@@ -9,6 +9,7 @@ import EtiquetasEjercicio from '@/components/EtiquetasEjercicio'
 import { MediosEjercicio, EditorAnimacion, EditorVideos } from '@/components/MediosEjercicio'
 import { animacionDe } from '@/lib/anim3d/asignar'
 import { videosDe } from '@/lib/videos'
+import { EditorTrabajo, EditorAnatomia, ResumenTrabajo, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia } from '@/components/TrabajoEjercicio'
 import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido, TIPOS_MEDIDA, nombreMedida } from '@/lib/ejercicios'
 
 
@@ -185,7 +186,8 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
   useEffect(() => { setVarianteActiva(-1) }, [ejSeleccionado?.id])
   const [nuevoEj, setNuevoEj] = useState({ nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[] })
   const [editando, setEditando] = useState(false)
-  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[], animacion:null as any, videos:[] as any[] })
+  const [editEj, setEditEj] = useState({ id:'', nombre:'', descripcion:'', video_url:'', imagen_url:'', etiquetas_ids:[] as string[], imagen_file:null as File|null, tipo_medida:'peso_reps', variantes:[] as any[], items_ejecucion:[] as any[], feedbacks:[] as any[], animacion:null as any, videos:[] as any[], trabajo:trabajoVacio(), anatomia:anatomiaVacia() })
+  const cfgTrabajo = useConfigTrabajo()
   const [modalSelEtEdit, setModalSelEtEdit] = useState(false)
 
   async function handleImagenEjercicio(e: React.ChangeEvent<HTMLInputElement>) {
@@ -202,7 +204,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
 
   function abrirEdicion() {
     if (!ejSeleccionado) return
-    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps', variantes:ejSeleccionado.variantes||[], items_ejecucion:ejSeleccionado.items_ejecucion||[], feedbacks:ejSeleccionado.feedbacks||[], animacion:ejSeleccionado.animacion||null, videos:videosDe(ejSeleccionado) })
+    setEditEj({ id:ejSeleccionado.id, nombre:ejSeleccionado.nombre||'', descripcion:ejSeleccionado.descripcion||'', video_url:ejSeleccionado.video_url||'', imagen_url:ejSeleccionado.imagen_url||'', etiquetas_ids:ejSeleccionado.etiquetas||[], imagen_file:null, tipo_medida:ejSeleccionado.tipo_medida||'peso_reps', variantes:ejSeleccionado.variantes||[], items_ejecucion:ejSeleccionado.items_ejecucion||[], feedbacks:ejSeleccionado.feedbacks||[], animacion:ejSeleccionado.animacion||null, videos:videosDe(ejSeleccionado), trabajo:trabajoDe(ejSeleccionado), anatomia:anatomiaDe(ejSeleccionado) })
     setEditando(true)
   }
 
@@ -221,10 +223,10 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
     // Vídeos: la lista nueva manda; video_url se deja con el primero para lo que aún lo lee.
     const videos = (editEj.videos || []).filter((v: any) => String(v.url || '').trim()).map((v: any) => ({ titulo: String(v.titulo || '').trim() || 'Vídeo', url: String(v.url).trim() }))
     const videoUrl = videos[0]?.url || ''
-    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:videoUrl, videos, animacion:editEj.animacion, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks }).eq('id', editEj.id)
+    const { error } = await supabase.from('ejercicios').update({ nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:videoUrl, videos, animacion:editEj.animacion, trabajo:editEj.trabajo, anatomia:editEj.anatomia, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks }).eq('id', editEj.id)
     setSubiendoImg(false); setGuardando(false)
     if (error) { alert('Error al actualizar'); return }
-    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:videoUrl, videos, animacion:editEj.animacion, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks })
+    setEjSeleccionado({ ...ejSeleccionado, nombre:editEj.nombre, descripcion:editEj.descripcion, video_url:videoUrl, videos, animacion:editEj.animacion, trabajo:editEj.trabajo, anatomia:editEj.anatomia, etiquetas:editEj.etiquetas_ids, imagen_url:imagenUrlFinal, tipo_medida:editEj.tipo_medida, variantes:editEj.variantes, items_ejecucion:editEj.items_ejecucion, feedbacks:editEj.feedbacks })
     setEditando(false); cargar()
   }
 
@@ -377,6 +379,11 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       {/* Qué movimiento hace en 3D. "Automática" lo saca del nombre; si no cuadra con la foto, se elige aquí. */}
                       <div className="field"><label>Animación 3D</label><EditorAnimacion nombre={editEj.nombre} valor={editEj.animacion} onChange={v=>setEditEj(p=>({...p,animacion:v}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}>{TIPOS_MEDIDA.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div>
+                      <div className="field"><label>Intensidad y ejecución</label><EditorTrabajo valor={editEj.trabajo} cfg={cfgTrabajo} onChange={v=>setEditEj(p=>({...p,trabajo:v}))} disabled={guardando}/></div>
+                      {/* La anatomía manda sobre sus etiquetas: lo que se quita aquí sale también de
+                          las etiquetas, y lo que se añade entra (el padre lo pone la base de datos). */}
+                      <div className="field"><label>Anatomía</label><EditorAnatomia valor={editEj.anatomia} etiquetas={etiquetas} disabled={guardando}
+                        onChange={v=>setEditEj(p=>{ const antes=idsAnatomia(p.anatomia), ahora=idsAnatomia(v); return {...p, anatomia:v, etiquetas_ids:Array.from(new Set([...p.etiquetas_ids.filter(x=>!antes.includes(x)||ahora.includes(x)), ...ahora]))} })}/></div>
                       <EditorItems items={editEj.items_ejecucion} onChange={(v:any[])=>setEditEj(p=>({...p,items_ejecucion:v}))} disabled={guardando} objetivos={objetivos}/>
                       <EditorLista items={editEj.feedbacks} onChange={(v:any[])=>setEditEj(p=>({...p,feedbacks:v}))} disabled={guardando} label="Feedbacks" placeholder="ej. Mete el core" icono="mensaje"/>
                       <div className="field">
@@ -449,6 +456,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                           <Ic name="copiar" size={12}/> Convertir en ejercicio
                         </button>
                       )}
+                      <ResumenTrabajo ej={ejSeleccionado} etiquetas={etiquetas} cfg={cfgTrabajo}/>
                       {/* SU FAMILIA: portada y variantes. Tocar una la abre. */}
                       {(() => {
                         const portada = portadaDe(ejSeleccionado)
