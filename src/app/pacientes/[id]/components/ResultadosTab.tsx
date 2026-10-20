@@ -6,13 +6,16 @@ import ResumenVolumen from '@/components/ResumenVolumen'
 
 import { COLOR, asistencia, porMes, evaPorZona } from '@/lib/resultados'
 import ProgresionEjercicios from './ProgresionEjercicios'
+import dynamic from 'next/dynamic'
+// El mapa lleva el cuerpo 3D (three.js): solo se carga al abrir su pestaña.
+const MapaTrabajo = dynamic(() => import('@/components/MapaTrabajo'), { ssr: false })
 import { ajustesMedida } from '@/lib/medida'
 
 // Alias cortos: las gráficas los usan mucho y `COLOR.g` en cada propiedad no se lee.
 const G = COLOR.g, GD = COLOR.gd, GL = COLOR.gl, RED = COLOR.red, AMB = COLOR.amb, GREY = COLOR.gris
 
 export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, molestias=[], patologias=[], deportesPac=[], registros=[], generarPDF }: any) {
-  const [vista, setVista] = useState<'analisis'|'paciente'|'progreso'>('analisis')
+  const [vista, setVista] = useState<'analisis'|'paciente'|'progreso'|'mapa'>('analisis')
 
   // Un solo sitio calcula las cifras. Antes se repetían aquí, en la vista del paciente
   // y en generarPDF, cada una por su cuenta.
@@ -56,7 +59,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
       {/* Mismo conmutador que el resto de la app. Era el quinto estilo de pestañas. */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
         <div className="vista-sw" style={{marginBottom:0}}>
-          {([['analisis','progreso','Análisis'],['progreso','fuerza','Progresión'],['paciente','usuario','Para el paciente']] as const).map(([k,ic,l])=>(
+          {([['analisis','progreso','Análisis'],['progreso','fuerza','Progresión'],['mapa','objetivo','Mapa'],['paciente','usuario','Para el paciente']] as const).map(([k,ic,l])=>(
             <button key={k} className={`vista-b ${vista===k?'on':''}`} onClick={()=>setVista(k)}>
               <Ic name={ic} size={13}/> {l}
             </button>
@@ -67,6 +70,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
       </div>
 
       {/* Un ejercicio, una tarjeta: carga, técnica y esfuerzo juntos. Ver ProgresionEjercicios. */}
+      {vista==='mapa'&&pac?.id&&<MapaTrabajo pacienteId={pac.id}/>}
       {vista==='progreso'&&<ProgresionEjercicios registros={registros} bandas={bandas} pacienteId={pac?.id} pesoKg={parseFloat(pac?.peso_kg)||null}/>}
 
       {vista==='analisis'&&(

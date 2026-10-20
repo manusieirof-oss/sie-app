@@ -18,16 +18,17 @@ import type { Animacion, Clave, Pose, Prop } from './tipos'
 export type Acabado = 'corporativo' | 'blanco' | 'cristal'
 export type Vista = 'giro' | 'lado' | 'frente' | 'arriba'
 
-interface Rig {
+export interface Rig {
   pos: string, nor: string, idx: string, si: string, sw: string, mid: string, mm: string
   musculos: string[]
   huesos: { n: string, p: number, x: [number, number, number] }[]
 }
 
 let rigCache: Promise<Rig> | null = null
-const cargaRig = (): Promise<Rig> => (rigCache ||= fetch('/anim/cuerpo-rig.json').then(r => { if (!r.ok) throw new Error('No se pudo cargar el cuerpo 3D'); return r.json() as Promise<Rig> }))
+// Exportados: el mapa de calor (mapaCalor.ts) usa el mismo cuerpo.
+export const cargaRig = (): Promise<Rig> => (rigCache ||= fetch('/anim/cuerpo-rig.json').then(r => { if (!r.ok) throw new Error('No se pudo cargar el cuerpo 3D'); return r.json() as Promise<Rig> }))
 
-const dec = <T>(b: string, T: { new(buf: ArrayBuffer): T }) => {
+export const dec = <T>(b: string, T: { new(buf: ArrayBuffer): T }) => {
   const s = atob(b), u = new Uint8Array(s.length)
   for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i)
   return new T(u.buffer)
