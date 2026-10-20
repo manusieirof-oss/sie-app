@@ -136,7 +136,7 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
         gl_FragColor = vec4(col, max(mix(a0,a1,f), vAct*.75)); }`,
     transparent: true, depthWrite: false, side: lado,
   })
-  const MAT = { corporativo: solido('#9ACBD0'), blanco: solido('#F3F5F4'), cristal: cristal(THREE.FrontSide, .2, .92) }
+  const MAT = { corporativo: solido('#9FCFD3'), blanco: solido('#F3F5F4'), cristal: cristal(THREE.FrontSide, .2, .92) }
   const dentro = new THREE.SkinnedMesh(geo, cristal(THREE.BackSide, .06, .25))
   const fuera = new THREE.SkinnedMesh(geo, MAT.corporativo)
   // El esqueleto cuelga de su propio grupo: si colgara de una malla oculta, lo que
