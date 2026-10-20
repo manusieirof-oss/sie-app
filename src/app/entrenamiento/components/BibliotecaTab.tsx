@@ -379,7 +379,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                       {/* Qué movimiento hace en 3D. "Automática" lo saca del nombre; si no cuadra con la foto, se elige aquí. */}
                       <div className="field"><label>Animación 3D</label><EditorAnimacion nombre={editEj.nombre} valor={editEj.animacion} onChange={v=>setEditEj(p=>({...p,animacion:v}))} disabled={guardando}/></div>
                       <div className="field"><label>Se mide en</label><select className="input" value={editEj.tipo_medida} onChange={e=>setEditEj(p=>({...p,tipo_medida:e.target.value}))} disabled={guardando}>{TIPOS_MEDIDA.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select></div>
-                      <div className="field"><label>Intensidad y ejecución</label><EditorTrabajo valor={editEj.trabajo} cfg={cfgTrabajo} onChange={v=>setEditEj(p=>({...p,trabajo:v}))} disabled={guardando}/></div>
+                      <div className="field"><label>Intensidades que admite y ejecución</label><EditorTrabajo valor={editEj.trabajo} cfg={cfgTrabajo} onChange={v=>setEditEj(p=>({...p,trabajo:v}))} disabled={guardando}/></div>
                       {/* La anatomía manda sobre sus etiquetas: lo que se quita aquí sale también de
                           las etiquetas, y lo que se añade entra (el padre lo pone la base de datos). */}
                       <div className="field"><label>Anatomía</label><EditorAnatomia valor={editEj.anatomia} etiquetas={etiquetas} disabled={guardando}

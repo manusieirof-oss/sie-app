@@ -8,9 +8,11 @@ import { CLAVE_AJUSTE, leerConfigTrabajo, type ConfigTrabajo } from '@/lib/traba
 /**
  * LO QUE TRABAJA UN EJERCICIO, en su ficha.
  *
- *  · `trabajo` = { int: [ids], eje: [ids] }: intensidades para las que sirve y cómo se
- *    ejecuta (de Ajustes › Entrenador). La intensidad real de cada día sale de las reps
- *    o el tiempo; esto es lo habitual del ejercicio y lo que usará el generador.
+ *  · `trabajo` = { int: [ids], eje: [ids] }: las intensidades que ADMITE y cómo se
+ *    ejecuta (de Ajustes › Entrenador). No es "su" intensidad: en fuerza la pone la
+ *    dosis del día (3 reps = fuerza máxima, 15 = fuerza-resistencia). Esto solo dice
+ *    cuáles se le pueden asignar, para que el generador no pida fuerza máxima a un
+ *    estiramiento: primero elige zonas, luego ejercicios y luego reparte intensidades.
  *  · `anatomia` = { acc: [{a, m, p}], mus: [{u, p}] }: parejas articulación + movimiento
  *    y músculos, cada uno principal (p) o secundario. Con etiquetas sueltas no se sabía
  *    qué movimiento era de qué articulación; el mapa de calor lo necesita.
@@ -66,9 +68,12 @@ export function EditorTrabajo({ valor, onChange, cfg, disabled }: { valor: Traba
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       <div>
-        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>Intensidad (para qué sirve)</div>
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>Admite (intensidades que se le pueden asignar; el día lo decide la dosis)</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {cfg.intensidades.map(i => <button type="button" key={i.id} disabled={disabled} style={chip(valor.int.includes(i.id), i.color)} onClick={() => tog('int', i.id)}>{i.nombre}</button>)}
+          {/* Atajo: un ejercicio con carga admite todos los tramos de fuerza. */}
+          <button type="button" disabled={disabled} className="btn btn-t btn-sm" style={{ fontSize: 11 }}
+            onClick={() => onChange({ ...valor, int: Array.from(new Set([...valor.int, ...cfg.intensidades.filter(i => i.familia === 'fuerza').map(i => i.id)])) })}>+ toda la fuerza</button>
         </div>
       </div>
       {(['fuerza', 'estiramiento'] as const).map(g => (
@@ -160,6 +165,7 @@ export function ResumenTrabajo({ ej, etiquetas, cfg }: { ej: any, etiquetas: any
       <div className="et-mini" style={{ marginBottom: 6 }}>Qué trabaja</div>
       {(ints.length > 0 || ejes.length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+          {ints.length > 0 && <span style={{ fontSize: 11, color: 'var(--grl)', alignSelf: 'center' }}>Admite</span>}
           {ints.map(i => <span key={i.id} style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, background: i.color, color: '#fff' }}>{i.nombre}</span>)}
           {ejes.map(e => <span key={e.id} style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, border: '1px solid var(--bd)', color: 'var(--gr)' }}>{e.nombre}</span>)}
         </div>
