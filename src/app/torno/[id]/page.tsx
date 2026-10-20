@@ -188,8 +188,10 @@ export default function BancoPage({ params }: { params: { id: string } }) {
   useLayoutEffect(() => {
     if (aceptado || selObj.length === 0) { if (svg.current) svg.current.innerHTML = ''; return }
     let vivo = true
+    let ultimo = ''
     const pinta = () => {
       if (!vivo || !svg.current || !lienzo.current) return
+      if (document.hidden) { requestAnimationFrame(pinta); return }
       const base = lienzo.current.getBoundingClientRect()
       let html = ''
       let n = 0
@@ -210,7 +212,9 @@ export default function BancoPage({ params }: { params: { id: string } }) {
           n++
         }
       }
-      svg.current.innerHTML = html
+      // Solo se reescribe si algo se ha movido: reescribir el SVG en cada fotograma
+      // obligaba al navegador a recalcular la página sesenta veces por segundo.
+      if (html !== ultimo) { svg.current.innerHTML = html; ultimo = html }
       requestAnimationFrame(pinta)
     }
     requestAnimationFrame(pinta)

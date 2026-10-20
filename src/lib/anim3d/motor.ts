@@ -339,12 +339,17 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
   el.addEventListener('pointerup', suelta); el.addEventListener('pointercancel', suelta)
   const ro = new ResizeObserver(() => { if (!W() || !H()) return; r.setSize(W(), H(), false); cam.aspect = W() / H(); cam.updateProjectionMatrix() })
   ro.observe(el)
+  // No pinta si no se ve (fuera de pantalla u otra pestaña): un visor en marcha
+  // a 60 fps sin que nadie lo mire hace ir a tirones al resto de la web.
+  let aLaVista = true
+  const io = new IntersectionObserver(([e]) => { aLaVista = e.isIntersecting })
+  io.observe(el)
 
   let tAnt = performance.now() / 1000, raf = 0, vivo = true
   function bucle() {
     if (!vivo) return
     raf = requestAnimationFrame(bucle)
-    if (!anim) return
+    if (!anim || !aLaVista || document.hidden) return
     const ahora = performance.now() / 1000, dt = Math.min(.1, ahora - tAnt); tAnt = ahora
     const tt = ((pausado ? tPausa : ahora) - t0) * vel
     const ciclo = tt / anim.dur, u = ciclo - Math.floor(ciclo)
@@ -384,7 +389,7 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
     soloMusculo(id) { solo = id },
     ir(u) { if (!anim) return; pausado = true; tPausa = t0 + u * anim.dur / vel },
     destruir() {
-      vivo = false; cancelAnimationFrame(raf); ro.disconnect()
+      vivo = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect()
       el.removeEventListener('pointerdown', abajo); el.removeEventListener('pointermove', mueve)
       el.removeEventListener('pointerup', suelta); el.removeEventListener('pointercancel', suelta)
       r.dispose(); geo.dispose(); r.domElement.remove()

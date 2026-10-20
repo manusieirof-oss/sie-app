@@ -214,12 +214,20 @@ export default function Cuerpo3D({ focos, onAbrir, onFallo, alto = 520 }: {
       })
       ro.observe(el)
 
+      // Sin pintar cuando no se ve (fuera de pantalla al bajar en la ficha, o en otra
+      // pestaña): antes giraba a 60 fotogramas por segundo todo el rato que la ficha
+      // estaba abierta, y eso es lo que hacía que el resto de la web fuera a tirones.
+      let aLaVista = true
+      const io = new IntersectionObserver(([e]) => { aLaVista = e.isIntersecting })
+      io.observe(el)
+
       // ── Bucle ───────────────────────────────────────────────────────────────
       let raf = 0
       let antes = performance.now()
       const v = new THREE.Vector3()
       const bucle = (ahora: number) => {
         raf = requestAnimationFrame(bucle)
+        if (!aLaVista || document.hidden) { antes = ahora; return }
         const dt = Math.min((ahora - antes) / 1000, 0.1); antes = ahora
         // Gira solo si nadie lo está tocando ni mirando una marca.
         if (!quieto && !arrastre && !encima && ahora > pausaHasta) giro += dt * VEL_GIRO
@@ -255,6 +263,7 @@ export default function Cuerpo3D({ focos, onAbrir, onFallo, alto = 520 }: {
       limpiar = () => {
         cancelAnimationFrame(raf)
         ro.disconnect()
+        io.disconnect()
         cv.removeEventListener('pointerdown', abajo)
         cv.removeEventListener('pointermove', mover)
         cv.removeEventListener('pointerup', arriba)
