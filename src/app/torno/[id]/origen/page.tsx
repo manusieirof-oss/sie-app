@@ -1,31 +1,28 @@
 'use client'
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { PROGRESIONES } from '@/lib/sistemas'
 
-// El mapa lleva el cuerpo 3D (three.js): solo se carga si se elige esa opción.
-const MapaTrabajo = dynamic(() => import('@/components/MapaTrabajo'), { ssr: false })
-
 // ---------------------------------------------------------------------------
 // ¿CON QUÉ LO MONTAMOS?
 //
-// Paso entre "qué le preparamos" (ciclo o sesión, en el torno) y el montaje.
-// A la izquierda se elige el camino; a la derecha se ve cómo es:
-//   · De la biblioteca: el banco de siempre (sus objetivos y lo que los trabaja).
-//   · Con el mapa de calor: lo que ha trabajado, para pedir el reparto por zona e
-//     intención y que se monte solo.
+// Paso entre "qué le preparamos" (ciclo o sesión, en el torno) y el montaje: dos
+// botones gigantes, uno a cada lado. Tocar uno ya lleva a su montaje, sin "Seguir".
+//   · Izquierda, de la biblioteca: el banco de siempre (objetivos y lo que los trabaja).
+//   · Derecha, con el mapa de calor: el reparto por zona e intención (en preparación).
 // Lo que llegó en la URL (modo, progresión, fecha fin) se pasa tal cual al siguiente.
 // ---------------------------------------------------------------------------
+
+const CALOR_LISTO = false   // se enciende cuando esté el montaje con el mapa de calor
 
 export default function OrigenPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const sp = useSearchParams()
   const pid = params.id
   const [nombre, setNombre] = useState('')
-  const [via, setVia] = useState<'bib' | 'calor'>('bib')
+  const [yendo, setYendo] = useState<'bib' | 'calor' | null>(null)
   const modo = sp.get('modo') || 'sesion'
   const prog = sp.get('prog') || ''
   const fin = sp.get('fin') || ''
@@ -39,70 +36,73 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
     ? `Un ciclo · ${PROGRESIONES.find(p => p.valor === prog)?.nombre || ''}${fin ? ` hasta el ${new Date(fin + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : ''}`
     : 'Una sesión'
 
-  function seguir() {
-    if (via === 'bib') router.push(`/torno/${pid}?${sp.toString()}`)
+  function ir(via: 'bib' | 'calor') {
+    if (via === 'calor' && !CALOR_LISTO) return
+    setYendo(via)
+    const destino = via === 'bib' ? `/torno/${pid}?${sp.toString()}` : `/torno/${pid}/calor?${sp.toString()}`
+    setTimeout(() => router.push(destino), 300)
   }
 
-  const opcion = (k: 'bib' | 'calor', ic: string, t: string, d: string) => (
-    <button type="button" onClick={() => setVia(k)}
-      style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', padding: 16, borderRadius: 16, transition: '.2s',
-        background: via === k ? 'var(--gl)' : 'var(--w)', border: `1.5px solid ${via === k ? 'var(--g)' : 'var(--bd)'}`,
-        boxShadow: via === k ? '0 6px 20px rgba(90,150,158,.18)' : 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 15.5, fontWeight: 600, color: 'var(--n)' }}>
-        <span style={{ width: 30, height: 30, borderRadius: 10, display: 'grid', placeItems: 'center', background: via === k ? 'var(--w)' : 'var(--bl)', color: 'var(--gd)' }}><Ic name={ic} size={15}/></span>
-        {t}
+  const boton = (via: 'bib' | 'calor', ic: string, titulo: string, texto: string, dibujo: React.ReactNode, listo = true) => (
+    <button type="button" onClick={() => ir(via)} disabled={!listo}
+      className="origen-b"
+      style={{ fontFamily: 'inherit', textAlign: 'left', cursor: listo ? 'pointer' : 'default', padding: 26, borderRadius: 24,
+        background: '#fff', border: '1.5px solid var(--bd)', minHeight: 'min(62vh, 520px)', display: 'flex', flexDirection: 'column',
+        opacity: yendo && yendo !== via ? .35 : listo ? 1 : .6, transform: yendo === via ? 'scale(1.02)' : 'none', transition: 'all .25s' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ width: 46, height: 46, borderRadius: 14, display: 'grid', placeItems: 'center', background: 'var(--gl)', color: 'var(--gd)' }}><Ic name={ic} size={22}/></span>
+        <span style={{ fontSize: 22, fontWeight: 600, color: 'var(--n)' }}>{titulo}</span>
+        {!listo && <span style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', borderRadius: 99, background: 'var(--bl)', color: 'var(--gr)' }}>En preparación</span>}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--gr)', marginTop: 6, lineHeight: 1.45 }}>{d}</div>
+      <div style={{ fontSize: 14, color: 'var(--gr)', marginTop: 10, lineHeight: 1.5, maxWidth: 420 }}>{texto}</div>
+      <div style={{ flex: 1, position: 'relative', marginTop: 16, minHeight: 220 }}>{dibujo}</div>
     </button>
   )
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <style>{`.origen-b:not(:disabled):hover{border-color:var(--g)!important;box-shadow:0 10px 30px rgba(90,150,158,.2)}`}</style>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <button className="btn btn-t btn-sm" onClick={() => router.push('/torno')}>← Torno</button>
         <div style={{ flex: 1 }}/>
         <span style={{ fontSize: 16, fontWeight: 600 }}>{nombre}</span>
         <span style={{ fontSize: 11.5, padding: '3px 10px', borderRadius: 99, background: 'var(--gl)', color: 'var(--gd)' }}>{que}</span>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 18, alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 320 }}>
-          <div style={{ fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--grl)', fontWeight: 600, margin: '4px 2px 0' }}>¿Con qué lo montamos?</div>
-          {opcion('bib', 'objetivo', 'De la biblioteca', 'Eliges sus objetivos y salen los ciclos, sesiones y ejercicios que ya los trabajan. Como hasta ahora.')}
-          {opcion('calor', 'progreso', 'Con el mapa de calor', 'Ves lo que ha trabajado, pones el % por zona e intención y se monta solo. Luego lo retocas.')}
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button className="btn btn-s" onClick={() => router.push('/torno')}>Volver</button>
-            <button className="btn btn-p" onClick={seguir} disabled={via === 'calor'}>Seguir</button>
-          </div>
-          {via === 'calor' && <div style={{ fontSize: 11.5, color: 'var(--grl)' }}>El montaje con el mapa de calor es el siguiente paso; de momento se ve lo que ha trabajado.</div>}
-        </div>
-
-        <div style={{ gridColumn: 'span 2', minWidth: 0 }}>
-          {via === 'bib' && (
-            <div style={{ background: '#fff', borderRadius: 18, boxShadow: '0 2px 12px rgba(38,40,37,.07)', padding: 22, minHeight: 420 }}>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>De la biblioteca</div>
-              <div style={{ fontSize: 13, color: 'var(--gr)', marginTop: 4 }}>Lo de siempre: sus objetivos arriba y lo que los trabaja flotando —ciclos delante, sesiones detrás, ejercicios al fondo—.</div>
-              <Esferas/>
-            </div>
-          )}
-          {via === 'calor' && <MapaTrabajo pacienteId={pid}/>}
-        </div>
+      <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--grl)', marginBottom: 14, letterSpacing: '.04em', textTransform: 'uppercase' }}>¿Con qué lo montamos?</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
+        {boton('bib', 'objetivo', 'De la biblioteca', 'Eliges sus objetivos y salen los ciclos, sesiones y ejercicios que ya los trabajan. Como hasta ahora.', <Esferas/>)}
+        {boton('calor', 'progreso', 'Con el mapa de calor', 'Ves lo que ha trabajado, pones el % por zona e intención y se monta solo. Luego lo retocas.', <Cuerpo/>, CALOR_LISTO)}
       </div>
     </div>
   )
 }
 
-/** Dibujo de muestra del banco: esferas como las del torno. */
+/** Dibujo del banco: esferas como las del torno. */
 function Esferas() {
-  const E: [string, number, number, number][] = [['Objetivo', 92, 6, 6], ['Objetivo', 84, 34, 2], ['Objetivo', 76, 62, 10],
-    ['Ciclo', 70, 18, 40], ['Sesión', 60, 46, 46], ['Ejercicio', 48, 74, 52], ['Ejercicio', 44, 8, 70], ['Ejercicio', 42, 58, 74]]
+  const E: [string, number, number, number][] = [['Objetivo', 88, 4, 4], ['Objetivo', 78, 36, 0], ['Objetivo', 70, 66, 8],
+    ['Ciclo', 66, 16, 40], ['Sesión', 56, 48, 44], ['Ejercicio', 44, 76, 52], ['Ejercicio', 40, 6, 72], ['Ejercicio', 38, 58, 74]]
+  return <>{E.map(([t, s, x, y], i) => (
+    <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: s * 1.25, height: s * 1.25, borderRadius: '50%',
+      display: 'grid', placeItems: 'center', fontSize: 11, color: 'var(--gd)', border: '1.5px solid #cfe2e4',
+      background: 'radial-gradient(circle at 35% 30%, #fff, var(--gl))', opacity: i < 3 ? 1 : .75 }}>{t}</div>
+  ))}</>
+}
+
+/** Dibujo del mapa: silueta del color de la clínica con zonas calientes. */
+function Cuerpo() {
   return (
-    <div style={{ position: 'relative', height: 340, marginTop: 18 }}>
-      {E.map(([t, s, x, y], i) => (
-        <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: s * 1.3, height: s * 1.3, borderRadius: '50%',
-          display: 'grid', placeItems: 'center', fontSize: 11, color: 'var(--gd)', border: '1.5px solid #cfe2e4',
-          background: 'radial-gradient(circle at 35% 30%, #fff, var(--gl))', opacity: i < 3 ? 1 : .75 }}>{t}</div>
-      ))}
-    </div>
+    <svg viewBox="0 0 120 260" style={{ position: 'absolute', inset: 0, margin: 'auto', height: '100%', maxHeight: 300 }}>
+      <defs>
+        <radialGradient id="cr"><stop offset="0" stopColor="#E4572E"/><stop offset="1" stopColor="#E4572E" stopOpacity="0"/></radialGradient>
+        <radialGradient id="ca"><stop offset="0" stopColor="#F2A541"/><stop offset="1" stopColor="#F2A541" stopOpacity="0"/></radialGradient>
+      </defs>
+      <g fill="#9FCFD3">
+        <circle cx="60" cy="22" r="14"/><rect x="40" y="40" width="40" height="80" rx="16"/>
+        <rect x="24" y="44" width="12" height="74" rx="6" transform="rotate(10 30 44)"/><rect x="84" y="44" width="12" height="74" rx="6" transform="rotate(-10 90 44)"/>
+        <rect x="42" y="112" width="16" height="130" rx="8"/><rect x="62" y="112" width="16" height="130" rx="8"/>
+      </g>
+      <circle cx="50" cy="180" r="15" fill="url(#cr)"/><circle cx="70" cy="180" r="15" fill="url(#cr)"/>
+      <circle cx="40" cy="50" r="11" fill="url(#ca)"/><circle cx="80" cy="50" r="11" fill="url(#ca)"/>
+    </svg>
   )
 }
