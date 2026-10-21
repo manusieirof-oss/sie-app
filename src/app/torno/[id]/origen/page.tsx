@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -26,6 +26,8 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
   const pid = params.id
   const [nombre, setNombre] = useState('')
   const [yendo, setYendo] = useState<'bib' | 'calor' | null>(null)
+  // Sus objetivos abiertos (lo logrado no se programa), para las bolas de la biblioteca.
+  const [objetivos, setObjetivos] = useState<string[] | null>(null)
   const modo = sp.get('modo') || 'sesion'
   const prog = sp.get('prog') || ''
   const fin = sp.get('fin') || ''
@@ -33,6 +35,8 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     supabase.from('pacientes').select('nombre,apellidos,nombre_clinica').eq('id', pid).maybeSingle()
       .then(({ data: p }) => setNombre((p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim()))
+    supabase.from('pacientes_objetivos').select('logrado,nombre,objetivos(nombre)').eq('paciente_id', pid)
+      .then(({ data }) => setObjetivos((data || []).filter((r: any) => !r.logrado && r.objetivos).map((r: any) => r.nombre || r.objetivos.nombre)))
   }, [pid])
 
   const que = modo === 'ciclo'
@@ -73,20 +77,60 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
       </div>
       <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--grl)', marginBottom: 14, letterSpacing: '.04em', textTransform: 'uppercase' }}>¿Con qué lo montamos?</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
-        {boton('bib', 'objetivo', 'De la biblioteca', 'Eliges sus objetivos y salen los ciclos, sesiones y ejercicios que ya los trabajan. Como hasta ahora.', <Esferas/>)}
+        {boton('bib', 'objetivo', 'De la biblioteca', 'Eliges sus objetivos y salen los ciclos, sesiones y ejercicios que ya los trabajan. Como hasta ahora.', <Bolas nombres={objetivos}/>)}
         {boton('calor', 'progreso', 'Con el mapa de calor', 'Ves lo que ha trabajado, pones el % por zona e intención y se monta solo. Luego lo retocas.', <MapaCalorMini pacienteId={pid}/>, CALOR_LISTO)}
       </div>
     </div>
   )
 }
 
-/** Dibujo del banco: esferas como las del torno. */
-function Esferas() {
-  const E: [string, number, number, number][] = [['Objetivo', 88, 4, 4], ['Objetivo', 78, 36, 0], ['Objetivo', 70, 66, 8],
-    ['Ciclo', 66, 16, 40], ['Sesión', 56, 48, 44], ['Ejercicio', 44, 76, 52], ['Ejercicio', 40, 6, 72], ['Ejercicio', 38, 58, 74]]
-  return <>{E.map(([t, s, x, y], i) => (
-    <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: s * 1.25, height: s * 1.25, borderRadius: '50%',
-      display: 'grid', placeItems: 'center', fontSize: 11, color: 'var(--gd)', border: '1.5px solid #cfe2e4',
-      background: 'radial-gradient(circle at 35% 30%, #fff, var(--gl))', opacity: i < 3 ? 1 : .75 }}>{t}</div>
-  ))}</>
+/**
+ * SUS OBJETIVOS, FLOTANDO Y REBOTANDO dentro de la tarjeta. Si tiene objetivos abiertos
+ * salen con su nombre; si no, bolas sin nombre. Cada bola va a su ritmo y rebota en los
+ * bordes; se mueve sola (requestAnimationFrame) y se para si la pestaña no se ve.
+ */
+function Bolas({ nombres }: { nombres: string[] | null }) {
+  const caja = useRef<HTMLDivElement>(null)
+  const refs = useRef<(HTMLDivElement | null)[]>([])
+  const lista = nombres && nombres.length ? nombres.slice(0, 9) : Array.from({ length: 7 }, () => '')
+  const tam = lista.map((_, i) => (nombres && nombres.length ? 92 : 70) - (i % 4) * 10)
+  useEffect(() => {
+    const el = caja.current; if (!el) return
+    let W = el.clientWidth, H = el.clientHeight
+    const b = lista.map((_, i) => ({
+      x: Math.random() * Math.max(1, W - tam[i]), y: Math.random() * Math.max(1, H - tam[i]),
+      vx: (Math.random() < .5 ? -1 : 1) * (14 + Math.random() * 16), vy: (Math.random() < .5 ? -1 : 1) * (12 + Math.random() * 14),
+      f: Math.random() * 6.28,
+    }))
+    let raf = 0, antes = performance.now()
+    const paso = (t: number) => {
+      raf = requestAnimationFrame(paso)
+      const dt = Math.min(.05, (t - antes) / 1000); antes = t
+      if (document.hidden) return
+      W = el.clientWidth; H = el.clientHeight
+      b.forEach((p, i) => {
+        const s = tam[i]
+        p.x += p.vx * dt; p.y += p.vy * dt
+        if (p.x < 0) { p.x = 0; p.vx = Math.abs(p.vx) } else if (p.x > W - s) { p.x = W - s; p.vx = -Math.abs(p.vx) }
+        if (p.y < 0) { p.y = 0; p.vy = Math.abs(p.vy) } else if (p.y > H - s) { p.y = H - s; p.vy = -Math.abs(p.vy) }
+        // Un leve latido, como si flotara.
+        const e = 1 + .04 * Math.sin(t / 700 + p.f)
+        const d = refs.current[i]; if (d) d.style.transform = `translate(${p.x}px, ${p.y}px) scale(${e})`
+      })
+    }
+    raf = requestAnimationFrame(paso)
+    return () => cancelAnimationFrame(raf)
+  }, [lista.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div ref={caja} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {lista.map((n, i) => (
+        <div key={i} ref={d => { refs.current[i] = d }}
+          style={{ position: 'absolute', left: 0, top: 0, width: tam[i], height: tam[i], borderRadius: '50%', display: 'grid', placeItems: 'center',
+            textAlign: 'center', padding: 8, fontSize: 11, lineHeight: 1.2, color: 'var(--gd)', border: '1.5px solid #cfe2e4',
+            background: 'radial-gradient(circle at 35% 30%, #fff, var(--gl))', boxShadow: '0 6px 16px rgba(90,150,158,.15)', willChange: 'transform' }}>
+          {n}
+        </div>
+      ))}
+    </div>
+  )
 }
