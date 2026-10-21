@@ -13,7 +13,12 @@ import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo } from '@/lib/ej
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
-const ICONO_FALTA: Record<string, string> = { etiquetas: 'etiqueta', descripcion: 'nota', medida: 'regla', ejecucion: 'ok', feedbacks: 'mensaje', revisar: 'editar' }
+// FOTO PROPIA. Sin foto ya sale una figura automática, así que no cuenta para "listo"
+// (no sale en "Faltan N cosas"), pero sí se puede filtrar: son las fotos por subir.
+const FALTA_FOTO = { k: 'foto', t: 'Foto propia', falta: (e: any) => !(e.imagen_url || '').trim() }
+const faltasConFoto = (e: any) => [...faltasAmasar(e), ...(FALTA_FOTO.falta(e) ? ['foto'] : [])]
+
+const ICONO_FALTA: Record<string, string> = { foto: 'camara', etiquetas: 'etiqueta', descripcion: 'nota', medida: 'regla', ejecucion: 'ok', feedbacks: 'mensaje', revisar: 'editar' }
 
 // ---------------------------------------------------------------------------
 // EL TORNO
@@ -93,6 +98,8 @@ export default function TornoPage() {
   // Elegir varios: para completarlos seguidos o ponerles algo en común.
   const [modoSel, setModoSel] = useState(false)
   const [selec, setSelec] = useState<string[]>([])
+  // La familia desplegada en la lista: sus variantes salen justo detrás de la principal.
+  const [familiaAbierta, setFamiliaAbierta] = useState<string | null>(null)
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
@@ -128,9 +135,18 @@ export default function TornoPage() {
     .filter(e => busca.trim() ? contiene(e.nombre, busca) : soloIncompletos || !e.portada_id)
     .filter(e => {
       if (!soloIncompletos) return true
-      const f = faltasAmasar(e)
-      return f.length > 0 && (faltaFiltro.length === 0 || faltaFiltro.some(k => f.includes(k)))
+      // Sin filtro elegido, "por completar" es lo de siempre (la foto no cuenta); con
+      // filtros, vale cualquiera de los marcados, también "Foto propia".
+      if (faltaFiltro.length === 0) return faltasAmasar(e).length > 0
+      const f = faltasConFoto(e)
+      return faltaFiltro.some(k => f.includes(k))
     })
+    // Principal con sus variantes desplegadas justo detrás.
+    .flatMap(e => familiaAbierta === e.id && !busca.trim() && !soloIncompletos
+      ? [e, ...(ejs || []).filter(v => v.portada_id === e.id)] : [e])
+  /** Cuántas variantes tiene cada principal (para el botón de desplegarlas). */
+  const nVariantes: Record<string, number> = {}
+  ;(ejs || []).forEach(e => { if (e.portada_id) nVariantes[e.portada_id] = (nVariantes[e.portada_id] || 0) + 1 })
   /** Abre su rosco. Desde una lista, la lista entera queda de cola para ir pasando al siguiente. */
   function amasar(id: string, cola?: string[]) {
     if (cola && cola.length > 1) guardarCola(cola)
@@ -372,7 +388,7 @@ export default function TornoPage() {
             {soloIncompletos && (
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 4, marginBottom: 16 }}>
                 <span style={{ fontSize: 11, color: 'var(--grl)', marginRight: 4 }}>Le falta</span>
-                {FALTAS_AMASAR.map(f => {
+                {[FALTA_FOTO, ...FALTAS_AMASAR].map(f => {
                   const n = (ejs || []).filter(e => (!busca.trim() || contiene(e.nombre, busca)) && f.falta(e)).length
                   if (!n) return null
                   const on = faltaFiltro.includes(f.k)
@@ -408,6 +424,14 @@ export default function TornoPage() {
                     <div style={{ padding: '8px 10px' }}>
                       <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.nombre}</div>
                       {faltan > 0 && <div style={{ fontSize: 10.5, color: '#A87E2C', marginTop: 3 }}>Falta{faltan > 1 ? `n ${faltan} cosas` : ' 1 cosa'}</div>}
+                      {!e.imagen_url && <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}><Ic name="camara" size={10}/> Sin foto propia</div>}
+                      {e.portada_id && familiaAbierta === e.portada_id && <div style={{ fontSize: 10.5, color: 'var(--gd)', marginTop: 3 }}>Variante</div>}
+                      {!e.portada_id && nVariantes[e.id] > 0 && !busca.trim() && !soloIncompletos && (
+                        <span className="t-falta" style={{ marginTop: 5, padding: '2px 8px', fontSize: 11, background: familiaAbierta === e.id ? 'var(--gl)' : 'var(--bl)' }}
+                          onClick={ev => { ev.stopPropagation(); setFamiliaAbierta(familiaAbierta === e.id ? null : e.id) }}>
+                          {familiaAbierta === e.id ? 'Ocultar' : 'Ver'} {nVariantes[e.id]} variante{nVariantes[e.id] > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
