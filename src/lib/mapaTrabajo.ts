@@ -36,7 +36,7 @@ export const ZONAS: Zona[] = [
 ]
 
 /** Músculo de la biblioteca → grupo pintado en la malla (los de cuerpo-rig.json). */
-const MUS_RIG: Record<string, string> = {
+export const MUS_RIG: Record<string, string> = {
   'Cuádriceps': 'cuadriceps', 'Sartorio': 'cuadriceps',
   'Glúteo': 'gluteo', 'Glúteo - Piramidal': 'gluteo', 'Abductor - TFL': 'gluteo',
   'Isquiotibial': 'isquios', 'Aductores': 'aductores',

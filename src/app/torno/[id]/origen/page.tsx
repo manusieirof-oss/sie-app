@@ -18,7 +18,7 @@ const MapaCalorMini = dynamic(() => import('@/components/MapaCalorMini'), { ssr:
 // Lo que llegó en la URL (modo, progresión, fecha fin) se pasa tal cual al siguiente.
 // ---------------------------------------------------------------------------
 
-const CALOR_LISTO = false   // se enciende cuando esté el montaje con el mapa de calor
+const CALOR_LISTO = true   // se enciende cuando esté el montaje con el mapa de calor
 
 export default function OrigenPage({ params }: { params: { id: string } }) {
   const router = useRouter()
