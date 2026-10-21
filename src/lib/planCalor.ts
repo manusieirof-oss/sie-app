@@ -69,13 +69,26 @@ export const nombreZona = (k: string) => ZPLAN.find(z => z.k === k)?.n || k
 // (ajuste `calor_trabajo_medio`), corregida por edad y sexo: no por intensidad, solo
 // cuánto trabajo efectivo cabe en la hora.
 // ---------------------------------------------------------------------------
-export function factorEdadSexo(fechaNac?: string | null, sexo?: string | null) {
-  let edad: number | null = null
-  if (fechaNac) { const d = new Date(fechaNac); if (!isNaN(+d)) edad = Math.floor((Date.now() - +d) / (365.25 * 864e5)) }
-  const fe = edad == null ? 1 : edad >= 75 ? 0.82 : edad >= 65 ? 0.88 : edad >= 50 ? 0.94 : 1
-  const fs = /^(m|mujer|f|femenino)$/i.test((sexo || '').trim()) ? 0.97 : 1
-  return { edad, f: Math.round(fe * fs * 100) / 100 }
+export function edadDe(fechaNac?: string | null): number | null {
+  if (!fechaNac) return null
+  const d = new Date(fechaNac)
+  return isNaN(+d) ? null : Math.floor((Date.now() - +d) / (365.25 * 864e5))
 }
+/** Grupo de edad y sexo con el que se compara a un paciente ("50-64|mujer"). */
+export function grupoDe(fechaNac?: string | null, sexo?: string | null) {
+  const e = edadDe(fechaNac)
+  const r = e == null ? '?' : e < 35 ? '<35' : e < 50 ? '35-49' : e < 65 ? '50-64' : e < 75 ? '65-74' : '75+'
+  const sx = /^(m|mujer|f|femenino)$/i.test((sexo || '').trim()) ? 'mujer' : /^(h|hombre|v|varon|varón|masculino)$/i.test((sexo || '').trim()) ? 'hombre' : '?'
+  return `${r}|${sx}`
+}
+/**
+ * Trabajo real medio de la clínica: de cada sesión hecha (paciente + día) se suman los
+ * segundos de trabajo efectivo anotados y se dividen entre la duración de la clase.
+ * Media general y por grupo de edad y sexo; se guarda en Ajustes y se recalcula cada semana.
+ * Nada estimado a mano: sale de lo que se anota en el taller.
+ */
+export interface TrabajoMedio { v: 2, fecha: string, general: number, n: number, grupos: Record<string, { p: number, n: number }> }
+export const MIN_SESIONES_GRUPO = 10
 
 // ---------------------------------------------------------------------------
 // FASES: a qué fase cae cada cita (por semanas, por número de citas o por evaluación,

@@ -10,7 +10,7 @@ import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
 import CuboAlcance from '@/components/calor/CuboAlcance'
 import {
   type PlanCalor, type Mesa, type Capa, type TipoFases, planVacio, mesaVacia, clonar,
-  TRENES, ZPLAN, nombreZona, factorEdadSexo, faseDe, citasDeFase,
+  TRENES, ZPLAN, nombreZona, grupoDe, MIN_SESIONES_GRUPO, type TrabajoMedio, faseDe, citasDeFase,
   CAPAS, itemsDe, activas, pctCapa, pctItem, ponPctItem, lista,
   LETRA, colSes, contenido, bloques, frecTxt, PROGS, CONDS, bajaEn, curva, lineaPrograma,
   minTxt, segTxt, fechaCorta,
@@ -44,7 +44,8 @@ export default function CalorPage({ params }: { params: { id: string } }) {
   const [pac, setPac] = useState<any>(null)
   const [citas, setCitas] = useState<{ id: string, fecha: string, hora: string | null }[] | null>(null)
   const [dur, setDur] = useState(50)
-  const [medio, setMedio] = useState(40)
+  const [tm, setTm] = useState<TrabajoMedio | null>(null)
+  const tmViejo = useRef(false)
   const [objSuyos, setObjSuyos] = useState<string[]>([])
   const [objOtros, setObjOtros] = useState<string[]>([])
   const [ets, setEts] = useState<any[]>([])
@@ -79,7 +80,8 @@ export default function CalorPage({ params }: { params: { id: string } }) {
       setPac(p.data)
       const a = Object.fromEntries((aj.data || []).map((x: any) => [x.clave, x.valor]))
       setDur(parseInt(a.clinica_duracion_clase || '50') || 50)
-      setMedio(parseFloat(a.calor_trabajo_medio || '40') || 40)
+      // Media guardada; si no hay o tiene más de una semana, se recalcula (abajo, con las etiquetas cargadas)
+      try { const t = JSON.parse(a.calor_trabajo_medio || ''); if (t?.v === 2) { setTm(t); tmViejo.current = Date.now() - +new Date(t.fecha) > 7 * 864e5 } else tmViejo.current = true } catch { tmViejo.current = true }
       const suyos = (po.data || []).filter((r: any) => !r.logrado && r.objetivos).map((r: any) => r.nombre || r.objetivos.nombre)
       setObjSuyos(suyos)
       setObjOtros(Array.from(new Set((ob.data || []).map((r: any) => r.nombre))).filter((n: any) => !suyos.includes(n)).slice(0, 12) as string[])
@@ -104,6 +106,40 @@ export default function CalorPage({ params }: { params: { id: string } }) {
     addEventListener('focus', foco)
     return () => { vivo = false; removeEventListener('focus', foco) }
   }, [pid, cargarCitas])
+
+  // ---------------- trabajo real medio (de lo anotado en el taller) ----------------
+  const idxMedio = useMemo(() => indices(ets), [ets])
+  useEffect(() => {
+    if (!ets.length || !tmViejo.current) return
+    tmViejo.current = false
+    ;(async () => {
+      const desde = new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10)
+      const { filas } = await traerTodo((d, h) => supabase.from('registros_ejercicio').select('paciente_id,fecha,ejercicio_id,series,regimen,sesion_id').gte('fecha', desde).order('id').range(d, h))
+      const ids = Array.from(new Set((filas || []).map((r: any) => r.ejercicio_id).filter(Boolean))) as string[]
+      const pids = Array.from(new Set((filas || []).map((r: any) => r.paciente_id).filter(Boolean))) as string[]
+      const ej: Record<string, any> = {}, pa: Record<string, any> = {}
+      for (let i = 0; i < ids.length; i += 200) { const { data } = await supabase.from('ejercicios').select('id,trabajo,anatomia,tipo_medida').in('id', ids.slice(i, i + 200)); (data || []).forEach((e: any) => { ej[e.id] = e }) }
+      for (let i = 0; i < pids.length; i += 200) { const { data } = await supabase.from('pacientes').select('id,fecha_nacimiento,sexo').in('id', pids.slice(i, i + 200)); (data || []).forEach((p: any) => { pa[p.id] = p }) }
+      // Una sesión = un paciente un día. Su trabajo / la duración de la clase.
+      const ses: Record<string, any[]> = {}
+      ;(filas || []).forEach((r: any) => { (ses[r.paciente_id + '|' + r.fecha] ||= []).push(r) })
+      const todos: number[] = [], grupos: Record<string, number[]> = {}
+      Object.entries(ses).forEach(([k, rs]) => {
+        const seg = calcularMapa(rs, ej, idxMedio, cfg, { int: [], eje: [], combinada: false }).total
+        const p = seg / 60 / dur * 100
+        if (!(p > 0 && p <= 100)) return
+        todos.push(p)
+        const pac = pa[k.split('|')[0]]
+        ;(grupos[grupoDe(pac?.fecha_nacimiento, pac?.sexo)] ||= []).push(p)
+      })
+      if (!todos.length) return
+      const media = (l: number[]) => Math.round(l.reduce((n, v) => n + v, 0) / l.length)
+      const t: TrabajoMedio = { v: 2, fecha: new Date().toISOString(), general: media(todos), n: todos.length,
+        grupos: Object.fromEntries(Object.entries(grupos).map(([g, l]) => [g, { p: media(l), n: l.length }])) }
+      setTm(t)
+      await supabase.from('ajustes').upsert({ clave: 'calor_trabajo_medio', valor: JSON.stringify(t) }, { onConflict: 'clave' })
+    })()
+  }, [ets, idxMedio, cfg, dur])
 
   // ---------------- guardado automático ----------------
   const primera = useRef(true)
@@ -133,8 +169,12 @@ export default function CalorPage({ params }: { params: { id: string } }) {
   const span = dias.length ? dias[dias.length - 1] + 1 : 7
   const porSemana = N / Math.max(1, span / 7)
   const porMes = N / Math.max(1, span / 30.4)
-  const fes = factorEdadSexo(pac?.fecha_nacimiento, pac?.sexo)
-  const minSes = dur * medio / 100 * fes.f
+  // Trabajo real que cabe en su cita: la media de su grupo (edad y sexo) si hay datos; si no, la de la clínica
+  const grupo = grupoDe(pac?.fecha_nacimiento, pac?.sexo)
+  const gMedio = tm?.grupos[grupo]
+  const usaGrupo = !!gMedio && gMedio.n >= MIN_SESIONES_GRUPO
+  const pctTrabajo = usaGrupo ? gMedio!.p : tm?.general || 40
+  const minSes = dur * pctTrabajo / 100
 
   const hayFases = !!plan?.fases.l.length
   const act = plan?.faseAct ?? 0
@@ -280,8 +320,9 @@ export default function CalorPage({ params }: { params: { id: string } }) {
               <Pop titulo="i" filas={[
                 ['Citas', `${N} × ${dur} min`], ['Duración de clase', 'de Ajustes'],
                 ['Fechas', `${fechaCorta(citas[0].fecha)} → ${fechaCorta(citas[N - 1].fecha)}`],
-                ['Trabajo medio (clínica)', `${medio}%`],
-                [`${fes.edad ?? '¿?'} años${pac?.sexo ? ' · ' + pac.sexo : ''}`, `× ${String(fes.f).replace('.', ',')}`],
+                ['Trabajo real (clínica)', tm ? `${tm.general}% · ${tm.n} ses.` : 'calculando…'],
+                [`Su grupo: ${grupo.replace('|', ', ').replace(/\?/g, 'sin dato')}`, gMedio ? `${gMedio.p}% · ${gMedio.n} ses.` : '—'],
+                ['Se usa', usaGrupo ? `la de su grupo (${pctTrabajo}%)` : `la de la clínica (${pctTrabajo}%)`],
                 ['Por sesión', segTxt(minSes)], ['Total', minTxt(minSes * N)],
               ]} />
               <button className="cb-btn cb-mini" title="Citas: añadir, quitar o mover (agenda)" onClick={() => window.open('/agenda', '_blank')}><IcoCal /></button>
