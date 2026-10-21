@@ -33,6 +33,26 @@ const serieLlena = (x: any) => CAMPOS_MEDIDA.some(f => x?.[f] != null && String(
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
 
+/**
+ * EJERCICIOS QUE YA NO ESTÁN EN LA BIBLIOTECA. Una sesión puede llevar un ejercicio que
+ * luego se borró o se fusionó con otro; al guardar, la base rechazaba la clase ENTERA
+ * ("violates foreign key constraint registros_ejercicio_ejercicio_id_fkey") y no se
+ * guardaba nada. Ahora esos registros se guardan sin enlace (con su nombre, como los
+ * escritos a mano) y el resto de la clase entra normal.
+ */
+async function sinEjerciciosBorrados<T extends { ejercicio_id?: any, ejercicio_nombre?: any }>(filas: T[]): Promise<T[]> {
+  const ids = Array.from(new Set(filas.map(f => f.ejercicio_id).filter(Boolean)))
+  if (!ids.length) return filas
+  const { data, error } = await supabase.from('ejercicios').select('id').in('id', ids)
+  if (error) return filas
+  const hay = new Set((data || []).map((e: any) => e.id))
+  return filas.map(f => {
+    if (!f.ejercicio_id || hay.has(f.ejercicio_id)) return f
+    console.warn('Ejercicio que ya no está en la biblioteca, se guarda sin enlace:', f.ejercicio_nombre)
+    return { ...f, ejercicio_id: null }
+  })
+}
+
 export default function ModoClase() {
   const [fecha, setFecha] = useState(hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
@@ -1088,7 +1108,8 @@ export default function ModoClase() {
         // Sin la columna n_series (falta el SQL) no se pierde lo apuntado: se guarda sin ella.
         if (error && /n_series/.test(error.message)) { delete cambios.n_series; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
       } else {
-        ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+        const [limpia] = await sinEjerciciosBorrados([fila]); Object.assign(fila, limpia)
+        ;({ error } = await supabase.from('registros_ejercicio').insert(fila))
         if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       }
     } else {
@@ -1305,7 +1326,7 @@ export default function ModoClase() {
       })
     })
     if (vacios.length) {
-      const { error } = await supabase.from('registros_ejercicio').insert(vacios)
+      const { error } = await supabase.from('registros_ejercicio').insert(await sinEjerciciosBorrados(vacios))
       if (error) { alert('Error al finalizar: ' + error.message); return false }
     }
     /* "NO LO HIZO" SE GUARDA (sql/no_hechos.sql). Antes vivia solo en el navegador y se
@@ -1408,7 +1429,7 @@ export default function ModoClase() {
     if (e1) { alert('Error al finalizar: ' + e1.message); return }
     if (filas.length) {
       const { error } = await supabase.from('registros_ejercicio')
-        .insert(filas.map(f => ({ ...f, paciente_id: pid, sesion_id: sid, finalizado: true, items_evaluados: {}, fecha })))
+        .insert(await sinEjerciciosBorrados(filas.map(f => ({ ...f, paciente_id: pid, sesion_id: sid, finalizado: true, items_evaluados: {}, fecha }))))
       if (error) { alert('Error al finalizar: ' + error.message); return }
     }
     try { sessionStorage.removeItem(claveHechos(pid, sid)) } catch {}
