@@ -106,7 +106,8 @@ export default function TornoPage() {
     const q = new URLSearchParams({ modo: tipo })
     if (tipo === 'ciclo') { q.set('prog', prog); if (prog === 'fecha_fin' && fin) q.set('fin', fin) }
     setYendo(panel.id)
-    setTimeout(() => router.push(`/torno/${panel.id}?${q.toString()}`), 360)
+    // Antes del montaje, el paso de elegir con qué: biblioteca o mapa de calor.
+    setTimeout(() => router.push(`/torno/${panel.id}/origen?${q.toString()}`), 360)
   }
 
   useEffect(() => {
