@@ -113,9 +113,22 @@ export default function TornoPage() {
     const q = new URLSearchParams({ modo: tipo })
     if (tipo === 'ciclo') { q.set('prog', prog); if (prog === 'fecha_fin' && fin) q.set('fin', fin) }
     setYendo(panel.id)
-    // Antes del montaje, el paso de elegir con qué: biblioteca o mapa de calor.
-    setTimeout(() => router.push(`/torno/${panel.id}/origen?${q.toString()}`), 360)
+    // Ya se eligió "de la biblioteca" antes (en origen): de aquí, directo al montaje.
+    setTimeout(() => router.push(`/torno/${panel.id}?${q.toString()}`), 360)
   }
+  // ORDEN NUEVO: paciente → ¿con qué lo montamos? (biblioteca o mapa de calor) → y solo en la
+  // biblioteca, ciclo o sesión. En el mapa de calor eso lo deciden sus citas y sus fases.
+  function irOrigen(f: Fila) {
+    setYendo(f.id)
+    setTimeout(() => router.push(`/torno/${f.id}/origen`), 360)
+  }
+  // Vuelta desde origen eligiendo la biblioteca: se abre aquí el panel de ciclo o sesión.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('elegir')
+    if (!id || !filas.length || panel) return
+    const f = filas.find(x => x.id === id)
+    if (f) { setPanel(f); setTipo(null); setFin(''); window.history.replaceState(null, '', '/torno') }
+  }, [filas]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     supabase.from('ajustes').select('valor').eq('clave', 'clinica_logo').maybeSingle()
@@ -521,7 +534,7 @@ export default function TornoPage() {
                       style={{ animationDelay: `${Math.min(i, 12) * 26}ms`,
                         background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 10,
                         padding: '13px 14px', cursor: 'pointer' }}
-                      onClick={() => { setPanel(f); setTipo(null); setFin('') }}>
+                      onClick={() => irOrigen(f)}>
                       <div style={{ fontSize: 14, color: 'var(--n)' }}>{f.nombre}</div>
                       {f.reciente && (
                         <div style={{ fontSize: 9, color: 'var(--gd)', fontWeight: 600, marginTop: 2 }}>

@@ -282,14 +282,13 @@ export default function CalorPage({ params }: { params: { id: string } }) {
 
   if (!plan || !citas) return <div style={{ padding: 40, color: 'var(--grl)' }}>Cargando…</div>
   const nombre = (pac?.nombre_clinica || `${pac?.nombre || ''} ${pac?.apellidos || ''}`).trim()
-  const que = sp.get('modo') === 'ciclo' ? 'Un ciclo' : 'Una sesión'
 
   return (
     <div className="mc">
       <style>{CSS}</style>
       {/* ---------- barra ---------- */}
       <div className="mc-top">
-        <button className="btn btn-t btn-sm" onClick={() => router.push(`/torno/${pid}/origen?${sp.toString()}`)}>← Atrás</button>
+        <button className="btn btn-t btn-sm" onClick={() => router.push(`/torno/${pid}/origen`)}>← Atrás</button>
         {hayFases && <div className="mc-fbar">{plan.fases.l.map((f, k) => {
           const c = COLF[k % COLF.length], n = citasDeFase(plan, dias, k).length
           const e = plan.estadoF[k] === 'creada' ? ['sesiones creadas', 'var(--gd)'] : plan.porFase[k] && lista(plan.porFase[k]).length ? ['preparada', '#C9A227'] : ['sin preparar', 'var(--grl)']
@@ -304,7 +303,7 @@ export default function CalorPage({ params }: { params: { id: string } }) {
           <option value="hombro">Hombro · movilidad y control</option>
           <option value="general">General equilibrado · 3 días</option>
         </select>
-        <b style={{ fontSize: 15 }}>{nombre}</b><span className="mc-chip">{que} · {N} citas</span>
+        <b style={{ fontSize: 15 }}>{nombre}</b><span className="mc-chip">{N} citas</span>
         <button className="btn btn-p btn-sm" disabled title="Siguiente paso: crear y revisar las sesiones">Crear sesiones{hayFases ? ' · ' + plan.fases.l[act].n : ''}</button>
       </div>
 

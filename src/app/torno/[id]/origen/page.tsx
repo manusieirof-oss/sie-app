@@ -46,7 +46,8 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
   function ir(via: 'bib' | 'calor') {
     if (via === 'calor' && !CALOR_LISTO) return
     setYendo(via)
-    const destino = via === 'bib' ? `/torno/${pid}?${sp.toString()}` : `/torno/${pid}/calor?${sp.toString()}`
+    // Biblioteca: vuelve al torno a elegir ciclo o sesión. Mapa de calor: directo a la mesa.
+    const destino = via === 'bib' ? `/torno?elegir=${pid}` : `/torno/${pid}/calor`
     setTimeout(() => router.push(destino), 300)
   }
 
@@ -73,7 +74,6 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
         <button className="btn btn-t btn-sm" onClick={() => router.push('/torno')}>← Torno</button>
         <div style={{ flex: 1 }}/>
         <span style={{ fontSize: 16, fontWeight: 600 }}>{nombre}</span>
-        <span style={{ fontSize: 11.5, padding: '3px 10px', borderRadius: 99, background: 'var(--gl)', color: 'var(--gd)' }}>{que}</span>
       </div>
       <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--grl)', marginBottom: 14, letterSpacing: '.04em', textTransform: 'uppercase' }}>¿Con qué lo montamos?</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
