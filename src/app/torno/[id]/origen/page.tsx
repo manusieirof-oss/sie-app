@@ -4,6 +4,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { PROGRESIONES } from '@/lib/sistemas'
+import dynamic from 'next/dynamic'
+// El cuerpo 3D (three.js) se carga aparte, para no frenar la entrada.
+const MapaCalorMini = dynamic(() => import('@/components/MapaCalorMini'), { ssr: false })
 
 // ---------------------------------------------------------------------------
 // ¿CON QUÉ LO MONTAMOS?
@@ -48,7 +51,7 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
       className="origen-b"
       style={{ fontFamily: 'inherit', textAlign: 'left', cursor: listo ? 'pointer' : 'default', padding: 26, borderRadius: 24,
         background: '#fff', border: '1.5px solid var(--bd)', minHeight: 'min(62vh, 520px)', display: 'flex', flexDirection: 'column',
-        opacity: yendo && yendo !== via ? .35 : listo ? 1 : .6, transform: yendo === via ? 'scale(1.02)' : 'none', transition: 'all .25s' }}>
+        opacity: yendo && yendo !== via ? .35 : 1, transform: yendo === via ? 'scale(1.02)' : 'none', transition: 'all .25s' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ width: 46, height: 46, borderRadius: 14, display: 'grid', placeItems: 'center', background: 'var(--gl)', color: 'var(--gd)' }}><Ic name={ic} size={22}/></span>
         <span style={{ fontSize: 22, fontWeight: 600, color: 'var(--n)' }}>{titulo}</span>
@@ -71,7 +74,7 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
       <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--grl)', marginBottom: 14, letterSpacing: '.04em', textTransform: 'uppercase' }}>¿Con qué lo montamos?</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20 }}>
         {boton('bib', 'objetivo', 'De la biblioteca', 'Eliges sus objetivos y salen los ciclos, sesiones y ejercicios que ya los trabajan. Como hasta ahora.', <Esferas/>)}
-        {boton('calor', 'progreso', 'Con el mapa de calor', 'Ves lo que ha trabajado, pones el % por zona e intención y se monta solo. Luego lo retocas.', <Cuerpo/>, CALOR_LISTO)}
+        {boton('calor', 'progreso', 'Con el mapa de calor', 'Ves lo que ha trabajado, pones el % por zona e intención y se monta solo. Luego lo retocas.', <MapaCalorMini pacienteId={pid}/>, CALOR_LISTO)}
       </div>
     </div>
   )
@@ -86,23 +89,4 @@ function Esferas() {
       display: 'grid', placeItems: 'center', fontSize: 11, color: 'var(--gd)', border: '1.5px solid #cfe2e4',
       background: 'radial-gradient(circle at 35% 30%, #fff, var(--gl))', opacity: i < 3 ? 1 : .75 }}>{t}</div>
   ))}</>
-}
-
-/** Dibujo del mapa: silueta del color de la clínica con zonas calientes. */
-function Cuerpo() {
-  return (
-    <svg viewBox="0 0 120 260" style={{ position: 'absolute', inset: 0, margin: 'auto', height: '100%', maxHeight: 300 }}>
-      <defs>
-        <radialGradient id="cr"><stop offset="0" stopColor="#E4572E"/><stop offset="1" stopColor="#E4572E" stopOpacity="0"/></radialGradient>
-        <radialGradient id="ca"><stop offset="0" stopColor="#F2A541"/><stop offset="1" stopColor="#F2A541" stopOpacity="0"/></radialGradient>
-      </defs>
-      <g fill="#9FCFD3">
-        <circle cx="60" cy="22" r="14"/><rect x="40" y="40" width="40" height="80" rx="16"/>
-        <rect x="24" y="44" width="12" height="74" rx="6" transform="rotate(10 30 44)"/><rect x="84" y="44" width="12" height="74" rx="6" transform="rotate(-10 90 44)"/>
-        <rect x="42" y="112" width="16" height="130" rx="8"/><rect x="62" y="112" width="16" height="130" rx="8"/>
-      </g>
-      <circle cx="50" cy="180" r="15" fill="url(#cr)"/><circle cx="70" cy="180" r="15" fill="url(#cr)"/>
-      <circle cx="40" cy="50" r="11" fill="url(#ca)"/><circle cx="80" cy="50" r="11" fill="url(#ca)"/>
-    </svg>
-  )
 }
