@@ -304,7 +304,14 @@ export default function CalorPage({ params }: { params: { id: string } }) {
           <option value="general">General equilibrado · 3 días</option>
         </select>
         <b style={{ fontSize: 15 }}>{nombre}</b><span className="mc-chip">{N} citas</span>
-        <button className="btn btn-p btn-sm" disabled title="Siguiente paso: crear y revisar las sesiones">Crear sesiones{hayFases ? ' · ' + plan.fases.l[act].n : ''}</button>
+        <button className="btn btn-p btn-sm" disabled={!mesa || !lista(mesa).length} title="Montar las sesiones de esta fase con la biblioteca"
+          onClick={async () => {
+            // Se guarda ya (sin esperar al guardado automático) y se pasa a ver las sesiones montadas
+            const ahora = new Date().toISOString()
+            if (planId.current) await supabase.from('planes_calor').update({ datos: plan, actualizado: ahora }).eq('id', planId.current)
+            else { const r = await supabase.from('planes_calor').insert({ paciente_id: pid, datos: plan, actualizado: ahora }).select('id').single(); planId.current = (r.data as any)?.id || null }
+            router.push(`/torno/${pid}/calor/sesiones`)
+          }}>Crear sesiones{hayFases ? ' · ' + plan.fases.l[act].n : ''}</button>
       </div>
 
       {!N ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--gr)' }}>No tiene citas por delante{sp.get('fin') ? ' hasta esa fecha' : ''}. Dale citas en la agenda y vuelve.
