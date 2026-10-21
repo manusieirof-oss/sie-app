@@ -95,6 +95,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
   const [nombreVar, setNombreVar] = useState<string | null>(null)
+  // AÑADIR A LA FAMILIA desde la ficha: null = cerrado; si no, lo que se busca.
+  const [anadir, setAnadir] = useState<string | null>(null)
   // VARIAR: variantes que cambian una sola cosa (agarre, material, posición, apoyo).
   const [variar, setVariar] = useState<{ cat: string, sel: string[] } | null>(null)
   // La ficha sale para revisar lo hecho: al crear y al guardar. En cuanto se abre un
@@ -139,6 +141,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         setD(b ? { ...x, ...b.d, trabajo: b.d.trabajo || x.trabajo, anatomia: b.d.anatomia || x.anatomia } : x); setOrig(x)
       }
     }
+    // "Añadir a la familia → uno nuevo": llega con ?familia=<principal> y sale ya dentro.
+    if (nuevo && sp.get('familia')) { set('portada_id', sp.get('familia')); setModoFam('variante') }
     setCargando(false)
     if (recien) { setAviso('✓ Creado. Ya está en la biblioteca'); setTimeout(() => setAviso(''), 4000) }
   }
@@ -712,6 +716,51 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       </div>
     )
   }
+  /** La familia entera (sin él): la principal primero y luego las variantes. */
+  const principalFam = d.portada_id ? ejs.find(x => x.id === d.portada_id) : null
+  const familia: any[] = principalFam
+    ? [principalFam, ...ejs.filter(x => x.portada_id === principalFam.id && x.id !== params.id)]
+    : variantes
+  const idPrincipal = d.portada_id || params.id
+
+  /** Añadir a la familia: buscar uno que ya existe, o crear uno nuevo ya dentro. */
+  function panelAnadir() {
+    const q = (anadir || '').trim()
+    const enFam = new Set([params.id, idPrincipal, ...familia.map(x => x.id)])
+    const lista = q ? ejs.filter(x => !enFam.has(x.id) && contiene(x.nombre, q)).slice(0, 12) : []
+    const meter = async (x: any) => {
+      if (!confirm(`¿Añadir «${x.nombre}» como variante de ${principalFam ? principalFam.nombre : d.nombre}?` +
+        (ejs.some(y => y.portada_id === x.id) ? '\nSus variantes se vienen con él.' : ''))) return
+      setGuardando(true)
+      const r = await moverAFamilia(x.id, { id: idPrincipal })
+      setGuardando(false)
+      if (r.ok === false) { setAviso('No se ha añadido: ' + r.error); return }
+      setAnadir(null); await cargar(); setFichaOn(true); setAviso(`✓ ${x.nombre} ya es de la familia`)
+    }
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <b style={{ fontSize: 13.5, flex: 1 }}>Añadir a la familia</b>
+          <button className="btn btn-t btn-sm" onClick={() => setAnadir(null)}>✕</button>
+        </div>
+        <button className="am-accion" style={{ width: '100%', marginBottom: 10 }} onClick={() => ir(`/torno/amasar/nuevo?familia=${idPrincipal}`)}>
+          <b>Uno nuevo desde cero</b><span>Se abre un rosco vacío que ya sale dentro de esta familia.</span></button>
+        <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>O uno que ya existe:</div>
+        <input className="input" autoFocus value={anadir || ''} placeholder="Buscar ejercicio…" onChange={e => setAnadir(e.target.value)}/>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(88px,1fr))', gap: 8, marginTop: 8 }}>
+          {lista.map(x => (
+            <div key={x.id} onClick={() => !guardando && meter(x)} title="Añadirlo a esta familia"
+              style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 9px rgba(38,40,37,.10)' }}>
+              <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={20}/>
+              <div style={{ fontSize: 11, padding: '5px 7px', lineHeight: 1.2 }}>{x.nombre}</div>
+            </div>
+          ))}
+        </div>
+        {q && !lista.length && <div style={{ fontSize: 12, color: 'var(--grl)', marginTop: 6 }}>Ninguno con ese nombre fuera de la familia.</div>}
+      </div>
+    )
+  }
+
   function ficha() {
     const sec = (k: Clave, titulo: string, hijos: any, vacio: boolean) => (
       <div className="am-sec" onClick={() => { setFichaOn(false); setAbierto(k) }} title="Tocar para cambiar" style={rev(k) ? { background: '#FBF1D3' } : undefined}>
@@ -755,10 +804,16 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         {sec('feedbacks', 'Feedbacks', (
           <div style={{ display: 'grid', gap: 4 }}>{fbs.map((i, n) => <div key={n} style={{ fontSize: 13.5, fontStyle: 'italic', color: 'var(--gd)' }}>«{i.texto}»</div>)}</div>
         ), !fbs.length)}
+        {/* LA FAMILIA EN IMÁGENES: la principal y sus variantes, cada una con su foto. */}
         {(variantes.length > 0 || portada) && sec('familia', 'Familia', (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {(portada ? [portada, ...ejs.filter(x => x.portada_id === portada.id && x.id !== params.id)] : variantes).map(x =>
-              <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={ev => { ev.stopPropagation(); ir(aEj(x.id)) }}>{x.nombre}</span>)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(88px,1fr))', gap: 8 }}>
+            {familia.map(x => (
+              <div key={x.id} onClick={ev => { ev.stopPropagation(); ir(aEj(x.id)) }} title="Abrir su rosco"
+                style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 9px rgba(38,40,37,.10)' }}>
+                <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={20}/>
+                <div style={{ fontSize: 11, padding: '5px 7px', lineHeight: 1.2 }}>{!x.portada_id && <b style={{ color: 'var(--gd)' }}>Principal · </b>}{x.nombre}</div>
+              </div>
+            ))}
           </div>
         ), false)}
 
@@ -779,13 +834,18 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
         {/* SEGUIR AMASANDO */}
         <div style={{ borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 14 }}>
-          {variar ? panelVariar() : nombreVar === null ? (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-s btn-sm" disabled={cambiado} title={cambiado ? 'Guarda antes los cambios' : ''}
-                onClick={() => setNombreVar(`${d.nombre} · `)}>+ {portada ? 'Otra variante de su familia' : 'Variante de este'}</button>
+          {variar ? panelVariar() : anadir !== null ? panelAnadir() : nombreVar === null ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {/* Dos acciones grandes y con su explicación: antes eran botones pequeños que
+                  no decían qué hacían. */}
+              <button className="am-accion" disabled={cambiado} title={cambiado ? 'Guarda antes los cambios' : ''}
+                onClick={() => setNombreVar(`${d.nombre} · `)}>
+                <b>Crear una variante</b><span>Sale copiando todo lo de este; luego cambias lo que la hace distinta.</span></button>
+              <button className="am-accion" onClick={() => setAnadir('')}>
+                <b>Añadir a la familia</b><span>Uno que ya existe, o uno nuevo desde cero, como variante de {portada ? portada.nombre : 'este'}.</span></button>
               <button className="btn btn-s btn-sm" title="Variantes que cambian solo el agarre, el material, la posición, el apoyo o el músculo"
                 onClick={() => setVariar({ cat: 'agarre', sel: [] })}>Variar…</button>
-              <button className="btn btn-t btn-sm" onClick={() => ir(aEj('nuevo'))}>+ Otro ejercicio</button>
+              <button className="btn btn-t btn-sm" onClick={() => ir(aEj('nuevo'))}>+ Otro ejercicio suelto</button>
             </div>
           ) : (
             <div>
@@ -827,6 +887,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         .am-borrar { width:34px; height:34px; border-radius:99px; border:none; background:transparent; color:var(--grl);
                      cursor:pointer; display:flex; align-items:center; justify-content:center; transition: color .15s, background .15s }
         .am-borrar:hover { color:var(--red); background:#fff; box-shadow:0 3px 12px rgba(38,40,37,.12) }
+        .am-accion { text-align:left; font-family:inherit; cursor:pointer; padding:12px 13px; border-radius:14px; border:1.5px solid var(--bd);
+                     background:#fff; display:flex; flex-direction:column; gap:3px; transition:border-color .15s, box-shadow .15s }
+        .am-accion:hover:not(:disabled) { border-color:var(--g); box-shadow:0 4px 14px rgba(90,150,158,.18) }
+        .am-accion:disabled { opacity:.5; cursor:default }
+        .am-accion b { font-size:13.5px; font-weight:600; color:var(--n) }
+        .am-accion span { font-size:11.5px; color:var(--gr); line-height:1.35 }
+        .am-fam { position:absolute; width:76px; transform:translate(-50%,-50%); cursor:pointer; opacity:.72; z-index:1;
+                  transition:opacity .2s, transform .2s }
+        .am-fam:hover { opacity:1; transform:translate(-50%,-50%) scale(1.06); z-index:5 }
         .am-sec { padding:9px 10px; margin:0 -10px 4px; border-radius:12px; cursor:pointer; transition:background .15s }
         .am-sec:hover { background:var(--gl) }
         .am-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
@@ -894,7 +963,30 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         <div className={`am-zona ${abierto || verFicha || (grupo && resumenOn) ? 'am-abierto' : ''}`}
           style={enCola && colaEjs.length > 1 ? { paddingLeft: 108 } : undefined}>
           <div className="am-rosco">
-            <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+            {/* SU FAMILIA DE FONDO, como la red de objetivos y tests: cada una con su foto,
+                unida al centro con un hilo. Tocar una lleva a su rosco. Van por el lado
+                izquierdo para no chocar con el panel, que se abre a la derecha. */}
+            {!nuevo && !grupo && familia.length > 0 && (() => {
+              const fam = familia.slice(0, 10)
+              const pos = fam.map((_, i) => {
+                const a = (fam.length === 1 ? 180 : 115 + (130 * i) / (fam.length - 1)) * Math.PI / 180
+                return { x: 50 + Math.cos(a) * 66, y: 50 + Math.sin(a) * 58 }
+              })
+              return (<>
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', zIndex: 0, pointerEvents: 'none' }}>
+                  {pos.map((p, i) => <line key={i} x1={50} y1={50} x2={p.x} y2={p.y} stroke="var(--gm)" strokeWidth={.25} strokeDasharray="1 1" opacity={.7}/>)}
+                </svg>
+                {fam.map((x, i) => (
+                  <div key={x.id} className="am-fam" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%` }} onClick={() => ir(aEj(x.id))} title={x.nombre}>
+                    <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 3px 10px rgba(38,40,37,.14)', outline: !x.portada_id ? '2px solid var(--g)' : 'none' }}>
+                      <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
+                    </div>
+                    <div style={{ fontSize: 10, lineHeight: 1.15, color: 'var(--gd)', marginTop: 3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{x.nombre}</div>
+                  </div>
+                ))}
+              </>)
+            })()}
+            <svg viewBox="0 0 600 600" style={{ width: '100%', height: '100%', overflow: 'visible', position: 'relative', zIndex: 2 }}>
               {QUESITOS.map((x, i) => {
                 const a0 = -90 + i * paso + HUECO, a1 = -90 + (i + 1) * paso - HUECO
                 const mid = (a0 + a1) / 2 * Math.PI / 180
