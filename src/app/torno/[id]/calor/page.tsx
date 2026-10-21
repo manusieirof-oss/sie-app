@@ -354,7 +354,7 @@ export default function CalorPage({ params }: { params: { id: string } }) {
                         return <div key={x} className="mc-fila">
                           <div className="fl"><span className="fn" title={c.k === 'zon' ? nombreZona(x) : x}>{c.k === 'zon' ? nombreZona(x) : x}</span><b>{Math.round(pi)}%</b></div>
                           {et.length > 0 && <div className="et">{et.join(', ')}</div>}
-                          <div className="fr"><input type="range" min={0} max={100} value={pi} onChange={e => cambia(m => ponPctItem(m, c.k, x, +e.target.value))} /><span className="fm">{minTxt(TOT * p * pi / 1e4)}</span></div>
+                          <div className="fr"><input type="range" min={0} max={100} value={pi} style={{ background: `linear-gradient(to right,var(--g) ${pi}%,var(--bl) ${pi}%)` }} onChange={e => cambia(m => ponPctItem(m, c.k, x, +e.target.value))} /><span className="fm">{minTxt(TOT * p * pi / 1e4)}</span></div>
                         </div>
                       })}
                       {it.length > 1 && <button className="mc-ig" style={{ marginTop: 6 }} onClick={() => cambia(m => { m.wi[c.k] = {} })}>Igualar</button>}
@@ -740,13 +740,13 @@ function Paso({ v, min, max, on }: { v: number, min: number, max: number, on: (n
 }
 
 function Letras({ FF, NF, sesDe }: { FF: string[], NF: number, sesDe: (i: number) => number }) {
-  return <div className="mc-tira" style={{ gridTemplateColumns: `repeat(${NF},1fr)` }}>{FF.map((f, i) => <div key={i} className="ci" style={{ borderColor: colSes(sesDe(i)) + '66' }}><b style={{ color: colSes(sesDe(i)) }}>{LETRA[sesDe(i)]}</b><span>{fechaCorta(f)}</span></div>)}</div>
+  return <div className="mc-tira" style={{ gridTemplateColumns: `repeat(${NF},1fr)` }}>{FF.map((f, i) => <div key={i} className="ci" style={{ borderColor: colSes(sesDe(i)) + '66' }}><b style={{ color: colSes(sesDe(i)) }}>{LETRA[sesDe(i)]}</b><span>{NF > 14 ? f.slice(8, 10) : fechaCorta(f)}</span></div>)}</div>
 }
 
 function Tiras({ mesa, FF, NF, porSemana }: { mesa: Mesa, FF: string[], NF: number, porSemana: number }) {
   let n = 0
   return <>
-    <div className="mc-tira num" style={{ gridTemplateColumns: `repeat(${NF},1fr)` }}>{FF.map((_, i) => { const b = bajaEn(i, mesa.prog, mesa.proy, NF, porSemana); n++; return <div key={i} className={'ci' + (b ? ' desc' : '')}>{b ? '↓ ' + n : n}</div> })}</div>
+    <div className="mc-tira mc-num" style={{ gridTemplateColumns: `repeat(${NF},1fr)` }}>{FF.map((_, i) => { const b = bajaEn(i, mesa.prog, mesa.proy, NF, porSemana); n++; return <div key={i} className={'ci' + (b ? ' desc' : '')}>{b ? '↓ ' + n : n}</div> })}</div>
     <Letras FF={FF} NF={NF} sesDe={i => i % mesa.nses} />
   </>
 }
@@ -862,7 +862,10 @@ const CSS = `
 .mc-fila{padding:5px 0;border-bottom:1px dashed var(--bd)}
 .mc-fila .fl{display:flex;align-items:baseline;gap:6px;font-size:12px}.mc-fila .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-fila .fl b{color:var(--gd)}.mc-fila .et{font-size:10px;color:var(--grl)}
-.mc-fila .fr{display:flex;align-items:center;gap:6px}.mc-fila input{flex:1;min-width:0;accent-color:var(--g);height:14px}
+.mc-fila .fr{display:flex;align-items:center;gap:6px}
+.mc-fila input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:6px;border-radius:6px;background:var(--bl);outline:none;margin:6px 0}
+.mc-fila input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--g);border:2px solid #fff;box-shadow:0 0 0 1px var(--g);cursor:pointer}
+.mc-fila input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--g);border:2px solid #fff;box-shadow:0 0 0 1px var(--g);cursor:pointer}
 .mc-fila .fm{font-size:10.5px;color:var(--grl);white-space:nowrap;min-width:46px;text-align:right}
 .mc-res{font-size:12px;color:var(--gr);line-height:1.5}.mc-res b{color:var(--n)}
 /* comparativa */
@@ -877,8 +880,8 @@ const CSS = `
 .mc-tira{display:grid;gap:3px;margin-top:3px}
 .mc-tira .ci{border:1px solid var(--bd);border-radius:8px;padding:3px 0;text-align:center;background:#fff;min-width:0;overflow:hidden}
 .mc-tira .ci b{display:block;font-size:14px;line-height:1.1}.mc-tira .ci span{font-size:9.5px;color:var(--grl);white-space:nowrap}
-.mc-tira.num .ci{background:var(--g);border:0;color:#fff;font-size:11px;padding:4px 0;border-radius:5px}
-.mc-tira.num .ci.desc{background:#A9ABA6}
+.mc-tira.mc-num .ci{background:var(--g);border:0;color:#fff;font-size:11px;padding:4px 0;border-radius:5px}
+.mc-tira.mc-num .ci.desc{background:#A9ABA6}
 /* velos */
 .mc-velo{position:fixed;inset:28px;z-index:60;background:rgba(255,255,255,.88);backdrop-filter:blur(4px);border:1px solid var(--bd);border-radius:22px;box-shadow:0 20px 60px rgba(38,40,37,.18);display:flex;flex-direction:column;padding:22px 26px}
 .mc-velo .vh{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}.mc-velo .vh b{font-size:20px}.mc-velo .vh span{color:var(--gr)}
