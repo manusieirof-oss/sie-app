@@ -37,6 +37,8 @@ export interface AccionesTodos {
   noHechos: (pid: string, sid: string) => number[]
   sustituir: (pid: string, ei: number) => void
   abrir: (pid: string) => void
+  // Tocar la foto: velo de la cita (falta, cancelada, sala).
+  cita: (pid: string) => void
   // Ejecucion: marcar todos los items y activar el objetivo de un item que no cumple.
   todosItems: (pid: string, ei: number, v: boolean) => void
   objetivo: (pid: string, oid: string, ejId?: string, ejNombre?: string) => void
@@ -107,12 +109,13 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
           const edad = p.fecha_nacimiento ? Math.floor((Date.now() - +new Date(p.fecha_nacimiento)) / (365.25 * 864e5)) : null
           const ini = nombrePac(p).split(' ').filter(Boolean).slice(0, 2).map((x: string) => x[0]).join('')
           let parteAnt = ''
-          return <div key={p.id} className={'tt-col' + (s.finalizado ? ' fin' : '')}>
+          return <div key={p.id} className={'tt-col' + (s.finalizado || s.estado === 'falta' ? ' fin' : '')}>
             <div className="tt-cab">
               <div className="tt-per">
-                <div className="tt-foto" style={{ background: COLS[pi % COLS.length] }}>{fotos[p.id] ? <img src={fotos[p.id]!} alt="" /> : ini}</div>
+                <button className="tt-foto" title="Falta, cancelar o cambiar de sala" onClick={() => a.cita(p.id)}
+                  style={{ background: COLS[pi % COLS.length] }}>{fotos[p.id] ? <img src={fotos[p.id]!} alt="" /> : ini}</button>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="tt-nom">{nombrePac(p)}</div>
+                  <div className="tt-nom">{nombrePac(p)}{s.estado === 'falta' && <span className="tt-falta">Falta</span>}</div>
                   <div className="tt-sub">{edad != null ? `${edad} años · ` : ''}{ses?.nombre || (sid ? 'Sesión' : 'Sin sesión')}</div>
                 </div>
                 <button className="tt-abrir" title="Su taller completo, uno a uno" onClick={() => a.abrir(p.id)}>⤢</button>
@@ -283,7 +286,8 @@ const CSS = `
 .tt-col.fin{opacity:.6}
 .tt-cab{position:sticky;top:0;background:#fff;z-index:5;padding:12px 12px 10px;border-bottom:1px solid var(--bd);border-radius:18px 18px 0 0}
 .tt-per{display:flex;align-items:center;gap:10px}
-.tt-foto{width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;overflow:hidden;box-shadow:0 0 0 3px #fff,0 0 0 4.5px #9FCFD3}
+.tt-falta{margin-left:6px;font-size:10.5px;font-weight:700;color:#fff;background:#C0504D;border-radius:99px;padding:1px 8px;vertical-align:middle}
+.tt-foto{border:0;padding:0;cursor:pointer;font-family:inherit;width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;overflow:hidden;box-shadow:0 0 0 3px #fff,0 0 0 4.5px #9FCFD3}
 .tt-foto img{width:100%;height:100%;object-fit:cover}
 .tt-nom{font-size:15px;font-weight:700;line-height:1.15;color:var(--n)}
 .tt-sub{font-size:11px;color:var(--grl);margin-top:1px}

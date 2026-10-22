@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import TodosTaller from './TodosTaller'
+import { VeloCita, VeloAnadir } from './GestionCita'
 import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
@@ -405,8 +406,12 @@ export default function ModoClase() {
    * del efecto que llama aquí, cada paciente añadido lo dispararía otra vez y la carga se
    * repetiría en bucle.
    */
-  async function traerDeAgenda() {
-    setTrayendo(true); setAvisoAgenda('')
+  const trayendoRef = useRef(false)
+  async function traerDeAgenda(silencio = false) {
+    // Una sola a la vez: el repaso automatico no se cruza con un cambio de franja.
+    if (trayendoRef.current && silencio) return
+    trayendoRef.current = true
+    if (!silencio) { setTrayendo(true); setAvisoAgenda('') }
     try {
       let delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
       /* La sala es una PREFERENCIA, no un muro: si a esa hora no hay nadie en la
@@ -424,7 +429,9 @@ export default function ModoClase() {
       const lista: any[] = []
       for (const d of delDia) {
         const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
-        if (ya) { lista.push(ya); continue }        // lo suyo se queda como esté
+        // Lo suyo se queda como esté; de la agenda se toma lo que pueda haber cambiado
+        // (marcado como falta, cambiado de sala).
+        if (ya) { lista.push({ ...ya, estado: d.estado, sala: d.sala, hora: d.hora, citaId: d.citaId }); continue }
         // La sesión de hoy es el plan CON lo ajustado para este día. Lo preparado
         // semanas antes tiene que llegar a la sala solo; si hubiera que acordarse
         // de mirarlo, no serviría de nada haberlo preparado.
@@ -462,11 +469,16 @@ export default function ModoClase() {
         const [h, m] = String(x.hora || '00:00').split(':').map(Number)
         return h * 60 + m + 90 < ahoraMin
       })()
-      const dejados = porCerrar(previos.filter((s:any) => !final.includes(s))).filter(acabada)
+      const dejados = porCerrar(previos.filter((s:any) => !final.some((f:any) => f.paciente.id === s.paciente.id))).filter(acabada)
       buscarViejos()
       if (dejados.length > 0) setPendClase(prev => [
         ...prev.filter((x:any) => !dejados.some((d:any) => d.citaId === x.citaId)), ...dejados])
-      setSeleccion(final)
+      /* Con lo ULTIMO de cada uno: si mientras se leia la agenda se apunto una serie,
+         la lista de arriba es de antes y la pisaria. Se cogen los datos vivos. */
+      setSeleccion(prev => final.map((f:any) => {
+        const vivo = prev.find((x:any) => x.paciente.id === f.paciente.id)
+        return vivo ? { ...vivo, estado: f.estado, sala: f.sala, hora: f.hora, citaId: f.citaId } : f
+      }))
       // Quién trae hoy una sesión distinta de la que se le había planificado.
       setCambios(await cambiosDeCitas(delDia.map(d => d.citaId).filter(Boolean)))
       // Si el que estaba abierto ya no está en la franja, no se deja un panel colgado.
@@ -487,7 +499,7 @@ export default function ModoClase() {
       // Antes esto no existía y el fallo salía como "no hay citas", que es mentira y manda
       // a buscar el problema al sitio equivocado.
       setAvisoAgenda(e?.message || 'No se ha podido leer la agenda')
-    } finally { setTrayendo(false) }
+    } finally { setTrayendo(false); trayendoRef.current = false }
   }
 
   /* CLASES DE DIAS ANTERIORES SIN GUARDAR. El aviso de franja solo vive mientras el
@@ -569,6 +581,28 @@ export default function ModoClase() {
     traerDeAgenda()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha, sala, hora, listo, horasListas])
+
+  /* LA AGENDA SE VUELVE A MIRAR SOLA cada 30 s y al volver a la pestaña. Si alguien se
+     quitaba o se marcaba falta en la agenda, el taller seguia ensenandolo hasta cambiar
+     de franja. Lo apuntado no se toca: solo entra o sale gente y se actualiza su cita. */
+  const repasoRef = useRef<() => void>(() => {})
+  repasoRef.current = () => { if (listo && horasListas) { traerDeAgenda(true); refrescarHoras() } }
+  useEffect(() => {
+    const t = setInterval(() => repasoRef.current(), 30 * 1000)
+    const alVolver = () => { if (document.visibilityState === 'visible') repasoRef.current() }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver) }
+  }, [])
+  async function refrescarHoras() { const hs = await horasDelDia(fecha); setHoras(hs) }
+
+  // Velos de la cita (tocar la foto) y de añadir a alguien a la clase.
+  const [citaVelo, setCitaVelo] = useState<string | null>(null)
+  const [anadiendoPac, setAnadiendoPac] = useState(false)
+  const trasCita = (aviso?: string) => {
+    setCitaVelo(null); setAnadiendoPac(false)
+    if (aviso) alert(aviso)
+    traerDeAgenda(); refrescarHoras()
+  }
 
   useEffect(() => {
     (async () => {
@@ -1521,6 +1555,8 @@ export default function ModoClase() {
               <button style={pill(hora === '')} onClick={() => setHora('')}>Todo el día</button>
               {horas.map(h => <button key={h.hora} style={pill(hora === h.hora)} onClick={() => setHora(h.hora)}>
                 {h.hora}<small style={{ fontSize: 11, color: 'var(--grl)', marginLeft: 4 }}>{h.n}</small></button>)}
+              {/* Alguien que se presenta sin cita: se le crea en la agenda desde aqui. */}
+              <button style={{ ...pill(false), color: 'var(--gd)', fontWeight: 600 }} onClick={() => setAnadiendoPac(true)} title="Añadir a alguien a esta clase">＋ Añadir</button>
             </div>
             <span style={{ flex: 1 }}/>
             <span style={{ fontSize: 13, color: 'var(--gr)' }}>
@@ -1651,7 +1687,7 @@ export default function ModoClase() {
           sustituir: abrirSustituir,
           // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).
           abrir: (pid:string) => { setActivo(pid); setVista('uno') },
-          todosItems: marcarTodosItems, objetivo: toggleObjetivo,
+          todosItems: marcarTodosItems, objetivo: toggleObjetivo, cita: (pid:string) => setCitaVelo(pid),
           objetivosLib, objsPac: (pid:string) => objsPorPaciente[pid] || [],
         }}/>
       ) : !act ? (
@@ -1662,6 +1698,8 @@ export default function ModoClase() {
             <div style={{minWidth:0,flexShrink:0}}>
               <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 <span>{nombrePac(act.paciente)}</span>
+                {act.estado === 'falta' && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#C0504D', borderRadius: 99, padding: '1px 8px' }}>Falta</span>}
+                <button className="btn btn-t btn-sm" onClick={() => setCitaVelo(act.paciente.id)} title="Falta, cancelar o cambiar de sala">Cita ▾</button>
                 {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
                 {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
                 {enOtros[act.paciente.id] && (
@@ -1923,6 +1961,14 @@ export default function ModoClase() {
       )}
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
+      {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
+        <VeloCita item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}/>
+      ) : null })()}
+      {anadiendoPac && (
+        <VeloAnadir fecha={fecha} hora={hora} horas={Array.from(new Set([...horas.map(h => h.hora), ...(hora ? [hora] : [])])).sort()}
+          sala={sala} salas={salas} yaEstan={seleccion.map((x:any) => x.paciente.id)}
+          onCerrar={() => setAnadiendoPac(false)} onHecho={trasCita}/>
+      )}
       {sustituyendo && (
         <div className="modal-bg" style={{zIndex:150}} onClick={e=>{if(e.target===e.currentTarget)setSustituyendo(null)}}>
           <div className="modal" style={{width:'min(900px, 96vw)',maxHeight:'90vh',overflowY:'auto'}}>
