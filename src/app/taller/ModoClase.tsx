@@ -55,16 +55,21 @@ async function sinEjerciciosBorrados<T extends { ejercicio_id?: any, ejercicio_n
   })
 }
 
-export default function ModoClase() {
-  const [fecha, setFecha] = useState(hoy())
+/* MODO SOLO: el entreno de UN paciente abierto desde la agenda. Es el mismo taller
+   (mismo guardado, mismas reglas), con su cita fijada y en la vista de columnas, para
+   que entrar desde la agenda se vea y funcione igual que en la sala. */
+export type SoloTaller = { fecha: string, hora: string, pacienteId: string, onCerrar?: () => void }
+
+export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
+  const [fecha, setFecha] = useState(solo?.fecha || hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
   /* UNO A UNO o TODOS. Todos pone una columna por paciente: con la sala llena se ve
      de un vistazo quien va por donde. Se recuerda en este dispositivo. */
-  const [vista, setVistaE] = useState<'uno'|'todos'>('uno')
+  const [vista, setVistaE] = useState<'uno'|'todos'>(solo ? 'todos' : 'uno')
   // Se lee despues de montar: leerlo al crear el estado descuadraba el render del servidor.
-  useEffect(() => { try { if (localStorage.getItem('taller_vista') === 'todos') setVistaE('todos') } catch {} }, [])
-  const setVista = (v:'uno'|'todos') => { setVistaE(v); try { localStorage.setItem('taller_vista', v) } catch {} }
+  useEffect(() => { if (solo) return; try { if (localStorage.getItem('taller_vista') === 'todos') setVistaE('todos') } catch {} }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const setVista = (v:'uno'|'todos') => { setVistaE(v); if (!solo) try { localStorage.setItem('taller_vista', v) } catch {} }
 
   /* ── QUIEN ESTA CON CADA PACIENTE (presencia en directo) ─────────────────────
      Varias tablets y ordenadores trabajan a la vez. Si dos apuntan al mismo
@@ -373,7 +378,7 @@ export default function ModoClase() {
       const hs = await horasDelDia(fecha)
       if (!vigente) return   // cambió de día mientras se leía: manda lo último
       setHoras(hs)
-      setHora(prev => (prev && hs.some(h => h.hora === prev)) ? prev : horaActual(hs))
+      setHora(prev => solo ? solo.hora : (prev && hs.some(h => h.hora === prev)) ? prev : horaActual(hs))
       setHorasListas(true)
     })()
     return () => { vigente = false }
@@ -414,17 +419,10 @@ export default function ModoClase() {
     if (!silencio) { setTrayendo(true); setAvisoAgenda('') }
     try {
       let delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
-      /* La sala es una PREFERENCIA, no un muro: si a esa hora no hay nadie en la
-         tuya pero si en otra, se enseñan igual y se dice. Dejar la pantalla vacia
-         con gente en la sala de al lado es el error que parecia un fallo. */
-      let otraSala = ''
-      if (delDia.length === 0 && sala) {
-        const todos = await pacientesDelDia(fecha, undefined, hora || undefined)
-        if (todos.length > 0) {
-          delDia = todos
-          otraSala = Array.from(new Set(todos.map((d:any)=>d.sala).filter(Boolean))).join(' y ')
-        }
-      }
+      if (solo) delDia = delDia.filter(d => d.pacienteId === solo.pacienteId)
+      /* La sala MANDA. Antes, si en la elegida no habia nadie se ensenaba la otra con un
+         aviso largo arriba que descolocaba toda la cabecera. Ahora la pantalla dice, en
+         el cuerpo, que en esa sala no hay nadie. */
       const previos = seleccionRef.current
       const lista: any[] = []
       for (const d of delDia) {
@@ -489,12 +487,7 @@ export default function ModoClase() {
       // la sesión a alguien, seguía diciendo que le faltaba a uno: el aviso hablaba de un
       // momento que ya había pasado. Mismo motivo por el que la versión de una sesión sale
       // de la cadena y no de una columna.
-      const donde = (hora ? 'a las ' + hora : 'todo el día') + (sala ? ' · sala ' + sala : '')
-      setAvisoAgenda(delDia.length === 0
-        ? `Nadie citado ${donde}.`
-        : otraSala
-          ? `En la sala ${sala} no hay nadie ${hora ? 'a las ' + hora : 'hoy'}. Te enseño los de la sala ${otraSala}.`
-          : '')
+      setAvisoAgenda('')
     } catch (e: any) {
       // Antes esto no existía y el fallo salía como "no hay citas", que es mentira y manda
       // a buscar el problema al sitio equivocado.
@@ -1059,7 +1052,7 @@ export default function ModoClase() {
    */
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(SKEY)
+      const raw = solo ? null : sessionStorage.getItem(SKEY)
       if (raw) {
         const g = JSON.parse(raw)
         if (g.sala) setSala(g.sala)
@@ -1551,25 +1544,26 @@ export default function ModoClase() {
               <b style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-.01em', textTransform: 'capitalize' }}>{dia}</b>
               <span style={{ fontSize: 15, color: 'var(--gr)' }}>{mes}</span>
             </div>
-            <span style={{ display: 'inline-flex' }}>
+            {solo && hora && <span style={{ fontSize: 15, color: 'var(--gr)' }}>· {hora}</span>}
+            {!solo && <span style={{ display: 'inline-flex' }}>
               <button onClick={() => mover(-1)} title="Día anterior" style={{ width: 30, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 18, borderRadius: 10, cursor: 'pointer' }}>‹</button>
               <button onClick={() => mover(1)} title="Día siguiente" style={{ width: 30, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 18, borderRadius: 10, cursor: 'pointer' }}>›</button>
               {fecha !== hoy() && <button onClick={() => setFecha(hoy())} style={{ border: 0, background: 'transparent', color: 'var(--gd)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Hoy</button>}
-            </span>
-            <div style={grupo}>
+            </span>}
+            {!solo && <div style={grupo}>
               <button style={pill(hora === '')} onClick={() => setHora('')}>Todo el día</button>
               {horas.map(h => <button key={h.hora} style={pill(hora === h.hora)} onClick={() => setHora(h.hora)}>
                 {h.hora}<small style={{ fontSize: 11, color: 'var(--grl)', marginLeft: 4 }}>{h.n}</small></button>)}
               {/* Alguien que se presenta sin cita: se le crea en la agenda desde aqui. */}
               <button style={{ ...pill(false), color: 'var(--gd)', fontWeight: 600 }} onClick={() => setAnadiendoPac(true)} title="Añadir a alguien a esta clase">＋ Añadir</button>
-            </div>
+            </div>}
             <span style={{ flex: 1 }}/>
-            <span style={{ fontSize: 13, color: 'var(--gr)' }}>
+            {!solo && <span style={{ fontSize: 13, color: 'var(--gr)' }}>
               {trayendo ? 'Cargando…' : avisoAgenda || (seleccion.length
                 ? <><b style={{ color: 'var(--n)' }}>{seleccion.length}</b> persona{seleccion.length > 1 ? 's' : ''}
                     {sinSesion > 0 && <> · a <b style={{ color: 'var(--n)' }}>{sinSesion}</b> le{sinSesion > 1 ? 's' : ''} falta sesión</>}</>
                 : '')}
-            </span>
+            </span>}
             {pendientes > 0 ? (
               <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 99, background: 'var(--ambl)', color: '#7A5800', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <Ic name="reloj" size={10}/> Guardando…
@@ -1579,7 +1573,7 @@ export default function ModoClase() {
                 <Ic name="check" size={10}/> Guardado {ultimoGuardado.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
               </span>
             ) : null}
-            {salas.length > 1 && (
+            {!solo && salas.length > 1 && (
               <div style={grupo}>
                 <button style={pill(sala === '')} onClick={() => setSala('')}>Todas</button>
                 {/* "●": otro dispositivo trabajando en esa sala ahora mismo. */}
@@ -1595,14 +1589,16 @@ export default function ModoClase() {
             {nCerrar > 0 && (
               <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
                 style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 18px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {cerrandoClase ? 'Guardando…' : `✓ Finalizar clase · ${nCerrar}`}
+                {cerrandoClase ? 'Guardando…' : solo ? '✓ Finalizar' : `✓ Finalizar clase · ${nCerrar}`}
               </button>
             )}
+            {solo?.onCerrar && <button onClick={solo.onCerrar} title="Volver a la agenda"
+              style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--bd)', background: '#fff', cursor: 'pointer', fontSize: 15 }}>✕</button>}
           </div>
         )
       })()}
 
-      {viejos.length > 0 && (() => {
+      {!solo && viejos.length > 0 && (() => {
         const quien = viejos.map((r:any) => {
           const p = Array.isArray(r.pacientes) ? r.pacientes[0] : r.pacientes
           const n = (p?.nombre_clinica || `${p?.nombre||''} ${p?.apellidos||''}`).trim() || 'Paciente'
@@ -1624,7 +1620,7 @@ export default function ModoClase() {
         )
       })()}
 
-      {pendClase.length > 0 && (
+      {!solo && pendClase.length > 0 && (
         <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:10,padding:'9px 12px',
           borderRadius:8,background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800',fontSize:12.5}}>
           <Ic name="alerta" size={14}/>
@@ -1682,7 +1678,7 @@ export default function ModoClase() {
       {/* CUERPO */}
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
-          No hay nadie citado en esa franja. Cambia la hora o la sala arriba. Si alguien se pasa sin avisar, ponle la cita en la agenda y aparecerá aquí.
+          {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o pulsa «＋ Añadir» si alguien viene sin cita.</>}
         </div>
       ) : vista==='todos' ? (
         <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{

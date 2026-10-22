@@ -14,7 +14,7 @@ import ModalNuevaCita from './components/ModalNuevaCita'
 import ModalEditarCita from './components/ModalEditarCita'
 import ModalEditarCitas from './components/ModalEditarCitas'
 import ModalDatosCita from './components/ModalDatosCita'
-import ModalEntrenoCita from './components/ModalEntrenoCita'
+import ModoClase from '../taller/ModoClase'
 import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
 import AvisoTareas from './components/AvisoTareas'
@@ -745,7 +745,17 @@ export default function AgendaPage() {
       {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}
       {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} pacienteId={editandoMulti.pacienteId} horas={horas} salas={salas} tiposClase={tiposClase} maxPersonas={maxPersonas} guardando={guardando} onGuardar={guardarCitasMultiple} onEstado={cambiarEstadoCita} onEliminar={borrarCitaDirecto} onCrear={crearCitaSuelta} onCerrar={()=>setEditandoMulti(null)}/>}
       {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
-      {verEntrenoCita&&<ModalEntrenoCita verEntrenoCita={verEntrenoCita} sesionDetalle={sesionDetalle} sesionesPaciente={sesionesPaciente} loadingSesion={loadingSesion} mostrarSesiones={mostrarSesiones} setMostrarSesiones={setMostrarSesiones} anotaciones={anotaciones} setAnotaciones={setAnotaciones} pesos={pesos} setPesos={setPesos} guardandoAnot={guardandoAnot} guardarAnotacion={guardarAnotacion} asignarSesion={asignarSesion} alertasPaciente={alertasPaciente} onCerrar={()=>setVerEntrenoCita(null)}/>}
+      {/* EL ENTRENO DESDE LA AGENDA ES EL TALLER, con solo ese paciente y en columnas: mismo
+          aspecto y mismas funciones que en la sala, en vez de una ventana distinta. */}
+      {verEntrenoCita&&(
+        <div style={{position:'fixed',inset:0,zIndex:100,background:'rgba(38,40,37,.28)',backdropFilter:'blur(3px)',display:'flex',justifyContent:'center',padding:'16px'}}
+          onClick={e=>{ if(e.target===e.currentTarget){ setVerEntrenoCita(null); cargar() } }}>
+          <div style={{width:'min(1100px,100%)',background:'#F2F1EC',borderRadius:22,padding:'14px 18px',overflow:'auto',boxShadow:'0 20px 60px rgba(38,40,37,.2)'}}>
+            <ModoClase solo={{ fecha: verEntrenoCita.fecha, hora: String(verEntrenoCita.hora||'').slice(0,5), pacienteId: verEntrenoCita.paciente_id,
+              onCerrar: ()=>{ setVerEntrenoCita(null); cargar() } }}/>
+          </div>
+        </div>
+      )}
       {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}
       {modalTareas&&<ModalTareas tareas={tareas} perfiles={perfiles} pacientes={pacientes} userId={userId} crearTarea={crearTarea} completarTarea={completarTarea} borrarTarea={borrarTarea} onCerrar={()=>setModalTareas(false)}/>}
     </>

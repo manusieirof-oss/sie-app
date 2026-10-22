@@ -15,8 +15,9 @@ import { horasDeAgenda } from '@/lib/generarHoras'
 // (mismas reglas de bono y recuperaciones) y queda escrito en la agenda.
 // ---------------------------------------------------------------------------
 
+// "Viene" no hace falta: se da por hecho si no se marca lo contrario. Tocar otra vez
+// la marcada la quita (vuelve a programada).
 const ESTADOS = [
-  { v: 'programada', l: 'Viene' },
   { v: 'falta', l: 'Falta' },
   { v: 'cancelada', l: 'Cancelada' },
 ]
@@ -64,8 +65,9 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho }: {
   const estado = item.estado === 'realizada' ? 'programada' : (item.estado || 'programada')
   const cita = { id: item.citaId, paciente_id: item.paciente.id, fecha, hora: item.hora }
 
-  async function ponerEstado(v: string) {
-    if (v === estado || ocupado) return
+  async function ponerEstado(v0: string) {
+    if (ocupado) return
+    const v = v0 === estado ? 'programada' : v0
     if (v === 'cancelada' && !confirm(`¿Cancelar la clase de ${nombre}? Sale del taller y libera su plaza.`)) return
     setOcupado(true)
     const aviso = await cambiarEstado(cita, v)
