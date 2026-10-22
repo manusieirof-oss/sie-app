@@ -114,7 +114,20 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="tt-nm">{e.nombre}{e.sustituye ? <span className="tt-hoy">solo hoy</span> : null}{ei === ahora && !s.finalizado ? <span className="tt-ahora">ahora</span> : null}</div>
-                    <div className="tt-meta">{[e.regimen || e.plan?.regimen, e.lado || e.plan?.lado].filter(Boolean).join(' · ')}{e.comentario ? ' · 📝' : ''}</div>
+                    {/* EJECUCION Y LATERALIDAD A LA VISTA: es lo que hay que saber para hacer el
+                        ejercicio, no puede quedar dentro de un menu. Un toque pasa a la siguiente;
+                        con borde discontinuo si hoy se hace distinto a lo prescrito. */}
+                    {(() => {
+                      const reg = e.regimen || e.plan?.regimen || 'Concéntrico', lado = e.lado || e.plan?.lado || 'Bilateral'
+                      const sig = (l: string[], v: string) => l[(l.indexOf(v) + 1) % l.length]
+                      return <div className="tt-tags">
+                        <button className={'tt-tag eje' + (e.regimen && e.regimen !== (e.plan?.regimen || 'Concéntrico') ? ' cambio' : '')}
+                          title="Ejecución · toca para cambiar" onClick={() => a.regimen(p.id, ei, sig(REGIMENES as unknown as string[], reg))}>{reg}</button>
+                        <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
+                          title="Lateralidad · toca para cambiar" onClick={() => a.lado(p.id, ei, sig(LADOS, lado))}>{lado}</button>
+                        {e.comentario ? <span className="tt-meta">📝</span> : null}
+                      </div>
+                    })()}
                     {no ? <div className="tt-meta" style={{ color: '#C0504D' }}>No lo hizo</div> :
                       <div className="tt-series">{(e.series || []).map((x: any, si: number) => {
                         const d = cambio(e, si), ok = hechaSerie(e, si)
@@ -232,6 +245,11 @@ const CSS = `
 .tt-hoy{font-size:9px;font-weight:700;color:#fff;background:#E8A33D;border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:2px}
 .tt-ahora{font-size:9px;font-weight:700;color:var(--gd);border:1px solid var(--g);background:#fff;border-radius:99px;padding:0 6px;margin-left:5px;vertical-align:2px}
 .tt-meta{font-size:10.5px;color:var(--grl);margin-top:1px}
+.tt-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:3px 0 2px}
+.tt-tag{border:1.5px solid transparent;border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;line-height:1.35}
+.tt-tag.eje{background:#E7F1F2;color:#3F7880}
+.tt-tag.lado{background:#F3ECDD;color:#7A5800}
+.tt-tag.cambio{border-style:dashed;border-color:currentColor}
 .tt-series{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
 .tt-s{position:relative;min-width:58px;min-height:32px;border-radius:9px;border:1.5px solid var(--bd);background:#fff;font-size:11.5px;color:var(--gr);padding:3px 7px 9px;cursor:pointer;font-family:inherit;user-select:none}
 .tt-s.ok{background:var(--g);border-color:var(--g);color:#fff;font-weight:600}
