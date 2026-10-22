@@ -17,6 +17,21 @@ export default function RecuperacionesTab({ ajustes, set }: any) {
           </button>
         </div>
       </div>
+      {/* LAS SESIONES CORREN CON LAS CITAS (lib/correrSesiones). Cada centro decide. */}
+      <div style={{marginBottom:12}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'10px 12px',background:'var(--bl)',borderRadius:'var(--rl)',border:'1px solid var(--bd)'}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>Las sesiones corren con las citas</div>
+            <div style={{fontSize:9,color:'var(--grl)',fontWeight:300,lineHeight:1.5}}>
+              Si falta, cancela o se borra una cita, su sesión pasa a la siguiente y empuja a las demás. Si se añade una clase suelta (recuperación, extra), tira de ellas. Si una cita cambia de día, coge la sesión que le toca. Las sesiones con candado 🔒 no se mueven.
+            </div>
+          </div>
+          <button onClick={()=>set('sesiones_corren',ajustes.sesiones_corren==='true'?'false':'true')}
+            style={{flexShrink:0,width:40,height:22,borderRadius:99,background:ajustes.sesiones_corren==='true'?'var(--g)':'var(--bm)',border:'none',cursor:'pointer',transition:'background .2s',position:'relative'}}>
+            <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:ajustes.sesiones_corren==='true'?'21px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
+          </button>
+        </div>
+      </div>
       {ajustes.recuperaciones_activas==='true'&&(
         <div className="g2">
           <div className="field">

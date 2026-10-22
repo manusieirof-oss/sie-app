@@ -185,6 +185,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     // En modo cita se arranca del plan CON lo que ya estuviera ajustado ese día:
     // si no, cada vez que abrieras verias el plan y borrarias el ajuste al guardar.
     partes: (cita?.id ? aplicarAjustes(sesion, cita.ajustes) : sesion).partes || [],
+    // CANDADO: no corre con las citas (lib/correrSesiones). Las copias lo heredan.
+    fija: !!sesion.fija,
   })
   const [parteActiva, setParteActiva] = useState(0)
   // Lo que habia al abrir, para saber si al cerrar se pierde algo. La hoja y los
@@ -504,6 +506,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       nombre: formSesion.nombre, descripcion: formSesion.descripcion,
       partes: partesConObj,
     }
+    // Solo se manda si cambia: sin la columna (falta el SQL) el resto se guarda igual.
+    if (formSesion.fija !== !!sesion.fija) campos.fija = formSesion.fija
     if (hojaLeida) campos.hoja = hoja
     // Los objetivos pegados en la hoja cuentan igual que los elegidos arriba: si no,
     // habria que marcarlos dos veces, y el dia que no coincidieran no sabriamos cual vale.
@@ -518,8 +522,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       // ficha sí lo registraba: el historial dependía de por dónde hubieras entrado.
       if (pid) await registrarSesion(pid, `Sesión creada: ${formSesion.nombre}`)
     } else {
-      const { error } = await supabase.from('sesiones').update(campos).eq('id', sesionId)
+      let { error } = await supabase.from('sesiones').update(campos).eq('id', sesionId)
+      if (error && /fija/.test(error.message)) {
+        alert('El candado no se ha guardado: falta añadir la columna en Supabase (sesiones.fija). El resto sí.')
+        delete campos.fija; ({ error } = await supabase.from('sesiones').update(campos).eq('id', sesionId))
+      }
       if (error) { alert('No se pudo guardar la sesión: '+error.message); setGuardando(false); return }
+      // Candado en una PLANTILLA: se pasa a las copias que ya tienen los pacientes
+      // (programar a un grupo), para no tener que ir ficha por ficha.
+      if ('fija' in campos && !sesion.paciente_id)
+        await supabase.from('sesiones').update({ fija: campos.fija }).eq('plantilla_id', sesionId)
     }
 
     // Objetivos: se calcula la diferencia en vez de borrar todo y reinsertar. Si el
@@ -621,6 +633,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
             <input className="input" value={formSesion.nombre} readOnly={modoCita} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',cursor:modoCita?'default':undefined,color:modoCita?'var(--gr)':undefined}} autoFocus={!modoCita}/>
             <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / motivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>
+          {/* CANDADO: la sesion se queda en su cita aunque las demas corran por faltas,
+              cancelaciones o clases extra (dias de fuerza en grupo). A mano se mueve igual. */}
+          {!modoCita && (
+            <button type="button" onClick={()=>setFormSesion(p=>({...p,fija:!p.fija}))}
+              title={formSesion.fija ? 'Fija en su cita: no corre con las demás. Pulsa para quitar el candado' : 'Ponerle candado: se queda en su cita aunque las demás corran'}
+              style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:12,
+                border:`1.5px solid ${formSesion.fija?'var(--n)':'var(--bd)'}`,background:formSesion.fija?'var(--n)':'var(--w)',color:formSesion.fija?'#fff':'var(--gr)'}}>
+              {formSesion.fija ? '🔒 Fija' : '🔓 Corre'}
+            </button>
+          )}
           {!modoCita && hojaLeida && (
             <div style={{display:'flex',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:99,padding:2,flexShrink:0}}>
               {([['Formulario',false],['Hoja libre',true]] as const).map(([n,libre])=>{

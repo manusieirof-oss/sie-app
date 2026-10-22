@@ -183,6 +183,9 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
     // no cambia la plantilla, y tocar la plantilla no cambia lo ya prescrito a nadie.
     partes: JSON.parse(JSON.stringify(sesion.partes || [])),
     estado: 'lista',
+    // La copia hereda el candado de la plantilla (fuerza en grupo). Solo si lo tiene:
+    // sin la columna, el insert de siempre sigue funcionando.
+    ...(sesion.fija ? { fija: true } : {}),
   }).select().single()
   if (error || !nueva) return { ok: false as const, error: error?.message || 'No se pudo crear la copia' }
 
@@ -225,6 +228,7 @@ export async function duplicarPlantilla(sesion: any, nombre: string) {
     duracion_min: sesion.duracion_min, estado: sesion.estado || 'lista',
     partes: JSON.parse(JSON.stringify(sesion.partes || [])),
     hoja: sesion.hoja ?? null,
+    ...(sesion.fija ? { fija: true } : {}),
   }).select().single()
   if (error || !nueva) return { ok: false as const, error: error?.message || 'No se pudo crear la variante' }
   const { data: objs } = await supabase.from('sesiones_objetivos')

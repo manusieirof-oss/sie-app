@@ -104,7 +104,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function cargarDatos() {
     const hoy = hoyISO()
     const [{ data: c },{ data: s }] = await Promise.all([
-      supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
+      supabase.from('citas').select('*, sesiones:sesion_id(*)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
       supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija,plantilla_id, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
@@ -122,7 +122,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     testsPorDia(pacienteId).then(setTestsDia)
     const { data: aj } = await supabase.from('ajustes').select('clave,valor')
     if (aj) { const map:Record<string,string>={}; aj.forEach((a:any)=>{map[a.clave]=a.valor||''}); setTiposClase(parseTiposClase(map.tipos_clase)); setHoras(horasDeAgenda(map)) }
-    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(id,nombre,descripcion,partes)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(limHist)
+    const { data: hist } = await supabase.from('citas').select('*, sesiones:sesion_id(*)').eq('paciente_id',pacienteId).lt('fecha',hoy).order('fecha',{ascending:false}).limit(limHist)
     setSesionesHistorial(hist||[])
 
     // Lo que de verdad se registró en el taller. Se cruza por fecha + sesión para
@@ -744,7 +744,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         <div style={{fontSize:13,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
                         {tieneSesion?(
                           <div style={{display:'flex',alignItems:'center',gap:4,marginTop:1}}>
-                            <span style={{fontSize:12,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}</span>
+                            <span style={{fontSize:12,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}{c.sesiones.fija && <span title="Fija: no corre con las demás"> 🔒</span>}</span>
                             <button title="Quitar la sesión de esta cita" className="fila-x" style={{opacity:1}}
                               onClick={e=>{e.stopPropagation();supabase.from('citas').update({sesion_id:null}).eq('id',c.id).then(()=>cargarDatos())}}>
                               <Ic name="cerrar" size={12}/>
@@ -948,7 +948,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       )}
                       <div style={{display:'flex',alignItems:'flex-start',gap:7}}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,color:'var(--n)'}}>{s.nombre}</div>
+                          <div style={{fontSize:13,color:'var(--n)'}}>{s.nombre}{s.fija && <span title="Fija: no corre con las demás"> 🔒</span>}</div>
                           {s.descripcion&&<div style={{fontSize:12,color:'var(--gr)',marginTop:2,lineHeight:1.4}}>{s.descripcion.slice(0,70)}{s.descripcion.length>70?'…':''}</div>}
                         </div>
                         <button className="pill pill-soft" title="Historial de cambios por dia"
@@ -1100,7 +1100,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       onClick={()=>tieneSes&&setVerSesion({sesion:aplicarAjustes(c.sesiones,c.ajustes), ejecutado:reg})}>
                       <div style={{flex:1}}>
                         {tieneSes
-                          ? <div style={{fontSize:13,color:'var(--n)',display:'flex',alignItems:'center',gap:5}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}</div>
+                          ? <div style={{fontSize:13,color:'var(--n)',display:'flex',alignItems:'center',gap:5}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}{c.sesiones.fija && <span title="Fija: no corre con las demás"> 🔒</span>}</div>
                           : <div style={{fontSize:13,color:'var(--gr)'}}>Sin sesión</div>}
                         <div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>
                           {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}

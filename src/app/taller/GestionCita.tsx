@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { crearCita, ocupacionPorSala } from '@/lib/citas'
 import { soltarDelBono } from '@/lib/bonoSesiones'
+import { citaAntes, correrTrasEstado } from '@/lib/correrSesiones'
 import { recuperacionAlCambiarEstado } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { parseTiposClase } from '@/lib/tipos'
@@ -29,8 +30,11 @@ async function maxPorSala() {
 
 /** Cambia el estado igual que la agenda: cancelada suelta el bono y genera (o no) recuperacion. */
 async function cambiarEstado(cita: { id: string, paciente_id: string, fecha: string, hora?: string }, estado: string) {
+  const antes = await citaAntes(cita.id)
   const { error } = await supabase.from('citas').update({ estado }).eq('id', cita.id)
   if (error) return 'No se ha podido cambiar: ' + error.message
+  // Su sesion pasa a la siguiente clase si las sesiones corren (Ajustes).
+  if (antes) await correrTrasEstado(antes, estado)
   if (estado === 'cancelada') await soltarDelBono(cita.id)
   const rr = await recuperacionAlCambiarEstado(cita, estado)
   if (rr.ok === false) return 'La recuperación no se ha actualizado: ' + rr.error

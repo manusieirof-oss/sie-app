@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { citaAntes, correrTrasEstado } from '@/lib/correrSesiones'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -73,8 +74,10 @@ export default function MovilClase() {
     setError('')
     // Se pinta ya; si la base falla, se vuelve atrás y se dice.
     setCitas(cs => cs.map(x => x.id === c.id ? { ...x, estado: nuevo } : x))
+    const antes = await citaAntes(c.id)
     const { error } = await supabase.from('citas').update({ estado: nuevo }).eq('id', c.id)
     if (error) { setError('No se ha guardado: ' + error.message); setCitas(cs => cs.map(x => x.id === c.id ? { ...x, estado: c.estado } : x)); return }
+    if (antes) await correrTrasEstado(antes, nuevo)
     const r = await recuperacionAlCambiarEstado(c, nuevo)
     if (r.ok === false) setError('La recuperación no se ha actualizado: ' + r.error)
   }

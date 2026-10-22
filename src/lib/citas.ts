@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { correrAlAnadir } from './correrSesiones'
 import { hoyISO } from '@/lib/fechas'
 import { recuperacionAlEliminar } from './recuperaciones'
 
@@ -198,6 +199,9 @@ export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true
   const { bonoId } = await bonoDisponible(d.pacienteId, fecha)
   const { data, error } = await supabase.from('citas').insert({ ...fila(fecha, d), bono_id: bonoId }).select().single()
   if (error) return { ok: false, error: error.message }
+  // Una cita SUELTA (recuperacion, clase extra) tira de las sesiones si estan
+  // corriendo (Ajustes). Si viene con sesion elegida a mano, no se toca nada.
+  if (!d.sesionId) await correrAlAnadir(d.pacienteId, data.id)
   return { ok: true, cita: data }
 }
 
