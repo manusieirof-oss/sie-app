@@ -420,6 +420,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     try {
       let delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
       if (solo) delDia = delDia.filter(d => d.pacienteId === solo.pacienteId)
+      /* LAS FALTAS FUERA. Salian en gris y ocupaban sitio en la sala; quien no viene no
+         pinta nada en el taller. Se deshace desde la agenda. (Las canceladas ya no venian.) */
+      delDia = delDia.filter(d => d.estado !== 'falta')
       /* La sala MANDA. Antes, si en la elegida no habia nadie se ensenaba la otra con un
          aviso largo arriba que descolocaba toda la cabecera. Ahora la pantalla dice, en
          el cuerpo, que en esa sala no hay nadie. */
