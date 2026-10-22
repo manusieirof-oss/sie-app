@@ -1,10 +1,14 @@
 'use client'
+import AvisoTareas from './AvisoTareas'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { responsableDe } from '@/lib/turnos'
 
-export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, salas=['A','B'], turnos=[] }: {
+export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFecha, setVista, setNuevaCita, setModal, abrirPanel, horas, pausaInicio, pausaFin, tiposCita=[], tiposClase=[], maxPersonas=6, setEditandoCita, alertasPaciente=[], setVerAlertasCita, soloHueco=false, salas=['A','B'], turnos=[], tareas=[], perfiles=[], completarTarea }: {
   fecha: string
+  tareas?: any[]
+  perfiles?: any[]
+  completarTarea?: (id: string, v: boolean) => void
   turnos?: any[]
   hoy: string
   citas: any[]
@@ -102,6 +106,7 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
           return (
             <div key={f} className={`sem-dia ${isH?'hoy':''}`} onClick={()=>{setFecha(f);setVista('dia')}} title="Ver el día">
               <span>{dn[i]}</span><b>{d.getDate()}</b>
+              <AvisoTareas tareas={tareas} fecha={f} hoy={hoy} perfiles={perfiles} completarTarea={completarTarea} tam={15}/>
             </div>
           )
         })}

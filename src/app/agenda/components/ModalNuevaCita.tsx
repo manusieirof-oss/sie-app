@@ -1,4 +1,6 @@
 'use client'
+import { hoyISO } from '@/lib/fechas'
+import { BannerTareas } from './AvisoTareas'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { AvisoBonoEnCita } from '@/components/SesionesBono'
 import { planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
@@ -6,7 +8,7 @@ import { vuelveEl } from '@/lib/estadosPaciente'
 
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
-export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[], salas=['A','B'] }: any) {
+export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, setNuevaCita, guardando, recuperacionesPaciente, cargarRecuperaciones, crearCita, onCerrar, SesionSelector, horas, tiposCita=[], tiposClase=[], salas=['A','B'], tareas=[], perfiles=[] }: any) {
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
   // Cuántas citas se van a crear de verdad, con la misma función que las crea.
   // Contarlas aquí por otro camino sería una segunda cuenta que podría no
@@ -41,6 +43,8 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
           Nueva cita
           <button className="modal-close" onClick={()=>{if(!guardando)onCerrar()}}>✕</button>
         </div>
+        {/* Si ese dia hay tareas, se ven al dar la cita: es cuando hay alguien en recepcion mirando. */}
+        <BannerTareas tareas={tareas} fecha={nuevaCita.fecha||''} hoy={hoyISO()} perfiles={perfiles}/>
         <div className="field"><label>Día de la cita *</label>
           <input type="date" className="input" value={nuevaCita.fecha||''} onChange={e=>setNuevaCita((p:any)=>({...p,fecha:e.target.value}))} disabled={guardando}/>
         </div>

@@ -1,4 +1,5 @@
 'use client'
+import AvisoTareas from './AvisoTareas'
 import { useEffect, useState } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Ic } from '@/lib/icons'
@@ -6,8 +7,11 @@ import { supabase } from '@/lib/supabase'
 import { festivoDe, COLOR_FESTIVO, LABEL_FESTIVO } from '@/lib/festivos'
 import { iconTipoClase } from '@/lib/tipos'
 
-export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setVista, pacientes=[], tiposClase=[], onEditarMulti, maxPersonas=6, eventos=[] }: {
+export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setVista, pacientes=[], tiposClase=[], onEditarMulti, maxPersonas=6, eventos=[], tareas=[], perfiles=[], completarTarea }: {
   fecha: string
+  tareas?: any[]
+  perfiles?: any[]
+  completarTarea?: (id: string, v: boolean) => void
   hoy: string
   citas: any[]
   getDiasMes: () => (string|null)[]
@@ -140,7 +144,8 @@ export default function VistaMes({ fecha, hoy, citas, getDiasMes, setFecha, setV
                 <div key={f} onClick={onClickDia} className={`mes-dia ${isH?'hoy':''}`}
                   style={{background:fest?tint(COLOR_FESTIVO[fest.tipo],0.08):cierre?'var(--bl)':undefined,opacity:atenuar?0.45:1}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-                    <span className="mes-num">{d.getDate()}</span>
+                    <span style={{display:'inline-flex',alignItems:'center',gap:4}}><span className="mes-num">{d.getDate()}</span>
+                      <AvisoTareas tareas={tareas} fecha={f} hoy={hoy} perfiles={perfiles} completarTarea={completarTarea} tam={15}/></span>
                     {cumples.length>0&&<span style={{display:'inline-flex',color:'#C486A0'}} title={'Cumpleaños: '+cumples.map((p:any)=>`${p.nombre} ${p.apellidos||''}`.trim()).join(', ')}><Ic name="corazon" size={12}/></span>}
                   </div>
                   {fest&&<div style={{marginTop:3,fontSize:8,fontWeight:600,color:COLOR_FESTIVO[fest.tipo],background:'var(--w)',border:`1px solid ${COLOR_FESTIVO[fest.tipo]}`,borderRadius:4,padding:'1px 5px',lineHeight:1.25,flexShrink:0}} title={`${fest.nombre} · ${LABEL_FESTIVO[fest.tipo]}`}>{fest.nombre}</div>}
