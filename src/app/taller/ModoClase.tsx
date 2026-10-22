@@ -939,7 +939,11 @@ export default function ModoClase() {
         // Un registro SIN series (hecho, sin cifras) no sirve de "ultima vez": si
         // lo cogiera, la carga de partida volveria a la del plan y se perderia la
         // progresion. Se salta hasta el ultimo que tenga numeros.
-        if(!ultMap[k] && Array.isArray(r.series) && r.series.length>0) ultMap[k]=r
+        /* LA ULTIMA VEZ, CON EL MISMO LADO. Unilateral y bilateral del mismo ejercicio no
+           son comparables (20 kg a una pierna no es progresar desde 60 con las dos). Desde
+           que el lado dejo de ir en el nombre, va en la clave. Sin lado = bilateral. */
+        const kl = k + '|' + (r.lado || 'Bilateral')
+        if(!ultMap[kl] && Array.isArray(r.series) && r.series.length>0) ultMap[kl]=r
         const t = String(r.comentario||'').trim()
         if (t !== '') {
           if (comentMap[k] == null) comentMap[k] = []
@@ -960,12 +964,13 @@ export default function ModoClase() {
       ejs.forEach(e=>{
         if (e.ejercicio_id){
           const kv = claveVar(e.ejercicio_id, e.variante)
-          e.ultimo = ultMap[kv]?.series || null
-          e.ultimoComent = ultMap[kv]?.comentario || ''
           e.comentarios = comentMap[kv] || []
           const como = comoMap[kv]
           if (como?.regimen && como.regimen !== (e.plan?.regimen || '')) e.regimen = como.regimen
           if (como?.lado && como.lado !== (e.plan?.lado || 'Bilateral')) e.lado = como.lado
+          const kl = kv + '|' + (e.lado || e.plan?.lado || 'Bilateral')
+          e.ultimo = ultMap[kl]?.series || null
+          e.ultimoComent = ultMap[kl]?.comentario || ''
           const ejec = ejecMap[e.ejercicio_id]
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
@@ -993,7 +998,7 @@ export default function ModoClase() {
             })
             e.precargado = true
             // Si "la ultima vez" es HOY (ya finalizado en esta clase), es de hoy.
-            if (ultMap[kv]?.fecha === fechaC) {
+            if (ultMap[kl]?.fecha === fechaC) {
               const hoy: Record<string, boolean> = {}
               e.ultimo.forEach((x:any, k:number) => CAMPOS_SERIE.forEach(f => {
                 if (x && x[f] != null && String(x[f]) !== '') hoy[`${k}.${f}`] = true
