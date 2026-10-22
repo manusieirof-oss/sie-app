@@ -1640,6 +1640,8 @@ export default function ModoClase() {
           sustituir: abrirSustituir,
           // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).
           abrir: (pid:string) => { setActivo(pid); setVista('uno') },
+          todosItems: marcarTodosItems, objetivo: toggleObjetivo,
+          objetivosLib, objsPac: (pid:string) => objsPorPaciente[pid] || [],
         }}/>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>

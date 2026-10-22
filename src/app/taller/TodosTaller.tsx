@@ -37,6 +37,11 @@ export interface AccionesTodos {
   noHechos: (pid: string, sid: string) => number[]
   sustituir: (pid: string, ei: number) => void
   abrir: (pid: string) => void
+  // Ejecucion: marcar todos los items y activar el objetivo de un item que no cumple.
+  todosItems: (pid: string, ei: number, v: boolean) => void
+  objetivo: (pid: string, oid: string, ejId?: string, ejNombre?: string) => void
+  objetivosLib: any[]
+  objsPac: (pid: string) => any[]
 }
 
 export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: any[], nombrePac: (p: any) => string, a: AccionesTodos }) {
@@ -109,7 +114,9 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                 {cab && <div className="tt-parte">{cab}</div>}
                 <div className={'tt-ej' + (no ? ' no' : todas ? ' hecho' : '') + (ei === ahora ? ' ahora' : '')}>
                   <div className="tt-izq">
-                    <div className="tt-img">{e.imagen_url ? <img src={e.imagen_url} alt="" /> : null}</div>
+                    <div className="tt-img">{e.imagen_url ? <img src={e.imagen_url} alt="" /> : null}
+                      {(e.items || []).length > 0 && (() => { const t = e.items.length, m = e.items.filter((it: any, ii: number) => itemMarcado(e.items_evaluados, typeof it === 'string' ? it : it?.texto, ii)).length
+                        return <span className={'tt-cnt' + (m === t ? ' ok' : m ? ' med' : '')} title="Ejecución correcta">{m}/{t}</span> })()}</div>
                     <button className="tt-mas" title="Nota, ejecución, feedback, no lo hizo, cambiar" onClick={() => setOpc({ pid: p.id, ei })}>•••</button>
                   </div>
                   <div style={{ minWidth: 0 }}>
@@ -157,10 +164,40 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
           <div className="tt-chips">{REGIMENES.map(r => <button key={r} className={reg === r ? 'on' : ''} onClick={() => a.regimen(s.paciente.id, opc.ei, r)}>{r}</button>)}</div>
           <div className="tt-lbl">Lateralidad</div>
           <div className="tt-chips">{LADOS.map(r => <button key={r} className={lado === r ? 'on' : ''} onClick={() => a.lado(s.paciente.id, opc.ei, r)}>{r}</button>)}</div>
-          {(e.items || []).length > 0 && <>
-            <div className="tt-lbl">Feedback de la ejecución</div>
-            <div className="tt-chips">{(e.items || []).map((it: any, ii: number) => { const t = typeof it === 'string' ? it : it?.texto; const on = itemMarcado(e.items_evaluados, t, ii)
-              return <button key={ii} className={on ? 'on' : ''} onClick={() => a.item(s.paciente.id, opc.ei, ii)}>{on ? '✓ ' : ''}{t}</button> })}</div></>}
+          {/* LOS CLICS DE EJECUCION: lo mismo que la chapa de la vista individual. Cada item
+              es un punto de la tecnica; marcado = lo hace bien. Vienen marcados como la
+              ultima vez que se evaluo, porque la tecnica no cambia de un dia para otro. */}
+          {(() => {
+            const items = e.items || [], t = items.length
+            const m = items.filter((it: any, ii: number) => itemMarcado(e.items_evaluados, txt(it), ii)).length
+            const fbs = (e.feedbacks || []).filter((f: any) => txt(f))
+            const objsP = a.objsPac(s.paciente.id)
+            return <>
+              <div className="tt-lbl" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>¿Lo ejecuta bien?{t ? ` · ${m}/${t}` : ''}</span>
+                {t > 0 && <button className={'tt-todo' + (m === t ? ' on' : '')} onClick={() => a.todosItems(s.paciente.id, opc.ei, m < t)}>{m === t ? '✓ Todo correcto' : 'Marcar todo'}</button>}
+              </div>
+              {t === 0 ? <div className="tt-ant">Este ejercicio no tiene ítems de ejecución en la biblioteca.</div> :
+                <div className="tt-items">{items.map((it: any, ii: number) => {
+                  const on = itemMarcado(e.items_evaluados, txt(it), ii)
+                  const objs = (it?.objetivos || []).map((oid: string) => a.objetivosLib.find((o: any) => o.id === oid)).filter(Boolean)
+                  return <div key={ii}>
+                    <button className={'tt-item' + (on ? ' on' : '')} onClick={() => a.item(s.paciente.id, opc.ei, ii)}>
+                      <span className="cx">{on ? '✓' : ''}</span>{txt(it)}</button>
+                    {/* Si no lo cumple, se puede activar el objetivo que lo trabaja. */}
+                    {!on && objs.length > 0 && <div className="tt-objs">{objs.map((o: any) => {
+                      const ya = objsP.some((po: any) => po.objetivo_id === o.id)
+                      return <button key={o.id} className={ya ? 'on' : ''} onClick={() => a.objetivo(s.paciente.id, o.id, e.ejercicio_id, e.nombre)}>{ya ? '✓ ' : '+ '}{o.nombre}</button>
+                    })}</div>}
+                  </div>
+                })}</div>}
+              {e.ultimaEvalFecha && <div className="tt-meta">Marcado como la última evaluación ({new Date(e.ultimaEvalFecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}).</div>}
+              {fbs.length > 0 && <>
+                <div className="tt-lbl">Cómo hacerlo mejor</div>
+                <div className="tt-fbs">{fbs.map((f: any, fi: number) => <span key={fi}>«{txt(f)}»</span>)}</div>
+              </>}
+            </>
+          })()}
           <div className="tt-lbl">Nota de hoy</div>
           <textarea className="input" rows={3} value={e.comentario || ''} onChange={ev => a.coment(s.paciente.id, opc.ei, ev.target.value)} placeholder="Cómo lo ha hecho, molestias, qué cambiar la próxima vez…" />
           {(e.comentarios || []).length > 0 && <div className="tt-ant">{e.comentarios.map((c: any, i: number) => <div key={i}><b>{new Date(c.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</b> {c.texto}</div>)}</div>}
@@ -207,6 +244,8 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
   )
 }
 
+const txt = (it: any) => typeof it === 'string' ? it : it?.texto
+
 function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: string, onCerrar: () => void, children: React.ReactNode }) {
   useEffect(() => { const k = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onCerrar() }; addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [onCerrar])
   return <div className="tt-velo-bg" onClick={ev => { if (ev.target === ev.currentTarget) onCerrar() }}>
@@ -238,7 +277,7 @@ const CSS = `
 .tt-ej.ahora{background:var(--gl);box-shadow:inset 3px 0 0 var(--g)}
 .tt-ej.hecho .tt-nm{color:var(--grl)}.tt-ej.no{opacity:.55}.tt-ej.no .tt-nm{text-decoration:line-through}
 .tt-izq{display:flex;flex-direction:column;align-items:center;gap:4px}
-.tt-img{width:44px;height:44px;border-radius:9px;overflow:hidden;background:linear-gradient(135deg,#E7F1F2,#D3E6E8)}.tt-img img{width:100%;height:100%;object-fit:cover}
+.tt-img{position:relative;width:44px;height:44px;border-radius:9px;overflow:hidden;background:linear-gradient(135deg,#E7F1F2,#D3E6E8)}.tt-img img{width:100%;height:100%;object-fit:cover}
 .tt-mas{width:44px;height:20px;border-radius:7px;border:1px solid var(--bd);background:#fff;color:var(--gd);font-size:10px;letter-spacing:1px;cursor:pointer;line-height:1}
 .tt-mas:hover{border-color:var(--g);background:var(--gl)}
 .tt-nm{font-size:12.5px;font-weight:600;line-height:1.2;color:var(--n)}
@@ -261,6 +300,19 @@ const CSS = `
 .tt-velo{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 20px 60px rgba(38,40,37,.2);padding:20px 22px;display:flex;flex-direction:column;gap:6px}
 .tt-vh{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}.tt-vh b{font-size:19px}.tt-vh span{color:var(--gr)}
 .tt-x{width:30px;height:30px;border-radius:50%;border:1px solid var(--bd);background:#fff;cursor:pointer}
+.tt-cnt{position:absolute;right:1px;bottom:1px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:var(--bm,#ddd);color:var(--gr);border:1.5px solid #fff}
+.tt-cnt.ok{background:#5A969E;color:#fff}.tt-cnt.med{background:#C9A227;color:#fff}
+.tt-todo{margin-left:auto;font-size:11px;text-transform:none;letter-spacing:0;padding:3px 10px;border-radius:99px;border:1px solid var(--bd);background:#fff;color:var(--gr);cursor:pointer;font-family:inherit}
+.tt-todo.on{background:var(--gl);border-color:var(--g);color:var(--gd)}
+.tt-items{display:flex;flex-direction:column;gap:2px}
+.tt-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:7px 4px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--n);border-radius:8px}
+.tt-item:hover{background:var(--bl)}
+.tt-item .cx{width:22px;height:22px;border-radius:6px;flex-shrink:0;border:1.5px solid var(--bd);display:grid;place-items:center;color:#fff;font-size:13px}
+.tt-item.on .cx{background:var(--g);border-color:var(--g)}
+.tt-objs{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 4px 36px}
+.tt-objs button{font-size:11px;padding:2px 9px;border-radius:99px;border:1px solid var(--g);background:#fff;color:var(--gd);cursor:pointer;font-family:inherit}
+.tt-objs button.on{background:var(--g);color:#fff}
+.tt-fbs{display:flex;flex-wrap:wrap;gap:6px}.tt-fbs span{font-size:13px;padding:4px 11px;border-radius:99px;background:var(--bl);line-height:1.4}
 .tt-lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--grl);font-weight:700;margin-top:8px}
 .tt-chips{display:flex;gap:6px;flex-wrap:wrap}
 .tt-chips button{padding:7px 13px;border-radius:99px;border:1.5px solid var(--bd);background:#fff;font-size:13px;cursor:pointer;font-family:inherit}
