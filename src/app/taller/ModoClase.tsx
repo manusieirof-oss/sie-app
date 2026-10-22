@@ -886,10 +886,16 @@ export default function ModoClase() {
        * decir que no hay registro previo, no ensenarle el de otra cosa.
        */
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados')
+        .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids).lte('fecha', fechaC)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
       const ultMap:Record<string,any>={}
+      /* COMO LO HIZO LA ULTIMA VEZ (ejecucion y lateralidad), haya series o no. Si en la
+         sala se cambio a excentrico o a unilateral, la clase siguiente sale asi: queda
+         anotado sin tocar la sesion (puede ser de la biblioteca y la usan otros). Con
+         "Volver a lo planificado" en la pildora se guarda lo del plan y se acaba. */
+      const comoMap:Record<string,any>={}
+      ;(fin||[]).forEach((r:any)=>{ const k=claveVar(r.ejercicio_id,r.variante); if(!comoMap[k]) comoMap[k]=r })
       /* LAS DOS ULTIMAS NOTAS, con su fecha. Una sola y sin fecha no decia si
          era de la semana pasada o de marzo, y lo que se escribe en la sala es
          justo lo que hay que leer la proxima vez. */
@@ -923,6 +929,9 @@ export default function ModoClase() {
           e.ultimo = ultMap[kv]?.series || null
           e.ultimoComent = ultMap[kv]?.comentario || ''
           e.comentarios = comentMap[kv] || []
+          const como = comoMap[kv]
+          if (como?.regimen && como.regimen !== (e.plan?.regimen || '')) e.regimen = como.regimen
+          if (como?.lado && como.lado !== (e.plan?.lado || 'Bilateral')) e.lado = como.lado
           const ejec = ejecMap[e.ejercicio_id]
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
@@ -986,6 +995,7 @@ export default function ModoClase() {
                bien y parecia que no. */
             e.comentario = c.comentario||''; e.guardado = true; e.precargado = false
             if (c.regimen) e.regimen = c.regimen
+            if (c.lado) e.lado = c.lado
           }
           if (c && c.items_evaluados && typeof c.items_evaluados==='object') e.items_evaluados = c.items_evaluados
         }
@@ -1363,6 +1373,7 @@ export default function ModoClase() {
         // null se perdian la nota y la ejecucion de los ejercicios no retocados.
         comentario: (ej.comentario || '').trim() || null, items_evaluados: ej.items_evaluados || {}, finalizado: false,
         regimen: ej.regimen || ej.plan?.regimen || null, variante: ej.variante || null,
+        lado: ej.lado || ej.plan?.lado || null,
         // El dia de la clase, no el de hoy: si se finaliza al dia siguiente, la base
         // le pondria la fecha de hoy y la clase quedaria partida en dos dias.
         fecha: fechaC,
