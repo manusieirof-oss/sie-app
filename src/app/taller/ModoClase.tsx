@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import TodosTaller from './TodosTaller'
 import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
@@ -57,6 +58,12 @@ export default function ModoClase() {
   const [fecha, setFecha] = useState(hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
+  /* UNO A UNO o TODOS. Todos pone una columna por paciente: con la sala llena se ve
+     de un vistazo quien va por donde. Se recuerda en este dispositivo. */
+  const [vista, setVistaE] = useState<'uno'|'todos'>('uno')
+  // Se lee despues de montar: leerlo al crear el estado descuadraba el render del servidor.
+  useEffect(() => { try { if (localStorage.getItem('taller_vista') === 'todos') setVistaE('todos') } catch {} }, [])
+  const setVista = (v:'uno'|'todos') => { setVistaE(v); try { localStorage.setItem('taller_vista', v) } catch {} }
 
   /* ── QUIEN ESTA CON CADA PACIENTE (presencia en directo) ─────────────────────
      Varias tablets y ordenadores trabajan a la vez. Si dos apuntan al mismo
@@ -816,7 +823,7 @@ export default function ModoClase() {
            */
           plan:{
             series:ej.series, peso:ej.peso, reps:ej.reps, tiempo:ej.tiempo, metros:ej.metros, banda:ej.banda,
-            capacidad:ej.capacidad, regimen:ej.regimen, descanso:ej.descanso, nota:ej.nota,
+            capacidad:ej.capacidad, regimen:ej.regimen, descanso:ej.descanso, nota:ej.nota, lado:ej.lado,
           },
           /* LAS CASILLAS EMPIEZAN CON LO PRESCRITO. En la sala se sale de lo
              planificado y se corrige lo que cambie, que es casi nada; con las
@@ -1085,6 +1092,8 @@ export default function ModoClase() {
       /* CUÁNTAS SERIES HAY HOY, no solo las rellenas. Al recargar el taller se
          fusionaba con las del plan y una serie quitada en la clase volvía a salir. */
       n_series: (ej.series || []).length,
+      // Bilateral / unilateral / alterno de HOY (sin la columna, se guarda sin ella).
+      lado: ej.lado || ej.plan?.lado || null,
     }
     let error
     if (ej.ejercicio_id){
@@ -1103,18 +1112,21 @@ export default function ModoClase() {
         existe = null
       }
       if (existe){
-        const cambios: any = { series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series }
+        const cambios: any = { series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series, lado: fila.lado }
         ;({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id))
         // Sin la columna n_series (falta el SQL) no se pierde lo apuntado: se guarda sin ella.
         if (error && /n_series/.test(error.message)) { delete cambios.n_series; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
+        if (error && /lado/.test(error.message)) { delete cambios.lado; delete cambios.n_series; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
       } else {
         const [limpia] = await sinEjerciciosBorrados([fila]); Object.assign(fila, limpia)
         ;({ error } = await supabase.from('registros_ejercicio').insert(fila))
         if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
+        if (error && /lado/.test(error.message)) { delete fila.lado; delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       }
     } else {
       ({ error } = await supabase.from('registros_ejercicio').insert(fila))
       if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
+      if (error && /lado/.test(error.message)) { delete fila.lado; delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     }
     if (error){ console.error('autoguardar clase', error.message); setPendientes(p=>Math.max(0,p-1)); return }
     setPendientes(p=>Math.max(0,p-1))
@@ -1174,6 +1186,37 @@ export default function ModoClase() {
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; datos[ei]={...datos[ei],regimen:val,guardado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
+  /**
+   * CONFIRMAR UNA SERIE CON UN TOQUE (vista Todos). La casilla ya trae lo de la ultima
+   * vez o lo prescrito; si lo hizo igual, no hay que escribir nada: se marca como hecha
+   * hoy y se guarda. Otro toque la desmarca.
+   */
+  function confirmarSerie(pid:string, ei:number, si:number, on:boolean){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; const e=datos[ei]
+      const hoyN:Record<string,boolean>={...(e.hoy||{})}
+      Object.keys(hoyN).forEach(k=>{ if(k.startsWith(si+'.')) delete hoyN[k] })
+      if (on) {
+        const campos = Object.keys(e.series[si]||{}).filter(c=>String(e.series[si][c]??'').trim()!=='')
+        ;(campos.length?campos:['reps']).forEach(c=>{ hoyN[`${si}.${c}`]=true })
+      }
+      datos[ei]={...e,hoy:hoyN,guardado:false,precargado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
+  // Lateralidad de hoy: como el regimen, no toca la sesion.
+  function setLado(pid:string, ei:number, val:string){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      const datos=[...s.datos]; datos[ei]={...datos[ei],lado:val,guardado:false,precargado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
@@ -1441,44 +1484,71 @@ export default function ModoClase() {
 
   return (
     <>
-      {/* CABECERA CLASE */}
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'9px 13px',flexWrap:'wrap'}}>
-        <span style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6}}><Ic name="taller" size={14}/> Taller</span>
-        {pendientes>0 ? (
-          <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--ambl)',color:'#7A5800',border:'1px solid var(--amb)',display:'inline-flex',alignItems:'center',gap:4}}>
-            <Ic name="reloj" size={9}/> Guardando…
-          </span>
-        ) : ultimoGuardado ? (
-          <span style={{fontSize:9,padding:'3px 9px',borderRadius:99,background:'var(--gl)',color:'var(--gd)',border:'1px solid var(--g)',display:'inline-flex',alignItems:'center',gap:4}}>
-            <Ic name="check" size={9}/> Guardado {ultimoGuardado.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}
-          </span>
-        ) : null}
-        <input type="date" className="input" value={fecha} onChange={e=>setFecha(e.target.value)} style={{maxWidth:150,fontSize:11}}/>
-        {salas.length>1 && (
-          <select className="input" value={sala} onChange={e=>setSala(e.target.value)} style={{maxWidth:110,fontSize:11}}>
-            <option value="">Todas las salas</option>
-            {/* "● 1": otro dispositivo trabajando en esa sala ahora mismo. */}
-            {salas.map(x=><option key={x} value={x}>Sala {x}{otrosPorSala[x] ? ` · ● ${otrosPorSala[x]}` : ''}</option>)}
-          </select>
-        )}
-        <select className="input" value={hora} onChange={e=>setHora(e.target.value)} style={{maxWidth:150,fontSize:11}}>
-          <option value="">Todo el día</option>
-          {horas.map(h=><option key={h.hora} value={h.hora}>{h.hora} · {h.n}</option>)}
-        </select>
-        <span style={{fontSize:10,color:sinSesion>0?'var(--gd)':'var(--grl)'}}>
-          {trayendo ? 'Cargando…' : avisoAgenda || (seleccion.length
-            ? `${seleccion.length} ${hora ? 'a las '+hora : 'hoy'}${sala?' · sala '+sala:''}` +
-              (sinSesion>0 ? ` · a ${sinSesion} le${sinSesion>1?'s':''} falta sesión` : '')
-            : '')}
-        </span>
-        <div style={{flex:1}}/>
-        {porCerrar(seleccion).length > 0 && (
-          <button className="btn btn-p btn-sm" disabled={cerrandoClase} onClick={()=>finalizarClase(seleccion)}
-            title="Guarda y finaliza a todos los de esta franja">
-            {cerrandoClase ? 'Guardando…' : `✓ Finalizar clase · ${porCerrar(seleccion).length}`}
-          </button>
-        )}
-      </div>
+      {/* CABECERA CLASE: la misma forma que la agenda (fecha grande con flechas, pildoras,
+          resumen y boton negro). Antes eran cajas de formulario y no parecian la misma app. */}
+      {(() => {
+        const dF = new Date(fecha + 'T12:00:00')
+        const mover = (n:number) => { const d = new Date(fecha + 'T12:00:00'); d.setDate(d.getDate() + n); setFecha(d.toISOString().slice(0, 10)) }
+        const dia = dF.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })
+        const mes = dF.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+        const pill = (on:boolean): React.CSSProperties => ({ border: 0, background: on ? '#fff' : 'transparent', color: on ? 'var(--n)' : 'var(--gr)',
+          padding: '6px 13px', borderRadius: 99, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxShadow: on ? '0 1px 4px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' })
+        const grupo: React.CSSProperties = { display: 'inline-flex', background: '#E8E7E1', borderRadius: 99, padding: 3, flexWrap: 'wrap' }
+        const nCerrar = porCerrar(seleccion).length
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: '4px 2px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <b style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-.01em', textTransform: 'capitalize' }}>{dia}</b>
+              <span style={{ fontSize: 15, color: 'var(--gr)' }}>{mes}</span>
+            </div>
+            <span style={{ display: 'inline-flex' }}>
+              <button onClick={() => mover(-1)} title="Día anterior" style={{ width: 30, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 18, borderRadius: 10, cursor: 'pointer' }}>‹</button>
+              <button onClick={() => mover(1)} title="Día siguiente" style={{ width: 30, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 18, borderRadius: 10, cursor: 'pointer' }}>›</button>
+              {fecha !== hoy() && <button onClick={() => setFecha(hoy())} style={{ border: 0, background: 'transparent', color: 'var(--gd)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Hoy</button>}
+            </span>
+            <div style={grupo}>
+              <button style={pill(hora === '')} onClick={() => setHora('')}>Todo el día</button>
+              {horas.map(h => <button key={h.hora} style={pill(hora === h.hora)} onClick={() => setHora(h.hora)}>
+                {h.hora}<small style={{ fontSize: 11, color: 'var(--grl)', marginLeft: 4 }}>{h.n}</small></button>)}
+            </div>
+            <span style={{ flex: 1 }}/>
+            <span style={{ fontSize: 13, color: 'var(--gr)' }}>
+              {trayendo ? 'Cargando…' : avisoAgenda || (seleccion.length
+                ? <><b style={{ color: 'var(--n)' }}>{seleccion.length}</b> persona{seleccion.length > 1 ? 's' : ''}
+                    {sinSesion > 0 && <> · a <b style={{ color: 'var(--n)' }}>{sinSesion}</b> le{sinSesion > 1 ? 's' : ''} falta sesión</>}</>
+                : '')}
+            </span>
+            {pendientes > 0 ? (
+              <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 99, background: 'var(--ambl)', color: '#7A5800', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Ic name="reloj" size={10}/> Guardando…
+              </span>
+            ) : ultimoGuardado ? (
+              <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 99, background: 'var(--gl)', color: 'var(--gd)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Ic name="check" size={10}/> Guardado {ultimoGuardado.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            ) : null}
+            {salas.length > 1 && (
+              <div style={grupo}>
+                <button style={pill(sala === '')} onClick={() => setSala('')}>Todas</button>
+                {/* "●": otro dispositivo trabajando en esa sala ahora mismo. */}
+                {salas.map(x => <button key={x} style={pill(sala === x)} onClick={() => setSala(x)}
+                  title={otrosPorSala[x] ? `${otrosPorSala[x]} dispositivo(s) más en esta sala` : undefined}>
+                  {x}{otrosPorSala[x] ? <span style={{ color: '#D4A24E', marginLeft: 3 }}>●</span> : null}</button>)}
+              </div>
+            )}
+            <div style={grupo}>
+              <button style={pill(vista === 'uno')} onClick={() => setVista('uno')}>Uno a uno</button>
+              <button style={pill(vista === 'todos')} onClick={() => setVista('todos')}>Todos</button>
+            </div>
+            {nCerrar > 0 && (
+              <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
+                style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 18px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {cerrandoClase ? 'Guardando…' : `✓ Finalizar clase · ${nCerrar}`}
+              </button>
+            )}
+          </div>
+        )
+      })()}
 
       {viejos.length > 0 && (() => {
         const quien = viejos.map((r:any) => {
@@ -1519,7 +1589,7 @@ export default function ModoClase() {
       )}
 
       {/* CHIPS PACIENTES */}
-      {seleccion.length>0 && (
+      {seleccion.length>0 && vista==='uno' && (
         <div style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,flexWrap:'wrap',
           marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',
           padding:'8px 10px',boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
@@ -1562,6 +1632,15 @@ export default function ModoClase() {
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
           No hay nadie citado en esa franja. Cambia la hora o la sala arriba. Si alguien se pasa sin avisar, ponle la cita en la agenda y aparecerá aquí.
         </div>
+      ) : vista==='todos' ? (
+        <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{
+          confirmar: confirmarSerie, mutar: mutarSerie, addSerie, quitarSerie,
+          regimen: setRegimen, lado: setLado, coment: setComent, item: toggleItem,
+          noHecho: alternarNoHecho, noHechos: leerNoHechos,
+          sustituir: abrirSustituir,
+          // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).
+          abrir: (pid:string) => { setActivo(pid); setVista('uno') },
+        }}/>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
       ) : (
