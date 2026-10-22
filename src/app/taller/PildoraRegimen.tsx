@@ -12,28 +12,31 @@ import { REGIMENES } from '@/lib/capacidades'
 // el registro del dia. La sesion no se toca: manana vuelve lo planificado.
 // ---------------------------------------------------------------------------
 
-export default function PildoraRegimen({ ej, onCambio }: any) {
+// Sirve tambien para la LATERALIDAD (campo 'lado'): misma logica, otras opciones.
+export const LADOS = ['Bilateral', 'Unilateral', 'Alterno']
+export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opciones = REGIMENES as unknown as string[],
+  defecto = '', titulo = 'Cómo se hace hoy', color = 'var(--gd)', borde = 'var(--gm)' }: any) {
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
-  const plan = ej.plan?.regimen || ''
-  const hoy = ej.regimen || plan
-  const cambiado = ej.regimen != null && ej.regimen !== '' && ej.regimen !== plan
+  const plan = ej.plan?.[campo] || defecto
+  const hoy = ej[campo] || plan
+  const cambiado = ej[campo] != null && ej[campo] !== '' && ej[campo] !== plan
 
   return (
     <>
       <button ref={ancla} onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
         title={cambiado ? `Planificado: ${plan}` : 'Cómo se hace · pulsa para cambiarlo hoy'}
         style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99, fontFamily: 'inherit',
-          cursor: 'pointer', border: '1px solid var(--gm)',
-          color: cambiado ? '#fff' : 'var(--gd)',
-          background: cambiado ? 'var(--gd)' : 'var(--w)' }}>
+          cursor: 'pointer', border: '1px solid ' + borde,
+          color: cambiado ? '#fff' : color,
+          background: cambiado ? color : 'var(--w)' }}>
         {hoy}
       </button>
 
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={196}>
         <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .5,
-          textTransform: 'uppercase', marginBottom: 6 }}>Cómo se hace hoy</div>
-        {REGIMENES.map(r => (
+          textTransform: 'uppercase', marginBottom: 6 }}>{titulo}</div>
+        {opciones.map((r: string) => (
           <button key={r} className="menu-it" style={{ width: '100%', textAlign: 'left' }}
             onClick={() => { onCambio(r); setAbierto(false) }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

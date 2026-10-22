@@ -7,7 +7,7 @@ import Flotante from './Flotante'
 import CasillaSeries from './CasillaSeries'
 import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
-import PildoraRegimen from './PildoraRegimen'
+import PildoraRegimen, { LADOS } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useRef, useState } from 'react'
 
@@ -36,7 +36,7 @@ const chapa = (pos: any): any => ({
 
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
-  addSerie, quitarSerie, setRegimen, molestias = [], patologias = [], etiquetas = [],
+  addSerie, quitarSerie, setRegimen, setLado, molestias = [], patologias = [], etiquetas = [],
   superserie = false, noHechos = [], onNoHecho, onSustituir }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
@@ -139,7 +139,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   excentrico- y capacidad -fuerza, fuerza resistencia, maxima-.
                   Estaban en el plan y no llegaban a la sala, que es donde hay que
                   saberlos. Mismos colores que en el editor de la sesion. */}
-              {(ej.plan?.regimen || capacidad) && (
+              {(
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap',
                   marginTop: 4 }}>
                   {/* EL REGIMEN SE PUEDE CAMBIAR EN LA SALA. No sale de ningun
@@ -148,6 +148,9 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   {(ej.regimen || ej.plan?.regimen) && (
                     <PildoraRegimen ej={ej} onCambio={(v: string) => setRegimen?.(pacienteId, ei, v)}/>
                   )}
+                  {/* LATERALIDAD, igual que el regimen: a la vista y se cambia solo para hoy. */}
+                  <PildoraRegimen ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
+                    color="#7A5800" borde="var(--amb)" onCambio={(v: string) => setLado?.(pacienteId, ei, v)}/>
                   {capacidad && (
                     <span title={cambiada
                       ? `Planificado: ${capPlan} · está haciendo ${mediaReps} repeticiones`

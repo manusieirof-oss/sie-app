@@ -1897,7 +1897,7 @@ export default function ModoClase() {
               superserie={ej.parteObj?.modo==='superserie'}
               mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
-              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={setRegimen}
+              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={setRegimen} setLado={setLado}
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
