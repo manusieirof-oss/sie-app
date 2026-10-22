@@ -56,6 +56,22 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
   const [opc, setOpc] = useState<{ pid: string, ei: number } | null>(null)
   const [ser, setSer] = useState<{ pid: string, ei: number } | null>(null)
   const clic = useRef<any>(null)
+  /* NOMBRE Y FOTO SIEMPRE ARRIBA. Las columnas se desplazan de lado, y un contenedor con
+     scroll lateral no deja pegarse arriba a nada al bajar la pagina. Por eso las columnas
+     llevan su propio scroll vertical, del alto que queda de pantalla: al bajar, la
+     cabecera de cada paciente se queda fija y se sabe quien es quien. */
+  const cols = useRef<HTMLDivElement>(null)
+  const [alto, setAlto] = useState<number | null>(null)
+  useEffect(() => {
+    const medir = () => { const el = cols.current; if (!el) return
+      setAlto(Math.max(320, window.innerHeight - el.getBoundingClientRect().top - 10)) }
+    medir(); window.addEventListener('resize', medir)
+    return () => window.removeEventListener('resize', medir)
+  }, [seleccion.length])
+  /* PARTES PLEGADAS, por paciente: acabado el calentamiento, se recoge y queda a la vista
+     lo que esta haciendo. */
+  const [plegadas, setPlegadas] = useState<Set<string>>(new Set())
+  const plegar = (k: string) => setPlegadas(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
 
   const s0 = (pid: string) => seleccion.find(s => s.paciente.id === pid)
   const hechaSerie = (e: any, si: number) => Object.keys(e.hoy || {}).some(k => k.startsWith(si + '.'))
@@ -80,7 +96,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
   return (
     <div className="tt">
       <style>{CSS}</style>
-      <div className="tt-cols">
+      <div className="tt-cols" ref={cols} style={alto ? { height: alto } : undefined}>
         {seleccion.map((s, pi) => {
           const p = s.paciente, sid = s.sesionId, nh = sid ? a.noHechos(p.id, sid) : []
           const datos: any[] = s.datos || []
@@ -109,10 +125,19 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
             {datos.map((e, ei) => {
               const no = nh.includes(ei), cab = e.parte && e.parte !== parteAnt ? e.parte : ''
               parteAnt = e.parte || parteAnt
+              const kP = p.id + '|' + (e.parte || ''), pl = !!e.parte && plegadas.has(kP)
+              // Cuanto lleva hecho de la parte (para el resumen y el ✓ de la cabecera).
+              const deParte = cab ? datos.map((x, i) => ({ x, i })).filter(o => o.x.parte === e.parte && !nh.includes(o.i)) : []
+              const pTot = deParte.reduce((n, o) => n + (o.x.series?.length || 0), 0)
+              const pHechas = deParte.reduce((n, o) => n + (o.x.series || []).filter((_: any, si: number) => hechaSerie(o.x, si)).length, 0)
               const todas = (e.series || []).length > 0 && (e.series || []).every((_: any, si: number) => hechaSerie(e, si))
               return <div key={ei}>
-                {cab && <div className="tt-parte">{cab}</div>}
-                <div className={'tt-ej' + (no ? ' no' : todas ? ' hecho' : '') + (ei === ahora ? ' ahora' : '')}>
+                {cab && <button className={'tt-parte' + (pl ? ' pl' : '')} onClick={() => plegar(kP)} title={pl ? 'Desplegar' : 'Recoger esta parte'}>
+                  <span className="fl">▾</span>{cab}
+                  <span className="cu">{pTot > 0 && pHechas === pTot ? '✓ hecha' : pTot ? `${pHechas}/${pTot}` : ''}</span>
+                </button>}
+                {cab && pl && <div className="tt-plg" onClick={() => plegar(kP)}>{deParte.map(o => o.x.nombre).join(' · ')}</div>}
+                {!pl && <div className={'tt-ej' + (no ? ' no' : todas ? ' hecho' : '') + (ei === ahora ? ' ahora' : '')}>
                   <div className="tt-izq">
                     <div className="tt-img">{e.imagen_url ? <img src={e.imagen_url} alt="" /> : null}
                       {(e.items || []).length > 0 && (() => { const t = e.items.length, m = e.items.filter((it: any, ii: number) => itemMarcado(e.items_evaluados, typeof it === 'string' ? it : it?.texto, ii)).length
@@ -146,24 +171,20 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                         </button>
                       })}</div>}
                   </div>
-                </div>
+                </div>}
               </div>
             })}
           </div>
         })}
       </div>
-      <div className="tt-nota">Toca una serie para darla por hecha · doble toque para cambiar pesos y repeticiones · ••• bajo la foto: nota, ejecución, feedback, no lo hizo o cambiar · la flechita es cuánto cambia respecto a la última vez.</div>
+      <div className="tt-nota">Toca una serie para darla por hecha · doble toque para cambiar pesos y repeticiones · toca la ejecución o la lateralidad para cambiarla · ••• bajo la foto: cómo lo ejecuta, nota, no lo hizo o cambiar · ▾ recoge una parte acabada · la flechita es cuánto cambia respecto a la última vez.</div>
 
       {opc && (() => {
         const s = s0(opc.pid), e = s?.datos?.[opc.ei]
         if (!s || !e) return null
         const no = s.sesionId ? a.noHechos(s.paciente.id, s.sesionId).includes(opc.ei) : false
-        const reg = e.regimen || e.plan?.regimen || 'Concéntrico', lado = e.lado || e.plan?.lado || 'Bilateral'
         return <Velo titulo={e.nombre} sub={nombrePac(s.paciente)} onCerrar={() => setOpc(null)}>
-          <div className="tt-lbl">Ejecución</div>
-          <div className="tt-chips">{REGIMENES.map(r => <button key={r} className={reg === r ? 'on' : ''} onClick={() => a.regimen(s.paciente.id, opc.ei, r)}>{r}</button>)}</div>
-          <div className="tt-lbl">Lateralidad</div>
-          <div className="tt-chips">{LADOS.map(r => <button key={r} className={lado === r ? 'on' : ''} onClick={() => a.lado(s.paciente.id, opc.ei, r)}>{r}</button>)}</div>
+          {/* Ejecucion y lateralidad ya no van aqui: estan a la vista en cada ejercicio. */}
           {/* LOS CLICS DE EJECUCION: lo mismo que la chapa de la vista individual. Cada item
               es un punto de la tecnica; marcado = lo hace bien. Vienen marcados como la
               ultima vez que se evaluo, porque la tecnica no cambia de un dia para otro. */}
@@ -257,7 +278,7 @@ function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: strin
 }
 
 const CSS = `
-.tt-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow-x:auto;align-items:start;padding-bottom:6px}
+.tt-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow:auto;overscroll-behavior:contain;align-items:start;padding-bottom:6px}
 .tt-col{background:#fff;border-radius:18px;box-shadow:0 2px 12px rgba(38,40,37,.07);min-width:0}
 .tt-col.fin{opacity:.6}
 .tt-cab{position:sticky;top:0;background:#fff;z-index:5;padding:12px 12px 10px;border-bottom:1px solid var(--bd);border-radius:18px 18px 0 0}
@@ -272,7 +293,12 @@ const CSS = `
 .tt-prog .b{flex:1;height:6px;border-radius:6px;background:var(--bl);overflow:hidden}.tt-prog .b i{display:block;height:100%;background:var(--g);border-radius:6px;transition:width .3s}
 .tt-ok{margin-top:8px;font-size:11.5px;color:var(--gd);font-weight:600}
 .tt-vacio{padding:14px;font-size:12px;color:var(--grl)}
-.tt-parte{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--grl);font-weight:700;margin:10px 12px 4px}
+.tt-parte{display:flex;align-items:center;gap:6px;width:calc(100% - 16px);margin:8px 8px 2px;padding:7px 6px;border:0;border-radius:10px;background:transparent;cursor:pointer;font-family:inherit;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--grl);font-weight:700;text-align:left}
+.tt-parte:hover{background:var(--bl)}
+.tt-parte .fl{font-size:13px;transition:transform .15s;display:inline-block}
+.tt-parte.pl .fl{transform:rotate(-90deg)}
+.tt-parte .cu{margin-left:auto;letter-spacing:0;text-transform:none;font-weight:600;color:var(--gr)}
+.tt-plg{margin:-2px 12px 6px 30px;font-size:11.5px;color:var(--grl);line-height:1.5;cursor:pointer}
 .tt-ej{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:6px 8px;margin:0 4px;border-radius:12px}
 .tt-ej.ahora{background:var(--gl);box-shadow:inset 3px 0 0 var(--g)}
 .tt-ej.hecho .tt-nm{color:var(--grl)}.tt-ej.no{opacity:.55}.tt-ej.no .tt-nm{text-decoration:line-through}
