@@ -87,7 +87,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       traerTodo<any>((d, h) => supabase.from('sesiones')
         .select('id,nombre,partes,sesiones_objetivos(objetivo_id)').is('paciente_id', null).order('id').range(d, h)),
       traerTodo<any>((d, h) => supabase.from('ejercicios')
-        .select('id,nombre,imagen_url,etiquetas,portada_id').order('id').range(d, h)),
+        .select('id,nombre,imagen_url,etiquetas,portada_id,tipo_medida,variantes').order('id').range(d, h)),
     ])
 
     // EJERCICIOS: por lo que dicen las sesiones (el vínculo guardado) y, si no, por

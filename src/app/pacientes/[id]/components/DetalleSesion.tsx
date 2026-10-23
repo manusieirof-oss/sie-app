@@ -244,6 +244,7 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
 
                           <div className="celda apilada" data-l="Cómo se hace">
                             <span className="chip-ed" style={{ cursor: 'default' }}>{ej.regimen || 'Concéntrico'}</span>
+                            <span className="chip-ed chip-ed-l" style={{ cursor: 'default' }}>{ej.lado || 'Bilateral'}</span>
                             {ej.capacidad && <span className="chip-ed chip-ed-a" style={{ cursor: 'default' }}>{ej.capacidad}</span>}
                           </div>
 

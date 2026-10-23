@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPorCapacidad, textoDescanso } from '@/lib/capacidades'
-import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion } from '@/lib/sesiones'
+import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion, LADOS, itemDeEjercicio } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
@@ -399,7 +399,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       // entraba siempre como "Bilateral", que era mentira en la mitad del catálogo
       // —un press Pallof o una marcha no son bilaterales— y además dejaba escrito en el
       // registro el nombre de una variante que puede no existir en ese ejercicio.
-      const configEj = { ejercicio_id:ej.id, nombre:ej.nombre, variante:'', capacidad:'', regimen:'Concéntrico', series:'3', reps:'', peso:'', tiempo:'', nota:'', imagen_url:ej.imagen_url||'', variantes_disp:ej.variantes||[], tipo_medida:ej.tipo_medida||'peso_reps' }
+      const configEj = itemDeEjercicio(ej)
       partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
       return { ...prev, partes }
     })
@@ -969,6 +969,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       <ChipMenu valor={ej.regimen||'Concéntrico'} opciones={[...REGIMENES]}
                         titulo="Cómo trabaja el músculo: concéntrico al acortarse, excéntrico al frenar, isométrico sin moverse"
                         onElegir={v=>editarEjercicio(ei,{regimen:v})}/>
+                      {/* LATERALIDAD, como la ejecucion: se prescribe aqui y el taller la ensena.
+                          No iba en el editor y solo se podia poner desde el mapa de calor. */}
+                      <ChipMenu valor={ej.lado||'Bilateral'} opciones={[...LADOS]} clase="chip-ed-l"
+                        titulo="Bilateral, a un lado (unilateral) o alternando lados"
+                        onElegir={v=>editarEjercicio(ei,{lado:v})}/>
                       <ChipMenu valor={ej.capacidad} opciones={CAPACIDADES.map(c=>c.nombre)}
                         clase="chip-ed-a" vacio="Capacidad" titulo="Capacidad que se entrena"
                         onElegir={cap=>{

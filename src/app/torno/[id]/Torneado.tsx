@@ -1,4 +1,5 @@
 'use client'
+import { itemDeEjercicio } from '@/lib/sesiones'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -58,7 +59,8 @@ function meterParte(partes: DestParte[], nueva: DestParte): DestParte[] {
   }
   return [...partes, nueva].sort((a, b) => a.orden - b.orden)
 }
-const ejDeCatalogo = (e: any) => ({ ejercicio_id: e.id, nombre: e.nombre, imagen_url: e.imagen_url || '', series: '3', reps: '10' })
+// El mismo ejercicio nuevo que en el editor y el taller (lib/sesiones).
+const ejDeCatalogo = (e: any) => itemDeEjercicio(e, { reps: '10' })
 const meterEjercicio = (partes: DestParte[], ej: any) =>
   meterParte(partes, { nombre: 'Nueva', orden: 999, ejercicios: [copia(ej)] })
 

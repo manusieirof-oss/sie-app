@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import TodosTaller from './TodosTaller'
 import { VeloCita, VeloAnadir } from './GestionCita'
 import { supabase } from '@/lib/supabase'
-import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion } from '@/lib/sesiones'
+import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion, itemDeEjercicio } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
@@ -733,14 +733,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const parte = partes[pi]
       if (!parte) return partes
       const ref = (parte.ejercicios || [])[(parte.ejercicios || []).length - 1] || {}
-      ;(parte.ejercicios ||= []).push({
-        ejercicio_id: nuevo.id, nombre: nuevo.nombre, imagen_url: nuevo.imagen_url || '',
-        tipo_medida: nuevo.tipo_medida || 'peso_reps', variantes_disp: nuevo.variantes || [],
-        variante: '', capacidad: ref.capacidad || '', regimen: ref.regimen || 'Concéntrico',
-        series: ref.series || '3', reps: ref.reps || '', tiempo: ref.tiempo || '', peso: '', nota: '',
-        ...(ref.grupo ? { grupo: ref.grupo } : {}),
-        ...(ref.descanso ? { descanso: ref.descanso } : {}),
-      })
+      ;(parte.ejercicios ||= []).push(itemDeEjercicio(nuevo, { ...ref, lado: undefined }))
       return partes
     }, undefined, `Ejercicio añadido a su sesión en el taller: ${nuevo.nombre}`)
   }

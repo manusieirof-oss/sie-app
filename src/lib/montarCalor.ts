@@ -197,7 +197,7 @@ export function aPartes(mont: ParteMontada[], cat: EjCat[], cfg: ConfigTrabajo, 
       ejercicio_id: c.id, nombre: c.nombre, variante: '', capacidad: I?.nombre || '',
       regimen: cfg.ejecuciones.find(x => x.id === e.eje)?.nombre || 'Concéntrico',
       series: String(e.series), reps: e.reps ? String(e.reps) : '', peso: '', tiempo: e.seg ? String(e.seg) : '',
-      descanso: I?.descanso != null ? String(I.descanso) : '', nota: e.lado !== 'Bilateral' ? e.lado : '',
+      descanso: I?.descanso != null ? String(I.descanso) : '', nota: '',
       lado: e.lado, imagen_url: c.imagen_url, variantes_disp: c.variantes || [], tipo_medida: c.tipo_medida,
       objetivos: objetivos.filter(o => c.objs.includes(o.nombre)).map(o => o.id), ...(grupo ? { grupo } : {}),
     }

@@ -92,6 +92,9 @@ textarea.input{resize:vertical;min-height:80px;}
 .chip-ed:hover{background:var(--g);color:#fff;border-color:var(--g);}
 .chip-ed-a{border-color:var(--amb);color:#8A6410;}
 .chip-ed-a:hover{background:var(--amb);border-color:var(--amb);color:#fff;}
+/* Lateralidad: ocre, como en el taller. */
+.chip-ed-l{border-color:#D9B97A;color:#7A5800;}
+.chip-ed-l:hover{background:#B8923F;border-color:#B8923F;color:#fff;}
 .chip-ed-r{border-color:var(--red);color:var(--red);}
 .chip-ed-r:hover{background:var(--red);border-color:var(--red);color:#fff;}
 .chip-ed-n{border-style:dashed;color:var(--g);}

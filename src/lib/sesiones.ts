@@ -129,6 +129,31 @@ export function descansoEfectivo(parte: any, ej: any): { valor: string, heredado
   return { valor: String(parte?.descanso || ''), heredado: true }
 }
 
+/** Lateralidad de un ejercicio en la sesión. Vacío = bilateral. */
+export const LADOS = ['Bilateral', 'Unilateral', 'Alterno'] as const
+
+/**
+ * UN EJERCICIO NUEVO EN UNA SESION, igual venga de donde venga.
+ *
+ * Cada sitio que metia un ejercicio en una sesion (el editor, el torno, el taller, el
+ * mapa de calor) se escribia su propio objeto, y cada uno con campos distintos: el del
+ * torno no llevaba ni como se mide ni sus variantes, el del taller no llevaba lado... y
+ * luego el editor o el taller ensenaban cosas distintas segun por donde hubiera
+ * entrado. Ahora todos salen de aqui. `ref` es el ejercicio de al lado, del que se
+ * copian capacidad, ejecucion, series y descanso para no empezar de cero.
+ */
+export function itemDeEjercicio(ej: any, ref: any = {}, extra: any = {}) {
+  return {
+    ejercicio_id: ej.id, nombre: ej.nombre, imagen_url: ej.imagen_url || '',
+    tipo_medida: ej.tipo_medida || 'peso_reps', variantes_disp: ej.variantes || [], variante: '',
+    capacidad: ref.capacidad || '', regimen: ref.regimen || 'Concéntrico', lado: ref.lado || 'Bilateral',
+    series: ref.series || '3', reps: ref.reps || '', tiempo: ref.tiempo || '', metros: ref.metros || '', peso: '', nota: '',
+    ...(ref.grupo ? { grupo: ref.grupo } : {}),
+    ...(ref.descanso ? { descanso: ref.descanso } : {}),
+    ...extra,
+  }
+}
+
 /**
  * Etiqueta de la sesión a partir de sus partes: la que compartan todas, o "Mixta".
  * Derivada y no guardada, para que no pueda contradecir a las partes.
