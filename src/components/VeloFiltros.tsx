@@ -19,6 +19,30 @@ import { capaDeEtiqueta, urlCapa, type Vista } from '@/lib/cuerpo'
 // ---------------------------------------------------------------------------
 
 type Grupo = { key: string, label: string, etiquetas: any[] }
+
+/**
+ * ZONAS DEL CUERPO PARA FILTRAR RAPIDO. Tocas una zona del muñeco y salen solo los
+ * musculos y articulaciones de esa zona. Cada zona es un rectangulo sobre la figura
+ * (en % de su ancho y alto) y dos patrones: que musculos y que articulaciones caen
+ * ahi, por su nombre (o el de su raiz).
+ */
+type Zona = { id: string, nombre: string, mus: RegExp, art: RegExp, frente?: number[][], espalda?: number[][] }
+const ZONAS: Zona[] = [
+  { id: 'cuello', nombre: 'Cuello', mus: /cervical|ecom|escalen|trapecio|elevador/, art: /cervical|columna/, frente: [[42, 9, 16, 6]], espalda: [[42, 9, 16, 6]] },
+  { id: 'hombro', nombre: 'Hombro', mus: /hombro|deltoid|manguito|supraesp|infraesp|redondo|subescap|trapecio/, art: /hombro|escapul/, frente: [[24, 15, 15, 9], [61, 15, 15, 9]], espalda: [[24, 15, 15, 9], [61, 15, 15, 9]] },
+  { id: 'pecho', nombre: 'Pecho', mus: /pectoral|serrato|intercostal|diafragma/, art: /hombro|torac|costal|columna/, frente: [[38, 16, 24, 13]] },
+  { id: 'espalda', nombre: 'Espalda', mus: /espalda|dorsal|romboid|trapecio|erector|multif|semiesp|serrato/, art: /columna|dorsal|toracic|hombro|escapul/, espalda: [[37, 16, 26, 15]] },
+  { id: 'brazo', nombre: 'Brazo', mus: /bicep(?!s femoral)|braquial|tricep(?!s sural)|coraco/, art: /codo|hombro/, frente: [[17, 24, 12, 16], [71, 24, 12, 16]], espalda: [[17, 24, 12, 16], [71, 24, 12, 16]] },
+  { id: 'antebrazo', nombre: 'Antebrazo y mano', mus: /antebrazo|flexor|extensor|braquiorad|braquioradial|dedos|mano|muneca|pronador|supinador/, art: /muneca|mano|codo|dedo/, frente: [[8, 40, 15, 19], [77, 40, 15, 19]], espalda: [[8, 40, 15, 19], [77, 40, 15, 19]] },
+  { id: 'abdomen', nombre: 'Abdomen', mus: /abdom|oblicu|transvers|psoas|diafragma/, art: /columna|lumbar|pelvis/, frente: [[38, 29, 24, 15]] },
+  { id: 'lumbar', nombre: 'Zona lumbar', mus: /lumbar|cuadrado|erector|multif/, art: /columna|lumbar|pelvis|sacro/, espalda: [[38, 31, 24, 12]] },
+  { id: 'cadera', nombre: 'Cadera y glúteo', mus: /gluteo|piramidal|tfl|tensor|abductor|aductor|gracil|psoas|sartorio/, art: /cadera|pelvis|sacro/, frente: [[33, 44, 34, 9]], espalda: [[33, 43, 34, 10]] },
+  { id: 'muslo', nombre: 'Muslo', mus: /cuadricep|vasto|recto femoral|isquio|femoral|semiten|semimem|aductor|sartorio|gracil/, art: /cadera|rodilla/, frente: [[33, 53, 34, 17]], espalda: [[33, 53, 34, 17]] },
+  { id: 'rodilla', nombre: 'Rodilla', mus: /cuadricep|vasto|isquio|popliteo|gemel/, art: /rodilla/, frente: [[35, 70, 30, 6]], espalda: [[35, 70, 30, 6]] },
+  { id: 'pierna', nombre: 'Pierna', mus: /tibial|perone|gemel|soleo|sural|gastro/, art: /tobillo|rodilla/, frente: [[35, 76, 30, 15]], espalda: [[35, 76, 30, 15]] },
+  { id: 'pie', nombre: 'Tobillo y pie', mus: /pie|plantar|tibial posterior|dedos del pie|halux/, art: /tobillo|pie|halux|dedo/, frente: [[33, 91, 34, 9]], espalda: [[33, 91, 34, 9]] },
+]
+const nrm = (t: string) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const PRINCIPALES = ['articulacion', 'movimiento', 'patron', 'agarre', 'posicion', 'material']
 
 export function PastillasFiltro({ etiquetas, valor, onChange, onAbrir }: {
@@ -49,6 +73,8 @@ export default function VeloFiltros({ grupos, etiquetas, ejercicios, valor, onCh
   const [senalado, setSenalado] = useState<string | null>(null)
   const [abiertas, setAbiertas] = useState<string[]>([])
   const [mas, setMas] = useState(false)
+  const [zona, setZona] = useState<string | null>(null)
+  const [todosMus, setTodosMus] = useState(false)
 
   // Cuantos ejercicios lleva cada etiqueta (ella o sus hijas). Se calcula una vez.
   const cuenta = useMemo(() => {
@@ -85,6 +111,11 @@ export default function VeloFiltros({ grupos, etiquetas, ejercicios, valor, onCh
     )
   }
 
+  // Raiz de una etiqueta, para casar por su nombre o el de su madre ("Gluteo > Medio").
+  const raizDe = (et: any) => { let r = et, n = 0; while (r?.padre_id && n++ < 8) { const p = etiquetas.find((x: any) => x.id === r.padre_id); if (!p) break; r = p } return r }
+  const casa = (et: any, re: RegExp) => re.test(nrm(et.nombre)) || re.test(nrm(raizDe(et)?.nombre || ''))
+  const z = ZONAS.find(x => x.id === zona) || null
+  const gArt = grupos.find(g => g.key === 'articulacion')
   // MÚSCULOS: los de la vista elegida (con dibujo) y aparte los que no tienen dibujo.
   const gMus = grupos.find(g => g.key === 'musculo')
   // Los de perfil se reparten: los de detras (isquios, gemelo, lumbar...) con la espalda,
@@ -119,7 +150,9 @@ export default function VeloFiltros({ grupos, etiquetas, ejercicios, valor, onCh
         <div className="vf-cuerpo">
           {gMus && (
             <div className="vf-izq">
-              <div className="vf-lbl">Músculos{marcadasDe(gMus) ? <em>{marcadasDe(gMus)} marcado{marcadasDe(gMus) > 1 ? 's' : ''}</em> : null}</div>
+              {/* EL MUÑECO PARA FILTRAR RAPIDO: tocas una zona y salen sus musculos y
+                  articulaciones. Se gira con Delante / Detrás. */}
+              <div className="vf-lbl">Toca una zona{marcadasDe(gMus) ? <em>{marcadasDe(gMus)} músculo{marcadasDe(gMus) > 1 ? 's' : ''}</em> : null}</div>
               <div className="vf-seg">
                 {([['frente', 'Delante'], ['espalda', 'Detrás']] as const).map(([v, l]) => (
                   <button key={v} type="button" className={vista === v ? 'on' : ''} onClick={() => setVista(v)}>{l}</button>
@@ -128,12 +161,29 @@ export default function VeloFiltros({ grupos, etiquetas, ejercicios, valor, onCh
               <div className="vf-fig">
                 <img src={urlCapa(figVista, 'base')} alt=""/>
                 {capas.map(c => <img key={c} src={urlCapa(figVista, c)} alt=""/>)}
+                {figVista === vista && ZONAS.flatMap(zz => ((vista === 'frente' ? zz.frente : zz.espalda) || []).map((r, k) => (
+                  <button key={zz.id + k} type="button" title={zz.nombre}
+                    className={`vf-zona ${zona === zz.id ? 'on' : ''}`}
+                    style={{ left: r[0] + '%', top: r[1] + '%', width: r[2] + '%', height: r[3] + '%' }}
+                    onClick={() => { setZona(zona === zz.id ? null : zz.id); setTodosMus(false) }}/>
+                )))}
               </div>
-              {chips({ ...gMus, etiquetas: deVista }, deVista)}
-              {sinDibujo.length > 0 && <>
-                <div className="vf-lbl" style={{ marginTop: 10 }}>Otros músculos</div>
-                {chips({ ...gMus, key: 'musculo-otros', etiquetas: sinDibujo }, sinDibujo)}
-              </>}
+              {z ? (
+                <>
+                  <div className="vf-zt">{z.nombre}<button type="button" className="vf-mas" onClick={() => setZona(null)}>quitar zona ✕</button></div>
+                  <div className="vf-lbl">Músculos</div>
+                  {(() => { const l = gMus.etiquetas.filter((et: any) => casa(et, z.mus)); return l.length ? chips({ ...gMus, key: 'mz-' + z.id, etiquetas: l }, l) : <div className="vf-nada">Ninguno etiquetado en esta zona</div> })()}
+                  {gArt && <>
+                    <div className="vf-lbl" style={{ marginTop: 10 }}>Articulaciones</div>
+                    {(() => { const l = gArt.etiquetas.filter((et: any) => casa(et, z.art)); return l.length ? chips({ ...gArt, key: 'az-' + z.id, etiquetas: l }, l) : <div className="vf-nada">Ninguna</div> })()}
+                  </>}
+                </>
+              ) : (
+                <>
+                  <button type="button" className="vf-mas" onClick={() => setTodosMus(v => !v)}>{todosMus ? 'Ocultar todos los músculos ▴' : 'Ver todos los músculos ▾'}</button>
+                  {todosMus && chips(gMus, gMus.etiquetas)}
+                </>
+              )}
             </div>
           )}
           <div className="vf-der">
@@ -184,8 +234,14 @@ const CSS = `
 .vf-seg{display:inline-flex;background:#E8E7E1;border-radius:99px;padding:3px;margin-bottom:8px}
 .vf-seg button{border:0;background:transparent;border-radius:99px;padding:4px 12px;font-size:12px;color:var(--gr);cursor:pointer;font-family:inherit}
 .vf-seg button.on{background:#fff;color:var(--n);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.vf-fig{position:relative;width:150px;aspect-ratio:360/640;margin:0 auto 10px}
-.vf-fig img{position:absolute;inset:0;width:100%;height:100%}
+.vf-fig{position:relative;width:190px;aspect-ratio:360/640;margin:0 auto 10px}
+.vf-fig img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.vf-zona{position:absolute;border:0;border-radius:12px;background:transparent;cursor:pointer;padding:0;transition:background .12s}
+.vf-zona:hover{background:rgba(90,150,158,.22)}
+.vf-zona.on{background:rgba(63,120,128,.38);box-shadow:inset 0 0 0 2px #3F7880}
+.vf-zt{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin:2px 0 8px}
+.vf-zt .vf-mas{margin-left:auto;font-weight:600}
+.vf-nada{font-size:12px;color:var(--grl)}
 .vf-ops{display:flex;flex-wrap:wrap;gap:6px}
 .vf-op{border:1.5px solid var(--bd);background:#fff;border-radius:99px;padding:5px 11px;font-size:12.5px;color:var(--n);cursor:pointer;font-family:inherit}
 .vf-op.hija{font-size:11.5px;padding:3px 9px;border-style:dashed}
