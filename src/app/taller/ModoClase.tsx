@@ -206,6 +206,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // CAMBIAR UN EJERCICIO SOLO HOY (material ocupado, la sala no da...). Que ficha y
   // que hueco se esta cambiando; el catalogo se lee la primera vez que hace falta.
   const [sustituyendo, setSustituyendo] = useState<{ pid: string, i: number } | null>(null)
+  const [cambioSiempre, setCambioSiempre] = useState(false)
   const [catalogoEj, setCatalogoEj] = useState<any[]>([])
   const [testEnCurso, setTestEnCurso] = useState<any>(null)
   const [guardandoTest, setGuardandoTest] = useState(false)
@@ -739,6 +740,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   async function abrirSustituir(pid: string, i: number) {
+    setCambioSiempre(false)
     setSustituyendo({ pid, i })
     if (catalogoEj.length === 0) {
       const r = await traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
@@ -754,6 +756,36 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * y si se recarga el taller el cambio sigue ahi. Lo que se apunte se registra con el
    * ejercicio que de verdad se hizo.
    */
+  /**
+   * CAMBIAR PARA SIEMPRE. El de "solo hoy" deja la sesion como estaba; este cambia el
+   * ejercicio en SU sesion (con las mismas series, reps, ejecucion, lado y descanso) y
+   * sale asi en sus proximas clases. Si hoy ya tenia un cambio de solo hoy en ese
+   * sitio, se quita: ahora el cambio es de verdad.
+   */
+  async function cambiarParaSiempre(pid: string, i: number, nuevo: any) {
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    const ej = item?.datos?.[i]
+    if (!item || !ej) return
+    if (!ej.pos) { sustituir(pid, i, nuevo); return }
+    setSustituyendo(null)
+    const [pi, pe] = String(ej.pos).split('.').map(Number)
+    if (item.citaId) {
+      const { data: c } = await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle()
+      if (c?.ajustes?.ejercicios?.[ej.pos]) {
+        const aj = { ...c.ajustes, ejercicios: { ...c.ajustes.ejercicios } }
+        delete aj.ejercicios[ej.pos]
+        await supabase.from('citas').update({ ajustes: Object.keys(aj.ejercicios).length ? aj : null }).eq('id', item.citaId)
+      }
+    }
+    const antes = ej.sustituye || ej.nombre
+    await editarSuSesion(pid, partes => {
+      const viejo = partes[pi]?.ejercicios?.[pe]
+      if (!viejo) return partes
+      partes[pi].ejercicios[pe] = itemDeEjercicio(nuevo, viejo, { objetivos: viejo.objetivos || [] })
+      return partes
+    }, undefined, `Ejercicio cambiado en su sesión en el taller: ${antes} → ${nuevo.nombre}`)
+  }
+
   async function sustituir(pid: string, i: number, nuevo: any) {
     const item = seleccion.find((x:any) => x.paciente.id === pid)
     const ej = item?.datos?.[i]
@@ -1052,6 +1084,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (raw) {
         const g = JSON.parse(raw)
         if (g.sala) setSala(g.sala)
+        /* VOLVER DONDE ESTABAS. Si se sale un momento (a la ficha, a la agenda) y se
+           vuelve, sigue en la misma hora y con el mismo paciente, aunque no sea la hora
+           actual. Solo si fue hace poco (2 h): al dia siguiente, o tras la comida,
+           manda otra vez lo que esta pasando ahora. */
+        if (g.t && Date.now() - g.t < 2 * 3600 * 1000) {
+          if (g.fecha) setFecha(g.fecha)
+          if (g.hora != null) setHora(g.hora)
+          if (g.activo) setActivo(g.activo)
+        }
       }
     } catch {}
     restaurado.current = true
@@ -1063,8 +1104,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // puestos y machacaba en disco lo que se acababa de leer.
   useEffect(() => {
     if (!listo) return
-    try { sessionStorage.setItem(SKEY, JSON.stringify({ sala })) } catch {}
-  }, [listo, sala])
+    if (solo) return
+    try { sessionStorage.setItem(SKEY, JSON.stringify({ sala, fecha, hora, activo, t: Date.now() })) } catch {}
+  }, [listo, sala, fecha, hora, activo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
 
@@ -1970,10 +2012,24 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         <div className="modal-bg" style={{zIndex:150}} onClick={e=>{if(e.target===e.currentTarget)setSustituyendo(null)}}>
           <div className="modal" style={{width:'min(900px, 96vw)',maxHeight:'90vh',overflowY:'auto'}}>
             <div className="modal-title">
-              Cambiar «{seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]?.nombre}» solo hoy
+              Cambiar «{seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]?.nombre}»
               <button className="modal-close" onClick={()=>setSustituyendo(null)}>✕</button>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'-4px 0 12px',padding:'8px 11px',
+            {/* PARA HOY O PARA SIEMPRE. Antes solo se podia cambiar para hoy. */}
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'-4px 0 10px'}}>
+              <div style={{display:'inline-flex',background:'#E8E7E1',borderRadius:99,padding:3}}>
+                {([['hoy','Solo hoy'],['siempre','Para siempre']] as const).map(([v,l])=>(
+                  <button key={v} onClick={()=>setCambioSiempre(v==='siempre')}
+                    style={{border:0,borderRadius:99,padding:'6px 14px',fontSize:13,cursor:'pointer',fontFamily:'inherit',
+                      background:(v==='siempre')===cambioSiempre?'#fff':'transparent',color:(v==='siempre')===cambioSiempre?'var(--n)':'var(--gr)',
+                      boxShadow:(v==='siempre')===cambioSiempre?'0 1px 4px rgba(0,0,0,.08)':'none'}}>{l}</button>
+                ))}
+              </div>
+              <span style={{fontSize:12,color:'var(--gr)'}}>{cambioSiempre
+                ? 'Se cambia en su sesión, con las mismas series y repes, y saldrá así en sus próximas clases.'
+                : 'Solo esta clase: su sesión no cambia.'}</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'0 0 12px',padding:'8px 11px',
               borderRadius:7,background:'var(--redl)',border:'1px solid #E8C4C4'}}>
               <span style={{flex:1,minWidth:200,fontSize:12,color:'var(--gr)'}}>¿No es solo hoy? Quítalo de su sesión y no volverá a salir en sus clases.</span>
               <button className="btn btn-d btn-sm" onClick={()=>quitarDeSuSesion(sustituyendo.pid, sustituyendo.i)}>Quitar de su sesión</button>
@@ -1981,7 +2037,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             {catalogoEj.length === 0
               ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
               : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
-                  onAbrir={(ej:any)=>sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
+                  onAbrir={(ej:any)=>cambioSiempre ? cambiarParaSiempre(sustituyendo.pid, sustituyendo.i, ej) : sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
           </div>
         </div>
       )}

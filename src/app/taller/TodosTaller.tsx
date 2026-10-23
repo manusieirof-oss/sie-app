@@ -143,9 +143,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                 {cab && pl && <div className="tt-plg" onClick={() => plegar(kP)}>{deParte.map(o => o.x.nombre).join(' · ')}</div>}
                 {!pl && <div className={'tt-ej' + (no ? ' no' : todas ? ' hecho' : '') + (ei === ahora ? ' ahora' : '')}>
                   <div className="tt-izq">
-                    <div className="tt-img">{e.imagen_url ? <img src={e.imagen_url} alt="" /> : null}
-                      {(e.items || []).length > 0 && (() => { const t = e.items.length, m = e.items.filter((it: any, ii: number) => itemMarcado(e.items_evaluados, typeof it === 'string' ? it : it?.texto, ii)).length
-                        return <span className={'tt-cnt' + (m === t ? ' ok' : m ? ' med' : '')} title="Ejecución correcta">{m}/{t}</span> })()}</div>
+                    <div className="tt-img">{e.imagen_url ? <img src={e.imagen_url} alt="" /> : null}</div>
                     <button className="tt-mas" title="Nota, ejecución, feedback, no lo hizo, cambiar" onClick={() => setOpc({ pid: p.id, ei })}>•••</button>
                   </div>
                   <div style={{ minWidth: 0 }}>
@@ -229,7 +227,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
           {e.plan?.nota && <div className="tt-ant"><b>De la sesión:</b> {e.plan.nota}</div>}
           <div className="tt-pie">
             {s.sesionId && <button className={'btn btn-sm ' + (no ? 'btn-p' : 'btn-s')} onClick={() => a.noHecho(s.paciente.id, s.sesionId, opc.ei)}>{no ? '✓ No lo hizo (deshacer)' : 'No lo hizo'}</button>}
-            <button className="btn btn-s btn-sm" onClick={() => { setOpc(null); a.sustituir(s.paciente.id, opc.ei) }}>↻ Cambiar ejercicio (solo hoy)</button>
+            <button className="btn btn-s btn-sm" onClick={() => { setOpc(null); a.sustituir(s.paciente.id, opc.ei) }}>↻ Cambiar ejercicio</button>
             <span style={{ flex: 1 }} />
             <button className="btn btn-p btn-sm" onClick={() => setOpc(null)}>Listo</button>
           </div>
