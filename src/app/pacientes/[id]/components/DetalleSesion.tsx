@@ -61,12 +61,18 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
   // Series reales de un ejercicio: "40×10, 40×10, 35×8" o "45 s, 40 s".
   function hizo(ejercicioId?: string) {
     if (!ejecutado || !ejercicioId) return null
-    const reg = ejecutado.find((r: any) => r.ejercicio_id === ejercicioId)
+    if (ejecutado.some((r: any) => r.noHecho && r.ejercicio_id === ejercicioId)) return { texto: 'No lo hizo', comentario: '', variante: '', no: true }
+    const reg = ejecutado.find((r: any) => !r.noHecho && r.ejercicio_id === ejercicioId)
     const series = Array.isArray(reg?.series) ? reg.series : []
     // La VARIANTE EJECUTADA viaja con el registro. Sin ella, un día que se hizo
     // unilateral en vez de bilateral se leía como si se hubiera hecho lo prescrito.
     const variante = reg?.variante || ''
-    if (series.length === 0) return reg?.comentario || variante ? { texto: '', comentario: reg?.comentario || '', variante } : null
+    // Lo que no son cifras, pero cuenta: como lo hizo (si no fue lo prescrito) y la tecnica.
+    const iv = reg?.items_evaluados || {}
+    const nIt = Object.keys(iv).length, nOk = Object.values(iv).filter(v => v === true).length
+    const extra = [reg?.regimen, reg?.lado && reg.lado !== 'Bilateral' ? reg.lado : '', nIt ? `técnica ${nOk}/${nIt}` : ''].filter(Boolean).join(' · ')
+    // Registrado sin cifras = hecho tal cual estaba (antes no salia nada).
+    if (series.length === 0) return reg ? { texto: 'Hecho', comentario: [extra, reg?.comentario].filter(Boolean).join(' · '), variante } : null
     // Cada serie con lo que tenga: "Roja · 12", "40×10", "30 s", "20 m", y el
     // esfuerzo detrás si se apuntó ("· RPE 7").
     const ll = (x: any) => x !== '' && x != null
@@ -77,7 +83,7 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
       const esf = [ll(s.rpe) && `RPE ${s.rpe}`, ll(s.rir) && `RIR ${s.rir}`, ll(s.dolor) && `dolor ${s.dolor}`].filter(Boolean).join(' ')
       return base ? base + (esf ? ` · ${esf}` : '') : null
     }).filter(Boolean).join(', ')
-    return { texto, comentario: reg?.comentario || '', variante }
+    return { texto, comentario: [extra, reg?.comentario].filter(Boolean).join(' · '), variante }
   }
   const hayAcciones = !!(onEditar || onDuplicar || onEliminar || onAsignar || onPartir || onHistorial)
 
@@ -285,8 +291,8 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
                             const h = hizo(ej.ejercicio_id)
                             if (!h) return null
                             return (
-                              <div className="ej-nota hecho">
-                                <span style={{ display: 'inline-flex' }}><Ic name="check" size={12} /></span>
+                              <div className="ej-nota hecho" style={(h as any).no ? { color: 'var(--red)' } : undefined}>
+                                <span style={{ display: 'inline-flex' }}>{(h as any).no ? '✕' : <Ic name="check" size={12} />}</span>
                                 <span>
                                   {h.texto || 'Registrado'}
                                   {h.comentario && <span style={{ fontStyle: 'italic', opacity: .85 }}> · {h.comentario}</span>}

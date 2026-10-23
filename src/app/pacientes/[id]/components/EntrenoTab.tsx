@@ -132,7 +132,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     const hoy = hoyISO()
     const [{ data: c },{ data: s }] = await Promise.all([
       supabase.from('citas').select('*, sesiones:sesion_id(*)').eq('paciente_id',pacienteId).gte('fecha',hoy).neq('estado','cancelada').order('fecha').order('hora'),
-      supabase.from('sesiones').select('id,nombre,descripcion,partes,created_at,evolucion_de,fija,plantilla_id, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
+      supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
     supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
@@ -154,10 +154,13 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
     // Lo que de verdad se registró en el taller. Se cruza por fecha + sesión para
     // saber qué se hizo en cada cita pasada, no solo qué estaba prescrito.
+    // Con todo lo que se apunta en la sala: ejecucion y lado reales, tecnica, y los que
+    // no hizo (no_hechos). Antes solo se leian las series y un ejercicio hecho "tal cual"
+    // (sin cifras) no salia en el historial.
     const { data: ejec } = await supabase.from('registros_ejercicio')
-      .select('fecha,sesion_id,ejercicio_id,ejercicio_nombre,series,comentario')
-      .eq('paciente_id',pacienteId)
-    setRegistros(ejec||[])
+      .select('*').eq('paciente_id',pacienteId)
+    const { data: noh } = await supabase.from('no_hechos').select('fecha,sesion_id,ejercicio_id').eq('paciente_id',pacienteId)
+    setRegistros([...(ejec||[]), ...(noh||[]).map((n:any)=>({ ...n, noHecho:true }))])
 
     // Recuperaciones, para decir en cada fila si esa falta se recuperó y para marcar
     // las citas que son la recuperación de otra.
