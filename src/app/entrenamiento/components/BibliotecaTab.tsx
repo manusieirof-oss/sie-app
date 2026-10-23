@@ -465,7 +465,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                         const chip = (x: any) => (
                           <button key={x.id} type="button" className={`chip-sel ${x.id===ejSeleccionado.id?'on':''}`} style={{fontSize:12}}
                             onClick={()=>{ if (x.id!==ejSeleccionado.id) { setEjSeleccionado(x); setVarianteActiva(-1) } }}>
-                            {x.id===raiz.id && <span style={{opacity:.7,marginRight:4}}>Portada ·</span>}{x.nombre}
+                            {x.id===raiz.id && <span style={{opacity:.7,marginRight:4}}>★ Principal ·</span>}{x.nombre}
                           </button>
                         )
                         return (
@@ -475,9 +475,11 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                               ? <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{[raiz, ...fam].map(chip)}</div>
                               : <div style={{fontSize:12,color:'var(--grl)'}}>Suelto, sin variantes</div>}
                             <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:8}}>
+                              {/* Mismo nombre que en el torno: "principal". Va el primero y destacado,
+                                  que antes costaba encontrarlo. */}
+                              {portada && <button className="btn btn-p btn-sm" disabled={guardando}
+                                onClick={async()=>{ setGuardando(true); trasFamilia(await hacerPortada(ejSeleccionado), { ...ejSeleccionado, portada_id: null }) }}>★ Hacer principal</button>}
                               <button className="btn btn-s btn-sm" disabled={guardando} onClick={nuevaVariante}>+ Crear variante</button>
-                              {portada && <button className="btn btn-t btn-sm" disabled={guardando}
-                                onClick={async()=>{ setGuardando(true); trasFamilia(await hacerPortada(ejSeleccionado), { ...ejSeleccionado, portada_id: null }) }}>Hacer portada</button>}
                               {portada && <button className="btn btn-t btn-sm" disabled={guardando}
                                 onClick={async()=>{ if(!confirm(`¿Sacar «${ejSeleccionado.nombre}» de la familia de «${portada.nombre}»?`))return; setGuardando(true); trasFamilia(await sacarDeFamilia(ejSeleccionado.id), { ...ejSeleccionado, portada_id: null }) }}>Sacar de la familia</button>}
                               {!moviendo
@@ -490,7 +492,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                                       if (!confirm(`¿Meter «${ejSeleccionado.nombre}»${fam.length&&!portada?` (y sus ${fam.length} variantes)`:''} en la familia de «${dest.nombre}»?`)) return
                                       setGuardando(true); trasFamilia(await moverAFamilia(ejSeleccionado.id, dest), { ...ejSeleccionado, portada_id: dest.portada_id || dest.id })
                                     }}>
-                                    <option value="" disabled>Elige la portada…</option>
+                                    <option value="" disabled>Elige el principal…</option>
                                     {ejercicios.filter((x:any)=>!x.portada_id && x.id!==raiz.id).map((x:any)=><option key={x.id} value={x.id}>{x.nombre}</option>)}
                                   </select>}
                             </div>
