@@ -162,10 +162,11 @@ export function ResumenTrabajo({ ej, etiquetas, cfg }: { ej: any, etiquetas: any
   if (!ints.length && !ejes.length && !grupos.length && !mus.length) return null
   return (
     <div style={{ marginBottom: 14 }}>
-      <div className="et-mini" style={{ marginBottom: 6 }}>Qué trabaja</div>
+      {/* "Admite" y no "Qué trabaja": son las capacidades y ejecuciones que se le pueden
+          poner, no lo que trabaja siempre (eso lo decide la dosis del dia). */}
+      <div className="et-mini" style={{ marginBottom: 6 }}>Admite</div>
       {(ints.length > 0 || ejes.length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-          {ints.length > 0 && <span style={{ fontSize: 11, color: 'var(--grl)', alignSelf: 'center' }}>Admite</span>}
           {ints.map(i => <span key={i.id} style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, background: i.color, color: '#fff' }}>{i.nombre}</span>)}
           {ejes.map(e => <span key={e.id} style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, border: '1px solid var(--bd)', color: 'var(--gr)' }}>{e.nombre}</span>)}
         </div>
