@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { traerTodo } from '@/lib/paginar'
 import BibliotecaTab from './components/BibliotecaTab'
 import SesionesTab from './components/SesionesTab'
 import TestsTab from './components/TestsTab'
@@ -94,7 +95,7 @@ function EntrenamientoContent() {
   async function cargar() {
     if (yaCargado.current === false) setLoading(true)
     const [{ data: e },p,{ data: et },{ data: tl }] = await Promise.all([
-      supabase.from('ejercicios').select('*').order('nombre'),
+      traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => ({ data: r.filas })),
       // Activos y los que tienen la vuelta programada: a alguien que vuelve el 1 de
       // octubre hay que poder dejarle las sesiones de octubre montadas.
       pacientesAgendables('id,nombre,apellidos,nombre_clinica,cactus'),

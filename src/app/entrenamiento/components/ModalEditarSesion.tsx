@@ -1,8 +1,9 @@
 'use client'
+import { useConfigTrabajo, nombresEjecucion, nombresCapacidad, sugerenciaCapacidad } from '@/lib/usarTrabajo'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { CAPACIDADES, REGIMENES, capacidadPorReps, repsPorCapacidad, descansoPorCapacidad, textoDescanso } from '@/lib/capacidades'
+import { capacidadPorReps, textoDescanso } from '@/lib/capacidades'
 import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion, LADOS, itemDeEjercicio } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -224,6 +225,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    * pantalla no los veia. Mientras llega la lectura se usa el de props.
    */
   const [frescos, setFrescos] = useState<any[] | null>(null)
+  const cfgTrabajo = useConfigTrabajo()
   useEffect(() => {
     traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
       .then(r => { if (!r.error) setFrescos(r.filas) })
@@ -966,7 +968,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     {/* Régimen y capacidad juntos: los dos dicen cómo se trabaja,
                         no cuánto. Van antes de los números por eso mismo. */}
                     <div className="celda apilada" data-l="Cómo se hace">
-                      <ChipMenu valor={ej.regimen||'Concéntrico'} opciones={[...REGIMENES]}
+                      <ChipMenu valor={ej.regimen||'Concéntrico'} opciones={nombresEjecucion(cfgTrabajo)}
                         titulo="Cómo trabaja el músculo: concéntrico al acortarse, excéntrico al frenar, isométrico sin moverse"
                         onElegir={v=>editarEjercicio(ei,{regimen:v})}/>
                       {/* LATERALIDAD, como la ejecucion: se prescribe aqui y el taller la ensena.
@@ -974,11 +976,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       <ChipMenu valor={ej.lado||'Bilateral'} opciones={[...LADOS]} clase="chip-ed-l"
                         titulo="Bilateral, a un lado (unilateral) o alternando lados"
                         onElegir={v=>editarEjercicio(ei,{lado:v})}/>
-                      <ChipMenu valor={ej.capacidad} opciones={CAPACIDADES.map(c=>c.nombre)}
+                      <ChipMenu valor={ej.capacidad} opciones={nombresCapacidad(cfgTrabajo)}
                         clase="chip-ed-a" vacio="Capacidad" titulo="Capacidad que se entrena"
                         onElegir={cap=>{
-                          const rep=repsPorCapacidad(cap)
-                          const desc=descansoPorCapacidad(cap)
+                          // Lo sugerido sale de Ajustes › Entrenador, como en el mapa de calor.
+                          const sug=sugerenciaCapacidad(cfgTrabajo, cap, med.includes('segundos'))
+                          const rep=sug.reps, desc=sug.descanso
                           // El descanso sugerido se recalcula mientras no lo hayas
                           // tocado tú. Antes solo miraba si estaba vacío, así que en
                           // cuanto se autocompletaba una vez ya no volvía a cambiar.
@@ -987,7 +990,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           // rellenar aquí un número dejaba el general sin efecto para
                           // siempre y sin que se notara, que es justo lo que pasaba.
                           const ponDesc = desc && !ej.descanso_manual && !parte?.descanso
-                          editarEjercicio(ei,{capacidad:cap,...(rep?{reps:rep}:{}),...(ponDesc?{descanso:desc}:{})})
+                          editarEjercicio(ei,{capacidad:cap,...(rep?{reps:rep}:{}),...(sug.tiempo?{tiempo:sug.tiempo}:{}),...(ponDesc?{descanso:desc}:{})})
                         }}/>
                     </div>
 

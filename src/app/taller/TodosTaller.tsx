@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { REGIMENES } from '@/lib/capacidades'
+import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { camposSerie, UNIDAD } from '@/lib/medida'
 import { urlFotoPaciente } from '@/lib/fotos'
@@ -58,6 +58,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
   const [opc, setOpc] = useState<{ pid: string, ei: number } | null>(null)
   const [ser, setSer] = useState<{ pid: string, ei: number } | null>(null)
   const clic = useRef<any>(null)
+  const ejecuciones = nombresEjecucion(useConfigTrabajo())
   /* NOMBRE Y FOTO SIEMPRE ARRIBA. Las columnas se desplazan de lado, y un contenedor con
      scroll lateral no deja pegarse arriba a nada al bajar la pagina. Por eso las columnas
      llevan su propio scroll vertical, del alto que queda de pantalla: al bajar, la
@@ -157,7 +158,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                       const sig = (l: string[], v: string) => l[(l.indexOf(v) + 1) % l.length]
                       return <div className="tt-tags">
                         <button className={'tt-tag eje' + (e.regimen && e.regimen !== (e.plan?.regimen || 'Concéntrico') ? ' cambio' : '')}
-                          title="Ejecución · toca para cambiar" onClick={() => a.regimen(p.id, ei, sig(REGIMENES as unknown as string[], reg))}>{reg}</button>
+                          title="Ejecución · toca para cambiar" onClick={() => a.regimen(p.id, ei, sig(ejecuciones, reg))}>{reg}</button>
                         <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
                           title="Lateralidad · toca para cambiar" onClick={() => a.lado(p.id, ei, sig(LADOS, lado))}>{lado}</button>
                         {e.comentario ? <span className="tt-meta">📝</span> : null}

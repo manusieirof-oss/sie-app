@@ -1,4 +1,5 @@
 'use client'
+import { traerTodo } from '@/lib/paginar'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
@@ -368,11 +369,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function crearSesionNueva() {
     const fechaTxt = new Date().toLocaleDateString('es-ES',{day:'numeric',month:'short'})
     const nombreAuto = `Sesión ${nombrePaciente||''} · ${fechaTxt}`.replace('  ',' ').trim()
-    const { data, error } = await supabase.from('sesiones').insert({ paciente_id:pacienteId, nombre:nombreAuto, descripcion:'', partes:[{nombre:'Parte 1',ejercicios:[]}], estado:'lista' }).select().single()
-    if (error || !data) { alert('Error al crear la sesión'); return }
-    await registrarSesion(pacienteId, `Sesión creada: ${data.nombre}`)
-    await cargarDatos()
-    abrirEditor(data)
+    /* NO SE GUARDA HASTA PULSAR GUARDAR. Antes se creaba vacia en la base y luego se
+       abria el editor: si cancelabas, quedaba una "Sesion Nombre · fecha" vacia. El
+       editor ya la crea al guardar (y apunta el evento). */
+    abrirEditor({ paciente_id:pacienteId, nombre:nombreAuto, descripcion:'', partes:[{nombre:'Parte 1',ejercicios:[]}] })
   }
 
   async function duplicar(s: any) {
@@ -404,7 +404,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function cargarBiblioteca() {
     if (ejerciciosBib.length>0) return
     const [{ data: ejs },{ data: ets }] = await Promise.all([
-      supabase.from('ejercicios').select('*').order('nombre'),
+      traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => ({ data: r.filas })),
       supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
     ])
     setEjerciciosBib(ejs||[]); setEtiquetasBib(ets||[])
@@ -413,7 +413,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   async function abrirEditor(sesion:any) {
     if (ejerciciosBib.length===0) {
       const [{ data: ejs },{ data: ets }] = await Promise.all([
-        supabase.from('ejercicios').select('*').order('nombre'),
+        traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => ({ data: r.filas })),
         supabase.from('etiquetas').select('*').order('categoria').order('nombre'),
       ])
       setEjerciciosBib(ejs||[]); setEtiquetasBib(ets||[])
@@ -1333,8 +1333,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {/* Mismo editor, atado a la cita: lo que se guarde va a ese día, no al plan. */}
+    {/* Lo que se cree desde aqui es del paciente, igual que con "Nueva sesion". */}
     {eligiendoSesion && (
-      <SelectorSesiones sesiones={sesionesDisp} titulo="¿Qué sesión les pongo?" pacienteId={pacienteId}
+      <SelectorSesiones sesiones={sesionesDisp} titulo="¿Qué sesión les pongo?" pacienteId={pacienteId} dueno={pacienteId}
+        onRecargarBiblio={cargarDatos}
         ejercicios={ejerciciosBib} etiquetas={etiquetasBib}
         colorDe={(x:any)=>deSistema(x)?.color || null}
         onCerrar={()=>setEligiendoSesion(false)}

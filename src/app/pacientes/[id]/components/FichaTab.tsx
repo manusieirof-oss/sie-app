@@ -1,4 +1,5 @@
 'use client'
+import { traerTodo } from '@/lib/paginar'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -122,7 +123,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     const ses = (sesionesPac||[]).find((x:any)=>x.id===sesionId)
     if (ses == null) return
     if (ejerciciosLib.length === 0) {
-      const { data } = await supabase.from('ejercicios').select('*').order('nombre')
+      const { data } = await traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => ({ data: r.filas }))
       setEjerciciosLib(data||[])
     }
     setVerSesion(ses)

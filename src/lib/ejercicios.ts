@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { traerTodo } from './paginar'
 import { comprimirImagen, MAX_EJERCICIO } from './imagen'
 import { categoriaDe } from './etiquetas'
 import { normalizar } from './texto'
@@ -169,7 +170,8 @@ export async function crearEjercicioRapido(nombre: string, tipoMedida: string) {
   // `ilike` de Postgres distingue acentos: "flexion" no encontraba "Flexión" y se
   // colaba el duplicado. Se traen los nombres y se comparan normalizados, que es
   // como los compara quien los lee.
-  const { data: ya } = await supabase.from('ejercicios').select('id,nombre').limit(3000)
+  // Todos: Supabase corta cada respuesta en 1000 y el duplicado podia estar detras.
+  const { filas: ya } = await traerTodo((d, h) => supabase.from('ejercicios').select('id,nombre').order('id').range(d, h))
   const clon = (ya || []).find((e: any) => normalizar(e.nombre).trim() === normalizar(limpio).trim())
   if (clon) return { ok: false as const, error: `Ya existe "${clon.nombre}" en la biblioteca` }
 

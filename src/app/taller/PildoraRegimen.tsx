@@ -1,7 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import Flotante from './Flotante'
-import { REGIMENES } from '@/lib/capacidades'
+import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 
 // ---------------------------------------------------------------------------
 // COMO SE HACE HOY
@@ -14,10 +14,13 @@ import { REGIMENES } from '@/lib/capacidades'
 
 // Sirve tambien para la LATERALIDAD (campo 'lado'): misma logica, otras opciones.
 export const LADOS = ['Bilateral', 'Unilateral', 'Alterno']
-export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opciones = REGIMENES as unknown as string[],
+export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opciones,
   defecto = '', titulo = 'Cómo se hace hoy', color = 'var(--gd)', borde = 'var(--gm)' }: any) {
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
+  // Sin lista propia, las ejecuciones de Ajustes › Entrenador (lib/usarTrabajo).
+  const cfg = useConfigTrabajo()
+  const lista: string[] = opciones || nombresEjecucion(cfg)
   const plan = ej.plan?.[campo] || defecto
   const hoy = ej[campo] || plan
   const cambiado = ej[campo] != null && ej[campo] !== '' && ej[campo] !== plan
@@ -36,7 +39,7 @@ export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opcion
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={196}>
         <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--grl)', letterSpacing: .5,
           textTransform: 'uppercase', marginBottom: 6 }}>{titulo}</div>
-        {opciones.map((r: string) => (
+        {lista.map((r: string) => (
           <button key={r} className="menu-it" style={{ width: '100%', textAlign: 'left' }}
             onClick={() => { onCambio(r); setAbierto(false) }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

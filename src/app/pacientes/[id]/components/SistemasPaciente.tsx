@@ -1,4 +1,5 @@
 'use client'
+import { traerTodo } from '@/lib/paginar'
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
@@ -68,7 +69,7 @@ export default function SistemasPaciente({ pacienteId, asignaciones, logrados, e
       const [o, se, ej, et, te] = await Promise.all([
         supabase.from('objetivos').select('*').eq('activo', true).order('nombre'),
         supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id,movimientos)').order('nombre'),
-        supabase.from('ejercicios').select('*').order('nombre'),
+        traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h)).then(r => ({ data: r.filas })),
         supabase.from('etiquetas').select('*').order('nombre'),
         supabase.from('tests').select('*').order('nombre'),
       ])

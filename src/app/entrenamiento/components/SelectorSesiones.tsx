@@ -22,7 +22,9 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
   /** Si se elige para un paciente: se puede filtrar por sus objetivos abiertos. */
   pacienteId,
   /** Los objetivos de la FASE a la que se anaden, si los tiene: [{ id, nombre }]. */
-  objetivosFase = [] }: any) {
+  objetivosFase = [],
+  /** Si se pasa, lo que se cree aqui es SUYO (desde su ficha). Sin el, va a la biblioteca. */
+  dueno }: any) {
   const [creando, setCreando] = useState(false)
   const [busca, setBusca] = useState('')
   const [marcadas, setMarcadas] = useState<string[]>([])
@@ -180,7 +182,7 @@ export default function SelectorSesiones({ sesiones, ya = [], titulo = 'Añadir 
         </div>
 
         {creando && (
-          <ModalEditarSesion sesion={{ nombre: '', partes: [] }}
+          <ModalEditarSesion sesion={{ nombre: '', partes: [], ...(dueno ? { paciente_id: dueno } : {}) }}
             ejercicios={ejercicios} etiquetas={etiquetas} paraPaciente={pacienteId || undefined}
             onGuardado={nacida} onCerrar={() => setCreando(false)}/>
         )}
