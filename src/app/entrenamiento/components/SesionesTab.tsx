@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import ModalEditarSesion from './ModalEditarSesion'
 import ModalProgramarGrupo from './ModalProgramarGrupo'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
+import FiltroObjetivos from '@/components/FiltroObjetivos'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
@@ -46,8 +47,6 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
    */
   const [origen, setOrigen] = useState<'plantillas'|'pacientes'|'todas'>('plantillas')
   const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
-  const [verObjs, setVerObjs] = useState(false)
-  const [buscaObj, setBuscaObj] = useState('')
   const [sesionVista, setSesionVista] = useState<any>(null)
   /** La sesión cuyo historial de cambios por día se está mirando. Solo lectura. */
   const [historialDe, setHistorialDe] = useState<any>(null)
@@ -214,48 +213,10 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} en pantalla</span>
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
-      {/* FILTRO POR OBJETIVO, COMPACTO. Salian los cien objetivos estirados encima de las
-          sesiones. Ahora un boton abre un velo con buscador, y fuera solo quedan los marcados. */}
+      {/* Filtro por objetivo: el mismo velo de bolas que en Ciclos. */}
       {(objetivos||[]).length>0&&(
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
-          <button className={`chip-sel ${filtroObjetivos.length?'on':''}`} onClick={()=>{setBuscaObj('');setVerObjs(true)}}>
-            <Ic name="objetivo" size={11}/> Objetivo{filtroObjetivos.length?` · ${filtroObjetivos.length}`:''}
-          </button>
-          {filtroObjetivos.map(id=>{ const o=(objetivos||[]).find((x:any)=>x.id===id); return (
-            <span key={id} style={{display:'inline-flex',alignItems:'center',gap:4,border:'1.5px solid var(--gm)',borderRadius:99,padding:'2px 4px 2px 10px',fontSize:12,color:'var(--gd)',background:'var(--w)'}}>
-              {o?.nombre||'Objetivo'}
-              <button onClick={()=>setFiltroObjetivos(p=>p.filter(x=>x!==id))} style={{border:0,background:'var(--gl)',color:'var(--gd)',borderRadius:'50%',width:18,height:18,fontSize:10,cursor:'pointer'}}>✕</button>
-            </span>) })}
-          {filtroObjetivos.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroObjetivos([])}>Limpiar</button>}
-        </div>
-      )}
-      {verObjs && (
-        <div className="modal-bg" style={{zIndex:160}} onClick={e=>{if(e.target===e.currentTarget)setVerObjs(false)}}>
-          <div className="modal" style={{width:'min(760px,96vw)',maxHeight:'86vh',display:'flex',flexDirection:'column'}}>
-            <div className="modal-title">Filtrar por objetivo<button className="modal-close" onClick={()=>setVerObjs(false)}>✕</button></div>
-            <input className="input" autoFocus placeholder="Buscar objetivo…" value={buscaObj} onChange={e=>setBuscaObj(e.target.value)} style={{marginBottom:10}}/>
-            {/* COMO BOLAS: la moneda de cada objetivo con su nombre debajo, como en la ficha. */}
-            <div style={{overflowY:'auto',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(92px,1fr))',gap:'14px 8px',alignContent:'start',padding:'4px 2px'}}>
-              {(objetivos||[]).filter((o:any)=>!buscaObj.trim()||String(o.nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(buscaObj.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())).map((o:any)=>{
-                const sel = filtroObjetivos.includes(o.id)
-                return (
-                  <button key={o.id} title={o.nombre} onClick={()=>setFiltroObjetivos(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
-                    style={{display:'flex',flexDirection:'column',alignItems:'center',gap:5,border:0,background:'transparent',cursor:'pointer',fontFamily:'inherit',padding:4,borderRadius:14,
-                      boxShadow:sel?'inset 0 0 0 2px var(--g)':'none',opacity:filtroObjetivos.length&&!sel?.55:1}}>
-                    <span style={{position:'relative',lineHeight:0}}>
-                      <MonedaObjetivo objetivo={o} titulo=""/>
-                      {sel&&<span style={{position:'absolute',right:-3,top:-3,width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,lineHeight:'18px',textAlign:'center',boxShadow:'0 0 0 2px #fff'}}>✓</span>}
-                    </span>
-                    <span className="obj-mon-g" style={{color:sel?'var(--gd)':'var(--gr)',fontSize:11}}>{o.nombre}</span>
-                  </button>)
-              })}
-            </div>
-            <div style={{display:'flex',gap:8,marginTop:12,alignItems:'center'}}>
-              {filtroObjetivos.length>0&&<button className="btn btn-t btn-sm" onClick={()=>setFiltroObjetivos([])}>Limpiar</button>}
-              <div style={{flex:1}}/>
-              <button className="btn btn-p btn-sm" onClick={()=>setVerObjs(false)}>Ver {sesionesFiltradas.length} sesiones</button>
-            </div>
-          </div>
+          <FiltroObjetivos objetivos={objetivos||[]} valor={filtroObjetivos} onChange={setFiltroObjetivos} nResultado={sesionesFiltradas.length} nombre="sesiones"/>
         </div>
       )}
 

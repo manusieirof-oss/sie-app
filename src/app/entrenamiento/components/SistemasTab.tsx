@@ -1,4 +1,5 @@
 'use client'
+import FiltroObjetivos from '@/components/FiltroObjetivos'
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { esPlantilla } from '@/lib/sesiones'
@@ -61,17 +62,9 @@ export default function SistemasTab({ objetivos = [], sesiones = [], ejercicios 
         <div style={{ flex: 1, fontSize: 12, color: 'var(--gr)' }}>
           {cargando ? 'Cargando…' : `${lista.length} sistema${lista.length === 1 ? '' : 's'}`}
         </div>
-        {filtroObj !== '' && (
-          <button className="pill pill-o on" style={{ border:'none', cursor:'pointer' }}
-            onClick={() => setFiltroObj('')}>
-            {objetivos.find((o:any)=>o.id===filtroObj)?.nombre || 'Objetivo'} ✕
-          </button>
-        )}
-        <select className="input" style={{ width: 210, fontSize: 12, padding: '5px 8px' }}
-          value={filtroObj} onChange={e => setFiltroObj(e.target.value)}>
-          <option value="">Todos los objetivos</option>
-          {objetivos.map((o:any)=><option key={o.id} value={o.id}>{o.nombre}</option>)}
-        </select>
+        {/* El mismo filtro de objetivo que en Sesiones: velo con bolas. */}
+        <FiltroObjetivos objetivos={objetivos} valor={filtroObj ? [filtroObj] : []}
+          onChange={v => setFiltroObj(v[v.length - 1] || '')}/>
         <button className="btn btn-p btn-sm" onClick={() => setEditando(null)}>+ Nuevo sistema</button>
       </div>
 
