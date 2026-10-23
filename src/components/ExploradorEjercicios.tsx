@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
+import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
@@ -294,7 +295,7 @@ export default function ExploradorEjercicios({
         </span>
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
-            onClick={() => setVerFiltros(v => !v)} aria-expanded={verFiltros}>
+            onClick={() => setVerFiltros(true)} aria-expanded={verFiltros}>
             Filtros{filtroEt.length > 0 ? ` · ${filtroEt.length}` : ''}
           </button>
         )}
@@ -351,52 +352,11 @@ export default function ExploradorEjercicios({
         </div>
       )}
 
+      {/* FILTROS EN UN VELO: fuera solo quedan las marcadas, que se quitan con un toque. */}
+      <PastillasFiltro etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt} onAbrir={() => setVerFiltros(true)}/>
       {grupos.length > 0 && verFiltros && (
-        <div className="filtros-et">
-          {grupos.map(g => {
-            // Por defecto solo las raíces. Con todos los niveles a la vez, Músculo
-            // sacaba ochenta pastillas y encontrar "Vasto Medial" era peor que no
-            // tener filtro. La cabecera dice cuántas hay dentro y las abre de golpe.
-            const hijas = g.etiquetas.filter((et: any) => nivelDe(etiquetas, et) > 0)
-            // Si hay una hija filtrada, la categoría se abre sola: si no, verías el
-            // contador de filtros activos sin ver cuál está puesto.
-            const abierta = desplegadas.includes(g.key) || hijas.some((h: any) => filtroEt.includes(h.id))
-            const lista = abierta ? g.etiquetas : g.etiquetas.filter((et: any) => nivelDe(etiquetas, et) === 0)
-
-            return (
-              <div key={g.key} className="fil-fila">
-                <span className="fil-cat">
-                  {g.label}
-                  {hijas.length > 0 && (
-                    <button type="button" title={abierta ? 'Ocultar subetiquetas' : `Ver las ${hijas.length} subetiquetas`}
-                      onClick={() => setDesplegadas(p => p.includes(g.key) ? p.filter(x => x !== g.key) : [...p, g.key])}
-                      style={{ marginLeft: 5, border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: 'var(--g)', display: 'inline-flex', alignItems: 'center', gap: 2, font: 'inherit' }}>
-                      {!abierta && <span style={{ fontSize: 10 }}>{hijas.length}</span>}
-                      <Ic name={abierta ? 'arriba' : 'abajo'} size={11} />
-                    </button>
-                  )}
-                </span>
-                <div className="fil-chips">
-                  {lista.map((et: any) => {
-                    const n = Math.min(nivelDe(etiquetas, et), 2)
-                    return (
-                      <button key={et.id} type="button"
-                        className={`chip-sel niv-${n} ${filtroEt.includes(et.id) ? 'on' : ''}`}
-                        title={n > 0 ? 'Subetiqueta' : 'Incluye sus subetiquetas'}
-                        onClick={() => setFiltroEt(prev => prev.includes(et.id) ? prev.filter(x => x !== et.id) : [...prev, et.id])}>
-                        {et.nombre}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-          {filtroEt.length > 0 && (
-            <button type="button" className="btn btn-t btn-sm" style={{ marginTop: 6 }}
-              onClick={() => setFiltroEt([])}>Quitar los {filtroEt.length} filtros</button>
-          )}
-        </div>
+        <VeloFiltros grupos={grupos} etiquetas={etiquetas} ejercicios={ejercicios} valor={filtroEt} onChange={setFiltroEt}
+          nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
       )}
 
       {/* Los sugeridos se esconden en cuanto buscas o filtras: ahí ya sabes qué quieres. */}

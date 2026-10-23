@@ -116,6 +116,12 @@ function camino(etiquetas: any[], et: any): string {
   return raiz.id === et.id ? n(et.nombre) : `${n(raiz.nombre)}>${n(et.nombre)}`
 }
 
+/** La capa (vista y dibujo) de una etiqueta de músculo, o null si no tiene dibujo. */
+export function capaDeEtiqueta(etiquetas: any[], et: any): [Vista, string] | null {
+  if (!et || categoriaDe(etiquetas, et) !== 'musculo') return null
+  return CAPA[camino(etiquetas, et)] || null
+}
+
 /**
  * La figura de un ejercicio: la vista que más músculos suyos enseña y sus capas.
  * null si ninguna etiqueta suya tiene capa (entonces se queda el icono de siempre).
