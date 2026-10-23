@@ -1,4 +1,5 @@
 'use client'
+import { apuntarHistorial } from '@/lib/sesionViva'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -160,6 +161,7 @@ export default function SesionesCalorPage({ params }: { params: { id: string } }
         duracion_min: dur, estado: 'lista', partes,
       }).select('id').single()
       if (error || !data) { setError('No se pudo crear la sesión ' + LETRA[si] + ': ' + (error?.message || '')); setCreando(false); return }
+      await apuntarHistorial(data.id, pid, 'inicio', 'Montada con el mapa de calor', 'Mapa de calor', partes)
       ids.push(data.id)
       const ob = Array.from(new Set(partes.flatMap((p: any) => p.ejercicios.flatMap((e: any) => e.objetivos || []))))
       if (ob.length) await supabase.from('sesiones_objetivos').insert(ob.map(objetivo_id => ({ sesion_id: data.id, objetivo_id })))

@@ -1,4 +1,5 @@
 'use client'
+import { apuntarHistorial, resumenCambios } from '@/lib/sesionViva'
 import { useConfigTrabajo, nombresEjecucion, nombresCapacidad, sugerenciaCapacidad } from '@/lib/usarTrabajo'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -526,6 +527,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       // Crear desde aquí dejaba la sesión sin evento, mientras que crearla desde la
       // ficha sí lo registraba: el historial dependía de por dónde hubieras entrado.
       if (pid) await registrarSesion(pid, `Sesión creada: ${formSesion.nombre}`)
+      // Sesion viva: su primer hito, con la foto de como nace.
+      if (pid) await apuntarHistorial(sesionId!, pid, 'inicio', 'Creada en el editor', 'Editor de sesión', campos.partes)
     } else {
       let { error } = await supabase.from('sesiones').update(campos).eq('id', sesionId)
       if (error && /fija/.test(error.message)) {
@@ -537,6 +540,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       // (programar a un grupo), para no tener que ir ficha por ficha.
       if ('fija' in campos && !sesion.paciente_id)
         await supabase.from('sesiones').update({ fija: campos.fija }).eq('plantilla_id', sesionId)
+      // SESION VIVA: si es de un paciente, el cambio se apunta en su historial con la foto
+      // de como queda. Las plantillas de la biblioteca no llevan historial: no crecen.
+      if (sesion.paciente_id) {
+        const cambios = resumenCambios(sesion.partes || [], campos.partes || [])
+        if (cambios.length) await apuntarHistorial(sesionId!, sesion.paciente_id, 'cambio', cambios.join(' · '), 'Editor de sesión', campos.partes)
+      }
     }
 
     // Objetivos: se calcula la diferencia en vez de borrar todo y reinsertar. Si el

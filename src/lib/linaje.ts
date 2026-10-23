@@ -150,7 +150,8 @@ export function agrupaPorLinaje(sesiones: Ses[]): Linaje[] {
  * blanco y guardar borraría la asignación.
  */
 export function soloVigentes<T extends Ses>(sesiones: T[], conservar?: string | null): T[] {
-  return sesiones.filter(s => esVigente(sesiones, s) || (!!conservar && s.id === conservar))
+  // Las finalizadas (sesion viva) tampoco se ofrecen: estan cerradas.
+  return sesiones.filter(s => (esVigente(sesiones, s) && !(s as any).finalizada_en) || (!!conservar && s.id === conservar))
 }
 
 export type ResultadoEvolucion = {

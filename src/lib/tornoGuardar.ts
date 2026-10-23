@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { apuntarHistorial } from './sesionViva'
 import { guardarFase, fijarSesionesDeFase, sembrarObjetivos } from './sistemas'
 import { registrarSesion } from './sesiones'
 import { hoyISO } from './fechas'
@@ -36,6 +37,7 @@ export async function guardarSesionTorno(
     if (e2) return { ok: false, error: 'La sesión se creó pero sus objetivos no: ' + e2.message }
   }
   if (conEvento) await registrarSesion(pid, `Sesión creada: ${nombre}`, 'Desde el torno')
+  await apuntarHistorial(data.id, pid, 'inicio', 'Creada en el torno', 'Torno', partesF)
   return { ok: true, id: data.id }
 }
 

@@ -1,4 +1,5 @@
 'use client'
+import { finalizarSesion, diasActiva, avisoDias, AVISO_DIAS_DEFECTO, partesEnFecha } from '@/lib/sesionViva'
 import { traerTodo } from '@/lib/paginar'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -94,7 +95,32 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [filtroHist, setFiltroHist] = useState('')
   const [limHist, setLimHist] = useState(30)
   const [recuperaciones, setRecuperaciones] = useState<any[]>([])
-  const [versionesAbiertas, setVersionesAbiertas] = useState<string[]>([])
+  const [verFinalizadas, setVerFinalizadas] = useState(false)
+  // Sesion viva: aviso de dias activa (Ajustes), finalizar, y lo ultimo hecho de cada ejercicio.
+  const [avisoN, setAvisoN] = useState(AVISO_DIAS_DEFECTO)
+  useEffect(() => { avisoDias().then(setAvisoN) }, [])
+  const [finalizando, setFinalizando] = useState<{ sesion: any, modo: 'continuar'|'cerrar', nota: string } | null>(null)
+  const [ultimoHecho, setUltimoHecho] = useState<any[] | null>(null)
+  async function abrirDetalle(s: any) {
+    setUltimoHecho(null); setSesionDetalle(s)
+    const ids = Array.from(new Set((s.partes||[]).flatMap((p:any)=>(p.ejercicios||[]).map((e:any)=>e.ejercicio_id)).filter(Boolean)))
+    if (!ids.length) return
+    const { data } = await supabase.from('registros_ejercicio').select('ejercicio_id,series,comentario,variante,fecha')
+      .eq('paciente_id', pacienteId).eq('finalizado', true).in('ejercicio_id', ids as string[]).order('fecha', { ascending: false }).limit(400)
+    const visto = new Set<string>(); const ult: any[] = []
+    ;(data||[]).forEach((r:any)=>{ if (!visto.has(r.ejercicio_id) && Array.isArray(r.series) && r.series.length) { visto.add(r.ejercicio_id); ult.push({ ...r, comentario: [r.comentario, 'última vez ' + new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})].filter(Boolean).join(' · ') }) } })
+    setUltimoHecho(ult)
+  }
+  async function confirmarFinalizar() {
+    if (!finalizando) return
+    setGuardando(true)
+    const r = await finalizarSesion(finalizando.sesion, pacienteId, finalizando.modo, finalizando.nota.trim() || undefined)
+    setGuardando(false)
+    if (!r.ok) { alert(r.error); return }
+    setFinalizando(null)
+    setReciboTanda({ mal: false, texto: `«${finalizando.sesion.nombre}» finalizada` + (r.nueva ? ` · sigue con una nueva desde ella (${r.nCitas} cita${r.nCitas===1?'':'s'})` : ` · ${r.nCitas} cita${r.nCitas===1?'':'s'} sin sesión: ponles otra`) })
+    cargarDatos(); onRefresh()
+  }
   // El recibo de la última tanda. Recargar en silencio deja sin saber si reasignó las
   // citas o ninguna, que es justo lo que se quiere comprobar.
   const [reciboTanda, setReciboTanda] = useState<{texto:string, mal:boolean}|null>(null)
@@ -881,12 +907,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                     <Ic name="calendario" size={12}/> Repartir en las citas
                   </button>
                 )}
-                {citasFuturas.some((c:any)=>c.sesion_id) && (
-                  <button className="btn btn-sm" onClick={nuevaTanda} disabled={guardando}
-                    title="Crea una versión nueva de cada sesión de la agenda futura y reasigna esas citas">
-                    <Ic name="cambio" size={12}/> Nueva tanda
-                  </button>
-                )}
               </span>
               {/* Las cumplidas se apagan pero siguen ahí, porque son el historial de lo
                   que funcionó. Este filtro es para cuando estorban. */}
@@ -911,15 +931,18 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 {/* Agrupadas por linaje: se ve la versión vigente de cada sesión y las
                     anteriores se despliegan desde ella. Sin esto, a los tres meses hay
                     ocho tarjetas llamadas "Empujes" y ninguna dice cuál manda. */}
+                {/* SESIONES VIVAS: una por objetivo o necesidad, que crecen. Las finalizadas
+                    (y las tandas antiguas, de antes de este cambio) van abajo, solo para
+                    consultar. */}
                 {agrupaPorLinaje(sesionesDisp)
+                  .filter(l=>!l.vigente.finalizada_en)
                   .filter(l=>!soloActivas || estadoSesion(l.vigente)!=='cumplida')
-                  .map(({vigente:s, anteriores, version})=>{
+                  .map(({vigente:s})=>{
                   const citasAsignadas=citasFuturas.filter(c=>c.sesion_id===s.id); const asignada=citasAsignadas.length>0
-                  const abierta=versionesAbiertas.includes(s.id)
                   const nEj=(s.partes||[]).reduce((a:number,p:any)=>a+(p.ejercicios||[]).length,0); const nP=(s.partes||[]).length
                   const sis=deSistema(s)
                   return (
-                    <div key={s.id} onClick={()=>setSesionDetalle(s)}
+                    <div key={s.id} onClick={()=>abrirDetalle(s)}
                       className={`tarj-s est-${estadoSesion(s)}`}
                       style={{minWidth:0,overflow:'hidden',...(sis?{background:tinte(sis.color,.12),borderColor:tinte(sis.color,.45)}:{})}}
                       title={estadoSesion(s)==='cumplida'
@@ -975,20 +998,19 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         {/* "Tanda" y no "versión": un número junto al nombre se lee como
                             un nivel, y que suba no dice que haya progresado, dice que le
                             montaste una programación nueva. Se cuenta del linaje. */}
-                        {version>1 && (
-                          <button className="pill pill-soft" onClick={e=>{e.stopPropagation();setVersionesAbiertas(v=>abierta?v.filter(x=>x!==s.id):[...v,s.id])}}
-                            title={`${anteriores.length} tanda${anteriores.length>1?'s':''} anterior${anteriores.length>1?'es':''}`}
-                            style={{border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3}}>
-                            {version}ª tanda <Ic name={abierta?'arriba':'abajo'} size={10}/>
-                          </button>
+                        {/* AVISO: lleva mucho activa (Ajustes). Solo recuerda mirarla: cerrarla lo
+                            decide quien la lleva, una recuperacion no va por calendario. */}
+                        {diasActiva(s) >= avisoN && (
+                          <span className="pill" title="Lleva mucho tiempo activa: ¿toca finalizarla y pasar a la siguiente?"
+                            style={{background:'var(--ambl)',color:'#7A5800',border:'1px solid var(--amb)'}}>⏱ {diasActiva(s)} días</span>
                         )}
                         {/* Fija = fuera de las tandas nuevas. Se marca la excepción, no
                             la norma: lo habitual es que todo evolucione. */}
                         <button className={`pill ${s.fija?'pill-o on':'pill-soft'}`}
                           onClick={e=>{e.stopPropagation();alternarFija(s)}}
                           title={s.fija
-                            ? 'Fija: no entra en las tandas nuevas. Pulsa para que vuelva a evolucionar.'
-                            : 'Pulsa para fijarla: se quedará fuera de las tandas nuevas.'}
+                            ? 'Fija: no corre con las citas (faltas, recuperaciones). Pulsa para quitar el candado.'
+                            : 'Pulsa para fijarla: se queda en sus citas aunque las demás corran.'}
                           style={{border:'none',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3,opacity:s.fija?1:.5}}>
                           <Ic name="pin" size={10}/> {s.fija?'Fija':''}
                         </button>
@@ -1015,28 +1037,38 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                           <Ic name="mas" size={11}/> Objetivos
                         </button>
                       </div>
-                      {/* Las tandas anteriores no se borran: son lo que se hizo, y las
-                          citas pasadas siguen apuntando a ellas. Se consultan, y desde
-                          cada una se puede arrancar la siguiente. */}
-                      {abierta && anteriores.length>0 && (
-                        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--bl)',display:'grid',gap:3}}>
-                          {anteriores.map((a:any,i:number)=>(
-                            <button key={a.id} onClick={e=>{e.stopPropagation();setSesionDetalle(a)}}
-                              style={{display:'flex',alignItems:'center',gap:6,background:'none',border:'none',padding:'2px 0',cursor:'pointer',textAlign:'left',fontSize:12,color:'var(--gr)'}}>
-                              <span className="pill pill-soft" style={{flexShrink:0}}>{version-1-i}ª</span>
-                              <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nombre}</span>
-                              {a.created_at && (
-                                <span style={{flexShrink:0}}>{new Date(a.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )
                 })}
               </div>
             )}
+            {/* FINALIZADAS: cerradas con su historia. Incluye las tandas de antes. */}
+            {(() => {
+              const vig = new Set(agrupaPorLinaje(sesionesDisp).filter(l=>!l.vigente.finalizada_en).map(l=>l.vigente.id))
+              const fin = sesionesDisp.filter((x:any)=>!vig.has(x.id)).sort((a:any,b:any)=>String(b.finalizada_en||b.created_at||'').localeCompare(String(a.finalizada_en||a.created_at||'')))
+              if (!fin.length) return null
+              return (
+                <div style={{marginTop:14}}>
+                  <button className="chip-sel" onClick={()=>setVerFinalizadas(v=>!v)}>
+                    Finalizadas · {fin.length} {verFinalizadas?'▴':'▾'}
+                  </button>
+                  {verFinalizadas && (
+                    <div style={{display:'grid',gap:4,marginTop:8}}>
+                      {fin.map((x:any)=>(
+                        <button key={x.id} onClick={()=>abrirDetalle(x)}
+                          style={{display:'flex',alignItems:'center',gap:8,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:10,padding:'7px 10px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',opacity:.8}}>
+                          <span style={{flex:1,minWidth:0,fontSize:13,color:'var(--n)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{x.nombre}</span>
+                          <span style={{fontSize:12,color:'var(--gr)',flexShrink:0}}>
+                            {x.created_at && new Date(x.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                            {' → '}{x.finalizada_en ? new Date(x.finalizada_en).toLocaleDateString('es-ES',{day:'numeric',month:'short'}) : 'tanda anterior'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -1097,7 +1129,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                   return (
                     <div key={c.id} className={`fila-p ${tieneSes?'test-clic':''}`}
                       style={{borderLeftColor:pinta(c.fecha)?.color||est.borde, background:pinta(c.fecha)?.fondo}}
-                      onClick={()=>tieneSes&&setVerSesion({sesion:aplicarAjustes(c.sesiones,c.ajustes), ejecutado:reg})}>
+                      onClick={async ()=>{ if(!tieneSes) return
+                        // La sesion crece: lo que tocaba ESE dia es la foto de entonces, no la de hoy.
+                        const fotos = await partesEnFecha(c.sesion_id, c.fecha)
+                        const base = fotos ? { ...c.sesiones, partes: fotos } : c.sesiones
+                        setVerSesion({sesion:aplicarAjustes(base,c.ajustes), ejecutado:reg}) }}>
                       <div style={{flex:1}}>
                         {tieneSes
                           ? <div style={{fontSize:13,color:'var(--n)',display:'flex',alignItems:'center',gap:5}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}{c.sesiones.fija && <span title="Fija: no corre con las demás"> 🔒</span>}</div>
@@ -1245,11 +1281,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             }}
           textoAsignar={encargo ? `Traer para ${encargo.etiqueta || 'el paciente'}` : undefined}
           onCerrar={()=>setSesionDetalle(null)}
-          onEditar={esVigente(sesionesDisp, sesionDetalle)
+          onEditar={esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en
             ? ()=>{const x=sesionDetalle;setSesionDetalle(null);abrirEditor(x)}
             : undefined}
-          onPartir={()=>partirDe(sesionDetalle)}
-          textoPartir={`Partir de esta · sale la ${linajeDe(sesionesDisp, sesionDetalle).length+1}ª`}
+          // AHORA: debajo de cada ejercicio, lo ultimo que hizo (cualquier dia).
+          ejecutado={ultimoHecho || undefined}
+          onHistorial={()=>setHistorialDe(sesionDetalle)}
+          onPartir={esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en ? ()=>{ setFinalizando({ sesion: sesionDetalle, modo: 'continuar', nota: '' }); setSesionDetalle(null) } : undefined}
+          textoPartir="Finalizar sesión"
           onDuplicar={()=>{duplicar(sesionDetalle);setSesionDetalle(null)}}
           onEliminar={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}
         />
@@ -1260,7 +1299,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {repartiendo && (
         <ModalRepartir
           pacienteId={pacienteId}
-          sesiones={agrupaPorLinaje(sesionesDisp).map(l=>l.vigente)}
+          sesiones={agrupaPorLinaje(sesionesDisp).map(l=>l.vigente).filter((x:any)=>!x.finalizada_en)}
           citas={citasFuturas}
           onCerrar={()=>setRepartiendo(false)}
           onHecho={(n)=>{
@@ -1273,6 +1312,34 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
       {/* Desde Historial se consulta el pasado: mismo detalle, sin acciones, y con
           lo que de verdad se hizo ese día debajo de lo prescrito. */}
+      {/* FINALIZAR: se cierra con su historia y, si se quiere, sigue una nueva desde ella. */}
+      {finalizando && (
+        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando)setFinalizando(null)}}>
+          <div className="modal" style={{width:520}}>
+            <div className="modal-title">Finalizar «{finalizando.sesion.nombre}»
+              <button className="modal-close" onClick={()=>setFinalizando(null)}>✕</button></div>
+            <div style={{fontSize:12.5,color:'var(--gr)',marginBottom:12,lineHeight:1.5}}>
+              Lleva {diasActiva(finalizando.sesion)} días. Queda cerrada con todo su historial, solo para consultar. Sus citas pasadas no cambian.
+            </div>
+            {([['continuar','Seguir con una nueva desde esta','Parte de cómo está hoy y empieza su propio historial. Sus próximas citas (y su sitio en el ciclo) pasan a la nueva.'],
+               ['cerrar','Solo cerrarla','Sus próximas citas se quedan sin sesión, para ponerles otra (de su ficha o de la biblioteca).']] as const).map(([k,t,d])=>(
+              <button key={k} onClick={()=>setFinalizando(f=>f&&{...f,modo:k})}
+                style={{display:'block',width:'100%',textAlign:'left',marginTop:8,padding:'10px 13px',borderRadius:12,cursor:'pointer',fontFamily:'inherit',
+                  border:`1.5px solid ${finalizando.modo===k?'var(--g)':'var(--bd)'}`,background:finalizando.modo===k?'var(--gl)':'var(--w)'}}>
+                <div style={{fontSize:14,color:'var(--n)',fontWeight:600}}>{t}</div>
+                <div style={{fontSize:12,color:'var(--gr)',marginTop:2}}>{d}</div>
+              </button>
+            ))}
+            <div className="field" style={{marginTop:12}}><label>Nota (opcional)</label>
+              <input className="input" value={finalizando.nota} onChange={e=>setFinalizando(f=>f&&{...f,nota:e.target.value})} placeholder="Ej: objetivo de fuerza logrado, pasa a trabajo de potencia"/></div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
+              <button className="btn btn-s btn-sm" onClick={()=>setFinalizando(null)} disabled={guardando}>Cancelar</button>
+              <button className="btn btn-p btn-sm" onClick={confirmarFinalizar} disabled={guardando}>{guardando?'Finalizando…':'Finalizar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {verSesion && (
         <DetalleSesion pacienteId={pacienteId} sesion={verSesion.sesion} ejecutado={verSesion.ejecutado}
           onCerrar={()=>setVerSesion(null)}/>

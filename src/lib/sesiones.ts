@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { apuntarHistorial } from './sesionViva'
 import { textoDescanso } from './capacidades'
 import { hoyISO } from '@/lib/fechas'
 
@@ -195,6 +196,8 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
   plantillaId?: string
   /** No registrar evento propio: quien llama va a poner uno con el total. */
   sinEvento?: boolean
+  /** No apuntar el hito de inicio en su historial: quien llama pone el suyo. */
+  sinHistorial?: boolean
 }) {
   const sufijo = opciones?.sufijo ?? ' (copia)'
   const { data: nueva, error } = await supabase.from('sesiones').insert({
@@ -224,6 +227,11 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
     // La copia ya existe: se avisa del fallo parcial en vez de fingir que fue bien.
     if (errObj) return { ok: false as const, error: 'La sesión se duplicó pero sus objetivos no: ' + errObj.message, sesion: nueva }
   }
+
+  // Sesion viva: nace con su primer hito y la foto de como empieza.
+  if (pacienteId && !opciones?.sinHistorial)
+    await apuntarHistorial(nueva.id, pacienteId, 'inicio', `Copia de «${sesion.nombre || 'Sesión'}»${esPlantilla(sesion) ? ' (biblioteca)' : ''}`,
+      opciones?.motivo || 'Copia', nueva.partes)
 
   // Ocho copias seguidas son ocho eventos que tapan la cronología: cuando la copia es
   // parte de una operación mayor, el evento lo pone quien la dirige, con el total.

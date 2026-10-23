@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { sinAjustes, resumenAjustes } from '@/lib/ajustesCita'
 import { hoyISO } from '@/lib/fechas'
+import { historialDe } from '@/lib/sesionViva'
 
 // ---------------------------------------------------------------------------
 // LO QUE SE LE FUE CAMBIANDO A ESTA SESIÓN, DÍA A DÍA
@@ -20,6 +21,8 @@ import { hoyISO } from '@/lib/fechas'
 export default function HistorialAjustes({ sesion, onCerrar }: { sesion: any, onCerrar: () => void }) {
   const [citas, setCitas] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
+  // SESION VIVA: sus cambios fijos (como ha ido creciendo), encima de los de cada dia.
+  const [fijos, setFijos] = useState<any[]>([])
   const hoy = hoyISO()
 
   useEffect(() => { cargar() }, [sesion?.id])
@@ -30,6 +33,7 @@ export default function HistorialAjustes({ sesion, onCerrar }: { sesion: any, on
       .select('id,fecha,hora,estado,ajustes,paciente_id, pacientes(nombre,apellidos,nombre_clinica)')
       .eq('sesion_id', sesion.id).order('fecha')
     setCitas(data || [])
+    setFijos(await historialDe(sesion.id))
     setCargando(false)
   }
 
@@ -53,7 +57,7 @@ export default function HistorialAjustes({ sesion, onCerrar }: { sesion: any, on
                     boxShadow: 'var(--sh-md)' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: 'var(--n)' }}>Cambios día a día · {sesion.nombre}</div>
+            <div style={{ fontSize: 14, color: 'var(--n)' }}>Historial · {sesion.nombre}</div>
             <div style={{ fontSize: 10, color: 'var(--gr)', marginTop: 2 }}>
               {cargando ? 'Cargando…'
                 : citas.length === 0 ? 'Esta sesión no está en ninguna cita'
@@ -65,6 +69,25 @@ export default function HistorialAjustes({ sesion, onCerrar }: { sesion: any, on
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+          {fijos.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: .5, textTransform: 'uppercase', color: 'var(--grl)', marginBottom: 6 }}>Cómo ha ido creciendo</div>
+              {fijos.map((h: any) => (
+                <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '6px 10px' }}>
+                  <div style={{ width: 86, flexShrink: 0, fontSize: 12, color: 'var(--gr)' }}>
+                    {new Date(h.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' })}
+                  </div>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', marginTop: 4, flexShrink: 0,
+                    background: h.tipo === 'cambio' ? 'var(--g)' : 'var(--n)' }}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--n)' }}>{h.texto}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--grl)' }}>{h.tipo === 'inicio' ? 'Inicio' : h.tipo === 'fin' ? 'Fin' : 'Cambio fijo'} · {h.origen}</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: .5, textTransform: 'uppercase', color: 'var(--grl)', margin: '14px 0 6px' }}>Día a día</div>
+            </div>
+          )}
           {!cargando && citas.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--gr)', padding: 16, textAlign: 'center' }}>
               Cuando la asignes a citas, aquí verás qué se cambió cada día.

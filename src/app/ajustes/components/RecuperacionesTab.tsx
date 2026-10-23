@@ -32,6 +32,12 @@ export default function RecuperacionesTab({ ajustes, set }: any) {
           </button>
         </div>
       </div>
+      {/* SESION VIVA: a los cuantos dias avisa de que una sesion lleva mucho activa. */}
+      <div className="field" style={{marginBottom:12}}>
+        <label>Avisar cuando una sesión lleve activa (días)</label>
+        <input className="input" type="number" min={7} value={ajustes.sesion_aviso_dias||'90'} onChange={e=>set('sesion_aviso_dias',e.target.value)} style={{maxWidth:120}}/>
+        <div style={{fontSize:9,color:'var(--grl)',marginTop:3}}>En la ficha sale «⏱ N días» en la sesión. Solo avisa: finalizarla lo decides tú.</div>
+      </div>
       {ajustes.recuperaciones_activas==='true'&&(
         <div className="g2">
           <div className="field">

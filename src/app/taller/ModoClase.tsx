@@ -1,4 +1,5 @@
 'use client'
+import { apuntarHistorial } from '@/lib/sesionViva'
 import { useState, useRef, useEffect } from 'react'
 import TodosTaller from './TodosTaller'
 import { VeloCita, VeloAnadir } from './GestionCita'
@@ -686,6 +687,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     const partes = cambiar(JSON.parse(JSON.stringify(destino.partes || [])))
     const { error: e2 } = await supabase.from('sesiones').update({ partes }).eq('id', destino.id)
     if (e2) { alert('No se ha podido cambiar su sesión: ' + e2.message); return }
+    // Sesion viva: el cambio para siempre hecho en la sala, a su historial.
+    await apuntarHistorial(destino.id, pid, 'cambio', (texto || 'Cambiada en el taller').replace(/^Ejercicio /, ''), 'Taller', partes)
 
     /* Los ajustes del dia van por POSICION (parte.ejercicio). Al quitar uno, los de
        detras de esa parte se corren un puesto en sus citas de hoy en adelante; si
