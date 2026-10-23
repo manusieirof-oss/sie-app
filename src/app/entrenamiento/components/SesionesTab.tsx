@@ -234,13 +234,19 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
           <div className="modal" style={{width:'min(760px,96vw)',maxHeight:'86vh',display:'flex',flexDirection:'column'}}>
             <div className="modal-title">Filtrar por objetivo<button className="modal-close" onClick={()=>setVerObjs(false)}>✕</button></div>
             <input className="input" autoFocus placeholder="Buscar objetivo…" value={buscaObj} onChange={e=>setBuscaObj(e.target.value)} style={{marginBottom:10}}/>
-            <div style={{overflowY:'auto',display:'flex',gap:6,flexWrap:'wrap',alignContent:'flex-start'}}>
+            {/* COMO BOLAS: la moneda de cada objetivo con su nombre debajo, como en la ficha. */}
+            <div style={{overflowY:'auto',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(92px,1fr))',gap:'14px 8px',alignContent:'start',padding:'4px 2px'}}>
               {(objetivos||[]).filter((o:any)=>!buscaObj.trim()||String(o.nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(buscaObj.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())).map((o:any)=>{
                 const sel = filtroObjetivos.includes(o.id)
                 return (
-                  <button key={o.id} onClick={()=>setFiltroObjetivos(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
-                    style={{fontSize:12.5,padding:'5px 11px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',border:`1.5px solid ${sel?'var(--g)':'var(--bd)'}`,background:sel?'var(--g)':'var(--w)',color:sel?'#fff':'var(--n)'}}>
-                    {sel?'✓ ':''}{o.nombre}
+                  <button key={o.id} title={o.nombre} onClick={()=>setFiltroObjetivos(prev=>prev.includes(o.id)?prev.filter(x=>x!==o.id):[...prev,o.id])}
+                    style={{display:'flex',flexDirection:'column',alignItems:'center',gap:5,border:0,background:'transparent',cursor:'pointer',fontFamily:'inherit',padding:4,borderRadius:14,
+                      boxShadow:sel?'inset 0 0 0 2px var(--g)':'none',opacity:filtroObjetivos.length&&!sel?.55:1}}>
+                    <span style={{position:'relative',lineHeight:0}}>
+                      <MonedaObjetivo objetivo={o} titulo=""/>
+                      {sel&&<span style={{position:'absolute',right:-3,top:-3,width:18,height:18,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,lineHeight:'18px',textAlign:'center',boxShadow:'0 0 0 2px #fff'}}>✓</span>}
+                    </span>
+                    <span className="obj-mon-g" style={{color:sel?'var(--gd)':'var(--gr)',fontSize:11}}>{o.nombre}</span>
                   </button>)
               })}
             </div>
