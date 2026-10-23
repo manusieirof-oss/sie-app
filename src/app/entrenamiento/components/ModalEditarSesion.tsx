@@ -190,6 +190,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     fija: !!sesion.fija,
   })
   const [parteActiva, setParteActiva] = useState(0)
+  // Fila con la lista entera de objetivos abierta, y filas con la nota abierta.
+  const [objsAbiertos, setObjsAbiertos] = useState<number | null>(null)
+  const [notasAbiertas, setNotasAbiertas] = useState<Set<number>>(new Set())
   // Lo que habia al abrir, para saber si al cerrar se pierde algo. La hoja y los
   // objetivos llegan despues (se leen de la base), asi que se marcan aparte al tocarlos.
   const alAbrir = useRef(JSON.stringify(formSesion))
@@ -642,7 +645,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               title={formSesion.fija ? 'Fija en su cita: no corre con las demás. Pulsa para quitar el candado' : 'Ponerle candado: se queda en su cita aunque las demás corran'}
               style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:12,
                 border:`1.5px solid ${formSesion.fija?'var(--n)':'var(--bd)'}`,background:formSesion.fija?'var(--n)':'var(--w)',color:formSesion.fija?'#fff':'var(--gr)'}}>
-              {formSesion.fija ? '🔒 Fija' : '🔓 Corre'}
+              {formSesion.fija ? '🔒 Fija' : '⇄ Corre'}
             </button>
           )}
           {!modoCita && hojaLeida && (
@@ -922,7 +925,25 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                         {/* LOS OBJETIVOS DE ESTE EJERCICIO. Todos los de la sesión en
                             pequeño: en color los que trabaja, apagados los que no. Pulsar
                             cambia. Sale sugerido por etiquetas; tocarlo lo deja a mano. */}
-                        {objsSesion.length > 0 && (() => {
+                        {/* COMPACTO: solo los que trabaja, en pequeno, y "editar" abre la lista
+                            entera. Antes salian todos los de la sesion en cada fila, grandes, y
+                            cada ejercicio ocupaba tres lineas solo de objetivos. */}
+                        {objsSesion.length > 0 && objsAbiertos !== ei && (() => {
+                          const suyos = objsSesion.filter((o:any)=>objsDeEj(ej).includes(o.id))
+                          return (
+                            <div className="ej-sub" style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                              {suyos.map((o:any)=>(
+                                <span key={o.id} title={o.nombre} className="obj-mini">
+                                  <MonedaObjetivo objetivo={o} tam="mini" titulo=""/>
+                                  <span>{o.nombre}</span>
+                                </span>
+                              ))}
+                              {suyos.length===0 && <span style={{fontSize:11,color:'var(--grl)'}}>Sin objetivo</span>}
+                              {!modoCita && <button type="button" className="obj-ed" onClick={()=>setObjsAbiertos(ei)} title="Elegir qué objetivos trabaja">editar</button>}
+                            </div>
+                          )
+                        })()}
+                        {objsSesion.length > 0 && objsAbiertos === ei && (() => {
                           const suyos = objsDeEj(ej)
                           return (
                             <div className="ej-sub" style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
@@ -948,6 +969,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                                   </button>
                                 )
                               })}
+                              <button type="button" className="obj-ed" onClick={()=>setObjsAbiertos(null)}>listo</button>
                             </div>
                           )
                         })()}
@@ -1087,11 +1109,19 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                     {/* La nota, entera y debajo de todo. Metida entre los campos se
                         quedaba en un hueco estrecho donde no cabía nada. */}
-                    <div className="ej-nota">
-                      <span>Nota</span>
-                      <input value={ej.nota||''} onChange={e=>editarEjercicio(ei,{nota:e.target.value})}
-                        placeholder="Lo que haya que recordar de este ejercicio"/>
-                    </div>
+                    {/* PLEGADA SI ESTA VACIA. Una linea de nota vacia en cada ejercicio doblaba
+                        la altura de la lista. Con texto se ve siempre. */}
+                    {(ej.nota || notasAbiertas.has(ei)) ? (
+                      <div className="ej-nota">
+                        <span>Nota</span>
+                        <input value={ej.nota||''} autoFocus={!ej.nota} onChange={e=>editarEjercicio(ei,{nota:e.target.value})}
+                          placeholder="Lo que haya que recordar de este ejercicio"/>
+                      </div>
+                    ) : (
+                      <div className="ej-nota">
+                        <button type="button" className="obj-ed" onClick={()=>setNotasAbiertas(p=>new Set(p).add(ei))}>+ Nota</button>
+                      </div>
+                    )}
                   </div>
                   )
                 })}

@@ -372,8 +372,8 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 
 /* Cabecera de la parte: nombre y recorrido en una línea. Eran tres filas —pestañas,
    nombre y una caja con el modo— comiéndose el alto que necesitan los ejercicios. */
-.parte-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;margin-bottom:10px;background:var(--bl);border:1px solid var(--bd);border-radius:var(--r);}
-.parte-nom{font-family:inherit;font-size:13px;font-weight:500;color:var(--n);background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 6px;min-width:110px;max-width:210px;transition:all .12s;}
+.parte-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;margin-bottom:10px;background:var(--bl);border:0;border-radius:14px;}
+.parte-nom{font-family:inherit;font-size:13px;font-weight:500;color:var(--n);background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 6px;min-width:110px;max-width:340px;flex:0 1 auto;field-sizing:content;transition:all .12s;}
 .parte-nom:hover{border-color:var(--bd);background:var(--w);}
 .parte-nom:focus{outline:none;border-color:var(--g);background:var(--w);box-shadow:var(--ring);}
 /* Número con su unidad al lado: "3 vueltas", "90 entre ejercicios". */
@@ -398,7 +398,8 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .ej-cab{padding-bottom:6px;border-bottom:1px solid var(--bd);margin-bottom:2px;}
 .ej-cab > span{font-size:11px;color:var(--gr);letter-spacing:.2px;white-space:nowrap;}
 .ej-cab > span.c{text-align:center;}
-.ej-row{padding:9px 0;border-bottom:1px solid var(--bd2);}
+.ej-row{padding:10px 8px;border-bottom:1px solid var(--bd2);border-radius:12px;transition:background .12s;}
+.ej-row:hover{background:#FAFAF7;}
 .ej-row:last-child{border-bottom:none;}
 .ej-row input,.ej-row select{font-family:inherit;font-size:13px;color:var(--n);background:var(--w);border:1px solid var(--bd);border-radius:5px;padding:5px 6px;width:100%;transition:all .12s;}
 .ej-row input.c{text-align:center;}
@@ -407,11 +408,16 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .ej-row input::placeholder{color:var(--grl);}
 .ej-row .vacio{text-align:center;color:var(--grl);font-size:13px;}
 .ej-nom{display:flex;align-items:center;gap:10px;min-width:0;}
-.ej-img{width:76px;height:76px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bm);}
+.ej-img{width:64px;height:64px;object-fit:cover;border-radius:12px;flex-shrink:0;background:var(--bm);}
 .ej-img-no{display:flex;align-items:center;justify-content:center;color:var(--grl);}
 /* El nombre parte en varias líneas antes que estrujar la columna de datos. */
 .ej-txt{font-size:13px;color:var(--n);line-height:1.35;overflow-wrap:anywhere;}
 .ej-sub{display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap;}
+/* Editor de sesion (lavado de cara): objetivos compactos, filas con aire, foto redondeada. */
+.obj-mini{display:inline-flex;align-items:center;gap:4px;max-width:170px;padding:1px 8px 1px 1px;border-radius:99px;background:var(--gl);color:var(--gd);font-size:11px;line-height:1.4;}
+.obj-mini > span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.obj-ed{border:0;background:transparent;color:var(--gd);font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;padding:2px 4px;border-radius:6px;}
+.obj-ed:hover{background:var(--gl);}
 .ej-sub select,.ej-sub input{font-size:12px;padding:3px 5px;}
 /* Misma rejilla en solo lectura, para consultar la sesión. Una columna menos: sin
    botón de eliminar. Los valores en grande, que esto se mira de lejos. */
