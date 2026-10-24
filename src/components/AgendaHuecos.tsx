@@ -55,12 +55,19 @@ export async function agendarHuecos(pacienteId: string, base: { fecha: string, h
     const { data: otras } = await supabase.from('citas').select('fecha,hora,sala').in('fecha', fs.slice(i, i + 100)).neq('estado', 'cancelada')
     ;(otras || []).forEach((c: any) => { const k = `${c.fecha}|${String(c.hora).slice(0, 5)}|${c.sala}`; c2[k] = (c2[k] || 0) + 1 })
   }
-  const libres = pedidos.filter(p => (c2[`${p.fecha}|${p.hora}|${p.sala}`] || 0) < max && !cerradoEn(p.fecha, eventos))
+  // Las llenas NO se saltan: la cita se pone y se avisa de que ese dia va con mas gente.
+  // Solo se saltan los dias cerrados (festivo o cierre), que no hay clase.
+  const libres = pedidos.filter(p => !cerradoEn(p.fecha, eventos))
   const saltadas = pedidos.length - libres.length
+  const llenas = libres.filter(p => (c2[`${p.fecha}|${p.hora}|${p.sala}`] || 0) >= max)
+    .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
+  const fmtL = (x: { fecha: string, hora: string, sala: string }) =>
+    `${new Date(x.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} ${x.hora} sala ${x.sala}`
   const r = await crearCitasPlan(libres, { pacienteId, hora: libres[0]?.hora || '10:00', ...(tipo ? { tipo: tipo.valor, duracionMin: tipo.duracion } : {}) })
   if (r.ok === false) return { ok: false as const, creadas: r.creadas, texto: 'Error: ' + r.error + (r.creadas ? ` (se pusieron ${r.creadas})` : '') }
   const texto = `✓ ${r.creadas} cita${r.creadas === 1 ? '' : 's'} puesta${r.creadas === 1 ? '' : 's'}`
-    + (saltadas ? ` · ${saltadas} saltada${saltadas === 1 ? '' : 's'} por clase llena o cerrado` : '')
+    + (saltadas ? ` · ${saltadas} saltada${saltadas === 1 ? '' : 's'} por día cerrado` : '')
+    + (llenas.length ? ` · ⚠ ${llenas.length === 1 ? 'Esta va' : `Estas ${llenas.length} van`} con más gente de la cuenta (${max} por sala): ${llenas.slice(0, 8).map(fmtL).join(', ')}${llenas.length > 8 ? '…' : ''}` : '')
     + (r.yaTenia ? ` · ${r.yaTenia} ya las tenía` : '')
     + (r.sinBono ? ` · ${r.sinBono} fuera del bono` : '')
   return { ok: true as const, creadas: r.creadas, texto }
@@ -141,8 +148,8 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
   const prefKey = (dia: number, h: string, s: string) => (preferencia || []).find(p => p.dia === dia && p.hora === h && p.sala === s)
   function alternarPref(dia: number, h: string, s: string, llena: boolean) {
     const ya = prefKey(dia, h, s)
-    // Una llena no puede ser cita: entra como deseada aunque se este en modo Citas.
-    const espera = marca === 'deseada' || llena
+    // Una llena tambien puede ser cita: se pone igual y al guardar se avisa de que va con mas gente.
+    const espera = marca === 'deseada'
     const resto = (preferencia || []).filter(p => p !== ya)
     // Tocar en el otro modo la cambia de tipo; en el mismo, la quita.
     onPreferencia!(ya && !!ya.espera === espera ? resto : [...resto, { dia, hora: h, sala: s, ...(espera ? { espera: true } : {}) }])
@@ -212,7 +219,7 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
                         const dia = fechas.indexOf(f), pr = prefKey(dia, h, s)
                         return (
                           <button key={s} className={`ah-b ${pr ? (pr.espera ? 'espera' : 'on') : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''}`}
-                            title={lib <= 0 ? `Sala ${s} llena: queda como deseada` : `Sala ${s}: ${n} de ${cfg.max}`}
+                            title={lib <= 0 ? `Sala ${s} llena (${n} de ${cfg.max}): si la marcas, va con uno más` : `Sala ${s}: ${n} de ${cfg.max}`}
                             onClick={() => alternarPref(dia, h, s, lib <= 0)}>
                             {pr ? (pr.espera ? '⏳ ' : '✓ ') : ''}{salasVer.length > 1 ? s + ' ' : ''}{pr?.espera ? 'deseada' : lib <= 0 ? 'llena' : lib}
                           </button>
@@ -227,8 +234,8 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
                         </button>
                       )
                       return (
-                        <button key={s} disabled={lib <= 0 && !on} className={`ah-b ${on ? 'on' : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''} ${des && !on ? 'des' : ''}`}
-                          title={`Sala ${s}: ${n} de ${cfg.max}${des ? ' · la tiene como deseada' : ''}`} onClick={() => alternar(k)}>
+                        <button key={s} className={`ah-b ${on ? 'on' : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''} ${des && !on ? 'des' : ''}`}
+                          title={`Sala ${s}: ${n} de ${cfg.max}${lib <= 0 ? ' · llena: si la marcas, va con uno más' : ''}${des ? ' · la tiene como deseada' : ''}`} onClick={() => alternar(k)}>
                           {on ? '✓ ' : des ? '⏳ ' : ''}{salasVer.length > 1 ? s + ' ' : ''}{lib <= 0 ? 'llena' : lib}
                         </button>
                       )
@@ -242,7 +249,7 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
       {modoPref ? (
         <div className="ah-pie">
           <span className="ah-nota">{marca === 'cita'
-            ? <>Toca las horas de sus <b>citas</b> (se repiten cada semana). Una llena queda como deseada.</>
+            ? <>Toca las horas de sus <b>citas</b> (se repiten cada semana). Si marcas una llena, se pone igual y se avisa.</>
             : <>Toca las horas que le <b>gustarían</b>, llenas o no: quedan en su ficha para cuando haya sitio.</>}</span>
           <span style={{ flex: 1 }}/>
           {(preferencia || []).length > 0 && <button className="btn btn-t btn-sm" onClick={() => onPreferencia!([])}>Quitar todas</button>}
@@ -264,7 +271,7 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
         </button>}
       </div>
       )}
-      {msg && <div className="ah-msg">{msg}</div>}
+      {msg && <div className={`ah-msg ${msg.includes('⚠') ? 'aviso' : ''}`}>{msg}</div>}
     </div>
   )
 }
@@ -286,7 +293,7 @@ const CSS = `
 .ah-b{flex:1;min-width:0;border:1.5px solid #CFE3E5;background:#EEF6F7;color:var(--gd);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0 2px}
 .ah-b:hover{border-color:var(--g)}
 .ah-b.poca{background:var(--ambl);border-color:#EBD9A6;color:#8A6410}
-.ah-b.llena{background:var(--bl);border-color:var(--bd);color:var(--grl);cursor:default;font-weight:500}
+.ah-b.llena{background:var(--bl);border-color:var(--bd);color:var(--grl);font-weight:500}
 .ah-b.on{background:var(--gd);border-color:var(--gd);color:#fff}
 .ah-b.espera{background:#fff;border:1.5px dashed var(--amb);color:#8A6410}
 .ah-b.des{box-shadow:inset 0 0 0 1.5px var(--amb)}
@@ -298,6 +305,7 @@ const CSS = `
 .ah-poner{border:0;background:var(--n);color:#fff;border-radius:99px;padding:9px 18px;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
 .ah-poner:disabled{opacity:.4;cursor:default}
 .ah-msg{font-size:13px;color:var(--gd);background:var(--gl);border-radius:10px;padding:8px 12px}
+.ah-msg.aviso{color:#7A5800;background:var(--ambl)}
 `
 
 /** La misma agenda en un velo, para abrirla desde donde haga falta. */

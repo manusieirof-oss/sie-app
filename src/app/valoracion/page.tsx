@@ -462,7 +462,7 @@ export default function ValoracionPage() {
         {guardado?.nombre ? <><strong style={{fontWeight:500}}>{guardado.nombre}</strong> ya tiene su ficha al día. </> : null}
         {guardado?.citas ? 'Lo que falta es repartirle las sesiones.' : 'Lo que falta es ponerle las citas y repartirle las sesiones.'}
       </div>
-      {guardado?.citas && <div style={{fontSize:13,color:guardado.citas.startsWith('Error')?'var(--red)':'var(--gd)',background:guardado.citas.startsWith('Error')?'var(--redl)':'var(--gl)',borderRadius:10,padding:'8px 14px'}}>{guardado.citas}</div>}
+      {guardado?.citas && <div style={{fontSize:13,maxWidth:560,lineHeight:1.5,color:guardado.citas.startsWith('Error')?'var(--red)':guardado.citas.includes('⚠')?'#7A5800':'var(--gd)',background:guardado.citas.startsWith('Error')?'var(--redl)':guardado.citas.includes('⚠')?'var(--ambl)':'var(--gl)',borderRadius:10,padding:'8px 14px'}}>{guardado.citas}</div>}
 
       <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',maxWidth:360,marginTop:6}}>
         {/* AGENDA DE HUECOS: tras la valoracion lo que hace falta es ver donde hay sitio
