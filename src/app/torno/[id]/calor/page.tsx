@@ -1,4 +1,5 @@
 'use client'
+import { VeloAgendaHuecos } from '@/components/AgendaHuecos'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -54,6 +55,7 @@ export default function CalorPage({ params }: { params: { id: string } }) {
   const [plan, setPlan] = useState<PlanCalor | null>(null)
   const planId = useRef<string | null>(null)
   const [guardado, setGuardado] = useState<'' | 'guardando' | 'ok' | 'error'>('')
+  const [citasAbiertas, setCitasAbiertas] = useState(false)
 
   const cargarCitas = useCallback(async () => {
     let q = supabase.from('citas').select('id,fecha,hora').eq('paciente_id', pid).gte('fecha', hoyISO()).neq('estado', 'cancelada').order('fecha').order('hora')
@@ -304,6 +306,8 @@ export default function CalorPage({ params }: { params: { id: string } }) {
           <option value="general">General equilibrado · 3 días</option>
         </select>
         <b style={{ fontSize: 15 }}>{nombre}</b><span className="mc-chip">{N} citas</span>
+        {/* Si hace falta alguna cita mas, aqui mismo, con la agenda de huecos. */}
+        <button className="btn btn-s btn-sm" onClick={() => setCitasAbiertas(true)}>＋ Citas</button>
         <button className="btn btn-p btn-sm" disabled={!mesa || !lista(mesa).length} title="Montar las sesiones de esta fase con la biblioteca"
           onClick={async () => {
             // Se guarda ya (sin esperar al guardado automático) y se pasa a ver las sesiones montadas
@@ -314,8 +318,9 @@ export default function CalorPage({ params }: { params: { id: string } }) {
           }}>Crear sesiones{hayFases ? ' · ' + plan.fases.l[act].n : ''}</button>
       </div>
 
+      {citasAbiertas && <VeloAgendaHuecos pacienteId={pid} nombre={nombre} onCerrar={() => { setCitasAbiertas(false); cargarCitas() }} onCambio={() => cargarCitas()}/>}
       {!N ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--gr)' }}>No tiene citas por delante{sp.get('fin') ? ' hasta esa fecha' : ''}. Dale citas en la agenda y vuelve.
-        <div style={{ marginTop: 12 }}><button className="btn btn-s btn-sm" onClick={() => window.open('/agenda', '_blank')}>Abrir agenda</button></div></div> : (
+        <div style={{ marginTop: 12 }}><button className="btn btn-p btn-sm" onClick={() => setCitasAbiertas(true)}>＋ Ponerle citas</button></div></div> : (
       <div className="mc-mesa">
         {/* ---------- 1 · ALCANCE ---------- */}
         <div className="mc-carta c1">

@@ -1,4 +1,5 @@
 'use client'
+import { VeloAgendaHuecos } from '@/components/AgendaHuecos'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
@@ -59,6 +60,7 @@ export default function ValoracionPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState(false)
+  const [huecos, setHuecos] = useState(false)
   const router = useRouter()
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
@@ -433,10 +435,17 @@ export default function ValoracionPage() {
       </div>
 
       <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',maxWidth:360,marginTop:6}}>
+        {/* AGENDA DE HUECOS: tras la valoracion lo que hace falta es ver donde hay sitio
+            y marcarlo, no la agenda entera. La completa sigue a un toque. */}
         <button className="btn btn-p" style={{justifyContent:'center',padding:'12px'}}
-          onClick={()=>router.push(`/agenda?nuevaCitaPara=${guardado?.id||''}`)}>
+          onClick={()=>setHuecos(true)} disabled={!guardado?.id}>
           <Ic name="calendario" size={14}/> Ponerle las citas
         </button>
+        <button className="btn btn-t" style={{justifyContent:'center',padding:'6px',fontSize:12}}
+          onClick={()=>router.push(`/agenda?nuevaCitaPara=${guardado?.id||''}`)}>
+          Abrir la agenda completa
+        </button>
+        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} onCerrar={()=>setHuecos(false)}/>}
         <button className="btn btn-s" style={{justifyContent:'center',padding:'12px'}}
           onClick={()=>router.push(`/pacientes/${guardado?.id}?tab=entreno`)}>
           <Ic name="entreno" size={14}/> Asignarle las sesiones
