@@ -69,9 +69,15 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
           <div className="field"><label>Trabajo / profesión</label><input className="input" value={form.trabajo} onChange={e=>up('trabajo',e.target.value)} placeholder="ej. Administrativo, enfermera..."/></div>
           <div className="field"><label>Tipo de jornada</label>
             <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}}>
-              {tiposJornada.map((j:string)=>(
-                <span key={j} onClick={()=>up('tipo_jornada',j)} style={{fontSize:10,padding:'4px 10px',borderRadius:99,border:`1px solid ${form.tipo_jornada===j?'var(--g)':'var(--bd)'}`,background:form.tipo_jornada===j?'var(--g)':'var(--w)',color:form.tipo_jornada===j?'#fff':'var(--gr)',cursor:'pointer'}}>{j}</span>
-              ))}
+              {/* VARIAS A LA VEZ (sentado y con pantallas, conductor y esfuerzo...). Se guarda
+                  como texto "A, B" en la misma columna: en la ficha y el resumen se lee igual. */}
+              {tiposJornada.map((j:string)=>{
+                const marcadas = String(form.tipo_jornada||'').split(',').map((x:string)=>x.trim()).filter(Boolean)
+                const on = marcadas.includes(j)
+                return (
+                  <span key={j} onClick={()=>up('tipo_jornada',(on?marcadas.filter((x:string)=>x!==j):[...marcadas,j]).join(', '))} style={{fontSize:10,padding:'4px 10px',borderRadius:99,border:`1px solid ${on?'var(--g)':'var(--bd)'}`,background:on?'var(--g)':'var(--w)',color:on?'#fff':'var(--gr)',cursor:'pointer'}}>{j}</span>
+                )
+              })}
             </div>
           </div>
         </div>
