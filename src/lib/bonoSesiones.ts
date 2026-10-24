@@ -68,6 +68,9 @@ export const esSuelto = (x: any) => x?.modalidad === 'suelto'
  */
 export const esAsignable = (x: any) => !esSuelto(x)
 
+/** En la valoración: viene solo a valorarse y no contrata nada. No es un bono de Ajustes. */
+export const SOLO_VALORACION = 'solo_valoracion'
+
 /** Cómo se describe un tipo de bono en una línea, en listas y desplegables. */
 export function textoModalidad(tipo: any): string {
   if (esSuelto(tipo)) return 'venta suelta'

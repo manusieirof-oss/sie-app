@@ -108,7 +108,7 @@ function secciones(form: any, testsValoracion: any[], tiposClaseOpts: any[], esR
       titulo: 'Plan', icono: 'calendario',
       filas: [
         { k: 'Tipo de clase', v: nombreTipoClase(tiposClaseOpts, form.tipo_clase_def) || '—' },
-        { k: 'Bono', v: (form.bono || '').replace('_', ' ') },
+        { k: 'Bono', v: form.bono === 'solo_valoracion' ? 'Solo valoración (sin bono)' : (form.bono || '').replace('_', ' ') },
         { k: 'Horario preferido', v: horario },
         ...(hp.notas_horario ? [{ k: 'Notas de horario', v: hp.notas_horario }] : []),
         ...(form.notas_plan ? [{ k: 'Notas', v: form.notas_plan }] : []),

@@ -6,7 +6,7 @@ import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimiento
 import { registrarResultadoTest, testsPositivosDe, ladoOpuesto } from '@/lib/tests'
 import { anadirALista, leerLista } from '@/lib/listasPaciente'
 import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
-import { esAsignable } from '@/lib/bonoSesiones'
+import { esAsignable, SOLO_VALORACION } from '@/lib/bonoSesiones'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -318,7 +318,7 @@ export default function ValoracionPage() {
         // Y SOLO SI HAY ALGO QUE ASIGNAR. Un suelto —una valoración a secas— no
         // crea bono: se cobra en el momento y ahí acaba. Abrirle una fila en
         // `bonos` le montaría una cuota mensual que nadie ha contratado.
-        ...(esRevaloracion || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
+        ...(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,programa_nombre:form.programa_nombre,programa_progresion:form.programa_progresion,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar

@@ -3,7 +3,7 @@ import { Ic } from '@/lib/icons'
 import AgendaHuecos from '@/components/AgendaHuecos'
 import { iconTipoClase } from '@/lib/tipos'
 
-import { textoModalidad, esAsignable } from '@/lib/bonoSesiones'
+import { textoModalidad, esAsignable, SOLO_VALORACION } from '@/lib/bonoSesiones'
 import { PROGRESIONES } from '@/lib/sistemas'
 
 export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: any) {
@@ -33,20 +33,27 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
         </div>
         <div className="card">
           <div className="card-title">Qué contrata</div>
-          {bonosOpts.map((b:any)=>(
-            <div key={b.id} onClick={()=>up('bono',b.id)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:`1.5px solid ${form.bono===b.id?'var(--g)':'var(--bd)'}`,background:form.bono===b.id?'var(--gl)':'var(--w)',cursor:'pointer',marginBottom:4,transition:'all .15s'}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>{b.nombre}</div>
-                {/* Los días salen del bono de Ajustes. Antes la valoración los sacaba de
-                    un mapa fijo y decían una cosa distinta de la que se guardaba. */}
-                <div style={{fontSize:9,color:'var(--grl)'}}>{[textoModalidad(b), b.descripcion].filter(Boolean).join(' · ')}</div>
-              </div>
-              {form.bono===b.id&&<div style={{width:16,height:16,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</div>}
-            </div>
-          ))}
+          {/* EN CUADRADITOS: los bonos caben de un vistazo sin bajar. Y al final "Solo
+              valoración", para quien viene a valorarse y no contrata nada: no se le abre
+              bono ni cuota (page.tsx lo salta igual que una venta suelta). */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(92px,1fr))',gap:5}}>
+            {[...bonosOpts, { id: SOLO_VALORACION, nombre: 'Solo valoración', _solo: true }].map((b:any)=>{
+              const sel = form.bono===b.id
+              return (
+                <div key={b.id} onClick={()=>up('bono',b.id)} title={b._solo ? 'Solo se valora: no contrata bono' : [textoModalidad(b), b.descripcion].filter(Boolean).join(' · ')}
+                  style={{position:'relative',padding:'7px 6px',borderRadius:6,textAlign:'center',cursor:'pointer',transition:'all .15s',
+                          border:`1.5px ${b._solo?'dashed':'solid'} ${sel?'var(--g)':'var(--bd)'}`,background:sel?'var(--gl)':'var(--w)'}}>
+                  <div style={{fontSize:10.5,fontWeight:sel?500:400,color:'var(--n)',lineHeight:1.25}}>{b.nombre}</div>
+                  {/* Los días salen del bono de Ajustes (antes, de un mapa fijo que no cuadraba). */}
+                  <div style={{fontSize:8.5,color:'var(--grl)',marginTop:2}}>{b._solo ? 'sin bono' : textoModalidad(b)}</div>
+                  {sel&&<div style={{position:'absolute',top:3,right:4,fontSize:9,color:'var(--g)'}}>✓</div>}
+                </div>
+              )
+            })}
+          </div>
           {/* Una venta suelta no deja nada detrás, y eso hay que decirlo ANTES de
               guardar: si no, se espera ver a esa persona en Cobros el mes que viene. */}
-          {!esAsignable(bonosOpts.find((b:any)=>b.id===form.bono)) && (
+          {form.bono!==SOLO_VALORACION && !esAsignable(bonosOpts.find((b:any)=>b.id===form.bono)) && (
             <div style={{fontSize:9,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',
                          borderRadius:6,padding:'8px 11px',marginTop:6,lineHeight:1.6}}>
               <Ic name="alerta" size={11} style={{verticalAlign:'-2px',marginRight:4}}/>
