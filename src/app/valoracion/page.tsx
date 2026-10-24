@@ -10,6 +10,7 @@ import { esAsignable, SOLO_VALORACION } from '@/lib/bonoSesiones'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
+import { subirFotoPaciente } from '@/lib/fotos'
 import PasoPaciente from './components/PasoPaciente'
 import PasoPacienteRevaloracion from './components/PasoPacienteRevaloracion'
 import PasoAnamnesis from './components/PasoAnamnesis'
@@ -61,6 +62,8 @@ export default function ValoracionPage() {
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState(false)
   const [huecos, setHuecos] = useState(false)
+  // La foto va aparte del formulario: un File no cabe en el borrador (localStorage).
+  const [foto, setFoto] = useState<File|null>(null)
   const router = useRouter()
   const [testsLib, setTestsLib] = useState<any[]>([])
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
@@ -195,7 +198,7 @@ export default function ValoracionPage() {
     if (m === modo) return
     const algoEscrito = form.paciente_id || form.nombre || form.anamnesis || testsValoracion.length > 0
     if (algoEscrito && !confirm('Se perderá lo que llevas escrito en esta pestaña. ¿Cambiar?')) return
-    setModo(m); setStep(1); setForm({...FORM_VACIO, bono: bonosOpts[0]?.id || ''}); setTestsValoracion([]); setTestActivo(null)
+    setFoto(null); setModo(m); setStep(1); setForm({...FORM_VACIO, bono: bonosOpts[0]?.id || ''}); setTestsValoracion([]); setTestActivo(null)
     setPrevio(null); setFirmaCanvas(''); setFirmaAceptada(false); setImagenesAceptada(false); setClinicaAceptada(false)
   }
 
@@ -406,6 +409,12 @@ export default function ValoracionPage() {
           if (!r.ok) alert(`Aviso: no se pudo guardar el test "${t.nombre || ''}" (${r.error}). El resto de la valoración sí se ha guardado.`)
         }
       }
+      // LA FOTO, ya con el paciente creado (la ruta va por su id).
+      if (foto) {
+        const rf = await subirFotoPaciente(pacienteId, foto)
+        if (!rf.ok) alert('Aviso: la foto no se ha guardado (' + rf.error + '). Se puede subir desde su ficha.')
+        else setFoto(null)
+      }
       await supabase.from('eventos_paciente').insert({ paciente_id:pacienteId, tipo:esRevaloracion?'revaloracion':'valoracion_inicial', titulo:esRevaloracion?'Revaloración':'Valoración inicial', descripcion:form.anamnesis||null, fecha:hoyISO() })
       // Ya no se salta solo a la ficha. Lo que toca justo después de valorar es ponerle
       // las citas y repartirle las sesiones, y si se encadenan dos valoraciones seguidas
@@ -484,60 +493,41 @@ export default function ValoracionPage() {
         )
       })()}
 
-      {/* PESTAÑAS · valoración inicial o revaloración */}
-      <div style={{display:'flex',gap:3,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:3,marginBottom:10,width:'fit-content'}}>
-        {([['inicial','Valoración','valoracion'],['revaloracion','Revaloración','recuperar']] as const).map(([m,label,icono])=>(
-          <button key={m} onClick={()=>cambiarModo(m)}
-            style={{fontSize:11,padding:'7px 16px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:6,background:modo===m?'var(--w)':'transparent',color:modo===m?'var(--n)':'var(--grl)',fontWeight:modo===m?500:300,boxShadow:modo===m?'0 1px 3px rgba(0,0,0,.08)':'none'}}>
-            <Ic name={icono} size={13}/> {label}
-          </button>
-        ))}
-      </div>
-      <div style={{fontSize:10,color:'var(--grl)',marginBottom:12,marginTop:-4}}>
-        {esRevaloracion
-          ? 'Paciente que ya tiene valoración: se anota cómo está ahora y se repasan los tests que siguen abiertos. Ni firma ni bono nuevo.'
-          : 'Primera valoración: se crea el paciente si no existe, se firman los consentimientos y se elige bono y plan.'}
-      </div>
-
-      {/* BARRA PROGRESO Y NAVEGACIÓN.
-          Los botones van AQUÍ y no al final del paso: abajo cambiaban de sitio según lo
-          largo que fuera cada pestaña, y con el paciente delante se busca el botón en
-          vez de mirarlo. Arriba a la derecha están siempre en el mismo punto. */}
-      <div style={{background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',padding:'12px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:18}}>
-       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:8}}>
-          {STEPS.map((s,i)=>{
-            const idx=i+1; const cls=idx<step?'done':idx===step?'active':'pending'
-            return (
-              <div key={s} style={{display:'flex',alignItems:'center',flex:1}}>
-                <div onClick={()=>idx<step&&setStep(idx)} style={{width:24,height:24,borderRadius:'50%',border:`1.5px solid ${cls==='done'?'var(--g)':cls==='active'?'var(--g)':'var(--bd)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:500,color:cls==='done'||cls==='active'?'var(--g)':'var(--grl)',background:cls==='done'?'var(--g)':'var(--w)',cursor:idx<step?'pointer':'default',flexShrink:0}}>
-                  {cls==='done'?<span style={{color:'#fff'}}>✓</span>:idx}
-                </div>
-                {i<STEPS.length-1&&<div style={{flex:1,height:1.5,background:idx<step?'var(--g)':'var(--bd)',margin:'0 3px'}}/>}
-              </div>
-            )
-          })}
-        </div>
-        <div style={{display:'flex'}}>
-          {STEPS.map((s,i)=>(
-            <div key={s} style={{flex:1,textAlign:'center',fontSize:8,color:i+1===step?'var(--g)':i+1<step?'var(--g)':'var(--grl)',fontWeight:i+1===step?500:300}}>{s}</div>
+      {/* CABECERA LIMPIA (como Agenda y Pacientes): fija arriba, con el tipo de
+          valoracion a la izquierda, los pasos en medio y Atras/Continuar a la derecha.
+          Los botones siguen arriba y siempre en el mismo sitio: con el paciente delante
+          se busca el boton en vez de mirarlo si cambia de sitio segun lo largo del paso. */}
+      <div className="val-cab">
+        <div className="ag-seg" title={esRevaloracion
+          ? 'Paciente que ya tiene valoración: cómo está ahora y los tests que siguen abiertos. Ni firma ni bono nuevo.'
+          : 'Primera valoración: se crea el paciente si no existe, firma y se elige bono y plan.'}>
+          {([['inicial','Valoración'],['revaloracion','Revaloración']] as const).map(([m,label])=>(
+            <button key={m} className={modo===m?'on':''} onClick={()=>cambiarModo(m)}>{label}</button>
           ))}
         </div>
-        <div style={{height:3,background:'var(--bm)',borderRadius:2,overflow:'hidden',marginTop:8}}>
-          <div style={{height:'100%',borderRadius:2,background:'var(--g)',width:`${pct}%`,transition:'width .3s'}}/>
+        <div className="val-pasos">
+          {STEPS.map((s,i)=>{
+            const idx=i+1; const cls=idx<step?'hecho':idx===step?'on':''
+            return (
+              <button key={s} className={`val-paso ${cls}`} disabled={idx>=step} onClick={()=>setStep(idx)}>
+                <span className="val-num">{idx<step?'✓':idx}</span><span className="val-txt">{s}</span>
+              </button>
+            )
+          })}
+          <div className="val-barra"><div style={{width:`${pct}%`}}/></div>
         </div>
-       </div>
-       <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-         <button className="btn btn-s" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?'hidden':'visible'}}>← Atrás</button>
-         {step<STEPS.length
-           ? <button className="btn btn-p" onClick={()=>setStep(s=>Math.min(STEPS.length,s+1))} disabled={bloqueado} title={bloqueado?'Elige antes el paciente':undefined}>Continuar →</button>
-           : <span style={{fontSize:11,color:'var(--grl)',padding:'0 6px'}}>Último paso</span>}
-       </div>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+          <button className="ag-hoy" onClick={()=>setStep(s=>Math.max(1,s-1))} style={{visibility:step===1?'hidden':'visible'}}>← Atrás</button>
+          {step<STEPS.length
+            ? <button className="ag-nueva" onClick={()=>setStep(s=>Math.min(STEPS.length,s+1))} disabled={bloqueado} title={bloqueado?'Elige antes el paciente':undefined}>Continuar →</button>
+            : <span className="ag-resumen">Último paso</span>}
+        </div>
       </div>
 
+      <div className="valo">
       {paso==='Paciente'&&(esRevaloracion
         ? <PasoPacienteRevaloracion form={form} pacientes={pacientes} previo={previo} cargando={cargandoPrevio} onElegir={elegirParaRevaloracion} onLimpiar={limpiarPaciente}/>
-        : <PasoPaciente form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>)}
+        : <PasoPaciente foto={foto} setFoto={setFoto} form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>)}
       {paso==='Anamnesis'&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} modo={modo} previo={previo}/>}
       {paso==='Historial'&&<PasoHistorial form={form} up={up} etiquetasLib={etiquetasLib} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {paso==='Completar'&&<PasoCompletar form={form} up={up} etiquetasLib={etiquetasLib} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
@@ -546,6 +536,7 @@ export default function ValoracionPage() {
         paciente={{ id: form.paciente_id, sexo: form.sexo, fecha_nacimiento: form.fecha_nacimiento }}/>}
       {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
       {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo} clinica={clinica}/>}
+      </div>
 
     </>
   )

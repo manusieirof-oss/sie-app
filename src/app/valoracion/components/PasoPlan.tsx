@@ -36,7 +36,7 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
           {/* EN CUADRADITOS: los bonos caben de un vistazo sin bajar. Y al final "Solo
               valoración", para quien viene a valorarse y no contrata nada: no se le abre
               bono ni cuota (page.tsx lo salta igual que una venta suelta). */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(92px,1fr))',gap:5}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))',gap:5}}>
             {[...bonosOpts, { id: SOLO_VALORACION, nombre: 'Solo valoración', _solo: true }].map((b:any)=>{
               const sel = form.bono===b.id
               return (

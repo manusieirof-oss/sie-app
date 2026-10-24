@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { nombreCorto } from '@/lib/ejercicios'
 import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
 import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
@@ -186,12 +187,7 @@ export default function ExploradorEjercicios({
 
   const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes
   const nombrePortada = (e: any) => ejercicios.find(x => x.id === e.portada_id)?.nombre || ''
-  /** El nombre de la variante sin el de su familia delante: "Curl con barra · Agarre ancho" → "Agarre ancho". */
-  const nombreCorto = (e: any) => {
-    const p = nombrePortada(e)
-    const n = String(e.nombre || '')
-    return p && n.toLowerCase().startsWith(p.toLowerCase()) ? (n.slice(p.length).replace(/^\s*[·\-–:]\s*/, '') || n) : n
-  }
+  const nombreCortoDe = (e: any) => nombreCorto(e.nombre, nombrePortada(e))
   /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
   const visibles = hayFiltro ? filtrados : filtrados.filter(e => !esHijo(e)).flatMap(e =>
     familiasAbiertas.includes(e.id) ? [e, ...(hijosDe[e.id] || [])] : [e])
@@ -224,7 +220,7 @@ export default function ExploradorEjercicios({
               título es solo lo que la distingue ("Agarre ancho"), sin repetir
               "Curl con barra ·" en cada tarjeta. */}
           {esHijo(e) && <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{nombrePortada(e)}</div>}
-          <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.3 }}>{vc ? vc.nombre : esHijo(e) ? nombreCorto(e) : e.nombre}</div>
+          <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.3 }}>{vc ? vc.nombre : esHijo(e) ? nombreCortoDe(e) : e.nombre}</div>
           {vc && <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>{e.nombre}</div>}
           {/* Cómo se mide decide qué campos pedirá la sesión: conviene saberlo antes. */}
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>

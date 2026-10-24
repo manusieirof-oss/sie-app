@@ -406,6 +406,22 @@ export async function eliminarEjercicio(ejercicioId: string) {
 // portadas con "N variantes" y se despliegan. Ver `entrenamiento/familias`.
 // ---------------------------------------------------------------------------
 
+/**
+ * EL NOMBRE DE UNA VARIANTE se lee igual en todas las pantallas: el de su principal
+ * encima, en pequeño, y debajo lo que la distingue. Si el nombre ya lleva delante el
+ * del principal ("Curl con barra · Agarre ancho") se quita para no repetirlo.
+ */
+export function nombreCorto(nombre: string, principal?: string | null) {
+  const n = String(nombre || '')
+  const p = String(principal || '')
+  return p && n.toLowerCase().startsWith(p.toLowerCase()) ? (n.slice(p.length).replace(/^\s*[·\-–:]\s*/, '') || n) : n
+}
+/** En una sola línea (listas, sesiones, registros): "Principal · Variante". */
+export function nombreCompleto(nombre: string, principal?: string | null) {
+  const c = nombreCorto(nombre, principal)
+  return principal && c !== principal ? `${principal} · ${c}` : String(nombre || '')
+}
+
 const malE = (e: any) => ({ ok: false as const, error: e?.message || String(e) })
 
 /** Nueva variante a partir de un ejercicio: copia lo que define el movimiento, con otro nombre. */
@@ -431,7 +447,15 @@ export async function moverAFamilia(ejId: string, destino: any) {
   const { error: e1 } = await supabase.from('ejercicios').update({ portada_id: portada }).eq('portada_id', ejId)
   if (e1) return malE(e1)
   const { error } = await supabase.from('ejercicios').update({ portada_id: portada }).eq('id', ejId)
-  return error ? malE(error) : { ok: true as const }
+  if (error) return malE(error)
+  // Con el nombre completo ("Principal · Variante"): asi se lee igual en sesiones y registros.
+  const { data: dos } = await supabase.from('ejercicios').select('id,nombre').in('id', [ejId, portada])
+  const yo = (dos || []).find((x: any) => x.id === ejId), pr = (dos || []).find((x: any) => x.id === portada)
+  if (yo && pr) {
+    const nuevo = nombreCompleto(yo.nombre, pr.nombre)
+    if (nuevo !== yo.nombre) await supabase.from('ejercicios').update({ nombre: nuevo }).eq('id', ejId)
+  }
+  return { ok: true as const }
 }
 
 /** Esta variante pasa a ser la portada: la antigua y las demás cuelgan de ella. */

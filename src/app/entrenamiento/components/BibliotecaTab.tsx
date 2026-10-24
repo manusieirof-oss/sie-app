@@ -10,7 +10,7 @@ import { MediosEjercicio, EditorAnimacion, EditorVideos } from '@/components/Med
 import { animacionDe } from '@/lib/anim3d/asignar'
 import { videosDe } from '@/lib/videos'
 import { EditorTrabajo, EditorAnatomia, ResumenTrabajo, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia } from '@/components/TrabajoEjercicio'
-import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido, TIPOS_MEDIDA, nombreMedida } from '@/lib/ejercicios'
+import { subirImagenEjercicio, subirImagenVariante, eliminarEjercicio, usosDeEjercicio, promoverVariante, similaresA, crearVariante, moverAFamilia, hacerPortada, sacarDeFamilia, LATERALIDADES, problemasDeEjercicio, crearEjercicioRapido, TIPOS_MEDIDA, nombreMedida, nombreCorto } from '@/lib/ejercicios'
 
 
 export function EditorLista({ items, onChange, disabled, label, placeholder, icono }: any) {
@@ -465,7 +465,7 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                         const chip = (x: any) => (
                           <button key={x.id} type="button" className={`chip-sel ${x.id===ejSeleccionado.id?'on':''}`} style={{fontSize:12}}
                             onClick={()=>{ if (x.id!==ejSeleccionado.id) { setEjSeleccionado(x); setVarianteActiva(-1) } }}>
-                            {x.id===raiz.id && <span style={{opacity:.7,marginRight:4}}>★ Principal ·</span>}{x.nombre}
+                            {x.id===raiz.id && <span style={{opacity:.7,marginRight:4}}>★ Principal ·</span>}{x.id===raiz.id ? x.nombre : nombreCorto(x.nombre, raiz.nombre)}
                           </button>
                         )
                         return (

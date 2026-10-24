@@ -754,3 +754,39 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .m-ent small{display:block;font-size:12.5px;color:var(--gd)}
 .m-ent em{display:block;font-size:12px;color:var(--grl);font-style:normal;margin-top:2px}
 .m-acciones button.on{background:var(--gd);color:#fff}
+
+/* ── VALORACIÓN · mismo lenguaje que Agenda y Pacientes ──────────────────────
+   Cabecera fija en una línea (tipo · pasos · Atrás/Continuar) y tarjetas suaves
+   sin borde. Los pasos tienen mucho estilo en línea con letra de 8-10 px, pensado
+   para cuando todo iba apretado: aquí se sube a un tamaño que se lee de pie, sin
+   reescribir cada componente. Las etiquetas en MAYÚSCULAS pasan a frase normal. */
+.val-cab{position:sticky;top:0;z-index:20;background:var(--bl);margin:-24px -26px 14px;padding:18px 26px 12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.val-cab:not(:first-child){margin-top:0}
+.val-pasos{flex:1;min-width:300px;display:flex;align-items:center;gap:2px;position:relative;padding-bottom:7px}
+.val-paso{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:none;background:none;font-family:inherit;font-size:12.5px;color:var(--grl);padding:4px 2px;cursor:default;white-space:nowrap}
+.val-paso.hecho{cursor:pointer;color:var(--gd)}
+.val-paso.hecho:hover .val-txt{text-decoration:underline}
+.val-paso.on{color:var(--n);font-weight:600}
+.val-num{width:20px;height:20px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;background:#ECE9E2;color:var(--grl);flex-shrink:0}
+.val-paso.on .val-num{background:var(--n);color:#fff}
+.val-paso.hecho .val-num{background:var(--gl);color:var(--gd)}
+.val-barra{position:absolute;left:0;right:0;bottom:0;height:2px;background:#ECE9E2;border-radius:2px;overflow:hidden}
+.val-barra div{height:100%;background:var(--g);transition:width .3s}
+.ag-nueva:disabled{opacity:.45;cursor:not-allowed}
+@media (max-width:900px){.val-txt{display:none}.val-paso.on .val-txt{display:inline}}
+
+.valo .card{border:none;border-radius:16px;box-shadow:0 3px 14px rgba(38,40,37,.06);padding:18px 20px}
+.valo .card-title{font-size:15px;font-weight:600;letter-spacing:-.1px;text-transform:none;color:var(--n);margin-bottom:14px}
+.valo .field label,.valo label{font-size:12px;color:var(--gr)}
+.valo .input{border-radius:10px;background:#FBFAF7;border-color:var(--bd2)}
+.valo .input:focus{background:var(--w)}
+.valo [style*="text-transform: uppercase"]{text-transform:none!important;letter-spacing:0!important;font-size:12.5px!important;font-weight:600!important}
+.valo [style*="font-size: 8px"],.valo [style*="font-size: 8.5px"],.valo [style*="font-size: 9px"]{font-size:11.5px!important}
+.valo [style*="font-size: 10px"],.valo [style*="font-size: 10.5px"]{font-size:12.5px!important}
+.valo [style*="font-size: 11px"]{font-size:13px!important}
+.valo [style*="font-weight: 300"]{font-weight:400!important}
+.val-foto-fila{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.val-foto{width:68px;height:68px;border-radius:99px;background:var(--gl);color:var(--gd);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;transition:box-shadow .15s}
+.val-foto:hover{box-shadow:var(--ring)}
+.val-foto img{width:100%;height:100%;object-fit:cover}
+.val-link{border:none;background:none;font-family:inherit;font-size:inherit;color:var(--gd);cursor:pointer;padding:0;text-decoration:underline}

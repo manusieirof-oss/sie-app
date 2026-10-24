@@ -9,7 +9,7 @@ import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { PROGRESIONES } from '@/lib/sistemas'
-import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo } from '@/lib/ejercicios'
+import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo, nombreCorto } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
@@ -92,6 +92,9 @@ export default function TornoPage() {
     setYendo(id); setTimeout(() => router.push(`/torno/mapa/${t}/${id}`), 360)
   }
   const [ejs, setEjs] = useState<any[] | null>(null)
+  // Nombre del principal de cada variante, para escribirla como en la biblioteca.
+  const nomPorId = new Map<string, string>((ejs || []).map((x: any) => [x.id, x.nombre]))
+  const principalDe = (x: any) => nomPorId.get(x.portada_id) || ''
   const [soloIncompletos, setSoloIncompletos] = useState(false)
   // Por completar: qué falta (vacío = cualquier cosa).
   const [faltaFiltro, setFaltaFiltro] = useState<string[]>([])
@@ -435,10 +438,11 @@ export default function TornoPage() {
                     )}
                     <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={30}/>
                     <div style={{ padding: '8px 10px' }}>
-                      <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.nombre}</div>
+                      {/* Igual que en la biblioteca: su principal encima y lo que la distingue debajo. */}
+                      {e.portada_id && <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{principalDe(e)}</div>}
+                      <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.portada_id ? nombreCorto(e.nombre, principalDe(e)) : e.nombre}</div>
                       {faltan > 0 && <div style={{ fontSize: 10.5, color: '#A87E2C', marginTop: 3 }}>Falta{faltan > 1 ? `n ${faltan} cosas` : ' 1 cosa'}</div>}
                       {!e.imagen_url && <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}><Ic name="camara" size={10}/> Sin foto propia</div>}
-                      {e.portada_id && familiaAbierta === e.portada_id && <div style={{ fontSize: 10.5, color: 'var(--gd)', marginTop: 3 }}>Variante</div>}
                       {!e.portada_id && nVariantes[e.id] > 0 && !busca.trim() && !soloIncompletos && (
                         <span className="t-falta" style={{ marginTop: 5, padding: '2px 8px', fontSize: 11, background: familiaAbierta === e.id ? 'var(--gl)' : 'var(--bl)' }}
                           onClick={ev => { ev.stopPropagation(); setFamiliaAbierta(familiaAbierta === e.id ? null : e.id) }}>

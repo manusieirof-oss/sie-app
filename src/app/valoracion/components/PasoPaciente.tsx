@@ -1,11 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TEXTO_DATOS, TEXTO_IMAGENES, TEXTO_CLINICA } from '@/lib/textosLegales'
 import { Ic } from '@/lib/icons'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import FirmaCanvas from '@/components/FirmaCanvas'
 
-export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, clinicaAceptada, setClinicaAceptada }: any) {
+export default function PasoPaciente({ foto, setFoto, form, up, pacientes, comoNosConocioOpts, firmaCanvas, setFirmaCanvas, firmaAceptada, setFirmaAceptada, imagenesAceptada, setImagenesAceptada, clinicaAceptada, setClinicaAceptada }: any) {
   const [docAbierto, setDocAbierto] = useState<null|'datos'|'imagenes'|'clinica'>(null)
 
   return (
@@ -57,6 +57,9 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
             </div>
           )
         })()}
+        {/* LA FOTO, aqui mismo: con el paciente delante es cuando se hace. Sin ella, en
+            el taller y la agenda solo salen iniciales. Se sube al guardar la valoracion. */}
+        <HacerFoto foto={foto} setFoto={setFoto}/>
         <div className="field"><label>Paciente existente (opcional)</label>
           <BuscadorPacientes
             pacientes={pacientes}
@@ -173,13 +176,36 @@ export default function PasoPaciente({ form, up, pacientes, comoNosConocioOpts, 
             <div style={{display:'flex',gap:8,marginTop:12,justifyContent:'flex-end'}}>
               <button className="btn btn-d btn-sm" onClick={()=>setDocAbierto(null)}>Cerrar</button>
               <button className="btn btn-p btn-sm" onClick={()=>{
-                if(docAbierto==='datos')setFirmaAceptada(true); else setImagenesAceptada(true);
+                if(docAbierto==='datos')setFirmaAceptada(true); else if(docAbierto==='clinica')setClinicaAceptada(true); else setImagenesAceptada(true);
                 setDocAbierto(null)
               }}>✓ He leído y acepto</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Circulo para hacer la foto. En tablet/movil abre la camara trasera; en el ordenador, elegir archivo. */
+function HacerFoto({ foto, setFoto }: { foto: File|null, setFoto: (f: File|null) => void }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    if (!foto) { setUrl(''); return }
+    const u = URL.createObjectURL(foto); setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [foto])
+  return (
+    <div className="val-foto-fila">
+      <label className="val-foto" title={foto ? 'Repetir la foto' : 'Hacer la foto'}>
+        {url ? <img src={url} alt=""/> : <Ic name="camara" size={22}/>}
+        <input type="file" accept="image/*" capture="environment" style={{display:'none'}}
+          onChange={e => { const f = e.target.files?.[0]; if (f) setFoto(f); e.target.value = '' }}/>
+      </label>
+      <div>
+        <div style={{fontSize:13.5,color:'var(--n)',fontWeight:500}}>{foto ? 'Foto hecha' : 'Hacer la foto'}</div>
+        <div style={{fontSize:12,color:'var(--grl)'}}>{foto ? <>Se guarda al terminar · <button type="button" className="val-link" onClick={() => setFoto(null)}>quitar</button></> : 'Para reconocerle en el taller y la agenda'}</div>
+      </div>
     </div>
   )
 }
