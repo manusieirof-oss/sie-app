@@ -65,7 +65,15 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
       </div>
       <div>
         <div className="card">
-          <div className="card-title">Horario preferido</div>
+          <div className="card-title">Horario y citas
+            {/* CUANTO SE AGENDA. Al guardar la valoracion se le ponen ya las citas de lo
+                marcado, repetidas cada semana este tiempo. "Solo apuntar" = como antes. */}
+            <div className="ag-seg" style={{textTransform:'none',letterSpacing:0}}>
+              {[[1,'1 mes'],[2,'2 meses'],[3,'3 meses'],[0,'Solo apuntar']].map(([m,t])=>(
+                <button key={m} className={(hp.meses ?? 1)===m?'on':''} onClick={()=>upHp('meses',m)}>{t}</button>
+              ))}
+            </div>
+          </div>
 
           {/* HORARIO PREFERIDO = LA AGENDA DE HUECOS. Se ve donde hay sitio y se marcan las
               horas que le vienen bien; las llenas quedan como "si hay hueco". Al ponerle las
@@ -77,6 +85,13 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
             up('dias_asistencia', Array.from(new Set(v.map(x => L[x.dia]))).join(','))
             if (v[0]) up('franja', v[0].hora < '15:00' ? 'manana' : 'tarde')
           }}/>
+          {(hp.huecos||[]).some((x:any)=>!x.espera) && (
+            <div style={{fontSize:12.5,color:(hp.meses ?? 1)?'var(--gd)':'var(--grl)',margin:'8px 0 12px'}}>
+              {(hp.meses ?? 1)
+                ? <>Al guardar se le ponen las citas de lo marcado durante <b>{hp.meses ?? 1} {(hp.meses ?? 1)===1?'mes':'meses'}</b>. Las de "si hay hueco" quedan solo apuntadas.</>
+                : 'Solo se apunta su horario: las citas se ponen después.'}
+            </div>
+          )}
 
           {/* NOTAS DE HORARIO */}
           <div className="field"><label>Notas de horario (opcional)</label>

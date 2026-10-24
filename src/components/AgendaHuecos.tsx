@@ -25,6 +25,61 @@ const corta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES
 /** Un hueco preferido: dia de la semana (0 = lunes), hora y sala. `espera` = estaba lleno: "si queda sitio". */
 export type HuecoPref = { dia: number, hora: string, sala: string, espera?: boolean }
 
+/** Dia cerrado (festivo o cierre de Ajustes): devuelve el motivo, o '' si se abre. */
+export function cerradoEn(f: string, eventos: any[]) {
+  if (festivoDe(f)) return festivoDe(f)!.nombre
+  const ev = (eventos || []).find((e: any) => (e.tipo === 'cierre' || e.tipo === 'festivo') && (e.anual
+    ? f.slice(5) >= e.fecha_inicio.slice(5) && f.slice(5) <= (e.fecha_fin || e.fecha_inicio).slice(5)
+    : f >= e.fecha_inicio && f <= (e.fecha_fin || e.fecha_inicio)))
+  return ev ? (ev.titulo || 'Cerrado') : ''
+}
+
+/**
+ * PONER LAS CITAS de unos huecos, repetidas N semanas. Lo usa la rejilla y la
+ * valoracion al guardar. Las clases llenas o los dias cerrados se saltan y se dice;
+ * lo demas (bono, no repetir hora) lo hace crearCitasPlan como en la agenda.
+ */
+export async function agendarHuecos(pacienteId: string, base: { fecha: string, hora: string, sala: string }[], semanas: number, tipoClase?: string) {
+  const { data } = await supabase.from('ajustes').select('clave,valor').in('clave', ['clinica_max_personas_sala', 'eventos_calendario', 'tipos_clase'])
+  const m: Record<string, string> = Object.fromEntries((data || []).map((x: any) => [x.clave, x.valor || '']))
+  const max = parseInt(m.clinica_max_personas_sala || '6') || 6
+  let eventos: any[] = []; try { const e = JSON.parse(m.eventos_calendario || '[]'); if (Array.isArray(e)) eventos = e } catch {}
+  let tipoPac = tipoClase || ''
+  if (!tipoPac) { const { data: p } = await supabase.from('pacientes').select('tipo_clase').eq('id', pacienteId).maybeSingle(); tipoPac = (p as any)?.tipo_clase || '' }
+  const tipo = parseTiposClase(m.tipos_clase).find((t: any) => t.valor === tipoPac)
+
+  const pedidos = base.flatMap(b => Array.from({ length: semanas }, (_, w) => ({ ...b, fecha: masDias(b.fecha, 7 * w) })))
+  const fs = Array.from(new Set(pedidos.map(p => p.fecha)))
+  const c2: Record<string, number> = {}
+  for (let i = 0; i < fs.length; i += 100) {
+    const { data: otras } = await supabase.from('citas').select('fecha,hora,sala').in('fecha', fs.slice(i, i + 100)).neq('estado', 'cancelada')
+    ;(otras || []).forEach((c: any) => { const k = `${c.fecha}|${String(c.hora).slice(0, 5)}|${c.sala}`; c2[k] = (c2[k] || 0) + 1 })
+  }
+  const libres = pedidos.filter(p => (c2[`${p.fecha}|${p.hora}|${p.sala}`] || 0) < max && !cerradoEn(p.fecha, eventos))
+  const saltadas = pedidos.length - libres.length
+  const r = await crearCitasPlan(libres, { pacienteId, hora: libres[0]?.hora || '10:00', ...(tipo ? { tipo: tipo.valor, duracionMin: tipo.duracion } : {}) })
+  if (r.ok === false) return { ok: false as const, creadas: r.creadas, texto: 'Error: ' + r.error + (r.creadas ? ` (se pusieron ${r.creadas})` : '') }
+  const texto = `✓ ${r.creadas} cita${r.creadas === 1 ? '' : 's'} puesta${r.creadas === 1 ? '' : 's'}`
+    + (saltadas ? ` · ${saltadas} saltada${saltadas === 1 ? '' : 's'} por clase llena o cerrado` : '')
+    + (r.yaTenia ? ` · ${r.yaTenia} ya las tenía` : '')
+    + (r.sinBono ? ` · ${r.sinBono} fuera del bono` : '')
+  return { ok: true as const, creadas: r.creadas, texto }
+}
+
+/** De los huecos preferidos (dia de la semana) a la primera fecha de cada uno desde mañana. */
+export function primerasFechas(huecos: HuecoPref[]) {
+  const hoy = hoyISO()
+  const lunes = lunesDe(hoy)
+  return huecos.filter(h => !h.espera).map(h => {
+    let f = masDias(lunes, h.dia)
+    if (f <= hoy) f = masDias(f, 7)
+    return { fecha: f, hora: h.hora, sala: h.sala }
+  })
+}
+
+/** Meses → semanas de citas (un mes son 4 semanas y pico). */
+export const semanasDeMeses = (m: number) => Math.round(m * 4.35)
+
 /**
  * MODO PREFERENCIA (valoracion): aun no hay paciente o no se le dan citas todavia. Se
  * marcan las horas que le vienen bien; si una esta llena tambien se puede marcar, y
@@ -82,13 +137,7 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
     onPreferencia!(ya ? (preferencia || []).filter(p => p !== ya) : [...(preferencia || []), { dia, hora: h, sala: s, ...(llena ? { espera: true } : {}) }])
   }
 
-  const cerrado = (f: string) => {
-    if (festivoDe(f)) return festivoDe(f)!.nombre
-    const ev = (cfg?.eventos || []).find((e: any) => (e.tipo === 'cierre' || e.tipo === 'festivo') && (e.anual
-      ? f.slice(5) >= e.fecha_inicio.slice(5) && f.slice(5) <= (e.fecha_fin || e.fecha_inicio).slice(5)
-      : f >= e.fecha_inicio && f <= (e.fecha_fin || e.fecha_inicio)))
-    return ev ? (ev.titulo || 'Cerrado') : ''
-  }
+  const cerrado = (f: string) => cerradoEn(f, cfg?.eventos || [])
 
   const alternar = (k: string) => { setMsg(''); setMarcadas(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n }) }
 
@@ -96,24 +145,12 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
     if (!marcadas.size || !cfg || !pacienteId) return
     setOcupado(true); setMsg('')
     const base = Array.from(marcadas).map(k => { const [fecha, hora, s] = k.split('|'); return { fecha, hora, sala: s } })
-    const pedidos = base.flatMap(b => Array.from({ length: semanas }, (_, w) => ({ ...b, fecha: masDias(b.fecha, 7 * w) })))
-    // Plaza en las semanas siguientes: las que esten llenas se saltan.
-    const fs = Array.from(new Set(pedidos.map(p => p.fecha)))
-    const { data: otras } = await supabase.from('citas').select('fecha,hora,sala').in('fecha', fs).neq('estado', 'cancelada')
-    const c2: Record<string, number> = {}
-    ;(otras || []).forEach((c: any) => { const k = `${c.fecha}|${String(c.hora).slice(0, 5)}|${c.sala}`; c2[k] = (c2[k] || 0) + 1 })
-    const libres = pedidos.filter(p => (c2[`${p.fecha}|${p.hora}|${p.sala}`] || 0) < cfg.max && !cerrado(p.fecha))
-    const saltadas = pedidos.length - libres.length
-    const tipo = cfg.tipos.find((t: any) => t.valor === tipoPac)
-    const r = await crearCitasPlan(libres, { pacienteId, hora: libres[0]?.hora || '10:00', ...(tipo ? { tipo: tipo.valor, duracionMin: tipo.duracion } : {}) })
+    const res = await agendarHuecos(pacienteId, base, semanas)
     setOcupado(false)
-    if (r.ok === false) { setMsg('Error: ' + r.error + (r.creadas ? ` (se pusieron ${r.creadas})` : '')); return }
+    if (res.ok === false) { setMsg(res.texto); return }
     setMarcadas(new Set())
-    setMsg(`✓ ${r.creadas} cita${r.creadas === 1 ? '' : 's'} puesta${r.creadas === 1 ? '' : 's'}`
-      + (saltadas ? ` · ${saltadas} saltada${saltadas === 1 ? '' : 's'} por clase llena o cerrado` : '')
-      + (r.yaTenia ? ` · ${r.yaTenia} ya las tenía` : '')
-      + (r.sinBono ? ` · ${r.sinBono} fuera del bono` : ''))
-    cargar(); onCambio?.(r.creadas)
+    setMsg(res.texto)
+    cargar(); onCambio?.(res.creadas)
   }
 
   if (!cfg) return <div className="ah-nota">Cargando la agenda…</div>

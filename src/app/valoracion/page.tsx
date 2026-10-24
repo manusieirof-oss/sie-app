@@ -1,5 +1,5 @@
 'use client'
-import { VeloAgendaHuecos } from '@/components/AgendaHuecos'
+import { VeloAgendaHuecos, agendarHuecos, primerasFechas, semanasDeMeses } from '@/components/AgendaHuecos'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
@@ -104,7 +104,7 @@ export default function ValoracionPage() {
   const [previo, setPrevio] = useState<any>(null)
   const [cargandoPrevio, setCargandoPrevio] = useState(false)
   /** El paciente recién guardado: a dónde llevan los botones del final. */
-  const [guardado, setGuardado] = useState<{id:string,nombre:string}|null>(null)
+  const [guardado, setGuardado] = useState<{id:string,nombre:string,citas?:string}|null>(null)
   const [form, setForm] = useState({...FORM_VACIO})
 
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
@@ -413,6 +413,15 @@ export default function ValoracionPage() {
           if (!r.ok) alert(`Aviso: no se pudo guardar el test "${t.nombre || ''}" (${r.error}). El resto de la valoración sí se ha guardado.`)
         }
       }
+      // LAS CITAS, ya desde la valoracion: lo marcado en Plan, repetido cada semana los
+      // meses elegidos. Lo "si hay hueco" no se agenda: queda en su horario preferido.
+      let citasTxt = ''
+      const hpf: any = form.horario_pref || {}
+      const mesesCitas = hpf.meses ?? 1
+      if (!esRevaloracion && mesesCitas > 0 && (hpf.huecos||[]).some((x:any)=>!x.espera)) {
+        const rc = await agendarHuecos(pacienteId, primerasFechas(hpf.huecos), semanasDeMeses(mesesCitas), form.tipo_clase_def || undefined)
+        citasTxt = rc.ok ? `${rc.texto} · ${mesesCitas} ${mesesCitas===1?'mes':'meses'}` : rc.texto
+      }
       // LA FOTO, ya con el paciente creado (la ruta va por su id).
       if (foto) {
         const rf = await subirFotoPaciente(pacienteId, foto)
@@ -424,7 +433,7 @@ export default function ValoracionPage() {
       // las citas y repartirle las sesiones, y si se encadenan dos valoraciones seguidas
       // hay que poder dejarlo para luego sin perder al paciente: no se marca nada, la
       // lista de pacientes ya avisa de quién se quedó sin citas.
-      setGuardado({ id: pacienteId, nombre: `${form.nombre} ${form.apellidos}`.trim() })
+      setGuardado({ id: pacienteId, nombre: `${form.nombre} ${form.apellidos}`.trim(), citas: citasTxt })
       // Guardada de verdad: el borrador ya no hace falta.
       try { localStorage.removeItem(CLAVE_BORRADOR) } catch {}
       setExito(true)
@@ -444,21 +453,22 @@ export default function ValoracionPage() {
       <div style={{fontSize:17,fontWeight:400,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada':'Valoración guardada'}</div>
       <div style={{fontSize:13,color:'var(--gr)',textAlign:'center',maxWidth:440,lineHeight:1.6}}>
         {guardado?.nombre ? <><strong style={{fontWeight:500}}>{guardado.nombre}</strong> ya tiene su ficha al día. </> : null}
-        Lo que falta es ponerle las citas y repartirle las sesiones.
+        {guardado?.citas ? 'Lo que falta es repartirle las sesiones.' : 'Lo que falta es ponerle las citas y repartirle las sesiones.'}
       </div>
+      {guardado?.citas && <div style={{fontSize:13,color:guardado.citas.startsWith('Error')?'var(--red)':'var(--gd)',background:guardado.citas.startsWith('Error')?'var(--redl)':'var(--gl)',borderRadius:10,padding:'8px 14px'}}>{guardado.citas}</div>}
 
       <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',maxWidth:360,marginTop:6}}>
         {/* AGENDA DE HUECOS: tras la valoracion lo que hace falta es ver donde hay sitio
             y marcarlo, no la agenda entera. La completa sigue a un toque. */}
         <button className="btn btn-p" style={{justifyContent:'center',padding:'12px'}}
           onClick={()=>setHuecos(true)} disabled={!guardado?.id}>
-          <Ic name="calendario" size={14}/> Ponerle las citas
+          <Ic name="calendario" size={14}/> {guardado?.citas ? 'Ver o añadir citas' : 'Ponerle las citas'}
         </button>
         <button className="btn btn-t" style={{justifyContent:'center',padding:'6px',fontSize:12}}
           onClick={()=>router.push(`/agenda?nuevaCitaPara=${guardado?.id||''}`)}>
           Abrir la agenda completa
         </button>
-        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} preMarcadas={((form.horario_pref as any)?.huecos||[]).filter((x:any)=>!x.espera)} onCerrar={()=>setHuecos(false)}/>}
+        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} preMarcadas={guardado.citas ? [] : ((form.horario_pref as any)?.huecos||[]).filter((x:any)=>!x.espera)} onCerrar={()=>setHuecos(false)}/>}
         <button className="btn btn-s" style={{justifyContent:'center',padding:'12px'}}
           onClick={()=>router.push(`/pacientes/${guardado?.id}?tab=entreno`)}>
           <Ic name="entreno" size={14}/> Asignarle las sesiones
