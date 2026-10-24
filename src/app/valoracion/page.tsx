@@ -422,6 +422,13 @@ export default function ValoracionPage() {
         const rc = await agendarHuecos(pacienteId, primerasFechas(hpf.huecos), semanasDeMeses(mesesCitas), form.tipo_clase_def || undefined)
         citasTxt = rc.ok ? `${rc.texto} · ${mesesCitas} ${mesesCitas===1?'mes':'meses'}` : rc.texto
       }
+      // LAS DESEADAS quedan en su ficha (pacientes.horario_deseado), para darselas
+      // cuando haya sitio. Sin la columna no rompe: solo avisa en consola.
+      const deseadasV = (hpf.huecos||[]).filter((x:any)=>x.espera)
+      if (deseadasV.length) {
+        const { error: eDes } = await supabase.from('pacientes').update({ horario_deseado: deseadasV }).eq('id', pacienteId)
+        if (eDes) console.warn('horario_deseado:', eDes.message)
+      }
       // LA FOTO, ya con el paciente creado (la ruta va por su id).
       if (foto) {
         const rf = await subirFotoPaciente(pacienteId, foto)

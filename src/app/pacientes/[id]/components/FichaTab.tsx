@@ -1,5 +1,6 @@
 'use client'
 import { traerTodo } from '@/lib/paginar'
+import { HorarioDeseado } from '@/components/AgendaHuecos'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -1206,6 +1207,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
           agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
       <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>
+      {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
+      <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>
       {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
       <CambiarSala pacienteId={pac.id}/>
 

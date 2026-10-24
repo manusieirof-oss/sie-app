@@ -88,7 +88,7 @@ export default function PasoPlan({ form, up, tiposClaseOpts=[], bonosOpts=[] }: 
           {(hp.huecos||[]).some((x:any)=>!x.espera) && (
             <div style={{fontSize:12.5,color:(hp.meses ?? 1)?'var(--gd)':'var(--grl)',margin:'8px 0 12px'}}>
               {(hp.meses ?? 1)
-                ? <>Al guardar se le ponen las citas de lo marcado durante <b>{hp.meses ?? 1} {(hp.meses ?? 1)===1?'mes':'meses'}</b>. Las de "si hay hueco" quedan solo apuntadas.</>
+                ? <>Al guardar se le ponen las citas de lo marcado durante <b>{hp.meses ?? 1} {(hp.meses ?? 1)===1?'mes':'meses'}</b>. Las deseadas quedan en su ficha para cuando haya sitio.</>
                 : 'Solo se apunta su horario: las citas se ponen después.'}
             </div>
           )}

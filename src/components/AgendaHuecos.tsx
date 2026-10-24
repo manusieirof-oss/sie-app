@@ -100,6 +100,10 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
   const [semanas, setSemanas] = useState(1)
   const [ocupado, setOcupado] = useState(false)
   const [msg, setMsg] = useState('')
+  // CITAS o DESEADAS. Citas = las que va a tener. Deseadas = las horas que le gustarian
+  // (llenas o no): se guardan en su ficha para darselas cuando quede sitio.
+  const [marca, setMarca] = useState<'cita' | 'deseada'>('cita')
+  const [deseadas, setDeseadas] = useState<HuecoPref[]>([])
 
   useEffect(() => {
     supabase.from('ajustes').select('clave,valor').then(({ data }) => {
@@ -108,7 +112,10 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
       let eventos: any[] = []; try { const e = JSON.parse(m.eventos_calendario || '[]'); if (Array.isArray(e)) eventos = e } catch {}
       setCfg({ horas: horasDeAgenda(m), salas, max: parseInt(m.clinica_max_personas_sala || '6') || 6, eventos, tipos: parseTiposClase(m.tipos_clase) })
     })
-    if (pacienteId) supabase.from('pacientes').select('tipo_clase').eq('id', pacienteId).maybeSingle().then(({ data }) => setTipoPac((data as any)?.tipo_clase || ''))
+    if (pacienteId) supabase.from('pacientes').select('*').eq('id', pacienteId).maybeSingle().then(({ data }) => {
+      setTipoPac((data as any)?.tipo_clase || '')
+      setDeseadas(Array.isArray((data as any)?.horario_deseado) ? (data as any).horario_deseado : [])
+    })
   }, [pacienteId])
   // Lo que prefirio en la valoracion sale ya marcado (en la semana que se ve, si cabe).
   useEffect(() => {
@@ -134,7 +141,19 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
   const prefKey = (dia: number, h: string, s: string) => (preferencia || []).find(p => p.dia === dia && p.hora === h && p.sala === s)
   function alternarPref(dia: number, h: string, s: string, llena: boolean) {
     const ya = prefKey(dia, h, s)
-    onPreferencia!(ya ? (preferencia || []).filter(p => p !== ya) : [...(preferencia || []), { dia, hora: h, sala: s, ...(llena ? { espera: true } : {}) }])
+    // Una llena no puede ser cita: entra como deseada aunque se este en modo Citas.
+    const espera = marca === 'deseada' || llena
+    const resto = (preferencia || []).filter(p => p !== ya)
+    // Tocar en el otro modo la cambia de tipo; en el mismo, la quita.
+    onPreferencia!(ya && !!ya.espera === espera ? resto : [...resto, { dia, hora: h, sala: s, ...(espera ? { espera: true } : {}) }])
+  }
+  const deseadaEn = (dia: number, h: string, s: string) => deseadas.some(p => p.dia === dia && p.hora === h && p.sala === s)
+  async function alternarDeseada(dia: number, h: string, s: string) {
+    if (!pacienteId) return
+    const nueva = deseadaEn(dia, h, s) ? deseadas.filter(p => !(p.dia === dia && p.hora === h && p.sala === s)) : [...deseadas, { dia, hora: h, sala: s, espera: true }]
+    setDeseadas(nueva)
+    const { error } = await supabase.from('pacientes').update({ horario_deseado: nueva }).eq('id', pacienteId)
+    if (error) setMsg(/horario_deseado/.test(error.message) ? 'Falta el SQL de las horas deseadas (columna horario_deseado).' : 'No se ha guardado: ' + error.message)
   }
 
   const cerrado = (f: string) => cerradoEn(f, cfg?.eventos || [])
@@ -163,6 +182,10 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
         <b>Semana del {corta(fechas[0])}</b>
         <button className="ah-fl" onClick={() => setLunes(masDias(lunes, 7))}>›</button>
         <span style={{ flex: 1 }}/>
+        <div className="ah-seg ah-marca">
+          <button className={marca === 'cita' ? 'on' : ''} onClick={() => setMarca('cita')}>✓ Citas</button>
+          <button className={marca === 'deseada' ? 'on des' : ''} onClick={() => setMarca('deseada')}>⏳ Deseadas</button>
+        </div>
         {cfg.salas.length > 1 && (
           <div className="ah-seg">
             <button className={!sala ? 'on' : ''} onClick={() => setSala('')}>Todas</button>
@@ -189,17 +212,24 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
                         const dia = fechas.indexOf(f), pr = prefKey(dia, h, s)
                         return (
                           <button key={s} className={`ah-b ${pr ? (pr.espera ? 'espera' : 'on') : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''}`}
-                            title={lib <= 0 ? `Sala ${s} llena: tócala si le gustaría esta hora en cuanto quede sitio` : `Sala ${s}: ${n} de ${cfg.max}`}
+                            title={lib <= 0 ? `Sala ${s} llena: queda como deseada` : `Sala ${s}: ${n} de ${cfg.max}`}
                             onClick={() => alternarPref(dia, h, s, lib <= 0)}>
-                            {pr ? (pr.espera ? '⏳ ' : '✓ ') : ''}{salasVer.length > 1 ? s + ' ' : ''}{pr?.espera ? 'si hay' : lib <= 0 ? 'llena' : lib}
+                            {pr ? (pr.espera ? '⏳ ' : '✓ ') : ''}{salasVer.length > 1 ? s + ' ' : ''}{pr?.espera ? 'deseada' : lib <= 0 ? 'llena' : lib}
                           </button>
                         )
                       }
                       const on = marcadas.has(k)
+                      const dia = fechas.indexOf(f), des = deseadaEn(dia, h, s)
+                      if (marca === 'deseada') return (
+                        <button key={s} className={`ah-b ${des ? 'espera' : lib <= 0 ? 'llena' : ''}`} style={{ cursor: 'pointer' }}
+                          title={des ? 'Deseada: tócala para quitarla' : 'Tócala si le gustaría esta hora (se repite cada semana)'} onClick={() => alternarDeseada(dia, h, s)}>
+                          {des ? '⏳ ' : ''}{salasVer.length > 1 ? s + ' ' : ''}{des ? 'deseada' : lib <= 0 ? 'llena' : lib}
+                        </button>
+                      )
                       return (
-                        <button key={s} disabled={lib <= 0 && !on} className={`ah-b ${on ? 'on' : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''}`}
-                          title={`Sala ${s}: ${n} de ${cfg.max}`} onClick={() => alternar(k)}>
-                          {on ? '✓ ' : ''}{salasVer.length > 1 ? s + ' ' : ''}{lib <= 0 ? 'llena' : lib}
+                        <button key={s} disabled={lib <= 0 && !on} className={`ah-b ${on ? 'on' : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''} ${des && !on ? 'des' : ''}`}
+                          title={`Sala ${s}: ${n} de ${cfg.max}${des ? ' · la tiene como deseada' : ''}`} onClick={() => alternar(k)}>
+                          {on ? '✓ ' : des ? '⏳ ' : ''}{salasVer.length > 1 ? s + ' ' : ''}{lib <= 0 ? 'llena' : lib}
                         </button>
                       )
                     })}
@@ -211,23 +241,27 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia
       </div>
       {modoPref ? (
         <div className="ah-pie">
-          <span className="ah-nota">Toca las horas que le vienen bien (se repiten cada semana). Si una está llena, tócala igual: queda como <b>⏳ si hay hueco</b>.</span>
+          <span className="ah-nota">{marca === 'cita'
+            ? <>Toca las horas de sus <b>citas</b> (se repiten cada semana). Una llena queda como deseada.</>
+            : <>Toca las horas que le <b>gustarían</b>, llenas o no: quedan en su ficha para cuando haya sitio.</>}</span>
           <span style={{ flex: 1 }}/>
           {(preferencia || []).length > 0 && <button className="btn btn-t btn-sm" onClick={() => onPreferencia!([])}>Quitar todas</button>}
         </div>
       ) : (
       <div className="ah-pie">
-        <span className="ah-nota">El número es cuántas plazas quedan. Toca las clases que quieras{nombre ? ` para ${nombre}` : ''}.</span>
+        <span className="ah-nota">{marca === 'cita'
+          ? <>El número es cuántas plazas quedan. Toca las clases que quieras{nombre ? ` para ${nombre}` : ''}.</>
+          : <>Toca las horas que le gustarían (se guardan al momento en su ficha).{deseadas.length ? ` Tiene ${deseadas.length}.` : ''}</>}</span>
         <span style={{ flex: 1 }}/>
-        {marcadas.size > 0 && (
+        {marca === 'cita' && marcadas.size > 0 && (
           <select className="input" value={semanas} onChange={e => setSemanas(parseInt(e.target.value))} style={{ maxWidth: 210, fontSize: 13 }}>
             <option value={1}>Solo esta semana</option>
             {[4, 8, 12, 16, 24].map(n => <option key={n} value={n}>Repetir {n} semanas (~{Math.round(n / 4.3)} mes{n > 5 ? 'es' : ''})</option>)}
           </select>
         )}
-        <button className="ah-poner" disabled={!marcadas.size || ocupado} onClick={poner}>
+        {marca === 'cita' && <button className="ah-poner" disabled={!marcadas.size || ocupado} onClick={poner}>
           {ocupado ? 'Poniendo…' : marcadas.size ? `Poner ${marcadas.size * semanas} cita${marcadas.size * semanas === 1 ? '' : 's'}` : 'Marca huecos'}
-        </button>
+        </button>}
       </div>
       )}
       {msg && <div className="ah-msg">{msg}</div>}
@@ -255,6 +289,8 @@ const CSS = `
 .ah-b.llena{background:var(--bl);border-color:var(--bd);color:var(--grl);cursor:default;font-weight:500}
 .ah-b.on{background:var(--gd);border-color:var(--gd);color:#fff}
 .ah-b.espera{background:#fff;border:1.5px dashed var(--amb);color:#8A6410}
+.ah-b.des{box-shadow:inset 0 0 0 1.5px var(--amb)}
+.ah-seg button.on.des{background:var(--ambl);color:#8A6410}
 .ah-ya{flex:1;display:flex;align-items:center;justify-content:center;border-radius:9px;background:var(--n);color:#fff;font-size:11.5px;font-weight:600}
 .ah-off{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--grl)}
 .ah-pie{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -272,6 +308,29 @@ export function VeloAgendaHuecos({ pacienteId, nombre, onCerrar, onCambio, preMa
         <div className="modal-title">Citas{nombre ? ` · ${nombre}` : ''}<button className="modal-close" onClick={onCerrar}>✕</button></div>
         <AgendaHuecos pacienteId={pacienteId} nombre={nombre} onCambio={onCambio} preMarcadas={preMarcadas}/>
       </div>
+    </div>
+  )
+}
+
+/** En la ficha: las horas que le gustarian y la agenda de huecos para darle citas o apuntar mas. */
+export function HorarioDeseado({ pacienteId, nombre }: { pacienteId: string, nombre?: string }) {
+  const [des, setDes] = useState<HuecoPref[]>([])
+  const [velo, setVelo] = useState(false)
+  const cargar = () => supabase.from('pacientes').select('*').eq('id', pacienteId).maybeSingle()
+    .then(({ data }) => setDes(Array.isArray((data as any)?.horario_deseado) ? (data as any).horario_deseado : []))
+  useEffect(() => { cargar() }, [pacienteId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const L = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 16px' }}>
+      <span className="ct-l" style={{ fontSize: 12.5, color: '#8A6410' }}>⏳ Le gustaría</span>
+      {des.length === 0 && <span style={{ fontSize: 12, color: 'var(--grl)' }}>sin horas deseadas</span>}
+      {des.slice().sort((a, b) => a.dia - b.dia || a.hora.localeCompare(b.hora)).map((d, i) => (
+        <span key={i} style={{ fontSize: 12.5, padding: '4px 11px', borderRadius: 99, border: '1.5px dashed var(--amb)', color: '#8A6410', background: '#fff' }}>
+          {L[d.dia]} {d.hora} <small style={{ color: 'var(--grl)' }}>Sala {d.sala}</small>
+        </span>
+      ))}
+      <button className="btn btn-t btn-sm" onClick={() => setVelo(true)}>Citas y deseadas</button>
+      {velo && <VeloAgendaHuecos pacienteId={pacienteId} nombre={nombre} onCerrar={() => { setVelo(false); cargar() }}/>}
     </div>
   )
 }
