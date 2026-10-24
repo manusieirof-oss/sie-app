@@ -96,7 +96,10 @@ function secciones(form: any, testsValoracion: any[], tiposClaseOpts: any[], esR
 
   if (!esRevaloracion) {
     const dias = form.dias_asistencia ? form.dias_asistencia.split(',').join(' · ') : '—'
-    const horario = hp.modo === 'por_dia'
+    const DL = ['Lun','Mar','Mié','Jue','Vie','Sáb']
+    const horario = hp.modo === 'huecos'
+      ? ((hp.huecos || []).map((x: any) => `${DL[x.dia]} ${x.hora}${x.sala ? ' ' + x.sala : ''}${x.espera ? ' (si hay hueco)' : ''}`).join(' · ') || 'Sin horas marcadas')
+      : hp.modo === 'por_dia'
       ? Object.keys(hp.franjas_dia || {}).map(d => `${d}: ${FR[hp.franjas_dia[d]] || hp.franjas_dia[d]}`).join(' · ') || 'Sin días marcados'
       : hp.modo === 'alterno'
         ? (hp.alterno === 'turnos' ? 'Turnos (variable)' : 'Semana mañana / Semana tarde')

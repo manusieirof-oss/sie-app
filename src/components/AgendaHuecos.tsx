@@ -22,7 +22,19 @@ const lunesDe = (f: string) => { const d = new Date(f + 'T12:00:00'); const w = 
 const masDias = (f: string, n: number) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 const corta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 
-export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacienteId: string, nombre?: string, onCambio?: (n: number) => void }) {
+/** Un hueco preferido: dia de la semana (0 = lunes), hora y sala. `espera` = estaba lleno: "si queda sitio". */
+export type HuecoPref = { dia: number, hora: string, sala: string, espera?: boolean }
+
+/**
+ * MODO PREFERENCIA (valoracion): aun no hay paciente o no se le dan citas todavia. Se
+ * marcan las horas que le vienen bien; si una esta llena tambien se puede marcar, y
+ * queda como "si queda hueco, esta". Al ponerle las citas, salen ya marcadas.
+ */
+export default function AgendaHuecos({ pacienteId, nombre, onCambio, preferencia, onPreferencia, preMarcadas }: {
+  pacienteId?: string, nombre?: string, onCambio?: (n: number) => void,
+  preferencia?: HuecoPref[], onPreferencia?: (v: HuecoPref[]) => void, preMarcadas?: HuecoPref[],
+}) {
+  const modoPref = !!onPreferencia
   const hoy = hoyISO()
   const [lunes, setLunes] = useState(lunesDe(hoy))
   const [cfg, setCfg] = useState<{ horas: string[], salas: string[], max: number, eventos: any[], tipos: any[] } | null>(null)
@@ -41,8 +53,14 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacient
       let eventos: any[] = []; try { const e = JSON.parse(m.eventos_calendario || '[]'); if (Array.isArray(e)) eventos = e } catch {}
       setCfg({ horas: horasDeAgenda(m), salas, max: parseInt(m.clinica_max_personas_sala || '6') || 6, eventos, tipos: parseTiposClase(m.tipos_clase) })
     })
-    supabase.from('pacientes').select('tipo_clase').eq('id', pacienteId).maybeSingle().then(({ data }) => setTipoPac((data as any)?.tipo_clase || ''))
+    if (pacienteId) supabase.from('pacientes').select('tipo_clase').eq('id', pacienteId).maybeSingle().then(({ data }) => setTipoPac((data as any)?.tipo_clase || ''))
   }, [pacienteId])
+  // Lo que prefirio en la valoracion sale ya marcado (en la semana que se ve, si cabe).
+  useEffect(() => {
+    if (!preMarcadas?.length) return
+    setMarcadas(new Set(preMarcadas.map(p => `${masDias(lunes, p.dia)}|${p.hora}|${p.sala}`)))
+    setSemanas(12)
+  }, [lunes]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fechas = useMemo(() => DIAS.map((_, i) => masDias(lunes, i)), [lunes])
   async function cargar() {
@@ -57,7 +75,12 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacient
     citas.forEach(c => { const k = `${c.fecha}|${String(c.hora).slice(0, 5)}|${c.sala}`; m[k] = (m[k] || 0) + 1 })
     return m
   }, [citas])
-  const suyas = useMemo(() => new Set(citas.filter(c => c.paciente_id === pacienteId).map(c => `${c.fecha}|${String(c.hora).slice(0, 5)}`)), [citas, pacienteId])
+  const suyas = useMemo(() => new Set(pacienteId ? citas.filter(c => c.paciente_id === pacienteId).map(c => `${c.fecha}|${String(c.hora).slice(0, 5)}`) : []), [citas, pacienteId])
+  const prefKey = (dia: number, h: string, s: string) => (preferencia || []).find(p => p.dia === dia && p.hora === h && p.sala === s)
+  function alternarPref(dia: number, h: string, s: string, llena: boolean) {
+    const ya = prefKey(dia, h, s)
+    onPreferencia!(ya ? (preferencia || []).filter(p => p !== ya) : [...(preferencia || []), { dia, hora: h, sala: s, ...(llena ? { espera: true } : {}) }])
+  }
 
   const cerrado = (f: string) => {
     if (festivoDe(f)) return festivoDe(f)!.nombre
@@ -70,7 +93,7 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacient
   const alternar = (k: string) => { setMsg(''); setMarcadas(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n }) }
 
   async function poner() {
-    if (!marcadas.size || !cfg) return
+    if (!marcadas.size || !cfg || !pacienteId) return
     setOcupado(true); setMsg('')
     const base = Array.from(marcadas).map(k => { const [fecha, hora, s] = k.split('|'); return { fecha, hora, sala: s } })
     const pedidos = base.flatMap(b => Array.from({ length: semanas }, (_, w) => ({ ...b, fecha: masDias(b.fecha, 7 * w) })))
@@ -124,7 +147,18 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacient
                     : pasado ? <span className="ah-off">·</span>
                     : cer ? <span className="ah-off" title={cer}>Cerrado</span>
                     : salasVer.map(s => {
-                      const n = cuenta[`${f}|${h}|${s}`] || 0, lib = cfg.max - n, k = `${f}|${h}|${s}`, on = marcadas.has(k)
+                      const n = cuenta[`${f}|${h}|${s}`] || 0, lib = cfg.max - n, k = `${f}|${h}|${s}`
+                      if (modoPref) {
+                        const dia = fechas.indexOf(f), pr = prefKey(dia, h, s)
+                        return (
+                          <button key={s} className={`ah-b ${pr ? (pr.espera ? 'espera' : 'on') : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''}`}
+                            title={lib <= 0 ? `Sala ${s} llena: tócala si le gustaría esta hora en cuanto quede sitio` : `Sala ${s}: ${n} de ${cfg.max}`}
+                            onClick={() => alternarPref(dia, h, s, lib <= 0)}>
+                            {pr ? (pr.espera ? '⏳ ' : '✓ ') : ''}{salasVer.length > 1 ? s + ' ' : ''}{pr?.espera ? 'si hay' : lib <= 0 ? 'llena' : lib}
+                          </button>
+                        )
+                      }
+                      const on = marcadas.has(k)
                       return (
                         <button key={s} disabled={lib <= 0 && !on} className={`ah-b ${on ? 'on' : lib <= 0 ? 'llena' : lib <= 2 ? 'poca' : ''}`}
                           title={`Sala ${s}: ${n} de ${cfg.max}`} onClick={() => alternar(k)}>
@@ -138,6 +172,13 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacient
           </Fragment>
         ))}
       </div>
+      {modoPref ? (
+        <div className="ah-pie">
+          <span className="ah-nota">Toca las horas que le vienen bien (se repiten cada semana). Si una está llena, tócala igual: queda como <b>⏳ si hay hueco</b>.</span>
+          <span style={{ flex: 1 }}/>
+          {(preferencia || []).length > 0 && <button className="btn btn-t btn-sm" onClick={() => onPreferencia!([])}>Quitar todas</button>}
+        </div>
+      ) : (
       <div className="ah-pie">
         <span className="ah-nota">El número es cuántas plazas quedan. Toca las clases que quieras{nombre ? ` para ${nombre}` : ''}.</span>
         <span style={{ flex: 1 }}/>
@@ -151,6 +192,7 @@ export default function AgendaHuecos({ pacienteId, nombre, onCambio }: { pacient
           {ocupado ? 'Poniendo…' : marcadas.size ? `Poner ${marcadas.size * semanas} cita${marcadas.size * semanas === 1 ? '' : 's'}` : 'Marca huecos'}
         </button>
       </div>
+      )}
       {msg && <div className="ah-msg">{msg}</div>}
     </div>
   )
@@ -175,6 +217,7 @@ const CSS = `
 .ah-b.poca{background:var(--ambl);border-color:#EBD9A6;color:#8A6410}
 .ah-b.llena{background:var(--bl);border-color:var(--bd);color:var(--grl);cursor:default;font-weight:500}
 .ah-b.on{background:var(--gd);border-color:var(--gd);color:#fff}
+.ah-b.espera{background:#fff;border:1.5px dashed var(--amb);color:#8A6410}
 .ah-ya{flex:1;display:flex;align-items:center;justify-content:center;border-radius:9px;background:var(--n);color:#fff;font-size:11.5px;font-weight:600}
 .ah-off{flex:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--grl)}
 .ah-pie{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -185,12 +228,12 @@ const CSS = `
 `
 
 /** La misma agenda en un velo, para abrirla desde donde haga falta. */
-export function VeloAgendaHuecos({ pacienteId, nombre, onCerrar, onCambio }: { pacienteId: string, nombre?: string, onCerrar: () => void, onCambio?: (n: number) => void }) {
+export function VeloAgendaHuecos({ pacienteId, nombre, onCerrar, onCambio, preMarcadas }: { pacienteId: string, nombre?: string, onCerrar: () => void, onCambio?: (n: number) => void, preMarcadas?: HuecoPref[] }) {
   return (
     <div className="modal-bg" style={{ zIndex: 150 }} onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
       <div className="modal" style={{ width: 'min(980px,97vw)', maxHeight: '94vh', overflow: 'auto' }}>
         <div className="modal-title">Citas{nombre ? ` · ${nombre}` : ''}<button className="modal-close" onClick={onCerrar}>✕</button></div>
-        <AgendaHuecos pacienteId={pacienteId} nombre={nombre} onCambio={onCambio}/>
+        <AgendaHuecos pacienteId={pacienteId} nombre={nombre} onCambio={onCambio} preMarcadas={preMarcadas}/>
       </div>
     </div>
   )

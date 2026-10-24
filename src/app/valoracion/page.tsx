@@ -445,7 +445,7 @@ export default function ValoracionPage() {
           onClick={()=>router.push(`/agenda?nuevaCitaPara=${guardado?.id||''}`)}>
           Abrir la agenda completa
         </button>
-        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} onCerrar={()=>setHuecos(false)}/>}
+        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} preMarcadas={((form.horario_pref as any)?.huecos||[]).filter((x:any)=>!x.espera)} onCerrar={()=>setHuecos(false)}/>}
         <button className="btn btn-s" style={{justifyContent:'center',padding:'12px'}}
           onClick={()=>router.push(`/pacientes/${guardado?.id}?tab=entreno`)}>
           <Ic name="entreno" size={14}/> Asignarle las sesiones
