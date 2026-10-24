@@ -901,12 +901,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         .am-q { cursor:pointer; transform-box:view-box; transform-origin:300px 300px;
                 transition: transform .22s ease, fill .2s ease; animation: am-sale .55s cubic-bezier(.2,.9,.3,1.25) backwards }
         @keyframes am-sale { from { transform: scale(.55) rotate(-25deg); opacity:0 } to { transform:none; opacity:1 } }
-        .am-et { position:absolute; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:96px;
+        /* z-index 3: por encima del svg de los quesitos (z 2, puesto al meter la familia de fondo), que las tapaba. */
+        .am-et { position:absolute; z-index:3; transform:translate(-50%,-50%); text-align:center; pointer-events:none; width:96px;
                  transition: transform .22s ease; animation: am-et .5s ease backwards }
         @keyframes am-et { from { opacity:0 } to { opacity:1 } }
 .am-late { animation: am-late 1.1s ease 2 }
         @keyframes am-late { 50% { box-shadow:0 0 0 14px rgba(90,150,158,.18), 0 10px 34px rgba(38,40,37,.16) } }
-        .am-centro { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; height:52%; border-radius:50%;
+        .am-centro { position:absolute; z-index:3; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; height:52%; border-radius:50%;
                      overflow:hidden; background:#fff; box-shadow:0 10px 34px rgba(38,40,37,.16); animation: am-pella .7s cubic-bezier(.2,.9,.3,1.2) backwards }
         @keyframes am-pella { from { transform:translate(-50%,-50%) scale(.3,.15) } 60% { transform:translate(-50%,-50%) scale(1.06,.95) } to { transform:translate(-50%,-50%) } }
         .am-panel { width:min(440px, 42vw); max-height:calc(100vh - 170px); overflow:auto; background:#fff; border-radius:20px; padding:18px 20px;
