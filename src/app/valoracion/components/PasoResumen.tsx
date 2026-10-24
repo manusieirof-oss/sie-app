@@ -91,6 +91,7 @@ function secciones(form: any, testsValoracion: any[], tiposClaseOpts: any[], esR
   const contexto: Fila[] = []
   if (form.trabajo) contexto.push({ k: 'Trabajo', v: form.trabajo + (form.tipo_jornada ? ` · ${form.tipo_jornada}` : '') })
   if (form.hace_deporte && (form.deportes || []).length) contexto.push({ k: 'Deportes', v: form.deportes.join(', ') })
+  if (form.pie_izq || form.pie_der) contexto.push({ k: 'Pies', v: `Izq: ${form.pie_izq || '¿?'} · Der: ${form.pie_der || '¿?'}` })
   if (form.plantillas) contexto.push({ k: 'Plantillas', v: [form.plantilla_izq && `Izq: ${form.plantilla_izq}`, form.plantilla_der && `Der: ${form.plantilla_der}`].filter(Boolean).join(' · ') || 'Sí' })
   if (contexto.length) out.push({ titulo: 'Contexto', icono: 'deporte', filas: contexto })
 

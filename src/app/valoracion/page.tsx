@@ -19,6 +19,7 @@ import PasoCompletar from './components/PasoCompletar'
 import PasoTests from './components/PasoTests'
 import PasoPlan from './components/PasoPlan'
 import PasoResumen from './components/PasoResumen'
+import NotaAnamnesis from './components/NotaAnamnesis'
 import { hoyISO, aISO } from '@/lib/fechas'
 
 /**
@@ -37,6 +38,9 @@ import { hoyISO, aISO } from '@/lib/fechas'
  * verdad importa: la que registra los tests y mueve los objetivos.
  */
 
+/** Deportes de siempre; se suman a los de la biblioteca (antes la biblioteca los sustituia y quedaban pocos). */
+const DEPORTES_BASE = ['Andar','Artes marciales','Atletismo','Bádminton','Baile','Baloncesto','Balonmano','Boxeo','Calistenia','Ciclismo','Ciclismo indoor','Crossfit','Equitación','Escalada','Esquí','Fútbol','Fútbol sala','Gimnasio','Golf','Hockey','Hyrox','Montaña','Natación','Paddle surf','Pádel','Patinaje','Pilates','Remo','Rugby','Running','Senderismo','Spinning','Surf','Taichí','Tenis','Tenis de mesa','Trail','Triatlón','Voleibol','Yoga']
+
 type Modo = 'inicial' | 'revaloracion'
 
 const STEPS_POR_MODO: Record<Modo, string[]> = {
@@ -48,7 +52,7 @@ const FORM_VACIO = {
   paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',sexo:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
   anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
   hace_deporte:false as boolean,deportes:[] as string[],
-  plantillas:false as boolean,tipo_plantilla:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
+  plantillas:false as boolean,tipo_plantilla:'' as string,pie_izq:'' as string,pie_der:'' as string,plantilla_izq:'' as string,plantilla_der:'' as string,
   medicacion:[] as any[],operaciones:[] as any[],alergias:[] as string[],intolerancias:[] as string[],
   patologias:[] as any[],molestias:[] as any[],dieta:'sin_restricciones',
   tipo_clase_def:'entrenamiento',bono:'',dias_asistencia:'',franja:'manana',notas_plan:'',programa_nombre:'',programa_progresion:'',
@@ -72,7 +76,7 @@ export default function ValoracionPage() {
   const [comoNosConocioOpts, setComoNosConocioOpts] = useState<string[]>(VIAS_CAPTACION_FALLBACK)
   const [tiposJornada, setTiposJornada] = useState<string[]>(['Sentado','Sedentario','De pie','Mixto','Esfuerzo físico','Conductor','Pantallas','Trabajo manual'])
   const [tiposPlantilla, setTiposPlantilla] = useState<string[]>(['Rígida','Semirrígida','Blanda','Descarga metatarsal','Propioceptiva','Personalizada'])
-  const [deportesOpts, setDeportesOpts] = useState<string[]>(['Fútbol','Pádel','Tenis','Natación','Ciclismo','Running','CrossFit','Yoga','Pilates','Gimnasio','Golf','Baloncesto','Senderismo','Otro'])
+  const [deportesOpts, setDeportesOpts] = useState<string[]>(DEPORTES_BASE)
   const [tiposClaseOpts, setTiposClaseOpts] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   /**
    * Los bonos salen de `bonos_tipos` como en el resto de la app (`lib/bonos.ts`).
@@ -164,7 +168,7 @@ export default function ValoracionPage() {
     supabase.from('operaciones_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setOpsBiblio(data||[]))
     supabase.from('alergias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setAlergiasBiblio(data||[]))
     supabase.from('intolerancias_biblioteca').select('*').eq('activo',true).order('nombre').then(({data})=>setIntolBiblio(data||[]))
-    supabase.from('deportes_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setDeportesOpts(data.map((d:any)=>d.nombre)) })
+    supabase.from('deportes_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setDeportesOpts(Array.from(new Set([...data.map((d:any)=>d.nombre), ...DEPORTES_BASE])).sort((a,b)=>a.localeCompare(b,'es'))) })
     supabase.from('plantillas_biblioteca').select('nombre').eq('activo',true).order('nombre').then(({data})=>{ if(data&&data.length) setTiposPlantilla(data.map((t:any)=>t.nombre)) })
     supabase.from('tests').select('*').order('nombre').then(({data})=>setTestsLib(data||[]))
     supabase.from('etiquetas').select('*').order('nombre').then(({data})=>setEtiquetasLib(data||[]))
@@ -322,7 +326,7 @@ export default function ValoracionPage() {
         // crea bono: se cobra en el momento y ahí acaba. Abrirle una fila en
         // `bonos` le montaría una cuota mensual que nadie ha contratado.
         ...(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
-        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,programa_nombre:form.programa_nombre,programa_progresion:form.programa_progresion,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
+        supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,pie_izq:form.pie_izq||null,pie_der:form.pie_der||null,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,programa_nombre:form.programa_nombre,programa_progresion:form.programa_progresion,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar
         // nombres, que es lo que se separa solo en cuanto alguien teclea una variante.
@@ -538,6 +542,8 @@ export default function ValoracionPage() {
       {paso==='Resumen'&&<PasoResumen form={form} testsValoracion={testsValoracion} guardando={guardando} finalizar={finalizar} firmaAceptada={firmaAceptada} imagenesAceptada={imagenesAceptada} firmaCanvas={firmaCanvas} tiposClaseOpts={tiposClaseOpts} modo={modo} clinica={clinica}/>}
       </div>
 
+      {/* La anamnesis acompaña en todos los pasos menos en el suyo. */}
+      {paso!=='Anamnesis' && step>1 && <NotaAnamnesis valor={form.anamnesis} onCambio={v=>up('anamnesis',v)}/>}
     </>
   )
 }

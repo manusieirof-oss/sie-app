@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Ic } from '@/lib/icons'
+import PiesPlantillas from '@/components/PiesPlantillas'
 import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 import { catalogoDeObjetivos, sugerencias, type ObjetivoPedido } from '@/lib/objetivosPide'
 
@@ -111,49 +112,50 @@ export default function PasoAnamnesis({ form, up, tiposJornada, deportesOpts, ti
       </div>
       {!esRevaloracion && (<div className="g2">
         <div className="card">
-          <div className="card-title"><span className="ct-l"><Ic name="deporte"/> ¿Practica algún deporte?</span></div>
-          <div style={{display:'flex',gap:8,marginBottom:form.hace_deporte?10:0}}>
-            {([['No',false],['Sí',true]] as const).map(([l,v])=>(
-              <span key={String(l)} onClick={()=>up('hace_deporte',v)} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${form.hace_deporte===v?'var(--g)':'var(--bd)'}`,background:form.hace_deporte===v?'var(--gl)':'var(--w)',color:form.hace_deporte===v?'var(--gd)':'var(--gr)',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:form.hace_deporte===v?500:300}}>{l}</span>
-            ))}
-          </div>
-          {form.hace_deporte===true&&(
-            <>
-              <div style={{fontSize:9,color:'var(--grl)',marginBottom:6}}>Selecciona los deportes que practica</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                {deportesOpts.map((d:string)=>{
-                  const sel=form.deportes.includes(d)
-                  return <span key={d} onClick={()=>up('deportes',sel?form.deportes.filter((x:string)=>x!==d):[...form.deportes,d])} style={{fontSize:10,padding:'4px 10px',borderRadius:99,border:`1px solid ${sel?'var(--g)':'var(--bd)'}`,background:sel?'var(--g)':'var(--w)',color:sel?'#fff':'var(--gr)',cursor:'pointer'}}>{d}</span>
-                })}
-              </div>
-            </>
-          )}
+          <div className="card-title"><span className="ct-l"><Ic name="deporte"/> Deportes que practica</span></div>
+          {/* Se marcan los que haga, varios a la vez; ninguno = no practica. Sin el Si/No
+              de antes: era un clic de mas para llegar a lo que importa. */}
+          <ElegirDeportes form={form} up={up} deportesOpts={deportesOpts}/>
         </div>
         <div className="card">
-          <div className="card-title"><span className="ct-l"><Ic name="plantillas"/> ¿Usa plantillas?</span></div>
-          <div style={{display:'flex',gap:8,marginBottom:form.plantillas?10:0}}>
-            {([['No',false],['Sí',true]] as const).map(([l,v])=>(
-              <span key={String(l)} onClick={()=>up('plantillas',v)} style={{flex:1,padding:'8px',borderRadius:6,border:`1.5px solid ${form.plantillas===v?'var(--g)':'var(--bd)'}`,background:form.plantillas===v?'var(--gl)':'var(--w)',color:form.plantillas===v?'var(--gd)':'var(--gr)',cursor:'pointer',textAlign:'center',fontSize:11,fontWeight:form.plantillas===v?500:300}}>{l}</span>
-            ))}
-          </div>
-          {form.plantillas===true&&(
-            <div className="g2">
-              <div className="field"><label>Pie izquierdo</label>
-                <select className="input" value={form.plantilla_izq||''} onChange={e=>up('plantilla_izq',e.target.value)}>
-                  <option value="">—</option>
-                  {tiposPlantilla.map((t:string)=><option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="field"><label>Pie derecho</label>
-                <select className="input" value={form.plantilla_der||''} onChange={e=>up('plantilla_der',e.target.value)}>
-                  <option value="">—</option>
-                  {tiposPlantilla.map((t:string)=><option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
+          <div className="card-title"><span className="ct-l"><Ic name="plantillas"/> Pies y plantillas</span></div>
+          <PiesPlantillas form={form} up={up} tiposPlantilla={tiposPlantilla}/>
         </div>
       </div>)}
+    </div>
+  )
+}
+
+/** Deportes: todos a la vista, varios marcables, y uno que no este se escribe y entra. */
+export function ElegirDeportes({ form, up, deportesOpts }: any) {
+  const [nuevo, setNuevo] = useState('')
+  const marcados: string[] = form.deportes || []
+  const lista: string[] = Array.from(new Set([...(deportesOpts || []), ...marcados])).filter(d => d !== 'Otro')
+  const poner = (ds: string[]) => { up('deportes', ds); up('hace_deporte', ds.length > 0) }
+  const anadir = () => {
+    const t = nuevo.trim()
+    if (!t) return
+    const ya = lista.find(d => d.toLowerCase() === t.toLowerCase())
+    if (!marcados.includes(ya || t)) poner([...marcados, ya || t])
+    setNuevo('')
+  }
+  return (
+    <div>
+      <div className="dep-chips">
+        {lista.map(d => {
+          const on = marcados.includes(d)
+          return <button key={d} type="button" className={`dep-chip ${on ? 'on' : ''}`}
+            onClick={() => poner(on ? marcados.filter(x => x !== d) : [...marcados, d])}>{d}</button>
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        <input className="input" value={nuevo} onChange={e => setNuevo(e.target.value)} placeholder="Otro deporte…"
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); anadir() } }}/>
+        <button type="button" className="btn btn-s" onClick={anadir} disabled={!nuevo.trim()}>Añadir</button>
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--grl)', marginTop: 6 }}>
+        {marcados.length ? `${marcados.length} marcado${marcados.length > 1 ? 's' : ''}` : 'Ninguno marcado = no practica'}
+      </div>
     </div>
   )
 }

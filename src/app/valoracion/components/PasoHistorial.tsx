@@ -73,7 +73,9 @@ export default function PasoHistorial({ form, up, etiquetasLib=[], medsBiblio, a
             onNuevo={(t:string)=>setAltaClinica({config:{tabla:'intolerancias_biblioteca',tipo:'intolerancia',campoGrupo:'categoria'},valor:{nombre:t},luego:(f:any)=>{setIntolBiblio((p:any)=>[...p,f]);up('intolerancias',[...form.intolerancias,f.nombre])}})}/>
         </div>
       </div>
-      <div className="g2" style={{marginBottom:10}}>
+      {/* Operaciones, patologias y molestias en la misma fila: es lo que se va
+          preguntando de seguido. */}
+      <div className="g3" style={{marginBottom:10,alignItems:'start'}}>
         {/* OPERACIONES */}
         <div className="card">
           <div className="card-title"><span className="ct-l"><Ic name="cruz"/> Operaciones</span></div>
@@ -96,7 +98,6 @@ export default function PasoHistorial({ form, up, etiquetasLib=[], medsBiblio, a
             onElegir={(p:any)=>setPatConfigurando({...p,biblioteca_id:p.id,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}
             onNuevo={(t:string)=>setAltaClinica({config:{tabla:'patologias_biblioteca',tipo:'patología',campoGrupo:'zona'},valor:{nombre:t},luego:(f:any)=>{setPatsBiblio((p:any)=>[...p,f]);setPatConfigurando({nombre:f.nombre,lado:'bilateral',estado:'activa',tiene_informe:false,observaciones:''})}})}/>
         </div>
-      </div>
       {/* MOLESTIAS */}
       <div className="card">
         <div className="card-title"><span className="ct-l"><Ic name="molestia"/> Molestias</span></div>
@@ -106,6 +107,7 @@ export default function PasoHistorial({ form, up, etiquetasLib=[], medsBiblio, a
           buscarEn={(m:any)=>[m.nombre,m.zona]} subtitulo={(m:any)=>m.zona}
           onElegir={(m:any)=>setMolConfigurando({nombre:m.nombre,zona:m.zona,biblioteca_id:m.id,tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}
           onNuevo={(t:string)=>setAltaClinica({config:{tabla:'molestias_biblioteca',tipo:'molestia',campoGrupo:'zona'},valor:{nombre:t},luego:(f:any)=>{setMolsBiblio((p:any)=>[...p,f]);setMolConfigurando({nombre:f.nombre,zona:f.zona||'Otros',tipo:'molestia',eva:5,lado:'bilateral',cuando:'Al moverse',observaciones:''})}})}/>
+      </div>
       </div>
 
       {/* MODALES CONFIGURAR */}

@@ -51,7 +51,8 @@ export default function EscalaSlider({
       </label>
       <input type="range" min={0} max={10} value={mostrado} disabled={sinRespuesta}
         onChange={e => onCambio(parseInt(e.target.value))}
-        style={{ width: '100%', accentColor: sinRespuesta ? 'var(--bm)' : color, opacity: sinRespuesta ? .45 : 1, cursor: sinRespuesta ? 'default' : 'pointer' }} />
+        className="esc-range"
+        style={{ ['--c' as any]: sinRespuesta ? 'var(--bm)' : color, ['--p' as any]: `${mostrado * 10}%`, opacity: sinRespuesta ? .45 : 1, cursor: sinRespuesta ? 'default' : 'pointer' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--grl)' }}>
         <span>{izquierda || '0'}</span>
         <span style={{ fontWeight: 500, color: sinRespuesta ? 'var(--grl)' : color }}>{sinRespuesta ? 'Sin respuesta' : valor}</span>
