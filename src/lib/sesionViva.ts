@@ -105,22 +105,42 @@ export async function avisoDias(): Promise<number> {
 }
 
 /**
- * FINALIZAR. Queda cerrada (solo consulta) y sus citas FUTURAS pasan a la siguiente:
+ * FINALIZAR. Queda cerrada (solo consulta) y sus citas FUTURAS pasan a la que la sustituye:
  *   · 'continuar': una nueva que parte de como esta hoy (misma sesion, historia nueva).
+ *   · 'biblioteca': su copia de una plantilla (`destino`), p. ej. Fuerza I → Fuerza II.
+ *   · 'suya': otra que el paciente ya tiene (`destino`), sin copiar.
  *   · 'cerrar': se quedan sin sesion, para ponerles otra.
- * Las pasadas no se tocan: siguen diciendo que ese dia se hizo esta.
+ * La nueva ocupa EXACTAMENTE el hueco de la vieja, sea cual sea la programacion:
+ *   - solo cambian las citas que llevaban la vieja (en una rotacion la otra no se toca);
+ *   - en sus ciclos entra en su sitio de la fase;
+ *   - si la vieja tenia candado, la nueva tambien;
+ *   - las citas pasadas no se tocan: siguen diciendo que ese dia se hizo la vieja.
+ * `desde`: a partir de que dia pasan las citas (por defecto hoy).
  */
-export async function finalizarSesion(sesion: any, pacienteId: string, modo: 'continuar' | 'cerrar', nota?: string) {
-  const hoy = hoyISO()
+export type ModoFinalizar = 'continuar' | 'cerrar' | 'biblioteca' | 'suya'
+
+export async function finalizarSesion(sesion: any, pacienteId: string, modo: ModoFinalizar, nota?: string,
+  opts: { destino?: any, desde?: string } = {}) {
+  const desde = opts.desde || hoyISO()
   let nueva: any = null
   if (modo === 'continuar') {
-    const r = await duplicarSesion(sesion, pacienteId, { sufijo: '', motivo: `Sigue de «${sesion.nombre}»`, sinEvento: true, sinHistorial: true })
+    const r = await duplicarSesion(sesion, pacienteId, { sufijo: '', motivo: `Sigue de «${sesion.nombre}»`, sinEvento: true, sinHistorial: true, plantillaId: sesion.plantilla_id || undefined })
     if (!r.ok || !r.sesion) return { ok: false as const, error: r.error || 'No se ha podido crear la nueva' }
     nueva = r.sesion
-    // Sin el candado de la anterior heredado por error: duplicarSesion ya lo copia si lo tiene.
+  } else if (modo === 'biblioteca') {
+    if (!opts.destino) return { ok: false as const, error: 'Elige la sesión de la biblioteca' }
+    const r = await duplicarSesion(opts.destino, pacienteId, { sufijo: '', motivo: `Sustituye a «${sesion.nombre}»`, sinEvento: true, sinHistorial: true, plantillaId: opts.destino.id })
+    if (!r.ok || !r.sesion) return { ok: false as const, error: r.error || 'No se ha podido crear su copia' }
+    nueva = r.sesion
+  } else if (modo === 'suya') {
+    if (!opts.destino) return { ok: false as const, error: 'Elige cuál de sus sesiones' }
+    nueva = opts.destino
   }
+  // El candado va con el hueco: si la vieja no corria con las citas, la nueva tampoco.
+  if (nueva && sesion.fija && !nueva.fija) await supabase.from('sesiones').update({ fija: true }).eq('id', nueva.id)
+
   const { data: futuras } = await supabase.from('citas').select('id')
-    .eq('paciente_id', pacienteId).eq('sesion_id', sesion.id).gte('fecha', hoy).eq('estado', 'programada')
+    .eq('paciente_id', pacienteId).eq('sesion_id', sesion.id).gte('fecha', desde).eq('estado', 'programada')
   const ids = (futuras || []).map((c: any) => c.id)
   if (ids.length) {
     const { error } = await supabase.from('citas').update({ sesion_id: nueva?.id || null }).in('id', ids)
@@ -132,9 +152,36 @@ export async function finalizarSesion(sesion: any, pacienteId: string, modo: 'co
   const { error: e2 } = await supabase.from('sesiones').update({ finalizada_en: new Date().toISOString() }).eq('id', sesion.id)
   if (e2) return { ok: false as const, error: /finalizada_en/.test(e2.message) ? 'Falta el SQL de la sesión viva (columna finalizada_en).' : e2.message }
 
-  await apuntarHistorial(sesion.id, pacienteId, 'fin', `Finalizada${nota ? ': ' + nota : ''}`, 'Ficha', sesion.partes)
-  if (nueva) await apuntarHistorial(nueva.id, pacienteId, 'inicio', `Sigue de «${sesion.nombre}»`, 'Finalizar', nueva.partes)
+  const sust = nueva && modo !== 'continuar' ? ` · la sustituye «${nueva.nombre}»` : ''
+  await apuntarHistorial(sesion.id, pacienteId, 'fin', `Finalizada${sust}${nota ? ': ' + nota : ''}`, 'Ficha', sesion.partes)
+  if (nueva) await apuntarHistorial(nueva.id, pacienteId, modo === 'suya' ? 'cambio' : 'inicio',
+    modo === 'continuar' ? `Sigue de «${sesion.nombre}»` : `Sustituye a «${sesion.nombre}»`, 'Finalizar', nueva.partes)
   await registrarSesion(pacienteId, `Sesión finalizada: ${sesion.nombre}`,
-    nueva ? `Sigue con una nueva desde esta · ${ids.length} cita${ids.length === 1 ? '' : 's'} pasan a ella` : `${ids.length} cita${ids.length === 1 ? '' : 's'} se quedan sin sesión`)
+    nueva ? `${modo === 'continuar' ? 'Sigue con una nueva desde esta' : 'La sustituye «' + nueva.nombre + '»'} · ${ids.length} cita${ids.length === 1 ? '' : 's'} pasan a ella`
+      : `${ids.length} cita${ids.length === 1 ? '' : 's'} se quedan sin sesión`)
   return { ok: true as const, nueva, nCitas: ids.length }
+}
+
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+const llano = (t: string) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * LA SIGUIENTE DE LA SERIE: "Fuerza I · Nivel Medio" → "Fuerza II · Nivel Medio".
+ * Sube el primer numero (romano o no) del nombre y busca la plantilla que se llama asi,
+ * comparando sin tildes ni signos ("/4/4)" y "(4/4)" son lo mismo). null si no hay.
+ */
+export function siguienteDeSerie(nombre: string, plantillas: any[]): any | null {
+  const m = String(nombre || '').match(/\b(X|IX|VIII|VII|VI|V|IV|III|II|I|\d+)\b/)
+  if (!m || m.index == null) return null
+  const n = /\d/.test(m[1]) ? String(parseInt(m[1]) + 1) : ROMANOS[ROMANOS.indexOf(m[1]) + 1]
+  if (!n) return null
+  const buscado = llano(nombre.slice(0, m.index) + n + nombre.slice(m.index + m[1].length))
+  return plantillas.find(p => llano(p.nombre) === buscado) || null
+}
+
+/** La copia de un paciente ¿sigue igual que su plantilla? (mismos ejercicios y numeros). */
+export function igualQuePlantilla(copia: any, plantilla: any): boolean {
+  const huella = (s: any) => JSON.stringify((s?.partes || []).map((p: any) => (p.ejercicios || []).map((e: any) =>
+    [e.ejercicio_id, e.series || '', e.reps || '', e.tiempo || '', e.peso || ''])))
+  return huella(copia) === huella(plantilla)
 }

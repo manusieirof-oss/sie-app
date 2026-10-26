@@ -284,7 +284,8 @@ export async function duplicarPlantilla(sesion: any, nombre: string) {
  */
 export async function asignarPlantilla(plantilla: any, pacienteId: string) {
   if (!pacienteId) return { ok: false as const, error: 'Falta el paciente' }
-  return duplicarSesion(plantilla, pacienteId, { sufijo: '', motivo: `Desde la plantilla "${plantilla.nombre}"` })
+  // plantillaId: para encontrar despues todas las copias de una plantilla (sustituir en sus pacientes).
+  return duplicarSesion(plantilla, pacienteId, { sufijo: '', motivo: `Desde la plantilla "${plantilla.nombre}"`, plantillaId: plantilla.id })
 }
 
 /**

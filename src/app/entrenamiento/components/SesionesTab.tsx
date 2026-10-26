@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { VeloSustituirTodos } from '@/components/SustituirSesion'
 import ModalEditarSesion from './ModalEditarSesion'
 import ModalProgramarGrupo from './ModalProgramarGrupo'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -48,6 +49,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [origen, setOrigen] = useState<'plantillas'|'pacientes'|'todas'>('plantillas')
   const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
   const [sesionVista, setSesionVista] = useState<any>(null)
+  const [sustituyendo, setSustituyendo] = useState<any>(null)
+  const [hechoSust, setHechoSust] = useState('')
   /** La sesión cuyo historial de cambios por día se está mirando. Solo lectura. */
   const [historialDe, setHistorialDe] = useState<any>(null)
   const [buscarBiblio, setBuscarBiblio] = useState('')
@@ -182,6 +185,14 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   return (
     <>
       {encargo && <BarraAsignacion encargo={encargo}/>}
+      {sustituyendo && <VeloSustituirTodos plantilla={sustituyendo} onCerrar={()=>setSustituyendo(null)}
+        onHecho={t=>{ setSustituyendo(null); setSesionVista(null); setHechoSust(t); cargar() }}/>}
+      {hechoSust && (
+        <div style={{display:'flex',alignItems:'center',gap:10,background:'var(--gl)',color:'var(--gd)',borderRadius:12,padding:'10px 14px',marginBottom:10,fontSize:13}}>
+          <span style={{flex:1}}>✓ {hechoSust}</span>
+          <button className="btn btn-t btn-sm" onClick={()=>setHechoSust('')}>✕</button>
+        </div>
+      )}
       {multiple && marcadas.length>0 && (
         <div style={{position:'sticky',top:0,zIndex:25,display:'flex',alignItems:'center',gap:10,marginBottom:10,
           padding:'9px 13px',borderRadius:'var(--rl)',background:'var(--g)',color:'#fff',fontSize:11,boxShadow:'var(--sh-md)'}}>
@@ -318,6 +329,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                         son dos decisiones distintas, no un modo de la misma. */}
                     <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setGrupo(s)}} disabled={ocupado}><Ic name="pacientes" size={12}/> Programar a un grupo</button>
                     <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>
+                    {/* SUSTITUIR EN SUS PACIENTES: Fuerza I → Fuerza II a todos los que la tienen. */}
+                    <button className="btn btn-s btn-sm" onClick={()=>setSustituyendo(sesionVista)} disabled={ocupado} title="Pasar a sus pacientes a otra sesión de la biblioteca"><Ic name="recuperar" size={12}/> Sustituir en sus pacientes</button>
                   </>
                 : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}
               {/* SOLO MIRAR. Qué se cambió cada día y qué está previsto: la sesión

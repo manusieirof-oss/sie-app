@@ -1,5 +1,6 @@
 'use client'
 import { finalizarSesion, diasActiva, avisoDias, AVISO_DIAS_DEFECTO, partesEnFecha } from '@/lib/sesionViva'
+import { VeloFinalizar } from '@/components/SustituirSesion'
 import { traerTodo } from '@/lib/paginar'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -1315,32 +1316,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
       {/* Desde Historial se consulta el pasado: mismo detalle, sin acciones, y con
           lo que de verdad se hizo ese día debajo de lo prescrito. */}
-      {/* FINALIZAR: se cierra con su historia y, si se quiere, sigue una nueva desde ella. */}
+      {/* FINALIZAR: "¿Que viene despues?" — una copia, otra de la biblioteca, otra suya o
+          ninguna. La nueva ocupa el hueco exacto de esta (components/SustituirSesion). */}
       {finalizando && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget&&!guardando)setFinalizando(null)}}>
-          <div className="modal" style={{width:520}}>
-            <div className="modal-title">Finalizar «{finalizando.sesion.nombre}»
-              <button className="modal-close" onClick={()=>setFinalizando(null)}>✕</button></div>
-            <div style={{fontSize:12.5,color:'var(--gr)',marginBottom:12,lineHeight:1.5}}>
-              Lleva {diasActiva(finalizando.sesion)} días. Queda cerrada con todo su historial, solo para consultar. Sus citas pasadas no cambian.
-            </div>
-            {([['continuar','Seguir con una nueva desde esta','Parte de cómo está hoy y empieza su propio historial. Sus próximas citas (y su sitio en el ciclo) pasan a la nueva.'],
-               ['cerrar','Solo cerrarla','Sus próximas citas se quedan sin sesión, para ponerles otra (de su ficha o de la biblioteca).']] as const).map(([k,t,d])=>(
-              <button key={k} onClick={()=>setFinalizando(f=>f&&{...f,modo:k})}
-                style={{display:'block',width:'100%',textAlign:'left',marginTop:8,padding:'10px 13px',borderRadius:12,cursor:'pointer',fontFamily:'inherit',
-                  border:`1.5px solid ${finalizando.modo===k?'var(--g)':'var(--bd)'}`,background:finalizando.modo===k?'var(--gl)':'var(--w)'}}>
-                <div style={{fontSize:14,color:'var(--n)',fontWeight:600}}>{t}</div>
-                <div style={{fontSize:12,color:'var(--gr)',marginTop:2}}>{d}</div>
-              </button>
-            ))}
-            <div className="field" style={{marginTop:12}}><label>Nota (opcional)</label>
-              <input className="input" value={finalizando.nota} onChange={e=>setFinalizando(f=>f&&{...f,nota:e.target.value})} placeholder="Ej: objetivo de fuerza logrado, pasa a trabajo de potencia"/></div>
-            <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
-              <button className="btn btn-s btn-sm" onClick={()=>setFinalizando(null)} disabled={guardando}>Cancelar</button>
-              <button className="btn btn-p btn-sm" onClick={confirmarFinalizar} disabled={guardando}>{guardando?'Finalizando…':'Finalizar'}</button>
-            </div>
-          </div>
-        </div>
+        <VeloFinalizar sesion={finalizando.sesion} pacienteId={pacienteId} nombrePaciente={nombrePaciente}
+          onCerrar={()=>setFinalizando(null)}
+          onHecho={texto=>{ setFinalizando(null); setReciboTanda({ mal:false, texto }); cargarDatos(); onRefresh() }}/>
       )}
 
       {verSesion && (
