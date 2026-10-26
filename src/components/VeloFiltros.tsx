@@ -25,22 +25,23 @@ type Grupo = { key: string, label: string, etiquetas: any[] }
  * musculos y articulaciones de esa zona. Cada zona es un rectangulo sobre la figura
  * (en % de su ancho y alto) y dos patrones: que musculos y que articulaciones caen
  * ahi, por su nombre (o el de su raiz).
+ * Medidos sobre /cuerpo/*_base.svg (360x640): estaban altos, el cuello caia en la cara.
  */
 type Zona = { id: string, nombre: string, mus: RegExp, art: RegExp, frente?: number[][], espalda?: number[][] }
 const ZONAS: Zona[] = [
-  { id: 'cuello', nombre: 'Cuello', mus: /cervical|ecom|escalen|trapecio|elevador/, art: /cervical|columna/, frente: [[42, 9, 16, 6]], espalda: [[42, 9, 16, 6]] },
-  { id: 'hombro', nombre: 'Hombro', mus: /hombro|deltoid|manguito|supraesp|infraesp|redondo|subescap|trapecio/, art: /hombro|escapul/, frente: [[24, 15, 15, 9], [61, 15, 15, 9]], espalda: [[24, 15, 15, 9], [61, 15, 15, 9]] },
-  { id: 'pecho', nombre: 'Pecho', mus: /pectoral|serrato|intercostal|diafragma/, art: /hombro|torac|costal|columna/, frente: [[38, 16, 24, 13]] },
-  { id: 'espalda', nombre: 'Espalda', mus: /espalda|dorsal|romboid|trapecio|erector|multif|semiesp|serrato/, art: /columna|dorsal|toracic|hombro|escapul/, espalda: [[37, 16, 26, 15]] },
-  { id: 'brazo', nombre: 'Brazo', mus: /bicep(?!s femoral)|braquial|tricep(?!s sural)|coraco/, art: /codo|hombro/, frente: [[17, 24, 12, 16], [71, 24, 12, 16]], espalda: [[17, 24, 12, 16], [71, 24, 12, 16]] },
-  { id: 'antebrazo', nombre: 'Antebrazo y mano', mus: /antebrazo|flexor|extensor|braquiorad|braquioradial|dedos|mano|muneca|pronador|supinador/, art: /muneca|mano|codo|dedo/, frente: [[8, 40, 15, 19], [77, 40, 15, 19]], espalda: [[8, 40, 15, 19], [77, 40, 15, 19]] },
-  { id: 'abdomen', nombre: 'Abdomen', mus: /abdom|oblicu|transvers|psoas|diafragma/, art: /columna|lumbar|pelvis/, frente: [[38, 29, 24, 15]] },
-  { id: 'lumbar', nombre: 'Zona lumbar', mus: /lumbar|cuadrado|erector|multif/, art: /columna|lumbar|pelvis|sacro/, espalda: [[38, 31, 24, 12]] },
-  { id: 'cadera', nombre: 'Cadera y glúteo', mus: /gluteo|piramidal|tfl|tensor|abductor|aductor|gracil|psoas|sartorio/, art: /cadera|pelvis|sacro/, frente: [[33, 44, 34, 9]], espalda: [[33, 43, 34, 10]] },
-  { id: 'muslo', nombre: 'Muslo', mus: /cuadricep|vasto|recto femoral|isquio|femoral|semiten|semimem|aductor|sartorio|gracil/, art: /cadera|rodilla/, frente: [[33, 53, 34, 17]], espalda: [[33, 53, 34, 17]] },
-  { id: 'rodilla', nombre: 'Rodilla', mus: /cuadricep|vasto|isquio|popliteo|gemel/, art: /rodilla/, frente: [[35, 70, 30, 6]], espalda: [[35, 70, 30, 6]] },
-  { id: 'pierna', nombre: 'Pierna', mus: /tibial|perone|gemel|soleo|sural|gastro/, art: /tobillo|rodilla/, frente: [[35, 76, 30, 15]], espalda: [[35, 76, 30, 15]] },
-  { id: 'pie', nombre: 'Tobillo y pie', mus: /pie|plantar|tibial posterior|dedos del pie|halux/, art: /tobillo|pie|halux|dedo/, frente: [[33, 91, 34, 9]], espalda: [[33, 91, 34, 9]] },
+  { id: 'cuello', nombre: 'Cuello', mus: /cervical|ecom|escalen|trapecio|elevador/, art: /cervical|columna/, frente: [[44, 13, 12, 7]], espalda: [[44, 13, 12, 7]] },
+  { id: 'hombro', nombre: 'Hombro', mus: /hombro|deltoid|manguito|supraesp|infraesp|redondo|subescap|trapecio/, art: /hombro|escapul/, frente: [[25, 20, 16, 9], [59, 20, 16, 9]], espalda: [[25, 20, 16, 9], [59, 20, 16, 9]] },
+  { id: 'pecho', nombre: 'Pecho', mus: /pectoral|serrato|intercostal|diafragma/, art: /hombro|torac|costal|columna/, frente: [[40, 21, 20, 12]] },
+  { id: 'espalda', nombre: 'Espalda', mus: /espalda|dorsal|romboid|trapecio|erector|multif|semiesp|serrato/, art: /columna|dorsal|toracic|hombro|escapul/, espalda: [[38, 20, 24, 15]] },
+  { id: 'brazo', nombre: 'Brazo', mus: /bicep(?!s femoral)|braquial|tricep(?!s sural)|coraco/, art: /codo|hombro/, frente: [[19, 28, 13, 13], [68, 28, 13, 13]], espalda: [[19, 28, 13, 13], [68, 28, 13, 13]] },
+  { id: 'antebrazo', nombre: 'Antebrazo y mano', mus: /antebrazo|flexor|extensor|braquiorad|braquioradial|dedos|mano|muneca|pronador|supinador/, art: /muneca|mano|codo|dedo/, frente: [[10, 41, 17, 21], [73, 41, 17, 21]], espalda: [[10, 41, 17, 21], [73, 41, 17, 21]] },
+  { id: 'abdomen', nombre: 'Abdomen', mus: /abdom|oblicu|transvers|psoas|diafragma/, art: /columna|lumbar|pelvis/, frente: [[38, 33, 24, 12]] },
+  { id: 'lumbar', nombre: 'Zona lumbar', mus: /lumbar|cuadrado|erector|multif/, art: /columna|lumbar|pelvis|sacro/, espalda: [[38, 35, 24, 10]] },
+  { id: 'cadera', nombre: 'Cadera y glúteo', mus: /gluteo|piramidal|tfl|tensor|abductor|aductor|gracil|psoas|sartorio/, art: /cadera|pelvis|sacro/, frente: [[31, 45, 38, 9]], espalda: [[31, 45, 38, 10]] },
+  { id: 'muslo', nombre: 'Muslo', mus: /cuadricep|vasto|recto femoral|isquio|femoral|semiten|semimem|aductor|sartorio|gracil/, art: /cadera|rodilla/, frente: [[32, 54, 37, 18]], espalda: [[32, 55, 37, 17]] },
+  { id: 'rodilla', nombre: 'Rodilla', mus: /cuadricep|vasto|isquio|popliteo|gemel/, art: /rodilla/, frente: [[31, 72, 38, 6]], espalda: [[31, 72, 38, 6]] },
+  { id: 'pierna', nombre: 'Pierna', mus: /tibial|perone|gemel|soleo|sural|gastro/, art: /tobillo|rodilla/, frente: [[30, 78, 40, 14]], espalda: [[30, 78, 40, 14]] },
+  { id: 'pie', nombre: 'Tobillo y pie', mus: /pie|plantar|tibial posterior|dedos del pie|halux/, art: /tobillo|pie|halux|dedo/, frente: [[26, 92, 48, 7]], espalda: [[26, 92, 48, 7]] },
 ]
 const nrm = (t: string) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const PRINCIPALES = ['articulacion', 'movimiento', 'patron', 'agarre', 'posicion', 'material']
