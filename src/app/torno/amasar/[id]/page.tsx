@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import ElegirMedida from '@/components/ElegirMedida'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -414,31 +415,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         </>)
       }
       case 'medida': {
-        // CARGA × VOLUMEN (lib/medida): dos preguntas en vez de una lista cerrada.
-        const hay = !!d.tipo_medida
-        const p = partesMedida(d.tipo_medida)
-        const elegir = (carga: Carga, volumen: Volumen) => set('tipo_medida', idMedida(carga, volumen))
-        const tarjeta = (on: boolean, t: string, a: string, fn: () => void) => (
-          <button key={t} type="button" onClick={fn}
-            style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', border: 'none',
-              background: on ? 'var(--g)' : '#fff', color: on ? '#fff' : 'var(--n)', boxShadow: '0 3px 12px rgba(38,40,37,.10)' }}>
-            <div style={{ fontSize: 14 }}>{t}</div>
-            <div style={{ fontSize: 11.5, opacity: .8, marginTop: 2 }}>{a}</div>
-          </button>
-        )
+        // CARGA × VOLUMEN (lib/medida), el mismo selector que en el taller.
         return (<>
           {grupo && (
-            <span className={`chip-sel ${!hay ? 'on' : ''}`} style={{ fontSize: 12, marginBottom: 12, display: 'inline-block' }}
+            <span className={`chip-sel ${!d.tipo_medida ? 'on' : ''}`} style={{ fontSize: 12, marginBottom: 12, display: 'inline-block' }}
               onClick={() => set('tipo_medida', '')}>No cambiar</span>
           )}
-          <div className="et-mini" style={{ marginBottom: 7 }}>Con qué carga</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
-            {CARGAS.map(c => tarjeta(hay && p.carga === c.id, c.nombre, c.ayuda, () => elegir(c.id, hay ? p.volumen : 'reps')))}
-          </div>
-          <div className="et-mini" style={{ marginBottom: 7 }}>Qué se cuenta</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {VOLUMENES.map(v => tarjeta(hay && p.volumen === v.id, v.nombre, v.ayuda, () => elegir(hay ? p.carga : 'kg', v.id)))}
-          </div>
+          <ElegirMedida tipo={d.tipo_medida} onCambio={t => set('tipo_medida', t)}/>
         </>)
       }
       // Solo los criterios, sin objetivos por criterio (de momento): era demasiado aquí.

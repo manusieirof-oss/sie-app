@@ -10,7 +10,9 @@ import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen, { LADOS } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useRef, useState } from 'react'
-import { partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
+import { nombreMedida } from '@/lib/medida'
+import ElegirMedida from '@/components/ElegirMedida'
+import { createPortal } from 'react-dom'
 
 // ---------------------------------------------------------------------------
 // UNA PARTE ENTERA, DE IZQUIERDA A DERECHA
@@ -120,7 +122,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
-              {arreglar && ej.ejercicio_id && onMedida && <MedidaRapida tipo={ej.tipo_medida} onCambio={(t: string) => onMedida(ej.ejercicio_id, t)}/>}
+              {arreglar && ej.ejercicio_id && onMedida && <div><MedidaRapida tipo={ej.tipo_medida} nombre={ej.nombre} onCambio={(t: string) => onMedida(ej.ejercicio_id, t)}/></div>}
               {/* PARA QUÉ ES. Los objetivos que trabaja este ejercicio, como se dejó en la
                   sesión: que en sala se vea para qué sirve lo que se está haciendo. */}
               <ObjetivosEj ids={ej.objetivos || []} objetivosLib={objetivosLib}/>
@@ -262,26 +264,32 @@ function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onS
 }
 
 /**
- * COMO SE MIDE, a dos toques y en la base del ejercicio: con que carga (peso, corporal
- * o banda) y cuanto (reps, tiempo o metros). Solo sale con "Arreglar ejercicios".
+ * COMO SE MIDE, desde la sala ("Arreglar ejercicios"): una pastilla con lo que hay
+ * ahora y, al tocarla, el mismo panel que en el torno. Cambia la base del ejercicio.
  */
-function MedidaRapida({ tipo, onCambio }: { tipo?: string, onCambio: (t: string) => void }) {
-  const { carga, volumen } = partesMedida(tipo)
-  const fila = (ops: [string, string][], actual: string, poner: (v: any) => void) => (
-    <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
-      {ops.map(([v, t]) => (
-        <button key={v} type="button" onClick={() => v !== actual && poner(v)}
-          style={{ fontFamily: 'inherit', fontSize: 11, padding: '3px 8px', borderRadius: 99, cursor: 'pointer',
-            border: `1px solid ${v === actual ? 'var(--amb)' : 'var(--bd)'}`,
-            background: v === actual ? 'var(--ambl)' : 'var(--w)', color: v === actual ? '#7A5800' : 'var(--gr)',
-            fontWeight: v === actual ? 600 : 400 }}>{t}</button>
-      ))}
-    </div>
-  )
-  return (
-    <div style={{ marginTop: 6, padding: '6px 4px', borderRadius: 10, border: '1.5px dashed var(--amb)', display: 'grid', gap: 4 }}>
-      {fila([['kg', 'Peso'], ['corporal', 'Corporal'], ['banda', 'Banda']], carga, (c: Carga) => onCambio(idMedida(c, volumen)))}
-      {fila([['reps', 'Reps'], ['segundos', 'Tiempo'], ['metros', 'Metros']], volumen, (v: Volumen) => onCambio(idMedida(carga, v)))}
-    </div>
-  )
+function MedidaRapida({ tipo, nombre, onCambio }: { tipo?: string, nombre?: string, onCambio: (t: string) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  return (<>
+    <button type="button" onClick={() => setAbierto(true)} title="Cambiar cómo se mide (en la biblioteca)"
+      style={{ marginTop: 6, fontFamily: 'inherit', fontSize: 11.5, padding: '4px 10px', borderRadius: 99, cursor: 'pointer',
+        border: '1.5px dashed var(--amb)', background: 'var(--ambl)', color: '#7A5800', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <Ic name="regla" size={12}/> {nombreMedida(tipo)}
+    </button>
+    {abierto && createPortal(
+      <div className="modal-bg" style={{ zIndex: 160 }} onClick={e => { if (e.target === e.currentTarget) setAbierto(false) }}>
+        <div style={{ width: 'min(520px, 94vw)', background: '#fff', borderRadius: 22, boxShadow: '0 18px 50px rgba(38,40,37,.22)', overflow: 'hidden', textAlign: 'left' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', boxShadow: '0 6px 10px -8px rgba(38,40,37,.18)' }}>
+            <span style={{ color: 'var(--g)', lineHeight: 0 }}><Ic name="regla" size={20}/></span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 17, display: 'block' }}>Cómo se mide</span>
+              {nombre && <span style={{ fontSize: 12, color: 'var(--grl)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre} · se cambia en la biblioteca</span>}
+            </span>
+            <button className="btn btn-p btn-sm" onClick={() => setAbierto(false)}>Hecho</button>
+          </div>
+          <div style={{ padding: '16px 20px 20px', background: 'var(--bl)' }}>
+            <ElegirMedida tipo={tipo || 'peso_reps'} onCambio={onCambio}/>
+          </div>
+        </div>
+      </div>, document.body)}
+  </>)
 }
