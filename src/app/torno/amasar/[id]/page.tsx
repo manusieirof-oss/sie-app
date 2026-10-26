@@ -199,8 +199,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'Sin decidir' },
     // Lo que usa el mapa de calor y el generador de sesiones: sin anatomía ni intensidades
     // el ejercicio no cuenta en ninguna zona.
-    { k: 'trabajo', t: 'Qué trabaja', ic: 'fuerza', lleno: d.anatomia.acc.length > 0 && d.trabajo.int.length > 0,
-      sub: d.anatomia.acc.length ? `${new Set(d.anatomia.acc.map(a => a.a)).size} articulaciones · ${d.trabajo.int.length} intens.` : 'Sin poner' },
+    // Tambien puede venir en amarillo: copiado del principal o propuesto, sin confirmar.
+    { k: 'trabajo', t: 'Qué trabaja', ic: 'fuerza', rev: rev('trabajo'), lleno: !rev('trabajo') && d.anatomia.acc.length > 0 && d.trabajo.int.length > 0,
+      sub: rev('trabajo') ? 'Por revisar' : d.anatomia.acc.length ? `${new Set(d.anatomia.acc.map(a => a.a)).size} articulaciones · ${d.trabajo.int.length} intens.` : 'Sin poner' },
     // En amarillo y sin contar como lleno mientras sea lo copiado sin confirmar.
     { k: 'ejecucion', t: 'Ejecución', ic: 'ok', rev: rev('ejecucion'), lleno: !rev('ejecucion') && d.items_ejecucion.some(i => i.texto?.trim()),
       sub: rev('ejecucion') ? 'Por revisar' : `${d.items_ejecucion.filter(i => i.texto?.trim()).length} criterios` },
@@ -1032,10 +1033,12 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               </div>
               {rev(q.k) && (
                 <div style={{ background: '#FBF1D3', borderRadius: 14, padding: '10px 12px', marginBottom: 12, fontSize: 12.5, color: '#6E5010' }}>
-                  Viene copiado del ejercicio del que salió. Cambia lo que no valga para esta variante, o:
+                  {q.k === 'trabajo' && !d.portada_id ? 'Es una propuesta automática.' : 'Viene copiado del ejercicio del que salió.'} Cambia lo que no valga, o:
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <button className="btn btn-p btn-sm" onClick={() => set('por_revisar', d.por_revisar.filter(x => x !== q.k))}>Sí, vale todo</button>
-                    <button className="btn btn-t btn-sm" onClick={() => setRev(q.k === 'ejecucion' ? 'items_ejecucion' : 'feedbacks', q.k, [])}>Empezar de cero</button>
+                    <button className="btn btn-t btn-sm" onClick={() => q.k === 'trabajo'
+                      ? setD(p => ({ ...p, trabajo: trabajoVacio(), anatomia: anatomiaVacia(), por_revisar: p.por_revisar.filter(x => x !== 'trabajo') }))
+                      : setRev(q.k === 'ejecucion' ? 'items_ejecucion' : 'feedbacks', q.k, [])}>Empezar de cero</button>
                   </div>
                 </div>
               )}
