@@ -261,12 +261,19 @@ export async function crearCitasPlan(pedidos: { fecha: string; hora: string; sal
   const filas = orden.map((it, i) => ({ ...fila(it.fecha, { ...base, hora: it.hora, sala: it.sala || base.sala }), bono_id: i < libres ? bonoId : null }))
   const sinBono = bonoId ? Math.max(0, orden.length - libres) : 0
   let creadas = 0
+  const nuevas: string[] = []
   for (let i = 0; i < filas.length; i += 50) {
     const lote = filas.slice(i, i + 50)
-    const { error } = await supabase.from('citas').insert(lote)
+    const { data: ins, error } = await supabase.from('citas').insert(lote).select('id')
     if (error) return { ok: false, error: error.message, creadas }
     creadas += lote.length
+    ;(ins || []).forEach((x: any) => nuevas.push(x.id))
   }
+  /* LAS SESIONES CORREN TAMBIEN AQUI. Las citas de la agenda de huecos (y del horario
+     favorito) entraban sin tirar de las sesiones: una clase añadida en medio se quedaba
+     sin sesion y las siguientes no se movian (le paso a Benchara). Cada nueva, en orden,
+     como si se hubiera añadido suelta; si no corren en Ajustes, no hace nada. */
+  if (!base.sesionId) for (const id of nuevas) await correrAlAnadir(base.pacienteId, id)
   return { ok: true, creadas, sinBono, yaTenia: rep.yaTenia }
 }
 
