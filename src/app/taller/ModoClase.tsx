@@ -1640,6 +1640,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               <button style={pill(vista === 'uno')} onClick={() => setVista('uno')}>Uno a uno</button>
               <button style={pill(vista === 'todos')} onClick={() => setVista('todos')}>Todos</button>
             </div>
+            {/* Arriba y no dentro de un paciente: vale para Uno a uno y para Todos. */}
+            <div style={grupo}>
+              <button style={pill(arreglar)} onClick={alternarArreglar}
+                title="Cambiar cómo se mide cada ejercicio en la biblioteca, mientras trabajas">
+                {arreglar ? '🔧 Arreglando ejercicios' : '🔧 Arreglar ejercicios'}
+              </button>
+            </div>
             {nCerrar > 0 && (
               <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
                 style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 18px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -1744,6 +1751,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           abrir: (pid:string) => { setActivo(pid); setVista('uno') },
           todosItems: marcarTodosItems, objetivo: toggleObjetivo, cita: (pid:string) => setCitaVelo(pid),
           objetivosLib, objsPac: (pid:string) => objsPorPaciente[pid] || [],
+          arreglar, medida: cambiarMedidaBase,
         }}/>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
@@ -1911,10 +1919,6 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 </div>
               )}
             </div>
-            <button className={`btn btn-sm ${arreglar ? 'btn-p' : 'btn-s'}`} onClick={alternarArreglar}
-              title="Cambiar cómo se mide cada ejercicio en la biblioteca, mientras trabajas">
-              <Ic name="ajustes" size={13}/> {arreglar ? 'Arreglando ejercicios' : 'Arreglar ejercicios'}
-            </button>
             {act.sesionId && hojaAct && (
               <button className="btn btn-p btn-sm" onClick={()=>finalizarHoja(act.paciente.id, act.sesionId, hojaAct)}>✓ Guardar y finalizar</button>
             )}

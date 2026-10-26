@@ -267,7 +267,7 @@ function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onS
  * COMO SE MIDE, desde la sala ("Arreglar ejercicios"): una pastilla con lo que hay
  * ahora y, al tocarla, el mismo panel que en el torno. Cambia la base del ejercicio.
  */
-function MedidaRapida({ tipo, nombre, onCambio }: { tipo?: string, nombre?: string, onCambio: (t: string) => void }) {
+export function MedidaRapida({ tipo, nombre, onCambio }: { tipo?: string, nombre?: string, onCambio: (t: string) => void }) {
   const [abierto, setAbierto] = useState(false)
   return (<>
     <button type="button" onClick={() => setAbierto(true)} title="Cambiar cómo se mide (en la biblioteca)"

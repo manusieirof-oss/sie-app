@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { MedidaRapida } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { camposSerie, UNIDAD } from '@/lib/medida'
@@ -44,6 +45,9 @@ export interface AccionesTodos {
   objetivo: (pid: string, oid: string, ejId?: string, ejNombre?: string) => void
   objetivosLib: any[]
   objsPac: (pid: string) => any[]
+  // "Arreglar ejercicios": cambiar como se mide en la biblioteca desde la sala.
+  arreglar?: boolean
+  medida?: (ejercicioId: string, tipo: string) => void
 }
 
 export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: any[], nombrePac: (p: any) => string, a: AccionesTodos }) {
@@ -148,6 +152,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="tt-nm">{e.nombre}{e.sustituye ? <span className="tt-hoy">solo hoy</span> : null}{ei === ahora && !s.finalizado ? <span className="tt-ahora">ahora</span> : null}</div>
+                    {a.arreglar && a.medida && e.ejercicio_id && <MedidaRapida tipo={e.tipo_medida} nombre={e.nombre} onCambio={(t: string) => a.medida!(e.ejercicio_id, t)}/>}
                     {/* EJECUCION Y LATERALIDAD A LA VISTA: es lo que hay que saber para hacer el
                         ejercicio, no puede quedar dentro de un menu. Un toque pasa a la siguiente;
                         con borde discontinuo si hoy se hace distinto a lo prescrito. */}

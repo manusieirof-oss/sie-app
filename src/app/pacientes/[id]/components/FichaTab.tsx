@@ -528,6 +528,32 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     const aro = urg > 0 ? `0 0 0 ${grande ? 2.5 : 2}px ${COLOR_URGENCIA[urg]}` : ''
     const base = enPlan ? esfera : hueco
 
+    /* DIAMANTE: lo pide el paciente Y lo dice un test. Es el objetivo con mas peso
+       (lo quiere y hay causa medida), asi que cambia de forma y no solo de color: se
+       ve desde el otro lado de la fila. Facetas con los dos colores de las vias. */
+    const vs = viasDe(o)
+    if (vs.includes('pide') && vs.includes('test')) {
+      const P = VIAS.find(x => x.valor === 'pide')!, T = VIAS.find(x => x.valor === 'test')!
+      const facetas = enPlan
+        ? `conic-gradient(from 180deg at 50% 36%, ${T.oscuro}, ${T.color}, ${T.claro}, ${P.claro}, ${P.color}, ${P.oscuro}, ${T.oscuro})`
+        : `conic-gradient(from 180deg at 50% 36%, ${T.claro}, ${T.fondo}, #fff, ${P.fondo}, ${P.claro}, ${P.fondo}, ${T.claro})`
+      return (
+        <span title={[urg > 0 ? textoRevision(o.revisar_el) : '', 'Lo pide y lo dice un test'].filter(Boolean).join(' · ')}
+          style={{ display: 'inline-flex', flexShrink: 0, filter: `drop-shadow(0 3px 4px rgba(38,40,37,.3))${urg > 0 ? ` drop-shadow(0 0 2px ${COLOR_URGENCIA[urg]})` : ''}`,
+            opacity: o.logrado ? (urg > 0 ? .9 : .55) : 1 }}>
+          <span className={`obj-moneda${grande?' g':''}`} style={{ borderRadius: 0, borderWidth: 0,
+            clipPath: 'polygon(22% 6%, 78% 6%, 100% 36%, 50% 100%, 0% 36%)',
+            background: `linear-gradient(to bottom, transparent 35%, rgba(255,255,255,${enPlan ? .55 : .7}) 35% 37.5%, transparent 37.5%), linear-gradient(118deg, rgba(255,255,255,${enPlan ? .75 : .9}) 0 18%, transparent 18% 100%), ${facetas}` }}>
+            {o.imagen_url
+              ? <img src={o.imagen_url} alt=""/>
+              : <b style={{ color: enPlan ? '#fff' : P.color, textShadow: enPlan ? `0 1px 2px ${T.oscuro}` : 'none' }}>
+                  {(o.nombre||'?').trim().charAt(0).toUpperCase()}
+                </b>}
+          </span>
+        </span>
+      )
+    }
+
     return (
       <span className={`obj-moneda${grande?' g':''}`}
         title={urg > 0 ? textoRevision(o.revisar_el) : undefined}
