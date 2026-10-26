@@ -122,6 +122,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {ej.propuesta && <ChipPropuesta p={ej.propuesta}/>}
               {arreglar && ej.ejercicio_id && onMedida && <div><MedidaRapida tipo={ej.tipo_medida} nombre={ej.nombre} onCambio={(t: string) => onMedida(ej.ejercicio_id, t)}/></div>}
               {/* PARA QUÉ ES. Los objetivos que trabaja este ejercicio, como se dejó en la
                   sesión: que en sala se vea para qué sirve lo que se está haciendo. */}
@@ -292,4 +293,15 @@ export function MedidaRapida({ tipo, nombre, onCambio }: { tipo?: string, nombre
         </div>
       </div>, document.body)}
   </>)
+}
+
+/** "▲ +3 % · creciente" bajo el ejercicio: la carga de partida viene del plan, no solo de la ultima vez. */
+export function ChipPropuesta({ p }: { p: any }) {
+  const sube = p.tipo === 'sube' && !/no sube/.test(p.motivo)
+  return (
+    <div title={`Propuesta de hoy: ${p.motivo}. Cámbiala si no te vale.`}
+      style={{ fontSize: 11.5, marginTop: 3, color: sube ? '#3F6E2E' : '#8A6410', fontWeight: 600 }}>
+      {/no sube/.test(p.motivo) ? '■' : sube ? '▲' : '▼'} {/no sube/.test(p.motivo) ? '' : `${p.pct > 0 ? '+' : ''}${String(p.pct).replace('.', ',')} % · `}{p.motivo}
+    </div>
+  )
 }

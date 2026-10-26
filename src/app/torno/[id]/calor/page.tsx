@@ -153,7 +153,7 @@ export default function CalorPage({ params }: { params: { id: string } }) {
       const ahora = new Date().toISOString()
       const r = planId.current
         ? await supabase.from('planes_calor').update({ datos: plan, actualizado: ahora }).eq('id', planId.current)
-        : await supabase.from('planes_calor').insert({ paciente_id: pid, datos: plan, actualizado: ahora }).select('id').single()
+        : await supabase.from('planes_calor').insert({ paciente_id: pid, datos: { ...plan, inicio: plan.inicio || ahora.slice(0, 10) }, actualizado: ahora }).select('id').single()
       if (r.error) { setGuardado('error'); return }
       if (!planId.current) planId.current = (r.data as any)?.id || null
       setGuardado('ok')
@@ -313,7 +313,7 @@ export default function CalorPage({ params }: { params: { id: string } }) {
             // Se guarda ya (sin esperar al guardado automático) y se pasa a ver las sesiones montadas
             const ahora = new Date().toISOString()
             if (planId.current) await supabase.from('planes_calor').update({ datos: plan, actualizado: ahora }).eq('id', planId.current)
-            else { const r = await supabase.from('planes_calor').insert({ paciente_id: pid, datos: plan, actualizado: ahora }).select('id').single(); planId.current = (r.data as any)?.id || null }
+            else { const r = await supabase.from('planes_calor').insert({ paciente_id: pid, datos: { ...plan, inicio: plan.inicio || ahora.slice(0, 10) }, actualizado: ahora }).select('id').single(); planId.current = (r.data as any)?.id || null }
             router.push(`/torno/${pid}/calor/sesiones`)
           }}>Crear sesiones{hayFases ? ' · ' + plan.fases.l[act].n : ''}</button>
       </div>

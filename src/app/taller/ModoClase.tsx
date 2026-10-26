@@ -1,5 +1,7 @@
 'use client'
 import { apuntarHistorial } from '@/lib/sesionViva'
+import { avisosDeCondiciones } from '@/lib/avisosZona'
+import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCarga'
 import { useState, useRef, useEffect } from 'react'
 import TodosTaller from './TodosTaller'
 import { VeloCita, VeloAnadir } from './GestionCita'
@@ -998,6 +1000,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       // misma sesion aparecia como apuntado hoy.
       const cursoMap:Record<string,any>={}
       ;(curso||[]).forEach((r:any)=>{ cursoMap[claveVar(r.ejercicio_id,r.variante)]=r })
+      /* LA PROPUESTA DE CARGA sale del mapa de calor (lib/propuestaCarga): sube o baja
+         solo si su proyeccion lo dice. Las molestias activas frenan la subida. */
+      const prop = await planDeCarga(pid, fechaC).catch(() => null)
+      const molPac = prop ? (await supabase.from('molestias').select('*').eq('paciente_id', pid).eq('activa', true)).data || [] : []
+      const patPac = prop ? (await supabase.from('patologias').select('*').eq('paciente_id', pid).neq('estado', 'resuelta')).data || [] : []
       ejs.forEach(e=>{
         if (e.ejercicio_id){
           const kv = claveVar(e.ejercicio_id, e.variante)
@@ -1034,6 +1041,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               return { ...orig, ...Object.fromEntries(CAMPOS_MEDIDA.map(f => [f, lleno(prev[f]) ? prev[f] : orig[f]])) }
             })
             e.precargado = true
+            if (prop && ultMap[kl]?.fecha && ultMap[kl].fecha !== fechaC && admitePropuesta(e)) {
+              const pr = prop(ultMap[kl].fecha)
+              if (pr) {
+                const conMolestia = avisosDeCondiciones({ molestias: molPac, patologias: patPac }, etiquetas, e.etiquetas || []).length > 0
+                const r = proponerSeries(e.series, pr.r, conMolestia)
+                if (r.cambio) { e.series = r.series; e.propuesta = pr }
+                else if (conMolestia && pr.tipo === 'sube') e.propuesta = { ...pr, motivo: 'no sube: zona con molestia' }
+              }
+            }
             // Si "la ultima vez" es HOY (ya finalizado en esta clase), es de hoy.
             if (ultMap[kl]?.fecha === fechaC) {
               const hoy: Record<string, boolean> = {}

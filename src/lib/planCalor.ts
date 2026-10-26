@@ -27,6 +27,8 @@ export interface Fase { n: string, v: number, o?: string }
 export type TipoFases = 'tiempo' | 'ses' | 'eval'
 export interface PlanCalor {
   v: 1
+  /** Dia en que se hizo el plan: desde ahi cuenta la linea (propuesta de carga del taller). */
+  inicio?: string
   fases: { tipo: TipoFases, l: Fase[] }
   faseAct: number
   porFase: Record<string, Mesa>

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { MedidaRapida } from './RejillaParte'
+import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { camposSerie, UNIDAD } from '@/lib/medida'
@@ -158,6 +158,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="tt-nm">{letraDe(datos, ei) && <span className="tt-letra">{letraDe(datos, ei)}</span>}{e.nombre}{e.sustituye ? <span className="tt-hoy">solo hoy</span> : null}{ei === ahora && !s.finalizado ? <span className="tt-ahora">ahora</span> : null}</div>
+                    {e.propuesta && <ChipPropuesta p={e.propuesta}/>}
                     {a.arreglar && a.medida && e.ejercicio_id && <MedidaRapida tipo={e.tipo_medida} nombre={e.nombre} onCambio={(t: string) => a.medida!(e.ejercicio_id, t)}/>}
                     {/* EJECUCION Y LATERALIDAD A LA VISTA: es lo que hay que saber para hacer el
                         ejercicio, no puede quedar dentro de un menu. Un toque pasa a la siguiente;
