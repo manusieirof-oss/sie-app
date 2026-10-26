@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import CuerpoZonas, { type ColorZona } from '@/components/CuerpoZonas'
+import { ZONAS_CUERPO, zonasDeTest } from '@/lib/zonasCuerpo'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import Silueta, { MarcaCuerpo } from './Silueta'
@@ -12,7 +14,7 @@ import EscalaSlider, { textoEscala } from '@/components/EscalaSlider'
 import ModalItemClinico, { type ConfigItemClinico } from '@/components/ModalItemClinico'
 import { hoyISO } from '@/lib/fechas'
 
-export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, onNuevoTest, abrirTest }: any) {
+export default function SaludTab({ id, pac, deportesPac, molestias, patologias, escalas, medicamentos, alergias, intolerancias, operaciones, tests, cargar, onNuevoTest, abrirTest, testsLib = [] }: any) {
   const [molsBiblio, setMolsBiblio] = useState<any[]>([])
   const [patsBiblio, setPatsBiblio] = useState<any[]>([])
   const [molConfig, setMolConfig] = useState<any>(null)
@@ -118,6 +120,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   const [guardado, setGuardado] = useState(false)
   const [detalle, setDetalle] = useState<any>(null)
   const [vista, setVista] = useState<'lista'|'mapa'>('lista')
+  // MAPA DE CALOR DE LOS TESTS: zona tocada en el muñeco (filtra la lista).
+  const [zonaTest, setZonaTest] = useState<string|null>(null)
   const [escalaConfig, setEscalaConfig] = useState<any>(null)
   const [nDocs, setNDocs] = useState(0)
   /**
@@ -530,7 +534,17 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
             // Basta con que UN lado siga positivo para que el test entero se quede en la
             // columna de positivos. Un positivo no puede esconderse en "resueltos" porque
             // el otro lado esté bien.
-            const todos = porTest(gruposTests)
+            // Zonas de cada test (por sus etiquetas, lib/zonasCuerpo).
+            const zonasT = (testId:string) => zonasDeTest((testsLib||[]).find((x:any)=>x.id===testId) || { nombre: (tests||[]).find((x:any)=>x.test_id===testId)?.tests?.nombre }, etiquetasLib||[])
+            const todosSin = porTest(gruposTests)
+            /* EL CALOR: rojo si algun test de la zona sigue positivo, verde si todos dieron
+               negativo, sin color si no se ha evaluado. */
+            const colorZ = (z:string): ColorZona => {
+              const deZ = todosSin.filter(t => zonasT(t[0][0].test_id).includes(z))
+              if (!deZ.length) return null
+              return deZ.some(t => t.some(l => l[0].resultado==='positivo')) ? 'rojo' : 'verde'
+            }
+            const todos = zonaTest ? todosSin.filter(t => zonasT(t[0][0].test_id).includes(zonaTest)) : todosSin
             const positivos = todos.filter(t => t.some(l => l[0].resultado === 'positivo'))
             const negativos = todos.filter(t => !t.some(l => l[0].resultado === 'positivo'))
 
@@ -621,7 +635,17 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
             }
 
             return (
-              <div className="g2">
+              <div style={{display:'flex',gap:18,alignItems:'flex-start',flexWrap:'wrap'}}>
+              <div style={{textAlign:'center'}}>
+                <CuerpoZonas ancho={150} color={colorZ} marcadas={zonaTest?[zonaTest]:[]}
+                  onZona={z=>setZonaTest(v=>v===z?null:z)}/>
+                <div style={{fontSize:11.5,color:'var(--grl)',marginTop:6,lineHeight:1.5}}>
+                  <span style={{color:'var(--red)'}}>● positivo</span> · <span style={{color:'var(--gd)'}}>● negativo</span><br/>sin color: sin evaluar
+                </div>
+                {zonaTest && <button className="btn btn-t btn-sm" style={{marginTop:4}} onClick={()=>setZonaTest(null)}>
+                  {ZONAS_CUERPO.find(z=>z.id===zonaTest)?.nombre} ✕</button>}
+              </div>
+              <div className="g2" style={{flex:1,minWidth:280}}>
                 <div>
                   <div className="sec-sub" style={{color:'var(--red)'}}>Positivos · {positivos.length}</div>
                   {positivos.length===0 && <div className="muted">Ninguno</div>}
@@ -632,6 +656,7 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
                   {negativos.length===0 && <div className="muted">Ninguno</div>}
                   {negativos.map(t=>bloque(t,false))}
                 </div>
+              </div>
               </div>
             )
           })()}

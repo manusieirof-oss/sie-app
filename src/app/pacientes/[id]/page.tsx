@@ -1015,7 +1015,7 @@ export default function FichaPacientePage() {
       )}
 
       {tab==='salud' && (
-        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} cargar={cargar} onNuevoTest={()=>setEligiendoTest(true)} abrirTest={abrirTest}/>
+        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} testsLib={testsDisp} cargar={cargar} onNuevoTest={()=>setEligiendoTest(true)} abrirTest={abrirTest}/>
       )}
 
       {/* TAB ENTRENAMIENTO */}

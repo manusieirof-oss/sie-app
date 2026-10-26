@@ -1,5 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import CuerpoZonas, { type ColorZona } from '@/components/CuerpoZonas'
+import { ZONAS_CUERPO, zonasDeTest } from '@/lib/zonasCuerpo'
 import { Ic } from '@/lib/icons'
 import ExploradorTests from '@/components/ExploradorTests'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
@@ -50,11 +52,71 @@ export default function PasoTests({ testsLib, etiquetasLib=[], testsValoracion, 
   }
 
   const yaAnadidos = testsValoracion.map((tv:any)=>tv.test_id)
+
+  /* ELEGIR POR EL CUERPO: se tocan las zonas que se van a testear y salen sus tests.
+     El muñeco se pinta con lo que va saliendo: rojo positivo, verde negativo, ambar
+     añadido sin pasar. */
+  const [zonas, setZonas] = useState<string[]>([])
+  const [porZona, setPorZona] = useState<string[]>([])
+  const zonasPorTest = useMemo(() => new Map<string, string[]>((testsLib||[]).map((t:any)=>[t.id, zonasDeTest(t, etiquetasLib||[])])), [testsLib, etiquetasLib])
+  const deZonas = (testsLib||[]).filter((t:any)=>zonas.length>0 && (zonasPorTest.get(t.id)||[]).some(z=>zonas.includes(z)))
+    .sort((a:any,b:any)=>String(a.nombre).localeCompare(String(b.nombre)))
+  const colorZona = (z: string): ColorZona => {
+    const tvs = testsValoracion.filter((tv:any)=>(zonasPorTest.get(tv.test_id)||[]).includes(z))
+    if (!tvs.length) return null
+    const res = tvs.flatMap((tv:any)=>Object.values(tv.lados||{}).map((d:any)=>d?.resultado))
+    return res.includes('positivo') ? 'rojo' : res.includes('negativo') ? 'verde' : 'ambar'
+  }
+  const cuentaZona = (z: string) => (testsLib||[]).filter((t:any)=>(zonasPorTest.get(t.id)||[]).includes(z)).length
+  function anadirDeZonas(){
+    const nuevos = porZona.filter(id=>!yaAnadidos.includes(id)).map(id=>(testsLib||[]).find((t:any)=>t.id===id)).filter(Boolean).map(nuevoTv)
+    if (nuevos.length) { const desde = testsValoracion.length; setTestsValoracion((prev:any[])=>[...prev,...nuevos]); setTestActivo(desde) }
+    setPorZona([])
+  }
   const tvActivo = testActivo!=null ? testsValoracion[testActivo] : null
   const testActivoLib = tvActivo ? testsLib.find((t:any)=>t.id===tvActivo.test_id) : null
 
   return (
     <div>
+      <div className="card" style={{display:'flex',gap:20,alignItems:'flex-start',flexWrap:'wrap'}}>
+        <CuerpoZonas ancho={170} marcadas={zonas} color={colorZona} cuenta={cuentaZona}
+          onZona={z=>setZonas(l=>l.includes(z)?l.filter(x=>x!==z):[...l,z])}/>
+        <div style={{flex:1,minWidth:260}}>
+          <div className="card-title" style={{marginBottom:6}}>¿Qué zonas vas a testear?</div>
+          <div style={{fontSize:12.5,color:'var(--grl)',marginBottom:10,lineHeight:1.5}}>
+            Toca las zonas en el cuerpo y elige sus tests. El número es cuántos tests hay de cada zona.
+            <span style={{display:'inline-flex',gap:10,marginLeft:8}}>
+              <span style={{color:'var(--red)'}}>● positivo</span><span style={{color:'var(--gd)'}}>● negativo</span><span style={{color:'#8A6410'}}>● por pasar</span>
+            </span>
+          </div>
+          {zonas.length>0 && (
+            <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
+              {zonas.map(z=><span key={z} className="chip-sel on" style={{fontSize:12}} onClick={()=>setZonas(l=>l.filter(x=>x!==z))}>{ZONAS_CUERPO.find(x=>x.id===z)?.nombre} ✕</span>)}
+            </div>
+          )}
+          {zonas.length===0 ? null : deZonas.length===0 ? (
+            <div style={{fontSize:12.5,color:'var(--grl)'}}>No hay tests etiquetados en {zonas.length>1?'esas zonas':'esa zona'}. Búscalos con «Añadir tests».</div>
+          ) : (<>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:6,maxHeight:300,overflowY:'auto'}}>
+              {deZonas.map((t:any)=>{
+                const ya = yaAnadidos.includes(t.id), on = porZona.includes(t.id)
+                return (
+                  <button key={t.id} type="button" disabled={ya}
+                    onClick={()=>setPorZona(l=>on?l.filter(x=>x!==t.id):[...l,t.id])}
+                    style={{textAlign:'left',fontFamily:'inherit',fontSize:12.5,padding:'8px 10px',borderRadius:10,cursor:ya?'default':'pointer',
+                      border:`1.5px solid ${on?'var(--g)':'var(--bd)'}`,background:ya?'var(--bl)':on?'var(--gl)':'var(--w)',color:ya?'var(--grl)':'var(--n)'}}>
+                    {ya?'✓ ':on?'● ':''}{t.nombre}
+                  </button>
+                )
+              })}
+            </div>
+            <button className="btn btn-p" style={{marginTop:10}} disabled={porZona.length===0} onClick={anadirDeZonas}>
+              <Ic name="mas" size={13}/> Añadir {porZona.length||''} test{porZona.length===1?'':'s'}
+            </button>
+          </>)}
+        </div>
+      </div>
+
       {testsValoracion.length===0 && (
         <div style={{background:'var(--bl)',border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)',padding:'30px 20px',textAlign:'center',marginBottom:8}}>
           <div style={{color:'var(--grl)',marginBottom:10}}><Ic name="test" size={28}/></div>
