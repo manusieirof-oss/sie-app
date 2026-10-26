@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
+import ResumenSesion from '@/components/ResumenSesion'
 import { VeloSustituirTodos } from '@/components/SustituirSesion'
 import ModalEditarSesion from './ModalEditarSesion'
 import ModalProgramarGrupo from './ModalProgramarGrupo'
@@ -50,6 +52,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
   const [sesionVista, setSesionVista] = useState<any>(null)
   const [sustituyendo, setSustituyendo] = useState<any>(null)
+  const [menuMas, setMenuMas] = useState(false)
   const [hechoSust, setHechoSust] = useState('')
   /** La sesión cuyo historial de cambios por día se está mirando. Solo lectura. */
   const [historialDe, setHistorialDe] = useState<any>(null)
@@ -312,6 +315,9 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
               {/* Con un encargo, el paciente YA SE SABE: preguntarlo otra vez es hacer
                   elegir dos veces lo mismo, y encima deja elegir a otro distinto del de la
                   cita, que es un error silencioso esperando a pasar. */}
+              {/* CABECERA LIMPIA: a la vista lo de siempre (asignar o traer, y editar); el resto
+                  en ⋯. Antes eran seis botones en fila y el titulo quedaba apretado. */}
+              <div style={{display:'flex',gap:8,alignItems:'center',position:'relative',flexShrink:0}}>
               {encargo
                 ? (multiple
                   ? <button className={marcadas.includes(sesionVista.id) ? 'btn btn-p btn-sm' : 'btn btn-s btn-sm'}
@@ -322,27 +328,37 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                       Traer para {encargo.etiqueta || 'el paciente'}
                     </button>)
                 : esPlantilla(sesionVista)
-                ? <>
-                    <button className="btn btn-p btn-sm" onClick={()=>setAsignando(sesionVista)} disabled={ocupado}><Ic name="usuario" size={12}/> Asignar a paciente</button>
-                    {/* Programar a un grupo es lo mismo pero con la regla puesta en el
-                        calendario en vez de en una sola cita. Va al lado y no dentro:
-                        son dos decisiones distintas, no un modo de la misma. */}
-                    <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setGrupo(s)}} disabled={ocupado}><Ic name="pacientes" size={12}/> Programar a un grupo</button>
-                    <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>
-                    {/* SUSTITUIR EN SUS PACIENTES: Fuerza I → Fuerza II a todos los que la tienen. */}
-                    <button className="btn btn-s btn-sm" onClick={()=>setSustituyendo(sesionVista)} disabled={ocupado} title="Pasar a sus pacientes a otra sesión de la biblioteca"><Ic name="recuperar" size={12}/> Sustituir en sus pacientes</button>
-                  </>
-                : <button className="btn btn-s btn-sm" onClick={()=>duplicarPara(sesionVista)} disabled={ocupado}><Ic name="copiar" size={12}/> Duplicar</button>}
-              {/* SOLO MIRAR. Qué se cambió cada día y qué está previsto: la sesión
-                  es el plan, y esto es lo que se le fue desviando por el camino.
-                  No se edita desde aquí —se edita en la cita— para que no haya dos
-                  sitios que escriban lo mismo. */}
-              <button className="btn btn-s btn-sm" onClick={()=>setHistorialDe(sesionVista)}
-                title="Cambios aplicados día a día"><Ic name="carpeta" size={12}/> Historial</button>
+                ? <button className="btn btn-p btn-sm" onClick={()=>setAsignando(sesionVista)} disabled={ocupado}><Ic name="usuario" size={12}/> Asignar a paciente</button>
+                : null}
               <button className="btn btn-s btn-sm" onClick={()=>{const s=sesionVista;setSesionVista(null);setSesionEditando(s)}}><Ic name="editar" size={12}/> Editar</button>
-              <button className="btn btn-d btn-sm" onClick={()=>borrar(sesionVista)} disabled={ocupado} title="Eliminar la sesión"><Ic name="papelera" size={12}/></button>
-              <button onClick={()=>setSesionVista(null)} style={{width:26,height:26,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
+              <button onClick={()=>setMenuMas(v=>!v)} title="Más acciones"
+                style={{width:32,height:32,borderRadius:'50%',border:'1px solid var(--bd)',background:menuMas?'var(--bl)':'var(--w)',cursor:'pointer',fontSize:16,color:'var(--gr)',lineHeight:1}}>⋯</button>
+              <button onClick={()=>setSesionVista(null)} style={{width:32,height:32,borderRadius:'50%',border:'1px solid var(--bd)',background:'var(--w)',cursor:'pointer',fontSize:13,color:'var(--gr)'}}>✕</button>
+              {menuMas && (
+                <div onMouseLeave={()=>setMenuMas(false)} style={{position:'absolute',top:40,right:40,zIndex:5,background:'var(--w)',borderRadius:14,boxShadow:'0 10px 30px rgba(38,40,37,.18)',padding:6,width:240}}>
+                  {([
+                    ...(esPlantilla(sesionVista) && !encargo ? [
+                      ['pacientes','Programar a un grupo',()=>{const s=sesionVista;setSesionVista(null);setGrupo(s)}],
+                      ['recuperar','Sustituir en sus pacientes',()=>setSustituyendo(sesionVista)],
+                    ] : []),
+                    ['copiar','Duplicar',()=>duplicarPara(sesionVista)],
+                    ['carpeta','Historial',()=>setHistorialDe(sesionVista)],
+                  ] as [string,string,()=>void][]).map(([ic,t,fn])=>(
+                    <button key={t} disabled={ocupado} onClick={()=>{setMenuMas(false);fn()}}
+                      style={{display:'flex',alignItems:'center',gap:8,width:'100%',textAlign:'left',padding:'9px 12px',borderRadius:9,border:0,background:'none',cursor:'pointer',fontFamily:'inherit',fontSize:13.5,color:'var(--n)'}}
+                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--bl)'} onMouseOut={e=>(e.currentTarget as HTMLElement).style.background='none'}>
+                      <Ic name={ic} size={14}/> {t}
+                    </button>
+                  ))}
+                  <button disabled={ocupado} onClick={()=>{setMenuMas(false);borrar(sesionVista)}}
+                    style={{display:'flex',alignItems:'center',gap:8,width:'100%',textAlign:'left',padding:'11px 12px 9px',borderRadius:9,border:0,borderTop:'1px solid var(--bd2)',marginTop:4,background:'none',cursor:'pointer',fontFamily:'inherit',fontSize:13.5,color:'var(--red)'}}>
+                    <Ic name="papelera" size={14}/> Eliminar
+                  </button>
+                </div>
+              )}
+              </div>
             </div>
+            <ResumenSesion partes={sesionVista.partes||[]} ejercicios={ejercicios||[]} etiquetas={etiquetas||[]}/>
             <div style={{flex:1,overflowY:'auto',padding:'14px 18px',background:'var(--w)'}}>
               {(sesionVista.partes||[]).map((parte:any,pi:number)=>(
                 <div key={pi} style={{marginBottom:16}}>
@@ -397,26 +413,30 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                           </div>
                         )}
                         <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
-                          {gr.items.map(({ej,ei}:any)=>(
-                            <div key={ei} style={{textAlign:'center',width:132}}>
-                              <div style={{position:'relative',aspectRatio:'1/1',background:'var(--bm)',borderRadius:10,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--grl)'}}>
-                                {ej.imagen_url
-                                  ? <img src={ej.imagen_url} alt={ej.nombre} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
-                                  : <Ic name="fuerza" size={30}/>}
-                                {ss&&<span style={{position:'absolute',top:6,left:6,fontSize:10.5,fontWeight:600,color:'var(--gd)',background:'var(--w)',borderRadius:99,padding:'1px 7px'}}>{gr.g}{gr.items.findIndex((x:any)=>x.ei===ei)+1}</span>}
-                              </div>
+                          {gr.items.map(({ej,ei}:any)=>{
+                            /* LA DOSIS EN UNA PASTILLA: "3 × 12 · Unilateral", "180 s". Es lo que hace
+                               falta para leer la sesion sin abrirla. En circuito y superserie las
+                               series son las vueltas de la parte o del grupo: no se repiten aqui. */
+                            const cuanto = ej.tiempo ? `${ej.tiempo} s` : ej.reps ? `${ej.reps}` : ''
+                            const series = parte.modo!=='circuito'&&parte.modo!=='superserie'&&ej.series&&cuanto ? `${ej.series} × ` : ''
+                            const dosis = [series+cuanto, ej.peso?`${ej.peso} kg`:'', ej.lado&&ej.lado!=='Bilateral'?ej.lado:''].filter(Boolean).join(' · ')
+                            // Sin foto ni musculos que pintar: tarjeta pequeña, que no pese como las que si.
+                            const lib = (ejercicios||[]).find((x:any)=>x.id===ej.ejercicio_id)
+                            const vacia = !ej.imagen_url && !(lib?.imagen_url) && !((lib?.etiquetas||[]).length)
+                            const etiq = ss ? `${gr.g}${gr.items.findIndex((x:any)=>x.ei===ei)+1}` : ''
+                            return (
+                            <div key={ei} style={{textAlign:'center',width:vacia?112:140,position:'relative'}}>
+                              {etiq&&<span style={{position:'absolute',top:6,left:6,zIndex:2,fontSize:10.5,fontWeight:600,color:'var(--gd)',background:'var(--w)',borderRadius:99,padding:'1px 7px',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}}>{etiq}</span>}
+                              {vacia
+                                ? <div title="Sin foto ni músculos: complétalo en el torno" style={{height:60,borderRadius:10,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--grl)'}}>sin foto</div>
+                                : <ImagenEjercicio src={ej.imagen_url||lib?.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={lib?.etiquetas} radio={10} fondo="var(--bl)" icono={30} alt={ej.nombre} insignias={false}/>}
                               <div style={{fontSize:12.5,color:'var(--n)',marginTop:6,lineHeight:1.3}}>{ej.nombre||ej}</div>
-                              <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'center',marginTop:4}}>
-                                {ej.variante&&chip(ej.variante,'var(--gl)','var(--gd)')}
-                                {ej.capacidad&&chip(ej.capacidad,'var(--ambl)','#7A5800')}
-                                {parte.modo!=='circuito'&&parte.modo!=='superserie'&&ej.series&&chip(`${ej.series} series`)}
-                                {ej.reps&&chip(`${ej.reps} reps`)}
-                                {ej.peso&&chip(`${ej.peso} kg`)}
-                                {ej.tiempo&&chip(`${ej.tiempo} seg`)}
-                              </div>
+                              {dosis&&<div style={{display:'inline-block',fontSize:12,fontWeight:600,color:'var(--n)',background:'var(--gl)',borderRadius:99,padding:'2px 9px',marginTop:4}}>{dosis}</div>}
+                              {ej.variante&&<div style={{marginTop:3}}>{chip(ej.variante,'var(--gl)','var(--gd)')}</div>}
+                              {ej.capacidad&&<div style={{fontSize:11,color:'var(--grl)',marginTop:2}}>{ej.capacidad}</div>}
                               {ej.nota&&<div style={{fontSize:10.5,color:'#7A5800',marginTop:4,fontStyle:'italic'}}>{ej.nota}</div>}
                             </div>
-                          ))}
+                          )})}
                         </div>
                       </div>
                     ))}</div>
