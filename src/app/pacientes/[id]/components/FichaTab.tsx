@@ -528,28 +528,26 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     const aro = urg > 0 ? `0 0 0 ${grande ? 2.5 : 2}px ${COLOR_URGENCIA[urg]}` : ''
     const base = enPlan ? esfera : hueco
 
-    /* DIAMANTE: lo pide el paciente Y lo dice un test. Es el objetivo con mas peso
-       (lo quiere y hay causa medida), asi que cambia de forma y no solo de color: se
-       ve desde el otro lado de la fila. Facetas con los dos colores de las vias. */
+    /* COLOR DIAMANTE: lo pide el paciente Y lo dice un test. Es el objetivo con mas
+       peso (lo quiere y hay causa medida). Misma esfera, pero con brillo de diamante:
+       facetas con los dos colores de las vias y un destello. */
     const vs = viasDe(o)
     if (vs.includes('pide') && vs.includes('test')) {
       const P = VIAS.find(x => x.valor === 'pide')!, T = VIAS.find(x => x.valor === 'test')!
-      const facetas = enPlan
-        ? `conic-gradient(from 180deg at 50% 36%, ${T.oscuro}, ${T.color}, ${T.claro}, ${P.claro}, ${P.color}, ${P.oscuro}, ${T.oscuro})`
-        : `conic-gradient(from 180deg at 50% 36%, ${T.claro}, ${T.fondo}, #fff, ${P.fondo}, ${P.claro}, ${P.fondo}, ${T.claro})`
+      const fondo = enPlan
+        ? `radial-gradient(circle at 33% 28%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 18%, transparent 40%), radial-gradient(circle at 50% 50%, transparent 55%, rgba(35,40,60,.35) 100%), conic-gradient(from 20deg, ${T.oscuro}, ${T.color}, ${T.claro}, #fff, ${P.claro}, ${P.color}, ${P.oscuro}, ${P.color}, ${P.claro}, ${T.fondo}, ${T.color}, ${T.oscuro})`
+        : `radial-gradient(circle at 33% 28%, #fff 0%, rgba(255,255,255,.7) 22%, transparent 50%), conic-gradient(from 20deg, ${T.claro}, ${T.fondo}, #fff, ${P.fondo}, ${P.claro}, ${P.fondo}, #fff, ${T.fondo}, ${T.claro})`
+      const sombra = enPlan ? `inset -3px -5px 9px ${P.oscuro}55, 0 3px 7px rgba(38,40,37,.28)` : `inset -2px -4px 7px ${P.color}33, 0 2px 5px rgba(38,40,37,.16)`
       return (
-        <span title={[urg > 0 ? textoRevision(o.revisar_el) : '', 'Lo pide y lo dice un test'].filter(Boolean).join(' · ')}
-          style={{ display: 'inline-flex', flexShrink: 0, filter: `drop-shadow(0 3px 4px rgba(38,40,37,.3))${urg > 0 ? ` drop-shadow(0 0 2px ${COLOR_URGENCIA[urg]})` : ''}`,
-            opacity: o.logrado ? (urg > 0 ? .9 : .55) : 1 }}>
-          <span className={`obj-moneda${grande?' g':''}`} style={{ borderRadius: 0, borderWidth: 0,
-            clipPath: 'polygon(22% 6%, 78% 6%, 100% 36%, 50% 100%, 0% 36%)',
-            background: `linear-gradient(to bottom, transparent 35%, rgba(255,255,255,${enPlan ? .55 : .7}) 35% 37.5%, transparent 37.5%), linear-gradient(118deg, rgba(255,255,255,${enPlan ? .75 : .9}) 0 18%, transparent 18% 100%), ${facetas}` }}>
-            {o.imagen_url
-              ? <img src={o.imagen_url} alt=""/>
-              : <b style={{ color: enPlan ? '#fff' : P.color, textShadow: enPlan ? `0 1px 2px ${T.oscuro}` : 'none' }}>
-                  {(o.nombre||'?').trim().charAt(0).toUpperCase()}
-                </b>}
-          </span>
+        <span className={`obj-moneda${grande?' g':''}`}
+          title={[urg > 0 ? textoRevision(o.revisar_el) : '', 'Lo pide y lo dice un test'].filter(Boolean).join(' · ')}
+          style={{ borderWidth: 0, background: o.imagen_url ? 'var(--bl)' : fondo,
+            boxShadow: aro ? `${sombra}, ${aro}` : sombra, opacity: o.logrado ? (urg > 0 ? .9 : .55) : 1 }}>
+          {o.imagen_url
+            ? <img src={o.imagen_url} alt=""/>
+            : <b style={{ color: enPlan ? '#fff' : P.color, textShadow: enPlan ? `0 1px 3px ${T.oscuro}` : 'none' }}>
+                {(o.nombre||'?').trim().charAt(0).toUpperCase()}
+              </b>}
         </span>
       )
     }
