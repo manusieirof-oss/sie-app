@@ -5,6 +5,7 @@ import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { camposSerie, UNIDAD } from '@/lib/medida'
 import { pedirFoto } from '@/lib/fotos'
+import { textoModo } from '@/lib/sesiones'
 
 // ---------------------------------------------------------------------------
 // TALLER · TODOS LOS ENTRENOS A LA VEZ.
@@ -120,7 +121,9 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                 <button className="tt-foto" title="Falta, cancelar o cambiar de sala" onClick={() => a.cita(p.id)}
                   style={{ background: COLS[pi % COLS.length] }}>{fotos[p.id] ? <img src={fotos[p.id]!} alt="" /> : ini}</button>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="tt-nom">{nombrePac(p)}{s.estado === 'falta' && <span className="tt-falta">Falta</span>}</div>
+                  <div className="tt-nom">{nombrePac(p)}{s.estado === 'falta' && <span className="tt-falta">Falta</span>}
+                    {/* A LA VISTA: falta, cancelar o cambiar de sala. Antes solo tocando la foto, y no se adivinaba. */}
+                    <button className="tt-cita" onClick={() => a.cita(p.id)} title="Falta, cancelar o cambiar de sala">Cita ▾</button></div>
                   <div className="tt-sub">{edad != null ? `${edad} años · ` : ''}{ses?.nombre || (sid ? 'Sesión' : 'Sin sesión')}</div>
                 </div>
                 <button className="tt-abrir" title="Su taller completo, uno a uno" onClick={() => a.abrir(p.id)}>⤢</button>
@@ -142,6 +145,9 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
               return <div key={ei}>
                 {cab && <button className={'tt-parte' + (pl ? ' pl' : '')} onClick={() => plegar(kP)} title={pl ? 'Desplegar' : 'Recoger esta parte'}>
                   <span className="fl">▾</span>{cab}
+                  {/* COMO SE HACE LA PARTE: en Todos solo salia el nombre y no se distinguia una
+                      superserie de un circuito o de ejercicio a ejercicio. */}
+                  {e.parteObj && <span className="md">{textoModo(e.parteObj)}</span>}
                   <span className="cu">{pTot > 0 && pHechas === pTot ? '✓ hecha' : pTot ? `${pHechas}/${pTot}` : ''}</span>
                 </button>}
                 {cab && pl && <div className="tt-plg" onClick={() => plegar(kP)}>{deParte.map(o => o.x.nombre).join(' · ')}</div>}
@@ -151,7 +157,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                     <button className="tt-mas" title="Nota, ejecución, feedback, no lo hizo, cambiar" onClick={() => setOpc({ pid: p.id, ei })}>•••</button>
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div className="tt-nm">{e.nombre}{e.sustituye ? <span className="tt-hoy">solo hoy</span> : null}{ei === ahora && !s.finalizado ? <span className="tt-ahora">ahora</span> : null}</div>
+                    <div className="tt-nm">{letraDe(datos, ei) && <span className="tt-letra">{letraDe(datos, ei)}</span>}{e.nombre}{e.sustituye ? <span className="tt-hoy">solo hoy</span> : null}{ei === ahora && !s.finalizado ? <span className="tt-ahora">ahora</span> : null}</div>
                     {a.arreglar && a.medida && e.ejercicio_id && <MedidaRapida tipo={e.tipo_medida} nombre={e.nombre} onCambio={(t: string) => a.medida!(e.ejercicio_id, t)}/>}
                     {/* EJECUCION Y LATERALIDAD A LA VISTA: es lo que hay que saber para hacer el
                         ejercicio, no puede quedar dentro de un menu. Un toque pasa a la siguiente;
@@ -305,6 +311,10 @@ const CSS = `
 .tt-parte:hover{background:var(--bl)}
 .tt-parte .fl{font-size:13px;transition:transform .15s;display:inline-block}
 .tt-parte.pl .fl{transform:rotate(-90deg)}
+.tt-parte .md{letter-spacing:0;text-transform:none;font-weight:600;color:var(--gd);background:var(--gl);border-radius:99px;padding:1px 8px;font-size:11px}
+.tt-letra{display:inline-block;font-size:10.5px;font-weight:700;color:var(--gd);background:var(--gl);border-radius:99px;padding:0 6px;margin-right:5px;vertical-align:1px}
+.tt-cita{font-family:inherit;font-size:11px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--gr);border-radius:99px;padding:1px 8px;margin-left:6px;cursor:pointer;vertical-align:2px}
+.tt-cita:hover{border-color:var(--g);color:var(--gd)}
 .tt-parte .cu{margin-left:auto;letter-spacing:0;text-transform:none;font-weight:600;color:var(--gr)}
 .tt-plg{margin:-2px 12px 6px 30px;font-size:11.5px;color:var(--grl);line-height:1.5;cursor:pointer}
 .tt-ej{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:6px 8px;margin:0 4px;border-radius:12px}
@@ -362,3 +372,12 @@ const CSS = `
 .tt-paso input{width:70px;text-align:center;font-size:15px;padding:6px}
 .tt-ult{font-size:12px;color:var(--grl);white-space:nowrap}
 `
+
+/** En superserie, su letra de grupo y su orden: "A1", "B2"… (como en la vista individual). */
+function letraDe(datos: any[], ei: number): string {
+  const e = datos[ei]
+  if (e?.parteObj?.modo !== 'superserie') return ''
+  const g = e.grupo || 'A'
+  const mismos = datos.map((x, i) => ({ x, i })).filter(o => o.x.parte === e.parte && (o.x.grupo || 'A') === g)
+  return g + (mismos.findIndex(o => o.i === ei) + 1)
+}
