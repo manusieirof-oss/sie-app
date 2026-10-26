@@ -10,6 +10,7 @@ import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen, { LADOS } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useRef, useState } from 'react'
+import { partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 
 // ---------------------------------------------------------------------------
 // UNA PARTE ENTERA, DE IZQUIERDA A DERECHA
@@ -37,7 +38,7 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, onSustituir }: any) {
+  superserie = false, noHechos = [], onNoHecho, onSustituir, arreglar = false, onMedida }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -119,6 +120,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {arreglar && ej.ejercicio_id && onMedida && <MedidaRapida tipo={ej.tipo_medida} onCambio={(t: string) => onMedida(ej.ejercicio_id, t)}/>}
               {/* PARA QUÉ ES. Los objetivos que trabaja este ejercicio, como se dejó en la
                   sesión: que en sala se vea para qué sirve lo que se está haciendo. */}
               <ObjetivosEj ids={ej.objetivos || []} objetivosLib={objetivosLib}/>
@@ -256,5 +258,30 @@ function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onS
         {opcion('⊘', 'No lo hizo', onNoHecho)}
       </Flotante>
     </>
+  )
+}
+
+/**
+ * COMO SE MIDE, a dos toques y en la base del ejercicio: con que carga (peso, corporal
+ * o banda) y cuanto (reps, tiempo o metros). Solo sale con "Arreglar ejercicios".
+ */
+function MedidaRapida({ tipo, onCambio }: { tipo?: string, onCambio: (t: string) => void }) {
+  const { carga, volumen } = partesMedida(tipo)
+  const fila = (ops: [string, string][], actual: string, poner: (v: any) => void) => (
+    <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+      {ops.map(([v, t]) => (
+        <button key={v} type="button" onClick={() => v !== actual && poner(v)}
+          style={{ fontFamily: 'inherit', fontSize: 11, padding: '3px 8px', borderRadius: 99, cursor: 'pointer',
+            border: `1px solid ${v === actual ? 'var(--amb)' : 'var(--bd)'}`,
+            background: v === actual ? 'var(--ambl)' : 'var(--w)', color: v === actual ? '#7A5800' : 'var(--gr)',
+            fontWeight: v === actual ? 600 : 400 }}>{t}</button>
+      ))}
+    </div>
+  )
+  return (
+    <div style={{ marginTop: 6, padding: '6px 4px', borderRadius: 10, border: '1.5px dashed var(--amb)', display: 'grid', gap: 4 }}>
+      {fila([['kg', 'Peso'], ['corporal', 'Corporal'], ['banda', 'Banda']], carga, (c: Carga) => onCambio(idMedida(c, volumen)))}
+      {fila([['reps', 'Reps'], ['segundos', 'Tiempo'], ['metros', 'Metros']], volumen, (v: Volumen) => onCambio(idMedida(carga, v)))}
+    </div>
   )
 }

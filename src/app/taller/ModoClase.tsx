@@ -136,6 +136,19 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * no pliega el de otro. No se guarda: al recargar vuelven abiertos, que es lo seguro.
    */
   const [plegadas, setPlegadas] = useState<Set<string>>(new Set())
+  /* ARREGLAR EJERCICIOS mientras se trabaja: muchos estaban por kg siendo por tiempo (o
+     al reves) y en el editor habia que ir uno a uno. Encendido, cada ejercicio deja
+     cambiar como se mide EN LA BIBLIOTECA (para todos los que lo usen). Se recuerda en
+     este aparato hasta que se apague. */
+  const [arreglar, setArreglar] = useState(false)
+  useEffect(() => { try { setArreglar(localStorage.getItem('taller-arreglar') === '1') } catch {} }, [])
+  const alternarArreglar = () => setArreglar(v => { try { localStorage.setItem('taller-arreglar', v ? '0' : '1') } catch {}; return !v })
+  /** Como se mide, en la base del ejercicio. Cambia ya en la sala para todos los que lo tengan. */
+  async function cambiarMedidaBase(ejercicioId: string, tipo: string) {
+    const { error } = await supabase.from('ejercicios').update({ tipo_medida: tipo }).eq('id', ejercicioId)
+    if (error) { alert('No se ha podido cambiar cómo se mide: ' + error.message); return }
+    setSeleccion(prev => prev.map(s => ({ ...s, datos: (s.datos || []).map((d: any) => d.ejercicio_id === ejercicioId ? { ...d, tipo_medida: tipo } : d) })))
+  }
   const alternarPlegada = (k: string) => setPlegadas(prev => {
     const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n
   })
@@ -1898,6 +1911,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 </div>
               )}
             </div>
+            <button className={`btn btn-sm ${arreglar ? 'btn-p' : 'btn-s'}`} onClick={alternarArreglar}
+              title="Cambiar cómo se mide cada ejercicio en la biblioteca, mientras trabajas">
+              <Ic name="ajustes" size={13}/> {arreglar ? 'Arreglando ejercicios' : 'Arreglar ejercicios'}
+            </button>
             {act.sesionId && hojaAct && (
               <button className="btn btn-p btn-sm" onClick={()=>finalizarHoja(act.paciente.id, act.sesionId, hojaAct)}>✓ Guardar y finalizar</button>
             )}
@@ -1995,7 +2012,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               toggleObjetivo={toggleObjetivo}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
-              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}/>}
+              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}
+              arreglar={arreglar} onMedida={cambiarMedidaBase}/>}
             </div>
             )
           })}
