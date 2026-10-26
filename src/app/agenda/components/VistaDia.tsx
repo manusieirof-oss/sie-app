@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
@@ -123,7 +124,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     )
     return (
       <div className={`ag-pac ${falta?'falta':''}`} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)} title={nombreTipo(c.tipo)}>
-        <span className="ag-av">{iniciales(c)}</span>
+        <span className="ag-av"><CaraPaciente p={c.pacientes}/></span>
         <span className="ag-nom">{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
         {falta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}}>falta</span>}
         {tieneAlerta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}} title="Tiene alertas activas">alerta</span>}

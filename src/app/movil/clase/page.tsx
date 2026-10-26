@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import { citaAntes, correrTrasEstado } from '@/lib/correrSesiones'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -40,7 +41,7 @@ export default function MovilClase() {
     if (!p) return
     setCargando(true)
     const { data } = await supabase.from('citas')
-      .select('id,fecha,hora,sala,tipo,estado,paciente_id,bono_id,pacientes(id,nombre,apellidos)')
+      .select('id,fecha,hora,sala,tipo,estado,paciente_id,bono_id,pacientes(id,nombre,apellidos,foto_url)')
       .eq('fecha', p.f).eq('hora', p.h + ':00').eq('sala', p.s).order('id')
     const cs = data || []
     setCitas(cs)
@@ -102,7 +103,7 @@ export default function MovilClase() {
             const aviso = i.alerta || i.molestia
             return (
               <div key={c.id} className="m-pac">
-                <Link href={`/movil/pacientes/${c.paciente_id}`} className={`m-av ${aviso ? 'rojo' : ''}`}>{iniciales(c.pacientes)}</Link>
+                <Link href={`/movil/pacientes/${c.paciente_id}`} className={`m-av ${aviso ? 'rojo' : ''}`}><CaraPaciente p={c.pacientes}/></Link>
                 <Link href={`/movil/pacientes/${c.paciente_id}`} className="m-pac-m">
                   <b>{nombreDe(c.pacientes)}</b>
                   {aviso ? <span className="rojo">⚠ {aviso}</span>

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -39,7 +40,7 @@ export default function MovilFicha() {
   async function cargar() {
     const hoy = hoyISO()
     const [p, b, cu, al, mo, pa, ci] = await Promise.all([
-      supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,tipo_clase,estado').eq('id', id).maybeSingle(),
+      supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,tipo_clase,estado,foto_url').eq('id', id).maybeSingle(),
       bonosDe(id),
       supabase.from('bonos').select('*').eq('paciente_id', id).eq('activo', true),
       supabase.from('alertas_paciente').select('descripcion,afecta_sesion').eq('paciente_id', id).eq('activa', true),
@@ -107,7 +108,7 @@ export default function MovilFicha() {
     <div className="m-pag">
       <Link href="/movil/pacientes" className="m-volver"><Ic name="izq" size={18}/> Pacientes</Link>
       <div className="m-fcab">
-        <span className={`m-av xl ${cuidado.some(c => c.color === 'var(--red)') ? 'rojo' : ''}`}>{iniciales(pac)}</span>
+        <span className={`m-av xl ${cuidado.some(c => c.color === 'var(--red)') ? 'rojo' : ''}`}><CaraPaciente p={pac}/></span>
         <b>{nombreDe(pac)}</b>
         <small>{pac.nombre_clinica ? `"${pac.nombre_clinica}" · ` : ''}{pac.estado === 'activo' ? 'Activo' : pac.estado}</small>
       </div>

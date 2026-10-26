@@ -166,7 +166,7 @@ export default function AgendaPage() {
     const todas: any[] = []
     for (let desde = 0; desde < 20000; desde += TAM_PAGINA) {
       const { data: pagina, error } = await supabase.from('citas')
-        .select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase,notas_fijas), sesiones:sesion_id(id,nombre,partes,descripcion)')
+        .select('*, pacientes(id,nombre,apellidos,nombre_clinica,telefono,email,tipo_clase,notas_fijas,foto_url), sesiones:sesion_id(id,nombre,partes,descripcion)')
         .gte('fecha',fechaInicio).lte('fecha',fechaFin)
         .order('fecha').order('hora').order('id')
         .range(desde, desde + TAM_PAGINA - 1)

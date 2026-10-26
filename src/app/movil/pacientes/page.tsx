@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -17,7 +18,7 @@ export default function MovilPacientes() {
   const [todos, setTodos] = useState(false)
 
   useEffect(() => {
-    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,estado').order('nombre')
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,telefono,estado,foto_url').order('nombre')
       .then(({ data }) => setPacientes(data || []))
   }, [])
 
@@ -39,7 +40,7 @@ export default function MovilPacientes() {
       <div className="m-lista">
         {lista.slice(0, 200).map(p => (
           <Link key={p.id} href={`/movil/pacientes/${p.id}`} className="m-lista-it">
-            <span className="m-av">{iniciales(p)}</span>
+            <span className="m-av"><CaraPaciente p={p}/></span>
             <span className="m-lista-m"><b>{nombreDe(p)}</b><small>{p.nombre_clinica ? `"${p.nombre_clinica}" · ` : ''}{p.telefono || ''}</small></span>
             <Ic name="der" size={15} style={{ color: 'var(--bm)' }}/>
           </Link>

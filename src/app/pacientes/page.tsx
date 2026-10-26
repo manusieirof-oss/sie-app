@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, BonoTipo, cambiarEstadoPago, cuotaVigenteDe, sesionesDe as sesionesDeBonos, bonosActivos } from '@/lib/bonos'
 import Link from 'next/link'
@@ -545,7 +546,7 @@ export default function PacientesPage() {
                 onMouseOver={e=>(e.currentTarget as HTMLElement).style.background=fondoHover}
                 onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=fondo}>
                 <div style={{padding:'8px 10px'}}>
-                  <div style={{fontSize:12,fontWeight:nuevo?600:400,color:nuevo?'#3F5C31':'var(--n)',display:'flex',alignItems:'center',gap:6}}>{p.nombre} {p.apellidos}
+                  <div style={{fontSize:12,fontWeight:nuevo?600:400,color:nuevo?'#3F5C31':'var(--n)',display:'flex',alignItems:'center',gap:6}}><span className="pac-av"><CaraPaciente p={p}/></span>{p.nombre} {p.apellidos}
                     {/* El distintivo va aunque la fila ya esté teñida: con el filtro de
                         nuevos puesto están todas verdes y el color deja de decir nada.
                         Además dice CUÁNDO entró, que es lo que se quiere saber. */}

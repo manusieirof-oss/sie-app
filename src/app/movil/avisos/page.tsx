@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -73,7 +74,7 @@ export default function MovilAvisos() {
           {bonos.length === 0 && <div className="m-nada tarj">Ninguno.</div>}
           {bonos.map(b => (
             <Link key={b.bono_id} href={`/movil/pacientes/${b.paciente_id}`} className="m-aviso">
-              <span className="m-av sm">{iniciales(b)}</span>
+              <span className="m-av sm"><CaraPaciente p={b}/></span>
               <span style={{ minWidth: 0 }}><b>{nombreDe(b)}</b><small>{b.caducado ? 'Caducado' : b.restantes <= 0 ? 'Sin sesiones' : `Le quedan ${b.restantes}`}{b.bono_nombre ? ' · ' + b.bono_nombre : ''}</small></span>
             </Link>
           ))}

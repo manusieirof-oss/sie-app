@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -33,7 +34,7 @@ export default function MovilHoy() {
     setCargando(true)
     ;(async () => {
       const { data } = await supabase.from('citas')
-        .select('id,hora,sala,tipo,estado,paciente_id,pacientes(nombre,apellidos)')
+        .select('id,hora,sala,tipo,estado,paciente_id,pacientes(nombre,apellidos,foto_url)')
         .eq('fecha', fecha).neq('estado', 'cancelada').order('hora')
       setCitas(data || [])
       const ids = Array.from(new Set((data || []).map((c: any) => c.paciente_id)))
@@ -73,7 +74,7 @@ export default function MovilHoy() {
           <span>{quien ? quien + ' · ' : ''}{n} de {max}</span>
           <div className="m-barra"><i style={{ width: Math.min(100, n / max * 100) + '%', background: n >= max && !destacada ? 'var(--amb)' : undefined }}/></div>
         </div>
-        <div className="m-avs">{c.citas.slice(0, 3).map((x: any) => <i key={x.id}>{iniciales(x.pacientes)}</i>)}</div>
+        <div className="m-avs">{c.citas.slice(0, 3).map((x: any) => <i key={x.id}><CaraPaciente p={x.pacientes}/></i>)}</div>
       </Link>
     )
   }

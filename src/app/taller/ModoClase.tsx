@@ -514,7 +514,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     const d = new Date(hoy() + 'T12:00:00'); d.setDate(d.getDate() - 7)
     const desde = d.toISOString().slice(0, 10)
     const { data: citas } = await supabase.from('citas')
-      .select('id,fecha,hora,estado,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento), sesiones:sesion_id(*)')
+      .select('id,fecha,hora,estado,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento,foto_url), sesiones:sesion_id(*)')
       .not('sesion_id', 'is', null).not('paciente_id', 'is', null)
       .in('estado', ['programada', 'realizada']).gte('fecha', desde).lte('fecha', hoy())
       .order('fecha').order('hora')

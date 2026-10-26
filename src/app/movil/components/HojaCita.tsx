@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import CaraPaciente from '@/components/CaraPaciente'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { crearCita } from '@/lib/citas'
@@ -36,7 +37,7 @@ export default function HojaCita({ pacienteId, fecha: fecha0, hora: hora0, sala:
 
   useEffect(() => {
     configMovil().then(setCfg)
-    pacientesAgendables('id,nombre,apellidos,nombre_clinica,tipo_clase').then(ps => {
+    pacientesAgendables('id,nombre,apellidos,nombre_clinica,tipo_clase,foto_url').then(ps => {
       setPacientes(ps)
       if (pacienteId) setPac(ps.find((p: any) => p.id === pacienteId) || null)
     })
@@ -78,7 +79,7 @@ export default function HojaCita({ pacienteId, fecha: fecha0, hora: hora0, sala:
         {/* PACIENTE */}
         {pac ? (
           <div className="m-campo" onClick={() => !pacienteId && setPac(null)}>
-            <span className="m-av sm">{iniciales(pac)}</span>
+            <span className="m-av sm"><CaraPaciente p={pac}/></span>
             <div style={{ flex: 1 }}><small>Paciente</small>{nombreDe(pac)}</div>
             {!pacienteId && <Ic name="cerrar" size={15}/>}
           </div>
@@ -90,7 +91,7 @@ export default function HojaCita({ pacienteId, fecha: fecha0, hora: hora0, sala:
             </div>
             {encontrados.map(p => (
               <div key={p.id} className="m-fila-sel" onClick={() => { setPac(p); setBuscar('') }}>
-                <span className="m-av sm">{iniciales(p)}</span>{nombreDe(p)}
+                <span className="m-av sm"><CaraPaciente p={p}/></span>{nombreDe(p)}
               </div>
             ))}
           </>

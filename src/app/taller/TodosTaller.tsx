@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { camposSerie, UNIDAD } from '@/lib/medida'
-import { urlFotoPaciente } from '@/lib/fotos'
+import { pedirFoto } from '@/lib/fotos'
 
 // ---------------------------------------------------------------------------
 // TALLER · TODOS LOS ENTRENOS A LA VEZ.
@@ -52,7 +52,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
     seleccion.forEach(s => {
       const p = s.paciente
       if (!p?.foto_url || fotos[p.id] !== undefined) return
-      urlFotoPaciente(p.foto_url).then(u => setFotos(f => ({ ...f, [p.id]: u })))
+      pedirFoto(p.foto_url).then(u => setFotos(f => ({ ...f, [p.id]: u })))
     })
   }, [seleccion]) // eslint-disable-line react-hooks/exhaustive-deps
   const [opc, setOpc] = useState<{ pid: string, ei: number } | null>(null)
