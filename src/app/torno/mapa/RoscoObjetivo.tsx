@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { FAMILIAS_BUSCA, buscaDe } from '@/lib/ejercicioObjetivos'
 import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -31,7 +32,7 @@ function quesito(a0: number, a1: number) {
   return `M${x0},${y0} A${R1},${R1} 0 ${g} 1 ${x1},${y1} L${x2},${y2} A${R0},${R0} 0 ${g} 0 ${x3},${y3} Z`
 }
 
-type Clave = 'nombre' | 'descripcion' | 'zona' | 'imagen' | 'especificos' | 'patologia'
+type Clave = 'nombre' | 'descripcion' | 'zona' | 'busca' | 'imagen' | 'especificos' | 'patologia'
 
 export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, onCerrar, onCambiado, onPanel, tam = 520 }: {
   objetivo: any | null, etiquetas: any[], tests: any[],
@@ -48,7 +49,7 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
   const [d, setD] = useState<any>({
     id: objetivo?.id || '', nombre: objetivo?.nombre || '', descripcion: objetivo?.descripcion || '',
     articulacion_id: objetivo?.articulacion_id || '', etiquetas: objetivo?.etiquetas || [],
-    movimientos: objetivo?.movimientos || [], imagen_url: objetivo?.imagen_url || '', imagen_file: null as File | null,
+    movimientos: objetivo?.movimientos || [], busca: Array.isArray(objetivo?.busca) ? objetivo.busca : [], imagen_url: objetivo?.imagen_url || '', imagen_file: null as File | null,
   })
   const [evaluadores, setEvaluadores] = useState<Evaluador[]>([])
   const [abierto, setAbierto] = useState<Clave | null>(objetivo ? null : 'nombre')
@@ -71,6 +72,11 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
     { k: 'nombre', t: 'Nombre', ic: 'editar', lleno: !!d.nombre.trim(), sub: d.nombre || 'Sin nombre' },
     { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
     { k: 'zona', t: 'Zona', ic: 'ubicacion', lleno: !!d.articulacion_id, sub: nombreEt(d.articulacion_id) || 'Sin zona' },
+    // QUE BUSCA (fuerza, movilidad…): la segunda comprobacion del cruce con los ejercicios.
+    // Sin guardar, se deduce del nombre y sale "propuesto".
+    { k: 'busca', t: 'Busca', ic: 'objetivo', lleno: (d.busca || []).length > 0,
+      sub: (d.busca || []).length ? FAMILIAS_BUSCA.filter(f => d.busca.includes(f[0])).map(f => f[1]).join(', ')
+        : buscaDe({ nombre: d.nombre }).length ? 'Propuesto: ' + FAMILIAS_BUSCA.filter(f => buscaDe({ nombre: d.nombre }).includes(f[0])).map(f => f[1]).join(', ') : 'Sin decir' },
     { k: 'especificos', t: 'Específicos', ic: 'lista', lleno: nMov > 0, sub: nMov ? `${nMov} parte${nMov === 1 ? '' : 's'}` : 'El objetivo entero', opcional: true },
     { k: 'imagen', t: 'Imagen', ic: 'camara', lleno: !!d.imagen_url, sub: d.imagen_url ? 'Con imagen' : 'Esfera', opcional: true },
     { k: 'patologia', t: 'Patología', ic: 'patologia', lleno: patologias.length > 0, sub: patologias.length ? `${patologias.length} puesta${patologias.length === 1 ? '' : 's'}` : 'Ninguna', opcional: true },
@@ -83,7 +89,7 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
     if (!d.nombre.trim()) { setAviso('Falta el nombre'); setAbierto('nombre'); return }
     setGuardando(true)
     const payload: any = { nombre: d.nombre.trim(), descripcion: d.descripcion, articulacion_id: d.articulacion_id || null,
-      etiquetas: d.etiquetas || [], movimientos: d.movimientos || [] }
+      etiquetas: d.etiquetas || [], movimientos: d.movimientos || [], busca: d.busca || [] }
     let id = d.id
     if (id) {
       const r = await supabase.from('objetivos').update(payload).eq('id', id)
@@ -128,6 +134,25 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
   }
 
   const editor = (k: Clave) => {
+    if (k === 'busca') {
+      const prop = buscaDe({ nombre: d.nombre })
+      const val: string[] = (d.busca || []).length ? d.busca : prop
+      return (
+        <>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {FAMILIAS_BUSCA.map(([id, t]) => {
+              const on = val.includes(id)
+              return <button key={id} type="button" className={`chip-sel ${on ? 'on' : ''}`} style={{ fontSize: 13 }}
+                onClick={() => set('busca', on ? val.filter(x => x !== id) : [...val, id])}>{t}</button>
+            })}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 8, lineHeight: 1.5 }}>
+            {(d.busca || []).length ? 'Un ejercicio cuenta para este objetivo si admite alguna de estas y mueve lo que pide.'
+              : prop.length ? 'Propuesto por el nombre. Toca para confirmar o cambiar.' : 'Elige qué capacidad busca este objetivo.'}
+          </div>
+        </>
+      )
+    }
     if (k === 'nombre') return (
       <>
         <input className="input" autoFocus value={d.nombre} onChange={e => set('nombre', e.target.value)}

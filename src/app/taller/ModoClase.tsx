@@ -918,7 +918,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     })
     const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks,etiquetas').in('id', ids)
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks,etiquetas,anatomia,trabajo').in('id', ids)
       const tipoMap:Record<string,any>={}
       ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
       ejs.forEach(e=>{
@@ -928,6 +928,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         e.feedbacks = t?.feedbacks || []
         // Para cruzar con la zona de sus molestias. Ver `lib/avisosZona`.
         e.etiquetas = t?.etiquetas || []
+        // Anatomia y "admite", para el cruce estricto con los objetivos.
+        e._anat = t ? { anatomia: t.anatomia, trabajo: t.trabajo, etiquetas: t.etiquetas } : null
         if (!e.items_evaluados) e.items_evaluados = {}
       })
     } else {
@@ -942,7 +944,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const objs = (rel || []).map((x: any) => x.objetivos).filter(Boolean)
       const movs: Record<string, string[]> = {}
       ;(rel || []).forEach((x: any) => { if (Array.isArray(x.movimientos)) movs[x.objetivo_id] = x.movimientos })
-      ejs.forEach(e => { if (e.objetivos == null) e.objetivos = sugerirObjetivos(e.etiquetas || [], objs, movs) })
+      ejs.forEach(e => { if (e.objetivos == null) e.objetivos = sugerirObjetivos(e.etiquetas || [], objs, movs, e._anat && etiquetas.length ? { ej: e._anat, etiquetas } : undefined) })
     }
     ejs.forEach(e => { if (e.objetivos == null) e.objetivos = [] })
     if (ids.length) {

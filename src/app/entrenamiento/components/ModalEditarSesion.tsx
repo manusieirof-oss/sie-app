@@ -16,7 +16,7 @@ import SelectorObjetivos from './SelectorObjetivos'
 import HojaLibre from '@/components/HojaLibre'
 import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
-import { objetivosDeEjercicio } from '@/lib/ejercicioObjetivos'
+import { objetivosDeEjercicio, cruceObjetivo } from '@/lib/ejercicioObjetivos'
 import { camposSerie, ajustesMedida, COLOR_BANDA } from '@/lib/medida'
 
 /**
@@ -287,7 +287,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
   useEffect(() => {
     (async () => {
-      const { data: objs } = await supabase.from('objetivos').select('id,nombre,descripcion,imagen_url,articulacion_id,etiquetas,movimientos,archivado_el').eq('activo',true).order('nombre')
+      const { data: objs } = await supabase.from('objetivos').select('*').eq('activo',true).order('nombre')
       setObjetivosDisp(objs||[])
       if (sesion.id) {
         const { data: rel } = await supabase.from('sesiones_objetivos').select('objetivo_id,movimientos').eq('sesion_id', sesion.id)
@@ -368,7 +368,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   // QUÉ OBJETIVO TRABAJA CADA EJERCICIO. Ver `lib/ejercicioObjetivos`.
   const objsSesion = objetivosSel.map(id => objetivosDisp.find((o: any) => o.id === id)).filter(Boolean)
   const etiquetasDeEj = (ej: any) => (catalogo.find((e: any) => e.id === ej?.ejercicio_id)?.etiquetas) || []
-  const objsDeEj = (ej: any) => objetivosDeEjercicio(ej, etiquetasDeEj(ej), objsSesion, movsSel)
+  // CRUCE ESTRICTO (lib/ejercicioObjetivos): mueve lo que pide el objetivo y admite lo que busca.
+  const libDeEj = (ej: any) => catalogo.find((e: any) => e.id === ej?.ejercicio_id)
+  const estrictoDe = (ej: any) => { const l = libDeEj(ej); return l && etiquetas.length ? { ej: l, etiquetas } : undefined }
+  const objsDeEj = (ej: any) => objetivosDeEjercicio(ej, etiquetasDeEj(ej), objsSesion, movsSel, estrictoDe(ej))
+  /** 'sugerido': cumple una de las dos comprobaciones; se ofrece para confirmar. */
+  const sugeridoDe = (ej: any, o: any) => { const l = libDeEj(ej); return !!l && etiquetas.length > 0 && cruceObjetivo(l, o, etiquetas, movsSel[o.id]) === 'sugerido' }
 
   function editarEjercicio(ei: number, cambios: any) {
     setFormSesion(prev => {
@@ -948,6 +953,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                                 </span>
                               ))}
                               {suyos.length===0 && <span style={{fontSize:11,color:'var(--grl)'}}>Sin objetivo</span>}
+                              {/* Los que cumplen solo una comprobacion: se avisan, no se enganchan solos. */}
+                              {!modoCita && (()=>{ const n = objsSesion.filter((o:any)=>!suyos.includes(o.id) && sugeridoDe(ej,o)).length
+                                return n>0 ? <button type="button" className="obj-ed" style={{color:'#7A5800'}} onClick={()=>setObjsAbiertos(ei)} title="Cumplen solo una de las dos comprobaciones: confírmalos">+{n} sugerido{n>1?'s':''}</button> : null })()}
                               {!modoCita && <button type="button" className="obj-ed" onClick={()=>setObjsAbiertos(ei)} title="Elegir qué objetivos trabaja">editar</button>}
                             </div>
                           )
@@ -958,9 +966,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             <div className="ej-sub" style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
                               {objsSesion.map((o:any)=>{
                                 const on = suyos.includes(o.id)
+                                const sug = !on && sugeridoDe(ej, o)
                                 return (
                                   <button key={o.id} type="button" disabled={modoCita}
-                                    title={`${o.nombre} · ${on ? 'lo trabaja' : 'no lo trabaja'}${modoCita ? '' : ' · pulsa para cambiar'}${on && !ej.objetivos_manual ? ' (sugerido por etiquetas)' : ''}`}
+                                    title={`${o.nombre} · ${on ? 'lo trabaja' : sug ? 'sugerido: cumple solo una de las dos comprobaciones (qué mueve / para qué sirve)' : 'no lo trabaja'}${modoCita ? '' : ' · pulsa para cambiar'}${on && !ej.objetivos_manual ? ' (por anatomía y lo que admite)' : ''}`}
                                     onClick={()=>editarEjercicio(ei,{ objetivos_manual:true,
                                       objetivos: on ? suyos.filter((x:string)=>x!==o.id) : [...suyos, o.id] })}
                                     // CON NOMBRE: solo la esfera no decía cuál era —sin foto todas son
@@ -968,9 +977,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                                     style={{display:'inline-flex',alignItems:'center',gap:5,maxWidth:190,
                                       padding:'2px 9px 2px 2px',borderRadius:99,fontFamily:'inherit',fontSize:11,
                                       cursor:modoCita?'default':'pointer',transition:'all .12s',
-                                      border:on?'1px solid var(--gm)':'1px dashed var(--bd)',
-                                      background:on?'var(--gl)':'transparent',
-                                      color:on?'var(--gd)':'var(--grl)'}}>
+                                      border:on?'1px solid var(--gm)':sug?'1px dashed var(--amb)':'1px dashed var(--bd)',
+                                      background:on?'var(--gl)':sug?'var(--ambl)':'transparent',
+                                      color:on?'var(--gd)':sug?'#7A5800':'var(--grl)'}}>
                                     <span style={{lineHeight:0,opacity:on?1:.3,filter:on?'none':'grayscale(1)',flexShrink:0}}>
                                       <MonedaObjetivo objetivo={o} tam="mini" titulo=""/>
                                     </span>
