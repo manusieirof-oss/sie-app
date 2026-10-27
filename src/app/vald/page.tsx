@@ -17,6 +17,20 @@ interface Par { perfil: PerfilVald, pac: any | null, s: number, marcado: boolean
 const nombrePac = (p: any) => (p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim()
 const fecha = (f: string | null) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-ES') : 's/f'
 
+// Fuera del componente: definido dentro, cada tecla en un input lo volvía a montar y se perdía el foco.
+function Paso({ n, titulo, children, m }: { n: number, titulo: string, children: any, m?: { t: string, mal?: boolean } }) {
+  return (
+    <div className="card" style={{ padding: 18, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--g)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 13 }}>{n}</span>
+        <b style={{ fontSize: 15 }}>{titulo}</b>
+      </div>
+      {children}
+      {m && <div style={{ marginTop: 10, fontSize: 13, padding: '7px 10px', borderRadius: 7, background: m.mal ? 'var(--redl)' : 'var(--gl)', color: m.mal ? 'var(--red)' : 'var(--gd)' }}>{m.t}</div>}
+    </div>
+  )
+}
+
 export default function ValdPage() {
   const [pacs, setPacs] = useState<any[]>([])
   const [pares, setPares] = useState<Par[] | null>(null)
@@ -97,23 +111,12 @@ export default function ValdPage() {
     decir('traer', `${n} tests nuevos de VALD · ${suma('resultados')} resultados apuntados en SIE (${v.filter(x => x.resultados).length} pacientes) · ${suma('positivos')} positivos · ${suma('abiertos')} objetivos abiertos · ${suma('logrados')} logrados${err.length ? ` · ${err.length} errores: ${err[0]}` : ''}`, err.length > 0)
   })
 
-  const Paso = ({ n, titulo, children, k }: { n: number, titulo: string, children: any, k: string }) => (
-    <div className="card" style={{ padding: 18, marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--g)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 13 }}>{n}</span>
-        <b style={{ fontSize: 15 }}>{titulo}</b>
-      </div>
-      {children}
-      {msg[k] && <div style={{ marginTop: 10, fontSize: 13, padding: '7px 10px', borderRadius: 7, background: msg[k].mal ? 'var(--redl)' : 'var(--gl)', color: msg[k].mal ? 'var(--red)' : 'var(--gd)' }}>{msg[k].t}</div>}
-    </div>
-  )
-
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px' }}>
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>VALD · DynaMo</h1>
       <p style={{ color: 'var(--gr)', fontSize: 13.5, marginTop: 0, marginBottom: 18 }}>Para poner en marcha a todos los pacientes de golpe. En la ficha de cada uno (Resultados → DynaMo) se puede hacer uno a uno.</p>
 
-      <Paso n={1} titulo={`Pacientes enlazados con VALD · ${enlazados}`} k="pac">
+      <Paso n={1} titulo={`Pacientes enlazados con VALD · ${enlazados}`} m={msg.pac}>
         {!pares ? (
           <button className="btn btn-p btn-sm" onClick={buscar} disabled={!!ocupado}>{ocupado === 'pac' ? 'Buscando…' : 'Buscar parejas en VALD'}</button>
         ) : (
@@ -130,7 +133,9 @@ export default function ValdPage() {
                 </label>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" onClick={() => setPares(p => p!.map(y => ({ ...y, marcado: !!y.pac })))}>Marcar todos los que tienen pareja</button>
+              <button className="btn btn-sm" onClick={() => setPares(p => p!.map(y => ({ ...y, marcado: !!y.pac && y.s >= 80 })))}>Solo los que coinciden</button>
               <button className="btn btn-p btn-sm" onClick={enlazarMarcados} disabled={!!ocupado}>Enlazar los marcados ({pares.filter(x => x.marcado).length})</button>
               <button className="btn btn-sm" onClick={() => setPares(null)}>Cancelar</button>
             </div>
@@ -138,7 +143,7 @@ export default function ValdPage() {
         )}
       </Paso>
 
-      <Paso n={2} titulo={`Tests de DynaMo enlazados con SIE · ${nMapeos}`} k="tests">
+      <Paso n={2} titulo={`Tests de DynaMo enlazados con SIE · ${nMapeos}`} m={msg.tests}>
         <div style={{ fontSize: 13, color: 'var(--gr)', marginBottom: 10 }}>
           Crea un test por articulación y tipo («Fuerza de rodilla (DynaMo)», «Rango de cadera (DynaMo)»…) con un ítem por movimiento y posición, en kg o grados, y enlaza cada tipo de DynaMo con su ítem. Si ya existe un test con ese nombre, le añade lo que falte. Luego puedes retocarlos en la biblioteca de tests.
         </div>
@@ -150,7 +155,7 @@ export default function ValdPage() {
         <button className="btn btn-p btn-sm" style={{ marginTop: 10 }} onClick={enlazarTests} disabled={!!ocupado}>{ocupado === 'tests' ? 'Enlazando…' : 'Enlazar todos los tipos de DynaMo'}</button>
       </Paso>
 
-      <Paso n={3} titulo="Traer de VALD y apuntar en SIE" k="traer">
+      <Paso n={3} titulo="Traer de VALD y apuntar en SIE" m={msg.traer}>
         <div style={{ fontSize: 13, color: 'var(--gr)', marginBottom: 10 }}>Baja lo nuevo de VALD y apunta como resultado de SIE los tests enlazados de los pacientes enlazados, incluidos los que ya había. Puede tardar un poco la primera vez.</div>
         <button className="btn btn-p btn-sm" onClick={traer} disabled={!!ocupado}>{ocupado === 'traer' ? 'Trayendo y apuntando…' : 'Traer y apuntar'}</button>
       </Paso>
