@@ -83,6 +83,7 @@ const ES: Record<string, string> = {
   upwardrotation: 'Rotación superior', downwardrotation: 'Rotación inferior',
   lateralrotation: 'Rotación lateral', medialrotation: 'Rotación medial',
   thoracicspine: 'Dorsal', spine: 'Columna', forearm: 'Antebrazo', hallux: 'Primer dedo', bigtoe: 'Primer dedo', jaw: 'Mandíbula',
+  longsitting: 'Sedestación larga', plantigrade: 'Plantígrado', plantarflexed: 'En flexión plantar', flexed: 'flexionado', extended: 'extendido',
   quadruped: 'Cuadrupedia', sitting: 'Sentado', lying: 'Tumbado', neutral: 'Neutro', isometric: 'Isométrico',
 }
 export function esVald(s: string | null | undefined): string {
@@ -99,7 +100,20 @@ export function posicionVald(s: string | null | undefined): string {
   if (!s) return ''
   const m = String(s).match(/^([A-Za-z]+?)(\d+)\s*Degrees?\b/i)
   if (m) return `${esVald(m[1])} a ${m[2]}°`
-  return esVald(s)
+  // Lo demás ("SupineElbow90Degrees90DegreeShoulderAbduction", "LongSittingPlantigrade"):
+  // se separa en palabras y números, "90 Degrees" pasa a "90°" y cada palabra (o pareja de
+  // palabras: "Long Sitting") se traduce si se conoce.
+  const t = String(s).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Za-z])(\d)/g, '$1 $2').replace(/(\d)([A-Za-z])/g, '$1 $2')
+    .split(/[\s_-]+/).filter(Boolean)
+  const out: string[] = []
+  for (let i = 0; i < t.length; i++) {
+    const w = t[i], sig = t[i + 1] || ''
+    if (/^\d+$/.test(w) && /^degrees?$/i.test(sig)) { out.push(`${w}°`); i++; continue }
+    const par = (w + sig).toLowerCase()
+    if (sig && ES[par]) { out.push(ES[par]); i++; continue }
+    out.push(ES[w.toLowerCase()] || w)
+  }
+  return out.join(' ')
 }
 export const lado = (l: string | null | undefined): 'I' | 'D' | null => {
   const k = String(l || '').toLowerCase()
