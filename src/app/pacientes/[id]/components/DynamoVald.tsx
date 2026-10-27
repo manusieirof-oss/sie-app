@@ -123,6 +123,7 @@ export default function DynamoVald({ pac }: { pac: any }) {
         <b style={{ fontSize: 14 }}>DynaMo · VALD</b>
         {ultima && <span style={{ fontSize: 11.5, color: 'var(--gr)' }}>última sincronización {fecha(ultima)}</span>}
         <div style={{ flex: 1 }}/>
+        <a href="/vald" className="btn btn-sm" title="Enlazar todos los pacientes y tests de golpe">Configurar VALD</a>
         {perfilId && <button className="btn btn-sm" onClick={() => { if (confirm('¿Quitar el enlace con su perfil de VALD? Los tests no se borran.')) enlazar(null) }} disabled={!!ocupado}>Desenlazar</button>}
         <button className="btn btn-p btn-sm" onClick={traer} disabled={!!ocupado}>
           <Ic name="descargar" size={12}/> {ocupado === 'sync' ? 'Trayendo…' : 'Traer de VALD'}

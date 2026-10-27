@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { registrarResultadoTest } from '@/lib/tests'
-import { esRango, lado } from '@/lib/vald'
+import { esRango, lado, esVald, posicionVald } from '@/lib/vald'
+import { traerTodo } from '@/lib/paginar'
 
 // DYNAMO → TESTS DE SIE.
 //
@@ -62,10 +63,12 @@ export async function aplicarDynamo(): Promise<Record<string, ResumenAplicado>> 
   const perfiles = Array.from(pacDe.keys())
   const pend: any[] = []
   for (let i = 0; i < perfiles.length; i += 100) {
-    const { data } = await supabase.from('vald_tests').select('id,profile_id,fecha,categoria,region,movimiento,posicion,resumen')
-      .is('aplicado', null).in('profile_id', perfiles.slice(i, i + 100)).order('fecha')
-    pend.push(...(data || []))
+    // Por páginas: Supabase corta en 1000 filas sin avisar (ver lib/paginar).
+    const { filas } = await traerTodo<any>((d, h) => supabase.from('vald_tests').select('id,profile_id,fecha,categoria,region,movimiento,posicion,resumen')
+      .is('aplicado', null).in('profile_id', perfiles.slice(i, i + 100)).order('id').range(d, h))
+    pend.push(...filas)
   }
+  pend.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
   if (!pend.length) return out
 
   // Agrupar: paciente | test de SIE | día → { ítem → valores }
@@ -141,4 +144,64 @@ export function textoResumen(r?: ResumenAplicado): string {
   if (r.logrados) p.push(`${r.logrados} objetivo${r.logrados === 1 ? '' : 's'} logrado${r.logrados === 1 ? '' : 's'}`)
   if (r.errores.length) p.push(`${r.errores.length} con error: ${r.errores[0]}`)
   return 'DynaMo: ' + p.join(' · ')
+}
+
+/**
+ * ENLAZAR TODO DE GOLPE: cada tipo de DynaMo que ha llegado y aún no tiene enlace va a
+ * un ítem de un test de SIE, agrupando por articulación y por fuerza/rango:
+ * "Fuerza de rodilla (DynaMo)" con un ítem por movimiento y posición. Si el test ya
+ * existe (por nombre) se le añaden los ítems que falten. Los ítems miden (kg o grados),
+ * comparan lados y dan positivo con `asimetria` % (vacío = solo medir).
+ * Devuelve cuántos tests se han creado y cuántos enlaces nuevos hay.
+ */
+export async function enlazarTodo(asimetria: number | null): Promise<{ testsNuevos: number, enlaces: number }> {
+  const { data: ms } = await supabase.from('vald_mapeo').select('clave')
+  const hay = new Set((ms || []).map((m: any) => m.clave))
+  const { filas } = await traerTodo<any>((d, h) => supabase.from('vald_tests').select('id,categoria,region,movimiento,posicion,resumen').order('id').range(d, h))
+  // tipo → { test, ítem, lateral }
+  const tipos = new Map<string, { test: string, item: string, rango: boolean, lateral: boolean }>()
+  for (const t of filas) for (const v of valoresDe(t)) {
+    if (hay.has(v.clave)) continue
+    const prev = tipos.get(v.clave)
+    const zona = (esVald(t.region) || 'Otra zona').toLowerCase()
+    tipos.set(v.clave, {
+      test: `${v.rango ? 'Rango' : 'Fuerza'} de ${zona} (DynaMo)`,
+      item: [esVald(v.mov), posicionVald(t.posicion)].filter(Boolean).join(' · '),
+      rango: v.rango, lateral: (prev?.lateral || false) || v.I != null || v.D != null,
+    })
+  }
+  if (!tipos.size) return { testsNuevos: 0, enlaces: 0 }
+
+  const { data: existentes } = await supabase.from('tests').select('id,nombre,items,tipo_lado').is('archivado_el', null)
+  const porNombre = new Map<string, any>((existentes || []).map((t: any) => [t.nombre, t]))
+  let testsNuevos = 0
+  const enlaces: any[] = []
+  const porTest = new Map<string, { clave: string, item: string, rango: boolean, lateral: boolean }[]>()
+  tipos.forEach((v, clave) => { const l = porTest.get(v.test) || []; l.push({ clave, ...v }); porTest.set(v.test, l) })
+
+  for (const [nombre, lista] of Array.from(porTest.entries())) {
+    const items = (l: typeof lista) => l.map(x => ({ nombre: x.item, unidad: x.rango ? 'grados' : 'kg', regla: 'medir', mejor: 'mas',
+      ...(asimetria && x.lateral ? { asimetria } : {}) }))
+    let t = porNombre.get(nombre)
+    if (!t) {
+      const { data, error } = await supabase.from('tests').insert({
+        nombre, descripcion: 'Resultados del DynaMo (VALD), apuntados solos al traer de VALD.',
+        frecuencia_meses: 3, items: items(lista), logica: 'cualquiera', tipo_lado: lista.some(x => x.lateral) ? 'lateral' : 'bilateral',
+        bandas: [], baremos: [], etiquetas_relacionadas: [], etiquetas_bloquea: [], video_url: '', imagen_url: '',
+      }).select('id').single()
+      if (error) throw new Error(error.message)
+      t = { id: data.id }; testsNuevos++
+    } else {
+      const ya = new Set((t.items || []).map((i: any) => i.nombre))
+      const faltan = lista.filter(x => !ya.has(x.item))
+      if (faltan.length) {
+        const { error } = await supabase.from('tests').update({ items: [...(t.items || []), ...items(faltan)] }).eq('id', t.id)
+        if (error) throw new Error(error.message)
+      }
+    }
+    lista.forEach(x => enlaces.push({ clave: x.clave, test_id: t.id, item: x.item, desde: null }))
+  }
+  const { error } = await supabase.from('vald_mapeo').upsert(enlaces, { onConflict: 'clave' })
+  if (error) throw new Error(error.message)
+  return { testsNuevos, enlaces: enlaces.length }
 }
