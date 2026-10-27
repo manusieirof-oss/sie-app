@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
 import { llamarVald, sincronizarVald, puntuarPerfil, PerfilVald } from '@/lib/vald'
 import { aplicarDynamo, enlazarTodo } from '@/lib/valdTests'
+import { proponerEnlacesObjetivos, enlazarYAplicar, Propuesta } from '@/lib/valdObjetivos'
 
 // VALD · DYNAMO: PONERLO TODO EN MARCHA DE GOLPE.
 //
@@ -34,6 +35,7 @@ function Paso({ n, titulo, children, m }: { n: number, titulo: string, children:
 export default function ValdPage() {
   const [pacs, setPacs] = useState<any[]>([])
   const [pares, setPares] = useState<Par[] | null>(null)
+  const [props, setProps] = useState<Propuesta[] | null>(null)
   const [nMapeos, setNMapeos] = useState(0)
   const [asim, setAsim] = useState('15')
   const [ocupado, setOcupado] = useState('')
@@ -101,6 +103,20 @@ export default function ValdPage() {
     decir('tests', r.enlaces ? `${r.enlaces} tipos de DynaMo enlazados · ${r.testsNuevos} tests nuevos en la biblioteca.` : 'No hay tipos nuevos sin enlazar.')
   })
 
+  // ---- 4. Objetivos que se evalúan con DynaMo ----
+  const proponer = () => hacer('obj', async () => {
+    const p = await proponerEnlacesObjetivos()
+    setProps(p)
+    decir('obj', p.length ? `${p.length} enlaces propuestos · ${p.filter(x => x.seguro).length} claros (marcados)` : 'No hay enlaces nuevos que proponer.')
+  })
+  const enlazarObjs = () => hacer('obj', async () => {
+    const sel = (props || []).filter(x => x.marcado)
+    decir('obj', 'Enlazando y aplicando a los pacientes… puede tardar unos minutos.')
+    const r = await enlazarYAplicar(sel)
+    setProps(null)
+    decir('obj', `${r.enlaces} enlaces guardados · ${r.abiertos} objetivos abiertos · ${r.logrados} logrados${r.errores ? ` · ${r.errores} errores` : ''}`, r.errores > 0)
+  })
+
   // ---- 3. Traer y apuntar ----
   const traer = () => hacer('traer', async () => {
     const n = await sincronizarVald()
@@ -158,6 +174,32 @@ export default function ValdPage() {
       <Paso n={3} titulo="Traer de VALD y apuntar en SIE" m={msg.traer}>
         <div style={{ fontSize: 13, color: 'var(--gr)', marginBottom: 10 }}>Baja lo nuevo de VALD y apunta como resultado de SIE los tests enlazados de los pacientes enlazados, incluidos los que ya había. Puede tardar un poco la primera vez.</div>
         <button className="btn btn-p btn-sm" onClick={traer} disabled={!!ocupado}>{ocupado === 'traer' ? 'Trayendo y apuntando…' : 'Traer y apuntar'}</button>
+      </Paso>
+      <Paso n={4} titulo="Objetivos que se evalúan con DynaMo" m={msg.obj}>
+        <div style={{ fontSize: 13, color: 'var(--gr)', marginBottom: 10 }}>Un test solo abre o cierra un objetivo si el objetivo se evalúa con él. Se proponen cruzando la articulación y lo que busca cada objetivo (fuerza → tests de fuerza; movilidad → de rango). Si el objetivo concreta movimientos, solo cuentan esos ítems. Al enlazar, se aplica el último resultado de cada paciente.</div>
+        {!props ? (
+          <button className="btn btn-p btn-sm" onClick={proponer} disabled={!!ocupado}>{ocupado === 'obj' ? 'Buscando…' : 'Proponer enlaces'}</button>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gap: 4, maxHeight: 460, overflow: 'auto', marginBottom: 10 }}>
+              {props.map((x, i) => (
+                <label key={x.objetivo.id + x.test.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 7, fontSize: 13,
+                  background: x.marcado ? 'var(--gl)' : 'var(--w)', border: '1px solid var(--bd)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={x.marcado} onChange={e => setProps(p => p!.map((y, j) => j === i ? { ...y, marcado: e.target.checked } : y))}/>
+                  <span style={{ flex: 1 }}><b>{x.objetivo.nombre}</b></span>
+                  <span style={{ flex: 1.3 }}>→ {x.test.nombre}<span style={{ color: 'var(--gr)' }}>{x.items ? ` · ${x.items.join(', ')}` : ' · todo el test'}</span></span>
+                  <span style={{ fontSize: 11, color: x.seguro ? 'var(--gd)' : '#8a6d1f' }}>{x.seguro ? 'claro' : 'revisar'}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" onClick={() => setProps(p => p!.map(y => ({ ...y, marcado: true })))}>Marcar todos</button>
+              <button className="btn btn-sm" onClick={() => setProps(p => p!.map(y => ({ ...y, marcado: y.seguro })))}>Solo los claros</button>
+              <button className="btn btn-p btn-sm" onClick={enlazarObjs} disabled={!!ocupado}>Enlazar los marcados ({props.filter(x => x.marcado).length}) y aplicar</button>
+              <button className="btn btn-sm" onClick={() => setProps(null)}>Cancelar</button>
+            </div>
+          </>
+        )}
       </Paso>
     </div>
   )

@@ -940,6 +940,19 @@ export const refDeBanda = (testId: string, etiqueta: string) => `${testId}|${Str
  *   - enganchado al test entero: cualquier positivo lo pone.
  *   - enganchado a un item: solo si ESE item ha dado hallazgo.
  */
+/**
+ * Vuelve a pasar por los objetivos un resultado YA GUARDADO, sin apuntar otro.
+ *
+ * Hace falta cuando se engancha un objetivo a un test que ya tenía resultados (los del
+ * DynaMo, por ejemplo): esos resultados se guardaron cuando ningún objetivo miraba ese
+ * test, así que no abrieron nada. Repetirlos duplicaría el historial; esto solo aplica
+ * su veredicto a los objetivos, igual que lo habría hecho al guardarlo.
+ */
+export async function reevaluarObjetivos(pacienteId: string, test: any, items: ItemTest[], resultado: ResultadoTest, lado?: string, contexto?: string) {
+  if (soloMide(items)) return { logrados: 0, abiertos: 0 }
+  return cerrarObjetivosQueEvalua(pacienteId, test, items, resultado, contexto, lado, null)
+}
+
 async function cerrarObjetivosQueEvalua(
   pacienteId: string, test: any, items: ItemTest[],
   resultado: ResultadoTest, contexto?: string, lado?: string, banda?: Banda | null,
