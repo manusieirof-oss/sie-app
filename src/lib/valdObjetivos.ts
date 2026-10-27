@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
 import { buscaDe } from '@/lib/ejercicioObjetivos'
 import { reevaluarObjetivos } from '@/lib/tests'
+import { traducirNombresDynamo } from '@/lib/valdTests'
 
 // QUÉ OBJETIVOS SE EVALÚAN CON LOS TESTS DEL DYNAMO.
 //
@@ -24,6 +25,8 @@ export interface Propuesta {
 }
 
 export async function proponerEnlacesObjetivos(): Promise<Propuesta[]> {
+  // Antes de cruzar, que los tests estén en castellano: si no, «Protraction» no casa con «Protracción».
+  await traducirNombresDynamo()
   const [{ data: objs }, { data: ets }, { data: tests }, { data: ya }] = await Promise.all([
     supabase.from('objetivos').select('*'),
     supabase.from('etiquetas').select('id,nombre'),

@@ -77,12 +77,21 @@ const ES: Record<string, string> = {
   seated: 'Sentado', supine: 'Supino', prone: 'Prono', standing: 'De pie', sidelying: 'Decúbito lateral', kneeling: 'De rodillas', halfkneeling: 'Semiarrodillado',
   rangeofmotion: 'Rango de movimiento', strength: 'Fuerza',
   left: 'Izq.', leftside: 'Izq.', right: 'Der.', rightside: 'Der.',
+  // Escápula y lo que faltaba: llegaban en inglés y no casaban con los objetivos.
+  scapula: 'Escápula', scapular: 'Escápula', scapulothoracic: 'Escápula', shoulderscapula: 'Escápula',
+  protraction: 'Protracción', retraction: 'Retracción', elevation: 'Elevación', depression: 'Depresión',
+  upwardrotation: 'Rotación superior', downwardrotation: 'Rotación inferior',
+  lateralrotation: 'Rotación lateral', medialrotation: 'Rotación medial',
+  thoracicspine: 'Dorsal', spine: 'Columna', forearm: 'Antebrazo', hallux: 'Primer dedo', bigtoe: 'Primer dedo', jaw: 'Mandíbula',
+  quadruped: 'Cuadrupedia', sitting: 'Sentado', lying: 'Tumbado', neutral: 'Neutro', isometric: 'Isométrico',
 }
 export function esVald(s: string | null | undefined): string {
   if (!s) return ''
   const k = String(s).toLowerCase().replace(/[^a-z]/g, '')
   if (ES[k]) return ES[k]
-  return String(s).replace(/([a-z])([A-Z])/g, '$1 $2')
+  // Compuesto que no está entero ("ScapulaProtraction"): palabra a palabra.
+  const palabras = String(s).replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/).filter(Boolean)
+  return palabras.map(w => ES[w.toLowerCase()] || w).join(' ')
 }
 /** Posición de VALD: "Seated30Degree Knee Flexion" → "Sentado a 30°". El ángulo es
  *  el de la articulación durante el test (rodilla a 30° de flexión), no el movimiento. */

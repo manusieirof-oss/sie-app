@@ -205,3 +205,48 @@ export async function enlazarTodo(asimetria: number | null): Promise<{ testsNuev
   if (error) throw new Error(error.message)
   return { testsNuevos, enlaces: enlaces.length }
 }
+
+/**
+ * PONER EN CASTELLANO lo que se creó con nombres en inglés (palabras que el traductor
+ * aún no conocía: "Protraction", "Scapula"...). Se recalcula el nombre de cada test e
+ * ítem desde su enlace (`vald_mapeo.clave` = zona|movimiento|posición) y, si cambia, se
+ * renombra en los TRES sitios donde vive: el test, el enlace y los resultados ya
+ * apuntados (sus ítems congelados). Si uno se quedara atrás, dejaría de casar.
+ */
+export async function traducirNombresDynamo(): Promise<number> {
+  const { data: ms } = await supabase.from('vald_mapeo').select('clave,test_id,item')
+  if (!ms?.length) return 0
+  const { data: tests } = await supabase.from('tests').select('id,nombre,items').in('id', Array.from(new Set(ms.map((m: any) => m.test_id))))
+  let cambios = 0
+  for (const t of tests || []) {
+    if (!/\(DynaMo\)$/.test(t.nombre)) continue   // solo los creados aquí: los tuyos no se tocan
+    const suyos = ms.filter((m: any) => m.test_id === t.id)
+    const ren: Record<string, string> = {}
+    let zona = ''
+    for (const m of suyos) {
+      const [region, mov, pos] = m.clave.split('|')
+      zona = zona || esVald(region).toLowerCase()
+      const nuevo = [esVald(mov), posicionVald(pos)].filter(Boolean).join(' · ')
+      if (nuevo && nuevo !== m.item) ren[m.item] = nuevo
+    }
+    const tipo = /^Rango/.test(t.nombre) ? 'Rango' : 'Fuerza'
+    const nombre = zona ? `${tipo} de ${zona} (DynaMo)` : t.nombre
+    if (!Object.keys(ren).length && nombre === t.nombre) continue
+    const items = (t.items || []).map((i: any) => ren[i.nombre] ? { ...i, nombre: ren[i.nombre] } : i)
+    await supabase.from('tests').update({ nombre, items }).eq('id', t.id)
+    for (const [viejo, nuevo] of Object.entries(ren))
+      await supabase.from('vald_mapeo').update({ item: nuevo }).eq('test_id', t.id).eq('item', viejo)
+    if (Object.keys(ren).length) {
+      const { filas } = await traerTodo<any>((d, h) => supabase.from('resultados_tests').select('id,items_resultado').eq('test_id', t.id).order('id').range(d, h))
+      for (const r of filas) {
+        const it = (r.items_resultado || []).map((i: any) => ren[i.nombre] ? { ...i, nombre: ren[i.nombre] } : i)
+        await supabase.from('resultados_tests').update({ items_resultado: it }).eq('id', r.id)
+      }
+      const { data: ot } = await supabase.from('objetivos_tests').select('objetivo_id,item').eq('test_id', t.id).not('item', 'is', null)
+      for (const o of ot || []) if (ren[o.item])
+        await supabase.from('objetivos_tests').update({ item: ren[o.item] }).eq('test_id', t.id).eq('objetivo_id', o.objetivo_id).eq('item', o.item)
+    }
+    cambios++
+  }
+  return cambios
+}
