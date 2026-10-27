@@ -21,6 +21,7 @@ import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest, ladoOpuesto } from '@/lib/tests'
 import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
+import PulsoClase from './PulsoClase'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
@@ -1676,6 +1677,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           </div>
         )
       })()}
+
+      {/* Bandas de pulso de la clase. Ver PulsoClase: se conecta desde Chrome en ordenador. */}
+      <PulsoClase seleccion={seleccion} fecha={fecha}/>
 
       {!solo && viejos.length > 0 && (() => {
         const quien = viejos.map((r:any) => {
