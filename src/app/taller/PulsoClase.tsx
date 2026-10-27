@@ -34,6 +34,22 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
   const ultimoGuardado = useRef(0)
   const repintar = () => setTic(t => t + 1)
 
+  /* ── EN DIRECTO PARA LAS TABLETS ─────────────────────────────────────────────
+     El iPad no puede leer las bandas (Apple no deja Bluetooth web). El ordenador que
+     las tiene conectadas manda cada 2 s el pulso de cada paciente por un canal de
+     Supabase (sin tocar la base) y las tablets lo pintan igual, solo para mirar. */
+  const remoto = useRef<Record<string, { bpm: number, banda: string, bateria: number | null, seg: number, zonas: number[], max: number, media: number | null, t: number }>>({})
+  const canal = useRef<any>(null)
+  useEffect(() => {
+    const ch = supabase.channel('pulso-clase', { config: { broadcast: { self: false } } })
+    ch.on('broadcast', { event: 'pulso' }, ({ payload }: any) => {
+      const ahora = Date.now()
+      Object.entries(payload?.p || {}).forEach(([pid, v]: any) => { remoto.current[pid] = { ...v, t: ahora } })
+    }).subscribe()
+    canal.current = ch
+    return () => { supabase.removeChannel(ch) }
+  }, [])
+
   const pacientes = seleccion.map(s => s.paciente).filter(Boolean)
   const pids = pacientes.map(p => p.id).join(',')
   const citaDe = (pid: string) => selRef.current.find(s => s.paciente?.id === pid)?.citaId || null
@@ -66,6 +82,21 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
   const fcMax = (p: any) => fcMaxDe({ fc_max: extraRef.current[p.id]?.fc_max, fecha_nacimiento: p.fecha_nacimiento })
   const numeroDe = (nombre: string) => bandas.find(b => b.nombre_ble === nombre)?.numero
   const etiqueta = (nombre: string) => numeroDe(nombre) ? `Banda ${numeroDe(nombre)}` : nombre
+  const etiquetaRef = useRef(etiqueta); etiquetaRef.current = etiqueta
+
+  /** Lo que se ve de un paciente: de la banda de ESTE equipo o, si no, lo que manda el ordenador. */
+  function ver(p: any) {
+    const n = asig.current[p.id], d = n ? devs.current[n] : null
+    if (d && Date.now() - d.t < 4000) {
+      const a = acc.current[p.id]
+      return { vivo: true, remoto: false, bpm: d.bpm!, bateria: d.bateria, banda: etiqueta(n!), seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null, aviso: '' }
+    }
+    const r = remoto.current[p.id]
+    if (r && Date.now() - r.t < 6000) return { vivo: true, remoto: true, ...r, aviso: '' }
+    const a = acc.current[p.id]
+    return { vivo: false, remoto: false, bpm: null, bateria: d?.bateria ?? null, banda: n ? etiqueta(n) : '', seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null,
+      aviso: d ? (d.estado === 'perdida' ? 'reconectando…' : 'sin pulso') : '' }
+  }
 
   // ---- El reloj: cada segundo, a cada paciente con banda viva se le suma un segundo ----
   useEffect(() => {
@@ -79,6 +110,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
         hay = true
       }
       if (hay && ahora - ultimoGuardado.current > SEG_GUARDAR * 1000) { ultimoGuardado.current = ahora; guardar() }
+      if (hay && Math.floor(ahora / 1000) % 2 === 0) emitir()
       repintar()
     }, 1000)
     // Al salir de la pantalla se guarda lo que haya, sin esperar a los 30 s.
@@ -86,6 +118,17 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
     window.addEventListener('pagehide', alSalir)
     return () => { clearInterval(id); window.removeEventListener('pagehide', alSalir); guardar() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function emitir() {
+    const p: Record<string, any> = {}
+    for (const x of pacRef.current) {
+      const n = asig.current[x.id], d = n ? devs.current[n] : null
+      if (!d || d.bpm == null || Date.now() - d.t > 4000) continue
+      const a = acc.current[x.id]
+      p[x.id] = { bpm: d.bpm, banda: etiquetaRef.current(n!), bateria: d.bateria, seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null }
+    }
+    if (Object.keys(p).length) canal.current?.send({ type: 'broadcast', event: 'pulso', payload: { p } })
+  }
 
   async function guardar() {
     const fecha = fechaRef.current
@@ -169,7 +212,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
   }
 
   const conectadas = Object.values(devs.current).filter(d => d.estado !== 'perdida')
-  const nVivos = pacientes.filter(p => { const d = devs.current[asig.current[p.id]]; return d && Date.now() - d.t < 4000 }).length
+  const nVivos = pacientes.filter(p => ver(p).vivo).length
   if (!pacientes.length) return null
 
   return (
@@ -184,9 +227,9 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
         {!abierto && (
           <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 6 }}>
             {pacientes.map(p => {
-              const d = devs.current[asig.current[p.id]]; if (!d || Date.now() - d.t > 4000) return null
-              const z = zonaDe(d.bpm, fcMax(p).fc)
-              return <span key={p.id} style={{ fontSize: 11.5, padding: '2px 8px', borderRadius: 99, background: colorZona(z), color: z >= 2 ? '#fff' : 'var(--n)' }}>{(p.nombre_clinica || p.nombre || '').split(' ')[0]} {d.bpm}</span>
+              const v = ver(p); if (!v.vivo) return null
+              const z = zonaDe(v.bpm, fcMax(p).fc)
+              return <span key={p.id} style={{ fontSize: 11.5, padding: '2px 8px', borderRadius: 99, background: colorZona(z), color: z >= 2 ? '#fff' : 'var(--n)' }}>{(p.nombre_clinica || p.nombre || '').split(' ')[0]} {v.bpm}</span>
             })}
           </span>
         )}
@@ -196,59 +239,57 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
 
       {abierto && (
         <div style={{ padding: '0 14px 14px' }}>
-          {!soportado ? (
-            <div style={{ fontSize: 13, background: 'var(--ambl)', color: '#7A5800', padding: '8px 12px', borderRadius: 8 }}>
-              Las bandas solo se pueden leer desde <b>Google Chrome en un ordenador</b>. En iPad o Safari no hay Bluetooth web.
-            </div>
-          ) : (
+          {(
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                <button className="btn btn-p btn-sm" onClick={() => conectar()}>+ Conectar banda</button>
+                {soportado
+                  ? <button className="btn btn-p btn-sm" onClick={() => conectar()}>+ Conectar banda</button>
+                  : <span style={{ fontSize: 12, background: 'var(--ambl)', color: '#7A5800', padding: '5px 10px', borderRadius: 8 }}>
+                      Aquí solo se ven: las bandas se conectan desde <b>Chrome en el ordenador</b> (Apple no deja Bluetooth en iPad/Safari).
+                    </span>}
                 <span style={{ fontSize: 11.5, color: 'var(--gr)', flex: 1, minWidth: 240 }}>{TEXTO_FORMULA}</span>
               </div>
               {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 8 }}>{error}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 10 }}>
                 {pacientes.map(p => {
-                  const n = asig.current[p.id], d = n ? devs.current[n] : null
-                  const vivo = !!d && Date.now() - d.t < 4000
-                  const f = fcMax(p), z = vivo ? zonaDe(d!.bpm, f.fc) : 0
-                  const a = acc.current[p.id]
+                  const n = asig.current[p.id], v = ver(p), vivo = v.vivo
+                  const f = fcMax(p), z = vivo ? zonaDe(v.bpm, f.fc) : 0
                   const ultima = extra[p.id]?.banda_ultima
                   const sugerida = !n && ultima && devs.current[ultima] && !Object.values(asig.current).includes(ultima) ? ultima : null
                   return (
                     <div key={p.id} style={{ border: `2px solid ${vivo ? colorZona(z) : 'var(--bd)'}`, borderRadius: 10, padding: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <b style={{ fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre_clinica || `${p.nombre || ''} ${p.apellidos || ''}`.trim()}</b>
-                        <select className="input" value={n || ''} onChange={e => e.target.value === '+' ? conectar(p.id) : asignar(p.id, e.target.value)}
+                        {!soportado ? <span style={{ fontSize: 11.5, color: 'var(--gr)' }}>{v.banda}</span> : <select className="input" value={n || ''} onChange={e => e.target.value === '+' ? conectar(p.id) : asignar(p.id, e.target.value)}
                           style={{ fontSize: 11.5, padding: '2px 6px', width: 'auto', height: 26 }}>
                           <option value="">Sin banda</option>
                           {Object.values(devs.current).map(x => <option key={x.nombre} value={x.nombre}>{etiqueta(x.nombre)}{Object.entries(asig.current).some(([k, v]) => v === x.nombre && k !== p.id) ? ' (en uso)' : ''}</option>)}
                           <option value="+">+ Conectar otra…</option>
-                        </select>
+                        </select>}
                       </div>
-                      {sugerida && (
+                      {soportado && sugerida && (
                         <button className="btn btn-sm" style={{ marginTop: 6, fontSize: 11.5 }} onClick={() => asignar(p.id, sugerida)}>Usar {etiqueta(sugerida)} (la de la última vez)</button>
                       )}
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-                        <span style={{ fontSize: 34, fontWeight: 700, color: vivo ? colorZona(z) : '#bbb', lineHeight: 1 }}>{vivo ? d!.bpm : '—'}</span>
-                        <span style={{ fontSize: 12, color: 'var(--gr)' }}>ppm{vivo && f.fc ? ` · ${Math.round(d!.bpm! / f.fc * 100)}%` : ''}{vivo && z ? ` · Z${z}` : ''}</span>
+                        <span style={{ fontSize: 34, fontWeight: 700, color: vivo ? colorZona(z) : '#bbb', lineHeight: 1 }}>{vivo ? v.bpm : '—'}</span>
+                        <span style={{ fontSize: 12, color: 'var(--gr)' }}>ppm{vivo && f.fc ? ` · ${Math.round(v.bpm! / f.fc * 100)}%` : ''}{vivo && z ? ` · Z${z}` : ''}</span>
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 2 }}>
                         <button onClick={() => ponerFcMax(p.id, extra[p.id]?.fc_max ?? null)} title="Cambiar la FC máxima"
                           style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--gd)', fontSize: 11, textDecoration: 'underline dotted' }}>
                           FC máx. {f.fc ?? '?'}{f.medida ? ' (medida)' : ' (Tanaka)'}
                         </button>
-                        {d?.bateria != null ? ` · batería ${d.bateria}%` : ''}
-                        {d && !vivo ? (d.estado === 'perdida' ? ' · reconectando…' : ' · sin pulso') : ''}
+                        {v.bateria != null ? ` · batería ${v.bateria}%` : ''}
+                        {v.aviso ? ` · ${v.aviso}` : ''}
                       </div>
-                      {a && a.segundos > 0 && (
+                      {v.seg > 0 && (
                         <>
                           {/* Tiempo en zonas: una barra con el reparto de la clase hasta ahora. */}
                           <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', marginTop: 8, background: 'var(--bl)' }}>
-                            {a.zonas.map((s, i) => s > 0 && <div key={i} title={`Z${i}: ${mmss(s)}`} style={{ width: `${s / a.segundos * 100}%`, background: colorZona(i) }}/>)}
+                            {v.zonas.map((s, i) => s > 0 && <div key={i} title={`Z${i}: ${mmss(s)}`} style={{ width: `${s / v.seg * 100}%`, background: colorZona(i) }}/>)}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 4 }}>
-                            {mmss(a.segundos)} · media {mediaDe(a)} · máx {a.max} · carga {trimpDe(a.zonas)}
+                            {mmss(v.seg)} · media {v.media} · máx {v.max} · carga {trimpDe(v.zonas)}
                           </div>
                         </>
                       )}
