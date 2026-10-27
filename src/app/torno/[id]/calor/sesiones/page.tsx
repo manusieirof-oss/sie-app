@@ -57,7 +57,7 @@ export default function SesionesCalorPage({ params }: { params: { id: string } }
         supabase.from('citas').select('id,fecha,hora,sesion_id').eq('paciente_id', pid).gte('fecha', hoyISO()).neq('estado', 'cancelada').order('fecha').order('hora'),
         supabase.from('ajustes').select('clave,valor').in('clave', ['clinica_duracion_clase', 'calor_trabajo_medio']),
         supabase.from('etiquetas').select('id,nombre,categoria,padre_id'),
-        supabase.from('pacientes_objetivos').select('logrado,nombre,objetivo_id,objetivos(id,nombre,articulacion_id,etiquetas,movimientos)').eq('paciente_id', pid),
+        supabase.from('pacientes_objetivos').select('logrado,nombre,objetivo_id,objetivos(id,nombre,articulacion_id,etiquetas,movimientos,busca)').eq('paciente_id', pid),
         traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').range(d, h)),
       ])
       if (!vivo) return
@@ -97,7 +97,7 @@ export default function SesionesCalorPage({ params }: { params: { id: string } }
     const idx = indices(ets)
     const raices = new Set(ets.filter(e => !e.padre_id).map(e => e.id))
     const tags = ets.filter(e => (categoriaDe(ets, e) === 'patron' || categoriaDe(ets, e) === 'plano_eje') && !raices.has(e.id))
-    return catalogo(ejs, idx, Object.fromEntries(ets.map(e => [e.id, e.nombre])), new Set(tags.map(t => t.id)), objs)
+    return catalogo(ejs, idx, Object.fromEntries(ets.map(e => [e.id, e.nombre])), new Set(tags.map(t => t.id)), objs, ets)
   }, [ets, ejs, objs])
 
   // ---------------- configuración de las sesiones (se guarda en el plan) ----------------

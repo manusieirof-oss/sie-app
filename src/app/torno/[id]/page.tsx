@@ -62,7 +62,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
   const [encima, setEncima] = useState<string | null>(null)
   const [aceptado, setAceptado] = useState(false)
   // Lo crudo de la biblioteca, para poder tornearlo después de aceptar.
-  const [bib, setBib] = useState<{ ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any> }>({ ses: {}, ciclos: {}, ej: {} })
+  const [bib, setBib] = useState<{ ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any>, etq: any[] }>({ ses: {}, ciclos: {}, ej: {}, etq: [] })
 
   useEffect(() => { cargar() }, [pid]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -71,7 +71,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
     const [{ data: p }, { data: po }] = await Promise.all([
       supabase.from('pacientes').select('nombre,apellidos,nombre_clinica').eq('id', pid).maybeSingle(),
       supabase.from('pacientes_objetivos')
-        .select('objetivo_id,logrado,nombre,objetivos(id,nombre,imagen_url,etiquetas,articulacion_id,movimientos)')
+        .select('objetivo_id,logrado,nombre,objetivos(id,nombre,imagen_url,etiquetas,articulacion_id,movimientos,busca)')
         .eq('paciente_id', pid),
     ])
     setNombre((p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim())
@@ -82,13 +82,17 @@ export default function BancoPage({ params }: { params: { id: string } }) {
     const suyos = new Set(abiertos.map((o: any) => o.id))
     const corta = (ids: string[]) => Array.from(new Set(ids.filter(id => suyos.has(id))))
 
-    const [ciclos, { filas: ses }, { filas: ejs }] = await Promise.all([
+    // Las etiquetas hacen falta para el CRUCE ESTRICTO (anatomia + capacidad), el
+    // mismo que en el taller y al editar una sesion: asi en todos lados sale igual.
+    const [ciclos, { filas: ses }, { filas: ejs }, { data: etq }] = await Promise.all([
       cargarSistemas(),
       traerTodo<any>((d, h) => supabase.from('sesiones')
         .select('id,nombre,partes,sesiones_objetivos(objetivo_id)').is('paciente_id', null).order('id').range(d, h)),
       traerTodo<any>((d, h) => supabase.from('ejercicios')
-        .select('id,nombre,imagen_url,etiquetas,portada_id,tipo_medida,variantes').order('id').range(d, h)),
+        .select('id,nombre,imagen_url,etiquetas,portada_id,tipo_medida,variantes,anatomia,trabajo').order('id').range(d, h)),
+      supabase.from('etiquetas').select('id,nombre,categoria,padre_id'),
     ])
+    const etiquetas = etq || []
 
     // EJERCICIOS: por lo que dicen las sesiones (el vínculo guardado) y, si no, por
     // etiquetas, igual que la sugerencia al montar una sesión.
@@ -98,7 +102,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
     })))
     const ejTodos: Item[] = ejs.map((e: any) => ({
       clave: 'e:' + e.id, tipo: 'e' as const, id: e.id, nombre: e.nombre, imagen: e.imagen_url || '',
-      objs: corta([...(porVinculo[e.id] || []), ...sugerirObjetivos(e.etiquetas || [], abiertos)]), dentro: [],
+      objs: corta([...(porVinculo[e.id] || []), ...sugerirObjetivos(e.etiquetas || [], abiertos, {}, { ej: e, etiquetas })]), dentro: [],
       portada: e.portada_id || undefined,
     }))
     /* FAMILIAS: en la banda sale la portada con sus variantes plegadas. La portada
@@ -142,6 +146,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       ses: Object.fromEntries(ses.map((s: any) => [s.id, s])),
       ciclos: Object.fromEntries((ciclos || []).map((c: any) => [c.id, c])),
       ej: Object.fromEntries(ejs.map((e: any) => [e.id, e])),
+      etq: etiquetas,
     })
     // En modo SESIÓN los ciclos no se programan: no salen.
     setItems([...(cfg.modo === 'ciclo' ? cicItems : []), ...sesItems, ...ejItems])

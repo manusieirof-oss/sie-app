@@ -940,7 +940,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
        editarla: por las etiquetas del ejercicio y las del objetivo. */
     if (ses?.id && ejs.some(e => e.objetivos == null)) {
       const { data: rel } = await supabase.from('sesiones_objetivos')
-        .select('objetivo_id, movimientos, objetivos(id,articulacion_id,etiquetas,movimientos)').eq('sesion_id', ses.id)
+        .select('objetivo_id, movimientos, objetivos(id,nombre,articulacion_id,etiquetas,movimientos,busca)').eq('sesion_id', ses.id)
       const objs = (rel || []).map((x: any) => x.objetivos).filter(Boolean)
       const movs: Record<string, string[]> = {}
       ;(rel || []).forEach((x: any) => { if (Array.isArray(x.movimientos)) movs[x.objetivo_id] = x.movimientos })

@@ -70,7 +70,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
   /** Lo guardado hasta ahora, para ponerlo en sus citas cuando se acabe. */
   onACitas: (g: { tipo: 'sesion' | 'ciclo', id: string }[]) => void
   elegidos: { tipo: 'c' | 's' | 'e', id: string, nombre: string, color?: string }[]
-  bib: { ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any> }
+  bib: { ses: Record<string, any>, ciclos: Record<string, any>, ej: Record<string, any>, etq: any[] }
   objs: any[]
 }) {
   const [ses, setSes] = useState<Record<string, any>>(bib.ses)
@@ -134,7 +134,9 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
   const objsEj = (ej: any): string[] => {
     const suyos = objs.map(o => o.id)
     if (Array.isArray(ej?.objetivos)) return ej.objetivos.filter((id: string) => suyos.includes(id))
-    return sugerirObjetivos(bib.ej[ej?.ejercicio_id]?.etiquetas || [], objs)
+    // Mismo cruce estricto que en la banda: si no, al soltarlo cambiarian sus objetivos.
+    const lib = bib.ej[ej?.ejercicio_id]
+    return sugerirObjetivos(lib?.etiquetas || [], objs, {}, lib ? { ej: lib, etiquetas: bib.etq } : undefined)
   }
   const sesDest = (id: string): DestSesion | null =>
     ses[id] ? { key: nk(), nombre: ses[id].nombre || 'Sesión', origenId: id, partes: partesDe(ses[id]) } : null

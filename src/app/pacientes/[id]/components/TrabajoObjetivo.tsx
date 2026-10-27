@@ -59,9 +59,13 @@ export default function TrabajoObjetivo({ pacienteId, objetivo, sesiones }: {
       }
       const pend = Array.from(porSugerir.keys()).filter(id => !elegidos.has(id))
       if (pend.length > 0) {
-        const { data: ets } = await supabase.from('ejercicios').select('id,etiquetas').in('id', pend)
+        // Cruce estricto, igual que en el taller y el torno: no basta una etiqueta comun.
+        const [{ data: ets }, { data: etq }] = await Promise.all([
+          supabase.from('ejercicios').select('id,etiquetas,anatomia,trabajo').in('id', pend),
+          supabase.from('etiquetas').select('id,nombre,categoria,padre_id'),
+        ])
         ;(ets || []).forEach((e: any) => {
-          if (sugerirObjetivos(e.etiquetas || [], [objetivo]).includes(oid)) elegidos.set(e.id, porSugerir.get(e.id) || 'Ejercicio')
+          if (sugerirObjetivos(e.etiquetas || [], [objetivo], {}, { ej: e, etiquetas: etq || [] }).includes(oid)) elegidos.set(e.id, porSugerir.get(e.id) || 'Ejercicio')
         })
       }
       const ids = Array.from(elegidos.keys())

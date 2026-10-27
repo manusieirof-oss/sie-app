@@ -317,7 +317,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     // biblioteca: ver `retratoDe`. De la biblioteca solo se trae lo que no cambia el pasado
     // —la zona y la foto— y si esta archivado, que es lo unico que hay que decir de ella.
     supabase.from('pacientes_objetivos')
-      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, revisar_el, confirmaciones, created_at, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el)')
+      .select('objetivo_id, origen, vias_origen, pide_texto, vias, logrado, fecha_logrado, revisar_el, confirmaciones, created_at, nombre, descripcion, movimientos, objetivos(id,nombre,descripcion,movimientos,articulacion_id,imagen_url,archivado_el,busca)')
       .eq('paciente_id', pac.id).then(({data}) => {
       setObjetivosTrabajo((data||[]).map((r:any)=>({
         ...r.objetivos,
@@ -346,7 +346,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     supabase.from('citas').select('id,fecha,hora,sala,estado,sesion_id').eq('paciente_id', pac.id)
       .in('estado', ['programada','realizada']).order('fecha')
       .then(({data}) => setCitasPac(data||[]))
-    supabase.from('objetivos').select('id,nombre,descripcion,movimientos,articulacion_id,etiquetas,imagen_url')
+    supabase.from('objetivos').select('id,nombre,descripcion,movimientos,articulacion_id,etiquetas,imagen_url,busca')
       .eq('activo', true).is('archivado_el', null).order('nombre').then(({data}) => setCatalogo(data||[]))
     supabase.from('patologias').select('nombre,estado').eq('paciente_id', pac.id)
       .then(({data}) => setPatologiasPac(data||[]))

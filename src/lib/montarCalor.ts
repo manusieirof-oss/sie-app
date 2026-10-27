@@ -62,7 +62,9 @@ export function ladoPorNombre(n: string): Lado {
   return 'Bilateral'
 }
 export function catalogo(ejs: any[], idx: { rigDe: Record<string, string | null>, zonaDe: Record<string, string | null> },
-  nombreTag: Record<string, string>, tagsMov: Set<string>, objetivos: { id: string, nombre: string }[]): EjCat[] {
+  nombreTag: Record<string, string>, tagsMov: Set<string>, objetivos: { id: string, nombre: string }[],
+  /** Etiquetas de la biblioteca: con ellas se usa el CRUCE ESTRICTO, como en el resto. */
+  etiquetasLib: any[] = []): EjCat[] {
   return ejs.map(e => {
     const t = trabajoDe(e), a = anatomiaDe(e)
     const mus = a.mus.some(x => x.p) ? a.mus.filter(x => x.p) : a.mus
@@ -70,7 +72,7 @@ export function catalogo(ejs: any[], idx: { rigDe: Record<string, string | null>
     mus.forEach(x => { const g = idx.rigDe[x.u]; const z = ZPLAN.find(Z => g && Z.rig.includes(g)); if (z) zonas.add(z.k) })
     a.acc.forEach(x => { const z = idx.zonaDe[x.a]; if (z === 'pie' || z === 'tobillo') zonas.add('pie') })
     const et: string[] = Array.isArray(e.etiquetas) ? e.etiquetas : []
-    const objs = sugerirObjetivos(et, objetivos).map(id => objetivos.find(o => o.id === id)!.nombre)
+    const objs = sugerirObjetivos(et, objetivos, {}, etiquetasLib.length ? { ej: e, etiquetas: etiquetasLib } : undefined).map(id => objetivos.find(o => o.id === id)!.nombre)
     return {
       id: e.id, nombre: e.nombre, imagen_url: e.imagen_url || '', tipo_medida: e.tipo_medida || '', variantes: e.variantes || [],
       etiquetas: et, int: t.int, zonas: Array.from(zonas), movs: et.filter(i => tagsMov.has(i)).map(i => nombreTag[i]),
