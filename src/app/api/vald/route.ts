@@ -92,8 +92,9 @@ export async function POST(req: Request) {
     // mismo perfil en vez de duplicarlo, y si ya existía con su email o nombre+fecha,
     // lo reconoce y lo enlaza (así lo describe VALD).
     if (cuerpo.accion === 'crear') {
-      const { data: p, error } = await sb.from('pacientes').select('id,nombre,apellidos,fecha_nacimiento,sexo,email').eq('id', cuerpo.pacienteId).maybeSingle()
+      const { data: p, error } = await sb.from('pacientes').select('id,nombre,apellidos,fecha_nacimiento,sexo,email,vald_profile_id').eq('id', cuerpo.pacienteId).maybeSingle()
       if (error || !p) return NextResponse.json({ error: 'No encuentro al paciente.' }, { status: 404 })
+      if (p.vald_profile_id) return NextResponse.json({ profileId: p.vald_profile_id })
       const faltan = [!p.nombre && 'nombre', !p.apellidos && 'apellidos', !p.fecha_nacimiento && 'fecha de nacimiento', !p.sexo && 'sexo'].filter(Boolean)
       if (faltan.length) return NextResponse.json({ error: `Para crearlo en VALD falta en su ficha: ${faltan.join(', ')}.` }, { status: 400 })
       await vald(`${base('externalprofile')}/profiles/import`, {

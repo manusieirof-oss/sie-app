@@ -1,4 +1,5 @@
 'use client'
+import { altaEnVald } from '@/lib/vald'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, quitarBono, BonoTipo, cuotaVigenteDe } from '@/lib/bonos'
@@ -387,6 +388,8 @@ export default function FichaPacientePage() {
     // rechazado se veía igual que uno correcto: los campos volvían a su valor anterior y
     // parecía que no habías escrito nada.
     if (error) { alert('No se han guardado los cambios: ' + error.message); return }
+    // Si con esto ya tiene los datos que pide VALD, se da de alta allí (si ya está, nada).
+    if (!pac?.vald_profile_id) altaEnVald(String(id))
     setEditando(false); cargar()
   }
 

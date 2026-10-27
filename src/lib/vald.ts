@@ -15,6 +15,15 @@ export async function llamarVald(accion: 'perfiles' | 'crear' | 'sincronizar', e
   return j
 }
 
+/**
+ * DAR DE ALTA EN VALD sin que nadie lo pida: al crear un paciente en la valoración o al
+ * completar su ficha. Si le falta algún dato (fecha de nacimiento, sexo...) o ya está
+ * enlazado, el servidor no hace nada. Nunca molesta: un fallo aquí no para el guardado.
+ */
+export function altaEnVald(pacienteId: string) {
+  llamarVald('crear', { pacienteId }).catch(() => { /* sin datos completos o VALD caído: ya se hará */ })
+}
+
 /** Sincroniza hasta el final: el servidor corta por tiempo y dice si quedan. */
 export async function sincronizarVald(): Promise<number> {
   let total = 0

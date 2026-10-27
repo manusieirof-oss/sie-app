@@ -1,4 +1,5 @@
 'use client'
+import { altaEnVald } from '@/lib/vald'
 import { VeloAgendaHuecos, agendarHuecos, primerasFechas, semanasDeMeses } from '@/components/AgendaHuecos'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -294,6 +295,8 @@ export default function ValoracionPage() {
         const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
+        // Que ya exista en VALD para cuando se le pase el DynaMo (ver lib/vald altaEnVald).
+        altaEnVald(p.id)
       } else if (esRevaloracion) {
         // De la ficha solo se tocan las plantillas, que es lo único que el paso de
         // completar deja cambiar. Lo demás se edita en su ficha.
