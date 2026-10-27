@@ -5,12 +5,15 @@ import { Ic } from '@/lib/icons'
 import Sparkline from './Sparkline'
 import { COLOR } from '@/lib/resultados'
 import { llamarVald, sincronizarVald, candidatos, esVald, posicionVald, lado, esRango, PerfilVald } from '@/lib/vald'
+import { aplicarDynamo, textoResumen, Mapeo } from '@/lib/valdTests'
+import EnlaceDynamo from './EnlaceDynamo'
 
 // RESULTADOS DEL DYNAMO (VALD) EN LA FICHA.
 //
 // Los tests se hacen como siempre con el DynaMo y suben a VALD Hub. SIE los baja
 // (botón "Traer de VALD") y aquí se enseñan los del perfil enlazado con este paciente.
-// Por ahora es un bloque aparte: no cuentan como tests de SIE (objetivos, fases).
+// Cada tipo de test se puede ENLAZAR con un test de SIE (ver EnlaceDynamo y lib/valdTests):
+// entonces se apunta solo como resultado de SIE y abre/cierra objetivos como uno a mano.
 
 const fecha = (f: string) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' })
 const kg = (n: number) => Math.round(n / 9.80665 * 10) / 10
@@ -27,6 +30,25 @@ export default function DynamoVald({ pac }: { pac: any }) {
   const [aviso, setAviso] = useState<{ t: string, mal?: boolean } | null>(null)
   const [ultima, setUltima] = useState<string | null>(null)
   const [abierto, setAbierto] = useState<string | null>(null)
+  const [mapeos, setMapeos] = useState<Record<string, Mapeo>>({})
+  const [testsSie, setTestsSie] = useState<any[]>([])
+
+  async function cargarEnlaces() {
+    const [{ data: m }, { data: t }] = await Promise.all([
+      supabase.from('vald_mapeo').select('clave,test_id,item,desde'),
+      supabase.from('tests').select('id,nombre,items,tipo_lado,archivado_el').is('archivado_el', null).order('nombre'),
+    ])
+    setMapeos(Object.fromEntries((m || []).map((x: any) => [x.clave, x])))
+    setTestsSie(t || [])
+  }
+  useEffect(() => { cargarEnlaces() }, [])
+
+  /** Apunta en SIE lo pendiente y dice lo que ha pasado CON ESTE paciente. */
+  async function apuntar(previo = '') {
+    const r = await aplicarDynamo()
+    const txt = textoResumen(r[pac.id])
+    if (txt || previo) setAviso({ t: [previo, txt].filter(Boolean).join(' · '), mal: !!r[pac.id]?.errores.length })
+  }
 
   async function cargar(pid = perfilId) {
     supabase.from('ajustes').select('valor').eq('clave', 'vald_ultima_sync').maybeSingle().then(({ data }) => setUltima(data?.valor || null))
@@ -44,8 +66,8 @@ export default function DynamoVald({ pac }: { pac: any }) {
   }
   const traer = () => hacer('sync', async () => {
     const n = await sincronizarVald()
-    setAviso({ t: n ? `${n} test${n === 1 ? '' : 's'} nuevos o cambiados de VALD.` : 'Nada nuevo en VALD.' })
     await cargar()
+    await apuntar(n ? `${n} test${n === 1 ? '' : 's'} nuevos o cambiados de VALD` : 'Nada nuevo en VALD')
   })
   const buscarPerfiles = () => hacer('perfiles', async () => { setPerfiles((await llamarVald('perfiles')).perfiles || []) })
   const enlazar = (id: string | null) => hacer('enlazar', async () => {
@@ -53,7 +75,7 @@ export default function DynamoVald({ pac }: { pac: any }) {
     if (error) throw new Error(error.message)
     setPerfilId(id); setPerfiles(null)
     // Al enlazar se traen los tests: si no, el bloque saldría vacío hasta pulsar.
-    if (id) { await sincronizarVald().catch(() => {}); await cargar(id) }
+    if (id) { await sincronizarVald().catch(() => {}); await cargar(id); await apuntar() }
   })
   const crear = () => hacer('crear', async () => {
     const { profileId } = await llamarVald('crear', { pacienteId: pac.id })
@@ -196,6 +218,9 @@ export default function DynamoVald({ pac }: { pac: any }) {
                 <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
                   {bi ? <><Celda k="I" l="Izquierda"/><Celda k="D" l="Derecha"/></> : <Celda k="U" l="Valor"/>}
                 </div>
+                <EnlaceDynamo key={g.clave + (mapeos[g.clave]?.test_id || '')} clave={g.clave} titulo={g.titulo} rango={g.rango} lateral={bi}
+                  mapeo={mapeos[g.clave] || null} tests={testsSie}
+                  onHecho={(aplicar) => hacer('enlace', async () => { await cargarEnlaces(); if (aplicar) await apuntar('Enlace guardado') })}/>
                 {g.puntos.length > 1 && (
                   <button className="btn btn-sm" style={{ marginTop: 8, fontSize: 11.5 }} onClick={() => setAbierto(abierto === g.clave ? null : g.clave)}>
                     {abierto === g.clave ? 'Ocultar historial' : 'Ver historial'}
