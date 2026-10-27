@@ -432,6 +432,11 @@ export async function crearVariante(base: any, nombre: string) {
     descripcion: base.descripcion || '', video_url: '', imagen_url: base.imagen_url || '',
     etiquetas: base.etiquetas || [], tipo_medida: base.tipo_medida || 'peso_reps',
     items_ejecucion: base.items_ejecucion || [], feedbacks: base.feedbacks || [], variantes: [],
+    // QUE TRABAJA tambien: una variante de agarre, posicion o material mueve lo mismo y
+    // admite lo mismo. Sin copiarlo, cada variante nacia "sin anatomia" y no contaba en
+    // filtros, zonas ni objetivos. Se cambia en el torno si esa variante es distinta.
+    ...(base.anatomia ? { anatomia: base.anatomia } : {}),
+    ...(base.trabajo ? { trabajo: base.trabajo } : {}),
   }).select().single()
   if (error || !data) return malE(error || 'No se pudo crear')
   return { ok: true as const, ejercicio: data }

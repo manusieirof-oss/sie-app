@@ -663,6 +663,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       if (ejs.some(x => normalizar(x.nombre).trim() === normalizar(nombre).trim())) { saltados.push(e.nombre); continue }
       const r = await crearVariante({ ...base, id: params.id, portada_id: orig.portada_id,
         etiquetas: [...base.etiquetas.filter(x => !fuera.has(x)), id],
+        // Variar por MUSCULO (masajes, estiramientos por zona): su musculo pasa a ser ese.
+        ...(variar.cat === 'musculo' ? { anatomia: { ...base.anatomia, mus: [{ u: id, p: true }] } } : {}),
         items_ejecucion: base.items_ejecucion.filter(i => i.texto?.trim()), feedbacks: base.feedbacks.filter(i => i.texto?.trim()) }, nombre)
       if (r.ok === false) { setGuardando(false); setAviso('No se pudo crear: ' + r.error); return }
       const copiado = [base.items_ejecucion.some(i => i.texto?.trim()) ? 'ejecucion' : '', base.feedbacks.some(i => i.texto?.trim()) ? 'feedbacks' : ''].filter(Boolean)
