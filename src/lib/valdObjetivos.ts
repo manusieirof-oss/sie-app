@@ -22,6 +22,8 @@ export interface Propuesta {
   items: string[] | null         // null = el test entero
   seguro: boolean                // articulación + capacidad + (movimientos o sin concretar)
   marcado: boolean
+  /** Por qué es «revisar»: lo que pide el objetivo frente a lo que mide el DynaMo. */
+  motivo?: string
 }
 
 export async function proponerEnlacesObjetivos(): Promise<Propuesta[]> {
@@ -50,21 +52,26 @@ export async function proponerEnlacesObjetivos(): Promise<Propuesta[]> {
     if (busca.includes('fuerza') || busca.includes('potencia')) quiere.add('fuerza')
     if (busca.includes('movilidad') || busca.includes('estiramiento')) quiere.add('rango')
     if (!quiere.size) continue
-    const movs = (o.movimientos || []).map((id: string) => n(nombreEt.get(id) || '')).filter(Boolean)
+    const movsNom = (o.movimientos || []).map((id: string) => nombreEt.get(id) || '').filter(Boolean)
+    const movs = movsNom.map(n)
     for (const t of dyn) {
       if (!quiere.has(t.tipo)) continue
       if (!(art === t.zona || art.includes(t.zona) || t.zona.includes(art))) continue
       if (hay.has(`${o.id}|${t.id}`)) continue
-      let items: string[] | null = null, seguro = true
+      let items: string[] | null = null, seguro = true, motivo = ''
       if (movs.length) {
         const sus = (t.items || []).map((i: any) => i.nombre).filter((nom: string) => {
           const mv = n(nom.split(' · ')[0])
           return movs.some((m: string) => m.includes(mv) || mv.includes(m))
         })
         if (sus.length) items = sus
-        else seguro = false   // concreta movimientos que el DynaMo no mide: que lo mires tú
+        else {
+          seguro = false   // concreta movimientos que el DynaMo no mide: que lo mires tú
+          const mide = Array.from(new Set((t.items || []).map((i: any) => String(i.nombre).split(' · ')[0])))
+          motivo = `El objetivo pide: ${movsNom.join(', ')} · El DynaMo mide: ${mide.join(', ') || 'nada'}`
+        }
       }
-      out.push({ objetivo: { id: o.id, nombre: o.nombre }, test: { id: t.id, nombre: t.nombre }, items, seguro, marcado: seguro })
+      out.push({ objetivo: { id: o.id, nombre: o.nombre }, test: { id: t.id, nombre: t.nombre }, items, seguro, marcado: seguro, motivo })
     }
   }
   return out.sort((a, b) => a.objetivo.nombre.localeCompare(b.objetivo.nombre))

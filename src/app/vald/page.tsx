@@ -186,7 +186,7 @@ export default function ValdPage() {
                 <label key={x.objetivo.id + x.test.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 7, fontSize: 13,
                   background: x.marcado ? 'var(--gl)' : 'var(--w)', border: '1px solid var(--bd)', cursor: 'pointer' }}>
                   <input type="checkbox" checked={x.marcado} onChange={e => setProps(p => p!.map((y, j) => j === i ? { ...y, marcado: e.target.checked } : y))}/>
-                  <span style={{ flex: 1 }}><b>{x.objetivo.nombre}</b></span>
+                  <span style={{ flex: 1 }}><b>{x.objetivo.nombre}</b>{x.motivo && <span style={{ display: 'block', fontSize: 11.5, color: '#8a6d1f', fontWeight: 400 }}>{x.motivo}</span>}</span>
                   <span style={{ flex: 1.3 }}>→ {x.test.nombre}<span style={{ color: 'var(--gr)' }}>{x.items ? ` · ${x.items.join(', ')}` : ' · todo el test'}</span></span>
                   <span style={{ fontSize: 11, color: x.seguro ? 'var(--gd)' : '#8a6d1f' }}>{x.seguro ? 'claro' : 'revisar'}</span>
                 </label>
