@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import Sparkline from './Sparkline'
 import { COLOR } from '@/lib/resultados'
-import { llamarVald, sincronizarVald, candidatos, esVald, lado, esRango, PerfilVald } from '@/lib/vald'
+import { llamarVald, sincronizarVald, candidatos, esVald, posicionVald, lado, esRango, PerfilVald } from '@/lib/vald'
 
 // RESULTADOS DEL DYNAMO (VALD) EN LA FICHA.
 //
@@ -80,7 +80,7 @@ export default function DynamoVald({ pac }: { pac: any }) {
       }
       porMov.forEach((p, mov) => {
         const clave = [t.region, mov, t.posicion, rango ? 'r' : 'f'].join('|')
-        const g = m.get(clave) || { clave, rango, puntos: [], titulo: [esVald(t.region), esVald(mov), esVald(t.posicion)].filter(Boolean).join(' · ') }
+        const g = m.get(clave) || { clave, rango, puntos: [], titulo: [esVald(t.region), esVald(mov), posicionVald(t.posicion)].filter(Boolean).join(' · ') }
         g.puntos.push(p); m.set(clave, g)
       })
     }
@@ -173,7 +173,8 @@ export default function DynamoVald({ pac }: { pac: any }) {
                     <div style={{ fontSize: 16, fontWeight: 600 }}>{fmt(g, u[k])}</div>
                     {d != null && d !== 0 && <div style={{ fontSize: 11, color: d > 0 ? 'var(--gd)' : 'var(--red)' }}>{d > 0 ? '+' : '−'}{Math.abs(d)}% desde {fecha(p0.fecha)}</div>}
                   </div>
-                  <Sparkline valores={serie(k)} color={COLOR.g} max={tope} ancho={70}/>
+                  {/* Con una sola medida no hay tendencia que dibujar. */}
+                  {serie(k).length > 1 && <Sparkline valores={serie(k)} color={COLOR.g} max={tope} ancho={70}/>}
                 </div>
               )
             }
@@ -182,7 +183,7 @@ export default function DynamoVald({ pac }: { pac: any }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                   <b style={{ fontSize: 13.5 }}>{g.titulo}</b>
                   <span style={{ fontSize: 10.5, padding: '1px 7px', borderRadius: 99, background: 'var(--bl)', color: 'var(--gr)' }}>{g.rango ? 'Rango' : 'Fuerza máx.'}</span>
-                  <span style={{ fontSize: 11.5, color: 'var(--gr)' }}>{fecha(u.fecha)} · {g.puntos.length} vez{g.puntos.length === 1 ? '' : 'es'}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--gr)' }}>{fecha(u.fecha)} · {g.puntos.length === 1 ? '1 vez' : `${g.puntos.length} veces`}</span>
                   <div style={{ flex: 1 }}/>
                   {a != null && (
                     // Diferencia entre lados sobre el mejor. Más de un 10-15% suele mirarse.

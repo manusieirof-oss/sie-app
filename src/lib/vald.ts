@@ -75,6 +75,14 @@ export function esVald(s: string | null | undefined): string {
   if (ES[k]) return ES[k]
   return String(s).replace(/([a-z])([A-Z])/g, '$1 $2')
 }
+/** Posición de VALD: "Seated30Degree Knee Flexion" → "Sentado a 30°". El ángulo es
+ *  el de la articulación durante el test (rodilla a 30° de flexión), no el movimiento. */
+export function posicionVald(s: string | null | undefined): string {
+  if (!s) return ''
+  const m = String(s).match(/^([A-Za-z]+?)(\d+)\s*Degrees?\b/i)
+  if (m) return `${esVald(m[1])} a ${m[2]}°`
+  return esVald(s)
+}
 export const lado = (l: string | null | undefined): 'I' | 'D' | null => {
   const k = String(l || '').toLowerCase()
   return k.startsWith('left') ? 'I' : k.startsWith('right') ? 'D' : null
