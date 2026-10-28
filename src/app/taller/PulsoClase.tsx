@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { publicarPulso, PulsoVivo } from '@/lib/pulsoVivo'
 import { fcMaxDe, zonaDe, colorZona, ZONAS, TEXTO_FORMULA, nuevoAcumulado, sumarSegundo, trimpDe, mediaDe, mmss, Acumulado } from '@/lib/pulso'
 
 // PULSÓMETROS EN LA CLASE.
@@ -84,6 +85,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
   const etiqueta = (nombre: string) => numeroDe(nombre) ? `Banda ${numeroDe(nombre)}` : nombre
   const etiquetaRef = useRef(etiqueta); etiquetaRef.current = etiqueta
 
+  const verRef = useRef<(p: any) => any>(() => ({ vivo: false }))
   /** Lo que se ve de un paciente: de la banda de ESTE equipo o, si no, lo que manda el ordenador. */
   function ver(p: any) {
     const n = asig.current[p.id], d = n ? devs.current[n] : null
@@ -97,6 +99,8 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
     return { vivo: false, remoto: false, bpm: null, bateria: d?.bateria ?? null, banda: n ? etiqueta(n) : '', seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null,
       aviso: d ? (d.estado === 'perdida' ? 'reconectando…' : 'sin pulso') : '' }
   }
+  verRef.current = ver
+
 
   // ---- Cada latido que llega: se suma el tiempo real desde el anterior a quien lleva la banda ----
   function latido(nombre: string, bpm: number, ahora: number, antes: number) {
@@ -128,6 +132,14 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
       const hay = pacRef.current.some(p => { const d = devs.current[asig.current[p.id]]; return d && ahora - d.t < 4000 })
       if (hay && ahora - ultimoGuardado.current > SEG_GUARDAR * 1000) { ultimoGuardado.current = ahora; guardar() }
       if (hay && Math.floor(ahora / 1000) % 2 === 0) emitir()
+      // Para la columna de cada paciente (Todos) y su cabecera (Uno a uno).
+      const vivo: Record<string, PulsoVivo> = {}
+      for (const p of pacRef.current) {
+        const v = verRef.current(p); if (!v.vivo || v.bpm == null) continue
+        const fc = fcMax(p).fc, z = zonaDe(v.bpm, fc)
+        vivo[p.id] = { bpm: v.bpm, zona: z, pct: fc ? Math.round(v.bpm / fc * 100) : null, color: colorZona(z), banda: v.banda }
+      }
+      publicarPulso(vivo)
       repintar()
     }, 1000)
     // Al salir de la pantalla se guarda lo que haya, sin esperar a los 30 s.
@@ -270,8 +282,27 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
                 <span style={{ fontSize: 11.5, color: 'var(--gr)', flex: 1, minWidth: 240 }}>{TEXTO_FORMULA}</span>
               </div>
               {error && <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 8 }}>{error}</div>}
+              {/* BANDAS SIN DUEÑO: se conectan y luego se dice quién la lleva. Solo salen
+                  tarjetas de quien lleva banda: muchos días no todos hacen la parte aeróbica. */}
+              {soportado && Object.values(devs.current).filter(d => !Object.values(asig.current).includes(d.nombre)).map(d => {
+                const suyo = pacientes.find(p => extra[p.id]?.banda_ultima === d.nombre && !asig.current[p.id])
+                return (
+                  <div key={d.nombre} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '7px 10px', marginBottom: 6, borderRadius: 8, background: 'var(--ambl)' }}>
+                    <b style={{ fontSize: 13 }}>{etiqueta(d.nombre)}</b>
+                    <span style={{ fontSize: 12, color: 'var(--gr)' }}>{d.bpm ? `${d.bpm} ppm · ` : ''}¿quién la lleva?</span>
+                    {suyo && <button className="btn btn-p btn-sm" onClick={() => asignar(suyo.id, d.nombre)}>{(suyo.nombre_clinica || suyo.nombre || '').split(' ')[0]} (la llevó la última vez)</button>}
+                    <select className="input" value="" onChange={e => e.target.value && asignar(e.target.value, d.nombre)} style={{ fontSize: 12, padding: '2px 6px', width: 'auto', height: 28 }}>
+                      <option value="">Elegir paciente…</option>
+                      {pacientes.filter(p => !asig.current[p.id]).map(p => <option key={p.id} value={p.id}>{p.nombre_clinica || `${p.nombre || ''} ${p.apellidos || ''}`.trim()}</option>)}
+                    </select>
+                  </div>
+                )
+              })}
+              {!pacientes.some(p => asig.current[p.id] || ver(p).vivo) && (
+                <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 6 }}>Nadie lleva banda todavía. {soportado ? 'Conecta una y elige quién la lleva.' : ''}</div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 10 }}>
-                {pacientes.map(p => {
+                {pacientes.filter(p => asig.current[p.id] || ver(p).vivo).map(p => {
                   const n = asig.current[p.id], v = ver(p), vivo = v.vivo
                   const f = fcMax(p), z = vivo ? zonaDe(v.bpm, f.fc) : 0
                   const ultima = extra[p.id]?.banda_ultima

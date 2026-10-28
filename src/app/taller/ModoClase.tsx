@@ -1,4 +1,5 @@
 'use client'
+import ChipPulso from '@/components/ChipPulso'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
 import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCarga'
@@ -1752,6 +1753,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
               <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
+              <ChipPulso pid={s.paciente?.id}/>
             </div>
             )
           })}
@@ -1783,6 +1785,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             <div style={{minWidth:0,flexShrink:0}}>
               <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 <span>{nombrePac(act.paciente)}</span>
+                {/* Solo sale si lleva banda: ver PulsoClase. */}
+                <ChipPulso pid={act.paciente?.id} grande/>
                 {act.estado === 'falta' && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#C0504D', borderRadius: 99, padding: '1px 8px' }}>Falta</span>}
                 <button className="btn btn-t btn-sm" onClick={() => setCitaVelo(act.paciente.id)} title="Falta, cancelar o cambiar de sala">Cita ▾</button>
                 {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}

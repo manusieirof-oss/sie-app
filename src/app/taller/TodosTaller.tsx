@@ -1,4 +1,5 @@
 'use client'
+import ChipPulso from '@/components/ChipPulso'
 import { useEffect, useRef, useState } from 'react'
 import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
@@ -125,6 +126,8 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                     {/* A LA VISTA: falta, cancelar o cambiar de sala. Antes solo tocando la foto, y no se adivinaba. */}
                     <button className="tt-cita" onClick={() => a.cita(p.id)} title="Falta, cancelar o cambiar de sala">Cita ▾</button></div>
                   <div className="tt-sub">{edad != null ? `${edad} años · ` : ''}{ses?.nombre || (sid ? 'Sesión' : 'Sin sesión')}</div>
+                  {/* Pulso en directo en su columna, solo si lleva banda (ver PulsoClase). */}
+                  <ChipPulso pid={p.id}/>
                 </div>
                 <button className="tt-abrir" title="Su taller completo, uno a uno" onClick={() => a.abrir(p.id)}>⤢</button>
               </div>
