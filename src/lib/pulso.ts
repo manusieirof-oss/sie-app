@@ -50,11 +50,18 @@ export function nuevoAcumulado(banda: string): Acumulado {
   const ahora = new Date().toISOString()
   return { id: crypto.randomUUID(), inicio: ahora, fin: ahora, segundos: 0, suma: 0, max: 0, min: 0, zonas: [0, 0, 0, 0, 0, 0], muestras: [], banda }
 }
-export function sumarSegundo(a: Acumulado, bpm: number, fcMax: number | null): Acumulado {
+/**
+ * Suma `dt` segundos con este pulso. Se llama con CADA LATIDO que manda la banda y el
+ * tiempo real que ha pasado desde el anterior, no con un reloj de la página: si la
+ * pantalla se bloquea o la pestaña queda detrás, Chrome frena los relojes y se perdían
+ * segundos; los avisos de Bluetooth siguen llegando.
+ */
+export function sumarSegundo(a: Acumulado, bpm: number, fcMax: number | null, dt = 1): Acumulado {
   const t = Math.round((Date.now() - +new Date(a.inicio)) / 1000)
-  const zonas = a.zonas.slice(); zonas[zonaDe(bpm, fcMax)]++
-  const muestras = a.segundos % 5 === 0 ? [...a.muestras, [t, bpm] as [number, number]] : a.muestras
-  return { ...a, fin: new Date().toISOString(), segundos: a.segundos + 1, suma: a.suma + bpm,
+  const zonas = a.zonas.slice(); zonas[zonaDe(bpm, fcMax)] += dt
+  const ultima = a.muestras[a.muestras.length - 1]
+  const muestras = !ultima || t - ultima[0] >= 5 ? [...a.muestras, [t, bpm] as [number, number]] : a.muestras
+  return { ...a, fin: new Date().toISOString(), segundos: a.segundos + dt, suma: a.suma + bpm * dt,
     max: Math.max(a.max, bpm), min: a.min ? Math.min(a.min, bpm) : bpm, zonas, muestras }
 }
 /**
@@ -63,4 +70,4 @@ export function sumarSegundo(a: Acumulado, bpm: number, fcMax: number | null): A
  */
 export const trimpDe = (zonas: number[]) => Math.round(zonas.reduce((s, seg, z) => s + seg / 60 * z, 0))
 export const mediaDe = (a: Acumulado) => a.segundos ? Math.round(a.suma / a.segundos) : null
-export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+export const mmss = (s: number) => { const x = Math.round(s); return `${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}` }

@@ -98,17 +98,34 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
       aviso: d ? (d.estado === 'perdida' ? 'reconectando…' : 'sin pulso') : '' }
   }
 
-  // ---- El reloj: cada segundo, a cada paciente con banda viva se le suma un segundo ----
+  // ---- Cada latido que llega: se suma el tiempo real desde el anterior a quien lleva la banda ----
+  function latido(nombre: string, bpm: number, ahora: number, antes: number) {
+    const pid = Object.keys(asig.current).find(k => asig.current[k] === nombre)
+    if (!pid) return
+    const p = pacRef.current.find(x => x.id === pid); if (!p) return
+    // Más de 5 s sin dato = la banda estuvo caída: ese hueco no se cuenta.
+    const dt = antes && ahora - antes < 5000 ? (ahora - antes) / 1000 : 1
+    acc.current[pid] = sumarSegundo(acc.current[pid] || nuevoAcumulado(nombre), bpm, fcMax(p).fc, dt)
+  }
+
+  /* PANTALLA ENCENDIDA mientras haya bandas: si el portátil bloquea la pantalla o entra
+     en reposo, Bluetooth se corta. El navegador lo suelta solo al cambiar de pestaña, así
+     que se vuelve a pedir al volver. */
+  const bloqueo = useRef<any>(null)
+  async function mantenerPantalla() {
+    try { if ('wakeLock' in navigator && !bloqueo.current) { bloqueo.current = await (navigator as any).wakeLock.request('screen'); bloqueo.current.addEventListener('release', () => { bloqueo.current = null }) } } catch { /* no soportado */ }
+  }
+  useEffect(() => {
+    const vuelve = () => { if (document.visibilityState === 'visible' && Object.keys(objs.current).length) mantenerPantalla() }
+    document.addEventListener('visibilitychange', vuelve)
+    return () => { document.removeEventListener('visibilitychange', vuelve); bloqueo.current?.release?.() }
+  }, [])
+
+  // ---- El reloj de la página solo guarda, reenvía y repinta: ya no cuenta tiempo ----
   useEffect(() => {
     const id = setInterval(() => {
       const ahora = Date.now()
-      let hay = false
-      for (const p of pacRef.current) {
-        const n = asig.current[p.id]; const d = n ? devs.current[n] : null
-        if (!d || d.bpm == null || ahora - d.t > 4000) continue
-        acc.current[p.id] = sumarSegundo(acc.current[p.id] || nuevoAcumulado(n!), d.bpm, fcMax(p).fc)
-        hay = true
-      }
+      const hay = pacRef.current.some(p => { const d = devs.current[asig.current[p.id]]; return d && ahora - d.t < 4000 })
       if (hay && ahora - ultimoGuardado.current > SEG_GUARDAR * 1000) { ultimoGuardado.current = ahora; guardar() }
       if (hay && Math.floor(ahora / 1000) % 2 === 0) emitir()
       repintar()
@@ -138,8 +155,8 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
       return {
         id: a.id, paciente_id: p.id, cita_id: citaDe(p.id), fecha, inicio: a.inicio, fin: a.fin, banda: a.banda,
         fc_max_ref: f.fc, formula: f.medida ? 'medida' : 'tanaka',
-        fc_media: mediaDe(a), fc_max: a.max || null, fc_min: a.min || null, segundos: a.segundos,
-        zonas: a.zonas, trimp: trimpDe(a.zonas), muestras: a.muestras, actualizado: new Date().toISOString(),
+        fc_media: mediaDe(a), fc_max: a.max || null, fc_min: a.min || null, segundos: Math.round(a.segundos),
+        zonas: a.zonas.map(z => Math.round(z)), trimp: trimpDe(a.zonas), muestras: a.muestras, actualizado: new Date().toISOString(),
       }
     })
     if (!filas.length) return
@@ -176,9 +193,12 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
       const v: DataView = e.target.value
       const bpm = v.getUint8(0) & 1 ? v.getUint16(1, true) : v.getUint8(1)
       // 0 = la banda no detecta pulso (mal puesta): no cuenta como dato.
-      devs.current[nombre] = { ...devs.current[nombre], bpm: bpm || null, t: bpm ? Date.now() : devs.current[nombre].t, estado: 'directo' }
+      const ahora = Date.now(), antes = devs.current[nombre].t
+      devs.current[nombre] = { ...devs.current[nombre], bpm: bpm || null, t: bpm ? ahora : antes, estado: 'directo' }
+      if (bpm) latido(nombre, bpm, ahora, antes)
     })
     await hr.startNotifications()
+    mantenerPantalla()
     try {
       const b = await (await srv.getPrimaryService('battery_service')).getCharacteristic('battery_level')
       devs.current[nombre].bateria = (await b.readValue()).getUint8(0)
