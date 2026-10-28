@@ -8,6 +8,7 @@ import {
   esBaremo, evaluarBaremo, edadEn, textoNorma, soloMide, conOtroLado, ladoOpuesto, asimetriaDe,
 } from '@/lib/tests'
 import { hoyISO, aISO } from '@/lib/fechas'
+import CamaraTest, { protocoloDe, PorLado } from '@/components/CamaraTest'
 
 /**
  * Pasar un test, con el mismo aspecto que su ficha de la biblioteca.
@@ -91,6 +92,30 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
   const lados = test?.tipo_lado === 'lateral' ? LADOS_LATERAL : LADOS_BILATERAL
   const items = (test?.items || [])
 
+  /* CON LA CÁMARA. Si el test tiene protocolo (lib/camara), se graba aquí mismo y lo
+     medido se PASA AL TEST: rellena sus ítems en cada lado, y se guarda con el botón de
+     siempre. Así vale igual en la ficha (guarda al momento) y en la valoración (acumula
+     hasta el final), sin salir de la pantalla ni perder lo que ya estaba puesto. */
+  const prot = protocoloDe(test)
+  const [camara, setCamara] = useState(false)
+  function pasarDeCamara(r: PorLado) {
+    const nuevos = { ...(tv.lados || {}) }
+    for (const [l, { items: med, obs }] of Object.entries(r)) {
+      const prev = nuevos[l] || ladoVacio(test, tv.frecuencia_meses)
+      const base = prev.items_resultado?.length ? prev.items_resultado : items.map((it: any) => ({ ...it, marcado: false, valor: '' }))
+      // Solo se pisa lo que la cámara ha medido; lo que ya estaba puesto a mano se queda.
+      const it = base.map((x: any) => {
+        const m = med.find((y: any) => y.nombre === x.nombre)
+        if (!m) return x
+        return { ...x, ...(m.valor !== '' ? { valor: m.valor } : {}), ...(m.marcado ? { marcado: true } : {}) }
+      })
+      nuevos[l] = { ...prev, items_resultado: it, observaciones: [prev.observaciones, obs].filter(Boolean).join(' · ') }
+    }
+    const primero = Object.keys(r)[0]
+    onCambiar({ ...tv, lados: nuevos, ladoActivo: primero || tv.ladoActivo })
+    setCamara(false)
+  }
+
   function cambiarLado(k: string) {
     onCambiar({ ...tv, ladoActivo: k, lados: { ...(tv.lados || {}), [k]: tv.lados?.[k] || ladoVacio(test, tv.frecuencia_meses) } })
   }
@@ -131,11 +156,20 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
   }, [paciente?.id, test?.id, conMedir, ladoActivo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) onCerrar() }}>
+    <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget && !camara) onCerrar() }}>
+      {camara && prot && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#F4F3EF', overflow: 'auto', padding: 16 }}>
+          <div style={{ maxWidth: 980, margin: '0 auto' }}>
+            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 10 }}>📷 {test?.nombre}</div>
+            <CamaraTest prot={prot} test={test} paciente={paciente} accion={{ texto: 'Pasar al test', hacer: pasarDeCamara }} onCerrar={() => setCamara(false)}/>
+          </div>
+        </div>
+      )}
       <div style={{ background: 'var(--w)', borderRadius: 'var(--rl)', width: '94vw', maxWidth: 900, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 32px rgba(38,40,37,.15)', overflow: 'hidden' }}>
 
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--bd)', background: 'var(--bl)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, fontSize: 15, fontWeight: 400, color: 'var(--n)' }}>{test?.nombre || tv.nombre}</div>
+          {prot && <button className="btn btn-sm" onClick={() => setCamara(true)} title="Grabar el test con la cámara del iPad">📷 Con cámara</button>}
           <button onClick={onCerrar} style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--bd)', background: 'var(--w)', cursor: 'pointer', fontSize: 14, color: 'var(--gr)' }}>✕</button>
         </div>
 
