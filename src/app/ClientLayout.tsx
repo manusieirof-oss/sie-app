@@ -8,6 +8,8 @@ import { renovarCuotas } from '@/lib/bonos'
 import { aplicarEstadosProgramados } from '@/lib/estadosPaciente'
 import { Ic } from '@/lib/icons'
 import HojaCita from './movil/components/HojaCita'
+import { PuertaConfidencialidad } from '@/components/Confidencialidad'
+import { firmaVigente } from '@/lib/confidencialidad'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
 // lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
@@ -38,6 +40,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [porCobrar, setPorCobrar] = useState(0)
   const [menuUsuario, setMenuUsuario] = useState(false)
   const [citaMovil, setCitaMovil] = useState(false)
+  /** ¿Ha aceptado el compromiso de confidencialidad vigente? undefined = mirando. */
+  const [firmada, setFirmada] = useState<boolean | undefined>(undefined)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -50,6 +54,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+    // Si la tabla aún no existe (antes de lanzar el SQL) no se bloquea a nadie: mejor
+    // dejar entrar que dejar a toda la clínica fuera por un paso pendiente.
+    firmaVigente(user.id).then(f => setFirmada(!!f)).catch(() => setFirmada(true))
+  }, [user?.id])
 
   useEffect(() => {
     if (user?.id) {
@@ -125,6 +136,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   if (pathname === '/login') return <>{children}</>
   if (!user) return null
+
+  // Sin el compromiso de confidencialidad aceptado no se ve nada de SIE.
+  if (firmada === undefined) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'var(--n)'}}>
+      <span style={{color:'var(--g)',fontSize:14,letterSpacing:4}}>SIE</span>
+    </div>
+  )
+  if (!firmada) return <PuertaConfidencialidad nombre={perfil?.nombre || user.email || ''} onAceptado={() => setFirmada(true)} onSalir={handleLogout}/>
 
   // DOS PERFILES. Dirección (rol admin) lo ve todo; el entrenador, solo lo del día
   // a día y Valoración, para que la barra no le pese. Un admin puede «ver como
@@ -207,6 +226,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   </Link>
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
+                  </Link>
+                  <Link href="/confidencialidad" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
+                    <Ic name="firmar" size={15}/> Confidencialidad
                   </Link>
                   {esAdmin && (
                     <button className="sb-menu-it" onClick={cambiarVista}>

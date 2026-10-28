@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { VERSION_CONFIDENCIALIDAD } from '@/lib/confidencialidad'
 
 // Llama a /api/equipo con la sesión de quien está dentro: el servidor comprueba que
 // es dirección antes de tocar nada.
@@ -25,6 +26,8 @@ export default function UsuariosTab({ perfilActual }: any) {
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [cuentas, setCuentas] = useState<Record<string, { email: string | null, ultimo: string | null }>>({})
   const [loading, setLoading] = useState(true)
+  /** Última aceptación del compromiso de confidencialidad de cada uno (por user_id). */
+  const [firmas, setFirmas] = useState<Record<string, { aceptada: string, version: string }>>({})
   const [guardando, setGuardando] = useState<string|null>(null)
   // Alta nueva
   const [abierto, setAbierto] = useState(false)
@@ -46,6 +49,10 @@ export default function UsuariosTab({ perfilActual }: any) {
     const { data } = await supabase.from('perfiles').select('*').order('created_at')
     setUsuarios(data || [])
     setLoading(false)
+    const { data: f } = await supabase.from('confidencialidad_firmas').select('user_id,aceptada,version').order('aceptada')
+    const m: Record<string, { aceptada: string, version: string }> = {}
+    ;(f || []).forEach((x: any) => { m[x.user_id] = x })
+    setFirmas(m)
     // Los correos van aparte (están en Supabase Auth, no en perfiles); si falla, la
     // lista se ve igual, solo sin correo.
     try { setCuentas((await equipo('lista')).usuarios || {}) } catch {}
@@ -193,6 +200,10 @@ export default function UsuariosTab({ perfilActual }: any) {
                 {cuenta?.email || (u.rol==='admin'?'Dirección':'Entrenador')}
                 {cuenta && ` · ${cuenta.ultimo ? 'último acceso ' + fechaCorta(cuenta.ultimo) : 'aún no ha entrado'}`}
               </div>
+              {/* Confidencialidad: firmada (con su versión) o pendiente; se abre para imprimir. */}
+              <a href={`/confidencialidad?u=${u.user_id}`} style={{fontSize:9,textDecoration:'none',color:firmas[u.user_id]?.version===VERSION_CONFIDENCIALIDAD?'var(--gd)':'#8a6d1f'}}>
+                <Ic name="firmar" size={10} style={{verticalAlign:'-1px'}}/> {firmas[u.user_id]?.version===VERSION_CONFIDENCIALIDAD ? `Confidencialidad aceptada el ${fechaCorta(firmas[u.user_id].aceptada)}` : 'Confidencialidad pendiente: la aceptará al entrar'}
+              </a>
             </div>
 
             {/* SELECTOR DE PERFIL */}
