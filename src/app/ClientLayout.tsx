@@ -10,21 +10,21 @@ import { Ic } from '@/lib/icons'
 import HojaCita from './movil/components/HojaCita'
 import { PuertaConfidencialidad } from '@/components/Confidencialidad'
 import { firmaVigente } from '@/lib/confidencialidad'
-import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES } from '@/lib/permisos'
+import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
 // lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
-// `min`: nivel mínimo para verlo (lib/permisos). Sin `min`, lo ve todo el equipo.
+// `acc`: la acción que pide (lib/permisos). Sin `acc`, lo ve todo el equipo.
 const NAV_DIA = [
   { href: '/hoy', icon: 'sol', label: 'Hoy' },
   { href: '/agenda', icon: 'agenda', label: 'Agenda' },
-  { href: '/pacientes', icon: 'pacientes', label: 'Pacientes', min: MINIMO.pacientes },
+  { href: '/pacientes', icon: 'pacientes', label: 'Pacientes', acc: 'pacientes' as Accion },
   { href: '/taller', icon: 'taller', label: 'Taller' },
 ]
 const NAV_PROGRAMAR = [
-  { href: '/torno', icon: 'recuperar', label: 'El torno', min: MINIMO.torno },
-  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca', min: MINIMO.biblioteca },
-  { href: '/valoracion', icon: 'valoracion', label: 'Valoración', min: MINIMO.valoracion },
+  { href: '/torno', icon: 'recuperar', label: 'El torno', acc: 'torno' as Accion },
+  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca', acc: 'biblioteca' as Accion },
+  { href: '/valoracion', icon: 'valoracion', label: 'Valoración', acc: 'valoracion' as Accion },
 ]
 const NAV_STATS = { href: '/estadisticas', icon: 'stats', label: 'Stats' }
 const NAV_AJUSTES = { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' }
@@ -45,6 +45,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** ¿Ha aceptado el compromiso de confidencialidad vigente? undefined = mirando. */
   const [firmada, setFirmada] = useState<boolean | undefined>(undefined)
   const [perfilListo, setPerfilListo] = useState(false)
+  /** Mínimos de cada acción: los de la tabla permisos_nivel, o los de serie. */
+  const [minimos, setMinimos] = useState<Minimos>(MINIMO)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -70,6 +72,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
         setPerfil(data)
         setPerfilListo(true)
+        supabase.from('permisos_nivel').select('accion,minimo').then(({ data: f }) => { if (f) setMinimos(mezclarMinimos(f)) })
         if (data?.rol==='admin' || data?.permisos?.finanzas===true) {
           /**
            * Los estados programados ANTES de renovar cuotas.
@@ -135,10 +138,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const n = nivelDe(perfil)
     const regla = RUTAS.find(([pre]) => pathname === pre || pathname.startsWith(pre + '/'))
     const dinero = pathname.startsWith('/finanzas') ? !(n >= 4 || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
-      : pathname.startsWith('/cobros') ? !(n >= MINIMO.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
+      : pathname.startsWith('/cobros') ? !(n >= minimos.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
       : false
-    if ((regla && n < MINIMO[regla[1]]) || dinero) router.replace('/hoy')
-  }, [user, perfilListo, perfil, pathname])
+    if ((regla && n < minimos[regla[1]]) || dinero) router.replace('/hoy')
+  }, [user, perfilListo, perfil, pathname, minimos])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -169,8 +172,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const esAdmin = perfil?.rol==='admin'
   const esDireccion = nivel >= 4
   const veFinanzas = esDireccion || (!esAdmin && perfil?.permisos?.finanzas===true)
-  const veCobros   = veFinanzas || nivel >= MINIMO.cobros || perfil?.permisos?.cobros===true
-  const ve = (n: { min?: number }) => !n.min || nivel >= n.min
+  const veCobros   = veFinanzas || nivel >= minimos.cobros || perfil?.permisos?.cobros===true
+  const ve = (n: { acc?: Accion }) => !n.acc || nivel >= minimos[n.acc]
   /** Dirección «ve como» un nivel (1-3) o vuelve a lo suyo (null). */
   const cambiarVista = (v: string | null) => {
     try { v ? localStorage.setItem('sie_ver_como', v) : localStorage.removeItem('sie_ver_como') } catch {}
@@ -180,7 +183,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   // Un pilar de la barra: icono grande, el nombre en una burbuja al pasar el ratón y,
   // si toca, un numerito (Cobros).
-  const enlace = (n: { href: string, icon: string, label: string, n?: number, min?: number }) => (
+  const enlace = (n: { href: string, icon: string, label: string, n?: number, acc?: Accion }) => (
     <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href) ? 'active' : ''}`} aria-label={n.label}>
       <Ic name={n.icon} size={21} strokeWidth={1.7}/>
       {!!n.n && <span className="sb-b">{n.n > 99 ? '99+' : n.n}</span>}
@@ -196,10 +199,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
     return (
       <div className="m-shell">
-        <main className="m-main"><ProveedorNivel value={nivel}>{children}</ProveedorNivel></main>
+        <main className="m-main"><ProveedorNivel value={{ nivel, minimos }}>{children}</ProveedorNivel></main>
         <nav className="m-tabs">
           {tab('/movil', 'agenda', 'Hoy')}
-          {nivel >= MINIMO.pacientes && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
+          {nivel >= minimos.pacientes && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
           <button className="m-tab-mas" onClick={() => setCitaMovil(true)} aria-label="Nueva cita"><Ic name="mas" size={22}/></button>
           {tab('/movil/avisos', 'campana', 'Avisos')}
           {tab('/movil/yo', 'usuario', 'Yo')}
@@ -265,7 +268,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </nav>
       {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
-      <main className="content"><ProveedorNivel value={nivel}>{children}</ProveedorNivel></main>
+      <main className="content"><ProveedorNivel value={{ nivel, minimos }}>{children}</ProveedorNivel></main>
     </div>
   )
 }

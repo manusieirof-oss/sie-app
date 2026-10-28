@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { VERSION_CONFIDENCIALIDAD } from '@/lib/confidencialidad'
-import { NIVELES, nombreNivel } from '@/lib/permisos'
+import { NIVELES, nombreNivel, MINIMO, ETIQUETA_ACCION, mezclarMinimos, type Accion, type Minimos } from '@/lib/permisos'
 
 // Llama a /api/equipo con la sesión de quien está dentro: el servidor comprueba que
 // es dirección antes de tocar nada.
@@ -17,6 +17,49 @@ async function equipo(accion: string, datos: any = {}) {
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`)
   return j
+}
+
+/**
+ * QUÉ PUEDE CADA NIVEL. Una fila por acción con su nivel mínimo. Se guarda en la tabla
+ * permisos_nivel, que usan la app y las reglas de la base de datos: cambiarlo aquí
+ * cambia las dos cosas a la vez (quien entre ya, al recargar).
+ */
+function ReglasNiveles() {
+  const [m, setM] = useState<Minimos | null>(null)
+  const [guardando, setGuardando] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    supabase.from('permisos_nivel').select('accion,minimo').then(({ data, error }) => {
+      if (error) setError('Falta lanzar el SQL de seguridad: de momento se usan los niveles de serie.')
+      setM(mezclarMinimos(data))
+    })
+  }, [])
+  const cambiar = async (accion: Accion, minimo: number) => {
+    setGuardando(accion); setError('')
+    const { error } = await supabase.from('permisos_nivel').upsert({ accion, minimo, descripcion: ETIQUETA_ACCION[accion] }, { onConflict: 'accion' })
+    if (error) setError('No se ha podido guardar: ' + error.message)
+    else setM(v => v ? { ...v, [accion]: minimo } : v)
+    setGuardando(null)
+  }
+  if (!m) return null
+  // Dirección no se toca desde aquí: bajarla dejaría Finanzas y Equipo a cualquiera.
+  const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion')
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span></div>
+      <div style={{fontSize:10,color:'var(--grl)',marginBottom:12}}>El nivel mínimo para cada cosa. Vale para la app y para la base de datos; los demás lo ven al recargar.</div>
+      {acciones.map(a => (
+        <div key={a} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderTop:'1px solid var(--bl)'}}>
+          <div style={{flex:1,fontSize:12,color:'var(--n)'}}>{ETIQUETA_ACCION[a]}</div>
+          <select className="input" value={m[a]} disabled={guardando === a} onChange={e => cambiar(a, Number(e.target.value))} style={{width:190,fontSize:11}}>
+            {NIVELES.map(x => <option key={x.n} value={x.n}>Desde nivel {x.n} · {x.nombre}</option>)}
+            <option value={4}>Solo dirección</option>
+          </select>
+        </div>
+      ))}
+      {error && <div style={{fontSize:11,color:'var(--red)',marginTop:8}}>{error}</div>}
+    </div>
+  )
 }
 
 const fechaCorta = (iso: string | null) => iso
@@ -147,6 +190,7 @@ export default function UsuariosTab({ perfilActual }: any) {
   const listo = nombre.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 
   return (
+    <>
     <div className="card">
       <div className="card-title">
         <span className="ct-l"><Ic name="pacientes"/> Equipo</span>
@@ -282,5 +326,7 @@ export default function UsuariosTab({ perfilActual }: any) {
 <Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Eventual</strong>: Hoy, Agenda (solo consulta) y Taller; da las clases, apunta y marca faltas. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
       </div>
     </div>
+    <ReglasNiveles/>
+    </>
   )
 }

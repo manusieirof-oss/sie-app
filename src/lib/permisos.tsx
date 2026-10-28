@@ -13,8 +13,10 @@ import { createContext, useContext } from 'react'
 //                      Cobros.
 //   4 · Dirección    → todo (rol 'admin'): Finanzas, Stats, Ajustes y el equipo.
 //
-// Es lo que se ENSEÑA a cada uno. Los datos siguen protegidos por RLS como hasta
-// ahora; esto ordena la app, no sustituye a la seguridad de la base de datos.
+// LA MISMA REGLA EN LOS DOS SITIOS. Los mínimos de abajo son los de serie; los que
+// mandan están en la tabla permisos_nivel, que lee la app (ClientLayout) y también las
+// reglas de la base de datos (función puedo() en sql/seguridad_niveles.sql). Cambiar un
+// mínimo en Ajustes → Equipo cambia a la vez lo que se enseña y lo que se deja hacer.
 
 export type Nivel = 1 | 2 | 3 | 4
 
@@ -25,7 +27,7 @@ export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
 ]
 export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
 
-/** El mínimo nivel para cada cosa. */
+/** El mínimo nivel para cada cosa, de serie (si la tabla aún no existe o falla). */
 export const MINIMO = {
   pacientes: 2,
   valoracion: 2,
@@ -40,6 +42,29 @@ export const MINIMO = {
   direccion: 4,
 } as const
 export type Accion = keyof typeof MINIMO
+export type Minimos = Record<Accion, number>
+
+/** Lo de la tabla manda; lo que no esté, el de serie. */
+export function mezclarMinimos(filas: { accion: string, minimo: number }[] | null | undefined): Minimos {
+  const m: any = { ...MINIMO }
+  ;(filas || []).forEach(f => { if (f.accion in m && f.minimo >= 1 && f.minimo <= 4) m[f.accion] = f.minimo })
+  return m
+}
+
+/** Lo que se ve en Ajustes → Equipo para cada acción. */
+export const ETIQUETA_ACCION: Record<Accion, string> = {
+  pacientes: 'Ver y editar fichas de pacientes',
+  valoracion: 'Valoraciones y tests',
+  editar_agenda: 'Crear, mover y borrar citas',
+  cambiar_ejercicios: 'Cambiar ejercicios en el taller',
+  cambiar_sesion: 'Elegir o quitar la sesión de una cita',
+  cancelar_cita: 'Cancelar y cambiar de sala desde el taller',
+  torno: 'El torno: planificar y crear sesiones',
+  biblioteca: 'Crear y editar ejercicios',
+  cobros: 'Cobrar y emitir facturas',
+  medida_biblioteca: 'Cambiar cómo se mide un ejercicio para todos',
+  direccion: 'Finanzas, estadísticas, ajustes y equipo',
+}
 
 /**
  * El nivel de alguien. Dirección puede «ver como» un nivel para comprobar qué ven
@@ -68,12 +93,12 @@ export const RUTAS: [string, Accion][] = [
   ['/estadisticas', 'direccion'],
 ]
 
-const Ctx = createContext<Nivel>(4)
+const Ctx = createContext<{ nivel: Nivel, minimos: Minimos }>({ nivel: 4, minimos: MINIMO })
 export const ProveedorNivel = Ctx.Provider
 
 /** puede('cambiar_ejercicios') → true/false según quien está dentro. */
 export function usePuede() {
-  const nivel = useContext(Ctx)
-  return (que: Accion) => nivel >= MINIMO[que]
+  const { nivel, minimos } = useContext(Ctx)
+  return (que: Accion) => nivel >= minimos[que]
 }
-export const useNivel = () => useContext(Ctx)
+export const useNivel = () => useContext(Ctx).nivel
