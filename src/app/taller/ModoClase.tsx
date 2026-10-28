@@ -1723,8 +1723,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && vista==='uno' && (
         <div style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,flexWrap:'wrap',
-          marginBottom:12,background:'var(--w)',border:'1px solid var(--bd)',borderRadius:'var(--rl)',
-          padding:'8px 10px',boxShadow:'0 1px 4px rgba(0,0,0,.06)'}}>
+          marginBottom:12,background:'var(--bl)',padding:'8px 0'}}>
+          {/* Sin caja blanca: sobre el fondo de la página, como los pulsómetros. El fondo
+              sigue siendo opaco (el de la página) para tapar lo que pasa por debajo. */}
           {/* Se queda fija al bajar: con cinco personas en la sala, volver arriba
               para cambiar de paciente es el scroll que mas se repite. */}
           {seleccion.map(s=>{
