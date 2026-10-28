@@ -238,9 +238,10 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
     }
     repintar()
   }
-  async function ponerFcMax(pid: string, actual: number | null) {
-    const v = prompt('FC máxima medida (ppm). Déjalo vacío para volver a la fórmula de Tanaka.', actual ? String(actual) : '')
-    if (v === null) return
+  // FC máxima medida, en la propia tarjeta. Con prompt() salía el cuadro negro del navegador.
+  const [editFc, setEditFc] = useState<{ pid: string, v: string } | null>(null)
+  async function ponerFcMax(pid: string, v: string) {
+    setEditFc(null)
     const n = parseInt(v) || null
     await supabase.from('pacientes').update({ fc_max: n }).eq('id', pid)
     setExtra(p => ({ ...p, [pid]: { ...(p[pid] || { banda_ultima: null }), fc_max: n } }))
@@ -330,10 +331,23 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
                         <span style={{ fontSize: 12, color: 'var(--gr)' }}>ppm{vivo && f.fc ? ` · ${Math.round(v.bpm! / f.fc * 100)}%` : ''}{vivo && z ? ` · Z${z}` : ''}</span>
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--gr)', marginTop: 2 }}>
-                        <button onClick={() => ponerFcMax(p.id, extra[p.id]?.fc_max ?? null)} title="Cambiar la FC máxima"
-                          style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--gd)', fontSize: 11, textDecoration: 'underline dotted' }}>
-                          FC máx. {f.fc ?? '?'}{f.medida ? ' (medida)' : ' (Tanaka)'}
-                        </button>
+                        {editFc?.pid === p.id ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                            FC máx. medida
+                            <input autoFocus type="number" inputMode="numeric" value={editFc!.v} placeholder="ppm"
+                              onChange={e => setEditFc({ pid: p.id, v: e.target.value })}
+                              onKeyDown={e => { if (e.key === 'Enter') ponerFcMax(p.id, editFc!.v); if (e.key === 'Escape') setEditFc(null) }}
+                              style={{ width: 64, fontSize: 12, padding: '2px 6px', border: '1px solid var(--bd)', borderRadius: 6 }}/>
+                            <button className="btn btn-p btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => ponerFcMax(p.id, editFc!.v)}>Guardar</button>
+                            <button className="btn btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => setEditFc(null)}>✕</button>
+                            <span style={{ width: '100%', fontSize: 10.5 }}>Vacío = volver a Tanaka (208 − 0,7 × edad)</span>
+                          </span>
+                        ) : (
+                          <button onClick={() => setEditFc({ pid: p.id, v: extra[p.id]?.fc_max ? String(extra[p.id].fc_max) : '' })} title="Poner su FC máxima medida"
+                            style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--gd)', fontSize: 11, textDecoration: 'underline dotted' }}>
+                            FC máx. {f.fc ?? '?'}{f.medida ? ' (medida)' : ' (Tanaka)'}
+                          </button>
+                        )}
                         {v.bateria != null ? ` · batería ${v.bateria}%` : ''}
                         {v.aviso ? ` · ${v.aviso}` : ''}
                       </div>
