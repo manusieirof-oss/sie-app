@@ -45,7 +45,8 @@ export default function Hoy() {
       if (!user) return
       const { data: pf } = await supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle()
       let comoEntrenador = false
-      try { comoEntrenador = localStorage.getItem('sie_ver_como') === 'entrenador' } catch {}
+      // Cualquier «ver como» (un nivel o el antiguo 'entrenador') quita lo de dirección.
+      try { comoEntrenador = !!localStorage.getItem('sie_ver_como') } catch {}
       setYo({ id: user.id, nombre: (pf?.nombre || user.email || '').split(' ')[0], dir: pf?.rol === 'admin' && !comoEntrenador })
 
       const { data: cs } = await supabase.from('citas')

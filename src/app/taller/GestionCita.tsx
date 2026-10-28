@@ -55,8 +55,10 @@ function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: strin
 }
 
 /** Velo de la cita de un paciente: falta, cancelada o cambio de sala. */
-export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho }: {
-  item: any, fecha: string, salas: string[], nombre: string, onCerrar: () => void, onHecho: (aviso?: string) => void
+export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFalta = false }: {
+  item: any, fecha: string, salas: string[], nombre: string, onCerrar: () => void, onHecho: (aviso?: string) => void,
+  /** Nivel 1 (lib/permisos): marca la falta; cancelar y cambiar de sala, desde el 2. */
+  soloFalta?: boolean
 }) {
   const [ocup, setOcup] = useState<Record<string, number>>({})
   const [max, setMax] = useState(6)
@@ -93,11 +95,11 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho }: {
     <Velo titulo={nombre} sub={`Cita de las ${item.hora || '—'}`} onCerrar={onCerrar}>
       {!item.citaId ? <div className="gc-nota">No tiene cita en la agenda.</div> : <>
         <div className="gc-lbl">Clase de hoy</div>
-        <div className="gc-chips">{ESTADOS.map(e => (
+        <div className="gc-chips">{ESTADOS.filter(e => !soloFalta || e.v === 'falta' || e.v === estado).map(e => (
           <button key={e.v} disabled={ocupado} className={(estado === e.v ? 'on ' : '') + e.v} onClick={() => ponerEstado(e.v)}>{e.l}</button>
         ))}</div>
-        <div className="gc-nota">Igual que en la agenda: cancelada no gasta del bono y genera recuperación si toca; falta, no.</div>
-        {salas.length > 1 && <>
+        {!soloFalta && <div className="gc-nota">Igual que en la agenda: cancelada no gasta del bono y genera recuperación si toca; falta, no.</div>}
+        {salas.length > 1 && !soloFalta && <>
           <div className="gc-lbl">Grupo</div>
           <div className="gc-chips">{salas.map(s => (
             <button key={s} disabled={ocupado} className={item.sala === s ? 'on' : ''} onClick={() => ponerSala(s)}>

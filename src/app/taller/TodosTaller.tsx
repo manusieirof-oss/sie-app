@@ -39,6 +39,8 @@ export interface AccionesTodos {
   noHecho: (pid: string, sid: string, ei: number) => void
   noHechos: (pid: string, sid: string) => number[]
   sustituir: (pid: string, ei: number) => void
+  /** Nivel 2 en adelante (lib/permisos): el eventual no cambia ejercicios. */
+  puedeCambiar?: boolean
   abrir: (pid: string) => void
   // Tocar la foto: velo de la cita (falta, cancelada, sala).
   cita: (pid: string) => void
@@ -242,7 +244,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
           {e.plan?.nota && <div className="tt-ant"><b>De la sesión:</b> {e.plan.nota}</div>}
           <div className="tt-pie">
             {s.sesionId && <button className={'btn btn-sm ' + (no ? 'btn-p' : 'btn-s')} onClick={() => a.noHecho(s.paciente.id, s.sesionId, opc.ei)}>{no ? '✓ No lo hizo (deshacer)' : 'No lo hizo'}</button>}
-            <button className="btn btn-s btn-sm" onClick={() => { setOpc(null); a.sustituir(s.paciente.id, opc.ei) }}>↻ Cambiar ejercicio</button>
+            {a.puedeCambiar !== false && <button className="btn btn-s btn-sm" onClick={() => { setOpc(null); a.sustituir(s.paciente.id, opc.ei) }}>↻ Cambiar ejercicio</button>}
             <span style={{ flex: 1 }} />
             <button className="btn btn-p btn-sm" onClick={() => setOpc(null)}>Listo</button>
           </div>

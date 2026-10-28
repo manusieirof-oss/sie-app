@@ -6,6 +6,7 @@ import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCar
 import { useState, useRef, useEffect } from 'react'
 import TodosTaller from './TodosTaller'
 import { VeloCita, VeloAnadir } from './GestionCita'
+import { usePuede } from '@/lib/permisos'
 import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion, itemDeEjercicio } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
@@ -66,6 +67,11 @@ async function sinEjerciciosBorrados<T extends { ejercicio_id?: any, ejercicio_n
 export type SoloTaller = { fecha: string, hora: string, pacienteId: string, onCerrar?: () => void }
 
 export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
+  // NIVELES (lib/permisos). El eventual da la clase tal como está planificada: apunta,
+  // marca hechos y faltas. Cambiar ejercicios o sesiones, desde el nivel 2; tocar cómo
+  // se mide un ejercicio en la biblioteca (vale para todos), desde el 3.
+  const puede = usePuede()
+  const cambiaEj = puede('cambiar_ejercicios'), cambiaSes = puede('cambiar_sesion'), tocaBib = puede('medida_biblioteca')
   const [fecha, setFecha] = useState(solo?.fecha || hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
@@ -144,7 +150,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
      al reves) y en el editor habia que ir uno a uno. Encendido, cada ejercicio deja
      cambiar como se mide EN LA BIBLIOTECA (para todos los que lo usen). Se recuerda en
      este aparato hasta que se apague. */
-  const [arreglar, setArreglar] = useState(false)
+  const [arreglar0, setArreglar] = useState(false)
+  const arreglar = arreglar0 && tocaBib
   useEffect(() => { try { setArreglar(localStorage.getItem('taller-arreglar') === '1') } catch {} }, [])
   const alternarArreglar = () => setArreglar(v => { try { localStorage.setItem('taller-arreglar', v ? '0' : '1') } catch {}; return !v })
   /** Como se mide, en la base del ejercicio. Cambia ya en la sala para todos los que lo tengan. */
@@ -1670,12 +1677,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               <button style={pill(vista === 'todos')} onClick={() => setVista('todos')}>Todos</button>
             </div>
             {/* Arriba y no dentro de un paciente: vale para Uno a uno y para Todos. */}
-            <div style={grupo}>
+            {tocaBib && <div style={grupo}>
               <button style={pill(arreglar)} onClick={alternarArreglar}
                 title="Cambiar cómo se mide cada ejercicio en la biblioteca, mientras trabajas">
                 {arreglar ? '🔧 Arreglando ejercicios' : '🔧 Arreglar ejercicios'}
               </button>
-            </div>
+            </div>}
             {nCerrar > 0 && (
               <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
                 style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 18px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -1780,7 +1787,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           confirmar: confirmarSerie, mutar: mutarSerie, addSerie, quitarSerie,
           regimen: setRegimen, lado: setLado, coment: setComent, item: toggleItem,
           noHecho: alternarNoHecho, noHechos: leerNoHechos,
-          sustituir: abrirSustituir,
+          sustituir: abrirSustituir, puedeCambiar: cambiaEj,
           // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).
           abrir: (pid:string) => { setActivo(pid); setVista('uno') },
           todosItems: marcarTodosItems, objetivo: toggleObjetivo, cita: (pid:string) => setCitaVelo(pid),
@@ -1899,6 +1906,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 existe para eso. Al asignar allí, vuelves aquí. */}
             <div style={{position:'relative'}}>
               <button className={act.sesionId ? 'btn btn-s btn-sm' : 'btn btn-p btn-sm'}
+                disabled={!cambiaSes}
                 onClick={()=>setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id)}
                 title={act.sesionId ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') : undefined}
                 style={{fontSize:11,maxWidth:260,minWidth:0,overflow:'hidden'}}>
@@ -1907,12 +1915,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 <Ic name="fuerza" size={12}/>
                 <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{act.sesionId
                   ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
-                  : 'Asignar sesión'}</span>
+                  : cambiaSes ? 'Asignar sesión' : 'Sin sesión'}</span>
               </button>
               {eligiendo===act.paciente.id && (
                 <div style={{position:'absolute',top:'100%',right:0,zIndex:30,marginTop:4,minWidth:190,
                   border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',overflow:'hidden'}}>
-                  {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).map(([d,l])=>(
+                  {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).filter(([d]) => d !== 'biblioteca' || puede('biblioteca')).map(([d,l])=>(
                     <div key={d} onClick={()=>{
                       setEligiendo(null)
                       const encargo = {
@@ -1975,7 +1983,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           )}
 
           {!act.sesionId ? (
-            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>Sin sesión para hoy. Dale a <b style={{color:'var(--gr)'}}>Asignar sesión</b> arriba.</div>
+            <div style={{textAlign:'center',padding:30,color:'var(--grl)',fontSize:10}}>{cambiaSes ? <>Sin sesión para hoy. Dale a <b style={{color:'var(--gr)'}}>Asignar sesión</b> arriba.</> : 'Sin sesión para hoy. Avisa al encargado/a para que se la ponga.'}</div>
           ) : hojaAct ? (
             /* La hoja tal cual se dibujo; solo sus casillas se pueden tocar. */
             <HojaLibre modo="taller" hoja={hojaAct} biblioteca={[]} objetivos={[]}
@@ -2057,7 +2065,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               toggleObjetivo={toggleObjetivo}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
-              onSustituir={(i:number)=>abrirSustituir(act.paciente.id, i)}
+              onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}
               arreglar={arreglar} onMedida={cambiarMedidaBase}/>}
             </div>
             )
@@ -2067,7 +2075,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
-        <VeloCita item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}/>
+        <VeloCita soloFalta={!puede('cancelar_cita')} item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}/>
       ) : null })()}
       {anadiendoPac && (
         <VeloAnadir fecha={fecha} hora={hora} horas={Array.from(new Set([...horas.map(h => h.hora), ...(hora ? [hora] : [])])).sort()}

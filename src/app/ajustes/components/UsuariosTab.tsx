@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { VERSION_CONFIDENCIALIDAD } from '@/lib/confidencialidad'
+import { NIVELES, nombreNivel } from '@/lib/permisos'
 
 // Llama a /api/equipo con la sesión de quien está dentro: el servidor comprueba que
 // es dirección antes de tocar nada.
@@ -33,7 +34,8 @@ export default function UsuariosTab({ perfilActual }: any) {
   const [abierto, setAbierto] = useState(false)
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
-  const [rol, setRol] = useState<'usuario'|'admin'>('usuario')
+  // Un solo selector: 'n1' | 'n2' | 'n3' (entrenador de ese nivel) o 'admin' (dirección).
+  const [perfilNuevo, setPerfilNuevo] = useState<string>('n1')
   const [cobros, setCobros] = useState(false)
   const [error, setError] = useState('')
   // La contraseña provisional solo se enseña una vez: no se guarda en ningún sitio.
@@ -62,9 +64,10 @@ export default function UsuariosTab({ perfilActual }: any) {
     setError('')
     setGuardando('nuevo')
     try {
-      const r = await equipo('crear', { nombre, email, rol, cobros })
+      const rol = perfilNuevo === 'admin' ? 'admin' : 'usuario'
+      const r = await equipo('crear', { nombre, email, rol, nivel: Number(perfilNuevo.slice(1)) || 1, cobros })
       setEntrega({ nombre: nombre.trim(), email: r.email, password: r.password })
-      setNombre(''); setEmail(''); setRol('usuario'); setCobros(false); setAbierto(false)
+      setNombre(''); setEmail(''); setPerfilNuevo('n1'); setCobros(false); setAbierto(false)
       await cargar()
     } catch (e: any) { setError(e.message) }
     setGuardando(null)
@@ -79,12 +82,16 @@ export default function UsuariosTab({ perfilActual }: any) {
     setGuardando(null)
   }
 
-  async function cambiarRol(id: string, nuevoRol: string) {
+  // 'n1'..'n3' = entrenador de ese nivel; 'admin' = dirección. Pasar de dirección a
+  // entrenador le quita Finanzas; entre niveles se respetan los permisos sueltos.
+  async function cambiarRol(id: string, valor: string, actual: any) {
     setGuardando(id)
-    const permisos = nuevoRol === 'admin'
-      ? { finanzas: true, cobros: true }
-      : { finanzas: false, cobros: false }
-    await supabase.from('perfiles').update({ rol: nuevoRol, permisos }).eq('id', id)
+    const upd: any = valor === 'admin'
+      ? { rol: 'admin', permisos: { finanzas: true, cobros: true } }
+      : { rol: 'usuario', nivel: Number(valor.slice(1)),
+          ...(actual.rol === 'admin' ? { permisos: { finanzas: false, cobros: false } } : {}) }
+    const { error } = await supabase.from('perfiles').update(upd).eq('id', id)
+    if (error) alert('No se ha podido cambiar: ' + error.message)
     await cargar()
     setGuardando(null)
   }
@@ -144,13 +151,13 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:12}}>
-            {([['usuario','Entrenador','Hoy, Agenda, Pacientes, Taller y Valoración'],['admin','Dirección','Todo, también finanzas y ajustes']] as const).map(([v,t,d]) => (
-              <button key={v} onClick={()=>setRol(v)} style={{textAlign:'left',padding:'8px 12px',borderRadius:10,cursor:'pointer',background:rol===v?'#fff':'transparent',border:`1px solid ${rol===v?'var(--g)':'var(--bd)'}`}}>
-                <div style={{fontSize:12,fontWeight:600,color:rol===v?'var(--gd)':'var(--n)'}}>{t}</div>
+            {[...NIVELES.map(x => [`n${x.n}`, `Nivel ${x.n} · ${x.nombre}`, x.que]), ['admin','Dirección','Todo, también finanzas, ajustes y el equipo']].map(([v,t,d]) => (
+              <button key={v} onClick={()=>setPerfilNuevo(v)} style={{textAlign:'left',padding:'8px 12px',borderRadius:10,cursor:'pointer',maxWidth:220,background:perfilNuevo===v?'#fff':'transparent',border:`1px solid ${perfilNuevo===v?'var(--g)':'var(--bd)'}`}}>
+                <div style={{fontSize:12,fontWeight:600,color:perfilNuevo===v?'var(--gd)':'var(--n)'}}>{t}</div>
                 <div style={{fontSize:10,color:'var(--grl)'}}>{d}</div>
               </button>
             ))}
-            {rol==='usuario' && (
+            {(perfilNuevo==='n1' || perfilNuevo==='n2') && (
               <label style={{fontSize:11,color:'var(--n)',display:'inline-flex',alignItems:'center',gap:6,marginLeft:6,cursor:'pointer'}}>
                 <input type="checkbox" checked={cobros} onChange={e=>setCobros(e.target.checked)}/> Puede cobrar
               </label>
@@ -197,7 +204,7 @@ export default function UsuariosTab({ perfilActual }: any) {
             <div style={{flex:1,minWidth:160}}>
               <div style={{fontSize:12,fontWeight:500,color:'var(--n)'}}>{u.nombre||'Sin nombre'}{soyYo && <span style={{color:'var(--grl)',fontWeight:400}}> · tú</span>}</div>
               <div style={{fontSize:9,color:'var(--grl)'}}>
-                {cuenta?.email || (u.rol==='admin'?'Dirección':'Entrenador')}
+                {cuenta?.email || (u.rol==='admin' ? 'Dirección' : nombreNivel(u.nivel ?? 2))}
                 {cuenta && ` · ${cuenta.ultimo ? 'último acceso ' + fechaCorta(cuenta.ultimo) : 'aún no ha entrado'}`}
               </div>
               {/* Confidencialidad: firmada (con su versión) o pendiente; se abre para imprimir. */}
@@ -207,21 +214,23 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
 
             {/* SELECTOR DE PERFIL */}
-            <select className="input" value={u.rol} onChange={e=>cambiarRol(u.id, e.target.value)} disabled={guardando===u.id||soyYo} title={soyYo?'No puedes quitarte dirección a ti mismo':undefined} style={{width:130,fontSize:11}}>
-              <option value="usuario">Entrenador</option>
+            <select className="input" value={u.rol==='admin' ? 'admin' : `n${u.nivel ?? 2}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo} title={soyYo?'No puedes quitarte dirección a ti mismo':undefined} style={{width:170,fontSize:11}}>
+              {NIVELES.map(x => <option key={x.n} value={`n${x.n}`}>Nivel {x.n} · {x.nombre}</option>)}
               <option value="admin">Dirección</option>
             </select>
 
             {/* PERMISOS · cobrar y ver el dinero son cosas distintas */}
             {([['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).map(([clave,icono,etiqueta])=>{
               // Dirección los tiene siempre; con Finanzas, Cobros va implícito.
-              const activo = u.rol==='admin' || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true)
-              const fijo = u.rol==='admin' || (clave==='cobros' && u.permisos?.finanzas===true)
+              // El nivel 3 (encargado/a) cobra siempre.
+              const n3 = u.rol!=='admin' && u.nivel===3 && clave==='cobros'
+              const activo = u.rol==='admin' || n3 || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true)
+              const fijo = u.rol==='admin' || n3 || (clave==='cobros' && u.permisos?.finanzas===true)
               return (
                 <div key={clave} style={{display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name={icono} size={11}/> {etiqueta}</span>
                   <button onClick={()=>togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo}
-                    title={fijo ? (u.rol==='admin' ? 'Dirección lo tiene siempre' : 'Con Finanzas, cobrar va incluido') : undefined}
+                    title={fijo ? (u.rol==='admin' ? 'Dirección lo tiene siempre' : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : undefined}
                     style={{width:38,height:21,borderRadius:99,background:activo?'var(--g)':'var(--bm)',border:'none',cursor:fijo?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:fijo?0.5:1}}>
                     <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:activo?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
                   </button>
@@ -240,7 +249,7 @@ export default function UsuariosTab({ perfilActual }: any) {
       )}
 
       <div style={{marginTop:14,padding:'10px 12px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,fontSize:9,color:'var(--gd)'}}>
-<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Entrenador</strong> ve el día a día: Hoy, Agenda, Pacientes, Taller y Valoración. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
+<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Eventual</strong>: Hoy, Agenda y Taller; da las clases, apunta y marca faltas. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
       </div>
     </div>
   )

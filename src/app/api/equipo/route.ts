@@ -63,6 +63,8 @@ export async function POST(req: Request) {
       const email = String(cuerpo.email || '').trim().toLowerCase()
       const nombre = String(cuerpo.nombre || '').trim()
       const rol = cuerpo.rol === 'admin' ? 'admin' : 'usuario'
+      // Nivel de entrenador (lib/permisos): 1 eventual, 2 entrenador, 3 encargado/a.
+      const nivel = [1, 2, 3].includes(Number(cuerpo.nivel)) ? Number(cuerpo.nivel) : 1
       if (!nombre) return NextResponse.json({ error: 'Falta el nombre.' }, { status: 400 })
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'El correo no parece válido.' }, { status: 400 })
       const password = provisional()
@@ -78,8 +80,8 @@ export async function POST(req: Request) {
       // si no, se crea aquí. Así funciona en las dos instalaciones.
       const { data: hay } = await adm.from('perfiles').select('id').eq('user_id', uid).maybeSingle()
       const { error: e2 } = hay
-        ? await adm.from('perfiles').update({ nombre, rol, permisos }).eq('id', hay.id)
-        : await adm.from('perfiles').insert({ user_id: uid, nombre, rol, permisos })
+        ? await adm.from('perfiles').update({ nombre, rol, permisos, nivel }).eq('id', hay.id)
+        : await adm.from('perfiles').insert({ user_id: uid, nombre, rol, permisos, nivel })
       if (e2) {
         // Sin perfil la cuenta quedaría a medias: se deshace para poder repetir.
         await adm.auth.admin.deleteUser(uid)

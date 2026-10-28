@@ -10,19 +10,21 @@ import { Ic } from '@/lib/icons'
 import HojaCita from './movil/components/HojaCita'
 import { PuertaConfidencialidad } from '@/components/Confidencialidad'
 import { firmaVigente } from '@/lib/confidencialidad'
+import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
 // lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
+// `min`: nivel mínimo para verlo (lib/permisos). Sin `min`, lo ve todo el equipo.
 const NAV_DIA = [
   { href: '/hoy', icon: 'sol', label: 'Hoy' },
   { href: '/agenda', icon: 'agenda', label: 'Agenda' },
-  { href: '/pacientes', icon: 'pacientes', label: 'Pacientes' },
+  { href: '/pacientes', icon: 'pacientes', label: 'Pacientes', min: MINIMO.pacientes },
   { href: '/taller', icon: 'taller', label: 'Taller' },
 ]
 const NAV_PROGRAMAR = [
-  { href: '/torno', icon: 'recuperar', label: 'El torno' },
-  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca' },
-  { href: '/valoracion', icon: 'valoracion', label: 'Valoración' },
+  { href: '/torno', icon: 'recuperar', label: 'El torno', min: MINIMO.torno },
+  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca', min: MINIMO.biblioteca },
+  { href: '/valoracion', icon: 'valoracion', label: 'Valoración', min: MINIMO.valoracion },
 ]
 const NAV_STATS = { href: '/estadisticas', icon: 'stats', label: 'Stats' }
 const NAV_AJUSTES = { href: '/ajustes', icon: 'ajustes', label: 'Ajustes' }
@@ -42,6 +44,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [citaMovil, setCitaMovil] = useState(false)
   /** ¿Ha aceptado el compromiso de confidencialidad vigente? undefined = mirando. */
   const [firmada, setFirmada] = useState<boolean | undefined>(undefined)
+  const [perfilListo, setPerfilListo] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -66,6 +69,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (user?.id) {
       supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
         setPerfil(data)
+        setPerfilListo(true)
         if (data?.rol==='admin' || data?.permisos?.finanzas===true) {
           /**
            * Los estados programados ANTES de renovar cuotas.
@@ -123,6 +127,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (estrecha && !completa && (pathname === '/' || pathname === '/agenda' || pathname === '/hoy')) router.replace('/movil')
   }, [user, pathname])
 
+  // QUIEN ENTRA POR UNA DIRECCIÓN QUE NO LE TOCA (un enlace guardado, la ficha desde
+  // la agenda…) vuelve a Hoy. Se espera a tener el perfil para no echar a nadie
+  // mientras carga.
+  useEffect(() => {
+    if (!user || !perfilListo) return
+    const n = nivelDe(perfil)
+    const regla = RUTAS.find(([pre]) => pathname === pre || pathname.startsWith(pre + '/'))
+    const dinero = pathname.startsWith('/finanzas') ? !(n >= 4 || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
+      : pathname.startsWith('/cobros') ? !(n >= MINIMO.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
+      : false
+    if ((regla && n < MINIMO[regla[1]]) || dinero) router.replace('/hoy')
+  }, [user, perfilListo, perfil, pathname])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -145,24 +162,25 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   )
   if (!firmada) return <PuertaConfidencialidad nombre={perfil?.nombre || user.email || ''} onAceptado={() => setFirmada(true)} onSalir={handleLogout}/>
 
-  // DOS PERFILES. Dirección (rol admin) lo ve todo; el entrenador, solo lo del día
-  // a día y Valoración, para que la barra no le pese. Un admin puede «ver como
-  // entrenador» para comprobar qué ven los demás; queda apuntado en este equipo.
-  let comoEntrenador = false
-  try { comoEntrenador = localStorage.getItem('sie_ver_como') === 'entrenador' } catch {}
+  // NIVELES (lib/permisos): Dirección lo ve todo; cada nivel de entrenador, lo suyo,
+  // para que la barra no le pese. Dirección puede «ver como» un nivel para comprobar
+  // qué ven los demás; queda apuntado en este equipo.
+  const nivel = nivelDe(perfil)
   const esAdmin = perfil?.rol==='admin'
-  const esDireccion = esAdmin && !comoEntrenador
+  const esDireccion = nivel >= 4
   const veFinanzas = esDireccion || (!esAdmin && perfil?.permisos?.finanzas===true)
-  const veCobros   = veFinanzas || perfil?.permisos?.cobros===true || (esAdmin && comoEntrenador)
-  const cambiarVista = () => {
-    try { esDireccion ? localStorage.setItem('sie_ver_como', 'entrenador') : localStorage.removeItem('sie_ver_como') } catch {}
+  const veCobros   = veFinanzas || nivel >= MINIMO.cobros || perfil?.permisos?.cobros===true
+  const ve = (n: { min?: number }) => !n.min || nivel >= n.min
+  /** Dirección «ve como» un nivel (1-3) o vuelve a lo suyo (null). */
+  const cambiarVista = (v: string | null) => {
+    try { v ? localStorage.setItem('sie_ver_como', v) : localStorage.removeItem('sie_ver_como') } catch {}
     setMenuUsuario(false)
     window.location.href = '/hoy'
   }
 
   // Un pilar de la barra: icono grande, el nombre en una burbuja al pasar el ratón y,
   // si toca, un numerito (Cobros).
-  const enlace = (n: { href: string, icon: string, label: string, n?: number }) => (
+  const enlace = (n: { href: string, icon: string, label: string, n?: number, min?: number }) => (
     <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href) ? 'active' : ''}`} aria-label={n.label}>
       <Ic name={n.icon} size={21} strokeWidth={1.7}/>
       {!!n.n && <span className="sb-b">{n.n > 99 ? '99+' : n.n}</span>}
@@ -178,10 +196,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
     return (
       <div className="m-shell">
-        <main className="m-main">{children}</main>
+        <main className="m-main"><ProveedorNivel value={nivel}>{children}</ProveedorNivel></main>
         <nav className="m-tabs">
           {tab('/movil', 'agenda', 'Hoy')}
-          {tab('/movil/pacientes', 'pacientes', 'Pacientes')}
+          {nivel >= MINIMO.pacientes && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
           <button className="m-tab-mas" onClick={() => setCitaMovil(true)} aria-label="Nueva cita"><Ic name="mas" size={22}/></button>
           {tab('/movil/avisos', 'campana', 'Avisos')}
           {tab('/movil/yo', 'usuario', 'Yo')}
@@ -201,9 +219,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {/* El logo del PROGRAMA, siempre. El de Ajustes → Clínica es el de la clínica y va
             en informes y facturas; mezclarlos obligaba a elegir entre los dos. */}
         <img src="/marca/sie-logo.svg" alt="SIE" className="sb-marca"/>
-        {NAV_DIA.map(enlace)}
-        <span className="sb-sep"/>
-        {esDireccion ? NAV_PROGRAMAR.map(enlace) : enlace(NAV_PROGRAMAR[2])}
+        {NAV_DIA.filter(ve).map(enlace)}
+        {NAV_PROGRAMAR.some(ve) && <span className="sb-sep"/>}
+        {NAV_PROGRAMAR.filter(ve).map(enlace)}
         <span className="sb-sep"/>
         {veCobros && enlace({ ...NAV_COBROS, n: porCobrar })}
         {veFinanzas && enlace(NAV_FINANZAS)}
@@ -230,11 +248,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <Link href="/confidencialidad" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="firmar" size={15}/> Confidencialidad
                   </Link>
-                  {esAdmin && (
-                    <button className="sb-menu-it" onClick={cambiarVista}>
-                      <Ic name="ojo" size={15}/> {esDireccion ? 'Ver como entrenador' : 'Volver a dirección'}
-                    </button>
-                  )}
+                  {esAdmin && (esDireccion
+                    ? NIVELES.map(x => (
+                      <button key={x.n} className="sb-menu-it" onClick={() => cambiarVista(String(x.n))}>
+                        <Ic name="ojo" size={15}/> Ver como {x.nombre.toLowerCase()}
+                      </button>))
+                    : <button className="sb-menu-it" onClick={() => cambiarVista(null)}>
+                        <Ic name="ojo" size={15}/> Volver a dirección
+                      </button>)}
                   <button className="sb-menu-it" onClick={handleLogout}><Ic name="salir" size={15}/> Cerrar sesión</button>
                 </div>
               </>
@@ -244,7 +265,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </nav>
       {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
-      <main className="content">{children}</main>
+      <main className="content"><ProveedorNivel value={nivel}>{children}</ProveedorNivel></main>
     </div>
   )
 }
