@@ -12,6 +12,7 @@ import HojaCita from './movil/components/HojaCita'
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
 // lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
 const NAV_DIA = [
+  { href: '/hoy', icon: 'sol', label: 'Hoy' },
   { href: '/agenda', icon: 'agenda', label: 'Agenda' },
   { href: '/pacientes', icon: 'pacientes', label: 'Pacientes' },
   { href: '/taller', icon: 'taller', label: 'Taller' },
@@ -108,7 +109,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const estrecha = window.matchMedia?.('(max-width: 760px)').matches
     let completa = false
     try { completa = localStorage.getItem('sie_version') === 'completa' } catch {}
-    if (estrecha && !completa && (pathname === '/' || pathname === '/agenda')) router.replace('/movil')
+    if (estrecha && !completa && (pathname === '/' || pathname === '/agenda' || pathname === '/hoy')) router.replace('/movil')
   }, [user, pathname])
 
   const handleLogout = async () => {
@@ -125,8 +126,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   if (pathname === '/login') return <>{children}</>
   if (!user) return null
 
-  const veFinanzas = perfil?.rol==='admin' || perfil?.permisos?.finanzas===true
-  const veCobros   = veFinanzas || perfil?.permisos?.cobros===true
+  // DOS PERFILES. Dirección (rol admin) lo ve todo; el entrenador, solo lo del día
+  // a día y Valoración, para que la barra no le pese. Un admin puede «ver como
+  // entrenador» para comprobar qué ven los demás; queda apuntado en este equipo.
+  let comoEntrenador = false
+  try { comoEntrenador = localStorage.getItem('sie_ver_como') === 'entrenador' } catch {}
+  const esAdmin = perfil?.rol==='admin'
+  const esDireccion = esAdmin && !comoEntrenador
+  const veFinanzas = esDireccion || (!esAdmin && perfil?.permisos?.finanzas===true)
+  const veCobros   = veFinanzas || perfil?.permisos?.cobros===true || (esAdmin && comoEntrenador)
+  const cambiarVista = () => {
+    try { esDireccion ? localStorage.setItem('sie_ver_como', 'entrenador') : localStorage.removeItem('sie_ver_como') } catch {}
+    setMenuUsuario(false)
+    window.location.href = '/hoy'
+  }
 
   // Un pilar de la barra: icono grande, el nombre en una burbuja al pasar el ratón y,
   // si toca, un numerito (Cobros).
@@ -171,13 +184,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <img src="/marca/sie-logo.svg" alt="SIE" className="sb-marca"/>
         {NAV_DIA.map(enlace)}
         <span className="sb-sep"/>
-        {NAV_PROGRAMAR.map(enlace)}
+        {esDireccion ? NAV_PROGRAMAR.map(enlace) : enlace(NAV_PROGRAMAR[2])}
         <span className="sb-sep"/>
         {veCobros && enlace({ ...NAV_COBROS, n: porCobrar })}
         {veFinanzas && enlace(NAV_FINANZAS)}
-        {enlace(NAV_STATS)}
+        {esDireccion && enlace(NAV_STATS)}
         <div className="sb-pie">
-          {enlace(NAV_AJUSTES)}
+          {esDireccion && enlace(NAV_AJUSTES)}
           <div style={{ position: 'relative' }}>
             <button className="sb-av" onClick={() => setMenuUsuario(v => !v)} title={perfil?.nombre || user.email}>
               {((perfil?.nombre || user.email || '?').trim()[0] || '?').toUpperCase()}
@@ -192,6 +205,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     onClick={() => { try { localStorage.removeItem('sie_version') } catch {}; setMenuUsuario(false) }}>
                     <Ic name="telefono" size={15}/> Versión móvil
                   </Link>
+                  {esAdmin && (
+                    <button className="sb-menu-it" onClick={cambiarVista}>
+                      <Ic name="ojo" size={15}/> {esDireccion ? 'Ver como entrenador' : 'Volver a dirección'}
+                    </button>
+                  )}
                   <button className="sb-menu-it" onClick={handleLogout}><Ic name="salir" size={15}/> Cerrar sesión</button>
                 </div>
               </>

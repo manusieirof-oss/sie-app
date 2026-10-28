@@ -1130,6 +1130,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           if (g.activo) setActivo(g.activo)
         }
       }
+      /* DESDE «HOY»: /taller?h=19:00&p=<paciente> abre esa clase con esa persona en
+         Uno a uno. Manda sobre lo recordado: es a donde se acaba de pedir ir. */
+      const q = new URLSearchParams(window.location.search)
+      if (!solo && (q.get('h') || q.get('p'))) {
+        if (q.get('f')) setFecha(q.get('f')!)
+        if (q.get('h')) setHora(q.get('h')!)
+        if (q.get('p')) { setActivo(q.get('p')!); setVistaE('uno') }
+        window.history.replaceState(null, '', '/taller')
+      }
     } catch {}
     restaurado.current = true
     setListo(true)
