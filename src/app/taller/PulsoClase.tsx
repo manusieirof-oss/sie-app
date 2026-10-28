@@ -251,9 +251,10 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
   if (!pacientes.length) return null
 
   return (
-    <div style={{ margin: '0 0 12px', border: '1px solid var(--bd)', borderRadius: 12, background: '#fff' }}>
+    // Sin caja: la franja va sobre el fondo de la página, como los botones de arriba.
+    <div style={{ margin: '0 0 12px' }}>
       <VeloPulso/>
-      <button onClick={() => setAbierto(a => !a)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+      <button onClick={() => setAbierto(a => !a)} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '6px 14px', border: 0, borderRadius: 99, background: '#E8E7E1', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', maxWidth: '100%' }}>
         <span style={{ color: '#B05A5A' }}>❤</span>
         <b style={{ fontSize: 13.5 }}>Pulsómetros</b>
         <span style={{ fontSize: 12, color: 'var(--gr)' }}>
@@ -269,12 +270,11 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
             })}
           </span>
         )}
-        <span style={{ flex: 1 }}/>
-        <span style={{ fontSize: 12, color: 'var(--gr)' }}>{abierto ? 'Ocultar' : 'Abrir'}</span>
+        <span style={{ fontSize: 12, color: 'var(--gd)' }}>{abierto ? '▴ Ocultar' : '▾ Abrir'}</span>
       </button>
 
       {abierto && (
-        <div style={{ padding: '0 14px 14px' }}>
+        <div style={{ padding: '10px 2px 0' }}>
           {(
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
