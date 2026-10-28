@@ -67,7 +67,7 @@ async function sinEjerciciosBorrados<T extends { ejercicio_id?: any, ejercicio_n
 export type SoloTaller = { fecha: string, hora: string, pacienteId: string, onCerrar?: () => void }
 
 export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
-  // NIVELES (lib/permisos). El eventual da la clase tal como está planificada: apunta,
+  // NIVELES (lib/permisos). El principiante da la clase tal como está planificada: apunta,
   // marca hechos y faltas. Cambiar ejercicios o sesiones, desde el nivel 2; tocar cómo
   // se mide un ejercicio en la biblioteca (vale para todos), desde el 3.
   const puede = usePuede()

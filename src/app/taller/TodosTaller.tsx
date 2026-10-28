@@ -39,7 +39,7 @@ export interface AccionesTodos {
   noHecho: (pid: string, sid: string, ei: number) => void
   noHechos: (pid: string, sid: string) => number[]
   sustituir: (pid: string, ei: number) => void
-  /** Nivel 2 en adelante (lib/permisos): el eventual no cambia ejercicios. */
+  /** Nivel 2 en adelante (lib/permisos): el principiante no cambia ejercicios. */
   puedeCambiar?: boolean
   abrir: (pid: string) => void
   // Tocar la foto: velo de la cita (falta, cancelada, sala).

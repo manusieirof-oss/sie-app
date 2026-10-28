@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react'
 // NIVELES DEL EQUIPO. Un solo sitio que dice quién puede qué, para que la barra, las
 // rutas y los botones del taller no tengan cada uno su propia regla.
 //
-//   1 · Eventual     → Hoy, Agenda (solo consulta) y Taller: da la clase, apunta
+//   1 · Principiante → Hoy, Agenda (solo consulta) y Taller: da la clase, apunta
 //                      series y hechos y marca faltas. No cambia nada de lo planificado.
 //   2 · Entrenador   → además Pacientes y Valoración, cambia ejercicios de las
 //                      sesiones (hoy o para siempre), elige sesión y cancela o cambia
@@ -21,7 +21,7 @@ import { createContext, useContext } from 'react'
 export type Nivel = 1 | 2 | 3 | 4
 
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
-  { n: 1, nombre: 'Eventual', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases, apunta y marca faltas' },
+  { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases, apunta y marca faltas' },
   { n: 2, nombre: 'Entrenador', que: 'Además Pacientes y Valoración; cambia ejercicios de las sesiones' },
   { n: 3, nombre: 'Encargado/a', que: 'Además crea sesiones y ejercicios, y cobra' },
 ]
