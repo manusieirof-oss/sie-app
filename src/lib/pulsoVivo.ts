@@ -21,6 +21,8 @@ const avisar = () => oyentes.forEach(f => f())
 export function publicarPulso(m: Record<string, PulsoVivo>) { actual = m; avisar() }
 export function abrirPulso(pid: string | null) { abierto = pid; avisar() }
 export const hayPulso = (pid?: string | null) => !!(pid && actual[pid])
+/** ¿Hay alguna banda emitiendo? Mientras la haya, el equipo está en uso aunque nadie lo toque. */
+export const pulsoActivo = () => Object.keys(actual).length > 0
 
 function useCambios() {
   const [, set] = useState(0)

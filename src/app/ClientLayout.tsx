@@ -10,6 +10,8 @@ import { Ic } from '@/lib/icons'
 import HojaCita from './movil/components/HojaCita'
 import { PuertaConfidencialidad } from '@/components/Confidencialidad'
 import { firmaVigente } from '@/lib/confidencialidad'
+import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, MINUTOS_INACTIVO } from '@/lib/compartido'
+import { pulsoActivo } from '@/lib/pulsoVivo'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -45,6 +47,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** ¿Ha aceptado el compromiso de confidencialidad vigente? undefined = mirando. */
   const [firmada, setFirmada] = useState<boolean | undefined>(undefined)
   const [perfilListo, setPerfilListo] = useState(false)
+  /** Este equipo es compartido (tablet de sala, ordenador central): lib/compartido. */
+  const [compartido, setCompartido] = useState(false)
+  useEffect(() => { setCompartido(esCompartido()) }, [])
   /** Mínimos de cada acción: los de la tabla permisos_nivel, o los de serie. */
   const [minimos, setMinimos] = useState<Minimos>(MINIMO)
   const router = useRouter()
@@ -72,6 +77,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       supabase.from('perfiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
         setPerfil(data)
         setPerfilListo(true)
+        if (esCompartido()) recordar(user.email || '', data?.nombre || '')
         supabase.from('permisos_nivel').select('accion,minimo').then(({ data: f }) => { if (f) setMinimos(mezclarMinimos(f)) })
         if (data?.rol==='admin' || data?.permisos?.finanzas===true) {
           /**
@@ -142,6 +148,43 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       : false
     if ((regla && n < minimos[regla[1]]) || dinero) router.replace('/hoy')
   }, [user, perfilListo, perfil, pathname, minimos])
+
+  // EQUIPO COMPARTIDO: la sesión se cierra sola tras MINUTOS_INACTIVO sin tocarlo. La
+  // marca de «último toque» se guarda, así que también vale si la tablet se durmió o
+  // se recarga a la mañana siguiente. Con bandas de pulso emitiendo no se cierra:
+  // en plena clase la pantalla puede estar un buen rato sin que nadie la toque.
+  useEffect(() => {
+    if (!user?.id || !compartido) return
+    const cerrar = async () => {
+      await supabase.auth.signOut()
+      window.location.href = '/login?motivo=inactivo'
+    }
+    if (caducada()) { cerrar(); return }
+    apuntarActividad()
+    let ultimo = Date.now()
+    // Cada toque no se escribe: basta con uno cada 15 s.
+    const toque = () => { const n = Date.now(); if (n - ultimo > 15_000) { ultimo = n; apuntarActividad() } }
+    const mirar = () => {
+      if (pulsoActivo()) { apuntarActividad(); return }
+      if (caducada()) cerrar()
+    }
+    const ev = ['pointerdown', 'keydown', 'touchstart', 'wheel']
+    ev.forEach(e => window.addEventListener(e, toque, { passive: true }))
+    document.addEventListener('visibilitychange', mirar)
+    const iv = setInterval(mirar, 30_000)
+    return () => {
+      ev.forEach(e => window.removeEventListener(e, toque))
+      document.removeEventListener('visibilitychange', mirar)
+      clearInterval(iv)
+    }
+  }, [user?.id, compartido])
+
+  const alternarCompartido = () => {
+    const v = !compartido
+    marcarCompartido(v)
+    if (v && user) recordar(user.email || '', perfil?.nombre || '')
+    setCompartido(v)
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -245,6 +288,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     onClick={() => { try { localStorage.removeItem('sie_version') } catch {}; setMenuUsuario(false) }}>
                     <Ic name="telefono" size={15}/> Versión móvil
                   </Link>
+                  <button className="sb-menu-it" onClick={alternarCompartido}
+                    title={`Se cierra la sesión tras ${MINUTOS_INACTIVO} min sin tocarlo y al entrar se elige quién eres`}>
+                    <Ic name={compartido ? 'check' : 'pacientes'} size={15}/> {compartido ? 'Equipo compartido ✓' : 'Este equipo es compartido'}
+                  </button>
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
@@ -259,7 +306,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     : <button className="sb-menu-it" onClick={() => cambiarVista(null)}>
                         <Ic name="ojo" size={15}/> Volver a dirección
                       </button>)}
-                  <button className="sb-menu-it" onClick={handleLogout}><Ic name="salir" size={15}/> Cerrar sesión</button>
+                  <button className="sb-menu-it" onClick={handleLogout}><Ic name="salir" size={15}/> {compartido ? 'Cambiar de usuario' : 'Cerrar sesión'}</button>
                 </div>
               </>
             )}
