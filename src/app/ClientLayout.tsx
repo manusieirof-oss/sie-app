@@ -288,10 +288,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     onClick={() => { try { localStorage.removeItem('sie_version') } catch {}; setMenuUsuario(false) }}>
                     <Ic name="telefono" size={15}/> Versión móvil
                   </Link>
-                  <button className="sb-menu-it" onClick={alternarCompartido}
+                  {/* Solo dirección marca o desmarca un equipo como compartido: si lo pudiera
+                      quitar cualquiera, la sesión volvería a quedarse abierta en la tablet. */}
+                  {esAdmin && <button className="sb-menu-it" onClick={alternarCompartido}
                     title={`Se cierra la sesión tras ${MINUTOS_INACTIVO} min sin tocarlo y al entrar se elige quién eres`}>
                     <Ic name={compartido ? 'check' : 'pacientes'} size={15}/> {compartido ? 'Equipo compartido ✓' : 'Este equipo es compartido'}
-                  </button>
+                  </button>}
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
