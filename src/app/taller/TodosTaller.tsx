@@ -1,5 +1,5 @@
 'use client'
-import ChipPulso from '@/components/ChipPulso'
+import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import { useEffect, useRef, useState } from 'react'
 import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
@@ -122,7 +122,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                 <button className="tt-foto" title="Falta, cancelar o cambiar de sala" onClick={() => a.cita(p.id)}
                   style={{ background: COLS[pi % COLS.length] }}>{fotos[p.id] ? <img src={fotos[p.id]!} alt="" /> : ini}</button>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="tt-nom">{nombrePac(p)}{s.estado === 'falta' && <span className="tt-falta">Falta</span>}
+                  <div className="tt-nom"><NombrePulso pid={p.id}>{nombrePac(p)}</NombrePulso>{s.estado === 'falta' && <span className="tt-falta">Falta</span>}
                     {/* A LA VISTA: falta, cancelar o cambiar de sala. Antes solo tocando la foto, y no se adivinaba. */}
                     <button className="tt-cita" onClick={() => a.cita(p.id)} title="Falta, cancelar o cambiar de sala">Cita ▾</button></div>
                   <div className="tt-sub">{edad != null ? `${edad} años · ` : ''}{ses?.nombre || (sid ? 'Sesión' : 'Sin sesión')}</div>

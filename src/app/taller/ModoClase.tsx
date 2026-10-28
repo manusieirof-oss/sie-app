@@ -1,5 +1,5 @@
 'use client'
-import ChipPulso from '@/components/ChipPulso'
+import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
 import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCarga'
@@ -1784,7 +1784,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
             <div style={{minWidth:0,flexShrink:0}}>
               <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                <span>{nombrePac(act.paciente)}</span>
+                <span><NombrePulso pid={act.paciente?.id}>{nombrePac(act.paciente)}</NombrePulso></span>
                 {/* Solo sale si lleva banda: ver PulsoClase. */}
                 <ChipPulso pid={act.paciente?.id} grande/>
                 {act.estado === 'falta' && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#C0504D', borderRadius: 99, padding: '1px 8px' }}>Falta</span>}

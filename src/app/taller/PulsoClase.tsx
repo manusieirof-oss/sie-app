@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { publicarPulso, PulsoVivo } from '@/lib/pulsoVivo'
+import { VeloPulso } from '@/components/ChipPulso'
 import { fcMaxDe, zonaDe, colorZona, ZONAS, TEXTO_FORMULA, nuevoAcumulado, sumarSegundo, trimpDe, mediaDe, mmss, Acumulado } from '@/lib/pulso'
 
 // PULSÓMETROS EN LA CLASE.
@@ -39,7 +40,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
      El iPad no puede leer las bandas (Apple no deja Bluetooth web). El ordenador que
      las tiene conectadas manda cada 2 s el pulso de cada paciente por un canal de
      Supabase (sin tocar la base) y las tablets lo pintan igual, solo para mirar. */
-  const remoto = useRef<Record<string, { bpm: number, banda: string, bateria: number | null, seg: number, zonas: number[], max: number, media: number | null, t: number }>>({})
+  const remoto = useRef<Record<string, { bpm: number, banda: string, bateria: number | null, seg: number, zonas: number[], max: number, media: number | null, muestras?: [number, number][], t: number }>>({})
   const canal = useRef<any>(null)
   useEffect(() => {
     const ch = supabase.channel('pulso-clase', { config: { broadcast: { self: false } } })
@@ -91,7 +92,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
     const n = asig.current[p.id], d = n ? devs.current[n] : null
     if (d && Date.now() - d.t < 4000) {
       const a = acc.current[p.id]
-      return { vivo: true, remoto: false, bpm: d.bpm!, bateria: d.bateria, banda: etiqueta(n!), seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null, aviso: '' }
+      return { vivo: true, remoto: false, bpm: d.bpm!, bateria: d.bateria, banda: etiqueta(n!), seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null, muestras: a?.muestras || [], aviso: '' }
     }
     const r = remoto.current[p.id]
     if (r && Date.now() - r.t < 6000) return { vivo: true, remoto: true, ...r, aviso: '' }
@@ -137,7 +138,9 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
       for (const p of pacRef.current) {
         const v = verRef.current(p); if (!v.vivo || v.bpm == null) continue
         const fc = fcMax(p).fc, z = zonaDe(v.bpm, fc)
-        vivo[p.id] = { bpm: v.bpm, zona: z, pct: fc ? Math.round(v.bpm / fc * 100) : null, color: colorZona(z), banda: v.banda }
+        vivo[p.id] = { bpm: v.bpm, zona: z, pct: fc ? Math.round(v.bpm / fc * 100) : null, color: colorZona(z), banda: v.banda,
+          nombre: p.nombre_clinica || `${p.nombre || ''} ${p.apellidos || ''}`.trim(), fcMax: fc, fcMedida: fcMax(p).medida,
+          seg: v.seg, zonas: v.zonas, media: v.media, max: v.max, bateria: v.bateria ?? null, muestras: v.muestras || [] }
       }
       publicarPulso(vivo)
       repintar()
@@ -154,7 +157,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
       const n = asig.current[x.id], d = n ? devs.current[n] : null
       if (!d || d.bpm == null || Date.now() - d.t > 4000) continue
       const a = acc.current[x.id]
-      p[x.id] = { bpm: d.bpm, banda: etiquetaRef.current(n!), bateria: d.bateria, seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null }
+      p[x.id] = { bpm: d.bpm, banda: etiquetaRef.current(n!), bateria: d.bateria, seg: a?.segundos || 0, zonas: a?.zonas || [], max: a?.max || 0, media: a ? mediaDe(a) : null, muestras: (a?.muestras || []).slice(-180) }
     }
     if (Object.keys(p).length) canal.current?.send({ type: 'broadcast', event: 'pulso', payload: { p } })
   }
@@ -249,6 +252,7 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
 
   return (
     <div style={{ margin: '0 0 12px', border: '1px solid var(--bd)', borderRadius: 12, background: '#fff' }}>
+      <VeloPulso/>
       <button onClick={() => setAbierto(a => !a)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
         <span style={{ color: '#B05A5A' }}>❤</span>
         <b style={{ fontSize: 13.5 }}>Pulsómetros</b>
