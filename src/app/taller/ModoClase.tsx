@@ -1781,7 +1781,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
       ) : (
         <div className="card">
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+          {/* Con la pantalla estrecha, lo de la derecha baja de línea en vez de salirse. */}
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
             <div style={{minWidth:0,flexShrink:0}}>
               <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 <span><NombrePulso pid={act.paciente?.id}>{nombrePac(act.paciente)}</NombrePulso></span>
@@ -1889,10 +1890,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             <div style={{position:'relative'}}>
               <button className={act.sesionId ? 'btn btn-s btn-sm' : 'btn btn-p btn-sm'}
                 onClick={()=>setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id)}
-                style={{fontSize:11,maxWidth:300}}>
-                <Ic name="fuerza" size={12}/> {act.sesionId
+                title={act.sesionId ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') : undefined}
+                style={{fontSize:11,maxWidth:260,minWidth:0,overflow:'hidden'}}>
+                {/* Un nombre largo se cortaba con «…»: antes se salía del botón y se
+                    montaba encima de «Guardar y finalizar». El nombre entero, al pasar el dedo. */}
+                <Ic name="fuerza" size={12}/>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{act.sesionId
                   ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
-                  : 'Asignar sesión'}
+                  : 'Asignar sesión'}</span>
               </button>
               {eligiendo===act.paciente.id && (
                 <div style={{position:'absolute',top:'100%',right:0,zIndex:30,marginTop:4,minWidth:190,

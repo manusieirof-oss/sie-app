@@ -304,7 +304,7 @@ const CSS = `
 .tt-foto{border:0;padding:0;cursor:pointer;font-family:inherit;width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;overflow:hidden;box-shadow:0 0 0 3px #fff,0 0 0 4.5px #9FCFD3}
 .tt-foto img{width:100%;height:100%;object-fit:cover}
 .tt-nom{font-size:15px;font-weight:700;line-height:1.15;color:var(--n)}
-.tt-sub{font-size:11px;color:var(--grl);margin-top:1px}
+.tt-sub{font-size:11px;color:var(--grl);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tt-abrir{width:32px;height:32px;border-radius:10px;border:1px solid var(--bd);background:#fff;color:var(--gd);font-size:16px;flex:none;cursor:pointer}
 .tt-abrir:hover{border-color:var(--g);background:var(--gl)}
 .tt-prog{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--gr)}
