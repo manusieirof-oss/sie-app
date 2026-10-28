@@ -32,7 +32,17 @@ export default function AjustesPage() {
   const [nuevoPlantilla, setNuevoPlantilla] = useState('')
   const [nuevoDeporte, setNuevoDeporte] = useState('')
 
-  useEffect(() => { cargar(); cargarPerfilActual() }, [])
+  useEffect(() => {
+    cargar(); cargarPerfilActual()
+    // ?tab=cuenta: el menú de la inicial lleva directo a «Mi cuenta».
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t) setTab(t as any)
+  }, [])
+
+  // El entrenador solo entra aquí a cambiar su contraseña: los ajustes de la clínica
+  // son cosa de dirección (la barra ya no le enseña Ajustes).
+  const esDireccion = perfilActual?.rol === 'admin'
+  const vista = perfilActual && !esDireccion ? 'cuenta' : tab
 
   async function cargarPerfilActual() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -85,30 +95,30 @@ export default function AjustesPage() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{display:'flex',gap:2,background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:3}}>
-          {([['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Servicios'],['tarifas','euro','Descuentos'],['recuperaciones','recuperar','Recuperaciones'],['rondas','checkbox','Rondas'],['sala','fuerza','Sala'],['entrenador','regla','Entrenador'],['horarios','calendario','Horarios'],['mantenimiento','ajustes','Mantenimiento'],['cuenta','candado','Mi cuenta'],...(perfilActual?.rol==='admin'?[['usuarios','pacientes','Usuarios']]:[])] as const).map(([k,ic,l])=>(
+          {(!perfilActual ? [] : !esDireccion ? [['cuenta','candado','Mi cuenta']] as const : [['clinica','clinica','Clínica'],['valoracion','valoracion','Valoración'],['bonos','etiqueta','Servicios'],['tarifas','euro','Descuentos'],['recuperaciones','recuperar','Recuperaciones'],['rondas','checkbox','Rondas'],['sala','fuerza','Sala'],['entrenador','regla','Entrenador'],['horarios','calendario','Horarios'],['mantenimiento','ajustes','Mantenimiento'],['cuenta','candado','Mi cuenta'],['usuarios','pacientes','Equipo']] as const).map(([k,ic,l])=>(
             <button key={k} onClick={()=>setTab(k as any)}
-              style={{fontSize:11,padding:'7px 10px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:tab===k?'var(--w)':'transparent',color:tab===k?'var(--n)':'var(--grl)',fontWeight:tab===k?500:400,boxShadow:tab===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
+              style={{fontSize:11,padding:'7px 10px',borderRadius:6,border:'none',cursor:'pointer',fontFamily:'system-ui',background:vista===k?'var(--w)':'transparent',color:vista===k?'var(--n)':'var(--grl)',fontWeight:vista===k?500:400,boxShadow:vista===k?'0 1px 3px rgba(0,0,0,.08)':'none',display:'flex',alignItems:'center',gap:5}}>
               <Ic name={ic} size={13}/> {l}
             </button>
           ))}
         </div>
-        <button className="btn btn-p" onClick={guardar} disabled={guardando}>
+        {esDireccion && <button className="btn btn-p" onClick={guardar} disabled={guardando}>
           {guardando?'Guardando…':guardado?'✓ Guardado':<><Ic name="guardar" size={13}/> Guardar cambios</>}
-        </button>
+        </button>}
       </div>
 
-      {tab==='clinica'&&<ClinicaTab ajustes={ajustes} set={set}/>}
-      {tab==='valoracion'&&<ValoracionTab ajustes={ajustes} set={set} comoNosConocio={comoNosConocio} setComoNosConocio={setComoNosConocio} tiposClase={tiposClase} setTiposClase={setTiposClase} tiposJornada={tiposJornada} setTiposJornada={setTiposJornada} tiposPlantilla={tiposPlantilla} setTiposPlantilla={setTiposPlantilla} deportesLista={deportesLista} setDeportesLista={setDeportesLista} nuevoComoNos={nuevoComoNos} setNuevoComoNos={setNuevoComoNos} nuevoJornada={nuevoJornada} setNuevoJornada={setNuevoJornada} nuevoPlantilla={nuevoPlantilla} setNuevoPlantilla={setNuevoPlantilla} nuevoDeporte={nuevoDeporte} setNuevoDeporte={setNuevoDeporte}/>}
-      {tab==='bonos'&&<ServiciosTab/>}
-      {tab==='tarifas'&&<TarifasTab ajustes={ajustes} set={set}/>}
-      {tab==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
-      {tab==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
-      {tab==='rondas'&&<RondasTab/>}
-      {tab==='sala'&&<MedidasTab ajustes={ajustes} set={set}/>}
-      {tab==='entrenador'&&<EntrenadorTab ajustes={ajustes} set={set}/>}
-      {tab==='horarios'&&<HorariosTab/>}
-      {tab==='mantenimiento'&&<MantenimientoTab/>}
-      {tab==='cuenta'&&<CuentaTab perfilActual={perfilActual}/>}
+      {vista==='clinica'&&<ClinicaTab ajustes={ajustes} set={set}/>}
+      {vista==='valoracion'&&<ValoracionTab ajustes={ajustes} set={set} comoNosConocio={comoNosConocio} setComoNosConocio={setComoNosConocio} tiposClase={tiposClase} setTiposClase={setTiposClase} tiposJornada={tiposJornada} setTiposJornada={setTiposJornada} tiposPlantilla={tiposPlantilla} setTiposPlantilla={setTiposPlantilla} deportesLista={deportesLista} setDeportesLista={setDeportesLista} nuevoComoNos={nuevoComoNos} setNuevoComoNos={setNuevoComoNos} nuevoJornada={nuevoJornada} setNuevoJornada={setNuevoJornada} nuevoPlantilla={nuevoPlantilla} setNuevoPlantilla={setNuevoPlantilla} nuevoDeporte={nuevoDeporte} setNuevoDeporte={setNuevoDeporte}/>}
+      {vista==='bonos'&&<ServiciosTab/>}
+      {vista==='tarifas'&&<TarifasTab ajustes={ajustes} set={set}/>}
+      {vista==='recuperaciones'&&<RecuperacionesTab ajustes={ajustes} set={set}/>}
+      {vista==='usuarios'&&<UsuariosTab perfilActual={perfilActual}/>}
+      {vista==='rondas'&&<RondasTab/>}
+      {vista==='sala'&&<MedidasTab ajustes={ajustes} set={set}/>}
+      {vista==='entrenador'&&<EntrenadorTab ajustes={ajustes} set={set}/>}
+      {vista==='horarios'&&<HorariosTab/>}
+      {vista==='mantenimiento'&&<MantenimientoTab/>}
+      {vista==='cuenta'&&<CuentaTab perfilActual={perfilActual}/>}
     </div>
   )
 }

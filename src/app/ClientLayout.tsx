@@ -205,6 +205,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     onClick={() => { try { localStorage.removeItem('sie_version') } catch {}; setMenuUsuario(false) }}>
                     <Ic name="telefono" size={15}/> Versión móvil
                   </Link>
+                  <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
+                    <Ic name="candado" size={15}/> Mi cuenta
+                  </Link>
                   {esAdmin && (
                     <button className="sb-menu-it" onClick={cambiarVista}>
                       <Ic name="ojo" size={15}/> {esDireccion ? 'Ver como entrenador' : 'Volver a dirección'}
