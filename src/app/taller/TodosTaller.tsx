@@ -296,9 +296,17 @@ function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: strin
 
 const CSS = `
 .tt-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow:auto;overscroll-behavior:contain;align-items:start;padding-bottom:6px}
-.tt-col{background:#fff;border-radius:18px;box-shadow:0 2px 12px rgba(38,40,37,.07);min-width:0}
+/* LA CABECERA (nombre, sesión, progreso) va sobre el fondo de la página, sin franja
+   blanca, como el botón de los pulsómetros. Sigue pegada arriba al bajar: su fondo es el
+   de la página para tapar lo que pasa por debajo. Lo blanco es solo la tarjeta de los
+   ejercicios. */
+.tt-col{min-width:0}
+.tt-col > *:not(.tt-cab){background:#fff}
+.tt-col > .tt-cab + *{border-radius:18px 18px 0 0;padding-top:6px}
+.tt-col > *:last-child{border-radius:0 0 18px 18px;padding-bottom:8px}
+.tt-col > .tt-cab + *:last-child{border-radius:18px}
 .tt-col.fin{opacity:.6}
-.tt-cab{position:sticky;top:0;background:#fff;z-index:5;padding:12px 12px 10px;border-bottom:1px solid var(--bd);border-radius:18px 18px 0 0}
+.tt-cab{position:sticky;top:0;background:var(--bl);z-index:5;padding:4px 6px 10px}
 .tt-per{display:flex;align-items:center;gap:10px}
 .tt-falta{margin-left:6px;font-size:10.5px;font-weight:700;color:#fff;background:#C0504D;border-radius:99px;padding:1px 8px;vertical-align:middle}
 .tt-foto{border:0;padding:0;cursor:pointer;font-family:inherit;width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;overflow:hidden;box-shadow:0 0 0 3px #fff,0 0 0 4.5px #9FCFD3}
