@@ -25,11 +25,15 @@ import { ultimasDeBono, soltarDelBono, engancharCitas } from '@/lib/bonoSesiones
 import { hoyISO } from '@/lib/fechas'
 import { porRecuperar, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
+import { usePuede } from '@/lib/permisos'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 
 export default function AgendaPage() {
+  // NIVEL 1 (lib/permisos): la agenda solo se consulta. Ve las clases y abre el entreno
+  // (que es el taller, con sus propios límites), pero no crea, mueve ni borra citas.
+  const consulta = !usePuede()('editar_agenda')
   const [vista, setVista] = useState<'dia'|'semana'|'mes'>('dia')
   const [citas, setCitas] = useState<any[]>([])
   const [alertasPaciente, setAlertasPaciente] = useState<any[]>([])
@@ -664,9 +668,11 @@ export default function AgendaPage() {
             {tareasPend.length>0&&<span className="ag-badge" style={{background:'var(--amb)'}}>{tareasPend.length}</span>}
           </button>
         )}
-        <button className="ag-nueva" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:'',sala:salas[0]||'A',nuevo:false,nuevo_nombre:'',nuevo_telefono:''}));setModal(true)}}>
+        {consulta
+          ? <span className="ag-hoy" style={{cursor:'default'}} title="Para cambiar citas, habla con el encargado/a">Solo consulta</span>
+          : <button className="ag-nueva" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:'',sala:salas[0]||'A',nuevo:false,nuevo_nombre:'',nuevo_telefono:''}));setModal(true)}}>
           <Ic name="mas" size={14}/> Cita
-        </button>
+        </button>}
       </div>
 
       {vista==='dia'&&panelAbierto==='alertas'&&(
@@ -758,10 +764,10 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {modal&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} salas={salas} tareas={tareas} perfiles={perfiles}/>}
-      {editandoCita&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}
-      {editandoMulti&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} pacienteId={editandoMulti.pacienteId} horas={horas} salas={salas} tiposClase={tiposClase} maxPersonas={maxPersonas} guardando={guardando} onGuardar={guardarCitasMultiple} onEstado={cambiarEstadoCita} onEliminar={borrarCitaDirecto} onCrear={crearCitaSuelta} onCerrar={()=>setEditandoMulti(null)}/>}
-      {verDatosCita&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
+      {modal&&!consulta&&<ModalNuevaCita fechaDisplay={fechaDisplay} pacientes={pacientes} nuevaCita={nuevaCita} setNuevaCita={setNuevaCita} guardando={guardando} recuperacionesPaciente={recuperacionesPaciente} cargarRecuperaciones={cargarRecuperaciones} crearCita={crearCita} onCerrar={()=>setModal(false)} SesionSelector={SesionSelector} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} salas={salas} tareas={tareas} perfiles={perfiles}/>}
+      {editandoCita&&!consulta&&<ModalEditarCita editandoCita={editandoCita} setEditandoCita={setEditandoCita} guardando={guardando} guardarEdicionCita={guardarEdicionCita} onCerrar={()=>setEditandoCita(null)} horas={horas} tiposCita={tiposCita} tiposClase={tiposClase} cambiarEstadoCita={cambiarEstadoCita} eliminarCita={eliminarCita} salas={salas}/>}
+      {editandoMulti&&!consulta&&<ModalEditarCitas citas={editandoMulti.citas} pacienteNombre={editandoMulti.nombre} pacienteId={editandoMulti.pacienteId} horas={horas} salas={salas} tiposClase={tiposClase} maxPersonas={maxPersonas} guardando={guardando} onGuardar={guardarCitasMultiple} onEstado={cambiarEstadoCita} onEliminar={borrarCitaDirecto} onCrear={crearCitaSuelta} onCerrar={()=>setEditandoMulti(null)}/>}
+      {verDatosCita&&!consulta&&<ModalDatosCita verDatosCita={verDatosCita} guardando={guardando} cambiarEstado={cambiarEstado} horas={horas} onCerrar={()=>setVerDatosCita(null)}/>}
       {/* EL ENTRENO DESDE LA AGENDA ES EL TALLER, con solo ese paciente y en columnas: mismo
           aspecto y mismas funciones que en la sala, en vez de una ventana distinta. */}
       {verEntrenoCita&&(

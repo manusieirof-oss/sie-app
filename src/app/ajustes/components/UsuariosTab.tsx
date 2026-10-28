@@ -35,12 +35,14 @@ export default function UsuariosTab({ perfilActual }: any) {
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   // Un solo selector: 'n1' | 'n2' | 'n3' (entrenador de ese nivel) o 'admin' (dirección).
-  const [perfilNuevo, setPerfilNuevo] = useState<string>('n1')
+  const [perfilNuevo, setPerfilNuevo] = useState<string>('n1')  // se empieza por lo más bajo
   const [cobros, setCobros] = useState(false)
   const [error, setError] = useState('')
   // La contraseña provisional solo se enseña una vez: no se guarda en ningún sitio.
   const [entrega, setEntrega] = useState<{ nombre: string, email: string, password: string } | null>(null)
   const [copiado, setCopiado] = useState(false)
+  /** Nombre que se está corrigiendo: { id del perfil, texto }. */
+  const [editNombre, setEditNombre] = useState<{ id: string, v: string } | null>(null)
 
   const esAdmin = perfilActual?.rol === 'admin'
 
@@ -84,6 +86,20 @@ export default function UsuariosTab({ perfilActual }: any) {
 
   // 'n1'..'n3' = entrenador de ese nivel; 'admin' = dirección. Pasar de dirección a
   // entrenador le quita Finanzas; entre niveles se respetan los permisos sueltos.
+  // El nombre es el que sale en Hoy, en la agenda y en los turnos: corto mejor
+  // («Mario» antes que el nombre completo con apellidos).
+  async function guardarNombre() {
+    if (!editNombre) return
+    const v = editNombre.v.trim()
+    if (!v) { setEditNombre(null); return }
+    setGuardando(editNombre.id)
+    const { error } = await supabase.from('perfiles').update({ nombre: v }).eq('id', editNombre.id)
+    if (error) alert('No se ha podido cambiar el nombre: ' + error.message)
+    setEditNombre(null)
+    await cargar()
+    setGuardando(null)
+  }
+
   async function cambiarRol(id: string, valor: string, actual: any) {
     setGuardando(id)
     const upd: any = valor === 'admin'
@@ -202,9 +218,23 @@ export default function UsuariosTab({ perfilActual }: any) {
               {(u.nombre||'?').charAt(0).toUpperCase()}
             </div>
             <div style={{flex:1,minWidth:160}}>
-              <div style={{fontSize:12,fontWeight:500,color:'var(--n)'}}>{u.nombre||'Sin nombre'}{soyYo && <span style={{color:'var(--grl)',fontWeight:400}}> · tú</span>}</div>
+              {editNombre?.id === u.id ? (
+                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                  <input className="input" autoFocus value={editNombre!.v} onChange={e=>setEditNombre({ id: u.id, v: e.target.value })}
+                    onKeyDown={e=>{ if (e.key==='Enter') guardarNombre(); if (e.key==='Escape') setEditNombre(null) }}
+                    style={{fontSize:12,padding:'4px 8px',maxWidth:220}}/>
+                  <button className="btn btn-p btn-sm" onClick={guardarNombre} disabled={guardando===u.id}>Guardar</button>
+                  <button className="btn btn-s btn-sm" onClick={()=>setEditNombre(null)}>✕</button>
+                </div>
+              ) : (
+                <div style={{fontSize:12,fontWeight:500,color:'var(--n)',display:'flex',alignItems:'center',gap:6}}>
+                  {u.nombre||'Sin nombre'}{soyYo && <span style={{color:'var(--grl)',fontWeight:400}}> · tú</span>}
+                  <button onClick={()=>setEditNombre({ id: u.id, v: u.nombre || '' })} title="Cambiar el nombre"
+                    style={{background:'none',border:'none',padding:0,cursor:'pointer',color:'var(--grl)',display:'inline-flex'}}><Ic name="editar" size={12}/></button>
+                </div>
+              )}
               <div style={{fontSize:9,color:'var(--grl)'}}>
-                {cuenta?.email || (u.rol==='admin' ? 'Dirección' : nombreNivel(u.nivel ?? 2))}
+                {cuenta?.email || (u.rol==='admin' ? 'Dirección' : nombreNivel(u.nivel ?? 1))}
                 {cuenta && ` · ${cuenta.ultimo ? 'último acceso ' + fechaCorta(cuenta.ultimo) : 'aún no ha entrado'}`}
               </div>
               {/* Confidencialidad: firmada (con su versión) o pendiente; se abre para imprimir. */}
@@ -214,7 +244,7 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
 
             {/* SELECTOR DE PERFIL */}
-            <select className="input" value={u.rol==='admin' ? 'admin' : `n${u.nivel ?? 2}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo} title={soyYo?'No puedes quitarte dirección a ti mismo':undefined} style={{width:170,fontSize:11}}>
+            <select className="input" value={u.rol==='admin' ? 'admin' : `n${u.nivel ?? 1}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo} title={soyYo?'No puedes quitarte dirección a ti mismo':undefined} style={{width:170,fontSize:11}}>
               {NIVELES.map(x => <option key={x.n} value={`n${x.n}`}>Nivel {x.n} · {x.nombre}</option>)}
               <option value="admin">Dirección</option>
             </select>
@@ -249,7 +279,7 @@ export default function UsuariosTab({ perfilActual }: any) {
       )}
 
       <div style={{marginTop:14,padding:'10px 12px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,fontSize:9,color:'var(--gd)'}}>
-<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Eventual</strong>: Hoy, Agenda y Taller; da las clases, apunta y marca faltas. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
+<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Eventual</strong>: Hoy, Agenda (solo consulta) y Taller; da las clases, apunta y marca faltas. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
       </div>
     </div>
   )

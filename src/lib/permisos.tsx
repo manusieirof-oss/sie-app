@@ -4,8 +4,8 @@ import { createContext, useContext } from 'react'
 // NIVELES DEL EQUIPO. Un solo sitio que dice quién puede qué, para que la barra, las
 // rutas y los botones del taller no tengan cada uno su propia regla.
 //
-//   1 · Eventual     → Hoy, Agenda y Taller: da la clase, apunta series y hechos y
-//                      marca faltas. No cambia nada de lo planificado.
+//   1 · Eventual     → Hoy, Agenda (solo consulta) y Taller: da la clase, apunta
+//                      series y hechos y marca faltas. No cambia nada de lo planificado.
 //   2 · Entrenador   → además Pacientes y Valoración, cambia ejercicios de las
 //                      sesiones (hoy o para siempre), elige sesión y cancela o cambia
 //                      de sala.
@@ -19,7 +19,7 @@ import { createContext, useContext } from 'react'
 export type Nivel = 1 | 2 | 3 | 4
 
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
-  { n: 1, nombre: 'Eventual', que: 'Hoy, Agenda y Taller: da las clases, apunta y marca faltas' },
+  { n: 1, nombre: 'Eventual', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases, apunta y marca faltas' },
   { n: 2, nombre: 'Entrenador', que: 'Además Pacientes y Valoración; cambia ejercicios de las sesiones' },
   { n: 3, nombre: 'Encargado/a', que: 'Además crea sesiones y ejercicios, y cobra' },
 ]
@@ -29,6 +29,7 @@ export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x
 export const MINIMO = {
   pacientes: 2,
   valoracion: 2,
+  editar_agenda: 2,        // crear, mover, editar o borrar citas (el 1 solo la consulta)
   cambiar_ejercicios: 2,   // ⇄ solo hoy, para siempre o quitarlo de su sesión
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
   cancelar_cita: 2,        // cancelar y cambiar de sala (la falta la marca cualquiera)
@@ -54,8 +55,9 @@ export function nivelDe(perfil: any): Nivel {
     if (v === '1' || v === '2' || v === '3') return Number(v) as Nivel
     return 4
   }
+  // Sin nivel puesto, el más bajo: se sube a mano en Ajustes → Equipo.
   const n = Number(perfil.nivel)
-  return (n === 1 || n === 3 ? n : 2) as Nivel
+  return (n === 2 || n === 3 ? n : 1) as Nivel
 }
 
 /** Qué rutas pide cada nivel (por prefijo). Lo que no sale aquí, lo ve cualquiera. */
