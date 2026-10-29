@@ -43,7 +43,12 @@ export type CampoAjustable = typeof CAMPOS_AJUSTABLES[number]['id']
  */
 export type Sustituto = { ejercicio_id: string, nombre: string, imagen_url?: string | null }
 export type AjusteEj = Partial<Record<CampoAjustable, string>> & { nombre?: string, sustituto?: Sustituto }
-export type AjustesCita = { v: 1, ejercicios: Record<string, AjusteEj> }
+/**
+ * EL MÉTODO DE UNA PARTE ESE DÍA (desde la franja de la parte en el taller): el modo,
+ * vueltas, pausas y las series de todos sus ejercicios. Va por número de parte.
+ */
+export type AjusteParte = { modo?: string, vueltas?: string, transicion?: string, descanso?: string, minutos?: string, tipo_tiempo?: string, series?: string, nombre?: string }
+export type AjustesCita = { v: 1, ejercicios: Record<string, AjusteEj>, partes?: Record<string, AjusteParte> }
 
 export const clave = (pi: number, ei: number) => `${pi}.${ei}`
 
@@ -51,7 +56,7 @@ const txt = (x: unknown) => String(x ?? '').trim()
 
 /** true si no hay ninguna desviación guardada. */
 export function sinAjustes(a?: AjustesCita | null): boolean {
-  return !a || !a.ejercicios || Object.keys(a.ejercicios).length === 0
+  return !a || ((!a.ejercicios || Object.keys(a.ejercicios).length === 0) && (!a.partes || Object.keys(a.partes).length === 0))
 }
 
 /**
@@ -62,10 +67,17 @@ export function sinAjustes(a?: AjustesCita | null): boolean {
  */
 export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
   if (!sesion || sinAjustes(ajustes)) return sesion
-  const partes = (sesion.partes || []).map((p: any, pi: number) => ({
+  const partes = (sesion.partes || []).map((p0: any, pi: number) => {
+    // Primero el método de la parte ese día; luego, encima, lo de cada ejercicio.
+    const ap = ajustes!.partes?.[String(pi)]
+    const p = ap ? { ...p0,
+      ...Object.fromEntries((['modo', 'vueltas', 'transicion', 'descanso', 'minutos', 'tipo_tiempo'] as const).filter(k => ap[k] !== undefined).map(k => [k, ap[k]])),
+      ejercicios: ap.series ? (p0.ejercicios || []).map((e: any) => ({ ...e, series: ap.series })) : p0.ejercicios,
+    } : p0
+    return {
     ...p,
     ejercicios: (p.ejercicios || []).map((ej: any, ei: number) => {
-      const a = ajustes!.ejercicios[clave(pi, ei)]
+      const a = (ajustes!.ejercicios || {})[clave(pi, ei)]
       if (!a) return ej
       const copia = { ...ej }
       // Otro ejercicio en ese hueco: lo prescrito era para el de antes (su peso, sus
@@ -87,7 +99,7 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
       }
       return copia
     }),
-  }))
+  }})
   return { ...sesion, partes }
 }
 
@@ -99,7 +111,8 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
  * aquí haría que un ajuste pudiera contradecir al plan en vez de matizarlo.
  */
 export function calcularAjustes(base: any, editada: any, previos?: AjustesCita | null): AjustesCita {
-  const out: AjustesCita = { v: 1, ejercicios: {} }
+  // El método de las partes se cambia desde el taller, no aquí: se conserva tal cual.
+  const out: AjustesCita = { v: 1, ejercicios: {}, ...(previos?.partes && Object.keys(previos.partes).length ? { partes: previos.partes } : {}) }
   ;(base?.partes || []).forEach((p: any, pi: number) => {
     const pe = editada?.partes?.[pi]
     if (!pe) return
@@ -139,7 +152,20 @@ export function calcularAjustes(base: any, editada: any, previos?: AjustesCita |
 export function resumenAjustes(base: any, ajustes?: AjustesCita | null) {
   if (sinAjustes(ajustes)) return []
   const nombreCampo = (id: string) => CAMPOS_AJUSTABLES.find(c => c.id === id)?.nombre || id
-  return Object.entries(ajustes!.ejercicios).map(([k, a]) => {
+  const NOMBRE_P: Record<string, string> = { modo: 'Método', vueltas: 'Vueltas', transicion: 'Entre ejercicios', descanso: 'Descanso', minutos: 'Minutos', tipo_tiempo: 'Tipo', series: 'Series' }
+  const dePartes = Object.entries(ajustes!.partes || {}).map(([k, a]) => {
+    const parte = base?.partes?.[Number(k)]
+    return {
+      clave: 'p' + k,
+      nombre: (parte?.nombre || a.nombre || 'Parte') + ' (método)',
+      cambios: Object.keys(NOMBRE_P).filter(c => (a as any)[c] !== undefined).map(c => ({
+        campo: NOMBRE_P[c],
+        de: c === 'series' ? txt(parte?.ejercicios?.[0]?.series) : txt(parte?.[c]),
+        a: txt((a as any)[c]),
+      })),
+    }
+  })
+  return [...dePartes, ...Object.entries(ajustes!.ejercicios || {}).map(([k, a]) => {
     const [pi, ei] = k.split('.').map(Number)
     const ej = base?.partes?.[pi]?.ejercicios?.[ei]
     const mismo = ej && txt(ej.nombre) === txt(a.nombre)
@@ -154,5 +180,5 @@ export function resumenAjustes(base: any, ajustes?: AjustesCita | null) {
           a: txt(a[c.id]),
         })),
     }
-  })
+  })]
 }

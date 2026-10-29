@@ -1,6 +1,8 @@
 'use client'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import CaraPaciente from '@/components/CaraPaciente'
+import MetodoParte from './MetodoParte'
+import { cargarMetodos, aplicarMetodo, METODOS_DEFECTO, type ValoresMetodo } from '@/lib/metodos'
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
@@ -622,6 +624,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // Velos de la cita (tocar la foto) y de añadir a alguien a la clase.
   const [citaVelo, setCitaVelo] = useState<string | null>(null)
   const [anadiendoPac, setAnadiendoPac] = useState(false)
+  /** Valores de partida de cada método (Ajustes → Entrenador). */
+  const [metodos, setMetodos] = useState<Record<string, ValoresMetodo>>(METODOS_DEFECTO)
+  useEffect(() => { cargarMetodos().then(setMetodos).catch(() => {}) }, [])
   /** Panel de pulsómetros abierto (el ❤ de la cabecera). */
   const [pulsoAbierto, setPulsoAbierto] = useState(false)
   const trasCita = (aviso?: string) => {
@@ -733,7 +738,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           if (b === quitado.pe) return
           nuevo[`${a}.${b > quitado.pe ? b - 1 : b}`] = v
         })
-        await supabase.from('citas').update({ ajustes: Object.keys(nuevo).length ? { ...c.ajustes, ejercicios: nuevo } : null }).eq('id', c.id)
+        // Si le queda el método de alguna parte, el ajuste sigue aunque no queden ejercicios.
+        const quedaParte = c.ajustes?.partes && Object.keys(c.ajustes.partes).length > 0
+        await supabase.from('citas').update({ ajustes: (Object.keys(nuevo).length || quedaParte) ? { ...c.ajustes, ejercicios: nuevo } : null }).eq('id', c.id)
       }
     }
     if (texto) await supabase.from('eventos_paciente').insert({ paciente_id: pid, tipo: 'sesion', titulo: texto, fecha: fechaC })
@@ -743,6 +750,41 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     const datos = await cargarDatosSesion(pid, aplicarAjustes({ ...destino, partes }, cita?.ajustes), fechaC)
     ponerNoHechos(pid, item.sesionId, [])
     setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, sesionId: destino.id, datos }))
+  }
+
+  /**
+   * EL MÉTODO DE UNA PARTE (modo, series o vueltas, pausas). «Solo hoy» va a los ajustes
+   * de su cita (lib/ajustesCita, `partes`): el plan no se toca. «Para siempre» cambia su
+   * sesión y quita el ajuste de hoy de esa parte, para que no tape el cambio.
+   */
+  async function aplicarMetodoParte(pid: string, pi: number, modo: string, v: ValoresMetodo, alcance: 'hoy' | 'siempre') {
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    if (!item?.sesionId) return
+    const fechaC = item.fechaClase || fecha
+    const { data: c } = item.citaId ? await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle() : { data: null as any }
+    const aj: any = c?.ajustes ? { v: 1, ejercicios: {}, ...c.ajustes } : { v: 1, ejercicios: {} }
+    const { data: ses } = await supabase.from('sesiones').select('*').eq('id', item.sesionId).maybeSingle()
+    const nombreParte = ses?.partes?.[pi]?.nombre || 'la parte'
+    if (alcance === 'siempre') {
+      if (aj.partes?.[String(pi)] && item.citaId) {
+        const resto = { ...aj.partes }; delete resto[String(pi)]
+        const nuevo = { ...aj, partes: resto }
+        const vacio = Object.keys(nuevo.ejercicios || {}).length === 0 && Object.keys(resto).length === 0
+        await supabase.from('citas').update({ ajustes: vacio ? null : nuevo }).eq('id', item.citaId)
+      }
+      await editarSuSesion(pid, partes => {
+        if (partes[pi]) partes[pi] = aplicarMetodo(partes[pi], modo, v)
+        return partes
+      }, undefined, `Método de «${nombreParte}» cambiado en el taller`)
+      return
+    }
+    if (!item.citaId) { alert('Sin cita no hay «solo hoy»: usa «Para siempre».'); return }
+    aj.partes = { ...(aj.partes || {}), [String(pi)]: { modo, ...v, nombre: nombreParte } }
+    const { error } = await supabase.from('citas').update({ ajustes: aj }).eq('id', item.citaId)
+    if (error) { alert('No se ha podido guardar: ' + error.message); return }
+    if (!ses) return
+    const datos = await cargarDatosSesion(pid, aplicarAjustes(ses, aj), fechaC)
+    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos }))
   }
 
   async function quitarDeSuSesion(pid: string, i: number) {
@@ -2026,11 +2068,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 background:'var(--bl)',borderLeft:'3px solid var(--g)',borderRadius:'0 7px 7px 0',
                 padding:'8px 12px',cursor:'pointer',userSelect:'none'}}>
                 <span style={{fontSize:13,fontWeight:600,color:'var(--n)',letterSpacing:.2}}>{ej.parte}</span>
-                {ej.parteObj && (
-                  <span style={{fontSize:12.5,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:5}}>
-                    <Ic name={modoParte(ej.parteObj.modo).icono} size={13}/> {textoModo(ej.parteObj)}
-                  </span>
-                )}
+                {/* EL MÉTODO, SUS SERIES Y SUS DESCANSOS, sobre la franja y tocables (nivel 2+). */}
+                {ej.parteObj && (ej.pos != null
+                  ? <MetodoParte key={JSON.stringify([ej.parteObj.modo, ej.parteObj.vueltas, ej.parteObj.descanso, ej.parteObj.transicion, ej.parteObj.ejercicios?.[0]?.series])}
+                      parte={ej.parteObj} puede={cambiaEj} defectos={metodos}
+                      onAplicar={(m, v, alc) => aplicarMetodoParte(act.paciente.id, Number(String(ej.pos).split('.')[0]), m, v, alc)}/>
+                  : <span style={{fontSize:12.5,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:5}}>
+                      <Ic name={modoParte(ej.parteObj.modo).icono} size={13}/> {textoModo(ej.parteObj)}
+                    </span>)}
                 {/* AÑADIR A SU SESION, en la cabecera del bloque: un cuadrado pequeño que
                     no ocupa sitio. Entra con las condiciones de este bloque. */}
                 {ej.pos != null && (
@@ -2041,12 +2086,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                       color:'var(--gd)',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',
                       fontFamily:'inherit',fontSize:14,fontWeight:700,padding:0,lineHeight:1}}>…</button>
                 )}
-                {ej.parteObj && descansoDeParte(ej.parteObj) && (
+                {ej.parteObj && ej.pos == null && descansoDeParte(ej.parteObj) && (
                   <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
                     <Ic name="pausa" size={13}/> {descansoDeParte(ej.parteObj)!.texto} {descansoDeParte(ej.parteObj)!.cuando}
                   </span>
                 )}
-                {ej.parteObj && transicionDeParte(ej.parteObj) && (
+                {ej.parteObj && ej.pos == null && transicionDeParte(ej.parteObj) && (
                   <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
                     <Ic name="pausa" size={13}/> {transicionDeParte(ej.parteObj)!.texto} {transicionDeParte(ej.parteObj)!.cuando}
                   </span>

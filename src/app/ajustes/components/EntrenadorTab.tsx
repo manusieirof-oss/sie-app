@@ -5,6 +5,8 @@ import {
   CLAVE_AJUSTE, CONFIG_DEFECTO, FAMILIAS, leerConfigTrabajo, segundosSerie, segundosPorRep, textoSegundos,
   type ConfigTrabajo, type Intensidad, type Ejecucion,
 } from '@/lib/trabajo'
+import { CLAVE_METODOS, CAMPOS_METODO, METODOS_DEFECTO, leerMetodos, type ValoresMetodo } from '@/lib/metodos'
+import { MODOS_PARTE } from '@/lib/sesiones'
 
 // ---------------------------------------------------------------------------
 // AJUSTES DEL ENTRENADOR: con qué se mide el trabajo (ver lib/trabajo).
@@ -30,6 +32,7 @@ export default function EntrenadorTab({ ajustes, set }: { ajustes: Record<string
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
+      <MetodosCard ajustes={ajustes} set={set}/>
       <div className="card">
         <div className="card-title" style={{ justifyContent: 'space-between' }}>
           <span className="ct-l"><Ic name="fuerza"/> Intensidades</span>
@@ -159,6 +162,40 @@ function Ejemplo({ cfg }: { cfg: ConfigTrabajo }) {
       <div style={{ fontSize: 13 }}>
         {Number(seg) > 0 ? `${n} × ${seg} s` : reps ? `${n} × ${reps} reps × ${segundosPorRep(cfg, ejs)} s` : `${n} × ${cfg.aguantaSeg} s (aguanta lo que puedas)`}
         {' = '}<b>{textoSegundos(n * s.seg)}</b> de trabajo{s.estimado ? ' · estimado' : ''}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * MÉTODOS DE TRABAJO: los valores con los que arranca cada modo cuando en el taller se
+ * le cambia el método a una parte (y no traía los suyos). Los descansos, en segundos.
+ */
+function MetodosCard({ ajustes, set }: { ajustes: Record<string, string>, set: (k: string, v: string) => void }) {
+  const m = leerMetodos(ajustes)
+  const poner = (modo: string, k: keyof ValoresMetodo, v: string) =>
+    set(CLAVE_METODOS, JSON.stringify({ ...m, [modo]: { ...m[modo], [k]: v.replace(/[^0-9]/g, '') } }))
+  const corto: React.CSSProperties = { fontSize: 12.5, padding: '5px 7px', width: 64, textAlign: 'center' }
+  return (
+    <div className="card">
+      <div className="card-title" style={{ justifyContent: 'space-between' }}>
+        <span className="ct-l"><Ic name="reloj"/> Métodos de trabajo</span>
+        <button className="btn btn-t btn-sm" onClick={() => { if (confirm('¿Volver a los valores de partida?')) set(CLAVE_METODOS, JSON.stringify(METODOS_DEFECTO)) }}>Restaurar</button>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 10 }}>
+        Con qué valores empieza cada método cuando en el taller se le cambia a una parte. Los descansos, en segundos.
+      </div>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {MODOS_PARTE.map(md => (
+          <div key={md.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10, padding: '8px 10px', borderRadius: 10,
+            background: '#fff', boxShadow: '0 1px 5px rgba(38,40,37,.08)' }}>
+            <div style={{ flex: '1 1 170px', fontSize: 13, fontWeight: 600, alignSelf: 'center' }}>{md.nombre}</div>
+            {(CAMPOS_METODO[md.id] || []).map(c => (
+              <label key={c.k}><span style={{ fontSize: 10.5, color: 'var(--grl)', display: 'block', marginBottom: 2 }}>{c.nombre}{c.seg ? ' (s)' : ''}</span>
+                <input className="input" style={corto} inputMode="numeric" value={m[md.id]?.[c.k] ?? ''} onChange={e => poner(md.id, c.k, e.target.value)}/></label>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   )

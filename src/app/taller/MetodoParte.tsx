@@ -1,0 +1,121 @@
+'use client'
+import { useRef, useState } from 'react'
+import { Ic } from '@/lib/icons'
+import Flotante from './Flotante'
+import { MODOS_PARTE, modoParte } from '@/lib/sesiones'
+import { textoDescanso } from '@/lib/capacidades'
+import { CAMPOS_METODO, valoresDeParte, type ValoresMetodo } from '@/lib/metodos'
+
+// ---------------------------------------------------------------------------
+// EL MÉTODO DE UNA PARTE, SOBRE SU FRANJA
+//
+// Se ve siempre: el modo, las series (o vueltas) y los descansos de ESE modo. Quien
+// puede cambiar ejercicios (nivel 2 en adelante) los toca ahí mismo: se abre un panel
+// con el modo y sus números, y se elige si vale solo hoy o para su sesión.
+//
+// Al pasar a otro modo, los números salen de Ajustes → Entrenador (valores de partida
+// de cada método); al volver al suyo, los que traía.
+// ---------------------------------------------------------------------------
+
+const chip: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, padding: '3px 10px', borderRadius: 99,
+  border: '1px solid transparent', background: 'transparent', fontFamily: 'inherit', whiteSpace: 'nowrap',
+}
+
+function valorTexto(seg: boolean | undefined, v?: string) {
+  if (!seg) return v || '—'
+  const t = textoDescanso(v || '')
+  return t || 'sin pausa'
+}
+
+export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
+  parte: any
+  puede: boolean
+  defectos: Record<string, ValoresMetodo>
+  onAplicar: (modo: string, v: ValoresMetodo, alcance: 'hoy' | 'siempre') => Promise<void> | void
+}) {
+  const ancla = useRef<HTMLSpanElement>(null)
+  const [abierto, setAbierto] = useState(false)
+  const modo0 = modoParte(parte?.modo).id
+  const actuales = valoresDeParte(parte)
+  const [modo, setModo] = useState<string>(modo0)
+  const [v, setV] = useState<ValoresMetodo>(actuales)
+  const [guardando, setGuardando] = useState(false)
+
+  const abrir = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!puede) return
+    setModo(modo0); setV(valoresDeParte(parte)); setAbierto(a => !a)
+  }
+  const cambiarModo = (m: string) => {
+    setModo(m)
+    // Al suyo, con lo que traía; a otro, con los de partida de Ajustes (lo que haya
+    // en blanco en los de partida se queda como estaba).
+    if (m === modo0) setV(valoresDeParte(parte))
+    else setV({ ...valoresDeParte(parte), ...Object.fromEntries(Object.entries(defectos[m] || {}).filter(([, x]) => x !== '' && x != null)) })
+  }
+  const mover = (k: keyof ValoresMetodo, paso: number) => {
+    const n = Math.max(0, (parseInt(v[k] || '0') || 0) + paso)
+    setV(p => ({ ...p, [k]: String(n) }))
+  }
+  const aplicar = async (alcance: 'hoy' | 'siempre') => {
+    setGuardando(true)
+    // Solo los campos de ESE modo: lo demás no se toca.
+    const campos = CAMPOS_METODO[modo] || []
+    const out: ValoresMetodo = {}
+    campos.forEach(c => { out[c.k] = v[c.k] ?? '' })
+    if (modo === 'tiempo') out.tipo_tiempo = v.tipo_tiempo || 'emom'
+    await onAplicar(modo, out, alcance)
+    setGuardando(false); setAbierto(false)
+  }
+
+  // Lo que se ve en la franja: el modo y los números del modo de la parte.
+  const campos0 = CAMPOS_METODO[modo0] || []
+  const md0 = modoParte(modo0)
+  const toque: React.CSSProperties = puede ? { cursor: 'pointer', borderColor: 'var(--gm)', background: 'var(--w)' } : {}
+
+  return (
+    <>
+      <span ref={ancla} onClick={abrir} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+        title={puede ? 'Cambiar el método, las series o los descansos' : undefined}>
+        <span style={{ ...chip, ...toque, color: 'var(--gd)' }}><Ic name={md0.icono} size={13}/> {md0.nombre}</span>
+        {campos0.map(c => (
+          <span key={c.k} style={{ ...chip, ...toque, color: c.seg ? 'var(--gr)' : 'var(--n)' }}>
+            {c.seg ? <Ic name="pausa" size={12}/> : null}
+            {c.seg ? <>{valorTexto(true, actuales[c.k])} <span style={{ color: 'var(--grl)' }}>{c.nombre.toLowerCase()}</span></>
+              : <><b style={{ fontWeight: 600 }}>{actuales[c.k] || '—'}</b> {c.nombre.toLowerCase()}</>}
+          </span>
+        ))}
+      </span>
+
+      <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={330}>
+        <div onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--grl)', textTransform: 'uppercase', letterSpacing: .4, marginBottom: 6 }}>Método</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+            {MODOS_PARTE.map(m => (
+              <button key={m.id} onClick={() => cambiarModo(m.id)} title={m.ayuda}
+                style={{ ...chip, cursor: 'pointer', border: `1.5px solid ${modo === m.id ? 'var(--gd)' : 'var(--bd)'}`,
+                  background: modo === m.id ? 'var(--gl)' : 'var(--w)', color: modo === m.id ? 'var(--gd)' : 'var(--gr)', fontWeight: modo === m.id ? 600 : 400 }}>
+                <Ic name={m.icono} size={12}/> {m.nombre}
+              </button>
+            ))}
+          </div>
+          {(CAMPOS_METODO[modo] || []).map(c => (
+            <div key={c.k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderTop: '1px solid var(--bl)' }}>
+              <span style={{ flex: 1, fontSize: 12.5, color: 'var(--n)' }}>{c.nombre}</span>
+              <button onClick={() => mover(c.k, -c.paso)} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--w)', cursor: 'pointer', fontSize: 16 }}>−</button>
+              <span style={{ minWidth: 64, textAlign: 'center', fontSize: 13.5, fontWeight: 600 }}>{valorTexto(c.seg, v[c.k])}</span>
+              <button onClick={() => mover(c.k, c.paso)} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--w)', cursor: 'pointer', fontSize: 16 }}>+</button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+            <button className="btn btn-s btn-sm" onClick={() => setAbierto(false)}>Cancelar</button>
+            <span style={{ flex: 1 }}/>
+            <button className="btn btn-s btn-sm" disabled={guardando} onClick={() => aplicar('hoy')} title="Solo esta clase: su sesión no cambia">Solo hoy</button>
+            <button className="btn btn-p btn-sm" disabled={guardando} onClick={() => aplicar('siempre')} title="Cambia su sesión para las próximas clases">Para siempre</button>
+          </div>
+        </div>
+      </Flotante>
+    </>
+  )
+}
