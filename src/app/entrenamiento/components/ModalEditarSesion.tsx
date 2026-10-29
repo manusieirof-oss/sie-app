@@ -761,6 +761,21 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     </span>
                   )
                 })}
+                {/* LOS DEL PACIENTE, A MANO. Sus objetivos abiertos que aún no están en la
+                    sesión salen apagados detrás: tocar uno lo mete. Así, al crear una sesión,
+                    no hay que ir a buscarlos: se eligen de los suyos. */}
+                {objsDestacar.filter(id=>!objetivosSel.includes(id)).map(id=>{
+                  const o = objetivosDisp.find((x:any)=>x.id===id)
+                  if (!o) return null
+                  return (
+                    <button key={'p'+id} type="button" title={`${o.nombre} · objetivo del paciente: pulsa para añadirlo a la sesión`}
+                      onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.includes(id)?prev:[...prev,id]) }}
+                      style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76,background:'none',border:'none',padding:0,cursor:'pointer',opacity:.4}}>
+                      <MonedaObjetivo objetivo={o}/>
+                      <span className="obj-mon-g">{o.nombre}</span>
+                    </button>
+                  )
+                })}
                 <span style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
                   <button type="button" title="Añadir objetivo" onClick={()=>setEligiendoObj(true)}
                     style={{width:42,height:42,borderRadius:'50%',border:'1.5px dashed var(--gm)',background:'#fff',color:'var(--gd)',cursor:'pointer',fontSize:20,lineHeight:1,display:'grid',placeItems:'center'}}>+</button>
