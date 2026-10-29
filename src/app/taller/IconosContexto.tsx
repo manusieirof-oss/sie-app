@@ -68,7 +68,11 @@ function Boton({ g, abierto, onPulsar }: { g: Grupo, abierto: boolean, onPulsar:
   )
 }
 
-export default function IconosContexto({ ctx = {}, sesionId }: any) {
+/**
+ * `que`: 'objetivos' solo las bolas de los objetivos (van en la píldora de la sesión),
+ * 'contexto' solo patologías, molestias y alertas, 'todo' las dos cosas.
+ */
+export default function IconosContexto({ ctx = {}, sesionId, que = 'todo', tam = 34 }: any) {
   const [abierto, setAbierto] = useState('')
   const [verObjs, setVerObjs] = useState(false)
   const anclaObjs = useRef<HTMLSpanElement>(null)
@@ -79,7 +83,7 @@ export default function IconosContexto({ ctx = {}, sesionId }: any) {
 
   useEffect(() => {
     let vivo = true
-    if (!sesionId) { setObjetivos([]); return }
+    if (!sesionId || que === 'contexto') { setObjetivos([]); return }
     ;(async () => {
       const { data: rel } = await supabase.from('sesiones_objetivos')
         .select('objetivo_id').eq('sesion_id', sesionId)
@@ -89,24 +93,25 @@ export default function IconosContexto({ ctx = {}, sesionId }: any) {
       if (vivo) setObjetivos(data || [])
     })()
     return () => { vivo = false }
-  }, [sesionId])
+  }, [sesionId, que])
 
-  const grupos: Grupo[] = [
+  const grupos: Grupo[] = que === 'objetivos' ? [] : [
     { k: 'patologias', icon: 'patologia', label: 'Patologías', items: ctx.patologias || [], color: 'var(--red)' },
     { k: 'molestias', icon: 'molestia', label: 'Molestias', items: ctx.molestias || [], color: 'var(--amb)' },
     { k: 'alertas', icon: 'alerta', label: 'Alertas', items: ctx.alertas || [], color: 'var(--red)' },
   ].filter(g => g.items.length > 0)
 
-  if (grupos.length === 0 && objetivos.length === 0) return null
+  const verObjetivos = que !== 'contexto'
+  if (grupos.length === 0 && (!verObjetivos || objetivos.length === 0)) return null
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-      {objetivos.length > 0 && (
+      {verObjetivos && objetivos.length > 0 && (
         <span ref={anclaObjs} onClick={() => setVerObjs(v => v === false)}
           title="Objetivos de la sesión"
           style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
           {objetivos.slice(0, 3).map((o: any, i: number) => (
-            <span key={o.id || i} style={{ marginLeft: i === 0 ? 0 : -11 }}><Bola o={o}/></span>
+            <span key={o.id || i} style={{ marginLeft: i === 0 ? 0 : -Math.round(tam / 3) }}><Bola o={o} tam={tam}/></span>
           ))}
           {objetivos.length > 3 && (
             <span style={{ marginLeft: 5, fontSize: 11, color: 'var(--gr)' }}>+{objetivos.length - 3}</span>

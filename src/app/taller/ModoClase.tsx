@@ -1773,17 +1773,20 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             const colorEstado = estado==='fin' ? 'var(--g)' : estado==='curso' ? 'var(--amb)' : 'var(--bm)'
             const activoChip = activo===s.paciente.id
             return (
-            <div key={s.paciente.id} onClick={()=>setActivo(s.paciente.id)}
+            <div key={s.paciente.id} onClick={()=>{ if (activo===s.paciente.id) setCitaVelo(s.paciente.id); else setActivo(s.paciente.id) }}
               title={estado==='fin'?'Finalizado':estado==='curso'?'En curso, sin finalizar':'Sin empezar'}
               /* EL SELECCIONADO VA EN OSCURO, el guardado en verde claro. Antes los dos
                  iban en el verde de la app (relleno uno, claro el otro) y en la sala se
                  confundian: no se sabia si estabas en ese paciente o si ya estaba hecho. */
-              style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:99,cursor:'pointer',
+              style={{display:'flex',alignItems:'center',gap:6,padding:'3px 10px 3px 3px',borderRadius:99,cursor:'pointer',
                 border:`1.5px solid ${activoChip?'var(--n)':(estado==='fin'?'var(--g)':'var(--bd)')}`,
                 background:activoChip?'var(--n)':(estado==='fin'?'var(--gl)':'var(--w)'),
                 color:activoChip?'var(--w)':(estado==='fin'?'var(--gd)':'var(--gr)'),
                 boxShadow:activoChip?'0 2px 6px rgba(0,0,0,.18)':'none'}}>
-              <span style={{width:7,height:7,borderRadius:'50%',flexShrink:0,background:colorEstado,boxShadow:activoChip?'0 0 0 1.5px var(--w)':'none'}}/>
+              {/* LA PERSONA: su cara (con el aro del color de cómo va) y su nombre de clínica.
+                  Tocada otra vez, o en «▾», abre su cita: falta, sala e incidencias. */}
+              <span style={{width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:'var(--gm)',color:'var(--gd)',
+                display:'grid',placeItems:'center',fontSize:10,fontWeight:600,boxShadow:`0 0 0 2px ${colorEstado}`}}><CaraPaciente p={s.paciente}/></span>
               {s.finalizado&&<span style={{fontSize:9}}>✓</span>}
               {enOtros[s.paciente.id] && (
                 <span title={'Abierto también en: ' + enOtros[s.paciente.id].join(', ')}
@@ -1792,9 +1795,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               {/* La hora solo con «Todo el día»: con una franja elegida todos son de la misma. */}
               {s.hora&&!hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
-              <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombreCorto(s.paciente)}</span>
+              <span style={{fontSize:12.5,fontWeight:500,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombreCorto(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
               <ChipPulso pid={s.paciente?.id}/>
+              {activoChip && <span onClick={e=>{ e.stopPropagation(); setCitaVelo(s.paciente.id) }} title="Su cita: falta, sala e incidencias"
+                style={{fontSize:11,padding:'0 2px 0 4px',opacity:.85}}>▾</span>}
             </div>
             )
           })}
@@ -1840,18 +1845,78 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
             <div style={{minWidth:0,flexShrink:0}}>
               <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                {/* LA PERSONA ES EL BOTÓN: su cara y su nombre de clínica. Al tocarla, su cita
-                    de hoy (falta, cancelar, sala) y las incidencias. Antes eran el nombre
-                    completo, un botón «Cita ▾» y «cita 08:00 · sala B», que ya se ve arriba. */}
-                <button onClick={() => setCitaVelo(act.paciente.id)} title="Su cita de hoy: falta, sala e incidencias"
-                  style={{display:'inline-flex',alignItems:'center',gap:9,border:0,background:'transparent',padding:'2px 8px 2px 2px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',color:'var(--n)'}}
-                  onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--bl)'}
-                  onMouseOut={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                  <span style={{width:38,height:38,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:'var(--gm)',color:'var(--gd)',
-                    display:'grid',placeItems:'center',fontSize:13,fontWeight:600}}><CaraPaciente p={act.paciente}/></span>
-                  <span style={{fontSize:16,fontWeight:600}}><NombrePulso pid={act.paciente?.id}>{nombreCorto(act.paciente)}</NombrePulso></span>
-                  <span style={{fontSize:11,color:'var(--grl)'}}>▾</span>
-                </button>
+                {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
+                    existe para eso. Al asignar allí, vuelves aquí. */}
+                <div style={{position:'relative',minWidth:0,maxWidth:'60%'}}>
+                  {/* LA SESIÓN Y SUS OBJETIVOS en la píldora donde antes iba el nombre (que
+                      ya está arriba, en la ficha de la persona). Tocarla cambia la sesión
+                      (nivel 2 en adelante); las bolitas abren los objetivos. */}
+                  <div role="button" onClick={()=>{ if (cambiaSes) setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id) }}
+                    title={act.sesionId ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') : undefined}
+                    style={{display:'inline-flex',alignItems:'center',gap:9,maxWidth:'100%',minWidth:0,padding:'5px 12px 5px 12px',borderRadius:99,
+                      cursor:cambiaSes?'pointer':'default',border:`1.5px solid ${act.sesionId?'var(--bd)':'var(--g)'}`,
+                      background:act.sesionId?'var(--bl)':'var(--gl)',color:'var(--n)'}}>
+                    <Ic name="fuerza" size={15}/>
+                    <span style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,
+                      color:act.sesionId?'var(--n)':'var(--gd)'}}>{act.sesionId
+                      ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
+                      : cambiaSes ? 'Asignar sesión' : 'Sin sesión'}</span>
+                    {act.sesionId && <span onClick={e=>e.stopPropagation()} style={{display:'inline-flex',flexShrink:0}}>
+                      <IconosContexto que="objetivos" tam={26} ctx={{}} sesionId={act.sesionId}/>
+                    </span>}
+                    {cambiaSes && <span style={{fontSize:11,color:'var(--grl)',flexShrink:0}}>▾</span>}
+                  </div>
+                  {eligiendo===act.paciente.id && (
+                    <div style={{position:'absolute',top:'100%',left:0,zIndex:30,marginTop:4,minWidth:190,
+                      border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',overflow:'hidden'}}>
+                      {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).filter(([d]) => d !== 'biblioteca' || puede('biblioteca')).map(([d,l])=>(
+                        <div key={d} onClick={()=>{
+                          setEligiendo(null)
+                          const encargo = {
+                            citaId: act.citaId, pacienteId: act.paciente.id,
+                            etiqueta: nombrePac(act.paciente) + (act.hora ? ' · ' + act.hora : ''),
+                            volver: '/taller',
+                          }
+                          /**
+                           * SI YA TENÍA SESIÓN, PRIMERO EL PORQUÉ.
+                           *
+                           * Poner una sesión en una cita vacía no hay que justificarlo. Cambiar
+                           * la que estaba planificada, sí: eso es una decisión clínica que se
+                           * toma con el paciente delante, y era justo lo único que no quedaba
+                           * escrito en ningún sitio. Un mes después la cita apuntaba a la sesión
+                           * nueva y no había forma de distinguirla de una planificada así.
+                           *
+                           * Se pregunta aquí y no en la biblioteca porque aquí es donde está el
+                           * paciente. Al llegar al catálogo de sesiones uno ya está pensando en
+                           * cuál elegir, no en por qué venía.
+                           */
+                          const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
+                          if (act.sesionId && act.citaId) {
+                            setCambiando({ destino:d, encargo, motivo:'', nota:'',
+                              antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
+                            return
+                          }
+                          router.push(rutaDeAsignacion(d as any, encargo))
+                        }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}}
+                          onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
+                          onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{l}</div>
+                      ))}
+                      {/* QUITARLA SIN PONER OTRA. Antes cambiar obligaba a elegir una nueva,
+                          asi que para dejar a alguien hoy sin sesion no habia forma: la de la
+                          cita seguia saliendo. Pide motivo igual que un cambio. */}
+                      {act.sesionId && act.citaId && (
+                        <div onClick={()=>{
+                          setEligiendo(null)
+                          const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
+                          setCambiando({ destino:'quitar', encargo:{ citaId: act.citaId, pacienteId: act.paciente.id },
+                            motivo:'', nota:'', antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
+                        }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,color:'var(--red)'}}
+                          onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--redl)'}
+                          onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>Quitar, hoy sin sesión</div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {/* Solo sale si lleva banda: ver PulsoClase. */}
                 <ChipPulso pid={act.paciente?.id} grande/>
                 {act.estado === 'falta' && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#C0504D', borderRadius: 99, padding: '1px 8px' }}>Falta</span>}
@@ -1947,73 +2012,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             <div style={{flex:1,display:'flex',justifyContent:'center'}}>
               {/* Las patologias, molestias y alertas de este paciente, y los objetivos
                   de la sesion con su moneda. Ver `IconosContexto`. */}
-              <IconosContexto ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
-            </div>
-            {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
-                existe para eso. Al asignar allí, vuelves aquí. */}
-            <div style={{position:'relative'}}>
-              <button className={act.sesionId ? 'btn btn-s btn-sm' : 'btn btn-p btn-sm'}
-                disabled={!cambiaSes}
-                onClick={()=>setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id)}
-                title={act.sesionId ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') : undefined}
-                style={{fontSize:11,maxWidth:260,minWidth:0,overflow:'hidden'}}>
-                {/* Un nombre largo se cortaba con «…»: antes se salía del botón y se
-                    montaba encima de «Guardar y finalizar». El nombre entero, al pasar el dedo. */}
-                <Ic name="fuerza" size={12}/>
-                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0}}>{act.sesionId
-                  ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
-                  : cambiaSes ? 'Asignar sesión' : 'Sin sesión'}</span>
-              </button>
-              {eligiendo===act.paciente.id && (
-                <div style={{position:'absolute',top:'100%',right:0,zIndex:30,marginTop:4,minWidth:190,
-                  border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',overflow:'hidden'}}>
-                  {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).filter(([d]) => d !== 'biblioteca' || puede('biblioteca')).map(([d,l])=>(
-                    <div key={d} onClick={()=>{
-                      setEligiendo(null)
-                      const encargo = {
-                        citaId: act.citaId, pacienteId: act.paciente.id,
-                        etiqueta: nombrePac(act.paciente) + (act.hora ? ' · ' + act.hora : ''),
-                        volver: '/taller',
-                      }
-                      /**
-                       * SI YA TENÍA SESIÓN, PRIMERO EL PORQUÉ.
-                       *
-                       * Poner una sesión en una cita vacía no hay que justificarlo. Cambiar
-                       * la que estaba planificada, sí: eso es una decisión clínica que se
-                       * toma con el paciente delante, y era justo lo único que no quedaba
-                       * escrito en ningún sitio. Un mes después la cita apuntaba a la sesión
-                       * nueva y no había forma de distinguirla de una planificada así.
-                       *
-                       * Se pregunta aquí y no en la biblioteca porque aquí es donde está el
-                       * paciente. Al llegar al catálogo de sesiones uno ya está pensando en
-                       * cuál elegir, no en por qué venía.
-                       */
-                      const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
-                      if (act.sesionId && act.citaId) {
-                        setCambiando({ destino:d, encargo, motivo:'', nota:'',
-                          antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
-                        return
-                      }
-                      router.push(rutaDeAsignacion(d as any, encargo))
-                    }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}}
-                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
-                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{l}</div>
-                  ))}
-                  {/* QUITARLA SIN PONER OTRA. Antes cambiar obligaba a elegir una nueva,
-                      asi que para dejar a alguien hoy sin sesion no habia forma: la de la
-                      cita seguia saliendo. Pide motivo igual que un cambio. */}
-                  {act.sesionId && act.citaId && (
-                    <div onClick={()=>{
-                      setEligiendo(null)
-                      const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
-                      setCambiando({ destino:'quitar', encargo:{ citaId: act.citaId, pacienteId: act.paciente.id },
-                        motivo:'', nota:'', antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
-                    }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,color:'var(--red)'}}
-                      onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--redl)'}
-                      onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>Quitar, hoy sin sesión</div>
-                  )}
-                </div>
-              )}
+              <IconosContexto que="contexto" ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
             </div>
             {act.sesionId && hojaAct && (
               <button className="btn btn-p btn-sm" onClick={()=>finalizarHoja(act.paciente.id, act.sesionId, hojaAct)}>✓ Guardar y finalizar</button>
