@@ -104,10 +104,19 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
             <option value="todos">Todos los trabajadores</option>
             {(perfiles||[]).map((p)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
           </select> : <span style={{flex:1}}/>}
-          <button onClick={()=>setVerCompletadas(!verCompletadas)} style={{fontSize:9,padding:'5px 10px',borderRadius:6,border:'1px solid var(--bd)',background:verCompletadas?'var(--gl)':'var(--w)',color:verCompletadas?'var(--gd)':'var(--gr)',cursor:'pointer',whiteSpace:'nowrap'}}>{verCompletadas?'✓ Completadas':'Pendientes'}</button>
+          {/* Dos pestañas, como «Uno a uno / Todos»: antes era un solo botón que cambiaba
+              de nombre al pulsarlo y parecía una etiqueta. */}
+          <div style={{display:'inline-flex',background:'#E8E7E1',borderRadius:99,padding:3,flexShrink:0}}>
+            {([[false,'Pendientes'],[true,'Hechas']] as const).map(([v,l])=>(
+              <button key={l} onClick={()=>setVerCompletadas(v)}
+                style={{border:0,borderRadius:99,padding:'6px 13px',fontSize:12,fontFamily:'inherit',cursor:'pointer',whiteSpace:'nowrap',
+                  background:verCompletadas===v?'#fff':'transparent',color:verCompletadas===v?'var(--n)':'var(--gr)',
+                  boxShadow:verCompletadas===v?'0 1px 4px rgba(0,0,0,.08)':'none'}}>{l}</button>
+            ))}
+          </div>
         </div>
 
-        {lista.length===0&&<div style={{fontSize:10,color:'var(--grl)',textAlign:'center',padding:'20px',fontStyle:'italic'}}>{verCompletadas?'No hay tareas completadas':'No hay tareas pendientes'}</div>}
+        {lista.length===0&&<div style={{fontSize:10,color:'var(--grl)',textAlign:'center',padding:'20px',fontStyle:'italic'}}>{verCompletadas?'No hay tareas hechas':'No hay tareas pendientes'}</div>}
         {lista.map((t)=>{
           const est = estadoTarea(t)
           return (
