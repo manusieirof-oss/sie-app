@@ -1796,78 +1796,29 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               {s.hora&&!hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
               <span style={{fontSize:12.5,fontWeight:500,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombreCorto(s.paciente)}</span>
-              {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
-              <ChipPulso pid={s.paciente?.id}/>
-              {activoChip && <span onClick={e=>{ e.stopPropagation(); setCitaVelo(s.paciente.id) }} title="Su cita: falta, sala e incidencias"
-                style={{fontSize:11,padding:'0 2px 0 4px',opacity:.85}}>▾</span>}
-            </div>
-            )
-          })}
-          {/* Añadir a alguien que viene sin cita: junto a las personas, no arriba. */}
-          {!solo && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
-              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
-                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>}
-        </div>
-      )}
-      {!solo && seleccion.length>0 && vista==='todos' && (
-        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
-          <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
-              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
-                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>
-        </div>
-      )}
-
-      {/* CUERPO */}
-      {seleccion.length===0 ? (
-        <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
-          {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o añade a quien venga sin cita.</>}
-          {!trayendo && !solo && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
-              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
-                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button></div>}
-        </div>
-      ) : vista==='todos' ? (
-        <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{
-          confirmar: confirmarSerie, mutar: mutarSerie, addSerie, quitarSerie,
-          regimen: setRegimen, lado: setLado, coment: setComent, item: toggleItem,
-          noHecho: alternarNoHecho, noHechos: leerNoHechos,
-          sustituir: abrirSustituir, puedeCambiar: cambiaEj,
-          // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).
-          abrir: (pid:string) => { setActivo(pid); setVista('uno') },
-          todosItems: marcarTodosItems, objetivo: toggleObjetivo, cita: (pid:string) => setCitaVelo(pid),
-          objetivosLib, objsPac: (pid:string) => objsPorPaciente[pid] || [],
-          arreglar, medida: cambiarMedidaBase,
-        }}/>
-      ) : !act ? (
-        <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
-      ) : (
-        <div className="card">
-          {/* Con la pantalla estrecha, lo de la derecha baja de línea en vez de salirse. */}
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
-            <div style={{minWidth:0,flexShrink:0}}>
-              <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              {/* LA PERSONA ELEGIDA LLEVA SU SESIÓN Y SUS OBJETIVOS, aquí mismo: tocar la
+                  sesión la cambia (nivel 2 en adelante) y «▾» abre su cita. La tarjeta de
+                  abajo queda para el trabajo. */}
+              {activoChip && act && act.paciente.id===s.paciente.id && <>
                 {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
                     existe para eso. Al asignar allí, vuelves aquí. */}
-                <div style={{position:'relative',minWidth:0,maxWidth:'60%'}}>
-                  {/* LA SESIÓN Y SUS OBJETIVOS en la píldora donde antes iba el nombre (que
-                      ya está arriba, en la ficha de la persona). Tocarla cambia la sesión
-                      (nivel 2 en adelante); las bolitas abren los objetivos. */}
+                <div style={{position:'relative',minWidth:0}} onClick={e=>e.stopPropagation()}>
+                  {/* Tocar la sesión la cambia (nivel 2 en adelante); las bolitas abren los objetivos. */}
                   <div role="button" onClick={()=>{ if (cambiaSes) setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id) }}
                     title={act.sesionId ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') : undefined}
-                    style={{display:'inline-flex',alignItems:'center',gap:9,maxWidth:'100%',minWidth:0,padding:'5px 12px 5px 12px',borderRadius:99,
-                      cursor:cambiaSes?'pointer':'default',border:`1.5px solid ${act.sesionId?'var(--bd)':'var(--g)'}`,
-                      background:act.sesionId?'var(--bl)':'var(--gl)',color:'var(--n)'}}>
-                    <Ic name="fuerza" size={15}/>
-                    <span style={{fontSize:15,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,
-                      color:act.sesionId?'var(--n)':'var(--gd)'}}>{act.sesionId
+                    style={{display:'inline-flex',alignItems:'center',gap:6,minWidth:0,padding:'1px 4px 1px 8px',borderLeft:'1px solid rgba(255,255,255,.25)',
+                      cursor:cambiaSes?'pointer':'default',color:'inherit'}}>
+                    <span style={{fontSize:12,fontWeight:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,maxWidth:230,
+                      opacity:act.sesionId?.85:1,color:act.sesionId?'inherit':'#BFDCDF'}}>{act.sesionId
                       ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
                       : cambiaSes ? 'Asignar sesión' : 'Sin sesión'}</span>
                     {act.sesionId && <span onClick={e=>e.stopPropagation()} style={{display:'inline-flex',flexShrink:0}}>
-                      <IconosContexto que="objetivos" tam={26} ctx={{}} sesionId={act.sesionId}/>
+                      <IconosContexto que="objetivos" tam={22} ctx={{}} sesionId={act.sesionId}/>
                     </span>}
                     {cambiaSes && <span style={{fontSize:11,color:'var(--grl)',flexShrink:0}}>▾</span>}
                   </div>
                   {eligiendo===act.paciente.id && (
-                    <div style={{position:'absolute',top:'100%',left:0,zIndex:30,marginTop:4,minWidth:190,
+                    <div style={{position:'absolute',top:'calc(100% + 8px)',left:0,zIndex:30,color:'var(--n)',marginTop:4,minWidth:190,
                       border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',overflow:'hidden'}}>
                       {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).filter(([d]) => d !== 'biblioteca' || puede('biblioteca')).map(([d,l])=>(
                         <div key={d} onClick={()=>{
@@ -1917,6 +1868,56 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     </div>
                   )}
                 </div>
+              </>}
+              {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
+              <ChipPulso pid={s.paciente?.id}/>
+              {activoChip && <span onClick={e=>{ e.stopPropagation(); setCitaVelo(s.paciente.id) }} title="Su cita: falta, sala e incidencias"
+                style={{fontSize:11,padding:'0 2px 0 4px',opacity:.85}}>▾</span>}
+            </div>
+            )
+          })}
+          {/* Añadir a alguien que viene sin cita: junto a las personas, no arriba. */}
+          {!solo && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>}
+        </div>
+      )}
+      {!solo && seleccion.length>0 && vista==='todos' && (
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
+          <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>
+        </div>
+      )}
+
+      {/* CUERPO */}
+      {seleccion.length===0 ? (
+        <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
+          {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o añade a quien venga sin cita.</>}
+          {!trayendo && !solo && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button></div>}
+        </div>
+      ) : vista==='todos' ? (
+        <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{
+          confirmar: confirmarSerie, mutar: mutarSerie, addSerie, quitarSerie,
+          regimen: setRegimen, lado: setLado, coment: setComent, item: toggleItem,
+          noHecho: alternarNoHecho, noHechos: leerNoHechos,
+          sustituir: abrirSustituir, puedeCambiar: cambiaEj,
+          // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).
+          abrir: (pid:string) => { setActivo(pid); setVista('uno') },
+          todosItems: marcarTodosItems, objetivo: toggleObjetivo, cita: (pid:string) => setCitaVelo(pid),
+          objetivosLib, objsPac: (pid:string) => objsPorPaciente[pid] || [],
+          arreglar, medida: cambiarMedidaBase,
+        }}/>
+      ) : !act ? (
+        <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
+      ) : (
+        <div className="card">
+          {/* Con la pantalla estrecha, lo de la derecha baja de línea en vez de salirse. */}
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
+            <div style={{minWidth:0,flexShrink:0}}>
+              <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                 {/* Solo sale si lleva banda: ver PulsoClase. */}
                 <ChipPulso pid={act.paciente?.id} grande/>
                 {act.estado === 'falta' && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#C0504D', borderRadius: 99, padding: '1px 8px' }}>Falta</span>}
