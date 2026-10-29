@@ -801,6 +801,19 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               {formSesion.partes.map((p:any,i:number)=>{
                 const activa = parteActiva===i
                 const destino = sobre===i && arrastra!==null && arrastra!==i
+                /* EL NOMBRE SE CAMBIA EN LA PROPIA PÍLDORA. En la elegida se escribe
+                   directamente; antes se repetía abajo en la franja y quitaba sitio. */
+                if (activa) return (
+                  <span key={i} className="chip-obj on"
+                    style={{borderColor:'var(--g)',background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4,cursor:'text'}}
+                    title="Escribe para cambiar el nombre de la parte">
+                    <input value={p.nombre||''} onChange={e=>editarParte({nombre:e.target.value})} placeholder="Nombre"
+                      onFocus={e=>e.currentTarget.select()}
+                      size={Math.max(6, (p.nombre||'').length)}
+                      style={{border:0,background:'transparent',color:'#fff',font:'inherit',padding:0,outline:'none',minWidth:0}}/>
+                    <span style={{opacity:.7}}>({(p.ejercicios||[]).length})</span>
+                  </span>
+                )
                 return (
                   <button key={i} onClick={()=>setParteActiva(i)}
                     draggable
@@ -835,9 +848,6 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 sueltos otra vez. */}
             {formSesion.partes.length>0 && (
               <div className="parte-bar">
-                <input value={parte?.nombre||''} onChange={e=>editarParte({nombre:e.target.value})}
-                  className="parte-nom" placeholder="Nombre de la parte"/>
-
                 <ChipMenu valor={modoParte(parte?.modo).nombre}
                   opciones={MODOS_PARTE.map(m=>m.nombre)}
                   titulo={modoParte(parte?.modo).ayuda}
