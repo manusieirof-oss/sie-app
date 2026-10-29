@@ -18,7 +18,7 @@ import HojaLibre from '@/components/HojaLibre'
 import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 import { objetivosDeEjercicio, cruceObjetivo } from '@/lib/ejercicioObjetivos'
-import { camposSerie, ajustesMedida, COLOR_BANDA } from '@/lib/medida'
+import { camposSerie, ajustesMedida, COLOR_BANDA, partesMedida, idMedida } from '@/lib/medida'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -923,7 +923,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   <span>Ejercicio</span>
                   <span>Cómo se hace</span>
                   <span className="c">Series</span>
-                  <span className="c">Reps · s</span>
+                  <span className="c" title="Repeticiones, segundos o metros: lo eliges debajo de cada casilla">Cantidad</span>
                   <span className="c">Peso</span>
                   <span className="c">Descanso</span>
                   <span/>
@@ -1117,7 +1117,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                     {/* Una sola columna: repeticiones o duración, según cómo se mida
                         el ejercicio en la biblioteca. Nunca las dos. */}
-                    <div className="celda" data-l={med.includes('segundos')?'Duración · s':med.includes('metros')?'Distancia · m':'Repeticiones'}>
+                    <div className="celda apilada" data-l={med.includes('segundos')?'Duración · s':med.includes('metros')?'Distancia · m':'Repeticiones'}>
                       {med.includes('segundos')
                         ? <input type="number" className="c" value={ej.tiempo||''} placeholder="seg"
                             title="Lo que dura cada serie, en segundos"
@@ -1133,6 +1133,26 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                               const cap=capacidadPorReps(val)
                               editarEjercicio(ei,{reps:val,...(cap?{capacidad:cap}:{})})
                             }}/>}
+                      {/* QUÉ SE ESTÁ PONIENDO, A LA VISTA Y CAMBIABLE: repeticiones, segundos o
+                          metros. Antes salía uno u otro según la biblioteca, sin decirlo, y
+                          no había forma de prescribir por tiempo uno que va por reps. */}
+                      {(()=>{
+                        const bib = catalogo.find((x:any)=>x.id===ej.ejercicio_id)
+                        const base = ej.tipo_medida || bib?.tipo_medida || 'peso_reps'
+                        const { carga } = partesMedida(base)
+                        const actual = med.includes('segundos') ? 'segundos' : med.includes('metros') ? 'metros' : 'reps'
+                        return (
+                          <span style={{display:'inline-flex',gap:2,marginTop:3,background:'var(--bl)',borderRadius:99,padding:2}}>
+                            {([['reps','reps'],['segundos','seg'],['metros','m']] as const).map(([v,l])=>(
+                              <button key={v} type="button" onClick={()=>editarEjercicio(ei,{tipo_medida: idMedida(carga, v)})}
+                                title={v==='reps'?'Por repeticiones':v==='segundos'?'Por tiempo (segundos)':'Por distancia (metros)'}
+                                style={{border:0,borderRadius:99,padding:'1px 7px',fontSize:10.5,fontFamily:'inherit',cursor:'pointer',
+                                  background:actual===v?'#fff':'transparent',color:actual===v?'var(--gd)':'var(--grl)',fontWeight:actual===v?600:400,
+                                  boxShadow:actual===v?'0 1px 2px rgba(0,0,0,.08)':'none'}}>{l}</button>
+                            ))}
+                          </span>
+                        )
+                      })()}
                     </div>
 
                     <div className="celda" data-l={med.includes('banda')?'Banda':'Peso · kg'}>
