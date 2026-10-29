@@ -840,28 +840,6 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   </label>
                 )}
 
-                {/* SERIES DE TODA LA PARTE, desde arriba: se escriben una vez y se ponen en
-                    todos sus ejercicios. Si no coinciden, sale vacío con «varias». Luego
-                    cada ejercicio se puede retocar abajo. (En circuito mandan las vueltas.) */}
-                {(parte?.modo==='ejercicio'||parte?.modo==='superserie'||!parte?.modo) && (parte?.ejercicios||[]).length>0 && (()=>{
-                  const ss: string[] = Array.from(new Set<string>((parte?.ejercicios||[]).map((x:any)=>String(x.series||''))))
-                  const igual = ss.length===1 ? ss[0] : ''
-                  return (
-                    <label className="par-in" title="Pone estas series a todos los ejercicios de la parte">
-                      <span style={{color:'var(--gr)',marginRight:4}}>Series</span>
-                      <input type="number" min={1} value={igual} placeholder={ss.length>1?'varias':'—'}
-                        onChange={e=>{
-                          const v=e.target.value
-                          setFormSesion(prev=>{
-                            const partes=[...prev.partes]; const pa=partes[parteActiva]
-                            partes[parteActiva]={ ...pa, ejercicios:(pa.ejercicios||[]).map((x:any)=>({ ...x, series:v })) }
-                            return { ...prev, partes }
-                          })
-                        }}/>
-                      <span>todos</span>
-                    </label>
-                  )
-                })()}
 
                 {parte?.modo==='tiempo' && (
                   <>
@@ -935,6 +913,75 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 )}
               </div>
             )}
+
+            {/* TODA LA PARTE A LA VEZ. Lo normal es que los ejercicios de una parte vayan
+                igual (mismas series, misma cantidad, misma ejecución y capacidad, mismo
+                lado): se pone aquí una vez y vale para todos. Si no coinciden, sale
+                «varias». Luego cada ejercicio se puede retocar abajo. */}
+            {(parte?.ejercicios||[]).length>1 && (()=>{
+              const ejs = parte?.ejercicios || []
+              const comun = (f:(x:any)=>string) => { const v = Array.from(new Set<string>(ejs.map(f))); return v.length===1 ? v[0] : null }
+              const todos = (cambio:(x:any)=>any) => setFormSesion(prev=>{
+                const partes=[...prev.partes]; const pa=partes[parteActiva]
+                partes[parteActiva]={ ...pa, ejercicios:(pa.ejercicios||[]).map((x:any)=>({ ...x, ...cambio(x) })) }
+                return { ...prev, partes }
+              })
+              const unidad = (x:any) => { const m = medida(x); return m.includes('segundos') ? 'segundos' : m.includes('metros') ? 'metros' : 'reps' }
+              const uComun = comun(unidad)
+              const campoDe = (u:string) => u==='segundos' ? 'tiempo' : u==='metros' ? 'metros' : 'reps'
+              const cant = uComun ? comun((x:any)=>String(x[campoDe(uComun)]||'')) : null
+              const seriesC = comun((x:any)=>String(x.series||''))
+              const etq: React.CSSProperties = { fontSize:11, color:'var(--grl)', marginRight:4 }
+              return (
+                <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'7px 12px',margin:'-2px 0 10px',
+                  background:'var(--bl)',borderRadius:10,fontSize:12.5}}>
+                  <b style={{fontSize:12,color:'var(--gd)'}}>Toda la parte</b>
+                  {parte?.modo!=='circuito' && (
+                    <label className="par-in" title="Las mismas series para todos">
+                      <span style={etq}>Series</span>
+                      <input type="number" min={1} value={seriesC ?? ''} placeholder={seriesC===null?'varias':'—'}
+                        onChange={e=>{ const v=e.target.value; todos(()=>({ series:v })) }}/>
+                    </label>
+                  )}
+                  <label className="par-in" title="La misma cantidad para todos: repeticiones, segundos o metros">
+                    <span style={etq}>Cantidad</span>
+                    <input type="number" min={0} value={cant ?? ''} placeholder={uComun ? (cant===null?'varias':'—') : '—'} disabled={!uComun}
+                      onChange={e=>{ const v=e.target.value; const c=campoDe(uComun!); todos(()=>({ [c]:v })) }}/>
+                    <span style={{display:'inline-flex',gap:2,background:'#fff',borderRadius:99,padding:2,marginLeft:4}}>
+                      {([['reps','reps'],['segundos','seg'],['metros','m']] as const).map(([v,l])=>(
+                        <button key={v} type="button" title={v==='reps'?'Todos por repeticiones':v==='segundos'?'Todos por tiempo':'Todos por distancia'}
+                          onClick={()=>todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } })}
+                          style={{border:0,borderRadius:99,padding:'1px 7px',fontSize:10.5,fontFamily:'inherit',cursor:'pointer',
+                            background:uComun===v?'var(--gl)':'transparent',color:uComun===v?'var(--gd)':'var(--grl)',fontWeight:uComun===v?600:400}}>{l}</button>
+                      ))}
+                    </span>
+                  </label>
+                  <span style={{display:'inline-flex',alignItems:'center'}}>
+                    <span style={etq}>Cómo se hace</span>
+                    <ChipMenu valor={comun((x:any)=>x.regimen||'Concéntrico') ?? 'varias'} opciones={nombresEjecucion(cfgTrabajo)}
+                      titulo="La misma ejecución para todos"
+                      onElegir={v=>todos((x:any)=>{
+                        const seg = ejecucionPorTiempo(cfgTrabajo, v) && !x.tiempo ? segundosDeEjecucion(cfgTrabajo, v) : ''
+                        return { regimen:v, ...(seg ? { tiempo: seg } : {}) }
+                      })}/>
+                  </span>
+                  <span style={{display:'inline-flex',alignItems:'center'}}>
+                    <span style={etq}>Capacidad</span>
+                    <ChipMenu valor={comun((x:any)=>x.capacidad||'') || undefined} opciones={nombresCapacidad(cfgTrabajo)}
+                      clase="chip-ed-a" vacio={comun((x:any)=>x.capacidad||'')===null ? 'varias' : '—'} titulo="La misma capacidad para todos"
+                      onElegir={cap=>todos((x:any)=>{
+                        const sug=sugerenciaCapacidad(cfgTrabajo, cap, medida(x).includes('segundos'))
+                        return { capacidad:cap, ...(sug.reps?{reps:sug.reps}:{}), ...(sug.tiempo?{tiempo:sug.tiempo}:{}) }
+                      })}/>
+                  </span>
+                  <span style={{display:'inline-flex',alignItems:'center'}}>
+                    <span style={etq}>Lado</span>
+                    <ChipMenu valor={comun((x:any)=>x.lado||'Bilateral') ?? 'varias'} opciones={[...LADOS]} clase="chip-ed-l"
+                      titulo="El mismo lado para todos" onElegir={v=>todos(()=>({ lado:v }))}/>
+                  </span>
+                </div>
+              )
+            })()}
 
             {(formSesion.partes[parteActiva]?.ejercicios||[]).length===0?(
               <div style={{textAlign:'center',padding:30,color:'var(--gr)',fontSize:13,border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)'}}>
