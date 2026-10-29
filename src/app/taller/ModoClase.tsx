@@ -595,6 +595,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // Gente de una franja anterior que se quedo sin guardar al cambiar de franja.
   const [pendClase, setPendClase] = useState<any[]>([])
   const [cerrandoClase, setCerrandoClase] = useState(false)
+  /** Menú de «Finalizar» cuando en pantalla hay más de una clase (varias salas u horas). */
+  const [menuFin, setMenuFin] = useState(false)
   const seleccionRef = useRef<any[]>([])
   useEffect(() => { seleccionRef.current = seleccion }, [seleccion])
 
@@ -1177,7 +1179,16 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
            vuelve, sigue en la misma hora y con el mismo paciente, aunque no sea la hora
            actual. Solo si fue hace poco (2 h): al dia siguiente, o tras la comida,
            manda otra vez lo que esta pasando ahora. */
-        if (g.t && Date.now() - g.t < 2 * 3600 * 1000) {
+        /* AL RECARGAR, A LA CLASE DE AHORA. Recargar (Cmd+R) es pedir lo actual, no volver
+           de otra pantalla: se queda la sala y nada más. Se mira que la carga sea de hace
+           un momento: al volver de la ficha sin recargar, el tipo de carga sigue siendo el
+           de la primera vez. */
+        let recarga = false
+        try {
+          const nav = performance.getEntriesByType('navigation')[0] as any
+          recarga = nav?.type === 'reload' && performance.now() < 5000
+        } catch {}
+        if (!recarga && g.t && Date.now() - g.t < 2 * 3600 * 1000) {
           if (g.fecha) setFecha(g.fecha)
           if (g.hora != null) setHora(g.hora)
           if (g.activo) setActivo(g.activo)
@@ -1786,12 +1797,41 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 <span title={`Guardado ${ultimoGuardado.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`}
                   style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--gl)', color: 'var(--gd)', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ic name="check" size={11}/></span>
               ) : null}
-              {nCerrar > 0 && (
-                <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
-                  style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  {cerrandoClase ? 'Guardando…' : solo ? '✓ Finalizar' : `✓ Finalizar · ${nCerrar}`}
-                </button>
-              )}
+              {nCerrar > 0 && (() => {
+                /* UNA CLASE ES UNA HORA EN UNA SALA. Con «Todas» las salas (o «Día»), en
+                   pantalla hay varias clases: finalizar no puede cerrar la de la otra sala,
+                   que quizá sigue en marcha. Entonces el botón pregunta cuál. */
+                const grupos: Record<string, any[]> = {}
+                porCerrar(seleccion).forEach((x:any) => { (grupos[`${x.hora || ''}|${x.sala || ''}`] ||= []).push(x) })
+                const claves = Object.keys(grupos).sort()
+                const estilo: React.CSSProperties = { background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }
+                if (claves.length <= 1) return (
+                  <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta clase" style={estilo}>
+                    {cerrandoClase ? 'Guardando…' : solo ? '✓ Finalizar' : `✓ Finalizar · ${nCerrar}`}
+                  </button>
+                )
+                return (
+                  <span style={{ position: 'relative', flexShrink: 0 }}>
+                    <button disabled={cerrandoClase} onClick={() => setMenuFin(v => !v)} style={estilo}>
+                      {cerrandoClase ? 'Guardando…' : `✓ Finalizar ▾`}
+                    </button>
+                    {menuFin && <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuFin(false)}/>
+                      <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 41, minWidth: 210, background: '#fff', borderRadius: 12,
+                        boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 6 }}>
+                        <div style={{ fontSize: 10.5, color: 'var(--grl)', padding: '4px 10px 6px' }}>¿Qué clase se ha terminado?</div>
+                        {claves.map(k => { const [h, sa] = k.split('|'); return (
+                          <button key={k} className="menu-it" style={{ width: '100%', textAlign: 'left', fontSize: 13 }}
+                            onClick={() => { setMenuFin(false); finalizarClase(grupos[k]) }}>
+                            {h || 'Sin hora'}{sa ? ` · sala ${sa}` : ''} <span style={{ color: 'var(--grl)' }}>· {grupos[k].length}</span>
+                          </button>) })}
+                        <button className="menu-it" style={{ width: '100%', textAlign: 'left', fontSize: 13, borderTop: '1px solid var(--bl)' }}
+                          onClick={() => { setMenuFin(false); finalizarClase(seleccion) }}>Todas <span style={{ color: 'var(--grl)' }}>· {nCerrar}</span></button>
+                      </div>
+                    </>}
+                  </span>
+                )
+              })()}
               {solo?.onCerrar && <button onClick={solo.onCerrar} title="Volver a la agenda"
                 style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--bd)', background: '#fff', cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>✕</button>}
             </div>
