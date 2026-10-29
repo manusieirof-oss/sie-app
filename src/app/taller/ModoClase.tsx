@@ -31,6 +31,7 @@ import PulsoClase from './PulsoClase'
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import RejillaParte from './RejillaParte'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
+import { igualesA } from '@/lib/ejercicios'
 import { traerTodo } from '@/lib/paginar'
 import IconosContexto from './IconosContexto'
 import HojaLibre from '@/components/HojaLibre'
@@ -2279,6 +2280,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             {catalogoEj.length === 0
               ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
               : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
+                  /* PRIMERO LOS IGUALES: los del mismo movimiento (o parecidos), y el resto
+                     de la biblioteca solo si se busca o se filtra. */
+                  sugeridos={(()=>{ const e = seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]
+                    const base = catalogoEj.find((x:any)=>x.id===e?.ejercicio_id)
+                    const r = igualesA(catalogoEj, base, etiquetas)
+                    return r.items.length ? r : undefined })()}
+                  soloSugeridos
                   onAbrir={(ej:any)=>cambioSiempre ? cambiarParaSiempre(sustituyendo.pid, sustituyendo.i, ej) : sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
           </div>
         </div>

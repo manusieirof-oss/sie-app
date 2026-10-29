@@ -258,7 +258,8 @@ function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onS
         title="Cambiar solo hoy o marcar que no lo hizo"
         style={chapa({ right: 5, top: 5, background: abierto ? 'var(--g)' : 'var(--w)', color: abierto ? '#fff' : 'var(--gd)' })}>⇄</button>
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={210}>
-        {opcion('⇄', 'Cambiar solo hoy', onSustituir)}
+        {/* Solo hoy o para siempre se elige luego, en la ventana de cambiar. */}
+        {opcion('⇄', 'Cambiar ejercicio', onSustituir)}
         {opcion('⊘', 'No lo hizo', onNoHecho)}
       </Flotante>
     </>

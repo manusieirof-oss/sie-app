@@ -480,3 +480,24 @@ export async function sacarDeFamilia(ejId: string) {
   const { error } = await supabase.from('ejercicios').update({ portada_id: null }).eq('id', ejId)
   return error ? malE(error) : { ok: true as const }
 }
+
+/**
+ * PARA CAMBIAR UN EJERCICIO POR OTRO «IGUAL»: los que hacen el MISMO MOVIMIENTO (sus
+ * etiquetas de movimiento, p. ej. abducción de cadera), variantes de su familia
+ * incluidas. Si no tiene movimiento etiquetado, los parecidos por músculo y patrón.
+ * Lo usan el editor de sesiones y el taller.
+ */
+export function igualesA(ejercicios: any[], base: any, etiquetas: any[] = []): { titulo: string, items: any[] } {
+  if (!base) return { titulo: '', items: [] }
+  const movs = (base.etiquetas || []).filter((id: string) => {
+    const et = etiquetas.find((x: any) => x.id === id)
+    return et && categoriaDe(etiquetas, et) === 'movimiento'
+  })
+  const iguales = movs.length ? ejercicios
+    .filter((x: any) => x.id !== base.id && movs.every((m: string) => (x.etiquetas || []).includes(m)))
+    .map((x: any) => ({ x, n: (x.etiquetas || []).filter((id: string) => (base.etiquetas || []).includes(id)).length }))
+    .sort((a: any, b: any) => b.n - a.n).slice(0, 24).map((o: any) => o.x) : []
+  return iguales.length
+    ? { titulo: `Hacen el mismo movimiento que ${base.nombre}`, items: iguales }
+    : { titulo: `Parecidos a ${base.nombre}`, items: similaresA(ejercicios, base, 10, etiquetas).filter((x: any) => x.id !== base.id) }
+}
