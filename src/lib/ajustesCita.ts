@@ -73,7 +73,8 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
     const p = ap ? { ...p0,
       ...Object.fromEntries((['modo', 'vueltas', 'transicion', 'descanso', 'minutos', 'tipo_tiempo'] as const).filter(k => ap[k] !== undefined).map(k => [k, ap[k]])),
       ejercicios: (p0.ejercicios || []).map((e: any, i: number) => ({ ...e,
-        ...(ap.series ? { series: ap.series } : {}),
+        // `series_hoy`: el taller respeta este número aunque la última vez hiciera otro.
+        ...(ap.series ? { series: ap.series, series_hoy: true } : {}),
         // Superseries de ese día: la letra de grupo de cada ejercicio, por orden.
         ...(ap.grupos ? { grupo: ap.grupos[i] || ap.grupos[ap.grupos.length - 1] } : {}) })),
     } : p0

@@ -787,6 +787,18 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   async function aplicarMetodoParte(pid: string, pi: number, modo: string, v: ValoresMetodo, alcance: 'hoy' | 'siempre') {
     const item = seleccion.find((x:any) => x.paciente.id === pid)
     if (!item?.sesionId) return
+    /* LAS SERIES QUE SE ACABAN DE PONER, MANDAN. Al cargar, el número de series sale de la
+       última vez que lo hizo (para no volver al plan si se quitaron en la sala), así que
+       cambiar aquí de 1 a 4 no se notaba. Tras aplicar, esa parte queda con las nuevas. */
+    const nNuevas = parseInt(modo === 'circuito' ? (v.vueltas || '') : (v.series || '')) || 0
+    const conSeries = (datos: any[]) => !nNuevas ? datos : datos.map((e: any) => {
+      if (String(e.pos || '').split('.')[0] !== String(pi)) return e
+      const molde = e.series?.[e.series.length - 1] || { peso: '', reps: '', segundos: '' }
+      const series = e.series.length >= nNuevas ? e.series.slice(0, nNuevas)
+        : [...e.series, ...Array.from({ length: nNuevas - e.series.length }, () => ({ ...molde }))]
+      return { ...e, series }
+    })
+    const ajustarSeries = () => { if (nNuevas) setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos: conSeries(x.datos || []) })) }
     const fechaC = item.fechaClase || fecha
     const { data: c } = item.citaId ? await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle() : { data: null as any }
     const aj: any = c?.ajustes ? { v: 1, ejercicios: {}, ...c.ajustes } : { v: 1, ejercicios: {} }
@@ -803,6 +815,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         if (partes[pi]) partes[pi] = aplicarMetodo(partes[pi], modo, v)
         return partes
       }, undefined, `Método de «${nombreParte}» cambiado en el taller`)
+      ajustarSeries()
       return
     }
     if (!item.citaId) { alert('Sin cita no hay «solo hoy»: usa «Para siempre».'); return }
@@ -810,7 +823,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     const { error } = await supabase.from('citas').update({ ajustes: aj }).eq('id', item.citaId)
     if (error) { alert('No se ha podido guardar: ' + error.message); return }
     if (!ses) return
-    const datos = await cargarDatosSesion(pid, aplicarAjustes(ses, aj), fechaC)
+    const datos = conSeries(await cargarDatosSesion(pid, aplicarAjustes(ses, aj), fechaC))
     setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos }))
   }
 
@@ -963,6 +976,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           grupo: ej.grupo || '',
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
+          seriesHoy: !!ej.series_hoy,
           // Su hueco en la sesion (parte.ejercicio): es la clave de los ajustes del dia.
           pos: `${pi}.${pe}`, sustituye: ej.sustituye || '',
           // Qué objetivos trabaja este ejercicio, tal cual se dejó en la sesión.
@@ -1113,7 +1127,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                (la sesion se quedaba larga, o habia una errata en el plan), la clase
                siguiente volvia a salir con las del plan. Ahora manda lo que se hizo, igual
                que con el peso y las repes. */
-            if (e.ultimo.length !== e.series.length) {
+            // Salvo que HOY se hayan cambiado las series de su parte (lápiz de la franja).
+            if (e.ultimo.length !== e.series.length && !e.seriesHoy) {
               const molde = e.series[0] || { peso:'', reps:'', segundos:'' }
               e.series = Array.from({ length: e.ultimo.length }, (_:any, k:number) => e.series[k] || { ...molde })
             }
