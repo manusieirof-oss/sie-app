@@ -28,9 +28,11 @@ function valorTexto(seg: boolean | undefined, v?: string) {
   return t || 'sin pausa'
 }
 
-export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
+export default function MetodoParte({ parte, puede, defectos, onAplicar, soloHoy = false }: {
   parte: any
   puede: boolean
+  /** Nivel 2: solo se cambia la clase de hoy, sin «Para siempre». */
+  soloHoy?: boolean
   defectos: Record<string, ValoresMetodo>
   onAplicar: (modo: string, v: ValoresMetodo, alcance: 'hoy' | 'siempre') => Promise<void> | void
 }) {
@@ -96,7 +98,7 @@ export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
         {hayPausas && pausas.length === 0 && <span> · sin pausas</span>}
       </span>
       {puede && (
-        <span ref={ancla} role="button" onClick={abrir} title="Cambiar el método, las series o los descansos"
+        <span ref={ancla} role="button" data-guia="taller-metodo" onClick={abrir} title="Cambiar el método, las series o los descansos"
           style={{ width: 30, height: 30, borderRadius: '50%', display: 'inline-grid', placeItems: 'center', cursor: 'pointer', color: 'var(--gr)', flexShrink: 0 }}
           onMouseOver={e => (e.currentTarget as HTMLElement).style.background = '#fff'}
           onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
@@ -146,7 +148,7 @@ export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
             <button className="btn btn-s btn-sm" onClick={() => setAbierto(false)}>Cancelar</button>
             <span style={{ flex: 1 }}/>
             <button className="btn btn-s btn-sm" disabled={guardando} onClick={() => aplicar('hoy')} title="Solo esta clase: su sesión no cambia">Solo hoy</button>
-            <button className="btn btn-p btn-sm" disabled={guardando} onClick={() => aplicar('siempre')} title="Cambia su sesión para las próximas clases">Para siempre</button>
+            {!soloHoy && <button className="btn btn-p btn-sm" disabled={guardando} onClick={() => aplicar('siempre')} title="Cambia su sesión para las próximas clases">Para siempre</button>}
           </div>
         </div>
       </Flotante>

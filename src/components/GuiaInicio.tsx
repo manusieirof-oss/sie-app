@@ -33,11 +33,30 @@ export const PASOS: Paso[] = [
   { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. ¡Listo, a por la clase!' },
 ]
 
-const CLAVE = (uid: string) => `sie_guia_vista_${uid}`
-export const guiaVista = (uid: string) => { try { return localStorage.getItem(CLAVE(uid)) === '1' } catch { return true } }
-const marcarVista = (uid: string) => { try { localStorage.setItem(CLAVE(uid), '1') } catch {} }
+/**
+ * GUÍA DEL NIVEL 2: lo que se suma a dar la clase. Ajustar la sesión del día sin tocar
+ * su plan, la cita (falta, cancelar, sala), las fichas, la valoración y la biblioteca
+ * para consultar.
+ */
+export const PASOS_N2: Paso[] = [
+  { titulo: 'Guía del entrenador', texto: 'Además de dar la clase, ahora puedes ajustar la sesión del día de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te lo enseño en un minuto.' },
+  { ruta: '/pacientes', sitio: 'nav/pacientes', titulo: 'Pacientes', texto: 'Sus fichas: datos, alertas, sesiones e historial. Desde aquí puedes ver qué hizo cada día y ajustar el día de una cita concreta.' },
+  { ruta: '/valoracion', sitio: 'nav/valoracion', titulo: 'Valoración', texto: 'Las valoraciones y los tests de cada paciente.' },
+  { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'Biblioteca', texto: 'Para consultar los ejercicios: cómo se hacen, en qué fijarse y sus variantes. Toca uno para ver su ficha.' },
+  { ruta: '/taller', sitio: 'taller-personas', titulo: 'La persona y su cita', texto: 'En la persona elegida, «▾» abre su cita: marcar falta o cancelar, cambiar de sala, elegir otra de sus sesiones para hoy y apuntar incidencias.' },
+  { ruta: '/taller', sitio: 'taller-metodo', titulo: 'El método de una parte', texto: 'El lápiz de cada parte cambia, solo para hoy, el método (circuito, superseries…), las series o vueltas y los descansos.' },
+  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', texto: 'Aquí cambias un ejercicio por otro solo hoy: primero salen los que hacen el mismo movimiento, y en «Cualquiera», toda la biblioteca.' },
+  { ruta: '/taller', sitio: 'taller-series', titulo: 'Lo que hace', texto: 'Como siempre: apunta lo que cambia y lo que sale en gris se da por hecho. También puedes cambiar el régimen o el lado de hoy en su tarjeta.' },
+  { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar', texto: 'Finaliza la clase. Si hay varias salas en pantalla, te pregunta cuál.' },
+  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
+]
 
-export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: () => void }) {
+const CLAVE = (uid: string, n = 1) => n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`
+export const guiaVista = (uid: string, n = 1) => { try { return localStorage.getItem(CLAVE(uid, n)) === '1' } catch { return true } }
+const marcarVista = (uid: string, n = 1) => { try { localStorage.setItem(CLAVE(uid, n), '1') } catch {} }
+
+export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, onCerrar: () => void, nivel?: 1 | 2 }) {
+  const PASOS_G = nivel === 2 ? PASOS_N2 : PASOS
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   /* MIENTRAS SE BUSCA EL SITIO, NO SE ENSEÑA EL GLOBO. Antes salía en el centro y al
@@ -46,7 +65,7 @@ export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: (
   const [buscando, setBuscando] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
-  const paso = PASOS[i]
+  const paso = PASOS_G[i]
 
   // Si el paso es de otra pantalla, se va a ella.
   useEffect(() => {
@@ -88,8 +107,8 @@ export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: (
     return () => { vivo = false; window.removeEventListener('resize', recolocar); window.removeEventListener('scroll', recolocar, true) }
   }, [i, pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const cerrar = () => { marcarVista(uid); onCerrar() }
-  const ultimo = i === PASOS.length - 1
+  const cerrar = () => { marcarVista(uid, nivel); onCerrar() }
+  const ultimo = i === PASOS_G.length - 1
 
   // El globo: debajo del sitio si cabe, si no encima; sin sitio, en el centro.
   const W = 340, M = 12
@@ -111,7 +130,7 @@ export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: (
       <div style={{ position: 'fixed', inset: 0 }}/>
       <div style={{ position: 'fixed', width: W, maxWidth: `calc(100vw - ${2 * M}px)`, background: '#fff', borderRadius: 16, padding: '16px 18px',
         boxShadow: '0 12px 40px rgba(0,0,0,.25)', ...globo, visibility: buscando ? 'hidden' : 'visible' }}>
-        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>{i + 1} de {PASOS.length}</div>
+        <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>{i + 1} de {PASOS_G.length}</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--n)', marginBottom: 6 }}>{paso.titulo}</div>
         <div style={{ fontSize: 13.5, color: 'var(--gr)', lineHeight: 1.55 }}>{paso.texto}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>

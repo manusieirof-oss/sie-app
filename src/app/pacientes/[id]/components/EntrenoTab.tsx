@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
+import { usePuede } from '@/lib/permisos'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
@@ -31,6 +32,9 @@ import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 import { useImagenes, imagenDe, idsDeSesiones } from '@/lib/imagenEjercicio'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
+  // Nivel 2: ve sus sesiones y ajusta el día de una cita; crear, editar, versionar o
+  // borrar sesiones (cambios para siempre) es del 3 en adelante.
+  const editaPlan = usePuede()('editar_plan')
   const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   // Planificación en lista (la de siempre) o como la presentación final del torno.
@@ -901,14 +905,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             <div className="sec-h">
               <span className="sh-l">
                 <span className="ct-l"><Ic name="lista" size={13}/> Sesiones del paciente</span>
-                <button className="btn btn-s btn-sm" onClick={()=>routerAsig.push(rutaDeAsignacion('biblioteca', {
+                {editaPlan && <button className="btn btn-s btn-sm" onClick={()=>routerAsig.push(rutaDeAsignacion('biblioteca', {
                   pacienteId, etiqueta: nombrePaciente || 'este paciente',
                   volver: `/pacientes/${pacienteId}?tab=entreno`,
-                }))}>Traer de la biblioteca</button>
-                <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>
+                }))}>Traer de la biblioteca</button>}
+                {editaPlan && <button className="btn btn-p btn-sm" onClick={crearSesionNueva}>+ Nueva sesión</button>}
                 {/* Solo tiene sentido si hay programa en marcha: sin citas futuras con
                     sesión, no hay nada de lo que hacer una versión siguiente. */}
-                {citasFuturas.length>0 && sesionesDisp.length>0 && (
+                {editaPlan && citasFuturas.length>0 && sesionesDisp.length>0 && (
                   <button className="btn btn-sm" onClick={()=>setRepartiendo(true)} disabled={guardando}
                     title="Coloca las sesiones en las citas futuras siguiendo una rotación">
                     <Ic name="calendario" size={12}/> Repartir en las citas
@@ -1278,7 +1282,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           // Con un encargo, la cita YA SE SABE. Abrir el selector de citas obligaría a
           // buscarla otra vez en la lista, y deja marcar otra distinta de la que se venía
           // a resolver. Se asigna y se vuelve.
-          onAsignar={encargo
+          onAsignar={!editaPlan ? undefined : encargo
             ? ()=>{ const x=sesionDetalle; setSesionDetalle(null); asignarYVolver(x) }
             : ()=>{
               // Vienen premarcadas las que ya la tienen: así se ve el estado actual y
@@ -1288,16 +1292,16 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
             }}
           textoAsignar={encargo ? `Traer para ${encargo.etiqueta || 'el paciente'}` : undefined}
           onCerrar={()=>setSesionDetalle(null)}
-          onEditar={esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en
+          onEditar={editaPlan && esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en
             ? ()=>{const x=sesionDetalle;setSesionDetalle(null);abrirEditor(x)}
             : undefined}
           // AHORA: debajo de cada ejercicio, lo ultimo que hizo (cualquier dia).
           ejecutado={ultimoHecho || undefined}
           onHistorial={()=>setHistorialDe(sesionDetalle)}
-          onPartir={esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en ? ()=>{ setFinalizando({ sesion: sesionDetalle, modo: 'continuar', nota: '' }); setSesionDetalle(null) } : undefined}
+          onPartir={editaPlan && esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en ? ()=>{ setFinalizando({ sesion: sesionDetalle, modo: 'continuar', nota: '' }); setSesionDetalle(null) } : undefined}
           textoPartir="Finalizar sesión"
-          onDuplicar={()=>{duplicar(sesionDetalle);setSesionDetalle(null)}}
-          onEliminar={()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)}}
+          onDuplicar={editaPlan ? ()=>{duplicar(sesionDetalle);setSesionDetalle(null)} : undefined}
+          onEliminar={editaPlan ? ()=>{eliminarSesion(sesionDetalle.id);setSesionDetalle(null)} : undefined}
         />
       )}
 

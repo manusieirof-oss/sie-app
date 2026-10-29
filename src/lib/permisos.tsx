@@ -22,8 +22,8 @@ export type Nivel = 1 | 2 | 3 | 4
 
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
   { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases y apunta lo que se hace' },
-  { n: 2, nombre: 'Entrenador', que: 'Además Pacientes y Valoración; cambia ejercicios de las sesiones' },
-  { n: 3, nombre: 'Encargado/a', que: 'Además crea sesiones y ejercicios, y cobra' },
+  { n: 2, nombre: 'Entrenador', que: 'Además Pacientes y Valoración; ajusta la sesión del día (solo hoy)' },
+  { n: 3, nombre: 'Encargado/a', que: 'Además crea y cambia sesiones para siempre, ejercicios, y cobra' },
 ]
 export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
 
@@ -34,10 +34,12 @@ export const MINIMO = {
   editar_agenda: 2,        // crear, mover, editar o borrar citas (el 1 solo la consulta)
   turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
   tareas: 3,               // poner y borrar tareas, y ver las de todos (cada uno marca las suyas)
-  cambiar_ejercicios: 2,   // ⇄ solo hoy, para siempre o quitarlo de su sesión
+  cambiar_ejercicios: 2,   // cambios de UN DÍA en el taller: ejercicio, método, series (solo hoy)
+  editar_plan: 3,          // cambiar la sesión PARA SIEMPRE: editor, «para siempre», crear, borrar
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
   cancelar_cita: 2,        // falta, cancelada y cambio de sala
   torno: 3,
+  ver_biblioteca: 2,       // la biblioteca de ejercicios, solo para consultar
   biblioteca: 3,
   cobros: 3,
   medida_biblioteca: 3,    // 🔧 cambiar cómo se mide un ejercicio para todos
@@ -60,10 +62,12 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   editar_agenda: 'Crear, mover y borrar citas',
   turnos: 'Cambiar quién lleva cada sala',
   tareas: 'Poner tareas y ver las de todos',
-  cambiar_ejercicios: 'Cambiar ejercicios en el taller',
+  cambiar_ejercicios: 'Cambiar ejercicios y método en el taller (solo hoy)',
+  editar_plan: 'Cambiar sesiones para siempre (crear, editar, borrar)',
   cambiar_sesion: 'Elegir o quitar la sesión de una cita',
   cancelar_cita: 'Marcar faltas, cancelar y cambiar de sala',
   torno: 'El torno: planificar y crear sesiones',
+  ver_biblioteca: 'Consultar la biblioteca de ejercicios',
   biblioteca: 'Crear y editar ejercicios',
   cobros: 'Cobrar y emitir facturas',
   medida_biblioteca: 'Cambiar cómo se mide un ejercicio para todos',
@@ -93,7 +97,8 @@ export function nivelDe(perfil: any): Nivel {
 export const RUTAS: [string, Accion][] = [
   ['/pacientes', 'pacientes'], ['/movil/pacientes', 'pacientes'], ['/resultados', 'pacientes'],
   ['/valoracion', 'valoracion'], ['/camara', 'valoracion'], ['/vald', 'torno'],
-  ['/torno', 'torno'], ['/entrenamiento', 'biblioteca'],
+  // La biblioteca se consulta desde el 2; sus pantallas de trabajo (/entrenamiento/…), del 3.
+  ['/torno', 'torno'], ['/entrenamiento/', 'biblioteca'], ['/entrenamiento', 'ver_biblioteca'],
   ['/estadisticas', 'direccion'],
 ]
 

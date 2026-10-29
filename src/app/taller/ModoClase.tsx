@@ -94,6 +94,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   const cambiaEj = puede('cambiar_ejercicios'), cambiaSes = puede('cambiar_sesion'), tocaBib = puede('medida_biblioteca')
   // Añadir a alguien sin cita es crear una cita (como en la agenda); los tests son valoración.
   const editaAgenda = puede('editar_agenda'), haceTests = puede('valoracion')
+  // Nivel 2: cambia la clase de HOY; cambiar su sesión para siempre, desde el 3.
+  const editaPlan = puede('editar_plan')
   const [fecha, setFecha] = useState(solo?.fecha || hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
@@ -2168,14 +2170,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 {/* EL MÉTODO, SUS SERIES Y SUS DESCANSOS, sobre la franja y tocables (nivel 2+). */}
                 {ej.parteObj && (ej.pos != null
                   ? <MetodoParte key={JSON.stringify([ej.parteObj.modo, ej.parteObj.vueltas, ej.parteObj.descanso, ej.parteObj.transicion, ej.parteObj.ejercicios?.[0]?.series])}
-                      parte={ej.parteObj} puede={cambiaEj} defectos={metodos}
+                      parte={ej.parteObj} puede={cambiaEj} soloHoy={!editaPlan} defectos={metodos}
                       onAplicar={(m, v, alc) => aplicarMetodoParte(act.paciente.id, Number(String(ej.pos).split('.')[0]), m, v, alc)}/>
                   : <span style={{fontSize:12.5,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:5}}>
                       <Ic name={modoParte(ej.parteObj.modo).icono} size={13}/> {textoModo(ej.parteObj)}
                     </span>)}
                 {/* AÑADIR A SU SESION, en la cabecera del bloque: un cuadrado pequeño que
                     no ocupa sitio. Entra con las condiciones de este bloque. */}
-                {ej.pos != null && cambiaEj && (
+                {ej.pos != null && editaPlan && (
                   <button type="button" title="Añadir un ejercicio a este bloque de su sesión"
                     aria-label="Añadir un ejercicio a este bloque de su sesión"
                     onClick={e=>{ e.stopPropagation(); setAnadiendo({ pid: act.paciente.id, pi: Number(String(ej.pos).split('.')[0]) }); cargarCatalogo() }}
@@ -2258,7 +2260,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               Cambiar «{seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]?.nombre}»
               <button className="modal-close" onClick={()=>setSustituyendo(null)}>✕</button>
             </div>
-            {/* PARA HOY O PARA SIEMPRE. Antes solo se podia cambiar para hoy. */}
+            {/* PARA HOY O PARA SIEMPRE. Para siempre (y quitarlo de su sesión), desde el
+                nivel 3: el 2 ajusta solo la clase de hoy. */}
+            {!editaPlan && <div style={{fontSize:12,color:'var(--gr)',margin:'-4px 0 10px'}}>Solo esta clase: su sesión no cambia.</div>}
+            {editaPlan && <>
             <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'-4px 0 10px'}}>
               <div style={{display:'inline-flex',background:'#E8E7E1',borderRadius:99,padding:3}}>
                 {([['hoy','Solo hoy'],['siempre','Para siempre']] as const).map(([v,l])=>(
@@ -2277,6 +2282,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               <span style={{flex:1,minWidth:200,fontSize:12,color:'var(--gr)'}}>¿No es solo hoy? Quítalo de su sesión y no volverá a salir en sus clases.</span>
               <button className="btn btn-d btn-sm" onClick={()=>quitarDeSuSesion(sustituyendo.pid, sustituyendo.i)}>Quitar de su sesión</button>
             </div>
+            </>}
             {catalogoEj.length === 0
               ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
               : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
@@ -2287,7 +2293,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     const r = igualesA(catalogoEj, base, etiquetas)
                     return r.items.length ? r : undefined })()}
                   soloSugeridos
-                  onAbrir={(ej:any)=>cambioSiempre ? cambiarParaSiempre(sustituyendo.pid, sustituyendo.i, ej) : sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
+                  onAbrir={(ej:any)=>cambioSiempre && editaPlan ? cambiarParaSiempre(sustituyendo.pid, sustituyendo.i, ej) : sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
           </div>
         </div>
       )}

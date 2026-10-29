@@ -26,7 +26,7 @@ const NAV_DIA = [
 ]
 const NAV_PROGRAMAR = [
   { href: '/torno', icon: 'recuperar', label: 'El torno', acc: 'torno' as Accion },
-  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca', acc: 'biblioteca' as Accion },
+  { href: '/entrenamiento', icon: 'biblioteca', label: 'Biblioteca', acc: 'ver_biblioteca' as Accion },
   { href: '/valoracion', icon: 'valoracion', label: 'Valoración', acc: 'valoracion' as Accion },
 ]
 const NAV_STATS = { href: '/estadisticas', icon: 'stats', label: 'Stats' }
@@ -49,7 +49,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [firmada, setFirmada] = useState<boolean | undefined>(undefined)
   const [perfilListo, setPerfilListo] = useState(false)
   /** La guía de inicio en pantalla (sale sola la primera vez al nivel 1; siempre desde el menú). */
-  const [guia, setGuia] = useState(false)
+  /** La guía en pantalla: 1 = de inicio (nivel 1), 2 = del entrenador (nivel 2). */
+  const [guia, setGuia] = useState<false | 1 | 2>(false)
   /** Este equipo es compartido (tablet de sala, ordenador central): lib/compartido. */
   const [compartido, setCompartido] = useState(false)
   useEffect(() => { setCompartido(esCompartido()) }, [])
@@ -145,7 +146,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user || !perfilListo) return
     const n = nivelDe(perfil)
-    const regla = RUTAS.find(([pre]) => pathname === pre || pathname.startsWith(pre + '/'))
+    // Un prefijo que acaba en «/» vale solo para lo que cuelga de él (/entrenamiento/…).
+    const regla = RUTAS.find(([pre]) => pre.endsWith('/') ? pathname.startsWith(pre) : (pathname === pre || pathname.startsWith(pre + '/')))
     const dinero = pathname.startsWith('/finanzas') ? !(n >= 4 || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
       : pathname.startsWith('/cobros') ? !(n >= minimos.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
       : false
@@ -193,7 +195,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // ya firmado el compromiso de confidencialidad (que va antes que nada).
   useEffect(() => {
     if (!user?.id || !perfilListo || firmada !== true) return
-    if (nivelDe(perfil) === 1 && !guiaVista(user.id)) setGuia(true)
+    const n = nivelDe(perfil)
+    if (n === 1 && !guiaVista(user.id, 1)) setGuia(1)
+    else if (n === 2 && !guiaVista(user.id, 2)) setGuia(2)
   }, [user?.id, perfilListo, firmada, perfil])
 
   const handleLogout = async () => {
@@ -261,7 +265,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {tab('/movil/yo', 'usuario', 'Yo')}
         </nav>
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
-        {guia && <GuiaInicio uid={user.id} onCerrar={() => setGuia(false)}/>}
+        {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
       </div>
     )
   }
@@ -308,9 +312,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
-                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(true) }}>
+                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(1) }}>
                     <Ic name="ayuda" size={15}/> Guía de inicio
                   </button>
+                  {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(2) }}>
+                    <Ic name="ayuda" size={15}/> Guía del entrenador
+                  </button>}
                   <Link href="/confidencialidad" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="firmar" size={15}/> Confidencialidad
                   </Link>
@@ -332,7 +339,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
       <main className="content"><ProveedorNivel value={{ nivel, minimos }}>{children}</ProveedorNivel></main>
-      {guia && <GuiaInicio uid={user.id} onCerrar={() => setGuia(false)}/>}
+      {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
     </div>
   )
 }

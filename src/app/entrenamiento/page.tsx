@@ -11,6 +11,8 @@ import CuestionariosTab from './components/CuestionariosTab'
 import EtiquetasTab from './components/EtiquetasTab'
 import ClinicoTab from './components/ClinicoTab'
 import ObjetivosTab from './components/ObjetivosTab'
+import BibliotecaVer from './components/BibliotecaVer'
+import { usePuede } from '@/lib/permisos'
 import { Ic } from '@/lib/icons'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 
@@ -33,6 +35,8 @@ const CATEGORIAS = [
 function EntrenamientoContent() {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState('biblioteca')
+  /** Nivel 3+: la biblioteca entera para trabajar; nivel 2, solo consultar ejercicios. */
+  const puedeBib = usePuede()('biblioteca')
   const [ejercicios, setEjercicios] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
@@ -226,6 +230,9 @@ function EntrenamientoContent() {
       </div>
     )
   }
+
+  // NIVEL 2: la biblioteca de ejercicios para consultar, sin editar nada (BibliotecaVer).
+  if (!puedeBib) return loading ? <div className="loading">Cargando...</div> : <BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas}/>
 
   return (
     <>
