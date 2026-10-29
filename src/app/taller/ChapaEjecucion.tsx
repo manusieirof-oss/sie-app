@@ -74,7 +74,7 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
                     background: cumple ? 'var(--g)' : 'transparent' }}>{cumple ? '✓' : ''}</span>
                   <span style={{ fontSize: 11 }}>{textoDe(it)}</span>
                 </div>
-                {cumple ? null : objs.length > 0 && (
+                {cumple || !onObjetivo ? null : objs.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, margin: '3px 0 4px 25px' }}>
                     {objs.map((o: any) => {
                       const ya = objsPac.some((po: any) => po.objetivo_id === o.id)

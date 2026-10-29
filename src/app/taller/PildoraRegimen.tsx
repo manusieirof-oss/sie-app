@@ -27,10 +27,11 @@ export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opcion
 
   return (
     <>
-      <button ref={ancla} onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
-        title={cambiado ? `Planificado: ${plan}` : 'Cómo se hace · pulsa para cambiarlo hoy'}
+      {/* Sin onCambio (nivel 1) se ve, pero no se toca. */}
+      <button ref={ancla} onClick={e => { e.stopPropagation(); if (onCambio) setAbierto(v => v === false) }}
+        title={cambiado ? `Planificado: ${plan}` : onCambio ? 'Cómo se hace · pulsa para cambiarlo hoy' : 'Cómo se hace'}
         style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99, fontFamily: 'inherit',
-          cursor: 'pointer', border: '1px solid ' + borde,
+          cursor: onCambio ? 'pointer' : 'default', border: '1px solid ' + borde,
           color: cambiado ? '#fff' : color,
           background: cambiado ? color : 'var(--w)' }}>
         {hoy}

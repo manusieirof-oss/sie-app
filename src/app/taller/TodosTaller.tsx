@@ -173,9 +173,9 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                       const sig = (l: string[], v: string) => l[(l.indexOf(v) + 1) % l.length]
                       return <div className="tt-tags">
                         <button className={'tt-tag eje' + (e.regimen && e.regimen !== (e.plan?.regimen || 'Concéntrico') ? ' cambio' : '')}
-                          title="Ejecución · toca para cambiar" onClick={() => a.regimen(p.id, ei, sig(ejecuciones, reg))}>{reg}</button>
+                          title={a.puedeCambiar !== false ? 'Ejecución · toca para cambiar' : 'Ejecución'} onClick={() => { if (a.puedeCambiar !== false) a.regimen(p.id, ei, sig(ejecuciones, reg)) }}>{reg}</button>
                         <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
-                          title="Lateralidad · toca para cambiar" onClick={() => a.lado(p.id, ei, sig(LADOS, lado))}>{lado}</button>
+                          title={a.puedeCambiar !== false ? 'Lateralidad · toca para cambiar' : 'Lateralidad'} onClick={() => { if (a.puedeCambiar !== false) a.lado(p.id, ei, sig(LADOS, lado)) }}>{lado}</button>
                         {e.comentario ? <span className="tt-meta">📝</span> : null}
                       </div>
                     })()}
@@ -227,7 +227,8 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                     {/* Si no lo cumple, se puede activar el objetivo que lo trabaja. */}
                     {!on && objs.length > 0 && <div className="tt-objs">{objs.map((o: any) => {
                       const ya = objsP.some((po: any) => po.objetivo_id === o.id)
-                      return <button key={o.id} className={ya ? 'on' : ''} onClick={() => a.objetivo(s.paciente.id, o.id, e.ejercicio_id, e.nombre)}>{ya ? '✓ ' : '+ '}{o.nombre}</button>
+                      if (a.puedeCambiar === false && !ya) return null
+                      return <button key={o.id} className={ya ? 'on' : ''} disabled={a.puedeCambiar === false} onClick={() => a.objetivo(s.paciente.id, o.id, e.ejercicio_id, e.nombre)}>{ya ? '✓ ' : '+ '}{o.nombre}</button>
                     })}</div>}
                   </div>
                 })}</div>}

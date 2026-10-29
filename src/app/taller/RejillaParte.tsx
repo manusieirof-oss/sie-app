@@ -107,7 +107,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   onToggle={(ii: number) => toggleItem(pacienteId, ei, ii)}
                   onTodos={(v: boolean) => marcarTodosItems(pacienteId, ei, v)}
                   objetivosLib={objetivosLib} objsPac={objsPac}
-                  onObjetivo={(oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre)}/>
+                  onObjetivo={toggleObjetivo ? (oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre) : undefined}/>
                 <ChapaComentario pacienteId={pacienteId} ej={ej} ei={ei} setComent={setComent}/>
                 <CasillaSeries pacienteId={pacienteId} ej={ej} ei={ei}
                   mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>
@@ -152,11 +152,11 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                       numero: si hoy lo hace excentrico, solo lo sabes mirandolo.
                       Se guarda con el registro de hoy, no toca la sesion. */}
                   {(ej.regimen || ej.plan?.regimen) && (
-                    <PildoraRegimen ej={ej} onCambio={(v: string) => setRegimen?.(pacienteId, ei, v)}/>
+                    <PildoraRegimen ej={ej} onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
                   )}
                   {/* LATERALIDAD, igual que el regimen: a la vista y se cambia solo para hoy. */}
                   <PildoraRegimen ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
-                    color="#7A5800" borde="var(--amb)" onCambio={(v: string) => setLado?.(pacienteId, ei, v)}/>
+                    color="#7A5800" borde="var(--amb)" onCambio={setLado ? (v: string) => setLado(pacienteId, ei, v) : undefined}/>
                   {capacidad && (
                     <span title={cambiada
                       ? `Planificado: ${capPlan} · está haciendo ${mediaReps} repeticiones`

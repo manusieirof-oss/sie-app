@@ -76,6 +76,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // se mide un ejercicio en la biblioteca (vale para todos), desde el 3.
   const puede = usePuede()
   const cambiaEj = puede('cambiar_ejercicios'), cambiaSes = puede('cambiar_sesion'), tocaBib = puede('medida_biblioteca')
+  // Añadir a alguien sin cita es crear una cita (como en la agenda); los tests son valoración.
+  const editaAgenda = puede('editar_agenda'), haceTests = puede('valoracion')
   const [fecha, setFecha] = useState(solo?.fecha || hoy())
   const [seleccion, setSeleccion] = useState<any[]>([])
   const [activo, setActivo] = useState<string>('')
@@ -1846,7 +1848,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       })()}
 
       {/* Bandas de pulso: siempre montado (las conexiones viven ahí), visible con el ❤. */}
-      <PulsoClase seleccion={seleccion} fecha={fecha} abierto={pulsoAbierto}/>
+      <PulsoClase seleccion={seleccion} fecha={fecha} abierto={pulsoAbierto} editarFc={puede('pacientes')}/>
 
       {!solo && viejos.length > 0 && (() => {
         const quien = viejos.map((r:any) => {
@@ -1931,12 +1933,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             )
           })}
           {/* Añadir a alguien que viene sin cita: junto a las personas, no arriba. */}
-          {!solo && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+          {!solo && editaAgenda && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
               style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
                 border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>}
         </div>
       )}
-      {!solo && seleccion.length>0 && vista==='todos' && (
+      {!solo && editaAgenda && seleccion.length>0 && vista==='todos' && (
         <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
           <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
               style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
@@ -1948,7 +1950,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
           {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o añade a quien venga sin cita.</>}
-          {!trayendo && !solo && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+          {!trayendo && !solo && editaAgenda && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
               style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
                 border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button></div>}
         </div>
@@ -1986,7 +1988,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     sin preguntar, porque cambia lo que se espera de la sesión. */}
                 {/* LO QUE HAY QUE MEDIRLE HOY. Va con el nombre, no escondido: es parte de
                     lo que toca en esta clase, igual que la sesion. */}
-                {((testsHoy[act.paciente.id]||[]).length + (sinTest[act.paciente.id]||[]).length)>0 && (()=>{
+                {haceTests && ((testsHoy[act.paciente.id]||[]).length + (sinTest[act.paciente.id]||[]).length)>0 && (()=>{
                   const suyos = testsHoy[act.paciente.id]||[]
                   // Los que se confirman mirandolos cuentan igual: si no salieran
                   // aqui se quedarian escondidos en la ficha justo por no tener test.
@@ -2124,7 +2126,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     </span>)}
                 {/* AÑADIR A SU SESION, en la cabecera del bloque: un cuadrado pequeño que
                     no ocupa sitio. Entra con las condiciones de este bloque. */}
-                {ej.pos != null && (
+                {ej.pos != null && cambiaEj && (
                   <button type="button" title="Añadir un ejercicio a este bloque de su sesión"
                     aria-label="Añadir un ejercicio a este bloque de su sesión"
                     onClick={e=>{ e.stopPropagation(); setAnadiendo({ pid: act.paciente.id, pi: Number(String(ej.pos).split('.')[0]) }); cargarCatalogo() }}
@@ -2162,11 +2164,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               superserie={ej.parteObj?.modo==='superserie'}
               mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
-              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={setRegimen} setLado={setLado}
+              addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={cambiaEj ? setRegimen : undefined} setLado={cambiaEj ? setLado : undefined}
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
-              toggleObjetivo={toggleObjetivo}
+              toggleObjetivo={cambiaEj ? toggleObjetivo : undefined}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
               onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}

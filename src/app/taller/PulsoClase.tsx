@@ -24,7 +24,7 @@ interface Dispositivo { nombre: string, bpm: number | null, t: number, bateria: 
 
 // `abierto` lo manda el ❤ de la cabecera del taller. El componente sigue montado aunque
 // esté cerrado: las conexiones con las bandas viven aquí y no se pueden perder.
-export default function PulsoClase({ seleccion, fecha, abierto = false }: { seleccion: any[], fecha: string, abierto?: boolean }) {
+export default function PulsoClase({ seleccion, fecha, abierto = false, editarFc = true }: { seleccion: any[], fecha: string, abierto?: boolean, editarFc?: boolean }) {
   const soportado = typeof navigator !== 'undefined' && !!(navigator as any).bluetooth
   const [bandas, setBandas] = useState<{ nombre_ble: string, numero: number }[]>([])
   const [extra, setExtra] = useState<Record<string, { fc_max: number | null, banda_ultima: string | null }>>({})
@@ -325,7 +325,7 @@ export default function PulsoClase({ seleccion, fecha, abierto = false }: { sele
                             <span style={{ width: '100%', fontSize: 10.5 }}>Vacío = volver a Tanaka (208 − 0,7 × edad)</span>
                           </span>
                         ) : (
-                          <button onClick={() => setEditFc({ pid: p.id, v: extra[p.id]?.fc_max ? String(extra[p.id].fc_max) : '' })} title="Poner su FC máxima medida"
+                          <button onClick={() => { if (editarFc) setEditFc({ pid: p.id, v: extra[p.id]?.fc_max ? String(extra[p.id].fc_max) : '' }) }} title={editarFc ? 'Poner su FC máxima medida' : 'FC máxima'}
                             style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--gd)', fontSize: 11, textDecoration: 'underline dotted' }}>
                             FC máx. {f.fc ?? '?'}{f.medida ? ' (medida)' : ' (Tanaka)'}
                           </button>
