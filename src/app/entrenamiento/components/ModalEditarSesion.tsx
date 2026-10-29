@@ -1,6 +1,7 @@
 'use client'
 import { apuntarHistorial, resumenCambios } from '@/lib/sesionViva'
 import { useConfigTrabajo, nombresEjecucion, nombresCapacidad, sugerenciaCapacidad } from '@/lib/usarTrabajo'
+import { ejecucionPorTiempo, segundosDeEjecucion } from '@/lib/trabajo'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
@@ -214,6 +215,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const [arrEj, setArrEj] = useState<number|null>(null)
   const [sobreEj, setSobreEj] = useState<number|null>(null)
   const [abrirBib, setAbrirBib] = useState(false)
+  /** Cambiando este ejercicio (índice en la parte) por otro: la biblioteca abre con sus parecidos. */
+  const [cambiarEj, setCambiarEj] = useState<number | null>(null)
   const [selBib, setSelBib] = useState<string[]>([])
   /**
    * Ejercicios creados a las prisas SIN salir de aquí. Ya existen en la biblioteca
@@ -327,7 +330,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     const base = ej?.tipo_medida || bib?.tipo_medida || 'peso_reps'
     // Los campos de carga × volumen (lib/medida). Isométrico se prescribe en segundos
     // aunque el ejercicio vaya por repeticiones. Igual que en el taller.
-    return camposSerie(base, { isometrico: String(ej?.regimen || '').toLowerCase().startsWith('isom') })
+    // Por tiempo también los estiramientos (estático, FNP…): ver `ejecucionPorTiempo`.
+    return camposSerie(base, { isometrico: ejecucionPorTiempo(cfgTrabajo, ej?.regimen) })
   }
 
   /**
@@ -477,6 +481,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    * El tirador va en una manilla y no en la fila entera: con `draggable` en la
    * fila, seleccionar un número dentro de un input se convierte en un arrastre.
    */
+  /**
+   * CAMBIAR UN EJERCICIO POR OTRO, en su sitio y con lo prescrito (series, reps, tiempo,
+   * descanso, cómo se hace, grupo). Lo de la biblioteca (foto, medida, variantes) es del nuevo.
+   */
+  function reemplazarEjercicio(ei: number, nuevo: any) {
+    setFormSesion(prev => {
+      const partes = [...prev.partes]
+      const pa = partes[parteActiva]
+      const ejercicios = [...(pa.ejercicios || [])]
+      const viejo = ejercicios[ei]
+      if (!viejo) return prev
+      ejercicios[ei] = { ...itemDeEjercicio(nuevo, viejo), peso: viejo.peso || '', nota: viejo.nota || '' }
+      partes[parteActiva] = { ...pa, ejercicios }
+      return { ...prev, partes }
+    })
+  }
+
   function moverEjercicio(desde: number, hasta: number) {
     if (desde === hasta) return
     setFormSesion(prev => {
@@ -1045,7 +1066,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     <div className="celda apilada" data-l="Cómo se hace">
                       <ChipMenu valor={ej.regimen||'Concéntrico'} opciones={nombresEjecucion(cfgTrabajo)}
                         titulo="Cómo trabaja el músculo: concéntrico al acortarse, excéntrico al frenar, isométrico sin moverse"
-                        onElegir={v=>editarEjercicio(ei,{regimen:v})}/>
+                        onElegir={v=>{
+                          // Pasar a una ejecución por tiempo (estiramiento, isométrico) pone
+                          // los segundos de partida si no había (estiramientos, 60 s).
+                          const seg = ejecucionPorTiempo(cfgTrabajo, v) && !ej.tiempo ? segundosDeEjecucion(cfgTrabajo, v) : ''
+                          editarEjercicio(ei,{regimen:v, ...(seg ? { tiempo: seg } : {})})
+                        }}/>
                       {/* LATERALIDAD, como la ejecucion: se prescribe aqui y el taller la ensena.
                           No iba en el editor y solo se podia poner desde el mapa de calor. */}
                       <ChipMenu valor={ej.lado||'Bilateral'} opciones={[...LADOS]} clase="chip-ed-l"
@@ -1157,6 +1183,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       </div>
                     )}
 
+                    {/* CAMBIAR POR UNO PARECIDO: abre la biblioteca con los que trabajan lo mismo
+                        (músculo y patrón): un ejercicio de abducción propone otros de abducción. */}
+                    <button title="Cambiar por uno parecido" className="fila-x" style={{opacity:1}}
+                      onClick={()=>{ setSelBib([]); setCambiarEj(ei); setAbrirBib(true) }}>⇄</button>
                     <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
                       onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
 
@@ -1197,9 +1227,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               <div className="capa-bib-h">
                 <span style={{fontSize:14,color:'var(--n)',flex:1}}>
                   Biblioteca
-                  <span style={{fontSize:13,color:'var(--gr)'}}> · añadir a {parte?.nombre || 'la parte'}</span>
+                  <span style={{fontSize:13,color:'var(--gr)'}}>{cambiarEj!==null
+                    ? <> · cambiar «{(parte?.ejercicios||[])[cambiarEj]?.nombre}» por…</>
+                    : <> · añadir a {parte?.nombre || 'la parte'}</>}</span>
                 </span>
-                <button className="btn btn-p" disabled={selBib.length===0}
+                {cambiarEj===null && <button className="btn btn-p" disabled={selBib.length===0}
                   style={selBib.length===0?{opacity:.5,cursor:'default'}:undefined}
                   onClick={()=>{
                     // De golpe y en el orden en que se marcaron, no el del catálogo.
@@ -1210,9 +1242,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     setSelBib([]); setAbrirBib(false)
                   }}>
                   <Ic name="check" size={13}/> Añadir{selBib.length>0?` ${selBib.length}`:''}
-                </button>
+                </button>}
                 <button className="modal-close" aria-label="Cerrar biblioteca"
-                  onClick={()=>{setSelBib([]);setAbrirBib(false)}}><Ic name="cerrar" size={16}/></button>
+                  onClick={()=>{setSelBib([]);setAbrirBib(false);setCambiarEj(null)}}><Ic name="cerrar" size={16}/></button>
               </div>
               <div className="capa-bib-c">
                 {/* El creado se añade solo a la parte, y la capa sigue abierta para
@@ -1229,8 +1261,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   ejercicios={catalogo}
                   etiquetas={etiquetas}
                   seleccion={selBib}
-                  onAlternar={(e:any)=>setSelBib(prev=>prev.includes(e.id)?prev.filter(x=>x!==e.id):[...prev,e.id])}
-                  sugeridos={ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
+                  onAlternar={(e:any)=>{
+                    // Cambiando uno: se elige y se cambia, sin marcar varios.
+                    if (cambiarEj!==null) { reemplazarEjercicio(cambiarEj, e); setCambiarEj(null); setAbrirBib(false); return }
+                    setSelBib(prev=>prev.includes(e.id)?prev.filter(x=>x!==e.id):[...prev,e.id])
+                  }}
+                  sugeridos={cambiarEj!==null ? (()=>{
+                    const actual = (parte?.ejercicios||[])[cambiarEj]
+                    const base = catalogo.find((x:any)=>x.id===actual?.ejercicio_id)
+                    return base ? { titulo:`Parecidos a ${actual.nombre}`, items: similaresA(catalogo, base, 10, etiquetas).filter((x:any)=>x.id!==base.id) } : undefined
+                  })() : ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
                   objetivosDe={objsSesion.length ? (e:any)=>objsDeEj({ ejercicio_id: e.id, nombre: e.nombre })
                     .map((id:string)=>(objsSesion.find((o:any)=>o.id===id) as any)?.nombre).filter(Boolean) : undefined}
                   onCrear={crearYAnadir}

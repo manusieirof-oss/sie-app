@@ -3,6 +3,7 @@ import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import { useEffect, useRef, useState } from 'react'
 import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
+import { ejecucionPorTiempo } from '@/lib/trabajo'
 import { itemMarcado } from '@/lib/ejecucion'
 import { camposSerie, UNIDAD } from '@/lib/medida'
 import { pedirFoto } from '@/lib/fotos'
@@ -66,7 +67,8 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
   const [opc, setOpc] = useState<{ pid: string, ei: number } | null>(null)
   const [ser, setSer] = useState<{ pid: string, ei: number } | null>(null)
   const clic = useRef<any>(null)
-  const ejecuciones = nombresEjecucion(useConfigTrabajo())
+  const cfgT = useConfigTrabajo()
+  const ejecuciones = nombresEjecucion(cfgT)
   /* NOMBRE Y FOTO SIEMPRE ARRIBA. Las columnas se desplazan de lado, y un contenedor con
      scroll lateral no deja pegarse arriba a nada al bajar la pagina. Por eso las columnas
      llevan su propio scroll vertical, del alto que queda de pantalla: al bajar, la
@@ -86,7 +88,7 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
 
   const s0 = (pid: string) => seleccion.find(s => s.paciente.id === pid)
   const hechaSerie = (e: any, si: number) => Object.keys(e.hoy || {}).some(k => k.startsWith(si + '.'))
-  const campos = (e: any) => camposSerie(e.tipo_medida, { isometrico: /isom/i.test(e.regimen || e.plan?.regimen || '') && !(e.series?.[0]?.reps) })
+  const campos = (e: any) => camposSerie(e.tipo_medida, { isometrico: ejecucionPorTiempo(cfgT, e.regimen || e.plan?.regimen) && !(e.series?.[0]?.reps) })
 
   /** Lo que se ve en la casilla: "16 kg × 10", "40 s"… */
   const textoSerie = (e: any, x: any) => campos(e).map(c => {

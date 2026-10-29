@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Flotante from './Flotante'
+import { useConfigTrabajo } from '@/lib/usarTrabajo'
+import { ejecucionPorTiempo } from '@/lib/trabajo'
 import { camposSerie, partesMedida, ajustesMedida, ESFUERZOS, UNIDAD, COLOR_BANDA, type AjustesMedida } from '@/lib/medida'
 
 // ---------------------------------------------------------------------------
@@ -34,11 +36,12 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   useEffect(() => { ajustesMedida().then(setAj) }, [])
   const ancla = useRef<HTMLButtonElement>(null)
   const series: any[] = ej.series || []
+  const cfgTrabajo = useConfigTrabajo()
   /* ISOMETRICO SE MIDE EN TIEMPO. La medida salia solo del ejercicio del catalogo
      (casi todos peso y reps), asi que al marcarlo isometrico seguia pidiendo kg y
      repeticiones. Con regimen isometrico: segundos, y kg ademas si lleva carga. */
   const regimen = String(ej.regimen || ej.plan?.regimen || '').toLowerCase()
-  const isometrico = regimen.startsWith('isom')
+  const isometrico = ejecucionPorTiempo(cfgTrabajo, regimen)
   const base = ej.tipo_medida || 'peso_reps'
   const conCarga = (ej.plan?.peso != null && String(ej.plan.peso) !== '') || base === 'peso_tiempo'
     || (ej.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')

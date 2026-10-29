@@ -150,3 +150,23 @@ export function textoSegundos(n: number): string {
   const m = Math.floor(r / 60), s = r % 60
   return s ? `${m}:${String(s).padStart(2, '0')} min` : `${m} min`
 }
+
+/**
+ * ¿ESTA EJECUCIÓN SE MIDE EN TIEMPO? Las que no tienen segundos por repetición
+ * (isométrico, estiramiento estático, FNP… en Ajustes → Entrenador) van por segundos,
+ * no por repeticiones. Si el nombre no está en la lista, vale «isométrico» como antes.
+ */
+export function ejecucionPorTiempo(cfg: ConfigTrabajo | null | undefined, regimen?: string | null): boolean {
+  const r = String(regimen || '').trim().toLowerCase()
+  if (!r) return false
+  const e = (cfg?.ejecuciones || []).find(x => x.nombre.trim().toLowerCase() === r)
+  if (e) return e.segRep == null
+  return r.startsWith('isom')
+}
+
+/** Los segundos con los que arranca una ejecución por tiempo: estiramientos 60 s. */
+export function segundosDeEjecucion(cfg: ConfigTrabajo | null | undefined, regimen?: string | null): string {
+  const r = String(regimen || '').trim().toLowerCase()
+  const e = (cfg?.ejecuciones || []).find(x => x.nombre.trim().toLowerCase() === r)
+  return e?.grupo === 'estiramiento' ? '60' : ''
+}
