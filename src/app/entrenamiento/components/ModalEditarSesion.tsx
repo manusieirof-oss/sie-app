@@ -1386,6 +1386,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       : { titulo:`Parecidos a ${actual.nombre}`, items: similaresA(catalogo, base, 10, etiquetas).filter((x:any)=>x.id!==base.id) }
                   })() : ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
                   soloSugeridos={cambiarEj!==null}
+                  objetivos={objsSesion}
+                  idsObjetivosDe={objsSesion.length ? (e:any)=>objsDeEj({ ejercicio_id: e.id, nombre: e.nombre }) : undefined}
                   objetivosDe={objsSesion.length ? (e:any)=>objsDeEj({ ejercicio_id: e.id, nombre: e.nombre })
                     .map((id:string)=>(objsSesion.find((o:any)=>o.id===id) as any)?.nombre).filter(Boolean) : undefined}
                   onCrear={crearYAnadir}

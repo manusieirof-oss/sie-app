@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { nombreCorto } from '@/lib/ejercicios'
 import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
+import MonedaObjetivo from './MonedaObjetivo'
 import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
@@ -31,7 +32,7 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe,
 }: {
   /**
    * Montando la sesión de un paciente: qué objetivos de la sesión trabaja cada ejercicio
@@ -40,6 +41,10 @@ export default function ExploradorEjercicios({
   objetivosDe?: (e: any) => string[]
   /** Solo los sugeridos, salvo que se busque o filtre (cambiar un ejercicio por uno igual). */
   soloSugeridos?: boolean
+  /** Los objetivos de la sesión, en esferas arriba: tocar una deja los que la trabajan. */
+  objetivos?: any[]
+  /** Ids de los objetivos de la sesión que trabaja cada ejercicio. */
+  idsObjetivosDe?: (e: any) => string[]
   ejercicios: any[]
   etiquetas?: any[]
   /** Ids marcados. Si se pasa, las tarjetas se comportan como casillas. */
@@ -72,6 +77,16 @@ export default function ExploradorEjercicios({
   const [soloPendientes, setSoloPendientes] = useState(false)
   /** Solo los que trabajan algún objetivo de la sesión (si se pasa `objetivosDe`). */
   const [soloObjetivos, setSoloObjetivos] = useState(false)
+  /** Un objetivo concreto de la sesión: solo los ejercicios que lo trabajan. */
+  const [objFiltro, setObjFiltro] = useState<string | null>(null)
+  /* Qué objetivos trabaja cada ejercicio, calculado UNA vez por catálogo y objetivos:
+     el cruce es caro y la rejilla se repinta a cada letra del buscador. */
+  const claveObjs = objetivos.map((o: any) => o.id).join(',')
+  const objsPorEj = useMemo(() => {
+    const m: Record<string, string[]> = {}
+    if (idsObjetivosDe) ejercicios.forEach(e => { m[e.id] = idsObjetivosDe(e) })
+    return m
+  }, [ejercicios, claveObjs, !!idsObjetivosDe]) // eslint-disable-line react-hooks/exhaustive-deps
   /** El bloque de «no se llaman así pero lo trabajan», plegado salvo que se pida. */
   const [verOtros, setVerOtros] = useState(false)
   const [creando, setCreando] = useState(false)
@@ -171,6 +186,7 @@ export default function ExploradorEjercicios({
     })
     return coincide && etiquetado && (!soloPendientes || problemasDeEjercicio(e).length > 0)
       && (!soloObjetivos || !objetivosDe || objetivosDe(e).length > 0)
+      && (!objFiltro || (objsPorEj[e.id] || []).includes(objFiltro))
   })
 
   const nPendientes = ejercicios.filter(e => problemasDeEjercicio(e).length > 0).length
@@ -207,7 +223,7 @@ export default function ExploradorEjercicios({
   const duplicado = abiertoCrear && aCrear.length >= 3 && existeYa(aCrear)
   const puedeCrear = aCrear.length >= 3 && !duplicado
 
-  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes || soloObjetivos
+  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes || soloObjetivos || !!objFiltro
   const nombrePortada = (e: any) => ejercicios.find(x => x.id === e.portada_id)?.nombre || ''
   const nombreCortoDe = (e: any) => nombreCorto(e.nombre, nombrePortada(e))
   /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
@@ -320,6 +336,25 @@ export default function ExploradorEjercicios({
 
   return (
     <div>
+      {/* LOS OBJETIVOS DE LA SESIÓN, EN ESFERAS: tocar una deja solo los ejercicios que
+          la trabajan; tocarla otra vez, todos. */}
+      {objetivos.length > 0 && idsObjetivosDe && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 10 }}>
+          {objetivos.map((o: any) => {
+            const on = objFiltro === o.id
+            const n = ejercicios.filter(e => (objsPorEj[e.id] || []).includes(o.id)).length
+            return (
+              <button key={o.id} type="button" onClick={() => setObjFiltro(on ? null : o.id)} title={`${o.nombre} · ${n} ejercicio${n === 1 ? '' : 's'} lo trabajan`}
+                style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 76, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  opacity: objFiltro && !on ? .4 : 1 }}>
+                <span style={{ borderRadius: '50%', boxShadow: on ? '0 0 0 3px var(--gd)' : 'none' }}><MonedaObjetivo objetivo={o}/></span>
+                <span className="obj-mon-g" style={on ? { color: 'var(--gd)', fontWeight: 600 } : undefined}>{o.nombre}</span>
+                <span style={{ fontSize: 9.5, color: 'var(--grl)' }}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
         <input className="input" placeholder="Buscar ejercicio…" value={buscar}
           onChange={e => setBuscar(e.target.value)} style={{ flex: 1, minWidth: 190 }} />
@@ -333,7 +368,7 @@ export default function ExploradorEjercicios({
             Filtros{filtroEt.length > 0 ? ` · ${filtroEt.length}` : ''}
           </button>
         )}
-        {objetivosDe && (
+        {objetivosDe && !(objetivos.length > 0 && idsObjetivosDe) && (
           <button type="button" className={`chip-sel ${soloObjetivos ? 'on' : ''}`} onClick={() => setSoloObjetivos(v => !v)}
             title="Solo los ejercicios que trabajan algún objetivo de esta sesión">
             ◎ Para sus objetivos
