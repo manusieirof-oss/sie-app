@@ -9,6 +9,9 @@
 import { resumen } from './ejecucion'
 import { nombreMotivo } from './cambioSesion'
 
+/** Un número tecleado en el taller: vale «7,5» y «7.5» (parseFloat a secas cortaba en la coma: 7). */
+const nES = (v: any) => parseFloat(String(v ?? '').replace(',', '.'))
+
 // Recharts y el HTML del PDF necesitan hex de verdad, no `var(--x)`, así que la
 // constante hace falta. Lo que no hacía falta era tenerla tres veces.
 
@@ -120,11 +123,11 @@ export function cargaPorEjercicio(registros: any[], bandas: string[] = []) {
     const mejor: Record<string, number> = {}
     let mejorRm = 0
     series.forEach((s: any) => {
-      const r1 = rm1(parseFloat(s?.peso), parseFloat(s?.reps))
+      const r1 = rm1(nES(s?.peso), nES(s?.reps))
       if (r1 > mejorRm) mejorRm = r1
       const vals: [string, number][] = [
-        ['kg', parseFloat(s?.peso)], ['banda', nivel(s?.banda)], ['s', parseFloat(s?.segundos)],
-        ['m', parseFloat(s?.metros)], ['reps', parseFloat(s?.reps)],
+        ['kg', nES(s?.peso)], ['banda', nivel(s?.banda)], ['s', nES(s?.segundos)],
+        ['m', nES(s?.metros)], ['reps', nES(s?.reps)],
       ]
       vals.forEach(([u, v]) => { if (!isNaN(v) && v > 0 && v > (mejor[u] || 0)) mejor[u] = v })
     })
@@ -193,7 +196,7 @@ export function esfuerzoPorEjercicio(registros: any[]) {
     if (series.length === 0 || !r.ejercicio_id || !r.fecha) return
     const dia: Dia = { fecha: r.fecha }
     CAMPOS.forEach(c => {
-      const vals = series.map((s: any) => parseFloat(s?.[c])).filter((n: number) => !isNaN(n))
+      const vals = series.map((s: any) => nES(s?.[c])).filter((n: number) => !isNaN(n))
       if (vals.length) dia[c] = Math.round(vals.reduce((a: number, b: number) => a + b, 0) / vals.length * 10) / 10
     })
     if (CAMPOS.every(c => dia[c] == null)) return
@@ -302,9 +305,9 @@ export function cargaSemanal(registros: any[]) {
       const vals = ['peso', 'banda', 'reps', 'segundos', 'metros'].map(c => s?.[c]).filter(v => v != null && String(v).trim() !== '')
       if (!vals.length) return
       w.series++
-      const kg = parseFloat(s?.peso), reps = parseFloat(s?.reps)
+      const kg = nES(s?.peso), reps = nES(s?.reps)
       if (kg > 0 && reps > 0) w.tonelaje += kg * reps
-      const rpe = parseFloat(s?.rpe); if (!isNaN(rpe)) w.rpe.push(rpe)
+      const rpe = nES(s?.rpe); if (!isNaN(rpe)) w.rpe.push(rpe)
     })
   })
   const semanas = Object.keys(sem).sort()

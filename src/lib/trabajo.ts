@@ -132,8 +132,8 @@ export function segundosPorRep(cfg: ConfigTrabajo, ejecuciones: string[]): numbe
  *  · si no, reps × segundos por repetición.
  */
 export function segundosSerie(cfg: ConfigTrabajo, s: { reps?: number | string | null, segundos?: number | string | null, aguanta?: boolean, ejecuciones?: string[], descanso?: number | null }): { seg: number, estimado: boolean } {
-  const seg = Number(s.segundos) || 0
-  const reps = Number(s.reps) || 0
+  const seg = Number(String(s.segundos ?? '').replace(',', '.')) || 0
+  const reps = Number(String(s.reps ?? '').replace(',', '.')) || 0
   let total = 0, estimado = false
   if (seg > 0) total = seg
   else if (s.aguanta) { total = cfg.aguantaSeg; estimado = true }
