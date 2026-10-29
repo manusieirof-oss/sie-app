@@ -934,9 +934,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               const seriesC = comun((x:any)=>String(x.series||''))
               const etq: React.CSSProperties = { fontSize:11, color:'var(--grl)', marginRight:4 }
               return (
-                <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'7px 12px',margin:'-2px 0 10px',
-                  background:'var(--bl)',borderRadius:10,fontSize:12.5}}>
-                  <b style={{fontSize:12,color:'var(--gd)'}}>Toda la parte</b>
+                <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',padding:'2px 14px 10px',margin:'-4px 0 6px',
+                  borderBottom:'1px dashed var(--bd)',fontSize:12.5}}>
+                  <span style={{fontSize:10.5,fontWeight:600,color:'var(--grl)',letterSpacing:'.06em',textTransform:'uppercase'}}>Para todos</span>
                   {parte?.modo!=='circuito' && (
                     <label className="par-in" title="Las mismas series para todos">
                       <span style={etq}>Series</span>
@@ -948,14 +948,13 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     <span style={etq}>Cantidad</span>
                     <input type="number" min={0} value={cant ?? ''} placeholder={uComun ? (cant===null?'varias':'—') : '—'} disabled={!uComun}
                       onChange={e=>{ const v=e.target.value; const c=campoDe(uComun!); todos(()=>({ [c]:v })) }}/>
-                    <span style={{display:'inline-flex',gap:2,background:'#fff',borderRadius:99,padding:2,marginLeft:4}}>
-                      {([['reps','reps'],['segundos','seg'],['metros','m']] as const).map(([v,l])=>(
-                        <button key={v} type="button" title={v==='reps'?'Todos por repeticiones':v==='segundos'?'Todos por tiempo':'Todos por distancia'}
-                          onClick={()=>todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } })}
-                          style={{border:0,borderRadius:99,padding:'1px 7px',fontSize:10.5,fontFamily:'inherit',cursor:'pointer',
-                            background:uComun===v?'var(--gl)':'transparent',color:uComun===v?'var(--gd)':'var(--grl)',fontWeight:uComun===v?600:400}}>{l}</button>
-                      ))}
-                    </span>
+                    <select value={uComun || ''} title="Todos por repeticiones, por tiempo o por distancia"
+                      onChange={e=>{ const v=e.target.value as any; if (!v) return
+                        todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } }) }}
+                      style={{border:0,background:'transparent',color:'var(--gd)',font:'inherit',fontSize:12,cursor:'pointer',marginLeft:2}}>
+                      {!uComun && <option value="">varias</option>}
+                      <option value="reps">reps</option><option value="segundos">seg</option><option value="metros">m</option>
+                    </select>
                   </label>
                   <span style={{display:'inline-flex',alignItems:'center'}}>
                     <span style={etq}>Cómo se hace</span>
@@ -994,7 +993,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   <span>Ejercicio</span>
                   <span>Cómo se hace</span>
                   <span className="c">Series</span>
-                  <span className="c" title="Repeticiones, segundos o metros: lo eliges debajo de cada casilla">Cantidad</span>
+                  <span className="c" title="Repeticiones, segundos o metros: la unidad se elige al lado del número">Cantidad</span>
                   <span className="c">Peso</span>
                   <span className="c">Descanso</span>
                   <span/>
@@ -1188,7 +1187,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                     {/* Una sola columna: repeticiones o duración, según cómo se mida
                         el ejercicio en la biblioteca. Nunca las dos. */}
-                    <div className="celda apilada" data-l={med.includes('segundos')?'Duración · s':med.includes('metros')?'Distancia · m':'Repeticiones'}>
+                    <div className="celda cant" data-l={med.includes('segundos')?'Duración · s':med.includes('metros')?'Distancia · m':'Repeticiones'}>
                       {med.includes('segundos')
                         ? <input type="number" className="c" value={ej.tiempo||''} placeholder="seg"
                             title="Lo que dura cada serie, en segundos"
@@ -1204,24 +1203,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                               const cap=capacidadPorReps(val)
                               editarEjercicio(ei,{reps:val,...(cap?{capacidad:cap}:{})})
                             }}/>}
-                      {/* QUÉ SE ESTÁ PONIENDO, A LA VISTA Y CAMBIABLE: repeticiones, segundos o
-                          metros. Antes salía uno u otro según la biblioteca, sin decirlo, y
-                          no había forma de prescribir por tiempo uno que va por reps. */}
+                      {/* LA UNIDAD, pegada al número y cambiable: reps, seg o m. */}
                       {(()=>{
                         const bib = catalogo.find((x:any)=>x.id===ej.ejercicio_id)
-                        const base = ej.tipo_medida || bib?.tipo_medida || 'peso_reps'
-                        const { carga } = partesMedida(base)
+                        const { carga } = partesMedida(ej.tipo_medida || bib?.tipo_medida || 'peso_reps')
                         const actual = med.includes('segundos') ? 'segundos' : med.includes('metros') ? 'metros' : 'reps'
                         return (
-                          <span style={{display:'inline-flex',gap:2,marginTop:3,background:'var(--bl)',borderRadius:99,padding:2}}>
-                            {([['reps','reps'],['segundos','seg'],['metros','m']] as const).map(([v,l])=>(
-                              <button key={v} type="button" onClick={()=>editarEjercicio(ei,{tipo_medida: idMedida(carga, v)})}
-                                title={v==='reps'?'Por repeticiones':v==='segundos'?'Por tiempo (segundos)':'Por distancia (metros)'}
-                                style={{border:0,borderRadius:99,padding:'1px 7px',fontSize:10.5,fontFamily:'inherit',cursor:'pointer',
-                                  background:actual===v?'#fff':'transparent',color:actual===v?'var(--gd)':'var(--grl)',fontWeight:actual===v?600:400,
-                                  boxShadow:actual===v?'0 1px 2px rgba(0,0,0,.08)':'none'}}>{l}</button>
-                            ))}
-                          </span>
+                          <select value={actual} title="Por repeticiones, por tiempo o por distancia"
+                            onChange={e=>editarEjercicio(ei,{tipo_medida: idMedida(carga, e.target.value as any)})}>
+                            <option value="reps">reps</option><option value="segundos">seg</option><option value="metros">m</option>
+                          </select>
                         )
                       })()}
                     </div>
@@ -1276,10 +1267,13 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                     {/* CAMBIAR POR UNO PARECIDO: abre la biblioteca con los que trabajan lo mismo
                         (músculo y patrón): un ejercicio de abducción propone otros de abducción. */}
-                    <button title="Cambiar por uno parecido" className="fila-x" style={{opacity:1}}
-                      onClick={()=>{ setSelBib([]); setCambiarEj(ei); setAbrirBib(true) }}>⇄</button>
-                    <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
-                      onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
+                    {/* Las dos acciones en UNA celda: sueltas, la segunda caía a otra fila. */}
+                    <div className="acc">
+                      <button title="Cambiar por uno parecido" className="fila-x" style={{opacity:1}}
+                        onClick={()=>{ setSelBib([]); setCambiarEj(ei); setAbrirBib(true) }}>⇄</button>
+                      <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
+                        onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
+                    </div>
 
                     {/* La nota, entera y debajo de todo. Metida entre los campos se
                         quedaba en un hueco estrecho donde no cabía nada. */}

@@ -389,7 +389,11 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
    números quedan alineados, que es lo que se compara al repartir la carga. */
 /* Foto, nombre, cómo se hace, y después cuánto se hace. El régimen va antes que los
    números porque describe el gesto, no la carga. */
-.tabla-ej{--cols:minmax(220px,1fr) 130px 58px 64px 58px 66px 26px;}
+.tabla-ej{--cols:minmax(220px,1fr) 130px 58px 96px 58px 66px 60px;}
+/* Cantidad y su unidad (reps · seg · m) en una línea. */
+.ej-row .cant{display:flex;align-items:center;gap:3px;justify-content:center}
+.ej-row .cant select{border:0;background:transparent;color:var(--gd);font:inherit;font-size:11.5px;padding:0;cursor:pointer;width:auto}
+.ej-row .acc{display:flex;gap:4px;justify-content:flex-end}
 .ej-cab,.ej-row{display:grid;grid-template-columns:var(--cols);gap:9px;align-items:center;}
 /* Régimen y capacidad comparten columna: los dos dicen cómo se trabaja. Van como
    píldoras y no como selectores, para que el valor se lea de un vistazo. */
