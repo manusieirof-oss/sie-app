@@ -62,7 +62,7 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
   arriba?: React.ReactNode,
   /** Tras abrir o cerrar una alerta: el taller recarga los avisos de esa persona. */
   onAlertas?: () => void,
-  /** Nivel 1 (lib/permisos): marca la falta; cancelar y cambiar de sala, desde el 2. */
+  /** Nivel 1 (lib/permisos): no toca la cita (falta, cancelada, sala); desde el 2, sí. */
   soloFalta?: boolean
 }) {
   const [ocup, setOcup] = useState<Record<string, number>>({})
@@ -127,10 +127,13 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
     <Velo titulo={nombre} sub={`Cita de las ${item.hora || '—'}${item.sala ? ' · sala ' + item.sala : ''}`} onCerrar={onCerrar}>
       {arriba}
       {!item.citaId ? <div className="gc-nota">No tiene cita en la agenda.</div> : <>
+        {/* El nivel 1 no toca la cita: ni falta, ni cancelada, ni sala. Si ya está marcada, se ve. */}
+        {soloFalta ? (estado !== 'programada' && <div className="gc-nota">Hoy: {ESTADOS.find(e => e.v === estado)?.l || estado}.</div>) : <>
         <div className="gc-lbl">Clase de hoy</div>
-        <div className="gc-chips">{ESTADOS.filter(e => !soloFalta || e.v === 'falta' || e.v === estado).map(e => (
+        <div className="gc-chips">{ESTADOS.map(e => (
           <button key={e.v} disabled={ocupado} className={(estado === e.v ? 'on ' : '') + e.v} onClick={() => ponerEstado(e.v)}>{e.l}</button>
         ))}</div>
+        </>}
         {!soloFalta && <div className="gc-nota">Igual que en la agenda: cancelada no gasta del bono y genera recuperación si toca; falta, no.</div>}
         {salas.length > 1 && !soloFalta && <>
           <div className="gc-lbl">Grupo</div>

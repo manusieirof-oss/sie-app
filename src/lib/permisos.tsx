@@ -5,7 +5,7 @@ import { createContext, useContext } from 'react'
 // rutas y los botones del taller no tengan cada uno su propia regla.
 //
 //   1 · Principiante → Hoy, Agenda (solo consulta) y Taller: da la clase, apunta
-//                      series y hechos y marca faltas. No cambia nada de lo planificado.
+//                      series y hechos. No marca faltas ni cambia nada de lo planificado.
 //   2 · Entrenador   → además Pacientes y Valoración, cambia ejercicios de las
 //                      sesiones (hoy o para siempre), elige sesión y cancela o cambia
 //                      de sala.
@@ -21,7 +21,7 @@ import { createContext, useContext } from 'react'
 export type Nivel = 1 | 2 | 3 | 4
 
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
-  { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases, apunta y marca faltas' },
+  { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases y apunta lo que se hace' },
   { n: 2, nombre: 'Entrenador', que: 'Además Pacientes y Valoración; cambia ejercicios de las sesiones' },
   { n: 3, nombre: 'Encargado/a', que: 'Además crea sesiones y ejercicios, y cobra' },
 ]
@@ -35,7 +35,7 @@ export const MINIMO = {
   turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
   cambiar_ejercicios: 2,   // ⇄ solo hoy, para siempre o quitarlo de su sesión
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
-  cancelar_cita: 2,        // cancelar y cambiar de sala (la falta la marca cualquiera)
+  cancelar_cita: 2,        // falta, cancelada y cambio de sala
   torno: 3,
   biblioteca: 3,
   cobros: 3,

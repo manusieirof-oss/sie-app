@@ -323,7 +323,7 @@ export default function UsuariosTab({ perfilActual }: any) {
       )}
 
       <div style={{marginTop:14,padding:'10px 12px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,fontSize:9,color:'var(--gd)'}}>
-<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Principiante</strong>: Hoy, Agenda (solo consulta) y Taller; da las clases, apunta y marca faltas. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
+<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Principiante</strong>: Hoy, Agenda (solo consulta) y Taller; da las clases y apunta lo que se hace. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, marca faltas y cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
       </div>
     </div>
     <ReglasNiveles/>
