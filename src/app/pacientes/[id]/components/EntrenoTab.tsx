@@ -28,6 +28,7 @@ import SelectorSesiones from '@/app/entrenamiento/components/SelectorSesiones'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { sistemasDePaciente, historialSistemas, logradosDe, escalonesDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
+import { useImagenes, imagenDe, idsDeSesiones } from '@/lib/imagenEjercicio'
 
 export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
   const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
@@ -48,6 +49,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [eligiendoSesion, setEligiendoSesion] = useState(false)
   const [sesionesDisp, setSesionesDisp] = useState<any[]>([])
   const [sesionesHistorial, setSesionesHistorial] = useState<any[]>([])
+  // Las miniaturas con la imagen de la biblioteca de hoy, no la copiada al montar la sesión.
+  const imgs = useImagenes(idsDeSesiones([...(sesiones || []), ...sesionesDisp]))
   const [seleccionadas, setSeleccionadas] = useState<string[]>([])
   const [sesionAsignar, setSesionAsignar] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -958,8 +961,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                       {fotosDeSesion(s).length>0 && (
                         <div className="tira-ej">
                           {fotosDeSesion(s).map((f:any,i:number)=>(
-                            f.imagen_url
-                              ? <img key={i} src={f.imagen_url} alt={f.nombre} title={f.nombre}/>
+                            imagenDe(f, imgs)
+                              ? <img key={i} src={imagenDe(f, imgs)} alt={f.nombre} title={f.nombre}/>
                               : <span key={i} className="sin" title={f.nombre}><Ic name="fuerza" size={16}/></span>
                           ))}
                           {nEj>fotosDeSesion(s).length && (

@@ -5,6 +5,7 @@ import { modoParte, TIPOS_TIEMPO, textoModo, descansoDeParte, transicionDeParte,
 import { textoDescanso } from '@/lib/capacidades'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { camposSerie } from '@/lib/medida'
+import { useImagenes, imagenDe, idsDeSesiones } from '@/lib/imagenEjercicio'
 
 /**
  * Cómo se mide el ejercicio. Aquí solo se puede mirar lo guardado en la sesión: el
@@ -58,6 +59,8 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
    */
   ejecutado?: any[]
 }) {
+  // La imagen de la biblioteca de hoy (lib/imagenEjercicio), no la copiada al montarla.
+  const imgs = useImagenes(idsDeSesiones([sesion]))
   // Series reales de un ejercicio: "40×10, 40×10, 35×8" o "45 s, 40 s".
   function hizo(ejercicioId?: string) {
     if (!ejecutado || !ejercicioId) return null
@@ -217,8 +220,8 @@ export default function DetalleSesion({ sesion, objetivos = [], pacienteId, onCe
                           <div className="ej-nom">
                             {/* La letra solo significa algo si el bloque es superserie. */}
                             {parte.modo === 'superserie' && ej.grupo && <span className="grupo-ss">{ej.grupo}</span>}
-                            {ej.imagen_url
-                              ? <img src={ej.imagen_url} alt={nombre} className="ej-img" />
+                            {imagenDe(ej, imgs)
+                              ? <img src={imagenDe(ej, imgs)} alt={nombre} className="ej-img" />
                               : <div className="ej-img ej-img-no"><Ic name="fuerza" size={24} /></div>}
                             <div style={{ minWidth: 0 }}>
                               <div className="ej-txt">{nombre}</div>
