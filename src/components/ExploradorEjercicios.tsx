@@ -72,6 +72,8 @@ export default function ExploradorEjercicios({
   const [soloPendientes, setSoloPendientes] = useState(false)
   /** Solo los que trabajan algún objetivo de la sesión (si se pasa `objetivosDe`). */
   const [soloObjetivos, setSoloObjetivos] = useState(false)
+  /** El bloque de «no se llaman así pero lo trabajan», plegado salvo que se pida. */
+  const [verOtros, setVerOtros] = useState(false)
   const [creando, setCreando] = useState(false)
   /**
    * FAMILIAS. Una variante es un ejercicio completo con `portada_id` apuntando a su
@@ -150,10 +152,12 @@ export default function ExploradorEjercicios({
      entera: sus variantes son el mismo ejercicio con otra forma. */
   const nombreEt: Record<string, string> = {}
   etiquetas.forEach((et: any) => { nombreEt[et.id] = et.nombre || '' })
+  // El NOMBRE manda: lo que se llama así (o una variante suya). La descripción y las
+  // etiquetas solo sirven para el bloque de «también lo trabajan», que va plegado.
   const casaNombre = (e: any) => contiene(e.nombre, buscar)
-      || contiene(e.descripcion, buscar)
       || (e.variantes || []).some((v: any) => contiene(v?.nombre, buscar))
-  const casaEtiqueta = (e: any) => (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
+  const casaEtiqueta = (e: any) => contiene(e.descripcion, buscar)
+      || (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
   const casaTexto = (e: any) => casaNombre(e) || casaEtiqueta(e)
   const portadasQueCasan = new Set(buscar ? ejercicios.filter(e => !e.portada_id && casaTexto(e)).map(e => e.id) : [])
   const filtrados = ejercicios.filter(e => {
@@ -320,7 +324,8 @@ export default function ExploradorEjercicios({
         <input className="input" placeholder="Buscar ejercicio…" value={buscar}
           onChange={e => setBuscar(e.target.value)} style={{ flex: 1, minWidth: 190 }} />
         <span style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap' }}>
-          {hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length} {(hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length) === 1 ? 'ejercicio' : 'ejercicios'}
+          {(() => { const n = buscar ? visiblesNombre.length : hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length
+            return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` })()}
         </span>
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
@@ -413,11 +418,16 @@ export default function ExploradorEjercicios({
         ? <div className="muted" style={{ fontSize: 12 }}>Solo los parecidos. Para otro cualquiera, búscalo arriba o filtra por zona.</div>
         : <>
           {visiblesNombre.length > 0 && <div className="rej-ej">{visiblesNombre.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
+          {visiblesNombre.length === 0 && visiblesEtiqueta.length > 0 && !verOtros && (
+            <div className="muted" style={{ fontSize: 12 }}>Ninguno se llama «{buscar.trim()}».</div>
+          )}
           {visiblesEtiqueta.length > 0 && <>
-            <div className="et-mini" style={{ margin: '16px 0 7px', color: 'var(--gd)' }}>
-              No se llaman así, pero trabajan «{buscar.trim()}» (por sus etiquetas) · {visiblesEtiqueta.length}
-            </div>
-            <div className="rej-ej">{visiblesEtiqueta.map(e => <Tarjeta key={e.id} e={e} />)}</div>
+            {/* PLEGADO: buscando «flexión» se quiere lo que se llama flexión. Lo que solo
+                lo trabaja (por etiqueta o porque lo dice su descripción) está a un toque. */}
+            <button type="button" className="chip-sel" style={{ margin: '14px 0 8px' }} onClick={() => setVerOtros(v => !v)}>
+              {verOtros ? '▴ Ocultar' : '▾ Ver'} {visiblesEtiqueta.length} que no se llaman así pero trabajan «{buscar.trim()}»
+            </button>
+            {verOtros && <div className="rej-ej">{visiblesEtiqueta.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
           </>}
         </>}
     </div>
