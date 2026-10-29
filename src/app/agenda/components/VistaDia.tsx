@@ -124,7 +124,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     // color al final, que se distingue de un vistazo sin ocupar sitio.
     const col = colorTipo(c.tipo)
     const accion = (titulo:string, icono:string, fn?:()=>void) => (
-      <button title={titulo} onClick={e=>{e.stopPropagation();fn&&fn()}}><Ic name={icono} size={15}/></button>
+      <button title={titulo} data-guia={'agenda-' + icono} onClick={e=>{e.stopPropagation();fn&&fn()}}><Ic name={icono} size={15}/></button>
     )
     return (
       <div className={`ag-pac ${falta?'falta':''}`} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)} title={nombreTipo(c.tipo)}>
@@ -161,7 +161,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
     : null
 
   return (
-    <div className="ag-dia">
+    <div className="ag-dia" data-guia="agenda-dia">
       <div ref={scrollRef} style={{overflowY:'auto',height:'100%'}}>
         <div className="ag-fila ag-salas" style={{gridTemplateColumns:GT}}>
           <div/>

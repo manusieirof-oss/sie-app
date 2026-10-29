@@ -155,7 +155,7 @@ export default function Hoy() {
         const sinSes = c.citas.filter((x: any) => !x.sesion_id).length
         const quien = nombresDe(turnos, hoy, c.hora, c.sala).join(' · ')
         return (
-          <section key={c.hora + c.sala} style={{ ...caja, padding: 18, marginBottom: 16 }}>
+          <section key={c.hora + c.sala} data-guia="hoy-clase" style={{ ...caja, padding: 18, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
               <span style={chip(ahora.length ? 'var(--g)' : 'var(--bl)', ahora.length ? '#fff' : 'var(--gr)')}>{ahora.length ? '● AHORA' : 'PRÓXIMA'}</span>
               <b style={{ fontSize: 18 }}>{c.hora}{c.sala ? ` · Sala ${c.sala}` : ''}</b>
@@ -209,7 +209,7 @@ export default function Hoy() {
           })}
         </section>
 
-        <section style={caja}>
+        <section style={caja} data-guia="hoy-tareas">
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Tareas del equipo</h3>
           {tareas.length === 0 && <div style={{ fontSize: 13, color: 'var(--gr)' }}>Sin tareas pendientes.</div>}
           {tareas.slice(0, 8).map(t => (
@@ -223,7 +223,7 @@ export default function Hoy() {
 
         {/* NOTAS PERSONALES: solo las ve quien las escribe (RLS por usuario). Para
             acordarse de algo propio sin llenar las tareas del equipo. */}
-        <section style={caja}>
+        <section style={caja} data-guia="hoy-notas">
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Mis notas <span style={{ fontSize: 11.5, fontWeight: 400, color: 'var(--grl)' }}>· solo las ves tú</span></h3>
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             <input className="input" value={nueva} onChange={e => setNueva(e.target.value)} onKeyDown={e => e.key === 'Enter' && anotar()}

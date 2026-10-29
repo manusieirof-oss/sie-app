@@ -254,7 +254,7 @@ function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onS
   )
   return (
     <>
-      <button ref={ancla} type="button" onClick={e => { e.stopPropagation(); setAbierto(v => !v) }}
+      <button ref={ancla} type="button" data-guia="taller-nolohizo" onClick={e => { e.stopPropagation(); setAbierto(v => !v) }}
         title="Cambiar solo hoy o marcar que no lo hizo"
         style={chapa({ right: 5, top: 5, background: abierto ? 'var(--g)' : 'var(--w)', color: abierto ? '#fff' : 'var(--gd)' })}>⇄</button>
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={210}>

@@ -12,6 +12,7 @@ import { PuertaConfidencialidad } from '@/components/Confidencialidad'
 import { firmaVigente } from '@/lib/confidencialidad'
 import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, MINUTOS_INACTIVO } from '@/lib/compartido'
 import { pulsoActivo } from '@/lib/pulsoVivo'
+import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -47,6 +48,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** ¿Ha aceptado el compromiso de confidencialidad vigente? undefined = mirando. */
   const [firmada, setFirmada] = useState<boolean | undefined>(undefined)
   const [perfilListo, setPerfilListo] = useState(false)
+  /** La guía de inicio en pantalla (sale sola la primera vez al nivel 1; siempre desde el menú). */
+  const [guia, setGuia] = useState(false)
   /** Este equipo es compartido (tablet de sala, ordenador central): lib/compartido. */
   const [compartido, setCompartido] = useState(false)
   useEffect(() => { setCompartido(esCompartido()) }, [])
@@ -186,6 +189,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     setCompartido(v)
   }
 
+  // LA PRIMERA VEZ DE QUIEN EMPIEZA: la guía sale sola, una vez por persona y equipo,
+  // ya firmado el compromiso de confidencialidad (que va antes que nada).
+  useEffect(() => {
+    if (!user?.id || !perfilListo || firmada !== true) return
+    if (nivelDe(perfil) === 1 && !guiaVista(user.id)) setGuia(true)
+  }, [user?.id, perfilListo, firmada, perfil])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
@@ -227,7 +237,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Un pilar de la barra: icono grande, el nombre en una burbuja al pasar el ratón y,
   // si toca, un numerito (Cobros).
   const enlace = (n: { href: string, icon: string, label: string, n?: number, acc?: Accion }) => (
-    <Link key={n.href} href={n.href} className={`nav-item ${pathname.startsWith(n.href) ? 'active' : ''}`} aria-label={n.label}>
+    <Link key={n.href} href={n.href} data-guia={'nav' + n.href} className={`nav-item ${pathname.startsWith(n.href) ? 'active' : ''}`} aria-label={n.label}>
       <Ic name={n.icon} size={21} strokeWidth={1.7}/>
       {!!n.n && <span className="sb-b">{n.n > 99 ? '99+' : n.n}</span>}
       <span className="sb-tip">{n.label}</span>
@@ -251,6 +261,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {tab('/movil/yo', 'usuario', 'Yo')}
         </nav>
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
+        {guia && <GuiaInicio uid={user.id} onCerrar={() => setGuia(false)}/>}
       </div>
     )
   }
@@ -275,7 +286,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <div className="sb-pie">
           {esDireccion && enlace(NAV_AJUSTES)}
           <div style={{ position: 'relative' }}>
-            <button className="sb-av" onClick={() => setMenuUsuario(v => !v)} title={perfil?.nombre || user.email}>
+            <button className="sb-av" data-guia="menu-usuario" onClick={() => setMenuUsuario(v => !v)} title={perfil?.nombre || user.email}>
               {((perfil?.nombre || user.email || '?').trim()[0] || '?').toUpperCase()}
             </button>
             {menuUsuario && (
@@ -297,6 +308,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
+                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(true) }}>
+                    <Ic name="ayuda" size={15}/> Guía de inicio
+                  </button>
                   <Link href="/confidencialidad" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="firmar" size={15}/> Confidencialidad
                   </Link>
@@ -318,6 +332,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
       <main className="content"><ProveedorNivel value={{ nivel, minimos }}>{children}</ProveedorNivel></main>
+      {guia && <GuiaInicio uid={user.id} onCerrar={() => setGuia(false)}/>}
     </div>
   )
 }

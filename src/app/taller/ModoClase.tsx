@@ -1771,7 +1771,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               .tl-horas-sel{display:none}
               @container (max-width: 860px){ .tl-horas{display:none} .tl-horas-sel{display:inline-flex} .tl-hueco{display:block!important} }
             `}</style>
-            <div className="tl-banda">
+            <div className="tl-banda" data-guia="taller-banda">
               <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                 {!solo && <button onClick={() => mover(-1)} title="Día anterior" style={{ width: 26, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 16, borderRadius: 8, cursor: 'pointer' }}>‹</button>}
                 <b style={{ fontSize: 16, fontWeight: 600, whiteSpace: 'nowrap' }}>{fechaCorta.charAt(0).toUpperCase() + fechaCorta.slice(1)}</b>
@@ -1837,13 +1837,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 const claves = Object.keys(grupos).sort()
                 const estilo: React.CSSProperties = { background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }
                 if (claves.length <= 1) return (
-                  <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta clase" style={estilo}>
+                  <button data-guia="taller-finalizar" disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta clase" style={estilo}>
                     {cerrandoClase ? 'Guardando…' : solo ? '✓ Finalizar' : `✓ Finalizar · ${nCerrar}`}
                   </button>
                 )
                 return (
                   <span style={{ position: 'relative', flexShrink: 0 }}>
-                    <button disabled={cerrandoClase} onClick={() => setMenuFin(v => !v)} style={estilo}>
+                    <button data-guia="taller-finalizar" disabled={cerrandoClase} onClick={() => setMenuFin(v => !v)} style={estilo}>
                       {cerrandoClase ? 'Guardando…' : `✓ Finalizar ▾`}
                     </button>
                     {menuFin && <>
@@ -1913,7 +1913,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
       {/* CHIPS PACIENTES */}
       {seleccion.length>0 && vista==='uno' && (
-        <div style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,flexWrap:'wrap',
+        <div data-guia="taller-personas" style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:6,flexWrap:'wrap',
           marginBottom:12,background:'var(--bl)',padding:'8px 0'}}>
           {/* Sin caja blanca: sobre el fondo de la página, como los pulsómetros. El fondo
               sigue siendo opaco (el de la página) para tapar lo que pasa por debajo. */}

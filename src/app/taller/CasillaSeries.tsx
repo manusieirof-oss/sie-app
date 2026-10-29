@@ -133,7 +133,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
 
   return (
     <>
-      <button ref={ancla} onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
+      <button ref={ancla} data-guia="taller-series" onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
         title={mezclado ? 'Las series no son iguales · pulsa para verlas' : 'Apuntar las series'}
         style={{ position: 'absolute', left: 5, bottom: 5, height: 23, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
