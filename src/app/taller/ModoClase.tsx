@@ -2085,6 +2085,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
         <VeloCita soloFalta={!puede('cancelar_cita')} item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}
+          onAlertas={() => cargarCtxPaciente(it.paciente.id)}
           arriba={<>
             {/* SU SESIÓN Y SUS OBJETIVOS, dentro del velo: fuera ocupaban la ficha. */}
             <div className="gc-lbl">Sesión de hoy</div>

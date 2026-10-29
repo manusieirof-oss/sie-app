@@ -1,4 +1,5 @@
 'use client'
+import { abrirAlerta, cerrarAlerta, LBL_ALERTA } from '@/lib/alertas'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { crearCita, ocupacionPorSala } from '@/lib/citas'
@@ -55,10 +56,12 @@ function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: strin
 }
 
 /** Velo de la cita de un paciente: falta, cancelada o cambio de sala. */
-export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFalta = false, arriba }: {
+export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFalta = false, arriba, onAlertas }: {
   item: any, fecha: string, salas: string[], nombre: string, onCerrar: () => void, onHecho: (aviso?: string) => void,
   /** Lo primero del velo: su sesión de hoy y sus objetivos (lo pone el taller). */
   arriba?: React.ReactNode,
+  /** Tras abrir o cerrar una alerta: el taller recarga los avisos de esa persona. */
+  onAlertas?: () => void,
   /** Nivel 1 (lib/permisos): marca la falta; cancelar y cambiar de sala, desde el 2. */
   soloFalta?: boolean
 }) {
@@ -73,34 +76,31 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
   const estado = item.estado === 'realizada' ? 'programada' : (item.estado || 'programada')
   const cita = { id: item.citaId, paciente_id: item.paciente.id, fecha, hora: item.hora }
 
-  /* INCIDENCIAS DE LA CLASE («se mareó», «llegó tarde», «le dolía el hombro»). Se
-     apuntan en las notas de SU CITA, con la hora y quién la escribe, así salen también
-     al abrir la cita en la agenda. Se leen al abrir: la lista del taller no las trae. */
-  const [notas, setNotas] = useState<string>('')
-  const [incid, setIncid] = useState('')
-  useEffect(() => {
-    if (!item.citaId) return
-    supabase.from('citas').select('notas').eq('id', item.citaId).maybeSingle().then(({ data }) => setNotas((data as any)?.notas || ''))
-  }, [item.citaId])
-  async function apuntarIncidencia() {
-    const t = incid.trim()
-    if (!t || ocupado) return
+  /* INCIDENCIAS = ALERTAS, las mismas que se ponen desde la agenda (dolor, lesión, cita
+     médica…, y si afectan a la sesión). Van por lib/alertas para que queden también en
+     el historial del paciente, y salen en el taller junto a sus molestias. */
+  const [alertas, setAlertas] = useState<any[]>([])
+  const [tipoA, setTipoA] = useState('dolor')
+  const [afecta, setAfecta] = useState(true)
+  const [desc, setDesc] = useState('')
+  const leerAlertas = () => supabase.from('alertas_paciente').select('*').eq('paciente_id', item.paciente.id).eq('activa', true)
+    .order('fecha_inicio', { ascending: false }).then(({ data }) => setAlertas(data || []))
+  useEffect(() => { leerAlertas() }, [item.paciente.id])
+  async function nuevaAlerta() {
+    if (!desc.trim() || ocupado) return
     setOcupado(true); setMsg('')
-    const { data: { user } } = await supabase.auth.getUser()
-    let quien = ''
-    if (user?.id) {
-      const { data: p } = await supabase.from('perfiles').select('nombre').eq('user_id', user.id).maybeSingle()
-      quien = ((p as any)?.nombre || '').split(' ')[0]
-    }
-    const hhmm = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-    const linea = `${hhmm}${quien ? ' · ' + quien : ''}: ${t}`
-    // Se relee justo antes: otro equipo pudo apuntar algo mientras tanto.
-    const { data: ya } = await supabase.from('citas').select('notas').eq('id', item.citaId).maybeSingle()
-    const nuevas = [((ya as any)?.notas || '').trim(), linea].filter(Boolean).join('\n')
-    const { error } = await supabase.from('citas').update({ notas: nuevas }).eq('id', item.citaId)
+    const r = await abrirAlerta(item.paciente.id, tipoA, afecta, desc.trim())
     setOcupado(false)
-    if (error) { setMsg('No se ha podido apuntar: ' + error.message); return }
-    setNotas(nuevas); setIncid('')
+    if (!r.ok) { setMsg('No se ha podido guardar la alerta: ' + r.error); return }
+    setDesc(''); setTipoA('dolor'); setAfecta(true)
+    await leerAlertas(); onAlertas?.()
+  }
+  async function quitarAlerta(a: any) {
+    setOcupado(true)
+    const r = await cerrarAlerta(a)
+    setOcupado(false)
+    if (!r.ok) { setMsg('No se ha podido cerrar: ' + r.error); return }
+    await leerAlertas(); onAlertas?.()
   }
 
   async function ponerEstado(v0: string) {
@@ -141,13 +141,27 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
           <div className="gc-nota">Solo esta clase. Para cambiarle todas las citas, desde su ficha.</div>
         </>}
         <div className="gc-lbl">Incidencias</div>
-        {notas && <div className="gc-notas">{notas.split('\n').map((l, i) => <div key={i}>{l}</div>)}</div>}
+        {alertas.map(a => (
+          <div key={a.id} className={'gc-alerta' + (a.afecta_sesion ? ' afecta' : '')}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <b>{LBL_ALERTA[a.tipo] || a.tipo}</b>{a.afecta_sesion && <span className="gc-afecta">afecta a la sesión</span>}
+              {a.descripcion && <div>{a.descripcion}</div>}
+            </div>
+            <button disabled={ocupado} onClick={() => quitarAlerta(a)}>Cerrar</button>
+          </div>
+        ))}
+        <div className="gc-chips">{Object.entries(LBL_ALERTA).map(([k, l]) => (
+          <button key={k} className={tipoA === k ? 'on' : ''} onClick={() => { setTipoA(k); setAfecta(k === 'dolor' || k === 'lesion') }}>{l}</button>
+        ))}</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: afecta ? 'var(--red)' : 'var(--gr)', margin: '2px 0 8px', cursor: 'pointer' }}>
+          <input type="checkbox" checked={afecta} onChange={e => setAfecta(e.target.checked)}/> Afecta a la sesión (adaptar el entreno)
+        </label>
         <div style={{ display: 'flex', gap: 6 }}>
-          <input className="input" value={incid} onChange={e => setIncid(e.target.value)} placeholder="Qué ha pasado: llegó tarde, se mareó, molestia…"
-            onKeyDown={e => { if (e.key === 'Enter') apuntarIncidencia() }} style={{ flex: 1, fontSize: 13 }}/>
-          <button className="btn btn-p btn-sm" disabled={!incid.trim() || ocupado} onClick={apuntarIncidencia}>Apuntar</button>
+          <input className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Molestia cervical, viene cargada / tiene cita médica el martes…"
+            onKeyDown={e => { if (e.key === 'Enter') nuevaAlerta() }} style={{ flex: 1, fontSize: 13 }}/>
+          <button className="btn btn-p btn-sm" disabled={!desc.trim() || ocupado} onClick={nuevaAlerta}>Activar</button>
         </div>
-        <div className="gc-nota">Queda en las notas de su cita, con la hora y tu nombre.</div>
+        <div className="gc-nota">Igual que las alertas de la agenda: queda en su ficha y en su historial.</div>
       </>}
       {msg && <div className="gc-error">{msg}</div>}
       <div className="gc-pie"><button className="btn btn-p btn-sm" onClick={onCerrar}>Listo</button></div>
@@ -236,7 +250,11 @@ const CSS = `
 .gc-chips button{padding:9px 16px;border-radius:99px;border:1.5px solid var(--bd);background:#fff;font-size:14px;cursor:pointer;font-family:inherit;display:inline-flex;gap:6px;align-items:baseline}
 .gc-chips button small{font-size:11px;color:var(--grl)}
 .gc-chips button.on{background:var(--g);border-color:var(--g);color:#fff}.gc-chips button.on small{color:#e6f2f3}
-.gc-notas{background:var(--bl);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--n);line-height:1.55;margin-bottom:8px;white-space:pre-wrap}
+.gc-alerta{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;background:var(--bl);border:1px solid var(--bd);font-size:12.5px;color:var(--gr);margin-bottom:6px;line-height:1.45}
+.gc-alerta b{color:var(--n);font-weight:600}
+.gc-alerta.afecta{background:var(--redl);border-color:#F5C8C8}
+.gc-afecta{font-size:10.5px;color:var(--red);margin-left:6px}
+.gc-alerta button{border:1px solid var(--g);color:var(--gd);background:#fff;border-radius:99px;padding:3px 10px;font-size:11.5px;cursor:pointer;flex-shrink:0;font-family:inherit}
 .gc-chips button.on.falta{background:#C0504D;border-color:#C0504D}
 .gc-chips button.on.cancelada{background:#6E716C;border-color:#6E716C}
 .gc-nota{font-size:12px;color:var(--grl);line-height:1.45}
