@@ -1549,12 +1549,47 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * los de la franja de una vez, con la misma regla (lo gris se guarda). El boton de
    * cada paciente sigue para quien se va antes.
    */
+  /**
+   * CAMBIAR LA SESIÓN DE HOY (desde el velo de su cita). 'ficha' o 'biblioteca' llevan a
+   * elegir allí y vuelven aquí; 'quitar' la deja sin sesión. Si ya tenía una, primero el
+   * porqué (setCambiando): cambiar lo planificado es una decisión clínica que tiene que
+   * quedar escrita.
+   */
+  function elegirSesion(it: any, d: 'ficha' | 'biblioteca' | 'quitar') {
+    setCitaVelo(null)
+    const puesta = it.sesiones.find((x:any)=>x.id===it.sesionId)
+    if (d === 'quitar') {
+      setCambiando({ destino:'quitar', encargo:{ citaId: it.citaId, pacienteId: it.paciente.id },
+        motivo:'', nota:'', antesId: it.sesionId, antesNombre: puesta?.nombre || '' })
+      return
+    }
+    const encargo = { citaId: it.citaId, pacienteId: it.paciente.id,
+      etiqueta: nombrePac(it.paciente) + (it.hora ? ' · ' + it.hora : ''), volver: '/taller' }
+    if (it.sesionId && it.citaId) {
+      setCambiando({ destino:d, encargo, motivo:'', nota:'', antesId: it.sesionId, antesNombre: puesta?.nombre || '' })
+      return
+    }
+    router.push(rutaDeAsignacion(d, encargo))
+  }
+
   async function finalizarClase(lista:any[]) {
     const quienes = porCerrar(lista)
     if (quienes.length === 0) return
     if (!confirm(`Se guardará la clase de ${quienes.length} ${quienes.length===1?'persona':'personas'}: ${quienes.map((x:any)=>nombrePac(x.paciente)).join(', ')}.\n\nLo que no se haya apuntado se guarda tal como sale en gris.`)) return
     setCerrandoClase(true)
-    for (const q of quienes) await finalizarPaciente(q.paciente.id, q)
+    for (const q of quienes) {
+      // Las sesiones de HOJA LIBRE se guardan con lo marcado en la hoja, no con la lista
+      // de ejercicios. Si esa persona no se llegó a abrir, su hoja se lee aquí.
+      let h: Hoja | null | undefined = hojas[q.sesionId]
+      if (h === undefined) {
+        const { data } = await supabase.from('sesiones').select('hoja').eq('id', q.sesionId).maybeSingle()
+        h = data?.hoja ? leerHoja(data.hoja) : null
+        const hh = h
+        setHojas(prev => ({ ...prev, [q.sesionId]: hh }))
+      }
+      if (h) await finalizarHoja(q.paciente.id, q.sesionId, h, true)
+      else await finalizarPaciente(q.paciente.id, q)
+    }
     setCerrandoClase(false)
   }
 
@@ -1591,12 +1626,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * de esta sesion y este dia: si se finaliza dos veces (se corrigio una cifra), la
    * segunda sustituye a la primera en vez de duplicar el entrenamiento.
    */
-  async function finalizarHoja(pid: string, sid: string, h: Hoja) {
+  async function finalizarHoja(pid: string, sid: string, h: Hoja, deClase = false) {
     // Dos pegatinas del mismo ejercicio son UNA fila: `uniq_regej_finalizado_dia` admite
     // un registro finalizado por ejercicio y dia. Se juntan sus series.
     const porEj: Record<string, any> = {}
     const filas: any[] = []
-    for (const f of registrosDeHoja(h, hechosHoja[claveHechos(pid, sid)] || {})) {
+    // Lo marcado: en memoria si se abrió; si no, lo que quedó en este equipo.
+    let marcados = hechosHoja[claveHechos(pid, sid)]
+    if (!marcados) { try { marcados = JSON.parse(sessionStorage.getItem(claveHechos(pid, sid)) || '{}') } catch { marcados = {} } }
+    for (const f of registrosDeHoja(h, marcados || {})) {
       if (f.ejercicio_id && porEj[f.ejercicio_id]) {
         porEj[f.ejercicio_id].series = [...porEj[f.ejercicio_id].series, ...f.series]
         porEj[f.ejercicio_id].comentario = [porEj[f.ejercicio_id].comentario, f.comentario].filter(Boolean).join(' · ') || null
@@ -1605,7 +1643,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (f.ejercicio_id) porEj[f.ejercicio_id] = f
       filas.push(f)
     }
-    if (filas.length === 0 && !confirm('No hay nada apuntado en la hoja. ¿Finalizar igual?')) return
+    // Desde «Finalizar clase» ya se preguntó una vez por todos.
+    if (filas.length === 0 && !deClase && !confirm('No hay nada apuntado en la hoja. ¿Finalizar igual?')) return
     const { error: e1 } = await supabase.from('registros_ejercicio').delete()
       .eq('paciente_id', pid).eq('sesion_id', sid).eq('fecha', fecha)
     if (e1) { alert('Error al finalizar: ' + e1.message); return }
@@ -1796,79 +1835,6 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               {s.hora&&!hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
               <span style={{fontSize:12.5,fontWeight:500,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombreCorto(s.paciente)}</span>
-              {/* LA PERSONA ELEGIDA LLEVA SU SESIÓN Y SUS OBJETIVOS, aquí mismo: tocar la
-                  sesión la cambia (nivel 2 en adelante) y «▾» abre su cita. La tarjeta de
-                  abajo queda para el trabajo. */}
-              {activoChip && act && act.paciente.id===s.paciente.id && <>
-                {/* UN SOLO BOTÓN. Elegir de dónde, y el taller te lleva a la pantalla que ya
-                    existe para eso. Al asignar allí, vuelves aquí. */}
-                <div style={{position:'relative',minWidth:0}} onClick={e=>e.stopPropagation()}>
-                  {/* Tocar la sesión la cambia (nivel 2 en adelante); las bolitas abren los objetivos. */}
-                  <div role="button" onClick={()=>{ if (cambiaSes) setEligiendo(eligiendo===act.paciente.id ? null : act.paciente.id) }}
-                    title={act.sesionId ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión') : undefined}
-                    style={{display:'inline-flex',alignItems:'center',gap:6,minWidth:0,padding:'1px 4px 1px 8px',borderLeft:'1px solid rgba(255,255,255,.25)',
-                      cursor:cambiaSes?'pointer':'default',color:'inherit'}}>
-                    <span style={{fontSize:12,fontWeight:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,maxWidth:230,
-                      opacity:act.sesionId?.85:1,color:act.sesionId?'inherit':'#BFDCDF'}}>{act.sesionId
-                      ? (act.sesiones.find((x:any)=>x.id===act.sesionId)?.nombre || 'Sesión')
-                      : cambiaSes ? 'Asignar sesión' : 'Sin sesión'}</span>
-                    {act.sesionId && <span onClick={e=>e.stopPropagation()} style={{display:'inline-flex',flexShrink:0}}>
-                      <IconosContexto que="objetivos" tam={22} ctx={{}} sesionId={act.sesionId}/>
-                    </span>}
-                    {cambiaSes && <span style={{fontSize:11,color:'var(--grl)',flexShrink:0}}>▾</span>}
-                  </div>
-                  {eligiendo===act.paciente.id && (
-                    <div style={{position:'absolute',top:'calc(100% + 8px)',left:0,zIndex:30,color:'var(--n)',marginTop:4,minWidth:190,
-                      border:'1px solid var(--bd)',borderRadius:8,background:'var(--w)',boxShadow:'0 4px 16px rgba(0,0,0,.12)',overflow:'hidden'}}>
-                      {([['ficha','Sus sesiones'],['biblioteca','Biblioteca']] as const).filter(([d]) => d !== 'biblioteca' || puede('biblioteca')).map(([d,l])=>(
-                        <div key={d} onClick={()=>{
-                          setEligiendo(null)
-                          const encargo = {
-                            citaId: act.citaId, pacienteId: act.paciente.id,
-                            etiqueta: nombrePac(act.paciente) + (act.hora ? ' · ' + act.hora : ''),
-                            volver: '/taller',
-                          }
-                          /**
-                           * SI YA TENÍA SESIÓN, PRIMERO EL PORQUÉ.
-                           *
-                           * Poner una sesión en una cita vacía no hay que justificarlo. Cambiar
-                           * la que estaba planificada, sí: eso es una decisión clínica que se
-                           * toma con el paciente delante, y era justo lo único que no quedaba
-                           * escrito en ningún sitio. Un mes después la cita apuntaba a la sesión
-                           * nueva y no había forma de distinguirla de una planificada así.
-                           *
-                           * Se pregunta aquí y no en la biblioteca porque aquí es donde está el
-                           * paciente. Al llegar al catálogo de sesiones uno ya está pensando en
-                           * cuál elegir, no en por qué venía.
-                           */
-                          const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
-                          if (act.sesionId && act.citaId) {
-                            setCambiando({ destino:d, encargo, motivo:'', nota:'',
-                              antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
-                            return
-                          }
-                          router.push(rutaDeAsignacion(d as any, encargo))
-                        }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,borderBottom:'1px solid var(--bl)'}}
-                          onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--gl)'}
-                          onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>{l}</div>
-                      ))}
-                      {/* QUITARLA SIN PONER OTRA. Antes cambiar obligaba a elegir una nueva,
-                          asi que para dejar a alguien hoy sin sesion no habia forma: la de la
-                          cita seguia saliendo. Pide motivo igual que un cambio. */}
-                      {act.sesionId && act.citaId && (
-                        <div onClick={()=>{
-                          setEligiendo(null)
-                          const puesta = act.sesiones.find((x:any)=>x.id===act.sesionId)
-                          setCambiando({ destino:'quitar', encargo:{ citaId: act.citaId, pacienteId: act.paciente.id },
-                            motivo:'', nota:'', antesId: act.sesionId, antesNombre: puesta?.nombre || '' })
-                        }} style={{padding:'9px 12px',cursor:'pointer',fontSize:11,color:'var(--red)'}}
-                          onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--redl)'}
-                          onMouseOut={e=>(e.currentTarget as HTMLElement).style.background=''}>Quitar, hoy sin sesión</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>}
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
               <ChipPulso pid={s.paciente?.id}/>
               {activoChip && <span onClick={e=>{ e.stopPropagation(); setCitaVelo(s.paciente.id) }} title="Su cita: falta, sala e incidencias"
@@ -2015,12 +1981,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                   de la sesion con su moneda. Ver `IconosContexto`. */}
               <IconosContexto que="contexto" ctx={ctxPorPaciente[act.paciente.id] || {}} sesionId={act.sesionId}/>
             </div>
-            {act.sesionId && hojaAct && (
-              <button className="btn btn-p btn-sm" onClick={()=>finalizarHoja(act.paciente.id, act.sesionId, hojaAct)}>✓ Guardar y finalizar</button>
-            )}
-            {act.sesionId && !hojaAct && act.datos.length>0 && (
-              <button className="btn btn-p btn-sm" onClick={()=>finalizarPaciente(act.paciente.id)}>✓ Guardar y finalizar</button>
-            )}
+            {/* UN SOLO GUARDADO: «✓ Finalizar» de arriba cierra a todos los de la clase
+                (también las de hoja libre). Lo que se apunta ya se guarda solo al tocarlo. */}
           </div>
 
           {act.sesionVieja && act.sesionId && (
@@ -2122,7 +2084,20 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
-        <VeloCita soloFalta={!puede('cancelar_cita')} item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}/>
+        <VeloCita soloFalta={!puede('cancelar_cita')} item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}
+          arriba={<>
+            {/* SU SESIÓN Y SUS OBJETIVOS, dentro del velo: fuera ocupaban la ficha. */}
+            <div className="gc-lbl">Sesión de hoy</div>
+            <div style={{fontSize:14,fontWeight:600,color:'var(--n)',marginBottom:6}}>
+              {it.sesionId ? (it.sesiones.find((x:any)=>x.id===it.sesionId)?.nombre || 'Sesión') : 'Sin sesión'}
+            </div>
+            {it.sesionId && <IconosContexto que="lista" ctx={{}} sesionId={it.sesionId}/>}
+            {cambiaSes && it.citaId && <div className="gc-chips" style={{marginTop:8}}>
+              <button onClick={() => elegirSesion(it, 'ficha')}>{it.sesionId ? 'Cambiar por otra suya' : 'Elegir de sus sesiones'}</button>
+              {puede('biblioteca') && <button onClick={() => elegirSesion(it, 'biblioteca')}>De la biblioteca</button>}
+              {it.sesionId && <button className="falta" onClick={() => elegirSesion(it, 'quitar')}>Hoy sin sesión</button>}
+            </div>}
+          </>}/>
       ) : null })()}
       {anadiendoPac && (
         <VeloAnadir fecha={fecha} hora={hora} horas={Array.from(new Set([...horas.map(h => h.hora), ...(hora ? [hora] : [])])).sort()}

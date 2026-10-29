@@ -70,7 +70,8 @@ function Boton({ g, abierto, onPulsar }: { g: Grupo, abierto: boolean, onPulsar:
 
 /**
  * `que`: 'objetivos' solo las bolas de los objetivos (van en la píldora de la sesión),
- * 'contexto' solo patologías, molestias y alertas, 'todo' las dos cosas.
+ * 'contexto' solo patologías, molestias y alertas, 'todo' las dos cosas, 'lista' los
+ * objetivos con su nombre, uno por línea.
  */
 export default function IconosContexto({ ctx = {}, sesionId, que = 'todo', tam = 34 }: any) {
   const [abierto, setAbierto] = useState('')
@@ -101,6 +102,19 @@ export default function IconosContexto({ ctx = {}, sesionId, que = 'todo', tam =
     { k: 'alertas', icon: 'alerta', label: 'Alertas', items: ctx.alertas || [], color: 'var(--red)' },
   ].filter(g => g.items.length > 0)
 
+  // 'lista': los objetivos uno debajo de otro, con su nombre (para el velo de la cita).
+  if (que === 'lista') {
+    if (objetivos.length === 0) return <div style={{ fontSize: 12, color: 'var(--grl)' }}>Sin objetivos enlazados.</div>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {objetivos.map((o: any, i: number) => (
+          <div key={o.id || i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <Bola o={o} tam={24}/><span style={{ fontSize: 12.5, color: 'var(--n)' }}>{o.nombre}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
   const verObjetivos = que !== 'contexto'
   if (grupos.length === 0 && (!verObjetivos || objetivos.length === 0)) return null
 
