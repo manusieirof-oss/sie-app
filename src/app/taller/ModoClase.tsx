@@ -1,5 +1,6 @@
 'use client'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
+import CaraPaciente from '@/components/CaraPaciente'
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
@@ -1839,12 +1840,21 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
             <div style={{minWidth:0,flexShrink:0}}>
               <div style={{fontSize:13,fontWeight:400,color:'var(--n)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                <span><NombrePulso pid={act.paciente?.id}>{nombrePac(act.paciente)}</NombrePulso></span>
+                {/* LA PERSONA ES EL BOTÓN: su cara y su nombre de clínica. Al tocarla, su cita
+                    de hoy (falta, cancelar, sala) y las incidencias. Antes eran el nombre
+                    completo, un botón «Cita ▾» y «cita 08:00 · sala B», que ya se ve arriba. */}
+                <button onClick={() => setCitaVelo(act.paciente.id)} title="Su cita de hoy: falta, sala e incidencias"
+                  style={{display:'inline-flex',alignItems:'center',gap:9,border:0,background:'transparent',padding:'2px 8px 2px 2px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',color:'var(--n)'}}
+                  onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='var(--bl)'}
+                  onMouseOut={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                  <span style={{width:38,height:38,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:'var(--gm)',color:'var(--gd)',
+                    display:'grid',placeItems:'center',fontSize:13,fontWeight:600}}><CaraPaciente p={act.paciente}/></span>
+                  <span style={{fontSize:16,fontWeight:600}}><NombrePulso pid={act.paciente?.id}>{nombreCorto(act.paciente)}</NombrePulso></span>
+                  <span style={{fontSize:11,color:'var(--grl)'}}>▾</span>
+                </button>
                 {/* Solo sale si lleva banda: ver PulsoClase. */}
                 <ChipPulso pid={act.paciente?.id} grande/>
                 {act.estado === 'falta' && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#C0504D', borderRadius: 99, padding: '1px 8px' }}>Falta</span>}
-                <button className="btn btn-t btn-sm" onClick={() => setCitaVelo(act.paciente.id)} title="Falta, cancelar o cambiar de sala">Cita ▾</button>
-                {act.hora&&<span style={{fontSize:9,color:'var(--grl)',marginLeft:8}}>cita {act.hora}{act.sala?' · sala '+act.sala:''}</span>}
                 {act.finalizado&&<span style={{fontSize:9,color:'var(--g)',marginLeft:8}}>✓ finalizado</span>}
                 {enOtros[act.paciente.id] && (
                   <span style={{fontSize:11,color:'#7A5800',background:'var(--ambl)',border:'1px solid var(--amb)',borderRadius:99,padding:'2px 9px',marginLeft:8}}>

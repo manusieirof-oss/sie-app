@@ -71,6 +71,36 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
   const estado = item.estado === 'realizada' ? 'programada' : (item.estado || 'programada')
   const cita = { id: item.citaId, paciente_id: item.paciente.id, fecha, hora: item.hora }
 
+  /* INCIDENCIAS DE LA CLASE («se mareó», «llegó tarde», «le dolía el hombro»). Se
+     apuntan en las notas de SU CITA, con la hora y quién la escribe, así salen también
+     al abrir la cita en la agenda. Se leen al abrir: la lista del taller no las trae. */
+  const [notas, setNotas] = useState<string>('')
+  const [incid, setIncid] = useState('')
+  useEffect(() => {
+    if (!item.citaId) return
+    supabase.from('citas').select('notas').eq('id', item.citaId).maybeSingle().then(({ data }) => setNotas((data as any)?.notas || ''))
+  }, [item.citaId])
+  async function apuntarIncidencia() {
+    const t = incid.trim()
+    if (!t || ocupado) return
+    setOcupado(true); setMsg('')
+    const { data: { user } } = await supabase.auth.getUser()
+    let quien = ''
+    if (user?.id) {
+      const { data: p } = await supabase.from('perfiles').select('nombre').eq('user_id', user.id).maybeSingle()
+      quien = ((p as any)?.nombre || '').split(' ')[0]
+    }
+    const hhmm = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    const linea = `${hhmm}${quien ? ' · ' + quien : ''}: ${t}`
+    // Se relee justo antes: otro equipo pudo apuntar algo mientras tanto.
+    const { data: ya } = await supabase.from('citas').select('notas').eq('id', item.citaId).maybeSingle()
+    const nuevas = [((ya as any)?.notas || '').trim(), linea].filter(Boolean).join('\n')
+    const { error } = await supabase.from('citas').update({ notas: nuevas }).eq('id', item.citaId)
+    setOcupado(false)
+    if (error) { setMsg('No se ha podido apuntar: ' + error.message); return }
+    setNotas(nuevas); setIncid('')
+  }
+
   async function ponerEstado(v0: string) {
     if (ocupado) return
     const v = v0 === estado ? 'programada' : v0
@@ -92,7 +122,7 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
   }
 
   return (
-    <Velo titulo={nombre} sub={`Cita de las ${item.hora || '—'}`} onCerrar={onCerrar}>
+    <Velo titulo={nombre} sub={`Cita de las ${item.hora || '—'}${item.sala ? ' · sala ' + item.sala : ''}`} onCerrar={onCerrar}>
       {!item.citaId ? <div className="gc-nota">No tiene cita en la agenda.</div> : <>
         <div className="gc-lbl">Clase de hoy</div>
         <div className="gc-chips">{ESTADOS.filter(e => !soloFalta || e.v === 'falta' || e.v === estado).map(e => (
@@ -107,6 +137,14 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
           ))}</div>
           <div className="gc-nota">Solo esta clase. Para cambiarle todas las citas, desde su ficha.</div>
         </>}
+        <div className="gc-lbl">Incidencias</div>
+        {notas && <div className="gc-notas">{notas.split('\n').map((l, i) => <div key={i}>{l}</div>)}</div>}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input className="input" value={incid} onChange={e => setIncid(e.target.value)} placeholder="Qué ha pasado: llegó tarde, se mareó, molestia…"
+            onKeyDown={e => { if (e.key === 'Enter') apuntarIncidencia() }} style={{ flex: 1, fontSize: 13 }}/>
+          <button className="btn btn-p btn-sm" disabled={!incid.trim() || ocupado} onClick={apuntarIncidencia}>Apuntar</button>
+        </div>
+        <div className="gc-nota">Queda en las notas de su cita, con la hora y tu nombre.</div>
       </>}
       {msg && <div className="gc-error">{msg}</div>}
       <div className="gc-pie"><button className="btn btn-p btn-sm" onClick={onCerrar}>Listo</button></div>
@@ -195,6 +233,7 @@ const CSS = `
 .gc-chips button{padding:9px 16px;border-radius:99px;border:1.5px solid var(--bd);background:#fff;font-size:14px;cursor:pointer;font-family:inherit;display:inline-flex;gap:6px;align-items:baseline}
 .gc-chips button small{font-size:11px;color:var(--grl)}
 .gc-chips button.on{background:var(--g);border-color:var(--g);color:#fff}.gc-chips button.on small{color:#e6f2f3}
+.gc-notas{background:var(--bl);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--n);line-height:1.55;margin-bottom:8px;white-space:pre-wrap}
 .gc-chips button.on.falta{background:#C0504D;border-color:#C0504D}
 .gc-chips button.on.cancelada{background:#6E716C;border-color:#6E716C}
 .gc-nota{font-size:12px;color:var(--grl);line-height:1.45}
