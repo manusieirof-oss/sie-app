@@ -3,7 +3,7 @@ import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import CaraPaciente from '@/components/CaraPaciente'
 import MetodoParte from './MetodoParte'
 import { cargarMetodos, aplicarMetodo, METODOS_DEFECTO, type ValoresMetodo } from '@/lib/metodos'
-import { pulsoActivo } from '@/lib/pulsoVivo'
+import { pulsoActivo, hayPulso } from '@/lib/pulsoVivo'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
 import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCarga'
@@ -464,7 +464,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const ya = previos.find((s:any) => s.paciente.id === d.pacienteId)
         // Lo suyo se queda como esté; de la agenda se toma lo que pueda haber cambiado
         // (marcado como falta, cambiado de sala).
-        if (ya) { lista.push({ ...ya, estado: d.estado, sala: d.sala, hora: d.hora, citaId: d.citaId }); continue }
+        if (ya) { lista.push({ ...ya, estado: d.estado, sala: d.sala, hora: d.hora, citaId: d.citaId, pulsometro: !!(d.sesion as any)?.pulsometro }); continue }
         // La sesión de hoy es el plan CON lo ajustado para este día. Lo preparado
         // semanas antes tiene que llegar a la sala solo; si hubiera que acordarse
         // de mirarlo, no serviría de nada haberlo preparado.
@@ -484,6 +484,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           datos, cargado: !!d.sesion, finalizado: false,
           citaId: d.citaId, estado: d.estado, hora: d.hora, sala: d.sala,
           origen: d.origen, sesionVieja: d.sesionVieja,
+          // Su sesión pide pulsómetro (se marca al hacerla, en el editor).
+          pulsometro: !!(d.sesion as any)?.pulsometro,
         })
         cargarObjsPaciente(d.pacienteId)
         cargarCtxPaciente(d.pacienteId)
@@ -1740,6 +1742,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const icoVista = (on:boolean): React.CSSProperties => ({ ...pill(on), width: 34, height: 30, padding: 0, display: 'grid', placeItems: 'center' })
         const nCerrar = porCerrar(seleccion).length
         const conPulso = pulsoActivo()
+        // Cuántos de esta clase llevan pulsómetro según su sesión.
+        const piden = seleccion.filter((x:any) => x.pulsometro && x.estado !== 'falta').length
         return (
           <div className="tl-cab" style={{ marginBottom: 10 }}>
             <style>{`
@@ -1791,8 +1795,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               </div>
               {/* Pulsómetros: antes una fila propia. Rojo si hay bandas emitiendo. */}
               <button style={{ ...redondo(pulsoAbierto), color: conPulso ? '#B05A5A' : (pulsoAbierto ? 'var(--n)' : 'var(--gr)') }}
-                onClick={() => setPulsoAbierto(v => !v)} title={pulsoAbierto ? 'Ocultar pulsómetros' : 'Pulsómetros'}>
+                onClick={() => setPulsoAbierto(v => !v)} title={pulsoAbierto ? 'Ocultar pulsómetros' : piden ? `Pulsómetros · ${piden} lo llevan hoy según su sesión` : 'Pulsómetros'}>
                 <Ic name="corazon" size={17}/>
+                {piden > 0 && <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, borderRadius: 99, background: '#B05A5A', color: '#fff',
+                  fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', padding: '0 4px', border: '2px solid var(--bl)' }}>{piden}</span>}
               </button>
               {/* Arreglar ejercicios es de vez en cuando (y solo desde nivel 3): un botón redondo. */}
               {tocaBib && <button style={redondo(arreglar)} onClick={alternarArreglar}
@@ -1927,6 +1933,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               <span style={{fontSize:12.5,fontWeight:500,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombreCorto(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
               <ChipPulso pid={s.paciente?.id}/>
+              {/* Su sesión pide pulsómetro: un corazón pequeño, para ponérselo al llegar. */}
+              {s.pulsometro && !hayPulso(s.paciente?.id) && <span title="Hoy lleva pulsómetro" style={{ color: '#B05A5A', fontSize: 11 }}>♥</span>}
               {activoChip && <span onClick={e=>{ e.stopPropagation(); setCitaVelo(s.paciente.id) }} title="Su cita: falta, sala e incidencias"
                 style={{fontSize:11,padding:'0 2px 0 4px',opacity:.85}}>▾</span>}
             </div>

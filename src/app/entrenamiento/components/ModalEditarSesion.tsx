@@ -189,6 +189,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     partes: (cita?.id ? aplicarAjustes(sesion, cita.ajustes) : sesion).partes || [],
     // CANDADO: no corre con las citas (lib/correrSesiones). Las copias lo heredan.
     fija: !!sesion.fija,
+    // Si en esta sesión se trabaja con pulsómetro: el taller lo avisa al llegar.
+    pulsometro: !!sesion.pulsometro,
   })
   const [parteActiva, setParteActiva] = useState(0)
   // Fila con la lista entera de objetivos abierta, y filas con la nota abierta.
@@ -519,6 +521,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     }
     // Solo se manda si cambia: sin la columna (falta el SQL) el resto se guarda igual.
     if (formSesion.fija !== !!sesion.fija) campos.fija = formSesion.fija
+    if (formSesion.pulsometro !== !!sesion.pulsometro) campos.pulsometro = formSesion.pulsometro
     if (hojaLeida) campos.hoja = hoja
     // Los objetivos pegados en la hoja cuentan igual que los elegidos arriba: si no,
     // habria que marcarlos dos veces, y el dia que no coincidieran no sabriamos cual vale.
@@ -539,6 +542,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       if (error && /fija/.test(error.message)) {
         alert('El candado no se ha guardado: falta añadir la columna en Supabase (sesiones.fija). El resto sí.')
         delete campos.fija; ({ error } = await supabase.from('sesiones').update(campos).eq('id', sesionId))
+      }
+      if (error && /pulsometro/.test(error.message)) {
+        alert('Lo del pulsómetro no se ha guardado: falta añadir la columna en Supabase (sesiones.pulsometro). El resto sí.')
+        delete campos.pulsometro; ({ error } = await supabase.from('sesiones').update(campos).eq('id', sesionId))
       }
       if (error) { alert('No se pudo guardar la sesión: '+error.message); setGuardando(false); return }
       // Candado en una PLANTILLA: se pasa a las copias que ya tienen los pacientes
@@ -660,6 +667,15 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:12,
                 border:`1.5px solid ${formSesion.fija?'var(--n)':'var(--bd)'}`,background:formSesion.fija?'var(--n)':'var(--w)',color:formSesion.fija?'#fff':'var(--gr)'}}>
               {formSesion.fija ? '🔒 Fija' : '⇄ Corre'}
+            </button>
+          )}
+          {/* PULSÓMETRO: si en esta sesión se trabaja con banda. El taller lo avisa al llegar. */}
+          {!modoCita && (
+            <button type="button" onClick={()=>setFormSesion(p=>({...p,pulsometro:!p.pulsometro}))}
+              title={formSesion.pulsometro ? 'Con pulsómetro: el taller avisa de ponérselo. Pulsa para quitarlo' : 'Marcar que en esta sesión se usa pulsómetro'}
+              style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:12,
+                border:`1.5px solid ${formSesion.pulsometro?'#B05A5A':'var(--bd)'}`,background:formSesion.pulsometro?'#B05A5A':'var(--w)',color:formSesion.pulsometro?'#fff':'var(--gr)'}}>
+              {formSesion.pulsometro ? '♥ Con pulsómetro' : '♡ Sin pulsómetro'}
             </button>
           )}
           {!modoCita && hojaLeida && (
