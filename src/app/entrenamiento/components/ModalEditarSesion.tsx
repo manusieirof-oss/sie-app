@@ -844,7 +844,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     todos sus ejercicios. Si no coinciden, sale vacío con «varias». Luego
                     cada ejercicio se puede retocar abajo. (En circuito mandan las vueltas.) */}
                 {(parte?.modo==='ejercicio'||parte?.modo==='superserie'||!parte?.modo) && (parte?.ejercicios||[]).length>0 && (()=>{
-                  const ss = Array.from(new Set((parte?.ejercicios||[]).map((x:any)=>String(x.series||''))))
+                  const ss: string[] = Array.from(new Set<string>((parte?.ejercicios||[]).map((x:any)=>String(x.series||''))))
                   const igual = ss.length===1 ? ss[0] : ''
                   return (
                     <label className="par-in" title="Pone estas series a todos los ejercicios de la parte">
