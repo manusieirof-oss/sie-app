@@ -745,35 +745,29 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 {/* En MONEDAS, igual que en la ficha del paciente y en las sesiones: un
                     objetivo se reconoce por su foto, y dibujarlo distinto en cada pantalla
                     obliga a reconocerlo otra vez en cada una. */}
-                {objetivosSel.map(id=>{
+                {/* ORDEN FIJO: cada objetivo se queda en su sitio y se enciende o se apaga ahí.
+                    Antes los marcados pasaban delante y los demás se corrían, así que al tocar
+                    el de la derecha parecía que se iban marcando de izquierda a derecha. */}
+                {[...objsDestacar, ...objetivosSel.filter(id=>!objsDestacar.includes(id))].map(id=>{
                   const o = objetivosDisp.find((x:any)=>x.id===id)
                   if (!o) return null
+                  const on = objetivosSel.includes(id)
+                  const alternar = () => { tocadoAparte.current = true; setObjetivosSel(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
                   return (
-                    <span key={id} title={(movsSel[id]||[]).length ? `${o.nombre} · ${(movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ')}` : o.nombre}
+                    <span key={id} title={on ? `${o.nombre} · en la sesión${(movsSel[id]||[]).length ? ' · '+(movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ') : ''}` : `${o.nombre} · pulsa para añadirlo`}
                       style={{position:'relative',display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
-                      <MonedaObjetivo objetivo={o}/>
-                      <span className="obj-mon-g">{o.nombre}</span>
-                      {/* El «−» encima de la esfera, pequeño: quitar no tiene que gritar. */}
-                      <button type="button" title="Quitar este objetivo"
-                        onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.filter(x=>x!==id)) }}
-                        style={{position:'absolute',top:-4,right:8,width:18,height:18,borderRadius:'50%',border:'1px solid var(--bd)',background:'#fff',
-                          color:'var(--gr)',cursor:'pointer',fontSize:13,lineHeight:1,display:'grid',placeItems:'center',padding:0}}>−</button>
+                      <button type="button" onClick={on ? undefined : alternar}
+                        style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,background:'none',border:'none',padding:0,
+                          cursor:on?'default':'pointer',opacity:on?1:.4}}>
+                        <MonedaObjetivo objetivo={o}/>
+                        <span className="obj-mon-g">{o.nombre}</span>
+                      </button>
+                      {on && (
+                        <button type="button" title="Quitar este objetivo" onClick={alternar}
+                          style={{position:'absolute',top:-4,right:8,width:18,height:18,borderRadius:'50%',border:'1px solid var(--bd)',background:'#fff',
+                            color:'var(--gr)',cursor:'pointer',fontSize:13,lineHeight:1,display:'grid',placeItems:'center',padding:0}}>−</button>
+                      )}
                     </span>
-                  )
-                })}
-                {/* LOS DEL PACIENTE, A MANO. Sus objetivos abiertos que aún no están en la
-                    sesión salen apagados detrás: tocar uno lo mete. Así, al crear una sesión,
-                    no hay que ir a buscarlos: se eligen de los suyos. */}
-                {objsDestacar.filter(id=>!objetivosSel.includes(id)).map(id=>{
-                  const o = objetivosDisp.find((x:any)=>x.id===id)
-                  if (!o) return null
-                  return (
-                    <button key={'p'+id} type="button" title={`${o.nombre} · objetivo del paciente: pulsa para añadirlo a la sesión`}
-                      onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.includes(id)?prev:[...prev,id]) }}
-                      style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76,background:'none',border:'none',padding:0,cursor:'pointer',opacity:.4}}>
-                      <MonedaObjetivo objetivo={o}/>
-                      <span className="obj-mon-g">{o.nombre}</span>
-                    </button>
                   )
                 })}
                 <span style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
