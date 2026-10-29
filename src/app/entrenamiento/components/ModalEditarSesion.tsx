@@ -403,6 +403,12 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
     })
   }
 
+  /* SUPERSERIES DE 2, 3 o 4: con `tam_grupo` en la parte, las letras van solas por orden
+     (A A B B…). Al añadir, quitar o mover, se recolocan. Sin él, cada letra a mano. */
+  const letraGrupo = (i: number, tam: number) => String.fromCharCode(65 + Math.floor(i / Math.max(1, tam)))
+  const conLetras = (p: any, ejercicios: any[]) => p?.modo === 'superserie' && p?.tam_grupo
+    ? ejercicios.map((x: any, i: number) => ({ ...x, grupo: letraGrupo(i, Number(p.tam_grupo)) })) : ejercicios
+
   function addEjercicio(ej: any) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
@@ -413,7 +419,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       // —un press Pallof o una marcha no son bilaterales— y además dejaba escrito en el
       // registro el nombre de una variante que puede no existir en ese ejercicio.
       const configEj = itemDeEjercicio(ej)
-      partes[parteActiva] = { ...partes[parteActiva], ejercicios: [...(partes[parteActiva].ejercicios||[]), configEj] }
+      const pa = partes[parteActiva]
+      partes[parteActiva] = { ...pa, ejercicios: conLetras(pa, [...(pa.ejercicios||[]), configEj]) }
       return { ...prev, partes }
     })
   }
@@ -477,7 +484,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       const ejercicios = [...(partes[parteActiva]?.ejercicios || [])]
       const [x] = ejercicios.splice(desde, 1)
       ejercicios.splice(hasta, 0, x)
-      partes[parteActiva] = { ...partes[parteActiva], ejercicios }
+      partes[parteActiva] = { ...partes[parteActiva], ejercicios: conLetras(partes[parteActiva], ejercicios) }
       return { ...prev, partes }
     })
   }
@@ -485,7 +492,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   function quitarEjercicio(parteIdx: number, ejIdx: number) {
     setFormSesion(prev => {
       const partes = [...prev.partes]
-      partes[parteIdx] = { ...partes[parteIdx], ejercicios: partes[parteIdx].ejercicios.filter((_:any, i:number) => i !== ejIdx) }
+      partes[parteIdx] = { ...partes[parteIdx], ejercicios: conLetras(partes[parteIdx], partes[parteIdx].ejercicios.filter((_:any, i:number) => i !== ejIdx)) }
       return { ...prev, partes }
     })
   }
@@ -836,31 +843,43 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   </>
                 )}
 
-                {/* Descanso del RECORRIDO, distinto del de entre series de un ejercicio.
-                    Qué separa depende del modo, así que cambia la etiqueta, no el campo.
-                    Y lleva el icono de pausa delante para que un número de segundos
-                    suelto entre los demás campos no se confunda con una duración. */}
+                {/* LAS PAUSAS, CON SU NOMBRE DELANTE. En superserie y circuito hay dos y no se
+                    sabía cuál era cuál: primero la de pasar de un ejercicio al siguiente,
+                    luego la de acabar la vuelta. Vacío = sin pausa. */}
+                {(parte?.modo==='circuito'||parte?.modo==='superserie') && (
+                  <label className="par-in" title="Lo que se descansa al cambiar de ejercicio dentro de la vuelta. Déjalo vacío si se encadenan sin parar.">
+                    <span style={{display:'inline-flex',alignItems:'center',gap:3,color:'var(--gr)',marginRight:4}}><Ic name="pausa" size={11}/> Entre ejercicios</span>
+                    <input type="number" min={0} step={5} value={parte?.transicion||''} placeholder="0"
+                      onChange={e=>editarParte({transicion:e.target.value})}/>
+                    <span>s</span>
+                  </label>
+                )}
                 {parte?.modo!=='tiempo' && (
                   <label className="par-in" title="En circuito y superserie es el descanso del recorrido. Con los ejercicios sueltos es el descanso general: vale para todos salvo los que traigan el suyo.">
-                    <span style={{display:'inline-flex',color:'var(--gr)',marginRight:2}}><Ic name="pausa" size={11}/></span>
-                    <input type="number" min={0} step={5} value={parte?.descanso||''} placeholder="seg"
+                    <span style={{display:'inline-flex',alignItems:'center',gap:3,color:'var(--gr)',marginRight:4}}><Ic name="pausa" size={11}/> {parte?.modo==='circuito' ? 'Entre vueltas'
+                      : parte?.modo==='superserie' ? 'Al acabar cada vuelta' : 'Entre series'}</span>
+                    <input type="number" min={0} step={5} value={parte?.descanso||''} placeholder="0"
                       onChange={e=>editarParte({descanso:e.target.value})}/>
-                    <span>{parte?.modo==='circuito' ? 'entre vueltas'
-                      : parte?.modo==='superserie' ? 'tras cada vuelta del grupo' : 'general entre series'}</span>
+                    <span>s</span>
                   </label>
                 )}
 
-                {/* LA OTRA PAUSA DEL RECORRIDO. Pasar de una estación a la siguiente no
-                    es lo mismo que descansar al acabar la vuelta, y con un solo campo no
-                    se podía decir "sin descanso entre ejercicios, dos minutos al acabar".
-                    Vacío = se pasa y ya. */}
-                {(parte?.modo==='circuito'||parte?.modo==='superserie') && (
-                  <label className="par-in" title="Lo que se descansa al cambiar de ejercicio dentro de la vuelta. Déjalo vacío si se encadenan sin parar.">
-                    <span style={{display:'inline-flex',color:'var(--gr)',marginRight:2}}><Ic name="pausa" size={11}/></span>
-                    <input type="number" min={0} step={5} value={parte?.transicion||''} placeholder="seg"
-                      onChange={e=>editarParte({transicion:e.target.value})}/>
-                    <span>entre ejercicios</span>
-                  </label>
+                {/* SUPERSERIES: de cuántos en cuántos van. Elegido, las letras se ponen solas. */}
+                {parte?.modo==='superserie' && (
+                  <span className="par-in" title="Cuántos ejercicios forman cada grupo. Con un número, las letras (A, B…) se ponen solas por orden; «a mano», las eliges tú.">
+                    <span style={{color:'var(--gr)',marginRight:4}}>Grupos de</span>
+                    {([2,3,4,0] as const).map(n=>{
+                      const on = n===0 ? !parte?.tam_grupo : Number(parte?.tam_grupo)===n
+                      return <button key={n} type="button" onClick={()=>{
+                        setFormSesion(prev=>{
+                          const partes=[...prev.partes]; const pa={ ...partes[parteActiva], tam_grupo: n||null }
+                          partes[parteActiva]={ ...pa, ejercicios: conLetras(pa, pa.ejercicios||[]) }
+                          return { ...prev, partes }
+                        })
+                      }} style={{border:`1px solid ${on?'var(--gd)':'var(--bd)'}`,background:on?'var(--gl)':'var(--w)',color:on?'var(--gd)':'var(--gr)',
+                        borderRadius:99,padding:'2px 9px',fontSize:12,cursor:'pointer',fontFamily:'inherit',marginRight:3,fontWeight:on?600:400}}>{n===0?'a mano':n}</button>
+                    })}
+                  </span>
                 )}
 
                 <div style={{flex:1}}/>
@@ -911,7 +930,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                         style={{cursor:arrEj!==null?'grabbing':'grab',color:'var(--grl)',fontSize:17,
                                 lineHeight:1,flexShrink:0,userSelect:'none',padding:'2px 3px'}}>⠿</span>
                       {parte?.modo==='superserie' && (
-                        <select value={ej.grupo||'A'} onChange={e=>editarEjercicio(ei,{grupo:e.target.value})}
+                        <select value={ej.grupo||'A'} disabled={!!parte?.tam_grupo} onChange={e=>editarEjercicio(ei,{grupo:e.target.value})}
                           style={{width:44,textAlign:'center',fontWeight:600,color:'var(--gd)',flexShrink:0}}
                           title="Los ejercicios del mismo grupo se hacen seguidos">
                           {['A','B','C','D','E'].map(g=><option key={g} value={g}>{g}</option>)}
@@ -1212,6 +1231,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   seleccion={selBib}
                   onAlternar={(e:any)=>setSelBib(prev=>prev.includes(e.id)?prev.filter(x=>x!==e.id):[...prev,e.id])}
                   sugeridos={ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
+                  objetivosDe={objsSesion.length ? (e:any)=>objsDeEj({ ejercicio_id: e.id, nombre: e.nombre })
+                    .map((id:string)=>(objsSesion.find((o:any)=>o.id===id) as any)?.nombre).filter(Boolean) : undefined}
                   onCrear={crearYAnadir}
                 />
               </div>

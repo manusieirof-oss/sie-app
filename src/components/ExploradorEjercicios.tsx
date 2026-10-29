@@ -31,8 +31,13 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe,
 }: {
+  /**
+   * Montando la sesión de un paciente: qué objetivos de la sesión trabaja cada ejercicio
+   * (nombres). La tarjeta lo dice y se puede ver solo lo que sirve para ellos.
+   */
+  objetivosDe?: (e: any) => string[]
   ejercicios: any[]
   etiquetas?: any[]
   /** Ids marcados. Si se pasa, las tarjetas se comportan como casillas. */
@@ -63,6 +68,8 @@ export default function ExploradorEjercicios({
   const [desplegadas, setDesplegadas] = useState<string[]>([])
   /** Ver solo los que tienen huecos. Ver `problemasDeEjercicio` en lib/ejercicios. */
   const [soloPendientes, setSoloPendientes] = useState(false)
+  /** Solo los que trabajan algún objetivo de la sesión (si se pasa `objetivosDe`). */
+  const [soloObjetivos, setSoloObjetivos] = useState(false)
   const [creando, setCreando] = useState(false)
   /**
    * FAMILIAS. Una variante es un ejercicio completo con `portada_id` apuntando a su
@@ -136,11 +143,18 @@ export default function ExploradorEjercicios({
     return (e.variantes || []).find((v: any) => contiene(v?.nombre, q)) || null
   }
 
-  const filtrados = ejercicios.filter(e => {
-    const coincide = !buscar
-      || contiene(e.nombre, buscar)
+  /* BUSCAR TAMBIÉN POR SUS ETIQUETAS. Buscar «gemelo» tiene que traer lo etiquetado
+     como gemelo aunque no lo diga el nombre. Y si casa una portada, entra su familia
+     entera: sus variantes son el mismo ejercicio con otra forma. */
+  const nombreEt: Record<string, string> = {}
+  etiquetas.forEach((et: any) => { nombreEt[et.id] = et.nombre || '' })
+  const casaTexto = (e: any) => contiene(e.nombre, buscar)
       || contiene(e.descripcion, buscar)
       || (e.variantes || []).some((v: any) => contiene(v?.nombre, buscar))
+      || (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
+  const portadasQueCasan = new Set(buscar ? ejercicios.filter(e => !e.portada_id && casaTexto(e)).map(e => e.id) : [])
+  const filtrados = ejercicios.filter(e => {
+    const coincide = !buscar || casaTexto(e) || (!!e.portada_id && portadasQueCasan.has(e.portada_id))
     // Varias etiquetas se acumulan: piden los que las tengan TODAS. Y cada una vale
     // por su rama entera, así que filtrar por "Cuádriceps" trae lo etiquetado solo
     // como "Recto femoral" — si no, habría que acordarse del nivel exacto.
@@ -149,6 +163,7 @@ export default function ExploradorEjercicios({
       return (e.etiquetas || []).some((x: string) => rama.includes(x))
     })
     return coincide && etiquetado && (!soloPendientes || problemasDeEjercicio(e).length > 0)
+      && (!soloObjetivos || !objetivosDe || objetivosDe(e).length > 0)
   })
 
   const nPendientes = ejercicios.filter(e => problemasDeEjercicio(e).length > 0).length
@@ -185,7 +200,7 @@ export default function ExploradorEjercicios({
   const duplicado = abiertoCrear && aCrear.length >= 3 && existeYa(aCrear)
   const puedeCrear = aCrear.length >= 3 && !duplicado
 
-  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes
+  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes || soloObjetivos
   const nombrePortada = (e: any) => ejercicios.find(x => x.id === e.portada_id)?.nombre || ''
   const nombreCortoDe = (e: any) => nombreCorto(e.nombre, nombrePortada(e))
   /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
@@ -222,6 +237,15 @@ export default function ExploradorEjercicios({
           {esHijo(e) && <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{nombrePortada(e)}</div>}
           <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.3 }}>{vc ? vc.nombre : esHijo(e) ? nombreCortoDe(e) : e.nombre}</div>
           {vc && <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>{e.nombre}</div>}
+          {/* PARA QUÉ OBJETIVO DE SU SESIÓN SIRVE. Sin esto, al elegir no se sabía si el
+              ejercicio trabajaba lo que se le marcó al paciente. */}
+          {objetivosDe && (() => {
+            const os = objetivosDe(e)
+            if (os.length === 0) return null
+            return <div title={os.join(' · ')} style={{ fontSize: 11, color: '#fff', background: 'var(--gd)', borderRadius: 99, padding: '1px 8px',
+              display: 'inline-block', marginTop: 4, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              ◎ {os[0]}{os.length > 1 ? ` +${os.length - 1}` : ''}</div>
+          })()}
           {/* Cómo se mide decide qué campos pedirá la sesión: conviene saberlo antes. */}
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {nombreMedida(e.tipo_medida)}
@@ -295,6 +319,13 @@ export default function ExploradorEjercicios({
             Filtros{filtroEt.length > 0 ? ` · ${filtroEt.length}` : ''}
           </button>
         )}
+        {objetivosDe && (
+          <button type="button" className={`chip-sel ${soloObjetivos ? 'on' : ''}`} onClick={() => setSoloObjetivos(v => !v)}
+            title="Solo los ejercicios que trabajan algún objetivo de esta sesión">
+            ◎ Para sus objetivos
+          </button>
+        )}
+        <MiniCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt}/>
         {nPendientes > 0 && (
           <button type="button" className={`chip-sel ${soloPendientes ? 'on' : ''}`}
             onClick={() => setSoloPendientes(v => !v)}
@@ -371,5 +402,65 @@ export default function ExploradorEjercicios({
             : 'Ningún ejercicio coincide.'}</div>
         : <div className="rej-ej">{visibles.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// MINI MUÑECO: filtrar por zona del cuerpo con un toque, sin abrir el velo de filtros.
+// Cada punto es una etiqueta de articulación de la biblioteca (hombro, rodilla…);
+// solo salen los puntos cuya etiqueta existe. Tocar otra vez la quita.
+// ---------------------------------------------------------------------------
+const ZONAS: { claves: string[], nombre: string, puntos: [number, number][] }[] = [
+  { claves: ['cervical', 'cuello'], nombre: 'Cervical', puntos: [[30, 21]] },
+  { claves: ['hombro'], nombre: 'Hombro', puntos: [[19, 27], [41, 27]] },
+  { claves: ['dorsal', 'torac'], nombre: 'Dorsal', puntos: [[30, 35]] },
+  { claves: ['codo'], nombre: 'Codo', puntos: [[14, 45], [46, 45]] },
+  { claves: ['lumbar'], nombre: 'Lumbar', puntos: [[30, 50]] },
+  { claves: ['muñeca', 'muneca', 'mano'], nombre: 'Muñeca', puntos: [[11, 60], [49, 60]] },
+  { claves: ['cadera', 'pelvis'], nombre: 'Cadera', puntos: [[24, 61], [36, 61]] },
+  { claves: ['rodilla'], nombre: 'Rodilla', puntos: [[25, 86], [35, 86]] },
+  { claves: ['tobillo', 'pie'], nombre: 'Tobillo', puntos: [[25, 110], [35, 110]] },
+]
+
+function MiniCuerpo({ etiquetas, valor, onChange }: { etiquetas: any[], valor: string[], onChange: (v: string[]) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  // De cada zona, la etiqueta de articulación más general que la nombre (la raíz si la hay).
+  const raices = etiquetas.filter((et: any) => categoriaDe(etiquetas, et) === 'articulacion')
+    .sort((a: any, b: any) => nivelDe(etiquetas, a) - nivelDe(etiquetas, b))
+  const zonas = ZONAS.map(z => ({ ...z, et: raices.find((et: any) => z.claves.some(k => normalizar(et.nombre || '').includes(normalizar(k)))) }))
+    .filter(z => z.et)
+  if (zonas.length === 0) return null
+  const activas = zonas.filter(z => valor.includes(z.et.id))
+  const alternar = (id: string) => onChange(valor.includes(id) ? valor.filter(x => x !== id) : [...valor, id])
+  return (
+    <span style={{ position: 'relative' }}>
+      <button type="button" className={`chip-sel ${activas.length ? 'on' : ''}`} onClick={() => setAbierto(v => !v)}
+        title="Filtrar por zona del cuerpo">
+        <svg width="12" height="16" viewBox="0 0 60 120" style={{ verticalAlign: '-3px', marginRight: 4 }} fill="currentColor"><circle cx="30" cy="10" r="8"/><path d="M18 22h24l6 34-6 2-4-22v34l4 48h-8l-4-40-4 40h-8l4-48V36l-4 22-6-2z"/></svg>
+        {activas.length ? activas.map(z => z.nombre).join(' · ') : 'Zona'}
+      </button>
+      {abierto && <>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onClick={() => setAbierto(false)}/>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 51, background: '#fff', borderRadius: 14,
+          boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <svg width="96" height="192" viewBox="0 0 60 120">
+            <circle cx="30" cy="10" r="8" fill="#BFDCDF"/>
+            <path d="M18 22h24l6 34-6 2-4-22v34l4 48h-8l-4-40-4 40h-8l4-48V36l-4 22-6-2z" fill="#BFDCDF"/>
+            {zonas.map(z => z.puntos.map(([x, y], i) => {
+              const on = valor.includes(z.et.id)
+              return <circle key={z.nombre + i} cx={x} cy={y} r={4.2} onClick={() => alternar(z.et.id)}
+                fill={on ? 'var(--gd)' : '#fff'} stroke="var(--gd)" strokeWidth={1.4} style={{ cursor: 'pointer' }}>
+                <title>{z.et.nombre}</title></circle>
+            }))}
+          </svg>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {zonas.map(z => (
+              <button key={z.nombre} type="button" className={`chip-sel ${valor.includes(z.et.id) ? 'on' : ''}`}
+                style={{ fontSize: 11.5, padding: '2px 9px', textAlign: 'left' }} onClick={() => alternar(z.et.id)}>{z.et.nombre}</button>
+            ))}
+          </div>
+        </div>
+      </>}
+    </span>
   )
 }
