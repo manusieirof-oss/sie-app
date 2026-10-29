@@ -281,6 +281,22 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       .then(({ data }) => setObjsPaciente((data||[]).filter((r:any)=>!r.logrado && r.objetivo_id)
         .map((r:any)=>({ id:r.objetivo_id, nombre:r.objetivos?.nombre || r.nombre || 'Objetivo' }))))
   }, [sesion.paciente_id, pacienteSel, objetivosDisp])
+  /* LAS NOTAS DEL PLAN (lo que se dejó dicho en la valoración: programa, cómo progresa y
+     notas). En una sesión nueva entran solas en la descripción; en una que ya existe, se
+     pegan con un botón. Así no se vuelve a escribir lo que ya se habló con el paciente. */
+  const [notasPlan, setNotasPlan] = useState('')
+  useEffect(() => {
+    const pid = sesion.paciente_id || pacienteSel || paraPaciente
+    if (!pid) { setNotasPlan(''); return }
+    supabase.from('valoraciones').select('estado_general').eq('paciente_id', pid)
+      .order('fecha', { ascending: false }).limit(1).then(({ data }) => {
+        let eg: any = {}
+        try { eg = data?.[0]?.estado_general ? JSON.parse(data[0].estado_general) : {} } catch {}
+        const t = [eg.programa_nombre, eg.programa_progresion, eg.notas_plan].map((x: any) => String(x || '').trim()).filter(Boolean).join(' · ')
+        setNotasPlan(t)
+        if (t && !sesion.id) setFormSesion(prev => prev.descripcion?.trim() ? prev : { ...prev, descripcion: t })
+      })
+  }, [sesion.paciente_id, pacienteSel, paraPaciente]) // eslint-disable-line react-hooks/exhaustive-deps
   // Sus objetivos abiertos, solo para resaltarlos en el selector (ver `paraPaciente`).
   const [objsDestacar, setObjsDestacar] = useState<string[]>([])
   useEffect(() => {
@@ -686,7 +702,21 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
             )}
             {/* El nombre es de la sesión, no del día: en modo cita se lee y no se toca. */}
             <input className="input" value={formSesion.nombre} readOnly={modoCita} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',cursor:modoCita?'default':undefined,color:modoCita?'var(--gr)':undefined}} autoFocus={!modoCita}/>
-            <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / motivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
+            {/* Crece con el texto: las notas del plan suelen ser más de una línea. */}
+            <div style={{display:'flex',alignItems:'flex-start',gap:8,marginTop:3}}>
+              <textarea className="input" rows={1} value={formSesion.descripcion}
+                onChange={e=>{ setFormSesion(p=>({...p,descripcion:e.target.value})); e.currentTarget.style.height='auto'; e.currentTarget.style.height=e.currentTarget.scrollHeight+'px' }}
+                ref={el=>{ if (el) { el.style.height='auto'; el.style.height=el.scrollHeight+'px' } }}
+                placeholder="Descripción / motivo (opcional)"
+                style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',resize:'none',fontFamily:'inherit',lineHeight:1.45,minHeight:0}}/>
+              {notasPlan && !(formSesion.descripcion||'').includes(notasPlan) && (
+                <button type="button" title={`Pegar las notas del plan de su valoración:\n${notasPlan}`}
+                  onClick={()=>setFormSesion(p=>({...p,descripcion:[p.descripcion?.trim(), notasPlan].filter(Boolean).join('\n')}))}
+                  style={{flexShrink:0,border:'1px dashed var(--gm)',background:'var(--w)',color:'var(--gd)',borderRadius:99,padding:'2px 10px',fontSize:11.5,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
+                  + Notas del plan
+                </button>
+              )}
+            </div>
           </div>
           {/* BOTONERA EN ICONOS, como el taller: candado, pulsómetro y formulario u hoja
               libre en botones redondos. El nombre de cada uno, al pasar el dedo. */}
