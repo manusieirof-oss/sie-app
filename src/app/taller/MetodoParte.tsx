@@ -4,7 +4,7 @@ import { Ic } from '@/lib/icons'
 import Flotante from './Flotante'
 import { MODOS_PARTE, modoParte } from '@/lib/sesiones'
 import { textoDescanso } from '@/lib/capacidades'
-import { CAMPOS_METODO, valoresDeParte, type ValoresMetodo } from '@/lib/metodos'
+import { CAMPOS_METODO, valoresDeParte, letrasGrupos, type ValoresMetodo } from '@/lib/metodos'
 
 // ---------------------------------------------------------------------------
 // EL MÉTODO DE UNA PARTE, SOBRE SU FRANJA
@@ -41,11 +41,20 @@ export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
   const [modo, setModo] = useState<string>(modo0)
   const [v, setV] = useState<ValoresMetodo>(actuales)
   const [guardando, setGuardando] = useState(false)
+  /* SUPERSERIES: de cuántos en cuántos van los ejercicios, por orden (2 = parejas A A B B,
+     3 = tríos…). Sale de cómo están agrupados ahora; si no lo están, por parejas. */
+  const nEj = (parte?.ejercicios || []).length
+  const tamActual = () => {
+    const g = valoresDeParte(parte).grupos || ''
+    const n = g.split('').filter(x => x === (g[0] || 'A')).length
+    return modo0 === 'superserie' && new Set(g.split('')).size > 1 ? Math.max(1, n) : 2
+  }
+  const [tamGrupo, setTamGrupo] = useState(tamActual)
 
   const abrir = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!puede) return
-    setModo(modo0); setV(valoresDeParte(parte)); setAbierto(a => !a)
+    setModo(modo0); setV(valoresDeParte(parte)); setTamGrupo(tamActual()); setAbierto(a => !a)
   }
   const cambiarModo = (m: string) => {
     setModo(m)
@@ -65,6 +74,7 @@ export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
     const out: ValoresMetodo = {}
     campos.forEach(c => { out[c.k] = v[c.k] ?? '' })
     if (modo === 'tiempo') out.tipo_tiempo = v.tipo_tiempo || 'emom'
+    if (modo === 'superserie') out.grupos = letrasGrupos(nEj, tamGrupo)
     await onAplicar(modo, out, alcance)
     setGuardando(false); setAbierto(false)
   }
@@ -114,6 +124,24 @@ export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
               <button onClick={() => mover(c.k, c.paso)} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--w)', cursor: 'pointer', fontSize: 16 }}>+</button>
             </div>
           ))}
+          {modo === 'superserie' && nEj > 1 && (
+            <div style={{ padding: '5px 0', borderTop: '1px solid var(--bl)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, fontSize: 12.5, color: 'var(--n)' }}>Grupos de</span>
+                <button onClick={() => setTamGrupo(t => Math.max(2, t - 1))} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--w)', cursor: 'pointer', fontSize: 16 }}>−</button>
+                <span style={{ minWidth: 64, textAlign: 'center', fontSize: 13.5, fontWeight: 600 }}>{tamGrupo === 2 ? 'parejas' : tamGrupo === 3 ? 'tríos' : `${tamGrupo}`}</span>
+                <button onClick={() => setTamGrupo(t => Math.min(nEj, t + 1))} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--w)', cursor: 'pointer', fontSize: 16 }}>+</button>
+              </div>
+              {/* Cómo quedan, en el orden de la parte. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {(parte?.ejercicios || []).map((e: any, i: number) => (
+                  <span key={i} style={{ fontSize: 11, padding: '2px 7px', borderRadius: 6, background: 'var(--gl)', color: 'var(--gd)' }}>
+                    <b>{letrasGrupos(nEj, tamGrupo)[i]}</b> {String(e.nombre || '').split(' ').slice(0, 2).join(' ')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
             <button className="btn btn-s btn-sm" onClick={() => setAbierto(false)}>Cancelar</button>
             <span style={{ flex: 1 }}/>

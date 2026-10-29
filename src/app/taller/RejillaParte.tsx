@@ -115,9 +115,10 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
 
               <div style={{ fontSize: 12, marginTop: 7, lineHeight: 1.3 }}>
                 {/* La letra solo significa algo si la parte es superserie. */}
-                {superserie && ej.grupo && (
-                  <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 5px', borderRadius: 4,
-                    background: 'var(--gl)', color: 'var(--gd)', marginRight: 5 }}>{ej.grupo}</span>
+                {/* Sin letra puesta, es del grupo A (así se agrupan): se dice también. */}
+                {superserie && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 5,
+                    background: 'var(--gl)', color: 'var(--gd)', marginRight: 5 }}>{ej.grupo || 'A'}</span>
                 )}
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}

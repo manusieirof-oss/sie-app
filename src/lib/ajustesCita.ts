@@ -47,7 +47,7 @@ export type AjusteEj = Partial<Record<CampoAjustable, string>> & { nombre?: stri
  * EL MÉTODO DE UNA PARTE ESE DÍA (desde la franja de la parte en el taller): el modo,
  * vueltas, pausas y las series de todos sus ejercicios. Va por número de parte.
  */
-export type AjusteParte = { modo?: string, vueltas?: string, transicion?: string, descanso?: string, minutos?: string, tipo_tiempo?: string, series?: string, nombre?: string }
+export type AjusteParte = { modo?: string, vueltas?: string, transicion?: string, descanso?: string, minutos?: string, tipo_tiempo?: string, series?: string, grupos?: string, nombre?: string }
 export type AjustesCita = { v: 1, ejercicios: Record<string, AjusteEj>, partes?: Record<string, AjusteParte> }
 
 export const clave = (pi: number, ei: number) => `${pi}.${ei}`
@@ -72,7 +72,10 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
     const ap = ajustes!.partes?.[String(pi)]
     const p = ap ? { ...p0,
       ...Object.fromEntries((['modo', 'vueltas', 'transicion', 'descanso', 'minutos', 'tipo_tiempo'] as const).filter(k => ap[k] !== undefined).map(k => [k, ap[k]])),
-      ejercicios: ap.series ? (p0.ejercicios || []).map((e: any) => ({ ...e, series: ap.series })) : p0.ejercicios,
+      ejercicios: (p0.ejercicios || []).map((e: any, i: number) => ({ ...e,
+        ...(ap.series ? { series: ap.series } : {}),
+        // Superseries de ese día: la letra de grupo de cada ejercicio, por orden.
+        ...(ap.grupos ? { grupo: ap.grupos[i] || ap.grupos[ap.grupos.length - 1] } : {}) })),
     } : p0
     return {
     ...p,
@@ -152,7 +155,7 @@ export function calcularAjustes(base: any, editada: any, previos?: AjustesCita |
 export function resumenAjustes(base: any, ajustes?: AjustesCita | null) {
   if (sinAjustes(ajustes)) return []
   const nombreCampo = (id: string) => CAMPOS_AJUSTABLES.find(c => c.id === id)?.nombre || id
-  const NOMBRE_P: Record<string, string> = { modo: 'Método', vueltas: 'Vueltas', transicion: 'Entre ejercicios', descanso: 'Descanso', minutos: 'Minutos', tipo_tiempo: 'Tipo', series: 'Series' }
+  const NOMBRE_P: Record<string, string> = { modo: 'Método', vueltas: 'Vueltas', transicion: 'Entre ejercicios', descanso: 'Descanso', minutos: 'Minutos', tipo_tiempo: 'Tipo', series: 'Series', grupos: 'Grupos' }
   const dePartes = Object.entries(ajustes!.partes || {}).map(([k, a]) => {
     const parte = base?.partes?.[Number(k)]
     return {
@@ -160,7 +163,8 @@ export function resumenAjustes(base: any, ajustes?: AjustesCita | null) {
       nombre: (parte?.nombre || a.nombre || 'Parte') + ' (método)',
       cambios: Object.keys(NOMBRE_P).filter(c => (a as any)[c] !== undefined).map(c => ({
         campo: NOMBRE_P[c],
-        de: c === 'series' ? txt(parte?.ejercicios?.[0]?.series) : txt(parte?.[c]),
+        de: c === 'series' ? txt(parte?.ejercicios?.[0]?.series)
+          : c === 'grupos' ? (parte?.ejercicios || []).map((e: any) => e.grupo || 'A').join('') : txt(parte?.[c]),
         a: txt((a as any)[c]),
       })),
     }

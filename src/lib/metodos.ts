@@ -12,7 +12,14 @@ import { supabase } from './supabase'
 
 export const CLAVE_METODOS = 'metodos_defecto'
 
-export type ValoresMetodo = { series?: string, vueltas?: string, transicion?: string, descanso?: string, minutos?: string, tipo_tiempo?: string }
+/** `grupos`: en superseries, la letra de cada ejercicio en orden ("AABBC"). */
+export type ValoresMetodo = { series?: string, vueltas?: string, transicion?: string, descanso?: string, minutos?: string, tipo_tiempo?: string, grupos?: string }
+
+/** Las letras para N ejercicios agrupados de `tam` en `tam`: 5 de 2 en 2 → "AABBC". */
+export function letrasGrupos(n: number, tam: number): string {
+  const t = Math.max(1, tam)
+  return Array.from({ length: n }, (_, i) => String.fromCharCode(65 + Math.floor(i / t))).join('')
+}
 
 export const METODOS_DEFECTO: Record<string, ValoresMetodo> = {
   ejercicio: { series: '3', descanso: '90' },
@@ -63,6 +70,7 @@ export function valoresDeParte(parte: any): ValoresMetodo {
     series: String(ej0.series ?? ''), vueltas: String(parte?.vueltas ?? ''),
     transicion: String(parte?.transicion ?? ''), descanso: String(parte?.descanso ?? ''),
     minutos: String(parte?.minutos ?? ''), tipo_tiempo: String(parte?.tipo_tiempo ?? ''),
+    grupos: (parte?.ejercicios || []).map((e: any) => (String(e.grupo || '').trim().toUpperCase() || 'A')[0]).join(''),
   }
 }
 
@@ -74,7 +82,11 @@ export function aplicarMetodo(parte: any, modo: string, v: ValoresMetodo): any {
   const p = { ...parte, modo }
   ;(['vueltas', 'transicion', 'descanso', 'minutos', 'tipo_tiempo'] as const).forEach(k => { if (v[k] !== undefined) p[k] = v[k] })
   if (v.series !== undefined && v.series !== '' && modo !== 'circuito') {
-    p.ejercicios = (parte.ejercicios || []).map((e: any) => ({ ...e, series: v.series }))
+    p.ejercicios = (p.ejercicios || []).map((e: any) => ({ ...e, series: v.series }))
+  }
+  // Superseries: la letra de grupo de cada ejercicio, por orden.
+  if (modo === 'superserie' && v.grupos) {
+    p.ejercicios = (p.ejercicios || []).map((e: any, i: number) => ({ ...e, grupo: v.grupos![i] || v.grupos![v.grupos!.length - 1] || 'A' }))
   }
   return p
 }

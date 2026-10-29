@@ -689,10 +689,16 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
   // Añadir un ejercicio a una parte de SU sesion (para siempre). pi = indice de la parte.
   const [anadiendo, setAnadiendo] = useState<{ pid: string, pi: number } | null>(null)
+  /* LA BIBLIOTECA SE TRAE SOLA, al poco de abrir el taller: al pulsar «+» o «cambiar
+     ejercicio» ya está y no sale una pantalla de «Cargando…» antes de poder elegir. */
+  useEffect(() => { const t = setTimeout(() => { cargarCatalogo() }, 2500); return () => clearTimeout(t) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const cargandoCat = useRef(false)
   async function cargarCatalogo() {
-    if (catalogoEj.length > 0) return
+    if (catalogoEj.length > 0 || cargandoCat.current) return
+    cargandoCat.current = true
     const r = await traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
     setCatalogoEj(r.filas)
+    cargandoCat.current = false
   }
 
   /**
