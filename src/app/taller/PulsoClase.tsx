@@ -20,7 +20,7 @@ import { fcMaxDe, zonaDe, colorZona, ZONAS, TEXTO_FORMULA, nuevoAcumulado, sumar
 const SEG_GUARDAR = 30
 const claveSS = (fecha: string) => `sie-pulso-${fecha}`
 
-interface Dispositivo { nombre: string, bpm: number | null, t: number, bateria: number | null, estado: 'conectando' | 'directo' | 'perdida' }
+interface Dispositivo { nombre: string, bpm: number | null, t: number, bateria: number | null, estado: 'conectando' | 'directo' | 'perdida', /** Último aviso de la banda, aunque sea «sin pulso». */ oido?: number }
 
 // `abierto` lo manda el ❤ de la cabecera del taller. El componente sigue montado aunque
 // esté cerrado: las conexiones con las bandas viven aquí y no se pueden perder.
@@ -202,7 +202,7 @@ export default function PulsoClase({ seleccion, fecha, abierto = false, editarFc
   }
   async function enganchar(nombre: string) {
     const d = objs.current[nombre]
-    devs.current[nombre] = { nombre, bpm: null, t: 0, bateria: devs.current[nombre]?.bateria ?? null, estado: 'conectando' }; repintar()
+    devs.current[nombre] = { nombre, bpm: null, t: 0, bateria: devs.current[nombre]?.bateria ?? null, estado: 'conectando', oido: Date.now() }; repintar()
     const srv = await d.gatt.connect()
     const hr = await (await srv.getPrimaryService('heart_rate')).getCharacteristic('heart_rate_measurement')
     hr.addEventListener('characteristicvaluechanged', (e: any) => {
@@ -210,7 +210,7 @@ export default function PulsoClase({ seleccion, fecha, abierto = false, editarFc
       const bpm = v.getUint8(0) & 1 ? v.getUint16(1, true) : v.getUint8(1)
       // 0 = la banda no detecta pulso (mal puesta): no cuenta como dato.
       const ahora = Date.now(), antes = devs.current[nombre].t
-      devs.current[nombre] = { ...devs.current[nombre], bpm: bpm || null, t: bpm ? ahora : antes, estado: 'directo' }
+      devs.current[nombre] = { ...devs.current[nombre], bpm: bpm || null, t: bpm ? ahora : antes, estado: 'directo', oido: ahora }
       if (bpm) latido(nombre, bpm, ahora, antes)
     })
     await hr.startNotifications()
@@ -221,12 +221,39 @@ export default function PulsoClase({ seleccion, fecha, abierto = false, editarFc
     } catch { /* sin batería */ }
     repintar()
   }
-  // Una banda que se aleja o se queda sin pulso se cae: se reintenta sola unas veces.
+  /* UNA BANDA QUE SE CAE SE RECONECTA SOLA, SIEMPRE. Antes se rendía a los diez
+     intentos (unos 30 s): si alguien salía de la sala un rato o la banda tardaba en
+     volver, se quedaba desconectada toda la clase. Ahora sigue probando mientras la
+     banda esté en la lista, cada vez un poco más espaciado (3 s → 15 s). Solo uno a la
+     vez por banda, para no pisarse. */
+  const reintentando = useRef<Record<string, boolean>>({})
   async function reintentar(nombre: string, vez = 0) {
-    if (vez > 10 || !objs.current[nombre]) return
-    await new Promise(r => setTimeout(r, 3000))
-    try { await enganchar(nombre) } catch { reintentar(nombre, vez + 1) }
+    if (!objs.current[nombre]) { delete reintentando.current[nombre]; return }
+    if (vez === 0) { if (reintentando.current[nombre]) return; reintentando.current[nombre] = true }
+    await new Promise(r => setTimeout(r, Math.min(15000, 3000 + vez * 2000)))
+    if (!objs.current[nombre]) { delete reintentando.current[nombre]; return }
+    try { await enganchar(nombre); delete reintentando.current[nombre] }
+    catch { reintentar(nombre, vez + 1) }
   }
+
+  /* VIGILANTE: a veces la banda deja de mandar latidos sin avisar de que se ha
+     desconectado (el Mac se queda con la conexión «colgada»). Si una conectada lleva más
+     de 12 s callada, se corta y se vuelve a enganchar. */
+  useEffect(() => {
+    const id = setInterval(() => {
+      const ahora = Date.now()
+      for (const [nombre, d] of Object.entries(devs.current)) {
+        if (d.estado !== 'directo' || reintentando.current[nombre]) continue
+        // Callada de verdad: ni latidos ni avisos de «sin pulso» (banda mal puesta no cuenta).
+        if (d.oido && ahora - d.oido > 12000) {
+          devs.current[nombre] = { ...d, estado: 'perdida' }
+          try { objs.current[nombre]?.gatt?.disconnect() } catch { /* ya estaba caída */ }
+          reintentar(nombre)
+        }
+      }
+    }, 4000)
+    return () => clearInterval(id)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function asignar(pid: string, nombre: string) {
     // Una banda la lleva una sola persona: si la tenía otro, se le quita.
