@@ -850,7 +850,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 El modo vive en la parte y no en la sesión porque un entrenamiento normal
                 mezcla: calentamiento suelto, bloque principal en circuito, accesorios
                 sueltos otra vez. */}
-            {formSesion.partes.length>0 && (
+            {/* La franja de la parte solo con la parte VACÍA (para elegir el método antes de
+                añadir). Con ejercicios, todo eso va en la fila «para todos», alineado. */}
+            {formSesion.partes.length>0 && (parte?.ejercicios||[]).length===0 && (
               <div className="parte-bar">
                 <ChipMenu valor={modoParte(parte?.modo).nombre}
                   opciones={MODOS_PARTE.map(m=>m.nombre)}
@@ -961,7 +963,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                 {/* PARA TODOS, ALINEADO CON LAS COLUMNAS. Una fila más, encima de los
                     ejercicios: lo que se pone aquí se pone en todos, cada casilla encima de
                     la suya. Sin rótulos: ya los dice la cabecera. Si no coinciden, «varias». */}
-                {(parte?.ejercicios||[]).length>1 && (()=>{
+                {(parte?.ejercicios||[]).length>0 && (()=>{
                   const ejs = parte?.ejercicios || []
                   const comun = (f:(x:any)=>string) => { const v = Array.from(new Set<string>(ejs.map(f))); return v.length===1 ? v[0] : null }
                   const todos = (cambio:(x:any)=>any) => setFormSesion(prev=>{
@@ -980,8 +982,35 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   return (
                     <div className="ej-row" style={{background:'var(--w)',borderBottom:'1px dashed var(--gm)',padding:'8px 0',margin:'0 0 4px'}}
                       title="Para todos los ejercicios de la parte">
-                      <div className="ej-nom" style={{paddingLeft:10,color:'var(--gd)',fontSize:12,display:'flex',alignItems:'center',gap:6}}>
-                        <Ic name="lista" size={14}/> <span style={{color:'var(--grl)'}}>{ejs.length}</span>
+                      {/* EL MÉTODO DE LA PARTE, en la columna del ejercicio. Lo propio de cada
+                          modo (grupos de la superserie, minutos del «por tiempo») al lado. */}
+                      <div className="ej-nom" style={{paddingLeft:10,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                        <ChipMenu valor={modoParte(parte?.modo).nombre} opciones={MODOS_PARTE.map(m=>m.nombre)} titulo={modoParte(parte?.modo).ayuda}
+                          onElegir={n=>{ const m = MODOS_PARTE.find(x=>x.nombre===n); if (m) editarParte({modo:m.id}) }}/>
+                        {parte?.modo==='superserie' && (
+                          <span style={{display:'inline-flex',alignItems:'center',gap:3}} title="Cuántos ejercicios forman cada grupo; con un número, las letras van solas">
+                            {([2,3,4,0] as const).map(n=>{
+                              const on = n===0 ? !parte?.tam_grupo : Number(parte?.tam_grupo)===n
+                              return <button key={n} type="button" onClick={()=>{
+                                setFormSesion(prev=>{
+                                  const partes=[...prev.partes]; const pa={ ...partes[parteActiva], tam_grupo: n||null }
+                                  partes[parteActiva]={ ...pa, ejercicios: conLetras(pa, pa.ejercicios||[]) }
+                                  return { ...prev, partes }
+                                })
+                              }} style={{border:`1px solid ${on?'var(--gd)':'var(--bd)'}`,background:on?'var(--gl)':'var(--w)',color:on?'var(--gd)':'var(--gr)',
+                                borderRadius:99,padding:'1px 8px',fontSize:11.5,cursor:'pointer',fontFamily:'inherit',fontWeight:on?600:400}}>{n===0?'a mano':`de ${n}`}</button>
+                            })}
+                          </span>
+                        )}
+                        {parte?.modo==='tiempo' && <>
+                          <ChipMenu valor={(TIPOS_TIEMPO.find(t=>t.id===(parte?.tipo_tiempo||'emom'))||TIPOS_TIEMPO[0]).nombre}
+                            opciones={TIPOS_TIEMPO.map(t=>t.nombre)} clase="chip-ed-a" titulo="Qué manda el reloj"
+                            onElegir={n=>{ const t = TIPOS_TIEMPO.find(x=>x.nombre===n); if (t) editarParte({tipo_tiempo:t.id}) }}/>
+                          <label className="par-in" title="Duración total del bloque"><input type="number" min={1} value={parte?.minutos||''} placeholder="—"
+                            onChange={e=>editarParte({minutos:e.target.value})}/><span>min</span></label>
+                          {parte?.tipo_tiempo==='intervalos' && <label className="par-in" title="Trabajo/descanso en segundos, p. ej. 40/20">
+                            <input value={parte?.intervalo||''} placeholder="40/20" style={{width:52}} onChange={e=>editarParte({intervalo:e.target.value})}/></label>}
+                        </>}
                       </div>
                       <div className="celda apilada">
                         <ChipMenu valor={comun((x:any)=>x.regimen||'Concéntrico') ?? 'varias'} opciones={nombresEjecucion(cfgTrabajo)}
@@ -1000,8 +1029,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           })}/>
                       </div>
                       <div className="celda">
+                        {/* En circuito las series SON las vueltas: se ponen aquí, una vez. */}
                         {parte?.modo==='circuito'
-                          ? <span className="c" style={{color:'var(--gr)',fontSize:12}}>{parte?.vueltas || '—'}</span>
+                          ? <input type="number" className="c" min={1} value={parte?.vueltas||''} placeholder="—" title="Vueltas del circuito"
+                              onChange={e=>editarParte({vueltas:e.target.value})}/>
                           : <input type="number" className="c" min={1} value={seriesC ?? ''} placeholder={seriesC===null?'var.':'—'} title="Series, para todos"
                               onChange={e=>{ const v=e.target.value; todos(()=>({ series:v })) }}/>}
                       </div>
@@ -1020,12 +1051,32 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           onChange={e=>{ const v=e.target.value; todos((x:any)=>medida(x).includes('peso') ? { peso:v } : {}) }}/>
                       </div>
                       <div className="celda">
-                        {recorrido
-                          ? <span className="c" style={{color:'var(--gr)',fontSize:12}} title="En circuito y superserie manda el descanso de la parte">{parte?.descanso || '—'}</span>
-                          : <input type="number" className="c" min={0} step={5} value={descC ?? ''} placeholder={descC===null?'var.':'s'} title="Descanso, para todos"
-                              onChange={e=>{ const v=e.target.value; todos(()=>({ descanso:v, descanso_manual:true })) }}/>}
+                        {/* LAS PAUSAS DE LA PARTE, en la columna del descanso. En circuito y
+                            superserie, dos: entre ejercicios y al acabar la vuelta. Ejercicio a
+                            ejercicio, una: entre series (la general, que hereda cada uno). */}
+                        {recorrido ? (
+                          <div style={{display:'flex',flexDirection:'column',gap:2,alignItems:'center'}}>
+                            <span style={{fontSize:9,color:'var(--grl)',lineHeight:1}}>entre ejerc.</span>
+                            <input type="number" className="c" min={0} step={5} value={parte?.transicion||''} placeholder="0" title="Pausa entre ejercicios (s)"
+                              onChange={e=>editarParte({transicion:e.target.value})}/>
+                            <span style={{fontSize:9,color:'var(--grl)',lineHeight:1,marginTop:2}}>{parte?.modo==='circuito' ? 'entre vueltas' : 'fin de vuelta'}</span>
+                            <input type="number" className="c" min={0} step={5} value={parte?.descanso||''} placeholder="0"
+                              title={parte?.modo==='circuito' ? 'Descanso entre vueltas (s)' : 'Descanso al acabar cada vuelta del grupo (s)'}
+                              onChange={e=>editarParte({descanso:e.target.value})}/>
+                          </div>
+                        ) : parte?.modo==='tiempo' ? <span className="c" style={{color:'var(--grl)'}}>—</span> : (
+                          <input type="number" className="c" min={0} step={5} value={parte?.descanso||''} placeholder="s" title="Descanso entre series, para todos (cada ejercicio puede llevar el suyo)"
+                            onChange={e=>editarParte({descanso:e.target.value})}/>
+                        )}
                       </div>
-                      <div/>
+                      <div className="acc">
+                        {formSesion.partes.length>1 && (
+                          <button title="Eliminar esta parte" className="ic-acc peligro"
+                            onClick={()=>{setFormSesion(prev=>({...prev,partes:prev.partes.filter((_:any,i:number)=>i!==parteActiva)}));setParteActiva(Math.max(0,parteActiva-1))}}>
+                            <Ic name="papelera" size={15}/>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })()}
