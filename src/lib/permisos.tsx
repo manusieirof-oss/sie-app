@@ -60,7 +60,7 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   turnos: 'Cambiar quién lleva cada sala',
   cambiar_ejercicios: 'Cambiar ejercicios en el taller',
   cambiar_sesion: 'Elegir o quitar la sesión de una cita',
-  cancelar_cita: 'Cancelar y cambiar de sala desde el taller',
+  cancelar_cita: 'Marcar faltas, cancelar y cambiar de sala',
   torno: 'El torno: planificar y crear sesiones',
   biblioteca: 'Crear y editar ejercicios',
   cobros: 'Cobrar y emitir facturas',
