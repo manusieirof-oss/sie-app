@@ -805,7 +805,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                    directamente; antes se repetía abajo en la franja y quitaba sitio. */
                 if (activa) return (
                   <span key={i} className="chip-obj on"
-                    style={{borderColor:'var(--g)',background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4,cursor:'text'}}
+                    onDragOver={e=>{e.preventDefault(); if(sobre!==i) setSobre(i)}}
+                    onDragLeave={()=>{ if(sobre===i) setSobre(null) }}
+                    onDrop={e=>{e.preventDefault(); if(arrastra!==null) moverParte(arrastra,i); setArrastra(null); setSobre(null)}}
+                    style={{borderColor:'var(--g)',background:'var(--g)',color:'#fff',display:'inline-flex',alignItems:'center',gap:4,cursor:'text',
+                      boxShadow: destino ? 'inset 3px 0 0 var(--gd)' : undefined}}
                     title="Escribe para cambiar el nombre de la parte">
                     <input value={p.nombre||''} onChange={e=>editarParte({nombre:e.target.value})} placeholder="Nombre"
                       onFocus={e=>e.currentTarget.select()}
