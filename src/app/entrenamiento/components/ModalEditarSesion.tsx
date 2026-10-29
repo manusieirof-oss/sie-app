@@ -10,6 +10,7 @@ import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion, LADOS, itemDeEje
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
+import { categoriaDe } from '@/lib/etiquetas'
 import { contraindicacionesDe, motivoDe, type Contraindicacion } from '@/lib/contraindicaciones'
 import { contiene } from '@/lib/texto'
 import { aplicarAjustes, calcularAjustes, sinAjustes } from '@/lib/ajustesCita'
@@ -1359,8 +1360,21 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   sugeridos={cambiarEj!==null ? (()=>{
                     const actual = (parte?.ejercicios||[])[cambiarEj]
                     const base = catalogo.find((x:any)=>x.id===actual?.ejercicio_id)
-                    return base ? { titulo:`Parecidos a ${actual.nombre}`, items: similaresA(catalogo, base, 10, etiquetas).filter((x:any)=>x.id!==base.id) } : undefined
+                    if (!base) return undefined
+                    /* «IGUALES»: los que hacen el MISMO MOVIMIENTO (sus etiquetas de
+                       movimiento, p. ej. abducción de cadera), variantes de su familia
+                       incluidas. Antes salían los parecidos por músculo, que eran muchos y
+                       no siempre el mismo gesto. Si no tiene movimiento etiquetado, los parecidos. */
+                    const movs = (base.etiquetas||[]).filter((id:string)=>{ const et=etiquetas.find((x:any)=>x.id===id); return et && categoriaDe(etiquetas, et)==='movimiento' })
+                    const iguales = movs.length ? catalogo
+                      .filter((x:any)=>x.id!==base.id && movs.every((m:string)=>(x.etiquetas||[]).includes(m)))
+                      .map((x:any)=>({ x, n:(x.etiquetas||[]).filter((id:string)=>(base.etiquetas||[]).includes(id)).length }))
+                      .sort((a:any,b:any)=>b.n-a.n).slice(0,24).map((o:any)=>o.x) : []
+                    return iguales.length
+                      ? { titulo:`Hacen el mismo movimiento que ${actual.nombre}`, items: iguales }
+                      : { titulo:`Parecidos a ${actual.nombre}`, items: similaresA(catalogo, base, 10, etiquetas).filter((x:any)=>x.id!==base.id) }
                   })() : ultimo ? { titulo:`Parecidos a ${ultimo.nombre}`, items:similares } : undefined}
+                  soloSugeridos={cambiarEj!==null}
                   objetivosDe={objsSesion.length ? (e:any)=>objsDeEj({ ejercicio_id: e.id, nombre: e.nombre })
                     .map((id:string)=>(objsSesion.find((o:any)=>o.id===id) as any)?.nombre).filter(Boolean) : undefined}
                   onCrear={crearYAnadir}

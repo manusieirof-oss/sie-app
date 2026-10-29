@@ -31,13 +31,15 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false,
 }: {
   /**
    * Montando la sesión de un paciente: qué objetivos de la sesión trabaja cada ejercicio
    * (nombres). La tarjeta lo dice y se puede ver solo lo que sirve para ellos.
    */
   objetivosDe?: (e: any) => string[]
+  /** Solo los sugeridos, salvo que se busque o filtre (cambiar un ejercicio por uno igual). */
+  soloSugeridos?: boolean
   ejercicios: any[]
   etiquetas?: any[]
   /** Ids marcados. Si se pasa, las tarjetas se comportan como casillas. */
@@ -148,10 +150,11 @@ export default function ExploradorEjercicios({
      entera: sus variantes son el mismo ejercicio con otra forma. */
   const nombreEt: Record<string, string> = {}
   etiquetas.forEach((et: any) => { nombreEt[et.id] = et.nombre || '' })
-  const casaTexto = (e: any) => contiene(e.nombre, buscar)
+  const casaNombre = (e: any) => contiene(e.nombre, buscar)
       || contiene(e.descripcion, buscar)
       || (e.variantes || []).some((v: any) => contiene(v?.nombre, buscar))
-      || (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
+  const casaEtiqueta = (e: any) => (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
+  const casaTexto = (e: any) => casaNombre(e) || casaEtiqueta(e)
   const portadasQueCasan = new Set(buscar ? ejercicios.filter(e => !e.portada_id && casaTexto(e)).map(e => e.id) : [])
   const filtrados = ejercicios.filter(e => {
     const coincide = !buscar || casaTexto(e) || (!!e.portada_id && portadasQueCasan.has(e.portada_id))
@@ -207,6 +210,12 @@ export default function ExploradorEjercicios({
   const visibles = hayFiltro ? filtrados : filtrados.filter(e => !esHijo(e)).flatMap(e =>
     familiasAbiertas.includes(e.id) ? [e, ...(hijosDe[e.id] || [])] : [e])
   const marcado = (e: any) => !!seleccion?.includes(e.id)
+  /* PRIMERO LO QUE SE LLAMA ASÍ. Buscando «glúteo» salían mezclados los que lo dicen en
+     el nombre y los que solo lo trabajan (por su etiqueta), y no se entendía por qué
+     estaban. Ahora van en dos bloques, con un rótulo que dice el motivo del segundo. */
+  const porNombre = (e: any) => casaNombre(e) || (!!e.portada_id && ejercicios.some(x => x.id === e.portada_id && casaNombre(x)))
+  const visiblesNombre = buscar ? visibles.filter(porNombre) : visibles
+  const visiblesEtiqueta = buscar ? visibles.filter(e => !porNombre(e)) : []
 
   function Tarjeta({ e }: { e: any }) {
     const sel = marcado(e)
@@ -400,7 +409,17 @@ export default function ExploradorEjercicios({
         ? <div className="muted">{ejercicios.length === 0 ? 'No hay ejercicios en la biblioteca.'
             : soloPendientes && !buscar && filtroEt.length === 0 ? 'No queda ningún ejercicio por completar.'
             : 'Ningún ejercicio coincide.'}</div>
-        : <div className="rej-ej">{visibles.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
+        : soloSugeridos && !hayFiltro && sugeridos && sugeridos.items.length > 0
+        ? <div className="muted" style={{ fontSize: 12 }}>Solo los parecidos. Para otro cualquiera, búscalo arriba o filtra por zona.</div>
+        : <>
+          {visiblesNombre.length > 0 && <div className="rej-ej">{visiblesNombre.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
+          {visiblesEtiqueta.length > 0 && <>
+            <div className="et-mini" style={{ margin: '16px 0 7px', color: 'var(--gd)' }}>
+              No se llaman así, pero trabajan «{buscar.trim()}» (por sus etiquetas) · {visiblesEtiqueta.length}
+            </div>
+            <div className="rej-ej">{visiblesEtiqueta.map(e => <Tarjeta key={e.id} e={e} />)}</div>
+          </>}
+        </>}
     </div>
   )
 }
