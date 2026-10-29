@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { nombreCorto } from '@/lib/ejercicios'
 import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
@@ -89,6 +89,9 @@ export default function ExploradorEjercicios({
   }, [ejercicios, claveObjs, !!idsObjetivosDe]) // eslint-disable-line react-hooks/exhaustive-deps
   /** El bloque de «no se llaman así pero lo trabajan», plegado salvo que se pida. */
   const [verOtros, setVerOtros] = useState(false)
+  /** Cambiando un ejercicio: ver solo los similares o toda la biblioteca. */
+  const [verTodo, setVerTodo] = useState(false)
+  const soloSug = soloSugeridos && !verTodo && !!sugeridos && sugeridos.items.length > 0
   const [creando, setCreando] = useState(false)
   /**
    * FAMILIAS. Una variante es un ejercicio completo con `portada_id` apuntando a su
@@ -237,6 +240,9 @@ export default function ExploradorEjercicios({
   const visiblesNombre = buscar ? visibles.filter(porNombre) : visibles
   const visiblesEtiqueta = buscar ? visibles.filter(e => !porNombre(e)) : []
 
+  /* SE LLAMA COMO FUNCIÓN, NO COMO <Tarjeta/>. Definida aquí dentro, como componente
+     React la veía nueva en cada repintado y desmontaba y volvía a montar todas las
+     tarjetas: en el taller (que se repinta a menudo) las fotos parpadeaban sin parar. */
   function Tarjeta({ e }: { e: any }) {
     const sel = marcado(e)
     // Se agrupan bajo su raíz, así que las tres que caben son tres MADRES y no tres
@@ -436,11 +442,22 @@ export default function ExploradorEjercicios({
       )}
 
       {/* Los sugeridos se esconden en cuanto buscas o filtras: ahí ya sabes qué quieres. */}
-      {sugeridos && sugeridos.items.length > 0 && !hayFiltro && (
+      {/* CAMBIAR POR UNO SIMILAR O POR CUALQUIERA: dos pestañas. */}
+      {soloSugeridos && sugeridos && sugeridos.items.length > 0 && (
+        <div style={{ display: 'inline-flex', background: '#E8E7E1', borderRadius: 99, padding: 3, marginBottom: 10 }}>
+          {([[false, `Similares · ${sugeridos.items.length}`], [true, 'Cualquiera']] as const).map(([v, l]) => (
+            <button key={String(v)} type="button" onClick={() => setVerTodo(v)}
+              style={{ border: 0, borderRadius: 99, padding: '6px 14px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                background: verTodo === v ? '#fff' : 'transparent', color: verTodo === v ? 'var(--n)' : 'var(--gr)',
+                boxShadow: verTodo === v ? '0 1px 4px rgba(0,0,0,.08)' : 'none' }}>{l}</button>
+          ))}
+        </div>
+      )}
+      {sugeridos && sugeridos.items.length > 0 && !hayFiltro && !(soloSugeridos && verTodo) && (
         <div style={{ marginBottom: 16 }}>
           <div className="et-mini" style={{ marginBottom: 7, color: 'var(--gd)' }}>{sugeridos.titulo}</div>
           <div className="rej-ej">
-            {sugeridos.items.map(e => <Tarjeta key={'s' + e.id} e={e} />)}
+            {sugeridos.items.map(e => <Fragment key={'s' + e.id}>{Tarjeta({ e })}</Fragment>)}
           </div>
         </div>
       )}
@@ -449,10 +466,10 @@ export default function ExploradorEjercicios({
         ? <div className="muted">{ejercicios.length === 0 ? 'No hay ejercicios en la biblioteca.'
             : soloPendientes && !buscar && filtroEt.length === 0 ? 'No queda ningún ejercicio por completar.'
             : 'Ningún ejercicio coincide.'}</div>
-        : soloSugeridos && !hayFiltro && sugeridos && sugeridos.items.length > 0
-        ? <div className="muted" style={{ fontSize: 12 }}>Solo los parecidos. Para otro cualquiera, búscalo arriba o filtra por zona.</div>
+        : soloSug && !hayFiltro
+        ? null
         : <>
-          {visiblesNombre.length > 0 && <div className="rej-ej">{visiblesNombre.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
+          {visiblesNombre.length > 0 && <div className="rej-ej">{visiblesNombre.map(e => <Fragment key={e.id}>{Tarjeta({ e })}</Fragment>)}</div>}
           {visiblesNombre.length === 0 && visiblesEtiqueta.length > 0 && !verOtros && (
             <div className="muted" style={{ fontSize: 12 }}>Ninguno se llama «{buscar.trim()}».</div>
           )}
@@ -462,7 +479,7 @@ export default function ExploradorEjercicios({
             <button type="button" className="chip-sel" style={{ margin: '14px 0 8px' }} onClick={() => setVerOtros(v => !v)}>
               {verOtros ? '▴ Ocultar' : '▾ Ver'} {visiblesEtiqueta.length} que no se llaman así pero trabajan «{buscar.trim()}»
             </button>
-            {verOtros && <div className="rej-ej">{visiblesEtiqueta.map(e => <Tarjeta key={e.id} e={e} />)}</div>}
+            {verOtros && <div className="rej-ej">{visiblesEtiqueta.map(e => <Fragment key={e.id}>{Tarjeta({ e })}</Fragment>)}</div>}
           </>}
         </>}
     </div>
