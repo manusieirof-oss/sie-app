@@ -5,13 +5,14 @@ import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Ic } from '@/lib/icons'
 import { mesISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
+import ClasesEntrenador from './ClasesEntrenador'
 
 const PAL = { g:'#5A969E', gd:'#3E7179', bg:'#EBF4F5', red:'#C25B5B', amb:'#D4A24E' }
 const GREY='#9CA3AF'
 const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 const MESES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
-type Tab = 'actividad' | 'pacientes' | 'clinico'
+type Tab = 'actividad' | 'pacientes' | 'clinico' | 'equipo'
 
 export default function StatsPage() {
   const [loading, setLoading] = useState(true)
@@ -254,7 +255,7 @@ export default function StatsPage() {
     <div>
       {/* PESTAÑAS */}
       <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:'1px solid var(--bd)'}}>
-        {([['actividad','agenda','Actividad'],['pacientes','pacientes','Pacientes'],['clinico','patologia','Clínico']] as [Tab,string,string][]).map(([id,ic,label])=>(
+        {([['actividad','agenda','Actividad'],['pacientes','pacientes','Pacientes'],['clinico','patologia','Clínico'],['equipo','usuario','Equipo']] as [Tab,string,string][]).map(([id,ic,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{
             background:'none',border:'none',padding:'8px 14px',fontSize:12,cursor:'pointer',
             display:'flex',alignItems:'center',gap:5,
@@ -263,6 +264,9 @@ export default function StatsPage() {
           }}><Ic name={ic} size={14}/> {label}</button>
         ))}
       </div>
+
+      {/* Clases que ha llevado cada entrenador en el mes (nómina). */}
+      {tab==='equipo' && <ClasesEntrenador/>}
 
       {tab==='actividad' && (
         <div>
