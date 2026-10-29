@@ -9,9 +9,9 @@ import { CAMPOS_METODO, valoresDeParte, type ValoresMetodo } from '@/lib/metodos
 // ---------------------------------------------------------------------------
 // EL MÉTODO DE UNA PARTE, SOBRE SU FRANJA
 //
-// Se ve siempre: el modo, las series (o vueltas) y los descansos de ESE modo. Quien
-// puede cambiar ejercicios (nivel 2 en adelante) los toca ahí mismo: se abre un panel
-// con el modo y sus números, y se elige si vale solo hoy o para su sesión.
+// Se ve siempre, como una frase: el modo, las series (o vueltas) y los descansos de ESE
+// modo. Quien puede cambiar ejercicios (nivel 2 en adelante) tiene un lápiz al lado: abre
+// un panel con el modo y sus números, y se elige si vale solo hoy o para su sesión.
 //
 // Al pasar a otro modo, los números salen de Ajustes → Entrenador (valores de partida
 // de cada método); al volver al suyo, los que traía.
@@ -69,24 +69,30 @@ export default function MetodoParte({ parte, puede, defectos, onAplicar }: {
     setGuardando(false); setAbierto(false)
   }
 
-  // Lo que se ve en la franja: el modo y los números del modo de la parte.
+  // LO QUE SE VE EN LA FRANJA: una frase, no un botón por dato. «Circuito · 2 vueltas ·
+  // 15 s entre ejercicios». Las pausas a cero se dicen una vez («sin pausas»).
   const campos0 = CAMPOS_METODO[modo0] || []
   const md0 = modoParte(modo0)
-  const toque: React.CSSProperties = puede ? { cursor: 'pointer', borderColor: 'var(--gm)', background: 'var(--w)' } : {}
+  const numeros = campos0.filter(c => !c.seg && actuales[c.k])
+  const pausas = campos0.filter(c => c.seg && (parseInt(actuales[c.k] || '0') || 0) > 0)
+  const hayPausas = campos0.some(c => c.seg)
 
   return (
     <>
-      <span ref={ancla} onClick={abrir} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
-        title={puede ? 'Cambiar el método, las series o los descansos' : undefined}>
-        <span style={{ ...chip, ...toque, color: 'var(--gd)' }}><Ic name={md0.icono} size={13}/> {md0.nombre}</span>
-        {campos0.map(c => (
-          <span key={c.k} style={{ ...chip, ...toque, color: c.seg ? 'var(--gr)' : 'var(--n)' }}>
-            {c.seg ? <Ic name="pausa" size={12}/> : null}
-            {c.seg ? <>{valorTexto(true, actuales[c.k])} <span style={{ color: 'var(--grl)' }}>{c.nombre.toLowerCase()}</span></>
-              : <><b style={{ fontWeight: 600 }}>{actuales[c.k] || '—'}</b> {c.nombre.toLowerCase()}</>}
-          </span>
-        ))}
+      <span style={{ fontSize: 13, color: 'var(--gr)' }}>
+        {md0.nombre}
+        {numeros.map(c => <span key={c.k}> · <b style={{ color: 'var(--n)', fontWeight: 500 }}>{actuales[c.k]} {c.nombre.toLowerCase()}</b></span>)}
+        {pausas.map(c => <span key={c.k}> · <b style={{ color: 'var(--n)', fontWeight: 500 }}>{textoDescanso(actuales[c.k] || '')}</b> {c.nombre.toLowerCase()}</span>)}
+        {hayPausas && pausas.length === 0 && <span> · sin pausas</span>}
       </span>
+      {puede && (
+        <span ref={ancla} role="button" onClick={abrir} title="Cambiar el método, las series o los descansos"
+          style={{ width: 30, height: 30, borderRadius: '50%', display: 'inline-grid', placeItems: 'center', cursor: 'pointer', color: 'var(--gr)', flexShrink: 0 }}
+          onMouseOver={e => (e.currentTarget as HTMLElement).style.background = '#fff'}
+          onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>
+        </span>
+      )}
 
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={330}>
         <div onClick={e => e.stopPropagation()}>

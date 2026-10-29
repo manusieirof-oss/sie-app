@@ -2105,9 +2105,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 onClick={()=>alternarPlegada(kPlegada)}
                 onKeyDown={e=>{ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); alternarPlegada(kPlegada) } }}
                 style={{margin:'20px 0 9px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',
-                background:'var(--bl)',borderLeft:'3px solid var(--g)',borderRadius:'0 7px 7px 0',
-                padding:'8px 12px',cursor:'pointer',userSelect:'none'}}>
-                <span style={{fontSize:13,fontWeight:600,color:'var(--n)',letterSpacing:.2}}>{ej.parte}</span>
+                background:'var(--bl)',borderRadius:10,
+                padding:'7px 14px',cursor:'pointer',userSelect:'none'}}>
+                <span style={{fontSize:14,fontWeight:600,color:'var(--n)'}}>{ej.parte}</span>
                 {/* EL MÉTODO, SUS SERIES Y SUS DESCANSOS, sobre la franja y tocables (nivel 2+). */}
                 {ej.parteObj && (ej.pos != null
                   ? <MetodoParte key={JSON.stringify([ej.parteObj.modo, ej.parteObj.vueltas, ej.parteObj.descanso, ej.parteObj.transicion, ej.parteObj.ejercicios?.[0]?.series])}
@@ -2122,9 +2122,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                   <button type="button" title="Añadir un ejercicio a este bloque de su sesión"
                     aria-label="Añadir un ejercicio a este bloque de su sesión"
                     onClick={e=>{ e.stopPropagation(); setAnadiendo({ pid: act.paciente.id, pi: Number(String(ej.pos).split('.')[0]) }); cargarCatalogo() }}
-                    style={{width:26,height:26,borderRadius:6,border:'1.5px dashed var(--gm)',background:'var(--w)',
-                      color:'var(--gd)',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',
-                      fontFamily:'inherit',fontSize:14,fontWeight:700,padding:0,lineHeight:1}}>…</button>
+                    style={{width:30,height:30,borderRadius:'50%',border:0,background:'transparent',
+                      color:'var(--gr)',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',
+                      fontFamily:'inherit',padding:0,flexShrink:0}}
+                    onMouseOver={e=>(e.currentTarget as HTMLElement).style.background='#fff'}
+                    onMouseOut={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
                 )}
                 {ej.parteObj && ej.pos == null && descansoDeParte(ej.parteObj) && (
                   <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
