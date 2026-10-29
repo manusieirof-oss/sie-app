@@ -1,5 +1,6 @@
 'use client'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
+import { pulsoActivo } from '@/lib/pulsoVivo'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
 import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCarga'
@@ -620,6 +621,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // Velos de la cita (tocar la foto) y de añadir a alguien a la clase.
   const [citaVelo, setCitaVelo] = useState<string | null>(null)
   const [anadiendoPac, setAnadiendoPac] = useState(false)
+  /** Panel de pulsómetros abierto (el ❤ de la cabecera). */
+  const [pulsoAbierto, setPulsoAbierto] = useState(false)
   const trasCita = (aviso?: string) => {
     setCitaVelo(null); setAnadiendoPac(false)
     if (aviso) alert(aviso)
@@ -1161,6 +1164,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }, [listo, sala, fecha, hora, activo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nombrePac = (p:any) => `${p.nombre} ${p.apellidos||''}`.trim()
+  /** El de la clínica («María Buceta»), para las fichas de arriba; si no tiene, el completo. */
+  const nombreCorto = (p:any) => (p?.nombre_clinica || '').trim() || nombrePac(p)
 
   /**
    * NO SE AÑADE NI SE QUITA GENTE AQUÍ.
@@ -1617,86 +1622,103 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
   return (
     <>
-      {/* CABECERA CLASE: la misma forma que la agenda (fecha grande con flechas, pildoras,
-          resumen y boton negro). Antes eran cajas de formulario y no parecian la misma app. */}
+      {/* CABECERA EN UNA BANDA. Antes eran tres filas (fecha grande, horas, y salas +
+          vistas + finalizar, más la fila de pulsómetros) antes de llegar al paciente. Ahora:
+          fecha corta, horas, sala, vistas como iconos, pulsómetros y arreglar como botones
+          redondos, y finalizar. En pantalla estrecha las horas pasan a un desplegable para
+          que todo siga en una fila (ver .tl-cab en el <style> de abajo). */}
       {(() => {
         const dF = new Date(fecha + 'T12:00:00')
         const mover = (n:number) => { const d = new Date(fecha + 'T12:00:00'); d.setDate(d.getDate() + n); setFecha(d.toISOString().slice(0, 10)) }
-        const dia = dF.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })
-        const mes = dF.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+        const fechaCorta = dF.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '').replace(',', '')
         const pill = (on:boolean): React.CSSProperties => ({ border: 0, background: on ? '#fff' : 'transparent', color: on ? 'var(--n)' : 'var(--gr)',
-          padding: '6px 13px', borderRadius: 99, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxShadow: on ? '0 1px 4px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' })
-        const grupo: React.CSSProperties = { display: 'inline-flex', background: '#E8E7E1', borderRadius: 99, padding: 3, flexWrap: 'wrap' }
+          padding: '6px 10px', borderRadius: 99, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', boxShadow: on ? '0 1px 4px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' })
+        const grupo: React.CSSProperties = { display: 'inline-flex', background: '#E8E7E1', borderRadius: 99, padding: 3, flexShrink: 0 }
+        const redondo = (on:boolean): React.CSSProperties => ({ width: 34, height: 34, borderRadius: '50%', border: 0, flexShrink: 0, cursor: 'pointer',
+          display: 'grid', placeItems: 'center', background: on ? '#fff' : '#E8E7E1', color: on ? 'var(--n)' : 'var(--gr)', boxShadow: on ? '0 1px 4px rgba(0,0,0,.08)' : 'none', position: 'relative' })
+        const icoVista = (on:boolean): React.CSSProperties => ({ ...pill(on), width: 34, height: 30, padding: 0, display: 'grid', placeItems: 'center' })
         const nCerrar = porCerrar(seleccion).length
+        const conPulso = pulsoActivo()
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: '4px 2px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <b style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-.01em', textTransform: 'capitalize' }}>{dia}</b>
-              <span style={{ fontSize: 15, color: 'var(--gr)' }}>{mes}</span>
-            </div>
-            {solo && hora && <span style={{ fontSize: 15, color: 'var(--gr)' }}>· {hora}</span>}
-            {!solo && <span style={{ display: 'inline-flex' }}>
-              <button onClick={() => mover(-1)} title="Día anterior" style={{ width: 30, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 18, borderRadius: 10, cursor: 'pointer' }}>‹</button>
-              <button onClick={() => mover(1)} title="Día siguiente" style={{ width: 30, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 18, borderRadius: 10, cursor: 'pointer' }}>›</button>
-              {fecha !== hoy() && <button onClick={() => setFecha(hoy())} style={{ border: 0, background: 'transparent', color: 'var(--gd)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Hoy</button>}
-            </span>}
-            {!solo && <div style={grupo}>
-              <button style={pill(hora === '')} onClick={() => setHora('')}>Todo el día</button>
-              {horas.map(h => <button key={h.hora} style={pill(hora === h.hora)} onClick={() => setHora(h.hora)}>
-                {h.hora}<small style={{ fontSize: 11, color: 'var(--grl)', marginLeft: 4 }}>{h.n}</small></button>)}
-              {/* Alguien que se presenta sin cita: se le crea en la agenda desde aqui. */}
-              <button style={{ ...pill(false), color: 'var(--gd)', fontWeight: 600 }} onClick={() => setAnadiendoPac(true)} title="Añadir a alguien a esta clase">＋ Añadir</button>
-            </div>}
-            <span style={{ flex: 1 }}/>
-            {!solo && <span style={{ fontSize: 13, color: 'var(--gr)' }}>
-              {trayendo ? 'Cargando…' : avisoAgenda || (seleccion.length
-                ? <><b style={{ color: 'var(--n)' }}>{seleccion.length}</b> persona{seleccion.length > 1 ? 's' : ''}
-                    {sinSesion > 0 && <> · a <b style={{ color: 'var(--n)' }}>{sinSesion}</b> le{sinSesion > 1 ? 's' : ''} falta sesión</>}</>
-                : '')}
-            </span>}
-            {pendientes > 0 ? (
-              <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 99, background: 'var(--ambl)', color: '#7A5800', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Ic name="reloj" size={10}/> Guardando…
-              </span>
-            ) : ultimoGuardado ? (
-              <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 99, background: 'var(--gl)', color: 'var(--gd)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Ic name="check" size={10}/> Guardado {ultimoGuardado.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            ) : null}
-            {!solo && salas.length > 1 && (
-              <div style={grupo}>
-                <button style={pill(sala === '')} onClick={() => setSala('')}>Todas</button>
-                {/* "●": otro dispositivo trabajando en esa sala ahora mismo. */}
-                {salas.map(x => <button key={x} style={pill(sala === x)} onClick={() => setSala(x)}
-                  title={otrosPorSala[x] ? `${otrosPorSala[x]} dispositivo(s) más en esta sala` : undefined}>
-                  {x}{otrosPorSala[x] ? <span style={{ color: '#D4A24E', marginLeft: 3 }}>●</span> : null}</button>)}
+          <div className="tl-cab" style={{ marginBottom: 10 }}>
+            <style>{`
+              .tl-cab{container-type:inline-size}
+              .tl-banda{display:flex;align-items:center;gap:8px;min-width:0}
+              .tl-horas{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+              .tl-horas::-webkit-scrollbar{display:none}
+              .tl-horas-sel{display:none}
+              @container (max-width: 860px){ .tl-horas{display:none} .tl-horas-sel{display:inline-flex} .tl-hueco{display:block!important} }
+            `}</style>
+            <div className="tl-banda">
+              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {!solo && <button onClick={() => mover(-1)} title="Día anterior" style={{ width: 26, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 16, borderRadius: 8, cursor: 'pointer' }}>‹</button>}
+                <b style={{ fontSize: 16, fontWeight: 600, whiteSpace: 'nowrap' }}>{fechaCorta.charAt(0).toUpperCase() + fechaCorta.slice(1)}</b>
+                {!solo && <button onClick={() => mover(1)} title="Día siguiente" style={{ width: 26, height: 30, border: 0, background: 'transparent', color: 'var(--gr)', fontSize: 16, borderRadius: 8, cursor: 'pointer' }}>›</button>}
+                {!solo && fecha !== hoy() && <button onClick={() => setFecha(hoy())} style={{ border: 0, background: 'transparent', color: 'var(--gd)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Hoy</button>}
+                {solo && hora && <span style={{ fontSize: 14, color: 'var(--gr)', marginLeft: 6 }}>· {hora}</span>}
               </div>
-            )}
-            <div style={grupo}>
-              <button style={pill(vista === 'uno')} onClick={() => setVista('uno')}>Uno a uno</button>
-              <button style={pill(vista === 'todos')} onClick={() => setVista('todos')}>Todos</button>
+              {!solo && <>
+                <div className="tl-horas"><div style={grupo}>
+                  <button style={pill(hora === '')} onClick={() => setHora('')}>Día</button>
+                  {horas.map(h => <button key={h.hora} style={pill(hora === h.hora)} onClick={() => setHora(h.hora)}>
+                    {h.hora}<small style={{ fontSize: 10.5, color: 'var(--grl)', marginLeft: 4 }}>{h.n}</small></button>)}
+                </div></div>
+                {/* Pantalla estrecha: las horas en un desplegable. */}
+                <select className="tl-horas-sel" value={hora} onChange={e => setHora(e.target.value)}
+                  style={{ border: 0, background: '#fff', borderRadius: 99, padding: '7px 12px', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', color: 'var(--n)', boxShadow: '0 1px 4px rgba(0,0,0,.08)', flexShrink: 0 }}>
+                  <option value="">Todo el día</option>
+                  {horas.map(h => <option key={h.hora} value={h.hora}>{h.hora} · {h.n}</option>)}
+                </select>
+                <span className="tl-hueco" style={{ flex: 1, display: 'none' }}/>
+              </>}
+              {solo && <span style={{ flex: 1 }}/>}
+              {trayendo && <span style={{ fontSize: 11.5, color: 'var(--grl)', flexShrink: 0 }}>Cargando…</span>}
+              {!trayendo && avisoAgenda && <span style={{ fontSize: 11.5, color: 'var(--red)', flexShrink: 1, minWidth: 0 }}>{avisoAgenda}</span>}
+              {!solo && salas.length > 1 && (
+                <div style={grupo}>
+                  <button style={pill(sala === '')} onClick={() => setSala('')}>Todas</button>
+                  {/* "●": otro dispositivo trabajando en esa sala ahora mismo. */}
+                  {salas.map(x => <button key={x} style={pill(sala === x)} onClick={() => setSala(x)}
+                    title={otrosPorSala[x] ? `${otrosPorSala[x]} dispositivo(s) más en esta sala` : undefined}>
+                    {x}{otrosPorSala[x] ? <span style={{ color: '#D4A24E', marginLeft: 3 }}>●</span> : null}</button>)}
+                </div>
+              )}
+              {/* Una cabeza: Uno a uno. Varias: Todos. */}
+              <div style={grupo}>
+                <button style={icoVista(vista === 'uno')} onClick={() => setVista('uno')} title="Uno a uno"><Ic name="usuario" size={17}/></button>
+                <button style={icoVista(vista === 'todos')} onClick={() => setVista('todos')} title="Todos"><Ic name="pacientes" size={17}/></button>
+              </div>
+              {/* Pulsómetros: antes una fila propia. Rojo si hay bandas emitiendo. */}
+              <button style={{ ...redondo(pulsoAbierto), color: conPulso ? '#B05A5A' : (pulsoAbierto ? 'var(--n)' : 'var(--gr)') }}
+                onClick={() => setPulsoAbierto(v => !v)} title={pulsoAbierto ? 'Ocultar pulsómetros' : 'Pulsómetros'}>
+                <Ic name="corazon" size={17}/>
+              </button>
+              {/* Arreglar ejercicios es de vez en cuando (y solo desde nivel 3): un botón redondo. */}
+              {tocaBib && <button style={redondo(arreglar)} onClick={alternarArreglar}
+                title={arreglar ? 'Arreglando ejercicios: toca para terminar' : 'Arreglar ejercicios (cómo se mide cada uno en la biblioteca)'}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
+              </button>}
+              {pendientes > 0 ? (
+                <span title="Guardando…" style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ambl)', color: '#7A5800', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ic name="reloj" size={11}/></span>
+              ) : ultimoGuardado ? (
+                <span title={`Guardado ${ultimoGuardado.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`}
+                  style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--gl)', color: 'var(--gd)', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ic name="check" size={11}/></span>
+              ) : null}
+              {nCerrar > 0 && (
+                <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
+                  style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {cerrandoClase ? 'Guardando…' : solo ? '✓ Finalizar' : `✓ Finalizar · ${nCerrar}`}
+                </button>
+              )}
+              {solo?.onCerrar && <button onClick={solo.onCerrar} title="Volver a la agenda"
+                style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--bd)', background: '#fff', cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>✕</button>}
             </div>
-            {/* Arriba y no dentro de un paciente: vale para Uno a uno y para Todos. */}
-            {tocaBib && <div style={grupo}>
-              <button style={pill(arreglar)} onClick={alternarArreglar}
-                title="Cambiar cómo se mide cada ejercicio en la biblioteca, mientras trabajas">
-                {arreglar ? '🔧 Arreglando ejercicios' : '🔧 Arreglar ejercicios'}
-              </button>
-            </div>}
-            {nCerrar > 0 && (
-              <button disabled={cerrandoClase} onClick={() => finalizarClase(seleccion)} title="Guarda y finaliza a todos los de esta franja"
-                style={{ background: 'var(--n)', color: '#fff', border: 0, borderRadius: 99, padding: '9px 18px', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {cerrandoClase ? 'Guardando…' : solo ? '✓ Finalizar' : `✓ Finalizar clase · ${nCerrar}`}
-              </button>
-            )}
-            {solo?.onCerrar && <button onClick={solo.onCerrar} title="Volver a la agenda"
-              style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--bd)', background: '#fff', cursor: 'pointer', fontSize: 15 }}>✕</button>}
           </div>
         )
       })()}
 
-      {/* Bandas de pulso de la clase. Ver PulsoClase: se conecta desde Chrome en ordenador. */}
-      <PulsoClase seleccion={seleccion} fecha={fecha}/>
+      {/* Bandas de pulso: siempre montado (las conexiones viven ahí), visible con el ❤. */}
+      <PulsoClase seleccion={seleccion} fecha={fecha} abierto={pulsoAbierto}/>
 
       {!solo && viejos.length > 0 && (() => {
         const quien = viejos.map((r:any) => {
@@ -1766,21 +1788,36 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 <span title={'Abierto también en: ' + enOtros[s.paciente.id].join(', ')}
                   style={{width:8,height:8,borderRadius:99,flexShrink:0,background:'#D4A24E',boxShadow:'0 0 0 2px #fff'}}/>
               )}
-              {s.hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
+              {/* La hora solo con «Todo el día»: con una franja elegida todos son de la misma. */}
+              {s.hora&&!hora&&<span style={{fontSize:8,opacity:.75}}>{s.hora}</span>}
               {!s.sesionId&&<span style={{fontSize:8,opacity:.9}} title="Sin sesión">◦</span>}
-              <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombrePac(s.paciente)}</span>
+              <span style={{fontSize:10,textDecoration:s.estado==='falta'?'line-through':'none',opacity:s.estado==='falta'?.55:1}}>{nombreCorto(s.paciente)}</span>
               {!s.finalizado&&progreso(s)&&<span style={{fontSize:8,opacity:.8}}>{progreso(s)}</span>}
               <ChipPulso pid={s.paciente?.id}/>
             </div>
             )
           })}
+          {/* Añadir a alguien que viene sin cita: junto a las personas, no arriba. */}
+          {!solo && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>}
+        </div>
+      )}
+      {!solo && seleccion.length>0 && vista==='todos' && (
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
+          <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>
         </div>
       )}
 
       {/* CUERPO */}
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
-          {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o pulsa «＋ Añadir» si alguien viene sin cita.</>}
+          {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o añade a quien venga sin cita.</>}
+          {!trayendo && !solo && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+              style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
+                border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button></div>}
         </div>
       ) : vista==='todos' ? (
         <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{

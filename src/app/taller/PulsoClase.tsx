@@ -22,9 +22,10 @@ const claveSS = (fecha: string) => `sie-pulso-${fecha}`
 
 interface Dispositivo { nombre: string, bpm: number | null, t: number, bateria: number | null, estado: 'conectando' | 'directo' | 'perdida' }
 
-export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fecha: string }) {
+// `abierto` lo manda el ❤ de la cabecera del taller. El componente sigue montado aunque
+// esté cerrado: las conexiones con las bandas viven aquí y no se pueden perder.
+export default function PulsoClase({ seleccion, fecha, abierto = false }: { seleccion: any[], fecha: string, abierto?: boolean }) {
   const soportado = typeof navigator !== 'undefined' && !!(navigator as any).bluetooth
-  const [abierto, setAbierto] = useState(false)
   const [bandas, setBandas] = useState<{ nombre_ble: string, numero: number }[]>([])
   const [extra, setExtra] = useState<Record<string, { fc_max: number | null, banda_ultima: string | null }>>({})
   const [error, setError] = useState('')
@@ -248,34 +249,15 @@ export default function PulsoClase({ seleccion, fecha }: { seleccion: any[], fec
   }
 
   const conectadas = Object.values(devs.current).filter(d => d.estado !== 'perdida')
-  const nVivos = pacientes.filter(p => ver(p).vivo).length
   if (!pacientes.length) return null
 
   return (
     // Sin caja: la franja va sobre el fondo de la página, como los botones de arriba.
-    <div style={{ margin: '0 0 12px' }}>
+    <div style={{ margin: abierto ? '0 0 12px' : 0 }}>
       <VeloPulso/>
-      <button onClick={() => setAbierto(a => !a)} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '6px 14px', border: 0, borderRadius: 99, background: '#E8E7E1', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', maxWidth: '100%' }}>
-        <span style={{ color: '#B05A5A' }}>❤</span>
-        <b style={{ fontSize: 13.5 }}>Pulsómetros</b>
-        <span style={{ fontSize: 12, color: 'var(--gr)' }}>
-          {nVivos ? `${nVivos} en directo` : conectadas.length ? `${conectadas.length} banda${conectadas.length === 1 ? '' : 's'} conectada${conectadas.length === 1 ? '' : 's'}` : 'sin bandas'}
-        </span>
-        {/* Cerrado se sigue viendo el pulso de cada uno en pequeño. */}
-        {!abierto && (
-          <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 6 }}>
-            {pacientes.map(p => {
-              const v = ver(p); if (!v.vivo) return null
-              const z = zonaDe(v.bpm, fcMax(p).fc)
-              return <span key={p.id} style={{ fontSize: 11.5, padding: '2px 8px', borderRadius: 99, background: colorZona(z), color: z >= 2 ? '#fff' : 'var(--n)' }}>{(p.nombre_clinica || p.nombre || '').split(' ')[0]} {v.bpm}</span>
-            })}
-          </span>
-        )}
-        <span style={{ fontSize: 12, color: 'var(--gd)' }}>{abierto ? '▴ Ocultar' : '▾ Abrir'}</span>
-      </button>
 
       {abierto && (
-        <div style={{ padding: '10px 2px 0' }}>
+        <div style={{ padding: '2px 2px 0' }}>
           {(
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
