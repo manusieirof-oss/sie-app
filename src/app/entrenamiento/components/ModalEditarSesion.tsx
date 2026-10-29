@@ -840,6 +840,29 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   </label>
                 )}
 
+                {/* SERIES DE TODA LA PARTE, desde arriba: se escriben una vez y se ponen en
+                    todos sus ejercicios. Si no coinciden, sale vacío con «varias». Luego
+                    cada ejercicio se puede retocar abajo. (En circuito mandan las vueltas.) */}
+                {(parte?.modo==='ejercicio'||parte?.modo==='superserie'||!parte?.modo) && (parte?.ejercicios||[]).length>0 && (()=>{
+                  const ss = Array.from(new Set((parte?.ejercicios||[]).map((x:any)=>String(x.series||''))))
+                  const igual = ss.length===1 ? ss[0] : ''
+                  return (
+                    <label className="par-in" title="Pone estas series a todos los ejercicios de la parte">
+                      <span style={{color:'var(--gr)',marginRight:4}}>Series</span>
+                      <input type="number" min={1} value={igual} placeholder={ss.length>1?'varias':'—'}
+                        onChange={e=>{
+                          const v=e.target.value
+                          setFormSesion(prev=>{
+                            const partes=[...prev.partes]; const pa=partes[parteActiva]
+                            partes[parteActiva]={ ...pa, ejercicios:(pa.ejercicios||[]).map((x:any)=>({ ...x, series:v })) }
+                            return { ...prev, partes }
+                          })
+                        }}/>
+                      <span>todos</span>
+                    </label>
+                  )
+                })()}
+
                 {parte?.modo==='tiempo' && (
                   <>
                     <ChipMenu valor={(TIPOS_TIEMPO.find(t=>t.id===(parte?.tipo_tiempo||'emom'))||TIPOS_TIEMPO[0]).nombre}
