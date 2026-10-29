@@ -733,7 +733,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
         </div>
 
         {/* OBJETIVOS */}
-        <div style={{padding:'8px 18px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
+        <div style={{padding:'10px 18px 8px',borderBottom:'1px solid var(--bd)',background:'var(--w)'}}>
           {objetivosDisp.length>0&&(
             <div style={{display:'flex',alignItems:'flex-start',gap:9,flexWrap:'wrap'}}>
               {/* Plegado por defecto: los objetivos se eligen una vez y luego solo
@@ -741,7 +741,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               <span title="Objetivos que cubre la sesión" style={{display:'inline-flex',color:'var(--gd)',paddingTop:7}}><Ic name="objetivo" size={15}/></span>
               {/* SIEMPRE A LA VISTA: cada objetivo con su «−» para quitarlo y un «+» para añadir. */}
               {(
-              <div style={{display:'flex',gap:6,flexWrap:'wrap',flex:1,minWidth:200,alignItems:'center'}}>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',flex:1,minWidth:200,alignItems:'flex-start'}}>
                 {/* En MONEDAS, igual que en la ficha del paciente y en las sesiones: un
                     objetivo se reconoce por su foto, y dibujarlo distinto en cada pantalla
                     obliga a reconocerlo otra vez en cada una. */}
@@ -749,20 +749,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   const o = objetivosDisp.find((x:any)=>x.id===id)
                   if (!o) return null
                   return (
-                    <span key={id} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'2px 4px 2px 2px',borderRadius:99,background:'#fff',
-                      border:'1px solid var(--bd)',fontSize:12.5,color:'var(--n)'}}
-                      title={(movsSel[id]||[]).length ? (movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ') : o.nombre}>
-                      <MonedaObjetivo objetivo={o} tam="mini"/>
-                      <span style={{maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{o.nombre}</span>
+                    <span key={id} title={(movsSel[id]||[]).length ? `${o.nombre} · ${(movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ')}` : o.nombre}
+                      style={{position:'relative',display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
+                      <MonedaObjetivo objetivo={o}/>
+                      <span className="obj-mon-g">{o.nombre}</span>
+                      {/* El «−» encima de la esfera, pequeño: quitar no tiene que gritar. */}
                       <button type="button" title="Quitar este objetivo"
                         onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.filter(x=>x!==id)) }}
-                        style={{width:20,height:20,borderRadius:'50%',border:0,background:'var(--bl)',color:'var(--gr)',cursor:'pointer',fontSize:14,lineHeight:1,display:'grid',placeItems:'center'}}>−</button>
+                        style={{position:'absolute',top:-4,right:8,width:18,height:18,borderRadius:'50%',border:'1px solid var(--bd)',background:'#fff',
+                          color:'var(--gr)',cursor:'pointer',fontSize:13,lineHeight:1,display:'grid',placeItems:'center',padding:0}}>−</button>
                     </span>
                   )
                 })}
-                <button type="button" title="Añadir objetivo"
-                  onClick={()=>setEligiendoObj(true)}
-                  style={{width:28,height:28,borderRadius:'50%',border:'1.5px dashed var(--gm)',background:'#fff',color:'var(--gd)',cursor:'pointer',fontSize:16,lineHeight:1,display:'grid',placeItems:'center'}}>+</button>
+                <span style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
+                  <button type="button" title="Añadir objetivo" onClick={()=>setEligiendoObj(true)}
+                    style={{width:42,height:42,borderRadius:'50%',border:'1.5px dashed var(--gm)',background:'#fff',color:'var(--gd)',cursor:'pointer',fontSize:20,lineHeight:1,display:'grid',placeItems:'center'}}>+</button>
+                  <span className="obj-mon-g">Añadir</span>
+                </span>
               </div>
               )}
             </div>
@@ -902,7 +905,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
                 <div style={{flex:1}}/>
                 {formSesion.partes.length>1&&(
-                  <button title="Eliminar esta parte" className="fila-x" style={{opacity:1}}
+                  <button title="Eliminar esta parte" className="ic-acc peligro"
                     onClick={()=>{setFormSesion(prev=>({...prev,partes:prev.partes.filter((_:any,i:number)=>i!==parteActiva)}));setParteActiva(Math.max(0,parteActiva-1))}}>
                     <Ic name="papelera" size={14}/>
                   </button>
@@ -946,7 +949,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   const descC = comun((x:any)=>String(x.descanso||''))
                   const recorrido = parte?.modo==='circuito' || parte?.modo==='superserie'
                   return (
-                    <div className="ej-row" style={{background:'var(--gl)',borderRadius:10,padding:'6px 0',margin:'4px 0 6px'}}
+                    <div className="ej-row" style={{background:'var(--w)',borderBottom:'1px dashed var(--gm)',padding:'8px 0',margin:'0 0 4px'}}
                       title="Para todos los ejercicios de la parte">
                       <div className="ej-nom" style={{paddingLeft:10,color:'var(--gd)',fontSize:12,display:'flex',alignItems:'center',gap:6}}>
                         <Ic name="lista" size={14}/> <span style={{color:'var(--grl)'}}>{ejs.length}</span>
@@ -1268,10 +1271,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                         (músculo y patrón): un ejercicio de abducción propone otros de abducción. */}
                     {/* Las dos acciones en UNA celda: sueltas, la segunda caía a otra fila. */}
                     <div className="acc">
-                      <button title="Cambiar por uno parecido" className="fila-x" style={{opacity:1}}
-                        onClick={()=>{ setSelBib([]); setCambiarEj(ei); setAbrirBib(true) }}>⇄</button>
-                      <button title="Quitar el ejercicio" className="fila-x" style={{opacity:1}}
-                        onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="cerrar" size={13}/></button>
+                      <button title="Cambiar por uno parecido" className="ic-acc"
+                        onClick={()=>{ setSelBib([]); setCambiarEj(ei); setAbrirBib(true) }}><Ic name="cambio" size={15}/></button>
+                      <button title="Quitar el ejercicio" className="ic-acc peligro"
+                        onClick={()=>quitarEjercicio(parteActiva,ei)}><Ic name="papelera" size={15}/></button>
                     </div>
 
                     {/* La nota, entera y debajo de todo. Metida entre los campos se

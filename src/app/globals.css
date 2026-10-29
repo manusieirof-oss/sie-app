@@ -372,7 +372,11 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 
 /* Cabecera de la parte: nombre y recorrido en una línea. Eran tres filas —pestañas,
    nombre y una caja con el modo— comiéndose el alto que necesitan los ejercicios. */
-.parte-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;margin-bottom:10px;background:var(--bl);border:0;border-radius:14px;}
+.parte-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;margin-bottom:10px;background:var(--w);border:1px solid var(--bd);border-radius:14px;}
+/* Acciones discretas (cambiar, quitar, borrar parte): icono suelto, sin caja; se marca al pasar. */
+.ic-acc{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--grl);display:inline-grid;place-items:center;cursor:pointer;flex-shrink:0;transition:background .12s,color .12s}
+.ic-acc:hover{background:var(--bl);color:var(--gd)}
+.ic-acc.peligro:hover{background:var(--redl);color:var(--red)}
 .parte-nom{font-family:inherit;font-size:13px;font-weight:500;color:var(--n);background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 6px;min-width:110px;max-width:340px;flex:0 1 auto;field-sizing:content;transition:all .12s;}
 .parte-nom:hover{border-color:var(--bd);background:var(--w);}
 .parte-nom:focus{outline:none;border-color:var(--g);background:var(--w);box-shadow:var(--ring);}
