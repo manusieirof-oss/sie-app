@@ -33,6 +33,7 @@ export const MINIMO = {
   valoracion: 2,
   editar_agenda: 2,        // crear, mover, editar o borrar citas (el 1 solo la consulta)
   turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
+  tareas: 3,               // poner y borrar tareas, y ver las de todos (cada uno marca las suyas)
   cambiar_ejercicios: 2,   // ⇄ solo hoy, para siempre o quitarlo de su sesión
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
   cancelar_cita: 2,        // falta, cancelada y cambio de sala
@@ -58,6 +59,7 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   valoracion: 'Valoraciones y tests',
   editar_agenda: 'Crear, mover y borrar citas',
   turnos: 'Cambiar quién lleva cada sala',
+  tareas: 'Poner tareas y ver las de todos',
   cambiar_ejercicios: 'Cambiar ejercicios en el taller',
   cambiar_sesion: 'Elegir o quitar la sesión de una cita',
   cancelar_cita: 'Marcar faltas, cancelar y cambiar de sala',

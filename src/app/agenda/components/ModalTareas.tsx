@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
+import { usePuede } from '@/lib/permisos'
 
 export default function ModalTareas({ tareas, perfiles, pacientes, userId, crearTarea, completarTarea, borrarTarea, onCerrar }: any) {
   const [titulo, setTitulo] = useState('')
@@ -14,6 +15,11 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
   const [verCompletadas, setVerCompletadas] = useState(false)
 
   const hoyStr = hoyISO()
+  /* QUIÉN HACE QUÉ CON LAS TAREAS. Ponerlas, borrarlas y ver las de todos: dirección y
+     encargado/a (lib/permisos: tareas). Cada uno ve las suyas y las del equipo (sin
+     asignar), y marca como hecha la suya o una del equipo. La base de datos dice lo mismo. */
+  const manda = usePuede()('tareas')
+  const puedeMarcar = (t:any) => manda || !t.asignado_a || t.asignado_a === userId
 
   function nombreTrab(uid) {
     const p = (perfiles||[]).find((x)=>x.user_id===uid)
@@ -49,10 +55,11 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
     <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onCerrar()}}>
       <div className="modal" style={{width:480,maxHeight:'88vh',overflowY:'auto'}}>
         <div className="modal-title">
-          ✓ Tareas del equipo
+          {manda ? '✓ Tareas del equipo' : '✓ Mis tareas'}
           <button className="modal-close" onClick={onCerrar}>✕</button>
         </div>
 
+        {manda && <>
         <div style={{fontSize:9,fontWeight:600,color:'var(--grl)',letterSpacing:.5,textTransform:'uppercase',marginBottom:6}}>Nueva tarea</div>
         <div className="field"><label>Qué hay que hacer</label>
           <input className="input" value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="ej. Llamar a Juan, revisar pagos del mes"/>
@@ -60,7 +67,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
         <div className="g2">
           <div className="field"><label>Asignar a</label>
             <select className="input" value={asignadoA} onChange={e=>setAsignadoA(e.target.value)}>
-              <option value="">Sin asignar</option>
+              <option value="">Todo el equipo</option>
               {(perfiles||[]).map((p)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
             </select>
           </div>
@@ -90,12 +97,13 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
         <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}>
           <button className="btn btn-p" onClick={guardar} disabled={creando||!titulo.trim()}>{creando?'Guardando...':'+ Crear tarea'}</button>
         </div>
+        </>}
 
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,borderTop:'1px solid var(--bl)',paddingTop:12}}>
-          <select className="input" value={filtroTrab} onChange={e=>setFiltroTrab(e.target.value)} style={{flex:1,fontSize:10,padding:'5px 8px'}}>
+          {manda ? <select className="input" value={filtroTrab} onChange={e=>setFiltroTrab(e.target.value)} style={{flex:1,fontSize:10,padding:'5px 8px'}}>
             <option value="todos">Todos los trabajadores</option>
             {(perfiles||[]).map((p)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
-          </select>
+          </select> : <span style={{flex:1}}/>}
           <button onClick={()=>setVerCompletadas(!verCompletadas)} style={{fontSize:9,padding:'5px 10px',borderRadius:6,border:'1px solid var(--bd)',background:verCompletadas?'var(--gl)':'var(--w)',color:verCompletadas?'var(--gd)':'var(--gr)',cursor:'pointer',whiteSpace:'nowrap'}}>{verCompletadas?'✓ Completadas':'Pendientes'}</button>
         </div>
 
@@ -104,18 +112,26 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
           const est = estadoTarea(t)
           return (
             <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'9px 11px',borderRadius:7,border:`1px solid ${est.bd||'var(--bd)'}`,background:est.bg||'var(--bl)',marginBottom:5}}>
-              <div onClick={()=>completarTarea(t.id,!t.completada)} style={{width:18,height:18,borderRadius:4,border:`2px solid ${t.completada?'var(--g)':'var(--bm)'}`,background:t.completada?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:1}}>
+              <div onClick={()=>{ if (puedeMarcar(t)) completarTarea(t.id,!t.completada) }} title={puedeMarcar(t) ? undefined : 'Solo la marca quien la tiene'}
+                style={{width:18,height:18,borderRadius:4,border:`2px solid ${t.completada?'var(--g)':'var(--bm)'}`,background:t.completada?'var(--g)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:puedeMarcar(t)?'pointer':'default',opacity:puedeMarcar(t)?1:.5,flexShrink:0,marginTop:1}}>
                 {t.completada&&<span style={{color:'#fff',fontSize:11,fontWeight:700}}>✓</span>}
               </div>
               <div style={{flex:1}}>
                 <div style={{fontSize:11,color:'var(--n)',fontWeight:400,textDecoration:t.completada?'line-through':'none',opacity:t.completada?.6:1}}>{t.titulo}</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:3,fontSize:8,color:'var(--grl)'}}>
-                  {t.asignado_a&&<span style={{display:'inline-flex',alignItems:'center',gap:3}}><Ic name="usuario" size={11}/> {nombreTrab(t.asignado_a)}</span>}
+                  {t.asignado_a ? <span style={{display:'inline-flex',alignItems:'center',gap:3}}><Ic name="usuario" size={11}/> {nombreTrab(t.asignado_a)}</span>
+                    : <span style={{display:'inline-flex',alignItems:'center',gap:3}}><Ic name="pacientes" size={11}/> Equipo</span>}
                   {t.fecha_limite&&<span style={{color:est.color,fontWeight:est.label==='vencida'||est.label==='hoy'?600:400,display:'inline-flex',alignItems:'center',gap:3}}><Ic name="calendario" size={11}/> {t.fecha_limite}{est.label==='vencida'?' · vencida':est.label==='hoy'?' · hoy':''}</span>}
                   {t.paciente_id&&<span style={{display:'inline-flex',alignItems:'center',gap:3}}><Ic name="usuario" size={11}/> {nombrePac(t.paciente_id)}</span>}
                 </div>
+                {/* Quién la hizo y cuándo: lo ven dirección y encargado/a. */}
+                {manda && t.completada && t.fecha_completada && (
+                  <div style={{fontSize:9.5,color:'var(--gd)',marginTop:3}}>
+                    Hecha {t.completada_por ? `por ${nombreTrab(t.completada_por)} ` : ''}el {new Date(t.fecha_completada).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+                  </div>
+                )}
               </div>
-              <button onClick={()=>borrarTarea(t.id)} style={{fontSize:10,color:'var(--grl)',background:'none',border:'none',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Eliminar" onMouseOver={e=>(e.currentTarget).style.color='var(--red)'} onMouseOut={e=>(e.currentTarget).style.color='var(--grl)'}><Ic name="papelera" size={13}/></button>
+              {manda && <button onClick={()=>borrarTarea(t.id)} style={{fontSize:10,color:'var(--grl)',background:'none',border:'none',cursor:'pointer',flexShrink:0,padding:'0 2px'}} title="Eliminar" onMouseOver={e=>(e.currentTarget).style.color='var(--red)'} onMouseOut={e=>(e.currentTarget).style.color='var(--grl)'}><Ic name="papelera" size={13}/></button>}
             </div>
           )
         })}
