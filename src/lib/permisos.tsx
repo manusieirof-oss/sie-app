@@ -32,6 +32,7 @@ export const MINIMO = {
   pacientes: 2,
   valoracion: 2,
   editar_agenda: 2,        // crear, mover, editar o borrar citas (el 1 solo la consulta)
+  turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
   cambiar_ejercicios: 2,   // ⇄ solo hoy, para siempre o quitarlo de su sesión
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
   cancelar_cita: 2,        // cancelar y cambiar de sala (la falta la marca cualquiera)
@@ -56,6 +57,7 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   pacientes: 'Ver y editar fichas de pacientes',
   valoracion: 'Valoraciones y tests',
   editar_agenda: 'Crear, mover y borrar citas',
+  turnos: 'Cambiar quién lleva cada sala',
   cambiar_ejercicios: 'Cambiar ejercicios en el taller',
   cambiar_sesion: 'Elegir o quitar la sesión de una cita',
   cancelar_cita: 'Cancelar y cambiar de sala desde el taller',

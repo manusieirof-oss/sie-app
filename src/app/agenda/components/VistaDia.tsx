@@ -6,7 +6,11 @@ import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
 import ResponsableFranja from './ResponsableFranja'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true }: {
+  /** Nivel 1: solo se consulta; de cada persona, solo el botón de su sesión (el taller). */
+  consulta?: boolean
+  /** Si puede cambiar quién lleva cada sala (lib/permisos: turnos). */
+  tocaTurnos?: boolean
   fecha: string
   turnos?: any[]
   perfiles?: any[]
@@ -132,8 +136,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
         {/* Solo al pasar el ratón (en tablet, siempre: ver .ag-acc en globals.css). */}
         <span className="ag-acc">
           {accion('Entrenamiento','entreno',()=>abrirEntrenoCita&&abrirEntrenoCita(c))}
-          {accion('Ver datos','usuario',()=>abrirDatosCita&&abrirDatosCita(c))}
-          {accion('Editar cita','editar',()=>setEditandoCita&&setEditandoCita({...c}))}
+          {!consulta && accion('Ver datos','usuario',()=>abrirDatosCita&&abrirDatosCita(c))}
+          {!consulta && accion('Editar cita','editar',()=>setEditandoCita&&setEditandoCita({...c}))}
         </span>
         {!falta&&<span className="ag-punto" style={{background:col}}/>}
       </div>
@@ -183,7 +187,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 if (sc.length===0 && scCanceladas.length===0) {
                   return (
                     <div key={sala} className="ag-franja">
-                      {filtrando
+                      {filtrando || consulta
                         ? <div className="ag-vacia quieta">·</div>
                         : <div className="ag-vacia" onClick={()=>abrirNueva(h,sala)}>+ libre</div>}
                     </div>
@@ -196,7 +200,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                       <div className="ag-clase-cab">
                         {/* QUIEN SE HACE CARGO. Ver `lib/turnos`. */}
                         <ResponsableFranja turnos={turnos} perfiles={perfiles} fecha={fecha}
-                          hora={h} horaFin={finDe(h)} sala={sala} onCambio={onTurnos||(()=>{})}/>
+                          hora={h} horaFin={finDe(h)} sala={sala} onCambio={onTurnos||(()=>{})} soloVer={!tocaTurnos}/>
                         <span className="ag-aforo" title={sobre?'Grupo por encima del aforo':'Plazas ocupadas'}>
                           {!filtrando&&<span className="ag-barra"><i style={{width:pct+'%'}}/></span>}
                           {filtrando?sc.length:`${scActivas.length}/${MAX}`}
@@ -204,7 +208,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                       </div>
                       {sc.map((c:any)=><FilaPaciente key={c.id} c={c}/>)}
                       {/* Las plazas libres en UNA línea: antes era una caja punteada por plaza. */}
-                      {!filtrando&&(
+                      {!filtrando&&!consulta&&(
                         <div className="ag-libre" onClick={()=>abrirNueva(h,sala)}>
                           <Ic name="mas" size={13}/>
                           {libres>0 ? `${libres} ${libres===1?'plaza libre':'plazas libres'}` : sobre ? 'Por encima del aforo · añadir' : 'Completa · añadir'}
@@ -215,7 +219,7 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                           {scCanceladas.length===1?'Baja':'Bajas'} · {scCanceladas.map((c:any,i:number)=>(
                             <span key={c.id}>
                               {i>0&&<>, </>}
-                              <span onClick={()=>setEditandoCita&&setEditandoCita({...c})}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
+                              <span onClick={()=>{ if (!consulta) setEditandoCita&&setEditandoCita({...c}) }}>{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
                             </span>
                           ))}
                         </div>

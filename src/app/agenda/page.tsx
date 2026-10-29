@@ -33,7 +33,9 @@ const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
 export default function AgendaPage() {
   // NIVEL 1 (lib/permisos): la agenda solo se consulta. Ve las clases y abre el entreno
   // (que es el taller, con sus propios límites), pero no crea, mueve ni borra citas.
-  const consulta = !usePuede()('editar_agenda')
+  const puedeAg = usePuede()
+  const consulta = !puedeAg('editar_agenda')
+  const tocaTurnos = puedeAg('turnos')
   const [vista, setVista] = useState<'dia'|'semana'|'mes'>('dia')
   const [citas, setCitas] = useState<any[]>([])
   const [alertasPaciente, setAlertasPaciente] = useState<any[]>([])
@@ -668,8 +670,9 @@ export default function AgendaPage() {
             {tareasPend.length>0&&<span className="ag-badge" style={{background:'var(--amb)'}}>{tareasPend.length}</span>}
           </button>
         )}
+        {/* El nivel 1 no crea citas: sin botón, y sin rótulo que parezca un botón. */}
         {consulta
-          ? <span className="ag-hoy" style={{cursor:'default'}} title="Para cambiar citas, habla con el encargado/a">Solo consulta</span>
+          ? null
           : <button className="ag-nueva" onClick={()=>{setNuevaCita((p:any)=>({...p,fecha:'',hora:'',sala:salas[0]||'A',nuevo:false,nuevo_nombre:'',nuevo_telefono:''}));setModal(true)}}>
           <Ic name="mas" size={14}/> Cita
         </button>}
@@ -729,7 +732,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas} consulta={consulta} tocaTurnos={tocaTurnos}
             turnos={turnos} perfiles={perfiles} onTurnos={cargar}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita} soloHueco={soloHueco} salas={salas} turnos={turnos} tareas={tareas} perfiles={perfiles} completarTarea={completarTarea}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string,pacienteId:string)=>setEditandoMulti({citas:cts,nombre,pacienteId})} maxPersonas={maxPersonas} eventos={eventos} tareas={tareas} perfiles={perfiles} completarTarea={completarTarea}/>}

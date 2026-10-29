@@ -46,6 +46,21 @@ const serieLlena = (x: any) => CAMPOS_MEDIDA.some(f => x?.[f] != null && String(
 const hoy = hoyISO
 
 /**
+ * ¿ESTA CLASE AÚN NO HA EMPEZADO? Un día que viene, o hoy antes de su hora. Entonces el
+ * taller sirve para PREPARAR: se puede cambiar la sesión (ejercicios, método, sesión
+ * entera), pero lo que se apunte en las series no se guarda como hecho.
+ */
+function antesDeClase(item: any, fechaVista: string): boolean {
+  const f = item?.fechaClase || fechaVista
+  const h = hoy()
+  if (f > h) return true
+  if (f < h || !item?.hora) return false
+  const d = new Date()
+  const ahora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+  return ahora < String(item.hora).slice(0, 5)
+}
+
+/**
  * EJERCICIOS QUE YA NO ESTÁN EN LA BIBLIOTECA. Una sesión puede llevar un ejercicio que
  * luego se borró o se fusionó con otro; al guardar, la base rechazaba la clase ENTERA
  * ("violates foreign key constraint registros_ejercicio_ejercicio_id_fkey") y no se
@@ -1253,6 +1268,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    */
 
   function programarAutosave(pid:string, ei:number, ejData:any, sesionId:string){
+    // Antes de su hora se prepara, no se apunta: nada de lo tecleado cuenta como hecho.
+    if (antesDeClase(seleccionRef.current.find((x:any) => x.paciente.id === pid), fecha)) return
     // Si se apunta algo en uno marcado como "no lo hizo", es que si lo hizo.
     const nh = leerNoHechos(pid, sesionId)
     if (nh.includes(ei)) ponerNoHechos(pid, sesionId, nh.filter(x => x !== ei))
@@ -1605,7 +1622,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   /** Quien de esta lista se cierra con "Finalizar clase": con sesion, sin cerrar, y que vino. */
-  const porCerrar = (lista:any[]) => lista.filter((x:any) => x.sesionId && !x.finalizado && x.estado !== 'falta')
+  const porCerrar = (lista:any[]) => lista.filter((x:any) => x.sesionId && !x.finalizado && x.estado !== 'falta' && !antesDeClase(x, fecha))
 
   /**
    * FINALIZAR LA CLASE ENTERA. Ir paciente a paciente se olvidaba; esto cierra a todos
@@ -2083,6 +2100,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 (también las de hoja libre). Lo que se apunta ya se guarda solo al tocarlo. */}
           </div>
 
+          {/* PREPARAR LA CLASE: antes de su hora, cambiar sí; apuntar no. */}
+          {antesDeClase(act, fecha) && (
+            <div style={{fontSize:12.5,color:'var(--gd)',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:10,padding:'8px 12px',marginBottom:10,lineHeight:1.5}}>
+              <b>Preparando la clase{act.hora ? ` de las ${String(act.hora).slice(0,5)}` : ''}.</b> Puedes cambiar su sesión (ejercicios, método, series, descansos) y se guarda;
+              lo que apuntes en las series no cuenta como hecho hasta que empiece la clase.
+            </div>
+          )}
           {act.sesionVieja && act.sesionId && (
             <div style={{fontSize:10,color:'var(--gd)',background:'var(--gl)',border:'1px solid var(--bd)',borderRadius:6,padding:'6px 9px',marginBottom:8}}>
               La sesión de esta cita es de una tanda anterior. Se ejecuta igual —es lo que se planificó para hoy—, pero si ya no toca, elige otra arriba.

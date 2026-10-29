@@ -12,7 +12,9 @@ import { responsableDe, guardarTurno, borrarTurno, type Turno } from '@/lib/turn
 // tiene que acordarse de deshacerlo manana.
 // ---------------------------------------------------------------------------
 
-export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaFin, sala, onCambio }: {
+export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaFin, sala, onCambio, soloVer = false }: {
+  /** Sin permiso de turnos: se ve quién lleva la sala, pero no se cambia. */
+  soloVer?: boolean
   turnos: Turno[]
   perfiles: any[]
   fecha: string
@@ -41,12 +43,12 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
 
   return (
     <span style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-      <button type="button" onClick={() => setAbierto(v => v === false)}
+      <button type="button" onClick={() => { if (!soloVer) setAbierto(v => v === false) }}
         title={deducido
           ? 'Nadie asignado a esta sala: es quien está a esa hora. Pulsa para asignarlo hoy.'
           : 'Quién se hace cargo · pulsa para cambiarlo solo hoy'}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12,
-          fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none',
+          fontFamily: 'inherit', cursor: soloVer ? 'default' : 'pointer', border: 'none', background: 'none',
           padding: 0, maxWidth: '100%', overflow: 'hidden',
           color: nombres.length === 0 ? 'var(--fant, var(--grl))'
             : deducido ? 'var(--grl)' : 'var(--gd)',
