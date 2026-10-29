@@ -640,7 +640,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
           encogía a cuatro dedos y la biblioteca, que se abre dentro, salía del mismo
           tamaño: no cabían ni dos filas de ejercicios. Además evita que el modal pegue
           saltos según vas añadiendo. */}
-      <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'90vw',maxWidth:1100,height:'min(86vh, 860px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
+      <div style={{background:'var(--w)',borderRadius:'var(--rl)',width:'94vw',maxWidth:1320,height:'min(90vh, 920px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,.15)'}}>
         {/* CABECERA */}
         <div style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
@@ -688,64 +688,60 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
             <input className="input" value={formSesion.nombre} readOnly={modoCita} onChange={e=>setFormSesion(p=>({...p,nombre:e.target.value}))} placeholder="Nombre de la sesión *" style={{fontSize:14,fontWeight:400,border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',cursor:modoCita?'default':undefined,color:modoCita?'var(--gr)':undefined}} autoFocus={!modoCita}/>
             <input className="input" value={formSesion.descripcion} onChange={e=>setFormSesion(p=>({...p,descripcion:e.target.value}))} placeholder="Descripción / motivo (opcional)" style={{fontSize:13,color:'var(--gr)',border:'none',background:'transparent',padding:'0',outline:'none',width:'100%',marginTop:3}}/>
           </div>
-          {/* CANDADO: la sesion se queda en su cita aunque las demas corran por faltas,
-              cancelaciones o clases extra (dias de fuerza en grupo). A mano se mueve igual. */}
-          {!modoCita && (
-            <button type="button" onClick={()=>setFormSesion(p=>({...p,fija:!p.fija}))}
-              title={formSesion.fija ? 'Fija en su cita: no corre con las demás. Pulsa para quitar el candado' : 'Ponerle candado: se queda en su cita aunque las demás corran'}
-              style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:12,
-                border:`1.5px solid ${formSesion.fija?'var(--n)':'var(--bd)'}`,background:formSesion.fija?'var(--n)':'var(--w)',color:formSesion.fija?'#fff':'var(--gr)'}}>
-              {formSesion.fija ? '🔒 Fija' : '⇄ Corre'}
-            </button>
-          )}
-          {/* PULSÓMETRO: si en esta sesión se trabaja con banda. El taller lo avisa al llegar. */}
-          {!modoCita && (
-            <button type="button" onClick={()=>setFormSesion(p=>({...p,pulsometro:!p.pulsometro}))}
-              title={formSesion.pulsometro ? 'Con pulsómetro: el taller avisa de ponérselo. Pulsa para quitarlo' : 'Marcar que en esta sesión se usa pulsómetro'}
-              style={{flexShrink:0,display:'inline-flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',fontSize:12,
-                border:`1.5px solid ${formSesion.pulsometro?'#B05A5A':'var(--bd)'}`,background:formSesion.pulsometro?'#B05A5A':'var(--w)',color:formSesion.pulsometro?'#fff':'var(--gr)'}}>
-              {formSesion.pulsometro ? '♥ Con pulsómetro' : '♡ Sin pulsómetro'}
-            </button>
-          )}
-          {!modoCita && hojaLeida && (
-            <div style={{display:'flex',background:'var(--bl)',border:'1px solid var(--bd)',borderRadius:99,padding:2,flexShrink:0}}>
-              {([['Formulario',false],['Hoja libre',true]] as const).map(([n,libre])=>{
-                const on = (hoja!==null)===libre
-                return <button key={n} type="button" aria-pressed={on}
-                  onClick={()=>{
-                    if (on) return
-                    if (!libre && hoja && (hoja.trazos.length||hoja.pegs.length)
-                      && !confirm('Al guardar como formulario se pierde el dibujo de la hoja. ¿Seguir?')) return
-                    setHoja(libre ? hojaVacia() : null)
-                  }}
-                  style={{fontFamily:'inherit',fontSize:12,border:'none',borderRadius:99,padding:'4px 12px',cursor:'pointer',
-                    background:on?'var(--gd)':'transparent',color:on?'#fff':'var(--gr)'}}>{n}</button>
-              })}
-            </div>
-          )}
+          {/* BOTONERA EN ICONOS, como el taller: candado, pulsómetro y formulario u hoja
+              libre en botones redondos. El nombre de cada uno, al pasar el dedo. */}
+          {(()=>{
+            const redondo = (on:boolean, color='var(--n)'): React.CSSProperties => ({ width:36, height:36, borderRadius:'50%', border:0, flexShrink:0, cursor:'pointer',
+              display:'grid', placeItems:'center', background:on?color:'#E8E7E1', color:on?'#fff':'var(--gr)' })
+            return <>
+              {/* CANDADO: se queda en su cita aunque las demás corran (faltas, extras). */}
+              {!modoCita && (
+                <button type="button" onClick={()=>setFormSesion(p=>({...p,fija:!p.fija}))} style={redondo(!!formSesion.fija)}
+                  title={formSesion.fija ? 'Fija en su cita: no corre con las demás. Pulsa para quitar el candado' : 'Corre con las citas. Pulsa para fijarla en su cita (candado)'}>
+                  <Ic name="candado" size={16}/>
+                </button>
+              )}
+              {/* PULSÓMETRO: el taller avisa de ponérselo. */}
+              {!modoCita && (
+                <button type="button" onClick={()=>setFormSesion(p=>({...p,pulsometro:!p.pulsometro}))} style={redondo(!!formSesion.pulsometro, '#B05A5A')}
+                  title={formSesion.pulsometro ? 'Con pulsómetro. Pulsa para quitarlo' : 'Sin pulsómetro. Pulsa para marcar que se usa'}>
+                  <Ic name="corazon" size={16}/>
+                </button>
+              )}
+              {!modoCita && hojaLeida && (
+                <div style={{display:'inline-flex',background:'#E8E7E1',borderRadius:99,padding:3,flexShrink:0}}>
+                  {([['Formulario',false,'lista'],['Hoja libre',true,'editar']] as const).map(([n,libre,ic])=>{
+                    const on = (hoja!==null)===libre
+                    return <button key={n} type="button" aria-pressed={on} title={n}
+                      onClick={()=>{
+                        if (on) return
+                        if (!libre && hoja && (hoja.trazos.length||hoja.pegs.length)
+                          && !confirm('Al guardar como formulario se pierde el dibujo de la hoja. ¿Seguir?')) return
+                        setHoja(libre ? hojaVacia() : null)
+                      }}
+                      style={{width:34,height:30,border:0,borderRadius:99,cursor:'pointer',display:'grid',placeItems:'center',
+                        background:on?'#fff':'transparent',color:on?'var(--n)':'var(--gr)',boxShadow:on?'0 1px 4px rgba(0,0,0,.08)':'none'}}>
+                      <Ic name={ic} size={15}/>
+                    </button>
+                  })}
+                </div>
+              )}
+            </>
+          })()}
           <button className="btn btn-p" onClick={guardarSesion} disabled={guardando}>{guardando?'Guardando…':<><Ic name="guardar" size={13}/> Guardar</>}</button>
           <button className="modal-close" onClick={cerrarSinGuardar} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
         </div>
 
         {/* OBJETIVOS */}
-        <div style={{padding:'10px 18px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
+        <div style={{padding:'8px 18px',borderBottom:'1px solid var(--bd)',background:'var(--bl)'}}>
           {objetivosDisp.length>0&&(
             <div style={{display:'flex',alignItems:'flex-start',gap:9,flexWrap:'wrap'}}>
               {/* Plegado por defecto: los objetivos se eligen una vez y luego solo
                   estorban mientras montas los ejercicios, que es el trabajo real. */}
-              <button type="button" className="et-mini" onClick={()=>setVerObj(v=>!v)}
-                style={{background:'none',border:'none',cursor:'pointer',padding:'5px 0 0',fontFamily:'inherit'}}>
-                <Ic name="objetivo" size={12}/> Objetivos que cubre
-                <span style={{color:'var(--gd)',fontWeight:400,textTransform:'none',letterSpacing:0}}>
-                  {' · '}{objetivosSel.length || 'ninguno'}
-                </span>
-                <Ic name="abajo" size={11} style={{transform:verObj?'rotate(180deg)':'none',transition:'transform .12s'}}/>
-              </button>
-
-              {/* Solo se pintan los elegidos. Pintar el catálogo entero funcionaba con
-                  ocho objetivos y deja de funcionar con doscientos: el resto se busca. */}
-              {verObj && (
-              <div style={{display:'flex',gap:5,flexWrap:'wrap',flex:1,minWidth:200}}>
+              <span title="Objetivos que cubre la sesión" style={{display:'inline-flex',color:'var(--gd)',paddingTop:7}}><Ic name="objetivo" size={15}/></span>
+              {/* SIEMPRE A LA VISTA: cada objetivo con su «−» para quitarlo y un «+» para añadir. */}
+              {(
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',flex:1,minWidth:200,alignItems:'center'}}>
                 {/* En MONEDAS, igual que en la ficha del paciente y en las sesiones: un
                     objetivo se reconoce por su foto, y dibujarlo distinto en cada pantalla
                     obliga a reconocerlo otra vez en cada una. */}
@@ -753,21 +749,20 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   const o = objetivosDisp.find((x:any)=>x.id===id)
                   if (!o) return null
                   return (
-                    <button key={id} type="button" title={`${o.nombre} · pulsa para quitarlo`}
-                      onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.filter(x=>x!==id)) }}
-                      style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:70,background:'none',border:'none',padding:0,cursor:'pointer'}}>
-                      <MonedaObjetivo objetivo={o}/>
-                      <span className="obj-mon-g">{o.nombre}</span>
-                      {(movsSel[id]||[]).length>0 && (
-                        <span style={{fontSize:9,color:'var(--gd)',textAlign:'center',lineHeight:1.3}}>
-                          {(movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ')}
-                        </span>
-                      )}
-                    </button>
+                    <span key={id} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'2px 4px 2px 2px',borderRadius:99,background:'#fff',
+                      border:'1px solid var(--bd)',fontSize:12.5,color:'var(--n)'}}
+                      title={(movsSel[id]||[]).length ? (movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ') : o.nombre}>
+                      <MonedaObjetivo objetivo={o} tam="mini"/>
+                      <span style={{maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{o.nombre}</span>
+                      <button type="button" title="Quitar este objetivo"
+                        onClick={()=>{ tocadoAparte.current = true; setObjetivosSel(prev=>prev.filter(x=>x!==id)) }}
+                        style={{width:20,height:20,borderRadius:'50%',border:0,background:'var(--bl)',color:'var(--gr)',cursor:'pointer',fontSize:14,lineHeight:1,display:'grid',placeItems:'center'}}>−</button>
+                    </span>
                   )
                 })}
-                <button type="button" className="chip-obj" style={{borderStyle:'dashed'}}
-                  onClick={()=>setEligiendoObj(true)}>+ Añadir</button>
+                <button type="button" title="Añadir objetivo"
+                  onClick={()=>setEligiendoObj(true)}
+                  style={{width:28,height:28,borderRadius:'50%',border:'1.5px dashed var(--gm)',background:'#fff',color:'var(--gd)',cursor:'pointer',fontSize:16,lineHeight:1,display:'grid',placeItems:'center'}}>+</button>
               </div>
               )}
             </div>
@@ -915,74 +910,6 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
               </div>
             )}
 
-            {/* TODA LA PARTE A LA VEZ. Lo normal es que los ejercicios de una parte vayan
-                igual (mismas series, misma cantidad, misma ejecución y capacidad, mismo
-                lado): se pone aquí una vez y vale para todos. Si no coinciden, sale
-                «varias». Luego cada ejercicio se puede retocar abajo. */}
-            {(parte?.ejercicios||[]).length>1 && (()=>{
-              const ejs = parte?.ejercicios || []
-              const comun = (f:(x:any)=>string) => { const v = Array.from(new Set<string>(ejs.map(f))); return v.length===1 ? v[0] : null }
-              const todos = (cambio:(x:any)=>any) => setFormSesion(prev=>{
-                const partes=[...prev.partes]; const pa=partes[parteActiva]
-                partes[parteActiva]={ ...pa, ejercicios:(pa.ejercicios||[]).map((x:any)=>({ ...x, ...cambio(x) })) }
-                return { ...prev, partes }
-              })
-              const unidad = (x:any) => { const m = medida(x); return m.includes('segundos') ? 'segundos' : m.includes('metros') ? 'metros' : 'reps' }
-              const uComun = comun(unidad)
-              const campoDe = (u:string) => u==='segundos' ? 'tiempo' : u==='metros' ? 'metros' : 'reps'
-              const cant = uComun ? comun((x:any)=>String(x[campoDe(uComun)]||'')) : null
-              const seriesC = comun((x:any)=>String(x.series||''))
-              const etq: React.CSSProperties = { fontSize:11, color:'var(--grl)', marginRight:4 }
-              return (
-                <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',padding:'2px 14px 10px',margin:'-4px 0 6px',
-                  borderBottom:'1px dashed var(--bd)',fontSize:12.5}}>
-                  <span style={{fontSize:10.5,fontWeight:600,color:'var(--grl)',letterSpacing:'.06em',textTransform:'uppercase'}}>Para todos</span>
-                  {parte?.modo!=='circuito' && (
-                    <label className="par-in" title="Las mismas series para todos">
-                      <span style={etq}>Series</span>
-                      <input type="number" min={1} value={seriesC ?? ''} placeholder={seriesC===null?'varias':'—'}
-                        onChange={e=>{ const v=e.target.value; todos(()=>({ series:v })) }}/>
-                    </label>
-                  )}
-                  <label className="par-in" title="La misma cantidad para todos: repeticiones, segundos o metros">
-                    <span style={etq}>Cantidad</span>
-                    <input type="number" min={0} value={cant ?? ''} placeholder={uComun ? (cant===null?'varias':'—') : '—'} disabled={!uComun}
-                      onChange={e=>{ const v=e.target.value; const c=campoDe(uComun!); todos(()=>({ [c]:v })) }}/>
-                    <select value={uComun || ''} title="Todos por repeticiones, por tiempo o por distancia"
-                      onChange={e=>{ const v=e.target.value as any; if (!v) return
-                        todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } }) }}
-                      style={{border:0,background:'transparent',color:'var(--gd)',font:'inherit',fontSize:12,cursor:'pointer',marginLeft:2}}>
-                      {!uComun && <option value="">varias</option>}
-                      <option value="reps">reps</option><option value="segundos">seg</option><option value="metros">m</option>
-                    </select>
-                  </label>
-                  <span style={{display:'inline-flex',alignItems:'center'}}>
-                    <span style={etq}>Cómo se hace</span>
-                    <ChipMenu valor={comun((x:any)=>x.regimen||'Concéntrico') ?? 'varias'} opciones={nombresEjecucion(cfgTrabajo)}
-                      titulo="La misma ejecución para todos"
-                      onElegir={v=>todos((x:any)=>{
-                        const seg = ejecucionPorTiempo(cfgTrabajo, v) && !x.tiempo ? segundosDeEjecucion(cfgTrabajo, v) : ''
-                        return { regimen:v, ...(seg ? { tiempo: seg } : {}) }
-                      })}/>
-                  </span>
-                  <span style={{display:'inline-flex',alignItems:'center'}}>
-                    <span style={etq}>Capacidad</span>
-                    <ChipMenu valor={comun((x:any)=>x.capacidad||'') || undefined} opciones={nombresCapacidad(cfgTrabajo)}
-                      clase="chip-ed-a" vacio={comun((x:any)=>x.capacidad||'')===null ? 'varias' : '—'} titulo="La misma capacidad para todos"
-                      onElegir={cap=>todos((x:any)=>{
-                        const sug=sugerenciaCapacidad(cfgTrabajo, cap, medida(x).includes('segundos'))
-                        return { capacidad:cap, ...(sug.reps?{reps:sug.reps}:{}), ...(sug.tiempo?{tiempo:sug.tiempo}:{}) }
-                      })}/>
-                  </span>
-                  <span style={{display:'inline-flex',alignItems:'center'}}>
-                    <span style={etq}>Lado</span>
-                    <ChipMenu valor={comun((x:any)=>x.lado||'Bilateral') ?? 'varias'} opciones={[...LADOS]} clase="chip-ed-l"
-                      titulo="El mismo lado para todos" onElegir={v=>todos(()=>({ lado:v }))}/>
-                  </span>
-                </div>
-              )
-            })()}
-
             {(formSesion.partes[parteActiva]?.ejercicios||[]).length===0?(
               <div style={{textAlign:'center',padding:30,color:'var(--gr)',fontSize:13,border:'1.5px dashed var(--bm)',borderRadius:'var(--rl)'}}>
                 Sin ejercicios todavía
@@ -998,6 +925,78 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   <span className="c">Descanso</span>
                   <span/>
                 </div>
+
+                {/* PARA TODOS, ALINEADO CON LAS COLUMNAS. Una fila más, encima de los
+                    ejercicios: lo que se pone aquí se pone en todos, cada casilla encima de
+                    la suya. Sin rótulos: ya los dice la cabecera. Si no coinciden, «varias». */}
+                {(parte?.ejercicios||[]).length>1 && (()=>{
+                  const ejs = parte?.ejercicios || []
+                  const comun = (f:(x:any)=>string) => { const v = Array.from(new Set<string>(ejs.map(f))); return v.length===1 ? v[0] : null }
+                  const todos = (cambio:(x:any)=>any) => setFormSesion(prev=>{
+                    const partes=[...prev.partes]; const pa=partes[parteActiva]
+                    partes[parteActiva]={ ...pa, ejercicios:(pa.ejercicios||[]).map((x:any)=>({ ...x, ...cambio(x) })) }
+                    return { ...prev, partes }
+                  })
+                  const unidad = (x:any) => { const m = medida(x); return m.includes('segundos') ? 'segundos' : m.includes('metros') ? 'metros' : 'reps' }
+                  const uComun = comun(unidad)
+                  const campoDe = (u:string) => u==='segundos' ? 'tiempo' : u==='metros' ? 'metros' : 'reps'
+                  const cant = uComun ? comun((x:any)=>String(x[campoDe(uComun)]||'')) : null
+                  const seriesC = comun((x:any)=>String(x.series||''))
+                  const pesoC = comun((x:any)=>String(x.peso||''))
+                  const descC = comun((x:any)=>String(x.descanso||''))
+                  const recorrido = parte?.modo==='circuito' || parte?.modo==='superserie'
+                  return (
+                    <div className="ej-row" style={{background:'var(--gl)',borderRadius:10,padding:'6px 0',margin:'4px 0 6px'}}
+                      title="Para todos los ejercicios de la parte">
+                      <div className="ej-nom" style={{paddingLeft:10,color:'var(--gd)',fontSize:12,display:'flex',alignItems:'center',gap:6}}>
+                        <Ic name="lista" size={14}/> <span style={{color:'var(--grl)'}}>{ejs.length}</span>
+                      </div>
+                      <div className="celda apilada">
+                        <ChipMenu valor={comun((x:any)=>x.regimen||'Concéntrico') ?? 'varias'} opciones={nombresEjecucion(cfgTrabajo)}
+                          titulo="Cómo se hace, para todos"
+                          onElegir={v=>todos((x:any)=>{
+                            const seg = ejecucionPorTiempo(cfgTrabajo, v) && !x.tiempo ? segundosDeEjecucion(cfgTrabajo, v) : ''
+                            return { regimen:v, ...(seg ? { tiempo: seg } : {}) }
+                          })}/>
+                        <ChipMenu valor={comun((x:any)=>x.lado||'Bilateral') ?? 'varias'} opciones={[...LADOS]} clase="chip-ed-l"
+                          titulo="Lado, para todos" onElegir={v=>todos(()=>({ lado:v }))}/>
+                        <ChipMenu valor={comun((x:any)=>x.capacidad||'') || undefined} opciones={nombresCapacidad(cfgTrabajo)}
+                          clase="chip-ed-a" vacio={comun((x:any)=>x.capacidad||'')===null ? 'varias' : 'Capacidad'} titulo="Capacidad, para todos"
+                          onElegir={cap=>todos((x:any)=>{
+                            const sug=sugerenciaCapacidad(cfgTrabajo, cap, medida(x).includes('segundos'))
+                            return { capacidad:cap, ...(sug.reps?{reps:sug.reps}:{}), ...(sug.tiempo?{tiempo:sug.tiempo}:{}) }
+                          })}/>
+                      </div>
+                      <div className="celda">
+                        {parte?.modo==='circuito'
+                          ? <span className="c" style={{color:'var(--gr)',fontSize:12}}>{parte?.vueltas || '—'}</span>
+                          : <input type="number" className="c" min={1} value={seriesC ?? ''} placeholder={seriesC===null?'var.':'—'} title="Series, para todos"
+                              onChange={e=>{ const v=e.target.value; todos(()=>({ series:v })) }}/>}
+                      </div>
+                      <div className="celda cant">
+                        <input type="number" className="c" min={0} value={cant ?? ''} placeholder={uComun ? (cant===null?'var.':'—') : '—'} disabled={!uComun}
+                          title="Cantidad, para todos" onChange={e=>{ const v=e.target.value; const c=campoDe(uComun!); todos(()=>({ [c]:v })) }}/>
+                        <select value={uComun || ''} title="Unidad, para todos"
+                          onChange={e=>{ const v=e.target.value as any; if (!v) return
+                            todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } }) }}>
+                          {!uComun && <option value="">var.</option>}
+                          <option value="reps">reps</option><option value="segundos">seg</option><option value="metros">m</option>
+                        </select>
+                      </div>
+                      <div className="celda">
+                        <input type="number" className="c" min={0} value={pesoC ?? ''} placeholder={pesoC===null?'var.':'kg'} title="Peso, para todos (los que van con kilos)"
+                          onChange={e=>{ const v=e.target.value; todos((x:any)=>medida(x).includes('peso') ? { peso:v } : {}) }}/>
+                      </div>
+                      <div className="celda">
+                        {recorrido
+                          ? <span className="c" style={{color:'var(--gr)',fontSize:12}} title="En circuito y superserie manda el descanso de la parte">{parte?.descanso || '—'}</span>
+                          : <input type="number" className="c" min={0} step={5} value={descC ?? ''} placeholder={descC===null?'var.':'s'} title="Descanso, para todos"
+                              onChange={e=>{ const v=e.target.value; todos(()=>({ descanso:v, descanso_manual:true })) }}/>}
+                      </div>
+                      <div/>
+                    </div>
+                  )
+                })()}
 
                 {(formSesion.partes[parteActiva]?.ejercicios||[]).map((ej:any,ei:number)=>{
                   const med = medida(ej)
