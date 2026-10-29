@@ -56,17 +56,34 @@ export async function cargarTurnos(): Promise<Turno[]> {
   return (data || []) as any
 }
 
-/** Los turnos de un dia concreto, ya resueltos: si hay cambio puntual, manda. */
+/**
+ * Los turnos que valen un dia concreto: los cambios de ese dia y los fijos vigentes.
+ *
+ * QUIÉN GANA SE DECIDE POR HORA, no aquí. Antes un cambio de hoy en una franja (10:00,
+ * sala B) tapaba TODO el horario fijo de esa sala el día entero: cambiabas una clase y
+ * las demás de la sala se quedaban sin entrenador. Ver `responsableDe`.
+ */
 export function turnosDelDia(turnos: Turno[], fecha: string): Turno[] {
   const dia = diaSemanaDe(fecha)
   const puntuales = turnos.filter(t => t.fecha === fecha)
   const vigente = (t: Turno) =>
     (t.desde == null || t.desde <= fecha) && (t.hasta == null || t.hasta >= fecha)
-
   const fijos = turnos.filter(t => t.fecha == null && t.dia_semana === dia && vigente(t))
-  // El cambio puntual tapa al fijo de la misma sala: no se suman, se sustituye.
-  const tapadas = new Set(puntuales.map(t => String(t.sala || '')))
-  return [...puntuales, ...fijos.filter(t => tapadas.has(String(t.sala || '')) === false)]
+  return [...puntuales, ...fijos]
+}
+
+/**
+ * De los turnos que cubren una hora en una sala, los que mandan:
+ *   1. un cambio de ese día (incluido «nadie») tapa a los fijos de esa sala A ESA HORA;
+ *   2. entre fijos, el más reciente (`desde` más tarde): «desde hoy, siempre Mario»
+ *      gana al horario de antes sin tener que partirlo.
+ */
+function mandan(cubren: Turno[]): Turno[] {
+  const puntuales = cubren.filter(t => t.fecha != null)
+  if (puntuales.length) return puntuales
+  const desde = (t: Turno) => t.desde || ''
+  const ultimo = cubren.reduce((m, t) => desde(t) > m ? desde(t) : m, '')
+  return cubren.filter(t => desde(t) === ultimo)
 }
 
 /**
@@ -82,14 +99,15 @@ export function turnosDelDia(turnos: Turno[], fecha: string): Turno[] {
 export function responsableDe(turnos: Turno[], fecha: string, hora: string, sala?: string | null) {
   const h = min(hora)
   if (h < 0) return { lista: [] as Turno[], deducido: false }
-  const suyos = turnosDelDia(turnos, fecha)
-    .filter(t => min(t.hora_inicio) <= h && h < min(t.hora_fin))
-    .filter(t => t.perfil_id != null)
-
-  const conSala = suyos.filter(t => sala && String(t.sala || '') === String(sala))
-  if (conSala.length > 0) return { lista: conSala, deducido: false }
-  const sinSala = suyos.filter(t => (t.sala || '') === '')
-  if (sinSala.length > 0) return { lista: sinSala, deducido: false }
+  const cubren = turnosDelDia(turnos, fecha).filter(t => min(t.hora_inicio) <= h && h < min(t.hora_fin))
+  // Por sala: lo de esa sala, si no lo de todas las salas. Un «nadie» de hoy (sin perfil)
+  // también cuenta para tapar: es decir que esa clase hoy no la lleva nadie.
+  const deSala = mandan(cubren.filter(t => sala && String(t.sala || '') === String(sala)))
+  if (deSala.length > 0) { const l = deSala.filter(t => t.perfil_id != null); return { lista: l, deducido: false } }
+  const deTodas = mandan(cubren.filter(t => (t.sala || '') === ''))
+  if (deTodas.length > 0) { const l = deTodas.filter(t => t.perfil_id != null); return { lista: l, deducido: false } }
+  // Nadie asignado a esa sala ni a todas: quien esté trabajando a esa hora, en cualquier sala.
+  const suyos = cubren.filter(t => t.perfil_id != null)
   return { lista: suyos, deducido: suyos.length > 0 }
 }
 

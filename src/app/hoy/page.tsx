@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { hoyISO } from '@/lib/fechas'
 import { hhmm, aMin } from '@/lib/movil'
-import { cargarTurnos, nombresDe, Turno } from '@/lib/turnos'
+import { cargarTurnos, nombresDe, responsableDe, Turno } from '@/lib/turnos'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar } from '@/lib/mantenimiento'
 import CaraPaciente from '@/components/CaraPaciente'
@@ -23,7 +23,7 @@ const LBL: Record<string, string> = { dolor: 'Dolor', lesion: 'Lesión', cita_me
 export default function Hoy() {
   const router = useRouter()
   const hoy = hoyISO()
-  const [yo, setYo] = useState<{ id: string, nombre: string, dir: boolean } | null>(null)
+  const [yo, setYo] = useState<{ id: string, perfilId: string | null, nombre: string, dir: boolean } | null>(null)
   const [citas, setCitas] = useState<any[]>([])
   const [alertas, setAlertas] = useState<any[]>([])
   const [molestias, setMolestias] = useState<any[]>([])
@@ -47,7 +47,7 @@ export default function Hoy() {
       let comoEntrenador = false
       // Cualquier «ver como» (un nivel o el antiguo 'entrenador') quita lo de dirección.
       try { comoEntrenador = !!localStorage.getItem('sie_ver_como') } catch {}
-      setYo({ id: user.id, nombre: (pf?.nombre || user.email || '').split(' ')[0], dir: pf?.rol === 'admin' && !comoEntrenador })
+      setYo({ id: user.id, perfilId: pf?.id || null, nombre: (pf?.nombre || user.email || '').split(' ')[0], dir: pf?.rol === 'admin' && !comoEntrenador })
 
       const { data: cs } = await supabase.from('citas')
         .select('id,hora,sala,tipo,estado,paciente_id,sesion_id,pacientes(id,nombre,apellidos,nombre_clinica,foto_url),sesiones:sesion_id(nombre)')
@@ -122,7 +122,10 @@ export default function Hoy() {
     await supabase.from('notas_personales').delete().eq('id', n.id)
   }
 
-  const irTaller = (hora: string, pid?: string) => router.push(`/taller?h=${hora}${pid ? `&p=${pid}` : ''}`)
+  // Con la sala: así el Taller abre la clase de esa sala, no las dos mezcladas.
+  const irTaller = (hora: string, pid?: string, sala?: string) => router.push(`/taller?h=${hora}${sala ? `&s=${sala}` : ''}${pid ? `&p=${pid}` : ''}`)
+  /** ¿La lleva quien está dentro? Según la agenda (lib/turnos). */
+  const esMia = (hora: string, sala: string) => !!yo?.perfilId && responsableDe(turnos, hoy, hora, sala).lista.some(t => t.perfil_id === yo!.perfilId)
   const caja: React.CSSProperties = { background: '#fff', borderRadius: 18, boxShadow: '0 2px 12px rgba(38,40,37,.07)', padding: 16 }
   const chip = (fondo: string, color: string): React.CSSProperties => ({ fontSize: 12, padding: '3px 10px', borderRadius: 99, fontWeight: 600, background: fondo, color, whiteSpace: 'nowrap' })
   const fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -155,20 +158,23 @@ export default function Hoy() {
         const sinSes = c.citas.filter((x: any) => !x.sesion_id).length
         const quien = nombresDe(turnos, hoy, c.hora, c.sala).join(' · ')
         return (
-          <section key={c.hora + c.sala} data-guia="hoy-clase" style={{ ...caja, padding: 18, marginBottom: 16 }}>
+          <section key={c.hora + c.sala} data-guia="hoy-clase" style={{ ...caja, padding: 18, marginBottom: 16,
+            ...(esMia(c.hora, c.sala) ? { boxShadow: '0 0 0 2px var(--g), 0 2px 12px rgba(38,40,37,.07)' } : {}) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
               <span style={chip(ahora.length ? 'var(--g)' : 'var(--bl)', ahora.length ? '#fff' : 'var(--gr)')}>{ahora.length ? '● AHORA' : 'PRÓXIMA'}</span>
+              {/* SU CLASE, resaltada: con dos salas a la vez, que se vea cuál es la suya. */}
+              {esMia(c.hora, c.sala) && <span style={chip('var(--n)', '#fff')}>TU CLASE</span>}
               <b style={{ fontSize: 18 }}>{c.hora}{c.sala ? ` · Sala ${c.sala}` : ''}</b>
               <span style={{ color: 'var(--gr)' }}>{c.citas.length} persona{c.citas.length === 1 ? '' : 's'}{sinSes ? ` · ${sinSes} sin sesión` : ''}{quien ? ` · ${quien}` : ''}</span>
               <span style={{ flex: 1 }}/>
-              <button className="btn btn-p" onClick={() => irTaller(c.hora)}>Abrir la clase en el Taller →</button>
+              <button className="btn btn-p" onClick={() => irTaller(c.hora, undefined, c.sala)}>Abrir la clase en el Taller →</button>
             </div>
             {c.citas.map((x: any) => {
               const p = x.pacientes, als = alertas.filter(a => a.paciente_id === x.paciente_id), mols = molestias.filter(m => m.paciente_id === x.paciente_id)
               const ts = tests[x.paciente_id] || []
               const limpio = !als.length && !mols.length && !ts.length && x.sesion_id
               return (
-                <div key={x.id} onClick={() => irTaller(c.hora, x.paciente_id)}
+                <div key={x.id} onClick={() => irTaller(c.hora, x.paciente_id, c.sala)}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderTop: '1px solid var(--bl)', cursor: 'pointer', borderRadius: 12, flexWrap: 'wrap' }}
                   onMouseOver={e => (e.currentTarget.style.background = 'var(--gl)')} onMouseOut={e => (e.currentTarget.style.background = '')}>
                   <span style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flex: 'none', display: 'grid' }}><CaraPaciente p={p}/></span>
@@ -198,7 +204,7 @@ export default function Hoy() {
             const sinSes = c.citas.filter((x: any) => !x.sesion_id).length
             const nAl = c.citas.filter((x: any) => alertas.some(a => a.paciente_id === x.paciente_id) || molestias.some(m => m.paciente_id === x.paciente_id)).length
             return (
-              <div key={c.hora + c.sala} onClick={() => irTaller(c.hora)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--bl)', fontSize: 13.5, cursor: 'pointer', flexWrap: 'wrap' }}>
+              <div key={c.hora + c.sala} onClick={() => irTaller(c.hora, undefined, c.sala)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--bl)', fontSize: 13.5, cursor: 'pointer', flexWrap: 'wrap' }}>
                 <b style={{ width: 48 }}>{c.hora}</b>
                 <span style={{ display: 'flex' }}>{c.citas.slice(0, 4).map((x: any, i: number) => <span key={x.id} style={{ width: 26, height: 26, borderRadius: '50%', overflow: 'hidden', marginLeft: i ? -6 : 0, border: '2px solid #fff', display: 'grid' }}><CaraPaciente p={x.pacientes}/></span>)}</span>
                 <span style={{ color: 'var(--gr)' }}>{c.citas.length} · Sala {c.sala}

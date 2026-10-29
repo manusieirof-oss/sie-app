@@ -1225,6 +1225,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (!solo && (q.get('h') || q.get('p'))) {
         if (q.get('f')) setFecha(q.get('f')!)
         if (q.get('h')) setHora(q.get('h')!)
+        if (q.get('s')) setSala(q.get('s')!)
         if (q.get('p')) { setActivo(q.get('p')!); setVistaE('uno') }
         window.history.replaceState(null, '', '/taller')
       }

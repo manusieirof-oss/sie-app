@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { responsableDe, guardarTurno, borrarTurno, type Turno } from '@/lib/turnos'
+import { responsableDe, guardarTurno, borrarTurno, diaSemanaDe, type Turno } from '@/lib/turnos'
 
 // ---------------------------------------------------------------------------
 // QUIEN LLEVA ESTA FRANJA, Y EL CAMBIO DE HOY
@@ -25,6 +25,8 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
 }) {
   const [abierto, setAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  /** 'hoy': solo este día. 'siempre': desde hoy, esta franja de este día de la semana. */
+  const [alcance, setAlcance] = useState<'hoy' | 'siempre'>('hoy')
 
   const { lista, deducido } = responsableDe(turnos, fecha, hora, sala)
   const nombres = lista.map(t => (t.perfil?.nombre || '').trim()).filter(Boolean)
@@ -36,7 +38,14 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
     setGuardando(true)
     for (const t of deHoy) await borrarTurno(t.id)
     if (perfilId !== '' as any) {
-      await guardarTurno({ perfil_id: perfilId, fecha, hora_inicio: hora, hora_fin: horaFin, sala })
+      if (alcance === 'siempre') {
+        /* DESDE HOY, SIEMPRE: un turno fijo de esta franja, este día de la semana y esta
+           sala, que empieza hoy. Gana al horario de antes por ser más reciente
+           (lib/turnos), así que no hay que partir el turno largo de nadie. */
+        await guardarTurno({ perfil_id: perfilId, dia_semana: diaSemanaDe(fecha), hora_inicio: hora, hora_fin: horaFin, sala, desde: fecha })
+      } else {
+        await guardarTurno({ perfil_id: perfilId, fecha, hora_inicio: hora, hora_fin: horaFin, sala })
+      }
     }
     setGuardando(false); setAbierto(false); onCambio()
   }
@@ -76,8 +85,17 @@ export default function ResponsableFranja({ turnos, perfiles, fecha, hora, horaF
           <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 60, minWidth: 190,
             background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 'var(--r)',
             boxShadow: 'var(--sh-md)', padding: 4, marginTop: 4 }}>
-            <div style={{ fontSize: 9, color: 'var(--grl)', padding: '4px 8px', lineHeight: 1.4 }}>
-              Solo para hoy. El horario de siempre, en Ajustes.
+            {/* Solo hoy, o desde hoy cada semana a esta hora en esta sala. */}
+            <div style={{ display: 'flex', background: 'var(--bl)', borderRadius: 99, padding: 2, margin: '2px 4px 6px' }}>
+              {([['hoy', 'Solo hoy'], ['siempre', 'Desde hoy, siempre']] as const).map(([v, l]) => (
+                <button key={v} type="button" onClick={() => setAlcance(v)}
+                  style={{ flex: 1, border: 0, borderRadius: 99, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer',
+                    background: alcance === v ? '#fff' : 'transparent', color: alcance === v ? 'var(--n)' : 'var(--gr)',
+                    boxShadow: alcance === v ? '0 1px 3px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' }}>{l}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--grl)', padding: '0 8px 4px', lineHeight: 1.4 }}>
+              {alcance === 'hoy' ? 'Solo este día.' : 'Cada semana, este día, a esta hora y en esta sala.'} El horario completo, en Ajustes → Horarios.
             </div>
             {perfiles.map(p => (
               <button key={p.id} className="menu-it" disabled={guardando}

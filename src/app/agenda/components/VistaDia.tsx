@@ -5,8 +5,11 @@ import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
 import ResponsableFranja from './ResponsableFranja'
+import { responsableDe } from '@/lib/turnos'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true, miUserId }: {
+  /** Quien está dentro: sus clases salen resaltadas. */
+  miUserId?: string | null
   /** Nivel 1: solo se consulta; de cada persona, solo el botón de su sesión (el taller). */
   consulta?: boolean
   /** Si puede cambiar quién lleva cada sala (lib/permisos: turnos). */
@@ -196,7 +199,10 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 const pct = Math.min(100, Math.round(scActivas.length / MAX * 100))
                 return (
                   <div key={sala} className="ag-franja">
-                    <div className={`ag-clase ${sobre?'sobre':scActivas.length>=MAX?'llena':''}`}>
+                    {/* SU CLASE, RESALTADA: con dos salas a la vez, que se vea cuál lleva. */}
+                    <div className={`ag-clase ${sobre?'sobre':scActivas.length>=MAX?'llena':''}`}
+                      style={(()=>{ const yo=(perfiles||[]).find((p:any)=>p.user_id===miUserId)?.id
+                        return yo && responsableDe(turnos, fecha, h, sala).lista.some(t=>t.perfil_id===yo) ? { boxShadow:'0 0 0 2px var(--g)', borderRadius:10 } : undefined })()}>
                       <div className="ag-clase-cab">
                         {/* QUIEN SE HACE CARGO. Ver `lib/turnos`. */}
                         <ResponsableFranja turnos={turnos} perfiles={perfiles} fecha={fecha}
