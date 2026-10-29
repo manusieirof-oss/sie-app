@@ -40,6 +40,10 @@ const marcarVista = (uid: string) => { try { localStorage.setItem(CLAVE(uid), '1
 export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: () => void }) {
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
+  /* MIENTRAS SE BUSCA EL SITIO, NO SE ENSEÑA EL GLOBO. Antes salía en el centro y al
+     encontrar el sitio saltaba a su lado. Ahora aparece ya en su sitio (o en el centro
+     si de verdad no está). */
+  const [buscando, setBuscando] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
   const paso = PASOS[i]
@@ -49,24 +53,34 @@ export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: (
     if (paso.ruta && !pathname.startsWith(paso.ruta)) router.push(paso.ruta)
   }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Durante la guía se ven los botones que normalmente solo salen al pasar el ratón
+  // (los de cada persona en la agenda): si no, se señalaba un hueco vacío.
+  useEffect(() => {
+    document.body.classList.add('guia-on')
+    return () => document.body.classList.remove('guia-on')
+  }, [])
+
   // Busca el sitio que señala (la pantalla puede tardar en pintarlo) y lo sigue si se mueve.
   useLayoutEffect(() => {
     setRect(null)
-    if (!paso.sitio) return
+    if (!paso.sitio) { setBuscando(false); return }
+    setBuscando(true)
     let vivo = true, intentos = 0
+    const visible = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
     const buscar = () => {
       if (!vivo) return
-      const el = document.querySelector(`[data-guia="${paso.sitio}"]`) as HTMLElement | null
+      const el = Array.from(document.querySelectorAll(`[data-guia="${paso.sitio}"]`)).find(x => visible(x as HTMLElement)) as HTMLElement | undefined
       if (el) {
         el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        setTimeout(() => { if (vivo) setRect(el.getBoundingClientRect()) }, 350)
+        setTimeout(() => { if (vivo) { setRect(el.getBoundingClientRect()); setBuscando(false) } }, 400)
         return
       }
       if (++intentos < 25) setTimeout(buscar, 120)
+      else setBuscando(false)
     }
     buscar()
     const recolocar = () => {
-      const el = document.querySelector(`[data-guia="${paso.sitio}"]`) as HTMLElement | null
+      const el = Array.from(document.querySelectorAll(`[data-guia="${paso.sitio}"]`)).find(x => visible(x as HTMLElement)) as HTMLElement | undefined
       if (el) setRect(el.getBoundingClientRect())
     }
     window.addEventListener('resize', recolocar)
@@ -96,7 +110,7 @@ export default function GuiaInicio({ uid, onCerrar }: { uid: string, onCerrar: (
       {/* Tapa los clics: durante la guía no se toca la app sin querer. */}
       <div style={{ position: 'fixed', inset: 0 }}/>
       <div style={{ position: 'fixed', width: W, maxWidth: `calc(100vw - ${2 * M}px)`, background: '#fff', borderRadius: 16, padding: '16px 18px',
-        boxShadow: '0 12px 40px rgba(0,0,0,.25)', ...globo }}>
+        boxShadow: '0 12px 40px rgba(0,0,0,.25)', ...globo, visibility: buscando ? 'hidden' : 'visible' }}>
         <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 4 }}>{i + 1} de {PASOS.length}</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--n)', marginBottom: 6 }}>{paso.titulo}</div>
         <div style={{ fontSize: 13.5, color: 'var(--gr)', lineHeight: 1.55 }}>{paso.texto}</div>

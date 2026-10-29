@@ -548,6 +548,8 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .ag-tag{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:99px;flex-shrink:0}
 .ag-acc{display:none;gap:1px;flex-shrink:0}
 .ag-pac:hover .ag-acc{display:flex}
+/* Durante la guía de inicio, a la vista: es lo que se está explicando. */
+.guia-on .ag-acc{display:flex}
 .ag-acc button{width:26px;height:26px;border:none;background:transparent;border-radius:7px;color:var(--grl);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .ag-acc button:hover{background:var(--gl);color:var(--gd)}
 /* En pantallas táctiles no hay "pasar el ratón": los iconos se quedan a la vista. */
