@@ -63,8 +63,10 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   const muestra = (c: string) => {
     if (c === 'banda') return valoresDe(c).find(x => x != null) || ''
     if (iguales(c)) {
-      const v = valoresDe(c).find(x => x != null)
-      return v == null ? '' : String(v)
+      /* LO TECLEADO TAL CUAL, no el número. Se enseñaba el número ya leído, así que al
+         escribir «7,» quedaba «7» (la coma se iba) y el 5 siguiente hacía 75 kg. */
+      const cruda = series.find(x => x?.[c] != null && String(x[c]).trim() !== '')?.[c]
+      return cruda == null ? '' : String(cruda)
     }
     const m = media(valoresDe(c))
     return m == null ? '' : String(m)
