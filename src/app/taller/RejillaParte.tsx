@@ -7,7 +7,7 @@ import Flotante from './Flotante'
 import CasillaSeries from './CasillaSeries'
 import { avisosDeCondiciones, tituloAviso } from '@/lib/avisosZona'
 import { capacidadPorReps } from '@/lib/capacidades'
-import PildoraRegimen, { LADOS } from './PildoraRegimen'
+import PildoraRegimen, { LADOS, cambiadoHoy } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useRef, useState } from 'react'
 import { nombreMedida } from '@/lib/medida'
@@ -81,8 +81,24 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
           const capacidad = capReal || capPlan
           const cambiada = capReal !== '' && capPlan !== '' && capReal !== capPlan
           const noLoHizo = noHechos.includes(ei)
+          const hayRegimen = !!(ej.regimen || ej.plan?.regimen)
+          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (hayRegimen && cambiadoHoy(ej, 'regimen'))
           return (
             <div key={ei} style={{ textAlign: 'center' }}>
+              {/* CÓMO SE HACE, EN LA CABEZA DE LA TARJETA. En píldoras pequeñas, junto a la
+                  capacidad, la lateralidad y la ejecución no se distinguían (lo vio Mario en
+                  sala). Una franja que se lee de lejos: verde si es lo del plan, ámbar si hoy
+                  se ha cambiado. Cada palabra se toca para cambiarla solo para hoy. */}
+              <div style={{ background: franjaCambiada ? 'var(--amb)' : 'var(--gd)', color: '#fff', borderRadius: '12px 12px 0 0',
+                padding: '5px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7, flexWrap: 'wrap',
+                opacity: noLoHizo ? .35 : 1 }}>
+                <PildoraRegimen texto ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
+                  onCambio={setLado ? (v: string) => setLado(pacienteId, ei, v) : undefined}/>
+                {hayRegimen && <>
+                  <span style={{ opacity: .7 }}>·</span>
+                  <PildoraRegimen texto ej={ej} onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
+                </>}
+              </div>
               {/* LA FOTO, SIN MARCO Y LLENANDO. Con `contain` y un borde quedaba
                   una imagen pequeña dentro de un rectangulo, que es justo lo que
                   no queremos: manda la imagen. */}
@@ -91,11 +107,11 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               <div style={{ position: 'relative', display: 'block' }}>
                 {/* Se apaga solo la foto: la chapa de "no lo hizo" tiene que seguir viva
                     para poder deshacerlo. */}
-                <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s', borderRadius: 12,
+                <div style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s', borderRadius: '0 0 12px 12px',
                   overflow: 'hidden', boxShadow: '0 2px 10px rgba(38,40,37,.10)' }}>
                 {/* Su foto, o la figura con sus músculos, o el icono. */}
                 <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
-                  radio={12} icono={34} alt={ej.nombre}/>
+                  radio={0} icono={34} alt={ej.nombre}/>
                 </div>
                 {/* CAMBIAR Y NO LO HIZO, EN UNA CHAPA. Las dos son "hoy no va como estaba
                     previsto", asi que comparten boton: un menu con las dos. Si ya no lo hizo,
@@ -151,12 +167,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   {/* EL REGIMEN SE PUEDE CAMBIAR EN LA SALA. No sale de ningun
                       numero: si hoy lo hace excentrico, solo lo sabes mirandolo.
                       Se guarda con el registro de hoy, no toca la sesion. */}
-                  {(ej.regimen || ej.plan?.regimen) && (
-                    <PildoraRegimen ej={ej} onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
-                  )}
-                  {/* LATERALIDAD, igual que el regimen: a la vista y se cambia solo para hoy. */}
-                  <PildoraRegimen ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
-                    color="#7A5800" borde="var(--amb)" onCambio={setLado ? (v: string) => setLado(pacienteId, ei, v) : undefined}/>
+                  {/* Régimen y lateralidad van en la franja de arriba. */}
                   {capacidad && (
                     <span title={cambiada
                       ? `Planificado: ${capPlan} · está haciendo ${mediaReps} repeticiones`

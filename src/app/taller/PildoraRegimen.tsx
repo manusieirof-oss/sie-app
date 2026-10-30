@@ -14,8 +14,14 @@ import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 
 // Sirve tambien para la LATERALIDAD (campo 'lado'): misma logica, otras opciones.
 export const LADOS = ['Bilateral', 'Unilateral', 'Alterno']
+
+/** Si hoy se hace distinto de lo planificado (lo usa la franja para ponerse ámbar). */
+export const cambiadoHoy = (ej: any, campo: string, defecto = '') => {
+  const plan = ej.plan?.[campo] || defecto
+  return ej[campo] != null && ej[campo] !== '' && ej[campo] !== plan
+}
 export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opciones,
-  defecto = '', titulo = 'Cómo se hace hoy', color = 'var(--gd)', borde = 'var(--gm)' }: any) {
+  defecto = '', titulo = 'Cómo se hace hoy', color = 'var(--gd)', borde = 'var(--gm)', texto = false }: any) {
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
   // Sin lista propia, las ejecuciones de Ajustes › Entrenador (lib/usarTrabajo).
@@ -30,10 +36,14 @@ export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opcion
       {/* Sin onCambio (nivel 1) se ve, pero no se toca. */}
       <button ref={ancla} onClick={e => { e.stopPropagation(); if (onCambio) setAbierto(v => v === false) }}
         title={cambiado ? `Planificado: ${plan}` : onCambio ? 'Cómo se hace · pulsa para cambiarlo hoy' : 'Cómo se hace'}
-        style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 99, fontFamily: 'inherit',
-          cursor: onCambio ? 'pointer' : 'default', border: '1px solid ' + borde,
-          color: cambiado ? '#fff' : color,
-          background: cambiado ? color : 'var(--w)' }}>
+        style={texto
+          // Dentro de la franja de la tarjeta (RejillaParte): solo la palabra, el color lo pone la franja.
+          ? { fontSize: 12, fontWeight: 700, letterSpacing: .4, textTransform: 'uppercase', fontFamily: 'inherit',
+              cursor: onCambio ? 'pointer' : 'default', border: 'none', background: 'none', color: 'inherit', padding: 0 }
+          : { fontSize: 10.5, padding: '2px 9px', borderRadius: 99, fontFamily: 'inherit',
+              cursor: onCambio ? 'pointer' : 'default', border: '1px solid ' + borde,
+              color: cambiado ? '#fff' : color,
+              background: cambiado ? color : 'var(--w)' }}>
         {hoy}
       </button>
 
