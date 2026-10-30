@@ -94,9 +94,11 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 opacity: noLoHizo ? .35 : 1 }}>
                 <PildoraRegimen texto ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
                   onCambio={setLado ? (v: string) => setLado(pacienteId, ei, v) : undefined}/>
-                {hayRegimen && <>
+                {/* Sin régimen en el plan también se puede poner (isométrico, excéntrico…):
+                    antes, si la sesión no lo traía, no había dónde marcarlo. */}
+                {(hayRegimen || setRegimen) && <>
                   <span style={{ opacity: .7 }}>·</span>
-                  <PildoraRegimen texto ej={ej} onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
+                  <PildoraRegimen texto ej={ej} vacio="+ ejecución" onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
                 </>}
               </div>
               {/* LA FOTO, SIN MARCO Y LLENANDO. Con `contain` y un borde quedaba

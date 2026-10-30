@@ -21,7 +21,7 @@ export const cambiadoHoy = (ej: any, campo: string, defecto = '') => {
   return ej[campo] != null && ej[campo] !== '' && ej[campo] !== plan
 }
 export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opciones,
-  defecto = '', titulo = 'Cómo se hace hoy', color = 'var(--gd)', borde = 'var(--gm)', texto = false }: any) {
+  defecto = '', titulo = 'Cómo se hace hoy', color = 'var(--gd)', borde = 'var(--gm)', texto = false, vacio = '' }: any) {
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
   // Sin lista propia, las ejecuciones de Ajustes › Entrenador (lib/usarTrabajo).
@@ -44,7 +44,7 @@ export default function PildoraRegimen({ ej, onCambio, campo = 'regimen', opcion
               cursor: onCambio ? 'pointer' : 'default', border: '1px solid ' + borde,
               color: cambiado ? '#fff' : color,
               background: cambiado ? color : 'var(--w)' }}>
-        {hoy}
+        {hoy || <span style={{ opacity: .75, fontWeight: 500, textTransform: 'none' }}>{vacio}</span>}
       </button>
 
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)} ancho={196}>
