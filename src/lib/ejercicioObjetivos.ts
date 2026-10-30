@@ -91,11 +91,24 @@ export function buscaDe(o: any): string[] {
 }
 const FAM: Record<string, string> = Object.fromEntries(CONFIG_DEFECTO.intensidades.map(i => [i.id, i.familia]))
 
+/* LAS RAMAS SE CALCULAN UNA VEZ. Recorrer el árbol de etiquetas en cada comparación
+   era lo que hacía lenta la biblioteca con objetivos en la sesión: el cruce se hace
+   para cada ejercicio y cada objetivo. Se guardan por lista de etiquetas (si cambia la
+   lista, se empieza de cero). */
+const RAMAS = new WeakMap<any[], Map<string, Set<string>>>()
+function ramaDe(etiquetas: any[], id: string): Set<string> {
+  let m = RAMAS.get(etiquetas)
+  if (!m) { m = new Map(); RAMAS.set(etiquetas, m) }
+  let r = m.get(id)
+  if (!r) { r = new Set(conDescendientes(etiquetas, id)); m.set(id, r) }
+  return r
+}
+
 export function cruceObjetivo(ej: any, o: any, etiquetas: any[], movsSesion?: string[]): 'si' | 'sugerido' | 'no' {
   const acc: any[] = Array.isArray(ej?.anatomia?.acc) ? ej.anatomia.acc : []
   const mus: any[] = Array.isArray(ej?.anatomia?.mus) ? ej.anatomia.mus : []
   const tags = new Set<string>([...(ej?.etiquetas || []), ...acc.map(x => x.a), ...acc.map(x => x.m), ...mus.map(x => x.u)].filter(Boolean))
-  const rama = (id: string) => new Set(conDescendientes(etiquetas, id))
+  const rama = (id: string) => ramaDe(etiquetas, id)
   const casa = (id: string, otro: string) => !!id && !!otro && (id === otro || rama(id).has(otro) || rama(otro).has(id))
 
   // 1) QUE MUEVE

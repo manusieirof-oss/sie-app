@@ -87,6 +87,11 @@ export default function ExploradorEjercicios({
     if (idsObjetivosDe) ejercicios.forEach(e => { m[e.id] = idsObjetivosDe(e) })
     return m
   }, [ejercicios, claveObjs, !!idsObjetivosDe]) // eslint-disable-line react-hooks/exhaustive-deps
+  /* LOS NOMBRES SALEN DEL MAPA, no de recalcular. Cada tarjeta y el filtro llamaban al
+     cruce otra vez en cada repintado: con objetivos en la sesión, elegir iba a tirones. */
+  const nombresObjs = (e: any): string[] => idsObjetivosDe
+    ? (objsPorEj[e.id] || []).map(id => (objetivos.find((o: any) => o.id === id) as any)?.nombre).filter(Boolean)
+    : objetivosDe ? objetivosDe(e) : []
   /** El bloque de «no se llaman así pero lo trabajan», plegado salvo que se pida. */
   const [verOtros, setVerOtros] = useState(false)
   /** Cambiando un ejercicio: ver solo los similares o toda la biblioteca. */
@@ -188,7 +193,7 @@ export default function ExploradorEjercicios({
       return (e.etiquetas || []).some((x: string) => rama.includes(x))
     })
     return coincide && etiquetado && (!soloPendientes || problemasDeEjercicio(e).length > 0)
-      && (!soloObjetivos || !objetivosDe || objetivosDe(e).length > 0)
+      && (!soloObjetivos || !objetivosDe || nombresObjs(e).length > 0)
       && (!objFiltro || (objsPorEj[e.id] || []).includes(objFiltro))
   })
 
@@ -275,7 +280,7 @@ export default function ExploradorEjercicios({
           {/* PARA QUÉ OBJETIVO DE SU SESIÓN SIRVE. Sin esto, al elegir no se sabía si el
               ejercicio trabajaba lo que se le marcó al paciente. */}
           {objetivosDe && (() => {
-            const os = objetivosDe(e)
+            const os = nombresObjs(e)
             if (os.length === 0) return null
             return <div title={os.join(' · ')} style={{ fontSize: 11, color: '#fff', background: 'var(--gd)', borderRadius: 99, padding: '1px 8px',
               display: 'inline-block', marginTop: 4, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

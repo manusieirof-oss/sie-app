@@ -303,7 +303,9 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .obj-mon-b.on{background:var(--gl);}
 /* El general arriba y pequeño, el específico debajo: la zona sitúa, pero lo que se está
    trabajando es el titular. Los dos cortados a dos líneas para que la rejilla no baile. */
-.obj-mon-g{font-size:10px;line-height:1.2;color:var(--grl);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+/* El nombre ENTERO, en las líneas que haga falta: cortado a dos, «Fuerza de cadera
+   en apoyo…» no se distinguía de los otros de cadera. */
+.obj-mon-g{font-size:10px;line-height:1.2;color:var(--grl);text-align:center;overflow-wrap:break-word;hyphens:auto;}
 .obj-mon-n{font-size:11.5px;line-height:1.3;color:var(--gr);text-align:center;}
 .obj-mon-b.on .obj-mon-n{color:var(--n);}
 /* Cuántas clases trabajan el objetivo. El cero va en ámbar porque es lo accionable:

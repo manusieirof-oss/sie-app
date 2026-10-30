@@ -2,7 +2,7 @@
 import { apuntarHistorial, resumenCambios } from '@/lib/sesionViva'
 import { useConfigTrabajo, nombresEjecucion, nombresCapacidad, sugerenciaCapacidad } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo, segundosDeEjecucion } from '@/lib/trabajo'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { capacidadPorReps, textoDescanso } from '@/lib/capacidades'
@@ -390,9 +390,11 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
 
   // QUÉ OBJETIVO TRABAJA CADA EJERCICIO. Ver `lib/ejercicioObjetivos`.
   const objsSesion = objetivosSel.map(id => objetivosDisp.find((o: any) => o.id === id)).filter(Boolean)
-  const etiquetasDeEj = (ej: any) => (catalogo.find((e: any) => e.id === ej?.ejercicio_id)?.etiquetas) || []
+  // Por id, no buscando en la lista: el cruce se hace para toda la biblioteca a la vez.
+  const catPorId = useMemo(() => new Map(catalogo.map((e: any) => [e.id, e])), [catalogo])
+  const etiquetasDeEj = (ej: any) => ((catPorId.get(ej?.ejercicio_id) as any)?.etiquetas) || []
   // CRUCE ESTRICTO (lib/ejercicioObjetivos): mueve lo que pide el objetivo y admite lo que busca.
-  const libDeEj = (ej: any) => catalogo.find((e: any) => e.id === ej?.ejercicio_id)
+  const libDeEj = (ej: any) => catPorId.get(ej?.ejercicio_id) as any
   const estrictoDe = (ej: any) => { const l = libDeEj(ej); return l && etiquetas.length ? { ej: l, etiquetas } : undefined }
   const objsDeEj = (ej: any) => objetivosDeEjercicio(ej, etiquetasDeEj(ej), objsSesion, movsSel, estrictoDe(ej))
   /** 'sugerido': cumple una de las dos comprobaciones; se ofrece para confirmar. */
