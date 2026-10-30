@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { VERSION_CONFIDENCIALIDAD } from '@/lib/confidencialidad'
-import { NIVELES, nombreNivel, MINIMO, ETIQUETA_ACCION, mezclarMinimos, type Accion, type Minimos } from '@/lib/permisos'
+import { NIVELES, nombreNivel, MINIMO, ETIQUETA_ACCION, mezclarMinimos, POR_PERSONA, type Accion, type Minimos } from '@/lib/permisos'
 
 // Llama a /api/equipo con la sesión de quien está dentro: el servidor comprueba que
 // es dirección antes de tocar nada.
@@ -43,7 +43,8 @@ function ReglasNiveles() {
   }
   if (!m) return null
   // Dirección no se toca desde aquí: bajarla dejaría Finanzas y Equipo a cualquiera.
-  const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion')
+  // La agenda tampoco: va por persona (interruptor «Agenda» de cada uno, más abajo).
+  const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion' && !POR_PERSONA[a])
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span></div>
@@ -159,7 +160,7 @@ export default function UsuariosTab({ perfilActual }: any) {
   // factura; lo necesita cualquiera que atienda el mostrador. FINANZAS es ver el
   // dinero de la clínica: ingresos, gastos, impuestos y rentabilidad.
   // Quien tiene Finanzas puede cobrar; al revés no.
-  async function togglePermiso(id: string, permisos: any, cual: 'finanzas' | 'cobros') {
+  async function togglePermiso(id: string, permisos: any, cual: 'finanzas' | 'cobros' | 'agenda') {
     setGuardando(id)
     const nuevos = { ...permisos, [cual]: !permisos?.[cual] }
     // Dar Finanzas implica poder cobrar: si no, verías el dinero sin poder
@@ -294,7 +295,9 @@ export default function UsuariosTab({ perfilActual }: any) {
             </select>
 
             {/* PERMISOS · cobrar y ver el dinero son cosas distintas */}
-            {([['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).map(([clave,icono,etiqueta])=>{
+            {/* AGENDA: crear y mover citas, marcar faltas y cancelar. Por persona porque es
+                de quien coge el teléfono, sea del nivel que sea. */}
+            {([['agenda','telefono','Agenda'],['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).map(([clave,icono,etiqueta])=>{
               // Dirección los tiene siempre; con Finanzas, Cobros va implícito.
               // El nivel 3 (encargado/a) cobra siempre.
               const n3 = u.rol!=='admin' && u.nivel===3 && clave==='cobros'
@@ -304,7 +307,7 @@ export default function UsuariosTab({ perfilActual }: any) {
                 <div key={clave} style={{display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name={icono} size={11}/> {etiqueta}</span>
                   <button onClick={()=>togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo}
-                    title={fijo ? (u.rol==='admin' ? 'Dirección lo tiene siempre' : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : undefined}
+                    title={fijo ? (u.rol==='admin' ? 'Dirección lo tiene siempre' : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : clave==='agenda' ? 'Crear y mover citas, marcar faltas y cancelar (quien lleva el teléfono)' : undefined}
                     style={{width:38,height:21,borderRadius:99,background:activo?'var(--g)':'var(--bm)',border:'none',cursor:fijo?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:fijo?0.5:1}}>
                     <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:activo?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
                   </button>

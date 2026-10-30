@@ -2,8 +2,11 @@
 import PanelSesion from './PanelSesion'
 import PanelDatos from './PanelDatos'
 import { Ic } from '@/lib/icons'
+import { usePuede } from '@/lib/permisos'
 
 export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDetalle, sesionesPaciente, loadingSesion, mostrarSesiones, setMostrarSesiones, anotaciones, setAnotaciones, pesos, setPesos, guardandoAnot, editandoCita, setEditandoCita, guardando, guardarAnotacion, asignarSesion, guardarEdicionCita, cambiarEstado, onCerrar, horas }: any) {
+  // Llevar la agenda no da paso a las fichas: eso va por nivel (pacientes).
+  const veFicha = usePuede()('pacientes')
   return (
     <>
       <div onClick={onCerrar} style={{position:'fixed',inset:0,background:'rgba(38,40,37,.12)',zIndex:98}}/>
@@ -63,7 +66,7 @@ export default function PanelLateral({ panelPac, panelTab, setPanelTab, sesionDe
 
         {/* PIE */}
         <div style={{padding:'9px 11px',borderTop:'1px solid var(--bd)',display:'flex',gap:6}}>
-          <a href={`/pacientes/${panelPac.paciente_id}`} className="btn btn-p" style={{flex:1,justifyContent:'center',textDecoration:'none',fontSize:10}}>Ver ficha ↗</a>
+          {veFicha && <a href={`/pacientes/${panelPac.paciente_id}`} className="btn btn-p" style={{flex:1,justifyContent:'center',textDecoration:'none',fontSize:10}}>Ver ficha ↗</a>}
           <button className="btn btn-s" onClick={onCerrar} style={{fontSize:10}}>Cerrar</button>
         </div>
       </div>

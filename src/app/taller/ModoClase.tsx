@@ -2119,6 +2119,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     </span>
                   )
                 })()}
+                {/* SIN NIVEL PARA TESTS, PERO QUE LO SEPA. El test no lo hace él (es de la
+                    valoración), pero si hoy toca, tiene que verlo para avisar al encargado/a
+                    y dejarle hueco en la clase. Solo aviso, sin botón. */}
+                {!haceTests && (testsHoy[act.paciente.id]||[]).filter((x:any)=>!x.hecho).length>0 && (
+                  <span title="Lo hace el encargado/a: avísale" style={{fontSize:11,padding:'3px 10px',borderRadius:99,whiteSpace:'nowrap',
+                    background:'var(--ambl)',color:'#7A5800',display:'inline-flex',alignItems:'center',gap:5}}>
+                    <Ic name="informe" size={12}/> Hoy toca test: {(testsHoy[act.paciente.id]||[]).filter((x:any)=>!x.hecho).map((x:any)=>x.test.nombre).join(', ')} · avisa al encargado/a
+                  </span>
+                )}
                 {act.citaId && cambios[act.citaId] && (()=>{
                   const c = cambios[act.citaId]
                   return (

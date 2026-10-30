@@ -6,11 +6,14 @@ import { createContext, useContext } from 'react'
 //
 //   1 · Principiante → Hoy, Agenda (solo consulta) y Taller: da la clase, apunta
 //                      series y hechos. No marca faltas ni cambia nada de lo planificado.
-//   2 · Entrenador   → además Pacientes y Valoración, cambia ejercicios de las
-//                      sesiones (hoy o para siempre), elige sesión y cancela o cambia
-//                      de sala.
-//   3 · Encargado/a  → además El torno y la Biblioteca (crea sesiones y ejercicios) y
-//                      Cobros.
+//   2 · Entrenador   → además ajusta la sesión del día en el taller (solo hoy), elige
+//                      sesión y consulta la biblioteca. Sin fichas ni valoraciones.
+//   3 · Encargado/a  → además Pacientes y Valoración, el torno y la Biblioteca (crea
+//                      sesiones y ejercicios) y Cobros.
+//
+// LA AGENDA VA POR PERSONA, no por nivel: editarla (crear, mover, faltas, cancelar)
+// es de quien lleva el teléfono, y eso no depende de cuánto sepa de entrenamiento.
+// Se da en Ajustes → Equipo con el interruptor «Agenda» (perfiles.permisos.agenda).
 //   4 · Dirección    → todo (rol 'admin'): Finanzas, Stats, Ajustes y el equipo.
 //
 // LA MISMA REGLA EN LOS DOS SITIOS. Los mínimos de abajo son los de serie; los que
@@ -22,22 +25,22 @@ export type Nivel = 1 | 2 | 3 | 4
 
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
   { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases y apunta lo que se hace' },
-  { n: 2, nombre: 'Entrenador', que: 'Además Pacientes y Valoración; ajusta la sesión del día (solo hoy)' },
-  { n: 3, nombre: 'Encargado/a', que: 'Además crea y cambia sesiones para siempre, ejercicios, y cobra' },
+  { n: 2, nombre: 'Entrenador', que: 'Además ajusta la sesión del día (solo hoy) y consulta la biblioteca' },
+  { n: 3, nombre: 'Encargado/a', que: 'Además Pacientes y Valoración; crea y cambia sesiones para siempre, ejercicios, y cobra' },
 ]
 export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
 
 /** El mínimo nivel para cada cosa, de serie (si la tabla aún no existe o falla). */
 export const MINIMO = {
-  pacientes: 2,
-  valoracion: 2,
-  editar_agenda: 2,        // crear, mover, editar o borrar citas (el 1 solo la consulta)
+  pacientes: 3,
+  valoracion: 3,           // valoraciones y tests (también los que tocan en clase)
+  editar_agenda: 4,        // crear, mover, editar o borrar citas: por persona (POR_PERSONA)
   turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
   tareas: 3,               // poner y borrar tareas, y ver las de todos (cada uno marca las suyas)
   cambiar_ejercicios: 2,   // cambios de UN DÍA en el taller: ejercicio, método, series (solo hoy)
   editar_plan: 3,          // cambiar la sesión PARA SIEMPRE: editor, «para siempre», crear, borrar
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
-  cancelar_cita: 2,        // falta, cancelada y cambio de sala
+  cancelar_cita: 4,        // falta, cancelada y cambio de sala: por persona (POR_PERSONA)
   torno: 3,
   ver_biblioteca: 2,       // la biblioteca de ejercicios, solo para consultar
   biblioteca: 3,
@@ -47,6 +50,9 @@ export const MINIMO = {
 } as const
 export type Accion = keyof typeof MINIMO
 export type Minimos = Record<Accion, number>
+
+/** Lo que se da a cada persona aparte de su nivel (clave en perfiles.permisos). */
+export const POR_PERSONA: Partial<Record<Accion, string>> = { editar_agenda: 'agenda', cancelar_cita: 'agenda' }
 
 /** Lo de la tabla manda; lo que no esté, el de serie. */
 export function mezclarMinimos(filas: { accion: string, minimo: number }[] | null | undefined): Minimos {
@@ -102,12 +108,12 @@ export const RUTAS: [string, Accion][] = [
   ['/estadisticas', 'direccion'],
 ]
 
-const Ctx = createContext<{ nivel: Nivel, minimos: Minimos }>({ nivel: 4, minimos: MINIMO })
+const Ctx = createContext<{ nivel: Nivel, minimos: Minimos, sueltos?: Record<string, any> }>({ nivel: 4, minimos: MINIMO })
 export const ProveedorNivel = Ctx.Provider
 
 /** puede('cambiar_ejercicios') → true/false según quien está dentro. */
 export function usePuede() {
-  const { nivel, minimos } = useContext(Ctx)
-  return (que: Accion) => nivel >= minimos[que]
+  const { nivel, minimos, sueltos } = useContext(Ctx)
+  return (que: Accion) => nivel >= minimos[que] || (!!POR_PERSONA[que] && sueltos?.[POR_PERSONA[que]!] === true)
 }
 export const useNivel = () => useContext(Ctx).nivel

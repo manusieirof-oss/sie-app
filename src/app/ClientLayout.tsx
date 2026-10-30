@@ -256,7 +256,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
     return (
       <div className="m-shell">
-        <main className="m-main"><ProveedorNivel value={{ nivel, minimos }}>{children}</ProveedorNivel></main>
+        <main className="m-main"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
         <nav className="m-tabs">
           {tab('/movil', 'agenda', 'Hoy')}
           {nivel >= minimos.pacientes && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
@@ -338,7 +338,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </nav>
       {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
-      <main className="content"><ProveedorNivel value={{ nivel, minimos }}>{children}</ProveedorNivel></main>
+      <main className="content"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
       {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
     </div>
   )
