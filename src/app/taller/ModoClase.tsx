@@ -733,6 +733,28 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    *
    * Lo ya hecho no cambia: sus registros guardan lo que se hizo cada dia.
    */
+  /**
+   * LO CAMBIADO EN LA SALA NO SE PIERDE AL RECARGAR. Añadir un ejercicio, cambiarlo para
+   * siempre o tocar el método de una parte recargan su clase desde la sesión; la ejecución
+   * (bilateral, unilateral…) y el régimen elegidos hoy solo vivían en pantalla y volvían a
+   * los del plan. Se pasan a los mismos ejercicios de la clase recargada: mismo sitio y
+   * mismo ejercicio, o si se ha movido (se quitó uno antes), el mismo ejercicio.
+   */
+  function conservarDelDia(viejos: any[] = [], nuevos: any[]) {
+    const tocados = viejos.filter((v: any) => v.ladoHoy || v.regimenHoy)
+    if (!tocados.length) return nuevos
+    const usados = new Set<any>()
+    return nuevos.map((e: any) => {
+      const mismo = (v: any) => v.ejercicio_id === e.ejercicio_id && (v.variante || '') === (e.variante || '') && !usados.has(v)
+      const v = tocados.find((v: any) => v.pos && v.pos === e.pos && mismo(v)) || tocados.find(mismo)
+      if (!v) return e
+      usados.add(v)
+      return { ...e,
+        ...(v.ladoHoy ? { lado: v.lado, ladoHoy: true } : {}),
+        ...(v.regimenHoy ? { regimen: v.regimen, regimenHoy: true } : {}) }
+    })
+  }
+
   async function editarSuSesion(pid: string, cambiar: (partes: any[]) => any[], quitado?: { pi: number, pe: number }, texto?: string) {
     const item = seleccion.find((x:any) => x.paciente.id === pid)
     if (!item?.sesionId) return
@@ -779,7 +801,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     const { data: cita } = item.citaId ? await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle() : { data: null }
     const datos = await cargarDatosSesion(pid, aplicarAjustes({ ...destino, partes }, cita?.ajustes), fechaC)
     ponerNoHechos(pid, item.sesionId, [])
-    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, sesionId: destino.id, datos }))
+    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, sesionId: destino.id, datos: conservarDelDia(x.datos, datos) }))
   }
 
   /**
@@ -827,7 +849,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     if (error) { alert('No se ha podido guardar: ' + error.message); return }
     if (!ses) return
     const datos = conSeries(await cargarDatosSesion(pid, aplicarAjustes(ses, aj), fechaC))
-    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos }))
+    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos: conservarDelDia(x.datos, datos) }))
   }
 
   async function quitarDeSuSesion(pid: string, i: number) {
@@ -1422,7 +1444,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   function setRegimen(pid:string, ei:number, val:string){
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],regimen:val,guardado:false}
+      const datos=[...s.datos]; datos[ei]={...datos[ei],regimen:val,regimenHoy:true,guardado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
@@ -1453,7 +1475,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   function setLado(pid:string, ei:number, val:string){
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],lado:val,guardado:false,precargado:false}
+      const datos=[...s.datos]; datos[ei]={...datos[ei],lado:val,ladoHoy:true,guardado:false,precargado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
