@@ -117,6 +117,16 @@ const REGLAS: Regla[] = [
   [/^escaladores/, (_, v) => ({ mov: 'escaladores', p: { piernas: tiene(v, /altern/) ? 'alternas' : 'juntas', deslizadores: tiene(v, /sin deslizador/) ? 'no' : 'si' } })],
   [/^rotacion (interna|externa) de cadera sentado/, (n, v) => ({ mov: 'rotacion_cadera_sentado', p: { tipo: tiene(n, /externa/) ? 'externa' : 'interna', pelota: tiene(n + ' ' + v, /pelota/) ? 'si' : 'no' } })],
   [/^(flexion de cadera sobre cajon|estiramiento psoas en cajon)/, () => ({ mov: 'flexor_cajon', p: {} })],
+  // ── Tanda 1 de vídeos (camilla, goma, aro, pelota) ──
+  [/^sentadilla con camilla/, n => ({ mov: 'sentadilla_camilla', p: { altura: tiene(n, /alta/) ? 'alta' : tiene(n, /baja/) ? 'baja' : 'media' } })],
+  [/^marcha lateral$/, () => ({ mov: 'paso_lateral', p: {} })],
+  [/^extension de rodilla con (ketlle|kettle|kettlebell|pesa)/, () => ({ mov: 'rodilla_sentado', p: { tipo: 'extension', carga: 'kettlebell' } })],
+  [/^extension de rodilla apretando pelota/, () => ({ mov: 'rodilla_sentado', p: { tipo: 'extension', carga: 'pelota' } })],
+  [/^flexion de rodilla con goma en tobillos/, () => ({ mov: 'rodilla_sentado', p: { tipo: 'flexion_goma' } })],
+  [/^abduccion de cadera con goma sentado/, () => ({ mov: 'cadera_sentado', p: { tipo: 'abduccion' } })],
+  [/^apretar (el |la )?(aro|pelota) con (las )?rodillas/, n => ({ mov: 'cadera_sentado', p: { tipo: 'aduccion', objeto: tiene(n, /aro/) ? 'aro' : 'pelota' } })],
+  [/^flexion de cadera sentado con goma/, () => ({ mov: 'cadera_sentado', p: { tipo: 'flexion' } })],
+  [/^apretar (el )?aro con las manos/, () => ({ mov: 'aro_manos', p: {} })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */

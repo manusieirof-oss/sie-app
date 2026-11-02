@@ -957,6 +957,137 @@ const flexorCajon: Movimiento = {
 
 MOVIMIENTOS_MAS.push(escaladores, rotacionCaderaSentado, flexorCajon)
 
+// ════════════════════════════════════════════════════════════════════════════
+// TANDA 1 DE LOS VÍDEOS DEL DRIVE («Nuevos ejercicios»): camilla, goma, aro y pelota.
+// Sentado en la camilla: la cadera se clava a la altura que deja los pies en el suelo.
+// ════════════════════════════════════════════════════════════════════════════
+const EN_CAMILLA: Pose = une(sim('muslo', [-84, 0, 8]), sim('pierna', [80, 0, 0]), sim('pie', [4, 0, 0]))
+const APOYO_CAMILLA: Apoyo = { a: ['cadera'], aY: 22 }
+const CAMILLA: Prop = { tipo: 'camilla', bajo: 'cadera', clave: 0, hueco: 8, off: [0, 0, -6] }
+const MANOS_CAMILLA: Pose = une(sim('brazo', [6, 0, 16]), sim('antebrazo', [-10, 0, 0]))
+const CAM_CAMILLA = { alto: 10, dist: 250, y: 32 }
+
+// ── SENTADILLA A LA CAMILLA ──────────────────────────────────────────────────
+// Vídeos «Sentadilla con camilla alta / media / baja»: de pie delante de la camilla,
+// baja hasta rozarla con los glúteos y vuelve a subir. Cuanto más baja, más rango.
+const sentadillaCamilla: Movimiento = {
+  id: 'sentadilla_camilla', nombre: 'Sentadilla a la camilla',
+  params: [{ id: 'altura', nombre: 'Altura de la camilla', opciones: [['media', 'Media'], ['alta', 'Alta'], ['baja', 'Baja']] }],
+  crear(p) {
+    const alt = p.altura || 'media'
+    const abajo = alt === 'alta' ? une({ raiz: [14, 0, 0], cabeza: [-10, 0, 0] }, sim('muslo', [-56, 0, 8]), sim('pierna', [60, 0, 0]), sim('pie', [-18, 0, 0]))
+      : alt === 'baja' ? une({ raiz: [26, 0, 0], cabeza: [-18, 0, 0] }, sim('muslo', [-100, 0, 8]), sim('pierna', [104, 0, 0]), sim('pie', [-30, 0, 0]))
+      : une({ raiz: [20, 0, 0], cabeza: [-14, 0, 0] }, sim('muslo', [-78, 0, 8]), sim('pierna', [82, 0, 0]), sim('pie', [-24, 0, 0]))
+    const arriba: Pose = sim('brazo', [-4, 0, 8])
+    const claves = rep(arriba, une(abajo, sim('brazo', [-22, 0, 8])), '⬇️ Baja hasta rozar la camilla', '⬆️ Levántate sin impulso', .1)
+    return {
+      dur: 3.6, claves, apoyo: DOS_PIES, cam: CAM_PIE,
+      props: [{ tipo: 'camilla', bajo: 'cadera', clave: 1, hueco: 8, off: [0, 0, -10] }],
+      musculos: [['cuadriceps', 'Cuádriceps'], ['gluteo', 'Glúteo mayor']],
+    }
+  },
+}
+
+// ── PASO LATERAL (MANOS EN LA CINTURA) ───────────────────────────────────────
+// Vídeo «Marcha lateral»: erguido, manos en la cintura, pasos laterales cortos.
+const pasoLateral: Movimiento = {
+  id: 'paso_lateral', nombre: 'Marcha lateral',
+  params: [LADO],
+  crear(p) {
+    const manos = une(sim('brazo', [14, 0, 34]), sim('antebrazo', [-104, 0, -30]))
+    const base = une(manos, sim('muslo', [-10, 0, 3]), sim('pierna', [12, 0, 0]), sim('pie', [-2, 0, 0]))
+    const abre = une(base, { musloD: [-16, 0, 20], piernaD: [18, 0, 0], pieD: [-2, 0, -16] })
+    return {
+      dur: 2, claves: conLado(rep(base, abre, '↔️ Paso al lado', '⬅️ Junta el otro pie', .06), p),
+      apoyo: { a: conLadoH(['pieI'], p) }, cam: CAM_PIE,
+      musculos: [['gluteo', 'Glúteo medio'], ['aductores', 'Aductores']],
+    }
+  },
+}
+
+// ── RODILLA SENTADO EN CAMILLA ───────────────────────────────────────────────
+// Vídeos «Extensión de rodilla con kettle en camilla», «… apretando pelota con tobillos»
+// y «Flexión de rodilla con goma en tobillos».
+const rodillaSentado: Movimiento = {
+  id: 'rodilla_sentado', nombre: 'Rodilla sentado en camilla',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['extension', 'Extensión (estirar)'], ['flexion_goma', 'Flexión contra la goma']] },
+    { id: 'carga', nombre: 'Carga', opciones: [['ninguna', 'Sin peso'], ['kettlebell', 'Kettlebell en el pie'], ['pelota', 'Pelota entre los tobillos (las dos piernas)']] },
+    LADO,
+  ],
+  crear(p) {
+    const tipo = p.tipo || 'extension', carga = p.carga || 'ninguna'
+    const base = une(EN_CAMILLA, MANOS_CAMILLA)
+    let claves: Clave[], props: Prop[] = [CAMILLA], mus: [string, string][]
+    if (tipo === 'flexion_goma') {
+      // La de apoyo estirada delante (talón en el suelo); la otra tira hacia atrás.
+      const fija: Pose = { musloI: [-64, 0, -8], piernaI: [24, 0, 0], pieI: [-20, 0, 0] }
+      claves = rep(une(base, fija, { piernaD: [40, 0, 0] }), une(base, fija, { piernaD: [112, 0, 0], pieD: [10, 0, 0] }), '⬅️ Lleva el talón atrás contra la goma', '➡️ Vuelve despacio')
+      props.push({ tipo: 'banda', entre: ['pieD', 'pieI'], off: [0, 2, 0] })
+      mus = [['isquios', 'Isquiotibiales']]
+    } else {
+      const dos = carga === 'pelota'
+      const estira: Pose = dos ? sim('pierna', [6, 0, 0]) : { piernaD: [6, 0, 0], pieD: [-6, 0, 0] }
+      claves = rep(base, une(base, estira, dos ? sim('muslo', [-84, 0, 4]) : {}), '⬆️ Estira la rodilla del todo', '⬇️ Baja despacio', .15)
+      if (carga === 'kettlebell') props.push({ tipo: 'kettlebell', en: 'pieD', off: [0, -2, 4] })
+      if (dos) props.push({ tipo: 'pelota', entre: ['pieD', 'pieI'], off: [0, 2, 3] })
+      mus = [['cuadriceps', 'Cuádriceps']]
+    }
+    return {
+      dur: 3.2, claves: conLado(claves, p), apoyo: APOYO_CAMILLA, cam: CAM_CAMILLA, props: conLadoProps(props, p), musculos: mus,
+    }
+  },
+}
+
+// ── CADERA SENTADO EN CAMILLA ────────────────────────────────────────────────
+// Vídeos «Abducción de cadera con goma sentado», «Apretar aro / pelota con las rodillas»
+// y «Flexión de cadera sentado con goma».
+const caderaSentado: Movimiento = {
+  id: 'cadera_sentado', nombre: 'Cadera sentado en camilla',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['abduccion', 'Abrir rodillas contra la goma'], ['aduccion', 'Apretar entre las rodillas'], ['flexion', 'Subir la rodilla con goma']] },
+    { id: 'objeto', nombre: 'Entre las rodillas', opciones: [['pelota', 'Pelota'], ['aro', 'Aro']] },
+    LADO,
+  ],
+  crear(p) {
+    const tipo = p.tipo || 'abduccion'
+    const base = une(EN_CAMILLA, MANOS_CAMILLA)
+    let claves: Clave[], props: Prop[] = [CAMILLA], mus: [string, string][]
+    if (tipo === 'aduccion') {
+      const junta = une(base, sim('muslo', [-84, 0, 3]))
+      claves = [{ t: 0, fase: '⬅️➡️ Aprieta y suelta', p: une(base, sim('muslo', [-84, 0, 7])) }, { t: .3, p: junta }, { t: .6, p: junta }, { t: 1, p: une(base, sim('muslo', [-84, 0, 7])) }]
+      props.push(p.objeto === 'aro' ? { tipo: 'aro', entre: ['piernaD', 'piernaI'], off: [0, 4, 0], rot: [0, 90, 0] } : { tipo: 'pelota', entre: ['piernaD', 'piernaI'], off: [0, 2, 3] })
+      mus = [['aductores', 'Aductores']]
+    } else if (tipo === 'flexion') {
+      claves = rep(base, une(base, { musloD: [-112, 0, 8], piernaD: [86, 0, 0] }), '⬆️ Sube la rodilla contra la goma', '⬇️ Baja despacio')
+      props.push({ tipo: 'banda', entre: ['pieD', 'pieI'], off: [0, 2, 0] })
+      mus = [['cuadriceps', 'Psoas y recto femoral']]
+    } else {
+      claves = rep(base, une(base, sim('muslo', [-84, 0, 26]), sim('pie', [4, 0, -14])), '↔️ Abre las rodillas contra la goma', '⬅️ Ciérralas despacio')
+      props.push({ tipo: 'banda', entre: ['piernaD', 'piernaI'], off: [0, 3, 0] })
+      mus = [['gluteo', 'Glúteo medio']]
+    }
+    return { dur: 3, claves: conLado(claves, p), apoyo: APOYO_CAMILLA, cam: { ...CAM_CAMILLA, alto: 16 }, props: conLadoProps(props, p), musculos: mus }
+  },
+}
+
+// ── APRETAR ARO CON LAS MANOS (SENTADO) ──────────────────────────────────────
+const aroManos: Movimiento = {
+  id: 'aro_manos', nombre: 'Apretar aro con las manos',
+  params: [],
+  crear() {
+    const suelta = une(EN_CAMILLA, sim('brazo', [-70, 0, -2]), sim('antebrazo', [-52, 0, 0]))
+    const aprieta = une(EN_CAMILLA, sim('brazo', [-70, 0, -10]), sim('antebrazo', [-52, 0, 0]))
+    return {
+      dur: 3, claves: [{ t: 0, fase: '🤲 Aprieta el aro', p: suelta }, { t: .3, p: aprieta }, { t: .65, fase: '😮‍💨 Suelta sin dejar de sujetar', p: aprieta }, { t: 1, p: suelta }],
+      apoyo: APOYO_CAMILLA, cam: CAM_CAMILLA, props: [CAMILLA, { tipo: 'aro', entre: ['manoD', 'manoI'], off: [0, 0, 0] }],
+      musculos: [['pectoral', 'Pectoral'], ['deltoides', 'Deltoides anterior']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(sentadillaCamilla, pasoLateral, rodillaSentado, caderaSentado, aroManos)
+
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
   if (ladoDe(p) === 'D') return props

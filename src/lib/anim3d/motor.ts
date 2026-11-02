@@ -184,6 +184,9 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
       case 'deslizador': { const d = cil(4.5, .8, new THREE.MeshLambertMaterial({ color: 0xF2784B })); g.add(d); break }
       case 'cuna': { const sh = new THREE.Shape(); sh.moveTo(-6, 0); sh.lineTo(6, 0); sh.lineTo(-6, 4); sh.closePath(); const w = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 10, bevelEnabled: false }), mMadera); w.rotation.y = Math.PI / 2; w.position.set(-5, 0, 0); g.add(w); break }
       case 'pelota': { g.add(new THREE.Mesh(new THREE.SphereGeometry(5, 20, 14), new THREE.MeshLambertMaterial({ color: 0xF2C14E }))); break }
+      // Camilla: tablero acolchado a lo largo (x) y patas; se estira hasta el suelo como el cajón.
+      case 'camilla': { const t = caja(90, 4, 34, mMadera); t.position.y = -2; g.add(t); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => { const l = caja(2, 18, 2, mPared); l.position.set(x * 40, -13, z * 14); g.add(l) }); break }
+      case 'aro': { const r = new THREE.Mesh(new THREE.TorusGeometry(9, .9, 10, 32), mGris); g.add(r); break }
       case 'baston': { const b = cil(.6, 90, mMadera); b.rotation.z = Math.PI / 2; g.add(b); break }
       case 'banda': { const b = cil(.5, 1, new THREE.MeshLambertMaterial({ color: 0xE2574C })); b.rotation.z = Math.PI / 2; g.add(b); g.userData.estira = true; break }
     }
@@ -309,6 +312,7 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
         obj.position.set(w.x + off[0], y, w.z + off[2])
         if (def.tipo === 'cajon' && !def.alto) obj.scale.y = Math.max(.1, y / 22)
         if (def.tipo === 'banco') obj.scale.y = Math.max(.3, y / 22)
+        if (def.tipo === 'camilla') obj.scale.y = Math.max(.3, y / 22)
         if (def.rot) obj.rotation.set(rad(def.rot[0]), rad(def.rot[1]), rad(def.rot[2]))
         escena.add(obj)
       } else { escena.add(obj); if (def.pos) obj.position.set(...def.pos) }
