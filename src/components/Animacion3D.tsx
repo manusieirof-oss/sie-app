@@ -72,7 +72,7 @@ export default function Animacion3D({ anim, foto, alto = 420, musculos = true }:
   return (
     <div>
       <div ref={caja} style={{ position: 'relative', width: '100%', height: alto, borderRadius: 10, overflow: 'hidden', touchAction: 'none', cursor: 'grab',
-        background: 'radial-gradient(circle at 50% 35%,#fff 0%,#EEF3F2 60%,#E1E9E8 100%)', border: '1px solid var(--bd)' }}>
+        background: 'radial-gradient(circle at 50% 35%,#fff 0%,#FAF9F6 60%,#F1EFE9 100%)', border: '1px solid var(--bd)' }}>
         {!listo && !error && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 12, color: 'var(--grl)' }}>Cargando animación…</div>}
         {error && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 12, color: 'var(--grl)', padding: 20, textAlign: 'center' }}>{error}</div>}
         <div style={{ position: 'absolute', right: 12, top: 10, textAlign: 'right', pointerEvents: 'none' }}>

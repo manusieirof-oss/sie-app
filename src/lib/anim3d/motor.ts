@@ -112,14 +112,20 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
       vAct = uM[int(mid + .5)] * mm;
       gl_Position = projectionMatrix*mv; }`
   const ACT = new THREE.Color('#F2784B')
-  const solido = (color: string) => new THREE.ShaderMaterial({
-    uniforms: { uM, base: { value: new THREE.Color(color) }, act: { value: ACT } },
+  /* `plano` (0–1): cuánto se aplana la luz. Con 1 el cuerpo es casi una silueta de un
+     solo color, como los muñecos de las posturas (public/postura/*.svg); con 0, el
+     modelado de siempre. */
+  const solido = (color: string, plano = 0) => new THREE.ShaderMaterial({
+    /* Con `plano`, el color se pasa tal cual (sRGB): el shader no convierte el color de
+       salida y three guarda los colores en lineal, así que #5A969E salía casi negro. */
+    uniforms: { uM, base: { value: plano ? new THREE.Color(color).convertLinearToSRGB() : new THREE.Color(color) }, act: { value: ACT }, plano: { value: plano } },
     vertexShader: VERT,
-    fragmentShader: `uniform vec3 base; uniform vec3 act; varying vec3 vN; varying vec3 vV; varying float vAct;
+    fragmentShader: `uniform vec3 base; uniform vec3 act; uniform float plano; varying vec3 vN; varying vec3 vV; varying float vAct;
       void main(){ vec3 n = normalize(vN), v = normalize(vV);
         vec3 l1 = normalize(vec3(-.5,.8,.6)), l2 = normalize(vec3(.7,.2,.4));
         float d = max(dot(n,l1),0.)*.5 + max(dot(n,l2),0.)*.2 + .44 + .06*n.y;
-        float rim = pow(1.-max(dot(n,v),0.), 3.);
+        d = mix(d, .93 + .07*max(dot(n,l1),0.), plano);
+        float rim = pow(1.-max(dot(n,v),0.), 3.) * (1.-plano);
         vec3 c = mix(base, act, clamp(vAct,0.,1.)*.9);
         c = c*d + rim*vec3(.12,.2,.2)*(1.-vAct) + act*vAct*.35;
         float spec = pow(max(dot(reflect(-l1,n),v),0.), 24.)*.12;
@@ -136,7 +142,9 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
         gl_FragColor = vec4(col, max(mix(a0,a1,f), vAct*.75)); }`,
     transparent: true, depthWrite: false, side: lado,
   })
-  const MAT = { corporativo: solido('#9FCFD3'), blanco: solido('#F3F5F4'), cristal: cristal(THREE.FrontSide, .2, .92) }
+  // El verde de los muñecos de las posturas, casi plano: que la animación y la foto de
+  // postura se vean de la misma familia.
+  const MAT = { corporativo: solido('#5A969E', .8), blanco: solido('#F3F5F4'), cristal: cristal(THREE.FrontSide, .2, .92) }
   const dentro = new THREE.SkinnedMesh(geo, cristal(THREE.BackSide, .06, .25))
   const fuera = new THREE.SkinnedMesh(geo, MAT.corporativo)
   // El esqueleto cuelga de su propio grupo: si colgara de una malla oculta, lo que
@@ -149,15 +157,15 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
   dentro.visible = false
 
   // ── Suelo ──
-  const aro = new THREE.Mesh(new THREE.RingGeometry(14, 14.8, 64), new THREE.MeshBasicMaterial({ color: VERDE, transparent: true, opacity: .35, depthWrite: false }))
-  const sombra = new THREE.Mesh(new THREE.CircleGeometry(14, 48), new THREE.MeshBasicMaterial({ color: VERDE, transparent: true, opacity: .12, depthWrite: false }))
+  const aro = new THREE.Mesh(new THREE.RingGeometry(14, 14.8, 64), new THREE.MeshBasicMaterial({ color: 0xD9D6CC, transparent: true, opacity: .9, depthWrite: false }))
+  const sombra = new THREE.Mesh(new THREE.CircleGeometry(14, 48), new THREE.MeshBasicMaterial({ color: 0xD9D6CC, transparent: true, opacity: .45, depthWrite: false }))
   aro.rotation.x = sombra.rotation.x = -Math.PI / 2; escena.add(aro, sombra)
-  const esterilla = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x8FC2B9, transparent: true, opacity: .45, depthWrite: false }))
+  const esterilla = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xD9D6CC, depthWrite: false }))
   esterilla.rotation.x = -Math.PI / 2; esterilla.position.y = .05; escena.add(esterilla)
 
-  // ── Props ──
-  const mGris = new THREE.MeshLambertMaterial({ color: 0x3A4240 }), mMadera = new THREE.MeshLambertMaterial({ color: 0xC9B79A })
-  const mTapiz = new THREE.MeshLambertMaterial({ color: 0x2F3B3A }), mPared = new THREE.MeshLambertMaterial({ color: 0xE6E2DA, transparent: true, opacity: .85 })
+  // ── Props ── Banco, cajón, pared y esterilla en el beige de las posturas; las pesas en gris.
+  const mGris = new THREE.MeshLambertMaterial({ color: 0x6E7471 }), mMadera = new THREE.MeshLambertMaterial({ color: 0xD9D6CC })
+  const mTapiz = new THREE.MeshLambertMaterial({ color: 0xCFCBBF }), mPared = new THREE.MeshLambertMaterial({ color: 0xE4E1D8, transparent: true, opacity: .85 })
   const sol = new THREE.DirectionalLight(0xffffff, 1.2); sol.position.set(-40, 90, 60)
   escena.add(new THREE.HemisphereLight(0xffffff, 0xcfd8d6, 1.6), sol)
   function hazProp(p: Prop): THREE.Object3D {
