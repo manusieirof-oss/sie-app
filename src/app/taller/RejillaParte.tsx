@@ -10,7 +10,9 @@ import { capacidadPorReps } from '@/lib/capacidades'
 import PildoraRegimen, { LADOS, cambiadoHoy } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useRef, useState } from 'react'
-import { nombreMedida } from '@/lib/medida'
+import { nombreMedida, camposDelEjercicio, partesMedida } from '@/lib/medida'
+import { useConfigTrabajo } from '@/lib/usarTrabajo'
+import { ejecucionPorTiempo } from '@/lib/trabajo'
 import ElegirMedida from '@/components/ElegirMedida'
 import { createPortal } from 'react-dom'
 
@@ -39,7 +41,7 @@ const chapa = (pos: any): any => ({
 
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
-  addSerie, quitarSerie, setRegimen, setLado, molestias = [], patologias = [], etiquetas = [],
+  addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
   superserie = false, noHechos = [], onNoHecho, onSustituir, arreglar = false, onMedida }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
@@ -48,6 +50,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
   /* EN SUPERSERIE, UNA FILA POR GRUPO: A arriba, B debajo... Todos seguidos no se
      veia donde acababa un par y empezaba el otro. Por letra y no por orden, por si
      estan guardados intercalados. */
+  const cfgTrabajo = useConfigTrabajo()
   const grupos: { g: string, items: any[] }[] = []
   ejercicios.forEach((o: any) => {
     const g = superserie ? (o.ej.grupo || 'A') : ''
@@ -82,7 +85,10 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
           const cambiada = capReal !== '' && capPlan !== '' && capReal !== capPlan
           const noLoHizo = noHechos.includes(ei)
           const hayRegimen = !!(ej.regimen || ej.plan?.regimen)
-          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (hayRegimen && cambiadoHoy(ej, 'regimen'))
+          // Reps o segundos: solo en ejercicios que se cuentan por reps o por tiempo (no metros).
+          const volCambiable = ['reps', 'segundos'].includes(partesMedida(ej.tipo_medida).volumen)
+          const porSeg = camposDelEjercicio(ej, ejecucionPorTiempo(cfgTrabajo, String(ej.regimen || ej.plan?.regimen || '').toLowerCase())).includes('segundos')
+          const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (hayRegimen && cambiadoHoy(ej, 'regimen')) || !!ej.volumenHoy
           return (
             <div key={ei} style={{ textAlign: 'center' }}>
               {/* CÓMO SE HACE, EN LA CABEZA DE LA TARJETA. En píldoras pequeñas, junto a la
@@ -99,6 +105,18 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 {(hayRegimen || setRegimen) && <>
                   <span style={{ opacity: .7 }}>·</span>
                   <PildoraRegimen texto ej={ej} vacio="+ ejecución" onCambio={setRegimen ? (v: string) => setRegimen(pacienteId, ei, v) : undefined}/>
+                </>}
+                {/* REPS O SEGUNDOS, CON UN TOQUE. Queda para este paciente: la próxima vez
+                    sale como se apuntó hoy. */}
+                {volCambiable && <>
+                  <span style={{ opacity: .7 }}>·</span>
+                  {setVolumen
+                    ? <button type="button" title="Cambiar entre repeticiones y segundos (para este paciente)"
+                        onClick={() => setVolumen(pacienteId, ei, porSeg ? 'reps' : 'segundos')}
+                        style={{ background: 'none', border: 'none', color: 'inherit', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, letterSpacing: .4, textTransform: 'uppercase',
+                          cursor: 'pointer', padding: 0, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+                        {porSeg ? 'seg' : 'reps'}</button>
+                    : <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: .4, textTransform: 'uppercase' }}>{porSeg ? 'seg' : 'reps'}</span>}
                 </>}
               </div>
               {/* LA FOTO, SIN MARCO Y LLENANDO. Con `contain` y un borde quedaba

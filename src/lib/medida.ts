@@ -64,6 +64,41 @@ export function camposSerie(id?: string | null, opts: { isometrico?: boolean } =
   const c = carga === 'kg' ? ['peso'] : carga === 'banda' ? ['banda'] : []
   return [...c, volumen]
 }
+/**
+ * REPS O SEGUNDOS, COMO SE HIZO LA ULTIMA VEZ. Si la ultima vez de este paciente se
+ * apunto en segundos (o en reps), hoy sale igual: asi un cambio hecho en el taller
+ * queda para ese paciente sin tocar la biblioteca ni a los demas.
+ */
+export function volumenDeUltimaVez(series?: any[] | null): 'reps' | 'segundos' | null {
+  if (!Array.isArray(series) || !series.length) return null
+  const hay = (c: string) => series.some(x => x?.[c] != null && String(x[c]).trim() !== '')
+  const r = hay('reps'), s = hay('segundos')
+  return r && !s ? 'reps' : s && !r ? 'segundos' : null
+}
+
+/**
+ * LAS CASILLAS DE UN EJERCICIO EN EL TALLER (tarjeta y vista Todos, la misma regla).
+ * Manda, por orden: lo elegido hoy en la franja (reps/seg); si hoy se cambio el
+ * regimen, el regimen (isometrico = segundos); como lo hizo la ultima vez; y si no,
+ * lo del ejercicio con su regimen. Por tiempo y sin peso apuntado, sin kg.
+ */
+export function camposDelEjercicio(ej: any, isometrico: boolean): string[] {
+  const base = ej?.tipo_medida || 'peso_reps'
+  const p = partesMedida(base)
+  const cambiable = p.volumen === 'reps' || p.volumen === 'segundos'
+  const elegido = !cambiable ? null
+    : ej?.volumenHoy ? ej.volumen
+    : ej?.regimenHoy ? null
+    : volumenDeUltimaVez(ej?.ultimo)
+  let c: string[] = elegido
+    ? [...(p.carga === 'kg' ? ['peso'] : p.carga === 'banda' ? ['banda'] : []), elegido]
+    : camposSerie(base, { isometrico })
+  const conCarga = (ej?.plan?.peso != null && String(ej.plan.peso) !== '') || base === 'peso_tiempo'
+    || (ej?.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')
+  if (c.includes('segundos') && p.carga === 'kg' && !conCarga) c = c.filter(x => x !== 'peso')
+  return c
+}
+
 export const UNIDAD: Record<string, string> = { peso: 'kg', reps: 'reps', segundos: 'seg', metros: 'm', banda: 'banda' }
 
 // ---- Ajustes: bandas y esfuerzo -------------------------------------------------

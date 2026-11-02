@@ -765,7 +765,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * mismo ejercicio, o si se ha movido (se quitó uno antes), el mismo ejercicio.
    */
   function conservarDelDia(viejos: any[] = [], nuevos: any[]) {
-    const tocados = viejos.filter((v: any) => v.ladoHoy || v.regimenHoy)
+    const tocados = viejos.filter((v: any) => v.ladoHoy || v.regimenHoy || v.volumenHoy)
     if (!tocados.length) return nuevos
     const usados = new Set<any>()
     return nuevos.map((e: any) => {
@@ -775,7 +775,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       usados.add(v)
       return { ...e,
         ...(v.ladoHoy ? { lado: v.lado, ladoHoy: true } : {}),
-        ...(v.regimenHoy ? { regimen: v.regimen, regimenHoy: true } : {}) }
+        ...(v.regimenHoy ? { regimen: v.regimen, regimenHoy: true } : {}),
+        ...(v.volumenHoy ? { volumen: v.volumen, volumenHoy: true } : {}) }
     })
   }
 
@@ -1468,7 +1469,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   function setRegimen(pid:string, ei:number, val:string){
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
-      const datos=[...s.datos]; datos[ei]={...datos[ei],regimen:val,regimenHoy:true,guardado:false}
+      // Al cambiar el regimen manda el (isometrico = segundos): se olvida el reps/seg de antes.
+      const datos=[...s.datos]; datos[ei]={...datos[ei],regimen:val,regimenHoy:true,volumen:undefined,volumenHoy:false,guardado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
@@ -1490,6 +1492,26 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         ;(campos.length?campos:['reps']).forEach(c=>{ hoyN[`${si}.${c}`]=true })
       }
       datos[ei]={...e,hoy:hoyN,guardado:false,precargado:false}
+      programarAutosave(pid,ei,datos[ei],s.sesionId)
+      return {...s,datos}
+    }))
+  }
+
+  /**
+   * REPS O SEGUNDOS DESDE EL TALLER. Lo elegido se apunta asi en su registro y, como la
+   * siguiente vez sale como la ultima (lib/medida, volumenDeUltimaVez), queda para este
+   * paciente. No toca la biblioteca ni a los demas.
+   */
+  function setVolumen(pid:string, ei:number, val:'reps'|'segundos'){
+    setSeleccion(prev => prev.map(s=>{
+      if (s.paciente.id!==pid) return s
+      /* Se vacia la otra casilla (reps o segundos): si se guardaran las dos, la proxima
+         vez no se sabria como lo hizo y volveria a lo del ejercicio. */
+      const otro = val==='segundos' ? 'reps' : 'segundos'
+      const e=s.datos[ei]
+      const series=(e.series||[]).map((x:any)=>({...x,[otro]:''}))
+      const hoy=Object.fromEntries(Object.entries(e.hoy||{}).filter(([k])=>!k.endsWith('.'+otro)))
+      const datos=[...s.datos]; datos[ei]={...e,series,hoy,volumen:val,volumenHoy:true,guardado:false,precargado:false}
       programarAutosave(pid,ei,datos[ei],s.sesionId)
       return {...s,datos}
     }))
@@ -2271,6 +2293,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               mutarSerie={mutarSerie} setComent={setComent} toggleItem={toggleItem}
               marcarTodosItems={marcarTodosItems} itemMarcado={itemMarcado}
               addSerie={addSerie} quitarSerie={quitarSerie} setRegimen={cambiaEj ? setRegimen : undefined} setLado={cambiaEj ? setLado : undefined}
+              setVolumen={cambiaEj ? setVolumen : undefined}
               molestias={(ctxPorPaciente[act.paciente.id]?.molestias)||[]}
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import Flotante from './Flotante'
 import { useConfigTrabajo } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
-import { camposSerie, partesMedida, ajustesMedida, ESFUERZOS, UNIDAD, COLOR_BANDA, type AjustesMedida } from '@/lib/medida'
+import { camposDelEjercicio, ajustesMedida, ESFUERZOS, UNIDAD, COLOR_BANDA, type AjustesMedida } from '@/lib/medida'
 
 // ---------------------------------------------------------------------------
 // LO QUE SE ESCRIBE EN LA SALA
@@ -42,13 +42,10 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
      repeticiones. Con regimen isometrico: segundos, y kg ademas si lleva carga. */
   const regimen = String(ej.regimen || ej.plan?.regimen || '').toLowerCase()
   const isometrico = ejecucionPorTiempo(cfgTrabajo, regimen)
-  const base = ej.tipo_medida || 'peso_reps'
-  const conCarga = (ej.plan?.peso != null && String(ej.plan.peso) !== '') || base === 'peso_tiempo'
-    || (ej.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')
   /* CARGA × VOLUMEN (lib/medida): con peso pide kg, peso corporal nada, banda cuál;
      y luego reps, segundos o metros. Isométrico sin carga apuntada: solo segundos. */
-  let campos: string[] = camposSerie(base, { isometrico })
-  if (isometrico && partesMedida(base).carga === 'kg' && !conCarga) campos = campos.filter(c => c !== 'peso')
+  // La regla entera (eleccion de hoy, regimen, ultima vez) en lib/medida.
+  const campos: string[] = camposDelEjercicio(ej, isometrico)
   // El esfuerzo no va en la chapa: se apunta en el detalle si está encendido en Ajustes.
   const esfuerzos = ESFUERZOS.filter(x => (aj?.esfuerzo || []).includes(x.id))
   const bandas = aj?.bandas || []
