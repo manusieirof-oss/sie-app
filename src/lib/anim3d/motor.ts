@@ -184,6 +184,7 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
       case 'deslizador': { const d = cil(4.5, .8, new THREE.MeshLambertMaterial({ color: 0xF2784B })); g.add(d); break }
       case 'cuna': { const sh = new THREE.Shape(); sh.moveTo(-6, 0); sh.lineTo(6, 0); sh.lineTo(-6, 4); sh.closePath(); const w = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 10, bevelEnabled: false }), mMadera); w.rotation.y = Math.PI / 2; w.position.set(-5, 0, 0); g.add(w); break }
       case 'pelota': { g.add(new THREE.Mesh(new THREE.SphereGeometry(5, 20, 14), new THREE.MeshLambertMaterial({ color: 0xF2C14E }))); break }
+      case 'baston': { const b = cil(.6, 90, mMadera); b.rotation.z = Math.PI / 2; g.add(b); break }
       case 'banda': { const b = cil(.5, 1, new THREE.MeshLambertMaterial({ color: 0xE2574C })); b.rotation.z = Math.PI / 2; g.add(b); g.userData.estira = true; break }
     }
     return g
@@ -220,7 +221,9 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
     for (let s = 0; s <= N; s++) {
       const u = s / N, { p } = poseEn(a.claves, u)
       aplica(p)
-      if (!A) { tabla.push({ pos: H0.cadera.clone(), rx: 0, rz: 0 }); continue }
+      // 'alto' no es un hueso: sube o baja todo el cuerpo (ponerse de puntillas, saltar).
+      const sube = p.alto?.[0] || 0
+      if (!A) { const q = H0.cadera.clone(); q.y += sube; tabla.push({ pos: q, rx: 0, rz: 0 }); continue }
       const eje = A.bEje === 'z' ? 'z' : 'x'
       const base = eje === 'x' ? raiz.rotation.x : raiz.rotation.z
       const coloca = (d: number) => {
@@ -241,6 +244,7 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
         else { for (let it = 0; it < 20; it++) { const mid = (lo + hi) / 2, fm = coloca(mid); if (fm * flo > 0) { lo = mid; flo = fm } else hi = mid } d = (lo + hi) / 2 }
       }
       coloca(d)
+      raiz.position.y += sube
       anclaPrev = A.a.join()
       prev = raiz.position.clone()
       tabla.push({ pos: raiz.position.clone(), rx: eje === 'x' ? d : 0, rz: eje === 'z' ? d : 0, ik: ikPierna(a, s) })

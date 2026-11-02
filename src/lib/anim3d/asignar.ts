@@ -53,6 +53,66 @@ const REGLAS: Regla[] = [
   [/^hip thrust/, (_, v) => ({ mov: 'puente', p: { tipo: 'hip_thrust', piernas: tiene(v, /una pierna/) ? 'una' : 'dos', carga: tiene(v, /barra/) ? 'barra' : tiene(v, /disco/) ? 'disco' : 'ninguna' } })],
   // ── Bird-dog ──
   [/^bird dog/, (_, v) => ({ mov: 'bird_dog', p: { tipo: tiene(v, /solo brazo/) ? 'brazo' : tiene(v, /solo pierna/) ? 'pierna' : 'completo' } })],
+  // ── Remo ──
+  [/^remo con barra/, () => ({ mov: 'remo', p: { tipo: 'barra' } })],
+  [/^remo con mancuerna a una mano/, (_, v) => tiene(v, /banda/) ? null : ({ mov: 'remo', p: { tipo: 'una_mano' } })],
+  [/^remo en polea/, (_, v) => tiene(v, /una mano/) ? null : ({ mov: 'remo', p: { tipo: 'polea' } })],
+  // ── Curl de bíceps ──
+  [/^curl con barra/, () => ({ mov: 'curl', p: { carga: 'barra' } })],
+  [/^curl de biceps con mancuernas/, (_, v) => ({ mov: 'curl', p: { brazos: tiene(v, /alterno/) ? 'alterno' : 'dos', posicion: tiene(v, /sentado/) ? 'sentado' : 'de_pie' } })],
+  [/^curl de biceps en polea/, () => ({ mov: 'curl', p: { carga: 'polea' } })],
+  [/^(curl martillo|biceps martillo)/, (_, v) => tiene(v, /cruzado/) ? null : ({ mov: 'curl', p: { carga: tiene(v, /cuerda|polea/) ? 'polea' : 'mancuernas', brazos: tiene(v, /unilateral/) ? 'una' : 'dos' } })],
+  // ── Talones ──
+  [/^elevacion de talones de pie/, (_, v) => ({ mov: 'talones', p: { piernas: tiene(v, /una pierna/) ? 'una' : 'dos', carga: tiene(v, /peso/) ? 'mancuernas' : 'ninguna' } })],
+  [/^elevacion de talon en escalon|^excentrico de aquiles/, (_, v) => tiene(v, /rodilla flexionada/) ? null : ({ mov: 'talones', p: { tipo: 'escalon', piernas: tiene(v, /una pierna/) ? 'una' : 'dos', carga: tiene(v, /peso/) ? 'mancuernas' : 'ninguna' } })],
+  // ── Elevaciones de hombro ──
+  [/^elevacion lateral/, (_, v) => ({ mov: 'elevacion_brazos', p: { tipo: 'lateral', carga: tiene(v, /banda|goma/) ? 'banda' : 'mancuernas', posicion: tiene(v, /sentado/) ? 'sentado' : 'de_pie' } })],
+  [/^elevacion frontal/, (_, v) => ({ mov: 'elevacion_brazos', p: { tipo: 'frontal', brazos: tiene(v, /alterna/) ? 'alterno' : 'dos', carga: tiene(v, /disco/) ? 'disco' : tiene(v, /banda/) ? 'banda' : 'mancuernas' } })],
+  // ── Tríceps ──
+  [/^extension de triceps en polea/, () => ({ mov: 'triceps', p: { tipo: 'polea' } })],
+  [/^extension de triceps sobre la cabeza/, (_, v) => ({ mov: 'triceps', p: { tipo: 'cabeza', brazos: tiene(v, /una mano/) ? 'una' : 'dos', posicion: tiene(v, /sentado/) ? 'sentado' : 'de_pie' } })],
+  [/^press frances/, (_, v) => tiene(v, /de pie|mancuernas/) ? null : ({ mov: 'triceps', p: { tipo: 'frances' } })],
+  // ── Press de banca ──
+  [/^press de banca con mancuernas/, (_, v) => ({ mov: 'press_banca', p: { carga: 'mancuernas', brazos: tiene(v, /alterno/) ? 'alterno' : 'dos' } })],
+  [/^press de banca/, (_, v) => tiene(v, /inclinado/) ? null : ({ mov: 'press_banca', p: { carga: 'barra' } })],
+  // ── Planchas ──
+  [/^plancha frontal/, (_, v) => tiene(v, /pies elevados/) ? null : ({ mov: 'plancha', p: { tipo: tiene(v, /rodillas/) ? 'rodillas' : tiene(v, /toques/) ? 'manos' : 'antebrazos', toques: tiene(v, /toques/) ? 'si' : 'no' } })],
+  [/^plancha lateral/, (_, v) => tiene(v, /pierna elevada/) ? null : ({ mov: 'plancha_lateral', p: { tipo: tiene(v, /elevacion/) ? 'elevacion' : 'estatica', rodillas: tiene(v, /rodillas/) ? 'si' : 'no' } })],
+  [/^puente lateral con elevacion/, (_, v) => tiene(v, /banda/) ? null : ({ mov: 'plancha_lateral', p: { tipo: 'elevacion', rodillas: tiene(v, /rodillas/) ? 'si' : 'no' } })],
+  // ── Crunch ──
+  [/^abdominal crunch$/, (_, v) => tiene(v, /fitball/) ? null : ({ mov: 'crunch', p: {} })],
+  // ── Subida al cajón ──
+  [/^subida al cajon/, (_, v) => tiene(v, /lateral/) ? null : ({ mov: 'subida_cajon', p: { carga: tiene(v, /mancuerna/) ? 'mancuernas' : 'ninguna' } })],
+  // ── Marcha lateral con banda ──
+  [/^marcha lateral con mini band/, (_, v) => ({ mov: 'marcha_lateral', p: { banda: tiene(v, /tobillo/) ? 'tobillos' : 'rodillas' } })],
+  // ── Face pull ──
+  [/^face pull/, (_, v) => tiene(v, /rodillas/) ? null : ({ mov: 'face_pull', p: {} })],
+  // ── Rotación de hombro ──
+  [/^rotacion (externa|interna) con banda/, (n, v) => tiene(v, /tumbado/) ? null : ({ mov: 'rotacion_hombro', p: { tipo: tiene(n, /interna/) ? 'interna' : 'externa', posicion: tiene(v, /90 grados/) ? 'a90' : 'pegado' } })],
+  [/^rotacion (externa|interna) de hombro/, (n) => ({ mov: 'rotacion_hombro', p: { tipo: tiene(n, /interna/) ? 'interna' : 'externa' } })],
+  // ── Cadera de pie ──
+  [/^abduccion de cadera de pie/, (_, v) => ({ mov: 'abduccion_pie', p: { banda: tiene(v, /tobillo/) ? 'tobillos' : tiene(v, /rodilla/) ? 'rodillas' : 'no' } })],
+  [/^(patada de gluteo|extensiones de gluteo) en polea/, () => ({ mov: 'abduccion_pie', p: { tipo: 'extension' } })],
+  // ── Flexiones ──
+  [/^flexiones$/, (_, v) => tiene(v, /pies elevados|pared/) ? null : ({ mov: 'flexiones', p: { rodillas: tiene(v, /rodillas/) ? 'si' : 'no' } })],
+  // ── Pájaro ──
+  [/^pajaro/, (_, v) => tiene(v, /sentado|banco/) ? null : ({ mov: 'pajaro', p: { carga: tiene(v, /banda/) ? 'banda' : 'mancuernas' } })],
+  // ── Swing ──
+  [/^swing con kettlebell/, (_, v) => tiene(v, /una mano/) ? null : ({ mov: 'swing', p: {} })],
+  // ── Gato-camello ──
+  [/^gato.camello/, (_, v) => tiene(v, /sentado/) ? null : ({ mov: 'gato_camello', p: { tipo: tiene(v, /solo flexion/) ? 'flexion' : 'completo' } })],
+  // ── Brazos asistidos ──
+  [/^autoasistido de hombro con baston/, (_, v) => tiene(v, /sentado|tumbado|rotacion|sin baston/) ? null : ({ mov: 'brazos_asistida', p: { tipo: 'baston' } })],
+  [/^(elevacion de brazos con stick|flexion de hombro con stick)/, () => ({ mov: 'brazos_asistida', p: { tipo: 'baston' } })],
+  [/^(deslizamiento en pared|elevacion de brazos en pared)/, (_, v) => tiene(v, /tumbado|banda|rodillas/) ? null : ({ mov: 'brazos_asistida', p: { tipo: 'pared' } })],
+  // ── Marcha ──
+  [/^marcha$/, (_, v) => v ? null : ({ mov: 'marcha', p: {} })],
+  [/^paseo del granjero/, (_, v) => v ? null : ({ mov: 'marcha', p: { carga: 'granjero' } })],
+  // ── Una pierna ──
+  [/^equilibrio unipodal en bosu/, (_, v) => tiene(v, /en el suelo/) ? ({ mov: 'una_pierna', p: {} }) : null],
+  [/^elevacion de rodilla con banda/, (_, v) => tiene(v, /sentado|tumbado/) ? null : ({ mov: 'una_pierna', p: { tipo: 'rodilla' } })],
+  // ── Saltos ──
+  [/^saltos suaves en el sitio/, (_, v) => tiene(v, /talones/) ? null : ({ mov: 'saltos', p: { piernas: tiene(v, /una pierna/) ? 'una' : 'dos' } })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */
