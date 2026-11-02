@@ -114,8 +114,11 @@ const REGLAS: Regla[] = [
   // ── Saltos ──
   [/^saltos suaves en el sitio/, (_, v) => tiene(v, /talones/) ? null : ({ mov: 'saltos', p: { piernas: tiene(v, /una pierna/) ? 'una' : 'dos' } })],
   // ── Sacados de los vídeos de la clínica ──
-  [/^escaladores/, (_, v) => ({ mov: 'escaladores', p: { piernas: tiene(v, /altern/) ? 'alternas' : 'juntas', deslizadores: tiene(v, /sin deslizador/) ? 'no' : 'si' } })],
-  [/^rotacion (interna|externa) de cadera sentado/, (n, v) => ({ mov: 'rotacion_cadera_sentado', p: { tipo: tiene(n, /externa/) ? 'externa' : 'interna', pelota: tiene(n + ' ' + v, /pelota/) ? 'si' : 'no' } })],
+  // «Escaladores» a secas alterna; «2 / dos piernas», juntas con deslizadores; «rodilla» (desde rodillas), sin animación.
+  [/^escaladores/, n => tiene(n, /^escaladores rodilla$/) ? null : ({ mov: 'escaladores', p: {
+    piernas: tiene(n, /cruzando/) ? 'cruzando' : tiene(n, /codo/) ? 'rodilla_codo' : tiene(n, /2 piernas|dos piernas|juntas/) ? 'juntas' : 'alternas',
+    deslizadores: tiene(n, /2 piernas|dos piernas|deslizador/) ? 'si' : 'no' } })],
+  [/^rotacion (interna|externa) de cadera sentad[oa]/, (n, v) => ({ mov: 'rotacion_cadera_sentado', p: { tipo: tiene(n, /externa/) ? 'externa' : 'interna', pelota: tiene(n + ' ' + v, /pelota/) ? 'si' : 'no' } })],
   [/^(flexion de cadera sobre cajon|estiramiento psoas en cajon)/, () => ({ mov: 'flexor_cajon', p: {} })],
   // ── Tanda 1 de vídeos (camilla, goma, aro, pelota) ──
   [/^sentadilla con camilla/, n => ({ mov: 'sentadilla_camilla', p: { altura: tiene(n, /alta/) ? 'alta' : tiene(n, /baja/) ? 'baja' : 'media' } })],
@@ -143,6 +146,15 @@ const REGLAS: Regla[] = [
   [/^retraccion escapular con rotacion externa de hombro con balon/, () => ({ mov: 'balon_pared', p: { tipo: 'rotacion_externa' } })],
   [/^flexion de hombro con proteccion escapular con balon/, () => ({ mov: 'balon_pared', p: { tipo: 'flexion', objeto: 'balon' } })],
   [/^flexion de hombro con rueda/, () => ({ mov: 'balon_pared', p: { tipo: 'flexion', objeto: 'rueda' } })],
+  // ── Carpeta «Cadera» ──
+  [/^flexion de cadera supino con miniband/, () => ({ mov: 'flexion_cadera_supino', p: { banda: 'si' } })],
+  [/^flexion de cadera supino/, () => ({ mov: 'flexion_cadera_supino', p: {} })],
+  [/^flexion de cadera \+ puente/, () => ({ mov: 'flexion_cadera_supino', p: { tipo: 'puente' } })],
+  [/^flexion de cadera (en )?bipedestacion/, () => ({ mov: 'una_pierna', p: { tipo: 'rodilla' } })],
+  [/^movilidad de psoas en posicion de caballero/, () => ({ mov: 'caballero_psoas', p: {} })],
+  [/^rotacion (interna|externa|iexterna) de cadera supino/, n => ({ mov: 'rotacion_cadera_supino', p: { tipo: tiene(n, /interna/) ? 'interna' : 'externa', objeto: tiene(n, /goma y pelota/) ? 'ambos' : tiene(n, /goma/) ? 'goma' : 'pelota' } })],
+  [/^rotacion externa de cadera con goma y pelota/, () => ({ mov: 'rotacion_cadera_supino', p: { tipo: 'externa', objeto: 'ambos' } })],
+  [/^rotacion externa en cuadrupeda/, () => ({ mov: 'rotacion_cuadrupedia', p: {} })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */

@@ -893,7 +893,7 @@ const MOVIMIENTOS_MAS: Movimiento[] = [remo, curl, talones, elevacionBrazos, tri
 const escaladores: Movimiento = {
   id: 'escaladores', nombre: 'Escaladores',
   params: [
-    { id: 'piernas', nombre: 'Piernas', opciones: [['juntas', 'Las dos a la vez (deslizadores)'], ['alternas', 'Alternando']] },
+    { id: 'piernas', nombre: 'Piernas', opciones: [['juntas', 'Las dos a la vez (deslizadores)'], ['alternas', 'Alternando'], ['cruzando', 'Cruzando (rodilla al codo contrario)'], ['rodilla_codo', 'Rodilla al codo del mismo lado']] },
     { id: 'deslizadores', nombre: 'Deslizadores', opciones: [['si', 'Sí'], ['no', 'No']] },
   ],
   crear(p) {
@@ -901,6 +901,9 @@ const escaladores: Movimiento = {
     const recogeD: Pose = { musloD: [-92, 0, 4], piernaD: [112, 0, 0], pieD: [-6, 0, 0] }
     const recogeI: Pose = { musloI: [-92, 0, -4], piernaI: [112, 0, 0], pieI: [-6, 0, 0] }
     const juntas = (p.piernas || 'juntas') === 'juntas'
+    /* Cruzando, la rodilla va hacia dentro (al codo contrario); al codo, por fuera. */
+    const z = p.piernas === 'cruzando' ? -22 : p.piernas === 'rodilla_codo' ? 30 : 0
+    if (z) { recogeD.musloD = [-92, 0, z]; recogeI.musloI = [-92, 0, -z] }
     const claves: Clave[] = juntas
       ? rep(plancha, une(plancha, recogeD, recogeI, { lumbar: [14, 0, 0], pecho: [6, 0, 0] }), '⬅️ Lleva las rodillas al pecho deslizando', '➡️ Estira hasta la plancha', .06)
       : alterna(plancha, recogeD, recogeI, '⬅️ Rodilla al pecho', '⬅️ Ahora la otra')
@@ -1245,6 +1248,98 @@ const balonPared: Movimiento = {
 }
 
 MOVIMIENTOS_MAS.push(fitballSupino, sentadoSuelo, supinoGoma, rodillaFitballPared, arrodillado, balonPared)
+
+// ════════════════════════════════════════════════════════════════════════════
+// CARPETA «CADERA» DEL DRIVE: flexión de cadera tumbado, psoas en caballero,
+// rotaciones tumbado y a cuatro patas.
+// ════════════════════════════════════════════════════════════════════════════
+/** Tumbado boca arriba, rodillas dobladas y pies apoyados (espalda plana). */
+const SUPINO_PIES: Pose = une({ raiz: [-90, 0, 0] }, sim('muslo', [-30, 0, 6]), sim('pierna', [130, 0, 0]), sim('pie', [-10, 0, 0]), sim('brazo', [0, 0, 18]))
+/** Tumbado boca arriba, cadera y rodillas a 90° (piernas en el aire). */
+const SUPINO_90: Pose = une({ raiz: [-90, 0, 0] }, sim('muslo', [-90, 0, 4]), sim('pierna', [90, 0, 0]), sim('brazo', [0, 0, 18]))
+
+// ── FLEXIÓN DE CADERA TUMBADO ────────────────────────────────────────────────
+// Vídeos «Flexión de cadera supino», «… con miniband» y «Flexión de cadera + puente
+// de glúteo»: boca arriba con los pies apoyados, una rodilla sube al pecho y baja.
+const flexionCaderaSupino: Movimiento = {
+  id: 'flexion_cadera_supino', nombre: 'Flexión de cadera tumbado',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['alterna', 'Alternando piernas'], ['puente', 'Con puente (cadera arriba)']] },
+    { id: 'banda', nombre: 'Miniband en los pies', opciones: [['no', 'No'], ['si', 'Sí']] },
+  ],
+  crear(p) {
+    const puente = p.tipo === 'puente'
+    const sube = (s: 'D' | 'I'): Pose => ({ ['muslo' + s]: [-92, 0, s === 'D' ? 6 : -6], ['pierna' + s]: [96, 0, 0] })
+    const base = puente ? une(SUPINO_PIES, sim('muslo', [-12, 0, 6]), sim('pierna', [100, 0, 0]), sim('pie', [2, 0, 0])) : SUPINO_PIES
+    const claves = alterna(base, sube('D'), sube('I'), puente ? '⬆️ Cadera arriba y sube una rodilla' : '⬆️ Sube una rodilla al pecho', '⬆️ Ahora la otra')
+    return {
+      dur: 3.6, claves, suelo: true, cam: { alto: 22, dist: 220, y: 12 },
+      apoyo: puente ? { a: ['brazoD', 'brazoI'], aY: 4, b: ['pieD', 'pieI'], bY: 4 } : { a: ['cadera'], aY: 9 },
+      props: p.banda === 'si' ? [{ tipo: 'banda', entre: ['pieD', 'pieI'], off: [0, 2, 0] }] : [],
+      musculos: puente ? [['gluteo', 'Glúteo mayor'], ['cuadriceps', 'Psoas'], ['core', 'Core']] : [['cuadriceps', 'Psoas y recto femoral'], ['core', 'Core']],
+    }
+  },
+}
+
+// ── MOVILIDAD DE PSOAS EN CABALLERO ──────────────────────────────────────────
+// Vídeo «Movilidad de psoas en posición de caballero»: rodilla de atrás en el suelo,
+// se lleva la cadera adelante y atrás.
+const caballeroPsoas: Movimiento = {
+  id: 'caballero_psoas', nombre: 'Psoas en posición de caballero',
+  params: [LADO],
+  crear(p) {
+    const manos = une(sim('brazo', [14, 0, 34]), sim('antebrazo', [-104, 0, -30]))
+    const atras = une(manos, { musloI: [-88, 0, -4], piernaI: [90, 0, 0], pieI: [-2, 0, 0], musloD: [4, 0, 4], piernaD: [92, 0, 0], pieD: [60, 0, 0] })
+    const delante = une(manos, { musloI: [-70, 0, -4], piernaI: [96, 0, 0], pieI: [-22, 0, 0], musloD: [24, 0, 4], piernaD: [88, 0, 0], pieD: [60, 0, 0] })
+    return {
+      dur: 3.6, claves: conLado(rep(atras, delante, '➡️ Lleva la cadera adelante sin arquear', '⬅️ Vuelve atrás', .15), p),
+      apoyo: { a: conLadoH(['piernaD'], p), aY: 3 }, suelo: true, cam: { alto: 8, dist: 230, y: 30 },
+      musculos: [['cuadriceps', 'Psoas y recto femoral'], ['gluteo', 'Glúteo']],
+    }
+  },
+}
+
+// ── ROTACIÓN DE CADERA TUMBADO (90/90) ───────────────────────────────────────
+// Vídeos «Rotación interna/externa de cadera supino con pelota / goma / goma y pelota»:
+// piernas en el aire a 90°, rodillas juntas (pelota) y los pies se abren o se cierran.
+const rotacionCaderaSupino: Movimiento = {
+  id: 'rotacion_cadera_supino', nombre: 'Rotación de cadera tumbado',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['interna', 'Interna (pies hacia fuera)'], ['externa', 'Externa (pies hacia dentro)']] },
+    { id: 'objeto', nombre: 'Material', opciones: [['pelota', 'Pelota entre rodillas'], ['goma', 'Goma en los pies'], ['ambos', 'Goma y pelota']] },
+  ],
+  crear(p) {
+    const int = (p.tipo || 'interna') === 'interna', obj = p.objeto || 'pelota'
+    const gira = une(SUPINO_90, sim('muslo', [-90, int ? -32 : 22, 4]))
+    const props: Prop[] = []
+    if (obj !== 'goma') props.push({ tipo: 'pelota', entre: ['piernaD', 'piernaI'], off: [0, 1, 3] })
+    if (obj !== 'pelota') props.push({ tipo: 'banda', entre: ['pieD', 'pieI'], off: [0, 2, 0] })
+    return {
+      dur: 3, claves: rep(SUPINO_90, gira, int ? '↔️ Abre los pies, rodillas juntas' : '↔️ Junta los pies, rodillas quietas', '⬅️ Vuelve despacio', .12),
+      apoyo: { a: ['cadera'], aY: 9 }, suelo: true, cam: { alto: 30, dist: 220, y: 18 }, props,
+      musculos: [['gluteo', 'Rotadores de cadera'], ['aductores', 'Aductores']],
+    }
+  },
+}
+
+// ── ROTACIÓN EXTERNA A CUATRO PATAS ──────────────────────────────────────────
+// Vídeo «Rotación externa en cuadrúpeda con balón»: a cuatro patas, la rodilla queda
+// en el suelo y el pie se lleva hacia dentro (rotación externa) y vuelve.
+const rotacionCuadrupedia: Movimiento = {
+  id: 'rotacion_cuadrupedia', nombre: 'Rotación de cadera a cuatro patas',
+  params: [LADO],
+  crear(p) {
+    const gira = une(CUATRO, { musloD: [-90, 30, 0], pieD: [80, 0, 0] })
+    return {
+      dur: 3, claves: conLado(rep(CUATRO, gira, '↪️ Lleva el pie hacia dentro sin mover la rodilla', '⬅️ Vuelve despacio', .12), p),
+      apoyo: { a: ['piernaD', 'piernaI'], aY: 2.6, b: ['manoD', 'manoI'], bY: 2.2 }, suelo: true, cam: { alto: 22, dist: 210, y: 16 },
+      props: conLadoProps([{ tipo: 'balon', en: 'pieD', off: [0, 0, 6] }], p),
+      musculos: [['gluteo', 'Rotadores de cadera'], ['core', 'Core']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(flexionCaderaSupino, caballeroPsoas, rotacionCaderaSupino, rotacionCuadrupedia)
 
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
