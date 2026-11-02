@@ -32,8 +32,20 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError('Email o contraseña incorrectos'); setLoading(false); return }
+    /* EL CORREO LIMPIO: un espacio al final (el autocompletar del móvil lo pone) o una
+       mayúscula al principio bastaban para que dijera «incorrectos» sin serlo. */
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
+    if (error) {
+      /* Solo «incorrectos» cuando lo son. Antes cualquier fallo (demasiados intentos,
+         sin conexión, cuenta sin confirmar) salía igual y no había forma de saber qué pasaba. */
+      const m = (error.message || '').toLowerCase()
+      setError(m.includes('invalid login') ? 'Email o contraseña incorrectos'
+        : m.includes('rate') || m.includes('too many') ? 'Demasiados intentos seguidos: espera unos minutos y vuelve a probar'
+        : m.includes('not confirmed') ? 'La cuenta aún no está confirmada'
+        : m.includes('fetch') || m.includes('network') ? 'Sin conexión con el servidor: revisa internet'
+        : 'No se ha podido entrar: ' + error.message)
+      setLoading(false); return
+    }
     // La marca de actividad a cero: si no, en un equipo compartido la vieja (de anoche)
     // cerraría la sesión nada más entrar.
     apuntarActividad()
