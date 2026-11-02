@@ -563,8 +563,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   async function buscarViejos() {
     const d = new Date(hoy() + 'T12:00:00'); d.setDate(d.getDate() - 7)
     const desde = d.toISOString().slice(0, 10)
+    /* SOLO LO QUE HACE FALTA PARA SABER SI HAY ALGO SIN GUARDAR. Traía la semana entera
+       con cada sesión completa, cada minuto y en cada tablet: decenas de megas por minuto,
+       y fue lo que agotó el plan gratis de Supabase. Lo completo se pide al guardar. */
     const { data: citas } = await supabase.from('citas')
-      .select('id,fecha,hora,estado,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento,foto_url), sesiones:sesion_id(*)')
+      .select('id,fecha,hora,estado,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica), sesiones:sesion_id(id,hoja)')
       .not('sesion_id', 'is', null).not('paciente_id', 'is', null)
       .in('estado', ['programada', 'realizada']).gte('fecha', desde).lte('fecha', hoy())
       .order('fecha').order('hora')
@@ -594,7 +597,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
      Ahora se repasa cada minuto, al volver a la pestaña y al cambiar de franja. */
   useEffect(() => {
     buscarViejos()
-    const t = setInterval(buscarViejos, 60 * 1000)
+    const t = setInterval(buscarViejos, 5 * 60 * 1000)
     const alVolver = () => { if (document.visibilityState === 'visible') buscarViejos() }
     document.addEventListener('visibilitychange', alVolver)
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver) }
@@ -602,7 +605,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   /** Guarda cada clase pendiente como si se hubiera pulsado Finalizar ese dia. */
   async function guardarViejos() {
     setGuardandoViejos(true)
-    for (const c of viejos) {
+    // Ahora sí, completas: la sesión y el paciente enteros, solo de las que se guardan.
+    const { data: completas } = viejos.length ? await supabase.from('citas')
+      .select('id,fecha,hora,estado,ajustes,paciente_id, pacientes(id,nombre,apellidos,nombre_clinica,sexo,fecha_nacimiento,foto_url), sesiones:sesion_id(*)')
+      .in('id', viejos.map((v: any) => v.id)) : { data: [] as any[] }
+    for (const c of (completas || [])) {
       const ses = Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
       const pac = Array.isArray(c.pacientes) ? c.pacientes[0] : c.pacientes
       if (!ses || !pac) continue
@@ -636,7 +643,24 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
      quitaba o se marcaba falta en la agenda, el taller seguia ensenandolo hasta cambiar
      de franja. Lo apuntado no se toca: solo entra o sale gente y se actualiza su cita. */
   const repasoRef = useRef<() => void>(() => {})
-  repasoRef.current = () => { if (listo && horasListas) { traerDeAgenda(true); refrescarHoras() } }
+  /* EL REPASO MIRA POCO. Cada 30 s se traía la clase entera (citas, sesiones completas
+     de cada paciente…) aunque no hubiera cambiado nada. Ahora se pide solo una «firma»
+     ligera de las citas de la franja (quién, estado, sala, sesión) y la carga completa
+     solo si esa firma cambia. */
+  const firmaRef = useRef('')
+  repasoRef.current = async () => {
+    if (!listo || !horasListas) return
+    refrescarHoras() // solo las horas: es ligero
+    let q = supabase.from('citas').select('id,hora,sala,estado,sesion_id,paciente_id').eq('fecha', fecha).neq('estado', 'cancelada')
+    if (sala) q = q.eq('sala', sala)
+    const { data, error } = await q
+    if (error) return
+    const firma = (data || []).filter((c: any) => !hora || String(c.hora || '').slice(0, 5) === hora)
+      .map((c: any) => [c.id, c.estado, c.sala, c.sesion_id, String(c.hora || '').slice(0, 5)].join(':')).sort().join('|')
+    if (firma === firmaRef.current) return
+    firmaRef.current = firma
+    traerDeAgenda(true)
+  }
   useEffect(() => {
     const t = setInterval(() => repasoRef.current(), 30 * 1000)
     const alVolver = () => { if (document.visibilityState === 'visible') repasoRef.current() }
