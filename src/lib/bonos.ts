@@ -214,14 +214,8 @@ export async function quitarBono(bono: { id: string, paciente_id: string, tipo?:
   const { error: errDel } = await supabase.from('bonos').delete().eq('id', bono.id)
   if (errDel) return { ok: false as const, cobrado: false, error: `No se ha podido quitar el bono: ${errDel.message}` }
 
-  // Queda constancia de que alguien lo quitó. Un bono que desaparece sin rastro
-  // es indistinguible de un bono que nunca se asignó.
-  await supabase.from('eventos_paciente').insert({
-    paciente_id: bono.paciente_id, tipo: 'cambio_bono',
-    titulo: 'Bono retirado',
-    descripcion: `Se ha quitado el bono${bono.tipo ? ` "${bono.tipo}"` : ''} sin llegar a cobrarse.`,
-    fecha: hoyISO(),
-  })
+  // Sin apunte en el historial, a propósito (lo pidió Manu): una cuota sin cobrar que se
+  // quita es un error de la renovación, no algo que haya pasado con el paciente.
   return { ok: true as const }
 }
 

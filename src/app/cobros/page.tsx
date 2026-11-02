@@ -550,10 +550,10 @@ export default function CobrosPage() {
   /**
    * QUITAR UNA CUOTA QUE NO TOCABA (salió su cuota del mes pero no vino ni va a venir).
    * Va por `quitarBono`: si ya está cobrada no se borra (tiene factura, se rectifica),
-   * y si no, se borra y queda apuntado en su historial.
+   * y si no, se borra sin dejar apunte en su historial.
    */
   async function quitarCuota(bono: any, nombre: string) {
-    if (!confirm(`¿Quitar la cuota de ${nombre} de este mes? Úsalo si no vino y no se le va a cobrar. Queda apuntado en su historial.`)) return
+    if (!confirm(`¿Quitar la cuota de ${nombre} de este mes? Úsalo si no vino y no se le va a cobrar.`)) return
     const r = await quitarBono({ id: bono.id, paciente_id: bono.paciente_id, tipo: bono.tipo })
     if (!r.ok) { setAviso(r.error); return }
     cargar()
