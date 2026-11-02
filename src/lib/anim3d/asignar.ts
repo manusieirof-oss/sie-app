@@ -155,6 +155,12 @@ const REGLAS: Regla[] = [
   [/^rotacion (interna|externa|iexterna) de cadera supino/, n => ({ mov: 'rotacion_cadera_supino', p: { tipo: tiene(n, /interna/) ? 'interna' : 'externa', objeto: tiene(n, /goma y pelota/) ? 'ambos' : tiene(n, /goma/) ? 'goma' : 'pelota' } })],
   [/^rotacion externa de cadera con goma y pelota/, () => ({ mov: 'rotacion_cadera_supino', p: { tipo: 'externa', objeto: 'ambos' } })],
   [/^rotacion externa en cuadrupeda/, () => ({ mov: 'rotacion_cuadrupedia', p: {} })],
+  // ── Carpeta «Pierna» ──
+  [/^extension de rodilla sentado con roller/, () => ({ mov: 'roller_rodilla', p: {} })],
+  [/^extension unilateral de cuadriceps en fitball/, n => ({ mov: 'fitball_sentado', p: { goma: tiene(n, /goma/) ? 'si' : 'no' } })],
+  [/^flexion de rodilla (prono|sentado|supino) con goma en pared/, n => ({ mov: 'goma_pared', p: { posicion: tiene(n, /prono/) ? 'prono' : tiene(n, /sentado/) ? 'sentado' : 'supino' } })],
+  [/^gemelo unilateral (en )?escalon/, () => ({ mov: 'talones', p: { tipo: 'escalon', piernas: 'una', carga: 'mancuernas' } })],
+  [/^sentadilla en pared \+ apretar aro/, () => ({ mov: 'sentadilla', p: { tipo: 'pared_iso', pelota: 'aro' } })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */
