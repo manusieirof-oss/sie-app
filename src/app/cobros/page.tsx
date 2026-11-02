@@ -6,7 +6,7 @@ import { Ic } from '@/lib/icons'
 import ModalCobro from '@/components/ModalCobro'
 import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { indicePlanes, precioFinalPlan, precioConDescuento, esVentaPuntual, adelantarCuota, unaCuotaPorPacienteYMes,
-         cobrosDesde, antesDeCobrarConLaApp } from '@/lib/bonos'
+         cobrosDesde, antesDeCobrarConLaApp, quitarBono } from '@/lib/bonos'
 import { listadoGestoria } from '@/lib/cobros'
 import { xlsx, descargarXlsx } from '@/lib/xlsx'
 import { resumirMes, type EntradaMes } from '@/lib/grupoMes'
@@ -547,6 +547,18 @@ export default function CobrosPage() {
     setCobrando({ p, bono, tieneCobrosPrevios: (count ?? 1) > 0 })
   }
 
+  /**
+   * QUITAR UNA CUOTA QUE NO TOCABA (salió su cuota del mes pero no vino ni va a venir).
+   * Va por `quitarBono`: si ya está cobrada no se borra (tiene factura, se rectifica),
+   * y si no, se borra y queda apuntado en su historial.
+   */
+  async function quitarCuota(bono: any, nombre: string) {
+    if (!confirm(`¿Quitar la cuota de ${nombre} de este mes? Úsalo si no vino y no se le va a cobrar. Queda apuntado en su historial.`)) return
+    const r = await quitarBono({ id: bono.id, paciente_id: bono.paciente_id, tipo: bono.tipo })
+    if (!r.ok) { setAviso(r.error); return }
+    cargar()
+  }
+
   async function marcarImpago(bono: any, esImpago: boolean) {
     const { error } = await supabase.from('bonos')
       .update({ estado_pago: esImpago ? 'impago' : 'pendiente' }).eq('id', bono.id)
@@ -870,6 +882,13 @@ export default function CobrosPage() {
                   onClick={()=>marcarImpago(bono, !impago)}
                   style={impago?{color:'var(--red)',borderColor:'var(--red)'}:undefined}>
                   {impago ? 'Pendiente' : 'Impago'}
+                </button>
+              )}
+              {bono && (
+                <button className="btn btn-s btn-sm" title="Quitar esta cuota: no vino y no se le cobra"
+                  onClick={()=>quitarCuota(bono, (p?.nombre_clinica || `${p?.nombre||''} ${p?.apellidos||''}`).trim() || 'este paciente')}
+                  style={{color:'var(--grl)'}}>
+                  <Ic name="papelera" size={12}/>
                 </button>
               )}
               <button className="btn btn-p btn-sm" onClick={()=>abrirCobro(p, bono)}>Cobrar</button>
