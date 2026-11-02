@@ -71,7 +71,7 @@ const REGLAS: Regla[] = [
   // ── Tríceps ──
   [/^extension de triceps en polea/, () => ({ mov: 'triceps', p: { tipo: 'polea' } })],
   [/^extension de triceps sobre la cabeza/, (_, v) => ({ mov: 'triceps', p: { tipo: 'cabeza', brazos: tiene(v, /una mano/) ? 'una' : 'dos', posicion: tiene(v, /sentado/) ? 'sentado' : 'de_pie' } })],
-  [/^press frances/, (_, v) => tiene(v, /de pie|mancuernas/) ? null : ({ mov: 'triceps', p: { tipo: 'frances' } })],
+  [/^press frances/, (n, v) => tiene(v, /de pie/) ? null : ({ mov: 'triceps', p: { tipo: 'frances', carga: tiene(n + ' ' + v, /barra/) ? 'barra' : 'mancuernas' } })],
   // ── Press de banca ──
   [/^press de banca con mancuernas/, (_, v) => ({ mov: 'press_banca', p: { carga: 'mancuernas', brazos: tiene(v, /alterno/) ? 'alterno' : 'dos' } })],
   [/^press de banca/, (_, v) => tiene(v, /inclinado/) ? null : ({ mov: 'press_banca', p: { carga: 'barra' } })],
@@ -161,6 +161,12 @@ const REGLAS: Regla[] = [
   [/^flexion de rodilla (prono|sentado|supino) con goma en pared/, n => ({ mov: 'goma_pared', p: { posicion: tiene(n, /prono/) ? 'prono' : tiene(n, /sentado/) ? 'sentado' : 'supino' } })],
   [/^gemelo unilateral (en )?escalon/, () => ({ mov: 'talones', p: { tipo: 'escalon', piernas: 'una', carga: 'mancuernas' } })],
   [/^sentadilla en pared \+ apretar aro/, () => ({ mov: 'sentadilla', p: { tipo: 'pared_iso', pelota: 'aro' } })],
+  // ── Carpeta «Brazo» ──
+  [/^biceps alterno sentado/, () => ({ mov: 'curl', p: { brazos: 'alterno', posicion: 'sentado' } })],
+  [/^biceps (con goma|mancuerna) alterno/, n => ({ mov: 'curl', p: { brazos: 'alterno', carga: tiene(n, /goma/) ? 'polea' : 'mancuernas' } })],
+  [/^biceps arana (alterno|unilateral)/, n => ({ mov: 'curl_banco', p: { tipo: 'arana', brazos: tiene(n, /unilateral/) ? 'una' : 'alterno' } })],
+  [/^biceps scot/, n => ({ mov: 'curl_banco', p: { tipo: 'scott', brazos: 'alterno', carga: tiene(n, /goma/) ? 'goma' : 'mancuernas' } })],
+  [/^patada de triceps/, n => ({ mov: 'patada_triceps', p: { brazos: tiene(n, /alterno/) ? 'alterno' : tiene(n, /unilateral/) ? 'una' : 'dos', carga: tiene(n, /goma/) ? 'goma' : 'mancuernas' } })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */

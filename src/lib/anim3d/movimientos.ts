@@ -525,6 +525,7 @@ const triceps: Movimiento = {
     { id: 'tipo', nombre: 'Tipo', opciones: [['cabeza', 'Sobre la cabeza'], ['polea', 'En polea o banda (hacia abajo)'], ['frances', 'Press francés tumbado']] },
     { id: 'brazos', nombre: 'Brazos', opciones: [['dos', 'Los dos'], ['una', 'A una mano']] },
     { id: 'posicion', nombre: 'Posición', opciones: [['de_pie', 'De pie'], ['sentado', 'Sentado']] },
+    { id: 'carga', nombre: 'Carga (press francés)', opciones: [['barra', 'Barra'], ['mancuernas', 'Mancuernas']] },
     LADO,
   ],
   crear(p) {
@@ -535,7 +536,7 @@ const triceps: Movimiento = {
       const ab = une(EN_BANCO, sim('brazo', [-112, 0, 6]), sim('antebrazo', [-120, 0, 0]))
       const ar = une(EN_BANCO, sim('brazo', [-100, 0, 6]), sim('antebrazo', [-4, 0, 0]))
       claves = rep(ab, ar, '⬆️ Estira los codos sin moverlos', '⬇️ Baja hacia la frente')
-      props = [BANCO_ESPALDA, { tipo: 'barra', entre: ['manoD', 'manoI'] }]
+      props = [BANCO_ESPALDA, ...(p.carga === 'mancuernas' ? MANCUERNAS : [{ tipo: 'barra', entre: ['manoD', 'manoI'] } as Prop])]
       apoyo = APOYO_BANCO; cam = { alto: 28, dist: 230, y: 28 }
     } else if (tipo === 'polea') {
       const ab = une(sim('brazo', [-14, 0, 4]), sim('antebrazo', [-100, 0, 0]), una ? libre : {})
@@ -1414,6 +1415,67 @@ const gomaPared: Movimiento = {
 }
 
 MOVIMIENTOS_MAS.push(rollerRodilla, fitballSentado, gomaPared)
+
+// ════════════════════════════════════════════════════════════════════════════
+// CARPETA «BRAZO» DEL DRIVE: curl araña y Scott, patada de tríceps.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── CURL ARAÑA / SCOTT ───────────────────────────────────────────────────────
+// Vídeos «Biceps araña alterno / unilateral» (pecho sobre el banco inclinado, brazos
+// colgando) y «Biceps Scot alterno con goma» (brazos apoyados delante en el banco).
+const curlBanco: Movimiento = {
+  id: 'curl_banco', nombre: 'Curl araña o Scott',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['arana', 'Araña (brazos colgando)'], ['scott', 'Scott (brazos apoyados)']] },
+    { id: 'brazos', nombre: 'Brazos', opciones: [['alterno', 'Alternos'], ['dos', 'Los dos'], ['una', 'A una mano']] },
+    { id: 'carga', nombre: 'Carga', opciones: [['mancuernas', 'Mancuernas'], ['goma', 'Goma']] },
+    LADO,
+  ],
+  crear(p) {
+    const scott = p.tipo === 'scott', inc = scott ? 26 : 52, brazos = p.brazos || 'alterno'
+    const base = inclinado(inc)
+    const brazo0 = scott ? -inc - 50 : -inc + 2
+    const ab = (s: 'D' | 'I'): Pose => ({ ['brazo' + s]: [brazo0, 0, s === 'D' ? 8 : -8], ['antebrazo' + s]: [-8, 0, 0] })
+    const ar = (s: 'D' | 'I'): Pose => ({ ['brazo' + s]: [brazo0, 0, s === 'D' ? 8 : -8], ['antebrazo' + s]: [-128, 0, 0] })
+    let claves: Clave[]
+    if (brazos === 'alterno') claves = alterna(une(base, ab('D'), ab('I')), ar('D'), ar('I'), '⬆️ Sube un brazo sin mover el codo', '⬆️ Ahora el otro')
+    else claves = rep(une(base, ab('D'), brazos === 'una' ? ab('I') : ab('I')), une(base, ar('D'), brazos === 'una' ? ab('I') : ar('I')), '⬆️ Sube sin mover el codo', '⬇️ Baja despacio')
+    const props: Prop[] = p.carga === 'goma' ? [] : brazos === 'una' ? [{ tipo: 'mancuerna', en: 'manoD' }] : [...MANCUERNAS]
+    return {
+      dur: brazos === 'alterno' ? 4.2 : 3, claves: conLado(claves, p), apoyo: DOS_PIES, cam: CAM_PIE, props: conLadoProps(props, p),
+      musculos: [['biceps', 'Bíceps']],
+    }
+  },
+}
+
+// ── PATADA DE TRÍCEPS ────────────────────────────────────────────────────────
+// Vídeos «Patada de tríceps con goma / alterno / unilateral (con mancuerna)»: inclinado,
+// el brazo pegado al tronco y se estira el codo hacia atrás.
+const patadaTriceps: Movimiento = {
+  id: 'patada_triceps', nombre: 'Patada de tríceps',
+  params: [
+    { id: 'brazos', nombre: 'Brazos', opciones: [['dos', 'Los dos'], ['alterno', 'Alternos'], ['una', 'A una mano']] },
+    { id: 'carga', nombre: 'Carga', opciones: [['mancuernas', 'Mancuernas'], ['goma', 'Goma']] },
+    LADO,
+  ],
+  crear(p) {
+    const inc = 50, base = inclinado(inc), brazos = p.brazos || 'dos'
+    const dob = (s: 'D' | 'I'): Pose => ({ ['brazo' + s]: [40, 0, s === 'D' ? 6 : -6], ['antebrazo' + s]: [-96, 0, 0] })
+    const est = (s: 'D' | 'I'): Pose => ({ ['brazo' + s]: [46, 0, s === 'D' ? 6 : -6], ['antebrazo' + s]: [-4, 0, 0] })
+    const apoya: Pose = { brazoI: [-inc + 6, 0, -4], antebrazoI: [-20, 0, 0] }
+    let claves: Clave[]
+    if (brazos === 'alterno') claves = alterna(une(base, dob('D'), dob('I')), est('D'), est('I'), '⬅️ Estira un codo hacia atrás', '⬅️ Ahora el otro')
+    else if (brazos === 'una') claves = rep(une(base, dob('D'), apoya), une(base, est('D'), apoya), '⬅️ Estira el codo sin moverlo', '➡️ Vuelve despacio a 90°')
+    else claves = rep(une(base, dob('D'), dob('I')), une(base, est('D'), est('I')), '⬅️ Estira los codos sin moverlos', '➡️ Vuelve despacio a 90°')
+    const props: Prop[] = p.carga === 'goma' ? [] : brazos === 'una' ? [{ tipo: 'mancuerna', en: 'manoD' }] : [...MANCUERNAS]
+    return {
+      dur: brazos === 'alterno' ? 4 : 3, claves: conLado(claves, p), apoyo: DOS_PIES, cam: CAM_PIE, props: conLadoProps(props, p),
+      musculos: [['triceps', 'Tríceps']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(curlBanco, patadaTriceps)
 
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
