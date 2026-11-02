@@ -1088,6 +1088,164 @@ const aroManos: Movimiento = {
 
 MOVIMIENTOS_MAS.push(sentadillaCamilla, pasoLateral, rodillaSentado, caderaSentado, aroManos)
 
+// ════════════════════════════════════════════════════════════════════════════
+// TANDA 2 DE LOS VÍDEOS DEL DRIVE: fitball, taco, goma y deslizador en el suelo,
+// balón y rueda en la pared, de rodillas.
+// ════════════════════════════════════════════════════════════════════════════
+const SUPINO: Pose = { raiz: [-90, 0, 0] }
+const BRAZOS_SUELO: Pose = sim('brazo', [0, 0, 18])
+/** Sentado en el suelo con las piernas estiradas, manos apoyadas detrás. */
+const SENTADO_SUELO: Pose = une({ raiz: [-12, 0, 0], lumbar: [6, 0, 0], pecho: [6, 0, 0] }, sim('muslo', [-80, 0, 4]), sim('brazo', [28, 0, 14]))
+
+// ── FITBALL Y TACO TUMBADO BOCA ARRIBA ───────────────────────────────────────
+// Vídeos «Flexo-extensión de rodilla con pies sobre fitball», «… con extensión de
+// cadera», «Extensión de cadera con pies sobre el fitball», «Flexión de cadera con pies
+// sobre fitball» y «Extensión de cadera unilateral con talón sobre taco ISO».
+const fitballSupino: Movimiento = {
+  id: 'fitball_supino', nombre: 'Tumbado con fitball o taco',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['flexo_rodilla', 'Flexo-extensión de rodillas (cadera en el suelo)'], ['curl', 'Flexo-extensión con la cadera arriba'], ['puente', 'Puente con los pies en el fitball'], ['elevar_pierna', 'Elevar una pierna estirada'], ['taco_iso', 'Puente a una pierna, talón en taco (isométrico)']] },
+    LADO,
+  ],
+  crear(p) {
+    const tipo = p.tipo || 'flexo_rodilla'
+    const recto = une(SUPINO, BRAZOS_SUELO, sim('muslo', [-20, 0, 2]))
+    const doblado = une(SUPINO, BRAZOS_SUELO, sim('muslo', [-62, 0, 4]), sim('pierna', [82, 0, 0]), sim('pie', [-10, 0, 0]))
+    const bola: Prop = { tipo: 'fitball', entre: ['pieD', 'pieI'], off: [0, -12, 3] }
+    let claves: Clave[], apoyo: Apoyo, props: Prop[] = [bola], mus: [string, string][]
+    if (tipo === 'flexo_rodilla') {
+      claves = rep(recto, doblado, '⬅️ Lleva el balón hacia ti doblando las rodillas', '➡️ Estira despacio')
+      apoyo = { a: ['cadera'], aY: 8 }; mus = [['isquios', 'Isquiotibiales'], ['core', 'Core']]
+    } else if (tipo === 'curl' || tipo === 'puente') {
+      const arriba = une(SUPINO, BRAZOS_SUELO, sim('muslo', [0, 0, 2]))
+      const abajo = tipo === 'curl' ? une(SUPINO, BRAZOS_SUELO, sim('muslo', [-48, 0, 4]), sim('pierna', [96, 0, 0]), sim('pie', [-10, 0, 0])) : une(recto, sim('muslo', [-34, 0, 2]))
+      claves = rep(abajo, arriba, tipo === 'curl' ? '⬆️ Sube la cadera estirando las piernas' : '⬆️ Sube la cadera', '⬇️ Baja despacio')
+      apoyo = { a: ['brazoD', 'brazoI'], aY: 4, b: ['pieD', 'pieI'], bY: 22 }; mus = [['isquios', 'Isquiotibiales'], ['gluteo', 'Glúteo mayor'], ['core', 'Core']]
+    } else if (tipo === 'elevar_pierna') {
+      claves = rep(recto, une(recto, { musloI: [-88, 0, -2] }), '⬆️ Sube la pierna estirada', '⬇️ Bájala sin tocar el balón')
+      apoyo = { a: ['cadera'], aY: 8 }; props = [{ tipo: 'fitball', en: 'pieD', off: [0, -12, 3] }]; mus = [['cuadriceps', 'Psoas y recto femoral'], ['core', 'Core']]
+    } else {
+      const iso = une(SUPINO, BRAZOS_SUELO, { musloD: [-26, 0, 3], piernaD: [56, 0, 0], pieD: [-30, 0, 0], musloI: [-26, 0, -3] })
+      claves = aguanta(iso, '⏸️ Cadera arriba, empuja con el talón')
+      apoyo = { a: ['brazoD', 'brazoI'], aY: 4, b: ['pieD'], bY: 9 }; props = [{ tipo: 'taco', bajo: 'pieD', clave: 0, hueco: 3 }]
+      mus = [['isquios', 'Isquiotibiales'], ['gluteo', 'Glúteo mayor']]
+    }
+    return { dur: tipo === 'taco_iso' ? 4 : 3.4, claves: conLado(claves, p), apoyo: { ...apoyo, a: conLadoH(apoyo.a, p), b: apoyo.b ? conLadoH(apoyo.b, p) : undefined },
+      suelo: true, cam: { alto: 22, dist: 220, y: 14 }, props: conLadoProps(props, p), musculos: mus }
+  },
+}
+
+// ── SENTADO EN EL SUELO, PIERNAS ESTIRADAS ───────────────────────────────────
+// Vídeos «Flexo-extensión de rodilla con goma», «… con pie sobre deslizador» e
+// «Hiperextensión de rodilla con pie sobre taco».
+const sentadoSuelo: Movimiento = {
+  id: 'sentado_suelo', nombre: 'Rodilla sentado en el suelo',
+  params: [{ id: 'tipo', nombre: 'Tipo', opciones: [['goma', 'Flexo-extensión con goma en el pie'], ['deslizador', 'Deslizar el talón hacia ti'], ['taco', 'Talón en taco, apretar la rodilla abajo']] }, LADO],
+  crear(p) {
+    const tipo = p.tipo || 'goma'
+    const base = une(SENTADO_SUELO, { musloI: [-80, 0, -4] })
+    let claves: Clave[], props: Prop[] = [], mus: [string, string][]
+    if (tipo === 'goma') {
+      const manos = une(sim('brazo', [-40, 0, 8]), sim('antebrazo', [-80, 0, 0]))
+      claves = rep(une(base, manos, { musloD: [-80, 0, 4] }), une(base, manos, { musloD: [-122, 0, 4], piernaD: [96, 0, 0] }), '⬅️ Dobla la rodilla tirando de la goma', '➡️ Estira empujando la goma')
+      props = [{ tipo: 'banda', entre: ['manoD', 'pieD'], off: [0, 0, 0] }]; mus = [['cuadriceps', 'Cuádriceps'], ['isquios', 'Isquiotibiales']]
+    } else if (tipo === 'deslizador') {
+      claves = rep(une(base, { musloD: [-80, 0, 4] }), une(base, { musloD: [-128, 0, 4], piernaD: [110, 0, 0], pieD: [-12, 0, 0] }), '⬅️ Desliza el talón hacia el glúteo', '➡️ Estira despacio')
+      props = [{ tipo: 'deslizador', en: 'pieD', off: [0, -2, -3], rot: [90, 0, 0] }]; mus = [['isquios', 'Isquiotibiales'], ['cuadriceps', 'Cuádriceps']]
+    } else {
+      const iso = une(base, { musloD: [-84, 0, 4], piernaD: [-4, 0, 0], pieD: [-14, 0, 0] })
+      claves = aguanta(iso, '⏸️ Aprieta la rodilla hacia el suelo')
+      props = [{ tipo: 'taco', bajo: 'pieD', clave: 0, hueco: 3 }]; mus = [['cuadriceps', 'Cuádriceps']]
+    }
+    return { dur: 3.2, claves: conLado(claves, p), apoyo: { a: ['cadera'], aY: 7 }, suelo: true, cam: { alto: 16, dist: 220, y: 16 }, props: conLadoProps(props, p), musculos: mus }
+  },
+}
+
+// ── GOMA TUMBADO, PIERNA ARRIBA ──────────────────────────────────────────────
+// Vídeo «Flexo-extensión de rodilla con goma supino».
+const supinoGoma: Movimiento = {
+  id: 'supino_goma', nombre: 'Rodilla tumbado con goma',
+  params: [LADO],
+  crear(p) {
+    const manos = une(sim('brazo', [-70, 0, 6]), sim('antebrazo', [-50, 0, 0]))
+    const estirada = une(SUPINO, manos, { musloD: [-84, 0, 2], piernaD: [2, 0, 0] })
+    const doblada = une(SUPINO, manos, { musloD: [-96, 0, 2], piernaD: [90, 0, 0] })
+    return {
+      dur: 3.2, claves: conLado(rep(doblada, estirada, '⬆️ Estira la rodilla contra la goma', '⬇️ Dobla despacio'), p),
+      apoyo: { a: ['cadera'], aY: 8 }, suelo: true, cam: { alto: 18, dist: 220, y: 16 },
+      props: conLadoProps([{ tipo: 'banda', entre: ['manoD', 'pieD'] }], p), musculos: [['cuadriceps', 'Cuádriceps'], ['isquios', 'Isquiotibiales']],
+    }
+  },
+}
+
+// ── EXTENSIÓN DE RODILLA CON FITBALL EN LA PARED ─────────────────────────────
+// Vídeo «Extensión de rodilla con fitball»: de pie, el fitball entre la parte de atrás
+// de la rodilla y la pared; se estira la rodilla aplastando el balón.
+const rodillaFitballPared: Movimiento = {
+  id: 'rodilla_fitball_pared', nombre: 'Extensión de rodilla con fitball en la pared',
+  params: [LADO],
+  crear(p) {
+    const manos = une(sim('brazo', [14, 0, 34]), sim('antebrazo', [-104, 0, -30]))
+    const doblada = une(manos, { musloD: [-14, 0, 3], piernaD: [24, 0, 0], pieD: [-10, 0, 0] })
+    const estirada = une(manos, { musloD: [-2, 0, 3], piernaD: [0, 0, 0] })
+    return {
+      dur: 3, claves: conLado(rep(doblada, estirada, '⬅️ Estira la rodilla aplastando el balón', '➡️ Suelta despacio', .15), p),
+      apoyo: { a: conLadoH(['pieI'], p) }, cam: CAM_PIE,
+      props: conLadoProps([{ tipo: 'fitball', bajo: 'piernaD', clave: 0, hueco: 0, off: [0, 0, -15] }, { tipo: 'pared', bajo: 'pieD', clave: 0, off: [0, 0, -29] }], p),
+      musculos: [['cuadriceps', 'Cuádriceps (vasto interno)']],
+    }
+  },
+}
+
+// ── DE RODILLAS: FLEXIÓN COMPLETA ────────────────────────────────────────────
+// Vídeo «Flexión completa de rodillas sobre rodillas»: de rodillas erguido, se sienta
+// hacia los talones y vuelve a subir.
+const arrodillado: Movimiento = {
+  id: 'arrodillado', nombre: 'Flexión de rodillas de rodillas',
+  params: [],
+  crear() {
+    const alto = une(sim('muslo', [0, 0, 4]), sim('pierna', [92, 0, 0]), sim('pie', [60, 0, 0]), sim('brazo', [-10, 0, 8]))
+    const sentado = une({ raiz: [24, 0, 0], cabeza: [-16, 0, 0] }, sim('muslo', [-104, 0, 6]), sim('pierna', [164, 0, 0]), sim('pie', [60, 0, 0]), sim('brazo', [-30, 0, 8]))
+    return {
+      dur: 3.6, claves: rep(alto, sentado, '⬇️ Siéntate hacia los talones', '⬆️ Sube hasta quedar de rodillas', .12),
+      apoyo: { a: ['piernaD', 'piernaI'], aY: 3 }, suelo: true, cam: { alto: 10, dist: 230, y: 26 },
+      musculos: [['cuadriceps', 'Cuádriceps'], ['gluteo', 'Glúteo']],
+    }
+  },
+}
+
+// ── BALÓN O RUEDA EN LA PARED ────────────────────────────────────────────────
+// Vídeos «Retracción escapular con abducción / con rotación externa de hombro con balón
+// en pared» (espalda a la pared), «Flexión de hombro con protección escapular con balón»
+// y «Flexión de hombro con rueda» (de cara a la pared).
+const balonPared: Movimiento = {
+  id: 'balon_pared', nombre: 'Balón o rueda en la pared',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['abduccion', 'Retracción con brazos en cruz (espalda a la pared)'], ['rotacion_externa', 'Retracción con brazos a 90/90 (espalda a la pared)'], ['flexion', 'Subir el brazo por la pared (de cara)']] },
+    { id: 'objeto', nombre: 'Objeto', opciones: [['balon', 'Balón'], ['rueda', 'Rueda']] },
+    LADO,
+  ],
+  crear(p) {
+    const tipo = p.tipo || 'abduccion'
+    let claves: Clave[], props: Prop[], mus: [string, string][] = [['trapecio', 'Trapecio medio e inferior'], ['deltoides', 'Deltoides']]
+    if (tipo === 'flexion') {
+      const otro: Pose = { brazoI: [0, 0, -8] }
+      claves = rep(une(otro, { brazoD: [-84, 0, 4], antebrazoD: [-6, 0, 0] }), une(otro, { brazoD: [-164, 0, 4], antebrazoD: [-4, 0, 0] }), '⬆️ Sube rodando por la pared', '⬇️ Baja despacio', .12)
+      props = [p.objeto === 'rueda' ? { tipo: 'aro', en: 'manoD', off: [0, -2, 4], rot: [0, 90, 0] } : { tipo: 'balon', en: 'manoD', off: [0, -3, 6] }, { tipo: 'pared', bajo: 'pieD', clave: 0, off: [-9, 0, 30], rot: [0, 180, 0] }]
+    } else {
+      const ab = tipo === 'abduccion'
+      const brazos = (k: number): Pose => ab ? une(sim('brazo', [k, 0, 86]), sim('antebrazo', [-4, 0, 0])) : une(sim('brazo', [-90 + k, 0, 86]), sim('antebrazo', [-90, 0, 0]))
+      claves = [{ t: 0, fase: '⬅️ Empuja los balones contra la pared juntando escápulas', p: brazos(0) }, { t: .35, p: brazos(8) }, { t: .65, fase: '😮‍💨 Suelta sin bajar los brazos', p: brazos(8) }, { t: 1, p: brazos(0) }]
+      props = [{ tipo: 'balon', en: 'manoD', off: [0, -3, -6] }, { tipo: 'balon', en: 'manoI', off: [0, -3, -6] }, { tipo: 'pared', bajo: 'pecho', clave: 0, off: [0, 0, -12] }]
+    }
+    return {
+      dur: 3.4, claves: conLado(claves, p), apoyo: DOS_PIES, cam: { ...CAM_PIE, y: 52 }, props: conLadoProps(props, p), musculos: mus,
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(fitballSupino, sentadoSuelo, supinoGoma, rodillaFitballPared, arrodillado, balonPared)
+
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
   if (ladoDe(p) === 'D') return props

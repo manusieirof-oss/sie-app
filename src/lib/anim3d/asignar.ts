@@ -127,6 +127,22 @@ const REGLAS: Regla[] = [
   [/^apretar (el |la )?(aro|pelota) con (las )?rodillas/, n => ({ mov: 'cadera_sentado', p: { tipo: 'aduccion', objeto: tiene(n, /aro/) ? 'aro' : 'pelota' } })],
   [/^flexion de cadera sentado con goma/, () => ({ mov: 'cadera_sentado', p: { tipo: 'flexion' } })],
   [/^apretar (el )?aro con las manos/, () => ({ mov: 'aro_manos', p: {} })],
+  // ── Tanda 2 de vídeos (fitball, taco, goma y deslizador en el suelo, pared) ──
+  [/^flexo.extension de rodilla con pies sobre fitball/, () => ({ mov: 'fitball_supino', p: { tipo: 'flexo_rodilla' } })],
+  [/^flexo.extension de rodilla con extension de cadera y pies sobre fitball/, () => ({ mov: 'fitball_supino', p: { tipo: 'curl' } })],
+  [/^extension de cadera con pies sobre (el )?fitball/, () => ({ mov: 'fitball_supino', p: { tipo: 'puente' } })],
+  [/^flexion de cadera con pies sobre fitball/, () => ({ mov: 'fitball_supino', p: { tipo: 'elevar_pierna' } })],
+  [/^extension de cadera unilateral con talon sobre taco/, () => ({ mov: 'fitball_supino', p: { tipo: 'taco_iso' } })],
+  [/^flexo.extension de rodilla con goma supino/, () => ({ mov: 'supino_goma', p: {} })],
+  [/^flexo.extension de rodilla con goma$/, () => ({ mov: 'sentado_suelo', p: { tipo: 'goma' } })],
+  [/^flexo.extension de rodilla con pie sobre deslizador/, () => ({ mov: 'sentado_suelo', p: { tipo: 'deslizador' } })],
+  [/^hiperextension de rodilla con pie sobre taco/, () => ({ mov: 'sentado_suelo', p: { tipo: 'taco' } })],
+  [/^extension de rodilla con fitball/, () => ({ mov: 'rodilla_fitball_pared', p: {} })],
+  [/^flexion completa de rodillas/, () => ({ mov: 'arrodillado', p: {} })],
+  [/^retraccion escapular con abduccion de hombro con balon/, () => ({ mov: 'balon_pared', p: { tipo: 'abduccion' } })],
+  [/^retraccion escapular con rotacion externa de hombro con balon/, () => ({ mov: 'balon_pared', p: { tipo: 'rotacion_externa' } })],
+  [/^flexion de hombro con proteccion escapular con balon/, () => ({ mov: 'balon_pared', p: { tipo: 'flexion', objeto: 'balon' } })],
+  [/^flexion de hombro con rueda/, () => ({ mov: 'balon_pared', p: { tipo: 'flexion', objeto: 'rueda' } })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */

@@ -34,7 +34,7 @@ export interface Apoyo {
 
 export type TipoProp =
   | 'banco' | 'cajon' | 'silla' | 'pared' | 'esterilla'
-  | 'mancuerna' | 'kettlebell' | 'disco' | 'barra' | 'deslizador' | 'cuna' | 'pelota' | 'banda' | 'baston' | 'camilla' | 'aro'
+  | 'mancuerna' | 'kettlebell' | 'disco' | 'barra' | 'deslizador' | 'cuna' | 'pelota' | 'banda' | 'baston' | 'camilla' | 'aro' | 'fitball' | 'balon' | 'taco'
 
 /**
  * Material y mobiliario.
