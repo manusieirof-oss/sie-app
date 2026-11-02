@@ -883,6 +883,80 @@ const saltos: Movimiento = {
 const MOVIMIENTOS_MAS: Movimiento[] = [remo, curl, talones, elevacionBrazos, triceps, pressBanca, planchaFrontal, planchaLateral, crunch,
   subidaCajon, marchaLateral, facePull, rotacionHombro, abduccionPie, flexiones, pajaro, swing, gatoCamello, brazosAsistida, marcha, unaPierna, saltos]
 
+// ════════════════════════════════════════════════════════════════════════════
+// SACADOS DE LOS VÍDEOS DE LA CLÍNICA (noviembre 2026): mismas posturas, mismo ritmo.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── ESCALADORES CON DESLIZADORES ─────────────────────────────────────────────
+// Vídeo «Escaladores 2 piernas»: plancha alta con los pies sobre deslizadores; las
+// dos rodillas van juntas al pecho (la cadera sube) y vuelven a plancha. ~2 s por rep.
+const escaladores: Movimiento = {
+  id: 'escaladores', nombre: 'Escaladores',
+  params: [
+    { id: 'piernas', nombre: 'Piernas', opciones: [['juntas', 'Las dos a la vez (deslizadores)'], ['alternas', 'Alternando']] },
+    { id: 'deslizadores', nombre: 'Deslizadores', opciones: [['si', 'Sí'], ['no', 'No']] },
+  ],
+  crear(p) {
+    const plancha = une(PLANCHA, sim('brazo', [-84, 0, 6]), sim('mano', [-84, 0, 0]), sim('pie', [10, 0, 0]))
+    const recogeD: Pose = { musloD: [-92, 0, 4], piernaD: [112, 0, 0], pieD: [-6, 0, 0] }
+    const recogeI: Pose = { musloI: [-92, 0, -4], piernaI: [112, 0, 0], pieI: [-6, 0, 0] }
+    const juntas = (p.piernas || 'juntas') === 'juntas'
+    const claves: Clave[] = juntas
+      ? rep(plancha, une(plancha, recogeD, recogeI, { lumbar: [14, 0, 0], pecho: [6, 0, 0] }), '⬅️ Lleva las rodillas al pecho deslizando', '➡️ Estira hasta la plancha', .06)
+      : alterna(plancha, recogeD, recogeI, '⬅️ Rodilla al pecho', '⬅️ Ahora la otra')
+    return {
+      dur: juntas ? 2.2 : 1.6, claves, suelo: true, cam: { alto: 16, dist: 230, y: 18 },
+      // Las manos no se mueven; el cuerpo se inclina lo justo para que los pies sigan en el suelo.
+      apoyo: { a: ['manoD', 'manoI'], aY: 2.2, b: ['pieD', 'pieI'], bY: 6 },
+      props: p.deslizadores === 'no' ? [] : [{ tipo: 'deslizador', en: 'pieD', off: [0, -3, 9], rot: [90, 0, 0] }, { tipo: 'deslizador', en: 'pieI', off: [0, -3, 9], rot: [90, 0, 0] }],
+      musculos: [['core', 'Core'], ['deltoides', 'Hombros'], ['cuadriceps', 'Flexores de cadera'], ['pectoral', 'Pectoral']],
+    }
+  },
+}
+
+// ── ROTACIÓN DE CADERA SENTADO ───────────────────────────────────────────────
+// Vídeo «Rotación interna de cadera sentado con pelota»: sentado en el cajón, pelota
+// entre las rodillas (no se mueven) y los pies se abren hacia fuera y vuelven.
+const rotacionCaderaSentado: Movimiento = {
+  id: 'rotacion_cadera_sentado', nombre: 'Rotación de cadera sentado',
+  params: [
+    { id: 'tipo', nombre: 'Tipo', opciones: [['interna', 'Interna (pies hacia fuera)'], ['externa', 'Externa (pies hacia dentro)']] },
+    { id: 'pelota', nombre: 'Pelota entre rodillas', opciones: [['si', 'Sí'], ['no', 'No']] },
+  ],
+  crear(p) {
+    const int = (p.tipo || 'interna') === 'interna'
+    const base = une(sim('muslo', [-86, 0, 8]), sim('pierna', [84, 0, 0]), sim('brazo', [-34, 0, 4]), sim('antebrazo', [-22, 0, 0]))
+    const gira = une(base, sim('muslo', [-86, int ? -34 : 26, 8]))
+    return {
+      dur: 3, claves: rep(base, gira, int ? '↔️ Abre los pies, rodillas quietas' : '↔️ Cruza los pies, rodillas quietas', '⬅️ Vuelve despacio', .12),
+      apoyo: { a: ['cadera'], aY: 52 }, cam: { alto: 10, dist: 270, y: 58 },
+      props: [{ tipo: 'cajon', bajo: 'cadera', clave: 0, hueco: 9, alto: 43, ancho: 50 }, ...(p.pelota === 'no' ? [] : [{ tipo: 'pelota', entre: ['piernaD', 'piernaI'], off: [0, 1, 4] } as Prop])],
+      musculos: [['gluteo', 'Rotadores de cadera'], ['aductores', 'Aductores']],
+    }
+  },
+}
+
+// ── FLEXOR DE CADERA CON PIE EN EL CAJÓN ─────────────────────────────────────
+// Foto «Flexión de cadera sobre cajón»: pie de delante en el cajón, la pierna de atrás
+// estirada, manos en la rodilla; la cadera se lleva adelante para estirar la de atrás.
+const flexorCajon: Movimiento = {
+  id: 'flexor_cajon', nombre: 'Flexor de cadera con pie en el cajón',
+  params: [LADO],
+  crear(p) {
+    const brazos = une(sim('brazo', [-40, 0, -4]), sim('antebrazo', [-22, 0, 0]))
+    const ini = une(brazos, { raiz: [6, 0, 0], cabeza: [-6, 0, 0], musloD: [-96, 0, 4], piernaD: [104, 0, 0], pieD: [-14, 0, 0], musloI: [30, 0, -3], piernaI: [6, 0, 0], pieI: [-42, 0, 0] })
+    const fin = une(ini, { raiz: [10, 0, 0], musloD: [-112, 0, 4], piernaD: [110, 0, 0], pieD: [-8, 0, 0], musloI: [40, 0, -3], piernaI: [2, 0, 0], pieI: [-52, 0, 0] })
+    return {
+      dur: 4, claves: conLado(rep(ini, fin, '➡️ Lleva la cadera adelante', '⏸️ Nota el estiramiento delante de la cadera de atrás', .2), p),
+      apoyo: { a: conLadoH(['pieI'], p) }, cam: CAM_PIE,
+      props: conLadoProps([{ tipo: 'cajon', bajo: 'pieD', clave: 0, hueco: 4, alto: 40, ancho: 40, off: [0, 0, 6] }], p),
+      musculos: [['cuadriceps', 'Psoas y recto femoral'], ['gluteo', 'Glúteo']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(escaladores, rotacionCaderaSentado, flexorCajon)
+
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
   if (ladoDe(p) === 'D') return props

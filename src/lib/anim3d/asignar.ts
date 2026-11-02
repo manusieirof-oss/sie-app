@@ -113,6 +113,10 @@ const REGLAS: Regla[] = [
   [/^elevacion de rodilla con banda/, (_, v) => tiene(v, /sentado|tumbado/) ? null : ({ mov: 'una_pierna', p: { tipo: 'rodilla' } })],
   // ── Saltos ──
   [/^saltos suaves en el sitio/, (_, v) => tiene(v, /talones/) ? null : ({ mov: 'saltos', p: { piernas: tiene(v, /una pierna/) ? 'una' : 'dos' } })],
+  // ── Sacados de los vídeos de la clínica ──
+  [/^escaladores/, (_, v) => ({ mov: 'escaladores', p: { piernas: tiene(v, /altern/) ? 'alternas' : 'juntas', deslizadores: tiene(v, /sin deslizador/) ? 'no' : 'si' } })],
+  [/^rotacion (interna|externa) de cadera sentado/, (n, v) => ({ mov: 'rotacion_cadera_sentado', p: { tipo: tiene(n, /externa/) ? 'externa' : 'interna', pelota: tiene(n + ' ' + v, /pelota/) ? 'si' : 'no' } })],
+  [/^(flexion de cadera sobre cajon|estiramiento psoas en cajon)/, () => ({ mov: 'flexor_cajon', p: {} })],
 ]
 
 /** Lo que propone el nombre (base + variante), o null si no hay animación fiel. */
