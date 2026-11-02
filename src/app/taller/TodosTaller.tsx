@@ -5,7 +5,7 @@ import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
 import { itemMarcado } from '@/lib/ejecucion'
-import { camposSerie, UNIDAD } from '@/lib/medida'
+import { camposSerie, partesMedida, UNIDAD } from '@/lib/medida'
 import { pedirFoto } from '@/lib/fotos'
 import { textoModo } from '@/lib/sesiones'
 
@@ -88,7 +88,18 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
 
   const s0 = (pid: string) => seleccion.find(s => s.paciente.id === pid)
   const hechaSerie = (e: any, si: number) => Object.keys(e.hoy || {}).some(k => k.startsWith(si + '.'))
-  const campos = (e: any) => camposSerie(e.tipo_medida, { isometrico: ejecucionPorTiempo(cfgT, e.regimen || e.plan?.regimen) && !(e.series?.[0]?.reps) })
+  /* MISMA REGLA QUE LA TARJETA (CasillaSeries): al marcarlo isometrico pasa a segundos
+     aunque las series de la ultima vez trajeran reps; y quita los kg si no lleva peso.
+     Antes aqui se quedaba en reps y no se veia el cambio en la vista Todos. */
+  const campos = (e: any) => {
+    const base = e.tipo_medida || 'peso_reps'
+    const iso = ejecucionPorTiempo(cfgT, String(e.regimen || e.plan?.regimen || '').toLowerCase())
+    let c = camposSerie(base, { isometrico: iso })
+    const conCarga = (e.plan?.peso != null && String(e.plan.peso) !== '') || base === 'peso_tiempo'
+      || (e.series || []).some((x: any) => x?.peso != null && String(x.peso) !== '')
+    if (iso && partesMedida(base).carga === 'kg' && !conCarga) c = c.filter(x => x !== 'peso')
+    return c
+  }
 
   /** Lo que se ve en la casilla: "16 kg × 10", "40 s"… */
   const textoSerie = (e: any, x: any) => campos(e).map(c => {
