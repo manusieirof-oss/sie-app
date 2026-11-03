@@ -75,10 +75,9 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     if (!encargo) return
     const r = await asignarSesionYVolver(ses, encargo)
     if (!r.ok) { alert('No se ha podido traer: ' + r.error); return }
-    // La sesión SÍ está puesta; lo que ha fallado es dejar constancia del cambio. Se
-    // dice, porque si no el motivo se pierde y nadie se entera.
-    if (r.avisoRegistro) alert('La sesión está puesta, pero no se ha podido registrar el motivo del cambio:\n\n' + r.avisoRegistro)
-    routerAsig.push(encargo.volver)
+    // Con cita, la sesión ya es del paciente y la pone el calendario (r.ir), que es
+    // también quien apunta el motivo si es un cambio en la sala.
+    routerAsig.push(r.ir || encargo.volver)
   }
 
   /**

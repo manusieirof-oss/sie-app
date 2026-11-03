@@ -7,6 +7,8 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { cargarSistema, sistemasDePaciente, tramos } from '@/lib/sistemas'
 import { registrarSesion } from '@/lib/sesiones'
+import { encargoDe, type Encargo } from '@/lib/asignarCita'
+import { registrarCambio } from '@/lib/cambioSesion'
 import { abrirEvaluacion, moverEvaluacion } from '@/lib/evaluaciones'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import PiezaTorno, { FilaPieza } from './PiezaTorno'
@@ -81,6 +83,13 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
    * pincel, sí se pueden cambiar: tocar una cita concreta es querer cambiarla.
    */
   const [fijas, setFijas] = useState<Set<string>>(new Set())
+  /**
+   * EL ENCARGO: se llega desde la agenda o el taller a poner la sesión de UNA cita.
+   * Esa cita sale marcada y, si viene sesión elegida (de la biblioteca), ya puesta.
+   * Al confirmar se vuelve a donde se estaba, y si era un cambio en la sala se apunta
+   * el motivo, que se preguntó allí antes de salir.
+   */
+  const [encargo, setEncargo] = useState<Encargo | null>(null)
   /**
    * LO QUE SE VE = lo que ya tenía + lo último pintado + lo tocado a mano.
    * Antes "Pintar" escribía encima del plan, así que la segunda vez partía de la
@@ -228,6 +237,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     const primera = lista.find(x => x.id === pedida) || lista[0]
     setRot(primera ? [primera.id] : [])
     setPincel(primera?.id || null)
+    const enc = encargoDe(new URLSearchParams(sp.toString()))
+    setEncargo(enc)
+    setAMano(enc?.citaId && primera && pedida === primera.id && (cs || []).some((c: any) => c.id === enc.citaId)
+      ? { [enc.citaId]: primera.id } : {})
 
     // Lo que ya tienen sus citas: si es de las nuestras sale en su color; si es otra,
     // en gris con su nombre, y no se pisa salvo que se diga.
@@ -320,6 +333,20 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       if (r.ok === false) { falla('Una evaluación: ' + r.error); return }
     }
     if (cambios.length > 0) await registrarSesion(pid, `Sesiones puestas en ${cambios.length} cita${cambios.length === 1 ? '' : 's'}`, 'Desde el torno')
+    // Cambio en la sala: el motivo viene del taller. Solo si de verdad ha cambiado.
+    if (encargo?.citaId && encargo.motivo && cambios.some(c => c.id === encargo.citaId)) {
+      const nueva = plan[encargo.citaId] || null
+      if (nueva !== (encargo.antesId || null)) {
+        const r = await registrarCambio({ citaId: encargo.citaId, pacienteId: pid,
+          antesId: encargo.antesId, antesNombre: encargo.antesNombre,
+          despuesId: nueva, despuesNombre: nueva ? (sesDe(nueva)?.nombre || otras[nueva] || null) : null,
+          motivo: encargo.motivo, nota: encargo.nota })
+        // La sesión ya está puesta: no se deshace por no poder apuntar el motivo. Se avisa.
+        if (!r.ok) alert('La sesión está puesta, pero no se ha podido registrar el motivo del cambio:\n\n' + r.error)
+      }
+    }
+    // Con encargo se vuelve directo: en la sala no hay tiempo para la animación.
+    if (encargo) { setGuardando(false); router.push(encargo.volver); return }
     await new Promise(res => setTimeout(res, Math.max(0, 1600 - (Date.now() - t0))))
     setGuardando(false)
     setPieza(p => p && { ...p, estado: 'lista' })
@@ -399,10 +426,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       `}</style>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <button className="btn btn-t btn-sm" onClick={() => router.push(`/pacientes/${pid}?tab=entreno`)}>Ahora no</button>
+        <button className="btn btn-t btn-sm" onClick={() => router.push(encargo?.volver || `/pacientes/${pid}?tab=entreno`)}>Ahora no</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 17 }}>{nombre || '…'}</div>
           <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Ponerlo en sus citas</div>
+          {encargo?.citaId && (
+            <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 2 }}>
+              La cita de {encargo.etiqueta || 'hoy'} va marcada con un borde negro. Elige sesión, tócala y confirma.
+            </div>
+          )}
         </div>
         <div style={{ width: 80 }}/>
       </div>
@@ -573,7 +605,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   // Eligiendo una evaluación: las citas de su fase se iluminan con el
                                   // color del ciclo y las de fuera se apagan.
                                   opacity: !ev || deSuFase ? 1 : fueraEv ? .2 : .4,
-                                  boxShadow: deSuFase ? `0 0 0 2px ${ev!.color}` : 'none' }}>
+                                  boxShadow: deSuFase ? `0 0 0 2px ${ev!.color}` : c.id === encargo?.citaId ? '0 0 0 2px var(--n)' : 'none' }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
                                 {sid && fijas.has(sid) && (
                                   <span title="Con candado: repartir no la mueve. A mano sí se puede cambiar." style={{ marginLeft: 3 }}>

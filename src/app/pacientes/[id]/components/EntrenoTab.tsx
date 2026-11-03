@@ -100,8 +100,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     if (!encargo) return
     const r = await asignarSesionYVolver(ses, encargo)
     if (!r.ok) { alert('No se ha podido asignar: ' + r.error); return }
-    if (r.avisoRegistro) alert('La sesión está puesta, pero no se ha podido registrar el motivo del cambio:\n\n' + r.avisoRegistro)
-    routerAsig.push(encargo.volver)
+    // Con cita, la pone el calendario (r.ir); sin cita, ya está traída y se vuelve.
+    routerAsig.push(r.ir || encargo.volver)
   }
   const [nEjecuciones, setNEjecuciones] = useState(0)
   const [objPaciente, setObjPaciente] = useState<any[]>([])

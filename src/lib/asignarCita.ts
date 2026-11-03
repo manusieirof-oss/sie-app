@@ -1,6 +1,4 @@
-import { supabase } from './supabase'
 import { duplicarSesion } from './sesiones'
-import { registrarCambio } from './cambioSesion'
 
 /**
  * Traer una sesión de otra pantalla. UN SOLO MECANISMO.
@@ -57,14 +55,25 @@ const P_ANTES_N = 'cambia_de_n'
 const P_MOTIVO = 'cambia_por'
 const P_NOTA = 'cambia_nota'
 
-/** La dirección a la que mandar. `destino` es 'ficha' (las suyas) o 'biblioteca'. */
-export function rutaDeAsignacion(destino: 'ficha' | 'biblioteca', e: Encargo): string {
+/**
+ * La dirección a la que mandar. `destino` es 'ficha' (las suyas) o 'biblioteca'.
+ *
+ * CON CITA, "sus sesiones" ya no es la ficha: es el calendario de citas, la única
+ * pantalla que pone sesiones en citas (sabe de candados y de fases, y no guarda hasta
+ * Confirmar). La biblioteca sigue sirviendo para TRAER una sesión al paciente; la
+ * cita se la pone luego el calendario. Ver `asignarSesionYVolver`.
+ */
+export function rutaDeAsignacion(destino: 'ficha' | 'biblioteca', e: Encargo, pincel?: string): string {
   const q = new URLSearchParams({ [P_PAC]: e.pacienteId, [P_ETQ]: e.etiqueta, [P_VOLVER]: e.volver })
   if (e.citaId) q.set(P_CITA, e.citaId)
   if (e.antesId) q.set(P_ANTES, e.antesId)
   if (e.antesNombre) q.set(P_ANTES_N, e.antesNombre)
   if (e.motivo) q.set(P_MOTIVO, e.motivo)
   if (e.nota) q.set(P_NOTA, e.nota)
+  if (destino === 'ficha' && e.citaId) {
+    if (pincel) q.set('pincel', pincel)
+    return `/torno/${e.pacienteId}/citas?${q}`
+  }
   return destino === 'ficha'
     ? `/pacientes/${e.pacienteId}?tab=entreno&${q}`
     : `/entrenamiento?tab=sesiones&${q}`
@@ -73,7 +82,11 @@ export function rutaDeAsignacion(destino: 'ficha' | 'biblioteca', e: Encargo): s
 /** El encargo que trae la dirección actual. null en el uso normal. */
 export function encargoDeLaUrl(): Encargo | null {
   if (typeof window === 'undefined') return null
-  const p = new URLSearchParams(window.location.search)
+  return encargoDe(new URLSearchParams(window.location.search))
+}
+
+/** Lo mismo, desde unos parámetros ya leídos (useSearchParams en el calendario). */
+export function encargoDe(p: URLSearchParams): Encargo | null {
   const pacienteId = p.get(P_PAC)
   if (!pacienteId) return null
   return {
@@ -108,32 +121,12 @@ export async function asignarSesionYVolver(sesion: any, e: Encargo) {
     id = r.sesion.id
   }
 
-  if (e.citaId) {
-    const { error } = await supabase.from('citas').update({ sesion_id: id }).eq('id', e.citaId)
-    if (error) return { ok: false as const, error: error.message }
+  /**
+   * Con cita, la sesión ya es del paciente y quien la pone en la cita es el calendario,
+   * con ella ya elegida y la cita marcada: se confirma allí, y allí se apunta el motivo
+   * si es un cambio en la sala. Así hay una sola puerta que escribe citas.
+   */
+  if (e.citaId) return { ok: true as const, sesionId: id, ir: rutaDeAsignacion('ficha', e, id) }
 
-    /**
-     * Queda constancia del cambio, si es que ha habido cambio.
-     *
-     * Las dos condiciones importan. Sin `motivo` no es una sustitución en la sala, es una
-     * asignación normal —una cita que estaba vacía—, y eso no hay por qué justificarlo.
-     * Y si la sesión elegida resulta ser la que ya estaba, tampoco: se fue a mirar y se
-     * volvió con la misma. Registrar eso llenaría el historial de cambios que no lo son.
-     *
-     * El fallo aquí NO tumba la asignación. La sesión ya está puesta y el paciente está
-     * esperando; deshacerlo por no haber podido escribir el apunte sería cambiar un
-     * problema de registro por uno de sala. Se avisa y se sigue.
-     */
-    if (e.motivo && id !== e.antesId) {
-      const r = await registrarCambio({
-        citaId: e.citaId, pacienteId: e.pacienteId,
-        antesId: e.antesId, antesNombre: e.antesNombre,
-        despuesId: id, despuesNombre: sesion.nombre || null,
-        motivo: e.motivo, nota: e.nota,
-      })
-      if (!r.ok) return { ok: true as const, sesionId: id, avisoRegistro: r.error }
-    }
-  }
-
-  return { ok: true as const, sesionId: id }
+  return { ok: true as const, sesionId: id, ir: undefined as string | undefined }
 }

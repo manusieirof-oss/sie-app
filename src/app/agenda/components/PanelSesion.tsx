@@ -41,19 +41,12 @@ export default function PanelSesion({ panelPac, sesionDetalle, sesionesPaciente,
         <div style={{fontSize:11,fontWeight:400,color:'var(--n)'}}>Seleccionar sesión</div>
         <button className="btn btn-s btn-sm" onClick={()=>setMostrarSesiones(false)}>← Volver</button>
       </div>
-      {sesionesPaciente.length===0?(
-        <div style={{textAlign:'center',padding:'10px 0',color:'var(--grl)',fontSize:10}}>
-          Este paciente no tiene sesiones propias.
-        </div>
-      ):sesionesPaciente.map((s:any)=>(
-        <button key={s.id} onClick={()=>asignarSesion(s.id)}
-          style={{width:'100%',textAlign:'left',padding:'10px 12px',background:sesionDetalle?.id===s.id?'var(--gl)':'var(--bl)',borderRadius:7,border:`1.5px solid ${sesionDetalle?.id===s.id?'var(--g)':'var(--bd)'}`,marginBottom:6,cursor:'pointer',fontFamily:'system-ui',display:'block'}}>
-          <div style={{fontSize:11,fontWeight:400,color:'var(--n)',marginBottom:2}}>{s.nombre}</div>
-          {s.descripcion&&<div style={{fontSize:9,color:'var(--grl)',fontWeight:300}}>{s.descripcion}</div>}
-          <div style={{fontSize:9,color:'var(--grl)',marginTop:2}}>{(s.partes||[]).reduce((acc:number,p:any)=>acc+(p.ejercicios||[]).length,0)} ejercicios</div>
-          {sesionDetalle?.id===s.id&&<div style={{fontSize:9,color:'var(--g)',fontWeight:600,marginTop:3}}>✓ Asignada</div>}
-        </button>
-      ))}
+      {/* Ya no se elige aquí de una lista: poner sesiones en citas se hace siempre en
+          el calendario de citas, que respeta el candado de las de fuerza. "Sus sesiones"
+          lo abre con esta cita marcada; "Biblioteca" trae una nueva y luego lo abre. */}
+      <div style={{fontSize:10,color:'var(--grl)',lineHeight:1.5}}>
+        Se abre el calendario de sus citas con esta marcada. Al confirmar vuelves a la agenda.
+      </div>
       <BotonesFuera/>
     </div>
   )
