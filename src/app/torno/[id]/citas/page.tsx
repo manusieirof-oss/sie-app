@@ -76,6 +76,12 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   }, [abierto])
   const [otras, setOtras] = useState<Record<string, string>>({})
   /**
+   * LAS SESIONES CON CANDADO (fuerza en grupo). Repartir no las pisa nunca, ni con
+   * "pisar" marcado: eran las que se cargaba asignar desde la ficha. A mano, con el
+   * pincel, sí se pueden cambiar: tocar una cita concreta es querer cambiarla.
+   */
+  const [fijas, setFijas] = useState<Set<string>>(new Set())
+  /**
    * LO QUE SE VE = lo que ya tenía + lo último pintado + lo tocado a mano.
    * Antes "Pintar" escribía encima del plan, así que la segunda vez partía de la
    * primera y no se podía probar otra combinación. Ahora cada "Pintar" sale de lo
@@ -140,8 +146,32 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         if (s) lista.push({ id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
       })
     }
+    /**
+     * SIN NADA EN LA DIRECCIÓN: las sesiones del paciente.
+     *
+     * Esta pantalla es la única forma de poner sesiones en citas. Desde el torno llega
+     * con las que se acaban de programar; desde la ficha, la agenda o el taller llega
+     * sin ninguna, y entonces se ofrecen las que tiene el paciente (las finalizadas
+     * no, que ya dieron paso a otra).
+     */
+    if (!q.ses.length && !q.sis.length) {
+      const { data: ss } = await supabase.from('sesiones').select('*, sesiones_objetivos(objetivos(id,nombre,imagen_url))')
+        .eq('paciente_id', pid).order('created_at', { ascending: false })
+      ;(ss || []).filter((x: any) => !x.finalizada_en).forEach((x: any) => {
+        lista.push({ id: x.id, nombre: x.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: x.partes || [],
+          objs: (x.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
+      })
+    }
     setSesiones(lista)
     setCiclos(cics)
+
+    // Cuáles llevan candado, de las que se ofrecen y de las que ya están en sus citas.
+    // Sin la columna `fija` (falta el SQL) la consulta falla y ninguna lo lleva.
+    const idsF = Array.from(new Set([...lista.map(x => x.id), ...(cs || []).map((c: any) => c.sesion_id).filter(Boolean)]))
+    if (idsF.length) {
+      const { data: fj, error: efj } = await supabase.from('sesiones').select('id,fija').in('id', idsF)
+      setFijas(new Set(efj ? [] : (fj || []).filter((x: any) => x.fija).map((x: any) => x.id)))
+    }
 
     // LAS EVALUACIONES DE CADA FASE. Las que ya existen, en su cita; las que no,
     // propuestas: al empezar en la primera cita de la fase, al salir en la última (si la
@@ -233,6 +263,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       if (limite === 'hasta' && hasta && c.fecha > hasta) break
       if (limite === 'veces' && puestas >= veces) break
       if (c.id in aMano) continue
+      // Con candado: repartir no la toca nunca. Ver `fijas`.
+      if (original[c.id] && fijas.has(original[c.id]!)) continue
       const actual = nuevo[c.id]
       const libre = !actual || sesiones.some(s => s.id === actual) || pisar
       if (!libre) continue
@@ -539,6 +571,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   opacity: !ev || deSuFase ? 1 : fueraEv ? .2 : .4,
                                   boxShadow: deSuFase ? `0 0 0 2px ${ev!.color}` : 'none' }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
+                                {sid && fijas.has(sid) && (
+                                  <span title="Con candado: repartir no la mueve. A mano sí se puede cambiar." style={{ marginLeft: 3 }}>
+                                    <Ic name="candado" size={9}/></span>
+                                )}
                                 {evs.length > 0 && (
                                   <span className="tc-ev" title={evs.map(e => `${e.momento === 'inicial' ? 'Al empezar' : 'Al salir'} · ${e.faseNombre}`).join('\n')}
                                     style={{ color: evs[0].color }}><Ic name="test" size={10}/></span>
