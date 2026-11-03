@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Legend, Cell } from 'recharts'
 import { mesISO } from '@/lib/fechas'
 import { delMes, type Factura } from '@/lib/facturado'
-import { calcularImpuestos, rangoMes, rangoTrimestre } from '@/lib/impuestos'
+import { calcularImpuestos, costeDeGasto, rangoMes, rangoTrimestre } from '@/lib/impuestos'
 import { cuentaDelMes } from '@/lib/cuentaMes'
 import { antesDeCobrarConLaApp } from '@/lib/bonos'
 
@@ -144,7 +144,8 @@ export default function ResumenTab({ planes, gastos, bonos, bonosHist=[], mesRef
    */
   const gastosConfirmadosBase = gastosDelMes
     .filter((g: any) => !g.estimado)
-    .reduce((a: number, g: any) => a + Number(g.base_imponible ?? g.importe ?? 0), 0)
+    // costeDeGasto suma la Seguridad Social de empresa de las nóminas.
+    .reduce((a: number, g: any) => a + costeDeGasto(g), 0)
   const beneficioAntesImpuestos = (facturado.base + otrosIngresosBase) - gastosConfirmadosBase
   // El 130 sale de tu bolsillo, así que no es beneficio. El 303 ya está fuera
   // al medir sobre bases, y el 111 y el 115 viven dentro de la nómina y del

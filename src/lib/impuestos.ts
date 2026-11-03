@@ -30,6 +30,17 @@ export type Impuestos = {
 const dentro = (fecha: string | null | undefined, desde: string, hasta: string) =>
   !!fecha && fecha >= desde && fecha <= hasta
 
+/**
+ * LO QUE TE CUESTA UN GASTO, SIN IVA.
+ *
+ * En una nómina la base es el sueldo bruto, pero la Seguridad Social de
+ * empresa va en otra columna (ss_empresa) y también la pagas tú. Contando
+ * solo la base, el beneficio y el 130 salían unos 640 € al mes más altos con
+ * una nómina, y casi 900 € con dos. En el resto de gastos ss_empresa es 0.
+ */
+export const costeDeGasto = (g: any) =>
+  Number(g.base_imponible ?? g.importe ?? 0) + Number(g.ss_empresa || 0)
+
 export function calcularImpuestos(args: {
   facturas?: Factura[]
   ingresos?: any[]
@@ -81,7 +92,7 @@ export function calcularImpuestos(args: {
   // Desde la base, nunca restando del total: con retención el total ya lleva
   // el IRPF descontado y el IVA salía por los suelos.
   const ivaSoportado = gastosP.reduce((a, g) => a + Number(g.base_imponible || 0) * (Number(g.iva_pct || 0) / 100), 0)
-  const baseGastos = gastosP.reduce((a, g) => a + Number(g.base_imponible ?? g.importe ?? 0), 0)
+  const baseGastos = gastosP.reduce((a, g) => a + costeDeGasto(g), 0)
   const sinBase = gastosP.filter(g => g.base_imponible == null && Number(g.iva_pct || 0) > 0).length
 
   const modelo303 = ivaRepercutido - ivaSoportado
