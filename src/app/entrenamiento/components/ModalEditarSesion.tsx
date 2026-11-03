@@ -392,6 +392,16 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const objsSesion = objetivosSel.map(id => objetivosDisp.find((o: any) => o.id === id)).filter(Boolean)
   // Por id, no buscando en la lista: el cruce se hace para toda la biblioteca a la vez.
   const catPorId = useMemo(() => new Map(catalogo.map((e: any) => [e.id, e])), [catalogo])
+  /**
+   * LA FOTO SE MIRA EN LA BIBLIOTECA, NO EN LA SESIÓN.
+   *
+   * Al meter un ejercicio, la sesión se guarda una copia de su imagen_url. Si el
+   * ejercicio no tenía foto entonces, o se la cambiaste después, la sesión se quedaba
+   * para siempre con el hueco vacío o con la foto vieja. Ahora manda la biblioteca,
+   * y solo si allí no tiene foto se usa la que guardó la sesión.
+   */
+  const fotoDe = (ej: any): string =>
+    (catPorId.get(ej.ejercicio_id) as any)?.imagen_url || ej.imagen_url || ''
   const etiquetasDeEj = (ej: any) => ((catPorId.get(ej?.ejercicio_id) as any)?.etiquetas) || []
   // CRUCE ESTRICTO (lib/ejercicioObjetivos): mueve lo que pide el objetivo y admite lo que busca.
   const libDeEj = (ej: any) => catPorId.get(ej?.ejercicio_id) as any
@@ -1135,8 +1145,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           {['A','B','C','D','E'].map(g=><option key={g} value={g}>{g}</option>)}
                         </select>
                       )}
-                      {ej.imagen_url
-                        ? <img src={ej.imagen_url} alt={ej.nombre} className="ej-img"/>
+                      {fotoDe(ej)
+                        ? <img src={fotoDe(ej)} alt={ej.nombre} className="ej-img"/>
                         : <div className="ej-img ej-img-no"><Ic name="fuerza" size={26}/></div>}
                       {/* Nombre y variante centrados contra la foto, y el nombre parte
                           en varias líneas antes que estrujar la columna de datos. */}
@@ -1231,7 +1241,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           return (
                             <div className="ej-sub">
                               <SelectorVariante variantes={vars} valor={ej.variante||''}
-                                imagenBase={ej.imagen_url}
+                                imagenBase={catPorId.get(ej.ejercicio_id)?.imagen_url || ej.imagen_url}
                                 onElegir={v=>editarEjercicio(ei,{variante:v})}/>
                             </div>
                           )
