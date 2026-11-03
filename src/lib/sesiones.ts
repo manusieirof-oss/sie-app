@@ -205,7 +205,11 @@ export async function duplicarSesion(sesion: any, pacienteId: string, opciones?:
     nombre: (sesion.nombre || 'Sesión') + sufijo,
     descripcion: sesion.descripcion,
     evolucion_de: opciones?.evolucionDe || null,
-    plantilla_id: opciones?.plantillaId || null,
+    // EL MOLDE SE HEREDA. Si no se dice, la copia de una plantilla apunta a ella y la
+    // copia de una copia apunta al mismo molde. Sin esto, las sesiones traídas de la
+    // biblioteca desde la agenda o el taller quedaban sin enlace, y al poner el candado
+    // en la plantilla solo les llegaba a algunos pacientes.
+    plantilla_id: opciones?.plantillaId || (!sesion.paciente_id ? sesion.id : sesion.plantilla_id) || null,
     // COPIA, no referencia. `partes` es JSON y se guarda entero en la fila nueva, así
     // que a partir de aquí las dos sesiones son independientes: tocar la del paciente
     // no cambia la plantilla, y tocar la plantilla no cambia lo ya prescrito a nadie.

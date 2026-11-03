@@ -283,7 +283,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       // Con candado: repartir no la toca nunca. Ver `fijas`.
       if (original[c.id] && fijas.has(original[c.id]!)) continue
       const actual = nuevo[c.id]
-      const libre = !actual || sesiones.some(s => s.id === actual) || pisar
+      // Libre si está vacía o ya lleva una de las que se reparten. Antes valía cualquiera
+      // de la lista, y desde que la lista trae TODAS las del paciente, repartir pisaba
+      // sus otras sesiones aunque "pisar" estuviera sin marcar.
+      const libre = !actual || rot.includes(actual) || pisar
       if (!libre) continue
       // Cada N citas: se cuentan las que podrían llevarla, no las del calendario.
       if (paso++ % cada !== 0) continue
@@ -615,7 +618,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   <span className="tc-ev" title={evs.map(e => `${e.momento === 'inicial' ? 'Al empezar' : 'Al salir'} · ${e.faseNombre}`).join('\n')}
                                     style={{ color: evs[0].color }}><Ic name="test" size={10}/></span>
                                 )}
-                                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9.5, opacity: .9 }}>
+                                {/* El nombre entero, en varias líneas si hace falta: cortado con
+                                    "…" no se distinguían "Fuerza I" y "Fuerza II". */}
+                                <span style={{ display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere', fontSize: 9.5, opacity: .9 }}>
                                   {s ? s.nombre : ajena || ''}
                                 </span>
                               </button>
