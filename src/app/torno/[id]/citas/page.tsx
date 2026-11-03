@@ -417,7 +417,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-sq:hover { transform: scale(1.06) }
         .tc-sq-fotos { position:absolute; inset:0; border-radius:16px; overflow:hidden; display:grid; background:var(--bl) }
         .tc-sq-fotos img { width:100%; height:100%; object-fit:cover; display:block; min-width:0; min-height:0 }
-        .tc-sq-nom { position:absolute; left:0; right:0; bottom:0; padding:22px 6px 7px; font-size:11px; line-height:1.2; color:var(--n);
+        /* A la derecha deja sitio a la "i": encima tapaba el final del nombre y no se
+           distinguía "Alberto día 1" de "Alberto día 2". */
+        .tc-sq-nom { position:absolute; left:0; right:0; bottom:0; padding:22px 24px 7px 6px; overflow-wrap:anywhere; font-size:11px; line-height:1.2; color:var(--n);
                      background:linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.96) 48%); border-radius:0 0 16px 16px }
         .tc-sq-n { position:absolute; top:6px; left:6px; min-width:20px; height:20px; padding:0 6px; border-radius:99px; color:#fff;
                    font-size:10.5px; font-weight:600; display:flex; align-items:center; justify-content:center }
