@@ -222,8 +222,12 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       setEvals(lista2)
       setEvalPlan(plan0)
     }
-    setRot(lista.slice(0, 1).map(s => s.id))
-    setPincel(lista[0]?.id || null)
+    // Desde la ficha se puede llegar con una sesión ya elegida (?pincel=): es la que
+    // se estaba mirando al pulsar "Asignar a citas".
+    const pedida = sp.get('pincel')
+    const primera = lista.find(x => x.id === pedida) || lista[0]
+    setRot(primera ? [primera.id] : [])
+    setPincel(primera?.id || null)
 
     // Lo que ya tienen sus citas: si es de las nuestras sale en su color; si es otra,
     // en gris con su nombre, y no se pisa salvo que se diga.

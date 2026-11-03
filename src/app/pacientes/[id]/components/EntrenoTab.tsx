@@ -10,7 +10,6 @@ import { usePuede } from '@/lib/permisos'
 import EvaluacionEjecucion from './EvaluacionEjecucion'
 import DetalleSesion from './DetalleSesion'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
-import ModalRepartir from './ModalRepartir'
 import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
 import { encargoDeLaUrl, asignarSesionYVolver, rutaDeAsignacion, type Encargo } from '@/lib/asignarCita'
@@ -25,7 +24,6 @@ import { soltarDelBono } from '@/lib/bonoSesiones'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
-import SelectorSesiones from '@/app/entrenamiento/components/SelectorSesiones'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { sistemasDePaciente, historialSistemas, logradosDe, escalonesDe, Asignacion, faseEn, principalDe, tinte, alfaDeFase, tramos, textoDuracion } from '@/lib/sistemas'
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
@@ -84,6 +82,19 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     // veníamos a elegir una sesión y aterrizábamos en otra pantalla.
     if (e) setSeccion('sesiones')
   }, [])
+
+  /**
+   * PONER SESIONES EN CITAS: UNA SOLA PANTALLA.
+   *
+   * Había cuatro formas desde aquí (seleccionar citas y asignar, "asignar a citas"
+   * desde la sesión, repartir en rotación y la X de cada cita), y cada una trataba
+   * el candado a su manera: asignar desde la sesión se cargaba las de fuerza. Ahora
+   * todas abren el calendario de citas, que es el que sabe de candados, de fases y
+   * de repartir, y no guarda nada hasta Confirmar. Con `pincel`, esa sesión ya sale
+   * elegida.
+   */
+  const abrirCalendario = (pincel?: string) =>
+    routerAsig.push(`/torno/${pacienteId}/citas${pincel ? `?pincel=${pincel}` : ''}`)
 
   async function asignarYVolver(ses: any) {
     if (!encargo) return
@@ -195,21 +206,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   }
 
   /**
-   * Asigna una sesión a varias citas. La misma operación se lanza desde dos sitios,
-   * porque son dos puntos de partida distintos: en Planificación eliges citas y luego
-   * la sesión; desde una sesión eliges a qué citas va. Mismo verbo, distinto orden.
-   */
-  async function asignar(sesionId: string, ids: string[]) {
-    if (!sesionId || ids.length===0) return
-    setGuardando(true)
-    for (const citaId of ids) await supabase.from('citas').update({sesion_id:sesionId}).eq('id',citaId)
-    // Un solo evento con el total: asignar en bloque a 12 citas no son 12 hitos.
-    const nom = sesionesDisp.find((s:any)=>s.id===sesionId)?.nombre || 'Sesión'
-    await registrarSesion(pacienteId, `Sesión asignada a ${ids.length} cita${ids.length>1?'s':''}: ${nom}`)
-    setGuardando(false); cargarDatos(); onRefresh()
-  }
-
-  /**
    * Siguiente tanda del programa: una versión nueva de cada sesión que esté en la
    * agenda futura, y esas citas pasan a las versiones nuevas.
    *
@@ -286,66 +282,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     cargarDatos()
   }
 
-  async function asignarEnBloque() {
-    if (!sesionAsignar||seleccionadas.length===0) { alert('Selecciona citas y una sesión'); return }
-    await asignar(sesionAsignar, seleccionadas)
-    setSeleccionadas([]); setSesionAsignar('')
-  }
-
-  /**
-   * Deja esta sesión exactamente en las citas marcadas: la pone en las nuevas y la
-   * quita de las que se hayan desmarcado.
-   *
-   * El modal abre con las que ya la tienen premarcadas, así que desmarcar una tiene
-   * que quitarla. Si solo añadiera, la casilla diría una cosa y pasaría otra.
-   */
-  async function sincronizarCitas(sesionId: string, ids: string[]) {
-    const tenian = citasFuturas.filter((c:any)=>c.sesion_id===sesionId).map((c:any)=>c.id)
-    const anadir = ids.filter(id=>!tenian.includes(id))
-    const quitar = tenian.filter(id=>!ids.includes(id))
-    if (anadir.length===0 && quitar.length===0) return
-
-    setGuardando(true)
-    for (const id of anadir) await supabase.from('citas').update({sesion_id:sesionId}).eq('id',id)
-    for (const id of quitar) await supabase.from('citas').update({sesion_id:null}).eq('id',id)
-
-    // Un solo evento con el saldo: retocar una asignación no son diez hitos clínicos.
-    const nom = sesionesDisp.find((s:any)=>s.id===sesionId)?.nombre || 'Sesión'
-    const partes = []
-    if (anadir.length>0) partes.push(`asignada a ${anadir.length} cita${anadir.length>1?'s':''}`)
-    if (quitar.length>0) partes.push(`quitada de ${quitar.length}`)
-    await registrarSesion(pacienteId, `Sesión ${partes.join(' y ')}: ${nom}`)
-
-    setGuardando(false); cargarDatos(); onRefresh()
-  }
-
-  /**
-   * Atajos de selección por día de la semana, en el orden en que aparecen las citas.
-   * Los usan la lista de Planificación y el modal de asignar: una sola definición
-   * para que no acaben comportándose distinto.
-   */
-  function atajosDe(citas: any[], marcadas: string[]) {
-    const porDia = new Map<number,{label:string, ids:string[]}>()
-    citas.forEach((c:any)=>{
-      const d = new Date(c.fecha+'T12:00:00')
-      const dia = d.getDay()
-      if (!porDia.has(dia)) {
-        const l = d.toLocaleDateString('es-ES',{weekday:'short'}).replace('.','')
-        porDia.set(dia, { label: l.charAt(0).toUpperCase()+l.slice(1), ids: [] })
-      }
-      porDia.get(dia)!.ids.push(c.id)
-    })
-    const sinSesion = citas.filter((c:any)=>!c.sesiones && !c.sesion_id)
-    const lista: {clave:string,label:string,ids:string[],activo:boolean}[] = []
-    // Con un solo día, "Lun · 8" y "todas" son lo mismo: no aporta nada.
-    if (porDia.size > 1) porDia.forEach((v,k)=>lista.push({ clave:'d'+k, label:v.label, ids:v.ids, activo:false }))
-    if (sinSesion.length>0 && sinSesion.length<citas.length) {
-      lista.push({ clave:'sin', label:'Sin sesión', ids:sinSesion.map((c:any)=>c.id), activo:false })
-    }
-    lista.forEach(a=>{ a.activo = a.ids.length>0 && a.ids.every(id=>marcadas.includes(id)) })
-    return lista
-  }
-
   async function guardarEdicionCita() {
     if (!editandoCita) return
     setGuardando(true)
@@ -377,18 +313,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     await recuperacionAlEliminar(cita.id)
     await supabase.from('citas').delete().eq('id',cita.id)
     setEditandoCita(null); cargarDatos(); onRefresh()
-  }
-
-  function toggleCita(id: string) { setSeleccionadas(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
-
-  // Si el grupo entero ya está marcado, lo quita; si no, lo añade a lo que haya.
-  // Sumar en vez de reemplazar permite marcar lunes y jueves a la vez cuando en
-  // un tramo toca lo mismo.
-  function alternarGrupo(ids: string[]) {
-    setSeleccionadas(prev => {
-      const todos = ids.every(id=>prev.includes(id))
-      return todos ? prev.filter(id=>!ids.includes(id)) : Array.from(new Set([...prev, ...ids]))
-    })
   }
 
   // Agrupa por mes conservando el orden de entrada, igual que el historial clínico.
@@ -616,7 +540,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         const pct=total>0?Math.round((conSes/total)*100):0
         const sinSesion=citasFuturas.filter(c=>!c.sesiones)
 
-        const atajos = atajosDe(citasFuturas, seleccionadas)
 
         // El sistema que manda pinta la cita; el tono sube al cambiar de fase, y así
         // el corte entre tramos se ve sin leer nada. Los demas sistemas van de punto.
@@ -705,21 +628,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 <span className="ct-l"><Ic name="calendario" size={13}/> Citas por delante</span>
                 {total>0 && <span className="sh-r">{conSes} de {total} con sesión · {pct}%</span>}
               </span>
-              {/* Atajos de selección, a la derecha del todo: pegados al título quedaban
-                  justo debajo del conmutador de secciones y las dos tiras de pastillas
-                  se leían como una sola. Por día de la semana porque es como se reparte
-                  el trabajo: si los lunes toca fuerza y los jueves movilidad, se asigna
-                  cada grupo por separado. */}
-              {atajos.length>0 && (
-                <span style={{display:'inline-flex',gap:5,flexWrap:'wrap'}}>
-                  {atajos.map(a=>(
-                    <button key={a.clave} className={`chip-sel ${a.activo?'on':''}`}
-                      title={a.activo?'Quitar estas citas de la selección':'Añadir estas citas a la selección'}
-                      onClick={()=>alternarGrupo(a.ids)}>
-                      {a.label} · {a.ids.length}
-                    </button>
-                  ))}
-                </span>
+              {/* Poner sesiones en las citas: siempre en el calendario. Ver abrirCalendario. */}
+              {editaPlan && total>0 && (
+                <button className="btn btn-p btn-sm" onClick={()=>abrirCalendario()}>
+                  <Ic name="calendario" size={12}/> Poner sesiones en citas
+                </button>
               )}
             </div>
             {total>0 && (
@@ -727,29 +640,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 <div style={{height:'100%',background:'var(--g)',borderRadius:99,width:pct+'%',transition:'width .3s'}}/>
               </div>
             )}
-            {seleccionadas.length>0&&(
-              <div style={{background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:'var(--r)',padding:'10px 13px',marginBottom:12,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                <span style={{fontSize:13,color:'var(--n)'}}>{seleccionadas.length} cita{seleccionadas.length>1?'s':''} seleccionada{seleccionadas.length>1?'s':''}</span>
-                {/* Se elige como en la biblioteca: de un desplegable con el nombre
-                    no se sabe si esa sesion es la de fuerza o la de movilidad. */}
-                <button className="btn btn-s btn-sm" style={{flex:1,minWidth:200,textAlign:'left'}}
-                  onClick={()=>setEligiendoSesion(true)}>
-                  {sesionAsignar
-                    ? (sesionesDisp.find((x:any)=>x.id===sesionAsignar)?.nombre || 'Seleccionar sesión…')
-                    : 'Seleccionar sesión…'}
-                </button>
-                <button className="btn btn-p btn-sm" onClick={asignarEnBloque} disabled={guardando}>
-                  {guardando?'Asignando…':'Asignar'}
-                </button>
-                <button className="btn btn-t btn-sm" onClick={()=>setSeleccionadas([])}>Quitar selección</button>
-              </div>
-            )}
             {total===0&&<div className="muted">Sin citas futuras programadas</div>}
             {porMes(citasFuturas).map(g=>(
               <div key={g.mes}>
                 <div className="sep-mes">{g.mes}</div>
                 {g.citas.map(c=>{
-                  const sel=seleccionadas.includes(c.id); const tieneSesion=!!c.sesiones
+                  const tieneSesion=!!c.sesiones
                   const fecha=new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})
                   const pin=pintar(c.fecha)
                   const cortes=cortesEn[c.id]||[]
@@ -765,12 +661,10 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         <span style={{flex:1,height:1,background:co.color,opacity:.5}}/>
                       </div>
                     ))}
-                    <div onClick={()=>toggleCita(c.id)}
-                      className={`fila-p fila-sel ${sel?'on':''}`}
+                    <div className="fila-p"
                       title={pin?`${marco?.sistema?.nombre} · ${pin.fase.nombre}`:undefined}
                       style={{borderLeftColor:pin?pin.color:(tieneSesion?'var(--g)':'var(--bd)'),
-                              background:pin&&!sel?pin.fondo:undefined}}>
-                      <span className={`chk ${sel?'on':''}`}>{sel&&<Ic name="check" size={12}/>}</span>
+                              background:pin?pin.fondo:undefined}}>
                       {/* Los demas sistemas van de punto: la cita tambien cuenta para
                           ellos, pero el color lo pone el marco y no se parte. */}
                       {otros.filter(o=>o.sistema&&faseEn(o.sistema,o,c.fecha,logrados,escalones)).map(o=>(
@@ -782,10 +676,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                         {tieneSesion?(
                           <div style={{display:'flex',alignItems:'center',gap:4,marginTop:1}}>
                             <span style={{fontSize:12,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}{c.sesiones.fija && <span title="Fija: no corre con las demás"> 🔒</span>}</span>
-                            <button title="Quitar la sesión de esta cita" className="fila-x" style={{opacity:1}}
-                              onClick={e=>{e.stopPropagation();supabase.from('citas').update({sesion_id:null}).eq('id',c.id).then(()=>cargarDatos())}}>
-                              <Ic name="cerrar" size={12}/>
-                            </button>
                           </div>
                         ):<div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>Sin sesión asignada</div>}
                         {/* EL DIA DE LA EVALUACION. Se marca en la tarjeta del sistema y
@@ -913,7 +803,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 {/* Solo tiene sentido si hay programa en marcha: sin citas futuras con
                     sesión, no hay nada de lo que hacer una versión siguiente. */}
                 {editaPlan && citasFuturas.length>0 && sesionesDisp.length>0 && (
-                  <button className="btn btn-sm" onClick={()=>setRepartiendo(true)} disabled={guardando}
+                  <button className="btn btn-sm" onClick={()=>abrirCalendario()} disabled={guardando}
                     title="Coloca las sesiones en las citas futuras siguiendo una rotación">
                     <Ic name="calendario" size={12}/> Repartir en las citas
                   </button>
@@ -1199,77 +1089,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         )
       })()}
 
-      {/* Asignar una sesión a varias citas, partiendo de la sesión. Es el mismo verbo
-          que en Planificación pero por el otro lado: allí eliges citas y luego sesión.
-          Cada uno encaja con un punto de partida distinto. */}
-      {asignando && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setAsignando(null)}}>
-          <div className="modal" style={{width:520,maxHeight:'86vh',display:'flex',flexDirection:'column'}}>
-            <div className="modal-title">
-              Asignar a citas
-              <button className="modal-close" onClick={()=>setAsignando(null)} aria-label="Cerrar"><Ic name="cerrar" size={14}/></button>
-            </div>
-            <div style={{fontSize:13,color:'var(--gr)',marginBottom:10}}>{asignando.nombre}</div>
-
-            {citasFuturas.length===0 ? <div className="muted">Este paciente no tiene citas por delante.</div> : (<>
-              {atajosDe(citasFuturas, selAsig).length>0 && (
-                <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
-                  {atajosDe(citasFuturas, selAsig).map(a=>(
-                    <button key={a.clave} className={`chip-sel ${a.activo?'on':''}`}
-                      onClick={()=>setSelAsig(prev=>{
-                        const todos = a.ids.every(id=>prev.includes(id))
-                        return todos ? prev.filter(id=>!a.ids.includes(id)) : Array.from(new Set([...prev,...a.ids]))
-                      })}>
-                      {a.label} · {a.ids.length}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div style={{flex:1,overflowY:'auto',marginBottom:12}}>
-                {porMes(citasFuturas).map(g=>(
-                  <div key={g.mes}>
-                    <div className="sep-mes">{g.mes}</div>
-                    {g.citas.map((c:any)=>{
-                      const sel = selAsig.includes(c.id)
-                      const yaEsta = c.sesion_id===asignando.id
-                      const otra = c.sesiones && !yaEsta
-                      return (
-                        <div key={c.id} className={`fila-p fila-sel ${sel?'on':''}`}
-                          style={{borderLeftColor:yaEsta?'var(--g)':'var(--bd)'}}
-                          onClick={()=>setSelAsig(prev=>prev.includes(c.id)?prev.filter(x=>x!==c.id):[...prev,c.id])}>
-                          <span className={`chk ${sel?'on':''}`}>{sel&&<Ic name="check" size={12}/>}</span>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:13,color:'var(--n)'}}>
-                              {new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {c.hora?.slice(0,5)} · Sala {c.sala}
-                            </div>
-                            {/* Avisar de lo que se va a pisar: una cita solo tiene una sesión. */}
-                            <div style={{fontSize:12,color:otra?'#8A6410':'var(--gr)',marginTop:1}}>
-                              {yaEsta ? 'Ya tiene esta sesión' : otra ? `Sustituye a ${c.sesiones.nombre}` : 'Sin sesión asignada'}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-
-              <div style={{display:'flex',gap:7,alignItems:'center'}}>
-                <span style={{fontSize:13,color:'var(--gr)',flex:1}}>
-                  {selAsig.length===0 ? 'En ninguna cita' : `En ${selAsig.length} cita${selAsig.length>1?'s':''}`}
-                </span>
-                <button className="btn btn-t btn-sm" onClick={()=>setAsignando(null)}>Cancelar</button>
-                <button className="btn btn-p" disabled={guardando}
-                  onClick={async()=>{ await sincronizarCitas(asignando.id, selAsig); setSelAsig([]); setAsignando(null) }}>
-                  {guardando?'Guardando…':'Guardar'}
-                </button>
-              </div>
-            </>)}
-          </div>
-        </div>
-      )}
-
       {/* Solo se edita la tanda vigente. Editar una vieja reescribiría lo que dicen las
           citas ya pasadas, y con ellas el resumen de trabajo por zonas: junio pasaría a
           contar series que nunca se hicieron. Para avanzar desde una antigua está
@@ -1284,12 +1103,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           // a resolver. Se asigna y se vuelve.
           onAsignar={!editaPlan ? undefined : encargo
             ? ()=>{ const x=sesionDetalle; setSesionDetalle(null); asignarYVolver(x) }
-            : ()=>{
-              // Vienen premarcadas las que ya la tienen: así se ve el estado actual y
-              // desmarcar una la quita, en vez de tener que ir a Planificación.
-              setSelAsig(citasFuturas.filter((c:any)=>c.sesion_id===sesionDetalle.id).map((c:any)=>c.id))
-              setAsignando(sesionDetalle); setSesionDetalle(null)
-            }}
+            // Sin encargo, al calendario con esta sesión ya elegida como pincel.
+            : ()=>{ const x=sesionDetalle; setSesionDetalle(null); abrirCalendario(x.id) }}
           textoAsignar={encargo ? `Traer para ${encargo.etiqueta || 'el paciente'}` : undefined}
           onCerrar={()=>setSesionDetalle(null)}
           onEditar={editaPlan && esVigente(sesionesDisp, sesionDetalle) && !sesionDetalle.finalizada_en
@@ -1305,21 +1120,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         />
       )}
 
-      {/* Solo se ofrecen las vigentes: repartir una tanda antigua sería prescribir el
-          programa viejo sin enterarse. */}
-      {repartiendo && (
-        <ModalRepartir
-          pacienteId={pacienteId}
-          sesiones={agrupaPorLinaje(sesionesDisp).map(l=>l.vigente).filter((x:any)=>!x.finalizada_en)}
-          citas={citasFuturas}
-          onCerrar={()=>setRepartiendo(false)}
-          onHecho={(n)=>{
-            setRepartiendo(false)
-            setReciboTanda({texto:`${n} cita${n===1?'':'s'} asignada${n===1?'':'s'}.`, mal:n===0})
-            cargarDatos(); onRefresh()
-          }}
-        />
-      )}
 
       {/* Desde Historial se consulta el pasado: mismo detalle, sin acciones, y con
           lo que de verdad se hizo ese día debajo de lo prescrito. */}
@@ -1392,14 +1192,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     {sesionEditando&&<ModalEditarSesion sesion={sesionEditando} ejercicios={ejerciciosBib} etiquetas={etiquetasBib} onGuardado={()=>{cargarDatos();onRefresh()}} onCerrar={()=>setSesionEditando(null)}/>}
     {/* Mismo editor, atado a la cita: lo que se guarde va a ese día, no al plan. */}
     {/* Lo que se cree desde aqui es del paciente, igual que con "Nueva sesion". */}
-    {eligiendoSesion && (
-      <SelectorSesiones sesiones={sesionesDisp} titulo="¿Qué sesión les pongo?" pacienteId={pacienteId} dueno={pacienteId}
-        onRecargarBiblio={cargarDatos}
-        ejercicios={ejerciciosBib} etiquetas={etiquetasBib}
-        colorDe={(x:any)=>deSistema(x)?.color || null}
-        onCerrar={()=>setEligiendoSesion(false)}
-        onElegir={(ids:string[])=>{ if (ids[0]) setSesionAsignar(ids[0]) }}/>
-    )}
     {historialDe&&<HistorialAjustes sesion={historialDe} onCerrar={()=>setHistorialDe(null)}/>}
     {ajustandoCita&&<ModalEditarSesion
       sesion={ajustandoCita.sesiones}
