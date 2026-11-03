@@ -620,9 +620,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   <span className="tc-ev" title={evs.map(e => `${e.momento === 'inicial' ? 'Al empezar' : 'Al salir'} · ${e.faseNombre}`).join('\n')}
                                     style={{ color: evs[0].color }}><Ic name="test" size={10}/></span>
                                 )}
-                                {/* El nombre entero, en varias líneas si hace falta: cortado con
-                                    "…" no se distinguían "Fuerza I" y "Fuerza II". */}
-                                <span style={{ display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere', fontSize: 9.5, opacity: .9 }}>
+                                {/* En una línea con "…": entero estiraba mucho el calendario. El
+                                    nombre completo sale al pasar por encima (title). */}
+                                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9.5, opacity: .9 }}>
                                   {s ? s.nombre : ajena || ''}
                                 </span>
                               </button>
