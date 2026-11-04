@@ -4,6 +4,8 @@ import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tool
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
+import { useConfigTrabajo } from '@/lib/usarTrabajo'
+import { intensidadDe, FAMILIAS } from '@/lib/trabajo'
 import { COLOR, cargaPorEjercicio, ejecucionPorEjercicio, esfuerzoPorEjercicio, textoCarga, cargaSemanal, adherencia } from '@/lib/resultados'
 
 // ---------------------------------------------------------------------------
@@ -42,6 +44,23 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
   registros: any[], bandas: string[], pacienteId?: string, pesoKg?: number | null,
 }) {
   const [abierta, setAbierta] = useState<string | null>(null)
+  /**
+   * FUERZA, MOVILIDAD… DEL MISMO EJERCICIO, POR SEPARADO.
+   *
+   * Cada registro guarda la capacidad con la que se hizo (la de su sesión). Su familia
+   * (fuerza, movilidad, estiramiento…) se pega al lado de la variante, así que el mismo
+   * puente por repes de fuerza y por tiempo de movilidad salen como dos líneas y nunca
+   * se comparan entre sí. Los registros de antes no la tienen: van sin etiqueta.
+   */
+  const cfgT = useConfigTrabajo()
+  const [familiaVer, setFamiliaVer] = useState<string>('')
+  const famDe = (r: any) => (r?.capacidad ? intensidadDe(cfgT, r.capacidad)?.familia : null) || ''
+  const nomFam = (f: string) => FAMILIAS.find(x => x[0] === f)?.[1] || f
+  const familiasHay = useMemo(() => Array.from(new Set(registros.map(famDe).filter(Boolean))), [registros, cfgT]) // eslint-disable-line react-hooks/exhaustive-deps
+  const regsVer = useMemo(() => registros
+    .filter((r: any) => !familiaVer || famDe(r) === familiaVer)
+    .map((r: any) => { const f = famDe(r); return f ? { ...r, variante: [r.variante, nomFam(f)].filter(Boolean).join(' · ') } : r }),
+  [registros, familiaVer, cfgT]) // eslint-disable-line react-hooks/exhaustive-deps
   const [info, setInfo] = useState<Record<string, any>>({})
   const [sesiones, setSesiones] = useState<Record<string, any>>({})
   const [cambios, setCambios] = useState<any[]>([])
@@ -85,9 +104,9 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
   const adh = useMemo(() => adherencia(registros, sesiones, cambios, noHechos), [registros, sesiones, cambios, noHechos])
 
   const tarjetas = useMemo(() => {
-    const cargas = cargaPorEjercicio(registros, bandas)
-    const gestos = ejecucionPorEjercicio(registros)
-    const esfuerzos = esfuerzoPorEjercicio(registros)
+    const cargas = cargaPorEjercicio(regsVer, bandas)
+    const gestos = ejecucionPorEjercicio(regsVer)
+    const esfuerzos = esfuerzoPorEjercicio(regsVer)
     const familia = (id: string) => info[id]?.portada_id || id
     const m = new Map<string, Tarjeta>()
     const tarjeta = (id: string, nombre: string) => {
@@ -115,7 +134,7 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
       t.ultimaFecha = t.actual ? ult(t.actual.carga) : ''
     })
     return Array.from(m.values()).sort((a, b) => b.dias - a.dias || a.nombre.localeCompare(b.nombre))
-  }, [registros, bandas, info])
+  }, [regsVer, bandas, info])
 
   // Tocar fuera cierra el detalle, como en la agenda.
   useEffect(() => {
@@ -351,6 +370,16 @@ export default function ProgresionEjercicios({ registros, bandas, pacienteId, pe
         <span className="sh-l"><span className="ct-l"><Ic name="fuerza" size={13}/> Cómo va cada ejercicio</span></span>
         <span className="sh-r">Toca uno para ver sus gráficas</span>
       </div>
+      {/* Filtro por tipo de trabajo: solo sale si hay registros con capacidad. */}
+      {familiasHay.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+          {['', ...familiasHay].map(f => (
+            <button key={f || 'todo'} type="button" className={`chip-sel ${familiaVer === f ? 'on' : ''}`} onClick={() => setFamiliaVer(f)}>
+              {f ? nomFam(f) : 'Todo'}
+            </button>
+          ))}
+        </div>
+      )}
       {/* "dense": el detalle ocupa la fila entera y las tarjetas de al lado suben a rellenar. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gridAutoFlow: 'row dense', gap: 14 }}>
         {tarjetas.map(t => {

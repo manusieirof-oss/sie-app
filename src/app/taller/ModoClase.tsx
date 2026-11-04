@@ -13,7 +13,8 @@ import { VeloCita, VeloAnadir } from './GestionCita'
 import { usePuede } from '@/lib/permisos'
 import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion, itemDeEjercicio } from '@/lib/sesiones'
-import { textoDescanso } from '@/lib/capacidades'
+import { textoDescanso, capacidadPorReps } from '@/lib/capacidades'
+import { partesMedida } from '@/lib/medida'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
@@ -1377,6 +1378,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     return supabase.from('registros_ejercicio').update({ finalizado: true }).eq('id', r.id)
   }
 
+  /** Cómo se midió: lo que lleva apuntado, o si no, lo que dice su medida. */
+  function volumenDe(ej: any, series: any[]): 'reps' | 'segundos' | 'metros' {
+    const lleno = (v: any) => v != null && String(v) !== ''
+    for (const v of ['segundos', 'metros', 'reps'] as const) if (series.some(x => lleno(x?.[v]))) return v
+    return partesMedida(ej.tipo_medida || 'peso_reps').volumen
+  }
+
   async function autoguardar(pid:string, ei:number, ej:any, sesionId:string, fechaC:string = fecha){
     const seriesLlenas = ej.series.filter(serieLlena)
     const hayComent = (ej.comentario||'').trim()!==''
@@ -1397,6 +1405,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       n_series: (ej.series || []).length,
       // Bilateral / unilateral / alterno de HOY (sin la columna, se guarda sin ella).
       lado: ej.lado || ej.plan?.lado || null,
+      /* PARA QUÉ ERA Y CÓMO SE MIDIÓ. Con esto Resultados separa un trabajo de fuerza
+         de uno de movilidad del mismo ejercicio, y solo compara lo comparable. La
+         capacidad es la de la sesión; si no la lleva y va por repes, la de sus repes. */
+      medida: volumenDe(ej, seriesLlenas),
+      capacidad: ej.plan?.capacidad || (volumenDe(ej, seriesLlenas) === 'reps' ? capacidadPorReps(seriesLlenas[0]?.reps || ej.plan?.reps || '') || null : null),
     }
     let error
     if (ej.ejercicio_id){
@@ -1415,19 +1428,23 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         existe = null
       }
       if (existe){
-        const cambios: any = { series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series, lado: fila.lado }
+        const cambios: any = { series:seriesLlenas, comentario:ej.comentario||null, ejercicio_nombre:ej.nombre, items_evaluados:iv, variante:ej.variante||null, regimen: ej.regimen || ej.plan?.regimen || null, n_series: fila.n_series, lado: fila.lado, medida: fila.medida, capacidad: fila.capacidad }
         ;({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id))
+        // Sin las columnas nuevas (falta el SQL) se guarda igual, sin ellas.
+        if (error && /capacidad|medida/.test(error.message)) { delete cambios.capacidad; delete cambios.medida; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
         // Sin la columna n_series (falta el SQL) no se pierde lo apuntado: se guarda sin ella.
         if (error && /n_series/.test(error.message)) { delete cambios.n_series; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
         if (error && /lado/.test(error.message)) { delete cambios.lado; delete cambios.n_series; ({ error } = await supabase.from('registros_ejercicio').update(cambios).eq('id', existe.id)) }
       } else {
         const [limpia] = await sinEjerciciosBorrados([fila]); Object.assign(fila, limpia)
         ;({ error } = await supabase.from('registros_ejercicio').insert(fila))
+        if (error && /capacidad|medida/.test(error.message)) { delete fila.capacidad; delete fila.medida; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
         if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
         if (error && /lado/.test(error.message)) { delete fila.lado; delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       }
     } else {
       ({ error } = await supabase.from('registros_ejercicio').insert(fila))
+      if (error && /capacidad|medida/.test(error.message)) { delete fila.capacidad; delete fila.medida; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       if (error && /lado/.test(error.message)) { delete fila.lado; delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     }
