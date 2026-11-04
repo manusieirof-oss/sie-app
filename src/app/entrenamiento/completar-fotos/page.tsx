@@ -22,7 +22,23 @@ const clave = (s: string) => String(s || '')
   .replace(/\(\d+\)/g, '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[·\-_/+]/g, ' ').replace(/\s+/g, ' ').trim()
 
-type Par = { file: File, ruta: string, ej: any | null, tiene: boolean, ok: boolean }
+/**
+ * PARECIDO ENTRE NOMBRES, para las fotos que no casan exacto ("Biceps con goma alterno
+ * (concéntrico isométrico)" frente a "Bíceps con goma · alterno"). Palabras en común
+ * sobre el total, sin las de relleno; las erratas cortas ("firball") cuentan si
+ * empiezan igual. Solo se PROPONE: sale desmarcado y con aviso.
+ */
+const RELLENO = new Set(['de', 'del', 'con', 'en', 'el', 'la', 'los', 'las', 'a', 'y', 'sobre', 'al'])
+const palabras = (s: string) => clave(s).replace(/[()]/g, ' ').split(' ').filter(w => w && !RELLENO.has(w))
+function parecido(a: string, b: string) {
+  const A = palabras(a), B = palabras(b)
+  if (!A.length || !B.length) return 0
+  const igual = (x: string, y: string) => x === y || (x.length > 4 && y.length > 4 && x.slice(0, 4) === y.slice(0, 4))
+  const comunes = A.filter(x => B.some(y => igual(x, y))).length
+  return comunes / Math.max(A.length, B.length)
+}
+
+type Par = { file: File, ruta: string, ej: any | null, tiene: boolean, ok: boolean, dudoso?: boolean }
 
 export default function CompletarFotos() {
   const [ejs, setEjs] = useState<any[]>([])
@@ -40,9 +56,15 @@ export default function CompletarFotos() {
     const fotos = Array.from(lista || []).filter(f => /\.(jpe?g|png)$/i.test(f.name))
     // Las IMG_0890 y las de nombre raro no dicen de qué ejercicio son: fuera.
     const ps: Par[] = fotos.filter(f => !/^IMG_\d+/i.test(f.name) && !/^[0-9A-F-]{36}\./i.test(f.name)).map(f => {
-      const ej = porClave.get(clave(f.name)) || null
+      let ej = porClave.get(clave(f.name)) || null, dudoso = false
+      // Sin nombre exacto: el más parecido de los que no tienen foto, si se parece bastante.
+      if (!ej) {
+        let mejor: any = null, nota = 0
+        ejs.filter(e => !String(e.imagen_url || '').trim()).forEach(e => { const n = parecido(f.name, e.nombre); if (n > nota) { nota = n; mejor = e } })
+        if (mejor && nota >= .6) { ej = mejor; dudoso = true }
+      }
       const tiene = !!(ej && String(ej.imagen_url || '').trim())
-      return { file: f, ruta: (f as any).webkitRelativePath || f.name, ej, tiene, ok: !!ej && !tiene }
+      return { file: f, ruta: (f as any).webkitRelativePath || f.name, ej, tiene, ok: !!ej && !tiene && !dudoso, dudoso }
     })
     // Si dos fotos van al mismo ejercicio ("x.JPG" y "x (1).JPG"), solo la primera.
     const vistos = new Set<string>()
@@ -89,7 +111,7 @@ export default function CompletarFotos() {
           <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0', borderTop: '1px solid var(--bd2)', opacity: p.tiene ? .5 : 1 }}>
             <input type="checkbox" checked={p.ok} disabled={p.tiene || andando}
               onChange={e => setPares(ps => ps.map(x => x === p ? { ...x, ok: e.target.checked } : x))}/>
-            <span style={{ flex: 1 }}>{p.ej.nombre}</span>
+            <span style={{ flex: 1 }}>{p.ej.nombre}{p.dudoso && <span style={{ color: '#B07A12', marginLeft: 6 }}>¿es este? márcalo si sí</span>}</span>
             <span style={{ color: 'var(--grl)', fontSize: 10.5 }}>{p.tiene ? 'ya tiene foto' : p.ruta}</span>
           </label>
         ))}
