@@ -249,6 +249,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   // no es lo mismo si la sesion va a la flexion que si va a todo.
   const [movsSel, setMovsSel] = useState<Record<string, string[]>>({})
   const [eligiendoObj, setEligiendoObj] = useState(false)
+  /** El objetivo bajo el ratón: se iluminan los ejercicios que lo trabajan. */
+  const [objHover, setObjHover] = useState<string | null>(null)
   const [buscarObj, setBuscarObj] = useState('')
   const [abrirObj, setAbrirObj] = useState(false)
   const [verObj, setVerObj] = useState(false)
@@ -407,6 +409,24 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
   const libDeEj = (ej: any) => catPorId.get(ej?.ejercicio_id) as any
   const estrictoDe = (ej: any) => { const l = libDeEj(ej); return l && etiquetas.length ? { ej: l, etiquetas } : undefined }
   const objsDeEj = (ej: any) => objetivosDeEjercicio(ej, etiquetasDeEj(ej), objsSesion, movsSel, estrictoDe(ej))
+  /**
+   * QUÉ EJERCICIOS DE TODA LA SESIÓN TRABAJAN UN OBJETIVO, de todas las partes.
+   *
+   * Antes había que entrar parte por parte para saber si un objetivo marcado lo
+   * trabajaba algo, y uno sin marcar no decía si merecía la pena marcarlo. Para el
+   * marcado manda lo de siempre (objsDeEj, que respeta lo elegido a mano); para el
+   * que aún no está marcado se hace el mismo cruce solo con él.
+   */
+  const ejsDeObj = (o: any): { pi: number, ei: number }[] => {
+    const marcado = objetivosSel.includes(o.id)
+    const out: { pi: number, ei: number }[] = []
+    ;(formSesion.partes || []).forEach((p: any, pi: number) => (p.ejercicios || []).forEach((ej: any, ei: number) => {
+      const ids = marcado ? objsDeEj(ej) : objetivosDeEjercicio(ej, etiquetasDeEj(ej), [o], movsSel, estrictoDe(ej))
+      if (ids.includes(o.id)) out.push({ pi, ei })
+    }))
+    return out
+  }
+  const ejsHover = objHover ? ejsDeObj(objetivosDisp.find((x: any) => x.id === objHover) || { id: objHover }) : []
   /** 'sugerido': cumple una de las dos comprobaciones; se ofrece para confirmar. */
   const sugeridoDe = (ej: any, o: any) => { const l = libDeEj(ej); return !!l && etiquetas.length > 0 && cruceObjetivo(l, o, etiquetas, movsSel[o.id]) === 'sugerido' }
 
@@ -795,14 +815,23 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   if (!o) return null
                   const on = objetivosSel.includes(id)
                   const alternar = () => { tocadoAparte.current = true; setObjetivosSel(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]) }
+                  // Cuántos ejercicios de la sesión lo trabajan: sin marcar y con alguno, se
+                  // enciende un poco (merece la pena marcarlo); marcado y con ninguno, aviso.
+                  const nEj = ejsDeObj(o).length
                   return (
                     <span key={id} title={on ? `${o.nombre} · en la sesión${(movsSel[id]||[]).length ? ' · '+(movsSel[id]||[]).map((m:string)=>etiquetas.find((x:any)=>x.id===m)?.nombre||m).join(' · ') : ''}` : `${o.nombre} · pulsa para añadirlo`}
+                      onMouseEnter={()=>setObjHover(id)} onMouseLeave={()=>setObjHover(h=>h===id?null:h)}
                       style={{position:'relative',display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,width:76}}>
                       <button type="button" onClick={on ? undefined : alternar}
+                        title={on ? undefined : nEj>0 ? `Lo trabaja${nEj===1?'':'n'} ${nEj} ejercicio${nEj===1?'':'s'} de la sesión · toca para añadirlo` : 'Ningún ejercicio de la sesión lo trabaja todavía'}
                         style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:3,background:'none',border:'none',padding:0,
-                          cursor:on?'default':'pointer',opacity:on?1:.4}}>
+                          cursor:on?'default':'pointer',opacity:on?1:nEj>0?.75:.4}}>
                         <MonedaObjetivo objetivo={o}/>
                         <span className="obj-mon-g">{o.nombre}</span>
+                        <span title={on && nEj===0 ? 'Está en la sesión, pero ningún ejercicio lo trabaja' : undefined}
+                          style={{fontSize:9.5,lineHeight:1,color: on && nEj===0 ? '#B07A12' : 'var(--grl)', fontWeight: on && nEj===0 ? 600 : 400}}>
+                          {nEj} ej.
+                        </span>
                       </button>
                       {on && (
                         <button type="button" title="Quitar este objetivo" onClick={alternar}
@@ -852,6 +881,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       size={Math.max(6, (p.nombre||'').length)}
                       style={{border:0,background:'transparent',color:'#fff',font:'inherit',padding:0,outline:'none',minWidth:0}}/>
                     <span style={{opacity:.7}}>({(p.ejercicios||[]).length})</span>
+                    {objHover && <span title="Ejercicios de esta parte que trabajan el objetivo" style={{fontWeight:600}}>◎{ejsHover.filter(x=>x.pi===i).length}</span>}
                   </span>
                 )
                 return (
@@ -871,6 +901,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       boxShadow: destino ? 'inset 3px 0 0 var(--gd)' : undefined,
                     }}>
                     {p.nombre} <span style={{opacity:.7}}>({(p.ejercicios||[]).length})</span>
+                    {objHover && <span title="Ejercicios de esta parte que trabajan el objetivo" style={{fontWeight:600,marginLeft:4}}>◎{ejsHover.filter(x=>x.pi===i).length}</span>}
                   </button>
                 )
               })}
@@ -1126,7 +1157,9 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                     onDragLeave={()=>{ if(sobreEj===ei) setSobreEj(null) }}
                     onDrop={e=>{ if(arrEj===null) return; e.preventDefault(); moverEjercicio(arrEj,ei); setArrEj(null); setSobreEj(null) }}
                     style={{opacity: arrEj===ei ? .4 : 1,
-                            boxShadow: destinoEj ? 'inset 3px 0 0 var(--gd)' : undefined}}>
+                            boxShadow: destinoEj ? 'inset 3px 0 0 var(--gd)' : undefined,
+                            // Con el ratón sobre un objetivo, se iluminan los que lo trabajan.
+                            background: objHover && ejsHover.some(x=>x.pi===parteActiva && x.ei===ei) ? 'var(--gl)' : undefined}}>
                     <div className="ej-nom">
                       {/* La manilla es lo único arrastrable: con la fila entera
                           `draggable`, seleccionar un número en un input se vuelve
