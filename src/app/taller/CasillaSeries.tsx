@@ -213,6 +213,15 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
               {campos.some(c => ant[c]) && (
                 <div>última vez {campos.map(c => ant[c] || '—').join(tm === 'peso_reps' ? '×' : '·')}</div>
               )}
+              {/* Primera vez en ESTA sesión: lo de otra, de referencia. No rellena nada,
+                  porque otra sesión puede ser otro tipo de trabajo (movilidad, fuerza). */}
+              {!campos.some(c => ant[c]) && ej.ultimoRef && (() => {
+                const r = (ej.ultimoRef.series || [])[0] || {}
+                const txt = ['peso', 'reps', 'segundos', 'metros', 'banda'].filter(c => r[c] != null && String(r[c]) !== '')
+                  .map(c => `${r[c]}${c === 'peso' ? ' kg' : c === 'segundos' ? ' s' : c === 'metros' ? ' m' : c === 'reps' ? ' reps' : ''}`).join(' · ')
+                return txt ? <div style={{ opacity: .75 }} title="Lo último de este ejercicio en otra sesión: solo de referencia">
+                  en otra sesión ({String(ej.ultimoRef.fecha || '').split('-').reverse().slice(0, 2).join('/')}): {txt}</div> : null
+              })()}
             </div>
 
             <div style={{ borderTop: '1px solid var(--bl)', margin: '10px 0 7px' }}/>

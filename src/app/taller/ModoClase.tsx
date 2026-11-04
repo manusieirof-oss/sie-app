@@ -1026,6 +1026,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           grupo: ej.grupo || '',
           ejercicio_id: ej.ejercicio_id||null, nombre: ej.nombre,
           imagen_url: ej.imagen_url||'', variante: ej.variante||'',
+          // Cómo se mide EN ESTA SESIÓN (reps, segundos, metros, con o sin carga). Manda
+          // sobre lo de la biblioteca: el mismo ejercicio puede ir por repes en una
+          // sesión de fuerza y por tiempo en una de movilidad.
+          tipo_medida_ses: ej.tipo_medida || null,
           seriesHoy: !!ej.series_hoy,
           // Su hueco en la sesion (parte.ejercicio): es la clave de los ajustes del dia.
           pos: `${pi}.${pe}`, sustituye: ej.sustituye || '',
@@ -1069,7 +1073,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
       ejs.forEach(e=>{
         const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
-        e.tipo_medida = t?.tipo_medida || 'peso_reps'
+        e.tipo_medida = e.tipo_medida_ses || t?.tipo_medida || 'peso_reps'
         e.items = t?.items_ejecucion || []
         e.feedbacks = t?.feedbacks || []
         // Para cruzar con la zona de sus molestias. Ver `lib/avisosZona`.
@@ -1079,7 +1083,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         if (!e.items_evaluados) e.items_evaluados = {}
       })
     } else {
-      ejs.forEach(e=>{ e.tipo_medida = 'peso_reps'; e.items = []; e.feedbacks = []; e.etiquetas = []; if(!e.items_evaluados) e.items_evaluados = {} })
+      ejs.forEach(e=>{ e.tipo_medida = e.tipo_medida_ses || 'peso_reps'; e.items = []; e.feedbacks = []; e.etiquetas = []; if(!e.items_evaluados) e.items_evaluados = {} })
     }
     /* SESIONES DE ANTES DEL VÍNCULO EJERCICIO-OBJETIVO. No lo llevan guardado hasta
        que se abren y se guardan, y en sala no salía nada. Se sugiere aquí igual que al
@@ -1107,16 +1111,26 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
        * decir que no hay registro previo, no ensenarle el de otra cosa.
        */
       const { data: fin } = await supabase.from('registros_ejercicio')
-        .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado')
+        .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado,sesion_id')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids).lte('fecha', fechaC)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
+      /**
+       * MANDA LA SESIÓN. "La última vez" que rellena las casillas (series, peso, repes, y
+       * si fue por repes o por tiempo) sale SOLO de esta misma sesión o de su versión
+       * anterior. Antes salía del último registro del ejercicio en cualquier sesión, y
+       * una de movilidad por tiempo le cambiaba las casillas a la de fuerza 3×10.
+       * Lo de otras sesiones queda como REFERENCIA (ultimoRef): se ve, no rellena nada.
+       */
+      const sesIds = [ses?.id, ses?.evolucion_de].filter(Boolean)
+      const misma = (r: any) => sesIds.includes(r.sesion_id)
       const ultMap:Record<string,any>={}
+      const refMap:Record<string,any>={}
       /* COMO LO HIZO LA ULTIMA VEZ (ejecucion y lateralidad), haya series o no. Si en la
          sala se cambio a excentrico o a unilateral, la clase siguiente sale asi: queda
          anotado sin tocar la sesion (puede ser de la biblioteca y la usan otros). Con
          "Volver a lo planificado" en la pildora se guarda lo del plan y se acaba. */
       const comoMap:Record<string,any>={}
-      ;(fin||[]).forEach((r:any)=>{ const k=claveVar(r.ejercicio_id,r.variante); if(!comoMap[k]) comoMap[k]=r })
+      ;(fin||[]).forEach((r:any)=>{ if (!misma(r)) return; const k=claveVar(r.ejercicio_id,r.variante); if(!comoMap[k]) comoMap[k]=r })
       /* LAS DOS ULTIMAS NOTAS, con su fecha. Una sola y sin fecha no decia si
          era de la semana pasada o de marzo, y lo que se escribe en la sala es
          justo lo que hay que leer la proxima vez. */
@@ -1130,7 +1144,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
            son comparables (20 kg a una pierna no es progresar desde 60 con las dos). Desde
            que el lado dejo de ir en el nombre, va en la clave. Sin lado = bilateral. */
         const kl = k + '|' + (r.lado || 'Bilateral')
-        if(!ultMap[kl] && Array.isArray(r.series) && r.series.length>0) ultMap[kl]=r
+        if (Array.isArray(r.series) && r.series.length>0) {
+          if (misma(r)) { if (!ultMap[kl]) ultMap[kl]=r }
+          else if (!refMap[kl]) refMap[kl]=r
+        }
         const t = String(r.comentario||'').trim()
         if (t !== '') {
           if (comentMap[k] == null) comentMap[k] = []
@@ -1163,6 +1180,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           const kl = kv + '|' + (e.lado || e.plan?.lado || 'Bilateral')
           e.ultimo = ultMap[kl]?.series || null
           e.ultimoComent = ultMap[kl]?.comentario || ''
+          // Primera vez en esta sesión: lo de otra, solo para mirar (con su fecha).
+          e.ultimoRef = !ultMap[kl] && refMap[kl] ? { series: refMap[kl].series, fecha: refMap[kl].fecha } : null
           const ejec = ejecMap[e.ejercicio_id]
           e.ultimaEval = ejec?.items || null
           e.ultimaEvalFecha = ejec?.fecha || null
