@@ -14,6 +14,7 @@ import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
 import { encargoDeLaUrl, asignarSesionYVolver, rutaDeAsignacion, type Encargo } from '@/lib/asignarCita'
 import { useRouter } from 'next/navigation'
+import ProgramacionCitas from '@/components/ProgramacionCitas'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
@@ -36,7 +37,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   // Planificación en lista (la de siempre) o como la presentación final del torno.
-  const [vistaPlan, setVistaPlan] = useState<'lista'|'interactiva'>('lista')
+  const [vistaPlan, setVistaPlan] = useState<'lista'|'interactiva'|'cambiar'>('lista')
   /**
    * La cita cuya sesión se está ajustando. Distinto de editar la sesión: aquí lo
    * que se guarde va a ESA cita, no al plan que comparten todas.
@@ -588,7 +589,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         const conmutador = (
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
             <div className="vista-sw" style={{margin:0}}>
-              {([['lista','lista','Lista'],['interactiva','calendario','Vista interactiva']] as const).map(([k,ic,l])=>(
+              {([['lista','lista','Lista'],['interactiva','calendario','Vista interactiva'],['cambiar','cambio','Cambiar sesiones']] as const).map(([k,ic,l])=>(
                 <button key={k} className={`vista-b ${vistaPlan===k?'on':''}`} onClick={()=>setVistaPlan(k)}><Ic name={ic} size={12}/> {l}</button>
               ))}
             </div>
@@ -597,6 +598,16 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
         // VISTA INTERACTIVA: sus citas como al acabar en el torno. Un color por sesión
         // (en el orden en que salen), la fase del sistema que manda y sus evaluaciones.
+        // CAMBIAR: la misma pieza que en la agenda (Programación), con todas sus citas.
+        if (vistaPlan==='cambiar') return (
+          <div className="panel">
+            {conmutador}
+            <div style={{maxWidth:620,margin:'0 auto'}}>
+              <ProgramacionCitas pacienteId={pacienteId} volver={`/pacientes/${pacienteId}?tab=entreno`}
+                etiqueta={nombrePaciente || 'este paciente'} limite={60} onCambio={()=>{cargarDatos();onRefresh()}}/>
+            </div>
+          </div>
+        )
         if (vistaPlan==='interactiva') {
           const PALETA = ['#5A969E','#C9A84C','#B0708C','#6E8FC7','#7C9A6B','#C77F5A','#8A7CC7','#4F9C8A']
           const colorSes: Record<string,string> = {}

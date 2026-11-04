@@ -16,6 +16,7 @@ import ModalEditarCita from './components/ModalEditarCita'
 import ModalEditarCitas from './components/ModalEditarCitas'
 import ModalDatosCita from './components/ModalDatosCita'
 import ModoClase from '../taller/ModoClase'
+import ProgramacionCitas from '@/components/ProgramacionCitas'
 import ModalAlertasCita from './components/ModalAlertasCita'
 import ModalTareas from './components/ModalTareas'
 import AvisoTareas from './components/AvisoTareas'
@@ -62,6 +63,13 @@ export default function AgendaPage() {
   const [editandoMulti, setEditandoMulti] = useState<any>(null)
   const [verDatosCita, setVerDatosCita] = useState<any>(null)
   const [verEntrenoCita, setVerEntrenoCita] = useState<any>(null)
+  /**
+   * El entreno de la agenda tiene dos vistas: el taller de ese paciente y su
+   * PROGRAMACIÓN (próximas citas, para cambiar o intercambiar sesiones sin salir).
+   * `versionEntreno` rehace el taller al volver, para que enseñe la sesión nueva.
+   */
+  const [vistaEntreno, setVistaEntreno] = useState<'entreno' | 'programacion'>('entreno')
+  const [versionEntreno, setVersionEntreno] = useState(0)
   const [verAlertasCita, setVerAlertasCita] = useState<any>(null)
   const [buscarPac, setBuscarPac] = useState('')
   const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([])
@@ -775,10 +783,23 @@ export default function AgendaPage() {
           aspecto y mismas funciones que en la sala, en vez de una ventana distinta. */}
       {verEntrenoCita&&(
         <div style={{position:'fixed',inset:0,zIndex:100,background:'rgba(38,40,37,.28)',backdropFilter:'blur(3px)',display:'flex',justifyContent:'center',padding:'16px'}}
-          onClick={e=>{ if(e.target===e.currentTarget){ setVerEntrenoCita(null); cargar() } }}>
+          onClick={e=>{ if(e.target===e.currentTarget){ setVerEntrenoCita(null); setVistaEntreno('entreno'); cargar() } }}>
           <div style={{width:'min(1100px,100%)',background:'#F2F1EC',borderRadius:22,padding:'14px 18px',overflow:'auto',boxShadow:'0 20px 60px rgba(38,40,37,.2)'}}>
-            <ModoClase solo={{ fecha: verEntrenoCita.fecha, hora: String(verEntrenoCita.hora||'').slice(0,5), pacienteId: verEntrenoCita.paciente_id,
-              onCerrar: ()=>{ setVerEntrenoCita(null); cargar() } }}/>
+            <div className="vista-sw" style={{margin:'0 auto 10px',width:'fit-content'}}>
+              {([['entreno','entreno','Entreno'],['programacion','calendario','Programación']] as const).map(([k,ic,l])=>(
+                <button key={k} className={`vista-b ${vistaEntreno===k?'on':''}`} onClick={()=>setVistaEntreno(k)}><Ic name={ic} size={12}/> {l}</button>
+              ))}
+            </div>
+            {vistaEntreno==='programacion' ? (
+              <div style={{maxWidth:560,margin:'0 auto',paddingBottom:10}}>
+                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda"
+                  etiqueta={`${verEntrenoCita.pacientes?.nombre_clinica || verEntrenoCita.pacientes?.nombre || ''}`.trim()}
+                  onCambio={()=>{ setVersionEntreno(v=>v+1); cargar() }}/>
+              </div>
+            ) : (
+              <ModoClase key={versionEntreno} solo={{ fecha: verEntrenoCita.fecha, hora: String(verEntrenoCita.hora||'').slice(0,5), pacienteId: verEntrenoCita.paciente_id,
+                onCerrar: ()=>{ setVerEntrenoCita(null); setVistaEntreno('entreno'); cargar() } }}/>
+            )}
           </div>
         </div>
       )}

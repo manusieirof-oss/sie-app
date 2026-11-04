@@ -274,6 +274,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     setAMano(m => ({ ...m, [c.id]: plan[c.id] === pincel ? null : pincel }))
   }
 
+  /** Intercambia lo que llevan dos citas (en el plan; se guarda al Confirmar). */
+  function intercambiar(aId: string, bId: string) {
+    if (!aId || aId === bId) return
+    const sa = plan[aId] || null, sb = plan[bId] || null
+    if (sa === sb) return
+    if (((sa && fijas.has(sa)) || (sb && fijas.has(sb))) && !confirm('Una de las dos lleva una sesión con candado (fuerza). ¿Intercambiarlas igualmente?')) return
+    setAMano(m => ({ ...m, [aId]: sb, [bId]: sa }))
+  }
+
   /** REPARTIR: la cuenta es de lib/repartir, la misma en toda la app. */
   function repartir() {
     // Por día: el primer día de la semana que viene se lleva la 1ª sesión tocada, el
@@ -591,6 +600,12 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                             const deSuFase = ev ? !fueraEv && (ev.sesiones || []).includes(plan[c.id] || '') : false
                             return (
                               <button key={c.id} className="tc-cita" onClick={e => { e.stopPropagation(); tocarCita(c) }}
+                                // ARRASTRAR UNA CITA ENCIMA DE OTRA INTERCAMBIA SUS SESIONES, igual que en
+                                // la Programación de la agenda y la ficha. Aquí se guarda al Confirmar.
+                                draggable={!!plan[c.id]}
+                                onDragStart={e => e.dataTransfer.setData('text/plain', c.id)}
+                                onDragOver={e => e.preventDefault()}
+                                onDrop={e => { e.preventDefault(); e.stopPropagation(); intercambiar(e.dataTransfer.getData('text/plain'), c.id) }}
                                 title={`${c.hora ? String(c.hora).slice(0, 5) : ''} ${s ? s.nombre : ajena || 'sin sesión'}`}
                                 style={{ background: s ? s.color : ajena ? 'var(--bm)' : '#fff', color: s ? '#fff' : 'var(--gr)',
                                   border: s ? 'none' : '1px dashed var(--bd)',
