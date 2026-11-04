@@ -1069,12 +1069,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     })
     const ids = ejs.map(e=>e.ejercicio_id).filter(Boolean)
     if (ids.length) {
-      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks,etiquetas,anatomia,trabajo').in('id', ids)
+      const { data: tipos } = await supabase.from('ejercicios').select('id,tipo_medida,items_ejecucion,feedbacks,etiquetas,anatomia,trabajo,imagen_url').in('id', ids)
       const tipoMap:Record<string,any>={}
       ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
       ejs.forEach(e=>{
         const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
         e.tipo_medida = e.tipo_medida_ses || t?.tipo_medida || 'peso_reps'
+        // LA FOTO, LA DE LA BIBLIOTECA. La sesión guarda una copia de cuando se metió el
+        // ejercicio; si luego se cambió en la biblioteca, el taller seguía con la vieja.
+        if (t?.imagen_url) e.imagen_url = t.imagen_url
         e.items = t?.items_ejecucion || []
         e.feedbacks = t?.feedbacks || []
         // Para cruzar con la zona de sus molestias. Ver `lib/avisosZona`.

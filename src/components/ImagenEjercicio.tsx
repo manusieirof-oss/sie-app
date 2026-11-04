@@ -16,7 +16,7 @@ import FiguraMusculos from './FiguraMusculos'
 // una sesión de doce ejercicios serían doce consultas.
 // ---------------------------------------------------------------------------
 
-type Catalogo = { etiquetas: any[], deEj: Record<string, string[]> }
+type Catalogo = { etiquetas: any[], deEj: Record<string, string[]>, foto: Record<string, string> }
 let pedido: Promise<Catalogo> | null = null
 let listo: Catalogo | null = null
 
@@ -24,15 +24,16 @@ function catalogo(): Promise<Catalogo> {
   if (!pedido) pedido = (async () => {
     const [{ filas: et }, { filas: ejs }] = await Promise.all([
       traerTodo((d, h) => supabase.from('etiquetas').select('id,nombre,padre_id,categoria').order('id').range(d, h)),
-      traerTodo((d, h) => supabase.from('ejercicios').select('id,etiquetas').order('id').range(d, h)),
+      traerTodo((d, h) => supabase.from('ejercicios').select('id,etiquetas,imagen_url').order('id').range(d, h)),
     ])
-    listo = { etiquetas: et, deEj: Object.fromEntries(ejs.map((e: any) => [e.id, e.etiquetas || []])) }
+    listo = { etiquetas: et, deEj: Object.fromEntries(ejs.map((e: any) => [e.id, e.etiquetas || []])),
+      foto: Object.fromEntries(ejs.filter((e: any) => e.imagen_url).map((e: any) => [e.id, e.imagen_url])) }
     return listo
   })()
   return pedido
 }
 
-export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio = 8, fondo = 'var(--bm)', icono = 26, relleno = false, alt = '', insignias: conInsignias = true }: {
+export default function ImagenEjercicio({ src: srcSesion, ejercicioId, etiquetasEj, radio = 8, fondo = 'var(--bm)', icono = 26, relleno = false, alt = '', insignias: conInsignias = true }: {
   src?: string | null, ejercicioId?: string | null, etiquetasEj?: string[],
   radio?: number, fondo?: string, icono?: number,
   /** true: ocupa todo su hueco (mosaicos). false: cuadrado a todo lo ancho. */
@@ -44,9 +45,15 @@ export default function ImagenEjercicio({ src, ejercicioId, etiquetasEj, radio =
   /* FOTO HEREDADA: una variante (de agarre, de material…) se queda con la foto del
      ejercicio del que salió, que vive en la carpeta de ESE ejercicio. Entonces la foto
      puede enseñar otro material, así que encima va la insignia del suyo. */
+  /* LA FOTO DE LA BIBLIOTECA MANDA. Lo que llega (`src`) suele ser la copia que guardó
+     la sesión al meter el ejercicio; si luego se cambió la foto en la biblioteca, en las
+     sesiones, el torno y el taller seguía la vieja. Mientras carga el catálogo se ve la
+     que llega. */
+  const [cat, setCat] = useState<Catalogo | null>(listo)
+  useEffect(() => { if (ejercicioId && !cat) catalogo().then(setCat).catch(() => {}) }, [ejercicioId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const src = (ejercicioId && cat?.foto[ejercicioId]) || srcSesion
   const duenoFoto = src ? /\/ejercicios\/([^/]+)\//.exec(src)?.[1] : null
   const heredada = !!(src && ejercicioId && duenoFoto && duenoFoto !== ejercicioId)
-  const [cat, setCat] = useState<Catalogo | null>(listo)
   useEffect(() => { if ((!src || heredada) && !cat) catalogo().then(setCat).catch(() => {}) }, [src, heredada]) // eslint-disable-line react-hooks/exhaustive-deps
   const caja = relleno
     // display:block hace falta: la figura va en un <span>, que en línea ignora ancho y alto
