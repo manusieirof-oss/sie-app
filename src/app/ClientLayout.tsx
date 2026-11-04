@@ -1,4 +1,5 @@
 'use client'
+import { esFalloDeVersion, recargarPorVersion } from '@/lib/recargaVersion'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
@@ -58,6 +59,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [minimos, setMinimos] = useState<Minimos>(MINIMO)
   const router = useRouter()
   const pathname = usePathname()
+
+  // VERSIÓN NUEVA CON LA APP ABIERTA: un trozo de código que ya no existe se recarga en
+  // vez de romper la pantalla (lib/recargaVersion).
+  useEffect(() => {
+    const err = (e: ErrorEvent) => { if (esFalloDeVersion(e.error || e.message)) recargarPorVersion() }
+    const rej = (e: PromiseRejectionEvent) => { if (esFalloDeVersion(e.reason)) recargarPorVersion() }
+    window.addEventListener('error', err)
+    window.addEventListener('unhandledrejection', rej)
+    return () => { window.removeEventListener('error', err); window.removeEventListener('unhandledrejection', rej) }
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
