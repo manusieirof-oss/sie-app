@@ -408,7 +408,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
    píldoras y no como selectores, para que el valor se lea de un vistazo. */
 .ej-row .celda.apilada{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
 .ej-row .celda.apilada select{width:100%;}
-.ej-cab{padding-bottom:6px;border-bottom:1px solid var(--bd);margin-bottom:2px;}
+/* Mismo relleno lateral que las filas (8px): sin él, la cabecera y la fila "para
+   todos" tenían la rejilla 16px más ancha y sus columnas caían desplazadas respecto
+   a las de los ejercicios. */
+.ej-cab{padding:0 8px 6px;border-bottom:1px solid var(--bd);margin-bottom:2px;}
 .ej-cab > span{font-size:11px;color:var(--gr);letter-spacing:.2px;white-space:nowrap;}
 .ej-cab > span.c{text-align:center;}
 .ej-row{padding:10px 8px;border-bottom:1px solid var(--bd2);border-radius:12px;transition:background .12s;}

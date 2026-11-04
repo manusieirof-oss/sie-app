@@ -1016,7 +1016,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                   const descC = comun((x:any)=>String(x.descanso||''))
                   const recorrido = parte?.modo==='circuito' || parte?.modo==='superserie'
                   return (
-                    <div className="ej-row" style={{background:'var(--w)',borderBottom:'1px dashed var(--gm)',padding:'8px 0',margin:'0 0 4px'}}
+                    <div className="ej-row" style={{background:'var(--w)',borderBottom:'1px dashed var(--gm)',padding:'8px',margin:'0 0 4px'}}
                       title="Para todos los ejercicios de la parte">
                       {/* EL MÉTODO DE LA PARTE, en la columna del ejercicio. Lo propio de cada
                           modo (grupos de la superserie, minutos del «por tiempo») al lado. */}

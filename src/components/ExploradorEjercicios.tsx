@@ -77,8 +77,13 @@ export default function ExploradorEjercicios({
   const [soloPendientes, setSoloPendientes] = useState(false)
   /** Solo los que trabajan algún objetivo de la sesión (si se pasa `objetivosDe`). */
   const [soloObjetivos, setSoloObjetivos] = useState(false)
-  /** Un objetivo concreto de la sesión: solo los ejercicios que lo trabajan. */
-  const [objFiltro, setObjFiltro] = useState<string | null>(null)
+  /**
+   * Objetivos de la sesión marcados: solo los ejercicios que los trabajan TODOS a la vez.
+   * Antes era uno solo; con dos se ven los ejercicios que sirven para los dos, que son
+   * los que más rinden en una sesión.
+   */
+  const [objFiltro, setObjFiltro] = useState<string[]>([])
+  const cumple = (e: any, ids: string[]) => ids.every(id => (objsPorEj[e.id] || []).includes(id))
   /* Qué objetivos trabaja cada ejercicio, calculado UNA vez por catálogo y objetivos:
      el cruce es caro y la rejilla se repinta a cada letra del buscador. */
   const claveObjs = objetivos.map((o: any) => o.id).join(',')
@@ -194,7 +199,7 @@ export default function ExploradorEjercicios({
     })
     return coincide && etiquetado && (!soloPendientes || problemasDeEjercicio(e).length > 0)
       && (!soloObjetivos || !objetivosDe || nombresObjs(e).length > 0)
-      && (!objFiltro || (objsPorEj[e.id] || []).includes(objFiltro))
+      && cumple(e, objFiltro)
   })
 
   const nPendientes = ejercicios.filter(e => problemasDeEjercicio(e).length > 0).length
@@ -231,7 +236,7 @@ export default function ExploradorEjercicios({
   const duplicado = abiertoCrear && aCrear.length >= 3 && existeYa(aCrear)
   const puedeCrear = aCrear.length >= 3 && !duplicado
 
-  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes || soloObjetivos || !!objFiltro
+  const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes || soloObjetivos || objFiltro.length > 0
   const nombrePortada = (e: any) => ejercicios.find(x => x.id === e.portada_id)?.nombre || ''
   const nombreCortoDe = (e: any) => nombreCorto(e.nombre, nombrePortada(e))
   /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
@@ -348,16 +353,20 @@ export default function ExploradorEjercicios({
   return (
     <div>
       {/* LOS OBJETIVOS DE LA SESIÓN, EN ESFERAS: tocar una deja solo los ejercicios que
-          la trabajan; tocarla otra vez, todos. */}
+          la trabajan; tocar otra más, los que trabajan las dos. Tocarla otra vez la quita. */}
       {objetivos.length > 0 && idsObjetivosDe && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 10 }}>
           {objetivos.map((o: any) => {
-            const on = objFiltro === o.id
-            const n = ejercicios.filter(e => (objsPorEj[e.id] || []).includes(o.id)).length
+            const on = objFiltro.includes(o.id)
+            // El número dice cuántos quedarían con esta esfera junto a las ya marcadas:
+            // así se ve antes de tocarla si la combinación deja ejercicios o ninguno.
+            const conEsta = on ? objFiltro : [...objFiltro, o.id]
+            const n = ejercicios.filter(e => cumple(e, conEsta)).length
             return (
-              <button key={o.id} type="button" onClick={() => setObjFiltro(on ? null : o.id)} title={`${o.nombre} · ${n} ejercicio${n === 1 ? '' : 's'} lo trabajan`}
+              <button key={o.id} type="button" onClick={() => setObjFiltro(p => on ? p.filter(x => x !== o.id) : [...p, o.id])}
+                title={`${o.nombre} · ${n} ejercicio${n === 1 ? '' : 's'}${objFiltro.length && !on ? ' si la añades' : ''}`}
                 style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3, width: 76, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                  opacity: objFiltro && !on ? .4 : 1 }}>
+                  opacity: objFiltro.length && !on ? .4 : 1 }}>
                 <span style={{ borderRadius: '50%', boxShadow: on ? '0 0 0 3px var(--gd)' : 'none' }}><MonedaObjetivo objetivo={o}/></span>
                 <span className="obj-mon-g" style={on ? { color: 'var(--gd)', fontWeight: 600 } : undefined}>{o.nombre}</span>
                 <span style={{ fontSize: 9.5, color: 'var(--grl)' }}>{n}</span>
