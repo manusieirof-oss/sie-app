@@ -51,6 +51,9 @@ const REGLAS: Regla[] = [
   [/^puente de gluteo sobre talones/, (_, v) => ({ mov: 'puente', p: { tipo: 'talones', piernas: tiene(v, /unilateral/) ? 'una' : 'dos' } })],
   [/^puente de gluteo/, (_, v) => ({ mov: 'puente', p: { tipo: tiene(v, /pies elevados/) ? 'pies_elevados' : 'suelo', piernas: tiene(v, /una pierna/) ? 'una' : 'dos', banda: tiene(v, /banda/) ? 'si' : 'no' } })],
   [/^hip thrust/, (_, v) => ({ mov: 'puente', p: { tipo: 'hip_thrust', piernas: tiene(v, /una pierna/) ? 'una' : 'dos', carga: tiene(v, /barra/) ? 'barra' : tiene(v, /disco/) ? 'disco' : 'ninguna' } })],
+  // ── Espalda (carpeta del Drive) ──
+  [/^dominadas?/, (n, v) => ({ mov: 'dominada', p: { agarre: tiene(n + ' ' + v, /neutr/) ? 'neutro' : 'prono' } })],
+  [/^cuerdas?( de combate)?/, (n, v) => ({ mov: 'cuerdas', p: { estilo: tiene(n + ' ' + v, /alterna/) ? 'alternas' : 'dobles', postura: tiene(n + ' ' + v, /sentadilla/) ? 'sentadilla' : 'semi' } })],
   // ── Bird-dog ──
   [/^bird dog/, (_, v) => ({ mov: 'bird_dog', p: { tipo: tiene(v, /solo brazo/) ? 'brazo' : tiene(v, /solo pierna/) ? 'pierna' : 'completo' } })],
   // ── Remo ──

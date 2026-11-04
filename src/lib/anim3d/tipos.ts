@@ -34,7 +34,7 @@ export interface Apoyo {
 
 export type TipoProp =
   | 'banco' | 'cajon' | 'silla' | 'pared' | 'esterilla'
-  | 'mancuerna' | 'kettlebell' | 'disco' | 'barra' | 'deslizador' | 'cuna' | 'pelota' | 'banda' | 'baston' | 'camilla' | 'aro' | 'fitball' | 'balon' | 'taco' | 'roller'
+  | 'mancuerna' | 'kettlebell' | 'disco' | 'barra' | 'deslizador' | 'cuna' | 'pelota' | 'banda' | 'baston' | 'camilla' | 'aro' | 'fitball' | 'balon' | 'taco' | 'roller' | 'cuerda'
 
 /**
  * Material y mobiliario.
@@ -53,6 +53,8 @@ export interface Prop {
   pos?: [number, number, number]
   off?: [number, number, number]                     // desplazamiento (en el hueso o respecto al punto)
   rot?: [number, number, number]                     // grados
+  desde?: string                                     // cuerda: hueso del que sale (va hasta un punto fijo delante)
+  largo?: number                                     // cuerda: a qué distancia por delante se ancla
   hueco?: number                                     // para "bajo": cuánto queda entre el hueso y la superficie
   alto?: number                                      // altura del cajón/escalón (por defecto, la de un cajón)
   ancho?: number

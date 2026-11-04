@@ -1477,6 +1477,56 @@ const patadaTriceps: Movimiento = {
 
 MOVIMIENTOS_MAS.push(curlBanco, patadaTriceps)
 
+// ── DOMINADA (colgado de una barra) ──────────────────────────────────────────
+// Las manos se quedan clavadas en la barra (apoyo en las manos) y es el cuerpo el
+// que sube: así se ve como en la sala, no como un remo de pie.
+const dominada: Movimiento = {
+  id: 'dominada', nombre: 'Dominada',
+  params: [{ id: 'agarre', nombre: 'Agarre', opciones: [['prono', 'Prono (palmas al frente)'], ['neutro', 'Neutro (palmas enfrentadas)']] }],
+  crear(p) {
+    const ancho = p.agarre === 'neutro' ? 8 : 16
+    const piernas = une(sim('muslo', [-14, 0, 2]), sim('pierna', [38, 0, 0]), sim('pie', [14, 0, 0]))
+    const abajo = une(piernas, sim('brazo', [-176, 0, ancho]), sim('antebrazo', [0, 0, 0]), { cabeza: [-6, 0, 0] })
+    const arriba = une(piernas, sim('brazo', [-34, 0, ancho + 18]), sim('antebrazo', [-138, 0, 0]), { pecho: [-8, 0, 0], cabeza: [-14, 0, 0] })
+    return {
+      dur: 3.4, claves: rep(abajo, arriba, '⬆️ Tira hasta pasar la barbilla', '⬇️ Baja despacio hasta estirar', .12),
+      apoyo: { a: ['manoD', 'manoI'], aY: 196 }, cam: { alto: 6, dist: 290, y: 150 },
+      props: [{ tipo: 'baston', entre: ['manoD', 'manoI'], off: [0, 3, 0] }],
+      musculos: [['dorsal', 'Dorsal'], ['biceps', 'Bíceps'], ['trapecio', 'Trapecio y romboides'], ['core', 'Core']],
+    }
+  },
+}
+
+// ── CUERDAS DE COMBATE (battle ropes) ────────────────────────────────────────
+// Brazos que suben y bajan rápido con la cuerda en la mano, en semiflexión o en
+// sentadilla; alternas (uno arriba, otro abajo) o las dos a la vez.
+const cuerdas: Movimiento = {
+  id: 'cuerdas', nombre: 'Cuerdas de combate',
+  params: [
+    { id: 'estilo', nombre: 'Ondas', opciones: [['alternas', 'Alternas'], ['dobles', 'Las dos a la vez']] },
+    { id: 'postura', nombre: 'Postura', opciones: [['semi', 'Semiflexión'], ['sentadilla', 'En sentadilla']] },
+  ],
+  crear(p) {
+    const sent = p.postura === 'sentadilla'
+    const base: Pose = sent
+      ? une({ raiz: [24, 0, 0], lumbar: [8, 0, 0], pecho: [4, 0, 0], cabeza: [-24, 0, 0] }, sim('muslo', [-104, 0, 14]), sim('pierna', [108, 0, 0]), sim('pie', [-18, 0, 0]))
+      : une({ raiz: [16, 0, 0], lumbar: [4, 0, 0], cabeza: [-14, 0, 0] }, sim('muslo', [-46, 0, 10]), sim('pierna', [52, 0, 0]), sim('pie', [-8, 0, 0]))
+    const inc = sent ? 36 : 20
+    const alto = (s: 'D' | 'I'): Pose => ({ ['brazo' + s]: [-82 - inc * .5, 0, (s === 'D' ? 1 : -1) * 10], ['antebrazo' + s]: [-38, 0, 0] })
+    const bajo = (s: 'D' | 'I'): Pose => ({ ['brazo' + s]: [-28 - inc * .5, 0, (s === 'D' ? 1 : -1) * 10], ['antebrazo' + s]: [-22, 0, 0] })
+    const claves: Clave[] = p.estilo === 'dobles'
+      ? [{ t: 0, fase: '🌊 Sube y baja las dos a la vez, rápido', p: une(base, alto('D'), alto('I')) }, { t: .5, p: une(base, bajo('D'), bajo('I')) }, { t: 1, p: une(base, alto('D'), alto('I')) }]
+      : [{ t: 0, fase: '🌊 Alterna los brazos, rápido y sin parar', p: une(base, alto('D'), bajo('I')) }, { t: .5, p: une(base, bajo('D'), alto('I')) }, { t: 1, p: une(base, alto('D'), bajo('I')) }]
+    return {
+      dur: .9, claves, apoyo: DOS_PIES, cam: { alto: 12, dist: 250, y: 50 },
+      props: [{ tipo: 'cuerda', desde: 'manoD' }, { tipo: 'cuerda', desde: 'manoI' }],
+      musculos: [['deltoides', 'Deltoides'], ['core', 'Core'], ['dorsal', 'Dorsal'], ['cuadriceps', 'Cuádriceps']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(dominada, cuerdas)
+
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
   if (ladoDe(p) === 'D') return props

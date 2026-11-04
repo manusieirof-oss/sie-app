@@ -190,6 +190,8 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
       case 'balon': { g.add(new THREE.Mesh(new THREE.SphereGeometry(5, 20, 14), new THREE.MeshLambertMaterial({ color: 0x5B4BB0 }))); break }
       case 'taco': { const t = caja(10, 6, 14, new THREE.MeshLambertMaterial({ color: 0xB98A5A })); t.position.y = -3; g.add(t); break }
       case 'roller': { const c = cil(5, 34, new THREE.MeshLambertMaterial({ color: 0x2B2F2E })); c.rotation.z = Math.PI / 2; c.position.y = -5; g.add(c); break }
+      // Cuerda de combate: un cilindro de largo 1 que se estira de la mano al suelo (propsEntre).
+      case 'cuerda': { g.add(cil(1.5, 1, new THREE.MeshLambertMaterial({ color: 0x24282A }))); break }
       case 'aro': { const r = new THREE.Mesh(new THREE.TorusGeometry(9, .9, 10, 32), mGris); g.add(r); break }
       case 'baston': { const b = cil(.6, 90, mMadera); b.rotation.z = Math.PI / 2; g.add(b); break }
       case 'banda': { const b = cil(.5, 1, new THREE.MeshLambertMaterial({ color: 0xE2574C })); b.rotation.z = Math.PI / 2; g.add(b); g.userData.estira = true; break }
@@ -333,6 +335,18 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
   const _a = new THREE.Vector3(), _b = new THREE.Vector3()
   function propsEntre() {
     for (const { def, obj } of props) {
+      /* CUERDA DE COMBATE: de la mano a un punto fijo del suelo, delante (+z). El punto
+         se fija la primera vez, a la altura de esa mano; luego se estira cada fotograma. */
+      if (def.tipo === 'cuerda' && def.desde && hueso[def.desde]) {
+        hueso[def.desde].getWorldPosition(_a)
+        if (!obj.userData.ancla) obj.userData.ancla = new THREE.Vector3(_a.x, 1, _a.z + (def.largo || 230))
+        _b.copy(obj.userData.ancla)
+        const dir = _b.clone().sub(_a), L = dir.length(); dir.normalize()
+        obj.position.copy(_a).add(_b).multiplyScalar(.5)
+        obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+        obj.scale.set(1, L, 1)
+        continue
+      }
       if (!def.entre) continue
       hueso[def.entre[0]].getWorldPosition(_a); hueso[def.entre[1]].getWorldPosition(_b)
       obj.position.copy(_a).add(_b).multiplyScalar(.5)
