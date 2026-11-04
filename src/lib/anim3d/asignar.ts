@@ -54,6 +54,14 @@ const REGLAS: Regla[] = [
   // ── Espalda (carpeta del Drive) ──
   [/^dominadas?/, (n, v) => ({ mov: 'dominada', p: { agarre: tiene(n + ' ' + v, /neutr/) ? 'neutro' : 'prono' } })],
   [/^cuerdas?( de combate)?/, (n, v) => ({ mov: 'cuerdas', p: { estilo: tiene(n + ' ' + v, /alterna/) ? 'alternas' : 'dobles', postura: tiene(n + ' ' + v, /sentadilla/) ? 'sentadilla' : 'semi' } })],
+  // ── Torso (carpeta del Drive) ──
+  [/^rotacion de torso/, (n, v) => { const x = n + ' ' + v; return { mov: 'rotacion_torso', p: {
+    posicion: tiene(x, /arrodillado/) ? 'arrodillado' : tiene(x, /sentado/) ? (tiene(x, /pica|stick/) ? 'fitball' : 'sentado') : 'de_pie',
+    material: tiene(x, /goma/) ? 'goma' : tiene(x, /pica|stick/) ? 'pica' : tiene(x, /disco/) ? 'disco' : tiene(x, /kett?[eñ]l|kettle/) ? 'kettlebell' : 'nada',
+    empuje: tiene(x, /empuje/) ? 'si' : 'no' } } }],
+  [/^flexion lateral de torso/, (n, v) => { const x = n + ' ' + v; return { mov: 'flexion_lateral', p: {
+    posicion: tiene(x, /arrodillado/) ? 'arrodillado' : tiene(x, /sentado/) ? 'sentado' : 'de_pie',
+    material: tiene(x, /pica|stick/) ? 'pica' : tiene(x, /mancuerna/) ? 'mancuerna' : tiene(x, /kett?[eñ]l|kettle/) ? 'kettlebell' : 'nada' } } }],
   // ── Bird-dog ──
   [/^bird dog/, (_, v) => ({ mov: 'bird_dog', p: { tipo: tiene(v, /solo brazo/) ? 'brazo' : tiene(v, /solo pierna/) ? 'pierna' : 'completo' } })],
   // ── Remo ──

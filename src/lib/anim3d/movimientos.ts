@@ -1527,6 +1527,90 @@ const cuerdas: Movimiento = {
 
 MOVIMIENTOS_MAS.push(dominada, cuerdas)
 
+// ── TORSO: POSICIONES DE BASE ────────────────────────────────────────────────
+// De pie, sentado (silla o fitball) o de rodillas. El tronco gira o se inclina
+// sobre ellas; las piernas no se mueven.
+type BaseTorso = { pose: Pose, apoyo: Apoyo, props: Prop[], cam: { alto?: number, dist?: number, y?: number }, suelo?: boolean }
+function baseTorso(pos: string): BaseTorso {
+  if (pos === 'sentado') return { pose: SENTADO, apoyo: PIES_SENTADO, props: [SILLA], cam: { ...CAM_PIE, y: 38 } }
+  if (pos === 'fitball') return { pose: SENTADO, apoyo: PIES_SENTADO, props: [{ tipo: 'fitball', bajo: 'cadera', clave: 0, hueco: 14 }], cam: { ...CAM_PIE, y: 38 } }
+  if (pos === 'arrodillado') return {
+    pose: une(sim('muslo', [0, 0, 6]), sim('pierna', [90, 0, 0]), sim('pie', [60, 0, 0])),
+    apoyo: { a: ['piernaD', 'piernaI'], aY: 3 }, props: [], cam: { alto: 10, dist: 230, y: 32 }, suelo: true,
+  }
+  return { pose: une(sim('muslo', [-4, 0, 8]), sim('pierna', [6, 0, 0])), apoyo: DOS_PIES, props: [], cam: CAM_PIE }
+}
+const giro = (g: number): Pose => ({ lumbar: [0, g * .45, 0], pecho: [0, g * .55, 0], cabeza: [0, g * .2, 0] })
+const inclinaLado = (g: number): Pose => ({ lumbar: [0, 0, g * .5], pecho: [0, 0, g * .5], cabeza: [0, 0, g * .2] })
+const OPC_POS_TORSO: [string, string][] = [['de_pie', 'De pie'], ['sentado', 'Sentado en silla'], ['fitball', 'Sentado en fitball'], ['arrodillado', 'De rodillas']]
+
+// ── ROTACIÓN DE TORSO ────────────────────────────────────────────────────────
+// Vídeos de la carpeta Torso: con goma anclada a un lado (y empuje al final), con
+// pica en los hombros, con disco o kettlebell delante. El tronco gira, la cadera no.
+const rotacionTorso: Movimiento = {
+  id: 'rotacion_torso', nombre: 'Rotación de torso',
+  params: [
+    { id: 'posicion', nombre: 'Posición', opciones: OPC_POS_TORSO },
+    { id: 'material', nombre: 'Material', opciones: [['goma', 'Goma anclada a un lado'], ['pica', 'Pica en los hombros'], ['disco', 'Disco delante'], ['kettlebell', 'Kettlebell al pecho'], ['nada', 'Sin material']] },
+    { id: 'empuje', nombre: 'Empuje al girar', opciones: [['no', 'No'], ['si', 'Sí, extiende los brazos']] },
+    LADO,
+  ],
+  crear(p) {
+    const b = baseTorso(p.posicion || 'de_pie'), mat = p.material || 'goma', empuje = p.empuje === 'si'
+    const juntas = (codo: number): Pose => une(sim('brazo', [-80, 0, -24]), sim('antebrazo', [codo, 0, 0]))
+    let brazos: Pose = juntas(-12), brazosFin: Pose = empuje ? juntas(-8) : juntas(-12), props: Prop[] = []
+    if (mat === 'pica') {
+      // Brazos cruzados sobre el pecho sujetando la pica, como en los vídeos.
+      brazos = brazosFin = une(sim('brazo', [-28, 0, -16]), sim('antebrazo', [-100, 0, -62]))
+      props = [{ tipo: 'baston', en: 'pecho', off: [0, 2, 12] }]
+    }
+    else if (mat === 'disco' || mat === 'kettlebell') {
+      brazos = juntas(-100); brazosFin = empuje ? juntas(-12) : juntas(-100)
+      props = [{ tipo: mat, entre: ['manoD', 'manoI'], off: mat === 'disco' ? [0, 0, 2] : [0, -2, 2] }]
+    } else if (mat === 'goma') {
+      if (empuje) brazos = juntas(-110)
+      props = [{ tipo: 'goma', desde: 'manoD', hacia: [-140, 0, 10] }]
+    } else if (mat === 'nada') brazos = brazosFin = une(sim('brazo', [-20, 0, -30]), sim('antebrazo', [-110, 0, -40]))
+    const ini = une(b.pose, brazos, giro(-30)), fin = une(b.pose, brazosFin, giro(32))
+    return {
+      dur: 3.2, claves: conLado(rep(ini, fin, empuje ? '↪️ Gira el tronco y estira los brazos' : '↪️ Gira el tronco, la cadera quieta', '↩️ Vuelve despacio'), p),
+      apoyo: b.apoyo, cam: b.cam, suelo: b.suelo, props: conLadoProps([...b.props, ...props], p),
+      musculos: [['core', 'Oblicuos y core'], ['erectores', 'Erectores'], ['deltoides', 'Hombros']],
+    }
+  },
+}
+
+// ── FLEXIÓN LATERAL DE TORSO ─────────────────────────────────────────────────
+const flexionLateral: Movimiento = {
+  id: 'flexion_lateral', nombre: 'Flexión lateral de torso',
+  params: [
+    { id: 'posicion', nombre: 'Posición', opciones: OPC_POS_TORSO },
+    { id: 'material', nombre: 'Material', opciones: [['kettlebell', 'Kettlebell en una mano'], ['mancuerna', 'Mancuerna en una mano'], ['pica', 'Pica en diagonal a la espalda'], ['nada', 'Sin material']] },
+    LADO,
+  ],
+  crear(p) {
+    const b = baseTorso(p.posicion || 'de_pie'), mat = p.material || 'kettlebell'
+    let brazos: Pose, props: Prop[] = []
+    if (mat === 'pica') {
+      // Una mano arriba por encima de la cabeza, la otra abajo a la espalda: la pica en diagonal.
+      brazos = { brazoI: [-10, 0, -160], antebrazoI: [0, 0, -10], brazoD: [20, 0, 22], antebrazoD: [-10, 0, 0] }
+      props = [{ tipo: 'baston', entre: ['manoD', 'manoI'], off: [0, 0, -4] }]
+    } else {
+      // La carga cuelga en la mano del lado que baja; la otra, en la cadera.
+      brazos = une({ brazoD: [0, 0, 6] }, { brazoI: [10, 0, -38], antebrazoI: [-60, 0, -60] })
+      if (mat !== 'nada') props = [{ tipo: mat === 'mancuerna' ? 'mancuerna' : 'kettlebell', en: 'manoD' }]
+    }
+    const ini = une(b.pose, brazos, inclinaLado(-6)), fin = une(b.pose, brazos, inclinaLado(34))
+    return {
+      dur: 3.2, claves: conLado(rep(ini, fin, '↘️ Inclina el tronco de lado, sin girarlo', '↗️ Sube despacio'), p),
+      apoyo: b.apoyo, cam: { ...b.cam, alto: 4 }, suelo: b.suelo, props: conLadoProps([...b.props, ...props], p),
+      musculos: [['core', 'Oblicuos y cuadrado lumbar'], ['erectores', 'Erectores']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(rotacionTorso, flexionLateral)
+
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {
   if (ladoDe(p) === 'D') return props

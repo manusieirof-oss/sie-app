@@ -192,6 +192,8 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
       case 'roller': { const c = cil(5, 34, new THREE.MeshLambertMaterial({ color: 0x2B2F2E })); c.rotation.z = Math.PI / 2; c.position.y = -5; g.add(c); break }
       // Cuerda de combate: un cilindro de largo 1 que se estira de la mano al suelo (propsEntre).
       case 'cuerda': { g.add(cil(1.5, 1, new THREE.MeshLambertMaterial({ color: 0x24282A }))); break }
+      // Goma anclada a la pared: como la cuerda, se estira de la mano a su anclaje.
+      case 'goma': { g.add(cil(.7, 1, new THREE.MeshLambertMaterial({ color: 0xE2574C }))); break }
       case 'aro': { const r = new THREE.Mesh(new THREE.TorusGeometry(9, .9, 10, 32), mGris); g.add(r); break }
       case 'baston': { const b = cil(.6, 90, mMadera); b.rotation.z = Math.PI / 2; g.add(b); break }
       case 'banda': { const b = cil(.5, 1, new THREE.MeshLambertMaterial({ color: 0xE2574C })); b.rotation.z = Math.PI / 2; g.add(b); g.userData.estira = true; break }
@@ -337,9 +339,9 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
     for (const { def, obj } of props) {
       /* CUERDA DE COMBATE: de la mano a un punto fijo del suelo, delante (+z). El punto
          se fija la primera vez, a la altura de esa mano; luego se estira cada fotograma. */
-      if (def.tipo === 'cuerda' && def.desde && hueso[def.desde]) {
+      if ((def.tipo === 'cuerda' || def.tipo === 'goma') && def.desde && hueso[def.desde]) {
         hueso[def.desde].getWorldPosition(_a)
-        if (!obj.userData.ancla) obj.userData.ancla = new THREE.Vector3(_a.x, 1, _a.z + (def.largo || 230))
+        if (!obj.userData.ancla) obj.userData.ancla = def.hacia ? _a.clone().add(new THREE.Vector3(...def.hacia)) : new THREE.Vector3(_a.x, 1, _a.z + (def.largo || 230))
         _b.copy(obj.userData.ancla)
         const dir = _b.clone().sub(_a), L = dir.length(); dir.normalize()
         obj.position.copy(_a).add(_b).multiplyScalar(.5)
@@ -350,7 +352,8 @@ export async function crearVisor(el: HTMLElement, eventos: { fase?: (t: string) 
       if (!def.entre) continue
       hueso[def.entre[0]].getWorldPosition(_a); hueso[def.entre[1]].getWorldPosition(_b)
       obj.position.copy(_a).add(_b).multiplyScalar(.5)
-      if (def.tipo === 'barra' || def.tipo === 'banda') {
+      // El bastón (pica) también se orienta de una mano a la otra: en diagonal a la espalda, o en la barra de dominadas.
+      if (def.tipo === 'barra' || def.tipo === 'banda' || def.tipo === 'baston') {
         // Orientada de una mano a la otra (la barra mide lo suyo; la banda, lo que haya).
         const dir = _b.clone().sub(_a), L = dir.length(); dir.normalize()
         obj.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir)
