@@ -2109,6 +2109,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         <TodosTaller seleccion={seleccion} nombrePac={nombrePac} a={{
           confirmar: confirmarSerie, mutar: mutarSerie, addSerie, quitarSerie,
           regimen: setRegimen, lado: setLado, coment: setComent, item: toggleItem,
+          volumen: cambiaEj ? setVolumen : undefined,
           noHecho: alternarNoHecho, noHechos: leerNoHechos,
           sustituir: abrirSustituir, puedeCambiar: cambiaEj,
           // ⤢ lleva a su vista de siempre, con todo (tests, hoja, cambio de sesion).

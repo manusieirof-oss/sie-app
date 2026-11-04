@@ -5,7 +5,7 @@ import { MedidaRapida, ChipPropuesta } from './RejillaParte'
 import { useConfigTrabajo, nombresEjecucion } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
 import { itemMarcado } from '@/lib/ejecucion'
-import { camposDelEjercicio, UNIDAD } from '@/lib/medida'
+import { camposDelEjercicio, partesMedida, UNIDAD } from '@/lib/medida'
 import { pedirFoto } from '@/lib/fotos'
 import { textoModo } from '@/lib/sesiones'
 
@@ -35,6 +35,8 @@ export interface AccionesTodos {
   quitarSerie: (pid: string, ei: number, si: number) => void
   regimen: (pid: string, ei: number, val: string) => void
   lado: (pid: string, ei: number, val: string) => void
+  /** Reps o segundos, como en la vista de uno: queda para este paciente. */
+  volumen?: (pid: string, ei: number, val: 'reps' | 'segundos') => void
   coment: (pid: string, ei: number, val: string) => void
   item: (pid: string, ei: number, ii: number) => void
   noHecho: (pid: string, sid: string, ei: number) => void
@@ -172,13 +174,23 @@ export default function TodosTaller({ seleccion, nombrePac, a }: { seleccion: an
                         ejercicio, no puede quedar dentro de un menu. Un toque pasa a la siguiente;
                         con borde discontinuo si hoy se hace distinto a lo prescrito. */}
                     {(() => {
-                      const reg = e.regimen || e.plan?.regimen || 'Concéntrico', lado = e.lado || e.plan?.lado || 'Bilateral'
+                      /* LO MISMO QUE EN LA VISTA DE UNO. Aqui salia "Concéntrico" en los ejercicios
+                         que no tienen ejecucion, y en la de uno no salia nada: al pasar de una a
+                         otra parecia que el ejercicio cambiaba. Sin ejecucion, "+ ejecución". */
+                      const reg = e.regimen || e.plan?.regimen || '', lado = e.lado || e.plan?.lado || 'Bilateral'
+                      // Reps o segundos: solo en los que se cuentan asi (no metros), igual que en la de uno.
+                      const volCambiable = ['reps', 'segundos'].includes(partesMedida(e.tipo_medida).volumen)
+                      const porSeg = campos(e).includes('segundos')
                       const sig = (l: string[], v: string) => l[(l.indexOf(v) + 1) % l.length]
                       return <div className="tt-tags">
                         <button className={'tt-tag eje' + (e.regimen && e.regimen !== (e.plan?.regimen || 'Concéntrico') ? ' cambio' : '')}
-                          title={a.puedeCambiar !== false ? 'Ejecución · toca para cambiar' : 'Ejecución'} onClick={() => { if (a.puedeCambiar !== false) a.regimen(p.id, ei, sig(ejecuciones, reg)) }}>{reg}</button>
+                          title={a.puedeCambiar !== false ? 'Ejecución · toca para cambiar' : 'Ejecución'} onClick={() => { if (a.puedeCambiar !== false) a.regimen(p.id, ei, sig(ejecuciones, reg)) }}>{reg || '+ ejecución'}</button>
                         <button className={'tt-tag lado' + (e.lado && e.lado !== (e.plan?.lado || 'Bilateral') ? ' cambio' : '')}
                           title={a.puedeCambiar !== false ? 'Lateralidad · toca para cambiar' : 'Lateralidad'} onClick={() => { if (a.puedeCambiar !== false) a.lado(p.id, ei, sig(LADOS, lado)) }}>{lado}</button>
+                        {/* REPS O SEGUNDOS: en esta vista no se podia elegir. */}
+                        {volCambiable && <button className={'tt-tag lado' + (e.volumenHoy ? ' cambio' : '')}
+                          title={a.volumen ? 'Repeticiones o segundos · toca para cambiar (para este paciente)' : 'Repeticiones o segundos'}
+                          onClick={() => { if (a.volumen) a.volumen(p.id, ei, porSeg ? 'reps' : 'segundos') }}>{porSeg ? 'Seg' : 'Reps'}</button>}
                         {e.comentario ? <span className="tt-meta">📝</span> : null}
                       </div>
                     })()}
