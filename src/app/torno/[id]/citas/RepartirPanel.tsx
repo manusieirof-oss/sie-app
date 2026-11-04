@@ -33,19 +33,22 @@ export default function RepartirPanel({ r, setR, nombres, diasConCitas, hoy, onP
   return (
     <div className="tc-rep">
       <span>Repartir</span>
-      <select value={r.modo === 'alternar' ? `a${r.cada}` : r.modo} onChange={e => {
-        const v = e.target.value
-        setR(p => v.startsWith('a') ? { ...p, modo: 'alternar', cada: Number(v.slice(1)) } : { ...p, modo: v as ModoReparto })
-      }}>
-        <option value="a1">alternando, en cada cita</option>
-        {[2, 3, 4].map(n => <option key={n} value={`a${n}`}>alternando, cada {n} citas</option>)}
-        <option value="dias">una por día de la semana</option>
-        <option value="bloques">por bloques de semanas</option>
-      </select>
-      {r.modo === 'bloques' && (
-        <div className="tc-fila"><span>cada una</span>
-          <input type="number" min={1} value={r.semanas} onChange={e => setR(p => ({ ...p, semanas: Math.max(1, Number(e.target.value) || 1) }))}/>
-          <span>semanas</span></div>
+      {/* LA CONDICIÓN, EN CUADRADOS: cada una con su nombre y qué hace. En un
+          desplegable no se veían las opciones hasta abrirlo. */}
+      <div className="tc-cuad">
+        {([['alternar', '⇄', 'Alternando', 'una tras otra'], ['dias', '▦', 'Por día', 'cada día la suya'],
+           ['bloques', '▤', 'Por bloques', 'unas semanas cada una']] as const).map(([k, ic, t, sub]) => (
+          <button key={k} type="button" className={r.modo === k ? 'on' : ''} onClick={() => setR(p => ({ ...p, modo: k }))}>
+            <i>{ic}</i><b>{t}</b><small>{sub}</small>
+          </button>
+        ))}
+      </div>
+      {r.modo === 'alternar' && (
+        <div className="tc-fila"><span>en</span>
+          <select value={r.cada} onChange={e => setR(p => ({ ...p, cada: Number(e.target.value) }))}>
+            <option value={1}>cada cita</option>
+            {[2, 3, 4].map(n => <option key={n} value={n}>una de cada {n} citas</option>)}
+          </select></div>
       )}
       {/* Lo que va a hacer, dicho en palabras, con las sesiones tocadas. */}
       {nombres.length === 0 ? <em>Toca abajo las sesiones a repartir.</em> : (
@@ -57,11 +60,13 @@ export default function RepartirPanel({ r, setR, nombres, diasConCitas, hoy, onP
               : <div>{nombres.join(' → ')}{nombres.length > 1 ? ' → …' : ''}</div>}
         </div>
       )}
-      <select value={r.hasta.tipo} onChange={e => setR(p => ({ ...p, hasta: { ...p.hasta, tipo: e.target.value as any } }))}>
-        <option value="todas">en todas sus citas</option>
-        <option value="fecha">hasta una fecha</option>
-        <option value="semanas">durante unas semanas</option>
-      </select>
+      <div className="tc-cuad">
+        {([['todas', '∞', 'Todas', 'sus citas'], ['fecha', '📅', 'Hasta', 'una fecha'], ['semanas', '#', 'Durante', 'unas semanas']] as const).map(([k, ic, t, sub]) => (
+          <button key={k} type="button" className={r.hasta.tipo === k ? 'on' : ''} onClick={() => setR(p => ({ ...p, hasta: { ...p.hasta, tipo: k } }))}>
+            <i>{ic}</i><b>{t}</b><small>{sub}</small>
+          </button>
+        ))}
+      </div>
       {r.hasta.tipo === 'fecha' && <input type="date" min={hoy} value={r.hasta.fecha || ''} onChange={e => setR(p => ({ ...p, hasta: { ...p.hasta, fecha: e.target.value } }))}/>}
       {r.hasta.tipo === 'semanas' && (
         <div className="tc-fila"><input type="number" min={1} value={r.hasta.semanas || 4}

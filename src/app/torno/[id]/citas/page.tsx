@@ -396,6 +396,14 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-bloque { display:flex; flex-direction:column; gap:4px; padding:6px 0; border-top:1px dashed var(--bd2) }
         .tc-sep { border-top:1px solid var(--bd2) }
         .tc-cambian { font-size:11px; color:var(--gd); text-align:center }
+        .tc-cuad { display:grid; grid-template-columns:repeat(3,1fr); gap:5px }
+        .tc-cuad button { display:flex; flex-direction:column; align-items:center; gap:1px; padding:7px 3px; border:1.5px solid var(--bd); border-radius:10px;
+                          background:#fff; font:inherit; cursor:pointer; color:var(--gr); line-height:1.15 }
+        .tc-cuad button i { font-style:normal; font-size:15px; color:var(--grl) }
+        .tc-cuad button b { font-size:11px; font-weight:500; color:var(--n) }
+        .tc-cuad button small { font-size:9px; color:var(--grl); text-align:center }
+        .tc-cuad button.on { border-color:var(--g); background:var(--gl) }
+        .tc-cuad button.on i { color:var(--gd) }
         .tc-resumen { font-size:11.5px; color:var(--gr); line-height:1.45; background:var(--bl); border-radius:8px; padding:6px 8px }
         .tc-resumen b { font-weight:500; color:var(--n) }
         .tc-lado .tc-rep select, .tc-lado .tc-rep input[type=number], .tc-lado .tc-rep input[type=date] { width:100% }
@@ -613,9 +621,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   // color del ciclo y las de fuera se apagan.
                                   opacity: !ev || deSuFase ? 1 : fueraEv ? .2 : .4,
                                   boxShadow: deSuFase ? `0 0 0 2px ${ev!.color}` : c.id === encargo?.citaId ? '0 0 0 2px var(--n)' : 'none',
-                                  // Lo que cambia respecto a lo guardado, con borde: se ve qué va a
+                                  // Lo que cambia respecto a lo guardado, con borde oscuro continuo (el de puntos
+                                  // se confundía con unos puntos suspensivos): se ve qué va a
                                   // hacer Confirmar antes de pulsarlo.
-                                  outline: (plan[c.id] || null) !== (c.sesion_id || null) ? '2px dashed var(--gd)' : 'none', outlineOffset: 1 }}>
+                                  outline: (plan[c.id] || null) !== (c.sesion_id || null) ? '2px solid var(--n)' : 'none', outlineOffset: 1 }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
                                 {sid && fijas.has(sid) && (
                                   <span title="Con candado: repartir no la mueve. A mano sí se puede cambiar." style={{ marginLeft: 3 }}>
