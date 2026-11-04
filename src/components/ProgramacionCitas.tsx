@@ -51,13 +51,18 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
   const [motivo, setMotivo] = useState('')
   const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function cargar() {
-    const [{ data: cs }, { data: ss }] = await Promise.all([
-      supabase.from('citas').select('id,fecha,hora,sesion_id,tipo,sesiones(nombre,fija)')
-        .eq('paciente_id', pacienteId).gte('fecha', hoyISO()).eq('estado', 'programada').order('fecha').order('hora').limit(limite),
+    const [{ data: cs, error: ec }, { data: ss }] = await Promise.all([
+      // `sesiones:sesion_id`: citas tiene más de un enlace a sesiones y sin decir cuál la
+      // consulta fallaba entera (y salía "sin citas"). La de hoy cuenta aunque ya esté
+      // realizada; las canceladas y las faltas no.
+      supabase.from('citas').select('id,fecha,hora,sesion_id,tipo,sesiones:sesion_id(nombre,fija)')
+        .eq('paciente_id', pacienteId).gte('fecha', hoyISO()).not('estado', 'in', '(cancelada,falta)').order('fecha').order('hora').limit(limite),
       supabase.from('sesiones').select('*').eq('paciente_id', pacienteId).order('created_at', { ascending: false }),
     ])
+    if (ec) setError(ec.message)
     setCitas((cs || []).filter((c: any) => !/valora/i.test(c.tipo || '')).map((c: any) => {
       const s = Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
       return { id: c.id, fecha: c.fecha, hora: c.hora, sesion_id: c.sesion_id, sesNombre: s?.nombre || null, fija: !!s?.fija }
@@ -98,6 +103,8 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
   }
 
   if (cargando) return <div style={{ fontSize: 11, color: 'var(--grl)', padding: 12 }}>Cargando…</div>
+  // Un fallo de la consulta no puede parecer "no tiene citas": se dice.
+  if (error) return <div style={{ fontSize: 11, color: 'var(--red)', padding: 12 }}>No se han podido leer sus citas: {error}</div>
   if (!citas.length) return <div style={{ fontSize: 11, color: 'var(--grl)', padding: 12 }}>Sin citas por delante.</div>
 
   const titulo = pend?.tipo === 'cambiar' ? `Intercambiar ${fechaTxt(pend.a.fecha)} y ${fechaTxt(pend.b.fecha)}`
