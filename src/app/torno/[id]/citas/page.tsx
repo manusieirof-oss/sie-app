@@ -108,6 +108,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   // Repartir
   // Repartir: por día, alternando o por bloques. Ver RepartirPanel y lib/repartir.
   const [rep, setRep] = useState<EstadoReparto>(repartoVacio())
+  /** Las sesiones elegidas para repartir, en el orden en que se tocan sus fichas. */
+  const [rot, setRot] = useState<string[]>([])
 
   useEffect(() => { cargar() }, [sp.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -235,7 +237,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     const primera = lista.find(x => x.id === pedida) || lista[0]
     // Desde el torno (sesiones o ciclo en la dirección) lo natural es alternarlas en su
     // orden; desde la ficha, la agenda o el taller se empieza por día de la semana.
-    setRep(q.ses.length || q.sis.length ? { ...repartoVacio(), modo: 'alternar', orden: lista.map(x => x.id) } : repartoVacio())
+    setRep(repartoVacio())
+    setRot(q.ses.length || q.sis.length ? lista.map(x => x.id) : primera ? [primera.id] : [])
     setPincel(primera?.id || null)
     const enc = encargoDe(new URLSearchParams(sp.toString()))
     setEncargo(enc)
@@ -273,7 +276,12 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
 
   /** REPARTIR: la cuenta es de lib/repartir, la misma en toda la app. */
   function repartir() {
-    setPintado(planReparto({ citas, original, aMano, fijas, sesiones, ...rep }))
+    // Por día: el primer día de la semana que viene se lleva la 1ª sesión tocada, el
+    // segundo la 2ª… Por bloques: cada sesión tocada, las semanas elegidas.
+    const porDia: Record<number, string> = {}
+    diasConCitas.forEach((d, i) => { if (rot.length) porDia[d] = rot[i % rot.length] })
+    setPintado(planReparto({ citas, original, aMano, fijas, sesiones, modo: rep.modo, cada: rep.cada,
+      porDia, orden: rot, bloques: rot.map(ses => ({ ses, semanas: rep.semanas })), hasta: rep.hasta, pisar: rep.pisar }))
   }
   // Los días de la semana en que viene, para "Por día".
   const diasConCitas = Array.from(new Set(citas.map(c => diaSemana(c.fecha)))).sort()
@@ -379,6 +387,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         .tc-bloque { display:flex; flex-direction:column; gap:4px; padding:6px 0; border-top:1px dashed var(--bd2) }
         .tc-sep { border-top:1px solid var(--bd2) }
         .tc-cambian { font-size:11px; color:var(--gd); text-align:center }
+        .tc-resumen { font-size:11.5px; color:var(--gr); line-height:1.45; background:var(--bl); border-radius:8px; padding:6px 8px }
+        .tc-resumen b { font-weight:500; color:var(--n) }
         .tc-lado .tc-rep select, .tc-lado .tc-rep input[type=number], .tc-lado .tc-rep input[type=date] { width:100% }
         .tc-lado .tc-rep label { font-size:11.5px; line-height:1.3; align-items:flex-start }
         .tc-lado .tc-rep .btn { align-self:center; margin-top:2px }
@@ -446,7 +456,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           <div className={`tc-tres ${pieza ? 'tc-recoge' : ''}`}>
           <div className="tc-lado">
             {/* REPARTIR, arriba del todo y en vertical: es lo primero que se mira. */}
-          <RepartirPanel r={rep} setR={setRep} sesiones={sesiones} diasConCitas={diasConCitas} hoy={hoy}
+          <RepartirPanel r={rep} setR={setRep} nombres={rot.map(id => sesDe(id)?.nombre || '—')} diasConCitas={diasConCitas} hoy={hoy}
             onPintar={repartir} nCambian={cambios.length}/>
             <div className="tc-lado-rot">Sesiones</div>
             {[...ciclos.map(c => ({ ciclo: c as Ciclo | null, ses: sesiones.filter(s => s.ciclo === c.id) })),
@@ -463,8 +473,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                           const suyas = sesiones.filter(x => x.ciclo === c.id).map(x => x.id)
                           // Tocar el ciclo lo prepara para repartir alternando sus sesiones;
                           // cada una solo cae en las fechas de su fase.
-                          setRep(p => ({ ...p, modo: 'alternar', orden: suyas }))
-                          setPincel(suyas[0] || null)
+                          const todas = suyas.every(id => rot.includes(id))
+                          setRot(r => todas ? r.filter(x => !suyas.includes(x)) : [...r.filter(x => !suyas.includes(x)), ...suyas])
+                          setPincel(todas ? null : suyas[0] || null)
                         }}
                         style={{ background: c.color, color: '#fff', justifyContent: 'center', padding: 10 }}>
                         <span style={{ fontSize: 10, letterSpacing: .6, textTransform: 'uppercase', opacity: .85 }}>Ciclo</span>
@@ -496,19 +507,22 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     <div key={s.id} className="tc-sq-w">
                       <button type="button" className={`tc-sq ${on ? 'on' : ''}`}
                         onClick={() => {
-                          // TOCAR = COGERLA COMO PINCEL para tocar días a mano. El reparto ya no
-                          // se monta aquí (ver RepartirPanel): las fichas hacían dos cosas a la vez.
+                          // TOCAR = ELEGIRLA. Entra en el reparto (en el orden en que se tocan) y
+                          // es el pincel para tocar días a mano. Tocar otra vez la saca.
                           setPincelEval(null)
-                          setPincel(on ? null : s.id)
+                          const dentro = rot.includes(s.id)
+                          setRot(r => dentro ? r.filter(x => x !== s.id) : [...r, s.id])
+                          setPincel(dentro ? (rot.filter(x => x !== s.id).slice(-1)[0] || null) : s.id)
                         }}
-                        style={{ boxShadow: on ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined,
-                          opacity: pincel && !on ? .55 : 1 }}>
+                        style={{ boxShadow: rot.includes(s.id) ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined,
+                          opacity: rot.length > 0 && !rot.includes(s.id) ? .55 : 1 }}>
                         <span className="tc-sq-fotos" style={{ gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
                           {/* Foto, o la figura con sus músculos, o el icono (ImagenEjercicio). */}
                           {fotos.map((e: any, k: number) => <ImagenEjercicio insignias={false} key={k} relleno radio={0} fondo="#fff" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
                         </span>
                         <span className="tc-sq-nom">{s.nombre}</span>
                         <span className="tc-sq-n" style={{ background: s.color }} title="Citas con ella">{n}</span>
+                        {rot.includes(s.id) && <span className="tc-sq-orden" style={{ color: s.color }}>{rot.indexOf(s.id) + 1}º</span>}
                         <span className="tc-sq-i" title="Ver qué lleva" onClick={e => { e.stopPropagation(); setAbierto(ab ? null : 's:' + s.id) }}>i</span>
                       </button>
                       {ab && (

@@ -53,6 +53,8 @@ export function planReparto(a: {
   bloques: Bloque[]
   hasta: HastaReparto
   pisar: boolean
+  /** Alternando: poner una de cada N citas libres (1 = en todas). */
+  cada?: number
 }): Record<string, string | null> {
   const enJuego = new Set(sesionesDelReparto(a.modo, a.porDia, a.orden, a.bloques))
   const ses = (id: string) => a.sesiones.find(s => s.id === id)
@@ -73,9 +75,11 @@ export function planReparto(a: {
   }
 
   const nuevo: Record<string, string | null> = {}
-  let i = 0
+  let i = 0, paso = 0
+  const cada = Math.max(1, a.cada || 1)
   for (const c of libres) {
     if (!dentro(c.fecha)) break
+    if (a.modo === 'alternar' && paso++ % cada !== 0) continue
     let s: string | null = null
     if (a.modo === 'dias') {
       const d = a.porDia[diaSemana(c.fecha)]
