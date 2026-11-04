@@ -632,16 +632,19 @@ const planchaLateral: Movimiento = {
 // ── CRUNCH ───────────────────────────────────────────────────────────────────
 const crunch: Movimiento = {
   id: 'crunch', nombre: 'Crunch abdominal',
-  params: [{ id: 'manos', nombre: 'Manos', opciones: [['nuca', 'En la nuca'], ['pecho', 'Cruzadas al pecho'], ['rodillas', 'Hacia las rodillas']] }],
+  params: [{ id: 'manos', nombre: 'Manos', opciones: [['nuca', 'En la nuca'], ['pecho', 'Cruzadas al pecho'], ['rodillas', 'Hacia las rodillas']] },
+    // Oblicuos: el mismo crunch girando el tronco hacia la rodilla contraria. Va al final
+    // para que su opción por defecto (recto) deje igual los crunch que ya había.
+    { id: 'giro', nombre: 'Giro', opciones: [['no', 'Recto'], ['si', 'Oblicuo (hombro hacia la rodilla contraria)']] }],
   crear(p) {
-    const manos = p.manos || 'nuca'
+    const manos = p.manos || 'nuca', oblicuo = p.giro === 'si'
     const br: Pose = manos === 'nuca' ? CARGAS.manos_nuca.brazos(0) : manos === 'pecho' ? une(sim('brazo', [-28, 0, -16]), sim('antebrazo', [-100, 0, -62])) : sim('brazo', [-40, 0, 8])
     const ab = une(SUPINO_RODILLAS, br, { cabeza: [6, 0, 0] })
-    const ar = une(SUPINO_RODILLAS, br, { lumbar: [20, 0, 0], pecho: [18, 0, 0], cabeza: [14, 0, 0] }, manos === 'rodillas' ? sim('brazo', [-60, 0, 8]) : {})
+    const ar = une(SUPINO_RODILLAS, br, oblicuo ? { lumbar: [18, -12, 0], pecho: [16, -18, 0], cabeza: [14, -6, 0] } : { lumbar: [20, 0, 0], pecho: [18, 0, 0], cabeza: [14, 0, 0] }, manos === 'rodillas' ? sim('brazo', [-60, 0, 8]) : {})
     return {
       dur: 2.8, claves: rep(ab, ar, '⬆️ Despega los hombros, ombligo dentro', '⬇️ Baja despacio'),
       suelo: true, cam: { alto: 24, dist: 210, y: 12 }, apoyo: { a: ['cadera'], aY: 9 },
-      musculos: [['core', 'Recto abdominal']],
+      musculos: [['core', oblicuo ? 'Oblicuos y recto abdominal' : 'Recto abdominal']],
     }
   },
 }
@@ -850,13 +853,17 @@ const marcha: Movimiento = {
 // ── EQUILIBRIO A UNA PIERNA / ELEVACIÓN DE RODILLA ───────────────────────────
 const unaPierna: Movimiento = {
   id: 'una_pierna', nombre: 'Equilibrio a una pierna',
-  params: [{ id: 'tipo', nombre: 'Tipo', opciones: [['aguanta', 'Aguantar con la rodilla arriba'], ['rodilla', 'Subir y bajar la rodilla']] }, LADO],
+  params: [{ id: 'tipo', nombre: 'Tipo', opciones: [['aguanta', 'Aguantar con la rodilla arriba'], ['rodilla', 'Subir y bajar la rodilla'], ['abduccion', 'Separar la pierna hacia el lado']] }, LADO],
   crear(p) {
     const base: Pose = sim('brazo', [0, 0, 24])
     const arriba = une(base, { musloI: [-80, 0, -2], piernaI: [90, 0, 0], pieI: [10, 0, 0] })
-    const claves = p.tipo === 'rodilla' ? rep(base, arriba, '⬆️ Sube la rodilla a la altura de la cadera', '⬇️ Baja despacio') : aguanta(arriba, '⏸️ Aguanta sin que se mueva la cadera')
+    // Abducción: la pierna libre, estirada, se separa hacia el lado sin inclinar el tronco.
+    const fuera = une(base, { musloI: [-6, 0, -32], piernaI: [6, 0, 0], pieI: [0, 0, 0] }), junto = une(base, { musloI: [-6, 0, -6], piernaI: [8, 0, 0] })
+    const claves = p.tipo === 'rodilla' ? rep(base, arriba, '⬆️ Sube la rodilla a la altura de la cadera', '⬇️ Baja despacio')
+      : p.tipo === 'abduccion' ? rep(junto, fuera, '↔️ Separa la pierna sin inclinarte', '⬇️ Vuelve sin apoyar el pie')
+      : aguanta(arriba, '⏸️ Aguanta sin que se mueva la cadera')
     return {
-      dur: p.tipo === 'rodilla' ? 2.8 : 4, claves: conLado(claves, p), apoyo: { a: conLadoH(['pieD'], p) }, cam: CAM_PIE,
+      dur: p.tipo !== 'aguanta' && p.tipo ? 2.8 : 4, claves: conLado(claves, p), apoyo: { a: conLadoH(['pieD'], p) }, cam: CAM_PIE,
       musculos: [['gluteo', 'Glúteo medio'], ['core', 'Core'], ['gemelos', 'Tobillo y pie']],
     }
   },
@@ -1610,6 +1617,156 @@ const flexionLateral: Movimiento = {
 }
 
 MOVIMIENTOS_MAS.push(rotacionTorso, flexionLateral)
+
+// ════════════════════════════════════════════════════════════════════════════
+// FUNCIONALES, ESTIRAMIENTOS Y CERVICAL (ejercicios sin foto de la biblioteca).
+// Solo los que el muñeco representa bien; el resto sigue sin animación.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── SEDESTACIÓN AL BORDE DE LA CAMILLA ───────────────────────────────────────
+// Control de tronco sentado: erguido, pequeños balanceos a los lados y vuelta al
+// centro. Con las manos en la camilla o sin apoyo (brazos cruzados), que es más difícil.
+const sedestacionCamilla: Movimiento = {
+  id: 'sedestacion_camilla', nombre: 'Sentado al borde de la camilla',
+  params: [{ id: 'manos', nombre: 'Manos', opciones: [['apoyo', 'Apoyadas en la camilla'], ['sin', 'Sin apoyo (brazos cruzados)']] }],
+  crear(p) {
+    const manos = p.manos === 'sin' ? une(sim('brazo', [-30, 0, 20]), sim('antebrazo', [-110, 0, -70])) : MANOS_CAMILLA
+    const base = une(EN_CAMILLA, manos)
+    const lado = (g: number): Pose => une(base, { raiz: [0, 0, g * .4], lumbar: [0, 0, g * .4], pecho: [0, 0, g * .2] })
+    const claves: Clave[] = [
+      { t: 0, fase: '⚖️ Siéntate erguido, pies en el suelo', p: lado(0) },
+      { t: .25, fase: '↔️ Lleva el peso a un lado sin caerte', p: lado(8) },
+      { t: .5, p: lado(0) }, { t: .75, p: lado(-8) }, { t: 1, fase: '⚖️ Vuelve al centro', p: lado(0) },
+    ]
+    return {
+      dur: 5, claves, apoyo: APOYO_CAMILLA, cam: CAM_CAMILLA, props: [CAMILLA],
+      musculos: [['core', 'Abdomen y oblicuos'], ['erectores', 'Erectores']],
+    }
+  },
+}
+
+// ── ALCANCE FUNCIONAL SENTADO ────────────────────────────────────────────────
+// Sentado en la camilla, estira un brazo hacia delante, cruzando la línea media, hacia
+// el lado o hasta el suelo, y vuelve a sentarse erguido.
+const alcanceSentado: Movimiento = {
+  id: 'alcance_sentado', nombre: 'Alcance funcional sentado',
+  params: [
+    { id: 'hacia', nombre: 'Hacia dónde', opciones: [['delante', 'Hacia delante'], ['cruzando', 'Cruzando la línea media'], ['lado', 'Hacia el lado'], ['suelo', 'Hasta el suelo']] },
+    LADO,
+  ],
+  crear(p) {
+    const h = p.hacia || 'delante'
+    const ini = une(EN_CAMILLA, MANOS_CAMILLA)
+    const otraMano: Pose = { brazoI: [6, 0, -16], antebrazoI: [-10, 0, 0] }
+    const fin = h === 'cruzando' ? une(ini, otraMano, { lumbar: [10, -12, 0], pecho: [8, -14, 0], brazoD: [-84, 0, -34], antebrazoD: [-4, 0, 0] })
+      : h === 'lado' ? une(ini, otraMano, { lumbar: [0, 0, 10], pecho: [0, 0, 10], brazoD: [-6, 0, 86], antebrazoD: [-4, 0, 0] })
+      : h === 'suelo' ? une(ini, otraMano, { lumbar: [32, 0, 4], pecho: [30, 0, 4], cabeza: [-10, 0, 0], brazoD: [-72, 0, 12], antebrazoD: [-4, 0, 0] })
+      : une(ini, otraMano, { lumbar: [14, 0, 0], pecho: [12, 0, 0], brazoD: [-92, 0, 8], antebrazoD: [-4, 0, 0] })
+    return {
+      dur: 3.6, claves: conLado(rep(ini, fin, '👉 Estira el brazo todo lo que puedas', '↩️ Vuelve a sentarte erguido', .15), p),
+      apoyo: APOYO_CAMILLA, cam: CAM_CAMILLA, props: [CAMILLA],
+      musculos: [['core', 'Abdomen y oblicuos'], ['deltoides', 'Hombro']],
+    }
+  },
+}
+
+// ── TRASLADO DE PESO DE PIE ──────────────────────────────────────────────────
+// De pie, pies separados: lleva el peso a una pierna y luego a la otra, sin levantar
+// los pies. La cadera se desplaza; el tronco sigue recto.
+const trasladoPeso: Movimiento = {
+  id: 'traslado_peso', nombre: 'Traslado de peso de pie',
+  params: [],
+  crear() {
+    const manos = une(sim('brazo', [14, 0, 34]), sim('antebrazo', [-104, 0, -30]))
+    const a = (g: number): Pose => une(manos, { musloD: [-2, 0, 10 + g], musloI: [-2, 0, -10 + g], pieD: [0, 0, -10 - g], pieI: [0, 0, 10 - g] })
+    const claves: Clave[] = [
+      { t: 0, fase: '⬅️ Lleva el peso a una pierna', p: a(0) }, { t: .25, p: a(-9) },
+      { t: .5, fase: '➡️ Ahora a la otra', p: a(0) }, { t: .75, p: a(9) }, { t: 1, p: a(0) },
+    ]
+    return {
+      dur: 4, claves, apoyo: DOS_PIES, cam: CAM_PIE,
+      musculos: [['gluteo', 'Glúteo medio'], ['core', 'Core']],
+    }
+  },
+}
+
+// ── ESTIRAMIENTO DE GEMELO EN LA PARED ───────────────────────────────────────
+// Manos en la pared, la pierna de atrás estirada con el talón en el suelo; la de
+// delante flexionada. Se lleva la cadera hacia la pared.
+const estiramientoGemelo: Movimiento = {
+  id: 'estiramiento_gemelo', nombre: 'Estiramiento de gemelo en la pared',
+  params: [LADO],
+  crear(p) {
+    const brazos = une(sim('brazo', [-76, 0, 10]), sim('antebrazo', [-24, 0, 0]))
+    const ini = une(brazos, { raiz: [8, 0, 0], musloI: [-26, 0, -4], piernaI: [30, 0, 0], pieI: [-4, 0, 0], musloD: [22, 0, 4], piernaD: [0, 0, 0], pieD: [-20, 0, 0] })
+    const fin = une(ini, { raiz: [12, 0, 0], musloI: [-32, 0, -4], piernaI: [40, 0, 0], pieI: [-8, 0, 0], musloD: [26, 0, 4], pieD: [-26, 0, 0] })
+    return {
+      dur: 5, claves: conLado(rep(ini, fin, '➡️ Lleva la cadera hacia la pared', '⏸️ Talón de atrás en el suelo; nota el gemelo', .3), p),
+      apoyo: { a: conLadoH(['pieD', 'pieI'], p) }, cam: CAM_PIE,
+      props: [{ tipo: 'pared', bajo: 'pieI', clave: 0, off: [0, 0, 40], rot: [0, 180, 0] }],
+      musculos: [['gemelos', 'Gemelo y sóleo']],
+    }
+  },
+}
+
+// ── ESTIRAMIENTO DE HOMBRO (BRAZO CRUZADO) ───────────────────────────────────
+// El brazo estirado cruza por delante del pecho; la otra mano lo acerca por el codo.
+const estiramientoHombro: Movimiento = {
+  id: 'estiramiento_hombro', nombre: 'Estiramiento de hombro con brazo cruzado',
+  params: [LADO],
+  crear(p) {
+    const pose = (k: number): Pose => ({ brazoD: [-88, 0, -34 - k], antebrazoD: [-4, 0, 0], brazoI: [-56, 0, -14], antebrazoI: [-96, 0, 0] })
+    return {
+      dur: 5, claves: conLado(rep(pose(0), pose(10), '⬅️ Acerca el brazo al pecho', '⏸️ Nota la parte de atrás del hombro', .3), p),
+      apoyo: DOS_PIES, cam: CAM_PIE,
+      musculos: [['deltoides', 'Deltoides posterior'], ['trapecio', 'Romboides y trapecio']],
+    }
+  },
+}
+
+// ── ESTIRAMIENTO DE ABDUCTOR DE PIE ──────────────────────────────────────────
+// La pierna que se estira cruza por detrás; la cadera se lleva hacia ese lado y el
+// tronco se inclina al contrario.
+const estiramientoAbductor: Movimiento = {
+  id: 'estiramiento_abductor', nombre: 'Estiramiento de abductor de pie',
+  params: [LADO],
+  crear(p) {
+    const pose = (k: number): Pose => une(sim('brazo', [0, 0, 8]),
+      { brazoI: [0, 0, -150], musloD: [8, 0, -12 - k * .3], piernaD: [2, 0, 0], pieD: [-6, 0, 10], musloI: [-4, 0, -6 + k * .3], pieI: [0, 0, 6] },
+      inclinaLado(-k))
+    return {
+      dur: 5, claves: conLado(rep(pose(4), pose(20), '↖️ Cadera hacia fuera, tronco hacia el otro lado', '⏸️ Nota el lado de la cadera', .3), p),
+      apoyo: DOS_PIES, cam: CAM_PIE,
+      musculos: [['gluteo', 'Glúteo medio y TFL']],
+    }
+  },
+}
+
+// ── CERVICAL ─────────────────────────────────────────────────────────────────
+// Sentado y erguido: inclina la cabeza hacia un hombro y luego al otro, o la lleva
+// hacia delante (barbilla al pecho) y hacia atrás. Despacio y sin dolor.
+const cervical: Movimiento = {
+  id: 'cervical', nombre: 'Movilidad cervical',
+  params: [{ id: 'tipo', nombre: 'Tipo', opciones: [['lateral', 'Inclinación lateral'], ['flexoext', 'Flexión y extensión']] }],
+  crear(p) {
+    const base = une(SENTADO, sim('brazo', [-30, 0, 10]), sim('antebrazo', [-60, 0, 0]))
+    const c = (x: number, z: number): Pose => une(base, { cuello: [x * .6, 0, z * .6], cabeza: [x * .4, 0, z * .4] })
+    const lat = p.tipo !== 'flexoext'
+    const claves: Clave[] = lat ? [
+      { t: 0, fase: '↘️ Oreja hacia el hombro', p: c(0, 0) }, { t: .25, p: c(0, 34) },
+      { t: .5, fase: '↙️ Ahora al otro lado', p: c(0, 0) }, { t: .75, p: c(0, -34) }, { t: 1, p: c(0, 0) },
+    ] : [
+      { t: 0, fase: '⬇️ Barbilla al pecho', p: c(0, 0) }, { t: .25, p: c(40, 0) },
+      { t: .5, fase: '⬆️ Mira arriba sin forzar', p: c(0, 0) }, { t: .75, p: c(-36, 0) }, { t: 1, p: c(0, 0) },
+    ]
+    return {
+      dur: 6, claves, apoyo: PIES_SENTADO, cam: { ...CAM_PIE, y: 52, dist: 170 }, props: [SILLA],
+      musculos: [['trapecio', 'Trapecio superior y cervicales']],
+    }
+  },
+}
+
+MOVIMIENTOS_MAS.push(sedestacionCamilla, alcanceSentado, trasladoPeso, estiramientoGemelo, estiramientoHombro, estiramientoAbductor, cervical)
 
 /** Los props también cambian de lado cuando el ejercicio se hace con el izquierdo. */
 function conLadoProps(props: Prop[], p: Record<string, string>): Prop[] {

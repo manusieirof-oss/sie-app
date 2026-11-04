@@ -20,6 +20,30 @@ type Regla = [RegExp, (n: string, v: string) => AnimEjercicio | null]
 const tiene = (s: string, re: RegExp) => re.test(s)
 
 const REGLAS: Regla[] = [
+  // ── Ejercicios sin foto de la biblioteca: funcionales, estiramientos, cervical ──
+  // Van primero porque algunos nombres empiezan igual que reglas de más abajo.
+  [/^sedestacion al borde de la camilla/, (_, v) => ({ mov: 'sedestacion_camilla', p: { manos: !v || tiene(v, /apoyo de manos/) ? 'apoyo' : 'sin' } })],
+  [/^alcance funcional sentado/, (_, v) => ({ mov: 'alcance_sentado', p: { hacia: tiene(v, /cruzando/) ? 'cruzando' : tiene(v, /lado/) ? 'lado' : tiene(v, /suelo/) ? 'suelo' : 'delante' } })],
+  // Con las manos apoyadas o en una báscula no se ve bien: solo la de sin apoyo.
+  [/^traslado de peso en bipedestacion/, (_, v) => !v || tiene(v, /sin apoyo/) ? ({ mov: 'traslado_peso', p: {} }) : null],
+  [/^paso lateral con apoyo/, (_, v) => tiene(v, /sin apoyo/) ? ({ mov: 'paso_lateral', p: {} }) : null],
+  [/^subir y bajar un escalon/, () => ({ mov: 'subida_cajon', p: {} })],
+  [/^flexion de hombro rodando pelota en pared/, () => ({ mov: 'balon_pared', p: { tipo: 'flexion', objeto: 'balon' } })],
+  [/^rueda por la pared/, () => ({ mov: 'balon_pared', p: { tipo: 'flexion', objeto: 'rueda' } })],
+  [/^rotacion toracica con stick/, () => ({ mov: 'rotacion_torso', p: { posicion: 'de_pie', material: 'pica' } })],
+  [/^extension de cuadriceps sentado$/, () => ({ mov: 'rodilla_sentado', p: { tipo: 'extension' } })],
+  [/^flexion de rodilla en deslizador/, () => ({ mov: 'sentado_suelo', p: { tipo: 'deslizador' } })],
+  [/^flexion de rodillas con goma/, (_, v) => tiene(v, /tumbad/) ? ({ mov: 'supino_goma', p: {} }) : null],
+  [/^sentarse en talones/, () => ({ mov: 'arrodillado', p: {} })],
+  [/^estiramiento (de )?gemelo$/, () => ({ mov: 'estiramiento_gemelo', p: {} })],
+  [/^estiramiento de hombros?$/, () => ({ mov: 'estiramiento_hombro', p: {} })],
+  [/^estiramiento abductor - bipedestacion/, (_, v) => v ? null : ({ mov: 'estiramiento_abductor', p: {} })],
+  [/^flexion lateral de cervical/, (_, v) => v ? null : ({ mov: 'cervical', p: { tipo: 'lateral' } })],
+  [/^flexo.extension cervical/, () => ({ mov: 'cervical', p: { tipo: 'flexoext' } })],
+  // «oblicuos» es la variante de la familia de los crunch; «Con abducción de pierna», de la
+  // de equilibrio unipodal (los nombres sueltos vienen de cuando eran variantes).
+  [/^oblicuos$/, () => ({ mov: 'crunch', p: { giro: 'si' } })],
+  [/^con abduc?cion de pierna/, () => ({ mov: 'una_pierna', p: { tipo: 'abduccion' } })],
   // ── Sentadillas ──
   [/^sentadilla goblet/, (_, v) => ({ mov: 'sentadilla', p: { carga: tiene(v, /disco/) ? 'goblet_disco' : tiene(v, /mancuerna/) ? 'goblet_mancuerna' : 'goblet_kettlebell' } })],
   [/^sentadilla trasera/, (_, v) => ({ mov: 'sentadilla', p: { carga: 'barra_trasera', tipo: tiene(v, /cajon/) ? 'banco' : 'libre', pausa: tiene(v, /pausa/) ? 'si' : 'no', cuna: tiene(v, /cuna/) ? 'si' : 'no' } })],
