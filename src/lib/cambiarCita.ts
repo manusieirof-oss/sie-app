@@ -52,3 +52,17 @@ export async function intercambiarCitas(pacienteId: string, a: CitaProg, b: Cita
   }
   return { ok: true as const, aviso: avisos[0] }
 }
+
+/**
+ * Recolocar varias citas de golpe (seguir alternando tras un cambio). Cada una
+ * queda apuntada con el mismo motivo que el cambio que la provoca.
+ */
+export async function recolocarCitas(pacienteId: string, cambios: { cita: CitaProg, nueva: { id: string, nombre: string } }[], m: Motivo) {
+  const avisos: string[] = []
+  for (const { cita, nueva } of cambios) {
+    const r = await ponerEnCita(pacienteId, cita, nueva, m)
+    if (!r.ok) return { ok: false as const, error: r.error }
+    if (r.aviso) avisos.push(r.aviso)
+  }
+  return { ok: true as const, aviso: avisos[0] }
+}

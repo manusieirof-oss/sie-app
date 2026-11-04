@@ -103,3 +103,31 @@ export function planReparto(a: {
   }
   return nuevo
 }
+
+/**
+ * SEGUIR ALTERNANDO después de cambiar una cita a mano.
+ *
+ * Si iban "A, B, A, B" y la de hoy pasa de A a B, las siguientes tienen que seguir
+ * la alternancia desde B: "A, B, A…". Solo se recolocan las que llevan una de las
+ * sesiones que alternan (o ninguna); las de candado y las que llevan otra cosa se
+ * quedan como están. Devuelve solo las que cambian.
+ */
+export function seguirAlternando(despues: { id: string, sesion_id: string | null, fija?: boolean }[], orden: string[], desde: string) {
+  const out: Record<string, string> = {}
+  let i = orden.indexOf(desde)
+  if (i < 0 || orden.length < 2) return out
+  for (const c of despues) {
+    if (c.fija) continue
+    if (c.sesion_id && !orden.includes(c.sesion_id)) continue
+    i = (i + 1) % orden.length
+    if (orden[i] !== c.sesion_id) out[c.id] = orden[i]
+  }
+  return out
+}
+
+/** Las sesiones que van alternando en unas citas: las distintas, en el orden en que aparecen. */
+export function ordenQueAlterna(citas: { sesion_id: string | null, fija?: boolean }[]) {
+  const o: string[] = []
+  for (const c of citas) if (c.sesion_id && !c.fija && !o.includes(c.sesion_id)) o.push(c.sesion_id)
+  return o
+}

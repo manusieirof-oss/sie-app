@@ -13,7 +13,7 @@ import { abrirEvaluacion, moverEvaluacion } from '@/lib/evaluaciones'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import PiezaTorno, { FilaPieza } from './PiezaTorno'
 import RepartirPanel, { repartoVacio, type EstadoReparto } from './RepartirPanel'
-import { planReparto, diaSemana } from '@/lib/repartir'
+import { planReparto, diaSemana, seguirAlternando } from '@/lib/repartir'
 
 // ---------------------------------------------------------------------------
 // PONERLO EN SUS CITAS
@@ -271,7 +271,28 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     if (!pincel) return
     const s = sesDe(pincel)!
     if (!cabe(s, c.fecha)) { alert(`«${s.nombre}» es de ${s.fase || 'otra fase'}: ese día cae fuera.`); return }
-    setAMano(m => ({ ...m, [c.id]: plan[c.id] === pincel ? null : pincel }))
+    guardarPaso()
+    // TOCAR OTRA VEZ = VOLVER ATRÁS. Si la pusiste tú a mano, se quita y vuelve lo que
+    // tenía; antes la vaciaba y lo que había se perdía. Solo vacía si ya la tenía.
+    if (aMano[c.id] === pincel) { setAMano(m => { const n = { ...m }; delete n[c.id]; return n }); return }
+    if (plan[c.id] === pincel) { setAMano(m => ({ ...m, [c.id]: null })); return }
+    setAMano(m => ({ ...m, [c.id]: pincel }))
+    // CON "ALTERNANDO" ELEGIDO, las siguientes siguen la alternancia desde la nueva.
+    if (rep.modo === 'alternar' && rot.length > 1 && rot.includes(pincel)) {
+      const despues = citas.filter(x => x.fecha > c.fecha || (x.fecha === c.fecha && String(x.hora || '') > String(c.hora || '')))
+        .map(x => ({ id: x.id, sesion_id: plan[x.id] || null, fija: x.id in aMano || (!!original[x.id] && fijas.has(original[x.id]!)) }))
+      const nuevo = seguirAlternando(despues, rot, pincel)
+      if (Object.keys(nuevo).length) setPintado(p => ({ ...p, ...nuevo }))
+    }
+  }
+
+  /** DESHACER: cada toque, intercambio o pintado guarda cómo estaba antes. */
+  const [pasos, setPasos] = useState<{ p: Record<string, string | null>, a: Record<string, string | null> }[]>([])
+  function guardarPaso() { setPasos(h => [...h.slice(-30), { p: pintado, a: aMano }]) }
+  function deshacer() {
+    const u = pasos[pasos.length - 1]
+    if (!u) return
+    setPintado(u.p); setAMano(u.a); setPasos(h => h.slice(0, -1))
   }
 
   /** Intercambia lo que llevan dos citas (en el plan; se guarda al Confirmar). */
@@ -280,6 +301,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     const sa = plan[aId] || null, sb = plan[bId] || null
     if (sa === sb) return
     if (((sa && fijas.has(sa)) || (sb && fijas.has(sb))) && !confirm('Una de las dos lleva una sesión con candado (fuerza). ¿Intercambiarlas igualmente?')) return
+    guardarPaso()
     setAMano(m => ({ ...m, [aId]: sb, [bId]: sa }))
   }
 
@@ -289,6 +311,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     // segundo la 2ª… Por bloques: cada sesión tocada, las semanas elegidas.
     const porDia: Record<number, string> = {}
     diasConCitas.forEach((d, i) => { if (rot.length) porDia[d] = rot[i % rot.length] })
+    guardarPaso()
     setPintado(planReparto({ citas, original, aMano, fijas, sesiones, modo: rep.modo, cada: rep.cada,
       porDia, orden: rot, bloques: rot.map(ses => ({ ses, semanas: rep.semanas })), hasta: rep.hasta, pisar: rep.pisar }))
   }
@@ -718,7 +741,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
               {[cambios.length > 0 && `${cambios.length} cita${cambios.length === 1 ? '' : 's'} cambiada${cambios.length === 1 ? '' : 's'}`,
                 cambiosEval.length > 0 && `${cambiosEval.length} evaluaci${cambiosEval.length === 1 ? 'ón' : 'ones'}`].filter(Boolean).join(' · ')}
             </span>
-            <button className="btn btn-t btn-sm" onClick={() => { setPintado({}); setAMano({}); setEvalPlan(Object.fromEntries(evals.map(e => [e.key, e.cita]))) }}>Deshacer todo</button>
+            {pasos.length > 0 && <button className="btn btn-t btn-sm" onClick={deshacer} title="Vuelve atrás el último toque">↶ Deshacer</button>}
+            <button className="btn btn-t btn-sm" onClick={() => { setPintado({}); setAMano({}); setPasos([]); setEvalPlan(Object.fromEntries(evals.map(e => [e.key, e.cita]))) }}>Deshacer todo</button>
             <button className="btn btn-p" disabled={guardando} onClick={confirmar}><Ic name="ok" size={13}/> {guardando ? 'Guardando…' : 'Programar'}</button>
           </div>
         </div>

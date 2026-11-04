@@ -6,7 +6,8 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { MOTIVOS_CAMBIO } from '@/lib/cambioSesion'
 import { rutaDeAsignacion } from '@/lib/asignarCita'
-import { ponerEnCita, intercambiarCitas, type CitaProg } from '@/lib/cambiarCita'
+import { ponerEnCita, intercambiarCitas, recolocarCitas, type CitaProg } from '@/lib/cambiarCita'
+import { seguirAlternando, ordenQueAlterna } from '@/lib/repartir'
 
 // ---------------------------------------------------------------------------
 // PROGRAMACIÓN: las próximas citas de un paciente con su sesión, para cambiarlas
@@ -52,6 +53,14 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
   const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Al poner otra sesión: recolocar las siguientes para que sigan alternando. */
+  const [seguir, setSeguir] = useState(true)
+  // Escape suelta la sesión cogida: tocarla sin querer no puede obligar a cambiarla.
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setCogida(null); setMenu(null) } }
+    document.addEventListener('keydown', esc)
+    return () => document.removeEventListener('keydown', esc)
+  }, [])
 
   async function cargar() {
     const [{ data: cs, error: ec }, { data: ss }] = await Promise.all([
@@ -80,7 +89,22 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
     if ((a.fija || b.fija) && !confirm('Una de las dos lleva una sesión con candado (fuerza). ¿Intercambiarlas igualmente?')) return
     abrir({ tipo: 'cambiar', a, b })
   }
-  function abrir(p: Pendiente) { setMenu(null); setMotivo(''); setNota(''); setPend(p) }
+  function abrir(p: Pendiente) { setCogida(null); setMenu(null); setMotivo(''); setNota(''); setSeguir(true); setPend(p) }
+
+  /** Si al poner otra sesión las siguientes iban alternando, cómo quedarían. */
+  function alternancia(p: Pendiente | null) {
+    if (!p || p.tipo !== 'poner') return null
+    const i = citas.findIndex(c => c.id === p.cita.id)
+    const despues = citas.slice(i + 1)
+    const orden = ordenQueAlterna([p.cita, ...despues])
+    if (orden.length < 2 || !orden.includes(p.ses.id)) return null
+    const cambia = seguirAlternando(despues, orden, p.ses.id)
+    const n = Object.keys(cambia).length
+    if (!n) return null
+    const nombre = (id: string) => suyas.find(x => x.id === id)?.nombre || citas.find(x => x.sesion_id === id)?.sesNombre || 'Sesión'
+    return { cambia, n, texto: orden.map(nombre).join(' → '), nombre }
+  }
+  const alt = alternancia(pend)
 
   async function confirmar() {
     if (!pend || !motivo) return
@@ -97,6 +121,14 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
     setGuardando(false)
     if (!r.ok) { alert('No se ha podido cambiar: ' + r.error); return }
     if (r.aviso) alert('El cambio está hecho, pero no se ha podido apuntar el motivo:\n\n' + r.aviso)
+    // Y las siguientes, para que sigan alternando desde la nueva.
+    if (alt && seguir) {
+      setGuardando(true)
+      const r2 = await recolocarCitas(pacienteId, Object.entries(alt.cambia).map(([id, sid]) => ({
+        cita: citas.find(c => c.id === id)!, nueva: { id: sid, nombre: alt.nombre(sid) } })), m)
+      setGuardando(false)
+      if (!r2.ok) alert('La cita está cambiada, pero no se han podido recolocar las siguientes: ' + r2.error)
+    }
     setPend(null)
     await cargar()
     onCambio?.()
@@ -118,6 +150,13 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
         Arrastra una sesión encima de otra cita para intercambiarlas (en tablet: toca una y luego la otra).
       </div>
 
+      {cogida && !pend && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--gd)', background: 'var(--gl)', borderRadius: 8, padding: '6px 9px' }}>
+          <span style={{ flex: 1 }}>Toca la cita con la que intercambiarla.</span>
+          <button className="btn btn-t btn-sm" onClick={() => setCogida(null)}>Soltar</button>
+        </div>
+      )}
+
       {pend && (
         <div style={{ border: '1px solid var(--gm)', background: 'var(--gl)', borderRadius: 10, padding: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--n)', marginBottom: 6 }}>{titulo}</div>
@@ -129,6 +168,12 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
             ))}
           </div>
           <input className="input" placeholder="Nota (opcional)" value={nota} onChange={e => setNota(e.target.value)} style={{ marginBottom: 6 }}/>
+          {alt && (
+            <label style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 11, color: 'var(--gr)', marginBottom: 6, cursor: 'pointer' }}>
+              <input type="checkbox" checked={seguir} onChange={e => setSeguir(e.target.checked)}/>
+              <span>Recolocar las siguientes para seguir alternando ({alt.texto}): cambian {alt.n} cita{alt.n === 1 ? '' : 's'}. Las de candado no se tocan.</span>
+            </label>
+          )}
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
             <button className="btn btn-t btn-sm" onClick={() => setPend(null)}>Cancelar</button>
             <button className="btn btn-p btn-sm" disabled={!motivo || guardando} onClick={confirmar}>
