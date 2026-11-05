@@ -34,11 +34,11 @@
    - NEXT_PUBLIC_SUPABASE_URL = https://zlqoylbdgipbwnpsnsgr.supabase.co
    - NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 5. Pulsa "Deploy"
-6. En 2 minutos tendrás tu URL: sie-app.vercel.app
+6. En 2 minutos tendrás tu URL: sie-2025.vercel.app
 
 ### PASO 5 · Acceder desde el iPad
 1. Abre Safari en el iPad
-2. Ve a la URL de Vercel (ej. sie-app.vercel.app)
+2. Ve a la URL de Vercel (ej. sie-2025.vercel.app)
 3. Entra con tu email y contraseña
 4. Para añadir a pantalla de inicio: pulsa el botón compartir → "Añadir a pantalla de inicio"
 
