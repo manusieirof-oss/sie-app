@@ -34,13 +34,15 @@ let resumenCache: Record<string, any> | null = null
 const fecha = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f)
   .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
 
-export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, intensidades, onCambiar, onCerrar }: {
+export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, intensidades, onUsar, onCambiar, onCerrar }: {
   ejercicio: any, ejercicios: any[], etiquetas: any[], amasar?: boolean,
   /** Cliente elegido en la Biblioteca: las cifras, el rosco y los objetivos pasan a ser
       los suyos. El color del marco sigue siendo el de la clínica (lo que es el ejercicio). */
   paciente?: { id: string, nombre: string } | null, usoPaciente?: any,
   /** Intensidad ya calculada (la Biblioteca). Si no se pasa, se calcula aquí. */
   intensidades?: { nombre: string, n: number, color?: string }[],
+  /** Si se pasa, sale el botón «Hacer este hoy» (taller). */
+  onUsar?: () => void,
   /** Para saltar a otro de la familia sin cerrar el cromo. */
   onCambiar: (e: any) => void, onCerrar: () => void
 }) {
@@ -196,7 +198,14 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
               <div><b>{uso?.sesiones ?? '·'}</b><span>Sesiones</span></div>
               <div><b>{pasos.length}</b><span>Claves</span></div>
             </div>
-            <button type="button" className="cr-voltear" onClick={() => setVuelta(true)}>Dale la vuelta <span>↻</span></button>
+            {/* TALLER: pasando por su familia con las flechas, un toque cambia el ejercicio
+                de hoy por este (solo para esta cita, como «Cambiar ejercicio»). */}
+            {onUsar
+              ? <div style={{ display: 'flex', gap: 8, margin: '6px 12px 12px' }}>
+                  <button type="button" className="cr-voltear" style={{ margin: 0, flex: 1 }} onClick={() => setVuelta(true)}>Vuelta <span>↻</span></button>
+                  <button type="button" className="cr-voltear" style={{ margin: 0, flex: 2, background: 'var(--g)', color: '#fff' }} onClick={onUsar}>⇄ Hacer este hoy</button>
+                </div>
+              : <button type="button" className="cr-voltear" onClick={() => setVuelta(true)}>Dale la vuelta <span>↻</span></button>}
           </div>
 
           {/* REVERSO */}
@@ -279,7 +288,9 @@ function Rosco({ caps }: { caps: { nombre: string, n: number, color?: string }[]
  * familia, las etiquetas y, si hay paciente, lo que ese paciente lleva hecho. Así en sala
  * se le puede enseñar al paciente cómo se hace y cuánto lo ha trabajado él.
  */
-export function CromoDeId({ id, paciente, onCerrar }: { id: string, paciente?: { id: string, nombre: string } | null, onCerrar: () => void }) {
+export function CromoDeId({ id, paciente, onCerrar, onUsar }: { id: string, paciente?: { id: string, nombre: string } | null, onCerrar: () => void,
+  /** Taller: cambiar el ejercicio de hoy por el que se está viendo (otro de su familia). */
+  onUsar?: (ej: any) => void }) {
   const [ej, setEj] = useState<any>(null)
   const [fam, setFam] = useState<any[]>([])
   const [ets, setEts] = useState<any[]>([])
@@ -314,7 +325,9 @@ export function CromoDeId({ id, paciente, onCerrar }: { id: string, paciente?: {
   }, [paciente?.id, ej?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!ej) return null
   return <FichaEjercicio ejercicio={ej} ejercicios={fam} etiquetas={ets} paciente={paciente} usoPaciente={uso}
-    onCambiar={x => setEj(x)} onCerrar={onCerrar}/>
+    onCambiar={x => setEj(x)} onCerrar={onCerrar}
+    // Solo cuando se está viendo OTRO de la familia: el de hoy ya es el que se hace.
+    onUsar={onUsar && ej.id !== id ? () => onUsar(ej) : undefined}/>
 }
 
 // Estilos aquí mismo: es el único sitio que los usa y así el cromo se lee de una vez.

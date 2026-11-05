@@ -43,7 +43,7 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, arreglar = false, onMedida }: any) {
+  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -52,7 +52,8 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
      veia donde acababa un par y empezaba el otro. Por letra y no por orden, por si
      estan guardados intercalados. */
   const cfgTrabajo = useConfigTrabajo()
-  const [cromo, setCromo] = useState<string | null>(null)
+  // El cromo abierto: de qué ejercicio y en qué hueco de la parte está (para cambiarlo desde él).
+  const [cromo, setCromo] = useState<{ id: string, ei: number, cambia: boolean } | null>(null)
   const grupos: { g: string, items: any[] }[] = []
   ejercicios.forEach((o: any) => {
     const g = superserie ? (o.ej.grupo || 'A') : ''
@@ -63,7 +64,8 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
 
   return (
     <div style={{ marginBottom: 14, paddingLeft: 14 }}>
-      {cromo && <CromoDeId id={cromo} paciente={paciente || null} onCerrar={() => setCromo(null)}/>}
+      {cromo && <CromoDeId id={cromo.id} paciente={paciente || null} onCerrar={() => setCromo(null)}
+        onUsar={cromo.cambia && onCambiarA ? (nuevo: any) => { onCambiarA(cromo.ei, nuevo); setCromo(null) } : undefined}/>}
       {grupos.map(gr => (
       <div key={gr.g || '-'} style={{ marginBottom: superserie ? 14 : 0 }}>
       {superserie && (
@@ -132,7 +134,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                     para poder deshacerlo. */}
                 {/* Tocar la foto abre el cromo del ejercicio: cómo se hace, la animación y lo
                     que lleva hecho este paciente. Para enseñárselo en sala. */}
-                <div onClick={() => ej.ejercicio_id && setCromo(ej.ejercicio_id)} title="Ver el cromo del ejercicio"
+                <div onClick={() => ej.ejercicio_id && setCromo({ id: ej.ejercicio_id, ei, cambia: !ej.guardado })} title="Ver el cromo del ejercicio"
                   style={{ opacity: noLoHizo ? .35 : 1, transition: 'opacity .15s', borderRadius: '0 0 12px 12px', cursor: ej.ejercicio_id ? 'zoom-in' : undefined,
                   overflow: 'hidden', boxShadow: '0 2px 10px rgba(38,40,37,.10)' }}>
                 {/* Su foto, o la figura con sus músculos, o el icono. */}

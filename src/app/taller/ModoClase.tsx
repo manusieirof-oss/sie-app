@@ -2382,7 +2382,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               paciente={{ id: act.paciente.id, nombre: act.paciente.nombre }}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
-              onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}/>}
+              onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}
+              onCambiarA={cambiaEj ? (i:number, nuevo:any)=>sustituir(act.paciente.id, i, nuevo) : undefined}/>}
             </div>
             )
           })}
