@@ -145,7 +145,10 @@ const REGLAS: Regla[] = [
   [/^paseo del granjero/, (_, v) => v ? null : ({ mov: 'marcha', p: { carga: 'granjero' } })],
   // ── Una pierna ──
   [/^equilibrio unipodal en bosu/, (_, v) => tiene(v, /en el suelo/) ? ({ mov: 'una_pierna', p: {} }) : null],
-  [/^elevacion de rodilla con banda/, (_, v) => tiene(v, /sentado|tumbado/) ? null : ({ mov: 'una_pierna', p: { tipo: 'rodilla' } })],
+  // Tumbado y sentado son los que antes se llamaban «Flexión de cadera supino con
+  // miniband» y «… sentado con goma» (unidos aquí): mantienen su animación.
+  [/^elevacion de rodilla con banda/, (_, v) => tiene(v, /tumbado/) ? ({ mov: 'flexion_cadera_supino', p: { banda: 'si' } })
+    : tiene(v, /sentado/) ? ({ mov: 'cadera_sentado', p: { tipo: 'flexion' } }) : ({ mov: 'una_pierna', p: { tipo: 'rodilla' } })],
   // ── Saltos ──
   [/^saltos suaves en el sitio/, (_, v) => tiene(v, /talones/) ? null : ({ mov: 'saltos', p: { piernas: tiene(v, /una pierna/) ? 'una' : 'dos' } })],
   // ── Sacados de los vídeos de la clínica ──
@@ -164,6 +167,9 @@ const REGLAS: Regla[] = [
   [/^abduccion de cadera con goma sentado/, () => ({ mov: 'cadera_sentado', p: { tipo: 'abduccion' } })],
   [/^apretar (el |la )?(aro|pelota) con (las )?rodillas/, n => ({ mov: 'cadera_sentado', p: { tipo: 'aduccion', objeto: tiene(n, /aro/) ? 'aro' : 'pelota' } })],
   [/^flexion de cadera sentado con goma/, () => ({ mov: 'cadera_sentado', p: { tipo: 'flexion' } })],
+  // Unidos a otros al quitar repetidos: siguen con la animación que tenían.
+  [/^aduccion de cadera en sedestacion con pelota/, () => ({ mov: 'cadera_sentado', p: { tipo: 'aduccion', objeto: 'pelota' } })],
+  [/^apretando aro/, () => ({ mov: 'sentadilla', p: { tipo: 'pared_iso', pelota: 'aro' } })],
   [/^apretar (el )?aro con las manos/, () => ({ mov: 'aro_manos', p: {} })],
   // ── Tanda 2 de vídeos (fitball, taco, goma y deslizador en el suelo, pared) ──
   [/^flexo.extension de rodilla con pies sobre fitball/, () => ({ mov: 'fitball_supino', p: { tipo: 'flexo_rodilla' } })],

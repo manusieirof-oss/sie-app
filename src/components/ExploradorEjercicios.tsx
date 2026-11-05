@@ -250,6 +250,27 @@ export default function ExploradorEjercicios({
   const visiblesNombre = buscar ? visibles.filter(porNombre) : visibles
   const visiblesEtiqueta = buscar ? visibles.filter(e => !porNombre(e)) : []
 
+  /* LAS VARIANTES, JUNTAS Y EN SU CAJA. Una familia desplegada (o, buscando, dos o más
+     de la misma familia) va en una franja propia a lo ancho, con fondo y raya a la
+     izquierda: antes las variantes caían sueltas en la rejilla, mezcladas con los
+     demás, y no se distinguía qué era variante de qué. La portada va la primera. */
+  function pintar(lista: any[], pre = '') {
+    const fam = (e: any) => esHijo(e) ? e.portada_id : e.id
+    const cuenta: Record<string, number> = {}
+    lista.forEach(e => { const k = fam(e); cuenta[k] = (cuenta[k] || 0) + 1 })
+    const hechos = new Set<string>()
+    const out: any[] = []
+    lista.forEach(e => {
+      const k = fam(e)
+      if (cuenta[k] < 2) { out.push(<Fragment key={pre + e.id}>{Tarjeta({ e })}</Fragment>); return }
+      if (hechos.has(k)) return
+      hechos.add(k)
+      const miembros = lista.filter(x => fam(x) === k).sort((a, b) => (esHijo(a) ? 1 : 0) - (esHijo(b) ? 1 : 0))
+      out.push(<div key={pre + 'f' + k} className="fam-ej">{miembros.map(x => <Fragment key={x.id}>{Tarjeta({ e: x })}</Fragment>)}</div>)
+    })
+    return out
+  }
+
   /* SE LLAMA COMO FUNCIÓN, NO COMO <Tarjeta/>. Definida aquí dentro, como componente
      React la veía nueva en cada repintado y desmontaba y volvía a montar todas las
      tarjetas: en el taller (que se repinta a menudo) las fotos parpadeaban sin parar. */
@@ -483,7 +504,7 @@ export default function ExploradorEjercicios({
         : soloSug && !hayFiltro
         ? null
         : <>
-          {visiblesNombre.length > 0 && <div className="rej-ej">{visiblesNombre.map(e => <Fragment key={e.id}>{Tarjeta({ e })}</Fragment>)}</div>}
+          {visiblesNombre.length > 0 && <div className="rej-ej">{pintar(visiblesNombre)}</div>}
           {visiblesNombre.length === 0 && visiblesEtiqueta.length > 0 && !verOtros && (
             <div className="muted" style={{ fontSize: 12 }}>Ninguno se llama «{buscar.trim()}».</div>
           )}
@@ -493,7 +514,7 @@ export default function ExploradorEjercicios({
             <button type="button" className="chip-sel" style={{ margin: '14px 0 8px' }} onClick={() => setVerOtros(v => !v)}>
               {verOtros ? '▴ Ocultar' : '▾ Ver'} {visiblesEtiqueta.length} que no se llaman así pero trabajan «{buscar.trim()}»
             </button>
-            {verOtros && <div className="rej-ej">{visiblesEtiqueta.map(e => <Fragment key={e.id}>{Tarjeta({ e })}</Fragment>)}</div>}
+            {verOtros && <div className="rej-ej">{pintar(visiblesEtiqueta, 'o')}</div>}
           </>}
         </>}
     </div>
