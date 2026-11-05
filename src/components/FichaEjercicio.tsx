@@ -34,7 +34,7 @@ let resumenCache: Record<string, any> | null = null
 const fecha = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f)
   .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
 
-export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, intensidades, onUsar, onCambiar, onCerrar }: {
+export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, intensidades, onUsar, cambiable = false, onCambiar, onCerrar }: {
   ejercicio: any, ejercicios: any[], etiquetas: any[], amasar?: boolean,
   /** Cliente elegido en la Biblioteca: las cifras, el rosco y los objetivos pasan a ser
       los suyos. El color del marco sigue siendo el de la clínica (lo que es el ejercicio). */
@@ -43,6 +43,8 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   intensidades?: { nombre: string, n: number, color?: string }[],
   /** Si se pasa, sale el botón «Hacer este hoy» (taller). */
   onUsar?: () => void,
+  /** Taller: se puede cambiar el de hoy desde aquí (aunque ahora se vea el mismo). */
+  cambiable?: boolean,
   /** Para saltar a otro de la familia sin cerrar el cromo. */
   onCambiar: (e: any) => void, onCerrar: () => void
 }) {
@@ -200,7 +202,15 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
             </div>
             {/* TALLER: pasando por su familia con las flechas, un toque cambia el ejercicio
                 de hoy por este (solo para esta cita, como «Cambiar ejercicio»). */}
-            {onUsar
+            {/* Viendo el mismo de hoy: el botón está, apagado, y dice cómo llegar a otro.
+                Sin esto no se sabía que desde aquí se podía cambiar. */}
+            {cambiable && !onUsar && familia.length > 1
+              ? <div style={{ display: 'flex', gap: 8, margin: '6px 12px 12px' }}>
+                  <button type="button" className="cr-voltear" style={{ margin: 0, flex: 1 }} onClick={() => setVuelta(true)}>Vuelta <span>↻</span></button>
+                  <button type="button" className="cr-voltear" style={{ margin: 0, flex: 2, opacity: .7, cursor: 'default', fontSize: 12 }} disabled>
+                    Es el de hoy · pasa con ‹ › para cambiarlo</button>
+                </div>
+              : onUsar
               ? <div style={{ display: 'flex', gap: 8, margin: '6px 12px 12px' }}>
                   <button type="button" className="cr-voltear" style={{ margin: 0, flex: 1 }} onClick={() => setVuelta(true)}>Vuelta <span>↻</span></button>
                   <button type="button" className="cr-voltear" style={{ margin: 0, flex: 2, background: 'var(--g)', color: '#fff' }} onClick={onUsar}>⇄ Hacer este hoy</button>
@@ -327,7 +337,7 @@ export function CromoDeId({ id, paciente, onCerrar, onUsar }: { id: string, paci
   return <FichaEjercicio ejercicio={ej} ejercicios={fam} etiquetas={ets} paciente={paciente} usoPaciente={uso}
     onCambiar={x => setEj(x)} onCerrar={onCerrar}
     // Solo cuando se está viendo OTRO de la familia: el de hoy ya es el que se hace.
-    onUsar={onUsar && ej.id !== id ? () => onUsar(ej) : undefined}/>
+    onUsar={onUsar && ej.id !== id ? () => onUsar(ej) : undefined} cambiable={!!onUsar}/>
 }
 
 // Estilos aquí mismo: es el único sitio que los usa y así el cromo se lee de una vez.
