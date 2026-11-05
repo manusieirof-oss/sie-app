@@ -68,18 +68,19 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
     let vivo = true
     setCargando(true)
     Promise.all([
-      traerTodo((d, h) => supabase.from('registros_ejercicio').select('ejercicio_id,fecha').eq('paciente_id', pac.id).order('id').range(d, h)),
+      traerTodo((d, h) => supabase.from('registros_ejercicio').select('ejercicio_id,fecha,capacidad').eq('paciente_id', pac.id).order('id').range(d, h)),
       supabase.from('sesiones').select('id,partes').eq('paciente_id', pac.id),
       supabase.from('objetivos').select('id,nombre'),
     ]).then(([reg, ses, objs]) => {
       if (!vivo) return
       const nomObj = Object.fromEntries((objs.data || []).map((o: any) => [o.id, o.nombre]))
       const r: Record<string, any> = {}
-      const de = (id: string) => (r[id] ||= { veces: 0, sesiones: 0, ultima: null, pacientes: 1, _ses: new Set<string>(), _obj: {} as Record<string, Set<string>> })
+      const de = (id: string) => (r[id] ||= { veces: 0, sesiones: 0, ultima: null, pacientes: 1, _ses: new Set<string>(), _obj: {} as Record<string, Set<string>>, _cap: {} as Record<string, number> })
       reg.filas.forEach((f: any) => {
         if (!f.ejercicio_id) return
         const x = de(f.ejercicio_id); x.veces++
         if (f.fecha && (!x.ultima || f.fecha > x.ultima)) x.ultima = f.fecha
+        const c = String(f.capacidad || '').trim(); if (c) x._cap[c] = (x._cap[c] || 0) + 1
       })
       itemsDeSesiones(ses.data || []).forEach(it => {
         const x = de(it.ej); x._ses.add(it.sesion)
@@ -89,7 +90,8 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
       Object.values(r).forEach((x: any) => {
         x.sesiones = x._ses.size
         x.objetivos = Object.entries(x._obj).map(([nombre, s]: any) => ({ nombre, n: s.size })).sort((a: any, b: any) => b.n - a.n)
-        delete x._ses; delete x._obj
+        x.capacidades = Object.entries(x._cap).map(([nombre, n]) => ({ nombre, n })).sort((a: any, b: any) => b.n - a.n)
+        delete x._ses; delete x._obj; delete x._cap
       })
       setResumenPac(r); setCargando(false)
     })
@@ -139,7 +141,8 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
             {nombrePac(pac)} todavía no tiene ejercicios: ni en sesiones ni apuntados.</div>
         : <ExploradorEjercicios ejercicios={lista} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles
             resumenFijo={pac ? resumenPac : null}
-            acciones={amasar ? <button className="btn btn-p btn-sm" onClick={() => router.push('/torno/amasar/nuevo')}>+ Nuevo ejercicio</button> : undefined}/>}
+            acciones={amasar ? <button type="button" onClick={() => router.push('/torno/amasar/nuevo')} title="Nuevo ejercicio (se crea en el torno)" aria-label="Nuevo ejercicio"
+              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--bd)', background: 'var(--w)', color: 'var(--g)', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>+</button> : undefined}/>}
 
       {viendo && <FichaEjercicio ejercicio={viendo} ejercicios={ejercicios} etiquetas={etiquetas} amasar={amasar}
         paciente={pac ? { id: pac.id, nombre: pac.nombre } : null} usoPaciente={resumenPac?.[viendo.id]}

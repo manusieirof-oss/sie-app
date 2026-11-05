@@ -10,6 +10,7 @@ import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
+import { rareza, trozosCapacidad } from '@/lib/cromo'
 
 // Explorador del catálogo de ejercicios: buscador, filtro por etiquetas y rejilla de
 // tarjetas con foto. Es LA MISMA vista que el Pilar Entrenamiento → Biblioteca; lo que
@@ -80,21 +81,28 @@ export default function ExploradorEjercicios({
   /** false donde ya hay un alta completa propia, como la Biblioteca. */
   botonCrear?: boolean
 }) {
-  /* TRES PANELES DEBAJO DE LA FOTO (Biblioteca). Uno para todas las tarjetas, para
-     comparar de un vistazo. Se recuerda en este aparato. Objetivos y uso salen de la
-     vista `ejercicio_resumen` (sql/ejercicio-resumen.sql): los objetivos a los que se
-     ha enganchado el ejercicio en las sesiones y las veces que se ha apuntado. */
-  type Panel = 'trabaja' | 'objetivos' | 'uso'
-  const [panel, setPanelE] = useState<Panel>('trabaja')
-  useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_panel'); if (v === 'objetivos' || v === 'uso') setPanelE(v) } catch {} }, [paneles])
-  const setPanel = (v: Panel) => { setPanelE(v); try { localStorage.setItem('bib_panel', v) } catch {} }
+  /* LA LENTE (Biblioteca). Un solo botón que va pasando de modo, en vez de una fila de
+     botones: cada toque cambia SOLO lo de debajo de la foto, igual en todas las tarjetas,
+     para comparar de un vistazo. Se recuerda en este aparato. Los datos salen de la vista
+     `ejercicio_resumen` (sql/ejercicio-resumen.sql), o del cliente elegido. */
+  type Panel = 'normal' | 'cromo' | 'capacidad' | 'uso' | 'objetivos'
+  const LENTES: { k: Panel, t: string, ic: string }[] = [
+    { k: 'normal', t: 'Normal', ic: 'biblioteca' }, { k: 'cromo', t: 'Cromo', ic: 'estrella' },
+    { k: 'capacidad', t: 'Capacidad', ic: 'porcentaje' }, { k: 'uso', t: 'Uso', ic: 'stats' }, { k: 'objetivos', t: 'Objetivos', ic: 'objetivo' },
+  ]
+  const [panel, setPanelE] = useState<Panel>('normal')
+  useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_lente') as Panel; if (LENTES.some(l => l.k === v)) setPanelE(v) } catch {} }, [paneles]) // eslint-disable-line react-hooks/exhaustive-deps
+  const setPanel = (v: Panel) => { setPanelE(v); try { localStorage.setItem('bib_lente', v) } catch {} }
+  const lente = LENTES.find(l => l.k === panel) || LENTES[0]
+  const siguienteLente = () => setPanel(LENTES[(LENTES.indexOf(lente) + 1) % LENTES.length].k)
   const [resumenClinica, setResumen] = useState<Record<string, any> | null>(null)
   const resumen = resumenFijo || resumenClinica
   const [faltaVista, setFaltaVista] = useState(false)
   // Al elegir un cliente se pasa a Uso: es lo que se quiere ver de él (cuánto lo ha hecho).
   useEffect(() => { if (paneles && resumenFijo) setPanelE('uso') }, [paneles, !!resumenFijo]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!paneles || panel === 'trabaja' || resumenClinica) return
+    // El de la clínica hace falta también con un cliente elegido: el color del cromo es de la clínica.
+    if (!paneles || panel === 'normal' || resumenClinica) return
     traerTodo((d, h) => supabase.from('ejercicio_resumen').select('*').range(d, h)).then(({ filas, error }) => {
       if (error) { setFaltaVista(true); return }
       setResumen(Object.fromEntries(filas.map((f: any) => [f.ejercicio_id, f])))
@@ -325,6 +333,9 @@ export default function ExploradorEjercicios({
     const img = (vc?.imagen_url) || e.imagen_url
     return (
       <div className={`tarj-ej ${sel ? 'on' : ''} ${fam ? 'tarj-fam' : ''}`}
+        // Lente Cromo: la tarjeta entera se pinta del color de su cromo, como el cromo grande.
+        style={paneles && panel === 'cromo' ? (() => { const rz = rareza(resumenClinica?.[e.id]?.veces || 0)
+          return { borderColor: rz.color, borderWidth: 3, background: rz.claro } })() : undefined}
         onClick={() => (onAlternar ? onAlternar(e) : onAbrir?.(e))}>
         <div className="tarj-img">
           {/* LA MISMA IMAGEN QUE EN EL RESTO DE LA APP (ImagenEjercicio): foto, o la postura
@@ -353,11 +364,33 @@ export default function ExploradorEjercicios({
               display: 'inline-block', marginTop: 4, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               ◎ {os[0]}{os.length > 1 ? ` +${os.length - 1}` : ''}</div>
           })()}
-          {paneles && panel !== 'trabaja' && (() => {
+          {paneles && panel !== 'normal' && (() => {
             const rs = resumen?.[e.id]
             const tx: React.CSSProperties = { fontSize: 12, color: 'var(--gr)', marginTop: 3, lineHeight: 1.4 }
             if (faltaVista && !resumenFijo) return <div style={tx}>Falta ejecutar sql/ejercicio-resumen.sql</div>
             if (!resumen) return <div style={tx}>Cargando…</div>
+            if (panel === 'cromo') {
+              const rz = rareza(resumenClinica?.[e.id]?.veces || 0)
+              return <div style={{ ...tx, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ background: rz.color, color: '#fff', borderRadius: 99, padding: '1px 8px', fontSize: 10.5, letterSpacing: .4, textTransform: 'uppercase' }}>{rz.t}</span>
+              </div>
+            }
+            if (panel === 'capacidad') {
+              const caps: any[] = rs?.capacidades || []
+              if (!caps.length) return <div style={tx}>{resumenFijo ? 'Sin capacidad apuntada con él' : 'Sin capacidad apuntada'}</div>
+              const tr = trozosCapacidad(caps), R = 15, L = 2 * Math.PI * R
+              return <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <svg viewBox="0 0 40 40" width="40" height="40" style={{ flexShrink: 0 }}>
+                  <circle cx="20" cy="20" r={R} fill="none" stroke="var(--bl)" strokeWidth="6"/>
+                  {tr.map(t => <circle key={t.nombre} cx="20" cy="20" r={R} fill="none" stroke={t.color} strokeWidth="6"
+                    strokeDasharray={`${Math.max(0, t.parte * L - 1)} ${L}`} strokeDashoffset={-t.ini * L} transform="rotate(-90 20 20)"/>)}
+                </svg>
+                <div style={{ minWidth: 0, lineHeight: 1.25 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--n)' }}>{tr[0].pct}%</div>
+                  <div style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr[0].nombre}</div>
+                </div>
+              </div>
+            }
             if (panel === 'uso') return !rs || (!rs.veces && !rs.sesiones) ? <div style={tx}>Sin usar todavía</div> : (
               <div style={tx}>
                 <div><b style={{ color: 'var(--n)' }}>{rs.veces}</b> {rs.veces === 1 ? 'vez apuntado' : 'veces apuntado'}</div>
@@ -374,7 +407,7 @@ export default function ExploradorEjercicios({
                 {objs.length > 3 && <span style={{ fontSize: 11, color: 'var(--gr)' }}>+{objs.length - 3}</span>}
               </div>)
           })()}
-          {(!paneles || panel === 'trabaja') && <>
+          {(!paneles || panel === 'normal') && <>
           {/* Cómo se mide decide qué campos pedirá la sesión: conviene saberlo antes. */}
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {nombreMedida(e.tipo_medida)}
@@ -397,12 +430,13 @@ export default function ExploradorEjercicios({
               {e.variantes.length} {e.variantes.length === 1 ? 'variante' : 'variantes'}
             </div>
           )}
-          {(!paneles || panel === 'trabaja') && <>
+          {(!paneles || panel === 'normal') && <>
           {/* Lo que le falta se ve AQUÍ y no solo en la lista de pendientes: es al
               montar la sesión cuando te topas con el ejercicio a medias, y es el
               momento en el que puedes decidir completarlo o usar otro. */}
           {(() => {
-            const faltan = problemasDeEjercicio(e)
+            // En la Biblioteca no: completar ejercicios es cosa del torno.
+            const faltan = paneles ? [] : problemasDeEjercicio(e)
             if (faltan.length === 0) return null
             return (
               <div style={{ marginTop: 5 }}>
@@ -470,10 +504,12 @@ export default function ExploradorEjercicios({
             return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` })()}
         </span>
         {paneles && (
-          <span style={{ display: 'inline-flex', gap: 4 }} role="group" aria-label="Qué se ve en las tarjetas">
-            {([['trabaja', 'Qué trabaja'], ['objetivos', 'Objetivos'], ['uso', 'Uso']] as [Panel, string][]).map(([k, t]) => (
-              <button key={k} type="button" className={`chip-sel ${panel === k ? 'on' : ''}`} onClick={() => setPanel(k)}>{t}</button>))}
-          </span>
+          // Un toque, siguiente modo. Con su nombre al lado para saber en cuál estás.
+          <button type="button" className="chip-sel on" onClick={siguienteLente} title="Cambiar lo que se ve en las tarjetas"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Ic name={lente.ic} size={13}/> {lente.t}
+            <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{LENTES.map(l => <i key={l.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: l.k === panel ? 1 : .3 }}/>)}</span>
+          </button>
         )}
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
@@ -488,7 +524,7 @@ export default function ExploradorEjercicios({
           </button>
         )}
         <MiniCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt}/>
-        {nPendientes > 0 && (
+        {nPendientes > 0 && !paneles && (
           <button type="button" className={`chip-sel ${soloPendientes ? 'on' : ''}`}
             onClick={() => setSoloPendientes(v => !v)}
             title="Los que se crearon a medias o les falta algo por rellenar">

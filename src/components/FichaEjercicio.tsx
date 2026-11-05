@@ -10,6 +10,7 @@ import { videosDe } from '@/lib/videos'
 import { figuraDe } from '@/lib/cuerpo'
 import { MediosEjercicio } from '@/components/MediosEjercicio'
 import FiguraMusculos from '@/components/FiguraMusculos'
+import { rareza, trozosCapacidad } from '@/lib/cromo'
 
 // ---------------------------------------------------------------------------
 // EL CROMO DE UN EJERCICIO (Biblioteca).
@@ -30,15 +31,6 @@ let resumenCache: Record<string, any> | null = null
 
 const fecha = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f)
   .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
-
-/* LA "RAREZA" DEL CROMO: el color del marco según lo que se usa en la clínica. Así de un
-   vistazo se ve si es un básico de la casa o uno que casi nadie ha probado. */
-function rareza(veces: number) {
-  if (veces >= 100) return { k: 'oro', t: 'Imprescindible' }
-  if (veces >= 30) return { k: 'plata', t: 'Habitual' }
-  if (veces >= 1) return { k: 'bronce', t: 'De vez en cuando' }
-  return { k: 'nuevo', t: 'Sin estrenar' }
-}
 
 export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, onCambiar, onCerrar }: {
   ejercicio: any, ejercicios: any[], etiquetas: any[], amasar?: boolean,
@@ -246,23 +238,9 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   )
 }
 
-/* COLORES DE CADA CAPACIDAD: de más fuerza (oscuro) a más resistencia (claro), para que
-   el rosco se lea sin mirar la leyenda. Las que no están aquí (Movilidad…) van en ámbar. */
-const COLOR_CAP: Record<string, string> = {
-  'Fuerza máxima': '#2B5A61', 'Fuerza': '#3E7179', 'Hipertrofia': '#5A969E',
-  'Fuerza-resistencia': '#8DBDC3', 'Resistencia': '#BFDDE0',
-}
-const OTROS = ['#C9A84C', '#b08560', '#B05A5A', '#9aa3a6']
-
 function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
-  const total = caps.reduce((a, c) => a + c.n, 0)
   const R = 38, L = 2 * Math.PI * R
-  let acum = 0, o = 0
-  const trozos = caps.map(c => {
-    const color = COLOR_CAP[c.nombre] || OTROS[o++ % OTROS.length]
-    const t = { ...c, color, pct: Math.round(c.n / total * 100), ini: acum }
-    acum += c.n / total; return t
-  })
+  const trozos = trozosCapacidad(caps)
   const top = trozos[0]
   return (
     <div className="cr-rosco">
@@ -270,7 +248,7 @@ function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
         <circle cx="50" cy="50" r={R} fill="none" stroke="var(--bl)" strokeWidth="13"/>
         {trozos.map(t => (
           <circle key={t.nombre} cx="50" cy="50" r={R} fill="none" stroke={t.color} strokeWidth="13"
-            strokeDasharray={`${Math.max(0, t.n / total * L - 1.5)} ${L}`} strokeDashoffset={-t.ini * L}
+            strokeDasharray={`${Math.max(0, t.parte * L - 1.5)} ${L}`} strokeDashoffset={-t.ini * L}
             transform="rotate(-90 50 50)" className="cr-trozo"/>
         ))}
         <text x="50" y="49" textAnchor="middle" fontSize="20" fontWeight="600" fill="var(--n)">{top.pct}%</text>
