@@ -84,6 +84,19 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
     })
   }, [ejercicio.id])
 
+  /* PARA QUÉ CAPACIDAD SE USA. Sale de lo apuntado en el taller (cada registro guarda la
+     capacidad con que se hizo): es lo que de verdad se hace con el ejercicio, no lo que
+     dice la ficha. Se pide solo la columna de este ejercicio, así que es ligero. */
+  const [caps, setCaps] = useState<{ nombre: string, n: number }[] | null>(null)
+  useEffect(() => {
+    setCaps(null)
+    supabase.from('registros_ejercicio').select('capacidad').eq('ejercicio_id', ejercicio.id).limit(5000).then(({ data }) => {
+      const c: Record<string, number> = {}
+      ;(data || []).forEach((f: any) => { const k = String(f.capacidad || '').trim(); if (k) c[k] = (c[k] || 0) + 1 })
+      setCaps(Object.entries(c).map(([nombre, n]) => ({ nombre, n })).sort((a, b) => b.n - a.n))
+    })
+  }, [ejercicio.id])
+
   /* LA INCLINACIÓN. Se escribe en variables CSS (no en estado de React) para que mover el
      ratón no vuelva a pintar la animación 3D en cada píxel. Sobre el escenario no se
      inclina: ahí el ratón sirve para girar la figura. */
@@ -125,6 +138,11 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
       {familia.length > 1 && <button className="cr-flecha izq" onClick={() => irA(-1)} aria-label="Anterior de la familia">‹</button>}
 
       <div className={`cr-carta cr-${rz.k} ${vuelta ? 'girada' : ''}`} ref={carta} onPointerMove={mover} onPointerLeave={quieto}>
+        {/* EL MAZO: si el ejercicio tiene familia o variantes, por detrás asoman los bordes
+            de otros cromos (hasta 3), para que se note que hay más sin tener que buscarlos. */}
+        {Array.from({ length: Math.min(3, familia.length - 1 + variantes.length) }, (_, i) => (
+          <div key={i} className="cr-mazo" style={{ transform: `translateZ(${-(i + 1) * 2}px) translate(${(i + 1) * 7}px, ${(i + 1) * 5}px) rotate(${(i + 1) * 1.6}deg)`, opacity: 1 - i * .18 }}/>
+        ))}
         <div className="cr-giro">
           {/* ANVERSO */}
           <div className="cr-cara cr-anverso">
@@ -149,10 +167,11 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
                 {variantes.map((x, i) => <button key={i} type="button" className={varSel === i ? 'on' : ''} onClick={() => setVarSel(i)}>{x?.nombre || 'Variante'}</button>)}
               </div>
             )}
-            {/* LA DESCRIPCIÓN, EN EL ANVERSO. Es lo primero que se quiere leer junto a la
-                figura, y ocupa el hueco que quedaba en blanco. Si no cabe entera se
-                difumina abajo; tocándola se ve completa en el reverso. */}
-            {ejercicio.descripcion
+            {/* EL HUECO DEL ANVERSO: el rosco de capacidades si ya se ha apuntado con
+                capacidad; si no, la descripción (difuminada si no cabe; entera detrás). */}
+            {caps && caps.length > 0
+              ? <Rosco caps={caps}/>
+              : ejercicio.descripcion
               ? <p className="cr-desc-f" onClick={() => setVuelta(true)} title="Toca para leerla entera">{ejercicio.descripcion}</p>
               : <div style={{ flex: 1 }}/>}
             <div className="cr-stats">
@@ -210,12 +229,54 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   )
 }
 
+/* COLORES DE CADA CAPACIDAD: de más fuerza (oscuro) a más resistencia (claro), para que
+   el rosco se lea sin mirar la leyenda. Las que no están aquí (Movilidad…) van en ámbar. */
+const COLOR_CAP: Record<string, string> = {
+  'Fuerza máxima': '#2B5A61', 'Fuerza': '#3E7179', 'Hipertrofia': '#5A969E',
+  'Fuerza-resistencia': '#8DBDC3', 'Resistencia': '#BFDDE0',
+}
+const OTROS = ['#C9A84C', '#b08560', '#B05A5A', '#9aa3a6']
+
+function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
+  const total = caps.reduce((a, c) => a + c.n, 0)
+  const R = 38, L = 2 * Math.PI * R
+  let acum = 0, o = 0
+  const trozos = caps.map(c => {
+    const color = COLOR_CAP[c.nombre] || OTROS[o++ % OTROS.length]
+    const t = { ...c, color, pct: Math.round(c.n / total * 100), ini: acum }
+    acum += c.n / total; return t
+  })
+  const top = trozos[0]
+  return (
+    <div className="cr-rosco">
+      <svg viewBox="0 0 100 100" width="104" height="104">
+        <circle cx="50" cy="50" r={R} fill="none" stroke="var(--bl)" strokeWidth="13"/>
+        {trozos.map(t => (
+          <circle key={t.nombre} cx="50" cy="50" r={R} fill="none" stroke={t.color} strokeWidth="13"
+            strokeDasharray={`${Math.max(0, t.n / total * L - 1.5)} ${L}`} strokeDashoffset={-t.ini * L}
+            transform="rotate(-90 50 50)" className="cr-trozo"/>
+        ))}
+        <text x="50" y="49" textAnchor="middle" fontSize="20" fontWeight="600" fill="var(--n)">{top.pct}%</text>
+        <text x="50" y="63" textAnchor="middle" fontSize="8.5" fill="var(--gr)">de las veces</text>
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="cr-et" style={{ marginBottom: 2 }}>Se usa sobre todo para</div>
+        <div className="cr-rosco-top">{top.nombre}</div>
+        <div className="cr-rosco-ley">
+          {trozos.slice(1, 4).map(t => <span key={t.nombre}><i style={{ background: t.color }}/>{t.nombre} {t.pct}%</span>)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Estilos aquí mismo: es el único sitio que los usa y así el cromo se lee de una vez.
 // Cada rareza solo cambia dos colores (--m marco, --m2 fondo claro); el resto es común.
 const CSS = `
 .cr-velo{position:fixed;inset:0;z-index:150;background:rgba(30,34,33,.62);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;gap:18px;animation:crVelo .2s ease;perspective:1400px}
 .cr-carta{--rx:0deg;--ry:0deg;--bx:50%;--by:30%;--m:var(--g);--m2:#cfe6e9;width:min(430px,92vw);height:min(760px,92vh);transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease-out;transform-style:preserve-3d;animation:crEntra .45s cubic-bezier(.2,.9,.25,1.15)}
 .cr-oro{--m:#C9A84C;--m2:#f6e7b4}.cr-plata{--m:#9aa3a6;--m2:#e9eef0}.cr-bronce{--m:#b08560;--m2:#f0dccb}.cr-nuevo{--m:var(--g);--m2:#d6ecee}
+.cr-mazo{position:absolute;inset:0;border-radius:22px;background:var(--m2);border:7px solid var(--m);box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .cr-giro{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,.8,.3,1)}
 .cr-carta.girada .cr-giro{transform:rotateY(180deg)}
 .cr-cara{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:22px;overflow:hidden;background:var(--w);border:7px solid var(--m);box-shadow:0 30px 60px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.6);display:flex;flex-direction:column}
@@ -236,6 +297,12 @@ button.cr-fam{cursor:pointer;color:var(--gd)}button.cr-fam:before{content:'‹ '
 .cr-vars button{flex-shrink:0;font:inherit;font-size:12px;padding:4px 11px;border-radius:99px;border:1.5px solid var(--bd);background:var(--w);color:var(--n);cursor:pointer}
 .cr-vars button.on{background:var(--n);border-color:var(--n);color:#fff}
 .cr-desc-f{flex:1;min-height:0;overflow:hidden;margin:8px 16px 0;font-size:13.5px;line-height:1.55;color:var(--gr);cursor:pointer;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
+.cr-rosco{flex:1;min-height:0;display:flex;align-items:center;gap:14px;margin:6px 16px 0}
+.cr-rosco-top{font-size:20px;font-weight:600;color:var(--n);line-height:1.15}
+.cr-rosco-ley{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:12px;color:var(--gr)}
+.cr-rosco-ley i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.cr-trozo{animation:crTrozo .9s ease-out both}
+@keyframes crTrozo{from{stroke-dasharray:0 999}}
 .cr-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:8px 12px 0;border-top:1.5px dashed var(--bd);padding:10px 0 4px}
 .cr-stats div{display:flex;flex-direction:column;align-items:center}
 .cr-stats b{font-size:20px;font-weight:600;color:var(--n);line-height:1.1}
