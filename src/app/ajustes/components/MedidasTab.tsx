@@ -35,12 +35,12 @@ export default function MedidasTab({ ajustes, set }: { ajustes: Record<string, s
   return (
     <div style={{ display: 'grid', gap: 14 }}>
       <div className="card">
-        <div className="card-title"><span className="ct-l"><Ic name="fuerza"/> Bandas</span></div>
+        <div className="card-title"><span className="ct-l"><Ic name="fuerza"/> Gomas</span></div>
         <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 10 }}>
-          Las que tenéis, de la más suave a la más dura. Salen en los ejercicios que se miden con banda.
+          Las que tenéis, de la más suave a la más dura. Salen en los ejercicios que se miden con goma.
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {([['theraband', 'Thera-Band'], ['resistencia', 'Por resistencia'], ['kg', 'Por kg']] as const).map(([k, t]) => (
+          {([['gomas', 'Por niveles (Goma 1…)'], ['theraband', 'Thera-Band'], ['resistencia', 'Por resistencia'], ['kg', 'Por kg']] as const).map(([k, t]) => (
             <span key={k} className={`chip-sel ${escalaActual === k ? 'on' : ''}`} style={{ fontSize: 12 }}
               onClick={() => ponerBandas(ESCALAS_BANDA[k])}>{t}</span>
           ))}

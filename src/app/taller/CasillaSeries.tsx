@@ -114,7 +114,7 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
     ? (
       <select value={valor} onChange={e => onChange(e.target.value)} autoFocus={autoFocus}
         style={{ ...estilo, width: 78, fontSize: 12, padding: '0 2px', borderLeft: `5px solid ${COLOR_BANDA[valor || hueco] || 'var(--bd)'}` }}>
-        <option value="">{hueco && hueco !== '—' ? hueco : 'banda'}</option>
+        <option value="">{hueco && hueco !== '—' ? hueco : 'goma'}</option>
         {bandas.map(b => <option key={b} value={b}>{b}</option>)}
       </select>
     )

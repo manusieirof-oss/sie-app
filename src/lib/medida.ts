@@ -28,7 +28,9 @@ const IDS: Record<string, [Carga, Volumen]> = {
 export const CARGAS: { id: Carga, nombre: string, ayuda: string }[] = [
   { id: 'kg', nombre: 'Con peso', ayuda: 'Se apuntan los kg' },
   { id: 'corporal', nombre: 'Peso corporal', ayuda: 'Sin carga: no se apunta nada' },
-  { id: 'banda', nombre: 'Banda', ayuda: 'Se apunta qué banda' },
+  // En el centro se dice «goma» y se distinguen por nivel (Goma 1 la más suave). Por
+  // dentro sigue llamándose 'banda' para no tocar lo ya apuntado.
+  { id: 'banda', nombre: 'Goma', ayuda: 'Se apunta el nivel de goma' },
 ]
 export const VOLUMENES: { id: Volumen, nombre: string, ayuda: string }[] = [
   { id: 'reps', nombre: 'Repeticiones', ayuda: 'Cuántas' },
@@ -48,7 +50,7 @@ export const esMedida = (id?: string | null) => !!id && id in IDS
 /** "Con peso · Repeticiones" → corto, para chapas: "Kg × reps". */
 export function nombreMedida(id?: string | null): string {
   const { carga, volumen } = partesMedida(id)
-  const c = carga === 'kg' ? 'Peso' : carga === 'banda' ? 'Banda' : ''
+  const c = carga === 'kg' ? 'Peso' : carga === 'banda' ? 'Goma' : ''
   const v = volumen === 'reps' ? 'reps' : volumen === 'segundos' ? 'tiempo' : 'metros'
   return c ? `${c} y ${v}` : (volumen === 'reps' ? 'Reps' : volumen === 'segundos' ? 'Tiempo' : 'Metros')
 }
@@ -99,11 +101,12 @@ export function camposDelEjercicio(ej: any, isometrico: boolean): string[] {
   return c
 }
 
-export const UNIDAD: Record<string, string> = { peso: 'kg', reps: 'reps', segundos: 'seg', metros: 'm', banda: 'banda' }
+export const UNIDAD: Record<string, string> = { peso: 'kg', reps: 'reps', segundos: 'seg', metros: 'm', banda: 'goma' }
 
 // ---- Ajustes: bandas y esfuerzo -------------------------------------------------
 
 export const ESCALAS_BANDA: Record<string, string[]> = {
+  gomas: ['Goma 1', 'Goma 2', 'Goma 3', 'Goma 4', 'Goma 5'],
   theraband: ['Amarilla', 'Roja', 'Verde', 'Azul', 'Negra', 'Plata', 'Oro'],
   resistencia: ['Extra suave', 'Suave', 'Media', 'Fuerte', 'Extra fuerte'],
   kg: ['5 kg', '10 kg', '15 kg', '25 kg', '35 kg', '50 kg'],
@@ -120,7 +123,7 @@ export const ESFUERZOS = [
 ] as const
 
 export type AjustesMedida = { bandas: string[], esfuerzo: string[] }
-const PREDETERMINADO: AjustesMedida = { bandas: ESCALAS_BANDA.theraband, esfuerzo: [] }
+const PREDETERMINADO: AjustesMedida = { bandas: ESCALAS_BANDA.gomas, esfuerzo: [] }
 
 /** Lee de los ajustes `medida_bandas` (lista JSON) y `medida_esfuerzo` (lista JSON). */
 export function leerAjustesMedida(m: Record<string, string>): AjustesMedida {
