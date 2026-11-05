@@ -15,7 +15,7 @@ import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, M
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
 import VideoBienvenida, { VIDEOS, videoVisto } from '@/components/VideoBienvenida'
-import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente } from '@/lib/practica'
+import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente, claseAEstaHora } from '@/lib/practica'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -63,14 +63,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!enModoPractica()) return
     setPractica(true)
-    prepararSiToca().then(r => {
+    prepararSiToca().then(async r => {
       if (r.error) alert('No se ha podido preparar la práctica: ' + r.error + '\n¿Falta ejecutar sql/modo-practica.sql?')
       else if (r.hecho) window.location.reload()
+      // Si la clase quedó a otra hora (se entró antes), se trae a la de ahora; la guía
+      // pendiente se abre tras recargar (no se pierde: sigue en sessionStorage).
+      else if (await claseAEstaHora()) window.location.reload()
       else { const g = guiaPendiente(); if (g) setGuia(g) }
     })
   }, [])
   /** Abrir la guía: siempre en modo práctica (si no se está, entra y la abre allí). */
-  const abrirGuia = (n: 1 | 2) => { if (!guiaEnPractica(n)) setGuia(n) }
+  const abrirGuia = async (n: 1 | 2) => {
+    if (guiaEnPractica(n)) return
+    // Ya en práctica: que la clase esté a esta hora antes de enseñar el taller.
+    if (await claseAEstaHora()) { try { sessionStorage.setItem('sie_guia_pendiente', String(n)) } catch {} ; window.location.reload(); return }
+    setGuia(n)
+  }
   // Al acabar se queda en práctica, para probar lo aprendido (se sale con «Salir»).
   const cerrarGuia = () => setGuia(false)
   const empezarDeNuevo = async () => {

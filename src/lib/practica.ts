@@ -64,3 +64,31 @@ export async function prepararSiToca(forzar = false): Promise<{ hecho: boolean, 
   const error = await prepararClase()
   return error ? { hecho: false, error } : { hecho: true }
 }
+
+/**
+ * LA CLASE DE PRÁCTICA, SIEMPRE A LA HORA DE AHORA. Se preparaba solo al entrar en el
+ * modo: si se seguía en práctica otro rato (o se abría la guía más tarde), el taller
+ * abría en la hora nueva y no había nadie. Ahora, al cargar en práctica:
+ *   · si hoy no tienen cita, se prepara la clase (practica_hoy);
+ *   · si la tienen a otra hora, solo se MUEVE la hora (lo apuntado se conserva).
+ * Por seguridad las citas se buscan por los pacientes marcados `practica`, y se mueven
+ * por id: nunca se toca una cita que no sea de ellos.
+ * Devuelve true si ha cambiado algo (hay que recargar para verlo).
+ */
+export async function claseAEstaHora(): Promise<boolean> {
+  const ahora = new Date()
+  const hora = String(ahora.getHours()).padStart(2, '0') + ':00'
+  const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
+  const { data: pacs } = await supabase.from('pacientes').select('id').eq('practica', true)
+  const ids = (pacs || []).map((p: any) => p.id)
+  if (!ids.length) return false
+  const { data: citas } = await supabase.from('citas').select('id,hora,estado').eq('fecha', hoy).in('paciente_id', ids)
+  if (!citas || citas.length === 0) {
+    const { error } = await supabase.rpc('practica_hoy', { p_hora: hora })
+    return !error
+  }
+  const mover = citas.filter((c: any) => String(c.hora || '').slice(0, 5) !== hora).map((c: any) => c.id)
+  if (!mover.length) return false
+  const { error } = await supabase.from('citas').update({ hora: hora + ':00' }).in('id', mover)
+  return !error
+}
