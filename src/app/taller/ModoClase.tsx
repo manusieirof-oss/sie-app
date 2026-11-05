@@ -92,7 +92,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // marca hechos y faltas. Cambiar ejercicios o sesiones, desde el nivel 2; tocar cómo
   // se mide un ejercicio en la biblioteca (vale para todos), desde el 3.
   const puede = usePuede()
-  const cambiaEj = puede('cambiar_ejercicios'), cambiaSes = puede('cambiar_sesion'), tocaBib = puede('medida_biblioteca')
+  const cambiaEj = puede('cambiar_ejercicios'), cambiaSes = puede('cambiar_sesion')
   // Añadir a alguien sin cita es crear una cita (como en la agenda); los tests son valoración.
   const editaAgenda = puede('editar_agenda'), haceTests = puede('valoracion')
   // Nivel 2: cambia la clase de HOY; cambiar su sesión para siempre, desde el 3.
@@ -171,20 +171,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * no pliega el de otro. No se guarda: al recargar vuelven abiertos, que es lo seguro.
    */
   const [plegadas, setPlegadas] = useState<Set<string>>(new Set())
-  /* ARREGLAR EJERCICIOS mientras se trabaja: muchos estaban por kg siendo por tiempo (o
-     al reves) y en el editor habia que ir uno a uno. Encendido, cada ejercicio deja
-     cambiar como se mide EN LA BIBLIOTECA (para todos los que lo usen). Se recuerda en
-     este aparato hasta que se apague. */
-  const [arreglar0, setArreglar] = useState(false)
-  const arreglar = arreglar0 && tocaBib
-  useEffect(() => { try { setArreglar(localStorage.getItem('taller-arreglar') === '1') } catch {} }, [])
-  const alternarArreglar = () => setArreglar(v => { try { localStorage.setItem('taller-arreglar', v ? '0' : '1') } catch {}; return !v })
-  /** Como se mide, en la base del ejercicio. Cambia ya en la sala para todos los que lo tengan. */
-  async function cambiarMedidaBase(ejercicioId: string, tipo: string) {
-    const { error } = await supabase.from('ejercicios').update({ tipo_medida: tipo }).eq('id', ejercicioId)
-    if (error) { alert('No se ha podido cambiar cómo se mide: ' + error.message); return }
-    setSeleccion(prev => prev.map(s => ({ ...s, datos: (s.datos || []).map((d: any) => d.ejercicio_id === ejercicioId ? { ...d, tipo_medida: tipo } : d) })))
-  }
+  /* «ARREGLAR EJERCICIOS» (cambiar en la sala cómo se mide un ejercicio en la biblioteca)
+     se quitó: cambiaba la naturaleza del ejercicio para todos desde mitad de una clase.
+     Cómo se mide se cambia en la biblioteca; en la sala, solo reps o segundos para ese
+     paciente. */
   const alternarPlegada = (k: string) => setPlegadas(prev => {
     const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n
   })
@@ -1943,11 +1933,6 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 {piden > 0 && <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, borderRadius: 99, background: '#B05A5A', color: '#fff',
                   fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', padding: '0 4px', border: '2px solid var(--bl)' }}>{piden}</span>}
               </button>
-              {/* Arreglar ejercicios es de vez en cuando (y solo desde nivel 3): un botón redondo. */}
-              {tocaBib && <button style={redondo(arreglar)} onClick={alternarArreglar}
-                title={arreglar ? 'Arreglando ejercicios: toca para terminar' : 'Arreglar ejercicios (cómo se mide cada uno en la biblioteca)'}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
-              </button>}
               {pendientes > 0 ? (
                 <span title="Guardando…" style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ambl)', color: '#7A5800', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ic name="reloj" size={11}/></span>
               ) : ultimoGuardado ? (
@@ -2116,7 +2101,6 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           abrir: (pid:string) => { setActivo(pid); setVista('uno') },
           todosItems: marcarTodosItems, objetivo: toggleObjetivo, cita: (pid:string) => setCitaVelo(pid),
           objetivosLib, objsPac: (pid:string) => objsPorPaciente[pid] || [],
-          arreglar, medida: cambiarMedidaBase,
         }}/>
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
@@ -2340,8 +2324,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               toggleObjetivo={cambiaEj ? toggleObjetivo : undefined}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
-              onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}
-              arreglar={arreglar} onMedida={cambiarMedidaBase}/>}
+              onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}/>}
             </div>
             )
           })}
