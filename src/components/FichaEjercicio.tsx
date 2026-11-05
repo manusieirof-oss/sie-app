@@ -149,6 +149,12 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
                 {variantes.map((x, i) => <button key={i} type="button" className={varSel === i ? 'on' : ''} onClick={() => setVarSel(i)}>{x?.nombre || 'Variante'}</button>)}
               </div>
             )}
+            {/* LA DESCRIPCIÓN, EN EL ANVERSO. Es lo primero que se quiere leer junto a la
+                figura, y ocupa el hueco que quedaba en blanco. Si no cabe entera se
+                difumina abajo; tocándola se ve completa en el reverso. */}
+            {ejercicio.descripcion
+              ? <p className="cr-desc-f" onClick={() => setVuelta(true)} title="Toca para leerla entera">{ejercicio.descripcion}</p>
+              : <div style={{ flex: 1 }}/>}
             <div className="cr-stats">
               <div><b>{uso?.veces ?? '·'}</b><span>Veces</span></div>
               <div><b>{uso?.pacientes ?? '·'}</b><span>Pacientes</span></div>
@@ -229,7 +235,8 @@ button.cr-fam{cursor:pointer;color:var(--gd)}button.cr-fam:before{content:'‹ '
 .cr-vars{display:flex;gap:5px;overflow-x:auto;padding:6px 16px 2px;scrollbar-width:none}
 .cr-vars button{flex-shrink:0;font:inherit;font-size:12px;padding:4px 11px;border-radius:99px;border:1.5px solid var(--bd);background:var(--w);color:var(--n);cursor:pointer}
 .cr-vars button.on{background:var(--n);border-color:var(--n);color:#fff}
-.cr-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:auto 12px 0;border-top:1.5px dashed var(--bd);padding:10px 0 4px}
+.cr-desc-f{flex:1;min-height:0;overflow:hidden;margin:8px 16px 0;font-size:13.5px;line-height:1.55;color:var(--gr);cursor:pointer;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
+.cr-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:8px 12px 0;border-top:1.5px dashed var(--bd);padding:10px 0 4px}
 .cr-stats div{display:flex;flex-direction:column;align-items:center}
 .cr-stats b{font-size:20px;font-weight:600;color:var(--n);line-height:1.1}
 .cr-stats span{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--grl)}
