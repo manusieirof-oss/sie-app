@@ -351,6 +351,14 @@ export default function ExploradorEjercicios({
             relleno radio={0} fondo="var(--bl)" icono={30} alt={vc ? `${e.nombre} · ${vc.nombre}` : e.nombre}/>
           {seleccion && sel && <span className="marca"><Ic name="check" size={13} /></span>}
         </div>
+        {/* LAS VARIANTES, EN FRANJA bajo la foto (Biblioteca): como chapa pequeña no se veían.
+            Toda la anchura de la tarjeta, se toca para desplegar la familia aquí mismo. */}
+        {paneles && (hijosDe[e.id] || []).length > 0 && !hayFiltro && (() => { const ab = familiasAbiertas.includes(e.id)
+          return <button type="button" onClick={ev => { ev.stopPropagation(); setFamiliasAbiertas(l => ab ? l.filter(x => x !== e.id) : [...l, e.id]) }}
+            style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              background: ab ? 'var(--g)' : 'var(--gl)', color: ab ? '#fff' : 'var(--gd)', fontSize: 12, fontWeight: 600, padding: '6px 8px', letterSpacing: .2 }}>
+            <Ic name="plantillas" size={13}/> {hijosDe[e.id].length} {hijosDe[e.id].length === 1 ? 'variante' : 'variantes'} {ab ? '▴' : '▾'}
+          </button> })()}
         <div style={{ padding: '8px 10px' }}>
           {/* Cuando lo que casó fue una variante, ella manda en el título y el nombre
               del ejercicio queda debajo, en pequeño: hay que saber de dónde sale. */}
@@ -428,7 +436,7 @@ export default function ExploradorEjercicios({
               buscabas el nombre de una: al montar la sesión elegías el ejercicio a
               secas sin saber que había una unilateral esperando. */}
           {/* LA FAMILIA: se despliega aquí mismo, sin abrir el ejercicio. */}
-          {(hijosDe[e.id] || []).length > 0 && !hayFiltro && (
+          {!paneles && (hijosDe[e.id] || []).length > 0 && !hayFiltro && (
             <button type="button" className={`chip-sel ${familiasAbiertas.includes(e.id) ? 'on' : ''}`}
               style={{ marginTop: 5, fontSize: 11, padding: '2px 9px' }}
               onClick={ev => { ev.stopPropagation(); setFamiliasAbiertas(l => l.includes(e.id) ? l.filter(x => x !== e.id) : [...l, e.id]) }}>
@@ -462,21 +470,22 @@ export default function ExploradorEjercicios({
               anatomía (lo que activa el ejercicio). Sin números ni grupos: se lee de un
               vistazo. Si aún no tiene anatomía, sus grupos musculares sin más. */}
           {paneles && (() => {
-            /* Músculo + acción: los músculos ★ principales y, debajo, lo que hacen (el
-               movimiento ★ con su articulación: «Extensión de rodilla»). */
+            /* QUÉ TRABAJA, entero (sin cortar con «…»): los músculos ★ principales y lo
+               que hacen, agrupado por movimiento: «↻ Flexión · dorsal, lumbar». */
             const an = anatomiaDe(e)
             const nom = (id: string | null) => etiquetas.find(x => x.id === id)?.nombre || ''
             const mus = an.mus.filter(m => m.p).map(m => nom(m.u)).filter(Boolean)
-            const acc = (an.acc.some(x => x.p) ? an.acc.filter(x => x.p) : an.acc)
-              .map(x => x.m ? `${nom(x.m)} de ${nom(x.a).toLowerCase()}` : nom(x.a)).filter(Boolean)
-            const fila: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+            const accs = an.acc.some(x => x.p) ? an.acc.filter(x => x.p) : an.acc
+            const porMov: Record<string, string[]> = {}
+            accs.forEach(x => { const m = x.m ? nom(x.m) : 'Trabaja'; const a = nom(x.a); if (a && !(porMov[m] ||= []).includes(a)) porMov[m].push(a) })
+            const acc = Object.entries(porMov).map(([m, as]) => `${m} · ${as.join(', ').toLowerCase()}`)
             if (!mus.length && !acc.length) {
               const g = grupos.slice(0, 3).map(x => x.raiz.nombre)
-              return g.length ? <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4, ...fila }}>{g.join(' · ')}</div> : null
+              return g.length ? <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4 }}>{g.join(' · ')}</div> : null
             }
-            return <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.45 }}>
-              {mus.length > 0 && <div style={{ ...fila, color: 'var(--n)' }} title={mus.join(', ')}><span style={{ color: '#d9a21b' }}>★</span> {mus.join(', ')}</div>}
-              {acc.length > 0 && <div style={{ ...fila, color: 'var(--gd)' }} title={acc.join(' · ')}>↻ {Array.from(new Set(acc)).join(' · ')}</div>}
+            return <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
+              {mus.length > 0 && <div style={{ color: 'var(--n)' }}><span style={{ color: '#d9a21b' }}>★</span> {mus.join(', ')}</div>}
+              {acc.map(t => <div key={t} style={{ color: 'var(--gd)' }}>↻ {t}</div>)}
             </div>
           })()}
           {!paneles && grupos.length > 0 && (
