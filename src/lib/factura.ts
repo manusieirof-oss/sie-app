@@ -197,24 +197,34 @@ ${esRect && d.rectificada ? `<div class="rect">
 </body></html>`
 }
 
-/** Abre la factura en una ventana aparte, lista para imprimir o guardar en PDF. */
+/**
+ * Imprime la factura o la guarda en PDF: abre directamente el diálogo de imprimir.
+ *
+ * POR QUÉ NO EN UNA VENTANA APARTE. Primero se escribía en una ventana en blanco
+ * (about:blank) y el PDF salía vacío; luego en un blob con su URL, pero ese blob
+ * muere en cuanto SIE recarga (al publicar una versión nueva la pestaña se recarga
+ * sola) o a los 5 minutos, y entonces «Guardar en PDF» volvía a salir en blanco.
+ * Ahora la factura se pinta en un marco invisible DENTRO de la propia página y se
+ * imprime ese marco: no depende de ninguna URL que pueda desaparecer.
+ */
 export async function abrirFactura(facturaId: string): Promise<{ ok: boolean, error?: string }> {
   const r = await cargarFactura(facturaId)
   if (!r.ok) return { ok: false, error: r.error }
-
-  // La ventana se abre ANTES de nada en el flujo del clic, si no Safari la
-  // bloquea. Como aquí ya hemos hecho un await, puede pasar: se avisa.
-  const v = window.open('', '_blank')
-  if (!v) return { ok: false, error: 'El navegador ha bloqueado la ventana. Permite las ventanas emergentes para este sitio.' }
-  // LA FACTURA VA EN UN BLOB CON SU PROPIA URL, NO ESCRITA CON document.write.
-  //
-  // Antes se escribia dentro de una ventana en blanco (about:blank). En pantalla
-  // se veia bien, pero al guardar en PDF el navegador vuelve a pedir la pagina
-  // por su URL, y about:blank esta vacia: el PDF salia en blanco. Con un blob la
-  // ventana tiene una URL real que contiene la factura entera.
-  const url = URL.createObjectURL(new Blob([htmlFactura(r.datos)], { type: 'text/html;charset=utf-8' }))
-  v.location.href = url
-  // Se libera pasado un rato; la ventana ya tiene el documento cargado.
-  setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000)
+  const marco = document.createElement('iframe')
+  marco.setAttribute('aria-hidden', 'true')
+  marco.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
+  document.body.appendChild(marco)
+  const doc = marco.contentDocument
+  if (!doc || !marco.contentWindow) { marco.remove(); return { ok: false, error: 'No se ha podido preparar la factura.' } }
+  doc.open(); doc.write(htmlFactura(r.datos)); doc.close()
+  // Se espera a que carguen las imágenes (el logo): si no, sale sin él.
+  await Promise.all(Array.from(doc.images).map(img => img.complete ? null
+    : new Promise(ok => { img.onload = img.onerror = () => ok(null); setTimeout(() => ok(null), 4000) })))
+  const quitar = () => setTimeout(() => marco.remove(), 1000)
+  marco.contentWindow.addEventListener('afterprint', quitar)
+  marco.contentWindow.focus()
+  marco.contentWindow.print()
+  // Por si el navegador no avisa al cerrar el diálogo.
+  setTimeout(() => { if (marco.isConnected) marco.remove() }, 10 * 60 * 1000)
   return { ok: true }
 }
