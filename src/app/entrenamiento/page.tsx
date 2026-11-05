@@ -231,7 +231,7 @@ function EntrenamientoContent() {
   }
 
   // NIVEL 2: la biblioteca de ejercicios para consultar, sin editar nada (BibliotecaVer).
-  if (!puedeBib) return loading ? <div className="loading">Cargando...</div> : <BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas}/>
+  if (!puedeBib) return loading ? <div className="loading">Cargando...</div> : <BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas} pacientes={pacientes}/>
 
   return (
     <>
@@ -245,7 +245,7 @@ function EntrenamientoContent() {
         <>
           {/* La biblioteca es para consultar, también aquí: editar un ejercicio se hace en el
               torno (Amasar), que tiene todo (familias, fotos, borrar). Desde la ficha hay un atajo. */}
-          {tab==='biblioteca'&&<BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas} amasar/>}
+          {tab==='biblioteca'&&<BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas} pacientes={pacientes} amasar/>}
           {(tab==='sesiones'||tab==='sistemas')&&!sesionesCargadas.current&&<div className="loading">Cargando sesiones...</div>}
           {tab==='sesiones'&&sesionesCargadas.current&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
           {tab==='sistemas'&&sesionesCargadas.current&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}

@@ -40,15 +40,19 @@ function rareza(veces: number) {
   return { k: 'nuevo', t: 'Sin estrenar' }
 }
 
-export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, onCambiar, onCerrar }: {
+export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, onCambiar, onCerrar }: {
   ejercicio: any, ejercicios: any[], etiquetas: any[], amasar?: boolean,
+  /** Cliente elegido en la Biblioteca: las cifras, el rosco y los objetivos pasan a ser
+      los suyos. El color del marco sigue siendo el de la clínica (lo que es el ejercicio). */
+  paciente?: { id: string, nombre: string } | null, usoPaciente?: any,
   /** Para saltar a otro de la familia sin cerrar el cromo. */
   onCambiar: (e: any) => void, onCerrar: () => void
 }) {
   const router = useRouter()
   const [varSel, setVarSel] = useState(-1)
   const [vuelta, setVuelta] = useState(false)
-  const [uso, setUso] = useState<any>(resumenCache?.[ejercicio.id] ?? null)
+  const [usoClinica, setUso] = useState<any>(resumenCache?.[ejercicio.id] ?? null)
+  const uso = paciente ? (usoPaciente || { veces: 0, sesiones: 0, objetivos: [] }) : usoClinica
   const carta = useRef<HTMLDivElement>(null)
   /* EL ESCENARIO, TAN GRANDE COMO QUEPA. El cromo tiene alto fijo (para poder darle la
      vuelta) y lo demás del anverso (nombre, rosco o descripción, cifras y botón) ocupa
@@ -91,12 +95,14 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   const [caps, setCaps] = useState<{ nombre: string, n: number }[] | null>(null)
   useEffect(() => {
     setCaps(null)
-    supabase.from('registros_ejercicio').select('capacidad').eq('ejercicio_id', ejercicio.id).limit(5000).then(({ data }) => {
+    let q = supabase.from('registros_ejercicio').select('capacidad').eq('ejercicio_id', ejercicio.id)
+    if (paciente) q = q.eq('paciente_id', paciente.id)
+    q.limit(5000).then(({ data }) => {
       const c: Record<string, number> = {}
       ;(data || []).forEach((f: any) => { const k = String(f.capacidad || '').trim(); if (k) c[k] = (c[k] || 0) + 1 })
       setCaps(Object.entries(c).map(([nombre, n]) => ({ nombre, n })).sort((a, b) => b.n - a.n))
     })
-  }, [ejercicio.id])
+  }, [ejercicio.id, paciente?.id])
 
   /* LA INCLINACIÓN. Se escribe en variables CSS (no en estado de React) para que mover el
      ratón no vuelva a pintar la animación 3D en cada píxel. Sobre el escenario no se
@@ -132,7 +138,7 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   const frases = lista(ejercicio.feedbacks)
   const trabaja = agrupaPorRaiz(etiquetas, ejercicio.etiquetas || [])
   const objetivos: any[] = uso?.objetivos || []
-  const rz = rareza(uso?.veces || 0)
+  const rz = rareza(usoClinica?.veces || 0)
   // El número del cromo: su sitio en la colección, por orden alfabético.
   const numero = [...ejercicios].sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es')).findIndex(e => e.id === ejercicio.id) + 1
 
@@ -181,9 +187,12 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
               : ejercicio.descripcion
               ? <p className="cr-desc-f" onClick={() => setVuelta(true)} title="Toca para leerla entera">{ejercicio.descripcion}</p>
               : <div style={{ flex: 1 }}/>}
+            {paciente && <div className="cr-de">Datos de {paciente.nombre}</div>}
             <div className="cr-stats">
               <div><b>{uso?.veces ?? '·'}</b><span>Veces</span></div>
-              <div><b>{uso?.pacientes ?? '·'}</b><span>Pacientes</span></div>
+              {paciente
+                ? <div><b style={{ fontSize: 15, lineHeight: '22px' }}>{uso?.ultima ? fecha(uso.ultima) : '—'}</b><span>Última vez</span></div>
+                : <div><b>{uso?.pacientes ?? '·'}</b><span>Pacientes</span></div>}
               <div><b>{uso?.sesiones ?? '·'}</b><span>Sesiones</span></div>
               <div><b>{pasos.length}</b><span>Claves</span></div>
             </div>
@@ -216,12 +225,12 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
                 ))}</div>
               </section>}
               {objetivos.length > 0 && <section>
-                <div className="cr-et">Para qué se usa aquí</div>
+                <div className="cr-et">{paciente ? `Para qué lo usa ${paciente.nombre}` : 'Para qué se usa aquí'}</div>
                 <div className="cr-barras">{objetivos.slice(0, 5).map((o: any) => (
                   <div key={o.nombre}><span>{o.nombre}</span><i style={{ width: `${Math.max(8, o.n / objetivos[0].n * 100)}%` }}/><b>{o.n}</b></div>
                 ))}</div>
               </section>}
-              {uso?.ultima && <div className="cr-ultima">Última vez apuntado: {fecha(uso.ultima)}</div>}
+              {uso?.ultima && !paciente && <div className="cr-ultima">Última vez apuntado: {fecha(uso.ultima)}</div>}
             </div>
             {amasar && <button className="btn btn-p cr-amasar" onClick={() => router.push(`/torno/amasar/${ejercicio.id}`)}>
               <Ic name="editar" size={13}/> Amasar en el torno</button>}
@@ -313,6 +322,7 @@ button.cr-fam{cursor:pointer;color:var(--gd)}button.cr-fam:before{content:'‹ '
 .cr-rosco-ley i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
 .cr-trozo{animation:crTrozo .9s ease-out both}
 @keyframes crTrozo{from{stroke-dasharray:0 999}}
+.cr-de{margin:6px 16px 0;font-size:11px;color:var(--gd);text-transform:uppercase;letter-spacing:.06em}
 .cr-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:8px 12px 0;border-top:1.5px dashed var(--bd);padding:10px 0 4px}
 .cr-stats div{display:flex;flex-direction:column;align-items:center}
 .cr-stats b{font-size:20px;font-weight:600;color:var(--n);line-height:1.1}

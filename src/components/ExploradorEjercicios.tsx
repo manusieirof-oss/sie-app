@@ -34,8 +34,13 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false, resumenFijo,
 }: {
+  /**
+   * Uso ya calculado (el de un cliente en la Biblioteca). Si se pasa, los paneles Uso y
+   * Objetivos enseñan esto en vez de los datos de toda la clínica.
+   */
+  resumenFijo?: Record<string, any> | null
   /**
    * Solo los similares, sin pestaña «Cualquiera» y buscando solo entre ellos (nivel 2 en el
    * taller): cambiar o añadir por cualquiera parecía rehacer la sesión.
@@ -83,15 +88,18 @@ export default function ExploradorEjercicios({
   const [panel, setPanelE] = useState<Panel>('trabaja')
   useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_panel'); if (v === 'objetivos' || v === 'uso') setPanelE(v) } catch {} }, [paneles])
   const setPanel = (v: Panel) => { setPanelE(v); try { localStorage.setItem('bib_panel', v) } catch {} }
-  const [resumen, setResumen] = useState<Record<string, any> | null>(null)
+  const [resumenClinica, setResumen] = useState<Record<string, any> | null>(null)
+  const resumen = resumenFijo || resumenClinica
   const [faltaVista, setFaltaVista] = useState(false)
+  // Al elegir un cliente se pasa a Uso: es lo que se quiere ver de él (cuánto lo ha hecho).
+  useEffect(() => { if (paneles && resumenFijo) setPanelE('uso') }, [paneles, !!resumenFijo]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!paneles || panel === 'trabaja' || resumen) return
+    if (!paneles || panel === 'trabaja' || resumenClinica) return
     traerTodo((d, h) => supabase.from('ejercicio_resumen').select('*').range(d, h)).then(({ filas, error }) => {
       if (error) { setFaltaVista(true); return }
       setResumen(Object.fromEntries(filas.map((f: any) => [f.ejercicio_id, f])))
     })
-  }, [paneles, panel, resumen])
+  }, [paneles, panel, resumenClinica])
   const fechaCorta = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : ''
 
   const [buscar, setBuscar] = useState('')
@@ -348,12 +356,14 @@ export default function ExploradorEjercicios({
           {paneles && panel !== 'trabaja' && (() => {
             const rs = resumen?.[e.id]
             const tx: React.CSSProperties = { fontSize: 12, color: 'var(--gr)', marginTop: 3, lineHeight: 1.4 }
-            if (faltaVista) return <div style={tx}>Falta ejecutar sql/ejercicio-resumen.sql</div>
+            if (faltaVista && !resumenFijo) return <div style={tx}>Falta ejecutar sql/ejercicio-resumen.sql</div>
             if (!resumen) return <div style={tx}>Cargando…</div>
             if (panel === 'uso') return !rs || (!rs.veces && !rs.sesiones) ? <div style={tx}>Sin usar todavía</div> : (
               <div style={tx}>
                 <div><b style={{ color: 'var(--n)' }}>{rs.veces}</b> {rs.veces === 1 ? 'vez apuntado' : 'veces apuntado'}</div>
-                <div>{rs.pacientes} {rs.pacientes === 1 ? 'paciente' : 'pacientes'} · en {rs.sesiones} {rs.sesiones === 1 ? 'sesión' : 'sesiones'}</div>
+                {resumenFijo
+                  ? <div>En {rs.sesiones} {rs.sesiones === 1 ? 'sesión suya' : 'sesiones suyas'}</div>
+                  : <div>{rs.pacientes} {rs.pacientes === 1 ? 'paciente' : 'pacientes'} · en {rs.sesiones} {rs.sesiones === 1 ? 'sesión' : 'sesiones'}</div>}
                 {rs.ultima && <div>Última vez: {fechaCorta(rs.ultima)}</div>}
               </div>)
             const objs: any[] = rs?.objetivos || []
