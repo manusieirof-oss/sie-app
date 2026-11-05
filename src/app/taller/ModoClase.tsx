@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion, itemDeEjercicio } from '@/lib/sesiones'
 import { textoDescanso, capacidadPorReps } from '@/lib/capacidades'
 import { repetidosSemana, type Repetido } from '@/lib/repetidosSemana'
+import { enModoPractica } from '@/lib/practica'
 import { partesMedida } from '@/lib/medida'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
@@ -1328,7 +1329,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const raw = solo ? null : sessionStorage.getItem(SKEY)
       if (raw) {
         const g = JSON.parse(raw)
-        if (g.sala) setSala(g.sala)
+        // En práctica, todas las salas: los de prueba están en la A y, con la sala real
+        // recordada (p. ej. la B), el taller salía vacío en plena guía.
+        if (g.sala && !enModoPractica()) setSala(g.sala)
         /* VOLVER DONDE ESTABAS. Si se sale un momento (a la ficha, a la agenda) y se
            vuelve, sigue en la misma hora y con el mismo paciente, aunque no sea la hora
            actual. Solo si fue hace poco (2 h): al dia siguiente, o tras la comida,
