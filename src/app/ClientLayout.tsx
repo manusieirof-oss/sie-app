@@ -14,7 +14,7 @@ import { firmaVigente } from '@/lib/confidencialidad'
 import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, MINUTOS_INACTIVO } from '@/lib/compartido'
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
-import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente, salirSiLaGuiaEntro } from '@/lib/practica'
+import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente } from '@/lib/practica'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -67,7 +67,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }, [])
   /** Abrir la guía: siempre en modo práctica (si no se está, entra y la abre allí). */
   const abrirGuia = (n: 1 | 2) => { if (!guiaEnPractica(n)) setGuia(n) }
-  const cerrarGuia = () => { setGuia(false); salirSiLaGuiaEntro() }
+  // Al acabar se queda en práctica, para probar lo aprendido (se sale con «Salir»).
+  const cerrarGuia = () => setGuia(false)
   const empezarDeNuevo = async () => {
     if (!confirm('¿Empezar la práctica de nuevo? Se borra lo que hayas apuntado hoy con los pacientes de práctica.')) return
     const r = await prepararSiToca(true)
