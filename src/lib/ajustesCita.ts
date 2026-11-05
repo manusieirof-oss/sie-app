@@ -48,7 +48,11 @@ export type AjusteEj = Partial<Record<CampoAjustable, string>> & { nombre?: stri
  * vueltas, pausas y las series de todos sus ejercicios. Va por número de parte.
  */
 export type AjusteParte = { modo?: string, vueltas?: string, transicion?: string, descanso?: string, minutos?: string, tipo_tiempo?: string, series?: string, grupos?: string, nombre?: string }
-export type AjustesCita = { v: 1, ejercicios: Record<string, AjusteEj>, partes?: Record<string, AjusteParte> }
+/**
+ * `extras`: ejercicios AÑADIDOS solo ese día al final de una parte (la sesión se quedaba
+ * corta). Van por número de parte y ya con sus series y reps: el plan no se toca.
+ */
+export type AjustesCita = { v: 1, ejercicios: Record<string, AjusteEj>, partes?: Record<string, AjusteParte>, extras?: Record<string, any[]> }
 
 export const clave = (pi: number, ei: number) => `${pi}.${ei}`
 
@@ -56,7 +60,8 @@ const txt = (x: unknown) => String(x ?? '').trim()
 
 /** true si no hay ninguna desviación guardada. */
 export function sinAjustes(a?: AjustesCita | null): boolean {
-  return !a || ((!a.ejercicios || Object.keys(a.ejercicios).length === 0) && (!a.partes || Object.keys(a.partes).length === 0))
+  return !a || ((!a.ejercicios || Object.keys(a.ejercicios).length === 0) && (!a.partes || Object.keys(a.partes).length === 0)
+    && (!a.extras || Object.values(a.extras).every(l => !l?.length)))
 }
 
 /**
@@ -102,7 +107,7 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
         copia.sustituye = ej.nombre || ''
       }
       return copia
-    }),
+    }).concat(((ajustes!.extras || {})[String(pi)] || []).map((x: any) => ({ ...x, extra_hoy: true }))),
   }})
   return { ...sesion, partes }
 }
@@ -116,7 +121,8 @@ export function aplicarAjustes(sesion: any, ajustes?: AjustesCita | null): any {
  */
 export function calcularAjustes(base: any, editada: any, previos?: AjustesCita | null): AjustesCita {
   // El método de las partes se cambia desde el taller, no aquí: se conserva tal cual.
-  const out: AjustesCita = { v: 1, ejercicios: {}, ...(previos?.partes && Object.keys(previos.partes).length ? { partes: previos.partes } : {}) }
+  const out: AjustesCita = { v: 1, ejercicios: {}, ...(previos?.partes && Object.keys(previos.partes).length ? { partes: previos.partes } : {}),
+    ...(previos?.extras && Object.keys(previos.extras).length ? { extras: previos.extras } : {}) }
   ;(base?.partes || []).forEach((p: any, pi: number) => {
     const pe = editada?.partes?.[pi]
     if (!pe) return

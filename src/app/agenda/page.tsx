@@ -776,8 +776,9 @@ export default function AgendaPage() {
             </div>
             {vistaEntreno==='programacion' ? (
               <div style={{maxWidth:560,margin:'0 auto',paddingBottom:10}}>
-                {/* Nivel 1: la ve, pero no la cambia (cambiar la sesión de una cita es del 2). */}
-                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda" soloVer={!puedeAg('cambiar_sesion')}
+                {/* Mover sesiones entre días es PLANIFICAR: desde el nivel 3. El 2 cambia solo la de
+                    hoy, desde Entreno o el taller (otra suya o de la biblioteca); aquí solo mira. */}
+                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda" soloVer={!puedeAg('editar_plan')}
                   etiqueta={`${verEntrenoCita.pacientes?.nombre_clinica || verEntrenoCita.pacientes?.nombre || ''}`.trim()}
                   onCambio={()=>{ setVersionEntreno(v=>v+1); cargar() }}/>
               </div>

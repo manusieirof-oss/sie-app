@@ -34,8 +34,13 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false,
 }: {
+  /**
+   * Solo los similares, sin pestaña «Cualquiera» y buscando solo entre ellos (nivel 2 en el
+   * taller): cambiar o añadir por cualquiera parecía rehacer la sesión.
+   */
+  soloSimilares?: boolean
   /**
    * Biblioteca: lo de debajo de la foto en tres paneles, uno para todas las tarjetas
    * (botones encima de la rejilla): qué trabaja, objetivos que suele trabajar y uso.
@@ -127,7 +132,8 @@ export default function ExploradorEjercicios({
   const [verOtros, setVerOtros] = useState(false)
   /** Cambiando un ejercicio: ver solo los similares o toda la biblioteca. */
   const [verTodo, setVerTodo] = useState(false)
-  const soloSug = soloSugeridos && !verTodo && !!sugeridos && sugeridos.items.length > 0
+  const soloSug = soloSugeridos && (soloSimilares || !verTodo) && !!sugeridos && sugeridos.items.length > 0
+  const idsSimilares = soloSimilares ? new Set((sugeridos?.items || []).map((e: any) => e.id)) : null
   const [creando, setCreando] = useState(false)
   /**
    * FAMILIAS. Una variante es un ejercicio completo con `portada_id` apuntando a su
@@ -215,6 +221,7 @@ export default function ExploradorEjercicios({
   const casaTexto = (e: any) => casaNombre(e) || casaEtiqueta(e)
   const portadasQueCasan = new Set(buscar ? ejercicios.filter(e => !e.portada_id && casaTexto(e)).map(e => e.id) : [])
   const filtrados = ejercicios.filter(e => {
+    if (idsSimilares && !idsSimilares.has(e.id)) return false
     const coincide = !buscar || casaTexto(e) || (!!e.portada_id && portadasQueCasan.has(e.portada_id))
     // Varias etiquetas se acumulan: piden los que las tengan TODAS. Y cada una vale
     // por su rama entera, así que filtrar por "Cuádriceps" trae lo etiquetado solo
@@ -533,7 +540,7 @@ export default function ExploradorEjercicios({
 
       {/* Los sugeridos se esconden en cuanto buscas o filtras: ahí ya sabes qué quieres. */}
       {/* CAMBIAR POR UNO SIMILAR O POR CUALQUIERA: dos pestañas. */}
-      {soloSugeridos && sugeridos && sugeridos.items.length > 0 && (
+      {soloSugeridos && !soloSimilares && sugeridos && sugeridos.items.length > 0 && (
         <div style={{ display: 'inline-flex', background: '#E8E7E1', borderRadius: 99, padding: 3, marginBottom: 10 }}>
           {([[false, `Similares · ${sugeridos.items.length}`], [true, 'Cualquiera']] as const).map(([v, l]) => (
             <button key={String(v)} type="button" onClick={() => setVerTodo(v)}

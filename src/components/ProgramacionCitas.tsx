@@ -149,7 +149,7 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.4 }}>
-        {soloVer ? 'Solo para consultar: cambiar la programación es cosa del entrenador/a o el encargado/a.'
+        {soloVer ? 'Solo para consultar: mover sesiones entre días es planificar (encargado/a). La de hoy se cambia desde Entreno o el taller.'
           : 'Arrastra una sesión encima de otra cita para intercambiarlas (en tablet: toca una y luego la otra).'}
       </div>
 

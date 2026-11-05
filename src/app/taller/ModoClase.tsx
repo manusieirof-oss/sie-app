@@ -23,7 +23,7 @@ import { MOTIVOS_CAMBIO, nombreMotivo, cambiosDeCitas, registrarCambio, type Cam
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
-import { aplicarAjustes } from '@/lib/ajustesCita'
+import { aplicarAjustes, sinAjustes } from '@/lib/ajustesCita'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest, ladoOpuesto } from '@/lib/tests'
@@ -807,8 +807,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           nuevo[`${a}.${b > quitado.pe ? b - 1 : b}`] = v
         })
         // Si le queda el método de alguna parte, el ajuste sigue aunque no queden ejercicios.
-        const quedaParte = c.ajustes?.partes && Object.keys(c.ajustes.partes).length > 0
-        await supabase.from('citas').update({ ajustes: (Object.keys(nuevo).length || quedaParte) ? { ...c.ajustes, ejercicios: nuevo } : null }).eq('id', c.id)
+        const queda = { ...c.ajustes, ejercicios: nuevo }
+        await supabase.from('citas').update({ ajustes: sinAjustes(queda) ? null : queda }).eq('id', c.id)
       }
     }
     if (texto) await supabase.from('eventos_paciente').insert({ paciente_id: pid, tipo: 'sesion', titulo: texto, fecha: fechaC })
@@ -849,7 +849,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (aj.partes?.[String(pi)] && item.citaId) {
         const resto = { ...aj.partes }; delete resto[String(pi)]
         const nuevo = { ...aj, partes: resto }
-        const vacio = Object.keys(nuevo.ejercicios || {}).length === 0 && Object.keys(resto).length === 0
+        const vacio = sinAjustes(nuevo)
         await supabase.from('citas').update({ ajustes: vacio ? null : nuevo }).eq('id', item.citaId)
       }
       await editarSuSesion(pid, partes => {
@@ -893,6 +893,41 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     }, undefined, `Ejercicio añadido a su sesión en el taller: ${nuevo.nombre}`)
   }
 
+  /**
+   * AÑADIR SOLO HOY (nivel 2): la sesión se queda corta y se mete un ejercicio más al
+   * final de la parte, con sus series y reps. Va a los ajustes de la cita (`extras`):
+   * su sesión no cambia y el próximo día sale como siempre.
+   */
+  async function anadirSoloHoy(pid: string, pi: number, nuevo: any) {
+    setAnadiendo(null)
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    if (!item?.citaId || !item?.sesionId) { alert('Sin cita no se puede añadir solo para hoy.'); return }
+    const { data: ses } = await supabase.from('sesiones').select('*').eq('id', item.sesionId).maybeSingle()
+    const parte = ses?.partes?.[pi]
+    if (!ses || !parte) return
+    const ref = (parte.ejercicios || [])[(parte.ejercicios || []).length - 1] || {}
+    const extra = itemDeEjercicio(nuevo, { ...ref, lado: undefined })
+    const { data: c } = await supabase.from('citas').select('ajustes').eq('id', item.citaId).maybeSingle()
+    const aj: any = c?.ajustes ? { v: 1, ejercicios: {}, ...c.ajustes } : { v: 1, ejercicios: {} }
+    aj.extras = { ...(aj.extras || {}), [String(pi)]: [...((aj.extras || {})[String(pi)] || []), extra] }
+    const { error } = await supabase.from('citas').update({ ajustes: aj }).eq('id', item.citaId)
+    if (error) { alert('No se ha podido añadir: ' + error.message); return }
+    const datos = await cargarDatosSesion(pid, aplicarAjustes(ses, aj), item.fechaClase || fecha)
+    setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos: conservarDelDia(x.datos, datos) }))
+  }
+
+  /** Los similares a los ejercicios de una parte: lo que se puede añadir en ese hueco. */
+  function similaresDeParte(pid: string, pi: number) {
+    const datos = seleccion.find((x:any) => x.paciente.id === pid)?.datos || []
+    const vistos = new Set<string>(), items: any[] = []
+    datos.filter((e:any) => String(e.pos || '').startsWith(pi + '.')).forEach((e:any) => {
+      vistos.add(e.ejercicio_id)
+      const base = catalogoEj.find((x:any) => x.id === e.ejercicio_id)
+      igualesA(catalogoEj, base, etiquetas).items.forEach((x:any) => { if (!vistos.has(x.id)) { vistos.add(x.id); items.push(x) } })
+    })
+    return items.length ? { titulo: 'Similares a los de esta parte', items } : undefined
+  }
+
   async function abrirSustituir(pid: string, i: number) {
     setCambioSiempre(false)
     setSustituyendo({ pid, i })
@@ -928,7 +963,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (c?.ajustes?.ejercicios?.[ej.pos]) {
         const aj = { ...c.ajustes, ejercicios: { ...c.ajustes.ejercicios } }
         delete aj.ejercicios[ej.pos]
-        await supabase.from('citas').update({ ajustes: Object.keys(aj.ejercicios).length ? aj : null }).eq('id', item.citaId)
+        await supabase.from('citas').update({ ajustes: sinAjustes(aj) ? null : aj }).eq('id', item.citaId)
       }
     }
     const antes = ej.sustituye || ej.nombre
@@ -2278,7 +2313,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     </span>)}
                 {/* AÑADIR A SU SESION, en la cabecera del bloque: un cuadrado pequeño que
                     no ocupa sitio. Entra con las condiciones de este bloque. */}
-                {ej.pos != null && editaPlan && (
+                {ej.pos != null && (editaPlan || cambiaEj) && (
                   <button type="button" title="Añadir un ejercicio a este bloque de su sesión"
                     aria-label="Añadir un ejercicio a este bloque de su sesión"
                     onClick={e=>{ e.stopPropagation(); setAnadiendo({ pid: act.paciente.id, pi: Number(String(ej.pos).split('.')[0]) }); cargarCatalogo() }}
@@ -2394,6 +2429,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                     const r = igualesA(catalogoEj, base, etiquetas)
                     return r.items.length ? r : undefined })()}
                   soloSugeridos
+                  /* El nivel 2 cambia solo por similares (y solo hoy). */
+                  soloSimilares={!editaPlan}
                   onAbrir={(ej:any)=>cambioSiempre && editaPlan ? cambiarParaSiempre(sustituyendo.pid, sustituyendo.i, ej) : sustituir(sustituyendo.pid, sustituyendo.i, ej)}/>}
           </div>
         </div>
@@ -2403,14 +2440,18 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         <div className="modal-bg" style={{zIndex:150}} onClick={e=>{if(e.target===e.currentTarget)setAnadiendo(null)}}>
           <div className="modal" style={{width:'min(900px, 96vw)',maxHeight:'90vh',overflowY:'auto'}}>
             <div className="modal-title">
-              Añadir a su sesión · {seleccion.find((x:any)=>x.paciente.id===anadiendo.pid)?.datos?.find((e:any)=>String(e.pos||'').startsWith(anadiendo.pi+'.'))?.parte || 'esta parte'}
+              {editaPlan ? 'Añadir a su sesión' : 'Añadir solo hoy'} · {seleccion.find((x:any)=>x.paciente.id===anadiendo.pid)?.datos?.find((e:any)=>String(e.pos||'').startsWith(anadiendo.pi+'.'))?.parte || 'esta parte'}
               <button className="modal-close" onClick={()=>setAnadiendo(null)}>✕</button>
             </div>
-            <div style={{fontSize:12,color:'var(--gr)',marginBottom:10}}>Entra con las series y repes del bloque y se queda en su sesión para las próximas clases.</div>
+            <div style={{fontSize:12,color:'var(--gr)',marginBottom:10}}>{editaPlan
+              ? 'Entra con las series y repes del bloque y se queda en su sesión para las próximas clases.'
+              : 'Solo esta clase: entra con las series y repes del bloque y su sesión no cambia. Solo ejercicios similares a los de esta parte.'}</div>
             {catalogoEj.length === 0
               ? <div className="muted" style={{padding:20}}>Cargando ejercicios…</div>
               : <ExploradorEjercicios ejercicios={catalogoEj} etiquetas={etiquetas} botonCrear={false}
-                  onAbrir={(ej:any)=>anadirASuSesion(anadiendo.pid, anadiendo.pi, ej)}/>}
+                  /* El nivel 2 solo añade similares a los de la parte (y solo hoy). */
+                  {...(editaPlan ? {} : { sugeridos: similaresDeParte(anadiendo.pid, anadiendo.pi), soloSugeridos: true, soloSimilares: true })}
+                  onAbrir={(ej:any)=>editaPlan ? anadirASuSesion(anadiendo.pid, anadiendo.pi, ej) : anadirSoloHoy(anadiendo.pid, anadiendo.pi, ej)}/>}
           </div>
         </div>
       )}
