@@ -120,8 +120,11 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   const vids = videosDe(ejercicio)
   const videos = v?.video_url ? [{ titulo: v.nombre || 'Vídeo', url: v.video_url }, ...vids] : vids
   const vacio = (
-    <div style={{ width: '100%', height: alto, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
-      {figuraDe(ejercicio.etiquetas || [], etiquetas) ? <div style={{ height: '100%', aspectRatio: '360/640' }}><FiguraMusculos etiquetasEj={ejercicio.etiquetas} etiquetas={etiquetas}/></div> : <Ic name="fuerza" size={64}/>}
+    // position:relative y overflow:hidden: la figura de músculos se pinta en absoluto y,
+    // sin una caja que la sujete, se salía y tapaba el cromo entero.
+    <div style={{ position: 'relative', overflow: 'hidden', width: '100%', height: alto, borderRadius: 10, background: '#fff',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
+      {figuraDe(ejercicio.etiquetas || [], etiquetas) ? <FiguraMusculos etiquetasEj={ejercicio.etiquetas} etiquetas={etiquetas}/> : <Ic name="fuerza" size={64}/>}
     </div>
   )
 
