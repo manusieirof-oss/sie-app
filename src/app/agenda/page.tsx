@@ -792,7 +792,8 @@ export default function AgendaPage() {
             </div>
             {vistaEntreno==='programacion' ? (
               <div style={{maxWidth:560,margin:'0 auto',paddingBottom:10}}>
-                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda"
+                {/* Nivel 1: la ve, pero no la cambia (cambiar la sesión de una cita es del 2). */}
+                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda" soloVer={!puedeAg('cambiar_sesion')}
                   etiqueta={`${verEntrenoCita.pacientes?.nombre_clinica || verEntrenoCita.pacientes?.nombre || ''}`.trim()}
                   onCambio={()=>{ setVersionEntreno(v=>v+1); cargar() }}/>
               </div>
