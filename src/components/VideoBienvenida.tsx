@@ -6,7 +6,7 @@
 // inicial («Ver el vídeo»). Los vídeos están en public/videos.
 // ---------------------------------------------------------------------------
 
-export const VIDEOS: Partial<Record<1 | 2, string>> = { 1: '/videos/nivel1.mp4' }
+export const VIDEOS: Partial<Record<1 | 2, string>> = { 1: '/videos/nivel1.mp4', 2: '/videos/nivel2.mp4' }
 
 const CLAVE = (uid: string, n: number) => `sie_video${n}_visto_${uid}`
 export const videoVisto = (uid: string, n: number) => { try { return localStorage.getItem(CLAVE(uid, n)) === '1' } catch { return true } }
