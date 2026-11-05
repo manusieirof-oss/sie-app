@@ -35,7 +35,7 @@ export default function ChapaEjecucion({ ej, tam = 23, itemMarcado, onToggle, on
 
   return (
     <>
-      <button ref={ancla} onClick={e => { e.stopPropagation(); if (hay) setAbierto(v => v === false) }}
+      <button ref={ancla} data-guia="taller-ejecucion" onClick={e => { e.stopPropagation(); if (hay) setAbierto(v => v === false) }}
         title={!hay ? 'Sin ejecución ni feedbacks' : 'Ejecución y feedbacks'}
         style={{ position: 'absolute', right: 5, bottom: 5, minWidth: total ? tam + 13 : tam, height: tam, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,

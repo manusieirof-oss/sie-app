@@ -2314,7 +2314,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 {/* AÑADIR A SU SESION, en la cabecera del bloque: un cuadrado pequeño que
                     no ocupa sitio. Entra con las condiciones de este bloque. */}
                 {ej.pos != null && (editaPlan || cambiaEj) && (
-                  <button type="button" title="Añadir un ejercicio a este bloque de su sesión"
+                  <button type="button" data-guia="taller-anadir" title="Añadir un ejercicio a este bloque de su sesión"
                     aria-label="Añadir un ejercicio a este bloque de su sesión"
                     onClick={e=>{ e.stopPropagation(); setAnadiendo({ pid: act.paciente.id, pi: Number(String(ej.pos).split('.')[0]) }); cargarCatalogo() }}
                     style={{width:30,height:30,borderRadius:'50%',border:0,background:'transparent',

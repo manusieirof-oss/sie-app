@@ -29,8 +29,10 @@ export const PASOS: Paso[] = [
   { ruta: '/taller', sitio: 'taller-personas', titulo: 'Las personas', texto: 'Toca a una para ver su entreno. En la elegida, «▾» te enseña su sesión, sus objetivos y sus alertas; si notas algo (una molestia, un mareo), apúntalo ahí como incidencia.' },
   { ruta: '/taller', sitio: 'taller-series', titulo: 'Apuntar lo que hace', texto: 'Toca la casilla y apunta peso, repeticiones o tiempo. Lo que sale en gris es lo previsto: si lo hace igual, no hace falta tocarlo. Se guarda solo.' },
   { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Si no hace un ejercicio', texto: 'Desde aquí marcas «No lo hizo». Lo demás se da por hecho tal como sale.' },
+  { ruta: '/taller', sitio: 'taller-notas', titulo: 'Notas', texto: 'El lápiz de cada ejercicio: lo que dice el plan y lo que quieras apuntar hoy («le molesta el hombro al subir», «mejor con goma 2»). La próxima vez se ve.' },
+  { ruta: '/taller', sitio: 'taller-ejecucion', titulo: 'Ejecución', texto: 'Los puntos de una buena ejecución y cómo corregirla. Marca los que hace bien (2/4, 4/4…): así se ve si va mejorando la técnica.' },
   { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar la clase', texto: 'Pulsa Finalizar. Queda guardado en el historial de cada uno, con lo apuntado y lo que salía en gris.' },
-  { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. ¡Listo, a por la clase!' },
+  { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. Ahora sigues en modo práctica: prueba todo lo que has visto, sin miedo.' },
 ]
 
 /**
@@ -39,16 +41,15 @@ export const PASOS: Paso[] = [
  * para consultar.
  */
 export const PASOS_N2: Paso[] = [
-  { titulo: 'Guía del entrenador', texto: 'Además de dar la clase, ahora puedes ajustar la sesión del día de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te lo enseño en un minuto.' },
-  { ruta: '/pacientes', sitio: 'nav/pacientes', titulo: 'Pacientes', texto: 'Sus fichas: datos, alertas, sesiones e historial. Desde aquí puedes ver qué hizo cada día y ajustar el día de una cita concreta.' },
-  { ruta: '/valoracion', sitio: 'nav/valoracion', titulo: 'Valoración', texto: 'Las valoraciones y los tests de cada paciente.' },
+  { titulo: 'Guía del entrenador', texto: 'Además de dar la clase, ahora puedes ajustar la clase de hoy de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te lo enseño en un minuto.' },
   { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'Biblioteca', texto: 'Para consultar los ejercicios: cómo se hacen, en qué fijarse y sus variantes. Toca uno para ver su ficha.' },
-  { ruta: '/taller', sitio: 'taller-personas', titulo: 'La persona y su cita', texto: 'En la persona elegida, «▾» abre su cita: marcar falta o cancelar, cambiar de sala, elegir otra de sus sesiones para hoy y apuntar incidencias.' },
+  { ruta: '/taller', sitio: 'taller-personas', titulo: 'La sesión de hoy', texto: 'En la persona elegida, «▾» abre su cita: puedes cambiar la sesión de hoy por otra de las suyas y apuntar alertas.' },
   { ruta: '/taller', sitio: 'taller-metodo', titulo: 'El método de una parte', texto: 'El lápiz de cada parte cambia, solo para hoy, el método (circuito, superseries…), las series o vueltas y los descansos.' },
-  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', texto: 'Aquí cambias un ejercicio por otro solo hoy: primero salen los que hacen el mismo movimiento, y en «Cualquiera», toda la biblioteca.' },
-  { ruta: '/taller', sitio: 'taller-series', titulo: 'Lo que hace', texto: 'Como siempre: apunta lo que cambia y lo que sale en gris se da por hecho. También puedes cambiar el régimen o el lado de hoy en su tarjeta.' },
+  { ruta: '/taller', sitio: 'taller-anadir', titulo: 'Añadir un ejercicio', texto: 'Si la sesión se queda corta, el «+» de la parte añade un ejercicio solo para hoy. Te enseña los similares a los de esa parte.' },
+  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', texto: 'Aquí cambias un ejercicio por otro similar, solo hoy: salen los que hacen el mismo movimiento.' },
+  { ruta: '/taller', sitio: 'taller-franja', titulo: 'Cómo se hace hoy', texto: 'Toca cada palabra para cambiarla solo hoy: el lado (bilateral, unilateral, alterno), la ejecución (concéntrico, isométrico…) y si va por repeticiones o segundos. En ámbar, lo que hoy es distinto al plan.' },
   { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar', texto: 'Finaliza la clase. Si hay varias salas en pantalla, te pregunta cuál.' },
-  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
+  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Ahora sigues en modo práctica: prueba todo lo que has visto. Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
 ]
 
 const CLAVE = (uid: string, n = 1) => n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`

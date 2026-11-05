@@ -70,7 +70,7 @@ export function ChapaComentario({ pacienteId, ej, ei, setComent }: any) {
   const hay = hoy !== '' || nota !== ''
   return (
     <>
-      <button ref={ancla} onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
+      <button ref={ancla} data-guia="taller-notas" onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
         title={[nota && 'Plan: ' + nota, hoy && 'Hoy: ' + hoy].filter(Boolean).join('\n') || 'Comentar el ejercicio'}
         style={base(hay
           ? { background: 'var(--amb)', color: '#fff', left: 5, top: 5 }

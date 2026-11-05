@@ -95,7 +95,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   capacidad, la lateralidad y la ejecución no se distinguían (lo vio Mario en
                   sala). Una franja que se lee de lejos: verde si es lo del plan, ámbar si hoy
                   se ha cambiado. Cada palabra se toca para cambiarla solo para hoy. */}
-              <div style={{ background: franjaCambiada ? 'var(--amb)' : 'var(--gd)', color: '#fff', borderRadius: '12px 12px 0 0',
+              <div data-guia="taller-franja" style={{ background: franjaCambiada ? 'var(--amb)' : 'var(--gd)', color: '#fff', borderRadius: '12px 12px 0 0',
                 padding: '5px 8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7, flexWrap: 'wrap',
                 opacity: noLoHizo ? .35 : 1 }}>
                 <PildoraRegimen texto ej={ej} campo="lado" opciones={LADOS} defecto="Bilateral" titulo="Lateralidad hoy"
