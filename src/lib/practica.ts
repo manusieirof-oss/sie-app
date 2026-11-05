@@ -24,11 +24,33 @@ async function prepararClase(): Promise<string | null> {
   return error ? error.message : null
 }
 
-export async function entrarPractica() {
+export async function entrarPractica(destino = '/taller') {
   try { localStorage.setItem(CLAVE, '1') } catch {}
   // Se prepara la clase ya con la cabecera puesta: hay que recargar primero.
   try { sessionStorage.setItem('sie_practica_preparar', '1') } catch {}
-  window.location.href = '/taller'
+  window.location.href = destino
+}
+
+/**
+ * LA GUÍA SE HACE SIEMPRE EN MODO PRÁCTICA: así hay un taller con gente a cualquier
+ * hora y no se enseña (ni se toca) lo de pacientes reales. Si no se está en práctica,
+ * se entra, y al cerrar la guía se sale solo.
+ */
+export function guiaEnPractica(nivel: 1 | 2): boolean {
+  if (enModoPractica()) return false
+  try { sessionStorage.setItem('sie_guia_pendiente', String(nivel)); sessionStorage.setItem('sie_guia_salir', '1') } catch {}
+  entrarPractica('/hoy')
+  return true
+}
+/** La guía que quedó pendiente al entrar en práctica (y se borra). */
+export function guiaPendiente(): 1 | 2 | null {
+  try { const v = sessionStorage.getItem('sie_guia_pendiente'); sessionStorage.removeItem('sie_guia_pendiente'); return v === '1' ? 1 : v === '2' ? 2 : null } catch { return null }
+}
+/** Al cerrar la guía: si fue ella la que metió en práctica, se sale. */
+export function salirSiLaGuiaEntro() {
+  let salir = false
+  try { salir = sessionStorage.getItem('sie_guia_salir') === '1'; sessionStorage.removeItem('sie_guia_salir') } catch {}
+  if (salir) salirPractica()
 }
 
 export function salirPractica() {

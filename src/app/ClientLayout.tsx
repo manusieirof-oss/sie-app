@@ -14,7 +14,7 @@ import { firmaVigente } from '@/lib/confidencialidad'
 import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, MINUTOS_INACTIVO } from '@/lib/compartido'
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
-import { enModoPractica, entrarPractica, salirPractica, prepararSiToca } from '@/lib/practica'
+import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente, salirSiLaGuiaEntro } from '@/lib/practica'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -62,8 +62,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     prepararSiToca().then(r => {
       if (r.error) alert('No se ha podido preparar la práctica: ' + r.error + '\n¿Falta ejecutar sql/modo-practica.sql?')
       else if (r.hecho) window.location.reload()
+      else { const g = guiaPendiente(); if (g) setGuia(g) }
     })
   }, [])
+  /** Abrir la guía: siempre en modo práctica (si no se está, entra y la abre allí). */
+  const abrirGuia = (n: 1 | 2) => { if (!guiaEnPractica(n)) setGuia(n) }
+  const cerrarGuia = () => { setGuia(false); salirSiLaGuiaEntro() }
   const empezarDeNuevo = async () => {
     if (!confirm('¿Empezar la práctica de nuevo? Se borra lo que hayas apuntado hoy con los pacientes de práctica.')) return
     const r = await prepararSiToca(true)
@@ -233,8 +237,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user?.id || !perfilListo || firmada !== true) return
     const n = nivelDe(perfil)
-    if (n === 1 && !guiaVista(user.id, 1)) setGuia(1)
-    else if (n === 2 && !guiaVista(user.id, 2)) setGuia(2)
+    if (n === 1 && !guiaVista(user.id, 1)) abrirGuia(1)
+    else if (n === 2 && !guiaVista(user.id, 2)) abrirGuia(2)
   }, [user?.id, perfilListo, firmada, perfil])
 
   const handleLogout = async () => {
@@ -302,7 +306,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {tab('/movil/yo', 'usuario', 'Yo')}
         </nav>
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
-        {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
+        {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
       {franjaPractica}
       </div>
     )
@@ -350,10 +354,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
-                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(1) }}>
+                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(1) }}>
                     <Ic name="ayuda" size={15}/> Guía de inicio
                   </button>
-                  {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(2) }}>
+                  {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(2) }}>
                     <Ic name="ayuda" size={15}/> Guía del entrenador
                   </button>}
                   {/* Para aprender sin miedo: pacientes inventados, nada de lo que se haga cuenta. */}
@@ -381,7 +385,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Sin barra superior: cada pantalla ya dice dónde estás (y la agenda pone la
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
       <main className="content"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
-      {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
+      {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
       {franjaPractica}
     </div>
   )
