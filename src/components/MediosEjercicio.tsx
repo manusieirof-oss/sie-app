@@ -12,8 +12,10 @@ const Animacion3D = dynamic(() => import('./Animacion3D'), { ssr: false })
  * Lo que se ve de un ejercicio: pestañas con la animación 3D (si su movimiento está
  * hecho), la foto y cada vídeo. Si no hay nada, `vacio` (la figura de músculos).
  */
-export function MediosEjercicio({ anim, foto, videos, vacio, alto = 420 }: {
-  anim: AnimEjercicio | null, foto?: string | null, videos: VideoEj[], vacio?: React.ReactNode, alto?: number
+export function MediosEjercicio({ anim, foto, videos, vacio, alto = 420, limpio = false }: {
+  anim: AnimEjercicio | null, foto?: string | null, videos: VideoEj[], vacio?: React.ReactNode, alto?: number,
+  /** La animación sin botonera (ver Animacion3D). */
+  limpio?: boolean
 }) {
   const pestanas: { id: string, txt: string }[] = []
   if (anim) pestanas.push({ id: 'anim', txt: '🧍 Animación 3D' })
@@ -36,7 +38,7 @@ export function MediosEjercicio({ anim, foto, videos, vacio, alto = 420 }: {
           ))}
         </div>
       )}
-      {sel === 'anim' && anim && <Animacion3D anim={anim} foto={foto} alto={alto} />}
+      {sel === 'anim' && anim && <Animacion3D anim={anim} foto={foto} alto={alto} limpio={limpio} />}
       {sel === 'foto' && foto && <img src={foto} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', background: 'var(--bm)', borderRadius: 8, border: '1px solid var(--bd)', display: 'block' }} />}
       {v && <Reproductor url={v.url} alto={alto} />}
     </div>

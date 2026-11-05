@@ -50,6 +50,13 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   const [vuelta, setVuelta] = useState(false)
   const [uso, setUso] = useState<any>(resumenCache?.[ejercicio.id] ?? null)
   const carta = useRef<HTMLDivElement>(null)
+  /* EL ESCENARIO, TAN GRANDE COMO QUEPA. El cromo tiene alto fijo (para poder darle la
+     vuelta) y lo demás del anverso ocupa unos 330 px; el resto es para la figura. */
+  const [alto, setAlto] = useState(380)
+  useEffect(() => {
+    const medir = () => setAlto(Math.max(220, Math.min(430, Math.min(760, window.innerHeight * .92) - 330)))
+    medir(); window.addEventListener('resize', medir); return () => window.removeEventListener('resize', medir)
+  }, [])
 
   const principalId = ejercicio.portada_id || ejercicio.id
   const principal = ejercicios.find(e => e.id === principalId)
@@ -99,7 +106,7 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   const vids = videosDe(ejercicio)
   const videos = v?.video_url ? [{ titulo: v.nombre || 'Vídeo', url: v.video_url }, ...vids] : vids
   const vacio = (
-    <div style={{ width: '100%', height: 330, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
+    <div style={{ width: '100%', height: alto, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grl)' }}>
       {figuraDe(ejercicio.etiquetas || [], etiquetas) ? <div style={{ height: '100%', aspectRatio: '360/640' }}><FiguraMusculos etiquetasEj={ejercicio.etiquetas} etiquetas={etiquetas}/></div> : <Ic name="fuerza" size={64}/>}
     </div>
   )
@@ -130,7 +137,7 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
               <span className="cr-rz">{rz.t}</span>
             </div>
             <div className="cr-escena">
-              <MediosEjercicio key={ejercicio.id + ':' + varSel} anim={anim} foto={foto} videos={videos} vacio={vacio} alto={330}/>
+              <MediosEjercicio key={ejercicio.id + ':' + varSel} anim={anim} foto={foto} videos={videos} vacio={vacio} alto={alto} limpio/>
             </div>
             <div className="cr-nombre">
               <h2>{ejercicio.nombre}{v && <small> · {v.nombre}</small>}</h2>
@@ -201,7 +208,7 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
 // Cada rareza solo cambia dos colores (--m marco, --m2 fondo claro); el resto es común.
 const CSS = `
 .cr-velo{position:fixed;inset:0;z-index:150;background:rgba(30,34,33,.62);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;gap:18px;animation:crVelo .2s ease;perspective:1400px}
-.cr-carta{--rx:0deg;--ry:0deg;--bx:50%;--by:30%;--m:var(--g);--m2:#cfe6e9;width:min(430px,92vw);height:min(740px,92vh);transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease-out;transform-style:preserve-3d;animation:crEntra .45s cubic-bezier(.2,.9,.25,1.15)}
+.cr-carta{--rx:0deg;--ry:0deg;--bx:50%;--by:30%;--m:var(--g);--m2:#cfe6e9;width:min(430px,92vw);height:min(760px,92vh);transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease-out;transform-style:preserve-3d;animation:crEntra .45s cubic-bezier(.2,.9,.25,1.15)}
 .cr-oro{--m:#C9A84C;--m2:#f6e7b4}.cr-plata{--m:#9aa3a6;--m2:#e9eef0}.cr-bronce{--m:#b08560;--m2:#f0dccb}.cr-nuevo{--m:var(--g);--m2:#d6ecee}
 .cr-giro{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,.8,.3,1)}
 .cr-carta.girada .cr-giro{transform:rotateY(180deg)}

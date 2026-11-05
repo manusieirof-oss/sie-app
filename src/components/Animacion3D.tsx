@@ -16,11 +16,15 @@ import { MOVIMIENTOS } from '@/lib/anim3d/movimientos'
 const VISTAS: [Vista, string][] = [['giro', '360°'], ['lado', 'Lateral'], ['frente', 'Frontal'], ['arriba', 'Arriba']]
 const ACABADOS: [Acabado, string][] = [['corporativo', 'Verde'], ['blanco', 'Blanco'], ['cristal', 'Cristal']]
 
-export default function Animacion3D({ anim, foto, alto = 420, musculos = true }: {
+export default function Animacion3D({ anim, foto, alto = 420, musculos = true, limpio = false }: {
   anim: AnimEjercicio
   foto?: string | null
   alto?: number
   musculos?: boolean
+  /** Solo la figura moviéndose (el cromo de la Biblioteca): sin la botonera de vistas y
+      colores, sin la foto pequeña y sin los músculos, que allí ya salen en otro sitio.
+      Se gira arrastrando. */
+  limpio?: boolean
 }) {
   const caja = useRef<HTMLDivElement>(null)
   const visor = useRef<Visor | null>(null)
@@ -79,27 +83,28 @@ export default function Animacion3D({ anim, foto, alto = 420, musculos = true }:
           <b ref={repsEl} style={{ fontSize: 24, color: 'var(--gd)', lineHeight: 1 }}>0</b>
           <div style={{ fontSize: 11, color: 'var(--grl)' }}>repeticiones</div>
         </div>
-        {foto && (
+        {foto && !limpio && (
           // La foto real del ejercicio, para comparar. Tocando se agranda.
           <img src={foto} alt="" onClick={() => setFotoGrande(g => !g)} onPointerDown={e => e.stopPropagation()}
             style={{ position: 'absolute', left: 10, top: 10, width: fotoGrande ? '46%' : 74, aspectRatio: '1', objectFit: 'cover', borderRadius: 8,
               border: '2px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,.15)', cursor: 'zoom-in', transition: 'width .2s', zIndex: 2 }} title="Foto del ejercicio: toca para agrandar" />
         )}
-        <div ref={faseEl} style={{ position: 'absolute', left: '50%', bottom: 48, transform: 'translateX(-50%)', background: 'rgba(255,255,255,.9)', padding: '5px 12px',
+        <div ref={faseEl} style={{ position: 'absolute', left: '50%', bottom: 48, transform: 'translateX(-50%)', marginBottom: limpio ? -34 : 0, background: 'rgba(255,255,255,.9)', padding: '5px 12px',
           borderRadius: 99, fontSize: 13, fontWeight: 600, color: 'var(--gd)', pointerEvents: 'none', whiteSpace: 'nowrap' }} />
-        <div onPointerDown={e => e.stopPropagation()} style={{ position: 'absolute', left: 8, right: 8, bottom: 10, display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {limpio && <div style={{ position: 'absolute', left: 12, top: 12, fontSize: 11, color: 'var(--grl)', pointerEvents: 'none' }}>↔ Arrastra para girar</div>}
+        {!limpio && <div onPointerDown={e => e.stopPropagation()} style={{ position: 'absolute', left: 8, right: 8, bottom: 10, display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
           {VISTAS.map(([k, l]) => <button key={k} type="button" style={btn(vista === k)} onClick={() => { setVista(k); visor.current?.vista(k) }}>{l}</button>)}
           <span style={{ width: 6 }} />
           {ACABADOS.map(([k, l]) => <button key={k} type="button" style={btn(acabado === k)} onClick={() => { setAcabado(k); visor.current?.acabado(k) }}>{l}</button>)}
           <span style={{ width: 6 }} />
           <button type="button" style={btn(pausa)} onClick={() => { visor.current?.pausa(!pausa); setPausa(!pausa) }}>{pausa ? '▶ Seguir' : '❚❚ Pausa'}</button>
           <button type="button" style={btn(lento)} onClick={() => { visor.current?.velocidad(lento ? 1 : .5); setLento(!lento) }}>Lento</button>
-        </div>
+        </div>}
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: 'rgba(62,113,121,.12)' }}>
           <i ref={progEl} style={{ display: 'block', height: '100%', width: 0, background: 'var(--gd)' }} />
         </div>
       </div>
-      {musculos && (
+      {musculos && !limpio && (
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 7, alignItems: 'center' }}>
           <span style={{ fontSize: 11.5, color: 'var(--grl)' }}>Trabaja:</span>
           {animacion.musculos.map(([id, nom], i) => (
