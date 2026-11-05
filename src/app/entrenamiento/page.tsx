@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
-import BibliotecaTab from './components/BibliotecaTab'
 import SesionesTab from './components/SesionesTab'
 import TestsTab from './components/TestsTab'
 import SistemasTab from './components/SistemasTab'
@@ -244,7 +243,9 @@ function EntrenamientoContent() {
 
       {loading?<div className="loading">Cargando...</div>:(
         <>
-          {tab==='biblioteca'&&<BibliotecaTab ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} SelectorColumnas={SelectorColumnas}/>}
+          {/* La biblioteca es para consultar, también aquí: editar un ejercicio se hace en el
+              torno (Amasar), que tiene todo (familias, fotos, borrar). Desde la ficha hay un atajo. */}
+          {tab==='biblioteca'&&<BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas} amasar/>}
           {(tab==='sesiones'||tab==='sistemas')&&!sesionesCargadas.current&&<div className="loading">Cargando sesiones...</div>}
           {tab==='sesiones'&&sesionesCargadas.current&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
           {tab==='sistemas'&&sesionesCargadas.current&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}

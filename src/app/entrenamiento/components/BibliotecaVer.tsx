@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { Ic } from '@/lib/icons'
@@ -18,22 +19,29 @@ import { agrupaPorRaiz } from '@/lib/etiquetas'
 const lista = (x: any): string[] => (Array.isArray(x) ? x : String(x || '').split('\n'))
   .map((t: any) => String(typeof t === 'object' ? (t?.texto || t?.nombre || '') : t).trim()).filter(Boolean)
 
-export default function BibliotecaVer({ ejercicios, etiquetas }: { ejercicios: any[], etiquetas: any[] }) {
+export default function BibliotecaVer({ ejercicios, etiquetas, amasar = false }: { ejercicios: any[], etiquetas: any[],
+  /** Nivel 3+: atajos al torno para editar o crear. La edición vive allí, no aquí, para que
+      la biblioteca sea solo un sitio de consulta y no haya dos editores distintos. */
+  amasar?: boolean }) {
+  const router = useRouter()
   const [viendo, setViendo] = useState<any>(null)
   const familia = viendo ? ejercicios.filter(e => e.portada_id === (viendo.portada_id || viendo.id) || e.id === (viendo.portada_id || viendo.id)) : []
   return (
     <div>
-      <div style={{ fontSize: 12.5, color: 'var(--gr)', background: 'var(--bl)', borderRadius: 10, padding: '8px 12px', marginBottom: 12,
+      {!amasar && <div style={{ fontSize: 12.5, color: 'var(--gr)', background: 'var(--bl)', borderRadius: 10, padding: '8px 12px', marginBottom: 12,
         display: 'flex', alignItems: 'center', gap: 8 }}>
         <Ic name="ojo" size={14}/> Para consultar: toca un ejercicio para ver cómo se hace. Cambiarlo es cosa del encargado/a.
-      </div>
-      <ExploradorEjercicios ejercicios={ejercicios} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles/>
+      </div>}
+      <ExploradorEjercicios ejercicios={ejercicios} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles
+        acciones={amasar ? <button className="btn btn-p btn-sm" onClick={() => router.push('/torno/amasar/nuevo')}>+ Nuevo ejercicio</button> : undefined}/>
 
       {viendo && (
         <div className="modal-bg" style={{ zIndex: 150 }} onClick={e => { if (e.target === e.currentTarget) setViendo(null) }}>
           <div className="modal" style={{ width: 'min(760px, 96vw)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-title">
-              {viendo.nombre}
+              <span style={{ flex: 1 }}>{viendo.nombre}</span>
+              {amasar && <button className="btn btn-s btn-sm" style={{ marginRight: 8 }} onClick={() => router.push(`/torno/amasar/${viendo.id}`)}>
+                <Ic name="editar" size={12}/> Amasar en el torno</button>}
               <button className="modal-close" onClick={() => setViendo(null)}>✕</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 260px) 1fr', gap: 18 }}>
