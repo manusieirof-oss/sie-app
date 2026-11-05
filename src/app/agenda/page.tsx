@@ -27,6 +27,7 @@ import { hoyISO } from '@/lib/fechas'
 import { porRecuperar, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { usePuede } from '@/lib/permisos'
+import { LENTES_AGENDA, type LenteAgenda } from '@/lib/lenteAgenda'
 
 const HORAS = ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -37,6 +38,8 @@ export default function AgendaPage() {
   const puedeAg = usePuede()
   const consulta = !puedeAg('editar_agenda')
   const tocaTurnos = puedeAg('turnos')
+  const [lente, setLente] = useState<LenteAgenda>('normal')
+  useEffect(() => { try { const v = localStorage.getItem('agenda_lente') as LenteAgenda; if (LENTES_AGENDA.some(l => l.k === v)) setLente(v) } catch {} }, [])
   const [vista, setVista] = useState<'dia'|'semana'|'mes'>('dia')
   const [citas, setCitas] = useState<any[]>([])
   const [alertasPaciente, setAlertasPaciente] = useState<any[]>([])
@@ -587,6 +590,13 @@ export default function AgendaPage() {
 
         <div style={{flex:1}}/>
 
+        {/* LA LENTE: un solo botón que va cambiando lo que se ve de cada persona. */}
+        {vista==='dia'&&(()=>{ const ls = LENTES_AGENDA.filter(l=>l.k!=='cobro'||puedeAg('cobros')); const l = ls.find(x=>x.k===lente)||ls[0]
+          return <button type="button" className="chip-sel on" title="Cambiar lo que se ve de cada persona" style={{display:'inline-flex',alignItems:'center',gap:6}}
+            onClick={()=>{ const n = ls[(ls.indexOf(l)+1)%ls.length].k; setLente(n); try{localStorage.setItem('agenda_lente',n)}catch{} }}>
+            <Ic name={l.ic} size={13}/> {l.t}
+            <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{ls.map(x=><i key={x.k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:x.k===l.k?1:.3}}/>)}</span>
+          </button> })()}
         {vista==='dia'&&<span className="ag-resumen" title="Personas distintas y clases del día"><b>{totalPersonas}</b> personas · <b>{clases}</b> clases</span>}
         {vista==='dia'&&salas.length>1&&(
           <div className="ag-seg">
@@ -726,7 +736,7 @@ export default function AgendaPage() {
 
       {loading?<div className="loading">Cargando agenda...</div>:(
         <>
-          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas} consulta={consulta} tocaTurnos={tocaTurnos} miUserId={userId}
+          {vista==='dia'&&<VistaDia fecha={fecha} hoy={hoy} fechaDisplay={fechaDisplay} citas={citas} totalPersonas={totalPersonas} clases={clases} abrirPanel={abrirPanel} setNuevaCita={setNuevaCita} setModal={setModal} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} descanso={descanso} maxPersonas={maxPersonas} tiposCita={tiposCita} tiposClase={tiposClase} setEditandoCita={setEditandoCita} abrirDatosCita={abrirDatosCita} abrirEntrenoCita={abrirEntrenoCita} setVerAlertasCita={setVerAlertasCita} alertasPaciente={alertasPaciente} tareas={tareas} completarTarea={completarTarea} setModalTareas={setModalTareas} salaFiltro={salaFiltro} tiposFiltro={tiposFiltro} salas={salas} consulta={consulta} tocaTurnos={tocaTurnos} miUserId={userId} lente={lente==='cobro'&&!puedeAg('cobros')?'normal':lente}
             turnos={turnos} perfiles={perfiles} onTurnos={cargar}/>}
           {vista==='semana'&&<VistaSemana fecha={fecha} hoy={hoy} citas={citas} getFechasSemana={getFechasSemana} setFecha={setFecha} setVista={setVista} setNuevaCita={setNuevaCita} setModal={setModal} abrirPanel={abrirPanel} horas={horas} pausaInicio={pausaInicio} pausaFin={pausaFin} tiposCita={tiposCita} tiposClase={tiposClase} maxPersonas={maxPersonas} setEditandoCita={setEditandoCita} alertasPaciente={alertasPaciente} setVerAlertasCita={setVerAlertasCita} soloHueco={soloHueco} salas={salas} turnos={turnos} tareas={tareas} perfiles={perfiles} completarTarea={completarTarea}/>}
           {vista==='mes'&&<VistaMes fecha={fecha} hoy={hoy} citas={citas} getDiasMes={getDiasMes} setFecha={setFecha} setVista={setVista} pacientes={pacientes} tiposClase={tiposClase} onEditarMulti={(cts:any[],nombre:string,pacienteId:string)=>setEditandoMulti({citas:cts,nombre,pacienteId})} maxPersonas={maxPersonas} eventos={eventos} tareas={tareas} perfiles={perfiles} completarTarea={completarTarea}/>}

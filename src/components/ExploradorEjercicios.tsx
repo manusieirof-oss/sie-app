@@ -460,12 +460,21 @@ export default function ExploradorEjercicios({
               anatomía (lo que activa el ejercicio). Sin números ni grupos: se lee de un
               vistazo. Si aún no tiene anatomía, sus grupos musculares sin más. */}
           {paneles && (() => {
-            const prin = anatomiaDe(e).mus.filter(m => m.p).map(m => etiquetas.find(x => x.id === m.u)?.nombre).filter(Boolean) as string[]
-            const lista = prin.length ? prin.map(n => '★ ' + n) : grupos.slice(0, 3).map(g => g.raiz.nombre)
-            if (!lista.length) return null
-            return <div style={{ fontSize: 12, color: prin.length ? 'var(--n)' : 'var(--gr)', marginTop: 4, lineHeight: 1.45 }}>
-              {lista.slice(0, 3).map((t, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {t.startsWith('★') ? <><span style={{ color: '#d9a21b' }}>★</span>{t.slice(1)}</> : t}</div>)}
+            /* Músculo + acción: los músculos ★ principales y, debajo, lo que hacen (el
+               movimiento ★ con su articulación: «Extensión de rodilla»). */
+            const an = anatomiaDe(e)
+            const nom = (id: string | null) => etiquetas.find(x => x.id === id)?.nombre || ''
+            const mus = an.mus.filter(m => m.p).map(m => nom(m.u)).filter(Boolean)
+            const acc = (an.acc.some(x => x.p) ? an.acc.filter(x => x.p) : an.acc)
+              .map(x => x.m ? `${nom(x.m)} de ${nom(x.a).toLowerCase()}` : nom(x.a)).filter(Boolean)
+            const fila: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+            if (!mus.length && !acc.length) {
+              const g = grupos.slice(0, 3).map(x => x.raiz.nombre)
+              return g.length ? <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 4, ...fila }}>{g.join(' · ')}</div> : null
+            }
+            return <div style={{ fontSize: 12, marginTop: 4, lineHeight: 1.45 }}>
+              {mus.length > 0 && <div style={{ ...fila, color: 'var(--n)' }} title={mus.join(', ')}><span style={{ color: '#d9a21b' }}>★</span> {mus.join(', ')}</div>}
+              {acc.length > 0 && <div style={{ ...fila, color: 'var(--gd)' }} title={acc.join(' · ')}>↻ {Array.from(new Set(acc)).join(' · ')}</div>}
             </div>
           })()}
           {!paneles && grupos.length > 0 && (

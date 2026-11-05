@@ -6,8 +6,12 @@ import { iconTipoClase } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
 import ResponsableFranja from './ResponsableFranja'
 import { responsableDe } from '@/lib/turnos'
+import { asistencias, cuotas, TXT_CUOTA, type LenteAgenda, type Asistencia, type EstadoCuota } from '@/lib/lenteAgenda'
+import { LBL_ALERTA } from '@/lib/alertas'
 
-export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true, miUserId }: {
+export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersonas, clases, abrirPanel, setNuevaCita, setModal, horas, pausaInicio, pausaFin, descanso, maxPersonas, tiposCita=[], tiposClase=[], setEditandoCita, abrirDatosCita, abrirEntrenoCita, setVerAlertasCita, alertasPaciente=[], tareas=[], completarTarea, setModalTareas, salaFiltro='ambas', tiposFiltro=[], salas=['A','B'], turnos=[], perfiles=[], onTurnos, consulta=false, tocaTurnos=true, miUserId, lente='normal' }: {
+  /** Qué se ve junto a cada persona (lib/lenteAgenda). */
+  lente?: LenteAgenda
   /** Quien está dentro: sus clases salen resaltadas. */
   miUserId?: string | null
   /** Nivel 1: solo se consulta; de cada persona, solo el botón de su sesión (el taller). */
@@ -120,6 +124,38 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
   // Iniciales para el circulito: nombre y primer apellido.
   const iniciales = (c:any) => (((c.pacientes?.nombre||'').trim()[0]||'') + ((c.pacientes?.apellidos||'').trim()[0]||'')).toUpperCase() || '·'
 
+  /* LA LENTE: los datos se piden solo al elegirla y para la gente de ESE día. */
+  const pidsDia = Array.from(new Set(citas.filter((c:any)=>c.fecha===fecha&&c.estado!=='cancelada').map((c:any)=>c.paciente_id).filter(Boolean))) as string[]
+  const firmaDia = fecha + ':' + pidsDia.slice().sort().join(',')
+  const [asis, setAsis] = useState<Record<string, Asistencia>>({})
+  const [cuota, setCuota] = useState<Record<string, EstadoCuota>>({})
+  useEffect(() => {
+    if (lente === 'asistencia') asistencias(pidsDia, fecha).then(setAsis).catch(() => {})
+    if (lente === 'cobro') cuotas(pidsDia, fecha).then(setCuota).catch(() => {})
+  }, [lente, firmaDia]) // eslint-disable-line react-hooks/exhaustive-deps
+  const colorPct = (n: number | null) => n == null ? 'var(--grl)' : n >= 85 ? 'var(--gd)' : n >= 65 ? '#8A6410' : 'var(--red)'
+
+  /** Lo que la lente pone junto al nombre. */
+  function datoLente(c: any) {
+    const chip = (t: string, fondo: string, color: string, title?: string) =>
+      <span className="ag-tag" title={title} style={{ background: fondo, color, maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t}</span>
+    if (lente === 'sesion') return c.sesiones?.nombre ? chip(c.sesiones.nombre, 'var(--gl)', 'var(--gd)', c.sesiones.nombre) : chip('Sin sesión', 'var(--bl)', 'var(--grl)')
+    if (lente === 'asistencia') {
+      const a = asis[c.paciente_id]; if (!a) return null
+      return <span className="ag-tag" title="Vino / (vino + faltas): este mes · en total" style={{ background: 'var(--bl)', display: 'inline-flex', gap: 5 }}>
+        <span style={{ color: colorPct(a.mes) }}>Mes {a.mes == null ? '—' : a.mes + '%'}</span>
+        <span style={{ color: colorPct(a.total) }}>Total {a.total == null ? '—' : a.total + '%'}</span></span>
+    }
+    if (lente === 'cobro') { const e = cuota[c.paciente_id]; if (!e) return null; const t = TXT_CUOTA[e]; return chip(t.t, t.fondo, t.color) }
+    if (lente === 'alertas') {
+      const al = alertasPaciente.filter((a: any) => a.paciente_id === c.paciente_id)
+      if (!al.length) return null
+      const txt = al.map((a: any) => (LBL_ALERTA[a.tipo] || a.tipo) + (a.descripcion ? ': ' + a.descripcion : '')).join(' · ')
+      return chip(txt, 'var(--redl)', 'var(--red)', txt)
+    }
+    return null
+  }
+
   function FilaPaciente({ c }: { c:any }) {
     const falta = c.estado==='falta'
     const tieneAlerta = alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)
@@ -134,7 +170,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
         <span className="ag-av"><CaraPaciente p={c.pacientes}/></span>
         <span className="ag-nom">{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
         {falta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}}>falta</span>}
-        {tieneAlerta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}} title="Tiene alertas activas">alerta</span>}
+        {lente!=='normal' && datoLente(c)}
+        {lente==='normal' && tieneAlerta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}} title="Tiene alertas activas">alerta</span>}
         {c._ultimaBono&&<span className="ag-tag" style={{background:'var(--ambl)',color:'#8A6410'}} title="Gasta la última sesión de su bono: toca renovar">última</span>}
         {/* Solo al pasar el ratón (en tablet, siempre: ver .ag-acc en globals.css). */}
         <span className="ag-acc">
@@ -183,7 +220,10 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
                 const scAll=getCitasSlot(h,sala)
                 const scActivas=scAll.filter((c:any)=>c.estado!=='cancelada').sort((a:any,b:any)=>(a.estado==='falta'?1:0)-(b.estado==='falta'?1:0))
                 const scCancAll=scAll.filter((c:any)=>c.estado==='cancelada')
-                const sc = filtrando ? scActivas.filter((c:any)=>tiposFiltro.includes(c.tipo)) : scActivas
+                const sc0 = filtrando ? scActivas.filter((c:any)=>tiposFiltro.includes(c.tipo)) : scActivas
+                // Lente Asistencia: dentro del grupo, de quien más viene a quien menos.
+                const sc = lente === 'asistencia'
+                  ? sc0.slice().sort((a:any,b:any)=>(asis[b.paciente_id]?.total ?? -1)-(asis[a.paciente_id]?.total ?? -1)) : sc0
                 const scCanceladas = filtrando ? scCancAll.filter((c:any)=>tiposFiltro.includes(c.tipo)) : scCancAll
                 const sobre=!filtrando && scActivas.length>MAX
                 const libres=filtrando?0:Math.max(0,MAX-scActivas.length)
