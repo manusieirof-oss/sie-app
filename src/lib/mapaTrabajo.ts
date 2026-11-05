@@ -195,3 +195,41 @@ export function cargaSemanal(regs: Registro[], ejercicios: Record<string, any>, 
   const ratio = media ? min[0] / media : null
   return { min: min.map(x => Math.round(x)), kg: kg.map(x => Math.round(x)), media: Math.round(media), ratio, pico: ratio != null && ratio > 1.3 }
 }
+
+/**
+ * PARA QUÉ INTENSIDAD SE USA CADA EJERCICIO (lente «Intensidad» de la Biblioteca y rosco
+ * del cromo). Antes salía de la columna `capacidad` de cada registro, que solo se guarda
+ * desde hace poco y nunca en ejercicios por tiempo: casi nada tenía dato. Ahora se calcula
+ * serie a serie con la MISMA regla que el mapa de calor (intensidadSerie): reps o
+ * segundos de cada serie más las intensidades que admite el ejercicio. Así un
+ * estiramiento sale como Estiramiento y una sentadilla a 10 como Hipertrofia, tenga o
+ * no capacidad apuntada. Cuenta series: «el 80 % de las series fueron de fuerza».
+ */
+export function intensidadesPorEjercicio(regs: { ejercicio_id: string | null, series: any[] | null, regimen?: string | null }[],
+  ejercicios: Record<string, any>, cfg: ConfigTrabajo): Record<string, { nombre: string, n: number, color: string }[]> {
+  const cuenta: Record<string, Record<string, number>> = {}
+  for (const r of regs) {
+    const ej = r.ejercicio_id ? ejercicios[r.ejercicio_id] : null
+    if (!ej || !Array.isArray(r.series)) continue
+    const t = trabajoDe(ej)
+    const reg = (r.regimen || '').trim()
+    const ejes = reg && !/^conc[eé]ntrico$/i.test(reg) ? [cfg.ejecuciones.find(e => e.nombre.toLowerCase() === reg.toLowerCase())?.id || reg] : t.eje
+    const porTiempo = /tiempo|seg|iso/i.test(ej.tipo_medida || '')
+    for (const s of r.series) {
+      const reps = num(s?.reps), segs = num(s?.segundos)
+      const { seg } = segundosSerie(cfg, { reps, segundos: segs, ejecuciones: ejes, aguanta: !reps && !segs && porTiempo })
+      if (seg <= 0) continue // serie vacía: no se hizo nada que contar
+      const id = intensidadSerie(cfg, t.int, reps, segs, ejes)
+      if (id === 'sin') continue
+      const c = (cuenta[ej.id] ||= {}); c[id] = (c[id] || 0) + 1
+    }
+  }
+  const out: Record<string, { nombre: string, n: number, color: string }[]> = {}
+  for (const [ej, c] of Object.entries(cuenta)) {
+    out[ej] = Object.entries(c).map(([id, n]) => {
+      const i = cfg.intensidades.find(x => x.id === id)
+      return { nombre: i?.nombre || id, n, color: i?.color || '#9aa3a6' }
+    }).sort((a, b) => b.n - a.n)
+  }
+  return out
+}

@@ -11,6 +11,8 @@ import { figuraDe } from '@/lib/cuerpo'
 import { MediosEjercicio } from '@/components/MediosEjercicio'
 import FiguraMusculos from '@/components/FiguraMusculos'
 import { rareza, trozosCapacidad } from '@/lib/cromo'
+import { intensidadesPorEjercicio } from '@/lib/mapaTrabajo'
+import { useConfigTrabajo } from '@/components/TrabajoEjercicio'
 
 // ---------------------------------------------------------------------------
 // EL CROMO DE UN EJERCICIO (Biblioteca).
@@ -32,11 +34,13 @@ let resumenCache: Record<string, any> | null = null
 const fecha = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f)
   .toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
 
-export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, onCambiar, onCerrar }: {
+export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasar = false, paciente, usoPaciente, intensidades, onCambiar, onCerrar }: {
   ejercicio: any, ejercicios: any[], etiquetas: any[], amasar?: boolean,
   /** Cliente elegido en la Biblioteca: las cifras, el rosco y los objetivos pasan a ser
       los suyos. El color del marco sigue siendo el de la clínica (lo que es el ejercicio). */
   paciente?: { id: string, nombre: string } | null, usoPaciente?: any,
+  /** Intensidad ya calculada (la Biblioteca). Si no se pasa, se calcula aquí. */
+  intensidades?: { nombre: string, n: number, color?: string }[],
   /** Para saltar a otro de la familia sin cerrar el cromo. */
   onCambiar: (e: any) => void, onCerrar: () => void
 }) {
@@ -84,17 +88,21 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   /* PARA QUÉ CAPACIDAD SE USA. Sale de lo apuntado en el taller (cada registro guarda la
      capacidad con que se hizo): es lo que de verdad se hace con el ejercicio, no lo que
      dice la ficha. Se pide solo la columna de este ejercicio, así que es ligero. */
-  const [caps, setCaps] = useState<{ nombre: string, n: number }[] | null>(null)
+  /* LA INTENSIDAD: de sus series apuntadas, con la misma regla que el mapa de calor
+     (lib/mapaTrabajo). Si quien abre el cromo ya la tiene calculada (la Biblioteca), la
+     pasa; si no (el taller), se calcula aquí solo con los registros de este ejercicio. */
+  const cfg = useConfigTrabajo()
+  const [capsPropias, setCaps] = useState<{ nombre: string, n: number, color?: string }[] | null>(null)
   useEffect(() => {
+    if (intensidades) return
     setCaps(null)
-    let q = supabase.from('registros_ejercicio').select('capacidad').eq('ejercicio_id', ejercicio.id)
+    let q = supabase.from('registros_ejercicio').select('ejercicio_id,series,regimen').eq('ejercicio_id', ejercicio.id)
     if (paciente) q = q.eq('paciente_id', paciente.id)
-    q.limit(5000).then(({ data }) => {
-      const c: Record<string, number> = {}
-      ;(data || []).forEach((f: any) => { const k = String(f.capacidad || '').trim(); if (k) c[k] = (c[k] || 0) + 1 })
-      setCaps(Object.entries(c).map(([nombre, n]) => ({ nombre, n })).sort((a, b) => b.n - a.n))
+    q.order('id', { ascending: false }).limit(3000).then(({ data }) => {
+      setCaps(intensidadesPorEjercicio(data || [], { [ejercicio.id]: ejercicio }, cfg)[ejercicio.id] || [])
     })
-  }, [ejercicio.id, paciente?.id])
+  }, [ejercicio.id, paciente?.id, !!intensidades, cfg]) // eslint-disable-line react-hooks/exhaustive-deps
+  const caps = intensidades || capsPropias
 
   /* LA INCLINACIÓN. Se escribe en variables CSS (no en estado de React) para que mover el
      ratón no vuelva a pintar la animación 3D en cada píxel. Sobre el escenario no se
@@ -238,7 +246,7 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   )
 }
 
-function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
+function Rosco({ caps }: { caps: { nombre: string, n: number, color?: string }[] }) {
   const R = 38, L = 2 * Math.PI * R
   const trozos = trozosCapacidad(caps)
   const top = trozos[0]
@@ -263,6 +271,50 @@ function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
       </div>
     </div>
   )
+}
+
+/**
+ * EL CROMO DESDE FUERA DE LA BIBLIOTECA (el taller: tocar la foto de un ejercicio).
+ * Solo se sabe el id, así que se trae aquí lo que el cromo necesita: el ejercicio, su
+ * familia, las etiquetas y, si hay paciente, lo que ese paciente lleva hecho. Así en sala
+ * se le puede enseñar al paciente cómo se hace y cuánto lo ha trabajado él.
+ */
+export function CromoDeId({ id, paciente, onCerrar }: { id: string, paciente?: { id: string, nombre: string } | null, onCerrar: () => void }) {
+  const [ej, setEj] = useState<any>(null)
+  const [fam, setFam] = useState<any[]>([])
+  const [ets, setEts] = useState<any[]>([])
+  const [uso, setUso] = useState<any>(undefined)
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      const { data: e } = await supabase.from('ejercicios').select('*').eq('id', id).maybeSingle()
+      if (!vivo || !e) return
+      const raiz = e.portada_id || e.id
+      const [{ data: f }, { data: et }] = await Promise.all([
+        supabase.from('ejercicios').select('*').or(`id.eq.${raiz},portada_id.eq.${raiz}`),
+        supabase.from('etiquetas').select('id,nombre,categoria,padre_id'),
+      ])
+      if (!vivo) return
+      setFam(f || [e]); setEts(et || []); setEj(e)
+    })()
+    return () => { vivo = false }
+  }, [id])
+  // Lo del paciente con ESTE ejercicio (veces, sesiones suyas, última vez).
+  useEffect(() => {
+    if (!paciente || !ej) return
+    Promise.all([
+      supabase.from('registros_ejercicio').select('fecha').eq('paciente_id', paciente.id).eq('ejercicio_id', ej.id),
+      supabase.from('sesiones').select('id,partes').eq('paciente_id', paciente.id),
+    ]).then(([r, s]) => {
+      const fechas = (r.data || []).map((x: any) => x.fecha).filter(Boolean).sort()
+      const ses = (s.data || []).filter((x: any) => (Array.isArray(x.partes) ? x.partes : [])
+        .some((p: any) => (p?.ejercicios || []).some((it: any) => it?.ejercicio_id === ej.id))).length
+      setUso({ veces: (r.data || []).length, sesiones: ses, ultima: fechas[fechas.length - 1] || null, objetivos: [] })
+    })
+  }, [paciente?.id, ej?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!ej) return null
+  return <FichaEjercicio ejercicio={ej} ejercicios={fam} etiquetas={ets} paciente={paciente} usoPaciente={uso}
+    onCambiar={x => setEj(x)} onCerrar={onCerrar}/>
 }
 
 // Estilos aquí mismo: es el único sitio que los usa y así el cromo se lee de una vez.

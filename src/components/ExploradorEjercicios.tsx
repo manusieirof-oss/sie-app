@@ -11,6 +11,7 @@ import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorR
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
 import { rareza, trozosCapacidad } from '@/lib/cromo'
+import { anatomiaDe } from './TrabajoEjercicio'
 
 // Explorador del catálogo de ejercicios: buscador, filtro por etiquetas y rejilla de
 // tarjetas con foto. Es LA MISMA vista que el Pilar Entrenamiento → Biblioteca; lo que
@@ -35,8 +36,10 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false, resumenFijo,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false, resumenFijo, intensidades,
 }: {
+  /** Intensidad de cada ejercicio, ya calculada de sus series (lente Intensidad). */
+  intensidades?: Record<string, { nombre: string, n: number, color: string }[]> | null
   /**
    * Uso ya calculado (el de un cliente en la Biblioteca). Si se pasa, los paneles Uso y
    * Objetivos enseñan esto en vez de los datos de toda la clínica.
@@ -88,7 +91,7 @@ export default function ExploradorEjercicios({
   type Panel = 'normal' | 'cromo' | 'capacidad' | 'uso' | 'objetivos'
   const LENTES: { k: Panel, t: string, ic: string }[] = [
     { k: 'normal', t: 'Normal', ic: 'biblioteca' }, { k: 'cromo', t: 'Cromo', ic: 'estrella' },
-    { k: 'capacidad', t: 'Capacidad', ic: 'porcentaje' }, { k: 'uso', t: 'Uso', ic: 'stats' }, { k: 'objetivos', t: 'Objetivos', ic: 'objetivo' },
+    { k: 'capacidad', t: 'Intensidad', ic: 'porcentaje' }, { k: 'uso', t: 'Uso', ic: 'stats' }, { k: 'objetivos', t: 'Objetivos', ic: 'objetivo' },
   ]
   const [panel, setPanelE] = useState<Panel>('normal')
   useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_lente') as Panel; if (LENTES.some(l => l.k === v)) setPanelE(v) } catch {} }, [paneles]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -377,7 +380,7 @@ export default function ExploradorEjercicios({
               </div>
             }
             if (panel === 'capacidad') {
-              const caps: any[] = rs?.capacidades || []
+              const caps: any[] = intensidades ? (intensidades[e.id] || []) : (rs?.capacidades || [])
               if (!caps.length) return null // sin datos, nada: un texto aquí solo estorba
               const tr = trozosCapacidad(caps), R = 15, L = 2 * Math.PI * R
               return <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -430,7 +433,7 @@ export default function ExploradorEjercicios({
               {hijosDe[e.id].length} {hijosDe[e.id].length === 1 ? 'variante' : 'variantes'} {familiasAbiertas.includes(e.id) ? '▴' : '▾'}
             </button>
           )}
-          {!vc && (e.variantes || []).length > 0 && (
+          {!vc && !paneles && (e.variantes || []).length > 0 && (
             <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 3 }}
               title={(e.variantes || []).map((v: any) => v?.nombre).filter(Boolean).join(' · ')}>
               {e.variantes.length} {e.variantes.length === 1 ? 'variante' : 'variantes'}
@@ -453,7 +456,19 @@ export default function ExploradorEjercicios({
               </div>
             )
           })()}
-          {grupos.length > 0 && (
+          {/* BIBLIOTECA, VISTA NORMAL: la musculatura clave, la marcada ★ principal en su
+              anatomía (lo que activa el ejercicio). Sin números ni grupos: se lee de un
+              vistazo. Si aún no tiene anatomía, sus grupos musculares sin más. */}
+          {paneles && (() => {
+            const prin = anatomiaDe(e).mus.filter(m => m.p).map(m => etiquetas.find(x => x.id === m.u)?.nombre).filter(Boolean) as string[]
+            const lista = prin.length ? prin.map(n => '★ ' + n) : grupos.slice(0, 3).map(g => g.raiz.nombre)
+            if (!lista.length) return null
+            return <div style={{ fontSize: 12, color: prin.length ? 'var(--n)' : 'var(--gr)', marginTop: 4, lineHeight: 1.45 }}>
+              {lista.slice(0, 3).map((t, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {t.startsWith('★') ? <><span style={{ color: '#d9a21b' }}>★</span>{t.slice(1)}</> : t}</div>)}
+            </div>
+          })()}
+          {!paneles && grupos.length > 0 && (
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
               {grupos.slice(0, 3).map(g => {
                 // La madre se marca también cuando quien casa con el filtro es una hija:

@@ -2379,6 +2379,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
               toggleObjetivo={cambiaEj ? toggleObjetivo : undefined}
               repetidos={repPorPaciente[act.paciente.id] || {}}
+              paciente={{ id: act.paciente.id, nombre: act.paciente.nombre }}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
               onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}/>}

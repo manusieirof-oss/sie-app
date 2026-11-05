@@ -7,6 +7,9 @@ import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
 import { contiene } from '@/lib/texto'
 import { Ic } from '@/lib/icons'
+import { useConfigTrabajo } from '@/components/TrabajoEjercicio'
+import { intensidadesPorEjercicio } from '@/lib/mapaTrabajo'
+import { sumarDias, hoyISO } from '@/lib/fechas'
 
 // ---------------------------------------------------------------------------
 // LA BIBLIOTECA, SOLO PARA MIRAR (todos los niveles; editar se hace en el torno).
@@ -100,6 +103,19 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
 
   const lista = pac && resumenPac ? ejercicios.filter(e => resumenPac[e.id]) : ejercicios
 
+  /* LA INTENSIDAD DE CADA EJERCICIO, de las series apuntadas el último año
+     (lib/mapaTrabajo: intensidadesPorEjercicio). Se trae una vez, en segundo plano, y de
+     ahí sale tanto la de la clínica como la del cliente elegido. */
+  const cfg = useConfigTrabajo()
+  const [regs, setRegs] = useState<any[] | null>(null)
+  useEffect(() => {
+    traerTodo((d, h) => supabase.from('registros_ejercicio').select('ejercicio_id,series,regimen,paciente_id')
+      .gte('fecha', sumarDias(hoyISO(), -365)).order('id').range(d, h)).then(r => setRegs(r.filas))
+  }, [])
+  const porId = useMemo(() => Object.fromEntries(ejercicios.map(e => [e.id, e])), [ejercicios])
+  const intensidades = useMemo(() => !regs ? null
+    : intensidadesPorEjercicio(pac ? regs.filter(r => r.paciente_id === pac.id) : regs, porId, cfg), [regs, pac, porId, cfg])
+
   return (
     <div>
       {!amasar && <div style={{ fontSize: 12.5, color: 'var(--gr)', background: 'var(--bl)', borderRadius: 10, padding: '8px 12px', marginBottom: 12,
@@ -140,12 +156,12 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
         ? <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--gr)', fontSize: 14 }}>
             {nombrePac(pac)} todavía no tiene ejercicios: ni en sesiones ni apuntados.</div>
         : <ExploradorEjercicios ejercicios={lista} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles
-            resumenFijo={pac ? resumenPac : null}
+            resumenFijo={pac ? resumenPac : null} intensidades={intensidades}
             acciones={amasar ? <button type="button" onClick={() => router.push('/torno/amasar/nuevo')} title="Nuevo ejercicio (se crea en el torno)" aria-label="Nuevo ejercicio"
               style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--bd)', background: 'var(--w)', color: 'var(--g)', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>+</button> : undefined}/>}
 
       {viendo && <FichaEjercicio ejercicio={viendo} ejercicios={ejercicios} etiquetas={etiquetas} amasar={amasar}
-        paciente={pac ? { id: pac.id, nombre: pac.nombre } : null} usoPaciente={resumenPac?.[viendo.id]}
+        paciente={pac ? { id: pac.id, nombre: pac.nombre } : null} usoPaciente={resumenPac?.[viendo.id]} intensidades={intensidades ? (intensidades[viendo.id] || []) : undefined}
         onCambiar={setViendo} onCerrar={cerrar}/>}
     </div>
   )

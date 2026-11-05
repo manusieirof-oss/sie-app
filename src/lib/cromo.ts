@@ -23,11 +23,11 @@ export const COLOR_CAP: Record<string, string> = {
 const OTROS = ['#C9A84C', '#b08560', '#B05A5A', '#9aa3a6']
 
 /** Trozos del rosco: cada capacidad con su color, su % y dónde empieza (0..1). */
-export function trozosCapacidad(caps: { nombre: string, n: number }[]) {
+export function trozosCapacidad(caps: { nombre: string, n: number, color?: string }[]) {
   const total = caps.reduce((a, c) => a + c.n, 0) || 1
   let acum = 0, o = 0
   return caps.map(c => {
-    const t = { ...c, color: COLOR_CAP[c.nombre] || OTROS[o++ % OTROS.length], pct: Math.round(c.n / total * 100), ini: acum, parte: c.n / total }
+    const t = { ...c, color: c.color || COLOR_CAP[c.nombre] || OTROS[o++ % OTROS.length], pct: Math.round(c.n / total * 100), ini: acum, parte: c.n / total }
     acum += c.n / total; return t
   })
 }
