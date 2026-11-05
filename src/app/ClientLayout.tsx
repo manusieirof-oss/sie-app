@@ -14,6 +14,7 @@ import { firmaVigente } from '@/lib/confidencialidad'
 import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, MINUTOS_INACTIVO } from '@/lib/compartido'
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
+import { enModoPractica, entrarPractica, salirPractica, prepararSiToca } from '@/lib/practica'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -52,6 +53,31 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** La guía de inicio en pantalla (sale sola la primera vez al nivel 1; siempre desde el menú). */
   /** La guía en pantalla: 1 = de inicio (nivel 1), 2 = del entrenador (nivel 2). */
   const [guia, setGuia] = useState<false | 1 | 2>(false)
+  /* MODO PRÁCTICA (lib/practica): pacientes inventados. Al entrar se les pone la clase a
+     la hora de ahora y se recarga para verla. */
+  const [practica, setPractica] = useState(false)
+  useEffect(() => {
+    if (!enModoPractica()) return
+    setPractica(true)
+    prepararSiToca().then(r => {
+      if (r.error) alert('No se ha podido preparar la práctica: ' + r.error + '\n¿Falta ejecutar sql/modo-practica.sql?')
+      else if (r.hecho) window.location.reload()
+    })
+  }, [])
+  const empezarDeNuevo = async () => {
+    if (!confirm('¿Empezar la práctica de nuevo? Se borra lo que hayas apuntado hoy con los pacientes de práctica.')) return
+    const r = await prepararSiToca(true)
+    if (r.error) alert('No se ha podido: ' + r.error); else window.location.reload()
+  }
+  /* EN PRÁCTICA SE TIENE QUE NOTAR SIEMPRE: una franja abajo que no se quita. */
+  const franjaPractica = practica && (
+    <div style={{ position: 'fixed', left: '50%', bottom: 14, transform: 'translateX(-50%)', zIndex: 200, display: 'flex', alignItems: 'center', gap: 10,
+      background: '#E8A33D', color: '#2b1d05', borderRadius: 99, padding: '8px 10px 8px 16px', boxShadow: '0 8px 24px rgba(0,0,0,.18)', fontSize: 13, maxWidth: 'calc(100vw - 24px)', flexWrap: 'wrap' }}>
+      <b>Modo práctica</b><span>Pacientes inventados: nada de lo que hagas cuenta.</span>
+      <button onClick={empezarDeNuevo} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Empezar de nuevo</button>
+      <button onClick={salirPractica} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#2b1d05', color: '#fff', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Salir</button>
+    </div>
+  )
   /** Este equipo es compartido (tablet de sala, ordenador central): lib/compartido. */
   const [compartido, setCompartido] = useState(false)
   useEffect(() => { setCompartido(esCompartido()) }, [])
@@ -277,6 +303,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </nav>
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
         {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
+      {franjaPractica}
       </div>
     )
   }
@@ -329,6 +356,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuia(2) }}>
                     <Ic name="ayuda" size={15}/> Guía del entrenador
                   </button>}
+                  {/* Para aprender sin miedo: pacientes inventados, nada de lo que se haga cuenta. */}
+                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); practica ? salirPractica() : entrarPractica() }}>
+                    <Ic name="entreno" size={15}/> {practica ? 'Salir del modo práctica' : 'Modo práctica'}
+                  </button>
                   <Link href="/confidencialidad" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="firmar" size={15}/> Confidencialidad
                   </Link>
@@ -351,6 +382,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
       <main className="content"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
       {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={() => setGuia(false)}/>}
+      {franjaPractica}
     </div>
   )
 }
