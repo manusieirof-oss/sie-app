@@ -49,7 +49,7 @@ export const PASOS: Paso[] = [
 /* NIVEL 2: SOLO LO NUEVO respecto al nivel 1 (lo de dar la clase ya lo enseñó su guía). */
 export const PASOS_N2: Paso[] = [
   { titulo: 'Guía del entrenador', texto: 'Ahora puedes ajustar la clase de hoy de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te enseño solo lo nuevo, en un minuto.' },
-  { ruta: '/taller', sitio: 'taller-personas', titulo: 'Si no viene', texto: 'Toca a la persona elegida para abrir su cita. Si te avisan de que no viene, márcale Falta o Cancelada. Y desde ahí también cambias su sesión de hoy por otra de las suyas.' },
+  { ruta: '/taller', sitio: 'taller-personas', titulo: 'Si no viene', texto: 'Toca a la persona elegida para abrir su cita. Si avisa de que no viene, Cancelada; si no aparece sin avisar, Falta. Desde ahí también cambias su sesión de hoy por otra de las suyas.' },
   { ruta: '/taller', sitio: 'taller-metodo', titulo: 'El método de una parte', haz: 'metodo', texto: 'Hazlo tú: toca el lápiz de una parte y cambia algo solo para hoy: el método (circuito, superseries…), las series o vueltas o los descansos.' },
   { ruta: '/taller', sitio: 'taller-anadir', titulo: 'Añadir un ejercicio', haz: 'anadir', texto: 'Hazlo tú: si la sesión se queda corta, el «+» de la parte añade un ejercicio solo para hoy. Te enseña los similares a los de esa parte.' },
   { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', haz: 'cambiar', texto: 'Hazlo tú: con ⇄ cambias un ejercicio por otro similar, solo hoy. También desde su cromo: toca la foto, pasa con ‹ › por su familia y pulsa «Hacer este hoy».' },
