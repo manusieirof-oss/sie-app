@@ -156,7 +156,7 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.4 }}>
         {soloVer ? 'Solo para consultar: mover sesiones entre días es planificar (encargado/a).'
-          : soloHoy ? 'Puedes cambiar solo la sesión de hoy. Mover sesiones entre días es planificar (encargado/a).'
+          : soloHoy ? 'Puedes cambiar solo la sesión de hoy, por otra de las suyas. Mover sesiones entre días es planificar (encargado/a).'
           : 'Arrastra una sesión encima de otra cita para intercambiarlas (en tablet: toca una y luego la otra).'}
       </div>
 
@@ -226,8 +226,11 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
                   <button key={s.id} type="button" onClick={() => abrir({ tipo: 'poner', cita: c, ses: s })}
                     style={{ textAlign: 'left', border: 0, background: 'var(--bl)', borderRadius: 6, padding: '5px 7px', font: 'inherit', fontSize: 11.5, cursor: 'pointer' }}>{s.nombre}</button>
                 ))}
+                {/* El nivel 2 solo elige entre las que ya tiene el paciente (como en el taller). */}
+                {!soloHoy && <>
                 <div style={{ borderTop: '1px solid var(--bd2)', margin: '3px 0' }}/>
                 <button type="button" className="btn btn-s btn-sm" onClick={() => abrir({ tipo: 'biblio', cita: c })}><Ic name="biblioteca" size={12}/> De la biblioteca</button>
+                </>}
                 {!soloHoy && <button type="button" className="btn btn-s btn-sm" onClick={() => abrir({ tipo: 'calendario', cita: c })}><Ic name="calendario" size={12}/> Calendario completo</button>}
               </div>
             )}
