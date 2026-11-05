@@ -138,12 +138,15 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
       <style>{CSS}</style>
       {familia.length > 1 && <button className="cr-flecha izq" onClick={() => irA(-1)} aria-label="Anterior de la familia">‹</button>}
 
-      <div className={`cr-carta cr-${rz.k} ${vuelta ? 'girada' : ''}`} ref={carta} onPointerMove={mover} onPointerLeave={quieto}>
+      {/* LA PILA: el mazo va FUERA del cromo que gira. Dentro del mismo espacio 3D, al
+          dar la vuelta la carta atravesaba los cromos de detrás y parecía doblarse. */}
+      <div className={`cr-pila cr-${rz.k}`}>
         {/* EL MAZO: si el ejercicio tiene familia o variantes, por detrás asoman los bordes
             de otros cromos (hasta 3), para que se note que hay más sin tener que buscarlos. */}
         {Array.from({ length: Math.min(3, familia.length - 1 + variantes.length) }, (_, i) => (
-          <div key={i} className="cr-mazo" style={{ transform: `translateZ(${-(i + 1) * 2}px) translate(${(i + 1) * 7}px, ${(i + 1) * 5}px) rotate(${(i + 1) * 1.6}deg)`, opacity: 1 - i * .18 }}/>
+          <div key={i} className="cr-mazo" style={{ transform: `translate(${(i + 1) * 7}px, ${(i + 1) * 5}px) rotate(${(i + 1) * 1.6}deg)`, opacity: 1 - i * .18 }}/>
         ))}
+      <div className={`cr-carta cr-${rz.k} ${vuelta ? 'girada' : ''}`} ref={carta} onPointerMove={mover} onPointerLeave={quieto}>
         <div className="cr-giro">
           {/* ANVERSO */}
           <div className="cr-cara cr-anverso">
@@ -222,6 +225,7 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
           </div>
         </div>
       </div>
+      </div>
 
       {familia.length > 1 && <button className="cr-flecha der" onClick={() => irA(1)} aria-label="Siguiente de la familia">›</button>}
       <button className="cr-cerrar" onClick={onCerrar} aria-label="Cerrar"><Ic name="cerrar" size={18}/></button>
@@ -275,7 +279,9 @@ function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
 // Cada rareza solo cambia dos colores (--m marco, --m2 fondo claro); el resto es común.
 const CSS = `
 .cr-velo{position:fixed;inset:0;z-index:150;background:rgba(30,34,33,.62);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;gap:18px;animation:crVelo .2s ease;perspective:1400px}
-.cr-carta{--rx:0deg;--ry:0deg;--bx:50%;--by:30%;--m:var(--g);--m2:#cfe6e9;width:min(430px,92vw);height:min(760px,92vh);transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease-out;transform-style:preserve-3d;animation:crEntra .45s cubic-bezier(.2,.9,.25,1.15)}
+.cr-pila{--m:var(--g);--m2:#cfe6e9;position:relative;width:min(430px,92vw);height:min(760px,92vh);perspective:1400px}
+.cr-carta{position:relative;z-index:1;--rx:0deg;--ry:0deg;--bx:50%;--by:30%;--m:var(--g);--m2:#cfe6e9;width:100%;height:100%;transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease-out;transform-style:preserve-3d;animation:crEntra .45s cubic-bezier(.2,.9,.25,1.15)}
+.cr-pila .cr-mazo{z-index:0}
 .cr-oro{--m:#C9A84C;--m2:#f6e7b4}.cr-plata{--m:#9aa3a6;--m2:#e9eef0}.cr-bronce{--m:#b08560;--m2:#f0dccb}.cr-nuevo{--m:var(--g);--m2:#d6ecee}
 .cr-mazo{position:absolute;inset:0;border-radius:22px;background:var(--m2);border:7px solid var(--m);box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .cr-giro{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,.8,.3,1)}
