@@ -36,6 +36,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const editaPlan = usePuede()('editar_plan')
   const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
+  const [citasPasadas, setCitasPasadas] = useState<any[]>([])
+  const [regsPasados, setRegsPasados] = useState<any[]>([])
   // Planificación en lista (la de siempre) o como la presentación final del torno.
   const [vistaPlan, setVistaPlan] = useState<'lista'|'interactiva'|'cambiar'>('lista')
   /**
@@ -155,6 +157,14 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       supabase.from('sesiones').select('*, sesiones_objetivos(objetivo_id)').eq('paciente_id',pacienteId).order('created_at',{ascending:false}),
     ])
     setCitasFuturas(c||[]); setSesionesDisp(s||[])
+    /* LO DE ANTES, PARA CAMBIAR CON CRITERIO: sus últimas citas ya pasadas (vino o no
+       vino) y lo que se le apuntó en ellas. Se ven encima en la vista interactiva. */
+    const { data: pas } = await supabase.from('citas').select('id,fecha,hora,estado,sesion_id,sesiones:sesion_id(nombre,partes)')
+      .eq('paciente_id',pacienteId).lt('fecha',hoy).in('estado',['realizada','falta']).order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(8)
+    const pasOrd = (pas||[]).slice().reverse()
+    const { data: regsPas } = pasOrd.length ? await supabase.from('registros_ejercicio').select('fecha,ejercicio_id,ejercicio_nombre,series,variante')
+      .eq('paciente_id',pacienteId).gte('fecha',pasOrd[0].fecha).lt('fecha',hoy).order('id') : { data: [] as any[] }
+    setCitasPasadas(pasOrd); setRegsPasados(regsPas||[])
     supabase.from('objetivos').select('id,nombre,imagen_url').eq('activo',true).order('nombre').then(({data})=>setObjetivosLib(data||[]))
     // Estado de los objetivos DE ESTE PACIENTE, para saber qué sesión sigue haciendo
     // falta y cuál ya cumplió su función.
@@ -618,6 +628,19 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
               ses: c.sesiones ? { nombre: c.sesiones.nombre, color: colorSes[c.sesion_id] || PALETA[0], fase: fase?.fase?.nombre, partes: c.sesiones.partes || [] } : null,
               evs: evalDe(c).map((e:any)=>{ const fd=faseDeEval(e); return { momento: (e.momento==='inicial'?'inicial':'final') as 'inicial'|'final', faseNombre: fd.nombre, color: fd.color, tests: [] } }) }
           }).filter(f=>f.ses||f.evs.length>0)
+          /* MISMA SESIÓN DOS VECES EN UNA SEMANA (lunes a domingo), contando lo ya hecho
+             esa semana: es lo que en sala resulta repetitivo. Solo avisa. */
+          const lunes = (iso:string) => { const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d.toISOString().slice(0,10) }
+          const enSemana: Record<string,number> = {}
+          ;[...citasPasadas.filter((c:any)=>c.estado==='realizada'), ...citasFuturas].forEach((c:any)=>{ if (c.sesion_id) { const k=lunes(c.fecha)+c.sesion_id; enSemana[k]=(enSemana[k]||0)+1 } })
+          filas.forEach(f=>{ const c=citasFuturas.find((x:any)=>x.id===f.id); if (c?.sesion_id && enSemana[lunes(c.fecha)+c.sesion_id]>1) f.aviso=`↻ ${c.sesiones?.nombre||'Esta sesión'} otra vez esta semana` })
+          // Las pasadas: lo que se le apuntó cada día, con series × reps (o peso / segundos).
+          const detalle = (series:any[]) => { const ss=(series||[]).filter((x:any)=>x&&(x.reps||x.segundos||x.peso||x.banda)); if(!ss.length) return ''
+            const x=ss[0]; return `${ss.length}×${x.reps||x.segundos&&x.segundos+'s'||''}${x.peso?' · '+x.peso+'kg':x.banda?' · '+x.banda:''}` }
+          const pasadas: FilaPieza[] = citasPasadas.map((c:any): FilaPieza=>({ id:'p'+c.id, fecha:c.fecha, hora:c.hora||null, nueva:false, evs:[],
+            ses: c.sesiones ? { nombre:c.sesiones.nombre, color: colorSes[c.sesion_id] || 'var(--gm)', partes: c.sesiones.partes||[] } : { nombre:'Sin sesión', color:'var(--gm)', partes:[] },
+            pasada: { vino: c.estado==='realizada', hechos: c.estado==='realizada' ? regsPasados.filter((r:any)=>r.fecha===c.fecha).map((r:any)=>({ nombre: r.ejercicio_nombre||'—', ejercicio_id: r.ejercicio_id, detalle: detalle(r.series) })) : [] } }))
+          filas.unshift(...pasadas)
           return (
             <div className="panel">
               {conmutador}

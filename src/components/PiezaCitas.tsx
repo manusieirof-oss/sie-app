@@ -18,6 +18,11 @@ export type FilaPieza = {
   evs: { momento: 'inicial' | 'final', faseNombre: string, color: string, tests: { id: string, nombre: string, imagen: string, items: string[] }[] }[],
   /** Se ha tocado ahora (no lo tenía ya). */
   nueva: boolean,
+  /** CITA YA PASADA (Planificación de la ficha): si vino y lo que se le apuntó. Se ve
+      encima de las de por delante para cambiar una sesión sabiendo lo que hizo antes. */
+  pasada?: { vino: boolean, hechos: { nombre: string, ejercicio_id: string | null, imagen_url?: string | null, detalle: string }[] },
+  /** Aviso corto bajo el nombre, p. ej. "↻ Empujes otra vez esta semana". */
+  aviso?: string,
 }
 
 export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
@@ -63,10 +68,18 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
         const ejs = (f.ses?.partes || []).flatMap((p: any) => p.ejercicios || [])
         const fotos = ejs.slice(0, 4)
         const color = f.ses?.color || f.evs[0]?.color || 'var(--gm)'
-        return (
-          <button key={f.id} type="button" className="pz-fila" onClick={() => setAbierta(ab ? null : f.id)}
+        // Donde acaban las pasadas y empiezan las de por delante, una raya con "Hoy".
+        const corteHoy = !f.pasada && i > 0 && !!filas[i - 1].pasada
+        return (<div key={f.id} style={{ display: 'contents' }}>
+          {corteHoy && <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
+            <span style={{ flex: 1, height: 1, background: 'var(--g)', opacity: .5 }}/>
+            <span style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--gd)', fontWeight: 600 }}>Hoy en adelante</span>
+            <span style={{ flex: 1, height: 1, background: 'var(--g)', opacity: .5 }}/>
+          </div>}
+          <button type="button" className="pz-fila" onClick={() => setAbierta(ab ? null : f.id)}
             // Salen de una en una; con muchas citas, sin pasar de ~1,5 s en total.
-            style={{ animationDelay: `${Math.min(i * 70, 1400)}ms` }}>
+            // Las pasadas, apagadas: se leen pero no compiten con lo que viene.
+            style={{ animationDelay: `${Math.min(i * 70, 1400)}ms`, opacity: f.pasada && !ab ? .62 : 1 }}>
             <div className="pz-dia">
               <div style={{ fontSize: 19, lineHeight: 1, color: 'var(--n)' }}>{d.getDate()}</div>
               <div style={{ fontSize: 10, color: 'var(--grl)', textTransform: 'capitalize' }}>
@@ -87,7 +100,10 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 13.5, color: f.ses ? 'var(--n)' : 'var(--grl)' }}>{f.ses ? f.ses.nombre : 'Solo evaluación'}</span>
                   {f.ses?.fase && <span style={{ display: 'block', fontSize: 11, color: 'var(--grl)' }}>{f.ses.fase}</span>}
+                  {f.aviso && <span style={{ display: 'block', fontSize: 11, color: '#8A6410' }}>{f.aviso}</span>}
                 </span>
+                {f.pasada && <span style={{ fontSize: 10.5, padding: '2px 8px', borderRadius: 99, flexShrink: 0,
+                  background: f.pasada.vino ? 'var(--gl)' : 'var(--redl)', color: f.pasada.vino ? 'var(--gd)' : 'var(--red)' }}>{f.pasada.vino ? 'Vino' : 'No vino'}</span>}
                 {f.nueva && <span title="Puesta ahora" style={{ width: 7, height: 7, borderRadius: 99, background: 'var(--gd)', flexShrink: 0 }}/>}
               </div>
               {/* La evaluación de esa cita, con la foto de sus tests. */}
@@ -105,7 +121,16 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
                   {/* POR DENTRO, EN IMÁGENES: cada parte es una fila de fichas de sus
                       ejercicios (foto, nombre corto y series × reps). Antes era un
                       párrafo de nombres seguidos que no se leía. */}
-                  {(f.ses?.partes || []).map((p: any, pi: number) => (
+                  {/* PASADA: lo que de verdad se le apuntó ese día, no lo que decía la sesión. */}
+                  {f.pasada && (f.pasada.hechos.length === 0
+                    ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>{f.pasada.vino ? 'No se apuntó nada ese día.' : 'No vino.'}</div>
+                    : <div className="pz-ejs">{f.pasada.hechos.map((e, ei) => (
+                        <span key={ei} className="pz-ej" title={e.nombre} style={{ animationDelay: `${ei * 35}ms` }}>
+                          <span className="pz-ej-f"><ImagenEjercicio insignias={false} relleno radio={0} fondo="transparent" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id || undefined}/></span>
+                          <span className="pz-ej-n">{e.nombre}</span>
+                          {e.detalle && <span className="pz-ej-d">{e.detalle}</span>}
+                        </span>))}</div>)}
+                  {!f.pasada && (f.ses?.partes || []).map((p: any, pi: number) => (
                     <div key={pi} style={{ marginBottom: 10 }}>
                       <div className="pz-parte">{p.nombre || `Parte ${pi + 1}`}</div>
                       <div className="pz-ejs">
@@ -130,7 +155,7 @@ export default function PiezaCitas({ filas }: { filas: FilaPieza[] }) {
               )}
             </div>
           </button>
-        )
+        </div>)
       })}
     </div>
     </>
