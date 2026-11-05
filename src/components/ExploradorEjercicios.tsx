@@ -250,10 +250,10 @@ export default function ExploradorEjercicios({
   const visiblesNombre = buscar ? visibles.filter(porNombre) : visibles
   const visiblesEtiqueta = buscar ? visibles.filter(e => !porNombre(e)) : []
 
-  /* LAS VARIANTES, JUNTAS Y EN SU CAJA. Una familia desplegada (o, buscando, dos o más
-     de la misma familia) va en una franja propia a lo ancho, con fondo y raya a la
-     izquierda: antes las variantes caían sueltas en la rejilla, mezcladas con los
-     demás, y no se distinguía qué era variante de qué. La portada va la primera. */
+  /* LAS VARIANTES, JUNTAS Y TEÑIDAS. Una familia desplegada (o, buscando, dos o más de
+     la misma familia) va seguida, la portada primero, y sus tarjetas llevan fondo verde
+     claro y una raya arriba. Sin caja a lo ancho: la franja separaba y empujaba hacia
+     abajo al resto, y despistaba más (lo dijo Manu). */
   function pintar(lista: any[], pre = '') {
     const fam = (e: any) => esHijo(e) ? e.portada_id : e.id
     const cuenta: Record<string, number> = {}
@@ -266,7 +266,7 @@ export default function ExploradorEjercicios({
       if (hechos.has(k)) return
       hechos.add(k)
       const miembros = lista.filter(x => fam(x) === k).sort((a, b) => (esHijo(a) ? 1 : 0) - (esHijo(b) ? 1 : 0))
-      out.push(<div key={pre + 'f' + k} className="fam-ej">{miembros.map(x => <Fragment key={x.id}>{Tarjeta({ e: x })}</Fragment>)}</div>)
+      miembros.forEach(x => out.push(<Fragment key={pre + x.id}>{Tarjeta({ e: x, fam: true })}</Fragment>))
     })
     return out
   }
@@ -274,7 +274,7 @@ export default function ExploradorEjercicios({
   /* SE LLAMA COMO FUNCIÓN, NO COMO <Tarjeta/>. Definida aquí dentro, como componente
      React la veía nueva en cada repintado y desmontaba y volvía a montar todas las
      tarjetas: en el taller (que se repinta a menudo) las fotos parpadeaban sin parar. */
-  function Tarjeta({ e }: { e: any }) {
+  function Tarjeta({ e, fam = false }: { e: any, fam?: boolean }) {
     const sel = marcado(e)
     // Se agrupan bajo su raíz, así que las tres que caben son tres MADRES y no tres
     // etiquetas sueltas: antes una tarjeta podía enseñar "Cuádriceps, Vasto Medial,
@@ -283,7 +283,7 @@ export default function ExploradorEjercicios({
     const vc = varianteQueCasa(e)
     const img = (vc?.imagen_url) || e.imagen_url
     return (
-      <div className={`tarj-ej ${sel ? 'on' : ''} ${esHijo(e) && !hayFiltro ? 'tarj-hijo' : ''}`}
+      <div className={`tarj-ej ${sel ? 'on' : ''} ${fam ? 'tarj-fam' : ''}`}
         onClick={() => (onAlternar ? onAlternar(e) : onAbrir?.(e))}>
         <div className="tarj-img">
           {/* LA MISMA IMAGEN QUE EN EL RESTO DE LA APP (ImagenEjercicio): foto, o la postura
