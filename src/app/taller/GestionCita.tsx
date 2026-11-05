@@ -24,6 +24,11 @@ const ESTADOS = [
   { v: 'falta', l: 'Falta' },
   { v: 'cancelada', l: 'Cancelada' },
 ]
+/* EL MOTIVO de la falta o la cancelación. Se pide al marcarla: en sala alguien avisa
+   («está malo», «se le complicó el trabajo») y eso es lo que luego se quiere saber.
+   Se guarda en citas.motivo_estado (sql/motivo-falta.sql); sin la columna, se marca
+   igual y solo se pierde el motivo. */
+export const MOTIVOS_FALTA = ['Enfermedad', 'Trabajo', 'Lesión o molestia', 'Viaje', 'Sin avisar', 'Otro']
 
 async function maxPorSala() {
   const { data } = await supabase.from('ajustes').select('valor').eq('clave', 'clinica_max_personas_sala').maybeSingle()
@@ -139,13 +144,31 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
   const estado = item.estado === 'realizada' ? 'programada' : (item.estado || 'programada')
   const cita = { id: item.citaId, paciente_id: item.paciente.id, fecha, hora: item.hora }
 
-  async function ponerEstado(v0: string) {
+  // Falta o cancelada: primero se pide el motivo; quitarla (volver a programada), directo.
+  const [pidiendo, setPidiendo] = useState<string | null>(null)
+  // El motivo que ya tenga (si se marcó antes), leído al abrir.
+  const [motivoGuardado, setMotivoGuardado] = useState('')
+  useEffect(() => {
+    if (!item.citaId) return
+    supabase.from('citas').select('motivo_estado').eq('id', item.citaId).maybeSingle()
+      .then(({ data }) => setMotivoGuardado((data as any)?.motivo_estado || ''))
+  }, [item.citaId])
+  const [motivo, setMotivo] = useState('')
+  const [notaMotivo, setNotaMotivo] = useState('')
+  function ponerEstado(v0: string) {
     if (ocupado) return
-    const v = v0 === estado ? 'programada' : v0
+    if (v0 === estado) { guardarEstado('programada'); return }
+    setPidiendo(v0); setMotivo(''); setNotaMotivo('')
+  }
+  async function guardarEstado(v: string) {
     if (v === 'cancelada' && !confirm(`¿Cancelar la clase de ${nombre}? Sale del taller y libera su plaza.`)) return
     setOcupado(true)
     const aviso = await cambiarEstado(cita, v)
-    setOcupado(false)
+    if (!(aviso && aviso.startsWith('No se ha'))) {
+      const texto = v === 'programada' ? null : [motivo, notaMotivo.trim()].filter(Boolean).join(' · ') || null
+      await supabase.from('citas').update({ motivo_estado: texto }).eq('id', cita.id) // sin la columna, falla en silencio
+    }
+    setOcupado(false); setPidiendo(null)
     if (aviso && aviso.startsWith('No se ha')) { setMsg(aviso); return }
     onHecho(aviso)
   }
@@ -164,11 +187,24 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
       {arriba}
       {!item.citaId ? <div className="gc-nota">No tiene cita en la agenda.</div> : <>
         {/* El nivel 1 no toca la cita: ni falta, ni cancelada, ni sala. Si ya está marcada, se ve. */}
-        {soloFalta ? (estado !== 'programada' && <div className="gc-nota">Hoy: {ESTADOS.find(e => e.v === estado)?.l || estado}.</div>) : <>
+        {soloFalta ? (estado !== 'programada' && <div className="gc-nota">Hoy: {ESTADOS.find(e => e.v === estado)?.l || estado}{motivoGuardado ? ' · ' + motivoGuardado : ''}.</div>) : <>
         <div className="gc-lbl">Clase de hoy</div>
         <div className="gc-chips">{ESTADOS.map(e => (
-          <button key={e.v} disabled={ocupado} className={(estado === e.v ? 'on ' : '') + e.v} onClick={() => ponerEstado(e.v)}>{e.l}</button>
+          <button key={e.v} disabled={ocupado} className={(estado === e.v || pidiendo === e.v ? 'on ' : '') + e.v} onClick={() => ponerEstado(e.v)}>{e.l}</button>
         ))}</div>
+        {motivoGuardado && estado !== 'programada' && !pidiendo && <div className="gc-nota">Motivo: {motivoGuardado}</div>}
+        {pidiendo && <>
+          <div className="gc-lbl">¿Por qué? · {pidiendo === 'falta' ? 'Falta' : 'Cancelada'}</div>
+          <div className="gc-chips">{MOTIVOS_FALTA.map(m => (
+            <button key={m} className={motivo === m ? 'on' : ''} onClick={() => setMotivo(motivo === m ? '' : m)}>{m}</button>
+          ))}</div>
+          <input className="input" value={notaMotivo} onChange={e => setNotaMotivo(e.target.value)} placeholder="Nota (opcional): quién avisó, cuándo vuelve…" style={{ marginTop: 6 }}/>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn btn-t btn-sm" onClick={() => setPidiendo(null)} disabled={ocupado}>Atrás</button>
+            <button className="btn btn-p btn-sm" onClick={() => guardarEstado(pidiendo)} disabled={ocupado || !motivo}>
+              {ocupado ? 'Guardando…' : `Marcar ${pidiendo === 'falta' ? 'falta' : 'cancelada'}`}</button>
+          </div>
+        </>}
         </>}
         {!soloFalta && <div className="gc-nota">Igual que en la agenda: cancelada no gasta del bono y genera recuperación si toca; falta, no.</div>}
         {salas.length > 1 && !soloFalta && <>

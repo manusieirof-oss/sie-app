@@ -97,6 +97,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   const cambiaEj = puede('cambiar_ejercicios'), cambiaSes = puede('cambiar_sesion')
   // Añadir a alguien sin cita es crear una cita (como en la agenda); los tests son valoración.
   const editaAgenda = puede('editar_agenda'), haceTests = puede('valoracion')
+  /* CITAS DESDE EL TALLER (nivel 2): marcar falta o cancelada, cambiar de sala y añadir a
+     alguien a la clase, cuando en sala nos avisan. En la agenda sigue haciendo falta su
+     permiso (editar_agenda / cancelar_cita). */
+  const citasTaller = puede('citas_taller')
+  const anadeTaller = editaAgenda || citasTaller
   // Nivel 2: cambia la clase de HOY; cambiar su sesión para siempre, desde el 3.
   const editaPlan = puede('editar_plan')
   const [fecha, setFecha] = useState(solo?.fecha || hoy())
@@ -2125,12 +2130,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             )
           })}
           {/* Añadir a alguien que viene sin cita: junto a las personas, no arriba. */}
-          {!solo && editaAgenda && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+          {!solo && anadeTaller && <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
               style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
                 border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button>}
         </div>
       )}
-      {!solo && editaAgenda && seleccion.length>0 && vista==='todos' && (
+      {!solo && anadeTaller && seleccion.length>0 && vista==='todos' && (
         <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
           <button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
               style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
@@ -2142,7 +2147,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       {seleccion.length===0 ? (
         <div style={{textAlign:'center',padding:60,color:'var(--grl)',fontSize:11}}>
           {trayendo ? 'Cargando…' : <>Nadie {sala ? `en la sala ${sala} ` : ''}{hora ? `a las ${hora}` : 'este día'}. Cambia la hora o la sala arriba, o añade a quien venga sin cita.</>}
-          {!trayendo && !solo && editaAgenda && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
+          {!trayendo && !solo && anadeTaller && <div style={{display:'flex',justifyContent:'center',marginTop:12}}><button onClick={()=>setAnadiendoPac(true)} title="Añadir a alguien a esta clase"
               style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
                 border:'1.5px dashed var(--gm)',background:'transparent',color:'var(--gd)',fontSize:10.5,fontWeight:600}}>＋ Añadir</button></div>}
         </div>
@@ -2392,7 +2397,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
       {/* ELEGIR EL EJERCICIO QUE SE HACE HOY EN SU LUGAR */}
       {citaVelo && (() => { const it = seleccion.find((x:any) => x.paciente.id === citaVelo); return it ? (
-        <VeloCita soloFalta={!puede('cancelar_cita')} item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}
+        <VeloCita soloFalta={!puede('cancelar_cita') && !citasTaller} item={it} fecha={fecha} salas={salas} nombre={nombrePac(it.paciente)} onCerrar={() => setCitaVelo(null)} onHecho={trasCita}
           onAlertas={() => cargarCtxPaciente(it.paciente.id)}
           arriba={<>
             {/* SU SESIÓN Y SUS OBJETIVOS, dentro del velo: fuera ocupaban la ficha. */}
