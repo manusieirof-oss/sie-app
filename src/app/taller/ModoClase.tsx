@@ -14,6 +14,7 @@ import { usePuede } from '@/lib/permisos'
 import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion, itemDeEjercicio } from '@/lib/sesiones'
 import { textoDescanso, capacidadPorReps } from '@/lib/capacidades'
+import { repetidosSemana, type Repetido } from '@/lib/repetidosSemana'
 import { partesMedida } from '@/lib/medida'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
@@ -292,6 +293,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     return () => window.removeEventListener('beforeunload', antesDeSalir)
   }, [pendientes])
 
+  /* REPETIDOS EN LA SEMANA: qué ejercicios de hoy ya hizo otro día o tiene en otra cita
+     de esta semana (lib/repetidosSemana). Solo es un aviso en la tarjeta. */
+  const [repPorPaciente, setRepPorPaciente] = useState<Record<string, Record<string, Repetido>>>({})
+  async function cargarRepetidos(pid: string, dia: string) {
+    try { const r = await repetidosSemana(pid, dia); setRepPorPaciente(prev => ({ ...prev, [pid]: r })) } catch {}
+  }
   async function cargarCtxPaciente(pid: string) {
     const [rm, rp, ra] = await Promise.all([
       supabase.from('molestias').select('*').eq('paciente_id', pid).eq('activa', true),
@@ -500,6 +507,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         })
         cargarObjsPaciente(d.pacienteId)
         cargarCtxPaciente(d.pacienteId)
+        cargarRepetidos(d.pacienteId, fecha)
         cargarTestsHoy(d.pacienteId, fecha)
       }
 
@@ -2370,6 +2378,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               patologias={(ctxPorPaciente[act.paciente.id]?.patologias)||[]} etiquetas={etiquetas}
               objetivosLib={objetivosLib} objsPac={objsPorPaciente[act.paciente.id]||[]}
               toggleObjetivo={cambiaEj ? toggleObjetivo : undefined}
+              repetidos={repPorPaciente[act.paciente.id] || {}}
               noHechos={leerNoHechos(act.paciente.id, act.sesionId)}
               onNoHecho={(i:number)=>alternarNoHecho(act.paciente.id, act.sesionId, i)}
               onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}/>}

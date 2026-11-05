@@ -42,7 +42,7 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, onSustituir, arreglar = false, onMedida }: any) {
+  superserie = false, noHechos = [], onNoHecho, repetidos = {}, onSustituir, arreglar = false, onMedida }: any) {
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -133,6 +133,15 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
                   radio={0} icono={34} alt={ej.nombre}/>
                 </div>
+                {/* REPETIDO EN LA SEMANA: ya lo hizo otro día o lo tiene en otra cita. Solo
+                    avisa (lib/repetidosSemana); el entrenador decide si lo cambia. */}
+                {repetidos[ej.ejercicio_id] && (
+                  <span title={repetidos[ej.ejercicio_id].detalle.join('\n')}
+                    style={{ position: 'absolute', left: 6, bottom: 6, maxWidth: 'calc(100% - 52px)' /* a la derecha va la chapa de ejecución */, background: 'rgba(255,255,255,.94)', color: 'var(--n)',
+                      border: '1px solid var(--amb)', borderRadius: 99, padding: '2px 8px', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden',
+                      textOverflow: 'ellipsis', pointerEvents: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.12)' }}>
+                    ↻ {repetidos[ej.ejercicio_id].corto}</span>
+                )}
                 {/* CAMBIAR Y NO LO HIZO, EN UNA CHAPA. Las dos son "hoy no va como estaba
                     previsto", asi que comparten boton: un menu con las dos. Si ya no lo hizo,
                     la chapa lo dice y deshace con un toque. */}
