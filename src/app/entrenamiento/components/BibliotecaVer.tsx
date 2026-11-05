@@ -1,12 +1,12 @@
 'use client'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import FichaEjercicio from '@/components/FichaEjercicio'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
-import { contiene } from '@/lib/texto'
 import { Ic } from '@/lib/icons'
+import BuscadorPacientes from '@/components/BuscadorPacientes'
 import { useConfigTrabajo } from '@/components/TrabajoEjercicio'
 import { intensidadesPorEjercicio } from '@/lib/mapaTrabajo'
 import { sumarDias, hoyISO } from '@/lib/fechas'
@@ -52,16 +52,7 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
   const cerrar = useCallback(() => setViendo(null), [])
 
   // ---- El buscador de clientes ----
-  const [q, setQ] = useState('')
-  const [abierto, setAbierto] = useState(false)
   const [pac, setPac] = useState<Pac | null>(null)
-  const caja = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const fuera = (e: MouseEvent) => { if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false) }
-    document.addEventListener('mousedown', fuera); return () => document.removeEventListener('mousedown', fuera)
-  }, [])
-  const encontrados = useMemo(() => !q.trim() ? [] : pacientes
-    .filter(p => contiene(nombrePac(p), q) || contiene(p.nombre_clinica, q)).slice(0, 8), [q, pacientes])
 
   // ---- Lo del cliente: sus ejercicios y sus cifras ----
   const [resumenPac, setResumenPac] = useState<Record<string, any> | null>(null)
@@ -123,42 +114,19 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
         <Ic name="ojo" size={14}/> Para consultar: toca un ejercicio para ver cómo se hace. Cambiarlo es cosa del encargado/a.
       </div>}
 
-      {/* EL CLIENTE. Sin elegir, la biblioteca es la de la clínica; elegido, la suya. */}
-      <div ref={caja} style={{ position: 'relative', marginBottom: 12 }}>
-        {pac ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--gl)', border: '1px solid var(--gm)', borderRadius: 12, padding: '8px 10px 8px 14px' }}>
-            <Ic name="pacientes" size={16}/>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, color: 'var(--n)' }}>Biblioteca de <b style={{ fontWeight: 600 }}>{nombrePac(pac)}</b></div>
-              <div style={{ fontSize: 12, color: 'var(--gd)' }}>{cargando ? 'Cargando sus ejercicios…' : `${lista.length} ejercicios: los de sus sesiones y los que ya ha hecho. Las cifras son las suyas.`}</div>
-            </div>
-            <button className="btn btn-s btn-sm" onClick={() => { setPac(null); setQ('') }}><Ic name="cerrar" size={12}/> Ver toda la clínica</button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--bd)', borderRadius: 12, padding: '0 12px', background: 'var(--w)' }}>
-            <Ic name="pacientes" size={15}/>
-            <input className="input" value={q} onChange={e => { setQ(e.target.value); setAbierto(true) }} onFocus={() => setAbierto(true)}
-              placeholder="Buscar cliente para ver su biblioteca…" style={{ border: 'none', boxShadow: 'none', padding: '10px 0', background: 'transparent' }}/>
-          </div>
-        )}
-        {!pac && abierto && encontrados.length > 0 && (
-          <div style={{ position: 'absolute', left: 0, right: 0, top: 'calc(100% + 4px)', zIndex: 20, background: 'var(--w)', border: '1px solid var(--bd)',
-            borderRadius: 12, boxShadow: '0 8px 24px rgba(38,40,37,.14)', overflow: 'hidden' }}>
-            {encontrados.map(p => (
-              <div key={p.id} className="pop-it" style={{ padding: '9px 14px', cursor: 'pointer' }}
-                onClick={() => { setPac(p); setAbierto(false) }}>{nombrePac(p)}</div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {pac && !cargando && lista.length === 0
-        ? <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--gr)', fontSize: 14 }}>
-            {nombrePac(pac)} todavía no tiene ejercicios: ni en sesiones ni apuntados.</div>
-        : <ExploradorEjercicios ejercicios={lista} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles
+      {/* Sin ejercicios suyos se avisa, pero la barra sigue: desde ella se cambia de cliente. */}
+      {pac && !cargando && lista.length === 0 && <div style={{ textAlign: 'center', padding: '10px 0 14px', color: 'var(--gr)', fontSize: 14 }}>
+        {nombrePac(pac)} todavía no tiene ejercicios: ni en sesiones ni apuntados.</div>}
+      <ExploradorEjercicios ejercicios={lista} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles
             resumenFijo={pac ? resumenPac : null} intensidades={intensidades}
+            // EL CLIENTE, con el buscador de pacientes de toda la app y en la misma línea
+            // que el de ejercicios. Sin elegir, la biblioteca es la de la clínica; elegido, la suya.
+            antesDelBuscador={<div title={pac ? (cargando ? 'Cargando sus ejercicios…' : `${lista.length} ejercicios suyos: los de sus sesiones y los que ya ha hecho. Las cifras son las suyas.`) : undefined}>
+              <BuscadorPacientes flotante pacientes={pacientes} valor={pac?.id || ''} max={10}
+                placeholder="Buscar cliente para ver su biblioteca…"
+                onElegir={(p: any) => setPac(p)} onLimpiar={() => setPac(null)}/></div>}
             acciones={amasar ? <button type="button" onClick={() => router.push('/torno/amasar/nuevo')} title="Nuevo ejercicio (se crea en el torno)" aria-label="Nuevo ejercicio"
-              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--bd)', background: 'var(--w)', color: 'var(--g)', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>+</button> : undefined}/>}
+              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--bd)', background: 'var(--w)', color: 'var(--g)', fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>+</button> : undefined}/>
 
       {viendo && <FichaEjercicio ejercicio={viendo} ejercicios={ejercicios} etiquetas={etiquetas} amasar={amasar}
         paciente={pac ? { id: pac.id, nombre: pac.nombre } : null} usoPaciente={resumenPac?.[viendo.id]} intensidades={intensidades ? (intensidades[viendo.id] || []) : undefined}

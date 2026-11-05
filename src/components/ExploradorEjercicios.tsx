@@ -36,8 +36,10 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false, resumenFijo, intensidades,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false, soloSimilares = false, resumenFijo, intensidades, antesDelBuscador,
 }: {
+  /** Algo en la misma línea, antes del buscador de ejercicios (el de clientes en la Biblioteca). */
+  antesDelBuscador?: React.ReactNode
   /** Intensidad de cada ejercicio, ya calculada de sus series (lente Intensidad). */
   intensidades?: Record<string, { nombre: string, n: number, color: string }[]> | null
   /**
@@ -527,6 +529,7 @@ export default function ExploradorEjercicios({
         </div>
       )}
       <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+        {antesDelBuscador && <div style={{ flex: 1, minWidth: 190 }}>{antesDelBuscador}</div>}
         <input className="input" placeholder="Buscar ejercicio…" value={buscar}
           onChange={e => setBuscar(e.target.value)} style={{ flex: 1, minWidth: 190 }} />
         <span style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap' }}>
@@ -695,7 +698,8 @@ function MiniCuerpo({ etiquetas, valor, onChange }: { etiquetas: any[], valor: s
       </button>
       {abierto && <>
         <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onClick={() => setAbierto(false)}/>
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 51, background: '#fff', borderRadius: 14,
+        {/* Anclado por la derecha: está al final de la barra y por la izquierda se salía de la pantalla. */}
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 51, background: '#fff', borderRadius: 14,
           boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
           <svg width="96" height="192" viewBox="0 0 60 120">
             <circle cx="30" cy="10" r="8" fill="#BFDCDF"/>

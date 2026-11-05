@@ -8,8 +8,10 @@ import { contiene } from '@/lib/texto'
 
 export default function BuscadorPacientes({
   pacientes, valor, onElegir, onLimpiar, placeholder = 'Buscar paciente por nombre...',
-  disabled = false, autoFocus = false, etiqueta, max = 30,
+  disabled = false, autoFocus = false, etiqueta, max = 30, flotante = false,
 }: {
+  /** Resultados flotando encima del contenido, sin empujar lo de debajo (barras de herramientas). */
+  flotante?: boolean
   pacientes: any[]
   /** id del paciente seleccionado, o '' si ninguno. */
   valor: string
@@ -47,11 +49,12 @@ export default function BuscadorPacientes({
   const resultados = q ? pacientes.filter(coincide) : []
 
   return (
-    <div>
+    <div style={flotante ? { position: 'relative' } : undefined}>
       <input className="input" value={q} onChange={e => setQ(e.target.value)}
         placeholder={placeholder} disabled={disabled} autoFocus={autoFocus} />
       {q && (
-        <div style={{ border: '1px solid var(--bd)', borderRadius: 'var(--r)', maxHeight: 220, overflowY: 'auto', marginTop: 4 }}>
+        <div style={{ border: '1px solid var(--bd)', borderRadius: 'var(--r)', maxHeight: 220, overflowY: 'auto', marginTop: 4,
+          ...(flotante ? { position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 30, background: 'var(--w)', boxShadow: '0 8px 24px rgba(38,40,37,.14)' } : {}) }}>
           {resultados.slice(0, max).map((p: any) => {
             const et = etiqueta?.(p)
             return (
