@@ -14,6 +14,7 @@ import { firmaVigente } from '@/lib/confidencialidad'
 import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, MINUTOS_INACTIVO } from '@/lib/compartido'
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
+import VideoBienvenida, { VIDEOS, videoVisto } from '@/components/VideoBienvenida'
 import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente } from '@/lib/practica'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
@@ -53,6 +54,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** La guía de inicio en pantalla (sale sola la primera vez al nivel 1; siempre desde el menú). */
   /** La guía en pantalla: 1 = de inicio (nivel 1), 2 = del entrenador (nivel 2). */
   const [guia, setGuia] = useState<false | 1 | 2>(false)
+  /* Primero el vídeo de su nivel y, al acabar o saltarlo, la guía (VideoBienvenida). */
+  const [video, setVideo] = useState<false | 1 | 2>(false)
+  const [guiaTrasVideo, setGuiaTrasVideo] = useState(false)
   /* MODO PRÁCTICA (lib/practica): pacientes inventados. Al entrar se les pone la clase a
      la hora de ahora y se recarga para verla. */
   const [practica, setPractica] = useState(false)
@@ -251,6 +255,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user?.id || !perfilListo || firmada !== true) return
     const n = nivelDe(perfil)
+    // Primero su vídeo (si hay y no lo ha visto) y después la guía.
+    if ((n === 1 || n === 2) && VIDEOS[n] && !videoVisto(user.id, n) && !enModoPractica()) { setGuiaTrasVideo(!guiaVista(user.id, n)); setVideo(n); return }
     if (n === 1 && !guiaVista(user.id, 1)) abrirGuia(1)
     else if (n === 2 && !guiaVista(user.id, 2)) abrirGuia(2)
   }, [user?.id, perfilListo, firmada, perfil])
@@ -322,6 +328,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
         {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
       {franjaPractica()}
+      {video && <VideoBienvenida uid={user.id} nivel={video} conGuia={guiaTrasVideo} onFin={() => { const n = video; setVideo(false); if (guiaTrasVideo) abrirGuia(n) }}/>}
       </div>
     )
   }
@@ -371,6 +378,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(1) }}>
                     <Ic name="ayuda" size={15}/> Guía de inicio
                   </button>
+                  {VIDEOS[(nivel >= 2 ? 2 : 1) as 1 | 2] && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuiaTrasVideo(false); setVideo((nivel >= 2 && VIDEOS[2] ? 2 : 1) as 1 | 2) }}>
+                    <Ic name="ojo" size={15}/> Ver el vídeo
+                  </button>}
                   {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(2) }}>
                     <Ic name="ayuda" size={15}/> Guía del entrenador
                   </button>}
@@ -401,6 +411,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main className="content"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
       {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
       {franjaPractica()}
+      {video && <VideoBienvenida uid={user.id} nivel={video} conGuia={guiaTrasVideo} onFin={() => { const n = video; setVideo(false); if (guiaTrasVideo) abrirGuia(n) }}/>}
     </div>
   )
 }
