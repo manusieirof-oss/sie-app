@@ -27,7 +27,7 @@ export default function BibliotecaVer({ ejercicios, etiquetas }: { ejercicios: a
         display: 'flex', alignItems: 'center', gap: 8 }}>
         <Ic name="ojo" size={14}/> Para consultar: toca un ejercicio para ver cómo se hace. Cambiarlo es cosa del encargado/a.
       </div>
-      <ExploradorEjercicios ejercicios={ejercicios} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo}/>
+      <ExploradorEjercicios ejercicios={ejercicios} etiquetas={etiquetas} botonCrear={false} onAbrir={setViendo} paneles/>
 
       {viendo && (
         <div className="modal-bg" style={{ zIndex: 150 }} onClick={e => { if (e.target === e.currentTarget) setViendo(null) }}>

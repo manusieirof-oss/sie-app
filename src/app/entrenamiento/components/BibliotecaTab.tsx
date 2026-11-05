@@ -346,6 +346,8 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
         onCrear={crearRapido}
         /* Aqui el boton sobra: esta pantalla ya tiene su alta completa, con foto y etiquetas. */
         botonCrear={false}
+        /* Debajo de la foto: qué trabaja, objetivos que suele trabajar o uso. */
+        paneles
       />
 
       {/* MODAL EJERCICIO (vista / edición) */}

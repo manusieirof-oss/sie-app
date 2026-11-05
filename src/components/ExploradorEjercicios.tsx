@@ -1,5 +1,7 @@
 'use client'
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { traerTodo } from '@/lib/paginar'
 import { nombreCorto } from '@/lib/ejercicios'
 import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
@@ -32,8 +34,13 @@ const FALTA: Record<string, string> = {
 const RAPIDAS = ['peso_reps', 'reps', 'tiempo', 'banda_reps']
 
 export default function ExploradorEjercicios({
-  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe,
+  ejercicios, etiquetas = [], seleccion, onAlternar, onAbrir, sugeridos, acciones, onCrear, botonCrear = true, objetivosDe, soloSugeridos = false, objetivos = [], idsObjetivosDe, paneles = false,
 }: {
+  /**
+   * Biblioteca: lo de debajo de la foto en tres paneles, uno para todas las tarjetas
+   * (botones encima de la rejilla): qué trabaja, objetivos que suele trabajar y uso.
+   */
+  paneles?: boolean
   /**
    * Montando la sesión de un paciente: qué objetivos de la sesión trabaja cada ejercicio
    * (nombres). La tarjeta lo dice y se puede ver solo lo que sirve para ellos.
@@ -63,6 +70,25 @@ export default function ExploradorEjercicios({
   /** false donde ya hay un alta completa propia, como la Biblioteca. */
   botonCrear?: boolean
 }) {
+  /* TRES PANELES DEBAJO DE LA FOTO (Biblioteca). Uno para todas las tarjetas, para
+     comparar de un vistazo. Se recuerda en este aparato. Objetivos y uso salen de la
+     vista `ejercicio_resumen` (sql/ejercicio-resumen.sql): los objetivos a los que se
+     ha enganchado el ejercicio en las sesiones y las veces que se ha apuntado. */
+  type Panel = 'trabaja' | 'objetivos' | 'uso'
+  const [panel, setPanelE] = useState<Panel>('trabaja')
+  useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_panel'); if (v === 'objetivos' || v === 'uso') setPanelE(v) } catch {} }, [paneles])
+  const setPanel = (v: Panel) => { setPanelE(v); try { localStorage.setItem('bib_panel', v) } catch {} }
+  const [resumen, setResumen] = useState<Record<string, any> | null>(null)
+  const [faltaVista, setFaltaVista] = useState(false)
+  useEffect(() => {
+    if (!paneles || panel === 'trabaja' || resumen) return
+    traerTodo((d, h) => supabase.from('ejercicio_resumen').select('*').range(d, h)).then(({ filas, error }) => {
+      if (error) { setFaltaVista(true); return }
+      setResumen(Object.fromEntries(filas.map((f: any) => [f.ejercicio_id, f])))
+    })
+  }, [paneles, panel, resumen])
+  const fechaCorta = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : ''
+
   const [buscar, setBuscar] = useState('')
   const [filtroEt, setFiltroEt] = useState<string[]>([])
   /**
@@ -312,10 +338,31 @@ export default function ExploradorEjercicios({
               display: 'inline-block', marginTop: 4, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               ◎ {os[0]}{os.length > 1 ? ` +${os.length - 1}` : ''}</div>
           })()}
+          {paneles && panel !== 'trabaja' && (() => {
+            const rs = resumen?.[e.id]
+            const tx: React.CSSProperties = { fontSize: 12, color: 'var(--gr)', marginTop: 3, lineHeight: 1.4 }
+            if (faltaVista) return <div style={tx}>Falta ejecutar sql/ejercicio-resumen.sql</div>
+            if (!resumen) return <div style={tx}>Cargando…</div>
+            if (panel === 'uso') return !rs || (!rs.veces && !rs.sesiones) ? <div style={tx}>Sin usar todavía</div> : (
+              <div style={tx}>
+                <div><b style={{ color: 'var(--n)' }}>{rs.veces}</b> {rs.veces === 1 ? 'vez apuntado' : 'veces apuntado'}</div>
+                <div>{rs.pacientes} {rs.pacientes === 1 ? 'paciente' : 'pacientes'} · en {rs.sesiones} {rs.sesiones === 1 ? 'sesión' : 'sesiones'}</div>
+                {rs.ultima && <div>Última vez: {fechaCorta(rs.ultima)}</div>}
+              </div>)
+            const objs: any[] = rs?.objetivos || []
+            return objs.length === 0 ? <div style={tx}>Aún sin objetivos</div> : (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
+                {objs.slice(0, 3).map((o: any) => (
+                  <span key={o.nombre} className="badge badge-g" title={`${o.nombre} · en ${o.n} ${o.n === 1 ? 'sesión' : 'sesiones'}`}>◎ {o.nombre}</span>))}
+                {objs.length > 3 && <span style={{ fontSize: 11, color: 'var(--gr)' }}>+{objs.length - 3}</span>}
+              </div>)
+          })()}
+          {(!paneles || panel === 'trabaja') && <>
           {/* Cómo se mide decide qué campos pedirá la sesión: conviene saberlo antes. */}
           <div style={{ fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>
             {nombreMedida(e.tipo_medida)}
           </div>
+          </>}
           {/* QUE TIENE VARIANTES SE SABE AQUI. Antes solo se veía si por casualidad
               buscabas el nombre de una: al montar la sesión elegías el ejercicio a
               secas sin saber que había una unilateral esperando. */}
@@ -333,6 +380,7 @@ export default function ExploradorEjercicios({
               {e.variantes.length} {e.variantes.length === 1 ? 'variante' : 'variantes'}
             </div>
           )}
+          {(!paneles || panel === 'trabaja') && <>
           {/* Lo que le falta se ve AQUÍ y no solo en la lista de pendientes: es al
               montar la sesión cuando te topas con el ejercicio a medias, y es el
               momento en el que puedes decidir completarlo o usar otro. */}
@@ -366,6 +414,7 @@ export default function ExploradorEjercicios({
               {grupos.length > 3 && <span style={{ fontSize: 11, color: 'var(--gr)' }}>+{grupos.length - 3}</span>}
             </div>
           )}
+          </>}
         </div>
       </div>
     )
@@ -403,6 +452,12 @@ export default function ExploradorEjercicios({
           {(() => { const n = buscar ? visiblesNombre.length : hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length
             return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` })()}
         </span>
+        {paneles && (
+          <span style={{ display: 'inline-flex', gap: 4 }} role="group" aria-label="Qué se ve en las tarjetas">
+            {([['trabaja', 'Qué trabaja'], ['objetivos', 'Objetivos'], ['uso', 'Uso']] as [Panel, string][]).map(([k, t]) => (
+              <button key={k} type="button" className={`chip-sel ${panel === k ? 'on' : ''}`} onClick={() => setPanel(k)}>{t}</button>))}
+          </span>
+        )}
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
             onClick={() => setVerFiltros(true)} aria-expanded={verFiltros}>
