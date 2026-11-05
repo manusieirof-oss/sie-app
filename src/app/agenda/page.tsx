@@ -777,8 +777,8 @@ export default function AgendaPage() {
             {vistaEntreno==='programacion' ? (
               <div style={{maxWidth:560,margin:'0 auto',paddingBottom:10}}>
                 {/* Mover sesiones entre días es PLANIFICAR: desde el nivel 3. El 2 cambia solo la de
-                    hoy, desde Entreno o el taller (otra suya o de la biblioteca); aquí solo mira. */}
-                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda" soloVer={!puedeAg('editar_plan')}
+                    hoy (otra suya o de la biblioteca); el 1 solo mira. */}
+                <ProgramacionCitas pacienteId={verEntrenoCita.paciente_id} citaFoco={verEntrenoCita.id} volver="/agenda" soloVer={!puedeAg('cambiar_sesion')} soloHoy={!puedeAg('editar_plan')}
                   etiqueta={`${verEntrenoCita.pacientes?.nombre_clinica || verEntrenoCita.pacientes?.nombre || ''}`.trim()}
                   onCambio={()=>{ setVersionEntreno(v=>v+1); cargar() }}/>
               </div>

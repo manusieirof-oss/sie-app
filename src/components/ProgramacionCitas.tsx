@@ -30,7 +30,7 @@ type Pendiente =
 
 const fechaTxt = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
 
-export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etiqueta, limite = 10, onCambio, soloVer = false }: {
+export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etiqueta, limite = 10, onCambio, soloVer = false, soloHoy = false }: {
   pacienteId: string
   /** La cita desde la que se viene (la de hoy en la agenda): sale marcada. */
   citaFoco?: string
@@ -42,7 +42,13 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
   onCambio?: () => void
   /** Solo mirar (nivel 1): se ve qué sesión toca cada día, sin arrastrar ni cambiar. */
   soloVer?: boolean
+  /**
+   * Nivel 2: solo cambia la sesión de HOY (otra suya o de la biblioteca). Mover o
+   * intercambiar sesiones entre días es planificar, del nivel 3.
+   */
+  soloHoy?: boolean
 }) {
+  const sinMover = soloVer || soloHoy
   const router = useRouter()
   const [citas, setCitas] = useState<Cita[]>([])
   const [suyas, setSuyas] = useState<{ id: string, nombre: string }[]>([])
@@ -149,7 +155,8 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 10, color: 'var(--grl)', lineHeight: 1.4 }}>
-        {soloVer ? 'Solo para consultar: mover sesiones entre días es planificar (encargado/a). La de hoy se cambia desde Entreno o el taller.'
+        {soloVer ? 'Solo para consultar: mover sesiones entre días es planificar (encargado/a).'
+          : soloHoy ? 'Puedes cambiar solo la sesión de hoy. Mover sesiones entre días es planificar (encargado/a).'
           : 'Arrastra una sesión encima de otra cita para intercambiarlas (en tablet: toca una y luego la otra).'}
       </div>
 
@@ -191,25 +198,25 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
         const marcada = cogida === c.id || sobre === c.id
         return (
           <div key={c.id}
-            onDragOver={soloVer ? undefined : e => { e.preventDefault(); if (sobre !== c.id) setSobre(c.id) }}
-            onDragLeave={soloVer ? undefined : () => { if (sobre === c.id) setSobre(null) }}
-            onDrop={soloVer ? undefined : e => { e.preventDefault(); const de = e.dataTransfer.getData('text/plain'); if (de) pedirIntercambio(de, c.id) }}
-            onClick={soloVer ? undefined : () => { if (cogida && cogida !== c.id) pedirIntercambio(cogida, c.id) }}
+            onDragOver={sinMover ? undefined : e => { e.preventDefault(); if (sobre !== c.id) setSobre(c.id) }}
+            onDragLeave={sinMover ? undefined : () => { if (sobre === c.id) setSobre(null) }}
+            onDrop={sinMover ? undefined : e => { e.preventDefault(); const de = e.dataTransfer.getData('text/plain'); if (de) pedirIntercambio(de, c.id) }}
+            onClick={sinMover ? undefined : () => { if (cogida && cogida !== c.id) pedirIntercambio(cogida, c.id) }}
             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 9,
               border: `1.5px solid ${marcada ? 'var(--gd)' : foco ? 'var(--g)' : 'var(--bd)'}`, background: foco ? 'var(--gl)' : 'var(--w)' }}>
             <div style={{ width: 74, flexShrink: 0, fontSize: 11, color: foco ? 'var(--gd)' : 'var(--gr)', fontWeight: foco ? 600 : 400 }}>
               {foco ? 'Hoy · ' : ''}{fechaTxt(c.fecha)}<div style={{ fontSize: 10, color: 'var(--grl)' }}>{c.hora ? String(c.hora).slice(0, 5) : ''}</div>
             </div>
-            <span draggable={!soloVer && !!c.sesion_id}
+            <span draggable={!sinMover && !!c.sesion_id}
               onDragStart={e => { e.dataTransfer.setData('text/plain', c.id); e.dataTransfer.effectAllowed = 'move' }}
-              onClick={soloVer ? undefined : e => { e.stopPropagation(); if (cogida && cogida !== c.id) { pedirIntercambio(cogida, c.id); return } if (c.sesion_id) setCogida(cogida === c.id ? null : c.id) }}
-              title={c.sesion_id && !soloVer ? 'Arrastra encima de otra cita, o tócala y luego toca la otra' : undefined}
-              style={{ flex: 1, minWidth: 0, fontSize: 11.5, padding: '4px 8px', borderRadius: 7, cursor: c.sesion_id && !soloVer ? 'grab' : 'default',
+              onClick={sinMover ? undefined : e => { e.stopPropagation(); if (cogida && cogida !== c.id) { pedirIntercambio(cogida, c.id); return } if (c.sesion_id) setCogida(cogida === c.id ? null : c.id) }}
+              title={c.sesion_id && !sinMover ? 'Arrastra encima de otra cita, o tócala y luego toca la otra' : undefined}
+              style={{ flex: 1, minWidth: 0, fontSize: 11.5, padding: '4px 8px', borderRadius: 7, cursor: c.sesion_id && !sinMover ? 'grab' : 'default',
                 background: c.sesion_id ? (cogida === c.id ? 'var(--gd)' : 'var(--g)') : 'transparent', color: c.sesion_id ? '#fff' : 'var(--grl)',
                 border: c.sesion_id ? 'none' : '1px dashed var(--bd)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {c.fija && <span title="Con candado">🔒 </span>}{c.sesNombre || 'Sin sesión'}
             </span>
-            {!soloVer && <button type="button" className="btn btn-s btn-sm" onClick={e => { e.stopPropagation(); setMenu(menu === c.id ? null : c.id) }}>Cambiar</button>}
+            {!soloVer && (!soloHoy || c.id === citaFoco) && <button type="button" className="btn btn-s btn-sm" onClick={e => { e.stopPropagation(); setMenu(menu === c.id ? null : c.id) }}>Cambiar</button>}
             {menu === c.id && (
               <div onClick={e => e.stopPropagation()}
                 style={{ position: 'absolute', right: 6, top: 'calc(100% + 4px)', zIndex: 20, width: 230, background: '#fff', border: '1px solid var(--bd)',
@@ -221,7 +228,7 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
                 ))}
                 <div style={{ borderTop: '1px solid var(--bd2)', margin: '3px 0' }}/>
                 <button type="button" className="btn btn-s btn-sm" onClick={() => abrir({ tipo: 'biblio', cita: c })}><Ic name="biblioteca" size={12}/> De la biblioteca</button>
-                <button type="button" className="btn btn-s btn-sm" onClick={() => abrir({ tipo: 'calendario', cita: c })}><Ic name="calendario" size={12}/> Calendario completo</button>
+                {!soloHoy && <button type="button" className="btn btn-s btn-sm" onClick={() => abrir({ tipo: 'calendario', cita: c })}><Ic name="calendario" size={12}/> Calendario completo</button>}
               </div>
             )}
           </div>
