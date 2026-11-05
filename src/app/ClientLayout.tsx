@@ -84,7 +84,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const franjaPractica = () => practica && (
     <div style={{ position: 'fixed', left: '50%', bottom: 14, transform: 'translateX(-50%)', zIndex: 200, display: 'flex', alignItems: 'center', gap: 10,
       background: '#E8A33D', color: '#2b1d05', borderRadius: 99, padding: '8px 10px 8px 16px', boxShadow: '0 8px 24px rgba(0,0,0,.18)', fontSize: 13, maxWidth: 'calc(100vw - 24px)', flexWrap: 'wrap' }}>
-      <b>Modo práctica</b><span>Pacientes inventados: nada de lo que hagas cuenta.</span>
+      <b>Modo práctica</b><span>Pacientes de prueba: practica tranquilo, no toca a ningún paciente real.</span>
       {perfil?.rol === 'admin' && (() => {
         let vc: string | null = null; try { vc = localStorage.getItem('sie_ver_como') } catch {}
         const chip = (v: string | null, t: string) => (
@@ -374,7 +374,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(2) }}>
                     <Ic name="ayuda" size={15}/> Guía del entrenador
                   </button>}
-                  {/* Para aprender sin miedo: pacientes inventados, nada de lo que se haga cuenta. */}
+                  {/* Para aprender sin miedo: pacientes de prueba, no toca a ningún paciente real. */}
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); practica ? salirPractica() : entrarPractica() }}>
                     <Ic name="entreno" size={15}/> {practica ? 'Salir del modo práctica' : 'Modo práctica'}
                   </button>

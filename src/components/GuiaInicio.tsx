@@ -22,7 +22,7 @@ import { usePathname, useRouter } from 'next/navigation'
 export type Paso = { ruta?: string, sitio?: string, titulo: string, texto: string, haz?: string }
 
 export const PASOS: Paso[] = [
-  { titulo: 'Bienvenido a SIE', texto: 'Te enseño lo que vas a usar: Hoy, la Agenda y el Taller. Estás en MODO PRÁCTICA, con pacientes inventados: en algunos pasos tendrás que hacerlo tú, sin miedo, que nada cuenta.' },
+  { titulo: 'Bienvenido a SIE', texto: 'Te enseño lo que vas a usar: Hoy, la Agenda y el Taller. Estás en MODO PRÁCTICA, con pacientes de prueba: en algunos pasos tendrás que hacerlo tú, tranquilo, que no toca a ningún paciente real.' },
   { ruta: '/hoy', sitio: 'nav/hoy', titulo: 'Hoy', texto: 'Tu punto de partida. Cada día empieza aquí: tu clase, tus tareas y tus notas.' },
   { ruta: '/hoy', sitio: 'hoy-clase', titulo: 'La clase de ahora', texto: 'Quién viene, qué sesión tiene cada uno y si hay algo que vigilar (alertas, tests).' },
   { ruta: '/hoy', sitio: 'hoy-tareas', titulo: 'Tus tareas', texto: 'Las que te han puesto a ti y las del equipo. Márcalas al hacerlas.' },
