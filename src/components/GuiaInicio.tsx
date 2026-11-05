@@ -14,25 +14,31 @@ import { usePathname, useRouter } from 'next/navigation'
 // Se repite cuando se quiera desde el menú de la inicial → «Guía de inicio».
 // ---------------------------------------------------------------------------
 
-export type Paso = { ruta?: string, sitio?: string, titulo: string, texto: string }
+/**
+ * `haz`: PASO INTERACTIVO. No se sigue con «Siguiente»: hay que hacerlo de verdad (la app
+ * avisa con ese nombre, lib/guiaEventos). Se hace en modo práctica, así que no se rompe
+ * nada. Si algo falla, «Saltar este paso».
+ */
+export type Paso = { ruta?: string, sitio?: string, titulo: string, texto: string, haz?: string }
 
 export const PASOS: Paso[] = [
-  { titulo: 'Bienvenido a SIE', texto: 'En dos minutos te enseño lo que vas a usar: Hoy, la Agenda y el Taller. Puedes salir cuando quieras y repetir la guía desde tu inicial, abajo a la izquierda.' },
+  { titulo: 'Bienvenido a SIE', texto: 'Te enseño lo que vas a usar: Hoy, la Agenda y el Taller. Estás en MODO PRÁCTICA, con pacientes inventados: en algunos pasos tendrás que hacerlo tú, sin miedo, que nada cuenta.' },
   { ruta: '/hoy', sitio: 'nav/hoy', titulo: 'Hoy', texto: 'Tu punto de partida. Cada día empieza aquí: tu clase, tus tareas y tus notas.' },
-  { ruta: '/hoy', sitio: 'hoy-clase', titulo: 'La clase de ahora', texto: 'Quién viene, qué sesión tiene cada uno y si hay algo que vigilar (alertas, tests). Toca a una persona y vas directo a su entreno en el Taller.' },
+  { ruta: '/hoy', sitio: 'hoy-clase', titulo: 'La clase de ahora', texto: 'Quién viene, qué sesión tiene cada uno y si hay algo que vigilar (alertas, tests).' },
   { ruta: '/hoy', sitio: 'hoy-tareas', titulo: 'Tus tareas', texto: 'Las que te han puesto a ti y las del equipo. Márcalas al hacerlas.' },
   { ruta: '/hoy', sitio: 'hoy-notas', titulo: 'Mis notas', texto: 'Para apuntarte cosas tuyas. Solo las ves tú.' },
-  { ruta: '/agenda', sitio: 'nav/agenda', titulo: 'Agenda', texto: 'Las clases del día por hora y sala. Desde aquí se consulta: quién viene y a qué hora.' },
-  { ruta: '/agenda', sitio: 'agenda-entreno', titulo: 'El entreno de cada persona', texto: 'Este botón abre su entreno, igual que en el Taller. Es lo único que necesitas tocar en la agenda.' },
+  { ruta: '/agenda', sitio: 'nav/agenda', titulo: 'Agenda', texto: 'Las clases del día por hora y sala: quién viene y a qué hora.' },
+  { ruta: '/agenda', sitio: 'agenda-entreno', titulo: 'Su sesión, desde la agenda', haz: 'agenda-entreno', texto: 'Hazlo tú: toca la mancuerna de una persona. Se abre su entreno de hoy, igual que en el Taller, y en «Programación» ves las sesiones que le tocan los próximos días.' },
   { ruta: '/taller', sitio: 'nav/taller', titulo: 'Taller', texto: 'Donde se da la clase. Al entrar ya está en la clase de ahora y en tu sala.' },
   { ruta: '/taller', sitio: 'taller-banda', titulo: 'Arriba, la clase', texto: 'El día, la hora y la sala; con una cabeza ves a cada persona por separado y con varias, a todos a la vez. El corazón abre los pulsómetros.' },
-  { ruta: '/taller', sitio: 'taller-personas', titulo: 'Las personas', texto: 'Toca a una para ver su entreno. En la elegida, «▾» te enseña su sesión, sus objetivos y sus alertas; si notas algo (una molestia, un mareo), apúntalo ahí como incidencia.' },
-  { ruta: '/taller', sitio: 'taller-series', titulo: 'Apuntar lo que hace', texto: 'Toca la casilla y apunta peso, repeticiones o tiempo. Lo que sale en gris es lo previsto: si lo hace igual, no hace falta tocarlo. Se guarda solo.' },
-  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Si no hace un ejercicio', texto: 'Desde aquí marcas «No lo hizo». Lo demás se da por hecho tal como sale.' },
-  { ruta: '/taller', sitio: 'taller-notas', titulo: 'Notas', texto: 'El lápiz de cada ejercicio: lo que dice el plan y lo que quieras apuntar hoy («le molesta el hombro al subir», «mejor con goma 2»). La próxima vez se ve.' },
-  { ruta: '/taller', sitio: 'taller-ejecucion', titulo: 'Ejecución', texto: 'Los puntos de una buena ejecución y cómo corregirla. Marca los que hace bien (2/4, 4/4…): así se ve si va mejorando la técnica.' },
-  { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar la clase', texto: 'Pulsa Finalizar. Queda guardado en el historial de cada uno, con lo apuntado y lo que salía en gris.' },
-  { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. Ahora sigues en modo práctica: prueba todo lo que has visto, sin miedo.' },
+  { ruta: '/taller', sitio: 'taller-personas', titulo: 'Elegir a una persona', haz: 'persona', texto: 'Hazlo tú: toca a otra persona de la fila. Abajo sale su entreno de hoy.' },
+  { ruta: '/taller', sitio: 'taller-personas', titulo: 'Su cita y sus alertas', haz: 'alerta', texto: 'Hazlo tú: vuelve a tocar a la persona elegida. Se abre su cita: su sesión de hoy, su objetivo y sus alertas. Apunta una alerta (por ejemplo «Dolor / molestia: le molesta la rodilla al bajar») y pulsa Activar.' },
+  { ruta: '/taller', sitio: 'taller-series', titulo: 'Apuntar lo que hace', haz: 'serie', texto: 'Hazlo tú: toca la casilla de un ejercicio y apunta peso, repeticiones o tiempo. Lo que sale en gris es lo previsto: si lo hace igual, no hace falta tocarlo. Se guarda solo.' },
+  { ruta: '/taller', sitio: 'taller-notas', titulo: 'Notas', haz: 'nota', texto: 'Hazlo tú: toca el lápiz de un ejercicio y escribe una nota («mejor con goma 2»). Ahí también ves lo que dice el plan. La próxima vez se ve.' },
+  { ruta: '/taller', sitio: 'taller-ejecucion', titulo: 'Ejecución', haz: 'ejecucion', texto: 'Hazlo tú: toca el contador (0/4) y marca un punto de buena ejecución que haga bien. Así se ve si mejora la técnica.' },
+  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Si no hace un ejercicio', haz: 'nolohizo', texto: 'Hazlo tú: toca este botón y marca «No lo hizo». Se deshace tocando otra vez. Lo demás se da por hecho tal como sale.' },
+  { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar la clase', haz: 'finalizar', texto: 'Hazlo tú: pulsa Finalizar. Queda guardado en el historial de cada uno, con lo apuntado y lo que salía en gris.' },
+  { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. Sigues en modo práctica: prueba lo que quieras y sal con «Salir» en la franja naranja.' },
 ]
 
 /**
@@ -44,10 +50,10 @@ export const PASOS_N2: Paso[] = [
   { titulo: 'Guía del entrenador', texto: 'Además de dar la clase, ahora puedes ajustar la clase de hoy de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te lo enseño en un minuto.' },
   { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'Biblioteca', texto: 'Para consultar los ejercicios: cómo se hacen, en qué fijarse y sus variantes. Toca uno para ver su ficha.' },
   { ruta: '/taller', sitio: 'taller-personas', titulo: 'La sesión de hoy', texto: 'En la persona elegida, «▾» abre su cita: puedes cambiar la sesión de hoy por otra de las suyas y apuntar alertas.' },
-  { ruta: '/taller', sitio: 'taller-metodo', titulo: 'El método de una parte', texto: 'El lápiz de cada parte cambia, solo para hoy, el método (circuito, superseries…), las series o vueltas y los descansos.' },
-  { ruta: '/taller', sitio: 'taller-anadir', titulo: 'Añadir un ejercicio', texto: 'Si la sesión se queda corta, el «+» de la parte añade un ejercicio solo para hoy. Te enseña los similares a los de esa parte.' },
-  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', texto: 'Aquí cambias un ejercicio por otro similar, solo hoy: salen los que hacen el mismo movimiento.' },
-  { ruta: '/taller', sitio: 'taller-franja', titulo: 'Cómo se hace hoy', texto: 'Toca cada palabra para cambiarla solo hoy: el lado (bilateral, unilateral, alterno), la ejecución (concéntrico, isométrico…) y si va por repeticiones o segundos. En ámbar, lo que hoy es distinto al plan.' },
+  { ruta: '/taller', sitio: 'taller-metodo', titulo: 'El método de una parte', haz: 'metodo', texto: 'Hazlo tú: toca el lápiz de una parte y cambia algo solo para hoy: el método (circuito, superseries…), las series o vueltas o los descansos.' },
+  { ruta: '/taller', sitio: 'taller-anadir', titulo: 'Añadir un ejercicio', haz: 'anadir', texto: 'Hazlo tú: si la sesión se queda corta, el «+» de la parte añade un ejercicio solo para hoy. Te enseña los similares a los de esa parte.' },
+  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', haz: 'cambiar', texto: 'Hazlo tú: aquí cambias un ejercicio por otro similar, solo hoy: salen los que hacen el mismo movimiento.' },
+  { ruta: '/taller', sitio: 'taller-franja', titulo: 'Cómo se hace hoy', haz: 'franja', texto: 'Hazlo tú: toca cada palabra para cambiarla solo hoy: el lado (bilateral, unilateral, alterno), la ejecución (concéntrico, isométrico…) y si va por repeticiones o segundos. En ámbar, lo que hoy es distinto al plan.' },
   { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar', texto: 'Finaliza la clase. Si hay varias salas en pantalla, te pregunta cuál.' },
   { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Ahora sigues en modo práctica: prueba todo lo que has visto. Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
 ]
@@ -67,6 +73,20 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
   const router = useRouter()
   const pathname = usePathname()
   const paso = PASOS_G[i]
+  /* PASO INTERACTIVO: se espera a que la app avise de que se ha hecho. */
+  const [hecho, setHecho] = useState(false)
+  useEffect(() => {
+    setHecho(false)
+    if (!paso.haz) return
+    let t: any
+    const oir = (e: Event) => {
+      if ((e as CustomEvent).detail !== paso.haz) return
+      setHecho(true)
+      t = setTimeout(() => setI(x => Math.min(x + 1, PASOS_G.length - 1)), 1200)
+    }
+    window.addEventListener('sie-guia', oir)
+    return () => { window.removeEventListener('sie-guia', oir); clearTimeout(t) }
+  }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si el paso es de otra pantalla, se va a ella.
   useEffect(() => {
@@ -119,6 +139,30 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
     const abajo = window.innerHeight - rect.bottom > 220
     globo = abajo ? { left, top: rect.bottom + 14 } : { left, top: Math.max(M, rect.top - 14), transform: 'translateY(-100%)' }
   }
+
+  /* HAZLO TÚ: sin velo ni tapa, para poder tocar la app. Un aro señala el sitio y la
+     tarjeta va abajo a la izquierda, encima de las ventanas que se abran. */
+  if (paso.haz) return (
+    <>
+      {rect && <div style={{ position: 'fixed', zIndex: 1000, left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, borderRadius: 14,
+        border: '3px solid #E8A33D', boxShadow: '0 0 0 6px rgba(232,163,61,.25)', pointerEvents: 'none', transition: 'all .25s' }}/>}
+      <div style={{ position: 'fixed', zIndex: 1000, left: 16, bottom: 72, width: 340, maxWidth: 'calc(100vw - 32px)', background: '#fff', borderRadius: 16,
+        padding: '14px 16px', boxShadow: '0 12px 40px rgba(0,0,0,.25)', border: '2px solid #E8A33D' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', color: '#7A5800', background: '#FCEFD6', borderRadius: 99, padding: '2px 8px' }}>HAZLO TÚ</span>
+          <span style={{ fontSize: 11, color: 'var(--grl)' }}>{i + 1} de {PASOS_G.length}</span>
+        </div>
+        <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--n)', marginBottom: 6 }}>{paso.titulo}</div>
+        <div style={{ fontSize: 13, color: 'var(--gr)', lineHeight: 1.5 }}>{hecho ? '¡Muy bien! Seguimos…' : paso.texto}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <button onClick={cerrar} style={{ border: 0, background: 'none', color: 'var(--grl)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Salir</button>
+          <span style={{ flex: 1 }}/>
+          {i > 0 && <button className="btn btn-s btn-sm" onClick={() => setI(i - 1)}>Atrás</button>}
+          <button className="btn btn-s btn-sm" onClick={() => ultimo ? cerrar() : setI(i + 1)} title="Si no te sale o ya lo sabes">Saltar este paso</button>
+        </div>
+      </div>
+    </>
+  )
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000 }}>

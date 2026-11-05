@@ -17,6 +17,7 @@ import ModalDatosCita from './components/ModalDatosCita'
 import ModoClase from '../taller/ModoClase'
 import ProgramacionCitas from '@/components/ProgramacionCitas'
 import ModalAlertasCita from './components/ModalAlertasCita'
+import { avisarGuia } from '@/lib/guiaEventos'
 import ModalTareas from './components/ModalTareas'
 import AvisoTareas from './components/AvisoTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
@@ -247,6 +248,7 @@ export default function AgendaPage() {
   }
 
   async function abrirEntrenoCita(c:any) {
+    avisarGuia('agenda-entreno')
     setVerEntrenoCita(c)
     setSesionDetalle(null)
     setAnotaciones({}); setPesos({}); setMostrarSesiones(false); setLoadingSesion(true)

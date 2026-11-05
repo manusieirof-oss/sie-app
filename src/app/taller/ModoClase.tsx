@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { aplicarAjustes, sinAjustes } from '@/lib/ajustesCita'
+import { avisarGuia } from '@/lib/guiaEventos'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar, confirmarAMano } from '@/lib/mantenimiento'
 import { registrarResultadoTest, ladoOpuesto } from '@/lib/tests'
@@ -200,6 +201,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * hizo, sus cifras no pueden llegar a la progresion. Desmarcar no recupera nada.
    */
   async function alternarNoHecho(pid: string, sid: string, ei: number) {
+    avisarGuia('nolohizo')
     const lista = leerNoHechos(pid, sid)
     if (lista.includes(ei)) { ponerNoHechos(pid, sid, lista.filter(x => x !== ei)); return }
     ponerNoHechos(pid, sid, [...lista, ei])
@@ -826,6 +828,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * sesión y quita el ajuste de hoy de esa parte, para que no tape el cambio.
    */
   async function aplicarMetodoParte(pid: string, pi: number, modo: string, v: ValoresMetodo, alcance: 'hoy' | 'siempre') {
+    avisarGuia('metodo')
     const item = seleccion.find((x:any) => x.paciente.id === pid)
     if (!item?.sesionId) return
     /* LAS SERIES QUE SE ACABAN DE PONER, MANDAN. Al cargar, el número de series sale de la
@@ -912,6 +915,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     aj.extras = { ...(aj.extras || {}), [String(pi)]: [...((aj.extras || {})[String(pi)] || []), extra] }
     const { error } = await supabase.from('citas').update({ ajustes: aj }).eq('id', item.citaId)
     if (error) { alert('No se ha podido añadir: ' + error.message); return }
+    avisarGuia('anadir')
     const datos = await cargarDatosSesion(pid, aplicarAjustes(ses, aj), item.fechaClase || fecha)
     setSeleccion(prev => prev.map((x:any) => x.paciente.id !== pid ? x : { ...x, datos: conservarDelDia(x.datos, datos) }))
   }
@@ -976,6 +980,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   async function sustituir(pid: string, i: number, nuevo: any) {
+    avisarGuia('cambiar')
     const item = seleccion.find((x:any) => x.paciente.id === pid)
     const ej = item?.datos?.[i]
     if (!item || !ej) return
@@ -1487,6 +1492,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   function mutarSerie(pid:string, ei:number, si:number, campo:string, val:string){
+    avisarGuia('serie')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; const series=[...datos[ei].series]
@@ -1531,6 +1537,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * sesion: manana vuelve a salir lo planificado.
    */
   function setRegimen(pid:string, ei:number, val:string){
+    avisarGuia('franja')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       // Al cambiar el regimen manda el (isometrico = segundos): se olvida el reps/seg de antes.
@@ -1546,6 +1553,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * hoy y se guarda. Otro toque la desmarca.
    */
   function confirmarSerie(pid:string, ei:number, si:number, on:boolean){
+    avisarGuia('serie')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; const e=datos[ei]
@@ -1567,6 +1575,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
    * paciente. No toca la biblioteca ni a los demas.
    */
   function setVolumen(pid:string, ei:number, val:'reps'|'segundos'){
+    avisarGuia('franja')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       /* Se vacia la otra casilla (reps o segundos): si se guardaran las dos, la proxima
@@ -1583,6 +1592,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
 
   // Lateralidad de hoy: como el regimen, no toca la sesion.
   function setLado(pid:string, ei:number, val:string){
+    avisarGuia('franja')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; datos[ei]={...datos[ei],lado:val,ladoHoy:true,guardado:false,precargado:false}
@@ -1592,6 +1602,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   function setComent(pid:string, ei:number, val:string){
+    avisarGuia('nota')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]; datos[ei]={...datos[ei],comentario:val,guardado:false}
@@ -1601,6 +1612,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   function toggleItem(pid:string, ei:number, ii:number){
+    avisarGuia('ejecucion')
     setSeleccion(prev => prev.map(s=>{
       if (s.paciente.id!==pid) return s
       const datos=[...s.datos]
@@ -1804,6 +1816,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   async function finalizarClase(lista:any[]) {
+    avisarGuia('finalizar')
     const quienes = porCerrar(lista)
     if (quienes.length === 0) return
     if (!confirm(`Se guardará la clase de ${quienes.length} ${quienes.length===1?'persona':'personas'}: ${quienes.map((x:any)=>nombrePac(x.paciente)).join(', ')}.\n\nLo que no se haya apuntado se guarda tal como sale en gris.`)) return
@@ -2071,7 +2084,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             const colorEstado = estado==='fin' ? 'var(--g)' : estado==='curso' ? 'var(--amb)' : 'var(--bm)'
             const activoChip = activo===s.paciente.id
             return (
-            <div key={s.paciente.id} onClick={()=>{ if (activo===s.paciente.id) setCitaVelo(s.paciente.id); else setActivo(s.paciente.id) }}
+            <div key={s.paciente.id} onClick={()=>{ if (activo===s.paciente.id) { setCitaVelo(s.paciente.id); avisarGuia('cita') } else { setActivo(s.paciente.id); avisarGuia('persona') } }}
               title={estado==='fin'?'Finalizado':estado==='curso'?'En curso, sin finalizar':'Sin empezar'}
               /* EL SELECCIONADO VA EN OSCURO, el guardado en verde claro. Antes los dos
                  iban en el verde de la app (relleno uno, claro el otro) y en la sala se

@@ -1,5 +1,6 @@
 'use client'
 import { abrirAlerta, cerrarAlerta, LBL_ALERTA } from '@/lib/alertas'
+import { avisarGuia } from '@/lib/guiaEventos'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { crearCita, ocupacionPorSala } from '@/lib/citas'
@@ -79,6 +80,7 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
     setOcupado(false)
     if (!r.ok) { setMsg('No se ha podido guardar la alerta: ' + r.error); return }
     setDesc(''); setTipoA('dolor'); setAfecta(true)
+    avisarGuia('alerta')
     await leerAlertas(); onCambio?.()
   }
   async function quitarAlerta(a: any) {
