@@ -74,10 +74,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (r.error) alert('No se ha podido: ' + r.error); else window.location.reload()
   }
   /* EN PRÁCTICA SE TIENE QUE NOTAR SIEMPRE: una franja abajo que no se quita. */
-  const franjaPractica = practica && (
+  /* Dirección ve TODO aunque esté en práctica: para probar lo de cada nivel, la franja
+     deja elegir «como nivel 1 / 2» (lo mismo que «Ver como» del menú, sin salir de aquí). */
+  const practicarComo = (v: string | null) => {
+    try { v ? localStorage.setItem('sie_ver_como', v) : localStorage.removeItem('sie_ver_como') } catch {}
+    window.location.reload()
+  }
+  const franjaPractica = () => practica && (
     <div style={{ position: 'fixed', left: '50%', bottom: 14, transform: 'translateX(-50%)', zIndex: 200, display: 'flex', alignItems: 'center', gap: 10,
       background: '#E8A33D', color: '#2b1d05', borderRadius: 99, padding: '8px 10px 8px 16px', boxShadow: '0 8px 24px rgba(0,0,0,.18)', fontSize: 13, maxWidth: 'calc(100vw - 24px)', flexWrap: 'wrap' }}>
       <b>Modo práctica</b><span>Pacientes inventados: nada de lo que hagas cuenta.</span>
+      {perfil?.rol === 'admin' && (() => {
+        let vc: string | null = null; try { vc = localStorage.getItem('sie_ver_como') } catch {}
+        const chip = (v: string | null, t: string) => (
+          <button key={t} onClick={() => practicarComo(v)} style={{ border: '1px solid #2b1d05', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', font: 'inherit', fontSize: 12,
+            background: vc === v ? '#2b1d05' : 'transparent', color: vc === v ? '#fff' : '#2b1d05' }}>{t}</button>)
+        return <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>Como: {chip('1', 'Nivel 1')}{chip('2', 'Nivel 2')}{chip(null, 'Todo')}</span>
+      })()}
       <button onClick={empezarDeNuevo} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Empezar de nuevo</button>
       <button onClick={salirPractica} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#2b1d05', color: '#fff', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Salir</button>
     </div>
@@ -307,7 +320,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </nav>
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
         {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
-      {franjaPractica}
+      {franjaPractica()}
       </div>
     )
   }
@@ -386,7 +399,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           fecha en grande). Eran 52 px de alto en todas las pantallas. */}
       <main className="content"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
       {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
-      {franjaPractica}
+      {franjaPractica()}
     </div>
   )
 }
