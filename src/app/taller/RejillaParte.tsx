@@ -133,15 +133,6 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <ImagenEjercicio insignias={false} src={ej.imagen_url} ejercicioId={ej.ejercicio_id} etiquetasEj={ej.etiquetas?.length ? ej.etiquetas : undefined}
                   radio={0} icono={34} alt={ej.nombre}/>
                 </div>
-                {/* REPETIDO EN LA SEMANA: ya lo hizo otro día o lo tiene en otra cita. Solo
-                    avisa (lib/repetidosSemana); el entrenador decide si lo cambia. */}
-                {repetidos[ej.ejercicio_id] && (
-                  <span title={repetidos[ej.ejercicio_id].detalle.join('\n')}
-                    style={{ position: 'absolute', left: 6, bottom: 6, maxWidth: 'calc(100% - 52px)' /* a la derecha va la chapa de ejecución */, background: 'rgba(255,255,255,.94)', color: 'var(--n)',
-                      border: '1px solid var(--amb)', borderRadius: 99, padding: '2px 8px', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden',
-                      textOverflow: 'ellipsis', pointerEvents: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.12)' }}>
-                    ↻ {repetidos[ej.ejercicio_id].corto}</span>
-                )}
                 {/* CAMBIAR Y NO LO HIZO, EN UNA CHAPA. Las dos son "hoy no va como estaba
                     previsto", asi que comparten boton: un menu con las dos. Si ya no lo hizo,
                     la chapa lo dice y deshace con un toque. */}
@@ -169,6 +160,13 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
               {ej.propuesta && <ChipPropuesta p={ej.propuesta}/>}
+              {/* REPETIDO EN LA SEMANA: ya lo hizo otro día o lo tiene en otra cita. Solo
+                  avisa (lib/repetidosSemana). Debajo del nombre y no sobre la foto: abajo de
+                  la foto ya van las series y la ejecución, y se montaban encima. */}
+              {repetidos[ej.ejercicio_id] && (
+                <div title={repetidos[ej.ejercicio_id].detalle.join('\n')}
+                  style={{ fontSize: 11, color: '#8A6410', marginTop: 2 }}>↻ {repetidos[ej.ejercicio_id].corto}</div>
+              )}
               {arreglar && ej.ejercicio_id && onMedida && <div><MedidaRapida tipo={ej.tipo_medida} nombre={ej.nombre} onCambio={(t: string) => onMedida(ej.ejercicio_id, t)}/></div>}
               {/* PARA QUÉ ES. Los objetivos que trabaja este ejercicio, como se dejó en la
                   sesión: que en sala se vea para qué sirve lo que se está haciendo. */}

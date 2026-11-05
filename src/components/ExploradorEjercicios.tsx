@@ -370,14 +370,15 @@ export default function ExploradorEjercicios({
             if (faltaVista && !resumenFijo) return <div style={tx}>Falta ejecutar sql/ejercicio-resumen.sql</div>
             if (!resumen) return <div style={tx}>Cargando…</div>
             if (panel === 'cromo') {
-              const rz = rareza(resumenClinica?.[e.id]?.veces || 0)
-              return <div style={{ ...tx, display: 'flex', alignItems: 'center', gap: 6 }}>
+              const v = resumenClinica?.[e.id]?.veces || 0, rz = rareza(v)
+              return <div style={{ ...tx, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ background: rz.color, color: '#fff', borderRadius: 99, padding: '1px 8px', fontSize: 10.5, letterSpacing: .4, textTransform: 'uppercase' }}>{rz.t}</span>
+                {v > 0 && <span><b style={{ color: 'var(--n)', fontSize: 14 }}>{v}</b> {v === 1 ? 'vez' : 'veces'}</span>}
               </div>
             }
             if (panel === 'capacidad') {
               const caps: any[] = rs?.capacidades || []
-              if (!caps.length) return <div style={tx}>{resumenFijo ? 'Sin capacidad apuntada con él' : 'Sin capacidad apuntada'}</div>
+              if (!caps.length) return null // sin datos, nada: un texto aquí solo estorba
               const tr = trozosCapacidad(caps), R = 15, L = 2 * Math.PI * R
               return <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                 <svg viewBox="0 0 40 40" width="40" height="40" style={{ flexShrink: 0 }}>
@@ -391,20 +392,25 @@ export default function ExploradorEjercicios({
                 </div>
               </div>
             }
-            if (panel === 'uso') return !rs || (!rs.veces && !rs.sesiones) ? <div style={tx}>Sin usar todavía</div> : (
-              <div style={tx}>
-                <div><b style={{ color: 'var(--n)' }}>{rs.veces}</b> {rs.veces === 1 ? 'vez apuntado' : 'veces apuntado'}</div>
-                {resumenFijo
-                  ? <div>En {rs.sesiones} {rs.sesiones === 1 ? 'sesión suya' : 'sesiones suyas'}</div>
-                  : <div>{rs.pacientes} {rs.pacientes === 1 ? 'paciente' : 'pacientes'} · en {rs.sesiones} {rs.sesiones === 1 ? 'sesión' : 'sesiones'}</div>}
-                {rs.ultima && <div>Última vez: {fechaCorta(rs.ultima)}</div>}
-              </div>)
+            /* USO EN CIFRAS, como en el cromo: número grande y etiqueta pequeña, sin frases.
+               Con un cliente elegido no hay "pacientes" (es uno): solo lo suyo. */
+            if (panel === 'uso') {
+              if (!rs || (!rs.veces && !rs.sesiones)) return null
+              const celdas: [string | number, string][] = [[rs.veces, 'Veces'], ...(resumenFijo ? [] : [[rs.pacientes, 'Pac.'] as [number, string]]),
+                [rs.sesiones, 'Ses.'], [rs.ultima ? fechaCorta(rs.ultima).replace(/ \d+$/, '') : '—', 'Última']]
+              return <div style={{ display: 'grid', gridTemplateColumns: `repeat(${celdas.length}, 1fr)`, gap: 2, marginTop: 6, textAlign: 'center' }}>
+                {celdas.map(([n, t]) => <div key={t}>
+                  <div style={{ fontSize: typeof n === 'number' ? 16 : 12.5, fontWeight: 600, color: 'var(--n)', lineHeight: '20px', whiteSpace: 'nowrap' }}>{n}</div>
+                  <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--grl)' }}>{t}</div>
+                </div>)}
+              </div>
+            }
             const objs: any[] = rs?.objetivos || []
-            return objs.length === 0 ? <div style={tx}>Aún sin objetivos</div> : (
+            // Todos, sin "+N": tocar el +N abría el cromo y allí no estaban los filtrados.
+            return objs.length === 0 ? null : (
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
-                {objs.slice(0, 3).map((o: any) => (
+                {objs.map((o: any) => (
                   <span key={o.nombre} className="badge badge-g" title={`${o.nombre} · en ${o.n} ${o.n === 1 ? 'sesión' : 'sesiones'}`}>◎ {o.nombre}</span>))}
-                {objs.length > 3 && <span style={{ fontSize: 11, color: 'var(--gr)' }}>+{objs.length - 3}</span>}
               </div>)
           })()}
           {(!paneles || panel === 'normal') && <>
