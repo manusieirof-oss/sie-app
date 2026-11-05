@@ -121,7 +121,7 @@ export default function BibliotecaVer({ ejercicios, etiquetas, pacientes = [], a
             resumenFijo={pac ? resumenPac : null} intensidades={intensidades}
             // EL CLIENTE, con el buscador de pacientes de toda la app y en la misma línea
             // que el de ejercicios. Sin elegir, la biblioteca es la de la clínica; elegido, la suya.
-            antesDelBuscador={<div title={pac ? (cargando ? 'Cargando sus ejercicios…' : `${lista.length} ejercicios suyos: los de sus sesiones y los que ya ha hecho. Las cifras son las suyas.`) : undefined}>
+            antesDelBuscador={<div data-guia="bib-cliente" title={pac ? (cargando ? 'Cargando sus ejercicios…' : `${lista.length} ejercicios suyos: los de sus sesiones y los que ya ha hecho. Las cifras son las suyas.`) : undefined}>
               <BuscadorPacientes flotante pacientes={pacientes} valor={pac?.id || ''} max={10}
                 placeholder="Buscar cliente para ver su biblioteca…"
                 onElegir={(p: any) => setPac(p)} onLimpiar={() => setPac(null)}/></div>}

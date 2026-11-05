@@ -46,16 +46,18 @@ export const PASOS: Paso[] = [
  * su plan, la cita (falta, cancelar, sala), las fichas, la valoración y la biblioteca
  * para consultar.
  */
+/* NIVEL 2: SOLO LO NUEVO respecto al nivel 1 (lo de dar la clase ya lo enseñó su guía). */
 export const PASOS_N2: Paso[] = [
-  { titulo: 'Guía del entrenador', texto: 'Además de dar la clase, ahora puedes ajustar la clase de hoy de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te lo enseño en un minuto.' },
-  { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'Biblioteca', texto: 'Para consultar los ejercicios: cómo se hacen, en qué fijarse y sus variantes. Toca uno para ver su ficha.' },
-  { ruta: '/taller', sitio: 'taller-personas', titulo: 'La sesión de hoy', texto: 'En la persona elegida, «▾» abre su cita: puedes cambiar la sesión de hoy por otra de las suyas y apuntar alertas.' },
+  { titulo: 'Guía del entrenador', texto: 'Ahora puedes ajustar la clase de hoy de cada persona. Todo lo que cambies es solo para hoy: su sesión de siempre no se toca. Te enseño solo lo nuevo, en un minuto.' },
+  { ruta: '/taller', sitio: 'taller-personas', titulo: 'Si no viene', texto: 'Toca a la persona elegida para abrir su cita. Si te avisan de que no viene, márcale Falta o Cancelada. Y desde ahí también cambias su sesión de hoy por otra de las suyas.' },
   { ruta: '/taller', sitio: 'taller-metodo', titulo: 'El método de una parte', haz: 'metodo', texto: 'Hazlo tú: toca el lápiz de una parte y cambia algo solo para hoy: el método (circuito, superseries…), las series o vueltas o los descansos.' },
   { ruta: '/taller', sitio: 'taller-anadir', titulo: 'Añadir un ejercicio', haz: 'anadir', texto: 'Hazlo tú: si la sesión se queda corta, el «+» de la parte añade un ejercicio solo para hoy. Te enseña los similares a los de esa parte.' },
-  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', haz: 'cambiar', texto: 'Hazlo tú: aquí cambias un ejercicio por otro similar, solo hoy: salen los que hacen el mismo movimiento.' },
-  { ruta: '/taller', sitio: 'taller-franja', titulo: 'Cómo se hace hoy', haz: 'franja', texto: 'Hazlo tú: toca cada palabra para cambiarla solo hoy: el lado (bilateral, unilateral, alterno), la ejecución (concéntrico, isométrico…) y si va por repeticiones o segundos. En ámbar, lo que hoy es distinto al plan.' },
-  { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar', texto: 'Finaliza la clase. Si hay varias salas en pantalla, te pregunta cuál.' },
-  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Ahora sigues en modo práctica: prueba todo lo que has visto. Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
+  { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Cambiar un ejercicio', haz: 'cambiar', texto: 'Hazlo tú: con ⇄ cambias un ejercicio por otro similar, solo hoy. También desde su cromo: toca la foto, pasa con ‹ › por su familia y pulsa «Hacer este hoy».' },
+  { ruta: '/taller', sitio: 'taller-franja', titulo: 'Cómo se hace hoy', haz: 'franja', texto: 'Hazlo tú: toca cada palabra de la franja para cambiarla solo hoy: el lado, la ejecución y si va por repeticiones o segundos. En ámbar, lo que hoy es distinto al plan.' },
+  { ruta: '/entrenamiento', sitio: 'bib-cliente', titulo: 'La biblioteca', texto: 'Para consultar los ejercicios. Busca aquí a un cliente y verás SUS ejercicios con sus cifras; sin nadie, los de toda la clínica. Toca un ejercicio para ver su cromo.' },
+  { ruta: '/entrenamiento', sitio: 'bib-lente', titulo: 'Un botón, varias vistas', texto: 'Cada toque cambia lo que ves debajo de cada ejercicio: qué trabaja, su cromo, su intensidad, su uso o sus objetivos.' },
+  { ruta: '/agenda', sitio: 'agenda-lente', titulo: 'Lo mismo en la agenda', texto: 'Junto a cada persona: la sesión que tiene hoy, su asistencia (el grupo se ordena de quien más viene a quien menos) o sus alertas.' },
+  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Sigues en modo práctica: prueba todo lo que has visto. Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
 ]
 
 const CLAVE = (uid: string, n = 1) => n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`

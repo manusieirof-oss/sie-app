@@ -547,7 +547,7 @@ export default function ExploradorEjercicios({
         </span>
         {paneles && (
           // Un toque, siguiente modo. Con su nombre al lado para saber en cuál estás.
-          <button type="button" className="chip-sel on" onClick={siguienteLente} title="Cambiar lo que se ve en las tarjetas"
+          <button type="button" data-guia="bib-lente" className="chip-sel on" onClick={siguienteLente} title="Cambiar lo que se ve en las tarjetas"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Ic name={lente.ic} size={13}/> {lente.t}
             <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{LENTES.map(l => <i key={l.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: l.k === panel ? 1 : .3 }}/>)}</span>

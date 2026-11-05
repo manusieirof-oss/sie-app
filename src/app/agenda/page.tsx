@@ -592,7 +592,7 @@ export default function AgendaPage() {
 
         {/* LA LENTE: un solo botón que va cambiando lo que se ve de cada persona. */}
         {vista==='dia'&&(()=>{ const ls = LENTES_AGENDA.filter(l=>l.k!=='cobro'||puedeAg('cobros')); const l = ls.find(x=>x.k===lente)||ls[0]
-          return <button type="button" className="chip-sel on" title="Cambiar lo que se ve de cada persona" style={{display:'inline-flex',alignItems:'center',gap:6}}
+          return <button type="button" data-guia="agenda-lente" className="chip-sel on" title="Cambiar lo que se ve de cada persona" style={{display:'inline-flex',alignItems:'center',gap:6}}
             onClick={()=>{ const n = ls[(ls.indexOf(l)+1)%ls.length].k; setLente(n); try{localStorage.setItem('agenda_lente',n)}catch{} }}>
             <Ic name={l.ic} size={13}/> {l.t}
             <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{ls.map(x=><i key={x.k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:x.k===l.k?1:.3}}/>)}</span>
