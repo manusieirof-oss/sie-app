@@ -81,8 +81,10 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
     let t: any
     const oir = (e: Event) => {
       if ((e as CustomEvent).detail !== paso.haz) return
+      // NO SALTA SOLO: al hacerlo se queda abierto lo que se haya abierto (su entreno, la
+      // nota…) y se sigue con «Siguiente» cuando se haya mirado. Saltando solo, la pantalla
+      // cambiaba antes de poder ver nada.
       setHecho(true)
-      t = setTimeout(() => setI(x => Math.min(x + 1, PASOS_G.length - 1)), 1200)
     }
     window.addEventListener('sie-guia', oir)
     return () => { window.removeEventListener('sie-guia', oir); clearTimeout(t) }
@@ -101,10 +103,11 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
   }, [])
 
   // Busca el sitio que señala (la pantalla puede tardar en pintarlo) y lo sigue si se mueve.
+  /* SIN PARPADEO: al cambiar de paso el globo se queda donde estaba hasta encontrar el
+     sitio nuevo (antes desaparecía y volvía a salir en cada paso). Solo se esconde al
+     principio, mientras aún no hay ningún sitio. */
   useLayoutEffect(() => {
-    setRect(null)
-    if (!paso.sitio) { setBuscando(false); return }
-    setBuscando(true)
+    if (!paso.sitio) { setRect(null); setBuscando(false); return }
     let vivo = true, intentos = 0
     const visible = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
     const buscar = () => {
@@ -112,11 +115,11 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
       const el = Array.from(document.querySelectorAll(`[data-guia="${paso.sitio}"]`)).find(x => visible(x as HTMLElement)) as HTMLElement | undefined
       if (el) {
         el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        setTimeout(() => { if (vivo) { setRect(el.getBoundingClientRect()); setBuscando(false) } }, 400)
+        setTimeout(() => { if (vivo) { setRect(el.getBoundingClientRect()); setBuscando(false) } }, 350)
         return
       }
       if (++intentos < 25) setTimeout(buscar, 120)
-      else setBuscando(false)
+      else { setRect(null); setBuscando(false) }
     }
     buscar()
     const recolocar = () => {
@@ -153,12 +156,15 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
           <span style={{ fontSize: 11, color: 'var(--grl)' }}>{i + 1} de {PASOS_G.length}</span>
         </div>
         <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--n)', marginBottom: 6 }}>{paso.titulo}</div>
-        <div style={{ fontSize: 13, color: 'var(--gr)', lineHeight: 1.5 }}>{hecho ? '¡Muy bien! Seguimos…' : paso.texto}</div>
+        <div style={{ fontSize: 13, color: 'var(--gr)', lineHeight: 1.5 }}>{paso.texto}</div>
+        {hecho && <div style={{ fontSize: 13, color: 'var(--gd)', fontWeight: 600, marginTop: 6 }}>✓ ¡Muy bien! Mira lo que ha salido y pulsa Siguiente.</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
           <button onClick={cerrar} style={{ border: 0, background: 'none', color: 'var(--grl)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Salir</button>
           <span style={{ flex: 1 }}/>
           {i > 0 && <button className="btn btn-s btn-sm" onClick={() => setI(i - 1)}>Atrás</button>}
-          <button className="btn btn-s btn-sm" onClick={() => ultimo ? cerrar() : setI(i + 1)} title="Si no te sale o ya lo sabes">Saltar este paso</button>
+          {hecho
+            ? <button className="btn btn-p btn-sm" onClick={() => ultimo ? cerrar() : setI(i + 1)}>{ultimo ? 'Terminar' : 'Siguiente'}</button>
+            : <button className="btn btn-s btn-sm" onClick={() => ultimo ? cerrar() : setI(i + 1)} title="Si no te sale o ya lo sabes">Saltar este paso</button>}
         </div>
       </div>
     </>
