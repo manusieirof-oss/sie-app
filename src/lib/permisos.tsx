@@ -41,7 +41,7 @@ export const MINIMO = {
   editar_plan: 3,          // cambiar la sesión PARA SIEMPRE: editor, «para siempre», crear, borrar
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
   cancelar_cita: 4,        // falta, cancelada y cambio de sala: por persona (POR_PERSONA)
-  citas_taller: 2,         // lo mismo pero SOLO desde el taller (y añadir a la clase): lo que nos avisan en sala
+  citas_taller: 2,         // falta o cancelada SOLO desde el taller: lo que nos avisan en sala
   torno: 3,
   ver_biblioteca: 2,       // la biblioteca de ejercicios, solo para consultar
   biblioteca: 3,
@@ -73,7 +73,7 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   editar_plan: 'Cambiar sesiones para siempre (crear, editar, borrar)',
   cambiar_sesion: 'Elegir o quitar la sesión de una cita',
   cancelar_cita: 'Marcar faltas, cancelar y cambiar de sala',
-  citas_taller: 'En el taller: faltas, cancelar, sala y añadir a la clase',
+  citas_taller: 'En el taller: marcar falta o cancelada',
   torno: 'El torno: planificar y crear sesiones',
   ver_biblioteca: 'Consultar la biblioteca de ejercicios',
   biblioteca: 'Crear y editar ejercicios',

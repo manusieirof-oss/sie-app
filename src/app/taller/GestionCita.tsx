@@ -119,7 +119,9 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
 }
 
 /** Velo de la cita de un paciente: falta, cancelada o cambio de sala. */
-export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFalta = false, arriba, onAlertas }: {
+export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFalta = false, sinSala = false, arriba, onAlertas }: {
+  /** Sin cambiar de sala (nivel 2: solo falta o cancelada desde el taller). */
+  sinSala?: boolean
   item: any, fecha: string, salas: string[], nombre: string, onCerrar: () => void, onHecho: (aviso?: string) => void,
   /** Lo primero del velo: su sesión de hoy y sus objetivos (lo pone el taller). */
   arriba?: React.ReactNode,
@@ -171,7 +173,7 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
         ))}</div>
         </>}
         {!soloFalta && <div className="gc-nota">Igual que en la agenda: cancelada no gasta del bono y genera recuperación si toca; falta, no.</div>}
-        {salas.length > 1 && !soloFalta && <>
+        {salas.length > 1 && !soloFalta && !sinSala && <>
           <div className="gc-lbl">Grupo</div>
           <div className="gc-chips">{salas.map(s => (
             <button key={s} disabled={ocupado} className={item.sala === s ? 'on' : ''} onClick={() => ponerSala(s)}>
