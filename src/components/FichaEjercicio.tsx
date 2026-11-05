@@ -51,10 +51,11 @@ export default function FichaEjercicio({ ejercicio, ejercicios, etiquetas, amasa
   const [uso, setUso] = useState<any>(resumenCache?.[ejercicio.id] ?? null)
   const carta = useRef<HTMLDivElement>(null)
   /* EL ESCENARIO, TAN GRANDE COMO QUEPA. El cromo tiene alto fijo (para poder darle la
-     vuelta) y lo demás del anverso ocupa unos 330 px; el resto es para la figura. */
+     vuelta) y lo demás del anverso (nombre, rosco o descripción, cifras y botón) ocupa
+     unos 440 px; el resto es para la figura. Con menos, el rosco se montaba encima. */
   const [alto, setAlto] = useState(380)
   useEffect(() => {
-    const medir = () => setAlto(Math.max(220, Math.min(430, Math.min(760, window.innerHeight * .92) - 330)))
+    const medir = () => setAlto(Math.max(220, Math.min(430, Math.min(760, window.innerHeight * .92) - 440)))
     medir(); window.addEventListener('resize', medir); return () => window.removeEventListener('resize', medir)
   }, [])
 
@@ -249,7 +250,7 @@ function Rosco({ caps }: { caps: { nombre: string, n: number }[] }) {
   const top = trozos[0]
   return (
     <div className="cr-rosco">
-      <svg viewBox="0 0 100 100" width="104" height="104">
+      <svg viewBox="0 0 100 100" width="92" height="92" style={{ flexShrink: 0 }}>
         <circle cx="50" cy="50" r={R} fill="none" stroke="var(--bl)" strokeWidth="13"/>
         {trozos.map(t => (
           <circle key={t.nombre} cx="50" cy="50" r={R} fill="none" stroke={t.color} strokeWidth="13"
@@ -297,7 +298,7 @@ button.cr-fam{cursor:pointer;color:var(--gd)}button.cr-fam:before{content:'‹ '
 .cr-vars button{flex-shrink:0;font:inherit;font-size:12px;padding:4px 11px;border-radius:99px;border:1.5px solid var(--bd);background:var(--w);color:var(--n);cursor:pointer}
 .cr-vars button.on{background:var(--n);border-color:var(--n);color:#fff}
 .cr-desc-f{flex:1;min-height:0;overflow:hidden;margin:8px 16px 0;font-size:13.5px;line-height:1.55;color:var(--gr);cursor:pointer;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
-.cr-rosco{flex:1;min-height:0;display:flex;align-items:center;gap:14px;margin:6px 16px 0}
+.cr-rosco{flex:1;min-height:96px;display:flex;align-items:center;gap:14px;margin:4px 16px 0;overflow:hidden}
 .cr-rosco-top{font-size:20px;font-weight:600;color:var(--n);line-height:1.15}
 .cr-rosco-ley{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:12px;color:var(--gr)}
 .cr-rosco-ley i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
