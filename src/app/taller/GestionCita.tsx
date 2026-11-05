@@ -43,7 +43,8 @@ async function cambiarEstado(cita: { id: string, paciente_id: string, fecha: str
   return ''
 }
 
-function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: string, onCerrar: () => void, children: React.ReactNode }) {
+/** El velo de la sala (fondo borroso y hoja blanca). Lo usa también la agenda. */
+export function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: string, onCerrar: () => void, children: React.ReactNode }) {
   return (
     <div className="gc-fondo" onClick={onCerrar}>
       <style>{CSS}</style>
@@ -53,6 +54,66 @@ function Velo({ titulo, sub, onCerrar, children }: { titulo: string, sub?: strin
       </div>
     </div>
   )
+}
+
+/**
+ * ALERTAS DE UN PACIENTE: las activas (con «Cerrar») y poner una nueva. EL MISMO BLOQUE
+ * en el taller (velo de la cita) y en la agenda (botón de alertas): antes eran dos
+ * pantallas distintas —en la agenda un desplegable y en el taller botones— y parecían
+ * cosas diferentes. Van por lib/alertas, así quedan también en el historial.
+ */
+export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, onCambio?: () => void }) {
+  const [alertas, setAlertas] = useState<any[]>([])
+  const [tipoA, setTipoA] = useState('dolor')
+  const [afecta, setAfecta] = useState(true)
+  const [desc, setDesc] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  const [msg, setMsg] = useState('')
+  const leerAlertas = () => supabase.from('alertas_paciente').select('*').eq('paciente_id', pacienteId).eq('activa', true)
+    .order('fecha_inicio', { ascending: false }).then(({ data }) => setAlertas(data || []))
+  useEffect(() => { leerAlertas() }, [pacienteId]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function nuevaAlerta() {
+    if (!desc.trim() || ocupado) return
+    setOcupado(true); setMsg('')
+    const r = await abrirAlerta(pacienteId, tipoA, afecta, desc.trim())
+    setOcupado(false)
+    if (!r.ok) { setMsg('No se ha podido guardar la alerta: ' + r.error); return }
+    setDesc(''); setTipoA('dolor'); setAfecta(true)
+    await leerAlertas(); onCambio?.()
+  }
+  async function quitarAlerta(a: any) {
+    setOcupado(true)
+    const r = await cerrarAlerta(a)
+    setOcupado(false)
+    if (!r.ok) { setMsg('No se ha podido cerrar: ' + r.error); return }
+    await leerAlertas(); onCambio?.()
+  }
+  return <>
+    <div className="gc-lbl">Alertas</div>
+    {alertas.map(a => (
+      <div key={a.id} className={'gc-alerta' + (a.afecta_sesion ? ' afecta' : '')}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <b>{LBL_ALERTA[a.tipo] || a.tipo}</b>{a.afecta_sesion && <span className="gc-afecta">afecta a la sesión</span>}
+          {a.descripcion && <div>{a.descripcion}</div>}
+          {a.fecha_inicio && <div style={{ fontSize: 11, color: 'var(--grl)' }}>desde {String(a.fecha_inicio).slice(0, 10).split('-').reverse().join('/')}</div>}
+        </div>
+        <button disabled={ocupado} onClick={() => quitarAlerta(a)}>Cerrar</button>
+      </div>
+    ))}
+    <div className="gc-chips">{Object.entries(LBL_ALERTA).map(([k, l]) => (
+      <button key={k} className={tipoA === k ? 'on' : ''} onClick={() => { setTipoA(k); setAfecta(k === 'dolor' || k === 'lesion') }}>{l}</button>
+    ))}</div>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: afecta ? 'var(--red)' : 'var(--gr)', margin: '2px 0 8px', cursor: 'pointer' }}>
+      <input type="checkbox" checked={afecta} onChange={e => setAfecta(e.target.checked)}/> Afecta a la sesión (adaptar el entreno)
+    </label>
+    <div style={{ display: 'flex', gap: 6 }}>
+      <input className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Molestia cervical, viene cargada / tiene cita médica el martes…"
+        onKeyDown={e => { if (e.key === 'Enter') nuevaAlerta() }} style={{ flex: 1, fontSize: 13 }}/>
+      <button className="btn btn-p btn-sm" disabled={!desc.trim() || ocupado} onClick={nuevaAlerta}>Activar</button>
+    </div>
+    <div className="gc-nota">Queda en su ficha y en su historial.</div>
+    {msg && <div className="gc-error">{msg}</div>}
+  </>
 }
 
 /** Velo de la cita de un paciente: falta, cancelada o cambio de sala. */
@@ -75,33 +136,6 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
   }, [fecha, item.hora])
   const estado = item.estado === 'realizada' ? 'programada' : (item.estado || 'programada')
   const cita = { id: item.citaId, paciente_id: item.paciente.id, fecha, hora: item.hora }
-
-  /* INCIDENCIAS = ALERTAS, las mismas que se ponen desde la agenda (dolor, lesión, cita
-     médica…, y si afectan a la sesión). Van por lib/alertas para que queden también en
-     el historial del paciente, y salen en el taller junto a sus molestias. */
-  const [alertas, setAlertas] = useState<any[]>([])
-  const [tipoA, setTipoA] = useState('dolor')
-  const [afecta, setAfecta] = useState(true)
-  const [desc, setDesc] = useState('')
-  const leerAlertas = () => supabase.from('alertas_paciente').select('*').eq('paciente_id', item.paciente.id).eq('activa', true)
-    .order('fecha_inicio', { ascending: false }).then(({ data }) => setAlertas(data || []))
-  useEffect(() => { leerAlertas() }, [item.paciente.id])
-  async function nuevaAlerta() {
-    if (!desc.trim() || ocupado) return
-    setOcupado(true); setMsg('')
-    const r = await abrirAlerta(item.paciente.id, tipoA, afecta, desc.trim())
-    setOcupado(false)
-    if (!r.ok) { setMsg('No se ha podido guardar la alerta: ' + r.error); return }
-    setDesc(''); setTipoA('dolor'); setAfecta(true)
-    await leerAlertas(); onAlertas?.()
-  }
-  async function quitarAlerta(a: any) {
-    setOcupado(true)
-    const r = await cerrarAlerta(a)
-    setOcupado(false)
-    if (!r.ok) { setMsg('No se ha podido cerrar: ' + r.error); return }
-    await leerAlertas(); onAlertas?.()
-  }
 
   async function ponerEstado(v0: string) {
     if (ocupado) return
@@ -143,28 +177,7 @@ export function VeloCita({ item, fecha, salas, nombre, onCerrar, onHecho, soloFa
           ))}</div>
           <div className="gc-nota">Solo esta clase. Para cambiarle todas las citas, desde su ficha.</div>
         </>}
-        <div className="gc-lbl">Incidencias</div>
-        {alertas.map(a => (
-          <div key={a.id} className={'gc-alerta' + (a.afecta_sesion ? ' afecta' : '')}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <b>{LBL_ALERTA[a.tipo] || a.tipo}</b>{a.afecta_sesion && <span className="gc-afecta">afecta a la sesión</span>}
-              {a.descripcion && <div>{a.descripcion}</div>}
-            </div>
-            <button disabled={ocupado} onClick={() => quitarAlerta(a)}>Cerrar</button>
-          </div>
-        ))}
-        <div className="gc-chips">{Object.entries(LBL_ALERTA).map(([k, l]) => (
-          <button key={k} className={tipoA === k ? 'on' : ''} onClick={() => { setTipoA(k); setAfecta(k === 'dolor' || k === 'lesion') }}>{l}</button>
-        ))}</div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: afecta ? 'var(--red)' : 'var(--gr)', margin: '2px 0 8px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={afecta} onChange={e => setAfecta(e.target.checked)}/> Afecta a la sesión (adaptar el entreno)
-        </label>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Molestia cervical, viene cargada / tiene cita médica el martes…"
-            onKeyDown={e => { if (e.key === 'Enter') nuevaAlerta() }} style={{ flex: 1, fontSize: 13 }}/>
-          <button className="btn btn-p btn-sm" disabled={!desc.trim() || ocupado} onClick={nuevaAlerta}>Activar</button>
-        </div>
-        <div className="gc-nota">Igual que las alertas de la agenda: queda en su ficha y en su historial.</div>
+        <BloqueAlertas pacienteId={item.paciente.id} onCambio={onAlertas}/>
       </>}
       {msg && <div className="gc-error">{msg}</div>}
       <div className="gc-pie"><button className="btn btn-p btn-sm" onClick={onCerrar}>Listo</button></div>

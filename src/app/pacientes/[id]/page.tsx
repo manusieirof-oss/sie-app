@@ -10,7 +10,6 @@ import ResultadosTab from './components/ResultadosTab'
 import EntrenoTab from './components/EntrenoTab'
 import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
-import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
 import { registrarResultadoTest, textoMedida, esSuma, ladoOpuesto } from '@/lib/tests'
 import ExploradorTests from '@/components/ExploradorTests'
@@ -21,6 +20,7 @@ import { programarEstado, anularProgramacion, estadoDe as situacionDe, ESTADOS_P
 import ModalRealizarTest, { ladoVacio } from '@/components/ModalRealizarTest'
 import { asistencia } from '@/lib/resultados'
 import { leerLista } from '@/lib/listasPaciente'
+import { cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import ModalAlertasCita from '@/app/agenda/components/ModalAlertasCita'
 import ModalBono from '../components/ModalBono'
 import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
@@ -718,12 +718,6 @@ export default function FichaPacientePage() {
     setAlertas(al||[])
   }
 
-  async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
-    const r = await abrirAlerta(pacienteId, tipo, afectaSesion, descripcion)
-    if (!r.ok) { alert('Error al crear la alerta: '+r.error); return }
-    recargarAlertas()
-  }
-
   async function cerrarAlerta(alertaId:string) {
     const alerta = alertas.find(a=>a.id===alertaId)
     if (!alerta) return
@@ -731,6 +725,7 @@ export default function FichaPacientePage() {
     if (!r.ok) { alert('Error al cerrar la alerta: '+r.error); return }
     recargarAlertas()
   }
+
 
   async function toggleMolestia(molId: string, activa: boolean) {
     await supabase.from('molestias').update({ activa:!activa }).eq('id',molId); cargar()
@@ -1070,10 +1065,8 @@ export default function FichaPacientePage() {
       {/* MODAL BONO */}
       {modalAlertas && (
         <ModalAlertasCita
-          verAlertasCita={{paciente_id:pac.id, pacientes:{nombre:pac.nombre, apellidos:pac.apellidos}}}
-          alertasPaciente={alertas}
-          crearAlerta={crearAlerta}
-          cerrarAlerta={cerrarAlerta}
+          verAlertasCita={{paciente_id:pac.id, pacientes:{nombre:pac.nombre, apellidos:pac.apellidos, nombre_clinica:pac.nombre_clinica}}}
+          onCambio={recargarAlertas}
           onCerrar={()=>setModalAlertas(false)}
         />
       )}

@@ -6,7 +6,6 @@ import { horasDeAgenda } from '@/lib/generarHoras'
 import { cargarTurnos } from '@/lib/turnos'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase, TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
-import { abrirAlerta, cerrarAlerta as cerrarAlertaLib } from '@/lib/alertas'
 import { soloVigentes } from '@/lib/linaje'
 import VistaDia from './components/VistaDia'
 import VistaSemana from './components/VistaSemana'
@@ -510,21 +509,6 @@ export default function AgendaPage() {
     recargarTareas()
   }
 
-  async function crearAlerta(pacienteId:string, tipo:string, afectaSesion:boolean, descripcion:string) {
-    const r = await abrirAlerta(pacienteId, tipo, afectaSesion, descripcion)
-    if (!r.ok) { alert('Error al crear la alerta: '+r.error); return }
-    const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
-    setAlertasPaciente(alPac||[])
-  }
-
-  async function cerrarAlerta(alertaId:string) {
-    const a = alertasPaciente.find((x:any)=>x.id===alertaId)
-    if (!a) return
-    const r = await cerrarAlertaLib(a)
-    if (!r.ok) { alert('Error al cerrar la alerta: '+r.error); return }
-    const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true)
-    setAlertasPaciente(alPac||[])
-  }
 
   async function cargarRecuperaciones(pacienteId: string) {
     if (!pacienteId) { setRecuperacionesPaciente([]); return }
@@ -804,7 +788,8 @@ export default function AgendaPage() {
           </div>
         </div>
       )}
-      {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} alertasPaciente={alertasPaciente} crearAlerta={crearAlerta} cerrarAlerta={cerrarAlerta} onCerrar={()=>setVerAlertasCita(null)}/>}
+      {verAlertasCita&&<ModalAlertasCita verAlertasCita={verAlertasCita} onCerrar={()=>setVerAlertasCita(null)}
+        onCambio={async()=>{ const { data: alPac } = await supabase.from('alertas_paciente').select('*').eq('activa',true); setAlertasPaciente(alPac||[]) }}/>}
       {modalTareas&&<ModalTareas tareas={tareas} perfiles={perfiles} pacientes={pacientes} userId={userId} crearTarea={crearTarea} completarTarea={completarTarea} borrarTarea={borrarTarea} onCerrar={()=>setModalTareas(false)}/>}
     </>
   )
