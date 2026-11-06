@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hoyISO, sumarDias } from '@/lib/fechas'
-import CuboAlcance from '@/components/calor/CuboAlcance'
+import NebulosaPrograma from '@/components/ficha/NebulosaPrograma'
 import MapaTrabajo from '@/components/MapaTrabajo'
 import CuerpoSalud, { type VistaSalud } from '@/components/ficha/CuerpoSalud'
 import { Ic } from '@/lib/icons'
@@ -99,6 +99,8 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
     return c.extra || (habitual && vistas[k] > habitual) ? 1.12 : 1
   })
   const escala = bruta.map((x, i) => 0.25 * (bruta[i - 1] ?? x) + 0.5 * x + 0.25 * (bruta[i + 1] ?? x))
+  // Las mismas listas mientras no cambien las citas: si no, la nebulosa se rehacía entera en cada pintado.
+  const datos = useMemo(() => ({ v, t, escala }), [citas]) // eslint-disable-line react-hooks/exhaustive-deps
   const faltas = (citas || []).filter(c => c.estado === 'falta' || c.estado === 'cancelada').length
 
   return (
@@ -109,14 +111,13 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
         <div className="sec-h"><span className="ct-l"><Ic name="calendario" size={13}/> Su programación</span>
           <span className="sh-r" style={{ fontSize: 11.5, color: 'var(--grl)' }}>
             {alerta ? <span style={{ color: 'var(--red)' }}>con alerta · </span> : null}{faltas ? `${faltas} falta${faltas === 1 ? '' : 's'} o cancelada${faltas === 1 ? '' : 's'} en 8 semanas` : 'sin faltas en 8 semanas'}</span></div>
-        <div style={{ height: 210, display: 'flex' }}>
+        <div style={{ height: 250, display: 'flex' }}>
           {citas === null ? <div style={{ margin: 'auto', fontSize: 12, color: 'var(--grl)' }}>Cargando…</div>
             : n < 2 ? <div style={{ margin: 'auto', fontSize: 13, color: 'var(--grl)' }}>Aún no tiene citas para dibujarla.</div>
-            : <CuboAlcance conEstilo n={n} hoy={iHoy} marcas={[]} sombras={[]} linea={{ v, t }}
-                fechaIni={fCorta(citas![0].fecha)} fechaFin={fCorta(citas![n - 1].fecha)} botones={null}
-                colorHaz={alerta ? '#D99A9A' : '#5A969E'} escala={escala}/>}
+            : <NebulosaPrograma trabajo={datos.v} intens={datos.t} escala={datos.escala} hoy={iHoy} alerta={alerta}
+                fechaIni={fCorta(citas![0].fecha)} fechaFin={fCorta(citas![n - 1].fecha)}/>}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--grl)' }}>Gíralo con el dedo; doble toque para verlo grande. Más alto, más trabajo; más grueso, más intenso; el cubo se estrecha donde faltó o canceló y se ensancha si vino de más.</div>
+        <div style={{ fontSize: 11, color: 'var(--grl)' }}>Gírala con el dedo. Más alto, más trabajo; más grueso, más intenso; la niebla se estrecha donde faltó o canceló y se abre si vino de más. El aro naranja es hoy.</div>
       </div>
       <div className="sec" style={{ marginBottom: 0 }}>
         <div className="sec-h"><span className="ct-l"><Ic name="cuerpo" size={13}/> Su cuerpo</span>
