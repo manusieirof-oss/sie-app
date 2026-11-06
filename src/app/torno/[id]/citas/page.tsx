@@ -238,8 +238,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     // Desde el torno (sesiones o ciclo en la dirección) lo natural es alternarlas en su
     // orden; desde la ficha, la agenda o el taller se empieza por día de la semana.
     setRep(repartoVacio())
-    setRot(q.ses.length || q.sis.length ? lista.map(x => x.id) : primera ? [primera.id] : [])
-    setPincel(primera?.id || null)
+    // NINGUNA SESIÓN ELEGIDA DE ENTRADA (marcaba todas sin querer): solo la que se pide
+    // expresamente al llegar (?pincel=, «Asignar a citas» de una sesión concreta).
+    const pedidaOk = lista.find(x => x.id === pedida)
+    setRot(pedidaOk ? [pedidaOk.id] : [])
+    setPincel(pedidaOk?.id || null)
     const enc = encargoDe(new URLSearchParams(sp.toString()))
     setEncargo(enc)
     setAMano(enc?.citaId && primera && pedida === primera.id && (cs || []).some((c: any) => c.id === enc.citaId)
@@ -311,6 +314,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     // segundo la 2ª… Por bloques: cada sesión tocada, las semanas elegidas.
     const porDia: Record<number, string> = {}
     diasConCitas.forEach((d, i) => { if (rot.length) porDia[d] = rot[i % rot.length] })
+    if (!rep.modo) return
     guardarPaso()
     setPintado(planReparto({ citas, original, aMano, fijas, sesiones, modo: rep.modo, cada: rep.cada,
       porDia, orden: rot, bloques: rot.map(ses => ({ ses, semanas: rep.semanas })), hasta: rep.hasta, pisar: rep.pisar }))

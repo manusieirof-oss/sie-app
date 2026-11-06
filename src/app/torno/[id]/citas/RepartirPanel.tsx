@@ -11,14 +11,17 @@ import { DIAS_LARGOS, type ModoReparto, type HastaReparto } from '@/lib/repartir
 // ---------------------------------------------------------------------------
 
 export type EstadoReparto = {
-  modo: ModoReparto
+  /** null = sin elegir: hay que tocar una condición antes de pintar. */
+  modo: ModoReparto | null
   cada: number
   semanas: number
   hasta: HastaReparto
   pisar: boolean
 }
 
-export const repartoVacio = (): EstadoReparto => ({ modo: 'alternar', cada: 1, semanas: 4, hasta: { tipo: 'todas' }, pisar: false })
+// SIN NADA ELEGIDO DE ENTRADA: con «Alternando» ya marcado se pintaba sin querer. Hay que
+// tocar la condición (y las sesiones) a propósito.
+export const repartoVacio = (): EstadoReparto => ({ modo: null, cada: 1, semanas: 4, hasta: { tipo: 'todas' }, pisar: false })
 
 export default function RepartirPanel({ r, setR, nombres, diasConCitas, hoy, onPintar, nCambian }: {
   r: EstadoReparto
@@ -51,7 +54,7 @@ export default function RepartirPanel({ r, setR, nombres, diasConCitas, hoy, onP
           </select></div>
       )}
       {/* Lo que va a hacer, dicho en palabras, con las sesiones tocadas. */}
-      {nombres.length === 0 ? <em>Toca abajo las sesiones a repartir.</em> : (
+      {!r.modo ? <em>Elige arriba cómo repartirlas.</em> : nombres.length === 0 ? <em>Toca abajo las sesiones a repartir.</em> : (
         <div className="tc-resumen">
           {r.modo === 'dias'
             ? diasConCitas.map((d, i) => <div key={d}><b>{DIAS_LARGOS[d]}</b> → {nombres[i % nombres.length]}</div>)
@@ -73,7 +76,7 @@ export default function RepartirPanel({ r, setR, nombres, diasConCitas, hoy, onP
           onChange={e => setR(p => ({ ...p, hasta: { ...p.hasta, semanas: Math.max(1, Number(e.target.value) || 1) } }))}/><span>semanas</span></div>
       )}
       <label><input type="checkbox" checked={r.pisar} onChange={e => setR(p => ({ ...p, pisar: e.target.checked }))}/> pisar las que ya tienen otra (nunca las de candado)</label>
-      <button className="btn btn-p btn-sm" disabled={nombres.length === 0} onClick={onPintar}>Pintar</button>
+      <button className="btn btn-p btn-sm" disabled={nombres.length === 0 || !r.modo} onClick={onPintar}>Pintar</button>
       {nCambian > 0 && <em className="tc-cambian">{nCambian} cita{nCambian === 1 ? '' : 's'} cambia{nCambian === 1 ? '' : 'n'} · se guarda al Confirmar</em>}
     </div>
   )
