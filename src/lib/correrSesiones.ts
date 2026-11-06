@@ -1,5 +1,4 @@
 import { supabase } from './supabase'
-import { cicloDe } from './rotacion'
 
 /**
  * LAS SESIONES CORREN CON LAS CITAS (Ajustes › Recuperaciones: «Las sesiones corren»).
@@ -73,17 +72,34 @@ async function escribir(antes: Cita[], nuevo: Map<string, Item>) {
   return n
 }
 
-/** La siguiente de la rotación del paciente, o null si no hay una rotación clara. */
+/**
+ * LA ROTACIÓN, AUNQUE ESTÉ ALGO DESORDENADA. Antes solo se reconocía si el patrón se
+ * repetía exacto (A B C A B C): con un cambio a mano o una falta en medio no había
+ * rotación y la cita nueva se quedaba sin sesión. Ahora se lee hacia atrás desde la
+ * última y se van cogiendo sesiones distintas hasta que una se repite: eso es la vuelta
+ * más reciente, en su orden. A B C A B C → A B C · A B B C A → B C A.
+ */
+function rotacionReciente(seq: string[]): string[] {
+  const vistos: string[] = []
+  for (let i = seq.length - 1; i >= 0; i--) {
+    if (vistos.includes(seq[i])) break
+    vistos.push(seq[i])
+  }
+  return vistos.reverse()
+}
+
+/** La siguiente de la rotación del paciente (sin contar las de candado), o null si no tiene. */
 async function siguienteDeRotacion(pid: string, anterior: string | null): Promise<string | null> {
   const { data } = await supabase.from('citas').select('fecha,hora,tipo,sesion_id')
     .eq('paciente_id', pid).in('estado', ['programada', 'realizada']).not('sesion_id', 'is', null)
     .order('fecha', { ascending: false }).order('hora', { ascending: false }).limit(24)
   const cs = (data || []).filter(esClase).reverse()
   const f = await fijas(cs.map((c: any) => c.sesion_id))
+  // Las de CANDADO (p. ej. la fuerza en grupo en días fijos) no cuentan: van por libre y,
+  // metidas en medio, rompían el orden de las demás.
   const seq = cs.map((c: any) => c.sesion_id as string).filter(id => !f.has(id))
-  const ciclo = cicloDe(seq)
-  // Si no se repite nada, no hay rotación que seguir: mejor un hueco que adivinar.
-  if (!ciclo.length || ciclo.length === seq.length) return null
+  const ciclo = rotacionReciente(seq)
+  if (!ciclo.length) return null
   // Sin anterior (la nueva va la ultima), se sigue desde la ultima que tiene.
   const ant = anterior || seq[seq.length - 1] || null
   const p = ant ? ciclo.indexOf(ant) : -1
