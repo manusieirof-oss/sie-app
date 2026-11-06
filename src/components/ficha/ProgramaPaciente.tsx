@@ -79,11 +79,13 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
   const cuentas = Object.values(porSemana).sort((a, b) => a - b)
   const habitual = cuentas.length ? cuentas[Math.floor(cuentas.length / 2)] : 0
   const vistas: Record<string, number> = {}
-  const escala = (citas || []).map(c => {
-    if (c.estado === 'falta' || c.estado === 'cancelada') return 0.55
+  // Sutil: una falta lo deja al 80% y una de más al 112%, y se reparte con sus vecinas.
+  const bruta = (citas || []).map(c => {
+    if (c.estado === 'falta' || c.estado === 'cancelada') return 0.8
     const k = semana(c.fecha); vistas[k] = (vistas[k] || 0) + 1
-    return c.extra || (habitual && vistas[k] > habitual) ? 1.3 : 1
+    return c.extra || (habitual && vistas[k] > habitual) ? 1.12 : 1
   })
+  const escala = bruta.map((x, i) => 0.25 * (bruta[i - 1] ?? x) + 0.5 * x + 0.25 * (bruta[i + 1] ?? x))
   const faltas = (citas || []).filter(c => c.estado === 'falta' || c.estado === 'cancelada').length
 
   return (

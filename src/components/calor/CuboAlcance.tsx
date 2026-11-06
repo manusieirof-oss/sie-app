@@ -60,20 +60,28 @@ export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, 
        Se dibujan solo las caras largas y las tapas de los extremos, sin rayas entre tramos
        iguales: se lee como un solo cubo que adelgaza. */
     if (escala && escala.length === n) {
-      const w = L / n
-      const tramo = (i: number) => {
-        const k = escala[i], h = A * k, d = P * k, y0 = (A - h) / 2, x = X(i)
+      /* SUAVE: cada cita se parte en lonchas finas y el tamaño pasa de una cita a la
+         siguiente con una curva (coseno). Así el cubo se estrecha o ensancha poco a poco,
+         como una garganta, en vez de verse una caja pequeña metida en medio. */
+      const SUB = 6, w = L / n / SUB
+      const kEn = (x: number) => {               // x en "citas" (0..n)
+        const c = x - 0.5, i = Math.max(0, Math.min(n - 1, Math.floor(c))), j = Math.min(n - 1, i + 1)
+        const t = Math.max(0, Math.min(1, c - i)), u = (1 - Math.cos(Math.PI * t)) / 2
+        return escala[i] + (escala[j] - escala[i]) * u
+      }
+      const tramo = (q: number) => {
+        const k = kEn((q + 0.5) / SUB), h = A * k, d = P * k, y0 = (A - h) / 2, x = q * w
         const ln = 'border:none;border-top:1.5px solid var(--g);border-bottom:1.5px solid var(--g);'
-        return f(w + 0.5, h, `left:${x}px;top:${y0}px;${ln}`, `translateZ(${d / 2}px)`) +
-          f(w + 0.5, h, `left:${x}px;top:${y0}px;${ln}`, `rotateY(180deg) translateZ(${d / 2}px)`) +
-          f(w + 0.5, d, `left:${x}px;top:${(A - d) / 2}px;${ln}`, `rotateX(90deg) translateZ(${h / 2}px)`) +
-          f(w + 0.5, d, `left:${x}px;top:${(A - d) / 2}px;${ln}`, `rotateX(-90deg) translateZ(${h / 2}px)`)
+        return f(w + 0.15, h, `left:${x}px;top:${y0}px;${ln}`, `translateZ(${d / 2}px)`) +
+          f(w + 0.15, h, `left:${x}px;top:${y0}px;${ln}`, `rotateY(180deg) translateZ(${d / 2}px)`) +
+          f(w + 0.15, d, `left:${x}px;top:${(A - d) / 2}px;${ln}`, `rotateX(90deg) translateZ(${h / 2}px)`) +
+          f(w + 0.15, d, `left:${x}px;top:${(A - d) / 2}px;${ln}`, `rotateX(-90deg) translateZ(${h / 2}px)`)
       }
       const tapa = (i: number, lado: 1 | -1) => {
         const k = escala[i], h = A * k, d = P * k
         return f(d, h, `left:${(L - d) / 2}px;top:${(A - h) / 2}px;`, `rotateY(${lado * 90}deg) translateZ(${L / 2}px)`)
       }
-      c.innerHTML = Array.from({ length: n }, (_, i) => tramo(i)).join('') + tapa(0, -1) + tapa(n - 1, 1) +
+      c.innerHTML = Array.from({ length: n * SUB }, (_, q) => tramo(q)).join('') + tapa(0, -1) + tapa(n - 1, 1) +
         `<div style="position:absolute;top:0;left:${xh - P / 2}px;width:${P}px;height:${A}px;background:rgba(228,87,46,.18);border:2px solid #E4572E;transform:rotateY(90deg)"></div>` +
         tubo(linea, L, A, n) +
         `<div class="cb-tag" style="left:${xh}px;color:#E4572E;transform:translateZ(${P / 2}px) translateX(-50%)">hoy</div>
