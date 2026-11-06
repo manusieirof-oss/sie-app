@@ -51,9 +51,17 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
   const [citas, setCitas] = useState<any[] | null>(null)
   useEffect(() => {
     const hoy = hoyISO()
-    supabase.from('citas').select('id,fecha,hora,estado,sesiones:sesion_id(partes)')
-      .eq('paciente_id', pacienteId).gte('fecha', sumarDias(hoy, -56)).in('estado', ['realizada', 'falta', 'programada'])
-      .order('fecha').order('hora').then(({ data }) => setCitas((data || []).filter((c: any) => c.estado !== 'programada' || c.fecha >= hoy)))
+    ;(async () => {
+      const [{ data }, { data: rec }] = await Promise.all([
+        supabase.from('citas').select('id,fecha,hora,estado,sesiones:sesion_id(partes)')
+          .eq('paciente_id', pacienteId).gte('fecha', sumarDias(hoy, -56)).in('estado', ['realizada', 'falta', 'cancelada', 'programada'])
+          .order('fecha').order('hora'),
+        // Las que son RECUPERACIÓN (clase de más): ensanchan el cubo.
+        supabase.from('recuperaciones').select('cita_recuperacion_id').eq('paciente_id', pacienteId).not('cita_recuperacion_id', 'is', null),
+      ])
+      const extra = new Set((rec || []).map((r: any) => r.cita_recuperacion_id))
+      setCitas((data || []).filter((c: any) => c.estado !== 'programada' || c.fecha >= hoy).map((c: any) => ({ ...c, extra: extra.has(c.id) })))
+    })()
   }, [pacienteId])
 
   const hoy = hoyISO()
@@ -63,8 +71,20 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
   // ALTURA del haz: cuánto trabajo; GROSOR: la intensidad; el CUBO se estrecha donde faltó.
   const v = suavizar((citas || []).map(c => volumen(ses(c)?.partes) || 1))
   const t = suavizar((citas || []).map(c => intensidad(ses(c)?.partes)).map(x => x * x)).map(x => x)
-  const estrecho = (citas || []).map(c => c.estado === 'falta')
-  const faltas = (citas || []).filter(c => c.estado === 'falta').length
+  /* EL CUBO: más estrecho si faltó o canceló, más ancho si vino de más (recuperación o
+     una clase más esa semana de las que suele venir). */
+  const porSemana: Record<string, number> = {}
+  const semana = (f: string) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.toISOString().slice(0, 10) }
+  ;(citas || []).filter(c => c.estado !== 'cancelada').forEach(c => { const k = semana(c.fecha); porSemana[k] = (porSemana[k] || 0) + 1 })
+  const cuentas = Object.values(porSemana).sort((a, b) => a - b)
+  const habitual = cuentas.length ? cuentas[Math.floor(cuentas.length / 2)] : 0
+  const vistas: Record<string, number> = {}
+  const escala = (citas || []).map(c => {
+    if (c.estado === 'falta' || c.estado === 'cancelada') return 0.55
+    const k = semana(c.fecha); vistas[k] = (vistas[k] || 0) + 1
+    return c.extra || (habitual && vistas[k] > habitual) ? 1.3 : 1
+  })
+  const faltas = (citas || []).filter(c => c.estado === 'falta' || c.estado === 'cancelada').length
 
   return (
     // Uno debajo del otro: lado a lado, el cubo se quedaba con un hueco blanco enorme
@@ -73,15 +93,15 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
       <div className="sec" style={{ marginBottom: 0 }}>
         <div className="sec-h"><span className="ct-l"><Ic name="calendario" size={13}/> Su programación</span>
           <span className="sh-r" style={{ fontSize: 11.5, color: 'var(--grl)' }}>
-            {alerta ? <span style={{ color: 'var(--red)' }}>con alerta · </span> : null}{faltas ? `${faltas} falta${faltas === 1 ? '' : 's'} en 8 semanas` : 'sin faltas en 8 semanas'}</span></div>
+            {alerta ? <span style={{ color: 'var(--red)' }}>con alerta · </span> : null}{faltas ? `${faltas} falta${faltas === 1 ? '' : 's'} o cancelada${faltas === 1 ? '' : 's'} en 8 semanas` : 'sin faltas en 8 semanas'}</span></div>
         <div style={{ height: 210, display: 'flex' }}>
           {citas === null ? <div style={{ margin: 'auto', fontSize: 12, color: 'var(--grl)' }}>Cargando…</div>
             : n < 2 ? <div style={{ margin: 'auto', fontSize: 13, color: 'var(--grl)' }}>Aún no tiene citas para dibujarla.</div>
             : <CuboAlcance conEstilo n={n} hoy={iHoy} marcas={[]} sombras={[]} linea={{ v, t }}
                 fechaIni={fCorta(citas![0].fecha)} fechaFin={fCorta(citas![n - 1].fecha)} botones={null}
-                colorHaz={alerta ? '#D99A9A' : '#5A969E'} estrecho={estrecho}/>}
+                colorHaz={alerta ? '#D99A9A' : '#5A969E'} escala={escala}/>}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--grl)' }}>Gíralo con el dedo; doble toque para verlo grande. Más alto, más trabajo; más grueso, más intenso; el cubo se estrecha donde faltó.</div>
+        <div style={{ fontSize: 11, color: 'var(--grl)' }}>Gíralo con el dedo; doble toque para verlo grande. Más alto, más trabajo; más grueso, más intenso; el cubo se estrecha donde faltó o canceló y se ensancha si vino de más.</div>
       </div>
       <div className="sec" style={{ marginBottom: 0 }}>
         <div className="sec-h"><span className="ct-l"><Ic name="cuerpo" size={13}/> Lo que tiene para entrenar</span></div>
