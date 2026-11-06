@@ -27,6 +27,7 @@ import { borrarPaciente, siguePaciente } from '@/lib/borrarPaciente'
 import { cerrarCuotasFuturas } from '@/lib/estadosPaciente'
 import { useParams, useRouter } from 'next/navigation'
 import { hoyISO } from '@/lib/fechas'
+import { usePuede } from '@/lib/permisos'
 import { traerTodo } from '@/lib/paginar'
 import { recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { soltarDelBono, atarCitaABono } from '@/lib/bonoSesiones'
@@ -36,6 +37,7 @@ export default function FichaPacientePage() {
   const { id } = useParams()
   const router = useRouter()
   const [tab, setTab] = useState('ficha')
+  const puedeSalud = usePuede()('editar_salud')
   // Llegar con la pestaña puesta: `/pacientes/<id>?tab=entreno`, que es a donde manda
   // la valoración al terminar para repartir las sesiones.
   useEffect(() => {
@@ -1016,8 +1018,11 @@ export default function FichaPacientePage() {
         <TimelineTab pacienteId={String(id)}/>
       )}
 
-      {tab==='salud' && (
-        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} testsLib={testsDisp} cargar={cargar} onNuevoTest={()=>setEligiendoTest(true)} abrirTest={abrirTest}/>
+      {/* SALUD: el nivel 3 la ve (para programar con criterio) pero no la cambia; editarla
+          es de quien valora. «fieldset disabled» apaga de una vez todos sus campos y botones. */}
+      {tab==='salud' && !puedeSalud && <div style={{fontSize:12.5,color:'var(--gr)',background:'var(--bl)',borderRadius:10,padding:'8px 12px',marginBottom:10}}>Solo para consultar: la salud la cambia quien valora.</div>}
+      {tab==='salud' && (<fieldset disabled={!puedeSalud} style={{border:0,padding:0,margin:0,minWidth:0}}>
+        <SaludTab id={id} pac={pac} deportesPac={deportesPac} molestias={molestias} patologias={patologias} escalas={escalas} medicamentos={medicamentos} alergias={alergias} intolerancias={intolerancias} operaciones={operaciones} tests={tests} testsLib={testsDisp} cargar={cargar} onNuevoTest={()=>setEligiendoTest(true)} abrirTest={abrirTest}/></fieldset>
       )}
 
       {/* TAB ENTRENAMIENTO */}

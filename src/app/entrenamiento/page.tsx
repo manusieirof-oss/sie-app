@@ -36,6 +36,7 @@ function EntrenamientoContent() {
   const [tab, setTab] = useState('biblioteca')
   /** Nivel 3+: la biblioteca entera para trabajar; nivel 2, solo consultar ejercicios. */
   const puedeBib = usePuede()('biblioteca')
+  const puedeValorar = usePuede()('valoracion')
   const [ejercicios, setEjercicios] = useState<any[]>([])
   const [pacientes, setPacientes] = useState<any[]>([])
   const [sesiones, setSesiones] = useState<any[]>([])
@@ -236,7 +237,9 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas'],['tests','test','Tests'],['cuestionarios','nota','Cuestionarios'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']].map(([k,ic,l])=>(
+        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas'],['tests','test','Tests'],['cuestionarios','nota','Cuestionarios'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']]
+          // Tests, cuestionarios, etiquetas y clínico son de quien valora (nivel 4); el 3 programa con el resto.
+          .filter(([k])=>puedeValorar||!['tests','cuestionarios','etiquetas','clinico'].includes(k)).map(([k,ic,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>

@@ -33,10 +33,11 @@ export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x
 /** El mínimo nivel para cada cosa, de serie (si la tabla aún no existe o falla). */
 export const MINIMO = {
   pacientes: 3,
-  valoracion: 3,           // valoraciones y tests (también los que tocan en clase)
+  valoracion: 4,           // valoraciones y tests (también los que tocan en clase): el especialista
+  editar_salud: 4,         // editar la salud de la ficha (el nivel 3 la ve, no la cambia)
   editar_agenda: 4,        // crear, mover, editar o borrar citas: por persona (POR_PERSONA)
   turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
-  tareas: 3,               // poner y borrar tareas, y ver las de todos (cada uno marca las suyas)
+  tareas: 4,               // poner y borrar tareas, y ver las de todos: el encargado (cada uno marca las suyas)
   cambiar_ejercicios: 2,   // cambios de UN DÍA en el taller: ejercicio, método, series (solo hoy)
   editar_plan: 3,          // cambiar la sesión PARA SIEMPRE: editor, «para siempre», crear, borrar
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
@@ -45,7 +46,7 @@ export const MINIMO = {
   torno: 3,
   ver_biblioteca: 2,       // la biblioteca de ejercicios, solo para consultar
   biblioteca: 3,
-  cobros: 3,
+  cobros: 4,               // cobrar y facturar: quien administra
   medida_biblioteca: 3,    // 🔧 cambiar cómo se mide un ejercicio para todos
   direccion: 4,
 } as const
@@ -66,6 +67,7 @@ export function mezclarMinimos(filas: { accion: string, minimo: number }[] | nul
 export const ETIQUETA_ACCION: Record<Accion, string> = {
   pacientes: 'Ver y editar fichas de pacientes',
   valoracion: 'Valoraciones y tests',
+  editar_salud: 'Editar la salud de la ficha',
   editar_agenda: 'Crear, mover y borrar citas',
   turnos: 'Cambiar quién lleva cada sala',
   tareas: 'Poner tareas y ver las de todos',
