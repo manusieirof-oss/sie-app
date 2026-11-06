@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hoyISO, sumarDias } from '@/lib/fechas'
-import NebulosaPrograma from '@/components/ficha/NebulosaPrograma'
+import NebulosaPrograma, { PALETA, COL_CAMBIO, hex, type CitaNeb, type VistaNeb } from '@/components/ficha/NebulosaPrograma'
 import MapaTrabajo from '@/components/MapaTrabajo'
 import CuerpoSalud, { type VistaSalud } from '@/components/ficha/CuerpoSalud'
 import { Ic } from '@/lib/icons'
@@ -10,14 +10,18 @@ import { Ic } from '@/lib/icons'
 // ---------------------------------------------------------------------------
 // LA FICHA, DE UN VISTAZO: su programación y lo que tiene para entrenar.
 //
-//   · El CUBO del calor con su haz de luz: un punto por cita (las últimas 8 semanas y
-//     lo que tiene por delante). La altura es cuánto trabajo lleva la sesión; donde
-//     FALTÓ, el haz se estrecha. Si tiene alertas activas, el haz se tiñe de rojo
-//     atenuado; si no, el color de la clínica.
+//   · La NEBULOSA con su haz de luz: un punto por cita, de la fecha que se elija en la
+//     barra doble de abajo a la otra (desde que empezó hasta lo último programado).
+//     Con un botón de vistas, como el del cuerpo: cambios, sesiones, objetivos, molestias.
+//     Un toque la abre en grande.
 //   · El CUERPO 3D con lo que tiene PROGRAMADO (MapaTrabajo en modo programado).
 // ---------------------------------------------------------------------------
 
 const fCorta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '')
+const fLarga = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }).replace('.', '')
+const ms = (f: string) => new Date(f + 'T12:00:00').getTime()
+const DIA = 864e5
+const dias = (a: string, b: string) => Math.round((ms(b) - ms(a)) / DIA)
 
 /** INTENSIDAD media de una sesión (0..1): por las reps de cada ejercicio, como los tramos
     de capacidad (pocas reps = más intenso); lo que va por tiempo cuenta como suave. */
@@ -48,6 +52,10 @@ function volumen(partes: any[]) {
   return v
 }
 
+/* La HUELLA de una molestia: al quitarse, la zona queda rosada y se va apagando. Cuanto
+   más fuerte fue, más tarda en irse: 3 semanas por cada punto de EVA. */
+const HUELLA_DIAS_POR_EVA = 21
+
 /* EL BOTÓN DE VISTAS DEL CUERPO, como en la biblioteca y la agenda: un toque, la
    siguiente. Se recuerda en este aparato. */
 type VistaCuerpo = 'entrenar' | VistaSalud
@@ -55,77 +63,205 @@ const VISTAS: { k: VistaCuerpo, t: string, ic: string }[] = [
   { k: 'entrenar', t: 'Para entrenar', ic: 'entreno' }, { k: 'dolor', t: 'Dolor ahora', ic: 'molestia' },
   { k: 'operaciones', t: 'Operaciones', ic: 'cruz' }, { k: 'patologias', t: 'Patologías', ic: 'patologia' },
 ]
+// Y el de la nebulosa, igual.
+const VISTAS_NEB: { k: VistaNeb, t: string }[] = [
+  { k: 'normal', t: 'Normal' }, { k: 'cambios', t: 'Faltas, canceladas y cambios' }, { k: 'sesiones', t: 'Sesiones' },
+  { k: 'objetivos', t: 'Objetivos' }, { k: 'molestias', t: 'Molestias' },
+]
+// Atajos de la barra de fechas: lo último y un poco de lo que viene (un tercio).
+const ATAJOS: { k: string, t: string, d: number }[] = [
+  { k: 'semana', t: 'Semana', d: 7 }, { k: 'mes', t: 'Mes', d: 30 }, { k: '3m', t: '3 meses', d: 91 }, { k: 'anio', t: 'Año', d: 365 }, { k: 'todo', t: 'Todo', d: 0 },
+]
+
+/** El botón de vistas: el nombre y un puntito por vista, encendido el que toca. */
+function BotonVistas({ t, n, i, onClick }: { t: React.ReactNode, n: number, i: number, onClick: () => void }) {
+  return (
+    <button type="button" className="chip-sel on" onClick={onClick} title="Cambiar lo que se ve"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0 }}>
+      {t}
+      <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{Array.from({ length: n }, (_, k) => <i key={k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: k === i ? 1 : .3 }}/>)}</span>
+    </button>
+  )
+}
+const Pto = ({ c }: { c: number | string }) => <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: typeof c === 'number' ? hex(c) : c, verticalAlign: 'middle', margin: '0 3px 0 8px' }}/>
 
 export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: string, alerta: boolean }) {
   const [citas, setCitas] = useState<any[] | null>(null)
+  const [molestias, setMolestias] = useState<any[]>([])
+  const [nomObj, setNomObj] = useState<Record<string, string>>({})
   const [vista, setVistaE] = useState<VistaCuerpo>('entrenar')
-  useEffect(() => { try { const v = localStorage.getItem('ficha_cuerpo') as VistaCuerpo; if (VISTAS.some(x => x.k === v)) setVistaE(v) } catch {} }, [])
+  const [vistaN, setVistaN] = useState<VistaNeb>('normal')
+  const [desde, setDesde] = useState(''), [hasta, setHasta] = useState(''), [atajo, setAtajo] = useState<string | null>('3m')
+  const [grande, setGrande] = useState(false)
+  useEffect(() => { try {
+    const v = localStorage.getItem('ficha_cuerpo') as VistaCuerpo; if (VISTAS.some(x => x.k === v)) setVistaE(v)
+    const n = localStorage.getItem('ficha_nebulosa') as VistaNeb; if (VISTAS_NEB.some(x => x.k === n)) setVistaN(n)
+  } catch {} }, [])
   const vistaAct = VISTAS.find(x => x.k === vista) || VISTAS[0]
   const siguiente = () => { const n = VISTAS[(VISTAS.indexOf(vistaAct) + 1) % VISTAS.length].k; setVistaE(n); try { localStorage.setItem('ficha_cuerpo', n) } catch {} }
+  const iN = Math.max(0, VISTAS_NEB.findIndex(x => x.k === vistaN))
+  const siguienteN = () => { const n = VISTAS_NEB[(iN + 1) % VISTAS_NEB.length].k; setVistaN(n); try { localStorage.setItem('ficha_nebulosa', n) } catch {} }
+  // En grande, Escape la cierra.
+  useEffect(() => { if (!grande) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setGrande(false) }; addEventListener('keydown', k); return () => removeEventListener('keydown', k) }, [grande])
+
   useEffect(() => {
     const hoy = hoyISO()
     ;(async () => {
-      const [{ data }, { data: rec }] = await Promise.all([
-        supabase.from('citas').select('id,fecha,hora,estado,sesiones:sesion_id(partes)')
-          .eq('paciente_id', pacienteId).gte('fecha', sumarDias(hoy, -56)).in('estado', ['realizada', 'falta', 'cancelada', 'programada'])
+      const [{ data }, { data: rec }, { data: cc }, { data: cs }] = await Promise.all([
+        // Todas sus citas: la barra de fechas llega desde que empezó.
+        supabase.from('citas').select('id,fecha,hora,estado,sesion_id,sesiones:sesion_id(nombre,partes,sesiones_objetivos(objetivo_id))')
+          .eq('paciente_id', pacienteId).in('estado', ['realizada', 'falta', 'cancelada', 'programada'])
           .order('fecha').order('hora'),
-        // Las que son RECUPERACIÓN (clase de más): ensanchan el cubo.
+        // Las que son RECUPERACIÓN (clase de más): ensanchan la niebla.
         supabase.from('recuperaciones').select('cita_recuperacion_id').eq('paciente_id', pacienteId).not('cita_recuperacion_id', 'is', null),
+        // Cambios de día u hora, y cambios de sesión: el historial que ya se guarda.
+        supabase.from('cambios_cita').select('cita_id').eq('paciente_id', pacienteId),
+        supabase.from('cambios_sesion').select('cita_id').eq('paciente_id', pacienteId),
       ])
+      // Molestias con el día en que se quitaron. Si aún no existe esa columna (falta el
+      // SQL), se piden sin ella y las ya quitadas solo marcan el día en que empezaron.
+      let mol: any = await supabase.from('molestias').select('zona,eva,activa,created_at,resuelta_el').eq('paciente_id', pacienteId)
+      if (mol.error) mol = await supabase.from('molestias').select('zona,eva,activa,created_at').eq('paciente_id', pacienteId)
+      setMolestias(mol.data || [])
       const extra = new Set((rec || []).map((r: any) => r.cita_recuperacion_id))
-      setCitas((data || []).filter((c: any) => c.estado !== 'programada' || c.fecha >= hoy).map((c: any) => ({ ...c, extra: extra.has(c.id) })))
+      const movidas = new Set((cc || []).map((r: any) => r.cita_id)), cambSes = new Set((cs || []).map((r: any) => r.cita_id))
+      const lista = (data || []).filter((c: any) => c.estado !== 'programada' || c.fecha >= hoy)
+        .map((c: any) => ({ ...c, extra: extra.has(c.id), movida: movidas.has(c.id), cambioSesion: cambSes.has(c.id) }))
+      setCitas(lista)
+      // Los nombres de los objetivos que trabajan sus sesiones.
+      const ids = Array.from(new Set(lista.flatMap((c: any) => ((Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones)?.sesiones_objetivos || []).map((o: any) => o.objetivo_id))))
+      if (ids.length) {
+        const { data: ob } = await supabase.from('objetivos').select('id,nombre').in('id', ids)
+        setNomObj(Object.fromEntries((ob || []).map((o: any) => [o.id, o.nombre])))
+      }
+      // Lo que se ve al abrir: los últimos 3 meses y un mes de lo que viene.
+      if (lista.length) { const a = lista[0].fecha, z = lista[lista.length - 1].fecha
+        setDesde(sumarDias(hoy, -91) < a ? a : sumarDias(hoy, -91)); setHasta(sumarDias(hoy, 30) > z ? z : sumarDias(hoy, 30)) }
     })()
   }, [pacienteId])
 
   const hoy = hoyISO()
-  const n = citas?.length || 0
-  const iHoy = Math.max(0, citas ? citas.findIndex(c => c.fecha >= hoy) : 0)
-  const ses = (c: any) => Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
-  // ALTURA del haz: cuánto trabajo; GROSOR: la intensidad; el CUBO se estrecha donde faltó.
-  const v = suavizar((citas || []).map(c => volumen(ses(c)?.partes) || 1))
-  const t = suavizar((citas || []).map(c => intensidad(ses(c)?.partes)).map(x => x * x)).map(x => x)
-  /* EL CUBO: más estrecho si faltó o canceló, más ancho si vino de más (recuperación o
-     una clase más esa semana de las que suele venir). */
-  const porSemana: Record<string, number> = {}
-  const semana = (f: string) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.toISOString().slice(0, 10) }
-  ;(citas || []).filter(c => c.estado !== 'cancelada').forEach(c => { const k = semana(c.fecha); porSemana[k] = (porSemana[k] || 0) + 1 })
-  const cuentas = Object.values(porSemana).sort((a, b) => a - b)
-  const habitual = cuentas.length ? cuentas[Math.floor(cuentas.length / 2)] : 0
-  const vistas: Record<string, number> = {}
-  // Sutil: una falta lo deja al 80% y una de más al 112%, y se reparte con sus vecinas.
-  const bruta = (citas || []).map(c => {
-    if (c.estado === 'falta' || c.estado === 'cancelada') return 0.8
-    const k = semana(c.fecha); vistas[k] = (vistas[k] || 0) + 1
-    return c.extra || (habitual && vistas[k] > habitual) ? 1.12 : 1
-  })
-  const escala = bruta.map((x, i) => 0.25 * (bruta[i - 1] ?? x) + 0.5 * x + 0.25 * (bruta[i + 1] ?? x))
-  // Las mismas listas mientras no cambien las citas: si no, la nebulosa se rehacía entera en cada pintado.
-  const datos = useMemo(() => ({ v, t, escala }), [citas]) // eslint-disable-line react-hooks/exhaustive-deps
-  const faltas = (citas || []).filter(c => c.estado === 'falta' || c.estado === 'cancelada').length
+  const T0 = citas?.[0]?.fecha || hoy, T1 = citas?.[citas.length - 1]?.fecha || hoy
+  const total = Math.max(1, dias(T0, T1))
+  const ponAtajo = (k: string, d: number) => {
+    setAtajo(k)
+    if (!d) { setDesde(T0); setHasta(T1); return }
+    const a = sumarDias(hoy, -d), z = sumarDias(hoy, Math.max(7, Math.round(d / 3)))
+    setDesde(a < T0 ? T0 : a); setHasta(z > T1 ? T1 : z)
+  }
+
+  // TODO lo que dibuja la nebulosa, para las citas entre las dos fechas.
+  const datos = useMemo(() => {
+    const vis = (citas || []).filter(c => c.fecha >= desde && c.fecha <= hasta)
+    const ses = (c: any) => Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
+    // ALTURA del haz: cuánto trabajo; GROSOR: la intensidad.
+    const v = suavizar(vis.map(c => volumen(ses(c)?.partes) || 1))
+    const t = suavizar(vis.map(c => intensidad(ses(c)?.partes)).map(x => x * x))
+    /* LA NIEBLA: más estrecha si faltó o canceló, más ancha si vino de más (recuperación
+       o una clase más esa semana de las que suele venir). Sutil: 80% y 112%. */
+    const porSemana: Record<string, number> = {}
+    const semana = (f: string) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.toISOString().slice(0, 10) }
+    vis.filter(c => c.estado !== 'cancelada').forEach(c => { const k = semana(c.fecha); porSemana[k] = (porSemana[k] || 0) + 1 })
+    const cuentas = Object.values(porSemana).sort((a, b) => a - b)
+    const habitual = cuentas.length ? cuentas[Math.floor(cuentas.length / 2)] : 0
+    const vistas: Record<string, number> = {}
+    const bruta = vis.map(c => {
+      if (c.estado === 'falta' || c.estado === 'cancelada') return 0.8
+      const k = semana(c.fecha); vistas[k] = (vistas[k] || 0) + 1
+      return c.extra || (habitual && vistas[k] > habitual) ? 1.12 : 1
+    })
+    const escala = bruta.map((x, i) => 0.25 * (bruta[i - 1] ?? x) + 0.5 * x + 0.25 * (bruta[i + 1] ?? x))
+    // SESIONES: una letra por sesión distinta, en el orden en que aparecen en este tramo.
+    const letra: Record<string, string> = {}, nomSes: Record<string, string> = {}, colSes: Record<string, number> = {}
+    vis.forEach(c => { if (!c.sesion_id || letra[c.sesion_id]) return
+      const n = Object.keys(letra).length, l = n < 26 ? String.fromCharCode(65 + n) : String(n + 1)
+      letra[c.sesion_id] = l; nomSes[l] = ses(c)?.nombre || 'Sesión'; colSes[l] = PALETA[n % PALETA.length] })
+    // OBJETIVOS: los de su sesión; colores por el que más se trabaja.
+    const objsDe = (c: any) => (ses(c)?.sesiones_objetivos || []).map((o: any) => o.objetivo_id as string)
+    const cuentaObj: Record<string, number> = {}
+    vis.filter(c => c.estado === 'realizada').forEach(c => objsDe(c).forEach((o: string) => { cuentaObj[o] = (cuentaObj[o] || 0) + 1 }))
+    vis.forEach(c => objsDe(c).forEach((o: string) => { cuentaObj[o] = cuentaObj[o] || 0 }))
+    const colObj: Record<string, number> = {}
+    Object.entries(cuentaObj).sort((a, b) => b[1] - a[1]).forEach(([o], k) => { colObj[o] = PALETA[k % PALETA.length] })
+    // MOLESTIAS: rojo mientras dura (más cuanto más EVA); al quitarse, la huella.
+    const mols = molestias.map(m => ({ ...m, ini: (m.created_at || '').slice(0, 10), fin: m.activa ? null : (m.resuelta_el || (m.created_at || '').slice(0, 10)), eva: m.eva ?? 5 }))
+    const rojo = vis.map(c => { let r = 0
+      for (const m of mols) {
+        if (!m.ini || c.fecha < m.ini) continue
+        if (m.fin == null || c.fecha <= m.fin) r = Math.max(r, 0.4 + 0.6 * m.eva / 10)
+        else { const dura = Math.max(1, m.eva) * HUELLA_DIAS_POR_EVA, pasa = dias(m.fin, c.fecha); if (pasa < dura) r = Math.max(r, 0.35 * (1 - pasa / dura)) }
+      }
+      return r })
+    const neb: CitaNeb[] = vis.map((c, i) => ({ t: ms(c.fecha), trabajo: v[i], intens: t[i], escala: escala[i], estado: c.estado,
+      movida: c.movida, cambioSesion: c.cambioSesion, ses: letra[c.sesion_id] || '', objs: objsDe(c), rojo: rojo[i] }))
+    return { vis, neb, nomSes, colSes, colObj, cuentaObj, mols, iHoy: vis.findIndex(c => c.fecha >= hoy) }
+  }, [citas, molestias, desde, hasta]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { vis, neb } = datos
+  const n = vis.length
+  const cuenta = (f: (c: any) => boolean) => vis.filter(f).length
+
+  // Lo que explica cada vista, debajo.
+  const leyenda = (() => {
+    if (vistaN === 'normal') return <>Gírala con el dedo; un toque la abre en grande. Más alto, más trabajo; más grueso, más intenso; la niebla se estrecha donde faltó o canceló y se abre si vino de más. Si estuvo un tiempo sin venir, se corta y el hueco es tan largo como lo que tardó en volver. El aro naranja es hoy.</>
+    if (vistaN === 'cambios') return <><Pto c={COL_CAMBIO.falta}/><b>{cuenta(c => c.estado === 'falta')}</b> faltas <Pto c={COL_CAMBIO.cancelada}/><b>{cuenta(c => c.estado === 'cancelada')}</b> canceladas
+      <Pto c={COL_CAMBIO.movida}/><b>{cuenta(c => c.movida && c.estado !== 'falta' && c.estado !== 'cancelada')}</b> cambiadas de día u hora <Pto c={COL_CAMBIO.sesion}/><b>{cuenta(c => c.cambioSesion && !c.movida && c.estado !== 'falta' && c.estado !== 'cancelada')}</b> con la sesión cambiada. Cada una, un aro en su día.</>
+    if (vistaN === 'sesiones') return <>{Object.entries(datos.nomSes).map(([l, nom]) => <span key={l}><Pto c={datos.colSes[l]}/><b>{l}</b> {nom} <b>{cuenta(c => c.estado === 'realizada' && datos.neb[vis.indexOf(c)]?.ses === l)}</b> </span>)}
+      <br/>La niebla toma el color de la sesión de cada día; la letra encima dice cuál (× si faltó). Las que aún no ha hecho, más claras.{n > 60 ? ' Con tantas citas no caben las letras: acorta las fechas.' : ''}</>
+    if (vistaN === 'objetivos') return Object.keys(datos.colObj).length
+      ? <>{Object.keys(datos.colObj).map(o => <span key={o}><Pto c={datos.colObj[o]}/>{nomObj[o] || 'Objetivo'} <b>{datos.cuentaObj[o]}</b> </span>)}<br/>Cuanto más se trabaja un objetivo, más grande y más brilla su luz.</>
+      : <>Sus sesiones de estas fechas no tienen objetivos enganchados.</>
+    const ms2 = datos.mols.filter(m => m.ini && m.ini <= hasta)
+    return ms2.length
+      ? <>{ms2.map((m, k) => <span key={k}><Pto c={m.fin ? '#E3A6A6' : '#C0392B'}/>{m.zona} · EVA {m.eva} {m.fin ? (m.resuelta_el ? '(ya pasó)' : '(quitada, sin fecha)') : <b>activa</b>} </span>)}
+        <br/>Rojo mientras duele, más fuerte cuanto más EVA. Al quitarse queda rosado y se va apagando: cuanto más fuerte fue, más tarda en irse.</>
+      : <>Sin molestias en estas fechas.</>
+  })()
+
+  const semanas = Math.round(dias(desde || T0, hasta || T1) / 7)
+  const mover = (cual: 'a' | 'z', val: number) => {
+    const MIN = 7, f = sumarDias(T0, val)
+    setAtajo(null)
+    if (cual === 'a') setDesde(val > dias(T0, hasta) - MIN ? sumarDias(hasta, -MIN) : f)
+    else setHasta(val < dias(T0, desde) + MIN ? sumarDias(desde, MIN) : f)
+  }
 
   return (
-    // Uno debajo del otro: lado a lado, el cubo se quedaba con un hueco blanco enorme
+    // Uno debajo del otro: lado a lado, la nebulosa se quedaba con un hueco blanco enorme
     // al lado del cuerpo, que es mucho más alto.
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
-      <div className="sec" style={{ marginBottom: 0 }}>
-        <div className="sec-h"><span className="ct-l"><Ic name="calendario" size={13}/> Su programación</span>
-          <span className="sh-r" style={{ fontSize: 11.5, color: 'var(--grl)' }}>
-            {alerta ? <span style={{ color: 'var(--red)' }}>con alerta · </span> : null}{faltas ? `${faltas} falta${faltas === 1 ? '' : 's'} o cancelada${faltas === 1 ? '' : 's'} en 8 semanas` : 'sin faltas en 8 semanas'}</span></div>
-        <div style={{ height: 250, display: 'flex' }}>
+      <div className="sec" style={{ marginBottom: 0, ...(grande ? { position: 'fixed', inset: 16, zIndex: 60, overflow: 'auto', background: 'var(--wh, #fff)', borderRadius: 16, padding: 14, boxShadow: '0 10px 40px rgba(0,0,0,.18)' } : {}) }}>
+        <div className="sec-h"><span className="ct-l"><Ic name="calendario" size={13}/> Su programación{alerta ? <span style={{ color: 'var(--red)', marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>· con alerta</span> : null}</span>
+          <span style={{ display: 'inline-flex', gap: 6 }}>
+            <BotonVistas t={VISTAS_NEB[iN].t} n={VISTAS_NEB.length} i={iN} onClick={siguienteN}/>
+            {grande && <button type="button" className="chip-sel" onClick={() => setGrande(false)} style={{ textTransform: 'none', letterSpacing: 0 }}>Cerrar ✕</button>}
+          </span></div>
+        <div style={{ height: grande ? 'calc(100vh - 290px)' : 250, minHeight: 250, display: 'flex' }}>
           {citas === null ? <div style={{ margin: 'auto', fontSize: 12, color: 'var(--grl)' }}>Cargando…</div>
-            : n < 2 ? <div style={{ margin: 'auto', fontSize: 13, color: 'var(--grl)' }}>Aún no tiene citas para dibujarla.</div>
-            : <NebulosaPrograma trabajo={datos.v} intens={datos.t} escala={datos.escala} hoy={iHoy} alerta={alerta}
-                fechaIni={fCorta(citas![0].fecha)} fechaFin={fCorta(citas![n - 1].fecha)}/>}
+            : n < 2 ? <div style={{ margin: 'auto', fontSize: 13, color: 'var(--grl)' }}>{(citas.length < 2 ? 'Aún no tiene citas para dibujarla.' : 'En estas fechas no hay citas suficientes: amplía la barra.')}</div>
+            : <NebulosaPrograma citas={neb} vista={vistaN} colSes={datos.colSes} colObj={datos.colObj} hoy={datos.iHoy} alerta={alerta}
+                fechaIni={fCorta(vis[0].fecha)} fechaFin={fCorta(vis[n - 1].fecha)} onToque={grande ? undefined : () => setGrande(true)}/>}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--grl)' }}>Gírala con el dedo. Más alto, más trabajo; más grueso, más intenso; la niebla se estrecha donde faltó o canceló y se abre si vino de más. El aro naranja es hoy.</div>
+        {citas && citas.length > 1 && <>
+          {/* LA BARRA DOBLE: de qué fecha a qué fecha, desde que empezó hasta lo último programado. */}
+          <div className="rango2">
+            <div className="rango2-base"/>
+            <div className="rango2-sel" style={{ left: `${dias(T0, desde) / total * 100}%`, width: `${dias(desde, hasta) / total * 100}%` }}/>
+            {hoy >= T0 && hoy <= T1 && <div className="rango2-hoy" style={{ left: `${dias(T0, hoy) / total * 100}%` }}/>}
+            <input type="range" min={0} max={total} value={dias(T0, desde)} onChange={e => mover('a', +e.target.value)} aria-label="Desde"/>
+            <input type="range" min={0} max={total} value={dias(T0, hasta)} onChange={e => mover('z', +e.target.value)} aria-label="Hasta"/>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 500, margin: '2px 2px 0' }}>
+            <span>{fLarga(desde)}</span><span style={{ color: 'var(--grl)', fontWeight: 400 }}>{semanas < 9 ? `${semanas} semanas` : `${Math.round(semanas / 4.3)} meses`}</span><span>{fLarga(hasta)}</span></div>
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap', margin: '8px 0 6px' }}>
+            {ATAJOS.map(a => <button key={a.k} type="button" className={'chip-sel' + (atajo === a.k ? ' on' : '')} onClick={() => ponAtajo(a.k, a.d)} style={{ textTransform: 'none', letterSpacing: 0 }}>{a.t}</button>)}
+          </div>
+        </>}
+        <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6 }}>{leyenda}</div>
       </div>
       <div className="sec" style={{ marginBottom: 0 }}>
         <div className="sec-h"><span className="ct-l"><Ic name="cuerpo" size={13}/> Su cuerpo</span>
-          <button type="button" className="chip-sel on" onClick={siguiente} title="Cambiar lo que enseña el cuerpo"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0 }}>
-            <Ic name={vistaAct.ic} size={13}/> {vistaAct.t}
-            <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{VISTAS.map(x => <i key={x.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: x.k === vista ? 1 : .3 }}/>)}</span>
-          </button></div>
+          <BotonVistas t={<><Ic name={vistaAct.ic} size={13}/> {vistaAct.t}</>} n={VISTAS.length} i={VISTAS.indexOf(vistaAct)} onClick={siguiente}/></div>
         {vista === 'entrenar' ? <MapaTrabajo pacienteId={pacienteId} programado/> : <CuerpoSalud pacienteId={pacienteId} vista={vista}/>}
       </div>
     </div>

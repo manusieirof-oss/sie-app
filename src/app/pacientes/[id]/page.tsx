@@ -730,7 +730,10 @@ export default function FichaPacientePage() {
 
 
   async function toggleMolestia(molId: string, activa: boolean) {
-    await supabase.from('molestias').update({ activa:!activa }).eq('id',molId); cargar()
+    await supabase.from('molestias').update({ activa:!activa }).eq('id',molId)
+    // El día en que se quita: la nebulosa deja la huella desde ahí. Aparte, para que si falta la columna lo de activa funcione igual.
+    await supabase.from('molestias').update({ resuelta_el: activa ? hoyISO() : null }).eq('id', molId)
+    cargar()
   }
 
 

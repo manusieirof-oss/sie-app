@@ -53,6 +53,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
 
   async function toggleMolestia(mid: string, activa: boolean) {
     await supabase.from('molestias').update({ activa: !activa }).eq('id', mid)
+    // El día en que se quita: la nebulosa deja la huella desde ahí. Aparte, para que si falta la columna lo de activa funcione igual.
+    await supabase.from('molestias').update({ resuelta_el: activa ? hoyISO() : null }).eq('id', mid)
     const mol = (molestias||[]).find((m:any)=>m.id===mid)
     const zona = mol?.zona || 'Molestia'
     if (activa) {
