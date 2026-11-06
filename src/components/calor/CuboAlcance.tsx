@@ -11,9 +11,11 @@ import { useEffect, useRef, useState } from 'react'
  * Doble clic: se amplía a casi toda la pantalla, translúcido, sin salir de la mesa.
  */
 export interface MarcaFase { i: number, n: string, c: string }
-export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, fechaFin, botones, colorHaz, conEstilo = false }: {
+export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, fechaFin, botones, colorHaz, conEstilo = false, estrecho }: {
   /** Color del haz de luz (ficha: el de la clínica, o rojo atenuado si hay alerta). */
   colorHaz?: string
+  /** Ficha: un tramo por cita; el cubo se ESTRECHA en las que faltó (true). Sin esto, el prisma de siempre. */
+  estrecho?: boolean[]
   /** Trae su propio CSS (fuera de la página del calor, que ya lo pone). */
   conEstilo?: boolean
   n: number
@@ -54,6 +56,32 @@ export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, 
         <div class="cb-tag" style="left:${x}px;color:${m.c};transform:translateZ(${P / 2}px) translateX(-50%)">${m.n}</div>`
     }).join('')
     const xh = X(hoy)
+    /* EN TRAMOS: cada cita es una cajita; donde faltó, más estrecha (alto y fondo al 55%).
+       Se dibujan solo las caras largas y las tapas de los extremos, sin rayas entre tramos
+       iguales: se lee como un solo cubo que adelgaza. */
+    if (estrecho && estrecho.length === n) {
+      const w = L / n
+      const tramo = (i: number) => {
+        const k = estrecho[i] ? 0.55 : 1, h = A * k, d = P * k, y0 = (A - h) / 2, x = X(i)
+        const ln = 'border:none;border-top:1.5px solid var(--g);border-bottom:1.5px solid var(--g);'
+        return f(w + 0.5, h, `left:${x}px;top:${y0}px;${ln}`, `translateZ(${d / 2}px)`) +
+          f(w + 0.5, h, `left:${x}px;top:${y0}px;${ln}`, `rotateY(180deg) translateZ(${d / 2}px)`) +
+          f(w + 0.5, d, `left:${x}px;top:${(A - d) / 2}px;${ln}`, `rotateX(90deg) translateZ(${h / 2}px)`) +
+          f(w + 0.5, d, `left:${x}px;top:${(A - d) / 2}px;${ln}`, `rotateX(-90deg) translateZ(${h / 2}px)`)
+      }
+      const tapa = (i: number, lado: 1 | -1) => {
+        const k = estrecho[i] ? 0.55 : 1, h = A * k, d = P * k
+        return f(d, h, `left:${(L - d) / 2}px;top:${(A - h) / 2}px;`, `rotateY(${lado * 90}deg) translateZ(${L / 2}px)`)
+      }
+      c.innerHTML = Array.from({ length: n }, (_, i) => tramo(i)).join('') + tapa(0, -1) + tapa(n - 1, 1) +
+        `<div style="position:absolute;top:0;left:${xh - P / 2}px;width:${P}px;height:${A}px;background:rgba(228,87,46,.18);border:2px solid #E4572E;transform:rotateY(90deg)"></div>` +
+        tubo(linea, L, A, n) +
+        `<div class="cb-tag" style="left:${xh}px;color:#E4572E;transform:translateZ(${P / 2}px) translateX(-50%)">hoy</div>
+         <div class="cb-fecha" style="top:${A + 8}px;left:0;transform:translateZ(${P / 2}px)">${fechaIni}</div>
+         <div class="cb-fecha" style="top:${A + 8}px;right:0;transform:translateZ(${P / 2}px)">${fechaFin}</div>`
+      c.style.transform = `rotateX(${giro.current.x}deg) rotateY(${giro.current.y}deg)`
+      return
+    }
     c.innerHTML =
       f(L, A, '', `rotateY(180deg) translateZ(${P / 2}px)`) +
       f(L, P, `top:${(A - P) / 2}px;`, `rotateX(-90deg) translateZ(${A / 2}px)`) +
@@ -68,7 +96,7 @@ export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, 
        <div class="cb-fecha" style="top:${A + 8}px;left:0;transform:translateZ(${P / 2}px)">${fechaIni}</div>
        <div class="cb-fecha" style="top:${A + 8}px;right:0;transform:translateZ(${P / 2}px)">${fechaFin}</div>`
     c.style.transform = `rotateX(${giro.current.x}deg) rotateY(${giro.current.y}deg)`
-  }, [tam, n, hoy, marcas, sombras, linea, fechaIni, fechaFin])
+  }, [tam, n, hoy, marcas, sombras, linea, fechaIni, fechaFin, estrecho])
 
   // Girar arrastrando (ratón o dedo)
   const ini = useRef<any>(null)
