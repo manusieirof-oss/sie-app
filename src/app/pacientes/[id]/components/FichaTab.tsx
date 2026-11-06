@@ -1,4 +1,5 @@
 'use client'
+import ProgramaPaciente from '@/components/ficha/ProgramaPaciente'
 import { traerTodo } from '@/lib/paginar'
 import { HorarioDeseado } from '@/components/AgendaHuecos'
 import { useRouter } from 'next/navigation'
@@ -1265,6 +1266,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           veces es exactamente lo mismo.
 
           Dentro van ordenados por vía, que es el orden en que se explican. */}
+      {/* DE UN VISTAZO: su programación (el cubo) y lo que tiene para entrenar (el cuerpo). */}
+      {resumen && !editando && <ProgramaPaciente pacienteId={pac.id} alerta={(alertas?.length||0)>0}/>}
       {resumen && hayObjetivos && (() => {
         const ordenVia = (o:any) => {
           const vs = viasDe(o)

@@ -849,7 +849,7 @@ const CSS = `
 .cb-f{position:absolute;left:0;top:0;border:1.5px solid var(--g);background:rgba(231,241,242,.55)}
 .cb-tag{position:absolute;top:-22px;font-size:10px;font-weight:600;white-space:nowrap}
 .cb-fecha{position:absolute;font-size:10px;color:var(--grl);white-space:nowrap}
-.cb-haz{position:absolute;transform-origin:0 50%;pointer-events:none;background:linear-gradient(to bottom,#8FA9AD 0%,#fff 38%,#fff 62%,#8FA9AD 100%)}
+.cb-haz{position:absolute;transform-origin:0 50%;pointer-events:none;background:linear-gradient(to bottom,var(--haz,#8FA9AD) 0%,#fff 38%,#fff 62%,var(--haz,#8FA9AD) 100%)}
 .cb-btns{position:absolute;left:8px;top:8px;z-index:3;display:flex;gap:6px}
 .cb-mini{width:30px;height:30px;border-radius:50%;border:1px solid var(--bd);background:#fff;color:var(--gr);display:inline-grid;place-items:center;font-size:14px;line-height:1;cursor:pointer;font-family:inherit;flex:none}
 .cb-mini:hover{border-color:var(--g);color:var(--gd)}.cb-mini.on{background:var(--g);border-color:var(--g);color:#fff}

@@ -21,7 +21,30 @@ import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
 
 const PERIODOS: [string, string, number | null][] = [['4s', '4 semanas', 28], ['3m', '3 meses', 91], ['6m', '6 meses', 182], ['todo', 'Todo', null]]
 
-export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
+/* LO PROGRAMADO, COMO SI SE HUBIERA HECHO (ficha del paciente): sus próximas citas con
+   sesión se convierten en "registros" con las series y reps del plan, y el cuerpo enseña
+   lo que tiene para entrenar. Misma cuenta que lo hecho (calcularMapa). */
+async function registrosProgramados(pacienteId: string): Promise<Registro[]> {
+  const { aplicarAjustes } = await import('@/lib/ajustesCita')
+  const hoy = new Date().toISOString().slice(0, 10)
+  const { data } = await supabase.from('citas').select('fecha,sesion_id,ajustes,sesiones:sesion_id(partes)')
+    .eq('paciente_id', pacienteId).gte('fecha', hoy).eq('estado', 'programada').not('sesion_id', 'is', null).order('fecha')
+  const out: Registro[] = []
+  ;(data || []).forEach((c: any) => {
+    const ses = aplicarAjustes(Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones, c.ajustes)
+    ;(ses?.partes || []).forEach((p: any) => (p?.ejercicios || []).forEach((it: any) => {
+      if (!it?.ejercicio_id) return
+      const n = Math.max(1, parseInt(String(it.series || p.series || p.vueltas || 3)) || 3)
+      const serie = { reps: it.reps || '', segundos: it.tiempo || it.segundos || '' }
+      out.push({ fecha: c.fecha, ejercicio_id: it.ejercicio_id, series: Array.from({ length: n }, () => serie), regimen: it.regimen || null, sesion_id: c.sesion_id })
+    }))
+  })
+  return out
+}
+
+export default function MapaTrabajo({ pacienteId, programado = false }: { pacienteId: string,
+  /** Ficha: lo que tiene programado (próximas citas), no lo hecho. */
+  programado?: boolean }) {
   const cfg = useConfigTrabajo()
   const [periodo, setPeriodo] = useState('3m')
   const [regs, setRegs] = useState<Registro[] | null>(null)
@@ -40,7 +63,8 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
     let vivo = true
     ;(async () => {
       const [{ filas }, et] = await Promise.all([
-        traerTodo((d, h) => supabase.from('registros_ejercicio').select('fecha,ejercicio_id,series,regimen,sesion_id').eq('paciente_id', pacienteId).order('id').range(d, h)),
+        programado ? registrosProgramados(pacienteId).then(filas => ({ filas }))
+          : traerTodo((d, h) => supabase.from('registros_ejercicio').select('fecha,ejercicio_id,series,regimen,sesion_id').eq('paciente_id', pacienteId).order('id').range(d, h)),
         supabase.from('etiquetas').select('id,nombre,categoria,padre_id'),
       ])
       const ids = Array.from(new Set((filas || []).map((r: any) => r.ejercicio_id).filter(Boolean)))
@@ -60,9 +84,11 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
     const dias = PERIODOS.find(p => p[0] === periodo)?.[2]
     if (!regs) return []
     if (!dias) return regs
+    // Programado: hacia delante (las próximas N semanas); hecho: hacia atrás.
+    if (programado) { const hasta = new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10); return regs.filter(r => r.fecha <= hasta) }
     const desde = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10)
     return regs.filter(r => r.fecha >= desde)
-  }, [regs, periodo])
+  }, [regs, periodo, programado])
   const m = useMemo(() => calcularMapa(enPeriodo, ejs, idx, cfg, { int: fInt, eje: fEje, combinada }), [enPeriodo, ejs, idx, cfg, fInt, fEje, combinada])
   const carga = useMemo(() => cargaSemanal(regs || [], ejs, cfg), [regs, ejs, cfg])
 
@@ -132,13 +158,13 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
         <button type="button" style={chip(!combinada)} onClick={() => setCombinada(false)} title="Solo lo principal (★) de cada ejercicio">Principal</button>
         <button type="button" style={chip(combinada)} onClick={() => setCombinada(true)} title="También lo secundario, a medio peso">Combinada</button>
         <span style={{ flex: 1 }}/>
-        <div style={{ position: 'relative' }}>
+        {!programado && <div style={{ position: 'relative' }}>
           <button type="button" onClick={() => setVerCarga(!verCarga)} title="Carga de trabajo"
             style={{ border: '1px solid var(--bd)', background: carga.pico ? '#FDEDE8' : '#fff', borderRadius: 99, width: 30, height: 30, cursor: 'pointer', display: 'grid', placeItems: 'center', color: carga.pico ? '#C0392B' : 'var(--gr)' }}>
             <Ic name="progreso" size={14}/>
           </button>
           {verCarga && <PanelCarga carga={carga} onCerrar={() => setVerCarga(false)}/>}
-        </div>
+        </div>}
       </div>
       {/* Filtros de intención */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
@@ -166,7 +192,7 @@ export default function MapaTrabajo({ pacienteId }: { pacienteId: string }) {
 
         {/* El reparto */}
         <div>
-          {regs !== null && m.total === 0 && <div style={{ fontSize: 13, color: 'var(--grl)', padding: '20px 0' }}>Nada anotado en la sala en este periodo{fInt.length || fEje.length ? ' con estos filtros' : ''}.</div>}
+          {regs !== null && m.total === 0 && <div style={{ fontSize: 13, color: 'var(--grl)', padding: '20px 0' }}>{programado ? 'Nada programado con sesión en este periodo' : 'Nada anotado en la sala en este periodo'}{fInt.length || fEje.length ? ' con estos filtros' : ''}.</div>}
           {!Z && m.total > 0 && <>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
               <Dato n={textoSegundos(m.total)} t="de trabajo"/>

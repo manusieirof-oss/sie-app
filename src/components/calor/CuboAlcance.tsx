@@ -11,7 +11,11 @@ import { useEffect, useRef, useState } from 'react'
  * Doble clic: se amplía a casi toda la pantalla, translúcido, sin salir de la mesa.
  */
 export interface MarcaFase { i: number, n: string, c: string }
-export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, fechaFin, botones }: {
+export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, fechaFin, botones, colorHaz, conEstilo = false }: {
+  /** Color del haz de luz (ficha: el de la clínica, o rojo atenuado si hay alerta). */
+  colorHaz?: string
+  /** Trae su propio CSS (fuera de la página del calor, que ya lo pone). */
+  conEstilo?: boolean
   n: number
   hoy: number
   marcas: MarcaFase[]
@@ -87,11 +91,12 @@ export default function CuboAlcance({ n, hoy, marcas, sombras, linea, fechaIni, 
   }, [grande])
 
   return (
-    <div ref={esc} className={'cb-escena' + (grande ? ' grande' : '')}
+    <div ref={esc} className={'cb-escena' + (grande ? ' grande' : '')} style={colorHaz ? { ['--haz' as any]: colorHaz } : undefined}
       onPointerDown={abajo} onPointerMove={mover} onPointerUp={() => { ini.current = null }} onPointerCancel={() => { ini.current = null }}
       onDoubleClick={e => { if (!(e.target as HTMLElement).closest('.cb-btn')) setGrande(g => !g) }}>
       <div className="cb-btns">{botones}</div>
       {grande && <button className="cb-btn cb-mini" style={{ position: 'absolute', right: 12, top: 12 }} onClick={() => setGrande(false)}>✕</button>}
+      {conEstilo && <style>{CSS_CUBO}</style>}
       <div ref={cubo} className="cb-cubo" />
     </div>
   )
@@ -121,3 +126,16 @@ function tubo(linea: { v: number[], t: number[] } | null, L: number, A: number, 
   }
   return h
 }
+
+/* El mismo CSS que en la página del calor, para usar el cubo en otros sitios (ficha). El
+   haz toma --haz: así se tiñe sin tocar el dibujo. */
+const CSS_CUBO = `
+.cb-escena{perspective:1300px;cursor:grab;touch-action:none;user-select:none;flex:1;min-height:200px;display:grid;place-items:center;position:relative;border-radius:18px}
+.cb-escena.grande{position:fixed;inset:28px;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);box-shadow:0 20px 60px rgba(38,40,37,.18);border:1px solid var(--bd)}
+.cb-cubo{position:relative;transform-style:preserve-3d}
+.cb-f{position:absolute;left:0;top:0;border:1.5px solid var(--g);background:rgba(231,241,242,.55)}
+.cb-tag{position:absolute;top:-22px;font-size:10px;font-weight:600;white-space:nowrap}
+.cb-fecha{position:absolute;font-size:10px;color:var(--grl);white-space:nowrap}
+.cb-haz{position:absolute;transform-origin:0 50%;pointer-events:none;background:linear-gradient(to bottom,var(--haz,#8FA9AD) 0%,#fff 38%,#fff 62%,var(--haz,#8FA9AD) 100%)}
+.cb-btns{position:absolute;left:8px;top:8px;z-index:3;display:flex;gap:6px}
+`
