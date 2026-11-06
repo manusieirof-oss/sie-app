@@ -61,7 +61,12 @@ const empiezaDespues = (b: any) => {
 const nombreMes = (b: any) =>
   new Date(b.anio, b.mes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 
-export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones, onCambioSesiones, abrirTest, irA }: any) {
+export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones, onCambioSesiones, abrirTest, irA, parte = 'resumen' }: any) {
+  /* LA FICHA EN DOS: 'resumen' (lo que se mira del paciente en el centro) y 'ubicar'
+     (lo que salió del resumen y aún hay que decidir dónde va: bono, horarios, sala…). */
+  const resumen = parte !== 'ubicar', ubicar = parte === 'ubicar'
+  const [verAtencion, setVerAtencion] = useState(false)
+  const [verNota, setVerNota] = useState(false)
   const router = useRouter()
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
@@ -1188,7 +1193,19 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   return (
     <div className="panel">
       {/* 1. LO QUE REQUIERE ATENCIÓN — no se pinta si el paciente está en orden */}
-      {hayAtencion && (
+      {/* ALERTAS Y NOTA, EN UNA TIRA: se ven siempre pero ocupan una línea; al tocar se
+          despliegan. Antes eran dos bloques grandes al principio de la ficha. */}
+      {resumen && !editando && (hayAtencion || pac.notas_fijas) && (
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+          {hayAtencion && <button type="button" onClick={()=>setVerAtencion(v=>!v)}
+            style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid #e8c4c4',background:'var(--redl)',color:'var(--red)',borderRadius:99,padding:'5px 12px',fontSize:12.5,cursor:'pointer',fontFamily:'inherit'}}>
+            <Ic name="alerta" size={13}/> {[(alertas?.length||0)>0 && `${alertas.length} alerta${alertas.length===1?'':'s'}`, recPendientes.length>0 && `${recPendientes.length} sin recuperar`, estadoPago==='impago' && 'impago'].filter(Boolean).join(' · ')} {verAtencion?'▴':'▾'}</button>}
+          {pac.notas_fijas && <button type="button" onClick={()=>setVerNota(v=>!v)}
+            style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid var(--bd)',background:'var(--bl)',color:'var(--n)',borderRadius:99,padding:'5px 12px',fontSize:12.5,cursor:'pointer',fontFamily:'inherit'}}>
+            <Ic name="pin" size={13}/> Nota {verNota?'▴':'▾'}</button>}
+        </div>
+      )}
+      {resumen && hayAtencion && (verAtencion || editando) && (
         <div className="atencion">
           <div className="at-h"><Ic name="alerta" size={16}/> Requiere atención</div>
           {(alertas||[]).map((a:any)=>(
@@ -1221,7 +1238,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <textarea className="input" value={form.notas_fijas||''} onChange={e=>setForm((p:any)=>({...p,notas_fijas:e.target.value}))} style={{minHeight:60}} placeholder="ej. Viene en silla de ruedas · Prefiere entrenar de pie"/>
           </div>
         </div>
-      ) : pac.notas_fijas ? (
+      ) : pac.notas_fijas && resumen && verNota ? (
         <div className="nota-fija">
           <span style={{display:'inline-flex',color:'var(--g)',flexShrink:0,marginTop:1}}><Ic name="pin" size={14}/></span>
           {pac.notas_fijas}
@@ -1230,11 +1247,11 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
       {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
           agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
-      <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>
+      {ubicar && <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>}
       {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
-      <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>
+      {ubicar && <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>}
       {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
-      <CambiarSala pacienteId={pac.id}/>
+      {ubicar && <CambiarSala pacienteId={pac.id}/>}
 
       {/* 3. OBJETIVOS — el bloque principal, a ancho completo.
 
@@ -1248,7 +1265,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           veces es exactamente lo mismo.
 
           Dentro van ordenados por vía, que es el orden en que se explican. */}
-      {hayObjetivos && (() => {
+      {resumen && hayObjetivos && (() => {
         const ordenVia = (o:any) => {
           const vs = viasDe(o)
           const i = VIAS.findIndex(v => vs.includes(v.valor))
@@ -1409,8 +1426,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           }/>
       )}
 
-      {/* 4. BONO Y TIPO DE CLASE — cada cosa en su columna */}
-      <div className="g2">
+      {/* 4. BONO Y TIPO DE CLASE — cada cosa en su columna (en «Por ubicar») */}
+      {ubicar && <div className="g2">
         <div className="sec">
           <div className="sec-h"><span className="ct-l"><Ic name="finanzas" size={13}/> Bono y cuota</span></div>
           {bono ? (
@@ -1482,10 +1499,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             Se usa como tipo por defecto al darle cita nueva desde la agenda.
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* 5. ANAMNESIS · se pinta aunque esté vacía, para poder añadirla */}
-      {valoracion?.id && (
+      {resumen && valoracion?.id && (
         <div className="sec">
           <div className="sec-h">
             <span className="sh-l">
@@ -1538,7 +1555,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           repetirlo en la ficha era tener la misma informacion en dos sitios. */}
 
       {/* 7. PREFERENCIAS DE HORARIO */}
-      {valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
+      {ubicar && valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
         <div className="sec">
           <div className="sec-h"><span className="ct-l"><Ic name="reloj" size={13}/> Preferencias de horario</span></div>
           {valoracion.dias_asistencia && (
@@ -1550,7 +1567,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       )}
 
-      <Consentimientos pacienteId={pac.id} nombre={`${pac.nombre} ${pac.apellidos}`.trim()} dni={pac.dni}/>
+      {ubicar && <Consentimientos pacienteId={pac.id} nombre={`${pac.nombre} ${pac.apellidos}`.trim()} dni={pac.dni}/>}
 
       {/* MENÚ TIPO DE CLASE */}
       {menuTipo && (

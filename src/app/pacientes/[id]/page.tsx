@@ -831,6 +831,12 @@ export default function FichaPacientePage() {
               <span className="pat-dot" style={{background:estadoDot[pac.estado]||'var(--g)'}}/>
               {estadoLabel[pac.estado] || pac.estado}
             </span>
+            {/* SU BONO, al lado del estado: es lo segundo que se pregunta. El detalle
+                (asignar, cobrar, sesiones) está en «Por ubicar». */}
+            <span className="pat-tag" style={{background:'rgba(255,255,255,.12)',color:'#fff',cursor:'pointer'}} onClick={()=>setTab('ubicar')}
+              title="Bono y cuota (en «Por ubicar»)">
+              <Ic name="finanzas" size={11}/> {bono ? `${bonoLabel?.[bono.tipo] || bono.tipo}${cobrado ? ' · pagado' : bono?.estado_pago === 'impago' ? ' · impago' : ' · pendiente'}` : bonosSesiones.length ? `Bono de sesiones` : 'Sin bono'}
+            </span>
           </div>
         </div>
 
@@ -978,14 +984,16 @@ export default function FichaPacientePage() {
 
       {/* TABS */}
       <div className="tabs">
-        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['salud','salud','Salud'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados']].map(([k,ic,l])=>(
+        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['salud','salud','Salud'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados'],['ubicar','carpeta','Por ubicar']].map(([k,ic,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
 
       {/* TAB FICHA */}
-      {tab==='ficha' && (
-        <FichaTab
+      {/* «Por ubicar»: lo que salió de la ficha (bono, horarios, sala, consentimientos…)
+          mientras se decide dónde va. Es la misma FichaTab, con su otra parte. */}
+      {(tab==='ficha' || tab==='ubicar') && (
+        <FichaTab parte={tab==='ubicar' ? 'ubicar' : 'resumen'}
           pac={pac}
           bono={bono}
           estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
