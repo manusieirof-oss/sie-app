@@ -278,6 +278,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push('/login')
   }
 
+  // Dirección: cuántos avisos nuevos hay, al abrir el menú. Va ANTES de los «return»
+  // de arriba: un hook después de ellos rompía la app entera («SIE ha tenido un fallo»).
+  useEffect(() => {
+    if (!menuUsuario || nivelDe(perfil) < 4) return
+    supabase.from('avisos').select('id', { count: 'exact', head: true }).eq('estado', 'nuevo')
+      .then(({ count }) => setAvisosNuevos(count || 0))
+  }, [menuUsuario, perfil])
   if (user === undefined) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'var(--n)'}}>
       <span style={{color:'var(--g)',fontSize:14,letterSpacing:4}}>SIE</span>
@@ -299,11 +306,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // para que la barra no le pese. Dirección puede «ver como» un nivel para comprobar
   // qué ven los demás; queda apuntado en este equipo.
   const nivel = nivelDe(perfil)
-  useEffect(() => {
-    if (!menuUsuario || nivel < 4) return
-    supabase.from('avisos').select('id', { count: 'exact', head: true }).eq('estado', 'nuevo')
-      .then(({ count }) => setAvisosNuevos(count || 0))
-  }, [menuUsuario, nivel])
   const esAdmin = perfil?.rol==='admin'
   const esDireccion = nivel >= 4
   const veFinanzas = esDireccion || (!esAdmin && perfil?.permisos?.finanzas===true)
