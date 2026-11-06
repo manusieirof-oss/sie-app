@@ -11,6 +11,8 @@ import PildoraRegimen, { LADOS, cambiadoHoy } from './PildoraRegimen'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { useRef, useState } from 'react'
 import { CromoDeId } from '@/components/FichaEjercicio'
+import { supabase } from '@/lib/supabase'
+import { Velo } from './GestionCita'
 import { nombreMedida, camposDelEjercicio, partesMedida } from '@/lib/medida'
 import { useConfigTrabajo } from '@/lib/usarTrabajo'
 import { ejecucionPorTiempo } from '@/lib/trabajo'
@@ -54,6 +56,21 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
   const cfgTrabajo = useConfigTrabajo()
   // El cromo abierto: de qué ejercicio y en qué hueco de la parte está (para cambiarlo desde él).
   const [cromo, setCromo] = useState<{ id: string, ei: number, cambia: boolean } | null>(null)
+  /* REVISAR UN EJERCICIO (cualquier nivel): si en sala se ve que está mal, se apunta qué
+     y queda como tarea del equipo en «Hoy»; desde ahí se va a su torno a arreglarlo. */
+  const [revisar, setRevisar] = useState<{ id: string, nombre: string } | null>(null)
+  const [notaRev, setNotaRev] = useState('')
+  const [guardandoRev, setGuardandoRev] = useState(false)
+  async function guardarRevision() {
+    if (!revisar || !notaRev.trim()) return
+    setGuardandoRev(true)
+    const { data: u } = await supabase.auth.getUser()
+    const { error } = await supabase.from('tareas').insert({ titulo: `Revisar «${revisar.nombre}»: ${notaRev.trim()}`,
+      ejercicio_id: revisar.id, creada_por: u.user?.id || null, asignado_a: null, completada: false })
+    setGuardandoRev(false)
+    if (error) { alert('No se ha podido guardar: ' + error.message); return }
+    setRevisar(null)
+  }
   const grupos: { g: string, items: any[] }[] = []
   ejercicios.forEach((o: any) => {
     const g = superserie ? (o.ej.grupo || 'A') : ''
@@ -64,6 +81,16 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
 
   return (
     <div style={{ marginBottom: 14, paddingLeft: 14 }}>
+      {revisar && (
+        <Velo titulo="Revisar el ejercicio" sub={revisar.nombre} onCerrar={() => setRevisar(null)}>
+          <div className="gc-lbl">¿Qué está mal?</div>
+          <textarea className="input" autoFocus value={notaRev} onChange={e => setNotaRev(e.target.value)} rows={3}
+            placeholder="Ej.: la foto no es este ejercicio, se mide en segundos, falta la variante…" style={{ width: '100%', resize: 'vertical' }}/>
+          <div className="gc-nota">Queda como tarea del equipo en «Hoy».</div>
+          <div className="gc-pie"><button className="btn btn-p btn-sm" disabled={!notaRev.trim() || guardandoRev} onClick={guardarRevision}>
+            {guardandoRev ? 'Guardando…' : 'Guardar'}</button></div>
+        </Velo>
+      )}
       {cromo && <CromoDeId id={cromo.id} paciente={paciente || null} onCerrar={() => setCromo(null)}
         onUsar={cromo.cambia && onCambiarA ? (nuevo: any) => { onCambiarA(cromo.ei, nuevo); setCromo(null) } : undefined}/>}
       {grupos.map(gr => (
@@ -146,7 +173,8 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                     la chapa lo dice y deshace con un toque. */}
                 <ChapaHoy noLoHizo={noLoHizo}
                   onSustituir={onSustituir && !ej.guardado ? () => onSustituir(ei) : undefined}
-                  onNoHecho={onNoHecho ? () => onNoHecho(ei) : undefined}/>
+                  onNoHecho={onNoHecho ? () => onNoHecho(ei) : undefined}
+                  onRevisar={ej.ejercicio_id ? () => { setRevisar({ id: ej.ejercicio_id, nombre: ej.nombre }); setNotaRev('') } : undefined}/>
                 <ChapaEjecucion ej={ej} itemMarcado={itemMarcado}
                   onToggle={(ii: number) => toggleItem(pacienteId, ei, ii)}
                   onTodos={(v: boolean) => marcarTodosItems(pacienteId, ei, v)}
@@ -279,10 +307,10 @@ function ObjetivosEj({ ids, objetivosLib }: { ids: string[], objetivosLib: any[]
  * Arriba a la derecha, donde antes iba la chapa de feedbacks (que ahora va con la
  * de ejecucion). Si no lo hizo, la chapa lo dice y un toque lo deshace.
  */
-function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onSustituir?: () => void, onNoHecho?: () => void }) {
+function ChapaHoy({ noLoHizo, onSustituir, onNoHecho, onRevisar }: { noLoHizo: boolean, onSustituir?: () => void, onNoHecho?: () => void, onRevisar?: () => void }) {
   const [abierto, setAbierto] = useState(false)
   const ancla = useRef<HTMLButtonElement>(null)
-  if (!onSustituir && !onNoHecho) return null
+  if (!onSustituir && !onNoHecho && !onRevisar) return null
   if (noLoHizo) return (
     <button type="button" onClick={e => { e.stopPropagation(); onNoHecho?.() }} aria-pressed
       title="No lo hizo · pulsa para deshacer"
@@ -307,6 +335,8 @@ function ChapaHoy({ noLoHizo, onSustituir, onNoHecho }: { noLoHizo: boolean, onS
         {/* Solo hoy o para siempre se elige luego, en la ventana de cambiar. */}
         {opcion('⇄', 'Cambiar ejercicio', onSustituir)}
         {opcion('⊘', 'No lo hizo', onNoHecho)}
+        {/* Cualquier nivel: si el ejercicio está mal (foto, nombre, cómo se mide…), avisa. */}
+        {opcion('⚑', 'Revisar el ejercicio', onRevisar)}
       </Flotante>
     </>
   )

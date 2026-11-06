@@ -9,6 +9,7 @@ import { cargarTurnos, nombresDe, responsableDe, Turno } from '@/lib/turnos'
 import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar } from '@/lib/mantenimiento'
 import CaraPaciente from '@/components/CaraPaciente'
+import { usePuede } from '@/lib/permisos'
 
 // HOY: LA PORTADA DE SIE.
 //
@@ -29,6 +30,8 @@ export default function Hoy() {
   const [molestias, setMolestias] = useState<any[]>([])
   const [tests, setTests] = useState<Record<string, string[]>>({})
   const [tareas, setTareas] = useState<any[]>([])
+  // Las de «Revisar ejercicio» llevan a su torno (quien puede entrar en él).
+  const puedeTorno = usePuede()('torno')
   const [notas, setNotas] = useState<any[]>([])
   const [nueva, setNueva] = useState('')
   const [turnos, setTurnos] = useState<Turno[]>([])
@@ -221,7 +224,9 @@ export default function Hoy() {
           {tareas.slice(0, 8).map(t => (
             <label key={t.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderTop: '1px solid var(--bl)', fontSize: 13.5, cursor: 'pointer' }}>
               <input type="checkbox" onChange={() => hecha(t)} style={{ marginTop: 3 }}/>
-              <span>{t.titulo}{t.fecha_limite && <span style={{ display: 'block', fontSize: 12, color: t.fecha_limite < hoy ? 'var(--red)' : 'var(--grl)' }}>{t.fecha_limite < hoy ? 'Vencida · ' : ''}{new Date(t.fecha_limite + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>}</span>
+              <span>{t.ejercicio_id && puedeTorno
+                ? <Link href={`/torno/amasar/${t.ejercicio_id}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--gd)', textDecoration: 'underline' }}>⚑ {t.titulo}</Link>
+                : t.ejercicio_id ? <>⚑ {t.titulo}</> : t.titulo}{t.fecha_limite && <span style={{ display: 'block', fontSize: 12, color: t.fecha_limite < hoy ? 'var(--red)' : 'var(--grl)' }}>{t.fecha_limite < hoy ? 'Vencida · ' : ''}{new Date(t.fecha_limite + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>}</span>
             </label>
           ))}
           {tareas.length > 8 && <Link href="/agenda" style={{ fontSize: 12.5, color: 'var(--gd)' }}>Ver las {tareas.length} en la agenda →</Link>}
