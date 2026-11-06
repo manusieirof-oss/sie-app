@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { hoyISO, sumarDias } from '@/lib/fechas'
 import CuboAlcance from '@/components/calor/CuboAlcance'
 import MapaTrabajo from '@/components/MapaTrabajo'
+import CuerpoSalud, { type VistaSalud } from '@/components/ficha/CuerpoSalud'
 import { Ic } from '@/lib/icons'
 
 // ---------------------------------------------------------------------------
@@ -47,8 +48,20 @@ function volumen(partes: any[]) {
   return v
 }
 
+/* EL BOTÓN DE VISTAS DEL CUERPO, como en la biblioteca y la agenda: un toque, la
+   siguiente. Se recuerda en este aparato. */
+type VistaCuerpo = 'entrenar' | VistaSalud
+const VISTAS: { k: VistaCuerpo, t: string, ic: string }[] = [
+  { k: 'entrenar', t: 'Para entrenar', ic: 'entreno' }, { k: 'dolor', t: 'Dolor ahora', ic: 'molestia' },
+  { k: 'operaciones', t: 'Operaciones', ic: 'cruz' }, { k: 'patologias', t: 'Patologías', ic: 'patologia' },
+]
+
 export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: string, alerta: boolean }) {
   const [citas, setCitas] = useState<any[] | null>(null)
+  const [vista, setVistaE] = useState<VistaCuerpo>('entrenar')
+  useEffect(() => { try { const v = localStorage.getItem('ficha_cuerpo') as VistaCuerpo; if (VISTAS.some(x => x.k === v)) setVistaE(v) } catch {} }, [])
+  const vistaAct = VISTAS.find(x => x.k === vista) || VISTAS[0]
+  const siguiente = () => { const n = VISTAS[(VISTAS.indexOf(vistaAct) + 1) % VISTAS.length].k; setVistaE(n); try { localStorage.setItem('ficha_cuerpo', n) } catch {} }
   useEffect(() => {
     const hoy = hoyISO()
     ;(async () => {
@@ -106,8 +119,13 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
         <div style={{ fontSize: 11, color: 'var(--grl)' }}>Gíralo con el dedo; doble toque para verlo grande. Más alto, más trabajo; más grueso, más intenso; el cubo se estrecha donde faltó o canceló y se ensancha si vino de más.</div>
       </div>
       <div className="sec" style={{ marginBottom: 0 }}>
-        <div className="sec-h"><span className="ct-l"><Ic name="cuerpo" size={13}/> Lo que tiene para entrenar</span></div>
-        <MapaTrabajo pacienteId={pacienteId} programado/>
+        <div className="sec-h"><span className="ct-l"><Ic name="cuerpo" size={13}/> Su cuerpo</span>
+          <button type="button" className="chip-sel on" onClick={siguiente} title="Cambiar lo que enseña el cuerpo"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0 }}>
+            <Ic name={vistaAct.ic} size={13}/> {vistaAct.t}
+            <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{VISTAS.map(x => <i key={x.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: x.k === vista ? 1 : .3 }}/>)}</span>
+          </button></div>
+        {vista === 'entrenar' ? <MapaTrabajo pacienteId={pacienteId} programado/> : <CuerpoSalud pacienteId={pacienteId} vista={vista}/>}
       </div>
     </div>
   )
