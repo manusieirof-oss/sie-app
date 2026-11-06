@@ -35,7 +35,6 @@ const SIEMPRE = [
 ]
 function ReglasNiveles() {
   const [m, setM] = useState<Minimos | null>(null)
-  const [nivel, setNivel] = useState<1 | 2 | 3>(3)
   const [guardando, setGuardando] = useState<string | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -56,34 +55,43 @@ function ReglasNiveles() {
   // La agenda tampoco: va por persona (interruptor «Agenda» de cada uno, más abajo).
   const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion' && !POR_PERSONA[a])
     .sort((a, b) => m[a] - m[b])
-  const info = NIVELES.find(x => x.n === nivel)!
-  const tiene = (a: Accion) => m[a] <= nivel
+  /* UNA COLUMNA POR ENTRENADOR (1, 2 y 3), con lo que hace en una frase arriba; cada
+     fila, un permiso explicado, y su casilla en cada columna. */
+  const col: React.CSSProperties = { width: 92, textAlign: 'center', flexShrink: 0 }
   return (
     <div className="card" style={{ marginTop: 14 }}>
-      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span></div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {NIVELES.map(x => <button key={x.n} type="button" className={`chip-sel ${nivel === x.n ? 'on' : ''}`} onClick={() => setNivel(x.n)}>Nivel {x.n} · {x.nombre}</button>)}
+      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada entrenador</span></div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, paddingBottom: 8, borderBottom: '1.5px solid var(--bd)' }}>
+        <div style={{ flex: 1 }}/>
+        {NIVELES.map(x => (
+          <div key={x.n} style={col}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--n)' }}>{x.nombre}</div>
+            <div style={{ fontSize: 10.5, color: 'var(--gr)', lineHeight: 1.3, marginTop: 3 }}>{x.que}</div>
+          </div>
+        ))}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 12 }}>{info.que}</div>
-      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '4px 0 6px' }}>Siempre</div>
-      {SIEMPRE.map(t => <div key={t} style={{ display: 'flex', gap: 10, fontSize: 12.5, padding: '4px 0', color: 'var(--n)' }}><span style={{ color: 'var(--g)' }}>✓</span>{t}</div>)}
-      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '14px 0 6px' }}>Permisos</div>
-      {acciones.map(a => {
-        const on = tiene(a)
-        // De otro nivel: lo tiene porque viene de abajo, o no lo tiene porque es de arriba.
-        const de = m[a] >= 4 ? 'Dirección' : `desde el nivel ${m[a]}`
-        return (
-          <label key={a} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderTop: '1px solid var(--bl)', cursor: 'pointer', opacity: guardando === a ? .5 : 1 }}>
-            <input type="checkbox" checked={on} disabled={guardando === a} style={{ marginTop: 3 }}
-              onChange={() => cambiar(a, on ? nivel + 1 : nivel)}/>
-            <span style={{ flex: 1 }}>
-              <span style={{ display: 'block', fontSize: 13, color: on ? 'var(--n)' : 'var(--grl)', fontWeight: 500 }}>{ETIQUETA_ACCION[a]} <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--grl)' }}>· {de}</span></span>
-              <span style={{ display: 'block', fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>{EXPLICA_ACCION[a]}</span>
-            </span>
-          </label>
-        )
-      })}
-      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Los niveles van en escalera: marcar algo aquí lo da también a los niveles de arriba, y quitarlo lo quita también a los de abajo. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, más abajo. Los demás lo ven al recargar.</div>
+      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '10px 0 2px' }}>Siempre</div>
+      {SIEMPRE.map(t => (
+        <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderTop: '1px solid var(--bl)' }}>
+          <div style={{ flex: 1, fontSize: 12.5, color: 'var(--n)' }}>{t}</div>
+          {NIVELES.map(x => <div key={x.n} style={{ ...col, color: 'var(--g)' }}>✓</div>)}
+        </div>
+      ))}
+      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '14px 0 2px' }}>Permisos</div>
+      {acciones.map(a => (
+        <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--bl)', opacity: guardando === a ? .5 : 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: 500 }}>{ETIQUETA_ACCION[a]}{m[a] >= 4 && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--grl)' }}> · ahora solo dirección</span>}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--gr)', marginTop: 2 }}>{EXPLICA_ACCION[a]}</div>
+          </div>
+          {NIVELES.map(x => {
+            const on = m[a] <= x.n
+            return <div key={x.n} style={col}><input type="checkbox" checked={on} disabled={guardando === a}
+              title={`${x.nombre}: ${on ? 'quitar' : 'dar'}`} onChange={() => cambiar(a, on ? x.n + 1 : x.n)} style={{ width: 17, height: 17, cursor: 'pointer' }}/></div>
+          })}
+        </div>
+      ))}
+      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Van en escalera: dar algo a un entrenador se lo da también a los de arriba, y quitarlo se lo quita también a los de abajo. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, más abajo. Los demás lo ven al recargar.</div>
       {error && <div style={{fontSize:11,color:'var(--red)',marginTop:8}}>{error}</div>}
     </div>
   )

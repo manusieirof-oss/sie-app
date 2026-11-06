@@ -24,9 +24,9 @@ import { createContext, useContext } from 'react'
 export type Nivel = 1 | 2 | 3 | 4
 
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
-  { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases y apunta lo que se hace' },
-  { n: 2, nombre: 'Entrenador', que: 'Además ajusta la sesión del día (solo hoy) y consulta la biblioteca' },
-  { n: 3, nombre: 'Entrenador que programa', que: 'Además fichas (la salud solo la ve), el torno, sesiones para siempre y ejercicios' },
+  { n: 1, nombre: 'Entrenador 1', que: 'Observa y anota lo que hacen los pacientes.' },
+  { n: 2, nombre: 'Entrenador 2', que: 'Observa, anota y añade cambios a las sesiones (solo para hoy).' },
+  { n: 3, nombre: 'Entrenador 3', que: 'Prepara los entrenos y la programación.' },
 ]
 export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
 
