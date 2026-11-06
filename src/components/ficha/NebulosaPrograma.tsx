@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 //   · un tramo por cita, de izquierda (lo pasado) a derecha (lo programado);
 //   · el HAZ de luz dentro: más alto, más trabajo; más grueso, más intenso;
 //   · la NIEBLA se estrecha donde faltó o canceló y se abre donde vino de más;
-//   · con alerta, niebla y halo en rojo atenuado; si no, el color de la clínica;
+//   · con alerta, la niebla en rojo atenuado; si no, el color de la clínica;
 //   · HOY es un aro fino naranja.
 // Three.js y no CSS: la niebla son cientos de motas blandas que se mueven despacio.
 // ---------------------------------------------------------------------------
@@ -59,8 +59,7 @@ export default function NebulosaPrograma({ trabajo, intens, escala, hoy, alerta,
         for (let j = 0; j <= RAD; j++) { const id = s * (RAD + 1) + j; P.setXYZ(id, c.x + (P.getX(id) - c.x) * k, c.y + (P.getY(id) - c.y) * k, c.z + (P.getZ(id) - c.z) * k) }
       }
       grupo.add(new THREE.Mesh(gH, new THREE.MeshBasicMaterial({ color: 0xffffff })))
-      const halo = new THREE.Mesh(gH, new THREE.MeshBasicMaterial({ color: alerta ? 0xD99A9A : 0x8FA9AD, transparent: true, opacity: 0.35, side: THREE.BackSide }))
-      halo.scale.set(1, 1.6, 1.6); grupo.add(halo)
+      // Sin halo: sobre la niebla quedaba como una sombra gris; el haz va blanco y limpio.
 
       // Hoy: aro fino.
       const aro = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, k) => { const a = k / 64 * Math.PI * 2; return new THREE.Vector3(0, Math.sin(a) * RADIO * 1.25, Math.cos(a) * RADIO * 1.25) })),
