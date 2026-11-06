@@ -10,6 +10,7 @@ import { testsPorDia } from '@/lib/evaluaciones'
 import { testsPorConfirmar } from '@/lib/mantenimiento'
 import CaraPaciente from '@/components/CaraPaciente'
 import { usePuede } from '@/lib/permisos'
+import { MisAvisosArreglados } from '@/components/BuzonAvisos'
 
 // HOY: LA PORTADA DE SIE.
 //
@@ -218,6 +219,7 @@ export default function Hoy() {
           })}
         </section>
 
+        <MisAvisosArreglados/>
         <section style={caja} data-guia="hoy-tareas">
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Tareas del equipo</h3>
           {tareas.length === 0 && <div style={{ fontSize: 13, color: 'var(--gr)' }}>Sin tareas pendientes.</div>}

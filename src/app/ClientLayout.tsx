@@ -15,6 +15,7 @@ import { esCompartido, marcarCompartido, recordar, apuntarActividad, caducada, M
 import { pulsoActivo } from '@/lib/pulsoVivo'
 import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
 import VideoBienvenida, { VIDEOS, videoVisto } from '@/components/VideoBienvenida'
+import { AvisarDeAlgo } from '@/components/BuzonAvisos'
 import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente, claseAEstaHora } from '@/lib/practica'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
@@ -44,6 +45,9 @@ const NAV_FINANZAS = { href: '/finanzas', icon: 'finanzas', label: 'Finanzas' }
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(undefined)
   const [perfil, setPerfil] = useState<any>(null)
+  const [avisando, setAvisando] = useState(false)
+  // Dirección: cuántos avisos nuevos hay (se mira al abrir el menú, no a cada rato).
+  const [avisosNuevos, setAvisosNuevos] = useState(0)
   /** Bonos activos sin cobrar (pendientes + impagos): el numerito de Cobros. */
   const [porCobrar, setPorCobrar] = useState(0)
   const [menuUsuario, setMenuUsuario] = useState(false)
@@ -295,6 +299,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // para que la barra no le pese. Dirección puede «ver como» un nivel para comprobar
   // qué ven los demás; queda apuntado en este equipo.
   const nivel = nivelDe(perfil)
+  useEffect(() => {
+    if (!menuUsuario || nivel < 4) return
+    supabase.from('avisos').select('id', { count: 'exact', head: true }).eq('estado', 'nuevo')
+      .then(({ count }) => setAvisosNuevos(count || 0))
+  }, [menuUsuario, nivel])
   const esAdmin = perfil?.rol==='admin'
   const esDireccion = nivel >= 4
   const veFinanzas = esDireccion || (!esAdmin && perfil?.permisos?.finanzas===true)
@@ -336,6 +345,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {citaMovil && <HojaCita onCerrar={() => setCitaMovil(false)} onCreada={() => window.dispatchEvent(new Event('sie-cita'))}/>}
         {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
       {franjaPractica()}
+      {avisando && <AvisarDeAlgo nombre={perfil?.nombre} onCerrar={() => setAvisando(false)}/>}
       {video && <VideoBienvenida uid={user.id} nivel={video} conGuia={guiaTrasVideo} onFin={() => { const n = video; setVideo(false); if (guiaTrasVideo) abrirGuia(n) }}/>}
       </div>
     )
@@ -380,6 +390,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     title={`Se cierra la sesión tras ${MINUTOS_INACTIVO} min sin tocarlo y al entrar se elige quién eres`}>
                     <Ic name={compartido ? 'check' : 'pacientes'} size={15}/> {compartido ? 'Equipo compartido ✓' : 'Este equipo es compartido'}
                   </button>}
+                  {/* BUZÓN: cualquiera avisa de un fallo o una idea; dirección lo lee en /avisos. */}
+                  <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setAvisando(true) }}>
+                    <Ic name="mensaje" size={15}/> Avisar de algo
+                  </button>
+                  {nivel >= 4 && <Link href="/avisos" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
+                    <Ic name="campana" size={15}/> Avisos del equipo{avisosNuevos > 0 ? ` · ${avisosNuevos}` : ''}
+                  </Link>}
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
@@ -419,6 +436,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main className="content"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
       {guia && <GuiaInicio uid={user.id} nivel={guia} onCerrar={cerrarGuia}/>}
       {franjaPractica()}
+      {avisando && <AvisarDeAlgo nombre={perfil?.nombre} onCerrar={() => setAvisando(false)}/>}
       {video && <VideoBienvenida uid={user.id} nivel={video} conGuia={guiaTrasVideo} onFin={() => { const n = video; setVideo(false); if (guiaTrasVideo) abrirGuia(n) }}/>}
     </div>
   )

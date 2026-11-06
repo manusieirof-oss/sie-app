@@ -107,7 +107,7 @@ export const RUTAS: [string, Accion][] = [
   ['/valoracion', 'valoracion'], ['/camara', 'valoracion'], ['/vald', 'torno'],
   // La biblioteca se consulta desde el 2; sus pantallas de trabajo (/entrenamiento/…), del 3.
   ['/torno', 'torno'], ['/entrenamiento/', 'biblioteca'], ['/entrenamiento', 'ver_biblioteca'],
-  ['/estadisticas', 'direccion'],
+  ['/estadisticas', 'direccion'], ['/avisos', 'direccion'],
 ]
 
 const Ctx = createContext<{ nivel: Nivel, minimos: Minimos, sueltos?: Record<string, any> }>({ nivel: 4, minimos: MINIMO })
