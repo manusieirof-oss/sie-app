@@ -56,6 +56,9 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
   const [zona, setZona] = useState<string | null>(null)
   const [encima, setEncima] = useState<string | null>(null)
   const [verCarga, setVerCarga] = useState(false)
+  // Los filtros de intención y ejecución, escondidos tras un icono: eran tres filas de
+  // pastillas encima del cuerpo y tapaban lo importante.
+  const [verFiltros, setVerFiltros] = useState(false)
   const [fallo, setFallo] = useState('')
 
   // Todo lo anotado del paciente (paginado) y los ejercicios que salen en ello.
@@ -158,6 +161,10 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
         <button type="button" style={chip(!combinada)} onClick={() => setCombinada(false)} title="Solo lo principal (★) de cada ejercicio">Principal</button>
         <button type="button" style={chip(combinada)} onClick={() => setCombinada(true)} title="También lo secundario, a medio peso">Combinada</button>
         <span style={{ flex: 1 }}/>
+        <button type="button" onClick={() => setVerFiltros(v => !v)} title="Filtrar por intención y ejecución"
+          style={{ border: '1px solid var(--bd)', background: verFiltros || fInt.length || fEje.length ? 'var(--n)' : '#fff', color: verFiltros || fInt.length || fEje.length ? '#fff' : 'var(--gr)', borderRadius: 99, height: 30, padding: '0 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', fontSize: 11.5 }}>
+          <Ic name="filtro" size={13}/>{fInt.length + fEje.length > 0 ? ` ${fInt.length + fEje.length}` : ''}
+        </button>
         {!programado && <div style={{ position: 'relative' }}>
           <button type="button" onClick={() => setVerCarga(!verCarga)} title="Carga de trabajo"
             style={{ border: '1px solid var(--bd)', background: carga.pico ? '#FDEDE8' : '#fff', borderRadius: 99, width: 30, height: 30, cursor: 'pointer', display: 'grid', placeItems: 'center', color: carga.pico ? '#C0392B' : 'var(--gr)' }}>
@@ -166,7 +173,8 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
           {verCarga && <PanelCarga carga={carga} onCerrar={() => setVerCarga(false)}/>}
         </div>}
       </div>
-      {/* Filtros de intención */}
+      {/* Filtros de intención (desplegables con el icono) */}
+      {verFiltros && <>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
         {cfg.intensidades.map(i => <button key={i.id} type="button" style={chip(fInt.includes(i.id), i.color)} onClick={() => setFInt(fInt.includes(i.id) ? fInt.filter(x => x !== i.id) : [...fInt, i.id])}>{i.nombre}</button>)}
       </div>
@@ -174,6 +182,7 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
         {cfg.ejecuciones.map(e => <button key={e.id} type="button" style={chip(fEje.includes(e.id))} onClick={() => setFEje(fEje.includes(e.id) ? fEje.filter(x => x !== e.id) : [...fEje, e.id])}>{e.nombre}</button>)}
         {(fInt.length > 0 || fEje.length > 0) && <button type="button" className="btn btn-t btn-sm" onClick={() => { setFInt([]); setFEje([]) }}>Quitar filtros</button>}
       </div>
+      </>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
         {/* El cuerpo */}
