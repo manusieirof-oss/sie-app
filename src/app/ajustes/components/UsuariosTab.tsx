@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { VERSION_CONFIDENCIALIDAD } from '@/lib/confidencialidad'
-import { NIVELES, nombreNivel, MINIMO, ETIQUETA_ACCION, mezclarMinimos, POR_PERSONA, type Accion, type Minimos } from '@/lib/permisos'
+import { NIVELES, nombreNivel, MINIMO, ETIQUETA_ACCION, EXPLICA_ACCION, mezclarMinimos, POR_PERSONA, type Accion, type Minimos } from '@/lib/permisos'
 
 // Llama a /api/equipo con la sesión de quien está dentro: el servidor comprueba que
 // es dirección antes de tocar nada.
@@ -20,12 +20,22 @@ async function equipo(accion: string, datos: any = {}) {
 }
 
 /**
- * QUÉ PUEDE CADA NIVEL. Una fila por acción con su nivel mínimo. Se guarda en la tabla
- * permisos_nivel, que usan la app y las reglas de la base de datos: cambiarlo aquí
- * cambia las dos cosas a la vez (quien entre ya, al recargar).
+ * QUÉ PUEDE CADA NIVEL, explicado y con casillas. Se elige un nivel y se ve todo lo que
+ * hace: lo de siempre (sin casilla) y cada permiso con lo que supone. Los niveles van
+ * en escalera (lo del 1 lo tiene el 2, y así): por eso marcar algo en un nivel lo da
+ * también a los de arriba, y quitarlo lo quita también a los de abajo. Se guarda en
+ * permisos_nivel, que usan la app y las reglas de la base de datos (al recargar).
  */
+const SIEMPRE = [
+  'Hoy: su clase, las tareas del equipo y sus notas.',
+  'Agenda para consultar, con el botón de vistas (sesión, asistencia, alertas).',
+  'Taller: da la clase, apunta series, notas y ejecución, marca «no lo hizo», pone alertas y finaliza.',
+  'Cromo de cada ejercicio al tocar su foto, y «Revisar el ejercicio».',
+  'Modo práctica, guía, vídeo y «Avisar de algo».',
+]
 function ReglasNiveles() {
   const [m, setM] = useState<Minimos | null>(null)
+  const [nivel, setNivel] = useState<1 | 2 | 3>(3)
   const [guardando, setGuardando] = useState<string | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -45,19 +55,35 @@ function ReglasNiveles() {
   // Dirección no se toca desde aquí: bajarla dejaría Finanzas y Equipo a cualquiera.
   // La agenda tampoco: va por persona (interruptor «Agenda» de cada uno, más abajo).
   const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion' && !POR_PERSONA[a])
+    .sort((a, b) => m[a] - m[b])
+  const info = NIVELES.find(x => x.n === nivel)!
+  const tiene = (a: Accion) => m[a] <= nivel
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span></div>
-      <div style={{fontSize:10,color:'var(--grl)',marginBottom:12}}>El nivel mínimo para cada cosa. Vale para la app y para la base de datos; los demás lo ven al recargar.</div>
-      {acciones.map(a => (
-        <div key={a} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderTop:'1px solid var(--bl)'}}>
-          <div style={{flex:1,fontSize:12,color:'var(--n)'}}>{ETIQUETA_ACCION[a]}</div>
-          <select className="input" value={m[a]} disabled={guardando === a} onChange={e => cambiar(a, Number(e.target.value))} style={{width:190,fontSize:11}}>
-            {NIVELES.map(x => <option key={x.n} value={x.n}>Desde nivel {x.n} · {x.nombre}</option>)}
-            <option value={4}>Solo dirección</option>
-          </select>
-        </div>
-      ))}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {NIVELES.map(x => <button key={x.n} type="button" className={`chip-sel ${nivel === x.n ? 'on' : ''}`} onClick={() => setNivel(x.n)}>Nivel {x.n} · {x.nombre}</button>)}
+      </div>
+      <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 12 }}>{info.que}</div>
+      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '4px 0 6px' }}>Siempre</div>
+      {SIEMPRE.map(t => <div key={t} style={{ display: 'flex', gap: 10, fontSize: 12.5, padding: '4px 0', color: 'var(--n)' }}><span style={{ color: 'var(--g)' }}>✓</span>{t}</div>)}
+      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '14px 0 6px' }}>Permisos</div>
+      {acciones.map(a => {
+        const on = tiene(a)
+        // De otro nivel: lo tiene porque viene de abajo, o no lo tiene porque es de arriba.
+        const de = m[a] >= 4 ? 'Dirección' : `desde el nivel ${m[a]}`
+        return (
+          <label key={a} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderTop: '1px solid var(--bl)', cursor: 'pointer', opacity: guardando === a ? .5 : 1 }}>
+            <input type="checkbox" checked={on} disabled={guardando === a} style={{ marginTop: 3 }}
+              onChange={() => cambiar(a, on ? nivel + 1 : nivel)}/>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 13, color: on ? 'var(--n)' : 'var(--grl)', fontWeight: 500 }}>{ETIQUETA_ACCION[a]} <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--grl)' }}>· {de}</span></span>
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--gr)', marginTop: 2 }}>{EXPLICA_ACCION[a]}</span>
+            </span>
+          </label>
+        )
+      })}
+      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Los niveles van en escalera: marcar algo aquí lo da también a los niveles de arriba, y quitarlo lo quita también a los de abajo. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, más abajo. Los demás lo ven al recargar.</div>
       {error && <div style={{fontSize:11,color:'var(--red)',marginTop:8}}>{error}</div>}
     </div>
   )

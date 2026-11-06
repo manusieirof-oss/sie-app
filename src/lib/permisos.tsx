@@ -26,7 +26,7 @@ export type Nivel = 1 | 2 | 3 | 4
 export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
   { n: 1, nombre: 'Principiante', que: 'Hoy, Agenda (solo consulta) y Taller: da las clases y apunta lo que se hace' },
   { n: 2, nombre: 'Entrenador', que: 'Además ajusta la sesión del día (solo hoy) y consulta la biblioteca' },
-  { n: 3, nombre: 'Encargado/a', que: 'Además Pacientes y Valoración; crea y cambia sesiones para siempre, ejercicios, y cobra' },
+  { n: 3, nombre: 'Entrenador que programa', que: 'Además fichas (la salud solo la ve), el torno, sesiones para siempre y ejercicios' },
 ]
 export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
 
@@ -82,6 +82,27 @@ export const ETIQUETA_ACCION: Record<Accion, string> = {
   cobros: 'Cobrar y emitir facturas',
   medida_biblioteca: 'Cambiar cómo se mide un ejercicio para todos',
   direccion: 'Finanzas, estadísticas, ajustes y equipo',
+}
+
+/** Qué supone cada permiso, dicho para quien lo da (Ajustes → Equipo → Qué puede cada nivel). */
+export const EXPLICA_ACCION: Record<Accion, string> = {
+  pacientes: 'Entra en Pacientes y en la ficha de cada uno: datos, historial, entreno y resultados.',
+  valoracion: 'Hace valoraciones y pasa tests, también los que tocan en clase. Ve Tests, Cuestionarios, Etiquetas y Clínico en la biblioteca.',
+  editar_salud: 'Cambia la salud de la ficha (molestias, patologías, medicación…). Sin esto, la ve pero no la toca.',
+  editar_agenda: 'Crea, mueve y borra citas en la agenda.',
+  turnos: 'Cambia quién lleva cada sala y los horarios del equipo.',
+  tareas: 'Pone tareas al equipo y ve las de todos. Sin esto, solo ve y marca las suyas y las de todo el equipo.',
+  cambiar_ejercicios: 'En el taller, solo para hoy: cambia o añade ejercicios similares, el método de una parte y la franja (lado, ejecución, reps o segundos).',
+  editar_plan: 'Cambia sesiones para siempre: editor de sesiones, «para siempre» en el taller, crear y borrar. En el taller puede poner una sesión de la biblioteca.',
+  cambiar_sesion: 'Cambia la sesión de hoy de una cita por otra de las del paciente (taller y Programación de la agenda).',
+  cancelar_cita: 'Marca faltas, cancela y cambia de sala desde la agenda.',
+  citas_taller: 'Desde el taller marca Falta (no vino sin avisar) o Cancelada (avisó). Mueve sus sesiones igual que la agenda.',
+  torno: 'Entra en el torno: crea sesiones y las reparte en las citas con el calendario de programar.',
+  ver_biblioteca: 'Consulta la biblioteca de ejercicios: cromos, buscador de clientes y el botón de vistas. Sin tocar nada.',
+  biblioteca: 'Crea y edita ejercicios (Amasar en el torno) y ve Sesiones, Sistemas y Objetivos en la biblioteca.',
+  cobros: 'Cobra, emite facturas y ve el modo Cobro del botón de la agenda.',
+  medida_biblioteca: 'Cambia para todos cómo se mide un ejercicio (reps, tiempo, goma…).',
+  direccion: 'Finanzas, estadísticas, ajustes, equipo y avisos del equipo.',
 }
 
 /**
