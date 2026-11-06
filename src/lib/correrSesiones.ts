@@ -73,19 +73,18 @@ async function escribir(antes: Cita[], nuevo: Map<string, Item>) {
 }
 
 /**
- * LA ROTACIÓN, AUNQUE ESTÉ ALGO DESORDENADA. Antes solo se reconocía si el patrón se
- * repetía exacto (A B C A B C): con un cambio a mano o una falta en medio no había
- * rotación y la cita nueva se quedaba sin sesión. Ahora se lee hacia atrás desde la
- * última y se van cogiendo sesiones distintas hasta que una se repite: eso es la vuelta
- * más reciente, en su orden. A B C A B C → A B C · A B B C A → B C A.
+ * LA QUE HACE MÁS QUE NO TOCA. Para saber qué sesión sigue no se busca un patrón exacto
+ * (A B C A B C): con un cambio a mano, una falta o dos iguales seguidas ya no había
+ * patrón y la cita se quedaba sin sesión o repetía siempre la misma. Ahora, de las
+ * sesiones que ha llevado últimamente, toca la que lleva más tiempo sin salir. Así se
+ * alternan solas y, si se han desordenado, se van recolocando.
  */
-function rotacionReciente(seq: string[]): string[] {
-  const vistos: string[] = []
-  for (let i = seq.length - 1; i >= 0; i--) {
-    if (vistos.includes(seq[i])) break
-    vistos.push(seq[i])
-  }
-  return vistos.reverse()
+function laQueMasTiempoLleva(seq: string[]): string | null {
+  const ultima: Record<string, number> = {}
+  seq.forEach((id, i) => { ultima[id] = i })
+  const ids = Object.keys(ultima)
+  if (!ids.length) return null
+  return ids.sort((a, b) => ultima[a] - ultima[b])[0]
 }
 
 /** La siguiente de la rotación del paciente (sin contar las de candado), o null si no tiene. */
@@ -98,12 +97,8 @@ async function siguienteDeRotacion(pid: string, anterior: string | null): Promis
   // Las de CANDADO (p. ej. la fuerza en grupo en días fijos) no cuentan: van por libre y,
   // metidas en medio, rompían el orden de las demás.
   const seq = cs.map((c: any) => c.sesion_id as string).filter(id => !f.has(id))
-  const ciclo = rotacionReciente(seq)
-  if (!ciclo.length) return null
-  // Sin anterior (la nueva va la ultima), se sigue desde la ultima que tiene.
-  const ant = anterior || seq[seq.length - 1] || null
-  const p = ant ? ciclo.indexOf(ant) : -1
-  return ciclo[(p + 1) % ciclo.length]
+  void anterior // ya va dentro de seq (es la última que tiene)
+  return laQueMasTiempoLleva(seq)
 }
 
 /**
