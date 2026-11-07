@@ -154,8 +154,9 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
   const int = (id: string) => cfg.intensidades.find(i => i.id === id)
   const eje = (id: string) => cfg.ejecuciones.find(i => i.id === id)
   const chip = (on: boolean, color?: string): React.CSSProperties => ({
-    fontSize: 11.5, padding: '3px 10px', borderRadius: 99, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-    border: `1.5px solid ${on ? (color || 'var(--n)') : 'var(--bd)'}`, background: on ? (color || 'var(--n)') : '#fff', color: on ? '#fff' : 'var(--gr)',
+    // Sutiles, como los atajos de la nebulosa: encendido = borde y fondo suaves, no relleno oscuro.
+    fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 99, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+    border: `1px solid ${on ? (color || 'var(--g)') : 'var(--bd)'}`, background: on ? (color ? color + '22' : 'var(--gl)') : 'transparent', color: on ? (color ? 'var(--n)' : 'var(--gd)') : 'var(--gr)',
   })
   const barras = (o: Record<string, number>, nombre: (k: string) => string, color: (k: string) => string, total: number, max = 8) => {
     const l = Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, max)
@@ -180,16 +181,18 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
 
   return (
     <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(38,40,37,.07)', padding: 16 }}>
-      {/* Periodo, capa y carga */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+      {/* Periodo, capa y carga. Fila de alto fijo y los filtros flotando encima: si no,
+          al abrirlos (o al cambiar de vista) el muñeco se movía y mareaba. */}
+      <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minHeight: 38, marginBottom: 8 }}>
         {PERIODOS.map(([k, t]) => <button key={k} type="button" style={chip(periodo === k)} onClick={() => setPeriodo(k)}>{t}</button>)}
         <span style={{ width: 10 }}/>
         <button type="button" style={chip(!combinada)} onClick={() => setCombinada(false)} title="Solo lo principal (★) de cada ejercicio">Principal</button>
         <button type="button" style={chip(combinada)} onClick={() => setCombinada(true)} title="También lo secundario, a medio peso">Combinada</button>
         <span style={{ flex: 1 }}/>
-        <button type="button" onClick={() => setVerFiltros(v => !v)} title="Filtrar por intención y ejecución"
-          style={{ border: '1px solid var(--bd)', background: verFiltros || fInt.length || fEje.length ? 'var(--n)' : '#fff', color: verFiltros || fInt.length || fEje.length ? '#fff' : 'var(--gr)', borderRadius: 99, height: 30, padding: '0 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', fontSize: 11.5 }}>
-          <Ic name="filtro" size={13}/>{fInt.length + fEje.length > 0 ? ` ${fInt.length + fEje.length}` : ''}
+        <button type="button" onClick={() => setVerFiltros(v => !v)} title="Filtrar por intención y ejecución" className="btn-vista"
+          style={{ padding: '7px 11px', color: verFiltros || fInt.length || fEje.length ? 'var(--gd)' : 'var(--gr)', borderColor: verFiltros ? 'var(--g)' : undefined }}>
+          <Ic name="filtro" size={16}/>{fInt.length + fEje.length > 0 ? ` ${fInt.length + fEje.length}` : ''}
         </button>
         {!programado && <div style={{ position: 'relative' }}>
           <button type="button" onClick={() => setVerCarga(!verCarga)} title="Carga de trabajo"
@@ -200,7 +203,7 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
         </div>}
       </div>
       {/* Filtros de intención (desplegables con el icono) */}
-      {verFiltros && <>
+      {verFiltros && <div style={{ position: 'absolute', top: 44, left: 0, right: 0, zIndex: 10, background: '#fff', border: '1px solid var(--bd)', borderRadius: 14, boxShadow: '0 8px 28px rgba(38,40,37,.12)', padding: 12 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
         {cfg.intensidades.map(i => <button key={i.id} type="button" style={chip(fInt.includes(i.id), i.color)} onClick={() => setFInt(fInt.includes(i.id) ? fInt.filter(x => x !== i.id) : [...fInt, i.id])}>{i.nombre}</button>)}
       </div>
@@ -208,7 +211,8 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
         {cfg.ejecuciones.map(e => <button key={e.id} type="button" style={chip(fEje.includes(e.id))} onClick={() => setFEje(fEje.includes(e.id) ? fEje.filter(x => x !== e.id) : [...fEje, e.id])}>{e.nombre}</button>)}
         {(fInt.length > 0 || fEje.length > 0) && <button type="button" className="btn btn-t btn-sm" onClick={() => { setFInt([]); setFEje([]) }}>Quitar filtros</button>}
       </div>
-      </>}
+      </div>}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
         {/* El cuerpo */}

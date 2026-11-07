@@ -68,6 +68,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   const resumen = parte !== 'ubicar', ubicar = parte === 'ubicar'
   const [verAtencion, setVerAtencion] = useState(false)
   const [verNota, setVerNota] = useState(false)
+  const [abiertaIzq, setAbiertaIzq] = useState<'alertas'|'nota'|'anamnesis'|null>(null)
   const router = useRouter()
   const [valoracion, setValoracion] = useState<any>(null)
   const [objetivosTrabajo, setObjetivosTrabajo] = useState<any[]>([])
@@ -1191,22 +1192,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   // La valoración cargada es siempre la más reciente: puede ser la inicial o una revaloración.
   const tipoVal = valoracion?.tipo==='revaloracion' ? 'Revaloración' : 'Valoración inicial'
 
-  return (
-    <div className="panel">
-      {/* 1. LO QUE REQUIERE ATENCIÓN — no se pinta si el paciente está en orden */}
-      {/* ALERTAS Y NOTA, EN UNA TIRA: se ven siempre pero ocupan una línea; al tocar se
-          despliegan. Antes eran dos bloques grandes al principio de la ficha. */}
-      {resumen && !editando && (hayAtencion || pac.notas_fijas) && (
-        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-          {hayAtencion && <button type="button" onClick={()=>setVerAtencion(v=>!v)}
-            style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid #e8c4c4',background:'var(--redl)',color:'var(--red)',borderRadius:99,padding:'5px 12px',fontSize:12.5,cursor:'pointer',fontFamily:'inherit'}}>
-            <Ic name="alerta" size={13}/> {[(alertas?.length||0)>0 && `${alertas.length} alerta${alertas.length===1?'':'s'}`, recPendientes.length>0 && `${recPendientes.length} sin recuperar`, estadoPago==='impago' && 'impago'].filter(Boolean).join(' · ')} {verAtencion?'▴':'▾'}</button>}
-          {pac.notas_fijas && <button type="button" onClick={()=>setVerNota(v=>!v)}
-            style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid var(--bd)',background:'var(--bl)',color:'var(--n)',borderRadius:99,padding:'5px 12px',fontSize:12.5,cursor:'pointer',fontFamily:'inherit'}}>
-            <Ic name="pin" size={13}/> Nota {verNota?'▴':'▾'}</button>}
-        </div>
-      )}
-      {resumen && hayAtencion && (verAtencion || editando) && (
+  /* LA COLUMNA DE LA IZQUIERDA DE LA FICHA: alertas, nota y anamnesis, una debajo de la
+     otra y en pequeño. Al tocar una se abre en el blanco entre la columna y la nebulosa.
+     Antes eran una tira de pastillas arriba y la anamnesis al final de todo. */
+  const bloqueAtencion = (
         <div className="atencion">
           <div className="at-h"><Ic name="alerta" size={16}/> Requiere atención</div>
           {(alertas||[]).map((a:any)=>(
@@ -1229,7 +1218,78 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <div className="at-i">Cuota de {mesDeBono(bono)} marcada como impago</div>
           )}
         </div>
-      )}
+  )
+  const bloqueAnamnesis = valoracion?.id ? (
+        <div className="sec">
+          <div className="sec-h">
+            <span className="sh-l">
+              <span className="ct-l"><Ic name="anamnesis" size={13}/> Anamnesis</span>
+              {anamEdit == null && (
+                <button className="btn btn-t btn-sm" onClick={()=>setAnamEdit(valoracion.anamnesis||'')}>
+                  <Ic name="editar" size={11}/> {valoracion.anamnesis ? 'Completar' : 'Añadir'}
+                </button>
+              )}
+            </span>
+            {valoracion.fecha && <span className="sh-r">{tipoVal} del {fmtLargo(valoracion.fecha)} · {haceCuanto(valoracion.fecha)}</span>}
+          </div>
+
+          {anamEdit != null ? (
+            <>
+              <textarea className="input" style={{minHeight:170,fontSize:13,lineHeight:1.7}}
+                value={anamEdit} onChange={e=>setAnamEdit(e.target.value)} autoFocus
+                placeholder="Lo que te contó: motivo de consulta, historia, expectativas..."/>
+              <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
+                <span style={{flex:1,fontSize:12,color:'var(--gr)'}}>
+                  Se guarda sobre la {tipoVal.toLowerCase()} del {valoracion.fecha} y queda anotado en su historial.
+                </span>
+                <button className="btn btn-t btn-sm" onClick={()=>setAnamEdit(null)} disabled={guardandoAnam}>Cancelar</button>
+                <button className="btn btn-p btn-sm" onClick={guardarAnamnesis} disabled={guardandoAnam}>
+                  {guardandoAnam?'Guardando…':'Guardar'}
+                </button>
+              </div>
+            </>
+          ) : !valoracion.anamnesis ? (
+            <div className="muted">Sin anamnesis recogida.</div>
+          ) : (
+          <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>
+            {anamLarga && !anamnesisAbierta ? valoracion.anamnesis.slice(0,260).trimEnd()+'…' : valoracion.anamnesis}
+          </div>
+          )}
+          {anamEdit == null && anamLarga && (
+            <button onClick={()=>setAnamnesisAbierta(v=>!v)} style={{fontSize:12,color:'var(--gd)',background:'none',border:'none',padding:'6px 0 0',cursor:'pointer',fontFamily:'inherit'}}>
+              {anamnesisAbierta?'Ver menos':'Ver más'}
+            </button>
+          )}
+          <div style={{fontSize:12,color:'var(--gr)',marginTop:9,display:'flex',gap:18,flexWrap:'wrap'}}>
+            {valoracion.trabajo && <span className="ct-l"><Ic name="trabajo" size={12}/> {valoracion.trabajo}{valoracion.tipo_jornada?' · '+valoracion.tipo_jornada:''}</span>}
+            {valoracion.hace_deporte && valoracion.deportes?.length>0 && <span className="ct-l"><Ic name="deporte" size={12}/> {valoracion.deportes.join(', ')}</span>}
+          </div>
+        </div>
+  ) : null
+  const textoAtencion = [(alertas?.length||0)>0 && `${alertas.length} alerta${alertas.length===1?'':'s'}`, recPendientes.length>0 && `${recPendientes.length} sin recuperar`, estadoPago==='impago' && 'impago'].filter(Boolean).join(' · ')
+  const tarjetaIzq = (k: 'alertas'|'nota'|'anamnesis', ic: string, titulo: string, texto: string, roja = false) => (
+    <button key={k} type="button" onClick={()=>setAbiertaIzq(a=>a===k?null:k)}
+      style={{textAlign:'left',width:'100%',border:`1px solid ${abiertaIzq===k?'var(--g)':roja?'#e8c4c4':'var(--bd)'}`,background:roja?'var(--redl)':'transparent',borderRadius:12,padding:'9px 12px',cursor:'pointer',fontFamily:'inherit'}}>
+      <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12.5,fontWeight:600,color:roja?'var(--red)':'var(--n)'}}><Ic name={ic} size={13}/> {titulo}</div>
+      <div style={{fontSize:12,color:roja?'var(--red)':'var(--gr)',marginTop:2,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical' as any,lineHeight:1.4}}>{texto}</div>
+    </button>
+  )
+  const columnaIzq = <>
+    {tarjetaIzq('alertas','alerta','Alertas', hayAtencion ? textoAtencion : 'Sin alertas', hayAtencion)}
+    {tarjetaIzq('nota','pin','Nota', pac.notas_fijas || 'Sin nota')}
+    {tarjetaIzq('anamnesis','anamnesis','Anamnesis', valoracion?.anamnesis || (valoracion?.id ? 'Sin anamnesis recogida' : 'Sin valoración'))}
+  </>
+  const cerrarIzq = <button type="button" onClick={()=>setAbiertaIzq(null)} title="Cerrar" style={{float:'right',border:'none',background:'none',cursor:'pointer',color:'var(--gr)',padding:2}}><Ic name="cerrar" size={13}/></button>
+  const abiertoIzq = abiertaIzq==='alertas' ? <>{cerrarIzq}{hayAtencion ? bloqueAtencion : <div className="muted">Sin alertas.</div>}</>
+    : abiertaIzq==='nota' ? <>{cerrarIzq}<div style={{fontSize:12.5,fontWeight:600,display:'flex',alignItems:'center',gap:6,marginBottom:6}}><Ic name="pin" size={13}/> Nota</div>
+        <div style={{fontSize:13,lineHeight:1.6,whiteSpace:'pre-line'}}>{pac.notas_fijas || <span className="muted">Sin nota. Se pone desde Editar.</span>}</div></>
+    : abiertaIzq==='anamnesis' ? <>{cerrarIzq}{bloqueAnamnesis || <div className="muted">Sin valoración todavía.</div>}</>
+    : null
+
+  return (
+    <div className="panel">
+      {/* Al editar, lo que requiere atención sigue arriba; si no, va en la columna de la izquierda. */}
+      {resumen && hayAtencion && editando && bloqueAtencion}
 
       {/* 2. NOTAS FIJAS — contexto que hay que saber antes de la sesión */}
       {editando ? (
@@ -1238,11 +1298,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <label><span className="ct-l"><Ic name="pin" size={11}/> Notas</span> <span className="subt">· información del paciente</span></label>
             <textarea className="input" value={form.notas_fijas||''} onChange={e=>setForm((p:any)=>({...p,notas_fijas:e.target.value}))} style={{minHeight:60}} placeholder="ej. Viene en silla de ruedas · Prefiere entrenar de pie"/>
           </div>
-        </div>
-      ) : pac.notas_fijas && resumen && verNota ? (
-        <div className="nota-fija">
-          <span style={{display:'inline-flex',color:'var(--g)',flexShrink:0,marginTop:1}}><Ic name="pin" size={14}/></span>
-          {pac.notas_fijas}
         </div>
       ) : null}
 
@@ -1267,7 +1322,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
 
           Dentro van ordenados por vía, que es el orden en que se explican. */}
       {/* DE UN VISTAZO: su programación (el cubo) y lo que tiene para entrenar (el cuerpo). */}
-      {resumen && !editando && <ProgramaPaciente pacienteId={pac.id} alerta={(alertas?.length||0)>0}/>}
+      {resumen && !editando && <ProgramaPaciente pacienteId={pac.id} alerta={(alertas?.length||0)>0} lateral={columnaIzq} ampliado={abiertoIzq}/>}
       {resumen && hayObjetivos && (() => {
         const ordenVia = (o:any) => {
           const vs = viasDe(o)
@@ -1504,54 +1559,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       </div>}
 
-      {/* 5. ANAMNESIS · se pinta aunque esté vacía, para poder añadirla */}
-      {resumen && valoracion?.id && (
-        <div className="sec">
-          <div className="sec-h">
-            <span className="sh-l">
-              <span className="ct-l"><Ic name="anamnesis" size={13}/> Anamnesis</span>
-              {anamEdit == null && (
-                <button className="btn btn-t btn-sm" onClick={()=>setAnamEdit(valoracion.anamnesis||'')}>
-                  <Ic name="editar" size={11}/> {valoracion.anamnesis ? 'Completar' : 'Añadir'}
-                </button>
-              )}
-            </span>
-            {valoracion.fecha && <span className="sh-r">{tipoVal} del {fmtLargo(valoracion.fecha)} · {haceCuanto(valoracion.fecha)}</span>}
-          </div>
-
-          {anamEdit != null ? (
-            <>
-              <textarea className="input" style={{minHeight:170,fontSize:13,lineHeight:1.7}}
-                value={anamEdit} onChange={e=>setAnamEdit(e.target.value)} autoFocus
-                placeholder="Lo que te contó: motivo de consulta, historia, expectativas..."/>
-              <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
-                <span style={{flex:1,fontSize:12,color:'var(--gr)'}}>
-                  Se guarda sobre la {tipoVal.toLowerCase()} del {valoracion.fecha} y queda anotado en su historial.
-                </span>
-                <button className="btn btn-t btn-sm" onClick={()=>setAnamEdit(null)} disabled={guardandoAnam}>Cancelar</button>
-                <button className="btn btn-p btn-sm" onClick={guardarAnamnesis} disabled={guardandoAnam}>
-                  {guardandoAnam?'Guardando…':'Guardar'}
-                </button>
-              </div>
-            </>
-          ) : !valoracion.anamnesis ? (
-            <div className="muted">Sin anamnesis recogida.</div>
-          ) : (
-          <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>
-            {anamLarga && !anamnesisAbierta ? valoracion.anamnesis.slice(0,260).trimEnd()+'…' : valoracion.anamnesis}
-          </div>
-          )}
-          {anamEdit == null && anamLarga && (
-            <button onClick={()=>setAnamnesisAbierta(v=>!v)} style={{fontSize:12,color:'var(--gd)',background:'none',border:'none',padding:'6px 0 0',cursor:'pointer',fontFamily:'inherit'}}>
-              {anamnesisAbierta?'Ver menos':'Ver más'}
-            </button>
-          )}
-          <div style={{fontSize:12,color:'var(--gr)',marginTop:9,display:'flex',gap:18,flexWrap:'wrap'}}>
-            {valoracion.trabajo && <span className="ct-l"><Ic name="trabajo" size={12}/> {valoracion.trabajo}{valoracion.tipo_jornada?' · '+valoracion.tipo_jornada:''}</span>}
-            {valoracion.hace_deporte && valoracion.deportes?.length>0 && <span className="ct-l"><Ic name="deporte" size={12}/> {valoracion.deportes.join(', ')}</span>}
-          </div>
-        </div>
-      )}
+      {/* 5. ANAMNESIS · ahora va en la columna de la izquierda de la ficha (se abre al lado
+          de la nebulosa). Al editar la ficha sigue aquí abajo. */}
+      {resumen && editando && valoracion?.id && bloqueAnamnesis}
 
       {/* 6. EL PROGRAMA DE ENTRENAMIENTO YA NO VA AQUI. Nombre, progresion y notas del plan
           salen al ponerle el ciclo (Entreno -> Anadir sistema) y pasan a su descripcion;

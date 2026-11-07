@@ -864,3 +864,9 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .rango2 input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid #262825;cursor:ew-resize}
 .rango2 input::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #262825;cursor:ew-resize}
 .rango2 input::-moz-range-track{background:none}
+
+/* Botón de vistas (ficha): sutil, sin fondo; se ve que es un botón pero no una píldora. */
+.btn-vista{font-family:inherit;font-size:13.5px;font-weight:500;padding:7px 14px;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--n);display:inline-flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;transition:border-color .12s,color .12s}
+.btn-vista:hover{border-color:var(--gm)}
+.btn-vista.apagado{color:var(--grl);border-color:transparent}
+.btn-vista.apagado:hover{border-color:var(--bd)}

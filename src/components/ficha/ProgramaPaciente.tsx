@@ -81,8 +81,8 @@ const ATAJOS: { k: string, t: string, d: number }[] = [
 /** El botón de vistas: el nombre y un puntito por vista, encendido el que toca. */
 function BotonVistas({ t, n, i, onClick, apagado }: { t: React.ReactNode, n: number, i: number, onClick: () => void, apagado?: boolean }) {
   return (
-    <button type="button" className={'chip-sel' + (apagado ? '' : ' on')} onClick={onClick} title="Cambiar lo que se ve"
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0 }}>
+    // Botón sutil, sin fondo: que se vea que es un botón pero no una píldora.
+    <button type="button" className={'btn-vista' + (apagado ? ' apagado' : '')} onClick={onClick} title="Cambiar lo que se ve">
       {t}
       <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{Array.from({ length: n }, (_, k) => <i key={k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: k === i ? 1 : .3 }}/>)}</span>
     </button>
@@ -90,7 +90,11 @@ function BotonVistas({ t, n, i, onClick, apagado }: { t: React.ReactNode, n: num
 }
 const Pto = ({ c }: { c: number | string }) => <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: typeof c === 'number' ? hex(c) : c, verticalAlign: 'middle', margin: '0 3px 0 8px' }}/>
 
-export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: string, alerta: boolean }) {
+export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado }: { pacienteId: string, alerta: boolean
+  /** Columna de la izquierda (alertas, nota, anamnesis apiladas). */
+  lateral?: React.ReactNode
+  /** Lo que se abre de esa columna: se pinta en el blanco entre ella y la nebulosa. */
+  ampliado?: React.ReactNode }) {
   const [citas, setCitas] = useState<any[] | null>(null)
   const [molestias, setMolestias] = useState<any[]>([])
   const [nomObj, setNomObj] = useState<Record<string, string>>({})
@@ -220,7 +224,7 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
 
   // Lo que explica cada vista, debajo.
   const leyenda = (() => {
-    if (vistaN === 'normal') return <>Gírala con el dedo; un toque la abre en grande. Más alto, más trabajo; más grueso, más intenso; la niebla se estrecha donde faltó o canceló y se abre si vino de más. Si estuvo un tiempo sin venir, se corta y el hueco es tan largo como lo que tardó en volver. El aro naranja es hoy.</>
+    if (vistaN === 'normal') return null
     if (vistaN === 'cambios') return <><Pto c={COL_CAMBIO.falta}/><b>{cuenta(c => c.estado === 'falta')}</b> faltas <Pto c={COL_CAMBIO.cancelada}/><b>{cuenta(c => c.estado === 'cancelada')}</b> canceladas
       <Pto c={COL_CAMBIO.movida}/><b>{cuenta(c => c.movida && c.estado !== 'falta' && c.estado !== 'cancelada')}</b> cambiadas de día u hora <Pto c={COL_CAMBIO.sesion}/><b>{cuenta(c => c.cambioSesion && !c.movida && c.estado !== 'falta' && c.estado !== 'cancelada')}</b> con la sesión cambiada. Cada una, un aro en su día.</>
     if (vistaN === 'sesiones') return <>{Object.entries(datos.nomSes).map(([l, nom]) => <span key={l}><Pto c={datos.colSes[l]}/><b>{l}</b> {nom} <b>{cuenta(c => c.estado === 'realizada' && datos.neb[vis.indexOf(c)]?.ses === l)}</b> </span>)}
@@ -248,11 +252,14 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
     // al lado del cuerpo, que es mucho más alto.
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
       <div className="sec" style={{ marginBottom: 0, ...(grande ? { position: 'fixed', inset: 16, zIndex: 60, overflow: 'auto', background: 'var(--wh, #fff)', borderRadius: 16, padding: 14, boxShadow: '0 10px 40px rgba(0,0,0,.18)' } : {}) }}>
-        <div className="sec-h"><span className="ct-l"><Ic name="calendario" size={13}/> Su programación{alerta ? <span style={{ color: 'var(--red)', marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>· con alerta</span> : null}</span>
-          <span style={{ display: 'inline-flex', gap: 6 }}>
+       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* A la izquierda, apiladas: alertas, nota y anamnesis. */}
+        {!grande && lateral && <div style={{ width: 230, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>{lateral}</div>}
+        <div style={{ flex: 1, minWidth: 300, position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
             <BotonVistas t={VISTAS_NEB[iN].t} n={VISTAS_NEB.length} i={iN} onClick={siguienteN}/>
-            {grande && <button type="button" className="chip-sel" onClick={() => setGrande(false)} style={{ textTransform: 'none', letterSpacing: 0 }}>Cerrar ✕</button>}
-          </span></div>
+            {grande && <button type="button" className="btn-vista" onClick={() => setGrande(false)}>Cerrar ✕</button>}
+        </div>
         <div style={{ height: grande ? 'calc(100vh - 290px)' : 250, minHeight: 250, display: 'flex' }}>
           {citas === null ? <div style={{ margin: 'auto', fontSize: 12, color: 'var(--grl)' }}>Cargando…</div>
             : n < 2 ? <div style={{ margin: 'auto', fontSize: 13, color: 'var(--grl)' }}>{(citas.length < 2 ? 'Aún no tiene citas para dibujarla.' : 'En estas fechas no hay citas suficientes: amplía la barra.')}</div>
@@ -274,15 +281,18 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
             {ATAJOS.map(a => <button key={a.k} type="button" className={'chip-sel' + (atajo === a.k ? ' on' : '')} onClick={() => ponAtajo(a.k, a.d)} style={{ textTransform: 'none', letterSpacing: 0 }}>{a.t}</button>)}
           </div>
         </>}
-        <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6 }}>{leyenda}</div>
+        {leyenda && <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6 }}>{leyenda}</div>}
+        {/* Lo abierto de la columna izquierda, en el blanco al lado de la nebulosa. */}
+        {!grande && ampliado && <div style={{ position: 'absolute', left: 0, top: 0, width: 'min(50%, 480px)', maxHeight: 300, overflow: 'auto', zIndex: 5,
+          background: '#fff', border: '1px solid var(--bd)', borderRadius: 14, boxShadow: '0 8px 28px rgba(38,40,37,.12)', padding: 14 }}>{ampliado}</div>}
+        </div>
+       </div>
       </div>
-      <div className="sec" style={{ marginBottom: 0 }}>
-        <div className="sec-h" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span className="ct-l"><Ic name="cuerpo" size={13}/> Su cuerpo</span>
-            <BotonVistas t={<><Ic name={VISTAS_SALUD[iS].ic} size={13}/> {VISTAS_SALUD[iS].t}</>} n={VISTAS_SALUD.length} i={iS} onClick={tocaSalud} apagado={modo !== 'salud'}/>
-          </span>
-          <BotonVistas t={<><Ic name="entreno" size={13}/> {VISTAS_ENTRENO[iE].t}</>} n={VISTAS_ENTRENO.length} i={iE} onClick={tocaEntreno} apagado={modo !== 'entreno'}/></div>
+      <div style={{ marginBottom: 0 }}>
+        {/* Sin título: los dos botones bastan. Salud a la izquierda, entreno a la derecha. */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <BotonVistas t={<><Ic name={VISTAS_SALUD[iS].ic} size={14}/> {VISTAS_SALUD[iS].t}</>} n={VISTAS_SALUD.length} i={iS} onClick={tocaSalud} apagado={modo !== 'salud'}/>
+          <BotonVistas t={<><Ic name="entreno" size={14}/> {VISTAS_ENTRENO[iE].t}</>} n={VISTAS_ENTRENO.length} i={iE} onClick={tocaEntreno} apagado={modo !== 'entreno'}/></div>
         {modo === 'entreno' ? <MapaTrabajo pacienteId={pacienteId} programado lente={vEntreno}/> : <CuerpoSalud pacienteId={pacienteId} vista={vSalud}/>}
       </div>
     </div>
