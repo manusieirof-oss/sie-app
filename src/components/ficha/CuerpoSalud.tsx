@@ -60,8 +60,24 @@ const DIA = 864e5
 const diasEntre = (a: string, b: string) => Math.round((new Date(b + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime()) / DIA)
 const fCorta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }).replace('.', '')
 
-type Item = { titulo: string, detalle: string, zonas: string[], v: number, tipo?: Tipo, color?: string, tend?: 'mejora' | 'empeora' | 'igual' | null }
+type Item = { titulo: string, detalle: string, zonas: string[], v: number, lado?: string, tipo?: Tipo, color?: string, tend?: 'mejora' | 'empeora' | 'igual' | null }
 type Extra = { pills: { t: string, ojo?: boolean }[], escalas: { t: string, v: number, antes: number | null, mejorSiSube: boolean }[] }
+
+/* EL LADO. Las zonas que van por pares (hombro, rodilla…) tienen un hueso por lado en el
+   muñeco (…D derecho, …I izquierdo). Si algo es de un lado, se pinta SOLO en ese: si no,
+   una rodilla bien y la otra mal salían mezcladas en las dos. Bilateral o sin lado, en
+   las dos. Las del centro (cervical, lumbar…) no tienen lado.
+   La clave de cada esfera es «zona|I», «zona|D» o «zona|C» (centro). */
+const ladoDe = (l?: string) => l === 'izquierdo' ? 'I' : l === 'derecho' ? 'D' : ''
+const tienePares = (z: any) => z.huesos.some((h: string) => h.endsWith('D')) && z.huesos.some((h: string) => h.endsWith('I'))
+/** En qué claves (zona|lado) cae una cosa. */
+function clavesDe(it: Item): string[] {
+  const l = ladoDe(it.lado)
+  return it.zonas.flatMap(k => { const z = ZONAS.find(x => x.k === k); if (!z) return []
+    if (!tienePares(z)) return [`${k}|C`]
+    return l ? [`${k}|${l}`] : [`${k}|I`, `${k}|D`] })
+}
+const nombreClave = (c: string) => { const [k, l] = c.split('|'); const n = ZONAS.find(z => z.k === k)?.n || k; return l === 'I' ? `${n} izquierdo` : l === 'D' ? `${n} derecho` : n }
 
 /** Mezcla de colores de una zona, pesando cada cosa por lo fuerte que es. */
 function mezcla(lista: Item[]) {
@@ -83,18 +99,18 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
       if (vista === 'dolor') {
         const { data } = await supabase.from('molestias').select('zona,eva,lado,tipo').eq('paciente_id', pacienteId).eq('activa', true)
         setItems((data || []).map((m: any) => ({ titulo: m.zona, detalle: [m.eva != null ? `EVA ${m.eva}/10` : 'sin EVA', m.lado && m.lado !== 'no_aplica' ? m.lado : ''].filter(Boolean).join(' · '),
-          zonas: zonasDe(m.zona), v: m.eva != null ? Math.max(0.25, m.eva / 10) : 0.5 })))
+          zonas: zonasDe(m.zona), lado: m.lado, v: m.eva != null ? Math.max(0.25, m.eva / 10) : 0.5 })))
       } else if (vista === 'operaciones') {
         const { data } = await supabase.from('operaciones').select('nombre,anio,lado,biblioteca_id').eq('paciente_id', pacienteId)
         const ids = (data || []).map((o: any) => o.biblioteca_id).filter(Boolean)
         const { data: bib } = ids.length ? await supabase.from('operaciones_biblioteca').select('id,zona').in('id', ids) : { data: [] as any[] }
         const zDe = Object.fromEntries((bib || []).map((b: any) => [b.id, b.zona || '']))
         setItems((data || []).map((o: any) => ({ titulo: o.nombre, detalle: [o.anio, o.lado && o.lado !== 'no_aplica' ? o.lado : ''].filter(Boolean).join(' · '),
-          zonas: zonasDe(`${zDe[o.biblioteca_id] || ''} ${o.nombre}`), v: 0.8 })))
+          zonas: zonasDe(`${zDe[o.biblioteca_id] || ''} ${o.nombre}`), lado: o.lado, v: 0.8 })))
       } else if (vista === 'patologias') {
         const { data } = await supabase.from('patologias').select('nombre,zona,estado,lado').eq('paciente_id', pacienteId).neq('estado', 'resuelta')
         setItems((data || []).map((p: any) => ({ titulo: p.nombre, detalle: p.estado === 'cronica' ? 'crónica' : 'activa',
-          zonas: zonasDe(`${p.zona || ''} ${p.nombre}`), v: p.estado === 'cronica' ? 0.55 : 0.85 })))
+          zonas: zonasDe(`${p.zona || ''} ${p.nombre}`), lado: p.lado, v: p.estado === 'cronica' ? 0.55 : 0.85 })))
       } else {
         await cargarTodo()
       }
@@ -128,17 +144,17 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
     // MOLESTIAS: las activas, más fuertes cuanto más EVA; las ya quitadas, la huella mientras dure.
     ;(mol.data || []).forEach((m: any) => {
       const eva = m.eva ?? 5
-      if (m.activa) out.push({ tipo: 'molestia', color: TIPOS.molestia.c, titulo: m.zona, zonas: zonasDe(m.zona), v: 0.4 + 0.6 * eva / 10,
+      if (m.activa) out.push({ tipo: 'molestia', color: TIPOS.molestia.c, titulo: m.zona, zonas: zonasDe(m.zona), lado: m.lado, v: 0.4 + 0.6 * eva / 10,
         detalle: [m.eva != null ? `EVA ${m.eva}/10` : 'sin EVA', lado(m.lado), 'activa'].filter(Boolean).join(' · ') })
       else if (m.resuelta_el) {
         const dura = Math.max(1, eva) * HUELLA_DIAS_POR_EVA, pasa = diasEntre(m.resuelta_el, hoy)
-        if (pasa < dura) out.push({ tipo: 'molestia', color: TIPOS.molestia.c, titulo: m.zona, zonas: zonasDe(m.zona), v: Math.max(0.12, 0.35 * (1 - pasa / dura)),
+        if (pasa < dura) out.push({ tipo: 'molestia', color: TIPOS.molestia.c, titulo: m.zona, zonas: zonasDe(m.zona), lado: m.lado, v: Math.max(0.12, 0.35 * (1 - pasa / dura)),
           detalle: [m.eva != null ? `EVA ${m.eva}/10` : '', lado(m.lado), `se quitó el ${fCorta(m.resuelta_el)}`].filter(Boolean).join(' · ') })
       }
     })
-    ;(ops || []).forEach((o: any) => out.push({ tipo: 'operacion', color: TIPOS.operacion.c, titulo: o.nombre, v: 0.8,
+    ;(ops || []).forEach((o: any) => out.push({ tipo: 'operacion', color: TIPOS.operacion.c, titulo: o.nombre, lado: o.lado, v: 0.8,
       zonas: zonasDe(`${zDe[o.biblioteca_id] || ''} ${o.nombre}`), detalle: [o.anio, lado(o.lado)].filter(Boolean).join(' · ') }))
-    ;(pats || []).forEach((p: any) => out.push({ tipo: 'patologia', color: TIPOS.patologia.c, titulo: p.nombre, v: p.estado === 'cronica' ? 0.55 : 0.85,
+    ;(pats || []).forEach((p: any) => out.push({ tipo: 'patologia', color: TIPOS.patologia.c, titulo: p.nombre, lado: p.lado, v: p.estado === 'cronica' ? 0.55 : 0.85,
       zonas: zonasDe(`${p.zona || ''} ${p.nombre}`), detalle: [p.estado === 'cronica' ? 'crónica' : 'activa', lado(p.lado)].filter(Boolean).join(' · ') }))
 
     // TESTS: el último de cada test y lado. El color, por su resultado; lo vivo, por lo
@@ -153,7 +169,7 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
       const mal = u.resultado === 'positivo'
       const zs = Array.from(new Set(zonasDeTest(test || {}, etq || []).flatMap(z => ZONA_TEST[z] || [])))
       out.push({ tipo: 'test', color: mal ? TEST_HALLAZGO : TEST_BIEN, titulo: [test?.nombre || 'Test', lado(u.lado)].filter(Boolean).join(' · '),
-        zonas: zs, v: (mal ? 0.7 : 0.45) * viveza,
+        zonas: zs, lado: u.lado, v: (mal ? 0.7 : 0.45) * viveza,
         tend: !ant ? null : ant.resultado === u.resultado ? 'igual' : mal ? 'empeora' : 'mejora',
         detalle: `${fCorta(u.fecha)} · ${mal ? 'hallazgo' : 'bien'}` })
     })
@@ -198,17 +214,20 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
   useEffect(() => {
     if (!visor.current || !items) return
     const zonas: Record<string, any> = {}
-    ZONAS.forEach(z => {
-      const aqui = visibles.filter(it => it.zonas.includes(z.k)); if (!aqui.length) return
-      // En «Toda su salud» cada zona lleva el color mezclado de lo que tiene; en las otras, la rampa de calor.
-      zonas[z.k] = { v: Math.max(...aqui.map(it => it.v)), huesos: z.huesos, off: z.off, color: vista === 'todo' ? mezcla(aqui) : undefined }
+    const por: Record<string, Item[]> = {}
+    visibles.forEach(it => clavesDe(it).forEach(c => { (por[c] = por[c] || []).push(it) }))
+    Object.entries(por).forEach(([c, aqui]) => {
+      const [k, l] = c.split('|'), z = ZONAS.find(x => x.k === k)!
+      const huesos = l === 'C' ? z.huesos : z.huesos.filter((h: string) => h.endsWith(l))
+      // En «Toda su salud» cada esfera lleva el color mezclado de lo que tiene; en las otras, la rampa de calor.
+      zonas[c] = { v: Math.max(...aqui.map(it => it.v)), huesos, off: z.off, color: vista === 'todo' ? mezcla(aqui) : undefined }
     })
     visor.current.poner({ zonas, musculos: {} })
   }, [items, listo, activos]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { visor.current?.enfocar(zonaSel) }, [zonaSel, listo])
 
   const vacio = vista === 'dolor' ? 'Ahora no tiene ninguna molestia activa.' : vista === 'operaciones' ? 'Sin operaciones apuntadas.' : vista === 'patologias' ? 'Sin patologías activas.' : 'Nada con estos filtros.'
-  const lista = vista === 'todo' && zonaSel ? visibles.filter(it => it.zonas.includes(zonaSel)) : visibles
+  const lista = vista === 'todo' && zonaSel ? visibles.filter(it => clavesDe(it).includes(zonaSel)) : visibles
   const sub: React.CSSProperties = { fontSize: 11, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--gr)', margin: '14px 0 6px' }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16, alignItems: 'start' }}>
@@ -236,7 +255,7 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
             </button>))}
         </div>}
         {vista === 'todo' && zonaSel && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginBottom: 4 }}>
-          <b style={{ fontWeight: 600 }}>{ZONAS.find(z => z.k === zonaSel)?.n}</b>
+          <b style={{ fontWeight: 600 }}>{nombreClave(zonaSel)}</b>
           <button type="button" className="chip-sel" onClick={() => setZonaSel(null)} style={{ textTransform: 'none', letterSpacing: 0 }}>Ver todo</button></div>}
         {items && lista.length === 0 && <div style={{ fontSize: 13, color: 'var(--grl)', padding: '20px 0' }}>{vacio}</div>}
         {lista.map((it, i) => (
