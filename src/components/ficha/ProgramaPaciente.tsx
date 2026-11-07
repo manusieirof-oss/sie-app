@@ -283,12 +283,14 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
             {ATAJOS.map(a => <button key={a.k} type="button" className={'atajo' + (atajo === a.k ? ' on' : '')} onClick={() => ponAtajo(a.k, a.d)}>{a.t}</button>)}
           </div>
         </>}
-        {/* Sitio fijo para la leyenda (dos líneas), esté o no: si apareciera y
-            desapareciera al cambiar de vista, empujaría el muñeco de abajo. */}
-        <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6, height: 38, overflow: 'hidden', textAlign: 'center' }}>{leyenda}</div>
+        {/* La leyenda, debajo del botón de vistas y flotando (con scroll si es larga): así
+            no empuja nada al cambiar de vista. */}
+        {!grande && leyenda && <div style={{ position: 'absolute', right: 0, top: 44, width: 'min(34%, 340px)', maxHeight: 210, overflow: 'auto', zIndex: 4,
+          fontSize: 11.5, color: 'var(--gr)', lineHeight: 1.6, background: 'rgba(255,255,255,.88)', padding: '2px 4px' }}>{leyenda}</div>}
+        {grande && leyenda && <div style={{ fontSize: 11.5, color: 'var(--gr)', lineHeight: 1.6 }}>{leyenda}</div>}
         {/* Lo abierto de la columna izquierda, en el blanco al lado de la nebulosa. */}
         {/* Lo abierto, tal cual en el blanco: solo texto, sin caja ni bordes. */}
-        {!grande && ampliado && <div style={{ position: 'absolute', left: 130, top: 0, width: 'min(40%, 440px)', maxHeight: 280, overflow: 'auto', zIndex: 5,
+        {!grande && ampliado && <div style={{ position: 'absolute', left: 130, top: 0, width: 'min(40%, 440px)', maxHeight: 320, overflow: 'auto', overscrollBehavior: 'contain', zIndex: 5,
           background: 'rgba(255,255,255,.92)', padding: '2px 6px' }}>{ampliado}</div>}
         </div>
        </div>

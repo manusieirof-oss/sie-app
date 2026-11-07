@@ -182,8 +182,10 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
   const zDef = ZONAS.find(z => z.k === zona)
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(38,40,37,.07)', padding: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
+    // En la ficha (programado) sin tarjeta ni sombra, y el muñeco con el mismo ancho que
+    // en salud (.cuerpo2/.cuerpo3) para que al cambiar de vista no salte.
+    <div style={programado ? {} : { background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(38,40,37,.07)', padding: 16 }}>
+      <div className={programado ? 'cuerpo2' : undefined} style={programado ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
         {/* El cuerpo */}
         <div>
           <div ref={caja} style={{ position: 'relative', height: 500, borderRadius: 14, background: '#fff', overflow: 'hidden' }}>

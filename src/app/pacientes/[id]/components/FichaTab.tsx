@@ -1252,10 +1252,11 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             <div className="muted">Sin anamnesis recogida.</div>
           ) : (
           <div style={{fontSize:13,color:'var(--n)',lineHeight:1.7,whiteSpace:'pre-line'}}>
-            {anamLarga && !anamnesisAbierta ? valoracion.anamnesis.slice(0,260).trimEnd()+'…' : valoracion.anamnesis}
+            {anamLarga && !anamnesisAbierta && abiertaIzq!=='anamnesis' ? valoracion.anamnesis.slice(0,260).trimEnd()+'…' : valoracion.anamnesis}
           </div>
           )}
-          {anamEdit == null && anamLarga && (
+          {/* Abierta junto a la nebulosa sale entera (con scroll): sin «Ver más». */}
+          {anamEdit == null && anamLarga && abiertaIzq!=='anamnesis' && (
             <button onClick={()=>setAnamnesisAbierta(v=>!v)} style={{fontSize:12,color:'var(--gd)',background:'none',border:'none',padding:'6px 0 0',cursor:'pointer',fontFamily:'inherit'}}>
               {anamnesisAbierta?'Ver menos':'Ver más'}
             </button>

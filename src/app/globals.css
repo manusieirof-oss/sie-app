@@ -882,3 +882,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .abierto-plano .atencion{background:none;border:none;padding:0;margin:0}
 .abierto-plano .sec{margin:0}
 .abierto-plano .sec-h{border-bottom:none;padding-bottom:0}
+
+/* El cuerpo de la ficha: muñeco de ancho fijo (el mismo en entreno y en salud, para que no
+   salte al cambiar), y a su lado el resto. En pantallas estrechas, uno debajo del otro. */
+.cuerpo3{display:grid;grid-template-columns:340px minmax(0,1fr) minmax(280px,420px);gap:24px;align-items:start}
+.cuerpo2{display:grid;grid-template-columns:340px minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:1000px){.cuerpo3{grid-template-columns:340px minmax(0,1fr)}.cuerpo3>:nth-child(2){grid-column:1/-1;order:3}}
+@media (max-width:700px){.cuerpo3,.cuerpo2{grid-template-columns:1fr}}
