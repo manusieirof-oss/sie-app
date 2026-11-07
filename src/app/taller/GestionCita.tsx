@@ -1,5 +1,6 @@
 'use client'
-import { abrirAlerta, cerrarAlerta, LBL_ALERTA } from '@/lib/alertas'
+import { abrirAlerta, cerrarAlerta, LBL_ALERTA, type CuerpoAlerta } from '@/lib/alertas'
+import { ZONAS } from '@/lib/mapaTrabajo'
 import { avisarGuia } from '@/lib/guiaEventos'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -68,6 +69,14 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
   const [tipoA, setTipoA] = useState('dolor')
   const [afecta, setAfecta] = useState(true)
   const [desc, setDesc] = useState('')
+  // Marcarlo en el cuerpo (solo dolor y lesión): zona, lado y si es molestia o patología a trabajar.
+  const [enCuerpo, setEnCuerpo] = useState(true)
+  const [zonaA, setZonaA] = useState('')
+  const [ladoA, setLadoA] = useState<CuerpoAlerta['lado']>(null)
+  const [comoA, setComoA] = useState<CuerpoAlerta['como']>('molestia')
+  const conCuerpo = tipoA === 'dolor' || tipoA === 'lesion'
+  const zDef = ZONAS.find(z => z.n === zonaA)
+  const pares = !!zDef && zDef.huesos.some((h: string) => h.endsWith('D')) && zDef.huesos.some((h: string) => h.endsWith('I'))
   const [ocupado, setOcupado] = useState(false)
   const [msg, setMsg] = useState('')
   const leerAlertas = () => supabase.from('alertas_paciente').select('*').eq('paciente_id', pacienteId).eq('activa', true)
@@ -76,10 +85,10 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
   async function nuevaAlerta() {
     if (!desc.trim() || ocupado) return
     setOcupado(true); setMsg('')
-    const r = await abrirAlerta(pacienteId, tipoA, afecta, desc.trim())
+    const r = await abrirAlerta(pacienteId, tipoA, afecta, desc.trim(), conCuerpo && enCuerpo && zonaA ? { zona: zonaA, lado: pares ? (ladoA || 'bilateral') : null, como: comoA } : null)
     setOcupado(false)
     if (!r.ok) { setMsg('No se ha podido guardar la alerta: ' + r.error); return }
-    setDesc(''); setTipoA('dolor'); setAfecta(true)
+    setDesc(''); setTipoA('dolor'); setAfecta(true); setZonaA(''); setLadoA(null); setComoA('molestia'); setEnCuerpo(true)
     avisarGuia('alerta')
     await leerAlertas(); onCambio?.()
   }
@@ -103,11 +112,26 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
       </div>
     ))}
     <div className="gc-chips">{Object.entries(LBL_ALERTA).map(([k, l]) => (
-      <button key={k} className={tipoA === k ? 'on' : ''} onClick={() => { setTipoA(k); setAfecta(k === 'dolor' || k === 'lesion') }}>{l}</button>
+      <button key={k} className={tipoA === k ? 'on' : ''} onClick={() => { setTipoA(k); setAfecta(k === 'dolor' || k === 'lesion'); setComoA(k === 'lesion' ? 'patologia' : 'molestia') }}>{l}</button>
     ))}</div>
     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: afecta ? 'var(--red)' : 'var(--gr)', margin: '2px 0 8px', cursor: 'pointer' }}>
       <input type="checkbox" checked={afecta} onChange={e => setAfecta(e.target.checked)}/> Afecta a la sesión (adaptar el entreno)
     </label>
+    {/* MARCARLO EN EL CUERPO: un interruptor y, si está puesto, dónde. */}
+    {conCuerpo && <>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: enCuerpo ? 'var(--gd)' : 'var(--gr)', margin: '0 0 6px', cursor: 'pointer' }}>
+        <input type="checkbox" checked={enCuerpo} onChange={e => setEnCuerpo(e.target.checked)}/> Marcarlo en el cuerpo
+      </label>
+      {enCuerpo && <>
+        <div className="gc-chips">
+          <button className={comoA === 'molestia' ? 'on' : ''} onClick={() => setComoA('molestia')}>Molestia (se quita con la alerta)</button>
+          <button className={comoA === 'patologia' ? 'on' : ''} onClick={() => setComoA('patologia')}>Patología a trabajar</button>
+        </div>
+        <div className="gc-chips">{ZONAS.map(z => <button key={z.k} className={zonaA === z.n ? 'on' : ''} onClick={() => setZonaA(zonaA === z.n ? '' : z.n)}>{z.n}</button>)}</div>
+        {pares && <div className="gc-chips">{([['izquierdo', 'Izquierda'], ['derecho', 'Derecha'], ['bilateral', 'Las dos']] as const).map(([k, t]) =>
+          <button key={k} className={(ladoA || 'bilateral') === k ? 'on' : ''} onClick={() => setLadoA(k)}>{t}</button>)}</div>}
+      </>}
+    </>}
     <div style={{ display: 'flex', gap: 6 }}>
       <input className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Molestia cervical, viene cargada / tiene cita médica el martes…"
         onKeyDown={e => { if (e.key === 'Enter') nuevaAlerta() }} style={{ flex: 1, fontSize: 13 }}/>

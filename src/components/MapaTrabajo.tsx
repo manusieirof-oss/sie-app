@@ -307,7 +307,19 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
             {activos.length > 0 && <>{titulo('Activo ahora')}{activos.map((a, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 13, padding: '2px 0' }}>
                 <i style={{ width: 9, height: 9, borderRadius: '50%', background: COL_AHORA[a.tipo], flex: 'none' }}/>
-                <span style={{ color: 'var(--n)', fontWeight: 500 }}>{a.titulo}</span><span style={{ color: 'var(--gr)', fontSize: 12 }}>{a.detalle}{!a.zonas.length ? ' · sin zona en el cuerpo' : ''}</span>
+                <span>
+                  <span style={{ color: 'var(--n)', fontWeight: 500 }}>{a.titulo}</span> <span style={{ color: 'var(--gr)', fontSize: 12 }}>{a.detalle}{!a.zonas.length ? ' · sin zona en el cuerpo' : ''}</span>
+                  {/* LO QUE SE HACE PARA ESO: lo que sus sesiones trabajan en esa zona, sin
+                      enlazar nada a mano (sale de la anatomía de los ejercicios). */}
+                  {a.zonas.length > 0 && (() => {
+                    const seg = a.zonas.reduce((n, k) => n + (m.zonas[k]?.seg || 0), 0)
+                    const ejs2: Record<string, number> = {}
+                    a.zonas.forEach(k => Object.entries(m.zonas[k]?.porEj || {}).forEach(([e, v]) => { ejs2[e] = (ejs2[e] || 0) + v }))
+                    const top = Object.entries(ejs2).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([e]) => ejs[e]?.nombre).filter(Boolean)
+                    return <div style={{ fontSize: 11.5, color: seg ? 'var(--gd)' : '#8A6410' }}>
+                      {seg ? `Se trabaja ${textoSegundos(seg)}${top.length ? ' · ' + top.join(', ') : ''}` : 'Sus sesiones no trabajan esa zona'}</div>
+                  })()}
+                </span>
               </div>))}</>}
           </div>}
           {regs !== null && m.total === 0 && <div style={{ fontSize: 13, color: 'var(--grl)', padding: '20px 0' }}>{ahora ? 'Aún no ha hecho nada con sus sesiones actuales' : programado ? 'Nada programado con sesión en este periodo' : 'Nada anotado en la sala en este periodo'}{fInt.length || fEje.length ? ' con estos filtros' : ''}.</div>}
