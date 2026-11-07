@@ -252,10 +252,12 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
     // al lado del cuerpo, que es mucho más alto.
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
       <div className="sec" style={{ marginBottom: 0, ...(grande ? { position: 'fixed', inset: 16, zIndex: 60, overflow: 'auto', background: 'var(--wh, #fff)', borderRadius: 16, padding: 14, boxShadow: '0 10px 40px rgba(0,0,0,.18)' } : {}) }}>
-       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* A la izquierda, apiladas: alertas, nota y anamnesis. */}
-        {!grande && lateral && <div style={{ width: 230, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>{lateral}</div>}
-        <div style={{ flex: 1, minWidth: 300, position: 'relative' }}>
+       {/* La nebulosa ocupa TODO el ancho (la barra de lado a lado). Alertas, nota y
+           anamnesis van encima, pegadas al borde izquierdo como solapas: si fueran una
+           columna, empujaban la nebulosa y parecían dos cosas distintas. */}
+       <div style={{ position: 'relative' }}>
+        {!grande && lateral && <div style={{ position: 'absolute', left: -20, top: 0, zIndex: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>{lateral}</div>}
+        <div style={{ position: 'relative' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
             <BotonVistas t={VISTAS_NEB[iN].t} n={VISTAS_NEB.length} i={iN} onClick={siguienteN}/>
             {grande && <button type="button" className="btn-vista" onClick={() => setGrande(false)}>Cerrar ✕</button>}
@@ -277,14 +279,17 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 500, margin: '2px 2px 0' }}>
             <span>{fLarga(desde)}</span><span style={{ color: 'var(--grl)', fontWeight: 400 }}>{semanas < 9 ? `${semanas} semanas` : `${Math.round(semanas / 4.3)} meses`}</span><span>{fLarga(hasta)}</span></div>
-          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap', margin: '8px 0 6px' }}>
-            {ATAJOS.map(a => <button key={a.k} type="button" className={'chip-sel' + (atajo === a.k ? ' on' : '')} onClick={() => ponAtajo(a.k, a.d)} style={{ textTransform: 'none', letterSpacing: 0 }}>{a.t}</button>)}
+          <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', margin: '6px 0 4px' }}>
+            {ATAJOS.map(a => <button key={a.k} type="button" className={'atajo' + (atajo === a.k ? ' on' : '')} onClick={() => ponAtajo(a.k, a.d)}>{a.t}</button>)}
           </div>
         </>}
-        {leyenda && <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6 }}>{leyenda}</div>}
+        {/* Sitio fijo para la leyenda (dos líneas), esté o no: si apareciera y
+            desapareciera al cambiar de vista, empujaría el muñeco de abajo. */}
+        <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6, height: 38, overflow: 'hidden', textAlign: 'center' }}>{leyenda}</div>
         {/* Lo abierto de la columna izquierda, en el blanco al lado de la nebulosa. */}
-        {!grande && ampliado && <div style={{ position: 'absolute', left: 0, top: 0, width: 'min(50%, 480px)', maxHeight: 300, overflow: 'auto', zIndex: 5,
-          background: '#fff', border: '1px solid var(--bd)', borderRadius: 14, boxShadow: '0 8px 28px rgba(38,40,37,.12)', padding: 14 }}>{ampliado}</div>}
+        {/* Lo abierto, tal cual en el blanco: solo texto, sin caja ni bordes. */}
+        {!grande && ampliado && <div style={{ position: 'absolute', left: 130, top: 0, width: 'min(40%, 440px)', maxHeight: 280, overflow: 'auto', zIndex: 5,
+          background: 'rgba(255,255,255,.92)', padding: '2px 6px' }}>{ampliado}</div>}
         </div>
        </div>
       </div>

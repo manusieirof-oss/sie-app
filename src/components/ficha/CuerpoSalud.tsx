@@ -230,28 +230,29 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
   const lista = vista === 'todo' && zonaSel ? visibles.filter(it => clavesDe(it).includes(zonaSel)) : visibles
   const sub: React.CSSProperties = { fontSize: 11, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--gr)', margin: '14px 0 6px' }
   return (
-    // LA MISMA CAJA QUE EL MAPA DE TRABAJO (tarjeta, fila de arriba de alto fijo y muñeco
-    // de 500): al pasar de entreno a salud el muñeco se queda del mismo tamaño y en el
+    // LA MISMA CAJA QUE EL MAPA DE TRABAJO (tarjeta, muñeco de 500 arriba del todo y los
+    // botones debajo): al pasar de entreno a salud el muñeco se queda del mismo tamaño y en el
     // mismo sitio. Si cambiaba, la pantalla daba un salto y mareaba.
     <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(38,40,37,.07)', padding: 16 }}>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minHeight: 38, marginBottom: 8 }}>
-      {/* Filtros por tipo: encender o apagar cada uno. */}
-        {vista === 'todo' && items && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {(Object.keys(TIPOS) as Tipo[]).map(k => (
-            <button key={k} type="button" className="chip-sel" onClick={() => setActivos(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, opacity: activos.has(k) ? 1 : 0.4 }}>
-              {k === 'test'
-                ? <span style={{ display: 'inline-flex' }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: TEST_BIEN }}/><i style={{ width: 9, height: 9, borderRadius: '50%', background: TEST_HALLAZGO, marginLeft: -3 }}/></span>
-                : <i style={{ width: 9, height: 9, borderRadius: '50%', background: TIPOS[k].c }}/>}
-              {TIPOS[k].t} {items.filter(it => it.tipo === k).length}
-            </button>))}
-        </div>}
-    </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, alignItems: 'start' }}>
       <div>
         <div ref={caja} style={{ position: 'relative', height: 500, borderRadius: 14, background: '#fff', overflow: 'hidden' }}>
           {(!listo || !items) && !fallo && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 12, color: 'var(--grl)' }}>Cargando…</div>}
           {fallo && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 12, color: 'var(--grl)' }}>{fallo}</div>}
+        </div>
+        {/* Los filtros por tipo, debajo del muñeco como en el de entreno. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 6 }}>
+          {/* Filtros por tipo: encender o apagar cada uno. */}
+            {vista === 'todo' && items && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {(Object.keys(TIPOS) as Tipo[]).map(k => (
+                <button key={k} type="button" className="chip-sel" onClick={() => setActivos(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0, opacity: activos.has(k) ? 1 : 0.4 }}>
+                  {k === 'test'
+                    ? <span style={{ display: 'inline-flex' }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: TEST_BIEN }}/><i style={{ width: 9, height: 9, borderRadius: '50%', background: TEST_HALLAZGO, marginLeft: -3 }}/></span>
+                    : <i style={{ width: 9, height: 9, borderRadius: '50%', background: TIPOS[k].c }}/>}
+                  {TIPOS[k].t} {items.filter(it => it.tipo === k).length}
+                </button>))}
+            </div>}
         </div>
         {vista === 'todo'
           ? <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 6, textAlign: 'center' }}>Toca una zona para ver qué hay ahí</div>

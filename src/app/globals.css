@@ -870,3 +870,15 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .btn-vista:hover{border-color:var(--gm)}
 .btn-vista.apagado{color:var(--grl);border-color:transparent}
 .btn-vista.apagado:hover{border-color:var(--bd)}
+
+/* Atajos discretos (fechas de la nebulosa): solo texto; el elegido, subrayado. */
+.atajo{font-family:inherit;font-size:11.5px;font-weight:500;padding:3px 7px;border:none;background:none;color:var(--grl);cursor:pointer}
+.atajo:hover{color:var(--gd)}
+.atajo.on{color:var(--gd);font-weight:600;text-decoration:underline;text-underline-offset:4px}
+/* Solapas de la ficha (alertas, nota, anamnesis): pegadas al borde izquierdo. */
+.solapa{display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px 6px 14px;border:none;border-radius:0 10px 10px 0;cursor:pointer;text-align:left;white-space:nowrap;transition:padding .12s}
+.solapa:hover,.solapa.on{padding-left:18px}
+.solapa.vacia{opacity:.55}
+.abierto-plano .atencion{background:none;border:none;padding:0;margin:0}
+.abierto-plano .sec{margin:0}
+.abierto-plano .sec-h{border-bottom:none;padding-bottom:0}

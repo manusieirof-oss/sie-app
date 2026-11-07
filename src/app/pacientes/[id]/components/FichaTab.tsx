@@ -1267,24 +1267,26 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
   ) : null
   const textoAtencion = [(alertas?.length||0)>0 && `${alertas.length} alerta${alertas.length===1?'':'s'}`, recPendientes.length>0 && `${recPendientes.length} sin recuperar`, estadoPago==='impago' && 'impago'].filter(Boolean).join(' · ')
-  const tarjetaIzq = (k: 'alertas'|'nota'|'anamnesis', ic: string, titulo: string, texto: string, roja = false) => (
-    <button key={k} type="button" onClick={()=>setAbiertaIzq(a=>a===k?null:k)}
-      style={{textAlign:'left',width:'100%',border:`1px solid ${abiertaIzq===k?'var(--g)':roja?'#e8c4c4':'var(--bd)'}`,background:roja?'var(--redl)':'transparent',borderRadius:12,padding:'9px 12px',cursor:'pointer',fontFamily:'inherit'}}>
-      <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12.5,fontWeight:600,color:roja?'var(--red)':'var(--n)'}}><Ic name={ic} size={13}/> {titulo}</div>
-      <div style={{fontSize:12,color:roja?'var(--red)':'var(--gr)',marginTop:2,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical' as any,lineHeight:1.4}}>{texto}</div>
+  // Cada solapa con su color de base: alertas en rojo, nota en marrón, anamnesis en el de la clínica.
+  const COL_SOLAPA = { alertas: ['var(--red)', 'var(--redl)'], nota: ['#7A5C3E', '#F4EDE4'], anamnesis: ['var(--gd)', 'var(--gl)'] } as const
+  const solapa = (k: 'alertas'|'nota'|'anamnesis', ic: string, texto: string, vacia: boolean) => (
+    <button key={k} type="button" className={'solapa' + (abiertaIzq===k ? ' on' : '') + (vacia ? ' vacia' : '')} onClick={()=>setAbiertaIzq(a=>a===k?null:k)}
+      style={{ color: COL_SOLAPA[k][0], background: COL_SOLAPA[k][1] }}>
+      <Ic name={ic} size={12}/> {texto}
     </button>
   )
   const columnaIzq = <>
-    {tarjetaIzq('alertas','alerta','Alertas', hayAtencion ? textoAtencion : 'Sin alertas', hayAtencion)}
-    {tarjetaIzq('nota','pin','Nota', pac.notas_fijas || 'Sin nota')}
-    {tarjetaIzq('anamnesis','anamnesis','Anamnesis', valoracion?.anamnesis || (valoracion?.id ? 'Sin anamnesis recogida' : 'Sin valoración'))}
+    {solapa('alertas', 'alerta', hayAtencion ? textoAtencion : 'Sin alertas', !hayAtencion)}
+    {solapa('nota', 'pin', 'Nota', !pac.notas_fijas)}
+    {solapa('anamnesis', 'anamnesis', 'Anamnesis', !valoracion?.anamnesis)}
   </>
   const cerrarIzq = <button type="button" onClick={()=>setAbiertaIzq(null)} title="Cerrar" style={{float:'right',border:'none',background:'none',cursor:'pointer',color:'var(--gr)',padding:2}}><Ic name="cerrar" size={13}/></button>
-  const abiertoIzq = abiertaIzq==='alertas' ? <>{cerrarIzq}{hayAtencion ? bloqueAtencion : <div className="muted">Sin alertas.</div>}</>
+  const abiertoIzqDentro = abiertaIzq==='alertas' ? <>{cerrarIzq}{hayAtencion ? bloqueAtencion : <div className="muted">Sin alertas.</div>}</>
     : abiertaIzq==='nota' ? <>{cerrarIzq}<div style={{fontSize:12.5,fontWeight:600,display:'flex',alignItems:'center',gap:6,marginBottom:6}}><Ic name="pin" size={13}/> Nota</div>
         <div style={{fontSize:13,lineHeight:1.6,whiteSpace:'pre-line'}}>{pac.notas_fijas || <span className="muted">Sin nota. Se pone desde Editar.</span>}</div></>
     : abiertaIzq==='anamnesis' ? <>{cerrarIzq}{bloqueAnamnesis || <div className="muted">Sin valoración todavía.</div>}</>
     : null
+  const abiertoIzq = abiertoIzqDentro ? <div className="abierto-plano">{abiertoIzqDentro}</div> : null
 
   return (
     <div className="panel">
