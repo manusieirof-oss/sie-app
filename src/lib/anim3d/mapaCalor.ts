@@ -14,7 +14,9 @@ import { RAMPA, colorCalor } from '@/lib/rampaCalor'
  * Tocar una esfera la elige: el cuerpo deja de girar y la cámara se acerca a ella.
  */
 
-export interface ValorZona { v: number, huesos: string[], off?: [number, number, number] }
+export interface ValorZona { v: number, huesos: string[], off?: [number, number, number]
+  /** Color propio (p. ej. «Toda su salud», un color por tipo); sin él, la rampa de calor. */
+  color?: string }
 export interface MapaCalor3D {
   poner(datos: { musculos: Record<string, number>, zonas: Record<string, ValorZona> }): void
   enfocar(zona: string | null): void
@@ -141,7 +143,7 @@ export async function crearMapaCalor(el: HTMLElement, ev: { zona?: (k: string | 
       quitarEsferas()
       Object.entries(zonas).forEach(([k, z]) => {
         if (!(z.v > 0)) return
-        const color = new THREE.Color(colorCalor(0.25 + z.v * 0.75))
+        const color = new THREE.Color(z.color || colorCalor(0.25 + z.v * 0.75))
         z.huesos.forEach(hn => {
           const h = H0[hn]; if (!h) return
           const p = h.clone().add(new THREE.Vector3(...(z.off || [0, 0, 0])))

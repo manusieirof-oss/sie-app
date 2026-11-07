@@ -62,6 +62,7 @@ type VistaCuerpo = 'entrenar' | VistaSalud
 const VISTAS: { k: VistaCuerpo, t: string, ic: string }[] = [
   { k: 'entrenar', t: 'Para entrenar', ic: 'entreno' }, { k: 'dolor', t: 'Dolor ahora', ic: 'molestia' },
   { k: 'operaciones', t: 'Operaciones', ic: 'cruz' }, { k: 'patologias', t: 'Patologías', ic: 'patologia' },
+  { k: 'todo', t: 'Toda su salud', ic: 'salud' },
 ]
 // Y el de la nebulosa, igual.
 const VISTAS_NEB: { k: VistaNeb, t: string }[] = [
