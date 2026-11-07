@@ -50,8 +50,8 @@ export const MUS_RIG: Record<string, string> = {
   'Bíceps': 'biceps', 'Braquioradial': 'biceps', 'Flexor de muñeca': 'biceps', 'Extensor de muñecas': 'biceps', 'Flexor de Dedos': 'biceps', 'Extensor de Dedos': 'biceps',
 }
 
-export interface Acumulado { seg: number, porMov: Record<string, number>, porInt: Record<string, number>, porEje: Record<string, number>, porArt: Record<string, number>, porEj: Record<string, number> }
-const vacio = (): Acumulado => ({ seg: 0, porMov: {}, porInt: {}, porEje: {}, porArt: {}, porEj: {} })
+export interface Acumulado { seg: number, porMov: Record<string, number>, porInt: Record<string, number>, porEje: Record<string, number>, porArt: Record<string, number>, porEj: Record<string, number>, porLado: Record<string, number> }
+const vacio = (): Acumulado => ({ seg: 0, porMov: {}, porInt: {}, porEje: {}, porArt: {}, porEj: {}, porLado: {} })
 const suma = (o: Record<string, number>, k: string, v: number) => { o[k] = (o[k] || 0) + v }
 
 export interface Mapa {
@@ -66,10 +66,14 @@ export interface Mapa {
   sesiones: number
 }
 
-export interface Filtros { int: string[], eje: string[], combinada: boolean }
+export interface Filtros { int: string[], eje: string[], combinada: boolean
+  /** Solo las series por repeticiones o solo las que van por tiempo (vistas de la ficha). */
+  medida?: 'reps' | 'tiempo' }
 
 /** Registro de la sala tal como se lee (registros_ejercicio). */
-export interface Registro { fecha: string, ejercicio_id: string | null, series: any[] | null, regimen?: string | null, sesion_id?: string | null }
+export interface Registro { fecha: string, ejercicio_id: string | null, series: any[] | null, regimen?: string | null, sesion_id?: string | null
+  /** Bilateral / Unilateral / Alterno (sin dato, bilateral). */
+  lado?: string | null }
 
 /** Índices de etiquetas que hacen falta para repartir, construidos una vez. */
 export function indices(etiquetas: any[]) {
@@ -122,6 +126,10 @@ export function intensidadSerie(cfg: ConfigTrabajo, admite: string[], reps: numb
 }
 
 /** Calcula el mapa con unos filtros. Es barato: se rehace al tocar un filtro. */
+/** Lateralidad con nombre fijo: lo que no dice nada cuenta como bilateral. */
+export const ladoNorm = (l?: string | null) => /uni/i.test(l || '') ? 'Unilateral' : /alter/i.test(l || '') ? 'Alterno' : 'Bilateral'
+export const COLOR_LADO: Record<string, string> = { Bilateral: '#5A969E', Unilateral: '#E07B39', Alterno: '#8E6FB5' }
+
 export function calcularMapa(regs: Registro[], ejercicios: Record<string, any>, idx: ReturnType<typeof indices>, cfg: ConfigTrabajo, f: Filtros): Mapa {
   const m: Mapa = { total: 0, estimado: 0, liberacion: 0, sinAnatomia: 0, zonas: {}, musculos: {}, porInt: {}, porEje: {}, sesiones: 0 }
   const ses = new Set<string>()
@@ -136,6 +144,9 @@ export function calcularMapa(regs: Registro[], ejercicios: Record<string, any>, 
     const porTiempo = /tiempo|seg|iso/i.test(ej.tipo_medida || '')
     for (const s of r.series) {
       const reps = num(s?.reps), segs = num(s?.segundos)
+      // Por repes = lleva repes; por tiempo = no las lleva (segundos o "aguanta").
+      if (f.medida === 'reps' && !reps) continue
+      if (f.medida === 'tiempo' && reps) continue
       const { seg, estimado } = segundosSerie(cfg, { reps, segundos: segs, ejecuciones: ejes, aguanta: !reps && !segs && porTiempo })
       if (seg <= 0) continue
       const intId = intensidadSerie(cfg, t.int, reps, segs, ejes)
@@ -160,6 +171,7 @@ export function calcularMapa(regs: Registro[], ejercicios: Record<string, any>, 
         Z.seg += v
         suma(Z.porMov, x.m || 'sin', v); suma(Z.porInt, intId, v); suma(Z.porArt, x.a, v); suma(Z.porEj, ej.id, v)
         ejes.forEach(e => suma(Z.porEje, e, v / (ejes.length || 1)))
+        suma(Z.porLado, ladoNorm(r.lado), v)
       }
       // Músculos, igual.
       const mus = a.mus.filter(x => idx.rigDe[x.u])

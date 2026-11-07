@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hoyISO, sumarDias } from '@/lib/fechas'
 import NebulosaPrograma, { PALETA, COL_CAMBIO, hex, type CitaNeb, type VistaNeb } from '@/components/ficha/NebulosaPrograma'
-import MapaTrabajo from '@/components/MapaTrabajo'
+import MapaTrabajo, { type LenteEntreno } from '@/components/MapaTrabajo'
 import CuerpoSalud, { type VistaSalud } from '@/components/ficha/CuerpoSalud'
 import { Ic } from '@/lib/icons'
 
@@ -56,13 +56,17 @@ function volumen(partes: any[]) {
    más fuerte fue, más tarda en irse: 3 semanas por cada punto de EVA. */
 const HUELLA_DIAS_POR_EVA = 21
 
-/* EL BOTÓN DE VISTAS DEL CUERPO, como en la biblioteca y la agenda: un toque, la
-   siguiente. Se recuerda en este aparato. */
-type VistaCuerpo = 'entrenar' | VistaSalud
-const VISTAS: { k: VistaCuerpo, t: string, ic: string }[] = [
-  { k: 'entrenar', t: 'Para entrenar', ic: 'entreno' }, { k: 'dolor', t: 'Dolor ahora', ic: 'molestia' },
-  { k: 'operaciones', t: 'Operaciones', ic: 'cruz' }, { k: 'patologias', t: 'Patologías', ic: 'patologia' },
-  { k: 'todo', t: 'Toda su salud', ic: 'salud' },
+/* LOS DOS BOTONES DEL CUERPO, como en la biblioteca y la agenda (un toque, la siguiente):
+   a la izquierda SALUD y a la derecha ENTRENO. Manda el último que se tocó; tocar el
+   apagado lo enciende en su vista, tocar el encendido pasa a la siguiente.
+   Se recuerda en este aparato. */
+const VISTAS_SALUD: { k: VistaSalud, t: string, ic: string }[] = [
+  { k: 'dolor', t: 'Dolor ahora', ic: 'molestia' }, { k: 'operaciones', t: 'Operaciones', ic: 'cruz' },
+  { k: 'patologias', t: 'Patologías', ic: 'patologia' }, { k: 'todo', t: 'Toda su salud', ic: 'salud' },
+]
+const VISTAS_ENTRENO: { k: LenteEntreno, t: string }[] = [
+  { k: 'trabajo', t: 'Trabajo' }, { k: 'intensidad', t: 'Intensidad' }, { k: 'lateralidad', t: 'Lateralidad' },
+  { k: 'tiempo', t: 'Por segundos' }, { k: 'reps', t: 'Por repeticiones' },
 ]
 // Y el de la nebulosa, igual.
 const VISTAS_NEB: { k: VistaNeb, t: string }[] = [
@@ -75,9 +79,9 @@ const ATAJOS: { k: string, t: string, d: number }[] = [
 ]
 
 /** El botón de vistas: el nombre y un puntito por vista, encendido el que toca. */
-function BotonVistas({ t, n, i, onClick }: { t: React.ReactNode, n: number, i: number, onClick: () => void }) {
+function BotonVistas({ t, n, i, onClick, apagado }: { t: React.ReactNode, n: number, i: number, onClick: () => void, apagado?: boolean }) {
   return (
-    <button type="button" className="chip-sel on" onClick={onClick} title="Cambiar lo que se ve"
+    <button type="button" className={'chip-sel' + (apagado ? '' : ' on')} onClick={onClick} title="Cambiar lo que se ve"
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0 }}>
       {t}
       <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{Array.from({ length: n }, (_, k) => <i key={k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: k === i ? 1 : .3 }}/>)}</span>
@@ -90,16 +94,28 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
   const [citas, setCitas] = useState<any[] | null>(null)
   const [molestias, setMolestias] = useState<any[]>([])
   const [nomObj, setNomObj] = useState<Record<string, string>>({})
-  const [vista, setVistaE] = useState<VistaCuerpo>('entrenar')
+  const [modo, setModo] = useState<'entreno' | 'salud'>('entreno')
+  const [vSalud, setVSalud] = useState<VistaSalud>('dolor')
+  const [vEntreno, setVEntreno] = useState<LenteEntreno>('trabajo')
   const [vistaN, setVistaN] = useState<VistaNeb>('normal')
   const [desde, setDesde] = useState(''), [hasta, setHasta] = useState(''), [atajo, setAtajo] = useState<string | null>('3m')
   const [grande, setGrande] = useState(false)
   useEffect(() => { try {
-    const v = localStorage.getItem('ficha_cuerpo') as VistaCuerpo; if (VISTAS.some(x => x.k === v)) setVistaE(v)
+    const md = localStorage.getItem('ficha_cuerpo_modo'); if (md === 'entreno' || md === 'salud') setModo(md)
+    const vs = localStorage.getItem('ficha_salud') as VistaSalud; if (VISTAS_SALUD.some(x => x.k === vs)) setVSalud(vs)
+    const ve = localStorage.getItem('ficha_entreno') as LenteEntreno; if (VISTAS_ENTRENO.some(x => x.k === ve)) setVEntreno(ve)
     const n = localStorage.getItem('ficha_nebulosa') as VistaNeb; if (VISTAS_NEB.some(x => x.k === n)) setVistaN(n)
   } catch {} }, [])
-  const vistaAct = VISTAS.find(x => x.k === vista) || VISTAS[0]
-  const siguiente = () => { const n = VISTAS[(VISTAS.indexOf(vistaAct) + 1) % VISTAS.length].k; setVistaE(n); try { localStorage.setItem('ficha_cuerpo', n) } catch {} }
+  const guarda = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
+  const iS = Math.max(0, VISTAS_SALUD.findIndex(x => x.k === vSalud)), iE = Math.max(0, VISTAS_ENTRENO.findIndex(x => x.k === vEntreno))
+  const tocaSalud = () => {
+    if (modo !== 'salud') { setModo('salud'); guarda('ficha_cuerpo_modo', 'salud'); return }
+    const n = VISTAS_SALUD[(iS + 1) % VISTAS_SALUD.length].k; setVSalud(n); guarda('ficha_salud', n)
+  }
+  const tocaEntreno = () => {
+    if (modo !== 'entreno') { setModo('entreno'); guarda('ficha_cuerpo_modo', 'entreno'); return }
+    const n = VISTAS_ENTRENO[(iE + 1) % VISTAS_ENTRENO.length].k; setVEntreno(n); guarda('ficha_entreno', n)
+  }
   const iN = Math.max(0, VISTAS_NEB.findIndex(x => x.k === vistaN))
   const siguienteN = () => { const n = VISTAS_NEB[(iN + 1) % VISTAS_NEB.length].k; setVistaN(n); try { localStorage.setItem('ficha_nebulosa', n) } catch {} }
   // En grande, Escape la cierra.
@@ -261,9 +277,13 @@ export default function ProgramaPaciente({ pacienteId, alerta }: { pacienteId: s
         <div style={{ fontSize: 11.5, color: 'var(--grl)', lineHeight: 1.6 }}>{leyenda}</div>
       </div>
       <div className="sec" style={{ marginBottom: 0 }}>
-        <div className="sec-h"><span className="ct-l"><Ic name="cuerpo" size={13}/> Su cuerpo</span>
-          <BotonVistas t={<><Ic name={vistaAct.ic} size={13}/> {vistaAct.t}</>} n={VISTAS.length} i={VISTAS.indexOf(vistaAct)} onClick={siguiente}/></div>
-        {vista === 'entrenar' ? <MapaTrabajo pacienteId={pacienteId} programado/> : <CuerpoSalud pacienteId={pacienteId} vista={vista}/>}
+        <div className="sec-h" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span className="ct-l"><Ic name="cuerpo" size={13}/> Su cuerpo</span>
+            <BotonVistas t={<><Ic name={VISTAS_SALUD[iS].ic} size={13}/> {VISTAS_SALUD[iS].t}</>} n={VISTAS_SALUD.length} i={iS} onClick={tocaSalud} apagado={modo !== 'salud'}/>
+          </span>
+          <BotonVistas t={<><Ic name="entreno" size={13}/> {VISTAS_ENTRENO[iE].t}</>} n={VISTAS_ENTRENO.length} i={iE} onClick={tocaEntreno} apagado={modo !== 'entreno'}/></div>
+        {modo === 'entreno' ? <MapaTrabajo pacienteId={pacienteId} programado lente={vEntreno}/> : <CuerpoSalud pacienteId={pacienteId} vista={vSalud}/>}
       </div>
     </div>
   )

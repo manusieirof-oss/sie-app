@@ -5,7 +5,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { textoSegundos } from '@/lib/trabajo'
 import { useConfigTrabajo } from '@/components/TrabajoEjercicio'
-import { ZONAS, indices, calcularMapa, cargaSemanal, type Registro } from '@/lib/mapaTrabajo'
+import { ZONAS, indices, calcularMapa, cargaSemanal, COLOR_LADO, type Registro } from '@/lib/mapaTrabajo'
 import { RAMPA, colorCalor } from '@/lib/rampaCalor'
 import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
 
@@ -17,7 +17,24 @@ import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
  * enseña su reparto por movimiento, intención y ejercicios. La capa "combinada" suma
  * también lo que el ejercicio mueve de forma secundaria (a medio peso).
  * El icono de la carga abre minutos por semana, tonelaje y aviso de pico.
+ *
+ * En la ficha va con una LENTE (el botón de vistas de entreno):
+ *   · trabajo      — el calor de siempre;
+ *   · intensidad   — cada zona con el color de la intensidad que más trabaja;
+ *   · lateralidad  — bilateral, unilateral o alterno, mezclado según lo que pese cada uno;
+ *   · tiempo/reps  — el calor contando solo lo que va por segundos o solo por repes.
  */
+export type LenteEntreno = 'trabajo' | 'intensidad' | 'lateralidad' | 'tiempo' | 'reps'
+
+/** Mezcla de colores pesada por los segundos de cada uno. */
+function mezclar(por: Record<string, number>, color: (k: string) => string) {
+  let r = 0, g = 0, b = 0, w = 0
+  Object.entries(por).forEach(([k, s]) => { const c = color(k); if (!/^#[0-9a-f]{6}$/i.test(c)) return
+    r += parseInt(c.slice(1, 3), 16) * s; g += parseInt(c.slice(3, 5), 16) * s; b += parseInt(c.slice(5, 7), 16) * s; w += s })
+  if (!w) return undefined
+  const h = (x: number) => Math.round(x / w).toString(16).padStart(2, '0')
+  return '#' + h(r) + h(g) + h(b)
+}
 
 const PERIODOS: [string, string, number | null][] = [['4s', '4 semanas', 28], ['3m', '3 meses', 91], ['6m', '6 meses', 182], ['todo', 'Todo', null]]
 
@@ -36,15 +53,15 @@ async function registrosProgramados(pacienteId: string): Promise<Registro[]> {
       if (!it?.ejercicio_id) return
       const n = Math.max(1, parseInt(String(it.series || p.series || p.vueltas || 3)) || 3)
       const serie = { reps: it.reps || '', segundos: it.tiempo || it.segundos || '' }
-      out.push({ fecha: c.fecha, ejercicio_id: it.ejercicio_id, series: Array.from({ length: n }, () => serie), regimen: it.regimen || null, sesion_id: c.sesion_id })
+      out.push({ fecha: c.fecha, ejercicio_id: it.ejercicio_id, series: Array.from({ length: n }, () => serie), regimen: it.regimen || null, sesion_id: c.sesion_id, lado: it.lado || null })
     }))
   })
   return out
 }
 
-export default function MapaTrabajo({ pacienteId, programado = false }: { pacienteId: string,
+export default function MapaTrabajo({ pacienteId, programado = false, lente = 'trabajo' }: { pacienteId: string,
   /** Ficha: lo que tiene programado (próximas citas), no lo hecho. */
-  programado?: boolean }) {
+  programado?: boolean, lente?: LenteEntreno }) {
   const cfg = useConfigTrabajo()
   const [periodo, setPeriodo] = useState('3m')
   const [regs, setRegs] = useState<Registro[] | null>(null)
@@ -92,7 +109,8 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
     const desde = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10)
     return regs.filter(r => r.fecha >= desde)
   }, [regs, periodo, programado])
-  const m = useMemo(() => calcularMapa(enPeriodo, ejs, idx, cfg, { int: fInt, eje: fEje, combinada }), [enPeriodo, ejs, idx, cfg, fInt, fEje, combinada])
+  const medida = lente === 'tiempo' ? 'tiempo' as const : lente === 'reps' ? 'reps' as const : undefined
+  const m = useMemo(() => calcularMapa(enPeriodo, ejs, idx, cfg, { int: fInt, eje: fEje, combinada, medida }), [enPeriodo, ejs, idx, cfg, fInt, fEje, combinada, medida])
   const carga = useMemo(() => cargaSemanal(regs || [], ejs, cfg), [regs, ejs, cfg])
 
   const enZonas = Object.values(m.zonas).reduce((n, z) => n + z.seg, 0)
@@ -121,9 +139,14 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
     const maxZ = Math.max(0, ...Object.values(m.zonas).map(z => z.seg))
     const maxM = Math.max(0, ...Object.values(m.musculos))
     const zonas: Record<string, any> = {}
-    ZONAS.forEach(z => { const s = m.zonas[z.k]?.seg || 0; if (s > 0) zonas[z.k] = { v: s / maxZ, huesos: z.huesos, off: z.off } })
-    visor.current.poner({ zonas, musculos: Object.fromEntries(Object.entries(m.musculos).map(([k, s]) => [k, maxM ? s / maxM : 0])) })
-  }, [m, listo])
+    // Intensidad y lateralidad pintan cada zona con SU color; los músculos se apagan
+    // para que el tinte del calor no se confunda con esos colores.
+    const conColor = lente === 'intensidad' || lente === 'lateralidad'
+    const colorZona = (Z: any) => lente === 'intensidad' ? mezclar(Z.porInt, k => cfg.intensidades.find(i => i.id === k)?.color || '')
+      : lente === 'lateralidad' ? mezclar(Z.porLado, k => COLOR_LADO[k] || '') : undefined
+    ZONAS.forEach(z => { const Z = m.zonas[z.k], s = Z?.seg || 0; if (s > 0) zonas[z.k] = { v: s / maxZ, huesos: z.huesos, off: z.off, color: colorZona(Z) } })
+    visor.current.poner({ zonas, musculos: conColor ? {} : Object.fromEntries(Object.entries(m.musculos).map(([k, s]) => [k, maxM ? s / maxM : 0])) })
+  }, [m, listo, lente]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { visor.current?.enfocar(zona) }, [zona, listo])
 
   // ── Piezas ──
@@ -150,6 +173,9 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
   const titulo = (t: string) => <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--grl)', textTransform: 'uppercase', letterSpacing: '.04em', margin: '14px 0 6px' }}>{t}</div>
 
   const Z = zona ? m.zonas[zona] : null
+  // Lateralidad de todo el cuerpo: la suma de la de cada zona.
+  const porLadoTotal: Record<string, number> = {}
+  Object.values(m.zonas).forEach(z => Object.entries(z.porLado || {}).forEach(([k, s]) => { porLadoTotal[k] = (porLadoTotal[k] || 0) + s }))
   const zDef = ZONAS.find(z => z.k === zona)
 
   return (
@@ -194,9 +220,16 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
               {ZONAS.find(z => z.k === encima)?.n} · {pct(m.zonas[encima]?.seg || 0)}%</div>}
             {zona && <button type="button" className="btn btn-s btn-sm" style={{ position: 'absolute', top: 10, left: 10 }} onClick={() => setZona(null)}>← Todo el cuerpo</button>}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--grl)', marginTop: 6 }}>
-            Menos <span style={{ flex: 1, height: 6, borderRadius: 9, background: `linear-gradient(90deg,${RAMPA.join(',')})` }}/> Más
-          </div>
+          {/* La leyenda cambia con la lente: colores propios o la rampa del calor. */}
+          {lente === 'intensidad' || lente === 'lateralidad'
+            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 11, color: 'var(--gr)', marginTop: 6 }}>
+                {(lente === 'intensidad' ? cfg.intensidades.filter(i => m.porInt[i.id]).map(i => [i.nombre, i.color]) : Object.entries(COLOR_LADO)).map(([t, c]) =>
+                  <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: c }}/>{t}</span>)}
+                <span style={{ color: 'var(--grl)' }}>· más grande, más trabajo</span>
+              </div>
+            : <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--grl)', marginTop: 6 }}>
+                {lente === 'tiempo' ? 'Solo lo que va por tiempo · ' : lente === 'reps' ? 'Solo lo que va por repes · ' : ''}Menos <span style={{ flex: 1, height: 6, borderRadius: 9, background: `linear-gradient(90deg,${RAMPA.join(',')})` }}/> Más
+              </div>}
         </div>
 
         {/* El reparto */}
@@ -219,6 +252,7 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
                 <span style={{ textAlign: 'right', fontWeight: 600 }}>{pct(seg)}%</span>
               </button>
             ))}
+            {lente === 'lateralidad' && <>{titulo('Lateralidad')}{barras(porLadoTotal, k => k, k => COLOR_LADO[k] || '#bbb', m.total)}</>}
             {titulo('Intención')}
             {barras(m.porInt, k => int(k)?.nombre || 'Sin intensidad', k => int(k)?.color || '#bbb', m.total)}
             {titulo('Ejecución')}
@@ -231,6 +265,7 @@ export default function MapaTrabajo({ pacienteId, programado = false }: { pacien
               <div style={{ fontSize: 12, color: 'var(--grl)' }}>{textoSegundos(Z.seg)}</div>
             </div>
             {Object.keys(Z.porArt).length > 1 && <>{titulo('Articulación')}{barras(Z.porArt, nombreEt, () => 'var(--gd)', Z.seg)}</>}
+            {lente === 'lateralidad' && <>{titulo('Lateralidad')}{barras(Z.porLado, k => k, k => COLOR_LADO[k] || '#bbb', Z.seg)}</>}
             {titulo('Movimiento')}
             {barras(Z.porMov, nombreEt, () => '#6E716C', Z.seg)}
             {titulo('Intención')}
