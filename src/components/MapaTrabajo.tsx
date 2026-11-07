@@ -8,6 +8,7 @@ import { useConfigTrabajo } from '@/components/TrabajoEjercicio'
 import { ZONAS, indices, calcularMapa, cargaSemanal, COLOR_LADO, type Registro } from '@/lib/mapaTrabajo'
 import { RAMPA, colorCalor } from '@/lib/rampaCalor'
 import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
+import { zonasDe } from '@/components/ficha/CuerpoSalud'
 
 /**
  * MAPA DE TRABAJO del paciente (Resultados › Mapa).
@@ -24,7 +25,23 @@ import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
  *   · lateralidad  — bilateral, unilateral o alterno, mezclado según lo que pese cada uno;
  *   · tiempo/reps  — el calor contando solo lo que va por segundos o solo por repes.
  */
-export type LenteEntreno = 'trabajo' | 'intensidad' | 'lateralidad' | 'tiempo' | 'reps'
+export type LenteEntreno = 'ahora' | 'trabajo' | 'intensidad' | 'lateralidad' | 'tiempo' | 'reps'
+
+/* AHORA: lo que está entrenando ahora mismo. El calor de los músculos es lo que ha HECHO
+   de verdad (registros de la sala) con sus sesiones actuales —las que tiene puestas en
+   las próximas citas y la de su última clase—, no lo que falta por hacer. Y encima, como
+   esferas, lo que tiene ACTIVO: molestias (rojo) y patologías sin resolver (ámbar), cada
+   una en su lado. */
+const COL_AHORA = { molestia: '#C0392B', patologia: '#D4A017' }
+type Activo = { tipo: 'molestia' | 'patologia', titulo: string, detalle: string, zonas: string[], lado?: string, v: number }
+async function sesionesActuales(pacienteId: string): Promise<string[]> {
+  const hoy = new Date().toISOString().slice(0, 10)
+  const [{ data: fut }, { data: ult }] = await Promise.all([
+    supabase.from('citas').select('sesion_id').eq('paciente_id', pacienteId).eq('estado', 'programada').gte('fecha', hoy).not('sesion_id', 'is', null),
+    supabase.from('citas').select('sesion_id').eq('paciente_id', pacienteId).eq('estado', 'realizada').not('sesion_id', 'is', null).order('fecha', { ascending: false }).limit(1),
+  ])
+  return Array.from(new Set([...(fut || []), ...(ult || [])].map((c: any) => c.sesion_id)))
+}
 
 /** Mezcla de colores pesada por los segundos de cada uno. */
 function mezclar(por: Record<string, number>, color: (k: string) => string) {
@@ -77,13 +94,23 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
   // pastillas encima del cuerpo y tapaban lo importante.
   const [verFiltros, setVerFiltros] = useState(false)
   const [fallo, setFallo] = useState('')
+  const ahora = lente === 'ahora'
+  const [activos, setActivos] = useState<Activo[]>([])
+  const [nAhora, setNAhora] = useState<{ sesiones: number, sinSesiones: boolean }>({ sesiones: 0, sinSesiones: false })
 
   // Todo lo anotado del paciente (paginado) y los ejercicios que salen en ello.
   useEffect(() => {
     let vivo = true
     ;(async () => {
+      setRegs(null)
+      const sesIds = ahora ? await sesionesActuales(pacienteId) : []
+      if (ahora) setNAhora({ sesiones: sesIds.length, sinSesiones: !sesIds.length })
       const [{ filas }, et] = await Promise.all([
-        programado ? registrosProgramados(pacienteId).then(filas => ({ filas }))
+        // Ahora: lo hecho con sus sesiones actuales. Sin sesiones puestas, sus últimas 4 semanas.
+        ahora ? (sesIds.length
+            ? traerTodo((d, h) => supabase.from('registros_ejercicio').select('fecha,ejercicio_id,series,regimen,sesion_id').eq('paciente_id', pacienteId).in('sesion_id', sesIds).order('id').range(d, h))
+            : traerTodo((d, h) => supabase.from('registros_ejercicio').select('fecha,ejercicio_id,series,regimen,sesion_id').eq('paciente_id', pacienteId).gte('fecha', new Date(Date.now() - 28 * 864e5).toISOString().slice(0, 10)).order('id').range(d, h)))
+        : programado ? registrosProgramados(pacienteId).then(filas => ({ filas }))
           : traerTodo((d, h) => supabase.from('registros_ejercicio').select('fecha,ejercicio_id,series,regimen,sesion_id').eq('paciente_id', pacienteId).order('id').range(d, h)),
         supabase.from('etiquetas').select('id,nombre,categoria,padre_id'),
       ])
@@ -97,18 +124,34 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
       setEts(et.data || []); setEjs(mapa); setRegs(filas || [])
     })()
     return () => { vivo = false }
-  }, [pacienteId])
+  }, [pacienteId, ahora]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Lo que tiene ACTIVO ahora (solo en «Ahora»).
+  useEffect(() => {
+    if (!ahora) { setActivos([]); return }
+    ;(async () => {
+      const [{ data: mol }, { data: pat }] = await Promise.all([
+        supabase.from('molestias').select('zona,eva,lado').eq('paciente_id', pacienteId).eq('activa', true),
+        supabase.from('patologias').select('nombre,zona,estado,lado').eq('paciente_id', pacienteId).neq('estado', 'resuelta'),
+      ])
+      const lado = (l?: string) => l && l !== 'no_aplica' ? l : ''
+      setActivos([
+        ...(mol || []).map((m: any) => ({ tipo: 'molestia' as const, titulo: m.zona, detalle: [m.eva != null ? `EVA ${m.eva}/10` : '', lado(m.lado)].filter(Boolean).join(' · '), zonas: zonasDe(m.zona), lado: m.lado, v: m.eva != null ? 0.4 + 0.6 * m.eva / 10 : 0.6 })),
+        ...(pat || []).map((p: any) => ({ tipo: 'patologia' as const, titulo: p.nombre, detalle: [p.estado === 'cronica' ? 'crónica' : 'activa', lado(p.lado)].filter(Boolean).join(' · '), zonas: zonasDe(`${p.zona || ''} ${p.nombre}`), lado: p.lado, v: p.estado === 'cronica' ? 0.55 : 0.8 })),
+      ])
+    })()
+  }, [pacienteId, ahora])
 
   const idx = useMemo(() => indices(ets), [ets])
   const enPeriodo = useMemo(() => {
     const dias = PERIODOS.find(p => p[0] === periodo)?.[2]
     if (!regs) return []
+    if (ahora) return regs
     if (!dias) return regs
     // Programado: hacia delante (las próximas N semanas); hecho: hacia atrás.
     if (programado) { const hasta = new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10); return regs.filter(r => r.fecha <= hasta) }
     const desde = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10)
     return regs.filter(r => r.fecha >= desde)
-  }, [regs, periodo, programado])
+  }, [regs, periodo, programado, ahora])
   const medida = lente === 'tiempo' ? 'tiempo' as const : lente === 'reps' ? 'reps' as const : undefined
   const m = useMemo(() => calcularMapa(enPeriodo, ejs, idx, cfg, { int: fInt, eje: fEje, combinada, medida }), [enPeriodo, ejs, idx, cfg, fInt, fEje, combinada, medida])
   const carga = useMemo(() => cargaSemanal(regs || [], ejs, cfg), [regs, ejs, cfg])
@@ -127,7 +170,8 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
       try {
         const { crearMapaCalor } = await import('@/lib/anim3d/mapaCalor')
         if (!caja.current) return
-        const v = await crearMapaCalor(caja.current, { zona: k => setZona(k), encima: k => setEncima(k) })
+        // En «Ahora» las esferas llevan «zona|lado|tipo»: se queda la zona.
+        const v = await crearMapaCalor(caja.current, { zona: k => setZona(k ? k.split('|')[0] : null), encima: k => setEncima(k ? k.split('|')[0] : null) })
         if (!vivo) { v.destruir(); return }
         visor.current = v; setListo(true)
       } catch (e: any) { setFallo(e?.message || 'No se pudo abrir el cuerpo 3D') }
@@ -144,9 +188,20 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
     const conColor = lente === 'intensidad' || lente === 'lateralidad'
     const colorZona = (Z: any) => lente === 'intensidad' ? mezclar(Z.porInt, k => cfg.intensidades.find(i => i.id === k)?.color || '')
       : lente === 'lateralidad' ? mezclar(Z.porLado, k => COLOR_LADO[k] || '') : undefined
+    if (ahora) {
+      // Músculos = lo entrenado; esferas = lo activo, cada cosa en su lado.
+      activos.forEach(a => a.zonas.forEach(k => {
+        const z = ZONAS.find(x => x.k === k); if (!z) return
+        const l = a.lado === 'izquierdo' ? 'I' : a.lado === 'derecho' ? 'D' : ''
+        const pares = z.huesos.some((h: string) => h.endsWith('D')) && z.huesos.some((h: string) => h.endsWith('I'))
+        const huesos = pares && l ? z.huesos.filter((h: string) => h.endsWith(l)) : z.huesos
+        const c = `${k}|${pares ? l || 'C' : 'C'}|${a.tipo}`
+        zonas[c] = { v: Math.max(zonas[c]?.v || 0, a.v), huesos, off: a.tipo === 'patologia' ? [(z.off || [0, 0, 0])[0], (z.off || [0, 0, 0])[1] + 2, (z.off || [0, 0, 0])[2]] : z.off, color: COL_AHORA[a.tipo] }
+      }))
+    } else
     ZONAS.forEach(z => { const Z = m.zonas[z.k], s = Z?.seg || 0; if (s > 0) zonas[z.k] = { v: s / maxZ, huesos: z.huesos, off: z.off, color: colorZona(Z) } })
     visor.current.poner({ zonas, musculos: conColor ? {} : Object.fromEntries(Object.entries(m.musculos).map(([k, s]) => [k, maxM ? s / maxM : 0])) })
-  }, [m, listo, lente]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [m, listo, lente, activos]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { visor.current?.enfocar(zona) }, [zona, listo])
 
   // ── Piezas ──
@@ -199,7 +254,7 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
                   filtros flotan hacia arriba: si empujaran, el muñeco se movería y marea. */}
           <div style={{ position: 'relative' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minHeight: 34, marginTop: 6 }}>
-            {PERIODOS.map(([k, t]) => <button key={k} type="button" style={chip(periodo === k)} onClick={() => setPeriodo(k)}>{t}</button>)}
+            {!ahora && PERIODOS.map(([k, t]) => <button key={k} type="button" style={chip(periodo === k)} onClick={() => setPeriodo(k)}>{t}</button>)}
             <span style={{ width: 10 }}/>
             <button type="button" style={chip(!combinada)} onClick={() => setCombinada(false)} title="Solo lo principal (★) de cada ejercicio">Principal</button>
             <button type="button" style={chip(combinada)} onClick={() => setCombinada(true)} title="También lo secundario, a medio peso">Combinada</button>
@@ -228,7 +283,13 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
           </div>}
           </div>
           {/* La leyenda cambia con la lente: colores propios o la rampa del calor. */}
-          {lente === 'intensidad' || lente === 'lateralidad'
+          {ahora
+            ? <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--gr)', marginTop: 6 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Músculos: lo hecho <span style={{ width: 70, height: 6, borderRadius: 9, background: `linear-gradient(90deg,${RAMPA.join(',')})` }}/></span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: COL_AHORA.molestia }}/>Molestia</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: COL_AHORA.patologia }}/>Patología</span>
+              </div>
+            : lente === 'intensidad' || lente === 'lateralidad'
             ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 11, color: 'var(--gr)', marginTop: 6 }}>
                 {(lente === 'intensidad' ? cfg.intensidades.filter(i => m.porInt[i.id]).map(i => [i.nombre, i.color]) : Object.entries(COLOR_LADO)).map(([t, c]) =>
                   <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: c }}/>{t}</span>)}
@@ -241,7 +302,15 @@ export default function MapaTrabajo({ pacienteId, programado = false, lente = 't
 
         {/* El reparto */}
         <div>
-          {regs !== null && m.total === 0 && <div style={{ fontSize: 13, color: 'var(--grl)', padding: '20px 0' }}>{programado ? 'Nada programado con sesión en este periodo' : 'Nada anotado en la sala en este periodo'}{fInt.length || fEje.length ? ' con estos filtros' : ''}.</div>}
+          {ahora && <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: 'var(--grl)', marginBottom: 6 }}>{nAhora.sinSesiones ? 'Sin sesiones puestas: lo hecho en las últimas 4 semanas.' : `Lo hecho con sus ${nAhora.sesiones} sesi${nAhora.sesiones === 1 ? 'ón' : 'ones'} actuales.`}</div>
+            {activos.length > 0 && <>{titulo('Activo ahora')}{activos.map((a, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 13, padding: '2px 0' }}>
+                <i style={{ width: 9, height: 9, borderRadius: '50%', background: COL_AHORA[a.tipo], flex: 'none' }}/>
+                <span style={{ color: 'var(--n)', fontWeight: 500 }}>{a.titulo}</span><span style={{ color: 'var(--gr)', fontSize: 12 }}>{a.detalle}{!a.zonas.length ? ' · sin zona en el cuerpo' : ''}</span>
+              </div>))}</>}
+          </div>}
+          {regs !== null && m.total === 0 && <div style={{ fontSize: 13, color: 'var(--grl)', padding: '20px 0' }}>{ahora ? 'Aún no ha hecho nada con sus sesiones actuales' : programado ? 'Nada programado con sesión en este periodo' : 'Nada anotado en la sala en este periodo'}{fInt.length || fEje.length ? ' con estos filtros' : ''}.</div>}
           {!Z && m.total > 0 && <>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
               <Dato n={textoSegundos(m.total)} t="de trabajo"/>

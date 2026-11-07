@@ -24,7 +24,7 @@ import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
 export type VistaSalud = 'dolor' | 'operaciones' | 'patologias' | 'todo'
 const nrm = (t: string) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 /** Texto de zona → zonas del muñeco (puede tocar más de una, p. ej. «columna»). */
-function zonasDe(texto: string): string[] {
+export function zonasDe(texto: string): string[] {
   const t = nrm(texto)
   if (!t) return []
   const ks = ZONAS.filter(z => [z.n, ...z.art].some(a => t.includes(nrm(a)))).map(z => z.k)

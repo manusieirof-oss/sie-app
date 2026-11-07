@@ -65,7 +65,7 @@ const VISTAS_SALUD: { k: VistaSalud, t: string, ic: string }[] = [
   { k: 'patologias', t: 'Patologías', ic: 'patologia' }, { k: 'todo', t: 'Toda su salud', ic: 'salud' },
 ]
 const VISTAS_ENTRENO: { k: LenteEntreno, t: string }[] = [
-  { k: 'trabajo', t: 'Trabajo' }, { k: 'intensidad', t: 'Intensidad' }, { k: 'lateralidad', t: 'Lateralidad' },
+  { k: 'ahora', t: 'Ahora' }, { k: 'trabajo', t: 'Programado' }, { k: 'intensidad', t: 'Intensidad' }, { k: 'lateralidad', t: 'Lateralidad' },
   { k: 'tiempo', t: 'Por segundos' }, { k: 'reps', t: 'Por repeticiones' },
 ]
 // Y el de la nebulosa, igual.
@@ -135,7 +135,7 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
   const [nomObj, setNomObj] = useState<Record<string, string>>({})
   const [modo, setModo] = useState<'entreno' | 'salud'>('entreno')
   const [vSalud, setVSalud] = useState<VistaSalud>('dolor')
-  const [vEntreno, setVEntreno] = useState<LenteEntreno>('trabajo')
+  const [vEntreno, setVEntreno] = useState<LenteEntreno>('ahora')
   const [vistaN, setVistaN] = useState<VistaNeb>('normal')
   const [desde, setDesde] = useState(''), [hasta, setHasta] = useState(''), [atajo, setAtajo] = useState<string | null>('3m')
   const [grande, setGrande] = useState(false)
@@ -154,9 +154,8 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
     })()
   }, [pacienteId])
   useEffect(() => { try {
-    const md = localStorage.getItem('ficha_cuerpo_modo'); if (md === 'entreno' || md === 'salud') setModo(md)
     const vs = localStorage.getItem('ficha_salud') as VistaSalud; if (VISTAS_SALUD.some(x => x.k === vs)) setVSalud(vs)
-    const ve = localStorage.getItem('ficha_entreno') as LenteEntreno; if (VISTAS_ENTRENO.some(x => x.k === ve)) setVEntreno(ve)
+    // Entreno y su vista no se recuerdan: la ficha abre siempre en «Ahora», que es lo primero que hay que ver.
     const n = localStorage.getItem('ficha_nebulosa') as VistaNeb; if (VISTAS_NEB.some(x => x.k === n)) setVistaN(n)
   } catch {} }, [])
   const guarda = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch {} }
