@@ -199,7 +199,6 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
       ...(alg || []).map((a: any) => ({ t: `Alergia: ${a.nombre}`, ojo: true })),
       ...(intol || []).map((a: any) => ({ t: `Intolerancia: ${a.nombre}`, ojo: true })),
       ...(med || []).map((m: any) => ({ t: `Medicación: ${m.nombre}${m.frecuencia ? ` · ${m.frecuencia}` : ''}`, ojo: true })),
-      ...(dep || []).map((d: any) => ({ t: d.nombre })),
     ]
     const [e0, e1] = esc || []
     const escalas = e0 ? [
@@ -326,15 +325,11 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
           </button>
         ))}
         {vista === 'todo' && extra && <>
-          <div style={sub}>Sin zona en el cuerpo</div>
+          {/* Deportes, plantillas, cómo se encuentra y estrés van en las solapas de la izquierda del muñeco. */}
+          <div style={sub}>Precauciones</div>
           {extra.pills.length ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{extra.pills.map((p, i) => (
             <span key={i} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 99, background: p.ojo ? '#FBEAEA' : '#F1EEE8', border: `1px solid ${p.ojo ? '#E9C2C2' : 'var(--bl)'}`, color: p.ojo ? '#8A3A3A' : 'var(--n)' }}>{p.ojo ? '⚠ ' : ''}{p.t}</span>))}</div>
-            : <div style={{ fontSize: 12.5, color: 'var(--grl)' }}>Sin alergias, intolerancias, medicación ni deportes apuntados.</div>}
-          <div style={sub}>Bienestar y estrés</div>
-          {extra.escalas.length ? <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>{extra.escalas.map(e => {
-            const d = e.antes == null ? 0 : e.v - e.antes, bueno = d === 0 ? null : (d > 0) === e.mejorSiSube
-            return <span key={e.t}>{e.t} <b style={{ fontWeight: 600 }}>{e.v}/10</b> {e.antes != null && <span style={{ color: bueno === null ? 'var(--grl)' : bueno ? 'var(--gd)' : '#B5562B' }}>{d === 0 ? '=' : d > 0 ? '↑' : '↓'}</span>}</span>
-          })}</div> : <div style={{ fontSize: 12.5, color: 'var(--grl)' }}>Sin registros todavía.</div>}
+            : <div style={{ fontSize: 12.5, color: 'var(--grl)' }}>Sin alergias, intolerancias ni medicación apuntadas.</div>}
         </>}
       </div>
     </div>

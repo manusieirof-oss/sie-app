@@ -5,7 +5,8 @@ import { useEffect, useRef } from 'react'
 // LA NEBULOSA DE SU PROGRAMACIÓN (ficha). La misma idea que el cubo del calor, pero en
 // vez de paredes, una niebla tipo gel que se gira con el dedo:
 //   · un tramo por cita, de izquierda (lo pasado) a derecha (lo programado);
-//   · el HAZ de luz dentro: más alto, más trabajo; más grueso, más intenso;
+//   · el HAZ de luz dentro: más GRUESO, más tiempo de trabajo (lo que suman sus ejercicios);
+//     hacia ARRIBA, más intensidad; hacia abajo, menos;
 //   · la NIEBLA se estrecha donde faltó o canceló y se abre donde vino de más;
 //   · si estuvo un tiempo SIN VENIR (baja, pausa), la niebla se corta y el hueco es tan
 //     largo como lo que tardó en volver;
@@ -16,7 +17,11 @@ import { useEffect, useRef } from 'react'
 
 export type CitaNeb = {
   t: number                 // fecha en ms
-  trabajo: number, intens: number, escala: number
+  /** Altura del haz (0..1): la intensidad. */
+  alto: number
+  /** Grosor del haz (0..1): el tiempo de trabajo. */
+  grueso: number
+  escala: number
   estado: string            // realizada | falta | cancelada | programada
   movida: boolean           // se cambió de día u hora
   cambioSesion: boolean     // se le cambió la sesión
@@ -53,7 +58,7 @@ export default function NebulosaPrograma({ citas, vista, colSes, colObj, hoy, al
       const N = citas.length
       const interp = (a: number[], u: number) => { const p = u * (N - 1), i = Math.floor(p), j = Math.min(N - 1, i + 1), t = p - i, s = (1 - Math.cos(Math.PI * t)) / 2; return a[i] + (a[j] - a[i]) * s }
       const LARGO = 8, RADIO = 1.7
-      const trabajo = citas.map(c => c.trabajo), intens = citas.map(c => c.intens), rojo = citas.map(c => c.rojo)
+      const trabajo = citas.map(c => c.alto), intens = citas.map(c => c.grueso), rojo = citas.map(c => c.rojo)
 
       // DÓNDE VA CADA CITA. Entre citas normales, todas ocupan lo mismo; en una pausa, el
       // hueco cuenta los días que pasaron en "citas que habría tenido" a su ritmo habitual.
@@ -108,7 +113,7 @@ export default function NebulosaPrograma({ citas, vista, colSes, colObj, hoy, al
       poner(new THREE.Points(gN, new THREE.PointsMaterial({ size: 2.1, map: tx, transparent: true, opacity: 0.075, depthWrite: false, vertexColors: true })))
 
       // EL HAZ: un tubo por cada tramo seguido (en una pausa también se corta),
-      // por la curva del trabajo y engordado según la intensidad.
+      // subiendo con la intensidad y engordado según el tiempo de trabajo.
       const mn = Math.min(...trabajo), mx = Math.max(...trabajo), rg = mx - mn || 1
       const cortes = [-1, ...huecos.map(h => h.i), N - 1]
       for (let k = 0; k < cortes.length - 1; k++) {

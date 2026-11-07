@@ -88,6 +88,41 @@ function BotonVistas({ t, n, i, onClick, apagado }: { t: React.ReactNode, n: num
     </button>
   )
 }
+/** Bienestar: alto es bueno. Estrés: alto es malo. */
+const colBien = (v: number) => v >= 7 ? ['var(--gd)', 'var(--gl)'] : v >= 4 ? ['#8A6410', 'var(--ambl)'] : ['var(--red)', 'var(--redl)']
+const colEstres = (v: number) => colBien(10 - v)
+function SolapasDia({ ctx, abierta, setAbierta }: { ctx: any, abierta: string | null, setAbierta: (f: (a: string | null) => string | null) => void }) {
+  const e0 = ctx.escalas[0], e1 = ctx.escalas[1]
+  const flecha = (k: 'borg' | 'estres') => !e0 || !e1 || e0[k] == null || e1[k] == null || e0[k] === e1[k] ? '' : e0[k] > e1[k] ? ' ↑' : ' ↓'
+  const lista: { k: string, ic: string, t: string, col: readonly string[] | string[], vacia: boolean }[] = [
+    { k: 'deportes', ic: 'deporte', t: ctx.deportes.length ? `Deportes · ${ctx.deportes.length}` : 'Deportes', col: ['#3F6FA8', '#EEF3FA'], vacia: !ctx.deportes.length },
+    { k: 'plantillas', ic: 'plantillas', t: 'Plantillas', col: ['#6B579A', '#F2EEF8'], vacia: !ctx.plant.usa },
+    { k: 'bienestar', ic: 'progreso', t: e0?.borg != null ? `Se encuentra ${e0.borg}/10${flecha('borg')}` : 'Cómo se encuentra', col: e0?.borg != null ? colBien(e0.borg) : ['var(--gr)', 'var(--bl)'], vacia: e0?.borg == null },
+    { k: 'estres', ic: 'rayo', t: e0?.estres != null ? `Estrés ${e0.estres}/10${flecha('estres')}` : 'Estrés', col: e0?.estres != null ? colEstres(e0.estres) : ['var(--gr)', 'var(--bl)'], vacia: e0?.estres == null },
+  ]
+  const serie = (k: 'borg' | 'estres') => ctx.escalas.filter((e: any) => e[k] != null)
+  const dentro = abierta === 'deportes' ? (ctx.deportes.length ? ctx.deportes.map((d: string, i: number) => <div key={i} style={{ fontSize: 13, padding: '2px 0' }}>· {d}</div>) : <div className="muted">Sin deportes apuntados.</div>)
+    : abierta === 'plantillas' ? (ctx.plant.usa ? <div style={{ fontSize: 13, lineHeight: 1.7 }}>Usa plantillas{ctx.plant.izq ? <><br/>Izquierda: {ctx.plant.izq}</> : null}{ctx.plant.der ? <><br/>Derecha: {ctx.plant.der}</> : null}</div> : <div className="muted">No usa plantillas.</div>)
+    : abierta === 'bienestar' || abierta === 'estres' ? (() => { const k = abierta === 'bienestar' ? 'borg' : 'estres'; const l = serie(k)
+        return l.length ? <>
+          <div style={{ fontSize: 12, color: 'var(--grl)', marginBottom: 4 }}>{abierta === 'bienestar' ? 'Cómo se encuentra (alto es bueno)' : 'Estrés (alto es malo)'} · últimos registros</div>
+          {l.map((e: any, i: number) => <div key={i} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '1px 0' }}>
+            <span style={{ color: 'var(--grl)', width: 74 }}>{fLarga(e.fecha)}</span><b style={{ fontWeight: 600, color: (k === 'borg' ? colBien : colEstres)(e[k])[0] }}>{e[k]}/10</b></div>)}
+        </> : <div className="muted">Sin registros todavía. Se apuntan en Salud.</div> })()
+    : null
+  return <>
+    {/* Pegadas al borde izquierdo, como las de la nebulosa. */}
+    <div style={{ position: 'absolute', left: -20, top: 0, zIndex: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {lista.map(x => <button key={x.k} type="button" className={'solapa' + (abierta === x.k ? ' on' : '') + (x.vacia ? ' vacia' : '')} onClick={() => setAbierta(a => a === x.k ? null : x.k)}
+        style={{ color: x.col[0], background: x.col[1] }}><Ic name={x.ic} size={12}/> {x.t}</button>)}
+    </div>
+    {/* Lo abierto, tal cual en el blanco junto al muñeco: solo texto. */}
+    {dentro && <div style={{ position: 'absolute', left: 160, top: 0, width: 'min(320px, 45%)', maxHeight: 420, overflow: 'auto', zIndex: 6, background: 'rgba(255,255,255,.92)', padding: '2px 8px' }}>
+      <button type="button" onClick={() => setAbierta(() => null)} title="Cerrar" style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--gr)', padding: 2 }}><Ic name="cerrar" size={13}/></button>
+      {dentro}
+    </div>}
+  </>
+}
 const Pto = ({ c }: { c: number | string }) => <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: typeof c === 'number' ? hex(c) : c, verticalAlign: 'middle', margin: '0 3px 0 8px' }}/>
 
 export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado }: { pacienteId: string, alerta: boolean
@@ -104,6 +139,20 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
   const [vistaN, setVistaN] = useState<VistaNeb>('normal')
   const [desde, setDesde] = useState(''), [hasta, setHasta] = useState(''), [atajo, setAtajo] = useState<string | null>('3m')
   const [grande, setGrande] = useState(false)
+  /* SU DÍA A DÍA, a la izquierda del muñeco como solapas (igual que alertas, nota y
+     anamnesis en la nebulosa): deportes, plantillas, cómo se encuentra y estrés. */
+  const [ctx, setCtx] = useState<{ deportes: string[], plant: { usa: boolean, izq: string, der: string }, escalas: { fecha: string, borg: number, estres: number }[] } | null>(null)
+  const [abiertaCtx, setAbiertaCtx] = useState<string | null>(null)
+  useEffect(() => {
+    ;(async () => {
+      const [{ data: dep }, { data: pac }, { data: esc }] = await Promise.all([
+        supabase.from('deportes_paciente').select('nombre').eq('paciente_id', pacienteId),
+        supabase.from('pacientes').select('usa_plantillas,plantilla_izq,plantilla_der').eq('id', pacienteId).single(),
+        supabase.from('escalas').select('fecha,borg,estres').eq('paciente_id', pacienteId).order('fecha', { ascending: false }).limit(10),
+      ])
+      setCtx({ deportes: (dep || []).map((d: any) => d.nombre), plant: { usa: !!pac?.usa_plantillas, izq: pac?.plantilla_izq || '', der: pac?.plantilla_der || '' }, escalas: esc || [] })
+    })()
+  }, [pacienteId])
   useEffect(() => { try {
     const md = localStorage.getItem('ficha_cuerpo_modo'); if (md === 'entreno' || md === 'salud') setModo(md)
     const vs = localStorage.getItem('ficha_salud') as VistaSalud; if (VISTAS_SALUD.some(x => x.k === vs)) setVSalud(vs)
@@ -175,9 +224,10 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
   const datos = useMemo(() => {
     const vis = (citas || []).filter(c => c.fecha >= desde && c.fecha <= hasta)
     const ses = (c: any) => Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
-    // ALTURA del haz: cuánto trabajo; GROSOR: la intensidad.
+    // GROSOR del haz: el tiempo de trabajo (lo que suman sus ejercicios); ALTURA: la intensidad.
     const v = suavizar(vis.map(c => volumen(ses(c)?.partes) || 1))
     const t = suavizar(vis.map(c => intensidad(ses(c)?.partes)).map(x => x * x))
+    const vMax = Math.max(1e-6, ...v)
     /* LA NIEBLA: más estrecha si faltó o canceló, más ancha si vino de más (recuperación
        o una clase más esa semana de las que suele venir). Sutil: 80% y 112%. */
     const porSemana: Record<string, number> = {}
@@ -213,7 +263,7 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
         else { const dura = Math.max(1, m.eva) * HUELLA_DIAS_POR_EVA, pasa = dias(m.fin, c.fecha); if (pasa < dura) r = Math.max(r, 0.35 * (1 - pasa / dura)) }
       }
       return r })
-    const neb: CitaNeb[] = vis.map((c, i) => ({ t: ms(c.fecha), trabajo: v[i], intens: t[i], escala: escala[i], estado: c.estado,
+    const neb: CitaNeb[] = vis.map((c, i) => ({ t: ms(c.fecha), alto: t[i], grueso: v[i] / vMax, escala: escala[i], estado: c.estado,
       movida: c.movida, cambioSesion: c.cambioSesion, ses: letra[c.sesion_id] || '', objs: objsDe(c), rojo: rojo[i] }))
     return { vis, neb, nomSes, colSes, colObj, cuentaObj, mols, iHoy: vis.findIndex(c => c.fecha >= hoy) }
   }, [citas, molestias, desde, hasta]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -300,7 +350,10 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <BotonVistas t={<><Ic name={VISTAS_SALUD[iS].ic} size={14}/> {VISTAS_SALUD[iS].t}</>} n={VISTAS_SALUD.length} i={iS} onClick={tocaSalud} apagado={modo !== 'salud'}/>
           <BotonVistas t={<><Ic name="entreno" size={14}/> {VISTAS_ENTRENO[iE].t}</>} n={VISTAS_ENTRENO.length} i={iE} onClick={tocaEntreno} apagado={modo !== 'entreno'}/></div>
-        {modo === 'entreno' ? <MapaTrabajo pacienteId={pacienteId} programado lente={vEntreno}/> : <CuerpoSalud pacienteId={pacienteId} vista={vSalud}/>}
+        <div style={{ position: 'relative' }}>
+          {ctx && <SolapasDia ctx={ctx} abierta={abiertaCtx} setAbierta={setAbiertaCtx}/>}
+          {modo === 'entreno' ? <MapaTrabajo pacienteId={pacienteId} programado lente={vEntreno}/> : <CuerpoSalud pacienteId={pacienteId} vista={vSalud}/>}
+        </div>
       </div>
     </div>
   )
