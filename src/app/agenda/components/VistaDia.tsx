@@ -1,4 +1,6 @@
 'use client'
+import { useRouter } from 'next/navigation'
+import { usePuede } from '@/lib/permisos'
 import { COLOR_MOMENTO, textoMomento } from '@/lib/momento'
 import { useEffect, useRef, useState } from 'react'
 import CaraPaciente from '@/components/CaraPaciente'
@@ -50,6 +52,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
   tiposFiltro?: string[]
   salas?: string[]
 }) {
+  const router = useRouter()
+  const puedeFichas = usePuede()('pacientes')
   const DESCANSO = descanso || 10
   const MAX = maxPersonas || 6
   const HORAS = horas && horas.length > 0 ? horas : ['08:30','09:30','10:30','11:30','15:30','16:30','17:30','18:30','19:30','20:30','21:30']
@@ -180,7 +184,8 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
         {/* Solo al pasar el ratón (en tablet, siempre: ver .ag-acc en globals.css). */}
         <span className="ag-acc">
           {accion('Entrenamiento','entreno',()=>abrirEntrenoCita&&abrirEntrenoCita(c))}
-          {!consulta && accion('Ver datos','usuario',()=>abrirDatosCita&&abrirDatosCita(c))}
+          {/* La persona lleva a su ficha (quien puede ver fichas). */}
+          {puedeFichas && accion('Abrir su ficha','usuario',()=>router.push(`/pacientes/${c.paciente_id}`))}
           {!consulta && accion('Editar cita','editar',()=>setEditandoCita&&setEditandoCita({...c}))}
         </span>
         {!falta&&<span className="ag-punto" style={{background:col}}/>}
