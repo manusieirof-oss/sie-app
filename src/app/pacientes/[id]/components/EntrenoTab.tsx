@@ -596,13 +596,18 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         }
 
         // Lista o vista interactiva: el mismo conmutador pequeño arriba en las dos.
+        // Arriba a la derecha, discreto (como los botones de vistas de la ficha): un botón
+        // que pasa de Calendario a Vista interactiva, y al lado ir al torno a cambiarlo.
+        const VPL = [['calendario','Calendario'],['interactiva','Vista interactiva']] as const
+        const iV = Math.max(0, VPL.findIndex(([k])=>k===vistaPlan))
         const conmutador = (
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-            <div className="vista-sw" style={{margin:0}}>
-              {([['calendario','calendario','Calendario'],['interactiva','lista','Vista interactiva']] as const).map(([k,ic,l])=>(
-                <button key={k} className={`vista-b ${vistaPlan===k?'on':''}`} onClick={()=>setVistaPlan(k)}><Ic name={ic} size={12}/> {l}</button>
-              ))}
-            </div>
+          <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+            <button type="button" className="btn-vista" onClick={()=>setVistaPlan(VPL[(iV+1)%VPL.length][0])} title="Cambiar la vista">
+              <Ic name={vistaPlan==='calendario'?'calendario':'lista'} size={14}/> {VPL[iV][1]}
+              <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{VPL.map((_,k)=><i key={k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:k===iV?1:.3}}/>)}</span>
+            </button>
+            {editaPlan && <button type="button" className="btn-vista" onClick={()=>abrirCalendario()} title="Cambiar sesiones y citas en el torno">
+              <Ic name="recuperar" size={14}/> Cambiar en el torno</button>}
           </div>
         )
 
@@ -655,11 +660,6 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
                 <span className="ct-l"><Ic name="calendario" size={13}/> Citas por delante</span>
                 {total>0 && <span className="sh-r">{conSes} de {total} con sesión · {pct}%</span>}
               </span>
-              {editaPlan && (
-                <button className="btn btn-p btn-sm" onClick={()=>abrirCalendario()}>
-                  <Ic name="calendario" size={12}/> Cambiar en el torno
-                </button>
-              )}
             </div>
             {total>0 && (
               <div style={{height:6,background:'var(--bm)',borderRadius:99,overflow:'hidden',marginBottom:16}}>
