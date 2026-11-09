@@ -279,6 +279,13 @@ export async function promoverVariante(padre: any, indice: number) {
  * sustituya en vez de acumular ficheros huérfanos, que es lo que pasaba antes con el
  * nombre basado en la extensión original: subir un PNG y luego un JPG dejaba los dos.
  */
+/** Las imágenes en pantalla se enteran de la foto nueva (ver fotoCambiada). Se importa al
+    vuelo para no meter un componente en la librería al cargarla. */
+function avisarFoto(ejercicioId: string, url: string) {
+  if (typeof window === 'undefined') return
+  import('@/components/ImagenEjercicio').then(m => m.fotoCambiada(ejercicioId, url)).catch(() => {})
+}
+
 export async function subirImagenEjercicio(ejercicioId: string, file: File) {
   /* DIBUJO PLANO → SVG. Las ilustraciones hechas con IA (silueta, fondo blanco) se
      redibujan como vector: sin fondo y nítidas en el rosco. Una foto sigue su camino. */
@@ -288,7 +295,9 @@ export async function subirImagenEjercicio(ejercicioId: string, file: File) {
     const { error } = await supabase.storage.from(BUCKET).upload(rutaSvg, svg, { contentType: 'image/svg+xml', upsert: true })
     if (!error) {
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(rutaSvg)
-      return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}`, vector: true }
+      const url = `${data.publicUrl}?v=${Date.now()}`
+      avisarFoto(ejercicioId, url)
+      return { ok: true as const, url, vector: true }
     }
     // Si el almacén no acepta SVG, se sube como imagen normal: mejor eso que nada.
   }
@@ -304,7 +313,9 @@ export async function subirImagenEjercicio(ejercicioId: string, file: File) {
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta)
   // La URL pública se cachea: sin el sufijo, al cambiar la foto seguirías viendo la
   // anterior porque la ruta es la misma.
-  return { ok: true as const, url: `${data.publicUrl}?v=${Date.now()}` }
+  const url = `${data.publicUrl}?v=${Date.now()}`
+  avisarFoto(ejercicioId, url)
+  return { ok: true as const, url }
 }
 
 /**

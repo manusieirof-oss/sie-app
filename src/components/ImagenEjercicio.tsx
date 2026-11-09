@@ -33,6 +33,15 @@ function catalogo(): Promise<Catalogo> {
   return pedido
 }
 
+/* FOTO CAMBIADA. El catálogo se trae una vez por página y manda sobre lo que llega, así
+   que al cambiar una foto en el torno se seguía viendo la vieja hasta recargar la página.
+   Quien cambie una foto llama a esto: se corrige el catálogo y se avisa a todas las
+   imágenes que estén en pantalla. */
+export function fotoCambiada(ejercicioId: string, url: string | null) {
+  if (listo) { if (url) listo.foto[ejercicioId] = url; else delete listo.foto[ejercicioId] }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sie-foto', { detail: ejercicioId }))
+}
+
 export default function ImagenEjercicio({ src: srcSesion, ejercicioId, etiquetasEj, radio = 8, fondo = 'var(--bm)', icono = 26, relleno = false, alt = '', insignias: conInsignias = true }: {
   src?: string | null, ejercicioId?: string | null, etiquetasEj?: string[],
   radio?: number, fondo?: string, icono?: number,
@@ -50,6 +59,13 @@ export default function ImagenEjercicio({ src: srcSesion, ejercicioId, etiquetas
      sesiones, el torno y el taller seguía la vieja. Mientras carga el catálogo se ve la
      que llega. */
   const [cat, setCat] = useState<Catalogo | null>(listo)
+  // Si cambian SU foto (fotoCambiada), se vuelve a pintar con la nueva.
+  const [, setVersion] = useState(0)
+  useEffect(() => {
+    if (!ejercicioId) return
+    const f = (e: Event) => { if ((e as CustomEvent).detail === ejercicioId) setVersion(v => v + 1) }
+    window.addEventListener('sie-foto', f); return () => window.removeEventListener('sie-foto', f)
+  }, [ejercicioId])
   useEffect(() => { if (ejercicioId && !cat) catalogo().then(setCat).catch(() => {}) }, [ejercicioId]) // eslint-disable-line react-hooks/exhaustive-deps
   const src = (ejercicioId && cat?.foto[ejercicioId]) || srcSesion
   const duenoFoto = src ? /\/ejercicios\/([^/]+)\//.exec(src)?.[1] : null

@@ -8,7 +8,7 @@ import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
-import ImagenEjercicio from '@/components/ImagenEjercicio'
+import ImagenEjercicio, { fotoCambiada } from '@/components/ImagenEjercicio'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 import { EditorTrabajo, EditorAnatomia, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia, type TrabajoEj, type AnatomiaEj } from '@/components/TrabajoEjercicio'
@@ -258,6 +258,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     if (JSON.stringify(d.por_revisar) !== JSON.stringify(orig.por_revisar)) fila.por_revisar = d.por_revisar
     // Quitar la foto (vuelve la figura automática): antes no se guardaba nunca.
     if (!foto && !d.imagen_url && orig.imagen_url) fila.imagen_url = ''
+    if (fila.imagen_url === '') fotoCambiada(params.id, null)
     let id = params.id
     if (nuevo) {
       const { data, error } = await supabase.from('ejercicios')
@@ -280,6 +281,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       else {
         await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
         urlNueva = r.url
+        fotoCambiada(id, r.url)
         if ('vector' in r && r.vector) vectorizada = true
       }
     }
