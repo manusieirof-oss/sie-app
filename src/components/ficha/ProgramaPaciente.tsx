@@ -6,6 +6,8 @@ import NebulosaPrograma, { PALETA, COL_CAMBIO, hex, type CitaNeb, type VistaNeb 
 import MapaTrabajo, { type LenteEntreno } from '@/components/MapaTrabajo'
 import CuerpoSalud, { type VistaSalud } from '@/components/ficha/CuerpoSalud'
 import { Ic } from '@/lib/icons'
+import { useRouter } from 'next/navigation'
+import { usePuede } from '@/lib/permisos'
 
 // ---------------------------------------------------------------------------
 // LA FICHA, DE UN VISTAZO: su programación y lo que tiene para entrenar.
@@ -91,7 +93,9 @@ function BotonVistas({ t, n, i, onClick, apagado }: { t: React.ReactNode, n: num
 /** Bienestar: alto es bueno. Estrés: alto es malo. */
 const colBien = (v: number) => v >= 7 ? ['var(--gd)', 'var(--gl)'] : v >= 4 ? ['#8A6410', 'var(--ambl)'] : ['var(--red)', 'var(--redl)']
 const colEstres = (v: number) => colBien(10 - v)
-function SolapasDia({ ctx, abierta, setAbierta }: { ctx: any, abierta: string | null, setAbierta: (f: (a: string | null) => string | null) => void }) {
+function SolapasDia({ ctx, abierta, setAbierta, onAnotar }: { ctx: any, abierta: string | null, setAbierta: (f: (a: string | null) => string | null) => void
+  /** Apuntar algo nuevo: lleva a la revaloración (paso Anamnesis). */
+  onAnotar?: () => void }) {
   const e0 = ctx.escalas[0], e1 = ctx.escalas[1]
   const flecha = (k: 'borg' | 'estres') => !e0 || !e1 || e0[k] == null || e1[k] == null || e0[k] === e1[k] ? '' : e0[k] > e1[k] ? ' ↑' : ' ↓'
   const lista: { k: string, ic: string, t: string, col: readonly string[] | string[], vacia: boolean }[] = [
@@ -120,6 +124,7 @@ function SolapasDia({ ctx, abierta, setAbierta }: { ctx: any, abierta: string | 
     {dentro && <div style={{ position: 'absolute', left: 160, top: 0, width: 'min(320px, 45%)', maxHeight: 420, overflow: 'auto', zIndex: 6, background: 'rgba(255,255,255,.92)', padding: '2px 8px' }}>
       <button type="button" onClick={() => setAbierta(() => null)} title="Cerrar" style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--gr)', padding: 2 }}><Ic name="cerrar" size={13}/></button>
       {dentro}
+      {onAnotar && <button type="button" className="atajo" onClick={onAnotar} style={{ marginTop: 8, paddingLeft: 0 }}>Anotar en la valoración →</button>}
     </div>}
   </>
 }
@@ -143,6 +148,8 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
      anamnesis en la nebulosa): deportes, plantillas, cómo se encuentra y estrés. */
   const [ctx, setCtx] = useState<{ deportes: string[], plant: { usa: boolean, izq: string, der: string }, escalas: { fecha: string, borg: number, estres: number }[] } | null>(null)
   const [abiertaCtx, setAbiertaCtx] = useState<string | null>(null)
+  const router = useRouter()
+  const puedeSalud = usePuede()('editar_salud')
   useEffect(() => {
     ;(async () => {
       const [{ data: dep }, { data: pac }, { data: esc }] = await Promise.all([
@@ -350,7 +357,7 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
           <BotonVistas t={<><Ic name={VISTAS_SALUD[iS].ic} size={14}/> {VISTAS_SALUD[iS].t}</>} n={VISTAS_SALUD.length} i={iS} onClick={tocaSalud} apagado={modo !== 'salud'}/>
           <BotonVistas t={<><Ic name="entreno" size={14}/> {VISTAS_ENTRENO[iE].t}</>} n={VISTAS_ENTRENO.length} i={iE} onClick={tocaEntreno} apagado={modo !== 'entreno'}/></div>
         <div style={{ position: 'relative' }}>
-          {ctx && <SolapasDia ctx={ctx} abierta={abiertaCtx} setAbierta={setAbiertaCtx}/>}
+          {ctx && <SolapasDia ctx={ctx} abierta={abiertaCtx} setAbierta={setAbiertaCtx} onAnotar={puedeSalud ? () => router.push(`/valoracion?paciente=${pacienteId}&paso=Anamnesis`) : undefined}/>}
           {modo === 'entreno' ? <MapaTrabajo pacienteId={pacienteId} programado lente={vEntreno}/> : <CuerpoSalud pacienteId={pacienteId} vista={vSalud}/>}
         </div>
       </div>

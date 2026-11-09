@@ -7,6 +7,9 @@ import { zonasDeTest } from '@/lib/zonasCuerpo'
 import { hoyISO } from '@/lib/fechas'
 import { textoMedida } from '@/lib/tests'
 import type { MapaCalor3D } from '@/lib/anim3d/mapaCalor'
+import { useRouter } from 'next/navigation'
+import { usePuede } from '@/lib/permisos'
+import { Ic } from '@/lib/icons'
 
 // ---------------------------------------------------------------------------
 // EL CUERPO DE SU SALUD (ficha): el mismo muñeco del mapa de calor, pero pintado con lo
@@ -65,7 +68,9 @@ const fCorta = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-E
 
 /** Lo que sale en medio al tocar algo de la lista. */
 type Info = { filas: [string, string][], texto?: string, sobre?: string, aviso?: string, items?: string[], historial?: { fecha: string, res: string }[] }
-type Item = { titulo: string, detalle: string, zonas: string[], v: number, lado?: string, tipo?: Tipo, color?: string, tend?: 'mejora' | 'empeora' | 'igual' | null, info?: Info }
+type Item = { titulo: string, detalle: string, zonas: string[], v: number, lado?: string, tipo?: Tipo, color?: string, tend?: 'mejora' | 'empeora' | 'igual' | null, info?: Info
+  /** De qué fila sale (para «Quitar» o «Resolver» desde el detalle). */
+  ref?: { tabla: 'molestias' | 'patologias', id: string, activa: boolean } }
 const ladoTxt = (l?: string) => l && l !== 'no_aplica' ? l : ''
 const limpia = (f: [string, any][]): [string, string][] => f.filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)])
 const infoMolestia = (m: any): Info => ({ filas: limpia([['EVA', m.eva != null ? `${m.eva}/10` : 'sin EVA'], ['Lado', ladoTxt(m.lado)], ['Tipo', m.tipo], ['Cuándo', m.sensacion],
@@ -108,12 +113,13 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
   // Lo tocado de la lista (se enseña en medio).
   const [sel, setSel] = useState<number | null>(null)
   useEffect(() => { setSel(null) }, [vista, zonaSel, activos])
+  const [recarga, setRecarga] = useState(0)
   useEffect(() => {
     setItems(null); setExtra(null); setZonaSel(null)
     ;(async () => {
       if (vista === 'dolor') {
         const { data } = await supabase.from('molestias').select('*').eq('paciente_id', pacienteId).eq('activa', true)
-        setItems((data || []).map((m: any) => ({ info: infoMolestia(m), titulo: m.zona, detalle: [m.eva != null ? `EVA ${m.eva}/10` : 'sin EVA', m.lado && m.lado !== 'no_aplica' ? m.lado : ''].filter(Boolean).join(' · '),
+        setItems((data || []).map((m: any) => ({ info: infoMolestia(m), ref: { tabla: 'molestias' as const, id: m.id, activa: true }, titulo: m.zona, detalle: [m.eva != null ? `EVA ${m.eva}/10` : 'sin EVA', m.lado && m.lado !== 'no_aplica' ? m.lado : ''].filter(Boolean).join(' · '),
           zonas: zonasDe(m.zona), lado: m.lado, v: m.eva != null ? Math.max(0.25, m.eva / 10) : 0.5 })))
       } else if (vista === 'operaciones') {
         const { data } = await supabase.from('operaciones').select('*').eq('paciente_id', pacienteId)
@@ -124,13 +130,13 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
           zonas: zonasDe(`${zDe[o.biblioteca_id] || ''} ${o.nombre}`), lado: o.lado, v: 0.8 })))
       } else if (vista === 'patologias') {
         const { data } = await supabase.from('patologias').select('*').eq('paciente_id', pacienteId).neq('estado', 'resuelta')
-        setItems((data || []).map((p: any) => ({ info: infoPatologia(p), titulo: p.nombre, detalle: p.estado === 'cronica' ? 'crónica' : 'activa',
+        setItems((data || []).map((p: any) => ({ info: infoPatologia(p), ref: { tabla: 'patologias' as const, id: p.id, activa: true }, titulo: p.nombre, detalle: p.estado === 'cronica' ? 'crónica' : 'activa',
           zonas: zonasDe(`${p.zona || ''} ${p.nombre}`), lado: p.lado, v: p.estado === 'cronica' ? 0.55 : 0.85 })))
       } else {
         await cargarTodo()
       }
     })()
-  }, [pacienteId, vista]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pacienteId, vista, recarga]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** TODA SU SALUD: cada cosa con su tipo y su color; lo que no tiene zona, aparte. */
   async function cargarTodo() {
@@ -158,7 +164,7 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
     // MOLESTIAS: las activas, más fuertes cuanto más EVA; las ya quitadas, la huella mientras dure.
     ;(mol.data || []).forEach((m: any) => {
       const eva = m.eva ?? 5
-      if (m.activa) out.push({ info: infoMolestia(m), tipo: 'molestia', color: TIPOS.molestia.c, titulo: m.zona, zonas: zonasDe(m.zona), lado: m.lado, v: 0.4 + 0.6 * eva / 10,
+      if (m.activa) out.push({ info: infoMolestia(m), ref: { tabla: 'molestias', id: m.id, activa: true }, tipo: 'molestia', color: TIPOS.molestia.c, titulo: m.zona, zonas: zonasDe(m.zona), lado: m.lado, v: 0.4 + 0.6 * eva / 10,
         detalle: [m.eva != null ? `EVA ${m.eva}/10` : 'sin EVA', lado(m.lado), 'activa'].filter(Boolean).join(' · ') })
       else if (m.resuelta_el) {
         const dura = Math.max(1, eva) * HUELLA_DIAS_POR_EVA, pasa = diasEntre(m.resuelta_el, hoy)
@@ -168,7 +174,7 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
     })
     ;(ops || []).forEach((o: any) => out.push({ info: infoOperacion(o), tipo: 'operacion', color: TIPOS.operacion.c, titulo: o.nombre, lado: o.lado, v: 0.8,
       zonas: zonasDe(`${zDe[o.biblioteca_id] || ''} ${o.nombre}`), detalle: [o.anio, lado(o.lado)].filter(Boolean).join(' · ') }))
-    ;(pats || []).forEach((p: any) => out.push({ info: infoPatologia(p), tipo: 'patologia', color: TIPOS.patologia.c, titulo: p.nombre, lado: p.lado, v: p.estado === 'cronica' ? 0.55 : 0.85,
+    ;(pats || []).forEach((p: any) => out.push({ info: infoPatologia(p), ref: { tabla: 'patologias', id: p.id, activa: true }, tipo: 'patologia', color: TIPOS.patologia.c, titulo: p.nombre, lado: p.lado, v: p.estado === 'cronica' ? 0.55 : 0.85,
       zonas: zonasDe(`${p.zona || ''} ${p.nombre}`), detalle: [p.estado === 'cronica' ? 'crónica' : 'activa', lado(p.lado)].filter(Boolean).join(' · ') }))
 
     // TESTS: el último de cada test y lado. El color, por su resultado; lo vivo, por lo
@@ -248,6 +254,25 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
   const lista = vista === 'todo' && zonaSel ? visibles.filter(it => clavesDe(it).includes(zonaSel)) : visibles
   const sub: React.CSSProperties = { fontSize: 11, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', color: 'var(--gr)', margin: '14px 0 6px' }
   const it0 = sel != null ? lista[sel] : null
+  /* APUNTAR: todo lo nuevo se apunta en la VALORACIÓN (revaloración de esta persona, en
+     el paso que toca). Desde aquí solo se quita o se resuelve lo que ya hay. */
+  const router = useRouter()
+  const puedeSalud = usePuede()('editar_salud')
+  const [verAnotar, setVerAnotar] = useState(false)
+  const aValoracion = (paso: string) => router.push(`/valoracion?paciente=${pacienteId}&paso=${paso}`)
+  async function quitarOResolver(it: Item) {
+    if (!it.ref) return
+    const hoy = hoyISO()
+    if (it.ref.tabla === 'molestias') {
+      await supabase.from('molestias').update({ activa: false }).eq('id', it.ref.id)
+      await supabase.from('molestias').update({ resuelta_el: hoy }).eq('id', it.ref.id)
+      await supabase.from('eventos_paciente').insert({ paciente_id: pacienteId, tipo: 'molestia', titulo: `Molestia resuelta: ${it.titulo}`, fecha: hoy })
+    } else {
+      await supabase.from('patologias').update({ estado: 'resuelta' }).eq('id', it.ref.id)
+      await supabase.from('eventos_paciente').insert({ paciente_id: pacienteId, tipo: 'patologia', titulo: `Patología resuelta: ${it.titulo}`, fecha: hoy })
+    }
+    setSel(null); setRecarga(n => n + 1)
+  }
   return (
     // TRES COLUMNAS: el muñeco (mismo ancho y alto que en entreno, para que no salte),
     // en medio lo que se toque de la lista, y la lista. Sin tarjeta ni sombra alrededor.
@@ -302,11 +327,24 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
               <span style={{ color: h.res === 'hallazgo' ? '#B5562B' : 'var(--gd)' }}>{h.res}</span></div>)}
           </div>}
           {it0.info?.sobre && <div style={{ fontSize: 12, color: 'var(--grl)', lineHeight: 1.5 }}>{it0.info.sobre}</div>}
+          {puedeSalud && <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+            {/* Solo lo que está activo lleva ref (la huella de una molestia ya quitada, no). */}
+            {it0.ref && <button type="button" className="btn-vista" onClick={() => quitarOResolver(it0)}>{it0.ref.tabla === 'molestias' ? 'Quitar molestia' : 'Resolver patología'}</button>}
+            {it0.tipo === 'test' && <button type="button" className="btn-vista" onClick={() => aValoracion('Tests')}>Repetir test →</button>}
+          </div>}
         </>}
       </div>
 
       {/* LA LISTA, con su propio scroll si es larga. */}
       <div style={{ minWidth: 0, maxHeight: 560, overflow: 'auto', paddingRight: 4 }}>
+        {puedeSalud && <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <button type="button" className="btn-vista" onClick={() => setVerAnotar(v => !v)}><Ic name="mas" size={13}/> Anotar</button>
+          {verAnotar && <div style={{ position: 'absolute', right: 0, top: 40, zIndex: 8, background: '#fff', border: '1px solid var(--bd)', borderRadius: 12, boxShadow: '0 8px 28px rgba(38,40,37,.12)', padding: 6, minWidth: 260 }}>
+            {([['Completar', 'Molestia, patología, operación, medicación, alergia…'], ['Tests', 'Pasar o repetir un test'], ['Anamnesis', 'Anamnesis, deportes, plantillas, bienestar y estrés']] as const).map(([p, t]) =>
+              <button key={p} type="button" onClick={() => aValoracion(p)} style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: 'none', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: 'var(--n)' }}>{t}</button>)}
+            <div style={{ fontSize: 11, color: 'var(--grl)', padding: '4px 10px 6px' }}>Se abre su revaloración en ese paso.</div>
+          </div>}
+        </div>}
         {vista === 'todo' && zonaSel && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginBottom: 4 }}>
           <b style={{ fontWeight: 600 }}>{nombreClave(zonaSel)}</b>
           <button type="button" className="atajo" onClick={() => setZonaSel(null)}>Ver todo</button></div>}

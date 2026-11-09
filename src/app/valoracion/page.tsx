@@ -1,7 +1,7 @@
 'use client'
 import { altaEnVald } from '@/lib/vald'
 import { VeloAgendaHuecos, agendarHuecos, primerasFechas, semanasDeMeses } from '@/components/AgendaHuecos'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
 import { registrarResultadoTest, testsPositivosDe, ladoOpuesto } from '@/lib/tests'
@@ -155,6 +155,20 @@ export default function ValoracionPage() {
     try { localStorage.removeItem(CLAVE_BORRADOR) } catch {}
     setBorradorPend(null)
   }
+
+  /* DESDE LA FICHA: «Anotar» lleva aquí con ?paciente=ID&paso=Completar|Tests|Anamnesis.
+     Se abre la revaloración de esa persona, ya elegida, en ese paso: la valoración es el
+     sitio donde se apunta todo, y la ficha el sitio donde se mira. */
+  const desdeFicha = useRef(false)
+  useEffect(() => {
+    if (desdeFicha.current || !pacientes.length) return
+    const q = new URLSearchParams(window.location.search), pid = q.get('paciente')
+    if (!pid) return
+    const p = pacientes.find((x: any) => x.id === pid); if (!p) return
+    desdeFicha.current = true
+    setModo('revaloracion')
+    elegirParaRevaloracion(p).then(() => { const i = STEPS_POR_MODO.revaloracion.indexOf(q.get('paso') || ''); setStep(i >= 0 ? i + 1 : 2) })
+  }, [pacientes]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const STEPS = STEPS_POR_MODO[modo]
   const esRevaloracion = modo === 'revaloracion'
