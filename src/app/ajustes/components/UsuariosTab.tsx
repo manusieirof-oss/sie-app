@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { VERSION_CONFIDENCIALIDAD } from '@/lib/confidencialidad'
-import { NIVELES, nombreNivel, MINIMO, ETIQUETA_ACCION, EXPLICA_ACCION, mezclarMinimos, POR_PERSONA, type Accion, type Minimos } from '@/lib/permisos'
+import { NIVELES, nombreNivel, nombrePuesto, esEncargada, MINIMO, ETIQUETA_ACCION, EXPLICA_ACCION, mezclarMinimos, POR_PERSONA, type Accion, type Minimos } from '@/lib/permisos'
 
 // Llama a /api/equipo con la sesión de quien está dentro: el servidor comprueba que
 // es dirección antes de tocar nada.
@@ -148,7 +148,7 @@ export default function UsuariosTab({ perfilActual }: any) {
     setError('')
     setGuardando('nuevo')
     try {
-      const rol = perfilNuevo === 'admin' ? 'admin' : 'usuario'
+      const rol = perfilNuevo === 'admin' ? 'admin' : perfilNuevo === 'encargada' ? 'encargada' : 'usuario'
       const r = await equipo('crear', { nombre, email, rol, nivel: Number(perfilNuevo.slice(1)) || 1, cobros })
       setEntrega({ nombre: nombre.trim(), email: r.email, password: r.password })
       setNombre(''); setEmail(''); setPerfilNuevo('n1'); setCobros(false); setAbierto(false)
@@ -186,6 +186,8 @@ export default function UsuariosTab({ perfilActual }: any) {
     setGuardando(id)
     const upd: any = valor === 'admin'
       ? { rol: 'admin', permisos: { finanzas: true, cobros: true } }
+      : valor === 'encargada'
+      ? { rol: 'admin', permisos: { finanzas: false, cobros: true, sin_finanzas: true } }
       : { rol: 'usuario', nivel: Number(valor.slice(1)),
           ...(actual.rol === 'admin' ? { permisos: { finanzas: false, cobros: false } } : {}) }
     const { error } = await supabase.from('perfiles').update(upd).eq('id', id)
@@ -205,15 +207,6 @@ export default function UsuariosTab({ perfilActual }: any) {
     // registrarlo, que no le sirve a nadie.
     if (cual === 'finanzas' && nuevos.finanzas) nuevos.cobros = true
     const { error } = await supabase.from('perfiles').update({ permisos: nuevos }).eq('id', id)
-    if (error) alert('No se ha podido cambiar el permiso: ' + error.message)
-    await cargar()
-    setGuardando(null)
-  }
-
-  /** Dirección sin Finanzas: lo ve todo menos el dinero de la clínica. */
-  async function toggleSinFinanzas(id: string, permisos: any) {
-    setGuardando(id)
-    const { error } = await supabase.from('perfiles').update({ permisos: { ...permisos, sin_finanzas: !(permisos?.sin_finanzas === true) } }).eq('id', id)
     if (error) alert('No se ha podido cambiar el permiso: ' + error.message)
     await cargar()
     setGuardando(null)
@@ -259,7 +252,7 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:12}}>
-            {[...NIVELES.map(x => [`n${x.n}`, `Nivel ${x.n} · ${x.nombre}`, x.que]), ...(yoSinFin ? [] : [['admin','Dirección','Todo, también finanzas, ajustes y el equipo']])].map(([v,t,d]) => (
+            {[...NIVELES.map(x => [`n${x.n}`, `Nivel ${x.n} · ${x.nombre}`, x.que]), ...(yoSinFin ? [] : [['encargada','Encargada','Todo menos Finanzas: valoraciones, salud, ajustes y el equipo'], ['admin','Dirección','Todo, también finanzas, ajustes y el equipo']])].map(([v,t,d]) => (
               <button key={v} onClick={()=>setPerfilNuevo(v)} style={{textAlign:'left',padding:'8px 12px',borderRadius:10,cursor:'pointer',maxWidth:220,background:perfilNuevo===v?'#fff':'transparent',border:`1px solid ${perfilNuevo===v?'var(--g)':'var(--bd)'}`}}>
                 <div style={{fontSize:12,fontWeight:600,color:perfilNuevo===v?'var(--gd)':'var(--n)'}}>{t}</div>
                 <div style={{fontSize:10,color:'var(--grl)'}}>{d}</div>
@@ -326,7 +319,7 @@ export default function UsuariosTab({ perfilActual }: any) {
                 </div>
               )}
               <div style={{fontSize:9,color:'var(--grl)'}}>
-                {cuenta?.email || (u.rol==='admin' ? 'Dirección' : nombreNivel(u.nivel ?? 1))}
+                {cuenta?.email || nombrePuesto(u)}
                 {cuenta && ` · ${cuenta.ultimo ? 'último acceso ' + fechaCorta(cuenta.ultimo) : 'aún no ha entrado'}`}
               </div>
               {/* Confidencialidad: firmada (con su versión) o pendiente; se abre para imprimir. */}
@@ -336,8 +329,9 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
 
             {/* SELECTOR DE PERFIL */}
-            <select className="input" value={u.rol==='admin' ? 'admin' : `n${u.nivel ?? 1}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo||(yoSinFin&&u.rol==='admin')} title={soyYo?'No puedes quitarte dirección a ti mismo':(yoSinFin&&u.rol==='admin')?'Solo quien ve Finanzas cambia a dirección':undefined} style={{width:170,fontSize:11}}>
+            <select className="input" value={u.rol==='admin' ? (esEncargada(u) ? 'encargada' : 'admin') : `n${u.nivel ?? 1}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo||(yoSinFin&&u.rol==='admin')} title={soyYo?'No puedes quitarte dirección a ti mismo':(yoSinFin&&u.rol==='admin')?'Solo quien ve Finanzas cambia a dirección':undefined} style={{width:170,fontSize:11}}>
               {NIVELES.map(x => <option key={x.n} value={`n${x.n}`}>Nivel {x.n} · {x.nombre}</option>)}
+              {(!yoSinFin || u.rol==='admin') && <option value="encargada">Encargada (todo menos Finanzas)</option>}
               {(!yoSinFin || u.rol==='admin') && <option value="admin">Dirección</option>}
             </select>
 
@@ -350,14 +344,14 @@ export default function UsuariosTab({ perfilActual }: any) {
               const n3 = u.rol!=='admin' && u.nivel===3 && clave==='cobros'
               // DIRECCIÓN SIN FINANZAS: en dirección, el interruptor de Finanzas sí se puede
               // apagar (guarda permisos.sin_finanzas). Lo demás de dirección lo sigue teniendo.
-              const finDir = u.rol==='admin' && clave==='finanzas'
-              const activo = finDir ? u.permisos?.sin_finanzas!==true : (u.rol==='admin' || n3 || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true))
-              const fijo = !finDir && (u.rol==='admin' || n3 || (clave==='cobros' && u.permisos?.finanzas===true))
+              // Encargada: Finanzas apagado y fijo (lo dice su puesto); dirección, todo encendido.
+              const activo = esEncargada(u) && clave==='finanzas' ? false : (u.rol==='admin' || n3 || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true))
+              const fijo = u.rol==='admin' || n3 || (clave==='cobros' && u.permisos?.finanzas===true)
               return (
                 <div key={clave} style={{display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name={icono} size={11}/> {etiqueta}</span>
-                  <button onClick={()=>finDir ? toggleSinFinanzas(u.id, u.permisos) : togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo||(finDir&&soyYo)}
-                    title={fijo ? (u.rol==='admin' ? 'Dirección lo tiene siempre' : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : clave==='agenda' ? 'Crear y mover citas, marcar faltas y cancelar (quien lleva el teléfono)' : undefined}
+                  <button onClick={()=>togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo}
+                    title={fijo ? (esEncargada(u) && clave==='finanzas' ? 'Encargada: todo menos Finanzas' : u.rol==='admin' ? (esEncargada(u) ? 'Encargada lo tiene siempre' : 'Dirección lo tiene siempre') : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : clave==='agenda' ? 'Crear y mover citas, marcar faltas y cancelar (quien lleva el teléfono)' : undefined}
                     style={{width:38,height:21,borderRadius:99,background:activo?'var(--g)':'var(--bm)',border:'none',cursor:fijo?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:fijo?0.5:1}}>
                     <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:activo?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
                   </button>

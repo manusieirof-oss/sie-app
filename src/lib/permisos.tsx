@@ -29,6 +29,12 @@ export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
   { n: 3, nombre: 'Entrenador 3', que: 'Prepara los entrenos y la programación.' },
 ]
 export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
+/* PUESTO «ENCARGADA»: hace y ve todo, como dirección, MENOS Finanzas. Por dentro es
+   dirección (rol admin, nivel 4) con permisos.sin_finanzas = true, así todas las reglas
+   de nivel 4 le valen sin duplicarlas, y Finanzas se le cierra en la app y en la base de
+   datos (veo_finanzas, sql/direccion-sin-finanzas.sql). */
+export const esEncargada = (perfil: any) => perfil?.rol === 'admin' && perfil?.permisos?.sin_finanzas === true
+export const nombrePuesto = (perfil: any) => perfil?.rol === 'admin' ? (esEncargada(perfil) ? 'Encargada' : 'Dirección') : nombreNivel(Number(perfil?.nivel) || 1)
 
 /** El mínimo nivel para cada cosa, de serie (si la tabla aún no existe o falla). */
 export const MINIMO = {

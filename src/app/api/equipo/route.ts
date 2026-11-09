@@ -63,8 +63,10 @@ export async function POST(req: Request) {
       const email = String(cuerpo.email || '').trim().toLowerCase()
       const nombre = String(cuerpo.nombre || '').trim()
       // Dirección sin Finanzas no puede crear otra dirección: le daría Finanzas por la puerta de atrás.
-      if (cuerpo.rol === 'admin' && (yo as any)?.permisos?.sin_finanzas === true) return NextResponse.json({ error: 'No puedes dar de alta a alguien de dirección.' }, { status: 403 })
-      const rol = cuerpo.rol === 'admin' ? 'admin' : 'usuario'
+      if ((cuerpo.rol === 'admin' || cuerpo.rol === 'encargada') && (yo as any)?.permisos?.sin_finanzas === true) return NextResponse.json({ error: 'No puedes dar de alta a alguien de dirección ni de encargada.' }, { status: 403 })
+      // Encargada = dirección sin Finanzas (lib/permisos).
+      const encargada = cuerpo.rol === 'encargada'
+      const rol = cuerpo.rol === 'admin' || encargada ? 'admin' : 'usuario'
       // Nivel de entrenador (lib/permisos): 1 principiante, 2 entrenador, 3 encargado/a.
       const nivel = [1, 2, 3].includes(Number(cuerpo.nivel)) ? Number(cuerpo.nivel) : 1
       if (!nombre) return NextResponse.json({ error: 'Falta el nombre.' }, { status: 400 })
@@ -77,7 +79,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: ya ? 'Ya hay una cuenta con ese correo.' : error.message }, { status: 400 })
       }
       const uid = data.user.id
-      const permisos = rol === 'admin' ? { finanzas: true, cobros: true } : { finanzas: false, cobros: cuerpo.cobros === true }
+      const permisos = encargada ? { finanzas: false, cobros: true, sin_finanzas: true } : rol === 'admin' ? { finanzas: true, cobros: true } : { finanzas: false, cobros: cuerpo.cobros === true }
       // Si hay un disparador que ya crea el perfil al registrarse, se completa ese;
       // si no, se crea aquí. Así funciona en las dos instalaciones.
       const { data: hay } = await adm.from('perfiles').select('id').eq('user_id', uid).maybeSingle()
