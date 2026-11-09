@@ -20,6 +20,10 @@ export const CATEGORIAS_ETIQUETA = [
   { key: 'agarre', label: 'Agarre' },
   { key: 'patologia', label: 'Patología' },
   { key: 'plano_eje', label: 'Plano y eje' },
+  // FAMILIA: qué ejercicio es (Curl de bíceps, Sentadilla…). Una sola por ejercicio; lo
+  // demás (agarre, material, posición) va en sus categorías. Sustituye a la principal
+  // con variantes colgando (portada_id), que se irá dejando de usar.
+  { key: 'familia', label: 'Familia' },
 ]
 
 export function labelCategoria(key: string) {
