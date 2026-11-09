@@ -258,15 +258,22 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         if (r.ok === false) setAviso('Guardado, pero la familia no: ' + r.error)
       }
     }
-    let vectorizada = false
+    let vectorizada = false, urlNueva: string | null = null
     if (foto) {
       const r = await subirImagenEjercicio(id, foto)
       if (r.ok === false) setAviso('Guardado, pero la foto no: ' + r.error)
       else {
         await supabase.from('ejercicios').update({ imagen_url: r.url }).eq('id', id)
+        urlNueva = r.url
         if ('vector' in r && r.vector) vectorizada = true
       }
     }
+    // LO GUARDADO SE VE YA en la familia y en la tanda: la lista se corrige aquí mismo,
+    // sin esperar a la recarga entera de todos los ejercicios, que tarda.
+    setEjs(prev => prev.map(x => x.id === id ? { ...x, nombre: fila.nombre, etiquetas: fila.etiquetas, portada_id: d.portada_id,
+      imagen_url: urlNueva ?? (fila.imagen_url !== undefined ? fila.imagen_url : x.imagen_url) } : x))
+    if (urlNueva) setD(p => ({ ...p, imagen_url: urlNueva! }))
+    setColaEjs(prev => prev.map((x: any) => x.id === id ? { ...x, nombre: fila.nombre, imagen_url: urlNueva ?? x.imagen_url } : x))
     setGuardando(false); setFoto(null)
     if (!nuevo) { ponerBorrador(id, null); setPendientes(leerBorradores()) }
     if (nuevo) { router.replace(aEj(id, true)); return true }
@@ -972,7 +979,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 unida al centro con un hilo. Tocar una lleva a su rosco. Van por el lado
                 izquierdo para no chocar con el panel, que se abre a la derecha. */}
             {!nuevo && !grupo && familiaAnillo.length > 1 && (() => {
-              const fam = familiaAnillo.slice(0, 12)
+              // El que se está mirando sale con lo que hay en pantalla (nombre y foto recién
+              // cambiados): si no, el anillo enseñaba lo antiguo hasta recargar.
+              const fam = familiaAnillo.slice(0, 12).map(x => x.id === params.id ? { ...x, nombre: d.nombre || x.nombre, imagen_url: preview || d.imagen_url || x.imagen_url } : x)
               const pos = fam.map((_, i) => {
                 const a = (fam.length === 1 ? 180 : 115 + (130 * i) / (fam.length - 1)) * Math.PI / 180
                 return { x: 50 + Math.cos(a) * 66, y: 50 + Math.sin(a) * 58 }
