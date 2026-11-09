@@ -4,6 +4,7 @@ import { ZONAS } from '@/lib/mapaTrabajo'
 import { avisarGuia } from '@/lib/guiaEventos'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { hoyISO } from '@/lib/fechas'
 import { crearCita, ocupacionPorSala } from '@/lib/citas'
 import { soltarDelBono } from '@/lib/bonoSesiones'
 import { citaAntes, correrTrasEstado } from '@/lib/correrSesiones'
@@ -99,7 +100,48 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
     if (!r.ok) { setMsg('No se ha podido cerrar: ' + r.error); return }
     await leerAlertas(); onCambio?.()
   }
+  /* ANOTAR: el mismo bloque sirve para una ALERTA o para la ANAMNESIS. Se elige antes
+     qué es y se guarda en su sitio. La anamnesis se añade al final de la de su última
+     valoración, con la fecha, sin borrar lo que había. */
+  const [modo, setModo] = useState<'alerta' | 'anamnesis'>('alerta')
+  const [anam, setAnam] = useState('')
+  const [anamPrevia, setAnamPrevia] = useState<{ id: string, texto: string } | null | undefined>(undefined)
+  useEffect(() => {
+    if (modo !== 'anamnesis' || anamPrevia !== undefined) return
+    supabase.from('valoraciones').select('id,anamnesis').eq('paciente_id', pacienteId).order('fecha', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => setAnamPrevia(data ? { id: data.id, texto: data.anamnesis || '' } : null))
+  }, [modo, pacienteId, anamPrevia])
+  async function guardarAnamnesis() {
+    if (!anam.trim() || ocupado || !anamPrevia) return
+    setOcupado(true); setMsg('')
+    const dia = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+    const nuevo = (anamPrevia.texto.trim() ? anamPrevia.texto.trimEnd() + '\n\n' : '') + `${dia}: ${anam.trim()}`
+    const { error } = await supabase.from('valoraciones').update({ anamnesis: nuevo }).eq('id', anamPrevia.id)
+    if (error) { setOcupado(false); setMsg('No se ha podido guardar la anamnesis: ' + error.message); return }
+    await supabase.from('eventos_paciente').insert({ paciente_id: pacienteId, tipo: 'anamnesis', titulo: 'Anamnesis completada', descripcion: anam.trim(), fecha: hoyISO() })
+    setOcupado(false); setAnam(''); setAnamPrevia({ ...anamPrevia, texto: nuevo }); setMsg('')
+    onCambio?.()
+  }
   return <>
+    <div className="gc-chips" style={{ marginBottom: 8 }}>
+      <button className={modo === 'alerta' ? 'on' : ''} onClick={() => setModo('alerta')}>Alerta</button>
+      <button className={modo === 'anamnesis' ? 'on' : ''} onClick={() => setModo('anamnesis')}>Anamnesis</button>
+    </div>
+    {modo === 'anamnesis' ? <>
+      <div className="gc-lbl">Anamnesis</div>
+      {anamPrevia === undefined ? <div className="gc-nota">Cargando…</div>
+        : anamPrevia === null ? <div className="gc-nota">Aún no tiene valoración: la anamnesis se apunta al hacérsela.</div>
+        : <>
+          {anamPrevia.texto && <div style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'pre-line', maxHeight: 120, overflow: 'auto', marginBottom: 8, lineHeight: 1.5 }}>{anamPrevia.texto.length > 600 ? '…' + anamPrevia.texto.slice(-600) : anamPrevia.texto}</div>}
+          <textarea className="input" value={anam} onChange={e => setAnam(e.target.value)} placeholder="Lo que te ha contado: cómo está, qué ha cambiado, algo de su historia…"
+            style={{ width: '100%', minHeight: 80, fontSize: 13, boxSizing: 'border-box' }}/>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+            <button className="btn btn-p btn-sm" disabled={!anam.trim() || ocupado} onClick={guardarAnamnesis}>Añadir a su anamnesis</button>
+          </div>
+          <div className="gc-nota">Se añade al final de la anamnesis de su última valoración, con la fecha de hoy.</div>
+        </>}
+      {msg && <div className="gc-error">{msg}</div>}
+    </> : <>
     <div className="gc-lbl">Alertas</div>
     {alertas.map(a => (
       <div key={a.id} className={'gc-alerta' + (a.afecta_sesion ? ' afecta' : '')}>
@@ -139,6 +181,7 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
     </div>
     <div className="gc-nota">Queda en su ficha y en su historial.</div>
     {msg && <div className="gc-error">{msg}</div>}
+    </>}
   </>
 }
 
