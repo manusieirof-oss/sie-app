@@ -110,6 +110,18 @@ export default function FichaPacientePage() {
   /* DOCUMENTOS Y FIRMAS, en la cabecera: son papeles del paciente, no de su salud ni de
      dónde colocarlo. Dos botones con su número; al tocar, se abren encima. */
   const [papeles, setPapeles] = useState<'documentos' | 'firmas' | null>(null)
+  /* SU MOMENTO: en qué momento está (embarazo, postoperatorio, vuelta de lesión…). De
+     momento se pone A MANO, con la fecha desde la que está así; al cambiarlo o quitarlo
+     queda en su historial. */
+  const [editMomento, setEditMomento] = useState<{ texto: string, desde: string } | null>(null)
+  async function guardarMomento(texto: string | null, desde: string | null) {
+    const antes = pac?.momento || ''
+    const { error } = await supabase.from('pacientes').update({ momento: texto || null, momento_desde: texto ? (desde || hoyISO()) : null }).eq('id', id)
+    if (error) { alert('No se ha podido guardar el momento:\n\n' + error.message); return }
+    await supabase.from('eventos_paciente').insert({ paciente_id: id, tipo: 'momento', fecha: hoyISO(),
+      titulo: texto ? `Momento: ${texto}` : `Deja el momento: ${antes}` })
+    setEditMomento(null); cargar()
+  }
   const [nDocsCab, setNDocsCab] = useState(0)
   const [firmasFaltan, setFirmasFaltan] = useState(0)
   const contarPapeles = () => {
@@ -851,6 +863,12 @@ export default function FichaPacientePage() {
             </span>
             {/* SU BONO, al lado del estado: es lo segundo que se pregunta. El detalle
                 (asignar, cobrar, sesiones) está en «Por ubicar». */}
+            {/* Su momento, al lado del estado. Sin momento, un hueco discreto para ponerlo. */}
+            {(pac.momento || puedeSalud) && <span className="pat-tag" onClick={puedeSalud ? ()=>setEditMomento({ texto: pac.momento || '', desde: pac.momento_desde || hoyISO() }) : undefined}
+              title={puedeSalud ? 'Cambiar su momento' : undefined}
+              style={pac.momento ? {background:'rgba(201,168,76,.22)',color:'#F3DFA6',cursor:puedeSalud?'pointer':'default'} : {background:'transparent',border:'1px dashed rgba(255,255,255,.28)',color:'rgba(255,255,255,.6)',cursor:'pointer'}}>
+              <Ic name="reloj" size={11}/> {pac.momento ? `${pac.momento}${pac.momento_desde ? ' · desde ' + new Date(pac.momento_desde + 'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}).replace('.','') : ''}` : 'Momento'}
+            </span>}
             <span className="pat-tag" style={{background:'rgba(255,255,255,.12)',color:'#fff',cursor:'pointer'}} onClick={()=>setTab('ubicar')}
               title="Bono y cuota (en «Por ubicar»)">
               <Ic name="finanzas" size={11}/> {bono ? `${bonoLabel?.[bono.tipo] || bono.tipo}${cobrado ? ' · pagado' : bono?.estado_pago === 'impago' ? ' · impago' : ' · pendiente'}` : bonosSesiones.length ? `Bono de sesiones` : 'Sin bono'}
@@ -890,6 +908,31 @@ export default function FichaPacientePage() {
           )}
         </div>
       </div>
+
+      {editMomento && (
+        <div className="modal-bg" onClick={e=>{ if (e.target===e.currentTarget) setEditMomento(null) }}>
+          <div className="modal" style={{ maxWidth: 460 }}>
+            <div className="modal-title">Su momento<button className="modal-close" onClick={()=>setEditMomento(null)}>✕</button></div>
+            <div className="field"><label>En qué momento está</label>
+              <input className="input" value={editMomento.texto} autoFocus placeholder="Embarazo, postoperatorio de rodilla, vuelta de lesión…"
+                onChange={e=>setEditMomento(m=>m && ({ ...m, texto: e.target.value }))}/>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:6 }}>
+                {['Embarazo','Postparto','Postoperatorio','Vuelta de lesión','Fase aguda','Mantenimiento'].map(t =>
+                  <button key={t} type="button" className={'chip-sel' + (editMomento.texto === t ? ' on' : '')} style={{ textTransform:'none', letterSpacing:0 }}
+                    onClick={()=>setEditMomento(m=>m && ({ ...m, texto: t }))}>{t}</button>)}
+              </div>
+            </div>
+            <div className="field"><label>Desde</label>
+              <input className="input" type="date" value={editMomento.desde} onChange={e=>setEditMomento(m=>m && ({ ...m, desde: e.target.value }))}/></div>
+            <div style={{ display:'flex', gap:8, marginTop:8 }}>
+              {pac?.momento && <button className="btn btn-d btn-sm" onClick={()=>guardarMomento(null, null)}>Quitar momento</button>}
+              <div style={{ flex:1 }}/>
+              <button className="btn btn-t btn-sm" onClick={()=>setEditMomento(null)}>Cancelar</button>
+              <button className="btn btn-p btn-sm" disabled={!editMomento.texto.trim()} onClick={()=>guardarMomento(editMomento.texto.trim(), editMomento.desde)}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {papeles && pac && (
         <div className="modal-bg" onClick={e=>{ if (e.target===e.currentTarget) { setPapeles(null); contarPapeles() } }}>
