@@ -1,4 +1,5 @@
 'use client'
+import { COLOR_MOMENTO, textoMomento } from '@/lib/momento'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import CaraPaciente from '@/components/CaraPaciente'
 import MetodoParte from './MetodoParte'
@@ -2099,13 +2100,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
             const activoChip = activo===s.paciente.id
             return (
             <div key={s.paciente.id} onClick={()=>{ if (activo===s.paciente.id) { setCitaVelo(s.paciente.id); avisarGuia('cita') } else { setActivo(s.paciente.id); avisarGuia('persona') } }}
-              title={estado==='fin'?'Finalizado':estado==='curso'?'En curso, sin finalizar':'Sin empezar'}
+              title={(s.paciente?.momento?textoMomento(s.paciente)+' · ':'')+(estado==='fin'?'Finalizado':estado==='curso'?'En curso, sin finalizar':'Sin empezar')}
               /* EL SELECCIONADO VA EN OSCURO, el guardado en verde claro. Antes los dos
                  iban en el verde de la app (relleno uno, claro el otro) y en la sala se
                  confundian: no se sabia si estabas en ese paciente o si ya estaba hecho. */
+              /* CON MOMENTO (embarazo, postoperatorio…): fondo amarillo suave, para verlo
+                 antes de empezar. El seleccionado sigue en oscuro y el guardado en verde. */
               style={{display:'flex',alignItems:'center',gap:6,padding:'3px 10px 3px 3px',borderRadius:99,cursor:'pointer',
-                border:`1.5px solid ${activoChip?'var(--n)':(estado==='fin'?'var(--g)':'var(--bd)')}`,
-                background:activoChip?'var(--n)':(estado==='fin'?'var(--gl)':'var(--w)'),
+                border:`1.5px solid ${activoChip?'var(--n)':(estado==='fin'?'var(--g)':s.paciente?.momento?COLOR_MOMENTO.borde:'var(--bd)')}`,
+                background:activoChip?'var(--n)':(estado==='fin'?'var(--gl)':s.paciente?.momento?COLOR_MOMENTO.fondo:'var(--w)'),
                 color:activoChip?'var(--w)':(estado==='fin'?'var(--gd)':'var(--gr)'),
                 boxShadow:activoChip?'0 2px 6px rgba(0,0,0,.18)':'none'}}>
               {/* LA PERSONA: su cara (con el aro del color de cómo va) y su nombre de clínica.
@@ -2167,7 +2170,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       ) : !act ? (
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>Selecciona un paciente arriba para anotar su trabajo.</div>
       ) : (
-        <div className="card">
+        <div className="card" style={act.paciente?.momento ? { background: COLOR_MOMENTO.fondo, borderColor: COLOR_MOMENTO.borde } : undefined}>
+          {/* SU MOMENTO, lo primero de la tarjeta: cambia lo que se le puede hacer hoy. */}
+          {act.paciente?.momento && <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, fontWeight:600, color:COLOR_MOMENTO.texto, marginBottom:8 }}>
+            <Ic name="reloj" size={13}/> {textoMomento(act.paciente)}</div>}
           {/* Con la pantalla estrecha, lo de la derecha baja de línea en vez de salirse. */}
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
             <div style={{minWidth:0,flexShrink:0}}>

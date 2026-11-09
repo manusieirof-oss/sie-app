@@ -1,4 +1,5 @@
 'use client'
+import { COLOR_MOMENTO, textoMomento } from '@/lib/momento'
 import { useEffect, useRef, useState } from 'react'
 import CaraPaciente from '@/components/CaraPaciente'
 import { Ic } from '@/lib/icons'
@@ -166,7 +167,10 @@ export default function VistaDia({ fecha, hoy, fechaDisplay, citas, totalPersona
       <button title={titulo} data-guia={'agenda-' + icono} onClick={e=>{e.stopPropagation();fn&&fn()}}><Ic name={icono} size={15}/></button>
     )
     return (
-      <div className={`ag-pac ${falta?'falta':''}`} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)} title={nombreTipo(c.tipo)}>
+      // Con momento (embarazo, postoperatorio…): raya dorada a la izquierda y el momento al pasar.
+      <div className={`ag-pac ${falta?'falta':''}`} onClick={()=>setVerAlertasCita&&setVerAlertasCita(c)}
+        title={c.pacientes?.momento ? `${textoMomento(c.pacientes)} · ${nombreTipo(c.tipo)}` : nombreTipo(c.tipo)}
+        style={c.pacientes?.momento ? { boxShadow: `inset 3px 0 0 ${COLOR_MOMENTO.raya}` } : undefined}>
         <span className="ag-av"><CaraPaciente p={c.pacientes}/></span>
         <span className="ag-nom">{c.pacientes?.nombre} {c.pacientes?.apellidos}</span>
         {falta&&<span className="ag-tag" style={{background:'var(--redl)',color:'var(--red)'}}>falta</span>}

@@ -1,4 +1,5 @@
 'use client'
+import { COLOR_MOMENTO, textoMomento } from '@/lib/momento'
 import AvisoTareas from './AvisoTareas'
 import { Ic } from '@/lib/icons'
 import { iconTipoClase } from '@/lib/tipos'
@@ -79,7 +80,8 @@ export default function VistaSemana({ fecha, hoy, citas, getFechasSemana, setFec
         )}
         {cd.map((c:any)=>(
           <div key={c.id} className="sem-pac" onClick={()=>setEditandoCita&&setEditandoCita({...c})}
-            title={`${getNombreCorto(c)} · ${nombreTipo(c.tipo)}`}>
+            title={`${getNombreCorto(c)}${c.pacientes?.momento ? ' · ' + textoMomento(c.pacientes) : ''} · ${nombreTipo(c.tipo)}`}
+            style={c.pacientes?.momento ? { boxShadow: `inset 3px 0 0 ${COLOR_MOMENTO.raya}` } : undefined}>
             <span className="ag-punto" style={{background:colorTipo(c.tipo),width:6,height:6}}/>
             <span className="sem-nom">{getNombreCorto(c)}</span>
             {alertasPaciente.some((a:any)=>a.paciente_id===c.paciente_id)&&<span style={{display:'inline-flex',color:'var(--red)',flexShrink:0}} title="Tiene alertas"><Ic name="alerta" size={10}/></span>}
