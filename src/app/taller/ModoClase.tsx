@@ -1,5 +1,6 @@
 'use client'
 import { COLOR_MOMENTO, textoMomento } from '@/lib/momento'
+import BarraMomento from '@/components/BarraMomento'
 import ChipPulso, { NombrePulso } from '@/components/ChipPulso'
 import CaraPaciente from '@/components/CaraPaciente'
 import MetodoParte from './MetodoParte'
@@ -2174,6 +2175,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
           {/* SU MOMENTO, lo primero de la tarjeta: cambia lo que se le puede hacer hoy. */}
           {act.paciente?.momento && <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, fontWeight:600, color:COLOR_MOMENTO.texto, marginBottom:8 }}>
             <Ic name="reloj" size={13}/> {textoMomento(act.paciente)}</div>}
+          {act.paciente?.momento_hasta && <div style={{ marginBottom: 10 }}><BarraMomento p={act.paciente} ancho={320}/></div>}
           {/* Con la pantalla estrecha, lo de la derecha baja de línea en vez de salirse. */}
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,flexWrap:'wrap'}}>
             <div style={{minWidth:0,flexShrink:0}}>

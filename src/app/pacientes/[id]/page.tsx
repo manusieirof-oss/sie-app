@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, quitarBono, BonoTipo, cuotaVigenteDe } from '@/lib/bonos'
 import FichaTab from './components/FichaTab'
+import { textoMomento, esEmbarazo } from '@/lib/momento'
+import BarraMomento from '@/components/BarraMomento'
 import Documentos from './components/Documentos'
 import Consentimientos from './components/Consentimientos'
 import { listarDocumentos } from '@/lib/documentos'
@@ -114,10 +116,10 @@ export default function FichaPacientePage() {
      momento se pone A MANO, con la fecha desde la que está así; al cambiarlo o quitarlo
      queda en su historial. */
   type CosaMomento = { tipo: 'patologia' | 'molestia' | 'operacion', id: string, nombre: string }
-  const [editMomento, setEditMomento] = useState<{ texto: string, desde: string, cosas: CosaMomento[] } | null>(null)
-  async function guardarMomento(texto: string | null, desde: string | null, cosas: CosaMomento[] = []) {
+  const [editMomento, setEditMomento] = useState<{ texto: string, desde: string, hasta: string, cosas: CosaMomento[] } | null>(null)
+  async function guardarMomento(texto: string | null, desde: string | null, cosas: CosaMomento[] = [], hasta: string | null = null) {
     const antes = pac?.momento || ''
-    const { error } = await supabase.from('pacientes').update({ momento: texto || null, momento_desde: texto ? (desde || hoyISO()) : null, momento_cosas: texto ? cosas : [] }).eq('id', id)
+    const { error } = await supabase.from('pacientes').update({ momento: texto || null, momento_desde: texto ? (desde || hoyISO()) : null, momento_cosas: texto ? cosas : [], momento_hasta: texto ? (hasta || null) : null }).eq('id', id)
     if (error) { alert('No se ha podido guardar el momento:\n\n' + error.message); return }
     await supabase.from('eventos_paciente').insert({ paciente_id: id, tipo: 'momento', fecha: hoyISO(),
       titulo: texto ? `Momento: ${texto}` : `Deja el momento: ${antes}` })
@@ -865,10 +867,10 @@ export default function FichaPacientePage() {
             {/* SU BONO, al lado del estado: es lo segundo que se pregunta. El detalle
                 (asignar, cobrar, sesiones) está en «Por ubicar». */}
             {/* Su momento, al lado del estado. Sin momento, un hueco discreto para ponerlo. */}
-            {(pac.momento || puedeSalud) && <span className="pat-tag" onClick={puedeSalud ? ()=>setEditMomento({ texto: pac.momento || '', desde: pac.momento_desde || hoyISO(), cosas: pac.momento_cosas || [] }) : undefined}
+            {(pac.momento || puedeSalud) && <span className="pat-tag" onClick={puedeSalud ? ()=>setEditMomento({ texto: pac.momento || '', desde: pac.momento_desde || hoyISO(), hasta: pac.momento_hasta || '', cosas: pac.momento_cosas || [] }) : undefined}
               title={puedeSalud ? 'Cambiar su momento' : undefined}
               style={pac.momento ? {background:'rgba(201,168,76,.22)',color:'#F3DFA6',cursor:puedeSalud?'pointer':'default'} : {background:'transparent',border:'1px dashed rgba(255,255,255,.28)',color:'rgba(255,255,255,.6)',cursor:'pointer'}}>
-              <Ic name="reloj" size={11}/> {pac.momento ? `${pac.momento}${(pac.momento_cosas||[]).length ? ' · ' + pac.momento_cosas.map((c:any)=>c.nombre).join(', ') : ''}${pac.momento_desde ? ' · desde ' + new Date(pac.momento_desde + 'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}).replace('.','') : ''}` : 'Momento'}
+              <Ic name="reloj" size={11}/> {pac.momento ? textoMomento(pac) : 'Momento'}
             </span>}
             <span className="pat-tag" style={{background:'rgba(255,255,255,.12)',color:'#fff',cursor:'pointer'}} onClick={()=>setTab('ubicar')}
               title="Bono y cuota (en «Por ubicar»)">
@@ -941,13 +943,21 @@ export default function FichaPacientePage() {
                     <span style={{ color:'var(--grl)', fontWeight:400 }}>{ETQ[o.tipo]} ·</span> {o.nombre}</button>)}
                 </div></div>
             })()}
-            <div className="field"><label>Desde</label>
-              <input className="input" type="date" value={editMomento.desde} onChange={e=>setEditMomento(m=>m && ({ ...m, desde: e.target.value }))}/></div>
+            {/* Embarazo: la FPP manda (semana y trimestre salen de ella). Otros: desde y,
+                si se sabe, hasta cuándo, para la cuenta atrás. */}
+            <div className="g2">
+              {!esEmbarazo(editMomento.texto) && <div className="field"><label>Desde</label>
+                <input className="input" type="date" value={editMomento.desde} onChange={e=>setEditMomento(m=>m && ({ ...m, desde: e.target.value }))}/></div>}
+              <div className="field"><label>{esEmbarazo(editMomento.texto) ? 'Fecha probable de parto (FPP)' : 'Hasta'} <span style={{ color:'var(--grl)', fontWeight:400 }}>{esEmbarazo(editMomento.texto) ? '' : '· opcional'}</span></label>
+                <input className="input" type="date" value={editMomento.hasta} onChange={e=>setEditMomento(m=>m && ({ ...m, hasta: e.target.value }))}/></div>
+            </div>
+            {editMomento.hasta && <div style={{ margin:'2px 0 10px' }}>
+              <BarraMomento p={{ momento: editMomento.texto, momento_desde: editMomento.desde, momento_hasta: editMomento.hasta }} ancho={400}/></div>}
             <div style={{ display:'flex', gap:8, marginTop:8 }}>
               {pac?.momento && <button className="btn btn-d btn-sm" onClick={()=>guardarMomento(null, null)}>Quitar momento</button>}
               <div style={{ flex:1 }}/>
               <button className="btn btn-t btn-sm" onClick={()=>setEditMomento(null)}>Cancelar</button>
-              <button className="btn btn-p btn-sm" disabled={!editMomento.texto.trim()} onClick={()=>guardarMomento(editMomento.texto.trim(), editMomento.desde, editMomento.cosas)}>Guardar</button>
+              <button className="btn btn-p btn-sm" disabled={!editMomento.texto.trim()} onClick={()=>guardarMomento(editMomento.texto.trim(), editMomento.desde, editMomento.cosas, editMomento.hasta)}>Guardar</button>
             </div>
           </div>
         </div>
