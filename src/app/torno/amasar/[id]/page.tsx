@@ -241,6 +241,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       feedbacks: d.feedbacks.filter(i => i.texto?.trim()), trabajo: d.trabajo, anatomia: d.anatomia }
     // Solo si ha cambiado: así guardar no depende de la columna si nunca se usó.
     if (JSON.stringify(d.por_revisar) !== JSON.stringify(orig.por_revisar)) fila.por_revisar = d.por_revisar
+    // Quitar la foto (vuelve la figura automática): antes no se guardaba nunca.
+    if (!foto && !d.imagen_url && orig.imagen_url) fila.imagen_url = ''
     let id = params.id
     if (nuevo) {
       const { data, error } = await supabase.from('ejercicios')
@@ -441,7 +443,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         <label style={{ display: 'block', cursor: 'pointer' }}>
           <div className="btn btn-s" style={{ justifyContent: 'center', width: '100%' }}><Ic name="camara" size={13}/> {preview || d.imagen_url ? 'Cambiar foto' : 'Subir foto'}</div>
           <input type="file" accept="image/*" style={{ display: 'none' }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) { setFoto(f); setPreview(URL.createObjectURL(f)) } }}/>
+            onChange={e => { const f = e.target.files?.[0]; if (f) { setFoto(f); setPreview(URL.createObjectURL(f)) }; e.target.value = '' }}/>
         </label>
         {(preview || d.imagen_url) && (
           <button className="btn btn-t btn-sm" style={{ marginTop: 8 }} onClick={() => { setFoto(null); setPreview(''); set('imagen_url', '') }}>
@@ -1084,9 +1086,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 <Ic name="guardar" size={13}/> {guardando ? 'Añadiendo…' : `Añadir a los ${grupoEjs.length}`}
               </button>
             ) : (
+              <>
+              {/* Si no se puede guardar, se dice por qué: antes el botón salía gris sin más y
+                  parecía que no dejaba cambiar la foto (le faltaba «cómo se mide»). */}
+              {!puedeGuardar && cambiado && !guardando && <span style={{ fontSize: 12, color: '#8A6410' }}>
+                {!d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta «cómo se mide» para poder guardar' : repetido ? 'Ya hay otro ejercicio con ese nombre' : ''}</span>}
               <button className="btn btn-p" disabled={!puedeGuardar} onClick={guardar}>
                 <Ic name="guardar" size={13}/> {guardando ? 'Guardando…' : nuevo ? 'Crear' : 'Guardar'}
               </button>
+              </>
             )}
           </div>
         </div>
