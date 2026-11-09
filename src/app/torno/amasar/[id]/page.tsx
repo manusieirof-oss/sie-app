@@ -94,6 +94,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [buscaEt, setBuscaEt] = useState('')
   const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
+  const [buscaFam, setBuscaFam] = useState('')
   // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
   const [nombreVar, setNombreVar] = useState<string | null>(null)
   // AÑADIR A LA FAMILIA desde la ficha: null = cerrado; si no, lo que se busca.
@@ -143,7 +144,14 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       }
     }
     // "Añadir a la familia → uno nuevo": llega con ?familia=<principal> y sale ya dentro.
-    if (nuevo && sp.get('familia')) { set('portada_id', sp.get('familia')); setModoFam('variante') }
+    if (nuevo && sp.get('familia')) {
+      set('portada_id', sp.get('familia')); setModoFam('variante')
+      // Y su familia (etiqueta), que es lo que manda ahora.
+      const deFam = (b.filas || []).find((x: any) => x.id === sp.get('familia'))
+      const famIds = new Set((a.filas || []).filter((e: any) => e.categoria === 'familia').map((e: any) => e.id))
+      const fId = (deFam?.etiquetas || []).find((x: string) => famIds.has(x))
+      if (fId) setD(p => ({ ...p, etiquetas: Array.from(new Set([...p.etiquetas, fId])) }))
+    }
     setCargando(false)
     if (recien) { setAviso('✓ Creado. Ya está en la biblioteca'); setTimeout(() => setAviso(''), 4000) }
   }
@@ -192,6 +200,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // ---- Los quesitos -----------------------------------------------------------
   const nEt = d.etiquetas.length
   const variantes = ejs.filter(x => !nuevo && x.portada_id === params.id)
+  const familiasEt = ets.filter((e: any) => e.categoria === 'familia').sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
+  const famActual = familiasEt.find((f: any) => d.etiquetas.includes(f.id)) || null
+  /** Una sola familia: poner una quita la que hubiera. */
+  const ponerFamilia = (id: string | null) => setD(p => ({ ...p, etiquetas: [...p.etiquetas.filter(x => !familiasEt.some((f: any) => f.id === x)), ...(id ? [id] : [])] }))
   const UNO: { k: Clave, t: string, ic: string, lleno: boolean, sub: string, opcional?: boolean, rev?: boolean }[] = [
     { k: 'nombre', t: 'Nombre', ic: 'editar', lleno: !!d.nombre.trim(), sub: d.nombre || 'Sin nombre' },
     { k: 'descripcion', t: 'Descripción', ic: 'nota', lleno: !!d.descripcion.trim(), sub: d.descripcion ? 'Escrita' : 'Vacía' },
@@ -212,9 +224,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     { k: 'foto', t: 'Foto y vídeo', ic: 'camara', opcional: true, lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
     // Elegir "Suelto" o "Principal" también es decidir: el quesito se marca aunque
     // en la base no cambie nada (suelto es no tener familia; principal sin variantes, igual).
-    { k: 'familia', t: 'Familia', ic: 'plantillas', opcional: true, lleno: !!d.portada_id || variantes.length > 0 || modoFam !== null,
-      sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otra'}`
-        : variantes.length ? `Principal · ${variantes.length}` : modoFam === 'portada' ? 'Principal' : 'Suelto' },
+    // LA FAMILIA ES UNA ETIQUETA (categoría Familia): una por ejercicio. La base de datos
+    // recoloca sola la familia por debajo (sql/familia-etiqueta-2.sql).
+    { k: 'familia', t: 'Familia', ic: 'plantillas', opcional: true, lleno: !!famActual,
+      sub: famActual ? famActual.nombre : 'Sin familia' },
   ]
   // En VARIOS solo lo que se puede compartir; nombre, descripción y foto son de cada uno.
   const nTxt = (l: any[]) => l.filter(i => i.texto?.trim()).length
@@ -236,7 +249,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
   async function guardar() {
     setGuardando(true); setAviso('')
-    const fila: any = { nombre: d.nombre.trim(), descripcion: d.descripcion, video_url: d.video_url, etiquetas: d.etiquetas,
+    const famsEn = d.etiquetas.filter(x => familiasEt.some((f: any) => f.id === x))
+    const etiquetasF = famsEn.length > 1 ? d.etiquetas.filter(x => !famsEn.slice(0, -1).includes(x)) : d.etiquetas
+    const fila: any = { nombre: d.nombre.trim(), descripcion: d.descripcion, video_url: d.video_url, etiquetas: etiquetasF,
       tipo_medida: d.tipo_medida, items_ejecucion: d.items_ejecucion.filter(i => i.texto?.trim()),
       feedbacks: d.feedbacks.filter(i => i.texto?.trim()), trabajo: d.trabajo, anatomia: d.anatomia }
     // Solo si ha cambiado: así guardar no depende de la columna si nunca se usó.
@@ -461,59 +476,36 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           <input className="input" value={d.video_url} onChange={e => set('video_url', e.target.value)} placeholder="https://…"/></div>
       </>)
       case 'familia': {
-        const modo = modoFam || (d.portada_id ? 'variante' : variantes.length ? 'portada' : 'suelto')
-        const tarjeta = (m: 'suelto' | 'variante' | 'portada', t: string, a: string) => (
-          <button key={m} type="button" onClick={() => { setModoFam(m); if (m !== 'variante') set('portada_id', null) }}
-            style={{ textAlign: 'left', padding: '12px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', border: 'none',
-              background: modo === m ? 'var(--g)' : '#fff', color: modo === m ? '#fff' : 'var(--n)', boxShadow: '0 3px 12px rgba(38,40,37,.10)' }}>
-            <div style={{ fontSize: 14 }}>{t}</div><div style={{ fontSize: 11.5, opacity: .8, marginTop: 2 }}>{a}</div>
-          </button>
-        )
+        // Buscar la familia (o crearla) y elegirla. Todos los que la llevan son de la
+        // misma familia, sin principal ni variantes.
+        const qf = normalizar(buscaFam).trim()
+        const lista = familiasEt.filter((f: any) => !qf || normalizar(f.nombre).includes(qf)).slice(0, 40)
+        const existe = familiasEt.some((f: any) => normalizar(f.nombre).trim() === qf)
+        const crear = async () => {
+          const nombre = buscaFam.trim(); if (!nombre) return
+          const { data, error } = await supabase.from('etiquetas').insert({ nombre, categoria: 'familia' }).select('*').single()
+          if (error || !data) { setAviso('No se ha creado la familia: ' + (error?.message || '')); return }
+          setEts(p => [...p, data]); ponerFamilia(data.id); setBuscaFam('')
+        }
+        const companeros = famActual ? ejs.filter(x => x.id !== params.id && (x.etiquetas || []).includes(famActual.id)) : []
         return (<>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {tarjeta('suelto', 'Suelto', 'Sin familia: un ejercicio por su cuenta')}
-            {tarjeta('variante', 'Variante de otro', 'Pertenece a la familia de una portada')}
-            {tarjeta('portada', 'Principal de una familia', 'De él salen las variantes')}
+          {famActual && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span className="chip-sel on" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>{famActual.nombre}</span>
+            <button className="btn btn-t btn-sm" onClick={() => ponerFamilia(null)}>Quitar familia</button>
+          </div>}
+          <input className="input" value={buscaFam} onChange={e => setBuscaFam(e.target.value)} placeholder="Buscar o crear una familia (p. ej. Curl de bíceps)"/>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
+            {lista.map((f: any) => <button key={f.id} type="button" className={'chip-sel' + (famActual?.id === f.id ? ' on' : '')} style={{ textTransform: 'none', letterSpacing: 0 }}
+              onClick={() => ponerFamilia(famActual?.id === f.id ? null : f.id)}>{f.nombre}</button>)}
           </div>
-          {modo === 'variante' && (
-            <div className="field" style={{ marginTop: 12 }}><label>¿De qué ejercicio?</label>
-              <select className="input" value={d.portada_id || ''} onChange={e => set('portada_id', e.target.value || null)}>
-                <option value="" disabled>Elige la portada…</option>
-                {ejs.filter(x => !x.portada_id && x.id !== params.id).map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-              </select>
+          {buscaFam.trim() && !existe && <button className="btn btn-s btn-sm" style={{ marginTop: 8 }} onClick={crear}>+ Crear la familia «{buscaFam.trim()}»</button>}
+          {companeros.length > 0 && (<>
+            <div className="et-mini" style={{ margin: '14px 0 6px' }}>También en esta familia · {companeros.length}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {companeros.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 0 }} onClick={() => ir(aEj(x.id))}>{x.nombre}</span>)}
             </div>
-          )}
-          {modo === 'portada' && (
-            <div style={{ marginTop: 12 }}>
-              {variantes.length > 0 && (<>
-                <div className="et-mini" style={{ marginBottom: 6 }}>Sus variantes</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                  {variantes.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(aEj(x.id))}>{x.nombre}</span>)}
-                </div>
-              </>)}
-              {variantes.length === 0 && !nuevo && (
-                <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 8 }}>
-                  Será el principal en cuanto tenga su primera variante. Sácala desde aquí:
-                </div>
-              )}
-              {nuevo
-                ? <div style={{ fontSize: 12, color: 'var(--grl)' }}>Créalo primero y luego podrás sacarle variantes.</div>
-                : <button className="btn btn-s btn-sm" onClick={() => { setAbierto(null); setFichaOn(true); setNombreVar(`${d.nombre} · `) }}>+ Amasar una variante de este</button>}
-            </div>
-          )}
-          {orig.portada_id && d.portada_id === orig.portada_id && modo === 'variante' && (
-            <button className="btn btn-s btn-sm" style={{ marginTop: 12 }} disabled={cambiado || guardando} title={cambiado ? 'Guarda antes los cambios' : ''}
-              onClick={pasarAPrincipal}>Hacer principal de la familia</button>
-          )}
-          {d.portada_id && modo === 'variante' && (() => {
-            const her = ejs.filter(x => x.portada_id === d.portada_id && x.id !== params.id)
-            return her.length ? (<>
-              <div className="et-mini" style={{ margin: '12px 0 6px' }}>Su familia</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {her.map(x => <span key={x.id} className="chip-sel" style={{ fontSize: 12 }} onClick={() => ir(aEj(x.id))}>{x.nombre}</span>)}
-              </div>
-            </>) : null
-          })()}
+          </>)}
+          <div style={{ fontSize: 11.5, color: 'var(--grl)', marginTop: 10 }}>Una sola familia por ejercicio. Se aplica al guardar.</div>
         </>)
       }
     }
