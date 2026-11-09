@@ -279,20 +279,38 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
   const cuenta = (f: (c: any) => boolean) => vis.filter(f).length
 
   // Lo que explica cada vista, debajo.
+  /* LA LEYENDA, ORDENADA: una línea por cosa (punto, nombre y su número a la derecha) y
+     la explicación aparte, pequeña, al final. Seguida en un párrafo no se leía. */
+  const Fila = ({ c, t, n }: { c: number | string, t: React.ReactNode, n?: React.ReactNode }) => (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 0' }}>
+      <span style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: typeof c === 'number' ? hex(c) : c, transform: 'translateY(1px)' }}/>
+      <span style={{ flex: 1, minWidth: 0, color: 'var(--n)' }}>{t}</span>
+      {n != null && <b style={{ fontWeight: 600, color: 'var(--n)' }}>{n}</b>}
+    </div>
+  )
+  const Nota = ({ children }: { children: React.ReactNode }) => <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 6, lineHeight: 1.5 }}>{children}</div>
   const leyenda = (() => {
     if (vistaN === 'normal') return null
-    if (vistaN === 'cambios') return <><Pto c={COL_CAMBIO.falta}/><b>{cuenta(c => c.estado === 'falta')}</b> faltas <Pto c={COL_CAMBIO.cancelada}/><b>{cuenta(c => c.estado === 'cancelada')}</b> canceladas
-      <Pto c={COL_CAMBIO.movida}/><b>{cuenta(c => c.movida && c.estado !== 'falta' && c.estado !== 'cancelada')}</b> cambiadas de día u hora <Pto c={COL_CAMBIO.sesion}/><b>{cuenta(c => c.cambioSesion && !c.movida && c.estado !== 'falta' && c.estado !== 'cancelada')}</b> con la sesión cambiada. Cada una, un aro en su día.</>
-    if (vistaN === 'sesiones') return <>{Object.entries(datos.nomSes).map(([l, nom]) => <span key={l}><Pto c={datos.colSes[l]}/><b>{l}</b> {nom} <b>{cuenta(c => c.estado === 'realizada' && datos.neb[vis.indexOf(c)]?.ses === l)}</b> </span>)}
-      <br/>La niebla toma el color de la sesión de cada día; la letra encima dice cuál (× si faltó). Las que aún no ha hecho, más claras.{n > 60 ? ' Con tantas citas no caben las letras: acorta las fechas.' : ''}</>
+    const valida = (c: any) => c.estado !== 'falta' && c.estado !== 'cancelada'
+    if (vistaN === 'cambios') return <>
+      <Fila c={COL_CAMBIO.falta} t="Faltas" n={cuenta(c => c.estado === 'falta')}/>
+      <Fila c={COL_CAMBIO.cancelada} t="Canceladas" n={cuenta(c => c.estado === 'cancelada')}/>
+      <Fila c={COL_CAMBIO.movida} t="Cambiadas de día u hora" n={cuenta(c => c.movida && valida(c))}/>
+      <Fila c={COL_CAMBIO.sesion} t="Con la sesión cambiada" n={cuenta(c => c.cambioSesion && !c.movida && valida(c))}/>
+      <Nota>Cada una, un aro en su día.</Nota></>
+    if (vistaN === 'sesiones') return <>
+      {Object.entries(datos.nomSes).map(([l, nom]) => <Fila key={l} c={datos.colSes[l]} t={<><b style={{ fontWeight: 600 }}>{l}</b> · {nom}</>} n={cuenta(c => c.estado === 'realizada' && datos.neb[vis.indexOf(c)]?.ses === l)}/>)}
+      <Nota>El número, las veces que la ha hecho. La letra encima de cada día dice cuál hizo (× si faltó); las que aún no ha hecho, más claras.{n > 60 ? ' Con tantas citas no caben las letras: acorta las fechas.' : ''}</Nota></>
     if (vistaN === 'objetivos') return Object.keys(datos.colObj).length
-      ? <>{Object.keys(datos.colObj).map(o => <span key={o}><Pto c={datos.colObj[o]}/>{nomObj[o] || 'Objetivo'} <b>{datos.cuentaObj[o]}</b> </span>)}<br/>Cuanto más se trabaja un objetivo, más grande y más brilla su luz.</>
-      : <>Sus sesiones de estas fechas no tienen objetivos enganchados.</>
+      ? <>{Object.keys(datos.colObj).map(o => <Fila key={o} c={datos.colObj[o]} t={nomObj[o] || 'Objetivo'} n={datos.cuentaObj[o]}/>)}
+        <Nota>El número, las sesiones hechas que lo trabajan. Cuanto más se trabaja, más grande y más brilla su luz.</Nota></>
+      : <Nota>Sus sesiones de estas fechas no tienen objetivos enganchados.</Nota>
     const ms2 = datos.mols.filter(m => m.ini && m.ini <= hasta)
     return ms2.length
-      ? <>{ms2.map((m, k) => <span key={k}><Pto c={m.fin ? '#E3A6A6' : '#C0392B'}/>{m.zona} · EVA {m.eva} {m.fin ? (m.resuelta_el ? '(ya pasó)' : '(quitada, sin fecha)') : <b>activa</b>} </span>)}
-        <br/>Rojo mientras duele, más fuerte cuanto más EVA. Al quitarse queda rosado y se va apagando: cuanto más fuerte fue, más tarda en irse.</>
-      : <>Sin molestias en estas fechas.</>
+      ? <>{ms2.map((m, k) => <Fila key={k} c={m.fin ? '#E3A6A6' : '#C0392B'} t={<>{m.zona} <span style={{ color: 'var(--grl)' }}>· EVA {m.eva}</span></>}
+          n={m.fin ? <span style={{ fontWeight: 400, color: 'var(--grl)' }}>{m.resuelta_el ? 'ya pasó' : 'quitada'}</span> : <span style={{ color: '#C0392B' }}>activa</span>}/>)}
+        <Nota>Rojo mientras duele, más fuerte cuanto más EVA. Al quitarse queda rosado y se va apagando: cuanto más fuerte fue, más tarda en irse.</Nota></>
+      : <Nota>Sin molestias en estas fechas.</Nota>
   })()
 
   const semanas = Math.round(dias(desde || T0, hasta || T1) / 7)
@@ -341,8 +359,8 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
         </>}
         {/* La leyenda, debajo del botón de vistas y flotando (con scroll si es larga): así
             no empuja nada al cambiar de vista. */}
-        {!grande && leyenda && <div style={{ position: 'absolute', right: 0, top: 44, width: 'min(34%, 340px)', maxHeight: 210, overflow: 'auto', zIndex: 4,
-          fontSize: 11.5, color: 'var(--gr)', lineHeight: 1.6, background: 'rgba(255,255,255,.88)', padding: '2px 4px' }}>{leyenda}</div>}
+        {!grande && leyenda && <div style={{ position: 'absolute', right: 0, top: 44, width: 'min(30%, 300px)', maxHeight: 230, overflow: 'auto', zIndex: 4,
+          fontSize: 12, lineHeight: 1.4, background: 'rgba(255,255,255,.9)', padding: '4px 6px' }}>{leyenda}</div>}
         {grande && leyenda && <div style={{ fontSize: 11.5, color: 'var(--gr)', lineHeight: 1.6 }}>{leyenda}</div>}
         {/* Lo abierto de la columna izquierda, en el blanco al lado de la nebulosa. */}
         {/* Lo abierto, tal cual en el blanco: solo texto, sin caja ni bordes. */}
