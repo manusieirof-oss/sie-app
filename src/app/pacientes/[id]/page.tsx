@@ -46,7 +46,8 @@ export default function FichaPacientePage() {
   // la valoración al terminar para repartir las sesiones.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
-    if (t) setTab(t)
+    // «Salud» ya no es pestaña (lo que había está en la ficha, la valoración y la cabecera): va a la ficha.
+    if (t) setTab(t === 'salud' ? 'ficha' : t)
   }, [])
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)
@@ -1018,7 +1019,7 @@ export default function FichaPacientePage() {
 
       {/* TABS */}
       <div className="tabs">
-        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['salud','salud','Salud'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados'],['ubicar','carpeta','Por ubicar']].map(([k,ic,l])=>(
+        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados'],['ubicar','carpeta','Por ubicar']].map(([k,ic,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
@@ -1052,7 +1053,7 @@ export default function FichaPacientePage() {
           abrirTest={abrirTest}
           /* Cambiar de pestaña desde dentro. `router.push('?tab=entreno')` no hacía nada:
              el parámetro solo se lee al montar y aquí no se remonta nada. */
-          irA={(t:string)=>setTab(t)}
+          irA={(t:string)=>setTab(t === 'salud' ? 'ficha' : t)}
         />
       )}
 
