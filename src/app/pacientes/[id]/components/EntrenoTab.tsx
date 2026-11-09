@@ -14,7 +14,7 @@ import { Ic } from '@/lib/icons'
 import BarraAsignacion from '@/components/BarraAsignacion'
 import { encargoDeLaUrl, asignarSesionYVolver, rutaDeAsignacion, type Encargo } from '@/lib/asignarCita'
 import { useRouter } from 'next/navigation'
-import ProgramacionCitas from '@/components/ProgramacionCitas'
+import CalendarioCitasPaciente from '@/components/CalendarioCitasPaciente'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
@@ -39,7 +39,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
   const [citasPasadas, setCitasPasadas] = useState<any[]>([])
   const [regsPasados, setRegsPasados] = useState<any[]>([])
   // Planificación en lista (la de siempre) o como la presentación final del torno.
-  const [vistaPlan, setVistaPlan] = useState<'lista'|'interactiva'|'cambiar'>('lista')
+  const [vistaPlan, setVistaPlan] = useState<'calendario'|'interactiva'>('calendario')
   /**
    * La cita cuya sesión se está ajustando. Distinto de editar la sesión: aquí lo
    * que se guarde va a ESA cita, no al plan que comparten todas.
@@ -537,7 +537,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {/* Mismo conmutador que en Salud (.vista-sw): era el cuarto estilo de pestañas
           de la app, hecho a mano y con tipografía de 11px. */}
       <div className="vista-sw">
-        {([['activo','calendario','Planificación',citasFuturas.length],['sistemas','objetivo','Sistemas',todosSistemas.length],['sesiones','lista','Sesiones',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',nEjecuciones]] as const).map(([k,ic,l,n])=>(
+        {([['activo','calendario','Planificación',citasFuturas.length],['sesiones','lista','Sesiones y sistemas',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',nEjecuciones]] as const).map(([k,ic,l,n])=>(
           <button key={k} className={`vista-b ${seccion===k?'on':''}`} onClick={()=>setSeccion(k)}>
             <Ic name={ic} size={13}/> {l}
             <span className="cnt">{n}</span>
@@ -599,7 +599,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         const conmutador = (
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
             <div className="vista-sw" style={{margin:0}}>
-              {([['lista','lista','Lista'],['interactiva','calendario','Vista interactiva'],['cambiar','cambio','Cambiar sesiones']] as const).map(([k,ic,l])=>(
+              {([['calendario','calendario','Calendario'],['interactiva','lista','Vista interactiva']] as const).map(([k,ic,l])=>(
                 <button key={k} className={`vista-b ${vistaPlan===k?'on':''}`} onClick={()=>setVistaPlan(k)}><Ic name={ic} size={12}/> {l}</button>
               ))}
             </div>
@@ -609,15 +609,7 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         // VISTA INTERACTIVA: sus citas como al acabar en el torno. Un color por sesión
         // (en el orden en que salen), la fase del sistema que manda y sus evaluaciones.
         // CAMBIAR: la misma pieza que en la agenda (Programación), con todas sus citas.
-        if (vistaPlan==='cambiar') return (
-          <div className="panel">
-            {conmutador}
-            <div style={{maxWidth:620,margin:'0 auto'}}>
-              <ProgramacionCitas pacienteId={pacienteId} volver={`/pacientes/${pacienteId}?tab=entreno`}
-                etiqueta={nombrePaciente || 'este paciente'} limite={60} onCambio={()=>{cargarDatos();onRefresh()}}/>
-            </div>
-          </div>
-        )
+        // «Cambiar sesiones» ya no está aquí: para cambiar algo se va al torno.
         if (vistaPlan==='interactiva') {
           const PALETA = ['#5A969E','#C9A84C','#B0708C','#6E8FC7','#7C9A6B','#C77F5A','#8A7CC7','#4F9C8A']
           const colorSes: Record<string,string> = {}
@@ -651,177 +643,35 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           )
         }
 
+        // PLANIFICACIÓN COMO EN EL TORNO: la barra de cuántas citas por delante tienen
+        // sesión y el calendario (mes pasado, actual y siguiente; o 6 meses, o un año).
+        // Para cambiar algo, al torno. Los sistemas van ahora en la pestaña Sesiones.
         return (
         <div className="panel">
           {conmutador}
-          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados} escalones={escalones}
-            onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac)}} onRecargar={cargarDatos}/>
           <div className="sec">
             <div className="sec-h">
               <span className="sh-l">
                 <span className="ct-l"><Ic name="calendario" size={13}/> Citas por delante</span>
                 {total>0 && <span className="sh-r">{conSes} de {total} con sesión · {pct}%</span>}
               </span>
-              {/* Poner sesiones en las citas: siempre en el calendario. Ver abrirCalendario. */}
-              {editaPlan && total>0 && (
+              {editaPlan && (
                 <button className="btn btn-p btn-sm" onClick={()=>abrirCalendario()}>
-                  <Ic name="calendario" size={12}/> Poner sesiones en citas
+                  <Ic name="calendario" size={12}/> Cambiar en el torno
                 </button>
               )}
             </div>
             {total>0 && (
-              <div style={{height:6,background:'var(--bm)',borderRadius:99,overflow:'hidden',marginBottom:12}}>
+              <div style={{height:6,background:'var(--bm)',borderRadius:99,overflow:'hidden',marginBottom:16}}>
                 <div style={{height:'100%',background:'var(--g)',borderRadius:99,width:pct+'%',transition:'width .3s'}}/>
               </div>
             )}
-            {total===0&&<div className="muted">Sin citas futuras programadas</div>}
-            {porMes(citasFuturas).map(g=>(
-              <div key={g.mes}>
-                <div className="sep-mes">{g.mes}</div>
-                {g.citas.map(c=>{
-                  const tieneSesion=!!c.sesiones
-                  const fecha=new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})
-                  const pin=pintar(c.fecha)
-                  const cortes=cortesEn[c.id]||[]
-                  return (
-                    <div key={'b'+c.id}>
-                    {cortes.map((co:any,ci:number)=>(
-                      <div key={ci} style={{display:'flex',alignItems:'center',gap:9,margin:'13px 0 7px'}}>
-                        <span style={{flex:1,height:1,background:co.color,opacity:.5}}/>
-                        <span style={{fontSize:9,fontWeight:600,textTransform:'uppercase',
-                          letterSpacing:.5,color:co.color,whiteSpace:'nowrap'}}>
-                          {co.sistema} · {co.fase.nombre}
-                        </span>
-                        <span style={{flex:1,height:1,background:co.color,opacity:.5}}/>
-                      </div>
-                    ))}
-                    <div className="fila-p"
-                      title={pin?`${marco?.sistema?.nombre} · ${pin.fase.nombre}`:undefined}
-                      style={{borderLeftColor:pin?pin.color:(tieneSesion?'var(--g)':'var(--bd)'),
-                              background:pin?pin.fondo:undefined}}>
-                      {/* Los demas sistemas van de punto: la cita tambien cuenta para
-                          ellos, pero el color lo pone el marco y no se parte. */}
-                      {otros.filter(o=>o.sistema&&faseEn(o.sistema,o,c.fecha,logrados,escalones)).map(o=>(
-                        <span key={o.id} title={`${o.sistema!.nombre} · ${faseEn(o.sistema!,o,c.fecha,logrados,escalones)?.fase.nombre}`}
-                          style={{width:8,height:8,borderRadius:99,flexShrink:0,background:o.sistema!.color}}/>
-                      ))}
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,color:'var(--n)'}}>{fecha} · {c.hora?.slice(0,5)} · Sala {c.sala}</div>
-                        {tieneSesion?(
-                          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:1}}>
-                            <span style={{fontSize:12,color:'var(--gd)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name="valoracion" size={12}/> {c.sesiones.nombre}{c.sesiones.fija && <span title="Fija: no corre con las demás"> 🔒</span>}</span>
-                          </div>
-                        ):<div style={{fontSize:12,color:'var(--gr)',marginTop:1}}>Sin sesión asignada</div>}
-                        {/* EL DIA DE LA EVALUACION. Se marca en la tarjeta del sistema y
-                            se ve aqui, que es donde se mira lo que toca cada dia. */}
-                        {evalDe(c).map((e:any)=>{
-                          const f = faseDeEval(e)
-                          return (
-                            <div key={e.id} style={{marginTop:3,display:'flex',alignItems:'center',gap:5,
-                              fontSize:10,padding:'1px 8px',borderRadius:99,width:'fit-content',
-                              background:'var(--gl)',border:`1px solid ${f.color}`,color:'var(--gd)'}}
-                              title={`Evaluación de ${f.nombre}`}>
-                              <Ic name="valoracion" size={10}/> Evaluación · {f.nombre}
-                            </div>
-                          )
-                        })}
-                        {/* Y QUE se pasa ese dia, de los repartidos a mano. Los que no
-                            tienen dia propio van en el dia general, que es la chapa. */}
-                        {(testsDia[c.fecha]||[]).length>0 && (
-                          <div style={{marginTop:3,display:'flex',flexWrap:'wrap',gap:4}}>
-                            {(testsDia[c.fecha]||[]).map((x:any)=>(
-                              <span key={x.test.id} style={{fontSize:10,padding:'1px 7px',borderRadius:99,
-                                background:'var(--w)',border:'1px solid var(--gm)',color:'var(--gd)'}}>
-                                {x.test.tipo==='cuestionario'?'✎ ':'◎ '}{x.test.nombre}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {/* Lo que cambia ESE día respecto al plan. Se ve en la propia
-                            fila: si hay que abrir algo para saberlo, no se mira. */}
-                        {tieneSesion && !sinAjustes(c.ajustes) && (
-                          <div style={{marginTop:3,display:'flex',flexWrap:'wrap',gap:5}}>
-                            {resumenAjustes(c.sesiones, c.ajustes).map((r:any)=>(
-                              <span key={r.clave} style={{fontSize:10,padding:'1px 8px',borderRadius:99,
-                                background:'var(--ambl)',border:'1px solid var(--amb)',color:'#7A5800'}}
-                                title={r.cambios.map((x:any)=>`${x.campo}: ${x.de||'—'} → ${x.a||'—'}`).join('\n')}>
-                                {r.nombre} · {r.cambios.map((x:any)=>x.a||'—').join(', ')}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {tieneSesion && (
-                        <button title="Cambiar la sesión solo para este día" className="btn btn-t btn-sm" style={{flexShrink:0}}
-                          onClick={e=>{e.stopPropagation();abrirAjuste(c)}}>
-                          <Ic name="recuperar" size={13}/>
-                        </button>
-                      )}
-                      <button title="Editar la cita" className="btn btn-t btn-sm" style={{flexShrink:0}}
-                        onClick={e=>{e.stopPropagation();setEditandoCita({...c,paciente_id:pacienteId})}}>
-                        <Ic name="editar" size={13}/>
-                      </button>
-                    </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+            {total===0&&<div className="muted" style={{marginBottom:12}}>Sin citas futuras programadas</div>}
+            <CalendarioCitasPaciente pacienteId={pacienteId} puedeEditar={editaPlan}/>
           </div>
         </div>
         )
       })()}
-
-      {seccion==='sistemas'&&(
-        <div className="panel">
-          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados} escalones={escalones}
-            onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac);historialSistemas(pacienteId).then(setTodosSistemas)}}
-            onRecargar={cargarDatos}/>
-
-          {/* POR DONDE HA PASADO. Un sistema que se quita no se borra, y saber que
-              ya hizo una readaptacion entera es lo primero antes de ponerle otra. */}
-          {(() => {
-            const pasados = todosSistemas.filter(a=>a.activo===false)
-            if (pasados.length===0) return null
-            return (
-              <div className="sec">
-                <div className="sec-h">
-                  <span className="sh-l"><span className="ct-l"><Ic name="carpeta" size={13}/> Ya terminados</span></span>
-                  <span className="sh-r">{pasados.length}</span>
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:7}}>
-                  {pasados.map(a=>{
-                    const sis=a.sistema
-                    if (!sis) return null
-                    const t=tramos(sis,a)
-                    const ini=a.fecha_inicio
-                    const fin=t.length>0 ? t[t.length-1].hasta : null
-                    const corto=(iso:string)=>new Date(iso+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})
-                    return (
-                      <div key={a.id} style={{display:'flex',alignItems:'center',gap:9,background:'var(--w)',
-                        border:'1px solid var(--bd)',borderLeft:`4px solid ${sis.color}`,borderRadius:7,
-                        padding:'7px 11px 7px 9px',opacity:.75}}>
-                        <span style={{width:24,height:24,borderRadius:6,background:sis.color,color:'#fff',
-                          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                          {sis.icono ? <Ic name={sis.icono} size={12}/> : null}
-                        </span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:12,color:'var(--n)'}}>{sis.nombre}</div>
-                          <div style={{fontSize:11,color:'var(--gr)'}}>
-                            {(sis.fases||[]).length} fase{(sis.fases||[]).length===1?'':'s'}
-                            {ini && ` · desde el ${corto(ini)}`}
-                            {fin && ` hasta el ${corto(fin)}`}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
-        </div>
-      )}
 
       {seccion==='sesiones'&&(
         <div className="panel">
@@ -1005,6 +855,58 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
               )
             })()}
           </div>
+        </div>
+      )}
+
+      {/* LOS SISTEMAS, debajo de sus sesiones: no cuajaron como pestaña propia. */}
+      {seccion==='sesiones'&&(
+        <div className="panel">
+          <SistemasPaciente pacienteId={pacienteId} asignaciones={sistemasPac} logrados={logrados} escalones={escalones}
+            onCambio={()=>{sistemasDePaciente(pacienteId).then(setSistemasPac);historialSistemas(pacienteId).then(setTodosSistemas)}}
+            onRecargar={cargarDatos}/>
+
+          {/* POR DONDE HA PASADO. Un sistema que se quita no se borra, y saber que
+              ya hizo una readaptacion entera es lo primero antes de ponerle otra. */}
+          {(() => {
+            const pasados = todosSistemas.filter(a=>a.activo===false)
+            if (pasados.length===0) return null
+            return (
+              <div className="sec">
+                <div className="sec-h">
+                  <span className="sh-l"><span className="ct-l"><Ic name="carpeta" size={13}/> Ya terminados</span></span>
+                  <span className="sh-r">{pasados.length}</span>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                  {pasados.map(a=>{
+                    const sis=a.sistema
+                    if (!sis) return null
+                    const t=tramos(sis,a)
+                    const ini=a.fecha_inicio
+                    const fin=t.length>0 ? t[t.length-1].hasta : null
+                    const corto=(iso:string)=>new Date(iso+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})
+                    return (
+                      <div key={a.id} style={{display:'flex',alignItems:'center',gap:9,background:'var(--w)',
+                        border:'1px solid var(--bd)',borderLeft:`4px solid ${sis.color}`,borderRadius:7,
+                        padding:'7px 11px 7px 9px',opacity:.75}}>
+                        <span style={{width:24,height:24,borderRadius:6,background:sis.color,color:'#fff',
+                          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          {sis.icono ? <Ic name={sis.icono} size={12}/> : null}
+                        </span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:12,color:'var(--n)'}}>{sis.nombre}</div>
+                          <div style={{fontSize:11,color:'var(--gr)'}}>
+                            {(sis.fases||[]).length} fase{(sis.fases||[]).length===1?'':'s'}
+                            {ini && ` · desde el ${corto(ini)}`}
+                            {fin && ` hasta el ${corto(fin)}`}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
 
