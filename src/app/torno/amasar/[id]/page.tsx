@@ -710,6 +710,22 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     ? [principalFam, ...ejs.filter(x => x.portada_id === principalFam.id && x.id !== params.id)]
     : variantes
   const idPrincipal = d.portada_id || params.id
+  /* LA FAMILIA ALREDEDOR DEL ROSCO, SIEMPRE EN EL MISMO ORDEN: la principal primero y
+     las variantes por nombre, INCLUIDO el que se está mirando (marcado). Antes se quitaba
+     el actual y, al saltar de uno a otro, todos cambiaban de sitio. */
+  const yoEj = ejs.find(x => x.id === params.id)
+  const principalAn = principalFam || (variantes.length ? yoEj : null)
+  const familiaAnillo: any[] = principalAn
+    ? [principalAn, ...ejs.filter(x => x.portada_id === principalAn.id).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))]
+    : []
+  /** El nombre corto en el anillo: sin repetir el de la principal ("con polea", no "Curl de bíceps con polea"). */
+  const nombreCorto = (x: any) => {
+    if (!principalAn || x.id === principalAn.id) return x.nombre
+    const base = normalizar(principalAn.nombre || '').trim(), n = x.nombre || ''
+    if (!base || !normalizar(n).startsWith(base)) return n
+    const resto = n.slice(principalAn.nombre.trim().length).replace(/^[\s·,:-]+/, '')
+    return resto ? resto.charAt(0).toUpperCase() + resto.slice(1) : n
+  }
 
   /** Añadir a la familia: buscar uno que ya existe, o crear uno nuevo ya dentro. */
   function panelAnadir() {
@@ -955,8 +971,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             {/* SU FAMILIA DE FONDO, como la red de objetivos y tests: cada una con su foto,
                 unida al centro con un hilo. Tocar una lleva a su rosco. Van por el lado
                 izquierdo para no chocar con el panel, que se abre a la derecha. */}
-            {!nuevo && !grupo && familia.length > 0 && (() => {
-              const fam = familia.slice(0, 10)
+            {!nuevo && !grupo && familiaAnillo.length > 1 && (() => {
+              const fam = familiaAnillo.slice(0, 12)
               const pos = fam.map((_, i) => {
                 const a = (fam.length === 1 ? 180 : 115 + (130 * i) / (fam.length - 1)) * Math.PI / 180
                 return { x: 50 + Math.cos(a) * 66, y: 50 + Math.sin(a) * 58 }
@@ -966,11 +982,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                   {pos.map((p, i) => <line key={i} x1={50} y1={50} x2={p.x} y2={p.y} stroke="var(--gm)" strokeWidth={.25} strokeDasharray="1 1" opacity={.7}/>)}
                 </svg>
                 {fam.map((x, i) => (
-                  <div key={x.id} className="am-fam" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%` }} onClick={() => ir(aEj(x.id))} title={x.nombre}>
-                    <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 3px 10px rgba(38,40,37,.14)', outline: !x.portada_id ? '2px solid var(--g)' : 'none' }}>
+                  <div key={x.id} className="am-fam" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%`, cursor: x.id === params.id ? 'default' : undefined }}
+                    onClick={() => { if (x.id !== params.id) ir(aEj(x.id)) }} title={x.id === params.id ? `${x.nombre} · es este` : x.nombre}>
+                    <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 3px 10px rgba(38,40,37,.14)',
+                      outline: x.id === params.id ? '3px solid var(--n)' : !x.portada_id ? '2px solid var(--g)' : 'none', outlineOffset: x.id === params.id ? 2 : 0 }}>
                       <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
                     </div>
-                    <div style={{ fontSize: 10, lineHeight: 1.15, color: 'var(--gd)', marginTop: 3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{x.nombre}</div>
+                    <div style={{ fontSize: 10.5, lineHeight: 1.2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, marginTop: 3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{nombreCorto(x)}</div>
                   </div>
                 ))}
               </>)
