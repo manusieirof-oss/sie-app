@@ -219,7 +219,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const n = nivelDe(perfil)
     // Un prefijo que acaba en «/» vale solo para lo que cuelga de él (/entrenamiento/…).
     const regla = RUTAS.find(([pre]) => pre.endsWith('/') ? pathname.startsWith(pre) : (pathname === pre || pathname.startsWith(pre + '/')))
-    const dinero = pathname.startsWith('/finanzas') ? !(n >= 4 || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
+    const dinero = pathname.startsWith('/finanzas') ? !((n >= 4 && perfil?.permisos?.sin_finanzas !== true) || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
       : pathname.startsWith('/cobros') ? !(n >= minimos.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
       : false
     if ((regla && n < minimos[regla[1]]) || dinero) router.replace('/hoy')
@@ -308,7 +308,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const nivel = nivelDe(perfil)
   const esAdmin = perfil?.rol==='admin'
   const esDireccion = nivel >= 4
-  const veFinanzas = esDireccion || (!esAdmin && perfil?.permisos?.finanzas===true)
+  // Dirección sin Finanzas (perfiles.permisos.sin_finanzas): todo menos el dinero de la clínica.
+  const veFinanzas = (esDireccion && perfil?.permisos?.sin_finanzas !== true) || (!esAdmin && perfil?.permisos?.finanzas===true)
   const veCobros   = veFinanzas || nivel >= minimos.cobros || perfil?.permisos?.cobros===true
   const ve = (n: { acc?: Accion }) => !n.acc || nivel >= minimos[n.acc]
   /** Dirección «ve como» un nivel (1-3) o vuelve a lo suyo (null). */

@@ -206,6 +206,15 @@ export default function UsuariosTab({ perfilActual }: any) {
     setGuardando(null)
   }
 
+  /** Dirección sin Finanzas: lo ve todo menos el dinero de la clínica. */
+  async function toggleSinFinanzas(id: string, permisos: any) {
+    setGuardando(id)
+    const { error } = await supabase.from('perfiles').update({ permisos: { ...permisos, sin_finanzas: !(permisos?.sin_finanzas === true) } }).eq('id', id)
+    if (error) alert('No se ha podido cambiar el permiso: ' + error.message)
+    await cargar()
+    setGuardando(null)
+  }
+
   const copiar = async () => {
     if (!entrega) return
     const texto = `Hola ${entrega.nombre.split(' ')[0]}, ya tienes cuenta en SIE.\nEntra en ${window.location.origin}\nCorreo: ${entrega.email}\nContraseña provisional: ${entrega.password}\nCámbiala en tu inicial (abajo a la izquierda) → Mi cuenta.`
@@ -335,12 +344,15 @@ export default function UsuariosTab({ perfilActual }: any) {
               // Dirección los tiene siempre; con Finanzas, Cobros va implícito.
               // El nivel 3 (encargado/a) cobra siempre.
               const n3 = u.rol!=='admin' && u.nivel===3 && clave==='cobros'
-              const activo = u.rol==='admin' || n3 || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true)
-              const fijo = u.rol==='admin' || n3 || (clave==='cobros' && u.permisos?.finanzas===true)
+              // DIRECCIÓN SIN FINANZAS: en dirección, el interruptor de Finanzas sí se puede
+              // apagar (guarda permisos.sin_finanzas). Lo demás de dirección lo sigue teniendo.
+              const finDir = u.rol==='admin' && clave==='finanzas'
+              const activo = finDir ? u.permisos?.sin_finanzas!==true : (u.rol==='admin' || n3 || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true))
+              const fijo = !finDir && (u.rol==='admin' || n3 || (clave==='cobros' && u.permisos?.finanzas===true))
               return (
                 <div key={clave} style={{display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name={icono} size={11}/> {etiqueta}</span>
-                  <button onClick={()=>togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo}
+                  <button onClick={()=>finDir ? toggleSinFinanzas(u.id, u.permisos) : togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo||(finDir&&soyYo)}
                     title={fijo ? (u.rol==='admin' ? 'Dirección lo tiene siempre' : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : clave==='agenda' ? 'Crear y mover citas, marcar faltas y cancelar (quien lleva el teléfono)' : undefined}
                     style={{width:38,height:21,borderRadius:99,background:activo?'var(--g)':'var(--bm)',border:'none',cursor:fijo?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:fijo?0.5:1}}>
                     <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:activo?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
