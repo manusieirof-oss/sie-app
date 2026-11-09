@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   const sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${tk}` } }, auth: { persistSession: false, autoRefreshToken: false } })
   const { data: { user } } = await sb.auth.getUser(tk)
   if (!user?.id) return NextResponse.json({ error: 'Sesión no válida.' }, { status: 401 })
-  const { data: yo } = await sb.from('perfiles').select('rol').eq('user_id', user.id).maybeSingle()
+  const { data: yo } = await sb.from('perfiles').select('rol,permisos').eq('user_id', user.id).maybeSingle()
   if (yo?.rol !== 'admin') return NextResponse.json({ error: 'Solo dirección puede gestionar el equipo.' }, { status: 403 })
 
   const adm = createClient(url, servicio, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -62,6 +62,8 @@ export async function POST(req: Request) {
     if (cuerpo.accion === 'crear') {
       const email = String(cuerpo.email || '').trim().toLowerCase()
       const nombre = String(cuerpo.nombre || '').trim()
+      // Dirección sin Finanzas no puede crear otra dirección: le daría Finanzas por la puerta de atrás.
+      if (cuerpo.rol === 'admin' && (yo as any)?.permisos?.sin_finanzas === true) return NextResponse.json({ error: 'No puedes dar de alta a alguien de dirección.' }, { status: 403 })
       const rol = cuerpo.rol === 'admin' ? 'admin' : 'usuario'
       // Nivel de entrenador (lib/permisos): 1 principiante, 2 entrenador, 3 encargado/a.
       const nivel = [1, 2, 3].includes(Number(cuerpo.nivel)) ? Number(cuerpo.nivel) : 1

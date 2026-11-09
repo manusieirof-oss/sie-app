@@ -123,6 +123,10 @@ export default function UsuariosTab({ perfilActual }: any) {
   const [editNombre, setEditNombre] = useState<{ id: string, v: string } | null>(null)
 
   const esAdmin = perfilActual?.rol === 'admin'
+  /* DIRECCIÓN SIN FINANZAS (p. ej. la encargada): gestiona el equipo, pero no ve los
+     interruptores de Finanzas ni puede hacer o deshacer a nadie de dirección, que sería
+     darse Finanzas por la puerta de atrás. La base de datos lo frena igual. */
+  const yoSinFin = perfilActual?.permisos?.sin_finanzas === true
 
   useEffect(() => { cargar() }, [])
 
@@ -255,7 +259,7 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:12}}>
-            {[...NIVELES.map(x => [`n${x.n}`, `Nivel ${x.n} · ${x.nombre}`, x.que]), ['admin','Dirección','Todo, también finanzas, ajustes y el equipo']].map(([v,t,d]) => (
+            {[...NIVELES.map(x => [`n${x.n}`, `Nivel ${x.n} · ${x.nombre}`, x.que]), ...(yoSinFin ? [] : [['admin','Dirección','Todo, también finanzas, ajustes y el equipo']])].map(([v,t,d]) => (
               <button key={v} onClick={()=>setPerfilNuevo(v)} style={{textAlign:'left',padding:'8px 12px',borderRadius:10,cursor:'pointer',maxWidth:220,background:perfilNuevo===v?'#fff':'transparent',border:`1px solid ${perfilNuevo===v?'var(--g)':'var(--bd)'}`}}>
                 <div style={{fontSize:12,fontWeight:600,color:perfilNuevo===v?'var(--gd)':'var(--n)'}}>{t}</div>
                 <div style={{fontSize:10,color:'var(--grl)'}}>{d}</div>
@@ -332,15 +336,15 @@ export default function UsuariosTab({ perfilActual }: any) {
             </div>
 
             {/* SELECTOR DE PERFIL */}
-            <select className="input" value={u.rol==='admin' ? 'admin' : `n${u.nivel ?? 1}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo} title={soyYo?'No puedes quitarte dirección a ti mismo':undefined} style={{width:170,fontSize:11}}>
+            <select className="input" value={u.rol==='admin' ? 'admin' : `n${u.nivel ?? 1}`} onChange={e=>cambiarRol(u.id, e.target.value, u)} disabled={guardando===u.id||soyYo||(yoSinFin&&u.rol==='admin')} title={soyYo?'No puedes quitarte dirección a ti mismo':(yoSinFin&&u.rol==='admin')?'Solo quien ve Finanzas cambia a dirección':undefined} style={{width:170,fontSize:11}}>
               {NIVELES.map(x => <option key={x.n} value={`n${x.n}`}>Nivel {x.n} · {x.nombre}</option>)}
-              <option value="admin">Dirección</option>
+              {(!yoSinFin || u.rol==='admin') && <option value="admin">Dirección</option>}
             </select>
 
             {/* PERMISOS · cobrar y ver el dinero son cosas distintas */}
             {/* AGENDA: crear y mover citas, marcar faltas y cancelar. Por persona porque es
                 de quien coge el teléfono, sea del nivel que sea. */}
-            {([['agenda','telefono','Agenda'],['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).map(([clave,icono,etiqueta])=>{
+            {([['agenda','telefono','Agenda'],['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).filter(([clave]) => !(yoSinFin && clave==='finanzas')).map(([clave,icono,etiqueta])=>{
               // Dirección los tiene siempre; con Finanzas, Cobros va implícito.
               // El nivel 3 (encargado/a) cobra siempre.
               const n3 = u.rol!=='admin' && u.nivel===3 && clave==='cobros'
