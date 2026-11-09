@@ -4,6 +4,10 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { cargarBonosTipos, quitarBono, BonoTipo, cuotaVigenteDe } from '@/lib/bonos'
 import FichaTab from './components/FichaTab'
+import Documentos from './components/Documentos'
+import Consentimientos from './components/Consentimientos'
+import { listarDocumentos } from '@/lib/documentos'
+import { consentimientosVigentes, CONSENTIMIENTOS } from '@/lib/consentimientos'
 import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
 import ResultadosTab from './components/ResultadosTab'
@@ -102,6 +106,16 @@ export default function FichaPacientePage() {
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
   const [procesando, setProcesando] = useState(false)
   const [menuAcc, setMenuAcc] = useState<any>(null)
+  /* DOCUMENTOS Y FIRMAS, en la cabecera: son papeles del paciente, no de su salud ni de
+     dónde colocarlo. Dos botones con su número; al tocar, se abren encima. */
+  const [papeles, setPapeles] = useState<'documentos' | 'firmas' | null>(null)
+  const [nDocsCab, setNDocsCab] = useState(0)
+  const [firmasFaltan, setFirmasFaltan] = useState(0)
+  const contarPapeles = () => {
+    listarDocumentos(id as string).then(r => setNDocsCab(r.documentos.length))
+    consentimientosVigentes(id as string).then(r => setFirmasFaltan(CONSENTIMIENTOS.filter(t => !r.consentimientos.some(c => c.tipo === t.tipo && c.aceptado)).length))
+  }
+  useEffect(() => { if (id) contarPapeles() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [tiposClase, setTiposClase] = useState<any[]>(TIPOS_CLASE_FALLBACK)
   // El bucket es privado: la URL se firma al vuelo y no se guarda en base.
   const [fotoUrl, setFotoUrl] = useState<string|null>(null)
@@ -861,6 +875,11 @@ export default function FichaPacientePage() {
             </>
           ) : (
             <>
+              <button className="btn-cab" onClick={()=>setPapeles('documentos')} title="Informes, imágenes y archivos">
+                <Ic name="carpeta" size={13}/> Documentos{nDocsCab ? ` · ${nDocsCab}` : ''}</button>
+              <button className="btn-cab" onClick={()=>setPapeles('firmas')} title="Consentimientos firmados"
+                style={firmasFaltan ? { borderColor:'rgba(224,123,123,.7)', color:'#F2B8B8' } : undefined}>
+                <Ic name="firmar" size={13}/> Firmas{firmasFaltan ? ` · faltan ${firmasFaltan}` : ''}</button>
               <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}><Ic name="editar" size={12}/> Editar</button>
               <button className="btn-ico" title="Más acciones" aria-label="Más acciones"
                 onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuAcc({ x:r.right-160, y:r.bottom+5 })}}>
@@ -870,6 +889,18 @@ export default function FichaPacientePage() {
           )}
         </div>
       </div>
+
+      {papeles && pac && (
+        <div className="modal-bg" onClick={e=>{ if (e.target===e.currentTarget) { setPapeles(null); contarPapeles() } }}>
+          <div className="modal" style={{ maxWidth: 720, width: '92vw' }}>
+            <div className="modal-title">{papeles==='documentos' ? 'Documentos' : 'Firmas'}
+              <button className="modal-close" onClick={()=>{ setPapeles(null); contarPapeles() }}>✕</button></div>
+            {papeles==='documentos'
+              ? <Documentos pacienteId={pac.id} patologias={patologias} onCambio={(n:number)=>setNDocsCab(n)}/>
+              : <Consentimientos pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()} dni={pac.dni}/>}
+          </div>
+        </div>
+      )}
 
       {/* MENU DE ACCIONES */}
       {menuAcc && (

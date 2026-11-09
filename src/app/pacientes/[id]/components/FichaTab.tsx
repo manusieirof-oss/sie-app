@@ -8,7 +8,6 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
-import Consentimientos from './Consentimientos'
 import { guardarVias, retratoDe } from '@/lib/objetivos'
 import { VIAS, viasDe, marcarVia, quitarVia, type ViaOrigen } from '@/lib/viasObjetivo'
 import { urgenciaDe, COLOR_URGENCIA, textoRevision, fijarRevision,
@@ -1583,7 +1582,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       )}
 
-      {ubicar && <Consentimientos pacienteId={pac.id} nombre={`${pac.nombre} ${pac.apellidos}`.trim()} dni={pac.dni}/>}
+      {/* Los consentimientos ya no van aquí: están en la cabecera («Firmas»), junto a Documentos. */}
 
       {/* MENÚ TIPO DE CLASE */}
       {menuTipo && (
