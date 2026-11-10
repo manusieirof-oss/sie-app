@@ -15,6 +15,16 @@
 export const normalizar = (s: unknown) =>
   String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
-/** `aguja` dentro de `pajar`, sin que los acentos estorben. */
-export const contiene = (pajar: unknown, aguja: unknown) =>
-  normalizar(pajar).includes(normalizar(aguja))
+/* PALABRAS QUE NO CUENTAN AL BUSCAR. Se escribe "estiramiento espalda" y el ejercicio
+   se llama "Estiramiento de espalda": sin esto no salía nada. */
+const RELLENO = new Set(['de', 'del', 'con', 'en', 'el', 'la', 'los', 'las', 'a', 'al', 'y', 'e', 'o', 'u', 'por', 'para', 'sin', 'sobre', 'un', 'una'])
+
+/** `aguja` dentro de `pajar`, sin que los acentos estorben. Si no está tal cual, vale
+ *  también si están TODAS sus palabras (en cualquier orden y sin "de", "con"...):
+ *  "estiramiento espalda" encuentra "Estiramiento de espalda". */
+export const contiene = (pajar: unknown, aguja: unknown) => {
+  const p = normalizar(pajar), a = normalizar(aguja).trim()
+  if (p.includes(a)) return true
+  const palabras = a.split(/[\s·,.;:/-]+/).filter(w => w && !RELLENO.has(w))
+  return palabras.length > 0 && palabras.every(w => p.includes(w))
+}
