@@ -188,6 +188,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       guardarCola(resto)
       if (sig) { router.push(`/torno/amasar/${sig}?cola=1`); return }
     }
+    /* SI ERA DE UNA FAMILIA, se queda en la familia: va a la principal (o a otra de sus
+       variantes, si la borrada era la principal). Antes echaba al inicio del torno. */
+    const famEt = (orig.etiquetas || []).find(t => ets.some((e: any) => e.id === t && e.categoria === 'familia'))
+    const deFam = ejs.filter(x => x.id !== params.id && (
+      (famEt && (x.etiquetas || []).includes(famEt)) || (orig.portada_id && (x.id === orig.portada_id || x.portada_id === orig.portada_id)) || x.portada_id === params.id))
+    const destino = deFam.find(x => x.id === orig.portada_id) || deFam.find(x => x.id === hereda?.id) || deFam[0]
+    if (destino) { router.push(aEj(destino.id)); return }
     router.push('/torno?que=ejercicios')
   }
   async function pasarAPrincipal() {
