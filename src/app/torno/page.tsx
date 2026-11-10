@@ -103,6 +103,11 @@ export default function TornoPage() {
   const [selec, setSelec] = useState<string[]>([])
   // La familia desplegada en la lista: sus variantes salen justo detrás de la principal.
   const [familiaAbierta, setFamiliaAbierta] = useState<string | null>(null)
+  /* POR FAMILIAS: los ejercicios agrupados por su familia (etiqueta), para ver de un
+     vistazo qué hay en cada una y qué queda sin familia o mal puesto. */
+  const [porFamilias, setPorFamilias] = useState(false)
+  const [familias, setFamilias] = useState<any[]>([])
+  useEffect(() => { if (porFamilias && !familias.length) supabase.from('etiquetas').select('id,nombre').eq('categoria', 'familia').then(({ data }) => setFamilias((data || []).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')))) }, [porFamilias]) // eslint-disable-line react-hooks/exhaustive-deps
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
@@ -365,7 +370,11 @@ export default function TornoPage() {
                     <div style={{ fontSize: 12.5 }}>+ Amasar uno nuevo</div>
                     <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Un ejercicio que aún no está en la biblioteca</div>
                   </div>
-                  <div className="t-menu-it" onClick={() => { setSoloIncompletos(v => !v); setMenu(false); setAbierto(true) }}>
+                  <div className="t-menu-it" onClick={() => { setPorFamilias(v => !v); setSoloIncompletos(false); setMenu(false); setAbierto(true) }}>
+                    <div style={{ fontSize: 12.5, color: porFamilias ? 'var(--gd)' : 'var(--n)' }}>{porFamilias ? '✓ ' : ''}Por familias</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Cada familia con sus ejercicios, y los que no tienen familia</div>
+                  </div>
+                  <div className="t-menu-it" onClick={() => { setSoloIncompletos(v => !v); setPorFamilias(false); setMenu(false); setAbierto(true) }}>
                     <div style={{ fontSize: 12.5, color: soloIncompletos ? 'var(--gd)' : 'var(--n)' }}>{soloIncompletos ? '✓ ' : ''}Por completar</div>
                     <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 1 }}>Los que les falta foto, etiquetas, descripción…</div>
                   </div>
@@ -391,7 +400,7 @@ export default function TornoPage() {
           {!ejs ? <div className="muted" style={{ textAlign: 'center', padding: 30 }}>Trayendo la biblioteca…</div> : (<>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 11 }}>
               <span style={{ fontSize: 11, color: 'var(--gr)' }}>
-                {soloIncompletos ? 'Por completar' : busca.trim() ? 'Lo que casa' : 'Principales y sueltos'} · {listaEj.length}
+                {porFamilias ? 'Por familias' : soloIncompletos ? 'Por completar' : busca.trim() ? 'Lo que casa' : 'Principales y sueltos'}{porFamilias ? '' : ` · ${listaEj.length}`}
               </span>
               <span className={`t-falta ${modoSel ? 'on' : ''}`} onClick={() => { setModoSel(v => !v); setSelec([]) }}>
                 <Ic name="ok" size={13}/> {modoSel ? 'Dejar de elegir' : 'Elegir varios'}</span>
@@ -419,6 +428,32 @@ export default function TornoPage() {
                 })}
               </div>
             )}
+            {porFamilias ? (() => {
+              // Cada familia con sus ejercicios (tocar uno abre su rosco y la tanda es su familia).
+              const q = busca.trim()
+              const famDe = (e: any) => familias.find(f => (e.etiquetas || []).includes(f.id))
+              const todos = (ejs || []).filter(e => !q || contiene(e.nombre, q) || contiene(famDe(e)?.nombre || '', q))
+              const grupos = [...familias.map(f => ({ id: f.id, nombre: f.nombre, ejs: todos.filter(e => (e.etiquetas || []).includes(f.id)) })),
+                { id: 'sin', nombre: 'Sin familia', ejs: todos.filter(e => !famDe(e)) }].filter(g => g.ejs.length)
+              if (!familias.length) return <div className="muted" style={{ textAlign: 'center', padding: 24 }}>Trayendo las familias…</div>
+              return <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--gr)' }}>{grupos.filter(g => g.id !== 'sin').length} familias · {grupos.find(g => g.id === 'sin')?.ejs.length || 0} sin familia</div>
+                {grupos.map(g => (
+                  <div key={g.id}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: g.id === 'sin' ? '#8A6410' : 'var(--n)', marginBottom: 6 }}>{g.nombre} <span style={{ fontWeight: 400, color: 'var(--grl)' }}>· {g.ejs.length}</span></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 8 }}>
+                      {g.ejs.sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')).map((e: any) => (
+                        <div key={e.id} className={`t-card ${yendo === e.id ? 't-elegida' : ''}`} onClick={() => amasar(e.id, g.ejs.map((x: any) => x.id))}
+                          style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 9px rgba(38,40,37,.08)' }}>
+                          <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={22}/>
+                          <div style={{ padding: '6px 8px', fontSize: 11.5, lineHeight: 1.2 }}>{e.nombre}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            })() : <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 }}>
               {listaEj.map((e, i) => {
                 const fs = faltasAmasar(e)
@@ -455,6 +490,7 @@ export default function TornoPage() {
               })}
             </div>
             {listaEj.length === 0 && <div className="muted" style={{ textAlign: 'center', padding: 24 }}>Ningún ejercicio coincide.</div>}
+            </>}
           </>)}
           {/* La barra y el panel van al <body> con un portal: dentro de .t-fade (que anima
               con transform) un position:fixed se pega a ese contenedor y no a la pantalla,
