@@ -345,7 +345,10 @@ export default function ExploradorEjercicios({
     // etiquetas sueltas: antes una tarjeta podía enseñar "Cuádriceps, Vasto Medial,
     // Rodilla" y gastar dos huecos en decir lo mismo.
     const grupos = agrupaPorRaiz(etiquetas, e.etiquetas || [])
-    const vc = varianteQueCasa(e)
+    /* Antes, si la búsqueda casaba con una variante VIEJA (la lista de dentro del
+       ejercicio, de antes de las familias), la tarjeta enseñaba el nombre de esa
+       variante y al entrar salía otro. Ahora la tarjeta lleva siempre SU nombre. */
+    const vc: any = null
     const img = (vc?.imagen_url) || e.imagen_url
     return (
       <div className={`tarj-ej ${sel ? 'on' : ''} ${fam ? 'tarj-fam' : ''}`}

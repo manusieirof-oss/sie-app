@@ -1048,10 +1048,14 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             {!nuevo && !grupo && familiaAnillo.length > 1 && (() => {
               // El que se está mirando sale con lo que hay en pantalla (nombre y foto recién
               // cambiados): si no, el anillo enseñaba lo antiguo hasta recargar.
-              const fam = familiaAnillo.slice(0, 12).map(x => x.id === params.id ? { ...x, nombre: d.nombre || x.nombre, imagen_url: preview || d.imagen_url || x.imagen_url } : x)
+              // Sin tope: antes solo cabían 12 y, al meter uno, otro desaparecía del anillo.
+              // Con muchos, se reparten en dos filas (una más fuera) para que no se pisen.
+              const fam = familiaAnillo.map(x => x.id === params.id ? { ...x, nombre: d.nombre || x.nombre, imagen_url: preview || d.imagen_url || x.imagen_url } : x)
+              const dos = fam.length > 10, arco = dos ? 170 : 130
               const pos = fam.map((_, i) => {
-                const a = (fam.length === 1 ? 180 : 115 + (130 * i) / (fam.length - 1)) * Math.PI / 180
-                return { x: 50 + Math.cos(a) * 66, y: 50 + Math.sin(a) * 58 }
+                const a = (fam.length === 1 ? 180 : 90 + (180 - arco) / 2 + (arco * i) / (fam.length - 1)) * Math.PI / 180
+                const fuera = dos && i % 2 === 1
+                return { x: 50 + Math.cos(a) * (fuera ? 84 : 66), y: 50 + Math.sin(a) * (fuera ? 74 : 58) }
               })
               return (<>
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', zIndex: 0, pointerEvents: 'none' }}>
