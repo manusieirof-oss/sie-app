@@ -1053,28 +1053,22 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               // El que se está mirando sale con lo que hay en pantalla (nombre y foto recién
               // cambiados): si no, el anillo enseñaba lo antiguo hasta recargar.
               // Sin tope: antes solo cabían 12 y, al meter uno, otro desaparecía del anillo.
-              // Con muchos, se reparten en dos filas (una más fuera) para que no se pisen.
               const fam = familiaAnillo.map(x => x.id === params.id ? { ...x, nombre: d.nombre || x.nombre, imagen_url: preview || d.imagen_url || x.imagen_url } : x)
-              // Con muchos (más de 10) el rosco se pisaba: se ponen en rejilla a la izquierda,
-              // en el mismo orden, con su nombre entero como en el torno.
-              if (fam.length > 10) return (
-                <div style={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: 18, width: 300, zIndex: 1 }}>
-                  <div style={{ fontSize: 11.5, color: 'var(--gr)', marginBottom: 6 }}>{famActual?.nombre} · {fam.length}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
-                    {fam.map(x => (
-                      <div key={x.id} onClick={() => { if (x.id !== params.id) ir(aEj(x.id)) }} title={x.nombre}
-                        style={{ cursor: x.id === params.id ? 'default' : 'pointer', opacity: x.id === params.id ? 1 : .8 }}>
-                        <div style={{ borderRadius: 8, overflow: 'hidden', outline: x.id === params.id ? '2px solid var(--n)' : 'none', outlineOffset: 1 }}>
-                          <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={14} insignias={false}/>
-                        </div>
-                        <div style={{ fontSize: 9.5, lineHeight: 1.2, marginTop: 2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{x.nombre}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>)
-              const pos = fam.map((_, i) => {
-                const a = (fam.length === 1 ? 180 : 115 + (130 * i) / (fam.length - 1)) * Math.PI / 180
-                return { x: 50 + Math.cos(a) * 66, y: 50 + Math.sin(a) * 58 }
+              /* EN VARIOS CÍRCULOS, A DISTINTAS ALTURAS: el primero cabe 7; si hay más, se
+                 abren círculos más grandes por fuera. Se reparten según el tamaño de cada
+                 círculo (el de fuera lleva más) para que no se pisen. Mismo orden que el torno. */
+              const CAP = [7, 9, 11, 13]
+              let nC = 1; while (nC < CAP.length && CAP.slice(0, nC).reduce((a, b) => a + b, 0) < fam.length) nC++
+              const pesos = CAP.slice(0, nC), totalP = pesos.reduce((a, b) => a + b, 0)
+              const cuantos = pesos.map(w => Math.floor(fam.length * w / totalP))
+              for (let r = nC - 1, falta = fam.length - cuantos.reduce((a, b) => a + b, 0); falta > 0; r = (r - 1 + nC) % nC, falta--) cuantos[r]++
+              const pos: { x: number, y: number }[] = []
+              cuantos.forEach((n, c) => {
+                const arco = 130 + c * 12
+                for (let i = 0; i < n; i++) {
+                  const a = (n === 1 ? 180 : 180 - arco / 2 + (arco * i) / (n - 1)) * Math.PI / 180
+                  pos.push({ x: 50 + Math.cos(a) * (66 + c * 22), y: 50 + Math.sin(a) * (58 + c * 19) })
+                }
               })
               return (<>
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', zIndex: 0, pointerEvents: 'none' }}>
