@@ -233,8 +233,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     // OPCIONALES: no cuentan para "listo". Sin foto ya sale la figura, y suelto es un
     // estado válido; si contaran, el rosco nunca se completaría.
     // CÓMO SE SUELE HACER: opcional. Al meterlo en una sesión sale ya así (se cambia allí).
-    { k: 'manera', t: 'Cómo se suele hacer', ic: 'reloj', opcional: true, lleno: Object.values(d.por_defecto || {}).some(v => String(v || '').trim()),
-      sub: (() => { const p = d.por_defecto || {}; const vol = p.reps || (p.tiempo ? p.tiempo + ' s' : ''); return p.series || vol ? [p.series && vol ? `${p.series} × ${vol}` : p.series ? `${p.series} series` : vol, p.descanso ? `${p.descanso} s desc.` : ''].filter(Boolean).join(' · ') : 'Sin poner' })() },
+    { k: 'manera', t: 'Cómo se suele hacer', ic: 'reloj', opcional: true, lleno: !!(d.por_defecto?.regimen || d.por_defecto?.lado),
+      sub: [d.por_defecto?.regimen, d.por_defecto?.lado].filter(Boolean).join(' · ') || 'Sin poner' },
     { k: 'foto', t: 'Foto y vídeo', ic: 'camara', opcional: true, lleno: !!(preview || d.imagen_url), sub: preview || d.imagen_url ? 'Con foto' : 'Figura automática' },
     // Elegir "Suelto" o "Principal" también es decidir: el quesito se marca aunque
     // en la base no cambie nada (suelto es no tener familia; principal sin variantes, igual).
@@ -271,7 +271,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     // Solo si ha cambiado: así guardar no depende de la columna si nunca se usó.
     if (JSON.stringify(d.por_revisar) !== JSON.stringify(orig.por_revisar)) fila.por_revisar = d.por_revisar
     // Igual con «cómo se suele hacer»: solo si se tocó (así no depende de la columna si nunca se usa).
-    if (JSON.stringify(d.por_defecto || {}) !== JSON.stringify(orig.por_defecto || {})) fila.por_defecto = Object.fromEntries(Object.entries(d.por_defecto || {}).filter(([, v]) => String(v || '').trim()))
+    if (JSON.stringify(d.por_defecto || {}) !== JSON.stringify(orig.por_defecto || {})) fila.por_defecto = Object.fromEntries(Object.entries(d.por_defecto || {}).filter(([k, v]) => (k === 'regimen' || k === 'lado') && String(v || '').trim()))
     // Quitar la foto (vuelve la figura automática): antes no se guardaba nunca.
     if (!foto && !d.imagen_url && orig.imagen_url) fila.imagen_url = ''
     if (fila.imagen_url === '') fotoCambiada(params.id, null)
@@ -496,18 +496,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       case 'manera': {
         const p = d.por_defecto || {}
         const ponPd = (k: string, v: string) => setD(x => ({ ...x, por_defecto: { ...(x.por_defecto || {}), [k]: v } }))
-        const porTiempo = /tiempo|seg|iso/i.test(d.tipo_medida || '')
-        const campo = (k: string, t: string, ph: string) => (
-          <div className="field" style={{ margin: 0 }}><label>{t}</label>
-            <input className="input" inputMode="numeric" value={p[k] || ''} placeholder={ph} onChange={e => ponPd(k, e.target.value)}/></div>)
         return (<>
-          <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 10 }}>Lo más habitual. Al meterlo en una sesión sale ya así, y en la sesión se cambia lo que haga falta.</div>
-          <div className="g2" style={{ gap: 10 }}>
-            {campo('series', 'Series', '3')}
-            {porTiempo ? campo('tiempo', 'Segundos', '30') : campo('reps', 'Repeticiones', '10')}
-            {campo('descanso', 'Descanso (s)', '60')}
-          </div>
-          <div className="et-mini" style={{ margin: '12px 0 6px' }}>Ejecución</div>
+          {/* Solo cómo se ejecuta y el lado: series, repes y descanso son de la sesión. */}
+          <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 4 }}>Lo más habitual. Al meterlo en una sesión sale ya así, y en la sesión se cambia lo que haga falta.</div>
+          <div className="et-mini" style={{ margin: '8px 0 6px' }}>Ejecución</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {['Concéntrico', 'Excéntrico', 'Isométrico', 'Explosivo', 'Pliométrico'].map(r => <button key={r} type="button" className={'chip-sel' + ((p.regimen || '') === r ? ' on' : '')} style={{ textTransform: 'none', letterSpacing: 0 }}
               onClick={() => ponPd('regimen', p.regimen === r ? '' : r)}>{r}</button>)}

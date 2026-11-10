@@ -145,10 +145,10 @@ export const LADOS = ['Bilateral', 'Unilateral', 'Alterno'] as const
  * copian capacidad, ejecucion, series y descanso para no empezar de cero.
  */
 export function itemDeEjercicio(ej: any, ref: any = {}, extra: any = {}, refManda = false) {
-  /* CÓMO SE SUELE HACER (ejercicios.por_defecto, se pone en el torno): un ejercicio NUEVO
-     en la sesión sale ya así; luego en la sesión se cambia lo que haga falta. Al SUSTITUIR
-     uno por otro (refManda) se queda lo del que había en ese hueco: es la misma dosis. */
-  const pd = ej.por_defecto || {}
+  /* CÓMO SE SUELE HACER (ejercicios.por_defecto, se pone en el torno): solo la ejecución y
+     el lado. Series, repes y descanso son de la sesión. Al SUSTITUIR uno por otro
+     (refManda) se queda lo del que había en ese hueco. */
+  const pd = { regimen: ej.por_defecto?.regimen, lado: ej.por_defecto?.lado } as Record<string, any>
   const v = (k: string, porDefecto = '') => String((refManda ? (ref[k] || pd[k]) : (pd[k] || ref[k])) || porDefecto)
   const descanso = v('descanso')
   return {
