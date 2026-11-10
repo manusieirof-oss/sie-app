@@ -790,10 +790,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     : []
   /** El nombre corto en el anillo: sin repetir el de la principal ("con polea", no "Curl de bíceps con polea"). */
   const nombreCorto = (x: any) => {
-    if (!principalAn || x.id === principalAn.id) return x.nombre
-    const base = normalizar(principalAn.nombre || '').trim(), n = x.nombre || ''
-    if (!base || !normalizar(n).startsWith(base)) return n
-    const resto = n.slice(principalAn.nombre.trim().length).replace(/^[\s·,:-]+/, '')
+    // Se recorta con el nombre de la FAMILIA (la etiqueta), igual en todos.
+    const fam = famActual?.nombre || principalAn?.nombre || ''
+    const base = normalizar(fam).trim(), n = x.nombre || ''
+    if (!base || normalizar(n).trim() === base || !normalizar(n).startsWith(base)) return n
+    const resto = n.slice(fam.trim().length).replace(/^[\s·,:-]+/, '')
     return resto ? resto.charAt(0).toUpperCase() + resto.slice(1) : n
   }
 
@@ -805,10 +806,13 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     const meter = async (x: any) => {
       if (!confirm(`¿Añadir «${x.nombre}» como variante de ${principalFam ? principalFam.nombre : d.nombre}?` +
         (ejs.some(y => y.portada_id === x.id) ? '\nSus variantes se vienen con él.' : ''))) return
+      // Añadir a la familia es ponerle su etiqueta: la base de datos lo coloca. Antes se
+      // renombraba el ejercicio a «Principal · nombre», y de ahí los nombres raros.
+      if (!famActual) { setAviso('Ponle antes una familia a este en el quesito Familia.'); return }
       setGuardando(true)
-      const r = await moverAFamilia(x.id, { id: idPrincipal })
+      const { error: eF } = await supabase.from('ejercicios').update({ etiquetas: [...(x.etiquetas || []).filter((t: string) => !familiasEt.some((f: any) => f.id === t)), famActual.id] }).eq('id', x.id)
       setGuardando(false)
-      if (r.ok === false) { setAviso('No se ha añadido: ' + r.error); return }
+      if (eF) { setAviso('No se ha añadido: ' + eF.message); return }
       setAnadir(null); await cargar(); setFichaOn(true); setAviso(`✓ ${x.nombre} ya es de la familia`)
     }
     return (

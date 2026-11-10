@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { contiene } from '@/lib/texto'
+import { contiene, normalizar } from '@/lib/texto'
 import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
@@ -107,7 +107,7 @@ export default function TornoPage() {
      vistazo qué hay en cada una y qué queda sin familia o mal puesto. */
   const [porFamilias, setPorFamilias] = useState(false)
   const [familias, setFamilias] = useState<any[]>([])
-  useEffect(() => { if (porFamilias && !familias.length) supabase.from('etiquetas').select('id,nombre').eq('categoria', 'familia').then(({ data }) => setFamilias((data || []).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')))) }, [porFamilias]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!familias.length) supabase.from('etiquetas').select('id,nombre').eq('categoria', 'familia').then(({ data }) => setFamilias((data || []).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')))) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
   const [yendo, setYendo] = useState<string | null>(null)
@@ -474,8 +474,9 @@ export default function TornoPage() {
                     <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={30}/>
                     <div style={{ padding: '8px 10px' }}>
                       {/* Igual que en la biblioteca: su principal encima y lo que la distingue debajo. */}
-                      {e.portada_id && <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{principalDe(e)}</div>}
-                      <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.portada_id ? nombreCorto(e.nombre, principalDe(e)) : e.nombre}</div>
+                      {/* Su familia (la etiqueta) encima y su nombre entero, igual que en la biblioteca. */}
+                      {(() => { const f = familias.find(f => (e.etiquetas || []).includes(f.id)); return f && normalizar(f.nombre) !== normalizar(e.nombre) ? <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{f.nombre}</div> : null })()}
+                      <div style={{ fontSize: 12.5, lineHeight: 1.25 }}>{e.nombre}</div>
                       {faltan > 0 && <div style={{ fontSize: 10.5, color: '#A87E2C', marginTop: 3 }}>Falta{faltan > 1 ? `n ${faltan} cosas` : ' 1 cosa'}</div>}
                       {!e.imagen_url && <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}><Ic name="camara" size={10}/> Sin foto propia</div>}
                       {!e.portada_id && nVariantes[e.id] > 0 && !busca.trim() && !soloIncompletos && (

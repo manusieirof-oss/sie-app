@@ -298,6 +298,12 @@ export default function ExploradorEjercicios({
   const hayFiltro = !!buscar || filtroEt.length > 0 || soloPendientes || soloObjetivos || objFiltro.length > 0
   const nombrePortada = (e: any) => ejercicios.find(x => x.id === e.portada_id)?.nombre || ''
   const nombreCortoDe = (e: any) => nombreCorto(e.nombre, nombrePortada(e))
+  /* EL NOMBRE IGUAL EN TODAS LAS PANTALLAS: arriba, en pequeño, su FAMILIA (la etiqueta,
+     no el nombre de otro ejercicio) y debajo SU nombre entero. Antes se recortaba con el
+     nombre del «principal», y al cambiar de principal cada pantalla lo leía distinto. */
+  const famNombre: Record<string, string> = {}
+  etiquetas.forEach((et: any) => { if (et.categoria === 'familia') famNombre[et.id] = et.nombre || '' })
+  const familiaNombre = (e: any) => { const id = (e.etiquetas || []).find((x: string) => famNombre[x]); return id ? famNombre[id] : '' }
   /** Lo que se pinta en la rejilla: con filtro, todo lo que casa; sin él, portadas y su familia si está abierta. */
   const visibles = hayFiltro ? filtrados : filtrados.filter(e => !esHijo(e)).flatMap(e =>
     familiasAbiertas.includes(e.id) ? [e, ...(hijosDe[e.id] || [])] : [e])
@@ -370,8 +376,8 @@ export default function ExploradorEjercicios({
           {/* LA FAMILIA, ENCIMA. En una variante su familia va arriba en pequeño y el
               título es solo lo que la distingue ("Agarre ancho"), sin repetir
               "Curl con barra ·" en cada tarjeta. */}
-          {esHijo(e) && <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{nombrePortada(e)}</div>}
-          <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.3 }}>{vc ? vc.nombre : esHijo(e) ? nombreCortoDe(e) : e.nombre}</div>
+          {familiaNombre(e) && normalizar(familiaNombre(e)) !== normalizar(e.nombre) && <div style={{ fontSize: 10.5, color: 'var(--g)', letterSpacing: .2, marginBottom: 1 }}>{familiaNombre(e)}</div>}
+          <div style={{ fontSize: 13, color: 'var(--n)', lineHeight: 1.3 }}>{vc ? vc.nombre : e.nombre}</div>
           {vc && <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>{e.nombre}</div>}
           {/* PARA QUÉ OBJETIVO DE SU SESIÓN SIRVE. Sin esto, al elegir no se sabía si el
               ejercicio trabajaba lo que se le marcó al paciente. */}

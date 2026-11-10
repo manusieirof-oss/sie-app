@@ -464,12 +464,16 @@ export async function moverAFamilia(ejId: string, destino: any) {
   if (e1) return malE(e1)
   const { error } = await supabase.from('ejercicios').update({ portada_id: portada }).eq('id', ejId)
   if (error) return malE(error)
-  // Con el nombre completo ("Principal · Variante"): asi se lee igual en sesiones y registros.
-  const { data: dos } = await supabase.from('ejercicios').select('id,nombre').in('id', [ejId, portada])
+  // Ya NO se renombra a «Principal · Variante»: la familia es la etiqueta, y el nombre de
+  // cada uno es el suyo. Se le pone la etiqueta de familia del destino (si la tiene) para
+  // que la base de datos no lo vuelva a sacar al recolocar la familia.
+  const { data: dos } = await supabase.from('ejercicios').select('id,etiquetas').in('id', [ejId, portada])
   const yo = (dos || []).find((x: any) => x.id === ejId), pr = (dos || []).find((x: any) => x.id === portada)
   if (yo && pr) {
-    const nuevo = nombreCompleto(yo.nombre, pr.nombre)
-    if (nuevo !== yo.nombre) await supabase.from('ejercicios').update({ nombre: nuevo }).eq('id', ejId)
+    const { data: fams } = await supabase.from('etiquetas').select('id').eq('categoria', 'familia')
+    const esFam = new Set((fams || []).map((f: any) => f.id))
+    const fam = (pr.etiquetas || []).find((t: string) => esFam.has(t))
+    if (fam) await supabase.from('ejercicios').update({ etiquetas: [...(yo.etiquetas || []).filter((t: string) => !esFam.has(t)), fam] }).eq('id', ejId)
   }
   return { ok: true as const }
 }
@@ -488,7 +492,13 @@ export async function hacerPortada(ej: any) {
 
 /** Sale de su familia y queda suelto. */
 export async function sacarDeFamilia(ejId: string) {
-  const { error } = await supabase.from('ejercicios').update({ portada_id: null }).eq('id', ejId)
+  // También se le quita la etiqueta de familia: si no, al recolocar volvería a entrar.
+  const [{ data: yo }, { data: fams }] = await Promise.all([
+    supabase.from('ejercicios').select('etiquetas').eq('id', ejId).maybeSingle(),
+    supabase.from('etiquetas').select('id').eq('categoria', 'familia')])
+  const esFam = new Set((fams || []).map((f: any) => f.id))
+  const etiquetas = ((yo as any)?.etiquetas || []).filter((t: string) => !esFam.has(t))
+  const { error } = await supabase.from('ejercicios').update({ portada_id: null, etiquetas }).eq('id', ejId)
   return error ? malE(error) : { ok: true as const }
 }
 
