@@ -106,6 +106,10 @@ export default function TornoPage() {
   /* POR FAMILIAS: los ejercicios agrupados por su familia (etiqueta), para ver de un
      vistazo qué hay en cada una y qué queda sin familia o mal puesto. */
   const [porFamilias, setPorFamilias] = useState(false)
+  // Al entrar en un ejercicio y volver, sigue en «Por familias» (y con la lista abierta):
+  // se recuerda en esta pestaña del navegador.
+  useEffect(() => { try { if (sessionStorage.getItem('torno-familias') === '1') { setPorFamilias(true); setAbierto(true) } } catch {} }, [])
+  useEffect(() => { try { sessionStorage.setItem('torno-familias', porFamilias ? '1' : '0') } catch {} }, [porFamilias])
   const [familias, setFamilias] = useState<any[]>([])
   useEffect(() => { if (!familias.length) supabase.from('etiquetas').select('id,nombre').eq('categoria', 'familia').then(({ data }) => setFamilias((data || []).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')))) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
