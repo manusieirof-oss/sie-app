@@ -99,6 +99,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [buscaFam, setBuscaFam] = useState('')
   /** Renombrando la familia elegida (texto) o null. */
   const [renFam, setRenFam] = useState<string | null>(null)
+  // Fusionar: al elegir otra familia en la lista, esta se mete entera en aquella.
+  const [fusionando, setFusionando] = useState(false)
   // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
   const [nombreVar, setNombreVar] = useState<string | null>(null)
   // AÑADIR A LA FAMILIA desde la ficha: null = cerrado; si no, lo que se busca.
@@ -549,14 +551,36 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           ponerFamilia(null); setOrig(o => ({ ...o, etiquetas: o.etiquetas.filter(t => t !== famActual.id) }))
           setAviso(`✓ Familia «${famActual.nombre}» borrada`); cargar()
         }
+        /* FUSIONAR: todos los de esta familia pasan a la elegida y esta desaparece. Para
+           cuando la misma familia se creó dos veces con nombres distintos. */
+        const fusionarCon = async (destino: any) => {
+          if (!famActual || destino.id === famActual.id) return
+          const llevan = ejs.filter(x => x.id !== params.id && (x.etiquetas || []).includes(famActual.id))
+          if (!confirm(`¿Fusionar «${famActual.nombre}» con «${destino.nombre}»? Los ${llevan.length + 1} ejercicios pasan a «${destino.nombre}» y «${famActual.nombre}» desaparece.`)) return
+          const cambiar = (ets: string[]) => [...(ets || []).filter(t => t !== famActual.id && t !== destino.id), destino.id]
+          for (const x of llevan) {
+            const { error } = await supabase.from('ejercicios').update({ etiquetas: cambiar(x.etiquetas) }).eq('id', x.id)
+            if (error) { setAviso('No se ha podido pasar ' + x.nombre + ': ' + error.message); return }
+          }
+          const { error: e1 } = await supabase.from('ejercicios').update({ etiquetas: cambiar(orig.etiquetas) }).eq('id', params.id)
+          if (e1) { setAviso('No se ha podido pasar este: ' + e1.message); return }
+          const { error } = await supabase.from('etiquetas').delete().eq('id', famActual.id)
+          if (error) { setAviso('Ejercicios pasados, pero «' + famActual.nombre + '» no se ha borrado: ' + error.message); return }
+          setD(x => ({ ...x, etiquetas: cambiar(x.etiquetas) })); setOrig(o => ({ ...o, etiquetas: cambiar(o.etiquetas) }))
+          setEts(p => p.filter((e: any) => e.id !== famActual.id)); setFusionando(false); setBuscaFam('')
+          setAviso(`✓ Fusionadas: ahora todo es «${destino.nombre}»`); cargar()
+        }
         return (<>
-          {famActual && (renFam === null
+          {fusionando && famActual && <div style={{ marginBottom: 10, fontSize: 12.5, background: 'var(--gl)', color: 'var(--gd)', borderRadius: 10, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            Elige abajo la familia con la que juntar «{famActual.nombre}». <button className="btn btn-t btn-sm" onClick={() => setFusionando(false)}>Cancelar</button></div>}
+          {famActual && !fusionando && (renFam === null
             ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
                 <span className="chip-sel on" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>{famActual.nombre}</span>
                 <button className="btn btn-t btn-sm" onClick={() => ponerFamilia(null)}>Quitar de esta familia</button>
                 {/* SI TE EQUIVOCASTE: cambiarle el nombre (para todos los que la llevan) o
                     borrarla entera (todos quedan sin familia). */}
                 <button className="btn btn-t btn-sm" onClick={() => setRenFam(famActual.nombre)}><Ic name="editar" size={11}/> Renombrar</button>
+                <button className="btn btn-t btn-sm" onClick={() => setFusionando(true)}>Fusionar con otra</button>
                 <button className="btn btn-t btn-sm" style={{ color: 'var(--red)' }} onClick={borrarFamilia}><Ic name="papelera" size={11}/> Borrar familia</button>
               </div>
             : <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
@@ -567,7 +591,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           <input className="input" value={buscaFam} onChange={e => setBuscaFam(e.target.value)} placeholder="Buscar o crear una familia (p. ej. Curl de bíceps)"/>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
             {lista.map((f: any) => <button key={f.id} type="button" className={'chip-sel' + (famActual?.id === f.id ? ' on' : '')} style={{ textTransform: 'none', letterSpacing: 0 }}
-              onClick={() => ponerFamilia(famActual?.id === f.id ? null : f.id)}>{f.nombre}</button>)}
+              onClick={() => fusionando ? fusionarCon(f) : ponerFamilia(famActual?.id === f.id ? null : f.id)}>{f.nombre}</button>)}
           </div>
           {buscaFam.trim() && !existe && <button className="btn btn-s btn-sm" style={{ marginTop: 8 }} onClick={crear}>+ Crear la familia «{buscaFam.trim()}»</button>}
           {companeros.length > 0 && (<>
