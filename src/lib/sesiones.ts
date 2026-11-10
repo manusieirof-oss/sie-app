@@ -1,3 +1,4 @@
+import { partesMedida } from '@/lib/medida'
 import { supabase } from './supabase'
 import { apuntarHistorial } from './sesionViva'
 import { textoDescanso } from './capacidades'
@@ -159,6 +160,26 @@ export function itemDeEjercicio(ej: any, ref: any = {}, extra: any = {}, refMand
     ...(descanso ? { descanso } : {}),
     ...extra,
   }
+}
+
+/**
+ * SE ADAPTA A LO DE ARRIBA. Un ejercicio que entra en una parte coge lo que comparten los
+ * que ya hay —series, cantidad (con la misma unidad) y descanso—, que es lo que se pone
+ * «para todos» en la fila de arriba (circuito o ejercicio a ejercicio). Sin nada común,
+ * se queda con lo suyo (cómo se suele hacer).
+ */
+export function adaptarALaParte(item: any, yaHay: any[] = []) {
+  const r: any = { ...item }
+  const comun = (f: (x: any) => string) => { if (!yaHay.length) return null; const vs = Array.from(new Set(yaHay.map(f))); return vs.length === 1 && vs[0] ? vs[0] : null }
+  const sC = comun(x => String(x.series || '')); if (sC) r.series = sC
+  const dC = comun(x => String(x.descanso || '')); if (dC) r.descanso = dC
+  const vol = (x: any) => partesMedida(x.tipo_medida || 'peso_reps').volumen
+  const uC = comun(x => vol(x))
+  if (uC && uC === vol(r)) {
+    const campo = uC === 'segundos' ? 'tiempo' : uC === 'metros' ? 'metros' : 'reps'
+    const cC = comun(x => String(x[campo] || '')); if (cC) r[campo] = cC
+  }
+  return r
 }
 
 /**

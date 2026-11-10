@@ -1,5 +1,5 @@
 'use client'
-import { itemDeEjercicio } from '@/lib/sesiones'
+import { itemDeEjercicio, adaptarALaParte } from '@/lib/sesiones'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -154,7 +154,8 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
       // DENTRO DE UNA PARTE: un ejercicio se suma a ella, y una parte entera vuelca
       // sus ejercicios en ella. Antes todo acababa como una parte nueva.
       if (sitio.parte != null && lista[sitio.parte] && (c.tipo === 'e' || c.tipo === 'p')) {
-        const mas = c.tipo === 'e' ? [copia(c.ej)] : parteDe(ses[c.sesId], c.pi).ejercicios
+        // Un ejercicio suelto se adapta a lo que comparten los de esa parte (series, cantidad, descanso).
+        const mas = c.tipo === 'e' ? [adaptarALaParte(copia(c.ej), lista[sitio.parte].ejercicios)] : parteDe(ses[c.sesId], c.pi).ejercicios
         return lista.map((q, k) => k === sitio.parte ? { ...q, ejercicios: [...q.ejercicios, ...mas] } : q)
       }
       // EN EL HUECO DE "PARTE NUEVA": siempre una parte más al final, aunque ya haya

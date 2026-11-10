@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { capacidadPorReps, textoDescanso } from '@/lib/capacidades'
-import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion, LADOS, itemDeEjercicio } from '@/lib/sesiones'
+import { MODOS_PARTE, TIPOS_TIEMPO, modoParte, registrarSesion, LADOS, itemDeEjercicio, adaptarALaParte } from '@/lib/sesiones'
 import ExploradorEjercicios from '@/components/ExploradorEjercicios'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { similaresA, crearEjercicioRapido } from '@/lib/ejercicios'
@@ -471,9 +471,10 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       // entraba siempre como "Bilateral", que era mentira en la mitad del catálogo
       // —un press Pallof o una marcha no son bilaterales— y además dejaba escrito en el
       // registro el nombre de una variante que puede no existir en ese ejercicio.
-      const configEj = itemDeEjercicio(ej)
+      const configEj: any = itemDeEjercicio(ej)
       const pa = partes[parteActiva]
-      partes[parteActiva] = { ...pa, ejercicios: conLetras(pa, [...(pa.ejercicios||[]), configEj]) }
+      // Se adapta a lo que comparten los de la parte (lib/sesiones · adaptarALaParte).
+      partes[parteActiva] = { ...pa, ejercicios: conLetras(pa, [...(pa.ejercicios||[]), adaptarALaParte(configEj, pa.ejercicios || [])]) }
       return { ...prev, partes }
     })
   }
