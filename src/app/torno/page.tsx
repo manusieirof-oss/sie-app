@@ -121,7 +121,15 @@ export default function TornoPage() {
     if (alturaPuesta || !ejs || (porFamilias && !familias.length)) return
     setAlturaPuesta(true)
     let y = 0; try { y = Number(sessionStorage.getItem('torno-scroll') || 0); sessionStorage.removeItem('torno-scroll') } catch {}
-    if (y > 0) setTimeout(() => window.scrollTo(0, y), 60)
+    if (y <= 0) return
+    // Varias veces durante el primer segundo: la página se abre con animación y las
+    // tarjetas van ocupando sitio, y un solo intento se quedaba arriba. Si tocas la
+    // rueda o la pantalla, se deja de insistir.
+    let parar = false
+    const quieto = () => { parar = true }
+    window.addEventListener('wheel', quieto, { once: true, capture: true }); window.addEventListener('touchstart', quieto, { once: true, capture: true })
+    ;[50, 250, 500, 800, 1200].forEach(ms => setTimeout(() => { if (!parar) desplazador().scrollTop = y }, ms))
+    setTimeout(() => { window.removeEventListener('wheel', quieto, true); window.removeEventListener('touchstart', quieto, true) }, 1300)
   }, [ejs, familias, porFamilias, alturaPuesta])
   useEffect(() => { try { sessionStorage.setItem('torno-familias', porFamilias ? '1' : '0') } catch {} }, [porFamilias])
   useEffect(() => { if (!familias.length) supabase.from('etiquetas').select('id,nombre').eq('categoria', 'familia').then(({ data }) => setFamilias((data || []).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')))) }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,10 +194,13 @@ export default function TornoPage() {
   const nVariantes: Record<string, number> = {}
   ;(ejs || []).forEach(e => { if (e.portada_id) nVariantes[e.portada_id] = (nVariantes[e.portada_id] || 0) + 1 })
   /** Abre su rosco. Desde una lista, la lista entera queda de cola para ir pasando al siguiente. */
+  /** Lo que se desplaza no es la ventana sino la caja de contenido del diseño (.content,
+   *  o .m-main en el móvil). Con window.scrollY siempre salía 0 y no volvía a su sitio. */
+  const desplazador = (): HTMLElement => (document.querySelector('.content') || document.querySelector('.m-main') || document.scrollingElement || document.documentElement) as HTMLElement
   function amasar(id: string, cola?: string[]) {
     if (cola && cola.length > 1) guardarCola(cola)
     // Se apunta dónde estaba (altura y búsqueda) para volver al mismo sitio al salir.
-    try { sessionStorage.setItem('torno-scroll', String(window.scrollY)); sessionStorage.setItem('torno-busca', busca) } catch {}
+    try { sessionStorage.setItem('torno-scroll', String(desplazador().scrollTop)); sessionStorage.setItem('torno-busca', busca) } catch {}
     setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}${cola && cola.length > 1 ? '?cola=1' : ''}`), 360)
   }
 
