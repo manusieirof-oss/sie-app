@@ -988,7 +988,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     await editarSuSesion(pid, partes => {
       const viejo = partes[pi]?.ejercicios?.[pe]
       if (!viejo) return partes
-      partes[pi].ejercicios[pe] = itemDeEjercicio(nuevo, viejo, { objetivos: viejo.objetivos || [] })
+      partes[pi].ejercicios[pe] = itemDeEjercicio(nuevo, viejo, { objetivos: viejo.objetivos || [] }, true)
       return partes
     }, undefined, `Ejercicio cambiado en su sesión en el taller: ${antes} → ${nuevo.nombre}`)
   }

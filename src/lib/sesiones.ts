@@ -143,14 +143,20 @@ export const LADOS = ['Bilateral', 'Unilateral', 'Alterno'] as const
  * entrado. Ahora todos salen de aqui. `ref` es el ejercicio de al lado, del que se
  * copian capacidad, ejecucion, series y descanso para no empezar de cero.
  */
-export function itemDeEjercicio(ej: any, ref: any = {}, extra: any = {}) {
+export function itemDeEjercicio(ej: any, ref: any = {}, extra: any = {}, refManda = false) {
+  /* CÓMO SE SUELE HACER (ejercicios.por_defecto, se pone en el torno): un ejercicio NUEVO
+     en la sesión sale ya así; luego en la sesión se cambia lo que haga falta. Al SUSTITUIR
+     uno por otro (refManda) se queda lo del que había en ese hueco: es la misma dosis. */
+  const pd = ej.por_defecto || {}
+  const v = (k: string, porDefecto = '') => String((refManda ? (ref[k] || pd[k]) : (pd[k] || ref[k])) || porDefecto)
+  const descanso = v('descanso')
   return {
     ejercicio_id: ej.id, nombre: ej.nombre, imagen_url: ej.imagen_url || '',
     tipo_medida: ej.tipo_medida || 'peso_reps', variantes_disp: ej.variantes || [], variante: '',
-    capacidad: ref.capacidad || '', regimen: ref.regimen || 'Concéntrico', lado: ref.lado || 'Bilateral',
-    series: ref.series || '3', reps: ref.reps || '', tiempo: ref.tiempo || '', metros: ref.metros || '', peso: '', nota: '',
+    capacidad: ref.capacidad || '', regimen: v('regimen', 'Concéntrico'), lado: v('lado', 'Bilateral'),
+    series: v('series', '3'), reps: v('reps'), tiempo: v('tiempo'), metros: ref.metros || '', peso: '', nota: '',
     ...(ref.grupo ? { grupo: ref.grupo } : {}),
-    ...(ref.descanso ? { descanso: ref.descanso } : {}),
+    ...(descanso ? { descanso } : {}),
     ...extra,
   }
 }

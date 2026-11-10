@@ -541,7 +541,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
       const ejercicios = [...(pa.ejercicios || [])]
       const viejo = ejercicios[ei]
       if (!viejo) return prev
-      ejercicios[ei] = { ...itemDeEjercicio(nuevo, viejo), peso: viejo.peso || '', nota: viejo.nota || '' }
+      ejercicios[ei] = { ...itemDeEjercicio(nuevo, viejo, {}, true), peso: viejo.peso || '', nota: viejo.nota || '' }
       partes[parteActiva] = { ...pa, ejercicios }
       return { ...prev, partes }
     })
