@@ -95,6 +95,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   const [buscaFam, setBuscaFam] = useState('')
+  /** Renombrando la familia elegida (texto) o null. */
+  const [renFam, setRenFam] = useState<string | null>(null)
   // Nombre de la variante que se está creando desde la ficha (null = no se está creando).
   const [nombreVar, setNombreVar] = useState<string | null>(null)
   // AÑADIR A LA FAMILIA desde la ficha: null = cerrado; si no, lo que se busca.
@@ -490,11 +492,45 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           setEts(p => [...p, data]); ponerFamilia(data.id); setBuscaFam('')
         }
         const companeros = famActual ? ejs.filter(x => x.id !== params.id && (x.etiquetas || []).includes(famActual.id)) : []
+        const renombrarFamilia = async () => {
+          const nombre = (renFam || '').trim(); if (!famActual || !nombre) return
+          if (familiasEt.some((f: any) => f.id !== famActual.id && normalizar(f.nombre).trim() === normalizar(nombre).trim())) { setAviso('Ya hay una familia con ese nombre: elígela en la lista.'); return }
+          const { error } = await supabase.from('etiquetas').update({ nombre }).eq('id', famActual.id)
+          if (error) { setAviso('No se ha cambiado el nombre: ' + error.message); return }
+          setEts(p => p.map((e: any) => e.id === famActual.id ? { ...e, nombre } : e)); setRenFam(null)
+          setAviso(`✓ La familia se llama ahora «${nombre}»`)
+        }
+        const borrarFamilia = async () => {
+          if (!famActual) return
+          const llevan = ejs.filter(x => (x.etiquetas || []).includes(famActual.id))
+          if (!confirm(`¿Borrar la familia «${famActual.nombre}»? ${llevan.length} ejercicio${llevan.length === 1 ? '' : 's'} se quedará${llevan.length === 1 ? '' : 'n'} sin familia (los ejercicios no se borran).`)) return
+          // Primero se quita de cada ejercicio (la base de datos los deja sueltos) y luego la etiqueta.
+          for (const x of llevan.filter(x => x.id !== params.id)) {
+            const { error } = await supabase.from('ejercicios').update({ etiquetas: (x.etiquetas || []).filter((t: string) => t !== famActual.id) }).eq('id', x.id)
+            if (error) { setAviso('No se ha podido quitar de ' + x.nombre + ': ' + error.message); return }
+          }
+          const { error: e1 } = await supabase.from('ejercicios').update({ etiquetas: (orig.etiquetas || []).filter((t: string) => t !== famActual.id) }).eq('id', params.id)
+          if (e1) { setAviso('No se ha podido quitar de este: ' + e1.message); return }
+          const { error } = await supabase.from('etiquetas').delete().eq('id', famActual.id)
+          if (error) { setAviso('Quitada de los ejercicios, pero la familia no se ha borrado: ' + error.message); return }
+          ponerFamilia(null); setOrig(o => ({ ...o, etiquetas: o.etiquetas.filter(t => t !== famActual.id) }))
+          setAviso(`✓ Familia «${famActual.nombre}» borrada`); cargar()
+        }
         return (<>
-          {famActual && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span className="chip-sel on" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>{famActual.nombre}</span>
-            <button className="btn btn-t btn-sm" onClick={() => ponerFamilia(null)}>Quitar familia</button>
-          </div>}
+          {famActual && (renFam === null
+            ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                <span className="chip-sel on" style={{ fontSize: 13, textTransform: 'none', letterSpacing: 0 }}>{famActual.nombre}</span>
+                <button className="btn btn-t btn-sm" onClick={() => ponerFamilia(null)}>Quitar de esta familia</button>
+                {/* SI TE EQUIVOCASTE: cambiarle el nombre (para todos los que la llevan) o
+                    borrarla entera (todos quedan sin familia). */}
+                <button className="btn btn-t btn-sm" onClick={() => setRenFam(famActual.nombre)}><Ic name="editar" size={11}/> Renombrar</button>
+                <button className="btn btn-t btn-sm" style={{ color: 'var(--red)' }} onClick={borrarFamilia}><Ic name="papelera" size={11}/> Borrar familia</button>
+              </div>
+            : <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                <input className="input" autoFocus value={renFam} onChange={e => setRenFam(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') renombrarFamilia() }}/>
+                <button className="btn btn-p btn-sm" disabled={!renFam.trim()} onClick={renombrarFamilia}>Guardar</button>
+                <button className="btn btn-t btn-sm" onClick={() => setRenFam(null)}>Cancelar</button>
+              </div>)}
           <input className="input" value={buscaFam} onChange={e => setBuscaFam(e.target.value)} placeholder="Buscar o crear una familia (p. ej. Curl de bíceps)"/>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
             {lista.map((f: any) => <button key={f.id} type="button" className={'chip-sel' + (famActual?.id === f.id ? ' on' : '')} style={{ textTransform: 'none', letterSpacing: 0 }}
