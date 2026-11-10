@@ -235,8 +235,13 @@ export default function ExploradorEjercicios({
   etiquetas.forEach((et: any) => { nombreEt[et.id] = et.nombre || '' })
   // El NOMBRE manda: lo que se llama así (o una variante suya). La descripción y las
   // etiquetas solo sirven para el bloque de «también lo trabajan», que va plegado.
+  // LA FAMILIA CUENTA COMO EL NOMBRE: buscar «curl de bíceps» trae arriba a toda la
+  // familia (el martillo, el de barra…), no solo a los que lo llevan en el nombre.
+  const esFamilia: Record<string, boolean> = {}
+  etiquetas.forEach((et: any) => { if (et.categoria === 'familia') esFamilia[et.id] = true })
   const casaNombre = (e: any) => contiene(e.nombre, buscar)
       || (e.variantes || []).some((v: any) => contiene(v?.nombre, buscar))
+      || (e.etiquetas || []).some((id: string) => esFamilia[id] && contiene(nombreEt[id], buscar))
   const casaEtiqueta = (e: any) => contiene(e.descripcion, buscar)
       || (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
   const casaTexto = (e: any) => casaNombre(e) || casaEtiqueta(e)
