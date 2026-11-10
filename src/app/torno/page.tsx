@@ -105,12 +105,25 @@ export default function TornoPage() {
   const [familiaAbierta, setFamiliaAbierta] = useState<string | null>(null)
   /* POR FAMILIAS: los ejercicios agrupados por su familia (etiqueta), para ver de un
      vistazo qué hay en cada una y qué queda sin familia o mal puesto. */
+  const [familias, setFamilias] = useState<any[]>([])
   const [porFamilias, setPorFamilias] = useState(false)
   // Al entrar en un ejercicio y volver, sigue en «Por familias» (y con la lista abierta):
   // se recuerda en esta pestaña del navegador.
-  useEffect(() => { try { if (sessionStorage.getItem('torno-familias') === '1') { setPorFamilias(true); setAbierto(true) } } catch {} }, [])
+  useEffect(() => { try {
+    if (sessionStorage.getItem('torno-familias') === '1') { setPorFamilias(true); setAbierto(true) }
+    const b = sessionStorage.getItem('torno-busca'); if (b) { setBusca(b); setAbierto(true) }
+    if (Number(sessionStorage.getItem('torno-scroll') || 0) > 0) setAbierto(true)
+  } catch {} }, [])
+  /* AL VOLVER DE UN EJERCICIO, A LA MISMA ALTURA: cuando ya están cargados los ejercicios
+     (y las familias, si se ven por familias) se baja a donde estaba, una sola vez. */
+  const [alturaPuesta, setAlturaPuesta] = useState(false)
+  useEffect(() => {
+    if (alturaPuesta || !ejs || (porFamilias && !familias.length)) return
+    setAlturaPuesta(true)
+    let y = 0; try { y = Number(sessionStorage.getItem('torno-scroll') || 0); sessionStorage.removeItem('torno-scroll') } catch {}
+    if (y > 0) setTimeout(() => window.scrollTo(0, y), 60)
+  }, [ejs, familias, porFamilias, alturaPuesta])
   useEffect(() => { try { sessionStorage.setItem('torno-familias', porFamilias ? '1' : '0') } catch {} }, [porFamilias])
-  const [familias, setFamilias] = useState<any[]>([])
   useEffect(() => { if (!familias.length) supabase.from('etiquetas').select('id,nombre').eq('categoria', 'familia').then(({ data }) => setFamilias((data || []).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')))) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // A quien se va. La ficha no aparece de golpe: la tarjeta se acerca y el
   // resto se apaga, asi que el salto se lee como entrar y no como un corte.
@@ -175,6 +188,8 @@ export default function TornoPage() {
   /** Abre su rosco. Desde una lista, la lista entera queda de cola para ir pasando al siguiente. */
   function amasar(id: string, cola?: string[]) {
     if (cola && cola.length > 1) guardarCola(cola)
+    // Se apunta dónde estaba (altura y búsqueda) para volver al mismo sitio al salir.
+    try { sessionStorage.setItem('torno-scroll', String(window.scrollY)); sessionStorage.setItem('torno-busca', busca) } catch {}
     setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}${cola && cola.length > 1 ? '?cola=1' : ''}`), 360)
   }
 
