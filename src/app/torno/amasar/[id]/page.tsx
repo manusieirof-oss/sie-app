@@ -785,8 +785,12 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
      el actual y, al saltar de uno a otro, todos cambiaban de sitio. */
   const yoEj = ejs.find(x => x.id === params.id)
   const principalAn = principalFam || (variantes.length ? yoEj : null)
-  const familiaAnillo: any[] = principalAn
-    ? [principalAn, ...ejs.filter(x => x.portada_id === principalAn.id).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))]
+  /* La familia del anillo es la de su ETIQUETA, igual que en el torno y la biblioteca.
+     Antes salía de la «principal» (sistema viejo) y por eso aquí se veían más o
+     distintos. Mismo orden que el torno: por nombre. */
+  const familiaAnillo: any[] = famActual
+    ? ejs.filter(x => (x.id === params.id ? d.etiquetas : (x.etiquetas || [])).includes(famActual.id))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
     : []
   /** El nombre corto en el anillo: sin repetir el de la principal ("con polea", no "Curl de bíceps con polea"). */
   const nombreCorto = (x: any) => {
@@ -1051,11 +1055,26 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               // Sin tope: antes solo cabían 12 y, al meter uno, otro desaparecía del anillo.
               // Con muchos, se reparten en dos filas (una más fuera) para que no se pisen.
               const fam = familiaAnillo.map(x => x.id === params.id ? { ...x, nombre: d.nombre || x.nombre, imagen_url: preview || d.imagen_url || x.imagen_url } : x)
-              const dos = fam.length > 10, arco = dos ? 170 : 130
+              // Con muchos (más de 10) el rosco se pisaba: se ponen en rejilla a la izquierda,
+              // en el mismo orden, con su nombre entero como en el torno.
+              if (fam.length > 10) return (
+                <div style={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: 18, width: 300, zIndex: 1 }}>
+                  <div style={{ fontSize: 11.5, color: 'var(--gr)', marginBottom: 6 }}>{famActual?.nombre} · {fam.length}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
+                    {fam.map(x => (
+                      <div key={x.id} onClick={() => { if (x.id !== params.id) ir(aEj(x.id)) }} title={x.nombre}
+                        style={{ cursor: x.id === params.id ? 'default' : 'pointer', opacity: x.id === params.id ? 1 : .8 }}>
+                        <div style={{ borderRadius: 8, overflow: 'hidden', outline: x.id === params.id ? '2px solid var(--n)' : 'none', outlineOffset: 1 }}>
+                          <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={14} insignias={false}/>
+                        </div>
+                        <div style={{ fontSize: 9.5, lineHeight: 1.2, marginTop: 2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{x.nombre}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>)
               const pos = fam.map((_, i) => {
-                const a = (fam.length === 1 ? 180 : 90 + (180 - arco) / 2 + (arco * i) / (fam.length - 1)) * Math.PI / 180
-                const fuera = dos && i % 2 === 1
-                return { x: 50 + Math.cos(a) * (fuera ? 84 : 66), y: 50 + Math.sin(a) * (fuera ? 74 : 58) }
+                const a = (fam.length === 1 ? 180 : 115 + (130 * i) / (fam.length - 1)) * Math.PI / 180
+                return { x: 50 + Math.cos(a) * 66, y: 50 + Math.sin(a) * 58 }
               })
               return (<>
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', zIndex: 0, pointerEvents: 'none' }}>
