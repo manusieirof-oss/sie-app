@@ -1053,7 +1053,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               // El que se está mirando sale con lo que hay en pantalla (nombre y foto recién
               // cambiados): si no, el anillo enseñaba lo antiguo hasta recargar.
               // Sin tope: antes solo cabían 12 y, al meter uno, otro desaparecía del anillo.
-              const fam = familiaAnillo.map(x => x.id === params.id ? { ...x, nombre: d.nombre || x.nombre, imagen_url: preview || d.imagen_url || x.imagen_url } : x)
+              // El que se está mirando YA NO sale en el anillo: verlo dos veces (en el centro y
+              // fuera) parecía un repetido y llevó a borrarlo sin querer. Solo sus hermanos.
+              const fam = familiaAnillo.filter(x => x.id !== params.id)
               /* EN VARIOS CÍRCULOS, A DISTINTAS ALTURAS: el primero cabe 7; si hay más, se
                  abren círculos más grandes por fuera. Se reparten según el tamaño de cada
                  círculo (el de fuera lleva más) para que no se pisen. Mismo orden que el torno. */
