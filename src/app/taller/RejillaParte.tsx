@@ -253,7 +253,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               {avisos.map((a: any, k: number) => (
                 <div key={k} style={{ fontSize: 10, lineHeight: 1.4, marginTop: 4, textAlign: 'left',
                   color: a.clase === 'patologia' || a.clase === 'evitar' ? 'var(--rj, #B4544F)' : '#7A5800' }}>
-                  ⚠ <b style={{ fontWeight: 600 }}>{tituloAviso(a)}</b>{a.nota ? ' — ' + a.nota : ''}
+                  ⚠ <b style={{ fontWeight: 600 }}>{tituloAviso(a)}</b>{a.nota && a.clase !== 'evitar' ? ' — ' + a.nota : ''}
                 </div>
               ))}
             </div>
