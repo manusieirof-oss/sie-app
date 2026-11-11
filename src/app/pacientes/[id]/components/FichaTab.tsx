@@ -1563,27 +1563,24 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           repetirlo en la ficha era tener la misma informacion en dos sitios. */}
 
       {/* DATOS DE ENTRENAMIENTO, en este orden: cuota y tipo de clase (arriba), su horario,
-          el cambio de sala y las preferencias que se apuntaron en la valoración. */}
+          con lo que dijo en la valoración, y el cambio de sala. */}
       {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
           agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
       {ubicar && <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>}
       {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
       {ubicar && <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>}
-      {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
-      {ubicar && <CambiarSala pacienteId={pac.id}/>}
-
-      {/* 7. PREFERENCIAS DE HORARIO */}
+      {/* LO QUE DIJO EN LA VALORACIÓN (días y franja), en una línea junto a «Le gustaría»:
+          es la misma idea. Antes era un bloque aparte abajo y parecía repetido. */}
       {ubicar && valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
-        <div className="sec">
-          <div className="sec-h"><span className="ct-l"><Ic name="reloj" size={13}/> Preferencias de horario</span></div>
-          {valoracion.dias_asistencia && (
-            <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:7}}>
-              {valoracion.dias_asistencia.split(',').filter(Boolean).map((d:string)=><span key={d} className="pill pill-g">{d}</span>)}
-            </div>
-          )}
-          {valoracion.franja && <div style={{fontSize:12,color:'var(--gr)'}}>Franja: {valoracion.franja==='manana'?'Mañanas':valoracion.franja==='tarde'?'Tardes':valoracion.franja==='noche'?'Noches':'Flexible'}</div>}
+        <div style={{fontSize:12,color:'var(--gr)',margin:'-10px 0 16px'}}>
+          En la valoración dijo: {[
+            (valoracion.dias_asistencia||'').split(',').filter(Boolean).join(', '),
+            valoracion.franja ? (valoracion.franja==='manana'?'mañanas':valoracion.franja==='tarde'?'tardes':valoracion.franja==='noche'?'noches':'flexible') : ''
+          ].filter(Boolean).join(' · ')}
         </div>
       )}
+      {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
+      {ubicar && <CambiarSala pacienteId={pac.id}/>}
 
       {/* Los consentimientos ya no van aquí: están en la cabecera («Firmas»), junto a Documentos. */}
 
