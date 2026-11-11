@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { CATEGORIAS_ETIQUETA, nombreConRama } from '@/lib/etiquetas'
 import { contiene } from '@/lib/texto'
-import { cargarReglas } from '@/lib/reglasClinicas'
+import { cargarReglas, nombreRegla } from '@/lib/reglasClinicas'
 import { zonaEstaMapeada, ZONAS_DISPONIBLES } from '@/lib/anatomia'
 
 /**
@@ -56,7 +56,7 @@ export default function ModalItemClinico({ config, valor, etiquetas = [], onGuar
       <div className="field"><label style={{ color }}>{titulo}</label>
         <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>{ayuda}</div>
         {puestas.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-          {puestas.map(id => { const e = etiquetas.find((x: any) => x.id === id); return e ? <button key={id} type="button" className="chip-sel on" style={{ textTransform: 'none', letterSpacing: 0 }} onClick={() => tog(id)}>{nombreConRama(etiquetas, e)} ✕</button> : null })}
+          {puestas.map(id => { const e = etiquetas.find((x: any) => x.id === id); const t = id.includes('+') ? nombreRegla(etiquetas, id) : e ? nombreConRama(etiquetas, e) : ''; return t ? <button key={id} type="button" className="chip-sel on" style={{ textTransform: 'none', letterSpacing: 0 }} onClick={() => tog(id)}>{t} ✕</button> : null })}
         </div>}
         <input className="input" placeholder="Buscar movimiento, posición, material…" value={q} disabled={guardando}
           onChange={e => setBuscaR(p => ({ ...p, [campo]: e.target.value }))}/>

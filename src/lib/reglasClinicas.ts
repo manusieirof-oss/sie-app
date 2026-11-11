@@ -40,12 +40,26 @@ export function reglasDe(nombre: string | null | undefined): Regla[] {
   return reglas[normNombre(nombre || '')] || []
 }
 
-/** Las etiquetas de `lista` que el ejercicio lleva (contando sus subetiquetas). */
+/**
+ * Las reglas de `lista` que el ejercicio cumple (contando subetiquetas). Una regla puede
+ * ser COMBINADA, con sus ids unidos por «+»: «Flexión+Lumbar» solo casa si el ejercicio
+ * lleva las dos. Así «evitar flexión lumbar» no avisa en un curl de bíceps (que también
+ * es flexión, pero de codo).
+ */
 export function etiquetasQueCasan(etiquetas: any[], lista: string[], idsEjercicio: string[]): string[] {
   const salida: string[] = []
-  for (const id of lista || []) {
-    const rama = conDescendientes(etiquetas, id)
-    if ((idsEjercicio || []).some(x => rama.includes(x))) salida.push(id)
+  for (const regla of lista || []) {
+    const partes = String(regla).split('+').filter(Boolean)
+    const casa = partes.length > 0 && partes.every(id => {
+      const rama = conDescendientes(etiquetas, id)
+      return (idsEjercicio || []).some(x => rama.includes(x))
+    })
+    if (casa) salida.push(regla)
   }
   return salida
+}
+
+/** El nombre de una regla: «Flexión + Lumbar». */
+export function nombreRegla(etiquetas: any[], regla: string): string {
+  return String(regla).split('+').map(id => etiquetas.find((e: any) => e.id === id)?.nombre).filter(Boolean).join(' + ')
 }

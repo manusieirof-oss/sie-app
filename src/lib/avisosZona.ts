@@ -1,5 +1,5 @@
 import { normNombre, raizDe, casaZona, categoriaDe } from './etiquetas'
-import { reglasDe, etiquetasQueCasan } from './reglasClinicas'
+import { reglasDe, etiquetasQueCasan, nombreRegla } from './reglasClinicas'
 
 // ---------------------------------------------------------------------------
 // LA MOLESTIA, SOBRE EL EJERCICIO QUE LA TOCA
@@ -114,7 +114,7 @@ export function avisosDeCondiciones(
       for (const r of reglasDe(n)) {
         const casan = etiquetasQueCasan(etiquetas, r.evitar, idsEjercicio)
         if (!casan.length) continue
-        ev.push({ clase: 'evitar', nombre: r.nombre, zona: '', nota: casan.map(id => etiquetas.find((e: any) => e.id === id)?.nombre).filter(Boolean).join(', ') })
+        ev.push({ clase: 'evitar', nombre: r.nombre, zona: '', nota: casan.map(r => nombreRegla(etiquetas, r)).filter(Boolean).join(', ') })
       }
     }
   }

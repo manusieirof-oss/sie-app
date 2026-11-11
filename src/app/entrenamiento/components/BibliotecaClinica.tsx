@@ -6,7 +6,7 @@ import { ordenAnatomico, zonaEstaMapeada } from '@/lib/anatomia'
 import ModalItemClinico from '@/components/ModalItemClinico'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { categoriaDe, normNombre, nombreConRama } from '@/lib/etiquetas'
-import { etiquetasQueCasan } from '@/lib/reglasClinicas'
+import { etiquetasQueCasan, nombreRegla } from '@/lib/reglasClinicas'
 
 /**
  * Las seis listas del Pilar Clínico, en un solo componente.
@@ -178,7 +178,7 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], ejerc
             {/* QUÉ EVITAR Y QUÉ CONVIENE, y con ellos qué ejercicios avisan y cuáles le van. */}
             {(() => {
               const ev: string[] = detalle.evitar || [], co: string[] = detalle.conviene || []
-              const nm = (id: string) => { const e = etiquetas.find((x: any) => x.id === id); return e ? nombreConRama(etiquetas, e) : '' }
+              const nm = (id: string) => { if (id.includes('+')) return nombreRegla(etiquetas, id); const e = etiquetas.find((x: any) => x.id === id); return e ? nombreConRama(etiquetas, e) : '' }
               // Indicados: los que llevan su etiqueta de patología (mismo nombre) o algo de «conviene»,
               // y nada de «evitar».
               const etPat = etiquetas.filter((e: any) => categoriaDe(etiquetas, e) === 'patologia' && normNombre(e.nombre) === normNombre(detalle.nombre)).map((e: any) => e.id)

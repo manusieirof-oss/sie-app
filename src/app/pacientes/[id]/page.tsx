@@ -1,5 +1,5 @@
 'use client'
-import { cargarReglas, reglasDe } from '@/lib/reglasClinicas'
+import { cargarReglas, reglasDe, nombreRegla } from '@/lib/reglasClinicas'
 import { nombreConRama } from '@/lib/etiquetas'
 import { altaEnVald } from '@/lib/vald'
 import { useEffect, useState, useRef } from 'react'
@@ -991,7 +991,7 @@ export default function FichaPacientePage() {
               const nombres = [editMomento.texto, ...editMomento.cosas.filter(c => c.tipo !== 'molestia').map(c => c.nombre)].filter(Boolean)
               const rs = nombres.flatMap(n => reglasDe(n))
               const ev = Array.from(new Set(rs.flatMap(r => r.evitar))), co = Array.from(new Set(rs.flatMap(r => r.conviene)))
-              const nm = (id: string) => { const e = etiquetasLib.find((x: any) => x.id === id); return e ? nombreConRama(etiquetasLib, e) : '' }
+              const nm = (id: string) => { if (id.includes('+')) return nombreRegla(etiquetasLib, id); const e = etiquetasLib.find((x: any) => x.id === id); return e ? nombreConRama(etiquetasLib, e) : '' }
               if (!ev.length && !co.length) return null
               return <div style={{ fontSize: 12.5, lineHeight: 1.6, background: 'var(--bl)', borderRadius: 10, padding: '8px 11px', marginBottom: 10 }}>
                 {ev.length > 0 && <div><b style={{ color: 'var(--red)', fontWeight: 500 }}>Evitar:</b> {ev.map(nm).filter(Boolean).join(', ')}</div>}
