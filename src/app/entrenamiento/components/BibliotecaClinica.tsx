@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { ordenAnatomico, zonaEstaMapeada } from '@/lib/anatomia'
 import ModalItemClinico from '@/components/ModalItemClinico'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
+import { categoriaDe, normNombre, nombreConRama } from '@/lib/etiquetas'
+import { etiquetasQueCasan } from '@/lib/reglasClinicas'
 
 /**
  * Las seis listas del Pilar Clínico, en un solo componente.
@@ -35,10 +38,11 @@ const TEMAS: any = {
   ambar: { bg: 'var(--ambl)', border: '1px solid var(--amb)', color: '#7A5800' },
 }
 
-export default function BibliotecaClinica({ items, config, etiquetas = [], cargar }: {
+export default function BibliotecaClinica({ items, config, etiquetas = [], ejercicios = [], cargar }: {
   items: any[]
   config: ConfigClinica
   etiquetas: any[]
+  ejercicios?: any[]
   cargar: () => void
 }) {
   const [buscar, setBuscar] = useState('')
@@ -136,7 +140,7 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
       {/* DETALLE · lo que se ve al pulsar una píldora */}
       {detalle && !editando && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setDetalle(null) }}>
-          <div className="modal" style={{ maxWidth: 460 }}>
+          <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-title">
               {detalle.nombre}
               <button className="modal-close" onClick={() => setDetalle(null)}><Ic name="cerrar" size={15} /></button>
@@ -170,6 +174,39 @@ export default function BibliotecaClinica({ items, config, etiquetas = [], carga
                 ))}
               </div>
             )}
+
+            {/* QUÉ EVITAR Y QUÉ CONVIENE, y con ellos qué ejercicios avisan y cuáles le van. */}
+            {(() => {
+              const ev: string[] = detalle.evitar || [], co: string[] = detalle.conviene || []
+              const nm = (id: string) => { const e = etiquetas.find((x: any) => x.id === id); return e ? nombreConRama(etiquetas, e) : '' }
+              // Indicados: los que llevan su etiqueta de patología (mismo nombre) o algo de «conviene»,
+              // y nada de «evitar».
+              const etPat = etiquetas.filter((e: any) => categoriaDe(etiquetas, e) === 'patologia' && normNombre(e.nombre) === normNombre(detalle.nombre)).map((e: any) => e.id)
+              const aEvitar = (ejercicios || []).filter((x: any) => etiquetasQueCasan(etiquetas, ev, x.etiquetas || []).length > 0)
+              const indicados = (ejercicios || []).filter((x: any) => !aEvitar.includes(x) &&
+                ((x.etiquetas || []).some((t: string) => etPat.includes(t)) || etiquetasQueCasan(etiquetas, co, x.etiquetas || []).length > 0))
+              if (!ev.length && !co.length && !indicados.length) return null
+              return (
+                <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
+                  {ev.length > 0 && <div><span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 500 }}>Evitar: </span>
+                    <span style={{ fontSize: 12.5 }}>{ev.map(nm).filter(Boolean).join(', ')}</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--grl)' }}> · avisa en {aEvitar.length} ejercicio{aEvitar.length === 1 ? '' : 's'}</span></div>}
+                  {co.length > 0 && <div><span style={{ fontSize: 12, color: 'var(--gd)', fontWeight: 500 }}>Conviene: </span>
+                    <span style={{ fontSize: 12.5 }}>{co.map(nm).filter(Boolean).join(', ')}</span></div>}
+                  {indicados.length > 0 && <div>
+                    <div className="et-mini" style={{ marginBottom: 5 }}>{indicados.length} ejercicio{indicados.length === 1 ? '' : 's'} indicado{indicados.length === 1 ? '' : 's'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(78px,1fr))', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                      {indicados.slice(0, 60).map((x: any) => (
+                        <a key={x.id} href={`/torno/amasar/${x.id}`} title={x.nombre} style={{ textDecoration: 'none', color: 'var(--n)' }}>
+                          <div style={{ borderRadius: 8, overflow: 'hidden' }}><ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={14} insignias={false}/></div>
+                          <div style={{ fontSize: 10, lineHeight: 1.2, marginTop: 2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{x.nombre}</div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>}
+                </div>
+              )
+            })()}
 
             <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
               <button className="btn btn-t btn-sm" style={{ color: 'var(--red)' }} onClick={() => borrar(detalle)}>

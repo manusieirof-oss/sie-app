@@ -1,4 +1,6 @@
 'use client'
+import { cargarReglas, reglasDe } from '@/lib/reglasClinicas'
+import { nombreConRama } from '@/lib/etiquetas'
 import { altaEnVald } from '@/lib/vald'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -111,6 +113,9 @@ export default function FichaPacientePage() {
   const [eligiendoTest, setEligiendoTest] = useState(false)
   const [testEnCurso, setTestEnCurso] = useState<{test:any,tv:any,items?:string[]}|null>(null)
   const [etiquetasLib, setEtiquetasLib] = useState<any[]>([])
+  // Las reglas de Clínico (qué evitar / qué conviene), para el momento. Al llegar, repinta.
+  const [, setReglasV] = useState(0)
+  useEffect(() => { cargarReglas(); const f = () => setReglasV(v => v + 1); window.addEventListener('sie-reglas', f); return () => window.removeEventListener('sie-reglas', f) }, [])
   const [procesando, setProcesando] = useState(false)
   const [menuAcc, setMenuAcc] = useState<any>(null)
   /* DOCUMENTOS Y FIRMAS, en la cabecera: son papeles del paciente, no de su salud ni de
@@ -979,6 +984,20 @@ export default function FichaPacientePage() {
                     onClick={()=>setEditMomento(m=>m && ({ ...m, cosas: puesta(o) ? m.cosas.filter(c=>!(c.tipo===o.tipo && c.id===o.id)) : [...m.cosas, o] }))}>
                     <span style={{ color:'var(--grl)', fontWeight:400 }}>{ETQ[o.tipo]} ·</span> {o.nombre}</button>)}
                 </div></div>
+            })()}
+            {/* LO QUE DICE CLÍNICO DE ESTE MOMENTO: el propio momento («Embarazo») y sus
+                patologías y operaciones, si en Clínico tienen «qué evitar / qué conviene». */}
+            {(() => {
+              const nombres = [editMomento.texto, ...editMomento.cosas.filter(c => c.tipo !== 'molestia').map(c => c.nombre)].filter(Boolean)
+              const rs = nombres.flatMap(n => reglasDe(n))
+              const ev = Array.from(new Set(rs.flatMap(r => r.evitar))), co = Array.from(new Set(rs.flatMap(r => r.conviene)))
+              const nm = (id: string) => { const e = etiquetasLib.find((x: any) => x.id === id); return e ? nombreConRama(etiquetasLib, e) : '' }
+              if (!ev.length && !co.length) return null
+              return <div style={{ fontSize: 12.5, lineHeight: 1.6, background: 'var(--bl)', borderRadius: 10, padding: '8px 11px', marginBottom: 10 }}>
+                {ev.length > 0 && <div><b style={{ color: 'var(--red)', fontWeight: 500 }}>Evitar:</b> {ev.map(nm).filter(Boolean).join(', ')}</div>}
+                {co.length > 0 && <div><b style={{ color: 'var(--gd)', fontWeight: 500 }}>Conviene:</b> {co.map(nm).filter(Boolean).join(', ')}</div>}
+                <div style={{ fontSize: 11, color: 'var(--grl)' }}>Sale de Clínico. En el taller avisa en los ejercicios que lleven algo a evitar.</div>
+              </div>
             })()}
             {/* Embarazo: la FPP manda (semana y trimestre salen de ella). Otros: desde y,
                 si se sabe, hasta cuándo, para la cuenta atrás. */}

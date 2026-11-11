@@ -8,6 +8,7 @@ import { cargarMetodos, aplicarMetodo, METODOS_DEFECTO, type ValoresMetodo } fro
 import { pulsoActivo, hayPulso } from '@/lib/pulsoVivo'
 import { apuntarHistorial } from '@/lib/sesionViva'
 import { avisosDeCondiciones } from '@/lib/avisosZona'
+import { cargarReglas } from '@/lib/reglasClinicas'
 import { planDeCarga, admitePropuesta, proponerSeries } from '@/lib/propuestaCarga'
 import { useState, useRef, useEffect } from 'react'
 import TodosTaller from './TodosTaller'
@@ -93,6 +94,10 @@ async function sinEjerciciosBorrados<T extends { ejercicio_id?: any, ejercicio_n
 export type SoloTaller = { fecha: string, hora: string, pacienteId: string, onCerrar?: () => void }
 
 export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
+  // Las reglas de Clínico (qué evitar) llegan una vez; al llegar se repinta para que
+  // salgan los avisos en los ejercicios. Ver lib/reglasClinicas.
+  const [, setReglasV] = useState(0)
+  useEffect(() => { cargarReglas(); const f = () => setReglasV(v => v + 1); window.addEventListener('sie-reglas', f); return () => window.removeEventListener('sie-reglas', f) }, [])
   // NIVELES (lib/permisos). El principiante da la clase tal como está planificada: apunta,
   // marca hechos y faltas. Cambiar ejercicios o sesiones, desde el nivel 2; tocar cómo
   // se mide un ejercicio en la biblioteca (vale para todos), desde el 3.

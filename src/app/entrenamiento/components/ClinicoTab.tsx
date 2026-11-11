@@ -28,7 +28,7 @@ const SUBS: { k: string, icono: string, label: string, config: ConfigClinica }[]
     config: { tabla: 'operaciones_biblioteca', tipo: 'operación', campoGrupo: 'zona', tema: 'neutro' } },
 ]
 
-export default function ClinicoTab({ patologiasBiblio, molestiasBiblio, medsBiblio, alergiasBiblio, intolBiblio, opsBiblioLib, etiquetas = [], cargar }: any) {
+export default function ClinicoTab({ ejercicios = [], patologiasBiblio, molestiasBiblio, medsBiblio, alergiasBiblio, intolBiblio, opsBiblioLib, etiquetas = [], cargar }: any) {
   const [sub, setSub] = useState('patologias')
 
   const datos: Record<string, any[]> = {
@@ -53,6 +53,7 @@ export default function ClinicoTab({ patologiasBiblio, molestiasBiblio, medsBibl
         items={datos[sub] || []}
         config={activa.config}
         etiquetas={etiquetas}
+        ejercicios={ejercicios}
         cargar={cargar}
       />
     </div>

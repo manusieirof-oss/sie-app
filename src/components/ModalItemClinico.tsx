@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { CATEGORIAS_ETIQUETA } from '@/lib/etiquetas'
+import { CATEGORIAS_ETIQUETA, nombreConRama } from '@/lib/etiquetas'
+import { contiene } from '@/lib/texto'
+import { cargarReglas } from '@/lib/reglasClinicas'
 import { zonaEstaMapeada, ZONAS_DISPONIBLES } from '@/lib/anatomia'
 
 /**
@@ -40,6 +42,30 @@ export default function ModalItemClinico({ config, valor, etiquetas = [], onGuar
   const [item, setItem] = useState<any>({ nombre: '', [g]: '', descripcion: '', etiquetas: [], ...valor })
   const [guardando, setGuardando] = useState(false)
   const [grupos, setGrupos] = useState<string[]>([])
+  /* QUÉ EVITAR Y QUÉ CONVIENE: solo en patologías, operaciones y molestias. Son etiquetas
+     del mismo árbol que los ejercicios: un ejercicio que lleve una de «evitar» avisa en
+     las sesiones y el taller de quien la tenga. */
+  const conReglas = ['patologias_biblioteca', 'operaciones_biblioteca', 'molestias_biblioteca'].includes(config.tabla)
+  const [buscaR, setBuscaR] = useState<Record<string, string>>({})
+  const selectorReglas = (campo: 'evitar' | 'conviene', titulo: string, ayuda: string, color: string) => {
+    const puestas: string[] = item[campo] || []
+    const q = buscaR[campo] || ''
+    const lista = q.trim() ? etiquetas.filter((e: any) => !puestas.includes(e.id) && contiene(nombreConRama(etiquetas, e), q)).slice(0, 30) : []
+    const tog = (id: string) => setItem((p: any) => ({ ...p, [campo]: (p[campo] || []).includes(id) ? (p[campo] || []).filter((x: string) => x !== id) : [...(p[campo] || []), id] }))
+    return (
+      <div className="field"><label style={{ color }}>{titulo}</label>
+        <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>{ayuda}</div>
+        {puestas.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+          {puestas.map(id => { const e = etiquetas.find((x: any) => x.id === id); return e ? <button key={id} type="button" className="chip-sel on" style={{ textTransform: 'none', letterSpacing: 0 }} onClick={() => tog(id)}>{nombreConRama(etiquetas, e)} ✕</button> : null })}
+        </div>}
+        <input className="input" placeholder="Buscar movimiento, posición, material…" value={q} disabled={guardando}
+          onChange={e => setBuscaR(p => ({ ...p, [campo]: e.target.value }))}/>
+        {lista.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6, maxHeight: 120, overflowY: 'auto' }}>
+          {lista.map((e: any) => <button key={e.id} type="button" className="chip-sel" style={{ textTransform: 'none', letterSpacing: 0 }} onClick={() => { tog(e.id); setBuscaR(p => ({ ...p, [campo]: '' })) }}>{nombreConRama(etiquetas, e)}</button>)}
+        </div>}
+      </div>
+    )
+  }
 
   // Las zonas o categorías que ya se usan, para ofrecerlas sin obligar a elegir de una
   // lista cerrada: si no, no se podría dar de alta la primera de una zona nueva.
@@ -57,12 +83,14 @@ export default function ModalItemClinico({ config, valor, etiquetas = [], onGuar
       [g]: (item[g] || '').trim() || 'Otros',
       descripcion: item.descripcion || null,
       etiquetas: item.etiquetas || [],
+      ...(conReglas ? { evitar: item.evitar || [], conviene: item.conviene || [] } : {}),
     }
     const r = item.id
       ? await supabase.from(config.tabla).update(campos).eq('id', item.id).select().single()
       : await supabase.from(config.tabla).insert({ ...campos, activo: true }).select().single()
     setGuardando(false)
-    if (r.error) { alert(r.error.message); return }
+    if (r.error) { alert(/evitar|conviene/.test(r.error.message) ? 'Falta el SQL de «qué evitar / qué conviene» (sql/clinico-reglas.sql).' : r.error.message); return }
+    if (conReglas) cargarReglas(true)
     onGuardado(r.data)
   }
 
@@ -128,6 +156,9 @@ export default function ModalItemClinico({ config, valor, etiquetas = [], onGuar
             Las mismas que los ejercicios y los tests: {CATEGORIAS_ETIQUETA.map(c => c.label.toLowerCase()).join(', ')}.
           </div>
         </div>
+
+        {conReglas && selectorReglas('evitar', 'Qué evitar', 'Los ejercicios con alguna de estas etiquetas avisan en sus sesiones y en el taller.', 'var(--red)')}
+        {conReglas && selectorReglas('conviene', 'Qué conviene', 'Lo que le viene bien: sirve para sugerir ejercicios.', 'var(--gd)')}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
           <button className="btn btn-t btn-sm" onClick={onCerrar} disabled={guardando}>Cancelar</button>

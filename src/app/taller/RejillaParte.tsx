@@ -102,7 +102,10 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
         gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
 
         {gr.items.map(({ ej, ei }: any) => {
-          const avisos = avisosDeCondiciones({ molestias, patologias }, etiquetas, ej.etiquetas || [])
+          // LIGADO A SU MOMENTO: las operaciones que ahora le importan son las de su momento
+          // (postoperatorio…), y el propio momento («Embarazo») puede tener su ficha en Clínico.
+          const deMomento = paciente?.momento ? [{ nombre: paciente.momento }, ...((paciente.momento_cosas || []) as any[]).filter((c: any) => c.tipo === 'operacion')] : []
+          const avisos = avisosDeCondiciones({ molestias, patologias, operaciones: deMomento }, etiquetas, ej.etiquetas || [])
           /* LA CAPACIDAD, SEGUN LO QUE DE VERDAD HACE. Prescribiste
              fuerza-resistencia, pero si acaba haciendo 25 repeticiones esta
              estimulando otra cosa y la etiqueta tiene que decirlo. Lo
@@ -249,7 +252,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   mas que el aviso. */}
               {avisos.map((a: any, k: number) => (
                 <div key={k} style={{ fontSize: 10, lineHeight: 1.4, marginTop: 4, textAlign: 'left',
-                  color: a.clase === 'patologia' ? 'var(--rj, #B4544F)' : '#7A5800' }}>
+                  color: a.clase === 'patologia' || a.clase === 'evitar' ? 'var(--rj, #B4544F)' : '#7A5800' }}>
                   ⚠ <b style={{ fontWeight: 600 }}>{tituloAviso(a)}</b>{a.nota ? ' — ' + a.nota : ''}
                 </div>
               ))}

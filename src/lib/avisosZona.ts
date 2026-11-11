@@ -1,4 +1,5 @@
 import { normNombre, raizDe, casaZona, categoriaDe } from './etiquetas'
+import { reglasDe, etiquetasQueCasan } from './reglasClinicas'
 
 // ---------------------------------------------------------------------------
 // LA MOLESTIA, SOBRE EL EJERCICIO QUE LA TOCA
@@ -33,7 +34,7 @@ export function raizDeZona(etiquetas: any[], zona: string): any | null {
 
 export type AvisoZona = {
   /** De donde sale el aviso: cambia el color y el texto, no el cruce. */
-  clase: 'molestia' | 'patologia'
+  clase: 'molestia' | 'patologia' | 'evitar'
   nombre?: string | null
   zona: string
   lado?: string | null
@@ -70,6 +71,8 @@ export function avisosDeEjercicio(
 export function tituloAviso(a: AvisoZona): string {
   const donde = [a.zona, a.lado && a.lado !== 'bilateral' ? a.lado : ''].filter(Boolean).join(' ')
   if (a.clase === 'patologia') return [a.nombre, donde].filter(Boolean).join(' · ')
+  // «Hernia L5-S1: evitar Flexión»
+  if (a.clase === 'evitar') return `${a.nombre}: evitar ${a.nota || ''}`.trim()
   return [donde, a.eva == null || a.eva === ('' as any) ? '' : `EVA ${a.eva}`]
     .filter(Boolean).join(' · ')
 }
@@ -83,7 +86,7 @@ export function tituloAviso(a: AvisoZona): string {
  * duele- y se queda solo en la cabecera.
  */
 export function avisosDeCondiciones(
-  fuentes: { molestias?: any[], patologias?: any[] }, etiquetas: any[], idsEjercicio: string[],
+  fuentes: { molestias?: any[], patologias?: any[], operaciones?: any[] }, etiquetas: any[], idsEjercicio: string[],
 ): AvisoZona[] {
   const mol = avisosDeEjercicio(fuentes.molestias || [], etiquetas, idsEjercicio)
   const pat: AvisoZona[] = []
@@ -98,6 +101,23 @@ export function avisosDeCondiciones(
       })
     }
   }
-  // La patologia primero: es la condicion de fondo; la molestia, lo de hoy.
-  return [...pat, ...mol]
+  /* QUÉ EVITAR (Clínico): si la ficha de su patología, operación o molestia dice que
+     evite algo que este ejercicio lleva, se avisa aunque no coincida la zona. */
+  const ev: AvisoZona[] = []
+  if (Array.isArray(idsEjercicio) && idsEjercicio.length > 0) {
+    const nombres = [
+      ...(fuentes.patologias || []).map((p: any) => p?.nombre),
+      ...(fuentes.operaciones || []).map((o: any) => o?.nombre),
+      ...(fuentes.molestias || []).filter((m: any) => m?.activa !== false).map((m: any) => m?.nombre || m?.tipo),
+    ].filter(Boolean)
+    for (const n of Array.from(new Set(nombres))) {
+      for (const r of reglasDe(n)) {
+        const casan = etiquetasQueCasan(etiquetas, r.evitar, idsEjercicio)
+        if (!casan.length) continue
+        ev.push({ clase: 'evitar', nombre: r.nombre, zona: '', nota: casan.map(id => etiquetas.find((e: any) => e.id === id)?.nombre).filter(Boolean).join(', ') })
+      }
+    }
+  }
+  // Lo que hay que evitar, lo primero; luego la patología (el fondo) y la molestia (lo de hoy).
+  return [...ev, ...pat, ...mol]
 }
