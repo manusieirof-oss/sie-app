@@ -7,7 +7,7 @@ import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
 import MonedaObjetivo from './MonedaObjetivo'
 import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
-import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz } from '@/lib/etiquetas'
+import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz, nombreConRama } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
 import { rareza, trozosCapacidad } from '@/lib/cromo'
@@ -242,8 +242,12 @@ export default function ExploradorEjercicios({
   const casaNombre = (e: any) => contiene(e.nombre, buscar)
       || (e.variantes || []).some((v: any) => contiene(v?.nombre, buscar))
       || (e.etiquetas || []).some((id: string) => esFamilia[id] && contiene(nombreEt[id], buscar))
+  // Cada etiqueta con su rama («Trapecio › Superior»): así «trapecio superior» encuentra
+  // lo etiquetado con la «Superior» del trapecio, que sola no dice de qué es.
+  const ramaEt: Record<string, string> = {}
+  etiquetas.forEach((et: any) => { ramaEt[et.id] = nombreConRama(etiquetas, et) })
   const casaEtiqueta = (e: any) => contiene(e.descripcion, buscar)
-      || (e.etiquetas || []).some((id: string) => contiene(nombreEt[id], buscar))
+      || (e.etiquetas || []).some((id: string) => contiene(ramaEt[id], buscar))
   const casaTexto = (e: any) => casaNombre(e) || casaEtiqueta(e)
   const portadasQueCasan = new Set(buscar ? ejercicios.filter(e => !e.portada_id && casaTexto(e)).map(e => e.id) : [])
   const filtrados = ejercicios.filter(e => {
