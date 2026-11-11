@@ -71,6 +71,8 @@ export function leerGrupo(): string[] { try { return JSON.parse(sessionStorage.g
  */
 export async function ponerEnComun(elegidos: any[], todos: any[], c: {
   etiquetas: string[], tipo_medida: string, ejecucion: string[], feedbacks: string[], portada_id: string | null,
+  /** La familia (etiqueta) para todos: quita la que tuvieran y pone esta. */
+  familia?: { id: string, todas: string[] } | null,
 }) {
   const sumar = (lista: any[] | null, nuevas: string[]) => {
     const l = (lista || []).filter((i: any) => i?.texto?.trim())
@@ -80,6 +82,8 @@ export async function ponerEnComun(elegidos: any[], todos: any[], c: {
   for (const e of elegidos) {
     const cambio: any = {}
     if (c.etiquetas.length) cambio.etiquetas = Array.from(new Set([...(e.etiquetas || []), ...c.etiquetas]))
+    // Una sola familia por ejercicio: la elegida sustituye a la que tuviera.
+    if (c.familia) cambio.etiquetas = [...(cambio.etiquetas || e.etiquetas || []).filter((t: string) => !c.familia!.todas.includes(t)), c.familia.id]
     if (c.tipo_medida) cambio.tipo_medida = c.tipo_medida
     if (c.ejecucion.length) cambio.items_ejecucion = sumar(e.items_ejecucion, c.ejecucion)
     if (c.feedbacks.length) cambio.feedbacks = sumar(e.feedbacks, c.feedbacks)

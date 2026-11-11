@@ -97,6 +97,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   const [buscaFam, setBuscaFam] = useState('')
+  // VARIOS A LA VEZ: la familia (etiqueta) que se les pone a todos. Antes se elegía un
+  // «principal» del sistema viejo y el resto pasaban a ser sus variantes.
+  const [famGrupo, setFamGrupo] = useState<string | null>(null)
   /** Renombrando la familia elegida (texto) o null. */
   const [renFam, setRenFam] = useState<string | null>(null)
   // Fusionar: al elegir otra familia en la lista, esta se mete entera en aquella.
@@ -252,7 +255,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     { k: 'medida', t: 'Cómo se mide', ic: 'regla', lleno: !!d.tipo_medida, sub: TIPOS_MEDIDA.find(m => m.id === d.tipo_medida)?.nombre || 'No cambiar' },
     { k: 'ejecucion', t: 'Ejecución', ic: 'ok', lleno: nTxt(d.items_ejecucion) > 0, sub: nTxt(d.items_ejecucion) ? `+${nTxt(d.items_ejecucion)} a todos` : 'Nada' },
     { k: 'feedbacks', t: 'Feedbacks', ic: 'mensaje', lleno: nTxt(d.feedbacks) > 0, sub: nTxt(d.feedbacks) ? `+${nTxt(d.feedbacks)} a todos` : 'Nada' },
-    { k: 'familia', t: 'Familia', ic: 'plantillas', lleno: !!d.portada_id, sub: d.portada_id ? `De ${ejs.find(x => x.id === d.portada_id)?.nombre || 'otro'}` : 'No cambiar' },
+    { k: 'familia', t: 'Familia', ic: 'plantillas', lleno: !!famGrupo, sub: famGrupo ? (ets.find((e: any) => e.id === famGrupo)?.nombre || 'Familia') : 'No cambiar' },
   ]
   const QUESITOS = grupo ? VARIOS : UNO
   const paso = 360 / QUESITOS.length
@@ -383,16 +386,15 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
   function editor(k: Clave) {
     if (grupo && k === 'familia') {
-      const ids = grupoEjs.map(e => e.id)
+      const qf = normalizar(buscaFam).trim()
+      const lista = familiasEt.filter((f: any) => !qf || contiene(f.nombre, buscaFam)).slice(0, 40)
       return (<>
-        <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 10 }}>Elige el principal: el resto pasan a ser sus variantes.</div>
-        <select className="input" value={d.portada_id || ''} onChange={e => set('portada_id', e.target.value || null)}>
-          <option value="">No cambiar</option>
-          <optgroup label="Uno de los elegidos">{grupoEjs.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}</optgroup>
-          <optgroup label="Otro principal de la biblioteca">
-            {ejs.filter(x => !x.portada_id && !ids.includes(x.id)).map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-          </optgroup>
-        </select>
+        <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 10 }}>Elige su familia: se les pone a todos (y se quita la que tuvieran).</div>
+        <input className="input" value={buscaFam} onChange={e => setBuscaFam(e.target.value)} placeholder="Buscar familia"/>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
+          {lista.map((f: any) => <button key={f.id} type="button" className={'chip-sel' + (famGrupo === f.id ? ' on' : '')} style={{ textTransform: 'none', letterSpacing: 0 }}
+            onClick={() => setFamGrupo(famGrupo === f.id ? null : f.id)}>{f.nombre}</button>)}
+        </div>
       </>)
     }
     switch (k) {
@@ -616,18 +618,19 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const verFicha = fichaOn && !abierto && !nuevo && !grupo
 
   // ---- Varios: aplicar --------------------------------------------------------------
-  const hayAlgoGrupo = nEt > 0 || !!d.tipo_medida || nTxt(d.items_ejecucion) > 0 || nTxt(d.feedbacks) > 0 || !!d.portada_id
+  const hayAlgoGrupo = nEt > 0 || !!d.tipo_medida || nTxt(d.items_ejecucion) > 0 || nTxt(d.feedbacks) > 0 || !!famGrupo
   async function aplicarGrupo() {
     setGuardando(true); setAviso('')
     const r = await ponerEnComun(grupoEjs, ejs, {
-      etiquetas: d.etiquetas, tipo_medida: d.tipo_medida, portada_id: d.portada_id,
+      etiquetas: d.etiquetas, tipo_medida: d.tipo_medida, portada_id: null,
+      familia: famGrupo ? { id: famGrupo, todas: familiasEt.map((f: any) => f.id) } : null,
       ejecucion: d.items_ejecucion.map(i => i.texto?.trim()).filter(Boolean),
       feedbacks: d.feedbacks.map(i => i.texto?.trim()).filter(Boolean),
     })
     setGuardando(false)
     if (r.ok === false) { setAviso('No se ha podido: ' + r.error); return }
     // Vacío otra vez: lo siguiente que se ponga es otra tanda.
-    setD(VACIO); setOrig(VACIO); setAbierto(null)
+    setD(VACIO); setOrig(VACIO); setAbierto(null); setFamGrupo(null)
     await cargar(); setResumenOn(true); setAviso(`✓ Guardado en los ${grupoEjs.length}`)
   }
   /** Cómo han quedado los elegidos: lo que aún les falta, y seguir uno a uno. */
@@ -885,9 +888,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           <button className="btn btn-t btn-sm" onClick={() => { setFichaOn(false); setNombreVar(null) }}>Cerrar</button>
         </div>
         <div style={{ fontSize: 12, color: 'var(--gd)', margin: '4px 0 14px', cursor: 'pointer' }} onClick={() => { setFichaOn(false); setAbierto('familia') }}>
-          {medida || 'Sin medida'} · {portada ? `Variante de ${portada.nombre}` : variantes.length ? `Principal · ${variantes.length} variante${variantes.length === 1 ? '' : 's'}` : 'Suelto'}
-          {portada && !cambiado && <button className="btn btn-t btn-sm" style={{ marginLeft: 8, padding: '2px 9px', fontSize: 11.5 }}
-            disabled={guardando} onClick={ev => { ev.stopPropagation(); pasarAPrincipal() }}>Hacer principal</button>}
+          {/* Su familia es la etiqueta; ya no hay «principal» ni «variante». */}
+          {medida || 'Sin medida'} · {famActual ? `Familia ${famActual.nombre}` : 'Sin familia'}
         </div>
         {sec('descripcion', 'Descripción', <div style={{ fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', color: 'var(--n)' }}>{d.descripcion}</div>, !d.descripcion.trim())}
         {sec('etiquetas', 'Etiquetas', (
