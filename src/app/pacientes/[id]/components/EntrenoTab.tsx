@@ -30,11 +30,14 @@ import { sistemasDePaciente, historialSistemas, logradosDe, escalonesDe, Asignac
 import { sinAjustes, resumenAjustes, aplicarAjustes } from '@/lib/ajustesCita'
 import { useImagenes, imagenDe, idsDeSesiones } from '@/lib/imagenEjercicio'
 
-export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void }) {
+export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRefresh, datos, seccionInicial }: { pacienteId: string, nombrePaciente?: string, sesiones: any[], onRefresh: () => void, datos?: React.ReactNode, seccionInicial?: string }) {
   // Nivel 2: ve sus sesiones y ajusta el día de una cita; crear, editar, versionar o
   // borrar sesiones (cambios para siempre) es del 3 en adelante.
   const editaPlan = usePuede()('editar_plan')
-  const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'ejecucion'>('activo')
+  const [seccion, setSeccion] = useState<'activo'|'sistemas'|'sesiones'|'historial'|'datos'>((seccionInicial as any) || 'activo')
+  /* HISTORIAL CON DOS VISTAS: las citas pasadas o la ejecución (cómo ha ido cada
+     ejercicio). Antes la ejecución era una pestaña aparte; las dos miran el pasado. */
+  const [verHist, setVerHist] = useState<'sesiones'|'ejecucion'>('sesiones')
   const [citasFuturas, setCitasFuturas] = useState<any[]>([])
   const [citasPasadas, setCitasPasadas] = useState<any[]>([])
   const [regsPasados, setRegsPasados] = useState<any[]>([])
@@ -537,10 +540,12 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
       {/* Mismo conmutador que en Salud (.vista-sw): era el cuarto estilo de pestañas
           de la app, hecho a mano y con tipografía de 11px. */}
       <div className="vista-sw">
-        {([['activo','calendario','Planificación',citasFuturas.length],['sesiones','lista','Sesiones y sistemas',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],['ejecucion','ok','Ejecución',nEjecuciones]] as const).map(([k,ic,l,n])=>(
-          <button key={k} className={`vista-b ${seccion===k?'on':''}`} onClick={()=>setSeccion(k)}>
+        {/* DATOS DE ENTRENAMIENTO: cuota, tipo de clase, horario, sala y preferencias
+            (antes la pestaña «Por ubicar» de la ficha). Sin contador: no son una lista. */}
+        {([['activo','calendario','Planificación',citasFuturas.length],['sesiones','lista','Sesiones y sistemas',sesionesDisp.length],['historial','carpeta','Historial',sesionesHistorial.length],...(datos ? [['datos','reloj','Datos de entrenamiento',null]] : [])] as [string,string,string,number|null][]).map(([k,ic,l,n])=>(
+          <button key={k} className={`vista-b ${seccion===k?'on':''}`} onClick={()=>setSeccion(k as any)}>
             <Ic name={ic} size={13}/> {l}
-            <span className="cnt">{n}</span>
+            {n !== null && <span className="cnt">{n}</span>}
           </button>
         ))}
       </div>
@@ -910,7 +915,17 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
         </div>
       )}
 
-      {seccion==='historial'&&(()=>{
+      {/* El conmutador del historial, discreto arriba a la derecha como en Planificación. */}
+      {seccion==='historial' && (
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+          <button type="button" className="btn-vista" onClick={()=>setVerHist(v=>v==='sesiones'?'ejecucion':'sesiones')} title="Pasar de las citas a la ejecución">
+            <Ic name={verHist==='sesiones'?'carpeta':'ok'} size={14}/> {verHist==='sesiones' ? 'Citas pasadas' : `Ejecución · ${nEjecuciones}`}
+            <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{[0,1].map(k=><i key={k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:(verHist==='sesiones'?0:1)===k?1:.3}}/>)}</span>
+          </button>
+        </div>
+      )}
+
+      {seccion==='historial'&&verHist==='sesiones'&&(()=>{
         const nRe = sesionesHistorial.filter((c:any)=>c.estado==='realizada').length
         const nFa = sesionesHistorial.filter((c:any)=>c.estado==='falta').length
         const nCa = sesionesHistorial.filter((c:any)=>c.estado==='cancelada').length
@@ -1072,9 +1087,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
           onCerrar={()=>setVerSesion(null)}/>
       )}
 
-      {seccion==='ejecucion'&&(
+      {seccion==='historial'&&verHist==='ejecucion'&&(
         <EvaluacionEjecucion pacienteId={pacienteId}/>
       )}
+
+      {seccion==='datos' && datos}
 
     {/* OBJETIVOS DE LA SESIÓN.
         Se ven igual que en la ficha —la misma moneda, el mismo aro— porque son la misma

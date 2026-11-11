@@ -43,13 +43,17 @@ export default function FichaPacientePage() {
   const { id } = useParams()
   const router = useRouter()
   const [tab, setTab] = useState('ficha')
+  // En qué parte de Entrenamiento se abre (la etiqueta del bono lleva a «Datos de entrenamiento»).
+  const [entrenoEn, setEntrenoEn] = useState('activo')
   const puedeSalud = usePuede()('editar_salud')
   // Llegar con la pestaña puesta: `/pacientes/<id>?tab=entreno`, que es a donde manda
   // la valoración al terminar para repartir las sesiones.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
     // «Salud» ya no es pestaña (lo que había está en la ficha, la valoración y la cabecera): va a la ficha.
-    if (t) setTab(t === 'salud' ? 'ficha' : t)
+    // «Por ubicar» ya no existe: sus datos están en Entrenamiento › Datos de entrenamiento.
+    if (t === 'ubicar') { setEntrenoEn('datos'); setTab('entreno') }
+    else if (t) setTab(t === 'salud' ? 'ficha' : t)
   }, [])
   const [pac, setPac] = useState<any>(null)
   const [bono, setBono] = useState<any>(null)
@@ -811,6 +815,39 @@ export default function FichaPacientePage() {
   if (loading) return <div className="loading">Cargando ficha...</div>
   if (!pac) return <div className="loading">Paciente no encontrado</div>
 
+  /* LA FICHA EN SUS DOS PARTES: el resumen (pestaña Ficha) y los datos de entrenamiento
+     (cuota, tipo de clase, horario, sala), que ahora van en Entrenamiento. Antes esta
+     segunda parte era la pestaña «Por ubicar». */
+  const fichaParte = (parte: 'resumen' | 'ubicar') => (
+        <FichaTab parte={parte}
+          pac={pac}
+          bono={bono}
+          estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
+          bonosSesiones={bonosSesiones}
+          onRenovarSesiones={renovarSesiones}
+          onRetirarSesiones={retirarSesiones}
+          onCambioSesiones={cargar}
+          onCobrar={()=>setCobrando(bono)}
+          recuperaciones={recuperaciones}
+          editando={editando}
+          form={form}
+          setForm={setForm}
+          setModalBono={setModalBono}
+          bonoLabel={bonoLabel}
+          mes={mes}
+          anio={anio}
+          alertas={alertas}
+          cerrarAlerta={cerrarAlerta} cambiarPago={cambiarPago}
+          tiposClase={tiposClase} cambiarTipoClase={cambiarTipoClase}
+          /* Repetir un test desde el objetivo que abrió. Vive aquí porque aquí está
+             el formulario y el guardado; la ficha solo dice cuál y de qué lado. */
+          abrirTest={abrirTest}
+          /* Cambiar de pestaña desde dentro. `router.push('?tab=entreno')` no hacía nada:
+             el parámetro solo se lee al montar y aquí no se remonta nada. */
+          irA={(t:string)=>{ if (t === 'ubicar') { setEntrenoEn('datos'); setTab('entreno') } else setTab(t === 'salud' ? 'ficha' : t) }}
+        />
+  )
+
   return (
     <>
       <button className="pat-volver" onClick={()=>router.push('/pacientes')}>
@@ -865,15 +902,15 @@ export default function FichaPacientePage() {
               {estadoLabel[pac.estado] || pac.estado}
             </span>
             {/* SU BONO, al lado del estado: es lo segundo que se pregunta. El detalle
-                (asignar, cobrar, sesiones) está en «Por ubicar». */}
+                (asignar, cobrar, sesiones) está en Entrenamiento › Datos de entrenamiento. */}
             {/* Su momento, al lado del estado. Sin momento, un hueco discreto para ponerlo. */}
             {(pac.momento || puedeSalud) && <span className="pat-tag" onClick={puedeSalud ? ()=>setEditMomento({ texto: pac.momento || '', desde: pac.momento_desde || hoyISO(), hasta: pac.momento_hasta || '', cosas: pac.momento_cosas || [] }) : undefined}
               title={puedeSalud ? 'Cambiar su momento' : undefined}
               style={pac.momento ? {background:'rgba(201,168,76,.22)',color:'#F3DFA6',cursor:puedeSalud?'pointer':'default'} : {background:'transparent',border:'1px dashed rgba(255,255,255,.28)',color:'rgba(255,255,255,.6)',cursor:'pointer'}}>
               <Ic name="reloj" size={11}/> {pac.momento ? textoMomento(pac) : 'Momento'}
             </span>}
-            <span className="pat-tag" style={{background:'rgba(255,255,255,.12)',color:'#fff',cursor:'pointer'}} onClick={()=>setTab('ubicar')}
-              title="Bono y cuota (en «Por ubicar»)">
+            <span className="pat-tag" style={{background:'rgba(255,255,255,.12)',color:'#fff',cursor:'pointer'}} onClick={()=>{ setEntrenoEn('datos'); setTab('entreno') }}
+              title="Bono y cuota (Entrenamiento › Datos de entrenamiento)">
               <Ic name="finanzas" size={11}/> {bono ? `${bonoLabel?.[bono.tipo] || bono.tipo}${cobrado ? ' · pagado' : bono?.estado_pago === 'impago' ? ' · impago' : ' · pendiente'}` : bonosSesiones.length ? `Bono de sesiones` : 'Sin bono'}
             </span>
           </div>
@@ -1091,43 +1128,13 @@ export default function FichaPacientePage() {
 
       {/* TABS */}
       <div className="tabs">
-        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados'],['ubicar','carpeta','Por ubicar']].map(([k,ic,l])=>(
-          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
+        {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados']].map(([k,ic,l])=>(
+          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>{ if (k==='entreno') setEntrenoEn('activo'); setTab(k) }}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
 
       {/* TAB FICHA */}
-      {/* «Por ubicar»: lo que salió de la ficha (bono, horarios, sala, consentimientos…)
-          mientras se decide dónde va. Es la misma FichaTab, con su otra parte. */}
-      {(tab==='ficha' || tab==='ubicar') && (
-        <FichaTab parte={tab==='ubicar' ? 'ubicar' : 'resumen'}
-          pac={pac}
-          bono={bono}
-          estadoPago={cobrado ? 'pagado' : (bono?.estado_pago === 'impago' ? 'impago' : 'pendiente')}
-          bonosSesiones={bonosSesiones}
-          onRenovarSesiones={renovarSesiones}
-          onRetirarSesiones={retirarSesiones}
-          onCambioSesiones={cargar}
-          onCobrar={()=>setCobrando(bono)}
-          recuperaciones={recuperaciones}
-          editando={editando}
-          form={form}
-          setForm={setForm}
-          setModalBono={setModalBono}
-          bonoLabel={bonoLabel}
-          mes={mes}
-          anio={anio}
-          alertas={alertas}
-          cerrarAlerta={cerrarAlerta} cambiarPago={cambiarPago}
-          tiposClase={tiposClase} cambiarTipoClase={cambiarTipoClase}
-          /* Repetir un test desde el objetivo que abrió. Vive aquí porque aquí está
-             el formulario y el guardado; la ficha solo dice cuál y de qué lado. */
-          abrirTest={abrirTest}
-          /* Cambiar de pestaña desde dentro. `router.push('?tab=entreno')` no hacía nada:
-             el parámetro solo se lee al montar y aquí no se remonta nada. */
-          irA={(t:string)=>setTab(t === 'salud' ? 'ficha' : t)}
-        />
-      )}
+      {tab==='ficha' && fichaParte('resumen')}
 
       {tab==='timeline' && (
         <TimelineTab pacienteId={String(id)}/>
@@ -1142,7 +1149,8 @@ export default function FichaPacientePage() {
 
       {/* TAB ENTRENAMIENTO */}
       {tab==='entreno' && (
-        <EntrenoTab pacienteId={String(id)} nombrePaciente={pac?.nombre||''} sesiones={sesiones} onRefresh={cargar}/>
+        <EntrenoTab key={entrenoEn} pacienteId={String(id)} nombrePaciente={pac?.nombre||''} sesiones={sesiones} onRefresh={cargar}
+          datos={pac ? fichaParte('ubicar') : null} seccionInicial={entrenoEn}/>
       )}
 
       {tab==='resultados' && (

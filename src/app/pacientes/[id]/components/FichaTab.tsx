@@ -1303,13 +1303,6 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         </div>
       ) : null}
 
-      {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
-          agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
-      {ubicar && <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>}
-      {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
-      {ubicar && <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>}
-      {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
-      {ubicar && <CambiarSala pacienteId={pac.id}/>}
 
       {/* 3. OBJETIVOS — el bloque principal, a ancho completo.
 
@@ -1568,6 +1561,16 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       {/* 6. EL PROGRAMA DE ENTRENAMIENTO YA NO VA AQUI. Nombre, progresion y notas del plan
           salen al ponerle el ciclo (Entreno -> Anadir sistema) y pasan a su descripcion;
           repetirlo en la ficha era tener la misma informacion en dos sitios. */}
+
+      {/* DATOS DE ENTRENAMIENTO, en este orden: cuota y tipo de clase (arriba), su horario,
+          el cambio de sala y las preferencias que se apuntaron en la valoración. */}
+      {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
+          agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
+      {ubicar && <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>}
+      {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
+      {ubicar && <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>}
+      {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
+      {ubicar && <CambiarSala pacienteId={pac.id}/>}
 
       {/* 7. PREFERENCIAS DE HORARIO */}
       {ubicar && valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
