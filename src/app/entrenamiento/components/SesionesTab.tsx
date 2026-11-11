@@ -1,5 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import FiltroZonas from '@/components/FiltroZonas'
+import { minutosDe } from '@/components/ResumenSesion'
+import { categoriaDe, casaZona, zonasDe } from '@/lib/etiquetas'
+import { contiene } from '@/lib/texto'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import ResumenSesion from '@/components/ResumenSesion'
 import { VeloSustituirTodos } from '@/components/SustituirSesion'
@@ -50,6 +54,10 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
    */
   const [origen, setOrigen] = useState<'plantillas'|'pacientes'|'todas'>('plantillas')
   const [filtroObjetivos, setFiltroObjetivos] = useState<string[]>([])
+  /* FILTROS DE SESIONES: cuánto dura (estimado, como en su resumen) y qué partes del
+     cuerpo trabaja (las articulaciones de sus ejercicios, por raíz: Rodilla, Columna...). */
+  const [filtroTiempo, setFiltroTiempo] = useState('')
+  const [filtroZona, setFiltroZona] = useState('')
   const [sesionVista, setSesionVista] = useState<any>(null)
   const [sustituyendo, setSustituyendo] = useState<any>(null)
   const [menuMas, setMenuMas] = useState(false)
@@ -174,14 +182,31 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     const ids = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
     return (objetivos||[]).filter((o:any)=>ids.includes(o.id))
   }
+  /** Las etiquetas de ARTICULACIÓN de cada ejercicio (para saber qué zonas toca una sesión). */
+  const artDeEj = useMemo(() => {
+    const m: Record<string, string[]> = {}
+    ;(ejercicios||[]).forEach((e:any)=>{ m[e.id] = (e.etiquetas||[]).filter((id:string)=>{ const et = (etiquetas||[]).find((x:any)=>x.id===id); return !!et && categoriaDe(etiquetas, et)==='articulacion' }) })
+    return m
+  }, [ejercicios, etiquetas])
+  const zonasDeSesion = (s:any) => Array.from(new Set((s.partes||[]).flatMap((p:any)=>(p.ejercicios||[]).flatMap((it:any)=>artDeEj[it.ejercicio_id]||[])))) as string[]
+  const zonasUsadas = useMemo(() => Array.from(new Set(sesiones.flatMap(zonasDeSesion))) as string[], [sesiones, artDeEj]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Tramos de duración estimada. */
+  const TIEMPOS: [string, string, (m:number)=>boolean][] = [
+    ['30', 'Hasta 30 min', m => m <= 30], ['45', '30-45 min', m => m > 30 && m <= 45],
+    ['60', '45-60 min', m => m > 45 && m <= 60], ['mas', 'Más de 60', m => m > 60],
+  ]
   const sesionesFiltradas = sesiones.filter((s:any)=>{
     if (origen==='plantillas' && !esPlantilla(s)) return false
     if (origen==='pacientes' && esPlantilla(s)) return false
-    const q = buscarSes.toLowerCase()
-    const matchQ = !buscarSes || (s.nombre||'').toLowerCase().includes(q) || (s.descripcion||'').toLowerCase().includes(q)
+    // También por PACIENTE: escribir su nombre trae sus sesiones.
+    const pacN = s.pacientes ? `${s.pacientes.nombre||''} ${s.pacientes.apellidos||''}` : ''
+    const matchQ = !buscarSes || contiene(s.nombre, buscarSes) || contiene(s.descripcion, buscarSes) || (!!pacN && contiene(pacN, buscarSes))
     const idsObj = (s.sesiones_objetivos||[]).map((r:any)=>r.objetivo_id)
     const matchObj = filtroObjetivos.length===0 || filtroObjetivos.some(fid=>idsObj.includes(fid))
-    return matchQ && matchObj
+    const tramo = TIEMPOS.find(t=>t[0]===filtroTiempo)
+    const matchT = !tramo || tramo[2](minutosDe(s.partes||[]))
+    const matchZ = casaZona(etiquetas||[], zonasDeSesion(s), filtroZona)
+    return matchQ && matchObj && matchT && matchZ
   })
 
   return (
@@ -208,7 +233,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
       )}
       {/* CABECERA: buscador + nueva */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
-        <input className="input" placeholder="Buscar por nombre u objetivo..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="Buscar por nombre, objetivo o paciente..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
         <div style={{display:'flex',gap:5}}>
           {([['plantillas','Plantillas'],['pacientes','De pacientes'],['todas','Todas']] as const).map(([k,l])=>{
             const n = k==='todas' ? sesiones.length
@@ -227,9 +252,19 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
       {/* Filtro por objetivo: el mismo velo de bolas que en Ciclos. */}
-      {(objetivos||[]).length>0&&(
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
-          <FiltroObjetivos objetivos={objetivos||[]} valor={filtroObjetivos} onChange={setFiltroObjetivos} nResultado={sesionesFiltradas.length} nombre="sesiones"/>
+      {/* Objetivos y tiempo de entreno en una fila; debajo, las partes del cuerpo. */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10,alignItems:'center'}}>
+        {(objetivos||[]).length>0 && <FiltroObjetivos objetivos={objetivos||[]} valor={filtroObjetivos} onChange={setFiltroObjetivos} nResultado={sesionesFiltradas.length} nombre="sesiones"/>}
+        <span style={{display:'inline-flex',alignItems:'center',gap:5,flexWrap:'wrap',marginLeft:4}}>
+          <Ic name="reloj" size={13}/>
+          {TIEMPOS.map(([k,l])=><button key={k} type="button" className={`chip-sel ${filtroTiempo===k?'on':''}`} style={{textTransform:'none',letterSpacing:0}}
+            onClick={()=>setFiltroTiempo(filtroTiempo===k?'':k)}>{l}</button>)}
+        </span>
+      </div>
+      {zonasUsadas.length>0 && (
+        <div style={{marginBottom:12}}>
+          <FiltroZonas etiquetas={etiquetas||[]} usadas={zonasUsadas} valor={filtroZona} onChange={setFiltroZona}
+            nSinZona={sesiones.filter((s:any)=>zonasDe(etiquetas||[], zonasDeSesion(s)).length===0).length} todas="Todo el cuerpo"/>
         </div>
       )}
 
@@ -261,6 +296,7 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--gl)',color:'var(--gd)'}}>{nPartes} {nPartes===1?'parte':'partes'}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bl)',color:'var(--gd)',border:'1px solid var(--bd)'}}>{modoDeSesion(s.partes||[]).nombre}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
+                  {nEj>0 && <span title="Duración estimada" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>~{minutosDe(s.partes||[])} min</span>}
                 </div>
                 {/* En monedas mini, igual que en las sesiones del paciente. El nombre va en
                     el tooltip: en una tarjeta pequeña, tres nombres seguidos ocupaban más

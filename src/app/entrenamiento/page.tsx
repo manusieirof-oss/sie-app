@@ -237,10 +237,10 @@ function EntrenamientoContent() {
   return (
     <>
       <div className="tabs">
-        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas'],['tests','test','Tests'],['cuestionarios','nota','Cuestionarios'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']]
+        {[['biblioteca','biblioteca','Ejercicios'],['sesiones','valoracion','Sesiones y sistemas'],['tests','test','Tests'],['cuestionarios','nota','Cuestionarios'],['etiquetas','etiqueta','Etiquetas'],['objetivos','objetivo','Objetivos'],['clinico','hospital','Clínico']]
           // Tests, cuestionarios, etiquetas y clínico son de quien valora (nivel 4); el 3 programa con el resto.
           .filter(([k])=>puedeValorar||!['tests','cuestionarios','etiquetas','clinico'].includes(k)).map(([k,ic,l])=>(
-          <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
+          <button key={k} className={`tab ${tab===k||(k==='sesiones'&&tab==='sistemas')?'active':''}`} onClick={()=>setTab(k)}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}
       </div>
 
@@ -249,6 +249,16 @@ function EntrenamientoContent() {
           {/* La biblioteca es para consultar, también aquí: editar un ejercicio se hace en el
               torno (Amasar), que tiene todo (familias, fotos, borrar). Desde la ficha hay un atajo. */}
           {tab==='biblioteca'&&<BibliotecaVer ejercicios={ejercicios} etiquetas={etiquetas} pacientes={pacientes} amasar/>}
+          {/* SESIONES Y SISTEMAS EN UNA PESTAÑA: arriba se pasa de una lista a la otra
+              (antes eran dos pestañas). Por dentro siguen siendo 'sesiones' y 'sistemas',
+              así los enlaces de siempre (?tab=sistemas) llevan a su lista. */}
+          {(tab==='sesiones'||tab==='sistemas')&&(
+            <div className="vista-sw" style={{marginBottom:12}}>
+              {([['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas']] as const).map(([k,ic,l])=>(
+                <button key={k} className={`vista-b ${tab===k?'on':''}`} onClick={()=>setTab(k)}><Ic name={ic} size={13}/> {l}</button>
+              ))}
+            </div>
+          )}
           {(tab==='sesiones'||tab==='sistemas')&&!sesionesCargadas.current&&<div className="loading">Cargando sesiones...</div>}
           {tab==='sesiones'&&sesionesCargadas.current&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
           {tab==='sistemas'&&sesionesCargadas.current&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}
