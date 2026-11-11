@@ -17,7 +17,7 @@ import { usePuede } from '@/lib/permisos'
 import { supabase } from '@/lib/supabase'
 import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfectivo, duplicarSesion, itemDeEjercicio } from '@/lib/sesiones'
 import { textoDescanso, capacidadPorReps } from '@/lib/capacidades'
-import { repetidosSemana, type Repetido } from '@/lib/repetidosSemana'
+import { repetidosSemana, type Repetido, diasDeFalta } from '@/lib/repetidosSemana'
 import { enModoPractica } from '@/lib/practica'
 import { partesMedida } from '@/lib/medida'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
@@ -1163,10 +1163,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
        * Sin respaldo a proposito: si no ha hecho nunca ESA variante, lo honesto es
        * decir que no hay registro previo, no ensenarle el de otra cosa.
        */
-      const { data: fin } = await supabase.from('registros_ejercicio')
+      const { data: fin0 } = await supabase.from('registros_ejercicio')
         .select('ejercicio_id,variante,series,fecha,created_at,comentario,items_evaluados,regimen,lado,sesion_id')
         .eq('paciente_id', pid).eq('finalizado', true).in('ejercicio_id', ids).lte('fecha', fechaC)
         .order('fecha',{ascending:false}).order('created_at',{ascending:false})
+      // Lo apuntado un día en que luego se marcó falta no es «la última vez».
+      const faltas = await diasDeFalta(pid)
+      const fin = (fin0 || []).filter((r: any) => !faltas.has(r.fecha))
       /**
        * MANDA LA SESIÓN. "La última vez" que rellena las casillas (series, peso, repes, y
        * si fue por repes o por tiempo) sale SOLO de esta misma sesión o de su versión

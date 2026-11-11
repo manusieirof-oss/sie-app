@@ -27,15 +27,17 @@ export async function repetidosSemana(pacienteId: string, fecha: string): Promis
   const lunes = sumarDias(fecha, -((d + 6) % 7))
   const domingo = sumarDias(lunes, 6)
 
-  const [reg, cit] = await Promise.all([
+  const [reg, cit, faltas] = await Promise.all([
     supabase.from('registros_ejercicio').select('ejercicio_id,fecha')
       .eq('paciente_id', pacienteId).gte('fecha', lunes).lte('fecha', domingo).neq('fecha', fecha),
     supabase.from('citas').select('fecha,sesion_id,ajustes,estado')
       .eq('paciente_id', pacienteId).gt('fecha', fecha).lte('fecha', domingo).neq('estado', 'cancelada').not('sesion_id', 'is', null),
+    diasDeFalta(pacienteId, lunes),
   ])
 
   const hechos: Record<string, Set<string>> = {}, previstos: Record<string, Set<string>> = {}
-  ;(reg.data || []).forEach((r: any) => { if (r.ejercicio_id) (hechos[r.ejercicio_id] ||= new Set()).add(r.fecha) })
+  // Lo apuntado un día en que faltó no cuenta como hecho.
+  ;(reg.data || []).forEach((r: any) => { if (r.ejercicio_id && !faltas.has(r.fecha)) (hechos[r.ejercicio_id] ||= new Set()).add(r.fecha) })
 
   const citas = cit.data || []
   const ids = Array.from(new Set(citas.map((c: any) => c.sesion_id)))
@@ -58,4 +60,19 @@ export async function repetidosSemana(pacienteId: string, fecha: string): Promis
     out[id] = { corto: detalle[0] + (detalle.length > 1 ? ` +${detalle.length - 1}` : ''), detalle }
   })
   return out
+}
+
+/**
+ * LOS DÍAS EN QUE FALTÓ. Si una cita se marca falta (o se cancela) después de haber
+ * abierto su clase en el taller, lo apuntado ese día se queda en la base, y el taller
+ * decía «Lo hizo el lunes» o sacaba esas cifras como «la última vez». Un día cuenta como
+ * falta si todas sus citas de ese día son falta o cancelada.
+ */
+export async function diasDeFalta(pacienteId: string, desde?: string): Promise<Set<string>> {
+  let q = supabase.from('citas').select('fecha,estado').eq('paciente_id', pacienteId)
+  if (desde) q = q.gte('fecha', desde)
+  const { data } = await q
+  const buenos = new Set<string>(), malos = new Set<string>()
+  ;(data || []).forEach((c: any) => (c.estado === 'falta' || c.estado === 'cancelada' ? malos : buenos).add(c.fecha))
+  return new Set(Array.from(malos).filter(f => !buenos.has(f)))
 }
