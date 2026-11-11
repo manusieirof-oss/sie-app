@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { traerTodo } from '@/lib/paginar'
 import SesionesTab from './components/SesionesTab'
+import BotonVista from '@/components/BotonVista'
 import TestsTab from './components/TestsTab'
 import SistemasTab from './components/SistemasTab'
 import CuestionariosTab from './components/CuestionariosTab'
@@ -253,10 +254,9 @@ function EntrenamientoContent() {
               (antes eran dos pestañas). Por dentro siguen siendo 'sesiones' y 'sistemas',
               así los enlaces de siempre (?tab=sistemas) llevan a su lista. */}
           {(tab==='sesiones'||tab==='sistemas')&&(
-            <div className="vista-sw" style={{marginBottom:12}}>
-              {([['sesiones','valoracion','Sesiones'],['sistemas','objetivo','Sistemas']] as const).map(([k,ic,l])=>(
-                <button key={k} className={`vista-b ${tab===k?'on':''}`} onClick={()=>setTab(k)}><Ic name={ic} size={13}/> {l}</button>
-              ))}
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+              <BotonVista icono={tab==='sesiones'?'valoracion':'objetivo'} valor={tab} onChange={setTab} titulo="Pasar de Sesiones a Sistemas"
+                opciones={[{k:'sesiones',t:'Sesiones'},{k:'sistemas',t:'Sistemas'}]}/>
             </div>
           )}
           {(tab==='sesiones'||tab==='sistemas')&&!sesionesCargadas.current&&<div className="loading">Cargando sesiones...</div>}

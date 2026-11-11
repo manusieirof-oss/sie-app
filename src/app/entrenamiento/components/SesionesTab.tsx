@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import FiltroZonas from '@/components/FiltroZonas'
+import BotonVista from '@/components/BotonVista'
 import { minutosDe } from '@/components/ResumenSesion'
 import { categoriaDe, casaZona, zonasDe } from '@/lib/etiquetas'
 import { contiene } from '@/lib/texto'
@@ -234,39 +235,22 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
       {/* CABECERA: buscador + nueva */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
         <input className="input" placeholder="Buscar por nombre, objetivo o paciente..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
-        <div style={{display:'flex',gap:5}}>
-          {([['plantillas','Plantillas'],['pacientes','De pacientes'],['todas','Todas']] as const).map(([k,l])=>{
-            const n = k==='todas' ? sesiones.length
-              : sesiones.filter((s:any)=>k==='plantillas' ? esPlantilla(s) : !esPlantilla(s)).length
-            return (
-              <span key={k} onClick={()=>setOrigen(k as any)}
-                style={{fontSize:9,padding:'3px 10px',borderRadius:99,cursor:'pointer',
-                  border:`1.5px solid ${origen===k?'var(--g)':'var(--bd)'}`,
-                  background:origen===k?'var(--g)':'var(--w)',color:origen===k?'#fff':'var(--gr)'}}>
-                {l} {n}
-              </span>
-            )
-          })}
-        </div>
+        {/* De quién son: el botón de la biblioteca (pasa de una a otra con cada toque). */}
+        <BotonVista valor={origen} onChange={k=>setOrigen(k as any)} titulo="Plantillas, de pacientes o todas"
+          opciones={([['plantillas','Plantillas'],['pacientes','De pacientes'],['todas','Todas']] as const).map(([k,t])=>({ k, t,
+            n: k==='todas' ? sesiones.length : sesiones.filter((s:any)=>k==='plantillas' ? esPlantilla(s) : !esPlantilla(s)).length }))}/>
         <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} en pantalla</span>
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
       {/* Filtro por objetivo: el mismo velo de bolas que en Ciclos. */}
-      {/* Objetivos y tiempo de entreno en una fila; debajo, las partes del cuerpo. */}
-      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10,alignItems:'center'}}>
+      {/* Objetivos, tiempo de entreno y partes del cuerpo: los botones de la biblioteca. */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
         {(objetivos||[]).length>0 && <FiltroObjetivos objetivos={objetivos||[]} valor={filtroObjetivos} onChange={setFiltroObjetivos} nResultado={sesionesFiltradas.length} nombre="sesiones"/>}
-        <span style={{display:'inline-flex',alignItems:'center',gap:5,flexWrap:'wrap',marginLeft:4}}>
-          <Ic name="reloj" size={13}/>
-          {TIEMPOS.map(([k,l])=><button key={k} type="button" className={`chip-sel ${filtroTiempo===k?'on':''}`} style={{textTransform:'none',letterSpacing:0}}
-            onClick={()=>setFiltroTiempo(filtroTiempo===k?'':k)}>{l}</button>)}
-        </span>
+        <BotonVista icono="reloj" prefijo="Tiempo" lista valor={filtroTiempo} onChange={setFiltroTiempo} titulo="Duración estimada de la sesión"
+          opciones={[{k:'',t:'Cualquiera'},...TIEMPOS.map(([k,t])=>({k,t}))]}/>
+        {zonasUsadas.length>0 && <FiltroZonas etiquetas={etiquetas||[]} usadas={zonasUsadas} valor={filtroZona} onChange={setFiltroZona}
+            nSinZona={sesiones.filter((s:any)=>zonasDe(etiquetas||[], zonasDeSesion(s)).length===0).length} todas="Todo el cuerpo"/>}
       </div>
-      {zonasUsadas.length>0 && (
-        <div style={{marginBottom:12}}>
-          <FiltroZonas etiquetas={etiquetas||[]} usadas={zonasUsadas} valor={filtroZona} onChange={setFiltroZona}
-            nSinZona={sesiones.filter((s:any)=>zonasDe(etiquetas||[], zonasDeSesion(s)).length===0).length} todas="Todo el cuerpo"/>
-        </div>
-      )}
 
       {sesionesFiltradas.length===0?(
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>
