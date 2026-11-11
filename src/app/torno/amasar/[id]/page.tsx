@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
-import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe } from '@/lib/etiquetas'
+import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe, nombreConRama } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
 import ImagenEjercicio, { fotoCambiada } from '@/components/ImagenEjercicio'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
@@ -372,14 +372,14 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     posicion: 'Dibuja la postura', material: 'Sale en la imagen' }
   const hijas = (id: string) => ets.filter(e => e.padre_id === id).sort((a, b) => a.nombre.localeCompare(b.nombre))
   const togEt = (id: string) => set('etiquetas', d.etiquetas.includes(id) ? d.etiquetas.filter(x => x !== id) : [...d.etiquetas, id])
-  const chipEt = (e: any) => {
+  const chipEt = (e: any, conRama = false) => {
     const on = d.etiquetas.includes(e.id)
     return (
       <button key={e.id} type="button" className={`chip-sel ${on ? 'on' : ''}`} onClick={() => togEt(e.id)}
         title={usadasObj.has(e.id) ? 'La usan los objetivos para sugerirse' : undefined}
         style={{ fontSize: 12.5, padding: '5px 11px', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
         {usadasObj.has(e.id) && <span style={{ width: 6, height: 6, borderRadius: 99, background: on ? '#fff' : '#D4A24E', flexShrink: 0 }}/>}
-        {e.nombre}
+        {conRama ? nombreConRama(ets, e) : e.nombre}
       </button>
     )
   }
@@ -409,7 +409,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       )
       case 'etiquetas': {
         const q = buscaEt.trim()
-        const encontradas = q ? ets.filter(e => contiene(e.nombre, q)).slice(0, 30) : []
+        // Se busca también por su rama: «trapecio superior» encuentra «Superior» del trapecio.
+        const encontradas = q ? ets.filter(e => contiene(nombreConRama(ets, e), q)).slice(0, 30) : []
         return (<>
           {/* LO PUESTO, por categoría: así se ve si falta el músculo o la posición. */}
           {d.etiquetas.length > 0 && (
@@ -420,7 +421,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 return (
                   <div key={c.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                     <span className="et-mini" style={{ minWidth: 86 }}>{c.label}</span>
-                    {suyas.map((e: any) => <span key={e.id} className="chip-sel on" style={{ fontSize: 12.5 }} onClick={() => togEt(e.id)}>{e.nombre} ✕</span>)}
+                    {suyas.map((e: any) => <span key={e.id} className="chip-sel on" style={{ fontSize: 12.5 }} onClick={() => togEt(e.id)}>{nombreConRama(ets, e)} ✕</span>)}
                   </div>
                 )
               })}
@@ -431,7 +432,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           </div>
           <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ marginBottom: 10 }}/>
           {q
-            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(chipEt)}</div>
+            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(e => chipEt(e, true))}</div>
             : CATEGORIAS_ETIQUETA.filter(c => (porCat[c.key] || []).length).map(c => (
               <div key={c.key} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
@@ -454,7 +455,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 {porCat[c.key].some(r => r.id === raizAbierta) && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '6px 0 0 12px' }}>
                     {ets.filter(e => e.padre_id === raizAbierta || ets.find(p => p.id === e.padre_id)?.padre_id === raizAbierta)
-                      .sort((a, b) => nivelDe(ets, a) - nivelDe(ets, b) || a.nombre.localeCompare(b.nombre)).map(chipEt)}
+                      .sort((a, b) => nivelDe(ets, a) - nivelDe(ets, b) || a.nombre.localeCompare(b.nombre)).map(e => chipEt(e))}
                   </div>
                 )}
               </div>

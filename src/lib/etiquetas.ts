@@ -244,3 +244,16 @@ export function nivelDe(etiquetas: any[], et: any): number {
   }
   return n
 }
+
+/**
+ * EL NOMBRE CON SU RAMA: «Trapecio › Superior», «Pectoral › Mayor». Las subetiquetas
+ * sueltas («Mayor», «Medio», «Superior») no dicen de qué son fuera del árbol. Si el
+ * nombre ya lleva el del padre («Glúteo › Glúteo medio») se deja tal cual.
+ */
+export function nombreConRama(etiquetas: any[], et: any): string {
+  if (!et) return ''
+  const padre = et.padre_id ? etiquetas.find((e: any) => e.id === et.padre_id) : null
+  if (!padre) return et.nombre || ''
+  const n = normNombre(et.nombre || ''), p = normNombre(padre.nombre || '')
+  return n.includes(p) ? (et.nombre || '') : `${padre.nombre} › ${et.nombre}`
+}

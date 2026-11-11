@@ -1,7 +1,9 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Ic } from '@/lib/icons'
-import { CATEGORIAS_ETIQUETA, conDescendientes } from '@/lib/etiquetas'
+import { CATEGORIAS_ETIQUETA, conDescendientes, nombreConRama } from '@/lib/etiquetas'
+import { contiene } from '@/lib/texto'
+import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { ordenAnatomico } from '@/lib/anatomia'
 import {
   contarUsos, renombrar, moverEtiqueta, fusionar, eliminarEtiqueta,
@@ -50,9 +52,13 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
   // Buscar recorre TODAS las categorías: con trescientas etiquetas, tener que acertar
   // primero la categoría para poder buscar dentro es la mitad del problema.
   const q = buscar.trim().toLowerCase()
+  // También por su rama: «trapecio superior» encuentra la «Superior» del trapecio.
   const resultados = q
-    ? etiquetas.filter((e: any) => (e.nombre || '').toLowerCase().includes(q))
+    ? etiquetas.filter((e: any) => contiene(nombreConRama(etiquetas, e), buscar))
     : []
+  /* QUIÉN LA USA: tocar el número abre los ejercicios y tests que la llevan. Antes se
+     veía «12» y había que adivinar cuáles eran antes de fusionar o borrar. */
+  const [verUsos, setVerUsos] = useState<any>(null)
 
   const raices = ordena(etiquetas.filter((e: any) => e.categoria === cat && !e.padre_id))
 
@@ -124,7 +130,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
     cargar()
   }
 
-  function Fila({ et, nivel = 0 }: { et: any, nivel?: number }) {
+  function Fila({ et, nivel = 0, conRama = false }: { et: any, nivel?: number, conRama?: boolean }) {
     const hijas = ordena(hijasDe(et.id))
     const u = usos[et.id]?.total || 0
     const abierta = abiertas.includes(et.id)
@@ -147,7 +153,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
               cursor: plegable ? 'pointer' : 'default',
               fontWeight: nivel === 0 ? 500 : 400,
               color: nivel >= 2 ? 'var(--gr)' : 'var(--n)' }}>
-            {et.nombre}
+            {conRama ? nombreConRama(etiquetas, et) : et.nombre}
             {plegable && <span style={{ fontSize: 12, color: 'var(--grl)', fontWeight: 400 }}> · {hijas.length}</span>}
           </span>
 
@@ -160,8 +166,9 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
 
           {/* El número se ve siempre: es el dato con el que se decide si sobra, se fusiona
               o se borra. Las acciones no, que serían mil doscientos botones a la vista. */}
-          <span className={`et-n ${u === 0 ? 'et-n0' : ''}`}
-            title={u === 0 ? 'No la usa ningún ejercicio ni test' : `${usos[et.id]?.ejercicios || 0} ejercicios · ${usos[et.id]?.tests || 0} tests`}>
+          <span className={`et-n ${u === 0 ? 'et-n0' : ''}`} onClick={() => u > 0 && setVerUsos(et)}
+            style={u > 0 ? { cursor: 'pointer', textDecoration: 'underline dotted' } : undefined}
+            title={u === 0 ? 'No la usa ningún ejercicio ni test' : `${usos[et.id]?.ejercicios || 0} ejercicios · ${usos[et.id]?.tests || 0} tests · tocar para verlos`}>
             {u === 0 ? '—' : u}
           </span>
         </div>
@@ -194,7 +201,7 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
             : (
               <div>
                 <div className="et-mini" style={{ marginBottom: 6 }}>{resultados.length} coincidencias</div>
-                {resultados.map((e: any) => <Fila key={e.id} et={e} />)}
+                {resultados.map((e: any) => <Fila key={e.id} et={e} conRama />)}
               </div>
             )
         ) : (
@@ -224,6 +231,38 @@ export default function EtiquetasTab({ etiquetas, ejercicios = [], testsLib = []
           </>
         )}
       </div>
+
+      {verUsos && (() => {
+        const ejs = (ejercicios || []).filter((x: any) => (x.etiquetas || []).includes(verUsos.id)).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
+        const tests = (testsLib || []).filter((x: any) => (x.etiquetas_relacionadas || []).includes(verUsos.id))
+        return (
+          <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setVerUsos(null) }}>
+            <div className="modal" style={{ width: 640, maxWidth: '94vw' }}>
+              <div className="modal-title">
+                {nombreConRama(etiquetas, verUsos)}
+                <button className="modal-close" onClick={() => setVerUsos(null)}><Ic name="cerrar" size={15} /></button>
+              </div>
+              {ejs.length > 0 && <>
+                <div className="et-mini" style={{ marginBottom: 6 }}>{ejs.length} ejercicio{ejs.length === 1 ? '' : 's'} · tocar para abrirlo en amasar</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(96px,1fr))', gap: 8, marginBottom: 14 }}>
+                  {ejs.map((x: any) => (
+                    <a key={x.id} href={`/torno/amasar/${x.id}`} style={{ textDecoration: 'none', color: 'var(--n)', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 8px rgba(38,40,37,.08)' }}>
+                      <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={18} insignias={false}/>
+                      <div style={{ fontSize: 11, padding: '4px 6px', lineHeight: 1.25 }}>{x.nombre}</div>
+                    </a>
+                  ))}
+                </div>
+              </>}
+              {tests.length > 0 && <>
+                <div className="et-mini" style={{ marginBottom: 6 }}>{tests.length} test{tests.length === 1 ? '' : 's'}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {tests.map((x: any) => <span key={x.id} className="chip-sel" style={{ textTransform: 'none', letterSpacing: 0 }}>{x.nombre}</span>)}
+                </div>
+              </>}
+            </div>
+          </div>
+        )
+      })()}
 
       {modo && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setModo(null) }}>
