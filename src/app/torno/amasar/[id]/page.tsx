@@ -10,6 +10,7 @@ import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe, nombreConRama } from '@/lib/
 import { TIPOS_MEDIDA, subirImagenEjercicio, leerDeCola, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
 import ImagenEjercicio, { fotoCambiada } from '@/components/ImagenEjercicio'
 import IconoEtiqueta from '@/components/IconoEtiqueta'
+import CuerpoEtiquetas, { enMuneco } from '@/components/CuerpoEtiquetas'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 import { EditorTrabajo, EditorAnatomia, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia, type TrabajoEj, type AnatomiaEj } from '@/components/TrabajoEjercicio'
@@ -564,10 +565,17 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                   <span style={{ fontSize: 11, color: 'var(--grl)' }}>Paso {iPaso + 1} de {ORDEN_GRUPOS.length}</span>
                   {IMPORTA[grupoEt] && <span style={{ fontSize: 10.5, color: '#A87E2C' }}>{IMPORTA[grupoEt]}</span>}
                 </div>
+                {/* MÚSCULO Y ARTICULACIÓN, EN EL MUÑECO: cada una junto a su zona. */}
+                {(grupoEt === 'musculo' || grupoEt === 'articulacion') && (
+                  <CuerpoEtiquetas etiquetas={ets} cat={grupoEt} valor={d.etiquetas} onToggle={togEt} fila={(e, n) => filaEt(e, n, null)}/>
+                )}
+                {(grupoEt === 'musculo' || grupoEt === 'articulacion') && (porCat[grupoEt] || []).some(r => !enMuneco(grupoEt, r.nombre)) && (
+                  <div className="et-mini" style={{ marginBottom: 6 }}>Las que no están en el muñeco</div>
+                )}
                 {/* EN COLUMNAS, UNA POR RENGLÓN: se lee de arriba abajo como una lista, no apiladas.
                     Las hijas, debajo de su madre y metidas hacia dentro, en la misma columna. */}
                 <div style={{ columns: '3 170px', columnGap: 14 }}>
-                  {(porCat[grupoEt] || []).map(r => {
+                  {(porCat[grupoEt] || []).filter(r => !enMuneco(grupoEt, r.nombre)).map(r => {
                     const n = hijas(r.id).length, ab = abiertasEt.includes(r.id)
                     return (
                       <div key={r.id} style={{ breakInside: 'avoid', marginBottom: 2 }}>
