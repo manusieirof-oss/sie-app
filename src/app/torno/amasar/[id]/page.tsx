@@ -1191,10 +1191,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             )}
             {enCola && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                {/* Los dos iguales: antes uno era solo una flecha y el otro «Siguiente». */}
-                <button className="btn btn-s btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)}>‹ Anterior</button>
-                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>Ejercicio {iCola + 1} de {cola.length}</span>
-                <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)}>Siguiente ›</button>
+                {/* Dos flechas iguales; en medio, en cuál de los elegidos en el torno vas. */}
+                <button className="btn btn-s btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)} title="Ejercicio anterior de los elegidos">‹</button>
+                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>{iCola + 1} de los {cola.length} elegidos</span>
+                <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)} title="Siguiente ejercicio de los elegidos">›</button>
               </span>
             )}
             {enCola && nPendientes > 1 && (
