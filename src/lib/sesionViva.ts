@@ -137,7 +137,9 @@ export async function finalizarSesion(sesion: any, pacienteId: string, modo: Mod
     nueva = opts.destino
   }
   // El candado va con el hueco: si la vieja no corria con las citas, la nueva tampoco.
-  if (nueva && sesion.fija && !nueva.fija) await supabase.from('sesiones').update({ fija: true }).eq('id', nueva.id)
+  // Con 'suya' no: es otra sesión que ya tenía y con su propia forma de ir; ponérselo
+  // la dejaba con candado sin que nadie lo pidiera.
+  if (nueva && modo !== 'suya' && sesion.fija && !nueva.fija) await supabase.from('sesiones').update({ fija: true }).eq('id', nueva.id)
 
   const { data: futuras } = await supabase.from('citas').select('id')
     .eq('paciente_id', pacienteId).eq('sesion_id', sesion.id).gte('fecha', desde).eq('estado', 'programada')
