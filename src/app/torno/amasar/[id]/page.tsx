@@ -1036,7 +1036,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               title={grupoEjs.map(e => e.nombre).join('\n')}>{grupoEjs.map(e => e.nombre).join(' · ')}</div>
           </>) : (<>
             <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}{enCola ? ` · ejercicio ${iCola + 1} de ${cola.length}` : ''}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>{/* Dicho claro: «Amasar · 3 de 7» no se entendía. En cuál de la tanda vas va abajo. */}
+              {llenos === necesarios.length ? 'Todos los apartados rellenos' : `${llenos} de ${necesarios.length} apartados rellenos`}</div>
           </>)}
         </div>
         {!nuevo && !grupo && !cargando ? (
@@ -1190,8 +1191,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
             )}
             {enCola && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <button className="btn btn-t btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)} title="Anterior">‹</button>
-                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>{iCola + 1} de {cola.length}</span>
+                {/* Los dos iguales: antes uno era solo una flecha y el otro «Siguiente». */}
+                <button className="btn btn-s btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)}>‹ Anterior</button>
+                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>Ejercicio {iCola + 1} de {cola.length}</span>
                 <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)}>Siguiente ›</button>
               </span>
             )}
@@ -1200,10 +1202,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 title="Guarda todos los de la tanda que has tocado">Guardar todo ({nPendientes})</button>
             )}
             {!nuevo && !grupo && !verFicha && !abierto && (
-              <button className="btn btn-t btn-sm" onClick={() => setFichaOn(true)}>Ver ficha</button>
+              <button className="btn btn-s btn-sm" onClick={() => setFichaOn(true)}>Ver ficha</button>
             )}
             {grupo ? (
-              <button className="btn btn-p" disabled={!hayAlgoGrupo || guardando || !grupoEjs.length} onClick={aplicarGrupo}>
+              <button className="btn btn-p btn-sm" disabled={!hayAlgoGrupo || guardando || !grupoEjs.length} onClick={aplicarGrupo}>
                 <Ic name="guardar" size={13}/> {guardando ? 'Añadiendo…' : `Añadir a los ${grupoEjs.length}`}
               </button>
             ) : (
@@ -1212,7 +1214,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                   parecía que no dejaba cambiar la foto (le faltaba «cómo se mide»). */}
               {!puedeGuardar && cambiado && !guardando && <span style={{ fontSize: 12, color: '#8A6410' }}>
                 {!d.nombre.trim() ? 'Falta el nombre' : !d.tipo_medida ? 'Falta «cómo se mide» para poder guardar' : repetido ? 'Ya hay otro ejercicio con ese nombre' : ''}</span>}
-              <button className="btn btn-p" disabled={!puedeGuardar} onClick={guardar}>
+              <button className="btn btn-p btn-sm" disabled={!puedeGuardar} onClick={guardar}>
                 <Ic name="guardar" size={13}/> {guardando ? 'Guardando…' : nuevo ? 'Crear' : 'Guardar'}
               </button>
               </>
