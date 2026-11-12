@@ -178,16 +178,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     // Sin la columna `fija` (falta el SQL) la consulta falla y ninguna lo lleva.
     const idsF = Array.from(new Set([...lista.map(x => x.id), ...(cs || []).map((c: any) => c.sesion_id).filter(Boolean)]))
     if (idsF.length) {
-      const { data: fj, error: efj } = await supabase.from('sesiones').select('id,fija,finalizada_en').in('id', idsF)
-      // Una finalizada ya no manda en sus citas: su candado no cuenta.
-      setFijas(new Set(efj ? [] : (fj || []).filter((x: any) => x.fija && !x.finalizada_en).map((x: any) => x.id)))
-      // CITAS CON UNA SESIÓN QUE YA NO ESTÁ (borrada o finalizada): se tratan como vacías.
-      // Antes contaban como «otra sesión» y no se pintaban sin «pisar»: parecían tener candado.
-      if (!efj) {
-        const vivas = new Set((fj || []).filter((x: any) => !x.finalizada_en).map((x: any) => x.id))
-        const limpias = (cs || []).map((c: any) => c.sesion_id && !vivas.has(c.sesion_id) ? { ...c, sesion_id: null } : c)
-        if (limpias.some((c: any, i: number) => c !== (cs || [])[i])) { cs?.splice(0, cs.length, ...limpias); setCitas([...limpias] as Cita[]) }
-      }
+      const { data: fj, error: efj } = await supabase.from('sesiones').select('id,fija').in('id', idsF)
+      setFijas(new Set(efj ? [] : (fj || []).filter((x: any) => x.fija).map((x: any) => x.id)))
     }
 
     // LAS EVALUACIONES DE CADA FASE. Las que ya existen, en su cita; las que no,

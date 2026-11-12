@@ -17,9 +17,8 @@ import { supabase } from './supabase'
  *     coge la sesión que le toca en su nueva posición. Cambiar solo hora o sala, no.
  *
  * EL CANDADO (`sesiones.fija`). Una sesión con candado no corre: se queda en su cita
- * pase lo que pase alrededor (los días de fuerza en grupo). Si se quita SU cita, no se
- * mueve: ese día se pierde. Antes pasaba a la siguiente clase y esa clase se quedaba
- * con candado para siempre, sin dejar pintar sesiones nuevas. A mano se mueve como siempre.
+ * pase lo que pase alrededor (los días de fuerza en grupo). Si se quita SU cita, pasa a
+ * la siguiente clase del paciente y las demás se apartan. A mano se mueve como siempre.
  *
  * Solo se mueven citas PENDIENTES (programadas) desde la que cambia. Lo hecho no se toca.
  * Las valoraciones no llevan sesión y no cuentan como hueco.
@@ -113,14 +112,21 @@ export async function correrAlQuitar(quitada: CitaAntes) {
   const esFija = (await fijas([quitada.sesion_id])).has(quitada.sesion_id)
   const nuevo = new Map<string, Item>()
   let movibles: Cita[], seq: Item[]
-  // La del candado se queda en su cita (cancelada) y no empuja a nadie: va por días fijos.
-  if (esFija) return { movidas: 0 }
-  movibles = L.filter(c => !c.fija)
-  seq = [item(quitada), ...movibles.map(item)]
+  if (esFija) {
+    // La del candado pasa a la siguiente clase; lo que tenia esa clase empuja al resto.
+    const dest = L.find(c => !c.fija)
+    if (!dest) return { movidas: 0 }
+    nuevo.set(dest.id, item(quitada))
+    movibles = L.filter(c => !c.fija && clave(c) > clave(dest))
+    seq = [item(dest), ...movibles.map(item)]
+  } else {
+    movibles = L.filter(c => !c.fija)
+    seq = [item(quitada), ...movibles.map(item)]
+  }
   movibles.forEach((c, i) => nuevo.set(c.id, seq[i]))
   let n = await escribir(L, nuevo)
   // La quitada suelta su sesion: ya la lleva otra. Si vuelve, tirara de nuevo.
-  if (n > 0) await supabase.from('citas').update({ sesion_id: null, ajustes: null }).eq('id', quitada.id)
+  if (n > 0 || esFija) await supabase.from('citas').update({ sesion_id: null, ajustes: null }).eq('id', quitada.id)
   return { movidas: n }
 }
 
