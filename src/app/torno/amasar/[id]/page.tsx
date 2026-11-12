@@ -501,6 +501,22 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           return out
         }
         const alternar = (id: string) => setAbiertasEt(l => l.includes(id) ? l.filter(x => x !== id) : [...l, id])
+        /** Un renglón de la lista: marca, icono, nombre y, si tiene, el desplegable. */
+        const filaEt = (e: any, nivel: number, extra: any) => {
+          const on = d.etiquetas.includes(e.id)
+          return (
+            <div onClick={() => togEt(e.id)} title={usadasObj.has(e.id) ? 'La usan los objetivos para sugerirse' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 8px', borderRadius: 9, cursor: 'pointer',
+                fontSize: nivel ? 12.5 : 13.5, background: on ? 'var(--gl)' : 'transparent', color: on ? 'var(--gd)' : 'var(--n)', fontWeight: on ? 600 : 400 }}>
+              <span style={{ width: 15, height: 15, borderRadius: 5, flexShrink: 0, border: `1.5px solid ${on ? 'var(--g)' : 'var(--bd)'}`,
+                background: on ? 'var(--g)' : '#fff', color: '#fff', fontSize: 10, display: 'grid', placeItems: 'center' }}>{on ? '✓' : ''}</span>
+              <IconoEtiqueta etiquetas={ets} et={e} size={17}/>
+              <span style={{ minWidth: 0 }}>{e.nombre}</span>
+              {usadasObj.has(e.id) && <span style={{ width: 6, height: 6, borderRadius: 99, background: '#D4A24E', flexShrink: 0 }}/>}
+              {extra}
+            </div>
+          )
+        }
         const btnGrupo = (k: string | null, txt: string, n: number) => (
           <button key={k || 'puestas'} type="button" onClick={() => { setGrupoEt(k); setBuscaEt('') }}
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left',
@@ -548,25 +564,23 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                   <span style={{ fontSize: 11, color: 'var(--grl)' }}>Paso {iPaso + 1} de {ORDEN_GRUPOS.length}</span>
                   {IMPORTA[grupoEt] && <span style={{ fontSize: 10.5, color: '#A87E2C' }}>{IMPORTA[grupoEt]}</span>}
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-                  {(porCat[grupoEt] || []).flatMap(r => {
+                {/* EN COLUMNAS, UNA POR RENGLÓN: se lee de arriba abajo como una lista, no apiladas.
+                    Las hijas, debajo de su madre y metidas hacia dentro, en la misma columna. */}
+                <div style={{ columns: '3 170px', columnGap: 14 }}>
+                  {(porCat[grupoEt] || []).map(r => {
                     const n = hijas(r.id).length, ab = abiertasEt.includes(r.id)
-                    const fila = [
-                      <span key={r.id} style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
-                        {chipEt(r)}
-                        {n > 0 && <button type="button" onClick={() => alternar(r.id)}
-                          style={{ border: 'none', background: 'none', color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '0 3px' }}>{ab ? '▴' : `${n}▾`}</button>}
-                      </span>]
-                    // ABIERTA: sus hijas justo debajo, en su propio renglón y metidas hacia dentro.
-                    if (ab) fila.push(
-                      <div key={r.id + '-h'} style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 5, margin: '2px 0 6px 14px',
-                        paddingLeft: 10, borderLeft: '2px solid var(--gl)' }}>
-                        {descendientes(r.id).map(({ e, nivel }) => <span key={e.id} style={{ marginLeft: nivel ? 10 : 0 }}>{chipEt(e)}</span>)}
-                      </div>)
-                    return fila
+                    return (
+                      <div key={r.id} style={{ breakInside: 'avoid', marginBottom: 2 }}>
+                        {filaEt(r, 0, n > 0 ? <button type="button" onClick={ev => { ev.stopPropagation(); alternar(r.id) }} title={ab ? 'Cerrar' : 'Ver sus subetiquetas'}
+                          style={{ border: 'none', background: 'none', color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '0 2px', marginLeft: 'auto', flexShrink: 0 }}>{ab ? '▴' : `${n}▾`}</button> : null)}
+                        {ab && <div style={{ marginLeft: 10, paddingLeft: 6, borderLeft: '2px solid var(--gl)' }}>
+                          {descendientes(r.id).map(({ e, nivel }) => <div key={e.id} style={{ marginLeft: nivel * 10 }}>{filaEt(e, nivel + 1, null)}</div>)}
+                        </div>}
+                      </div>
+                    )
                   })}
-                  {!(porCat[grupoEt] || []).length && <span className="muted" style={{ fontSize: 12.5 }}>No hay etiquetas en este grupo.</span>}
                 </div>
+                {!(porCat[grupoEt] || []).length && <span className="muted" style={{ fontSize: 12.5 }}>No hay etiquetas en este grupo.</span>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
                   <button type="button" className="btn btn-s btn-sm" onClick={() => setGrupoEt(iPaso > 0 ? ORDEN_GRUPOS[iPaso - 1] : null)}>‹</button>
                   {iPaso < ORDEN_GRUPOS.length - 1
