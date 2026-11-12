@@ -19,7 +19,7 @@ import HojaLibre from '@/components/HojaLibre'
 import { traerTodo } from '@/lib/paginar'
 import { leerHoja, hojaVacia, objetivosDeHoja, type Hoja } from '@/lib/hoja'
 import { objetivosDeEjercicio, cruceObjetivo } from '@/lib/ejercicioObjetivos'
-import { camposSerie, ajustesMedida, COLOR_BANDA, partesMedida, idMedida } from '@/lib/medida'
+import { camposSerie, ajustesMedida, COLOR_BANDA, partesMedida, idMedida, medidaEnSesion } from '@/lib/medida'
 
 /**
  * Opción para dejar el ejercicio sin variante, es decir, en su forma estándar. Es un
@@ -346,7 +346,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
    */
   function medida(ej: any): string[] {
     const bib = catalogo.find((e:any)=>e.id===ej?.ejercicio_id)
-    const base = ej?.tipo_medida || bib?.tipo_medida || 'peso_reps'
+    const base = medidaEnSesion(ej?.tipo_medida, bib?.tipo_medida)
     // Los campos de carga × volumen (lib/medida). Isométrico se prescribe en segundos
     // aunque el ejercicio vaya por repeticiones. Igual que en el taller.
     // Por tiempo también los estiramientos (estático, FNP…): ver `ejecucionPorTiempo`.
@@ -1109,7 +1109,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                           title="Cantidad, para todos" onChange={e=>{ const v=e.target.value; const c=campoDe(uComun!); todos(()=>({ [c]:v })) }}/>
                         <select value={uComun || ''} title="Unidad, para todos"
                           onChange={e=>{ const v=e.target.value as any; if (!v) return
-                            todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(x.tipo_medida||bib?.tipo_medida||'peso_reps').carga, v) } }) }}>
+                            todos((x:any)=>{ const bib=catalogo.find((c:any)=>c.id===x.ejercicio_id); return { tipo_medida: idMedida(partesMedida(medidaEnSesion(x.tipo_medida,bib?.tipo_medida)).carga, v) } }) }}>
                           {!uComun && <option value="">var.</option>}
                           <option value="reps">reps</option><option value="segundos">seg</option><option value="metros">m</option>
                         </select>
@@ -1358,7 +1358,7 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                       {/* LA UNIDAD, pegada al número y cambiable: reps, seg o m. */}
                       {(()=>{
                         const bib = catalogo.find((x:any)=>x.id===ej.ejercicio_id)
-                        const { carga } = partesMedida(ej.tipo_medida || bib?.tipo_medida || 'peso_reps')
+                        const { carga } = partesMedida(medidaEnSesion(ej.tipo_medida, bib?.tipo_medida))
                         const actual = med.includes('segundos') ? 'segundos' : med.includes('metros') ? 'metros' : 'reps'
                         return (
                           <select value={actual} title="Por repeticiones, por tiempo o por distancia"
@@ -1379,7 +1379,8 @@ export default function ModalEditarSesion({ sesion, ejercicios, etiquetas = [], 
                             style={{borderLeft:`4px solid ${COLOR_BANDA[ej.banda]||'var(--bd)'}`}}
                             onChange={e=>editarEjercicio(ei,{banda:e.target.value})}>
                             <option value="">—</option>
-                            {bandas.map(b=><option key={b} value={b}>{b}</option>)}
+                            {/* Si ya llevaba una goma que no está en Ajustes (se renombró), sale igual para no perderla. */}
+                            {(ej.banda && !bandas.includes(ej.banda) ? [ej.banda, ...bandas] : bandas).map(b=><option key={b} value={b}>{b}</option>)}
                           </select>
                         : <span className="vacio" title="Peso corporal: no lleva carga">—</span>}
                     </div>

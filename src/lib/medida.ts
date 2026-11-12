@@ -47,6 +47,18 @@ export function idMedida(carga: Carga, volumen: Volumen): string {
 }
 export const esMedida = (id?: string | null) => !!id && id in IDS
 
+/**
+ * LA MEDIDA DE UN EJERCICIO DENTRO DE UNA SESIÓN. La sesión guarda una copia de
+ * `tipo_medida` del día en que se añadió; si luego en la biblioteca el ejercicio pasaba
+ * a ir con goma, la sesión seguía pidiendo kg. Ahora la CARGA (kg, goma, corporal) la
+ * dice siempre la biblioteca, y el VOLUMEN (reps, seg, m) lo elegido en la sesión.
+ */
+export function medidaEnSesion(deSesion?: string | null, deBiblioteca?: string | null): string {
+  if (!esMedida(deBiblioteca)) return deSesion || 'peso_reps'
+  if (!esMedida(deSesion)) return deBiblioteca!
+  return idMedida(partesMedida(deBiblioteca).carga, partesMedida(deSesion).volumen)
+}
+
 /** "Con peso · Repeticiones" → corto, para chapas: "Kg × reps". */
 export function nombreMedida(id?: string | null): string {
   const { carga, volumen } = partesMedida(id)
@@ -133,8 +145,12 @@ export function leerAjustesMedida(m: Record<string, string>): AjustesMedida {
 }
 
 // Una vez por página: el taller los pide desde cada casilla.
+// Caduca a los 30 s: sin eso, las gomas cambiadas en Ajustes no salían hasta recargar.
 let pedido: Promise<AjustesMedida> | null = null
+let pedidoEn = 0
 export function ajustesMedida(): Promise<AjustesMedida> {
+  if (pedido && Date.now() - pedidoEn > 30000) pedido = null
+  if (!pedido) pedidoEn = Date.now()
   if (!pedido) pedido = (async () => {
     const { data } = await supabase.from('ajustes').select('clave,valor').in('clave', ['medida_bandas', 'medida_esfuerzo'])
     const m: Record<string, string> = {}; (data || []).forEach((a: any) => { m[a.clave] = a.valor || '' })

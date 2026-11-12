@@ -12,8 +12,13 @@ import { CONFIG_DEFECTO, CLAVE_AJUSTE, leerConfigTrabajo, type ConfigTrabajo } f
  * podia volver a elegir en el editor. Ahora todos leen la misma, y lo que se anada en
  * Ajustes aparece en todas las pantallas.
  */
+// Se guarda 30 s y se vuelve a pedir: sin caducar, lo corregido en Ajustes no llegaba a
+// las sesiones hasta recargar la página (seguía saliendo el valor anterior).
 let pedido: Promise<ConfigTrabajo> | null = null
+let pedidoEn = 0
 export function cargarConfigTrabajo(): Promise<ConfigTrabajo> {
+  if (pedido && Date.now() - pedidoEn > 30000) pedido = null
+  if (!pedido) pedidoEn = Date.now()
   if (!pedido) pedido = Promise.resolve(supabase.from('ajustes').select('clave,valor').eq('clave', CLAVE_AJUSTE))
     .then(({ data }: any) => leerConfigTrabajo(Object.fromEntries((data || []).map((x: any) => [x.clave, x.valor]))))
     .catch(() => CONFIG_DEFECTO)

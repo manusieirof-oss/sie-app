@@ -19,7 +19,7 @@ import { modoParte, textoModo, descansoDeParte, transicionDeParte, descansoEfect
 import { textoDescanso, capacidadPorReps } from '@/lib/capacidades'
 import { repetidosSemana, type Repetido, diasDeFalta } from '@/lib/repetidosSemana'
 import { enModoPractica } from '@/lib/practica'
-import { partesMedida } from '@/lib/medida'
+import { partesMedida, medidaEnSesion } from '@/lib/medida'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
@@ -1123,7 +1123,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       ;(tipos||[]).forEach((t:any)=>{ tipoMap[t.id]=t })
       ejs.forEach(e=>{
         const t = e.ejercicio_id ? tipoMap[e.ejercicio_id] : null
-        e.tipo_medida = e.tipo_medida_ses || t?.tipo_medida || 'peso_reps'
+        e.tipo_medida = medidaEnSesion(e.tipo_medida_ses, t?.tipo_medida)
         // LA FOTO, LA DE LA BIBLIOTECA. La sesión guarda una copia de cuando se metió el
         // ejercicio; si luego se cambió en la biblioteca, el taller seguía con la vieja.
         if (t?.imagen_url) e.imagen_url = t.imagen_url

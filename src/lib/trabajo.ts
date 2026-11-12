@@ -164,9 +164,15 @@ export function ejecucionPorTiempo(cfg: ConfigTrabajo | null | undefined, regime
   return r.startsWith('isom')
 }
 
-/** Los segundos con los que arranca una ejecución por tiempo: estiramientos 60 s. */
+/**
+ * Los segundos con los que arranca una ejecución por tiempo. Los estiramientos cogen el
+ * mínimo de la capacidad «Estiramiento» de Ajustes › Entrenador (como al elegir la
+ * capacidad); antes iba fijo a 60 s y no hacía caso a lo corregido.
+ */
 export function segundosDeEjecucion(cfg: ConfigTrabajo | null | undefined, regimen?: string | null): string {
   const r = String(regimen || '').trim().toLowerCase()
   const e = (cfg?.ejecuciones || []).find(x => x.nombre.trim().toLowerCase() === r)
-  return e?.grupo === 'estiramiento' ? '60' : ''
+  if (e?.grupo !== 'estiramiento') return ''
+  const i = (cfg?.intensidades || []).find(x => x.familia === 'estiramiento')
+  return String(i?.segMin ?? i?.segMax ?? 60)
 }
