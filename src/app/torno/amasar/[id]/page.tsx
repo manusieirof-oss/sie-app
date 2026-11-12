@@ -1093,7 +1093,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                       outline: x.id === params.id ? '3px solid var(--n)' : !x.portada_id ? '2px solid var(--g)' : 'none', outlineOffset: x.id === params.id ? 2 : 0 }}>
                       <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
                     </div>
-                    <div style={{ fontSize: 10.5, lineHeight: 1.2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, marginTop: 3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{nombreCorto(x)}</div>
+                    <div style={{ fontSize: 10.5, lineHeight: 1.2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, marginTop: 3, textAlign: 'center',
+                      /* EL NOMBRE ENTERO: más ancho que la foto y sin cortar (antes, 3 líneas y «…»). */
+                      width: 140, marginLeft: -32 }}>{x.nombre}</div>
                   </div>
                 ))}
               </>)
