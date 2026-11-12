@@ -1204,20 +1204,22 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               // ejercicio los demás se recolocaban y uno se perdía. El del centro deja su
               // hueco transparente y punteado, para saber dónde está y por dónde se va.
               const fam = familiaAnillo
-              /* EN VARIOS CÍRCULOS, A DISTINTAS ALTURAS: el primero cabe 7; si hay más, se
-                 abren círculos más grandes por fuera. Se reparten según el tamaño de cada
-                 círculo (el de fuera lleva más) para que no se pisen. Mismo orden que el torno. */
-              const CAP = [7, 9, 11, 13]
-              let nC = 1; while (nC < CAP.length && CAP.slice(0, nC).reduce((a, b) => a + b, 0) < fam.length) nC++
-              const pesos = CAP.slice(0, nC), totalP = pesos.reduce((a, b) => a + b, 0)
-              const cuantos = pesos.map(w => Math.floor(fam.length * w / totalP))
-              for (let r = nC - 1, falta = fam.length - cuantos.reduce((a, b) => a + b, 0); falta > 0; r = (r - 1 + nC) % nC, falta--) cuantos[r]++
+              /* EN VARIOS CÍRCULOS, SIN PISARSE. Se llena primero el de dentro y luego los de
+                 fuera (antes se repartían a la vez y caían en los mismos ángulos, unos encima de
+                 otros). Los de fuera son más anchos que altos para no subirse a la cabecera, y
+                 van corridos medio hueco para quedar entre los de dentro. */
+              // Medidas probadas para que no se pisen de 2 a 25 ejercicios.
+              const CAP = [6, 7, 8, 9], ARCO = [170, 150, 140, 130], RX = [68, 104, 140, 176], RY = [60, 78, 94, 106]
+              const cuantos: number[] = []
+              for (let c = 0, falta = fam.length; falta > 0; c++) { const n = Math.min(falta, CAP[Math.min(c, CAP.length - 1)]); cuantos.push(n); falta -= n }
               const pos: { x: number, y: number }[] = []
               cuantos.forEach((n, c) => {
-                const arco = 130 + c * 12
+                const k = Math.min(c, CAP.length - 1)
+                const paso = ARCO[k] / (CAP[k] - 1)
+                const corre = c % 2 === 1 && n < CAP[k] ? paso / 2 : 0
                 for (let i = 0; i < n; i++) {
-                  const a = (n === 1 ? 180 : 180 - arco / 2 + (arco * i) / (n - 1)) * Math.PI / 180
-                  pos.push({ x: 50 + Math.cos(a) * (66 + c * 22), y: 50 + Math.sin(a) * (58 + c * 19) })
+                  const a = (180 + (i - (n - 1) / 2) * paso + corre) * Math.PI / 180
+                  pos.push({ x: 50 + Math.cos(a) * RX[k], y: 50 + Math.sin(a) * RY[k] })
                 }
               })
               return (<>
@@ -1234,7 +1236,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                     </div>
                     <div style={{ fontSize: 10.5, lineHeight: 1.2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, marginTop: 3, textAlign: 'center',
                       /* EL NOMBRE ENTERO: más ancho que la foto y sin cortar (antes, 3 líneas y «…»). */
-                      width: 140, marginLeft: -32 }}>{x.id === params.id ? 'En el centro' : x.nombre}</div>
+                      width: 116, marginLeft: -20 }}>{x.id === params.id ? 'En el centro' : x.nombre}</div>
                   </div>
                 ))}
               </>)
