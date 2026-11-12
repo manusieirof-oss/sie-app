@@ -1036,7 +1036,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               title={grupoEjs.map(e => e.nombre).join('\n')}>{grupoEjs.map(e => e.nombre).join(' · ')}</div>
           </>) : (<>
             <div style={{ fontSize: 17 }}>{d.nombre || (nuevo ? 'Pella nueva' : '…')}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Amasar · {llenos} de {necesarios.length}{llenos === necesarios.length ? ' · lista' : ''}{enCola ? ` · ejercicio ${iCola + 1} de ${cola.length}` : ''}</div>
           </>)}
         </div>
         {!nuevo && !grupo && !cargando ? (
@@ -1048,30 +1048,11 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
       {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 60 }}>Preparando el barro…</div> : (
         <>
-        {/* LA TANDA, A UN LADO: pequeños; el que se toca pasa al centro. Punto ámbar =
-            tocado sin guardar; verde = completo. */}
-        {enCola && colaEjs.length > 1 && (
-          <div className="am-tanda">
-            {colaEjs.map((e: any) => {
-              const actual = e.id === params.id
-              const pend = !actual && !!pendientes[e.id]
-              const datos = actual ? d : pend ? pendientes[e.id].d : e
-              const completo = faltasAmasar({ ...datos, items_ejecucion: datos.items_ejecucion, feedbacks: datos.feedbacks }).length === 0
-              return (
-                <div key={e.id} className={`am-tanda-it ${actual ? 'on' : ''}`} onClick={() => cambiarA(e.id)} title={datos.nombre}>
-                  <div style={{ position: 'relative', width: '100%', borderRadius: 12, overflow: 'hidden' }}>
-                    <ImagenEjercicio src={datos.imagen_url} etiquetasEj={datos.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
-                    {(pend || (actual && cambiado)) && <span className="am-punto" style={{ background: 'var(--amb)' }}/>}
-                    {!(pend || (actual && cambiado)) && completo && <span className="am-punto" style={{ background: 'var(--g)' }}/>}
-                  </div>
-                  <div className="am-tanda-nom">{datos.nombre}</div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        {/* LA COLUMNA DE LA TANDA SE QUITÓ: junto al anillo de la familia no se sabía qué
+            ejercicio era cuál. Para pasar de uno a otro están ‹ Siguiente › abajo, y arriba
+            se dice en cuál vas («2 de 3»). */}
         <div className={`am-zona ${abierto || verFicha || (grupo && resumenOn) ? 'am-abierto' : ''}`}
-          style={enCola && colaEjs.length > 1 ? { paddingLeft: 108 } : undefined}>
+>
           <div className="am-rosco">
             {/* SU FAMILIA DE FONDO, como la red de objetivos y tests: cada una con su foto,
                 unida al centro con un hilo. Tocar una lleva a su rosco. Van por el lado
