@@ -36,6 +36,9 @@ type Datos = { nombre: string, descripcion: string, video_url: string, imagen_ur
   /** Cómo se suele hacer: series, reps o segundos, descanso, régimen y lado. Con eso sale al meterlo en una sesión. */
   por_defecto: Record<string, string> }
 
+/** Los grupos de etiquetas en el orden en que se rellenan, de lo más importante a lo menos. */
+const ORDEN_GRUPOS = ['musculo', 'articulacion', 'movimiento', 'posicion', 'material', 'apoyo', 'agarre', 'patron', 'plano_eje', 'patologia']
+
 const VACIO: Datos = { nombre: '', descripcion: '', video_url: '', imagen_url: '', etiquetas: [], tipo_medida: '',
   items_ejecucion: [], feedbacks: [], portada_id: null, por_revisar: [], trabajo: trabajoVacio(), anatomia: anatomiaVacia(), por_defecto: {} }
 
@@ -121,7 +124,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [guardando, setGuardando] = useState(false)
   const [aviso, setAviso] = useState('')
   const [buscaEt, setBuscaEt] = useState('')
-  const [raizAbierta, setRaizAbierta] = useState<string | null>(null)
+  // Etiquetas: el grupo que se mira (null = lo puesto) y las que tienen abiertas sus hijas.
+  const [grupoEt, setGrupoEt] = useState<string | null>(null)
+  const [abiertasEt, setAbiertasEt] = useState<string[]>([])
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   const [buscaFam, setBuscaFam] = useState('')
   // VARIOS A LA VEZ: la familia (etiqueta) que se les pone a todos. Antes se elegía un
@@ -474,59 +479,107 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           placeholder="Cómo se hace, paso a paso" style={{ minHeight: 180, fontSize: 13.5, lineHeight: 1.5 }}/>
       )
       case 'etiquetas': {
+        /* DOS ZONAS. A la izquierda los grupos, de lo más importante a lo menos, con cuántas
+           lleva puestas cada uno (es el resumen y a la vez el filtro); a la derecha, solo las
+           del grupo tocado. «Ir por pasos» los recorre en orden con «Siguiente». Familia no
+           sale: tiene su propio quesito. */
         const q = buscaEt.trim()
-        // Se busca también por su rama: «trapecio superior» encuentra «Superior» del trapecio.
-        const encontradas = q ? ets.filter(e => contiene(nombreConRama(ets, e), q)).slice(0, 30) : []
-        return (<>
-          {/* LO PUESTO, por categoría: así se ve si falta el músculo o la posición. */}
-          {d.etiquetas.length > 0 && (
-            <div style={{ display: 'grid', gap: 6, marginBottom: 12, padding: '10px 12px', borderRadius: 14, background: 'var(--gl)' }}>
-              {CATEGORIAS_ETIQUETA.map(c => {
-                const suyas = d.etiquetas.map(id => ets.find(e => e.id === id)).filter((e: any) => e && categoriaDe(ets, e) === c.key)
-                if (!suyas.length) return null
-                return (
-                  <div key={c.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                    <span className="et-mini" style={{ minWidth: 86 }}>{c.label}</span>
-                    {suyas.map((e: any) => <span key={e.id} className="chip-sel on" style={{ fontSize: 12.5 }} onClick={() => togEt(e.id)}>{nombreConRama(ets, e)} ✕</span>)}
-                  </div>
-                )
-              })}
+        const encontradas = q ? ets.filter(e => categoriaDe(ets, e) !== 'familia' && contiene(nombreConRama(ets, e), q)).slice(0, 30) : []
+        const iPaso = grupoEt ? ORDEN_GRUPOS.indexOf(grupoEt) : -1
+        const labelDe = (k: string) => CATEGORIAS_ETIQUETA.find(c => c.key === k)?.label || k
+        // Lo puesto, sin repetir: si está «Cadera › Coxofemoral» no sale también «Cadera».
+        const puestas = d.etiquetas.map(id => ets.find(e => e.id === id)).filter(Boolean)
+        const esAncestro = (a: any, b: any) => { let x = b; const v = new Set(); while (x?.padre_id && !v.has(x.id)) { v.add(x.id); if (x.padre_id === a.id) return true; x = ets.find(e => e.id === x.padre_id) } return false }
+        const visibles = puestas.filter((e: any) => !puestas.some((o: any) => o.id !== e.id && esAncestro(e, o)))
+        const deGrupo = (k: string) => visibles.filter((e: any) => categoriaDe(ets, e) === k)
+        // Las hijas de una raíz, ordenadas por su rama: cada subetiqueta justo detrás de su madre.
+        const descendientes = (id: string) => {
+          const out: any[] = []
+          const bajar = (pid: string, nivel: number) => ets.filter(e => e.padre_id === pid).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+            .forEach(e => { out.push({ e, nivel }); bajar(e.id, nivel + 1) })
+          bajar(id, 0)
+          return out
+        }
+        const alternar = (id: string) => setAbiertasEt(l => l.includes(id) ? l.filter(x => x !== id) : [...l, id])
+        const btnGrupo = (k: string | null, txt: string, n: number) => (
+          <button key={k || 'puestas'} type="button" onClick={() => { setGrupoEt(k); setBuscaEt('') }}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left',
+              border: 'none', borderRadius: 10, padding: '7px 10px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5,
+              background: grupoEt === k && !q ? 'var(--g)' : 'transparent', color: grupoEt === k && !q ? '#fff' : 'var(--n)' }}>
+            <span>{txt}</span>
+            <span style={{ fontSize: 11, opacity: n ? 1 : .45 }}>{n || '–'}</span>
+          </button>
+        )
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 14, alignItems: 'start' }}>
+            {/* IZQUIERDA: los grupos */}
+            <div style={{ display: 'grid', gap: 2, position: 'sticky', top: 0, background: 'var(--bl)', borderRadius: 14, padding: 6 }}>
+              {btnGrupo(null, 'Puestas', visibles.filter((e: any) => categoriaDe(ets, e) !== 'familia').length)}
+              <div style={{ height: 1, background: 'var(--bd)', margin: '4px 6px' }}/>
+              {ORDEN_GRUPOS.map(k => btnGrupo(k, labelDe(k), deGrupo(k).length))}
             </div>
-          )}
-          <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 99, background: '#D4A24E' }}/> la usan los objetivos
-          </div>
-          <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ marginBottom: 10 }}/>
-          {q
-            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(e => chipEt(e, true))}</div>
-            : CATEGORIAS_ETIQUETA.filter(c => (porCat[c.key] || []).length).map(c => (
-              <div key={c.key} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-                  <span className="et-mini">{c.label}</span>
-                  {IMPORTA[c.key] && <span style={{ fontSize: 10.5, color: '#A87E2C' }}>{IMPORTA[c.key]}</span>}
+
+            {/* DERECHA: lo del grupo elegido */}
+            <div style={{ minWidth: 0 }}>
+              <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ marginBottom: 10 }}/>
+              {q ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(e => chipEt(e, true))}</div>
+              ) : !grupoEt ? (<>
+                {/* LO PUESTO, por grupo y en el mismo orden */}
+                {visibles.length === 0 && <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Todavía no tiene etiquetas.</div>}
+                <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+                  {ORDEN_GRUPOS.map(k => {
+                    const l = deGrupo(k); if (!l.length) return null
+                    return (
+                      <div key={k}>
+                        <div className="et-mini" style={{ marginBottom: 4, cursor: 'pointer' }} onClick={() => setGrupoEt(k)}>{labelDe(k)}</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {l.map((e: any) => <span key={e.id} className="chip-sel on" style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={() => togEt(e.id)}>
+                            <IconoEtiqueta etiquetas={ets} et={e} size={16}/>{nombreConRama(ets, e)} ✕</span>)}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {porCat[c.key].map(r => (
-                    <span key={r.id} style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
-                      {chipEt(r)}
-                      {hijas(r.id).length > 0 && (
-                        <button type="button" onClick={() => setRaizAbierta(raizAbierta === r.id ? null : r.id)}
-                          style={{ border: 'none', background: 'none', color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '0 3px' }}>
-                          {raizAbierta === r.id ? '▴' : `${hijas(r.id).length}▾`}
-                        </button>
-                      )}
-                    </span>
-                  ))}
+                <button type="button" className="btn btn-p btn-sm" onClick={() => setGrupoEt(ORDEN_GRUPOS[0])}>Ir por pasos ›</button>
+              </>) : (<>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n)' }}>{labelDe(grupoEt)}</span>
+                  <span style={{ fontSize: 11, color: 'var(--grl)' }}>Paso {iPaso + 1} de {ORDEN_GRUPOS.length}</span>
+                  {IMPORTA[grupoEt] && <span style={{ fontSize: 10.5, color: '#A87E2C' }}>{IMPORTA[grupoEt]}</span>}
                 </div>
-                {porCat[c.key].some(r => r.id === raizAbierta) && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '6px 0 0 12px' }}>
-                    {ets.filter(e => e.padre_id === raizAbierta || ets.find(p => p.id === e.padre_id)?.padre_id === raizAbierta)
-                      .sort((a, b) => nivelDe(ets, a) - nivelDe(ets, b) || a.nombre.localeCompare(b.nombre)).map(e => chipEt(e))}
-                  </div>
-                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+                  {(porCat[grupoEt] || []).flatMap(r => {
+                    const n = hijas(r.id).length, ab = abiertasEt.includes(r.id)
+                    const fila = [
+                      <span key={r.id} style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
+                        {chipEt(r)}
+                        {n > 0 && <button type="button" onClick={() => alternar(r.id)}
+                          style={{ border: 'none', background: 'none', color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '0 3px' }}>{ab ? '▴' : `${n}▾`}</button>}
+                      </span>]
+                    // ABIERTA: sus hijas justo debajo, en su propio renglón y metidas hacia dentro.
+                    if (ab) fila.push(
+                      <div key={r.id + '-h'} style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', gap: 5, margin: '2px 0 6px 14px',
+                        paddingLeft: 10, borderLeft: '2px solid var(--gl)' }}>
+                        {descendientes(r.id).map(({ e, nivel }) => <span key={e.id} style={{ marginLeft: nivel ? 10 : 0 }}>{chipEt(e)}</span>)}
+                      </div>)
+                    return fila
+                  })}
+                  {!(porCat[grupoEt] || []).length && <span className="muted" style={{ fontSize: 12.5 }}>No hay etiquetas en este grupo.</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
+                  <button type="button" className="btn btn-s btn-sm" onClick={() => setGrupoEt(iPaso > 0 ? ORDEN_GRUPOS[iPaso - 1] : null)}>‹</button>
+                  {iPaso < ORDEN_GRUPOS.length - 1
+                    ? <button type="button" className="btn btn-p btn-sm" onClick={() => setGrupoEt(ORDEN_GRUPOS[iPaso + 1])}>Siguiente: {labelDe(ORDEN_GRUPOS[iPaso + 1])} ›</button>
+                    : <button type="button" className="btn btn-p btn-sm" onClick={() => setGrupoEt(null)}>Ver lo puesto ✓</button>}
+                </div>
+              </>)}
+              <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 99, background: '#D4A24E' }}/> la usan los objetivos
               </div>
-            ))}
-        </>)
+            </div>
+          </div>
+        )
       }
       case 'medida': {
         // CARGA × VOLUMEN (lib/medida), el mismo selector que en el taller.
@@ -545,7 +598,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         <EditorTrabajo valor={d.trabajo} cfg={cfgTrabajo} onChange={v => setD(p => ({ ...p, trabajo: v }))}/>
         <div style={{ fontSize: 12, fontWeight: 600, margin: '14px 0 6px' }}>Anatomía</div>
         {/* Lo que se quita aquí sale también de las etiquetas, y lo que se añade entra. */}
-        <EditorAnatomia valor={d.anatomia} etiquetas={ets}
+        {/* Solo lo que ya tiene en Etiquetas: articulaciones, movimientos y músculos puestos. */}
+        <EditorAnatomia valor={d.anatomia} etiquetas={ets} soloDe={d.etiquetas}
           onChange={v => setD(p => { const antes = idsAnatomia(p.anatomia), ahora = idsAnatomia(v); return { ...p, anatomia: v, etiquetas: Array.from(new Set([...p.etiquetas.filter(x => !antes.includes(x) || ahora.includes(x)), ...ahora])) } })}/>
       </>)
       case 'ejecucion': return <EditorLista items={d.items_ejecucion} onChange={(v: any[]) => setRev('items_ejecucion', 'ejecucion', v)} label="Qué tiene que cumplir" placeholder="Ej. Rodilla alineada con el pie" icono="ok"/>
@@ -1221,7 +1275,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
           </div>
 
           {q && (
-            <div key={q.k} className="am-panel" style={q.k === 'etiquetas' ? { width: 'min(600px, 50vw)' } : undefined}>
+            <div key={q.k} className="am-panel" style={q.k === 'etiquetas' ? { width: 'min(720px, 56vw)' } : undefined}>
               {/* La cabecera con "Hecho" se queda pegada arriba: con muchas etiquetas el
                   panel hace scroll y había que volver a subir para cerrarlo. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, position: 'sticky', top: -18, zIndex: 3,

@@ -88,10 +88,20 @@ export function EditorTrabajo({ valor, onChange, cfg, disabled }: { valor: Traba
   )
 }
 
-export function EditorAnatomia({ valor, onChange, etiquetas, disabled }: { valor: AnatomiaEj, onChange: (v: AnatomiaEj) => void, etiquetas: any[], disabled?: boolean }) {
-  const arts = useMemo(() => opcionesDe(etiquetas, 'articulacion'), [etiquetas])
-  const movs = useMemo(() => opcionesDe(etiquetas, 'movimiento'), [etiquetas])
-  const muss = useMemo(() => opcionesDe(etiquetas, 'musculo'), [etiquetas])
+export function EditorAnatomia({ valor, onChange, etiquetas, disabled, soloDe }: { valor: AnatomiaEj, onChange: (v: AnatomiaEj) => void, etiquetas: any[], disabled?: boolean,
+  /** Las etiquetas ya puestas al ejercicio: solo se ofrecen esas (más lo que ya estuviera elegido).
+   *  Si de un grupo no hay ninguna puesta, salen todas las de ese grupo. */
+  soloDe?: string[] }) {
+  const ya = new Set([...valor.acc.flatMap(x => [x.a, x.m || '']), ...valor.mus.map(x => x.u)])
+  const limitar = (l: { id: string, txt: string }[]) => {
+    if (!soloDe) return l
+    const f = l.filter(o => soloDe.includes(o.id) || ya.has(o.id))
+    return f.some(o => soloDe.includes(o.id)) ? f : l
+  }
+  const clave = (soloDe || []).join(',')
+  const arts = useMemo(() => limitar(opcionesDe(etiquetas, 'articulacion')), [etiquetas, clave]) // eslint-disable-line react-hooks/exhaustive-deps
+  const movs = useMemo(() => limitar(opcionesDe(etiquetas, 'movimiento')), [etiquetas, clave]) // eslint-disable-line react-hooks/exhaustive-deps
+  const muss = useMemo(() => limitar(opcionesDe(etiquetas, 'musculo')), [etiquetas, clave]) // eslint-disable-line react-hooks/exhaustive-deps
   const sel: React.CSSProperties = { fontSize: 12.5, padding: '4px 6px', minWidth: 0 }
   const estrella = (on: boolean, fn: () => void) => (
     <button type="button" disabled={disabled} onClick={fn} title={on ? 'Principal (toca para secundario)' : 'Secundario (toca para principal)'}
