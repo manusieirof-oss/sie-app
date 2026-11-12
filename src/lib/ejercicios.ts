@@ -54,8 +54,12 @@ export const faltasAmasar = (e: any) => FALTAS_AMASAR.filter(f => f.falta(e)).ma
 /* LA COLA DE AMASAR: los ejercicios que se van a ir completando uno detrás de otro.
    Va en sessionStorage (solo esta pestaña, solo esta tanda): no es un dato del centro. */
 const CLAVE_COLA = 'amasar_cola'
-export function guardarCola(ids: string[]) { try { sessionStorage.setItem(CLAVE_COLA, JSON.stringify(ids)) } catch {} }
+// `de` dice de dónde sale la cola (su familia, los elegidos, los incompletos), para que el
+// amasar diga «3 de 5 de la familia» y no un «3 de 3» que no se entendía.
+export type DeCola = 'familia' | 'elegidos' | 'incompletos'
+export function guardarCola(ids: string[], de?: DeCola) { try { sessionStorage.setItem(CLAVE_COLA, JSON.stringify(ids)); sessionStorage.setItem(CLAVE_COLA + '_de', de || '') } catch {} }
 export function leerCola(): string[] { try { return JSON.parse(sessionStorage.getItem(CLAVE_COLA) || '[]') } catch { return [] } }
+export function leerDeCola(): DeCola | '' { try { return (sessionStorage.getItem(CLAVE_COLA + '_de') || '') as any } catch { return '' } }
 // Los elegidos para "poner en común" (rosco de varios, /torno/amasar/varios).
 const CLAVE_GRUPO = 'amasar_grupo'
 export function guardarGrupo(ids: string[]) { try { sessionStorage.setItem(CLAVE_GRUPO, JSON.stringify(ids)) } catch {} }

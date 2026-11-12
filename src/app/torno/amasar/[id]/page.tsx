@@ -7,7 +7,7 @@ import { Ic } from '@/lib/icons'
 import { traerTodo } from '@/lib/paginar'
 import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe, nombreConRama } from '@/lib/etiquetas'
-import { TIPOS_MEDIDA, subirImagenEjercicio, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
+import { TIPOS_MEDIDA, subirImagenEjercicio, leerDeCola, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
 import ImagenEjercicio, { fotoCambiada } from '@/components/ImagenEjercicio'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
@@ -115,7 +115,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [fichaOn, setFichaOn] = useState(recien)
   // La cola de ejercicios a completar seguidos (elegidos en el torno).
   const [cola, setCola] = useState<string[]>([])
-  useEffect(() => { if (sp.get('cola')) setCola(leerCola()) }, [sp])
+  useEffect(() => { if (sp.get('cola')) { setCola(leerCola()); setDeCola(leerDeCola()) } }, [sp])
+  const [deCola, setDeCola] = useState<string>('')
   // La columna de la tanda: sus ejercicios (nombre, imagen, qué les falta).
   const [colaEjs, setColaEjs] = useState<any[]>([])
   const [pendientes, setPendientes] = useState<Record<string, Borrador>>({})
@@ -192,7 +193,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     if (enCola) {
       const resto = cola.filter(x => x !== params.id)
       const sig = cola[iCola + 1] || cola[iCola - 1]
-      guardarCola(resto)
+      guardarCola(resto, (deCola || undefined) as any)
       if (sig) { router.push(`/torno/amasar/${sig}?cola=1`); return }
     }
     /* SI ERA DE UNA FAMILIA, se queda en la familia: va a la principal (o a otra de sus
@@ -664,7 +665,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 14 }}>
           <button className="btn btn-p btn-sm" onClick={() => {
-            const ids = grupoEjs.map(e => e.id); guardarCola(ids)
+            const ids = grupoEjs.map(e => e.id); guardarCola(ids, 'elegidos')
             router.push(`/torno/amasar/${ids[0]}?cola=1`)
           }}>Completar uno a uno</button>
           <button className="btn btn-t btn-sm" onClick={() => ir('/torno?que=ejercicios')}>Volver al torno</button>
@@ -1193,7 +1194,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 {/* Dos flechas iguales; en medio, en cuál de los elegidos en el torno vas. */}
                 <button className="btn btn-s btn-sm" disabled={iCola === 0 || guardando} onClick={() => irCola(-1)} title="Ejercicio anterior de los elegidos">‹</button>
-                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>{iCola + 1} de los {cola.length} elegidos</span>
+                <span style={{ fontSize: 12, color: 'var(--gd)', whiteSpace: 'nowrap' }}>{iCola + 1} de {cola.length}{deCola === 'familia' ? ' de la familia' : deCola === 'incompletos' ? ' por completar' : ' elegidos'}</span>
                 <button className="btn btn-s btn-sm" disabled={iCola === cola.length - 1 || guardando} onClick={() => irCola(1)} title="Siguiente ejercicio de los elegidos">›</button>
               </span>
             )}

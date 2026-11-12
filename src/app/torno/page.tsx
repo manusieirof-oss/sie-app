@@ -9,7 +9,7 @@ import { hoyISO } from '@/lib/fechas'
 import { traerTodo } from '@/lib/paginar'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { PROGRESIONES } from '@/lib/sistemas'
-import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo, nombreCorto } from '@/lib/ejercicios'
+import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo, nombreCorto, type DeCola } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
@@ -197,8 +197,8 @@ export default function TornoPage() {
   /** Lo que se desplaza no es la ventana sino la caja de contenido del diseño (.content,
    *  o .m-main en el móvil). Con window.scrollY siempre salía 0 y no volvía a su sitio. */
   const desplazador = (): HTMLElement => (document.querySelector('.content') || document.querySelector('.m-main') || document.scrollingElement || document.documentElement) as HTMLElement
-  function amasar(id: string, cola?: string[]) {
-    if (cola && cola.length > 1) guardarCola(cola)
+  function amasar(id: string, cola?: string[], de?: DeCola) {
+    if (cola && cola.length > 1) guardarCola(cola, de)
     // Se apunta dónde estaba (altura y búsqueda) para volver al mismo sitio al salir.
     try { sessionStorage.setItem('torno-scroll', String(desplazador().scrollTop)); sessionStorage.setItem('torno-busca', busca) } catch {}
     setYendo(id); setTimeout(() => router.push(`/torno/amasar/${id}${cola && cola.length > 1 ? '?cola=1' : ''}`), 360)
@@ -473,7 +473,7 @@ export default function TornoPage() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: g.id === 'sin' ? '#8A6410' : 'var(--n)', marginBottom: 6 }}>{g.nombre} <span style={{ fontWeight: 400, color: 'var(--grl)' }}>· {g.ejs.length}</span></div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 8 }}>
                       {g.ejs.sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es')).map((e: any) => (
-                        <div key={e.id} className={`t-card ${yendo === e.id ? 't-elegida' : ''}`} onClick={() => amasar(e.id, g.ejs.map((x: any) => x.id))}
+                        <div key={e.id} className={`t-card ${yendo === e.id ? 't-elegida' : ''}`} onClick={() => amasar(e.id, (g.id === 'sin' ? g.ejs : (ejs || []).filter((x: any) => (x.etiquetas || []).includes(g.id)).sort((a: any, b: any) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))).map((x: any) => x.id), g.id === 'sin' ? undefined : 'familia')}
                           style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 9px rgba(38,40,37,.08)' }}>
                           <ImagenEjercicio src={e.imagen_url} etiquetasEj={e.etiquetas} ejercicioId={e.id} radio={0} fondo="var(--bl)" icono={22}/>
                           <div style={{ padding: '6px 8px', fontSize: 11.5, lineHeight: 1.2 }}>{e.nombre}</div>
@@ -493,7 +493,7 @@ export default function TornoPage() {
                   <div key={e.id} className={`t-card t-fade ${yendo === e.id ? 't-elegida' : ''}`}
                     title={faltan ? 'Falta: ' + FALTAS_AMASAR.filter(f => fs.includes(f.k)).map(f => f.t.toLowerCase()).join(', ') : ''}
                     onClick={() => modoSel ? setSelec(l => sel ? l.filter(x => x !== e.id) : [...l, e.id])
-                      : amasar(e.id, soloIncompletos ? listaEj.map(x => x.id) : undefined)}
+                      : amasar(e.id, soloIncompletos ? listaEj.map(x => x.id) : undefined, 'incompletos')}
                     style={{ animationDelay: `${Math.min(i, 14) * 22}ms`, background: '#fff', borderRadius: 14, overflow: 'hidden', position: 'relative',
                       cursor: 'pointer', boxShadow: sel ? '0 0 0 2.5px var(--g), 0 6px 18px rgba(38,40,37,.14)' : '0 3px 12px rgba(38,40,37,.08)' }}>
                     {modoSel && (
@@ -539,7 +539,7 @@ export default function TornoPage() {
                 <button className="btn btn-p btn-sm" onClick={() => {
                   // En el orden en que se ven en la rejilla.
                   const cola = listaEj.map(e => e.id).filter(id => selec.includes(id))
-                  amasar(cola[0], cola)
+                  amasar(cola[0], cola, 'elegidos')
                 }}>Completar uno a uno</button>
               </div>
             </div>, document.body
