@@ -9,6 +9,7 @@ import { normalizar, contiene } from '@/lib/texto'
 import { CATEGORIAS_ETIQUETA, categoriaDe, nivelDe, nombreConRama } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, subirImagenEjercicio, leerDeCola, moverAFamilia, sacarDeFamilia, crearVariante, hacerPortada, eliminarEjercicio, usosDeEjercicio, similaresA, leerCola, leerGrupo, ponerEnComun, guardarCola, faltasAmasar, FALTAS_AMASAR } from '@/lib/ejercicios'
 import ImagenEjercicio, { fotoCambiada } from '@/components/ImagenEjercicio'
+import IconoEtiqueta from '@/components/IconoEtiqueta'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 import { EditorTrabajo, EditorAnatomia, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia, type TrabajoEj, type AnatomiaEj } from '@/components/TrabajoEjercicio'
@@ -443,6 +444,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         title={usadasObj.has(e.id) ? 'La usan los objetivos para sugerirse' : undefined}
         style={{ fontSize: 12.5, padding: '5px 11px', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
         {usadasObj.has(e.id) && <span style={{ width: 6, height: 6, borderRadius: 99, background: on ? '#fff' : '#D4A24E', flexShrink: 0 }}/>}
+        <IconoEtiqueta etiquetas={ets} et={e} size={17}/>
         {conRama ? nombreConRama(ets, e) : e.nombre}
       </button>
     )

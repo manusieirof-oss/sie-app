@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { ZONAS_CUERPO } from '@/lib/zonasCuerpo'
 import { conDescendientes, nivelDe } from '@/lib/etiquetas'
 import { capaDeEtiqueta, urlCapa, type Vista } from '@/lib/cuerpo'
+import IconoEtiqueta from './IconoEtiqueta'
 
 // ---------------------------------------------------------------------------
 // LOS FILTROS DE ETIQUETA, EN UN VELO.
@@ -87,7 +88,7 @@ export default function VeloFiltros({ grupos, etiquetas, ejercicios, valor, onCh
             className={`vf-op ${nivelDe(etiquetas, et) > 0 ? 'hija' : ''} ${valor.includes(et.id) ? 'on' : ''}`}
             onMouseEnter={() => setSenalado(et.id)} onMouseLeave={() => setSenalado(null)}
             onClick={() => alternar(et.id)}>
-            {et.nombre}<small>{cuenta[et.id] ?? ''}</small>
+            <IconoEtiqueta etiquetas={etiquetas} et={et} size={16}/>{et.nombre}<small>{cuenta[et.id] ?? ''}</small>
           </button>
         ))}
         {hijas.length > 0 && (
@@ -231,7 +232,7 @@ const CSS = `
 .vf-zt .vf-mas{margin-left:auto;font-weight:600}
 .vf-nada{font-size:12px;color:var(--grl)}
 .vf-ops{display:flex;flex-wrap:wrap;gap:6px}
-.vf-op{border:1.5px solid var(--bd);background:#fff;border-radius:99px;padding:5px 11px;font-size:12.5px;color:var(--n);cursor:pointer;font-family:inherit}
+.vf-op{border:1.5px solid var(--bd);background:#fff;border-radius:99px;padding:5px 11px;font-size:12.5px;color:var(--n);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px}
 .vf-op.hija{font-size:11.5px;padding:3px 9px;border-style:dashed}
 .vf-op small{color:var(--grl);margin-left:4px;font-size:10.5px}
 .vf-op.on{background:var(--g);border-color:var(--g);color:#fff;border-style:solid}.vf-op.on small{color:#e3f1f2}
