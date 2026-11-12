@@ -1065,7 +1065,10 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
               // Sin tope: antes solo cabían 12 y, al meter uno, otro desaparecía del anillo.
               // El que se está mirando YA NO sale en el anillo: verlo dos veces (en el centro y
               // fuera) parecía un repetido y llevó a borrarlo sin querer. Solo sus hermanos.
-              const fam = familiaAnillo.filter(x => x.id !== params.id)
+              // TODOS EN SU SITIO, también el del centro: si se quitaba, al cambiar de
+              // ejercicio los demás se recolocaban y uno se perdía. El del centro deja su
+              // hueco transparente y punteado, para saber dónde está y por dónde se va.
+              const fam = familiaAnillo
               /* EN VARIOS CÍRCULOS, A DISTINTAS ALTURAS: el primero cabe 7; si hay más, se
                  abren círculos más grandes por fuera. Se reparten según el tamaño de cada
                  círculo (el de fuera lleva más) para que no se pisen. Mismo orden que el torno. */
@@ -1087,15 +1090,16 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                   {pos.map((p, i) => <line key={i} x1={50} y1={50} x2={p.x} y2={p.y} stroke="var(--gm)" strokeWidth={.25} strokeDasharray="1 1" opacity={.7}/>)}
                 </svg>
                 {fam.map((x, i) => (
-                  <div key={x.id} className="am-fam" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%`, cursor: x.id === params.id ? 'default' : undefined }}
+                  <div key={x.id} className="am-fam" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%`, cursor: x.id === params.id ? 'default' : undefined,
+                    ...(x.id === params.id ? { opacity: .35 } : {}) }}
                     onClick={() => { if (x.id !== params.id) ir(aEj(x.id)) }} title={x.id === params.id ? `${x.nombre} · es este` : x.nombre}>
                     <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 3px 10px rgba(38,40,37,.14)',
-                      outline: x.id === params.id ? '3px solid var(--n)' : !x.portada_id ? '2px solid var(--g)' : 'none', outlineOffset: x.id === params.id ? 2 : 0 }}>
+                      outline: x.id === params.id ? '2px dashed var(--n)' : !x.portada_id ? '2px solid var(--g)' : 'none', outlineOffset: x.id === params.id ? 2 : 0 }}>
                       <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
                     </div>
                     <div style={{ fontSize: 10.5, lineHeight: 1.2, color: x.id === params.id ? 'var(--n)' : 'var(--gd)', fontWeight: x.id === params.id ? 600 : 400, marginTop: 3, textAlign: 'center',
                       /* EL NOMBRE ENTERO: más ancho que la foto y sin cortar (antes, 3 líneas y «…»). */
-                      width: 140, marginLeft: -32 }}>{x.nombre}</div>
+                      width: 140, marginLeft: -32 }}>{x.id === params.id ? 'En el centro' : x.nombre}</div>
                   </div>
                 ))}
               </>)
