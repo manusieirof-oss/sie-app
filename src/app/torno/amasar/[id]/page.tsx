@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ElegirMedida from '@/components/ElegirMedida'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -45,6 +45,29 @@ const VACIO: Datos = { nombre: '', descripcion: '', video_url: '', imagen_url: '
 // "Guardar todo". En sessionStorage para que una recarga no los tire.
 // ---------------------------------------------------------------------------
 type Borrador = { d: Datos, orig: Datos }
+
+// ---------------------------------------------------------------------------
+// CAMBIAR DE EJERCICIO SIN QUE SALTE TODO. Al pasar a otro de la familia la página se
+// monta de nuevo: se pedían otra vez todas las etiquetas y ejercicios, salía «Preparando
+// el barro…» y el rosco entero volvía a entrar con su animación. Ahora se guarda aquí
+// (en memoria, mientras no se recargue) lo ya traído y las fichas de su familia, y el
+// nuevo sale al momento. Lo de la base de datos se vuelve a pedir por detrás igual.
+// `vuelo`: la foto que viaja del anillo al centro mientras se cambia.
+// ---------------------------------------------------------------------------
+const CACHE: { ets?: any[], ejs?: any[], objetivos?: any[], filas: Record<string, any>, vuelo?: HTMLElement | null } = { filas: {} }
+function datosDe(e: any): Datos {
+  return { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
+    etiquetas: e.etiquetas || [], tipo_medida: e.tipo_medida || '', items_ejecucion: e.items_ejecucion || [],
+    feedbacks: e.feedbacks || [], portada_id: e.portada_id || null, por_revisar: e.por_revisar || [], por_defecto: e.por_defecto || {},
+    trabajo: trabajoDe(e), anatomia: anatomiaDe(e) }
+}
+/** Con lo tocado y sin guardar en la tanda, si lo hay. */
+function conBorrador(id: string, x: Datos): Datos {
+  const b = leerBorradores()[id]
+  // Un borrador de antes de existir "Qué trabaja" no lo trae: se completa con lo guardado.
+  return b ? { ...x, ...b.d, trabajo: b.d.trabajo || x.trabajo, anatomia: b.d.anatomia || x.anatomia } : x
+}
+const guardarFilas = (l: any[] | null | undefined) => (l || []).forEach((e: any) => { if (e?.id) CACHE.filas[e.id] = e })
 const CLAVE_BORR = 'amasar_borradores'
 function leerBorradores(): Record<string, Borrador> {
   try { return JSON.parse(sessionStorage.getItem(CLAVE_BORR) || '{}') } catch { return {} }
@@ -80,13 +103,16 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // el botón de abajo, que no decía nada.
   const sp = useSearchParams()
   const recien = sp.get('creado') === '1'
-  const [d, setD] = useState<Datos>(VACIO)
-  const [orig, setOrig] = useState<Datos>(VACIO)
-  const [ets, setEts] = useState<any[]>([])
+  // Si ya está en memoria (se viene de otro de su familia), sale al momento.
+  const filaIni = !nuevo && !grupo && CACHE.ejs ? CACHE.filas[params.id] : null
+  const fluye = useRef(!!filaIni)
+  const [d, setD] = useState<Datos>(() => filaIni ? conBorrador(params.id, datosDe(filaIni)) : VACIO)
+  const [orig, setOrig] = useState<Datos>(() => filaIni ? datosDe(filaIni) : VACIO)
+  const [ets, setEts] = useState<any[]>(() => filaIni ? CACHE.ets || [] : [])
   const cfgTrabajo = useConfigTrabajo()
-  const [ejs, setEjs] = useState<any[]>([])
-  const [objetivos, setObjetivos] = useState<any[]>([])
-  const [cargando, setCargando] = useState(true)
+  const [ejs, setEjs] = useState<any[]>(() => filaIni ? CACHE.ejs || [] : [])
+  const [objetivos, setObjetivos] = useState<any[]>(() => filaIni ? CACHE.objetivos || [] : [])
+  const [cargando, setCargando] = useState(!filaIni)
   const [abierto, setAbierto] = useState<Clave | null>(null)
   const [encima, setEncima] = useState<Clave | null>(null)
   const [foto, setFoto] = useState<File | null>(null)
@@ -123,10 +149,19 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   useEffect(() => { setPendientes(leerBorradores()) }, [params.id])
   useEffect(() => {
     if (cola.length < 2) return
-    supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) =>
-      setColaEjs(cola.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean)))
+    supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) => {
+      guardarFilas(data)
+      setColaEjs(cola.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean)) })
   }, [cola.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (cargando) return
+    const v = CACHE.vuelo; CACHE.vuelo = null
+    if (!v) return
+    // Se deja terminar el viaje (0,42 s) y luego se funde con el nuevo.
+    const espera = Math.max(0, 440 - (Date.now() - Number(v.dataset.t || 0)))
+    setTimeout(() => { v.style.transition = 'opacity .25s ease'; v.style.opacity = '0'; setTimeout(() => v.remove(), 280) }, espera)
+  }, [cargando, params.id])
   useEffect(() => { setModoFam(null); cargar() }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
   async function cargar() {
     const [a, b, o] = await Promise.all([
@@ -135,6 +170,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
       supabase.from('objetivos').select('id,nombre,imagen_url,articulacion_id,etiquetas,movimientos').eq('activo', true).order('nombre'),
     ])
     setEts(a.filas); setEjs(b.filas); setObjetivos(o.data || [])
+    CACHE.ets = a.filas; CACHE.ejs = b.filas; CACHE.objetivos = o.data || []
     if (grupo) {
       const ids = leerGrupo()
       const { data } = ids.length ? await supabase.from('ejercicios').select('*').in('id', ids) : { data: [] }
@@ -143,14 +179,17 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     } else if (!nuevo) {
       const { data: e } = await supabase.from('ejercicios').select('*').eq('id', params.id).maybeSingle()
       if (e) {
-        const x: Datos = { nombre: e.nombre || '', descripcion: e.descripcion || '', video_url: e.video_url || '', imagen_url: e.imagen_url || '',
-          etiquetas: e.etiquetas || [], tipo_medida: e.tipo_medida || '', items_ejecucion: e.items_ejecucion || [],
-          feedbacks: e.feedbacks || [], portada_id: e.portada_id || null, por_revisar: e.por_revisar || [], por_defecto: e.por_defecto || {},
-          trabajo: trabajoDe(e), anatomia: anatomiaDe(e) }
+        // Si ya salió de memoria y no ha cambiado nada, no se vuelve a poner (no se pisa lo
+        // que se haya empezado a tocar en ese momento).
+        const yaEstaba = fluye.current && JSON.stringify(CACHE.filas[params.id]) === JSON.stringify(e)
+        CACHE.filas[params.id] = e
         // Lo tocado y sin guardar en la tanda se retoma tal cual se dejó.
-        const b = leerBorradores()[params.id]
-        // Un borrador de antes de existir "Qué trabaja" no lo trae: se completa con lo guardado.
-        setD(b ? { ...x, ...b.d, trabajo: b.d.trabajo || x.trabajo, anatomia: b.d.anatomia || x.anatomia } : x); setOrig(x)
+        if (!yaEstaba) { const x = datosDe(e); setD(conBorrador(params.id, x)); setOrig(x) }
+        // Las fichas de su familia, ya traídas para el siguiente cambio.
+        const famIds = new Set((a.filas || []).filter((t: any) => t.categoria === 'familia').map((t: any) => t.id))
+        const fId = (e.etiquetas || []).find((x: string) => famIds.has(x))
+        const faltan = fId ? (b.filas || []).filter((x: any) => (x.etiquetas || []).includes(fId) && !CACHE.filas[x.id]).map((x: any) => x.id) : []
+        if (faltan.length) supabase.from('ejercicios').select('*').in('id', faltan).then(({ data }) => guardarFilas(data))
       }
     }
     // "Añadir a la familia → uno nuevo": llega con ?familia=<principal> y sale ya dentro.
@@ -335,6 +374,30 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     return confirm('Hay cambios sin guardar' + (!d.nombre.trim() ? ' (falta el nombre)' : !d.tipo_medida ? ' (falta cómo se mide)' : '') + '. ¿Salir y perderlos?') ? 'descartar' : 'no'
   }
   const ir = async (url: string) => { if (await asegurarGuardado()) router.push(url) }
+  /**
+   * DE UN EJERCICIO A OTRO, FLUYENDO. La foto del anillo se copia encima de todo y viaja
+   * hasta el centro creciendo; el resto se queda quieto. Al llegar el nuevo, se funde.
+   */
+  async function volarA(el: HTMLElement, id: string) {
+    if (!(await asegurarGuardado())) return
+    const foto = el.firstElementChild as HTMLElement | null
+    const centro = document.querySelector('.am-centro') as HTMLElement | null
+    if (foto && centro) {
+      const a = foto.getBoundingClientRect(), b = centro.getBoundingClientRect()
+      const v = foto.cloneNode(true) as HTMLElement
+      Object.assign(v.style, { position: 'fixed', left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px',
+        margin: '0', zIndex: '60', pointerEvents: 'none', outline: 'none', borderRadius: '12px', overflow: 'hidden', background: '#fff',
+        transition: 'all .42s cubic-bezier(.3,.8,.3,1)' })
+      v.dataset.t = String(Date.now())
+      document.body.appendChild(v)
+      CACHE.vuelo?.remove(); CACHE.vuelo = v
+      requestAnimationFrame(() => requestAnimationFrame(() => Object.assign(v.style, {
+        left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', borderRadius: '50%' })))
+      // Por si algo falla y no llega a montarse el nuevo, que no se quede pegada.
+      setTimeout(() => { if (CACHE.vuelo === v) { v.remove(); CACHE.vuelo = null } }, 4000)
+    }
+    router.push(aEj(id))
+  }
   /* LA TANDA NO SE PIERDE. Desde un ejercicio de la cola se puede ir a su variante, a
      uno de su familia o a un parecido; antes eso soltaba la cola y había que volver a
      elegirlos todos. Ahora la cola viaja con la URL y "desde" dice a cuál volver. */
@@ -717,8 +780,9 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     }
     setGuardando(false)
     setPendientes(leerBorradores())
-    supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) =>
-      setColaEjs(cola.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean)))
+    supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) => {
+      guardarFilas(data)
+      setColaEjs(cola.map(id => (data || []).find((e: any) => e.id === id)).filter(Boolean)) })
     setAviso(`✓ Guardados ${ok + (cambiado ? 1 : 0)}` + (no.length ? ` · sin guardar: ${no.join(', ')}` : ''))
   }
   const nPendientes = Object.keys(pendientes).filter(id => id !== params.id && cola.includes(id)).length + (cambiado ? 1 : 0)
@@ -976,7 +1040,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="am">
+    <div className={`am ${fluye.current ? 'am-fluye' : ''}`}>
       <style>{`
         .am { background:#fff; margin:-16px -18px; padding:18px 22px 120px; min-height:calc(100vh - 32px); overflow:hidden }
         .am-zona { display:flex; align-items:center; justify-content:center; gap:28px; min-height:calc(100vh - 160px) }
@@ -1017,6 +1081,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
         @keyframes am-et { from { opacity:0 } to { opacity:1 } }
 .am-late { animation: am-late 1.1s ease 2 }
         @keyframes am-late { 50% { box-shadow:0 0 0 14px rgba(90,150,158,.18), 0 10px 34px rgba(38,40,37,.16) } }
+        .am-fluye .am-q, .am-fluye .am-centro, .am-fluye .am-fam { animation:none }
         .am-centro { position:absolute; z-index:3; left:50%; top:50%; transform:translate(-50%,-50%); width:52%; height:52%; border-radius:50%;
                      overflow:hidden; background:#fff; box-shadow:0 10px 34px rgba(38,40,37,.16); animation: am-pella .7s cubic-bezier(.2,.9,.3,1.2) backwards }
         @keyframes am-pella { from { transform:translate(-50%,-50%) scale(.3,.15) } 60% { transform:translate(-50%,-50%) scale(1.06,.95) } to { transform:translate(-50%,-50%) } }
@@ -1092,7 +1157,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
                 {fam.map((x, i) => (
                   <div key={x.id} className="am-fam" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%`, cursor: x.id === params.id ? 'default' : undefined,
                     ...(x.id === params.id ? { opacity: .35 } : {}) }}
-                    onClick={() => { if (x.id !== params.id) ir(aEj(x.id)) }} title={x.id === params.id ? `${x.nombre} · es este` : x.nombre}>
+                    onClick={ev => { if (x.id !== params.id) volarA(ev.currentTarget as HTMLElement, x.id) }} title={x.id === params.id ? `${x.nombre} · es este` : x.nombre}>
                     <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 3px 10px rgba(38,40,37,.14)',
                       outline: x.id === params.id ? '2px dashed var(--n)' : !x.portada_id ? '2px solid var(--g)' : 'none', outlineOffset: x.id === params.id ? 2 : 0 }}>
                       <ImagenEjercicio src={x.imagen_url} etiquetasEj={x.etiquetas} ejercicioId={x.id} radio={0} fondo="var(--bl)" icono={16} insignias={false}/>
