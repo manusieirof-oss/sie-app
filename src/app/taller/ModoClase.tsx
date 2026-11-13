@@ -20,6 +20,7 @@ import { textoDescanso, capacidadPorReps } from '@/lib/capacidades'
 import { repetidosSemana, type Repetido, diasDeFalta } from '@/lib/repetidosSemana'
 import { enModoPractica } from '@/lib/practica'
 import { partesMedida } from '@/lib/medida'
+import { normalizar } from '@/lib/texto'
 import { alternarItem, itemMarcado } from '@/lib/ejecucion'
 import { guardarVias, abrirObjetivo, resolverVia } from '@/lib/objetivos'
 import { pacientesDelDia, horasDelDia, horaActual } from '@/lib/taller'
@@ -952,7 +953,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   }
 
   async function abrirSustituir(pid: string, i: number) {
-    setCambioSiempre(false)
+    // Uno que ya no existe se cambia para siempre: así sale de su sesión y no vuelve.
+    const ejA = seleccion.find((x:any) => x.paciente.id === pid)?.datos?.[i]
+    setCambioSiempre(!!ejA?._perdido && editaPlan)
     setSustituyendo({ pid, i })
     if (catalogoEj.length === 0) {
       const r = await traerTodo((d, h) => supabase.from('ejercicios').select('*').order('nombre').order('id').range(d, h))
@@ -1133,6 +1136,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         e.etiquetas = t?.etiquetas || []
         // Anatomia y "admite", para el cruce estricto con los objetivos.
         e._anat = t ? { anatomia: t.anatomia, trabajo: t.trabajo, etiquetas: t.etiquetas } : null
+        /* AVISOS DEL EJERCICIO. Si ya no está en la biblioteca (se borró o se fusionó con
+           otro) se dice, y al tocar el aviso se cambia por otro. Si sigue pero ha cambiado
+           algo principal —cómo se mide: con peso, con goma o sin carga—, también. El
+           nombre o la foto no avisan: eso no cambia lo que se hace. */
+        e._perdido = !!e.ejercicio_id && !t
+        const cs = e.tipo_medida_ses ? partesMedida(e.tipo_medida_ses).carga : null, cb = t?.tipo_medida ? partesMedida(t.tipo_medida).carga : null
+        const CARGA: Record<string, string> = { kg: 'con peso', banda: 'con goma', corporal: 'sin carga' }
+        e._cambio = cs && cb && cs !== cb ? `Ahora se mide ${CARGA[cb]} (en la sesión, ${CARGA[cs]})` : null
         if (!e.items_evaluados) e.items_evaluados = {}
       })
     } else {
@@ -2472,6 +2483,13 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                      de la biblioteca solo si se busca o se filtra. */
                   sugeridos={(()=>{ const e = seleccion.find((x:any)=>x.paciente.id===sustituyendo.pid)?.datos?.[sustituyendo.i]
                     const base = catalogoEj.find((x:any)=>x.id===e?.ejercicio_id)
+                    // YA NO EXISTE: los que se le parecen por el nombre (se renombró o se fusionó).
+                    if (!base && e?.nombre) {
+                      const pal = normalizar(e.nombre).replace(/[·\-]/g, ' ').split(/\s+/).filter((w:string) => w.length > 3)
+                      const items = catalogoEj.map((x:any) => ({ x, n: pal.filter((w:string) => normalizar(x.nombre).includes(w)).length }))
+                        .filter((o:any) => o.n > 0).sort((a:any, b:any) => b.n - a.n || a.x.nombre.length - b.x.nombre.length).slice(0, 12).map((o:any) => o.x)
+                      return items.length ? { titulo: `Parecidos a «${e.nombre}»`, items } : undefined
+                    }
                     const r = igualesA(catalogoEj, base, etiquetas)
                     return r.items.length ? r : undefined })()}
                   soloSugeridos

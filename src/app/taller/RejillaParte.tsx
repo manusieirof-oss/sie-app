@@ -198,6 +198,19 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                 <span style={{ textDecoration: noLoHizo ? 'line-through' : 'none', color: noLoHizo ? 'var(--grl)' : undefined }}>{ej.nombre}</span>
                 {ej.guardado && !noLoHizo && <span style={{ color: 'var(--g)', marginLeft: 4 }}>✓</span>}
               </div>
+              {/* YA NO ESTÁ EN LA BIBLIOTECA (se borró o se fusionó): se dice y, al tocar, se
+                  cambia por otro de los parecidos. Al cambiarlo para siempre sale de su sesión. */}
+              {ej._perdido && (
+                <div onClick={onSustituir && !ej.guardado ? () => onSustituir(ei) : undefined}
+                  title={onSustituir ? 'Toca para cambiarlo por otro' : undefined}
+                  style={{ fontSize: 11, color: 'var(--red)', marginTop: 3, lineHeight: 1.35, cursor: onSustituir && !ej.guardado ? 'pointer' : 'default' }}>
+                  ⚠ Este ejercicio ya no está en la biblioteca: se cambió o se fusionó con otro.{onSustituir && !ej.guardado ? <b> Toca para cambiarlo.</b> : ''}
+                </div>
+              )}
+              {/* HA CAMBIADO ALGO PRINCIPAL desde que se puso en la sesión (cómo se mide). */}
+              {!ej._perdido && ej._cambio && (
+                <div style={{ fontSize: 11, color: '#8A6410', marginTop: 3, lineHeight: 1.35 }}>⚠ Este ejercicio ha cambiado: {ej._cambio}.</div>
+              )}
               {ej.propuesta && <ChipPropuesta p={ej.propuesta}/>}
               {/* REPETIDO EN LA SEMANA: ya lo hizo otro día o lo tiene en otra cita. Solo
                   avisa (lib/repetidosSemana). Debajo del nombre y no sobre la foto: abajo de
