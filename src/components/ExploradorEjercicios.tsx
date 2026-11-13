@@ -7,6 +7,7 @@ import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
 import MonedaObjetivo from './MonedaObjetivo'
 import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
+import BotonVista from './BotonVista'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz, nombreConRama } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
@@ -100,6 +101,16 @@ export default function ExploradorEjercicios({
   const setPanel = (v: Panel) => { setPanelE(v); try { localStorage.setItem('bib_lente', v) } catch {} }
   const lente = LENTES.find(l => l.k === panel) || LENTES[0]
   const siguienteLente = () => setPanel(LENTES[(LENTES.indexOf(lente) + 1) % LENTES.length].k)
+  /* ORDENAR (Biblioteca): por nombre, por familia, por uso o los recién añadidos. Junto
+     a la lente, con el mismo botón de toda la biblioteca. Se recuerda en este aparato. */
+  type Orden = 'nombre' | 'familia' | 'uso' | 'ultima' | 'nuevos'
+  const ORDENES: { k: Orden, t: string }[] = [
+    { k: 'nombre', t: 'Nombre (A-Z)' }, { k: 'familia', t: 'Por familia' }, { k: 'uso', t: 'Más usados' },
+    { k: 'ultima', t: 'Usados hace poco' }, { k: 'nuevos', t: 'Recién añadidos' },
+  ]
+  const [orden, setOrdenE] = useState<Orden>('nombre')
+  useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_orden') as Orden; if (ORDENES.some(o => o.k === v)) setOrdenE(v) } catch {} }, [paneles]) // eslint-disable-line react-hooks/exhaustive-deps
+  const setOrden = (v: Orden) => { setOrdenE(v); try { localStorage.setItem('bib_orden', v) } catch {} }
   const [resumenClinica, setResumen] = useState<Record<string, any> | null>(null)
   const resumen = resumenFijo || resumenClinica
   const [faltaVista, setFaltaVista] = useState(false)
@@ -107,12 +118,13 @@ export default function ExploradorEjercicios({
   useEffect(() => { if (paneles && resumenFijo) setPanelE('uso') }, [paneles, !!resumenFijo]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     // El de la clínica hace falta también con un cliente elegido: el color del cromo es de la clínica.
-    if (!paneles || panel === 'normal' || resumenClinica) return
+    // Hace falta para la lente y también para ordenar por uso.
+    if (!paneles || (panel === 'normal' && orden !== 'uso' && orden !== 'ultima') || resumenClinica) return
     traerTodo((d, h) => supabase.from('ejercicio_resumen').select('*').range(d, h)).then(({ filas, error }) => {
       if (error) { setFaltaVista(true); return }
       setResumen(Object.fromEntries(filas.map((f: any) => [f.ejercicio_id, f])))
     })
-  }, [paneles, panel, resumenClinica])
+  }, [paneles, panel, orden, resumenClinica])
   const fechaCorta = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : ''
 
   const [buscar, setBuscar] = useState('')
@@ -250,7 +262,7 @@ export default function ExploradorEjercicios({
       || (e.etiquetas || []).some((id: string) => contiene(ramaEt[id], buscar))
   const casaTexto = (e: any) => casaNombre(e) || casaEtiqueta(e)
   const portadasQueCasan = new Set(buscar ? ejercicios.filter(e => !e.portada_id && casaTexto(e)).map(e => e.id) : [])
-  const filtrados = ejercicios.filter(e => {
+  const filtrados0 = ejercicios.filter(e => {
     if (idsSimilares && !idsSimilares.has(e.id)) return false
     const coincide = !buscar || casaTexto(e) || (!!e.portada_id && portadasQueCasan.has(e.portada_id))
     // Varias etiquetas se acumulan: piden los que las tengan TODAS. Y cada una vale
@@ -263,7 +275,17 @@ export default function ExploradorEjercicios({
     return coincide && etiquetado && (!soloPendientes || problemasDeEjercicio(e).length > 0)
       && (!soloObjetivos || !objetivosDe || nombresObjs(e).length > 0)
       && cumple(e, objFiltro)
+  })  // El orden elegido (solo en la Biblioteca; en el resto, como viene: por nombre).
+  const famDeOrden = (e: any) => { const id = (e.etiquetas || []).find((x: string) => etiquetas.some((t: any) => t.id === x && t.categoria === 'familia')); return id ? (etiquetas.find((t: any) => t.id === id)?.nombre || '') : '' }
+  const filtrados = !paneles || orden === 'nombre' ? filtrados0 : [...filtrados0].sort((a: any, b: any) => {
+    const rs = (x: any) => (resumenFijo || resumenClinica)?.[x.id]
+    const porNombre = String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es')
+    if (orden === 'familia') return (famDeOrden(a) || '\uffff').localeCompare(famDeOrden(b) || '\uffff', 'es') || porNombre
+    if (orden === 'uso') return (Number(rs(b)?.veces) || 0) - (Number(rs(a)?.veces) || 0) || porNombre
+    if (orden === 'ultima') return String(rs(b)?.ultima || '').localeCompare(String(rs(a)?.ultima || '')) || porNombre
+    return String(b.created_at || '').localeCompare(String(a.created_at || '')) || porNombre
   })
+
 
   const nPendientes = ejercicios.filter(e => problemasDeEjercicio(e).length > 0).length
 
@@ -560,8 +582,11 @@ export default function ExploradorEjercicios({
         <input className="input" placeholder="Buscar ejercicio…" value={buscar}
           onChange={e => setBuscar(e.target.value)} style={{ flex: 1, minWidth: 190 }} />
         <span style={{ fontSize: 12, color: 'var(--gr)', whiteSpace: 'nowrap' }}>
-          {(() => { const n = buscar ? visiblesNombre.length : hayFiltro ? filtrados.length : filtrados.filter(e => !esHijo(e)).length
-            return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` })()}
+          {/* CUÁNTOS DE VERDAD. Sin filtro contaba solo las tarjetas (una por familia) y
+              salían 162 cuando hay muchos más: las variantes van dentro de su familia. */}
+          {(() => { const n = buscar ? visiblesNombre.length : filtrados.length
+            const tarjetas = filtrados.filter(e => !esHijo(e)).length
+            return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}` + (!hayFiltro && tarjetas < n ? ` · ${tarjetas} familias y sueltos` : '') })()}
         </span>
         {paneles && (
           // Un toque, siguiente modo. Con su nombre al lado para saber en cuál estás.
@@ -570,6 +595,9 @@ export default function ExploradorEjercicios({
             <Ic name={lente.ic} size={13}/> {lente.t}
             <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{LENTES.map(l => <i key={l.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: l.k === panel ? 1 : .3 }}/>)}</span>
           </button>
+        )}
+        {paneles && (
+          <BotonVista opciones={ORDENES} valor={orden} onChange={(v: any) => setOrden(v)} prefijo="Orden" titulo="Cómo se ordenan los ejercicios"/>
         )}
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
