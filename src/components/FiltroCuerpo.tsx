@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { normalizar } from '@/lib/texto'
 import { categoriaDe, CATEGORIAS_ETIQUETA } from '@/lib/etiquetas'
 import { MUS_RIG } from '@/lib/mapaTrabajo'
@@ -68,8 +69,10 @@ const QUE_AGARRE: Record<string, string> = {
 const LATERAL_IZQ = ['movimiento', 'posicion', 'apoyo']
 const LATERAL_DER = ['agarre', 'patron', 'plano_eje', 'patologia']
 
-export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChange, nResultado, onCerrar }: {
-  etiquetas: any[], ejercicios?: any[], valor: string[], onChange: (v: string[]) => void, nResultado: number, onCerrar: () => void
+export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChange, nResultado, onCerrar, titulo = 'Filtros', textoCerrar = 'Ver ejercicios' }: {
+  etiquetas: any[], ejercicios?: any[], valor: string[], onChange: (v: string[]) => void
+  /** Cuántos ejercicios salen; sin él (al poner etiquetas a un ejercicio) no se dice. */
+  nResultado?: number, onCerrar: () => void, titulo?: string, textoCerrar?: string
 }) {
   const [modo, setModo] = useState<'musculo' | 'articulacion'>('musculo')
   const [pestana, setPestana] = useState<string | null>(null)
@@ -268,11 +271,14 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
   )
   const material = raices('material')
 
-  return (
+  /* A body (portal): dentro de un modal o de algo con transform, "fixed" deja de ocupar
+     la pantalla entera. */
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(246,244,239,.72)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column' }}>
       {/* ARRIBA: Músculos / Articulaciones, cuántos salen y cerrar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--n)' }}>Filtros</span>
+        <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--n)' }}>{titulo}</span>
         <div style={{ display: 'inline-flex', background: 'rgba(255,255,255,.9)', borderRadius: 99, padding: 3, margin: '0 auto', boxShadow: '0 3px 12px rgba(38,40,37,.1)' }}>
           {([['musculo', 'Músculos'], ['articulacion', 'Articulaciones']] as const).map(([k, t]) => (
             <button key={k} type="button" onClick={() => { setModo(k); setAbierta(null) }}
@@ -281,9 +287,9 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
               {t}{nGrupo(k) ? ` · ${nGrupo(k)}` : ''}</button>
           ))}
         </div>
-        <span style={{ fontSize: 13, color: 'var(--gd)', fontWeight: 600 }}>{nResultado} {nResultado === 1 ? 'ejercicio' : 'ejercicios'}</span>
+        {nResultado != null && <span style={{ fontSize: 13, color: 'var(--gd)', fontWeight: 600 }}>{nResultado} {nResultado === 1 ? 'ejercicio' : 'ejercicios'}</span>}
         {valor.length > 0 && <button type="button" className="chip-sel" onClick={() => onChange([])}>Limpiar · {valor.length}</button>}
-        <button type="button" className="btn btn-p btn-sm" onClick={onCerrar}>Ver ejercicios</button>
+        <button type="button" className="btn btn-p btn-sm" onClick={onCerrar}>{textoCerrar}</button>
       </div>
 
       <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
@@ -414,6 +420,5 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
         <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--gr)', marginBottom: 6 }}>Material{nGrupo('material') ? ` · ${nGrupo('material')}` : ''}</div>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>{material.map(m => chip(m))}</div>
       </div>
-    </div>
-  )
+    </div>, document.body)
 }

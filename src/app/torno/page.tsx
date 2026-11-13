@@ -11,6 +11,8 @@ import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { PROGRESIONES } from '@/lib/sistemas'
 import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo, nombreCorto, type DeCola } from '@/lib/ejercicios'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
+import FiltroCuerpo from '@/components/FiltroCuerpo'
+import { conDescendientes } from '@/lib/etiquetas'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
 // FOTO PROPIA. Sin foto ya sale una figura automática, así que no cuenta para "listo"
@@ -62,6 +64,12 @@ export default function TornoPage() {
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(false)
   const [busca, setBusca] = useState('')
+  /* EL FILTRO DEL CUERPO EN 3D, el mismo que en la Biblioteca: también aquí para buscar. */
+  const [filtroEt, setFiltroEt] = useState<string[]>([])
+  const [verFiltro, setVerFiltro] = useState(false)
+  const [todasEts, setTodasEts] = useState<any[]>([])
+  useEffect(() => { if (verFiltro && !todasEts.length) supabase.from('etiquetas').select('*').then(({ data }) => setTodasEts(data || [])) }, [verFiltro]) // eslint-disable-line react-hooks/exhaustive-deps
+  const casaFiltro = (e: any) => filtroEt.length === 0 || filtroEt.every(id => { const rama = conDescendientes(todasEts, id); return (e.etiquetas || []).some((x: string) => rama.includes(x)) })
   const [camino, setCamino] = useState<string>('falta')
   const [menu, setMenu] = useState(false)
   /* QUÉ SE BUSCA: gente (tornear su entreno) o ejercicios (amasar el barro). El mismo
@@ -178,7 +186,8 @@ export default function TornoPage() {
   /** Los ejercicios que se enseñan: buscando, todo lo que casa; por completar, todos
    *  (las variantes también se rellenan); si no, las portadas y los sueltos. */
   const listaEj = (ejs || [])
-    .filter(e => busca.trim() ? contiene(e.nombre, busca) : soloIncompletos || !e.portada_id)
+    .filter(e => busca.trim() ? contiene(e.nombre, busca) : soloIncompletos || filtroEt.length > 0 || !e.portada_id)
+    .filter(casaFiltro)
     .filter(e => {
       if (!soloIncompletos) return true
       // Sin filtro elegido, "por completar" es lo de siempre (la foto no cuenta); con
@@ -364,6 +373,14 @@ export default function TornoPage() {
             onChange={e => { setBusca(e.target.value); setAbierto(true) }}
             placeholder={que === 'pacientes' ? 'Busca a alguien de la clínica…' : que === 'ejercicios' ? 'Busca un ejercicio…' : 'Busca un objetivo o un test…'}
             style={{ flex: 1, fontSize: 14, padding: '11px 14px' }}/>
+          {que === 'ejercicios' && (
+            <button type="button" className={`chip-sel ${filtroEt.length ? 'on' : ''}`} onClick={() => { setVerFiltro(true); setAbierto(true) }} title="Filtrar con el cuerpo">
+              Filtros{filtroEt.length ? ` · ${filtroEt.length}` : ''}</button>
+          )}
+          {verFiltro && todasEts.length > 0 && (
+            <FiltroCuerpo etiquetas={todasEts} ejercicios={ejs || []} valor={filtroEt} onChange={setFiltroEt}
+              nResultado={(ejs || []).filter(casaFiltro).length} onCerrar={() => setVerFiltro(false)}/>
+          )}
 
           {/* GENTE O EJERCICIOS: lo que se busca. */}
           <div style={{ display: 'inline-flex', background: 'var(--bl)', borderRadius: 99, padding: 3, gap: 2 }}>

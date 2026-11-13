@@ -639,8 +639,7 @@ export default function ExploradorEjercicios({
             ◎ Para sus objetivos
           </button>
         )}
-        {/* En la Biblioteca la zona va dentro de los filtros (el cuerpo en 3D). */}
-        {!paneles && <MiniCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt}/>}
+        {/* La zona va dentro de los filtros (el cuerpo en 3D), en todos los sitios. */}
         {nPendientes > 0 && !paneles && (
           <button type="button" className={`chip-sel ${soloPendientes ? 'on' : ''}`}
             onClick={() => setSoloPendientes(v => !v)}
@@ -696,10 +695,10 @@ export default function ExploradorEjercicios({
 
       {/* FILTROS EN UN VELO: fuera solo quedan las marcadas, que se quitan con un toque. */}
       <PastillasFiltro etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt} onAbrir={() => setVerFiltros(true)}/>
-      {grupos.length > 0 && verFiltros && paneles && (
+      {grupos.length > 0 && verFiltros && (
         <FiltroCuerpo etiquetas={etiquetas} ejercicios={ejercicios} valor={filtroEt} onChange={setFiltroEt} nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
       )}
-      {grupos.length > 0 && verFiltros && !paneles && (
+      {false && (
         <VeloFiltros grupos={grupos} etiquetas={etiquetas} ejercicios={ejercicios} valor={filtroEt} onChange={setFiltroEt}
           nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
       )}

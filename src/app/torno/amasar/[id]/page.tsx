@@ -11,6 +11,7 @@ import { TIPOS_MEDIDA, subirImagenEjercicio, leerDeCola, moverAFamilia, sacarDeF
 import ImagenEjercicio, { fotoCambiada } from '@/components/ImagenEjercicio'
 import IconoEtiqueta from '@/components/IconoEtiqueta'
 import CuerpoEtiquetas, { enMuneco } from '@/components/CuerpoEtiquetas'
+import FiltroCuerpo from '@/components/FiltroCuerpo'
 import { CARGAS, VOLUMENES, partesMedida, idMedida, type Carga, type Volumen } from '@/lib/medida'
 import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 import { EditorTrabajo, EditorAnatomia, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia, type TrabajoEj, type AnatomiaEj } from '@/components/TrabajoEjercicio'
@@ -128,6 +129,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   // Etiquetas: el grupo que se mira (null = lo puesto) y las que tienen abiertas sus hijas.
   const [grupoEt, setGrupoEt] = useState<string | null>(null)
   const [abiertasEt, setAbiertasEt] = useState<string[]>([])
+  // Poner las etiquetas con el cuerpo en 3D (el mismo de los filtros de la Biblioteca).
+  const [cuerpo3D, setCuerpo3D] = useState(false)
   const [modoFam, setModoFam] = useState<'suelto' | 'variante' | 'portada' | null>(null)
   const [buscaFam, setBuscaFam] = useState('')
   // VARIOS A LA VEZ: la familia (etiqueta) que se les pone a todos. Antes se elegía un
@@ -538,7 +541,12 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
 
             {/* DERECHA: lo del grupo elegido */}
             <div style={{ minWidth: 0 }}>
-              <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ marginBottom: 10 }}/>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input className="input" value={buscaEt} onChange={e => setBuscaEt(e.target.value)} placeholder="Buscar etiqueta…" style={{ flex: 1 }}/>
+                <button type="button" className="chip-sel" onClick={() => setCuerpo3D(true)} title="Poner las etiquetas con el cuerpo en 3D">Cuerpo 3D</button>
+              </div>
+              {cuerpo3D && <FiltroCuerpo etiquetas={ets} ejercicios={ejs} valor={d.etiquetas} onChange={v => set('etiquetas', v)}
+                titulo="Etiquetas del ejercicio" textoCerrar="Hecho" onCerrar={() => setCuerpo3D(false)}/>}
               {q ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{encontradas.map(e => chipEt(e, true))}</div>
               ) : !grupoEt ? (<>
