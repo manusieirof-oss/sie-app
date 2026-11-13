@@ -19,8 +19,9 @@ export const faltanParaVald = (form: any): string[] => [
 
 /** Alta en VALD con los datos del formulario y el id reservado que tendrá en SIE. */
 export async function altaValdDesdeForm(form: any, up: (k: string, v: any) => void) {
-  const id = form.id_previo || crypto.randomUUID()
-  if (!form.id_previo) up('id_previo', id)
+  // El que viene de «pendiente» ya tiene ficha: se usa su id. El nuevo reserva uno.
+  const id = form.paciente_id || form.id_previo || crypto.randomUUID()
+  if (!form.paciente_id && !form.id_previo) up('id_previo', id)
   const r = await llamarVald('crear', { datos: { id, nombre: form.nombre, apellidos: form.apellidos,
     fecha_nacimiento: form.fecha_nacimiento, sexo: form.sexo, email: form.email || null } })
   if (r.profileId) up('vald_profile_id', r.profileId)
@@ -39,12 +40,12 @@ export default function RegistrarVald({ form, up }: { form: any, up: (k: string,
       .then(({ data }) => setEnlazado(!!data?.vald_profile_id))
   }, [form.paciente_id, form.vald_profile_id])
 
-  const faltan = form.paciente_id ? [] : faltanParaVald(form)
+  const faltan = form.paciente_id && !form.desde_pendiente ? [] : faltanParaVald(form)
 
   async function registrar() {
     setEstado('enviando'); setMsg('')
     try {
-      if (form.paciente_id) {
+      if (form.paciente_id && !form.desde_pendiente) {
         await llamarVald('crear', { pacienteId: form.paciente_id })
       } else {
         await altaValdDesdeForm(form, up)

@@ -202,7 +202,7 @@ export default function ValoracionPage() {
      queda el botón del paso Tests. */
   const valdIntentado = useRef(false)
   useEffect(() => {
-    if (step < 2 || esRevaloracion || form.paciente_id || form.vald_profile_id || valdIntentado.current) return
+    if (step < 2 || esRevaloracion || (form.paciente_id && !form.desde_pendiente) || form.vald_profile_id || valdIntentado.current) return
     if (faltanParaVald(form).length) return
     valdIntentado.current = true
     altaValdDesdeForm(form, up).catch(() => {})
@@ -345,6 +345,9 @@ export default function ValoracionPage() {
         const { data: p, error } = await supabase.from('pacientes').insert({ ...(form.id_previo ? { id: form.id_previo } : {}), vald_profile_id: form.vald_profile_id || null, nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
+        // Ya existe: si algo de abajo falla y se vuelve a pulsar Guardar, no se intenta
+        // crear otra vez (con el id reservado chocaría) sino que se sigue con este.
+        up('paciente_id', p.id)
         // Que ya exista en VALD para cuando se le pase el DynaMo (ver lib/vald altaEnVald).
         altaEnVald(p.id)
       } else if (esRevaloracion) {
@@ -358,7 +361,7 @@ export default function ValoracionPage() {
         if (form.sexo && !pacientes.find((x:any)=>x.id===pacienteId)?.sexo) updRe.sexo = form.sexo
         await supabase.from('pacientes').update(updRe).eq('id',pacienteId)
       } else {
-        const upd: any = { pendiente_valoracion:false }
+        const upd: any = { pendiente_valoracion:false, ...(form.vald_profile_id ? { vald_profile_id: form.vald_profile_id } : {}) }
         // Se reescribe la ficha entera a propósito: es el momento de corregir el nombre que
         // se apuntó abreviado al coger la cita. Depende de que el paso 1 haya cargado TODOS
         // los campos del paciente al elegirlo — si carga menos, lo que falte se guarda vacío.

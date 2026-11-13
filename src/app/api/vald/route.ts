@@ -96,7 +96,8 @@ export async function POST(req: Request) {
          y el paciente no se crea en SIE hasta guardarla, así que había que darlo de alta a
          mano en la app de VALD. Ahora la pantalla manda los datos del formulario y el id
          que tendrá en SIE (se crea con ese id al guardar). */
-      const nuevoSinFicha = !cuerpo.pacienteId && cuerpo.datos?.id
+      // También el que viene de «pendiente de valoración»: su ficha aún no tiene fecha ni género.
+      const nuevoSinFicha = !!cuerpo.datos?.id
       let p: any
       if (nuevoSinFicha) {
         const d = cuerpo.datos
@@ -111,7 +112,8 @@ export async function POST(req: Request) {
       // Si ya se mandó antes (otro clic, o desde la valoración) no se importa dos veces.
       const [yaEsta] = await perfiles(tid, { syncId: p.id })
       if (yaEsta?.profileId) {
-        if (!nuevoSinFicha) await sb.from('pacientes').update({ vald_profile_id: yaEsta.profileId }).eq('id', p.id)
+        // Si aún no existe en SIE (valoración sin guardar) no actualiza nada, y no pasa nada.
+        await sb.from('pacientes').update({ vald_profile_id: yaEsta.profileId }).eq('id', p.id)
         return NextResponse.json({ profileId: yaEsta.profileId })
       }
       const faltan = [!p.nombre && 'nombre', !p.apellidos && 'apellidos', !p.fecha_nacimiento && 'fecha de nacimiento', !p.sexo && 'sexo'].filter(Boolean)
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
       // La importación no siempre devuelve el id: se busca por el syncId.
       const [nuevo] = await perfiles(tid, { syncId: p.id })
       if (!nuevo?.profileId) return NextResponse.json({ error: 'VALD lo ha recibido pero aún no aparece. Prueba en un minuto.' }, { status: 202 })
-      if (!nuevoSinFicha) await sb.from('pacientes').update({ vald_profile_id: nuevo.profileId }).eq('id', p.id)
+      await sb.from('pacientes').update({ vald_profile_id: nuevo.profileId }).eq('id', p.id)
       return NextResponse.json({ profileId: nuevo.profileId })
     }
 
