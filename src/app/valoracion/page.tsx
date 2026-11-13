@@ -1,6 +1,6 @@
 'use client'
 import { altaEnVald } from '@/lib/vald'
-import { VeloAgendaHuecos, agendarHuecos, primerasFechas, semanasDeMeses } from '@/components/AgendaHuecos'
+import { agendarHuecos, primerasFechas, semanasDeMeses } from '@/components/AgendaHuecos'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimientos'
@@ -70,7 +70,6 @@ export default function ValoracionPage() {
   const [pacientes, setPacientes] = useState<any[]>([])
   const [guardando, setGuardando] = useState(false)
   const [exito, setExito] = useState(false)
-  const [huecos, setHuecos] = useState(false)
   // La foto va aparte del formulario: un File no cabe en el borrador (localStorage).
   const [foto, setFoto] = useState<File|null>(null)
   const router = useRouter()
@@ -108,8 +107,6 @@ export default function ValoracionPage() {
   const [clinica, setClinica] = useState<{nombre?:string,logo?:string}>({})
   const [previo, setPrevio] = useState<any>(null)
   const [cargandoPrevio, setCargandoPrevio] = useState(false)
-  /** El paciente recién guardado: a dónde llevan los botones del final. */
-  const [guardado, setGuardado] = useState<{id:string,nombre:string,citas?:string}|null>(null)
   const [form, setForm] = useState({...FORM_VACIO})
 
   const up = (k: string, v: any) => setForm(p=>({...p,[k]:v}))
@@ -502,10 +499,14 @@ export default function ValoracionPage() {
       // las citas y repartirle las sesiones, y si se encadenan dos valoraciones seguidas
       // hay que poder dejarlo para luego sin perder al paciente: no se marca nada, la
       // lista de pacientes ya avisa de quién se quedó sin citas.
-      setGuardado({ id: pacienteId, nombre: `${form.nombre} ${form.apellidos}`.trim(), citas: citasTxt })
+      // Si al poner las citas hubo choques o fallos, se dice antes de irse a la ficha.
+      if (citasTxt.startsWith('Error') || citasTxt.includes('⚠')) alert('Citas: ' + citasTxt)
       // Guardada de verdad: el borrador ya no hace falta.
       try { localStorage.removeItem(CLAVE_BORRADOR); localStorage.removeItem(CLAVE_FOTO) } catch {}
       setExito(true)
+      // Guardada, directo a su ficha: la pantalla de «qué falta» ya no aportaba (las citas
+      // van en el Plan y repartir sesiones se hace desde la ficha).
+      router.push(`/pacientes/${pacienteId}`)
     } catch(e) { alert('Error al guardar: '+String(e)) }
     setGuardando(false)
   }
@@ -516,42 +517,12 @@ export default function ValoracionPage() {
   // en su historial, y el aviso va aquí y no al guardar.
   const bloqueado = esRevaloracion && step === 1 && !form.paciente_id
 
+  // Mientras abre su ficha (finalizar ya ha mandado allí).
   if (exito) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',gap:14,padding:20}}>
-      <div style={{color:'var(--g)'}}><Ic name="ok" size={48} strokeWidth={1.5}/></div>
-      <div style={{fontSize:17,fontWeight:400,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada':'Valoración guardada'}</div>
-      <div style={{fontSize:13,color:'var(--gr)',textAlign:'center',maxWidth:440,lineHeight:1.6}}>
-        {guardado?.nombre ? <><strong style={{fontWeight:500}}>{guardado.nombre}</strong> ya tiene su ficha al día. </> : null}
-        {/* LAS CITAS YA VAN ANTES, en el paso Plan con el calendario: aquí solo queda
-            repartirle las sesiones. Antes pedía otra vez ponerle las citas. */}
-        Lo que falta es repartirle las sesiones.
-      </div>
-      {guardado?.citas && <div style={{fontSize:13,maxWidth:560,lineHeight:1.5,color:guardado.citas.startsWith('Error')?'var(--red)':guardado.citas.includes('⚠')?'#7A5800':'var(--gd)',background:guardado.citas.startsWith('Error')?'var(--redl)':guardado.citas.includes('⚠')?'var(--ambl)':'var(--gl)',borderRadius:10,padding:'8px 14px'}}>{guardado.citas}</div>}
-
-      <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',maxWidth:360,marginTop:6}}>
-        {/* A la pantalla de repartir sesiones en sus citas (la del torno). */}
-        <button className="btn btn-p" style={{justifyContent:'center',padding:'12px'}} disabled={!guardado?.id}
-          onClick={()=>router.push(`/torno/${guardado?.id}/citas`)}>
-          <Ic name="entreno" size={14}/> Repartirle las sesiones
-        </button>
-        <button className="btn btn-t" style={{justifyContent:'center',padding:'10px'}}
-          onClick={()=>router.push(`/pacientes/${guardado?.id}`)}>
-          Ver su ficha
-        </button>
-        {/* Por si en el Plan no se le puso ninguna: discreto, ya no es el paso normal. */}
-        {!esRevaloracion && !guardado?.citas && guardado?.id && (
-          <button className="btn btn-t" style={{justifyContent:'center',padding:'6px',fontSize:12}}
-            onClick={()=>setHuecos(true)}>No tiene citas · ponérselas</button>
-        )}
-        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} preMarcadas={((form.horario_pref as any)?.huecos||[]).filter((x:any)=>!x.espera)} onCerrar={()=>setHuecos(false)}/>}
-      </div>
-
-      {/* Encadenar valoraciones es lo normal en un día de altas: se sale sin hacer nada
-          más y el paciente queda avisado como "Sin citas" en la lista. */}
-      <button className="btn btn-t btn-sm" style={{marginTop:4,color:'var(--grl)'}}
-        onClick={()=>router.push('/pacientes')}>
-        Ahora no
-      </button>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',gap:12,padding:20}}>
+      <div style={{color:'var(--g)'}}><Ic name="ok" size={44} strokeWidth={1.5}/></div>
+      <div style={{fontSize:16,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada':'Valoración guardada'}</div>
+      <div style={{fontSize:13,color:'var(--grl)'}}>Abriendo su ficha…</div>
     </div>
   )
 
