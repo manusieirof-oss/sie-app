@@ -4,6 +4,7 @@ import { normalizar } from '@/lib/texto'
 import { categoriaDe, CATEGORIAS_ETIQUETA } from '@/lib/etiquetas'
 import { MUS_RIG } from '@/lib/mapaTrabajo'
 import IconoEtiqueta from './IconoEtiqueta'
+import { anatomiaDe } from './TrabajoEjercicio'
 import type { CuerpoFiltro3D, Proyeccion } from '@/lib/anim3d/cuerpoFiltro'
 
 // ---------------------------------------------------------------------------
@@ -146,21 +147,42 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
   }, [zoom]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setZoom(null) }, [modo])
 
-  /* MOVIMIENTOS QUE VAN CON LO MARCADO. De los ejercicios que tienen las articulaciones o
-     músculos marcados, qué movimientos llevan más a menudo: así se proponen los de verdad
-     (la abducción con el hombro, la flexión con la rodilla…) y se añaden con un toque. */
+  /* MOVIMIENTOS QUE VAN CON LO MARCADO. Salen de «Qué trabaja» de cada ejercicio, que
+     dice qué movimiento hace en qué articulación (articulación + movimiento): así con la
+     cadera salen los de la cadera y no la dorsiflexión de un ejercicio que también
+     trabaja el tobillo. Con un músculo, los de los ejercicios donde ese músculo es el
+     principal. Solo los frecuentes (un ejercicio mal etiquetado no cuela) y como mucho 6. */
   const sugeridos = useMemo(() => {
-    const zonas = valor.filter(id => { const e = etiquetas.find(x => x.id === id); const c = e && categoriaDe(etiquetas, e); return c === 'articulacion' || c === 'musculo' })
-    if (!zonas.length) return [] as { e: any, n: number }[]
-    const esMov = new Set(etiquetas.filter(e => categoriaDe(etiquetas, e) === 'movimiento').map(e => e.id))
+    const porId: Record<string, any> = Object.fromEntries(etiquetas.map(e => [e.id, e]))
+    const desc = (id: string) => { const out = new Set([id]); let cambia = true
+      while (cambia) { cambia = false; etiquetas.forEach(e => { if (e.padre_id && out.has(e.padre_id) && !out.has(e.id)) { out.add(e.id); cambia = true } }) }
+      return out }
+    const arts = new Set<string>(), muss = new Set<string>()
+    valor.forEach(id => { const e = porId[id]; if (!e) return; const c = categoriaDe(etiquetas, e)
+      if (c === 'articulacion') desc(id).forEach(x => arts.add(x)); if (c === 'musculo') desc(id).forEach(x => muss.add(x)) })
+    if (!arts.size && !muss.size) return [] as { e: any, n: number }[]
     const cuenta: Record<string, number> = {}
     ejercicios.forEach((ej: any) => {
-      const ets: string[] = ej.etiquetas || []
-      if (!zonas.some(z => ets.includes(z))) return
-      ets.forEach(id => { if (esMov.has(id)) cuenta[id] = (cuenta[id] || 0) + 1 })
+      const a = anatomiaDe(ej)
+      const deMus = muss.size && a.mus.some(m => muss.has(m.u) && (m.p || a.mus.length === 1))
+      a.acc.forEach(x => { if (x.m && (arts.has(x.a) || deMus)) cuenta[x.m] = (cuenta[x.m] || 0) + 1 })
     })
-    return Object.entries(cuenta).filter(([id]) => !valor.includes(id)).sort((a, b) => b[1] - a[1]).slice(0, 8)
-      .map(([id, n]) => ({ e: etiquetas.find(x => x.id === id), n })).filter(x => x.e)
+    // Si los ejercicios aún no tienen «Qué trabaja», se mira qué movimientos llevan en sus
+    // etiquetas los que tienen lo marcado (con un listón más alto, que es menos fino).
+    let listonPct = .2
+    if (!Object.keys(cuenta).length) {
+      listonPct = .35
+      const esMov = new Set(etiquetas.filter(e => categoriaDe(etiquetas, e) === 'movimiento').map(e => e.id))
+      ejercicios.forEach((ej: any) => {
+        const ets: string[] = ej.etiquetas || []
+        if (!ets.some(id => arts.has(id) || muss.has(id))) return
+        ets.forEach(id => { if (esMov.has(id)) cuenta[id] = (cuenta[id] || 0) + 1 })
+      })
+    }
+    const lista = Object.entries(cuenta).sort((a, b) => b[1] - a[1])
+    const tope = lista[0]?.[1] || 0
+    return lista.filter(([, n]) => n >= Math.max(2, tope * listonPct)).slice(0, 6)
+      .map(([id, n]) => ({ e: porId[id], n })).filter(x => x.e)
   }, [valor, etiquetas, ejercicios])
 
   // Cerrar con Escape.
@@ -302,11 +324,12 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
             borderRadius: 14, padding: '8px 12px', boxShadow: '0 6px 20px rgba(38,40,37,.15)', maxWidth: '58vw' }}>
             <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--gr)', marginBottom: 6 }}>Movimientos de lo marcado</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-              {sugeridos.map(({ e, n }) => (
-                <button key={e.id} type="button" onClick={() => alternar(e.id)} title={`${n} ejercicios con lo marcado lo llevan`}
-                  style={{ border: '1.5px dashed var(--g)', background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '4px 11px', fontSize: 12.5,
-                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>+ {e.nombre} <span style={{ opacity: .6 }}>{n}</span></button>
-              ))}
+              {/* Marcado: verde lleno con ✓. Sin marcar: borde punteado con +. */}
+              {sugeridos.map(({ e, n }) => { const on = valor.includes(e.id); return (
+                <button key={e.id} type="button" onClick={() => alternar(e.id)} title={on ? 'Marcado: toca para quitarlo' : `Lo llevan ${n} ejercicios de lo marcado`}
+                  style={{ border: `2px ${on ? 'solid' : 'dashed'} var(--gd)`, background: on ? 'var(--gd)' : '#fff', color: on ? '#fff' : 'var(--gd)',
+                    borderRadius: 99, padding: '4px 12px', fontSize: 13, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  {on ? '✓' : '+'} {e.nombre} <span style={{ opacity: .65 }}>{n}</span></button>) })}
             </div>
           </div>
         )}
