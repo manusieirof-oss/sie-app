@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { categoriaDe, zonasDe, casaZona } from '@/lib/etiquetas'
-import FiltroZonas from '@/components/FiltroZonas'
+import FiltroCuerpo from '@/components/FiltroCuerpo'
+import { conDescendientes } from '@/lib/etiquetas'
 import BotonVista from '@/components/BotonVista'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { contiene } from '@/lib/texto'
@@ -109,10 +110,15 @@ export default function ObjetivosTab({ objetivos, etiquetas = [], cargar }: any)
   const vivos = (objetivos || []).filter((o: any) => o.archivado_el == null)
   const nPendientes = vivos.filter(porCompletar).length
 
+  const [filtroEtO, setFiltroEtO] = useState<string[]>([])
+  const [verFiltroO, setVerFiltroO] = useState(false)
   const base = (ver === 'archivados' ? archivados : vivos) as any[]
+  /* EL FILTRO DEL CUERPO, el de Ejercicios, sobre su articulación, etiquetas y movimientos. */
+  const etsDe = (o: any): string[] => [o.articulacion_id, ...(o.etiquetas || []), ...(o.movimientos || [])].filter(Boolean).map(String)
+  const casaEtO = (o: any) => filtroEtO.length === 0 || filtroEtO.every(id => { const rama = conDescendientes(etiquetas, id); return etsDe(o).some(x => rama.includes(x)) })
   const st = (o: any): Stats => stats[o.id] || { activos: 0, logros: 0, pct: null, dias: null }
   const filtrados = base.filter((o: any) =>
-    casaZona(etiquetas, zonaIdsDe(o), zona) &&
+    casaZona(etiquetas, zonaIdsDe(o), zona) && casaEtO(o) &&
     (ver !== 'pendientes' || porCompletar(o)) &&
     (contiene(o.nombre || '', busca) || contiene(o.descripcion || '', busca)))
     .sort((a: any, b: any) => {
@@ -246,8 +252,12 @@ export default function ObjetivosTab({ objetivos, etiquetas = [], cargar }: any)
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
           <input className="input" style={{ maxWidth: 300 }} value={busca} onChange={ev => setBusca(ev.target.value)} placeholder="Buscar objetivo…"/>
-          <BotonVista icono="reloj" prefijo="Orden" lista valor={orden} onChange={setOrden} opciones={ORDENES} titulo="Ordenar los objetivos"/>
-          <FiltroZonas etiquetas={etiquetas} usadas={zonasUsadas} valor={zona} onChange={setZona} nSinZona={sinZona} todas="Todas las zonas"/>
+          {/* El orden, como en Ejercicios: un toque, el siguiente. */}
+          <BotonVista icono="reloj" ciclo valor={orden} onChange={setOrden} opciones={ORDENES} titulo="Ordenar los objetivos"/>
+          <button type="button" className={`chip-sel ${filtroEtO.length ? 'on' : ''}`} onClick={() => setVerFiltroO(true)}>
+            Filtros{filtroEtO.length ? ` · ${filtroEtO.length}` : ''}</button>
+          {verFiltroO && <FiltroCuerpo etiquetas={etiquetas} valor={filtroEtO} onChange={setFiltroEtO} textoCerrar="Ver objetivos"
+            nResultado={filtrados.length} unidad={['objetivo', 'objetivos']} onCerrar={() => setVerFiltroO(false)}/>}
           <BotonVista valor={ver} onChange={k => { setVer(k as any); setSel(null) }} titulo="Todos, por completar o archivados"
             opciones={[{ k: 'todos', t: 'Todos' }, { k: 'pendientes', t: 'Por completar', n: nPendientes }, { k: 'archivados', t: 'Archivados', n: archivados.length }]}/>
         </div>

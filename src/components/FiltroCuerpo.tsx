@@ -69,10 +69,12 @@ const QUE_AGARRE: Record<string, string> = {
 const LATERAL_IZQ = ['movimiento', 'posicion', 'apoyo']
 const LATERAL_DER = ['agarre', 'patron', 'plano_eje', 'patologia']
 
-export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChange, nResultado, onCerrar, titulo = 'Filtros', textoCerrar = 'Ver ejercicios' }: {
+export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChange, nResultado, onCerrar, titulo = 'Filtros', textoCerrar = 'Ver ejercicios', unidad = ['ejercicio', 'ejercicios'] }: {
   etiquetas: any[], ejercicios?: any[], valor: string[], onChange: (v: string[]) => void
   /** Cuántos ejercicios salen; sin él (al poner etiquetas a un ejercicio) no se dice. */
   nResultado?: number, onCerrar: () => void, titulo?: string, textoCerrar?: string
+  /** Qué se cuenta: [singular, plural] (ejercicios, tests, objetivos). */
+  unidad?: [string, string]
 }) {
   const [modo, setModo] = useState<'musculo' | 'articulacion'>('musculo')
   const [pestana, setPestana] = useState<string | null>(null)
@@ -287,7 +289,7 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
               {t}{nGrupo(k) ? ` · ${nGrupo(k)}` : ''}</button>
           ))}
         </div>
-        {nResultado != null && <span style={{ fontSize: 13, color: 'var(--gd)', fontWeight: 600 }}>{nResultado} {nResultado === 1 ? 'ejercicio' : 'ejercicios'}</span>}
+        {nResultado != null && <span style={{ fontSize: 13, color: 'var(--gd)', fontWeight: 600 }}>{nResultado} {nResultado === 1 ? unidad[0] : unidad[1]}</span>}
         {valor.length > 0 && <button type="button" className="chip-sel" onClick={() => onChange([])}>Limpiar · {valor.length}</button>}
         <button type="button" className="btn btn-p btn-sm" onClick={onCerrar}>{textoCerrar}</button>
       </div>

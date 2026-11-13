@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { unidadDe } from '@/lib/tests'
 import { zonasDe, casaZona } from '@/lib/etiquetas'
-import FiltroZonas from '@/components/FiltroZonas'
+import FiltroCuerpo from '@/components/FiltroCuerpo'
+import { conDescendientes } from '@/lib/etiquetas'
 
 /**
  * Explorador del catálogo de tests: buscador, filtro por zona y rejilla de tarjetas.
@@ -36,6 +37,10 @@ export default function ExploradorTests({
 }) {
   const [buscar, setBuscar] = useState('')
   const [zona, setZona] = useState('')
+  /* EL FILTRO DEL CUERPO, el mismo que el de Ejercicios, sobre las etiquetas de cada test. */
+  const [filtroEt, setFiltroEt] = useState<string[]>([])
+  const [verFiltro, setVerFiltro] = useState(false)
+  const casaEt = (t: any) => filtroEt.length === 0 || filtroEt.every(id => { const rama = conDescendientes(etiquetas || [], id); return (t.etiquetas_relacionadas || []).some((x: string) => rama.includes(x)) })
 
   /**
    * La zona de cada test: las raíces de articulación de sus etiquetas.
@@ -73,7 +78,7 @@ export default function ExploradorTests({
     const matchQ = !q || (t.nombre || '').toLowerCase().includes(q) || (t.descripcion || '').toLowerCase().includes(q) || enItems
     // `casaZona`: elegir una raíz trae también lo etiquetado en sus subzonas.
     const matchZ = casaZona(etiquetas || [], t.etiquetas_relacionadas || [], zona)
-    return matchQ && matchZ
+    return matchQ && matchZ && casaEt(t)
   })
 
   function Tarjeta({ t }: { t: any }) {
@@ -137,16 +142,12 @@ export default function ExploradorTests({
         <span style={{ fontSize: 11, color: 'var(--grl)', whiteSpace: 'nowrap' }}>
           {filtrados.length === tests.length ? `${tests.length} tests` : `${filtrados.length} de ${tests.length}`}
         </span>
+        <button type="button" className={`chip-sel ${filtroEt.length ? 'on' : ''}`} onClick={() => setVerFiltro(true)}>
+          Filtros{filtroEt.length ? ` · ${filtroEt.length}` : ''}</button>
         {acciones}
       </div>
-
-      {/* La MISMA fila de zonas que la biblioteca de objetivos y que el buscador de
-          objetivos de dentro de un test: un solo componente, un solo vocabulario. */}
-      <div style={{ marginBottom: 10 }}>
-        <FiltroZonas etiquetas={etiquetas || []} usadas={articularesEnUso}
-          valor={zona} onChange={setZona} nSinZona={sinZona.length}
-          etiquetaSinZona="Sin zona" />
-      </div>
+      {verFiltro && <FiltroCuerpo etiquetas={etiquetas || []} valor={filtroEt} onChange={setFiltroEt} textoCerrar="Ver tests"
+        nResultado={filtrados.length} unidad={['test', 'tests']} onCerrar={() => setVerFiltro(false)}/>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 9 }}>
         {filtrados.length === 0 && (

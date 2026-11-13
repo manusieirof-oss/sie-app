@@ -11,7 +11,7 @@ import { Ic } from '@/lib/icons'
 
 export type OpcionVista = { k: string, t: string, sub?: boolean, n?: number }
 
-export default function BotonVista({ opciones, valor, onChange, icono, prefijo, titulo, lista }: {
+export default function BotonVista({ opciones, valor, onChange, icono, prefijo, titulo, lista, ciclo }: {
   opciones: OpcionVista[]
   valor: string
   onChange: (k: string) => void
@@ -21,11 +21,13 @@ export default function BotonVista({ opciones, valor, onChange, icono, prefijo, 
   titulo?: string
   /** Forzar la lista aunque haya pocas opciones. */
   lista?: boolean
+  /** Forzar el botón que pasa a la siguiente aunque haya muchas (como el orden de Ejercicios). */
+  ciclo?: boolean
 }) {
   const [menu, setMenu] = useState<{ x: number, y: number } | null>(null)
   const i = Math.max(0, opciones.findIndex(o => o.k === valor))
   const actual = opciones[i]
-  const enLista = lista || opciones.length > 3
+  const enLista = !ciclo && (lista || opciones.length > 3)
   return (
     <>
       {/* El mismo aspecto que los botones de Ejercicios (Vista, Orden, Filtros): todos
