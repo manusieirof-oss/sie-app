@@ -4,7 +4,7 @@ import { Ic } from '@/lib/icons'
 import { supabase } from '@/lib/supabase'
 import {
   type BonoSesiones, estadoDe, LBL_ESTADO, COLOR_ESTADO, resumenDe, UMBRAL_POCAS, bonosDe,
-  ESTADOS_QUE_GASTAN, ESTADO_RESERVA, cambiarInicioBono } from '@/lib/bonoSesiones'
+  ESTADOS_QUE_GASTAN, ESTADO_RESERVA, cambiarInicioBono, quitarCitaDeBono, ponerCitaEnBono, citasSinBono } from '@/lib/bonoSesiones'
 
 // Cuántas sesiones le quedan de un bono. Se pinta donde haga falta: la ficha del
 // paciente, la lista y el panel de la agenda.
@@ -40,7 +40,25 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
     onCambio?.()
   }
   const [retirando, setRetirando] = useState(false)
-  const [citas, setCitas] = useState<{ fecha: string, estado: string }[]>([])
+  const [citas, setCitas] = useState<{ id: string, fecha: string, estado: string }[]>([])
+  // A MANO: la casilla tocada (para sacarla del bono) y la lista de citas sin bono.
+  const [tocada, setTocada] = useState<string | null>(null)
+  const [eligiendo, setEligiendo] = useState(false)
+  const [sueltas, setSueltas] = useState<any[]>([])
+  const [ocupado, setOcupado] = useState(false)
+  async function abrirElegir() {
+    setEligiendo(true); setSueltas(await citasSinBono(bono.paciente_id))
+  }
+  async function sacar(id: string) {
+    setOcupado(true); const r = await quitarCitaDeBono(id); setOcupado(false); setTocada(null)
+    if (r.ok === false) { alert('No se ha podido: ' + r.error); return }
+    onCambio?.()
+  }
+  async function meter(id: string) {
+    setOcupado(true); const r = await ponerCitaEnBono(id, bono.bono_id); setOcupado(false)
+    if (r.ok === false) { alert('No se ha podido: ' + r.error); return }
+    setSueltas(l => l.filter(x => x.id !== id)); onCambio?.()
+  }
   const [pago, setPago] = useState<'cobrado' | 'impago' | 'pendiente' | null>(null)
   const estado = estadoDe(bono)
   const color = COLOR_ESTADO[estado]
@@ -59,7 +77,7 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
     let vivo = true
     ;(async () => {
       const [c, vp, bo] = await Promise.all([
-        supabase.from('citas').select('fecha,estado').eq('bono_id', bono.bono_id)
+        supabase.from('citas').select('id,fecha,estado').eq('bono_id', bono.bono_id)
           .in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA]).order('fecha'),
         supabase.from('v_bonos_pago').select('pagado').eq('bono_id', bono.bono_id).maybeSingle(),
         supabase.from('bonos').select('estado_pago').eq('id', bono.bono_id).maybeSingle(),
@@ -88,9 +106,9 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
   const hechas = citas.filter(c => (ESTADOS_QUE_GASTAN as readonly string[]).includes(c.estado))
   const citadas = citas.filter(c => c.estado === ESTADO_RESERVA)
   const casillas = Array.from({ length: total }, (_, i) => {
-    if (i < gastadas) { const c = hechas[i]; return { tipo: 'usada', fecha: c?.fecha, txt: c?.estado === 'falta' ? 'no vino' : 'hecha' } }
-    if (i < gastadas + reservadas) { const c = citadas[i - gastadas]; return { tipo: 'citada', fecha: c?.fecha, txt: 'con cita' } }
-    return { tipo: 'libre', fecha: undefined, txt: 'sin cita' }
+    if (i < gastadas) { const c = hechas[i]; return { tipo: 'usada', id: c?.id, fecha: c?.fecha, txt: c?.estado === 'falta' ? 'no vino' : 'hecha' } }
+    if (i < gastadas + reservadas) { const c = citadas[i - gastadas]; return { tipo: 'citada', id: c?.id, fecha: c?.fecha, txt: 'con cita' } }
+    return { tipo: 'libre', id: undefined as string | undefined, fecha: undefined, txt: 'sin cita' }
   })
 
   const ses = (n: number) => `${n} ${n === 1 ? 'sesión' : 'sesiones'}`
@@ -142,7 +160,9 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
       <div style={{display:'grid',gridTemplateColumns:`repeat(auto-fill,minmax(64px,1fr))`,gap:6,margin:'14px 0 6px'}}
            aria-label={`Las ${total} sesiones del bono`}>
         {casillas.map((c, i) => (
-          <div key={i} style={{borderRadius:7,padding:'8px 4px',textAlign:'center',fontSize:11,lineHeight:1.35,
+          <div key={i} onClick={() => c.id && setTocada(tocada === c.id ? null : c.id)} title={c.id ? 'Toca para sacarla de este bono' : undefined}
+            style={{borderRadius:7,padding:'8px 4px',textAlign:'center',fontSize:11,lineHeight:1.35,cursor:c.id?'pointer':'default',
+            outline: tocada && tocada === c.id ? '2px solid var(--red)' : 'none', outlineOffset: 1,
             border: c.tipo==='usada' ? '1px solid var(--gd)' : c.tipo==='citada' ? '1px solid var(--gm)' : '1px dashed var(--bd)',
             background: c.tipo==='usada' ? 'var(--gd)' : c.tipo==='citada' ? 'var(--gl)' : 'var(--w)',
             color: c.tipo==='usada' ? '#fff' : c.tipo==='citada' ? 'var(--gd)' : 'var(--gr)'}}>
@@ -150,7 +170,40 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
           </div>
         ))}
       </div>
+      {/* SACAR UNA CITA DEL BONO: se toca su casilla y se confirma aquí. */}
+      {tocada && (() => { const c = citas.find(x => x.id === tocada); return c && (
+        <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 8px',fontSize:12,color:'var(--n)'}}>
+          <span style={{flex:1}}>¿Sacar la cita del <b>{fechaCorta(c.fecha)}</b> de este bono? Deja de descontar.</span>
+          <button className="btn btn-t btn-sm" onClick={() => setTocada(null)}>No</button>
+          <button className="btn btn-d btn-sm" disabled={ocupado} onClick={() => sacar(c.id)}>Sacar</button>
+        </div>) })()}
       <div style={{fontSize:13,color:'var(--n)',marginTop:4}}>{frase}</div>
+
+      {/* METER UNA CITA: de las suyas que no están en ningún bono. */}
+      {!eligiendo ? (
+        <button type="button" className="btn btn-s btn-sm" style={{marginTop:8}} onClick={abrirElegir}>
+          + Añadir una cita suya a este bono
+        </button>
+      ) : (
+        <div style={{marginTop:8,border:'1px solid var(--bd)',borderRadius:8,padding:8,background:'var(--w)'}}>
+          <div style={{display:'flex',alignItems:'center',marginBottom:6}}>
+            <span style={{fontSize:12,fontWeight:600,flex:1}}>Sus citas que no están en ningún bono</span>
+            <button className="btn btn-t btn-sm" onClick={() => setEligiendo(false)}>Cerrar</button>
+          </div>
+          {gastadas + reservadas >= total && <div style={{fontSize:11.5,color:'#8A6410',marginBottom:6}}>El bono está lleno: saca antes una cita para meter otra.</div>}
+          {sueltas.length === 0 ? <div className="muted" style={{fontSize:12}}>No tiene citas fuera de un bono en los últimos 6 meses.</div> : (
+            <div style={{display:'grid',gap:4,maxHeight:220,overflow:'auto'}}>
+              {sueltas.map(x => (
+                <div key={x.id} style={{display:'flex',alignItems:'center',gap:8,fontSize:12.5}}>
+                  <span style={{minWidth:90}}>{fechaCorta(x.fecha)} {String(x.hora||'').slice(0,5)}</span>
+                  <span style={{color:'var(--gr)',flex:1}}>{x.estado === 'realizada' ? 'hecha' : x.estado === 'falta' ? 'no vino' : 'con cita'}</span>
+                  <button className="btn btn-s btn-sm" disabled={ocupado || gastadas + reservadas >= total} onClick={() => meter(x.id)}>Añadir</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {estado !== 'ok' && (
         <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${color}33`,fontSize:11,color,display:'flex',alignItems:'center',gap:5,lineHeight:1.5}}>

@@ -284,6 +284,32 @@ export async function soltarDelBono(citaId: string) {
 }
 
 /**
+ * A MANO, DESDE LA TARJETA DEL BONO. Lo automático no siempre acierta (una clase hecha
+ * que no se ató, una cita que cayó en el bono viejo): aquí se saca una cita del bono o
+ * se mete una de las suyas que no esté en ningún bono.
+ */
+export async function quitarCitaDeBono(citaId: string) {
+  // Sin volver a enganchar otra: si se quita a mano, es porque no tocaba.
+  const { error } = await supabase.from('citas').update({ bono_id: null }).eq('id', citaId)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+export async function ponerCitaEnBono(citaId: string, bonoId: string) {
+  // Solo si no está en otro bono: no se le quita una sesión a otro sin darse cuenta.
+  const { data: c } = await supabase.from('citas').select('bono_id').eq('id', citaId).maybeSingle()
+  if (c?.bono_id && c.bono_id !== bonoId) return { ok: false as const, error: 'Esa cita ya está en otro bono' }
+  const { error } = await supabase.from('citas').update({ bono_id: bonoId }).eq('id', citaId)
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+/** Sus citas que no están en ningún bono (hechas, faltas y programadas), las más recientes primero. */
+export async function citasSinBono(pacienteId: string) {
+  const desde = new Date(); desde.setMonth(desde.getMonth() - 6)
+  const { data, error } = await supabase.from('citas').select('id,fecha,hora,estado,tipo')
+    .eq('paciente_id', pacienteId).is('bono_id', null).in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA])
+    .gte('fecha', aISO(desde)).order('fecha', { ascending: false }).order('hora', { ascending: false }).limit(60)
+  return error ? [] : (data || [])
+}
+
+/**
  * EL BONO TRAS CAMBIAR EL ESTADO DE UNA CITA. Un solo sitio para agenda, ficha y taller.
  *   · Cancelada: deja de gastar, se suelta y su hueco lo coge la siguiente cita sin bono.
  *   · Cualquier otro (vuelve a programada, o se marca hecha o falta): si no lleva bono,
