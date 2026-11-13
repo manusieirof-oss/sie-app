@@ -89,13 +89,17 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
           puestos.forEach(({ p, d, y }) => {
             const t = p.frente, h = hilos.current[p.k]
             if (d) {
-              d.style.transform = `translate(${p.x}px, ${y}px) translate(-50%, -50%) scale(${.7 + .35 * t})`
-              d.style.opacity = String(.35 + .65 * t)
-              d.style.zIndex = String(Math.round(10 + t * 50))
+              /* POR DETRÁS, EL CUERPO LOS TAPA: van debajo del dibujo y casi borrados.
+                 Por delante, encima de todo y nítidos. */
+              const detras = t < .5
+              d.style.transform = `translate(${p.x}px, ${y}px) translate(-50%, -50%) scale(${detras ? .6 + .3 * t : .75 + .3 * t})`
+              d.style.opacity = String(detras ? .06 + .5 * t : .5 + t * .5)
+              d.style.zIndex = String(detras ? 5 : Math.round(30 + t * 40))
+              d.style.pointerEvents = detras ? 'none' : 'auto'
             }
             if (h) {
               h.setAttribute('x1', String(p.x)); h.setAttribute('y1', String(y)); h.setAttribute('x2', String(p.ax)); h.setAttribute('y2', String(p.ay))
-              h.setAttribute('opacity', String(.2 + .6 * t))
+              h.setAttribute('opacity', String(t < .5 ? .05 + .2 * t : .25 + .55 * t))
             }
           })
         })
@@ -197,7 +201,7 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
         <div ref={caja} style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, transform: 'translateX(-50%)', width: 'min(820px, 64vw)' }}>
           {fallo && <div className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{fallo}</div>}
           {/* Los hilos de cada etiqueta a su zona */}
-          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5, overflow: 'visible' }}>
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 25, overflow: 'visible' }}>
             {enCuerpo.map(r => <line key={r.id} ref={l => { hilos.current[r.id] = l }} stroke={tieneAlgo(r) ? '#3F7C84' : '#2F4F53'} strokeWidth={tieneAlgo(r) ? 2 : 1.2} strokeDasharray={tieneAlgo(r) ? undefined : '3 3'}/>)}
           </svg>
           {enCuerpo.map(r => {

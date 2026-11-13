@@ -31,7 +31,8 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
   const W = () => el.clientWidth || 400, H = () => el.clientHeight || 500
   const r = new THREE.WebGLRenderer({ antialias: true, alpha: true })
   r.setPixelRatio(Math.min(window.devicePixelRatio, 2)); r.setSize(W(), H(), false)
-  r.domElement.style.cssText = 'display:block;width:100%;height:100%;cursor:grab;touch-action:none'
+  // Encima de los rótulos de detrás (z 5) y debajo de los de delante (z 30+): así el cuerpo los tapa.
+  r.domElement.style.cssText = 'display:block;width:100%;height:100%;cursor:grab;touch-action:none;position:relative;z-index:20'
   el.prepend(r.domElement)
   const escena = new THREE.Scene()
   const cam = new THREE.PerspectiveCamera(28, W() / H(), 1, 2000)
