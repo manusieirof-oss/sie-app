@@ -7,6 +7,7 @@ import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
 import MonedaObjetivo from './MonedaObjetivo'
 import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
+import FiltroCuerpo from './FiltroCuerpo'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz, nombreConRama } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
@@ -638,7 +639,8 @@ export default function ExploradorEjercicios({
             ◎ Para sus objetivos
           </button>
         )}
-        <MiniCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt}/>
+        {/* En la Biblioteca la zona va dentro de los filtros (el cuerpo en 3D). */}
+        {!paneles && <MiniCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt}/>}
         {nPendientes > 0 && !paneles && (
           <button type="button" className={`chip-sel ${soloPendientes ? 'on' : ''}`}
             onClick={() => setSoloPendientes(v => !v)}
@@ -694,7 +696,10 @@ export default function ExploradorEjercicios({
 
       {/* FILTROS EN UN VELO: fuera solo quedan las marcadas, que se quitan con un toque. */}
       <PastillasFiltro etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt} onAbrir={() => setVerFiltros(true)}/>
-      {grupos.length > 0 && verFiltros && (
+      {grupos.length > 0 && verFiltros && paneles && (
+        <FiltroCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt} nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
+      )}
+      {grupos.length > 0 && verFiltros && !paneles && (
         <VeloFiltros grupos={grupos} etiquetas={etiquetas} ejercicios={ejercicios} valor={filtroEt} onChange={setFiltroEt}
           nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
       )}
