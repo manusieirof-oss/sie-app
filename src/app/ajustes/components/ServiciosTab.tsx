@@ -52,7 +52,7 @@ function SelectorModalidad({ valor, onChange }: { valor: string, onChange: (m: s
 }
 
 const VACIO = { nombre: '', dias_semana: '2', descripcion: '', modalidad: 'mensual',
-                sesiones: '8', caduca_meses: '3', categoria: '' }
+                sesiones: '8', caduca_meses: '3', categoria: '', individual: false }
 
 export default function ServiciosTab() {
   const [bonos, setBonos] = useState<BonoTipo[]>([])
@@ -100,6 +100,8 @@ export default function ServiciosTab() {
       // check en la base que lo impide, porque sería mentira.
       sesiones: deSesiones ? (parseInt(f.sesiones) || null) : null,
       caduca_meses: deSesiones ? (parseInt(f.caduca_meses) || null) : null,
+      // Individual: lo gastan solo las citas de tipo «Individual» (lib/bonoSesiones).
+      individual: deSesiones ? !!f.individual : false,
     }
   }
 
@@ -134,6 +136,7 @@ export default function ServiciosTab() {
       nombre: b.nombre, dias_semana: String(b.dias_semana ?? 1), descripcion: b.descripcion || '',
       modalidad: b.modalidad || 'mensual', sesiones: String(b.sesiones ?? 8),
       caduca_meses: String(b.caduca_meses ?? 3), categoria: b.categoria || '',
+      individual: b.individual != null ? !!b.individual : /individual/i.test(`${b.nombre} ${b.id}`),
     })
   }
 
@@ -237,6 +240,11 @@ export default function ServiciosTab() {
                         <div className="field"><label>Caduca a los (meses)</label><input className="input" type="number" value={formEdit.caduca_meses} onChange={e => setFormEdit(p => ({ ...p, caduca_meses: e.target.value }))} placeholder="vacío = no caduca" /></div>
                       </div>
                     )}
+                    {formEdit.modalidad === 'sesiones' && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, margin: '2px 0 8px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={!!formEdit.individual} onChange={e => setFormEdit(p => ({ ...p, individual: e.target.checked }))}/>
+                      Bono individual: lo gastan solo las citas de tipo «Individual» (las clases en grupo, no)
+                    </label>)}
                     {formEdit.modalidad === 'mensual' && (
                       <div className="field"><label>Días/semana</label><input className="input" type="number" value={formEdit.dias_semana} onChange={e => setFormEdit(p => ({ ...p, dias_semana: e.target.value }))} /></div>
                     )}
@@ -295,6 +303,11 @@ export default function ServiciosTab() {
                 <div className="field"><label>Caduca a los (meses)</label><input className="input" type="number" value={nuevoBono.caduca_meses} onChange={e => setNuevoBono(p => ({ ...p, caduca_meses: e.target.value }))} placeholder="vacío = no caduca" /></div>
               </div>
             )}
+            {nuevoBono.modalidad === 'sesiones' && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, margin: '2px 0 8px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={!!nuevoBono.individual} onChange={e => setNuevoBono(p => ({ ...p, individual: e.target.checked }))}/>
+                      Bono individual: lo gastan solo las citas de tipo «Individual» (las clases en grupo, no)
+                    </label>)}
             {nuevoBono.modalidad === 'mensual' && (
               <div className="field"><label>Días por semana</label><input className="input" type="number" value={nuevoBono.dias_semana} onChange={e => setNuevoBono(p => ({ ...p, dias_semana: e.target.value }))} /></div>
             )}

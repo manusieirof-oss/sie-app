@@ -98,6 +98,17 @@ export function caducidadDesde(inicio: string | Date, meses?: number | null): st
   return d.toISOString().split('T')[0]
 }
 
+/**
+ * INDIVIDUAL O EN GRUPO. Un paciente puede tener bono de clases y bono individual a la
+ * vez (Beatriz Millán): las citas de tipo «Individual» gastan solo de un bono individual
+ * y el resto solo de los de clase. Antes cualquier cita gastaba de cualquier bono.
+ * El tipo de bono lo dice su casilla «individual» (Ajustes › Servicios); si aún no
+ * existe la columna, vale que se llame «individual».
+ */
+export const esCitaIndividual = (tipoCita?: string | null) => String(tipoCita || '').toLowerCase() === 'individual'
+export const esBonoIndividual = (tipoBono: any) =>
+  tipoBono?.individual != null ? !!tipoBono.individual : /individual/i.test(`${tipoBono?.nombre || ''} ${tipoBono?.id || ''}`)
+
 export const ESTADOS_QUE_GASTAN = ['realizada', 'falta'] as const
 export const ESTADO_RESERVA = 'programada'
 
@@ -181,6 +192,54 @@ export async function porAgotar() {
   return { ok: true as const, error: null, filas: data || [] }
 }
 
+/** Si cada bono es individual, por su tipo. */
+async function individualidad(bonoIds: string[]): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>()
+  if (!bonoIds.length) return out
+  const { data: bs } = await supabase.from('bonos').select('id,tipo').in('id', bonoIds)
+  const tipos = Array.from(new Set((bs || []).map((b: any) => b.tipo)))
+  const { data: ts } = tipos.length ? await supabase.from('bonos_tipos').select('*').in('id', tipos) : { data: [] as any[] }
+  const porTipo = new Map((ts || []).map((t: any) => [t.id, esBonoIndividual(t)]))
+  ;(bs || []).forEach((b: any) => out.set(b.id, porTipo.get(b.tipo) ?? esBonoIndividual({ id: b.tipo })))
+  return out
+}
+
+/**
+ * Los bonos de sesiones con sitio para citas de esa clase (individual o en grupo), del
+ * más antiguo al más nuevo. TODOS, no solo el primero: si el más antiguo había caducado
+ * con sesiones sin usar, las citas nuevas no pasaban al bono nuevo; y si le quedaban 2,
+ * el resto de una serie se quedaba fuera aunque hubiera otro bono. Ni desactivados.
+ */
+export async function bonosDisponibles(pacienteId: string, individual: boolean) {
+  const { data } = await supabase.from('v_bonos_sesiones')
+    .select('bono_id, libres, caduca, fecha_inicio').eq('paciente_id', pacienteId).gt('libres', 0)
+  const ids = (data || []).map((b: any) => b.bono_id)
+  if (!ids.length) return [] as { bonoId: string, libres: number, caduca: string | null }[]
+  const [{ data: act }, ind] = await Promise.all([supabase.from('bonos').select('id,activo,created_at').in('id', ids), individualidad(ids)])
+  const info = new Map((act || []).map((b: any) => [b.id, b]))
+  return (data || []).filter((b: any) => info.get(b.bono_id)?.activo && (ind.get(b.bono_id) ?? false) === individual)
+    .sort((a: any, b: any) => String(a.fecha_inicio || '').localeCompare(String(b.fecha_inicio || ''))
+      || String(info.get(a.bono_id)?.created_at || '').localeCompare(String(info.get(b.bono_id)?.created_at || '')))
+    .map((b: any) => ({ bonoId: b.bono_id as string, libres: Number(b.libres) || 0, caduca: (b.caduca || null) as string | null }))
+}
+
+/**
+ * Reparte unas fechas entre esos bonos: primero el más antiguo hasta agotarlo y luego el
+ * siguiente. Una cita no cae en un bono que ya habrá caducado ese día.
+ * Devuelve el bono de cada fecha (null = sin bono) y cuántas se quedan fuera.
+ */
+export async function repartirEnBonos(pacienteId: string, fechas: string[], individual: boolean) {
+  const lista = await bonosDisponibles(pacienteId, individual)
+  const quedan = lista.map(b => b.libres)
+  const orden = fechas.map((f, i) => ({ f, i })).sort((a, b) => a.f.localeCompare(b.f))
+  const bono: (string | null)[] = fechas.map(() => null)
+  for (const { f, i } of orden) {
+    const k = lista.findIndex((b, j) => quedan[j] > 0 && (!b.caduca || b.caduca >= f))
+    if (k >= 0) { bono[i] = lista[k].bonoId; quedan[k]-- }
+  }
+  return { bono, sinBono: lista.length ? bono.filter(x => !x).length : 0 }
+}
+
 /**
  * Qué bono de sesiones debería consumir una cita nueva de ese paciente.
  * El más antiguo con sesiones libres y sin caducar; null si no tiene ninguno.
@@ -201,11 +260,33 @@ export async function bonoParaCita(pacienteId: string, fecha: string) {
  * mensual, o se le habrán acabado y eso se ve en la ficha.
  */
 export async function atarCitaABono(citaId: string, pacienteId: string, fecha: string) {
-  const r = await bonoParaCita(pacienteId, fecha)
-  if (!r.ok) return { ok: false as const, error: r.error }
-  const { error } = await supabase.from('citas').update({ bono_id: r.bonoId }).eq('id', citaId)
+  // Según sea individual o no: cada cita, a su clase de bono.
+  const { data: c } = await supabase.from('citas').select('tipo').eq('id', citaId).maybeSingle()
+  const { bono: [bonoId] } = await repartirEnBonos(pacienteId, [fecha], esCitaIndividual(c?.tipo))
+  const { error } = await supabase.from('citas').update({ bono_id: bonoId }).eq('id', citaId)
   if (error) return { ok: false as const, error: error.message }
-  return { ok: true as const, bonoId: r.bonoId }
+  return { ok: true as const, bonoId }
+}
+
+/**
+ * TRAS EDITAR UNA CITA (tipo o fecha). Si ya no le toca su bono —ha pasado de clase a
+ * Individual o al revés, o se ha movido fuera de su caducidad—, se suelta (su hueco lo
+ * coge la siguiente) y se ata al que le toque.
+ */
+export async function revisarBonoDeCita(citaId: string) {
+  const { data: c } = await supabase.from('citas').select('bono_id,paciente_id,fecha,tipo,estado').eq('id', citaId).maybeSingle()
+  if (!c || c.estado === 'cancelada') return
+  if (c.bono_id) {
+    const [{ data: b }, ind] = await Promise.all([
+      supabase.from('bonos').select('fecha_inicio,caduca').eq('id', c.bono_id).maybeSingle(),
+      individualidad([c.bono_id])])
+    const encaja = (ind.get(c.bono_id) ?? false) === esCitaIndividual(c.tipo)
+      && (!b?.caduca || c.fecha <= b.caduca) && (!b?.fecha_inicio || c.fecha >= b.fecha_inicio)
+    if (encaja) return
+    await supabase.from('citas').update({ bono_id: null }).eq('id', citaId)
+    await engancharCitas(c.bono_id)
+  }
+  await atarCitaABono(citaId, c.paciente_id, c.fecha)
 }
 
 /**
@@ -231,14 +312,16 @@ export async function engancharCitas(bonoId: string) {
   const hueco = b.sesiones_totales - (ya || 0)
   if (hueco <= 0) return { ok: true as const, enganchadas: 0 }
 
-  let q = supabase.from('citas').select('id')
+  const individual = (await individualidad([bonoId])).get(bonoId) ?? false
+  let q = supabase.from('citas').select('id,tipo')
     .eq('paciente_id', b.paciente_id).is('bono_id', null)
     .in('estado', [...ESTADOS_QUE_GASTAN, ESTADO_RESERVA])
     .gte('fecha', b.fecha_inicio)
   if (b.caduca) q = q.lte('fecha', b.caduca)
-  const { data: citas, error: ec } = await q.order('fecha').order('hora').limit(hueco)
+  const { data: citas, error: ec } = await q.order('fecha').order('hora').limit(500)
   if (ec) return { ok: false as const, error: ec.message }
-  const ids = (citas || []).map((c: any) => c.id)
+  // Solo las de su clase: a un bono individual, las citas Individual; a uno de clases, el resto.
+  const ids = (citas || []).filter((c: any) => esCitaIndividual(c.tipo) === individual).slice(0, hueco).map((c: any) => c.id)
   if (!ids.length) return { ok: true as const, enganchadas: 0 }
 
   const { error } = await supabase.from('citas').update({ bono_id: bonoId }).in('id', ids)

@@ -21,7 +21,7 @@ import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } fr
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 import { hoyISO } from '@/lib/fechas'
 import { estadoRecuperacion, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
-import { bonoTrasEstado, engancharCitas } from '@/lib/bonoSesiones'
+import { bonoTrasEstado, engancharCitas, revisarBonoDeCita } from '@/lib/bonoSesiones'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
@@ -301,6 +301,8 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     setGuardando(true)
     const original = citasFuturas.find((c:any)=>c.id===editandoCita.id)
     await supabase.from('citas').update({fecha:editandoCita.fecha,hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
+    // Si ha pasado a Individual (o al revés) o se ha movido fuera de su bono, se corrige.
+    await revisarBonoDeCita(editandoCita.id)
     if (original) {
       const registros:any[]=[]
       if (editandoCita.fecha && original.fecha && editandoCita.fecha!==original.fecha) registros.push({cita_id:editandoCita.id,paciente_id:pacienteId,campo_cambiado:'fecha',valor_anterior:original.fecha,valor_nuevo:editandoCita.fecha})

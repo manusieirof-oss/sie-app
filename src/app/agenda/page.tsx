@@ -22,7 +22,7 @@ import ModalTareas from './components/ModalTareas'
 import AvisoTareas from './components/AvisoTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
-import { ultimasDeBono, bonoTrasEstado, engancharCitas } from '@/lib/bonoSesiones'
+import { ultimasDeBono, bonoTrasEstado, engancharCitas, revisarBonoDeCita } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
 import { porRecuperar, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
@@ -309,6 +309,8 @@ export default function AgendaPage() {
     const fechaNueva = editandoCita.fecha
     const horaNueva = editandoCita.hora
     await supabase.from('citas').update({fecha:editandoCita.fecha,hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
+    // Si ha pasado a Individual (o al revés) o se ha movido fuera de su bono, se corrige.
+    await revisarBonoDeCita(editandoCita.id)
     // Registrar cambios de fecha y hora en el historial
     if (original) {
       const registros:any[]=[]
@@ -354,6 +356,7 @@ export default function AgendaPage() {
     for (const e of editados) {
       const orig = citas.find((c:any)=>c.id===e.id)
       await supabase.from('citas').update({fecha:e.fecha,hora:e.hora,sala:e.sala,tipo:e.tipo}).eq('id',e.id)
+      await revisarBonoDeCita(e.id)
       if (orig) {
         if (orig.fecha && e.fecha && orig.fecha!==e.fecha) {
           registros.push({cita_id:e.id,paciente_id:e.paciente_id,campo_cambiado:'fecha',valor_anterior:orig.fecha,valor_nuevo:e.fecha})

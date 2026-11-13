@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { correrAlAnadir } from './correrSesiones'
+import { repartirEnBonos, esCitaIndividual } from './bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
 import { recuperacionAlEliminar } from './recuperaciones'
 
@@ -120,40 +121,7 @@ function fila(fecha: string, d: DatosCita) {
  * entonces la cita se crea igual sin consumir: será de cuota mensual, o se le
  * habrán acabado las sesiones. Se avisa, no se impide.
  */
-async function bonosDisponibles(pacienteId: string) {
-  // TODOS los que tienen sesiones libres, no solo el primero. Antes se miraba solo el
-  // más antiguo: si ese había caducado con sesiones sin usar, las citas nuevas no
-  // pasaban al bono nuevo; y si le quedaban 2, el resto de la serie se quedaba fuera
-  // aunque hubiera otro bono con 8. Tampoco se miraba si estaba desactivado.
-  const { data } = await supabase.from('v_bonos_sesiones')
-    .select('bono_id, libres, caduca, fecha_inicio').eq('paciente_id', pacienteId).gt('libres', 0)
-  const ids = (data || []).map((b: any) => b.bono_id)
-  if (!ids.length) return [] as { bonoId: string, libres: number, caduca: string | null }[]
-  const { data: act } = await supabase.from('bonos').select('id,activo,created_at').in('id', ids)
-  const info = new Map((act || []).map((b: any) => [b.id, b]))
-  return (data || []).filter((b: any) => info.get(b.bono_id)?.activo)
-    .sort((a: any, b: any) => String(a.fecha_inicio || '').localeCompare(String(b.fecha_inicio || ''))
-      || String(info.get(a.bono_id)?.created_at || '').localeCompare(String(info.get(b.bono_id)?.created_at || '')))
-    .map((b: any) => ({ bonoId: b.bono_id as string, libres: Number(b.libres) || 0, caduca: (b.caduca || null) as string | null }))
-}
-
-/**
- * Reparte unas fechas entre los bonos con sesiones libres: primero el más antiguo hasta
- * agotarlo y luego el siguiente. Una cita no cae en un bono que ya habrá caducado ese día.
- * Devuelve el bono de cada fecha (null = sin bono) y cuántas se quedan fuera.
- */
-async function repartirEnBonos(pacienteId: string, fechas: string[]) {
-  const lista = await bonosDisponibles(pacienteId)
-  const quedan = lista.map(b => b.libres)
-  const orden = fechas.map((f, i) => ({ f, i })).sort((a, b) => a.f.localeCompare(b.f))
-  const bono: (string | null)[] = fechas.map(() => null)
-  for (const { f, i } of orden) {
-    const k = lista.findIndex((b, j) => quedan[j] > 0 && (!b.caduca || b.caduca >= f))
-    if (k >= 0) { bono[i] = lista[k].bonoId; quedan[k]-- }
-  }
-  const sinBono = lista.length ? bono.filter(x => !x).length : 0
-  return { bono, sinBono }
-}
+// El reparto entre bonos vive en lib/bonoSesiones (repartirEnBonos), con la regla de individual.
 
 /** Una sola cita. Devuelve la fila creada, que hace falta para enganchar recuperaciones. */
 /**
@@ -218,7 +186,7 @@ export async function crearCita(fecha: string, d: DatosCita): Promise<{ ok: true
   const rep = await quitarRepetidas(d.pacienteId, [{ fecha, hora: d.hora }])
   if (rep.ok === false) return rep
   if (rep.yaTenia > 0) return { ok: false, error: 'Ya tiene una cita ese día a esa hora' }
-  const { bono: [bonoId] } = await repartirEnBonos(d.pacienteId, [fecha])
+  const { bono: [bonoId] } = await repartirEnBonos(d.pacienteId, [fecha], esCitaIndividual(d.tipo))
   const { data, error } = await supabase.from('citas').insert({ ...fila(fecha, d), bono_id: bonoId }).select().single()
   if (error) return { ok: false, error: error.message }
   // Una cita SUELTA (recuperacion, clase extra) tira de las sesiones si estan
@@ -249,7 +217,7 @@ export async function crearCitas(fechasPedidas: string[], d: DatosCita): Promise
   // cuota mensual, o se le habrán acabado las sesiones. Se avisa, no se impide:
   // negarse a citar a alguien porque no le quedan sesiones es un bloqueo que se
   // esquiva por fuera de la app y entonces la cita no queda registrada.
-  const { bono, sinBono } = await repartirEnBonos(d.pacienteId, fechas)
+  const { bono, sinBono } = await repartirEnBonos(d.pacienteId, fechas, esCitaIndividual(d.tipo))
   const filas = fechas.map((f, i) => ({ ...fila(f, d), bono_id: bono[i] }))
 
   let creadas = 0
@@ -277,7 +245,7 @@ export async function crearCitasPlan(pedidos: { fecha: string; hora: string; sal
   const items = rep.libres
   if (!items.length) return { ok: true, creadas: 0, yaTenia: rep.yaTenia }
   const orden = items.slice().sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')))
-  const { bono, sinBono } = await repartirEnBonos(base.pacienteId, orden.map(it => it.fecha))
+  const { bono, sinBono } = await repartirEnBonos(base.pacienteId, orden.map(it => it.fecha), esCitaIndividual(base.tipo))
   const filas = orden.map((it, i) => ({ ...fila(it.fecha, { ...base, hora: it.hora, sala: it.sala || base.sala }), bono_id: bono[i] }))
   let creadas = 0
   const nuevas: string[] = []
