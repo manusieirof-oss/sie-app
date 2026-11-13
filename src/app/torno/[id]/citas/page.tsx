@@ -117,15 +117,23 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   /* DE UN PACIENTE A OTRO sin salir de aquí: flechas y buscador con los activos (y en
      pausa), por nombre. Si hay cambios sin confirmar, se pregunta antes. */
   const [tipoClase, setTipoClase] = useState<string | null>(null)
-  const [pacientes, setPacientes] = useState<{ id: string, nombre: string }[]>([])
+  const [pacientes, setPacientes] = useState<{ id: string, nombre: string, completo: string, foto: string | null }[]>([])
   const [buscandoPac, setBuscandoPac] = useState(false)
   const [buscaPac, setBuscaPac] = useState('')
   useEffect(() => {
-    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').in('estado', ['activo', 'pausa']).then(({ data }) =>
-      setPacientes((data || []).map((x: any) => ({ id: x.id, nombre: (x.nombre_clinica || `${x.nombre || ''} ${x.apellidos || ''}`).trim() }))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))))
+    /* CON FOTO Y NOMBRE ENTERO: con el de la clínica solo, dos «Juan» no se distinguían. */
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica,foto_url').in('estado', ['activo', 'pausa']).then(({ data }) =>
+      setPacientes((data || []).map((x: any) => ({ id: x.id, nombre: (x.nombre_clinica || `${x.nombre || ''} ${x.apellidos || ''}`).trim(),
+        completo: `${x.nombre || ''} ${x.apellidos || ''}`.trim(), foto: x.foto_url || null }))
+        .sort((a, b) => a.completo.localeCompare(b.completo, 'es'))))
   }, [])
   const iPac = pacientes.findIndex(x => x.id === pid)
+  const cara = (x: { foto: string | null, completo: string } | undefined, tam = 28) => (
+    <span style={{ width: tam, height: tam, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: 'var(--gl)', color: 'var(--gd)',
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: tam * .42, fontWeight: 600 }}>
+      {x?.foto ? <img src={x.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : (x?.completo || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+    </span>)
+  const txtPac = (x: { nombre: string, completo: string } | undefined) => x ? (x.completo && x.completo !== x.nombre ? `${x.completo} (${x.nombre})` : x.nombre) : ''
   function irAPaciente(id: string | undefined) {
     if (!id || id === pid) return
     if (cambios.length > 0 && !confirm(`Hay ${cambios.length} cambios sin confirmar en ${nombre}. ¿Salir sin guardarlos?`)) return
@@ -497,19 +505,33 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         <button className="btn btn-t btn-sm" onClick={() => router.push(encargo?.volver || `/pacientes/${pid}?tab=entreno`)}>Ahora no</button>
         <div style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <button type="button" className="btn btn-s btn-sm" disabled={iPac <= 0} onClick={() => irAPaciente(pacientes[iPac - 1]?.id)} title={pacientes[iPac - 1]?.nombre || ''}>‹</button>
+            {/* Las flechas enseñan a quién se va: su cara y su nombre entero. */}
+            <button type="button" className="btn btn-s btn-sm" disabled={iPac <= 0} onClick={() => irAPaciente(pacientes[iPac - 1]?.id)} title={txtPac(pacientes[iPac - 1])}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>‹ {iPac > 0 && cara(pacientes[iPac - 1], 22)}</button>
             <button type="button" onClick={() => setBuscandoPac(v => !v)} title="Cambiar de paciente"
-              style={{ fontSize: 17, border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--n)', textDecoration: 'underline dotted', textUnderlineOffset: 4 }}>{nombre || '…'}</button>
-            <button type="button" className="btn btn-s btn-sm" disabled={iPac < 0 || iPac >= pacientes.length - 1} onClick={() => irAPaciente(pacientes[iPac + 1]?.id)} title={pacientes[iPac + 1]?.nombre || ''}>›</button>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--n)' }}>
+              {cara(pacientes[iPac], 34)}
+              <span style={{ textAlign: 'left', lineHeight: 1.2 }}>
+                <span style={{ fontSize: 17, textDecoration: 'underline dotted', textUnderlineOffset: 4 }}>{pacientes[iPac]?.completo || nombre || '…'}</span>
+                {pacientes[iPac] && pacientes[iPac].nombre !== pacientes[iPac].completo && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--gr)' }}>{pacientes[iPac].nombre}</span>}
+              </span>
+            </button>
+            <button type="button" className="btn btn-s btn-sm" disabled={iPac < 0 || iPac >= pacientes.length - 1} onClick={() => irAPaciente(pacientes[iPac + 1]?.id)} title={txtPac(pacientes[iPac + 1])}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{iPac >= 0 && iPac < pacientes.length - 1 && cara(pacientes[iPac + 1], 22)} ›</button>
           </div>
           {buscandoPac && (
             <div style={{ position: 'absolute', left: '50%', top: 34, transform: 'translateX(-50%)', zIndex: 30, background: '#fff', borderRadius: 14, padding: 10,
               boxShadow: '0 12px 30px rgba(38,40,37,.18)', width: 300, textAlign: 'left' }}>
               <input className="input" autoFocus value={buscaPac} onChange={e => setBuscaPac(e.target.value)} placeholder="Buscar paciente…" style={{ marginBottom: 6 }}/>
               <div style={{ maxHeight: 260, overflow: 'auto', display: 'grid' }}>
-                {pacientes.filter(x => !buscaPac.trim() || x.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(buscaPac.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))).slice(0, 40).map(x => (
+                {pacientes.filter(x => { const q = buscaPac.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+                    return !q || `${x.completo} ${x.nombre}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q) }).slice(0, 40).map(x => (
                   <button key={x.id} type="button" onClick={() => irAPaciente(x.id)}
-                    style={{ border: 'none', background: x.id === pid ? 'var(--gl)' : 'none', textAlign: 'left', padding: '7px 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>{x.nombre}</button>
+                    style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', background: x.id === pid ? 'var(--gl)' : 'none', textAlign: 'left', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
+                    {cara(x)}
+                    <span style={{ lineHeight: 1.2 }}>{x.completo || x.nombre}
+                      {x.nombre !== x.completo && <span style={{ display: 'block', fontSize: 11, color: 'var(--gr)' }}>{x.nombre}</span>}</span>
+                  </button>
                 ))}
               </div>
             </div>
