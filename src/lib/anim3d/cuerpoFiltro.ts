@@ -14,7 +14,8 @@ import { cargaRig, dec } from './motor'
  */
 
 export interface Ancla { k: string, p: [number, number, number] }
-export interface Proyeccion { k: string, x: number, y: number, frente: number }
+/** Dónde cae en pantalla el rótulo (x, y, en su órbita) y su zona (ax, ay), y cuánto mira hacia delante. */
+export interface Proyeccion { k: string, x: number, y: number, ax: number, ay: number, frente: number }
 export interface CuerpoFiltro3D {
   anclas(a: Ancla[]): void
   musculos(grupos: string[]): void
@@ -72,6 +73,34 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
   const esfGeo = new THREE.SphereGeometry(1.6, 20, 14)
   let esferas: THREE.Mesh[] = []
   let lista: Ancla[] = []
+  /* LOS RÓTULOS GIRAN CON EL CUERPO, EN ÓRBITA. Cada uno va en un círculo alrededor del
+     cuerpo, a la altura de su zona y en su dirección: al girar pasan por delante (grandes)
+     y por detrás (pequeños), sin saltos. Los que caen a la misma altura y casi en la misma
+     dirección se separan un poco en el círculo para no ir encima unos de otros. */
+  const RADIO = 25
+  let angulos: Record<string, number> = {}
+  const repartir = (a: Ancla[]) => {
+    const out: Record<string, number> = {}
+    const conAng = a.map(x => ({ k: x.k, y: x.p[1], t: Math.atan2(x.p[0], x.p[2]) }))
+    const SEP = 0.5, BANDA = 7
+    // Por franjas de altura: dentro de cada una, separación mínima en el círculo.
+    const ys = conAng.slice().sort((p, q) => p.y - q.y)
+    const usados = new Set<string>()
+    ys.forEach(base => {
+      if (usados.has(base.k)) return
+      const grupo = ys.filter(o => !usados.has(o.k) && Math.abs(o.y - base.y) < BANDA)
+      grupo.forEach(o => usados.add(o.k))
+      const g = grupo.sort((p, q) => p.t - q.t)
+      for (let it = 0; it < 30; it++) {
+        for (let i = 1; i < g.length; i++) {
+          const d = g[i].t - g[i - 1].t
+          if (d < SEP) { const m = (SEP - d) / 2; g[i - 1].t -= m; g[i].t += m }
+        }
+      }
+      g.forEach(o => { out[o.k] = o.t })
+    })
+    return out
+  }
 
   // ── Girar: solo, o arrastrando ──
   let giro = 0, arr: { x: number } | null = null, pausa = 0
@@ -98,11 +127,14 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
     const c = Math.cos(giro), s = Math.sin(giro)
     const out: Proyeccion[] = lista.map(a => {
       const [x, y, z] = a.p
-      const xr = x * c + z * s, zr = -x * s + z * c
-      v.set(xr, y, zr).project(cam)
-      const radio = Math.hypot(x, z) || 1
-      const frente = Math.min(1, Math.max(0, (zr / radio + 1) / 2))
-      return { k: a.k, x: (v.x + 1) / 2 * W(), y: (1 - v.y) / 2 * H(), frente }
+      // La zona, girada.
+      v.set(x * c + z * s, y, -x * s + z * c).project(cam)
+      const ax = (v.x + 1) / 2 * W(), ay = (1 - v.y) / 2 * H()
+      // El rótulo, en su órbita.
+      const t = (angulos[a.k] ?? Math.atan2(x, z)) + giro
+      v.set(RADIO * Math.sin(t), y, RADIO * Math.cos(t)).project(cam)
+      const frente = (Math.cos(t) + 1) / 2
+      return { k: a.k, x: (v.x + 1) / 2 * W(), y: (1 - v.y) / 2 * H(), ax, ay, frente }
     })
     alFotograma(out)
     r.render(escena, cam)
@@ -110,7 +142,11 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
   raf = requestAnimationFrame(bucle)
 
   return {
-    anclas(a) { lista = a },
+    anclas(a) {
+      const firma = a.map(x => x.k).join(',')
+      if (firma !== lista.map(x => x.k).join(',')) angulos = repartir(a)
+      lista = a
+    },
     musculos(grupos) {
       uM.value = RIG.musculos.map(m => grupos.includes(m) ? 1 : 0)
       mat.uniforms.uM.value = uM.value

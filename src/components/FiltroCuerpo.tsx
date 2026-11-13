@@ -69,28 +69,34 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
         const { crearCuerpoFiltro } = await import('@/lib/anim3d/cuerpoFiltro')
         if (!vivo || !caja.current) return
         motor.current = await crearCuerpoFiltro(caja.current, (l: Proyeccion[]) => {
-          /* Sin React: se mueven los rótulos directamente, en cada fotograma. Van en dos
-             columnas a los lados del cuerpo (encima se tapaban unos a otros), cada uno a la
-             altura de su zona y unido a ella con un hilo; sin pisarse en vertical. */
-          const W = caja.current?.clientWidth || 600, cx = W / 2, sep = Math.min(190, W * .27), HUECO = 27
-          ;[-1, 1].forEach(lado => {
-            const col = l.filter(p => (p.x < cx ? -1 : 1) === lado).sort((a, b) => a.y - b.y)
-            let ant = -Infinity
-            col.forEach(p => {
-              const y = Math.max(p.y, ant + HUECO); ant = y
-              const x = cx + lado * sep, t = p.frente
-              const d = rotulos.current[p.k], h = hilos.current[p.k]
-              if (d) {
-                d.style.transform = `translate(${x}px, ${y}px) translate(${lado < 0 ? '-100%' : '0'}, -50%) scale(${.7 + .3 * t})`
-                d.style.transformOrigin = lado < 0 ? 'right center' : 'left center'
-                d.style.opacity = String(.25 + .75 * t)
-                d.style.zIndex = String(Math.round(10 + t * 50))
-              }
-              if (h) {
-                h.setAttribute('x1', String(x)); h.setAttribute('y1', String(y)); h.setAttribute('x2', String(p.x)); h.setAttribute('y2', String(p.y))
-                h.setAttribute('opacity', String(.15 + .55 * t))
-              }
-            })
+          /* Sin React: se mueven los rótulos directamente, en cada fotograma. Cada uno va
+             en su órbita alrededor del cuerpo (lo calcula el motor), unido a su zona con un
+             hilo. Delante, grande y encima de todo; detrás, pequeño y apagado. Si dos se
+             tocan en pantalla, el de detrás se aparta hacia abajo. */
+          const caidas = l.map(p => {
+            const d = rotulos.current[p.k]
+            return { p, d, w: (d?.offsetWidth || 90) * (.7 + .3 * p.frente), y: p.y }
+          }).sort((a, b) => b.p.frente - a.p.frente)
+          const puestos: typeof caidas = []
+          caidas.forEach(c => {
+            for (let it = 0; it < 24; it++) {
+              const choca = puestos.find(o => Math.abs(o.p.x - c.p.x) < (o.w + c.w) / 2 + 4 && Math.abs(o.y - c.y) < 28)
+              if (!choca) break
+              c.y = choca.y + (c.y >= choca.y ? 28 : -28)
+            }
+            puestos.push(c)
+          })
+          puestos.forEach(({ p, d, y }) => {
+            const t = p.frente, h = hilos.current[p.k]
+            if (d) {
+              d.style.transform = `translate(${p.x}px, ${y}px) translate(-50%, -50%) scale(${.7 + .35 * t})`
+              d.style.opacity = String(.35 + .65 * t)
+              d.style.zIndex = String(Math.round(10 + t * 50))
+            }
+            if (h) {
+              h.setAttribute('x1', String(p.x)); h.setAttribute('y1', String(y)); h.setAttribute('x2', String(p.ax)); h.setAttribute('y2', String(p.ay))
+              h.setAttribute('opacity', String(.2 + .6 * t))
+            }
           })
         })
         if (!vivo) { motor.current.destruir(); motor.current = null }
@@ -148,7 +154,7 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
   const material = raices('material')
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(246,244,239,.62)', backdropFilter: 'blur(1.5px)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(246,244,239,.72)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column' }}>
       {/* ARRIBA: Músculos / Articulaciones, cuántos salen y cerrar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--n)' }}>Filtros</span>
@@ -192,7 +198,7 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
           {fallo && <div className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{fallo}</div>}
           {/* Los hilos de cada etiqueta a su zona */}
           <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5, overflow: 'visible' }}>
-            {enCuerpo.map(r => <line key={r.id} ref={l => { hilos.current[r.id] = l }} stroke={tieneAlgo(r) ? '#5A969E' : '#7FA9AE'} strokeWidth={tieneAlgo(r) ? 1.6 : 1} strokeDasharray={tieneAlgo(r) ? undefined : '3 3'}/>)}
+            {enCuerpo.map(r => <line key={r.id} ref={l => { hilos.current[r.id] = l }} stroke={tieneAlgo(r) ? '#3F7C84' : '#2F4F53'} strokeWidth={tieneAlgo(r) ? 2 : 1.2} strokeDasharray={tieneAlgo(r) ? undefined : '3 3'}/>)}
           </svg>
           {enCuerpo.map(r => {
             const n = hijas(r.id).length, on = valor.includes(r.id), algo = tieneAlgo(r)
@@ -200,9 +206,11 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
               <div key={r.id} ref={d => { rotulos.current[r.id] = d }}
                 style={{ position: 'absolute', left: 0, top: 0, willChange: 'transform, opacity', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                 <button type="button" onClick={() => alternar(r.id)}
-                  style={{ border: `1.5px solid ${algo ? 'var(--g)' : 'rgba(90,150,158,.45)'}`, background: on ? 'var(--g)' : algo ? 'var(--gl)' : 'rgba(255,255,255,.94)',
-                    color: on ? '#fff' : 'var(--n)', borderRadius: 99, padding: '4px 11px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                    whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(38,40,37,.12)' }}>{r.nombre}</button>
+                  /* QUE SE LEAN SOBRE EL CUERPO: blanco macizo, letra oscura y gruesa, borde y
+                     sombra marcados. La elegida, en verde con letra blanca. */
+                  style={{ border: `2px solid ${algo ? 'var(--gd)' : '#2F4F53'}`, background: on ? 'var(--gd)' : algo ? '#E3F0F1' : '#fff',
+                    color: on ? '#fff' : '#1E2B2D', borderRadius: 99, padding: '5px 13px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(20,30,32,.28)' }}>{r.nombre}</button>
                 {n > 0 && <button type="button" onClick={() => setAbierta(abierta === r.id ? null : r.id)}
                   style={{ border: 'none', background: 'rgba(255,255,255,.9)', borderRadius: 99, color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '3px 6px' }}>{abierta === r.id ? '▴' : `${n}▾`}</button>}
                 {abierta === r.id && (
