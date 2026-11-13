@@ -95,12 +95,15 @@ export default function PasoPaciente({ foto, setFoto, form, up, pacientes, comoN
             y de la edad, y sin este dato ese test no se puede interpretar ni registrar.
             Se dice para qué es, porque un campo sin motivo se acaba dejando en blanco. */}
         <div className="field">
-          <label>Sexo <span className="subt">· lo usan los baremos de los tests</span></label>
-          <select className="input" value={form.sexo||''} onChange={e=>up('sexo',e.target.value)}>
-            <option value="">Sin indicar</option>
-            <option value="hombre">Hombre</option>
-            <option value="mujer">Mujer</option>
-          </select>
+          {/* Botones y no desplegable: con el desplegable se quedaba en «Sin indicar» sin
+              verlo, y sin él no hay baremo ni alta en VALD. */}
+          <label>Género <span className="subt">· lo usan los baremos de los tests y VALD</span></label>
+          <div style={{display:'flex',gap:8}}>
+            {[['mujer','Mujer'],['hombre','Hombre']].map(([v,t])=>(
+              <button key={v} type="button" className={`chip-sel ${form.sexo===v?'on':''}`}
+                onClick={()=>up('sexo',form.sexo===v?'':v)}>{t}</button>
+            ))}
+          </div>
         </div>
         <div className="g2">
           <div className="field"><label>Altura (cm)</label><input className="input" type="number" value={form.altura_cm} onChange={e=>up('altura_cm',e.target.value)}/></div>

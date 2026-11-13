@@ -19,7 +19,7 @@ import PasoAnamnesis from './components/PasoAnamnesis'
 import PasoHistorial from './components/PasoHistorial'
 import PasoCompletar from './components/PasoCompletar'
 import PasoTests from './components/PasoTests'
-import RegistrarVald from './components/RegistrarVald'
+import RegistrarVald, { altaValdDesdeForm, faltanParaVald } from './components/RegistrarVald'
 import PasoPlan from './components/PasoPlan'
 import PasoResumen from './components/PasoResumen'
 import NotaAnamnesis from './components/NotaAnamnesis'
@@ -199,6 +199,17 @@ export default function ValoracionPage() {
 
   const STEPS = STEPS_POR_MODO[modo]
   const esRevaloracion = modo === 'revaloracion'
+  /* ALTA EN VALD SOLA, con lo del principio: al pasar del paso Paciente con nombre,
+     apellidos, fecha de nacimiento y género, se registra ya en VALD. Así cuando toque el
+     DynaMo ya está y no hay que escribir nada en su app. Una vez por valoración; si falla,
+     queda el botón del paso Tests. */
+  const valdIntentado = useRef(false)
+  useEffect(() => {
+    if (step < 2 || esRevaloracion || form.paciente_id || form.vald_profile_id || valdIntentado.current) return
+    if (faltanParaVald(form).length) return
+    valdIntentado.current = true
+    altaValdDesdeForm(form, up).catch(() => {})
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Se traen TODOS los campos que la valoración puede reescribir. Traer menos era lo que
