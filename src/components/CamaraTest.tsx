@@ -138,6 +138,8 @@ function Grabar({ m, lado, onListo, onSalir }: { m: Medida, lado: Lado, onListo:
   const [ahora, setAhora] = useState<number | null>(null)
   const [mejor, setMejor] = useState<number | null>(null)
   const [reloj, setReloj] = useState<number | null>(null)
+  // Proporción real de la cámara (el iPad da 4:3, otros 16:9), para que quepa en pantalla.
+  const [aspecto, setAspecto] = useState(16 / 9)
   const g = useRef({ grabando: false, ini: null as Cuerpo | null, max: null as number | null, ventana: [] as number[], fot: [] as Cuerpo[],
     reps: 0, fase: '' as '' | 'abajo' | 'arriba', t0: 0, enAire: false, bajadas: 0, fin: false })
 
@@ -224,8 +226,15 @@ function Grabar({ m, lado, onListo, onSalir }: { m: Medida, lado: Lado, onListo:
       <div style={{ fontSize: 14, background: '#EBF4F5', color: '#3E7179', padding: '9px 12px', borderRadius: 8, marginBottom: 8 }}>
         <b>{m.vista === 'lado' ? 'De lado' : 'De frente'}</b>, {lado === 'izq' ? 'el lado izquierdo' : 'el lado derecho'} hacia la cámara. {m.como}
       </div>
-      <div style={{ position: 'relative', background: '#111', borderRadius: 12, overflow: 'hidden' }}>
-        <video ref={video} playsInline muted style={{ width: '100%', display: 'block', transform: camara === 'user' ? 'scaleX(-1)' : undefined }}/>
+      {/* QUE QUEPA ENTERO CON EL BOTÓN A LA VISTA. En la tablet el vídeo ocupaba más que la
+          pantalla y «Empezar» quedaba debajo, fuera de la vista: se enfocaba al paciente, se
+          hacía el test y no se medía nada. Ahora el vídeo mide como mucho el 62% del alto
+          y el botón va ENCIMA del vídeo. */}
+      <div style={{ position: 'relative', background: '#111', borderRadius: 12, overflow: 'hidden', margin: '0 auto',
+        width: '100%', maxWidth: `calc(62vh * ${aspecto})` }}>
+        <video ref={video} playsInline muted
+          onLoadedMetadata={e => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setAspecto(v.videoWidth / v.videoHeight) }}
+          style={{ width: '100%', display: 'block', transform: camara === 'user' ? 'scaleX(-1)' : undefined }}/>
         <canvas ref={lienzo} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', transform: camara === 'user' ? 'scaleX(-1)' : undefined }}/>
         {m.modo !== 'analisis' && m.modo !== 'crono' && (
           <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,.6)', color: '#fff', borderRadius: 10, padding: '8px 14px' }}>
@@ -239,12 +248,15 @@ function Grabar({ m, lado, onListo, onSalir }: { m: Medida, lado: Lado, onListo:
           </div>
         )}
         {estado && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff', padding: 20, textAlign: 'center' }}>{estado}</div>}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 14, display: 'flex', justifyContent: 'center' }}>
+          {!grabando
+            ? <button style={{ ...btn, background: estado ? '#7d8a8c' : '#3E7179', fontSize: 18, padding: '14px 30px', boxShadow: '0 3px 14px rgba(0,0,0,.35)' }}
+                disabled={!!estado} onClick={empezar}>{estado ? 'Preparando…' : '● Empezar a medir'}</button>
+            : <button style={{ ...btn, background: '#B05A5A', fontSize: 18, padding: '14px 30px', boxShadow: '0 3px 14px rgba(0,0,0,.35)' }} onClick={terminar}>■ Terminar</button>}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-        {!grabando
-          ? <button style={{ ...btn, background: '#3E7179' }} disabled={!!estado} onClick={empezar}>● Empezar</button>
-          : <button style={{ ...btn, background: '#B05A5A' }} onClick={terminar}>■ Terminar</button>}
-        <span style={{ fontSize: 12.5, color: '#6B6D6A' }}>En naranja = el detector no ve bien esa zona y ese momento no cuenta.</span>
+      <div style={{ fontSize: 12.5, color: '#6B6D6A', marginTop: 8, textAlign: 'center' }}>
+        Pulsa «Empezar a medir» y que haga el test; «Terminar» al acabar. En naranja = el detector no ve bien esa zona y ese momento no cuenta.
       </div>
     </div>
   )
