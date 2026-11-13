@@ -36,6 +36,35 @@ const ARTICULACIONES: Record<string, P3> = {
   'cadera': [5, 44, 1.5], 'rodilla': [6.45, 20.5, 2], 'tobillo': [-7, 3.8, 0], 'pie': [7, 1, 4.5],
 }
 const clave = (n: string) => normalizar(n).replace(/\s+/g, ' ').trim()
+
+/* LA POSTURA DEL CUERPO según lo que se filtra (ángulos por hueso, como las animaciones:
+   muslo negativo = hacia delante, rodilla positiva = doblar, raíz = todo el cuerpo). */
+type PoseF = Record<string, [number, number, number]>
+const par = (n: string, v: [number, number, number]): PoseF => ({ [n + 'D']: v, [n + 'I']: [v[0], -v[1], -v[2]] })
+const POSTURAS: Record<string, PoseF> = {
+  'sentado': { ...par('muslo', [-88, 0, 10]), ...par('pierna', [84, 0, 0]) },
+  'supino': { raiz: [-90, 0, 0], ...par('brazo', [0, 0, 12]) },
+  'prono': { raiz: [90, 0, 0], ...par('brazo', [0, 0, 12]) },
+  'decubito lateral': { raiz: [0, 0, 90], ...par('muslo', [-25, 0, 0]), ...par('pierna', [35, 0, 0]) },
+  'cuadrupedia': { raiz: [90, 0, 0], ...par('muslo', [-90, 0, 0]), ...par('pierna', [90, 0, 0]), ...par('pie', [80, 0, 0]), ...par('brazo', [-90, 0, 0]), ...par('mano', [-90, 0, 0]) },
+  'arrodillado': { ...par('pierna', [90, 0, 0]), ...par('pie', [60, 0, 0]) },
+  'caballero': { musloD: [-90, 0, 4], piernaD: [90, 0, 0], musloI: [0, 0, -4], piernaI: [90, 0, 0], pieI: [60, 0, 0] },
+}
+const APOYOS: Record<string, PoseF> = {
+  'unipodal': { musloI: [-45, 0, 0], piernaI: [80, 0, 0] },
+  'rodilla': POSTURAS['arrodillado'],
+  'codos': { raiz: [90, 0, 0], ...par('brazo', [-90, 0, 0]), ...par('antebrazo', [-90, 0, 0]) },
+  'mano': { raiz: [90, 0, 0], ...par('brazo', [-90, 0, 0]) },
+}
+/* EL AGARRE: el brazo hacia delante y el antebrazo girado como en cada agarre. */
+const AGARRES: Record<string, number> = { 'prono': 90, 'supino': -90, 'neutro': 0 }
+/* Y QUÉ ES CADA UNO, dicho junto a la mano (el muñeco no tiene dedos para enseñarlo). */
+const QUE_AGARRE: Record<string, string> = {
+  'prono': 'Palma hacia abajo (o hacia atrás)', 'supino': 'Palma hacia arriba (o hacia delante)',
+  'neutro': 'Palmas enfrentadas, pulgar arriba', 'abierto': 'Manos más separadas que los hombros',
+  'cerrado': 'Manos juntas o más cerca que los hombros', 'mixto': 'Una mano en prono y la otra en supino',
+  'giratorio': 'La mano gira durante el movimiento', 'unilateral': 'Con una sola mano',
+}
 const LATERAL_IZQ = ['movimiento', 'posicion', 'apoyo']
 const LATERAL_DER = ['agarre', 'patron', 'plano_eje', 'patologia']
 
@@ -48,9 +77,12 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
   // ACERCARSE A UNA ZONA (la que tiene subetiquetas): la cámara va a ella y sus hijas
   // salen alrededor. Al elegir una, vuelve.
   const [zoom, setZoom] = useState<string | null>(null)
+  // El agarre que se enseña en la mano (el último tocado en su pestaña).
+  const [agarreVista, setAgarreVista] = useState<string | null>(null)
   const zoomRef = useRef<string | null>(null); zoomRef.current = zoom
   const corona = useRef<HTMLDivElement>(null)
   const [fallo, setFallo] = useState('')
+  const [listo, setListo] = useState(false)
   const caja = useRef<HTMLDivElement>(null)
   const motor = useRef<CuerpoFiltro3D | null>(null)
   const rotulos = useRef<Record<string, HTMLDivElement | null>>({})
@@ -116,7 +148,7 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
             }
           })
         })
-        if (!vivo) { motor.current.destruir(); motor.current = null }
+        if (!vivo) { motor.current.destruir(); motor.current = null } else setListo(true)
       } catch (e: any) { setFallo(e?.message || 'No se ha podido cargar el cuerpo 3D') }
     })()
     return () => { vivo = false; motor.current?.destruir(); motor.current = null }
@@ -146,6 +178,27 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
     motor.current?.enfocar(r ? tabla[clave(r.nombre)] || null : null)
   }, [zoom]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setZoom(null) }, [modo])
+
+  /* LA POSTURA: la de la posición marcada (o su madre: «Supino › Con piernas en alto» es
+     supino); si no hay, la del apoyo (a una pierna, de rodillas, plancha…). Con la
+     pestaña de Agarre abierta, el brazo delante con el antebrazo girado como el agarre, y
+     la cámara a la mano. */
+  useEffect(() => {
+    const m = motor.current; if (!m) return
+    const porId: Record<string, any> = Object.fromEntries(etiquetas.map(e => [e.id, e]))
+    const nombres = (cat: string) => valor.map(id => porId[id]).filter(e => e && categoriaDe(etiquetas, e) === cat)
+      .flatMap(e => { const r: string[] = []; let x = e; const v = new Set<string>(); while (x && !v.has(x.id)) { v.add(x.id); r.push(clave(x.nombre)); x = porId[x.padre_id] } return r })
+    let pose: PoseF = {}
+    const pos = nombres('posicion').find(n => POSTURAS[n])
+    if (pos) pose = { ...POSTURAS[pos] }
+    else { const ap = nombres('apoyo').find(n => APOYOS[n]); if (ap) pose = { ...APOYOS[ap] } }
+    if (pestana === 'agarre') {
+      const ag = agarreVista ? clave(porId[agarreVista]?.nombre || '') : nombres('agarre')[0]
+      pose = { ...pose, brazoD: [-80, 0, 0], antebrazoD: [-10, AGARRES[ag || ''] ?? 0, 0] }
+      m.enfocarHueso('manoD')
+    } else if (!zoom) m.enfocarHueso(null)
+    m.postura(pose as any)
+  }, [valor, pestana, agarreVista, etiquetas, zoom, listo])
 
   /* MOVIMIENTOS QUE VAN CON LO MARCADO. Salen de «Qué trabaja» de cada ejercicio, que
      dice qué movimiento hace en qué articulación (articulación + movimiento): así con la
@@ -196,7 +249,8 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
   const chip = (e: any, peq = false) => {
     const on = valor.includes(e.id)
     return (
-      <button key={e.id} type="button" onClick={() => alternar(e.id)}
+      <button key={e.id} type="button" onClick={() => { alternar(e.id); if (pestana === 'agarre') setAgarreVista(e.id) }}
+        onMouseEnter={pestana === 'agarre' ? () => setAgarreVista(e.id) : undefined}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: `1.5px solid ${on ? 'var(--g)' : 'var(--bd)'}`, borderRadius: 99,
           background: on ? 'var(--g)' : '#fff', color: on ? '#fff' : 'var(--n)', padding: peq ? '3px 10px' : '5px 12px', fontSize: peq ? 12 : 13,
           cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
@@ -318,6 +372,20 @@ export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChan
           )}
           <style>{`@keyframes fc-entra { from { opacity: 0; transform: translate(-50%, -50%) scale(.6) } }`}</style>
         </div>
+        {/* EL AGARRE QUE SE ENSEÑA, junto a la mano */}
+        {pestana === 'agarre' && (() => {
+          const porId: Record<string, any> = Object.fromEntries(etiquetas.map(e => [e.id, e]))
+          const e = agarreVista ? porId[agarreVista] : valor.map(id => porId[id]).find(x => x && categoriaDe(etiquetas, x) === 'agarre')
+          return (
+            <div style={{ position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', zIndex: 85, background: '#fff', borderRadius: 14,
+              padding: '10px 16px', boxShadow: '0 6px 20px rgba(38,40,37,.18)', textAlign: 'center', minWidth: 260 }}>
+              {e ? <>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--n)' }}>{e.nombre}</div>
+                <div style={{ fontSize: 13, color: 'var(--gr)', marginTop: 2 }}>{QUE_AGARRE[clave(e.nombre)] || 'Toca cada agarre para verlo en la mano'}</div>
+              </> : <div style={{ fontSize: 13, color: 'var(--gr)' }}>Toca un agarre para verlo en la mano</div>}
+            </div>
+          )
+        })()}
         {/* MOVIMIENTOS PROPUESTOS por lo marcado, arriba en el centro */}
         {sugeridos.length > 0 && !zoom && (
           <div style={{ position: 'absolute', left: '50%', top: 6, transform: 'translateX(-50%)', zIndex: 85, background: 'rgba(255,255,255,.95)',

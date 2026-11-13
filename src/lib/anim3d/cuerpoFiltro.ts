@@ -1,32 +1,41 @@
 import * as THREE from 'three'
 import { cargaRig, dec } from './motor'
+import type { Pose } from './tipos'
 
 /**
  * EL CUERPO DEL FILTRO DE LA BIBLIOTECA (sin React: lo envuelve components/FiltroCuerpo).
  *
- * El mismo cuerpo que las animaciones y el mapa de calor, de pie y girando solo. Se
- * arrastra para girarlo a mano. Los músculos elegidos se encienden (grupos de la malla
- * de cuerpo-rig.json) y las articulaciones elegidas son una esfera de luz.
+ * El mismo cuerpo que las animaciones, CON ESQUELETO: gira solo, se arrastra para girarlo
+ * a mano y se pone en la postura de lo que se filtra (sentado, tumbado, a cuatro patas,
+ * a una pierna…), pasando de una a otra suavemente. Los músculos elegidos se encienden
+ * (grupos de la malla de cuerpo-rig.json) y las articulaciones elegidas son una luz.
  *
  * Las ETIQUETAS NO SE PINTAN AQUÍ: son HTML encima (para que siempre se lean de
  * izquierda a derecha). Cada fotograma se avisa de dónde cae cada ancla en pantalla y
- * cuánto mira hacia delante (0 detrás, 1 delante), y el componente las coloca.
+ * cuánto mira hacia delante. Las anclas van pegadas a su hueso: si el cuerpo se tumba,
+ * las etiquetas se van con él.
  */
 
-export interface Ancla { k: string, p: [number, number, number] }
+type P3 = [number, number, number]
+export interface Ancla { k: string, p: P3 }
 /** Dónde cae en pantalla el rótulo (x, y, en su órbita) y su zona (ax, ay), y cuánto mira hacia delante. */
 export interface Proyeccion { k: string, x: number, y: number, ax: number, ay: number, frente: number }
 export interface CuerpoFiltro3D {
   anclas(a: Ancla[]): void
   musculos(grupos: string[]): void
-  articulaciones(puntos: [number, number, number][]): void
+  articulaciones(puntos: P3[]): void
   /** Acercarse a una zona (deja de girar y la pone de frente) o volver (null). */
-  enfocar(p: [number, number, number] | null): void
+  enfocar(p: P3 | null): void
+  /** Acercarse a un hueso, siga donde siga con la postura (la mano para el agarre). */
+  enfocarHueso(nombre: string | null): void
+  /** La postura del cuerpo (ángulos por hueso, como las animaciones). {} = de pie. */
+  postura(p: Pose): void
   destruir(): void
 }
 
 const VEL_GIRO = 0.22
 const PAUSA = 2500
+const rad = THREE.MathUtils.degToRad
 
 export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyeccion[]) => void): Promise<CuerpoFiltro3D> {
   const RIG = await cargaRig()
@@ -38,24 +47,48 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
   el.prepend(r.domElement)
   const escena = new THREE.Scene()
   const cam = new THREE.PerspectiveCamera(28, W() / H(), 1, 2000)
-  cam.position.set(0, 46, 205); cam.lookAt(0, 44, 0)
 
+  // ── Cuerpo con esqueleto ──
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(dec(RIG.pos, Float32Array), 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(dec(RIG.nor, Float32Array), 3))
   geo.setIndex(new THREE.BufferAttribute(dec(RIG.idx, Uint16Array), 1))
+  geo.setAttribute('skinIndex', new THREE.BufferAttribute(dec(RIG.si, Uint16Array), 4))
+  geo.setAttribute('skinWeight', new THREE.BufferAttribute(dec(RIG.sw, Float32Array), 4))
   geo.setAttribute('mid', new THREE.BufferAttribute(dec(RIG.mid, Float32Array), 1))
   geo.setAttribute('mm', new THREE.BufferAttribute(dec(RIG.mm, Float32Array), 1))
   const NM = RIG.musculos.length
   const uM = { value: new Array(NM).fill(0) }
+  const huesos = RIG.huesos.map(h => { const b = new THREE.Bone(); b.name = h.n; return b })
+  const H0: Record<string, THREE.Vector3> = {}          // posición local en reposo
+  const W0: Record<string, THREE.Vector3> = {}          // posición en el cuerpo en reposo
+  RIG.huesos.forEach((h, i) => {
+    const b = huesos[i], p = h.p >= 0 ? RIG.huesos[h.p].x : [0, 0, 0]
+    b.position.set(h.x[0] - p[0], h.x[1] - p[1], h.x[2] - p[2]); H0[h.n] = b.position.clone()
+    W0[h.n] = new THREE.Vector3(...h.x)
+    if (h.p >= 0) huesos[h.p].add(b)
+  })
+  const hueso: Record<string, THREE.Bone> = Object.fromEntries(huesos.map(b => [b.name, b]))
+  const raiz = hueso.cadera
+  const VERT = `#include <common>
+    #include <skinning_pars_vertex>
+    attribute float mid; attribute float mm;
+    uniform float uM[${NM}];
+    varying vec3 vN; varying vec3 vV; varying float vC;
+    void main(){
+      #include <beginnormal_vertex>
+      #include <skinbase_vertex>
+      #include <skinnormal_vertex>
+      #include <begin_vertex>
+      #include <skinning_vertex>
+      vec4 mv = modelViewMatrix*vec4(transformed,1.);
+      vN = normalize(normalMatrix*objectNormal); vV = normalize(-mv.xyz);
+      vC = uM[int(mid + .5)] * mm;
+      gl_Position = projectionMatrix*mv; }`
   // Cuerpo de "cristal" verde (como en la ficha) y los músculos elegidos en ámbar.
   const mat = new THREE.ShaderMaterial({
     uniforms: { uM, base: { value: new THREE.Color('#5A969E') }, luz: { value: new THREE.Color('#E0B24F') } },
-    vertexShader: `attribute float mid; attribute float mm; uniform float uM[${NM}];
-      varying vec3 vN; varying vec3 vV; varying float vC;
-      void main(){ vec4 mv = modelViewMatrix*vec4(position,1.);
-        vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz);
-        vC = uM[int(mid + .5)] * mm; gl_Position = projectionMatrix*mv; }`,
+    vertexShader: VERT,
     fragmentShader: `uniform vec3 base; uniform vec3 luz; varying vec3 vN; varying vec3 vV; varying float vC;
       void main(){ vec3 n = normalize(vN), v = normalize(vV);
         float f = pow(1.0-abs(dot(n,v)), 2.0);
@@ -67,26 +100,53 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
   })
   const cuerpo = new THREE.Group()
-  cuerpo.add(new THREE.Mesh(geo, mat))
-  escena.add(cuerpo)
+  const malla = new THREE.SkinnedMesh(geo, mat)
+  const esq = new THREE.Group(); esq.add(raiz)
+  cuerpo.add(esq, malla); escena.add(cuerpo)
+  esq.updateMatrixWorld(true)
+  malla.bind(new THREE.Skeleton(huesos)); malla.frustumCulled = false
   const aro = new THREE.Mesh(new THREE.RingGeometry(11, 11.6, 64), new THREE.MeshBasicMaterial({ color: '#5A969E', transparent: true, opacity: .35, depthWrite: false }))
   aro.rotation.x = -Math.PI / 2; escena.add(aro)
 
-  // Esferas de las articulaciones elegidas.
+  /* CADA ANCLA, PEGADA A SU HUESO. Se busca el trozo de esqueleto más cercano (de un
+     hueso al siguiente; los del final, prolongados) y se guarda la distancia a ese hueso:
+     así, aunque el cuerpo cambie de postura, el punto sigue en su sitio del cuerpo. */
+  const PUNTA: Record<string, P3> = { cabeza: [0, 10, 0], manoD: [1.2, -7, 0], manoI: [-1.2, -7, 0], pieD: [0, -3, 7], pieI: [0, -3, 7] }
+  const trozos: { b: string, a: THREE.Vector3, z: THREE.Vector3 }[] = []
+  RIG.huesos.forEach(h => {
+    const hijos = RIG.huesos.filter(x => x.p >= 0 && RIG.huesos[x.p].n === h.n)
+    hijos.forEach(c => trozos.push({ b: h.n, a: W0[h.n], z: W0[c.n] }))
+    if (PUNTA[h.n]) trozos.push({ b: h.n, a: W0[h.n], z: W0[h.n].clone().add(new THREE.Vector3(...PUNTA[h.n])) })
+  })
+  const seg = new THREE.Line3(), cerca = new THREE.Vector3()
+  const pegar = (p: P3) => {
+    const q = new THREE.Vector3(...p)
+    let mejor = trozos[0], dist = Infinity
+    trozos.forEach(t => { seg.set(t.a, t.z); seg.closestPointToPoint(q, true, cerca); const d = cerca.distanceTo(q); if (d < dist) { dist = d; mejor = t } })
+    return { b: mejor.b, off: q.sub(W0[mejor.b]) }
+  }
+  const tmp = new THREE.Vector3(), inv = new THREE.Matrix4()
+  /** Dónde está ahora un punto pegado, en coordenadas del cuerpo (sin el giro). */
+  const ahoraEn = (pg: { b: string, off: THREE.Vector3 }, out: THREE.Vector3) => {
+    out.copy(pg.off); hueso[pg.b].localToWorld(out)
+    return out.applyMatrix4(inv.copy(cuerpo.matrixWorld).invert())
+  }
+
+  // Esferas de las articulaciones elegidas (pegadas a su hueso).
   const esfGeo = new THREE.SphereGeometry(1.6, 20, 14)
-  let esferas: THREE.Mesh[] = []
-  let lista: Ancla[] = []
+  let esferas: { m: THREE.Mesh, pg: { b: string, off: THREE.Vector3 } }[] = []
+  let lista: (Ancla & { pg: { b: string, off: THREE.Vector3 } })[] = []
+
   /* LOS RÓTULOS GIRAN CON EL CUERPO, EN ÓRBITA. Cada uno va en un círculo alrededor del
      cuerpo, a la altura de su zona y en su dirección: al girar pasan por delante (grandes)
      y por detrás (pequeños), sin saltos. Los que caen a la misma altura y casi en la misma
      dirección se separan un poco en el círculo para no ir encima unos de otros. */
   const RADIO = 25
-  let angulos: Record<string, number> = {}
+  let separa: Record<string, number> = {}       // cuánto se aparta cada uno de su dirección
   const repartir = (a: Ancla[]) => {
     const out: Record<string, number> = {}
-    const conAng = a.map(x => ({ k: x.k, y: x.p[1], t: Math.atan2(x.p[0], x.p[2]) }))
+    const conAng = a.map(x => ({ k: x.k, y: x.p[1], t0: Math.atan2(x.p[0], x.p[2]), t: Math.atan2(x.p[0], x.p[2]) }))
     const SEP = 0.5, BANDA = 7
-    // Por franjas de altura: dentro de cada una, separación mínima en el círculo.
     const ys = conAng.slice().sort((p, q) => p.y - q.y)
     const usados = new Set<string>()
     ys.forEach(base => {
@@ -94,21 +154,42 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
       const grupo = ys.filter(o => !usados.has(o.k) && Math.abs(o.y - base.y) < BANDA)
       grupo.forEach(o => usados.add(o.k))
       const g = grupo.sort((p, q) => p.t - q.t)
-      for (let it = 0; it < 30; it++) {
-        for (let i = 1; i < g.length; i++) {
-          const d = g[i].t - g[i - 1].t
-          if (d < SEP) { const m = (SEP - d) / 2; g[i - 1].t -= m; g[i].t += m }
-        }
+      for (let it = 0; it < 30; it++) for (let i = 1; i < g.length; i++) {
+        const d = g[i].t - g[i - 1].t
+        if (d < SEP) { const m = (SEP - d) / 2; g[i - 1].t -= m; g[i].t += m }
       }
-      g.forEach(o => { out[o.k] = o.t })
+      g.forEach(o => { out[o.k] = o.t - o.t0 })
     })
     return out
+  }
+
+  // ── Postura: de la actual a la pedida, suavemente ──
+  const NOMBRES = ['raiz', ...RIG.huesos.map(h => h.n).filter(n => n !== 'cadera')]
+  const actual: Record<string, THREE.Vector3> = Object.fromEntries(NOMBRES.map(n => [n, new THREE.Vector3()]))
+  let objetivo: Pose = {}
+  const PUNTOS_SUELO = ['cadera', 'lumbar', 'pecho', 'cuello', 'cabeza', 'brazoD', 'brazoI', 'antebrazoD', 'antebrazoI', 'manoD', 'manoI', 'musloD', 'musloI', 'piernaD', 'piernaI', 'pieD', 'pieI']
+  const colocar = (dt: number) => {
+    const k = Math.min(1, dt * 3)
+    NOMBRES.forEach(n => {
+      const o = objetivo[n] || [0, 0, 0], a = actual[n]
+      a.x += (o[0] - a.x) * k; a.y += (o[1] - a.y) * k; a.z += (o[2] - a.z) * k
+      const b = n === 'raiz' ? raiz : hueso[n]
+      if (b) b.rotation.set(rad(a.x), rad(a.y), rad(a.z))
+    })
+    // Que apoye en el suelo: lo más bajo del esqueleto, a la altura del tobillo de pie.
+    raiz.position.copy(H0.cadera)
+    cuerpo.updateMatrixWorld(true)
+    let min = Infinity
+    PUNTOS_SUELO.forEach(n => { ahoraEn({ b: n, off: new THREE.Vector3() }, tmp); min = Math.min(min, tmp.y) })
+    Object.entries(PUNTA).forEach(([n, off]) => { ahoraEn({ b: n, off: new THREE.Vector3(...off) }, tmp); min = Math.min(min, tmp.y + 2) })
+    raiz.position.y += 3.8 - min
+    cuerpo.updateMatrixWorld(true)
   }
 
   // ── Girar: solo, o arrastrando ──
   let giro = 0, arr: { x: number } | null = null, pausa = 0
   // ACERCARSE: el cuerpo gira hasta poner la zona de frente y la cámara se acerca a ella.
-  let foco: [number, number, number] | null = null, giroFoco = 0
+  let foco: { p?: P3, hueso?: string } | null = null
   const camPos = new THREE.Vector3(0, 46, 205), camMira = new THREE.Vector3(0, 44, 0)
   const camPosObj = camPos.clone(), camMiraObj = camMira.clone()
   const cv = r.domElement
@@ -120,34 +201,59 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
   ro.observe(el)
 
   const quieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const v = new THREE.Vector3()
+  const v = new THREE.Vector3(), q = new THREE.Vector3()
   let raf = 0, antes = performance.now()
   const bucle = (ahora: number) => {
     raf = requestAnimationFrame(bucle)
     if (document.hidden) { antes = ahora; return }
     const dt = Math.min((ahora - antes) / 1000, .1); antes = ahora
-    if (foco) {
-      // Hacia el giro que la pone de frente, por el camino corto.
-      let d = giroFoco - giro; d = Math.atan2(Math.sin(d), Math.cos(d))
-      if (!arr) giro += d * Math.min(1, dt * 4)
-    } else if (!quieto && !arr && ahora > pausa) giro += dt * VEL_GIRO
+    colocar(dt)
+
+    // Encuadre: el cuerpo entero, de pie o tumbado (lo que ocupa a lo alto y a lo ancho).
+    let ymin = Infinity, ymax = -Infinity, rmax = 0
+    PUNTOS_SUELO.forEach(n => { ahoraEn({ b: n, off: new THREE.Vector3() }, tmp); ymin = Math.min(ymin, tmp.y); ymax = Math.max(ymax, tmp.y); rmax = Math.max(rmax, Math.hypot(tmp.x, tmp.z)) })
+    ymax += 10
+    // El punto al que acercarse, si lo hay (ya en su postura).
+    let pf: THREE.Vector3 | null = null
+    if (foco?.hueso && hueso[foco.hueso]) pf = ahoraEn({ b: foco.hueso, off: new THREE.Vector3(...(PUNTA[foco.hueso] || [0, 0, 0])).multiplyScalar(.4) }, q)
+    else if (foco?.p) pf = ahoraEn(pegar(foco.p), q)
+    if (pf) {
+      const rr = Math.hypot(pf.x, pf.z)
+      if (foco?.hueso) {
+        // UN HUESO (la mano): de lado, para que se vea entera y no de punta hacia la cámara.
+        const giroFoco = Math.PI / 2 - Math.atan2(pf.x, pf.z)
+        let d = giroFoco - giro; d = Math.atan2(Math.sin(d), Math.cos(d))
+        if (!arr) giro += d * Math.min(1, dt * 4)
+        camPosObj.set(rr * .75, pf.y + 4, 72); camMiraObj.set(rr * .75, pf.y, 0)
+      } else {
+        const giroFoco = -Math.atan2(pf.x, pf.z)
+        let d = giroFoco - giro; d = Math.atan2(Math.sin(d), Math.cos(d))
+        if (!arr) giro += d * Math.min(1, dt * 4)
+        camPosObj.set(0, pf.y + 2, rr + 62); camMiraObj.set(0, pf.y, rr * .5)
+      }
+    } else {
+      if (!quieto && !arr && ahora > pausa) giro += dt * VEL_GIRO
+      const cy = (ymin + ymax) / 2, alto = ymax - ymin + 6
+      const dist = Math.max(alto * 2.3, rmax * 2 * 1.75, 150)
+      camPosObj.set(0, cy + 2, dist); camMiraObj.set(0, cy, 0)
+    }
     cuerpo.rotation.y = giro
     camPos.lerp(camPosObj, Math.min(1, dt * 3.5)); camMira.lerp(camMiraObj, Math.min(1, dt * 3.5))
     cam.position.copy(camPos); cam.lookAt(camMira)
+    cuerpo.updateMatrixWorld(true)
+
     const late = 1 + .15 * Math.sin(ahora / 300)
-    esferas.forEach(s => s.scale.setScalar(late))
-    // Dónde cae cada ancla y si mira hacia delante.
+    esferas.forEach(s => { ahoraEn(s.pg, s.m.position); s.m.scale.setScalar(late) })
+    // Dónde cae cada ancla y su rótulo en órbita.
     const c = Math.cos(giro), s = Math.sin(giro)
     const out: Proyeccion[] = lista.map(a => {
-      const [x, y, z] = a.p
-      // La zona, girada.
+      const p = ahoraEn(a.pg, tmp)
+      const x = p.x, y = p.y, z = p.z
       v.set(x * c + z * s, y, -x * s + z * c).project(cam)
       const ax = (v.x + 1) / 2 * W(), ay = (1 - v.y) / 2 * H()
-      // El rótulo, en su órbita.
-      const t = (angulos[a.k] ?? Math.atan2(x, z)) + giro
+      const t = Math.atan2(x, z) + (separa[a.k] || 0) + giro
       v.set(RADIO * Math.sin(t), y, RADIO * Math.cos(t)).project(cam)
-      const frente = (Math.cos(t) + 1) / 2
-      return { k: a.k, x: (v.x + 1) / 2 * W(), y: (1 - v.y) / 2 * H(), ax, ay, frente }
+      return { k: a.k, x: (v.x + 1) / 2 * W(), y: (1 - v.y) / 2 * H(), ax, ay, frente: (Math.cos(t) + 1) / 2 }
     })
     alFotograma(out)
     r.render(escena, cam)
@@ -157,36 +263,31 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
   return {
     anclas(a) {
       const firma = a.map(x => x.k).join(',')
-      if (firma !== lista.map(x => x.k).join(',')) angulos = repartir(a)
-      lista = a
+      if (firma !== lista.map(x => x.k).join(',')) separa = repartir(a)
+      lista = a.map(x => ({ ...x, pg: pegar(x.p) }))
     },
     musculos(grupos) {
       uM.value = RIG.musculos.map(m => grupos.includes(m) ? 1 : 0)
       mat.uniforms.uM.value = uM.value
     },
     articulaciones(puntos) {
-      esferas.forEach(e => { cuerpo.remove(e); (e.material as any).dispose() }); esferas = []
+      esferas.forEach(e => { cuerpo.remove(e.m); (e.m.material as any).dispose() }); esferas = []
       puntos.forEach(p => {
         // Las dos del par (derecha e izquierda) si no está en el centro.
-        const lados = Math.abs(p[0]) > .5 ? [p, [-p[0], p[1], p[2]] as [number, number, number]] : [p]
-        lados.forEach(q => {
+        const lados: P3[] = Math.abs(p[0]) > .5 ? [p, [-p[0], p[1], p[2]]] : [p]
+        lados.forEach(qq => {
           const m = new THREE.Mesh(esfGeo, new THREE.MeshBasicMaterial({ color: '#E0B24F', transparent: true, opacity: .85, depthTest: false }))
-          m.position.set(...q); m.renderOrder = 5; cuerpo.add(m); esferas.push(m)
+          m.renderOrder = 5; cuerpo.add(m); esferas.push({ m, pg: pegar(qq) })
         })
       })
     },
-    enfocar(p) {
-      foco = p
-      if (p) {
-        const [x, y, z] = p, rr = Math.hypot(x, z)
-        giroFoco = -Math.atan2(x, z)
-        camPosObj.set(0, y + 2, rr + 62); camMiraObj.set(0, y, rr * .5)
-      } else { camPosObj.set(0, 46, 205); camMiraObj.set(0, 44, 0); pausa = performance.now() + 800 }
-    },
+    enfocar(p) { foco = p ? { p } : null; if (!p) pausa = performance.now() + 800 },
+    enfocarHueso(n) { foco = n ? { hueso: n } : null; if (!n) pausa = performance.now() + 800 },
+    postura(p) { objetivo = p || {} },
     destruir() {
       cancelAnimationFrame(raf); ro.disconnect()
       cv.removeEventListener('pointerdown', abajo); cv.removeEventListener('pointermove', mover); cv.removeEventListener('pointerup', arriba); cv.removeEventListener('pointercancel', arriba)
-      esferas.forEach(e => (e.material as any).dispose()); esfGeo.dispose(); geo.dispose(); mat.dispose(); r.dispose(); cv.remove()
+      esferas.forEach(e => (e.m.material as any).dispose()); esfGeo.dispose(); geo.dispose(); mat.dispose(); r.dispose(); cv.remove()
     },
   }
 }
