@@ -1564,6 +1564,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           <div style={{fontSize:12,color:'var(--gr)',marginTop:8,lineHeight:1.5}}>
             Se usa como tipo por defecto al darle cita nueva desde la agenda.
           </div>
+          {/* LA SALA, junto al tipo de clase: las dos dicen cómo es su clase. Antes iba
+              suelta al final, debajo del horario. */}
+          <div className="sec-h" style={{marginTop:18}}><span className="ct-l"><Ic name="ubicacion" size={13}/> Sala</span></div>
+          <div style={{paddingTop:8}}><CambiarSala pacienteId={pac.id}/></div>
         </div>
       </div>}
 
@@ -1579,21 +1583,26 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           con lo que dijo en la valoración, y el cambio de sala. */}
       {/* SU HORARIO: a qué días y horas viene de verdad, y desde ahí volver a
           agendarle. Pensado para la gente que se va y vuelve (lib/horarioFavorito). */}
-      {ubicar && <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>}
-      {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
-      {ubicar && <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>}
+      {/* TODO LO DEL HORARIO EN UN BLOQUE CON SU TÍTULO: a qué viene, lo que le gustaría y
+          lo que dijo en la valoración. Antes salía suelto debajo del bono y parecía parte de él. */}
+      {ubicar && <div className="sec">
+        <div className="sec-h"><span className="ct-l"><Ic name="calendario" size={13}/> Horario</span></div>
+        <div style={{paddingTop:10}}>
+          <HorarioFavorito pacienteId={pac.id} tipoClase={pac.tipo_clase}/>
+          {/* Lo que le gustaria (deseadas) y la agenda de huecos para darle citas. */}
+          <HorarioDeseado pacienteId={pac.id} nombre={`${pac.nombre||''} ${pac.apellidos||''}`.trim()}/>
       {/* LO QUE DIJO EN LA VALORACIÓN (días y franja), en una línea junto a «Le gustaría»:
           es la misma idea. Antes era un bloque aparte abajo y parecía repetido. */}
-      {ubicar && valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
-        <div style={{fontSize:12,color:'var(--gr)',margin:'-10px 0 16px'}}>
+      {valoracion && (valoracion.dias_asistencia||valoracion.franja) && (
+        <div style={{fontSize:12,color:'var(--gr)',margin:'-6px 0 4px'}}>
           En la valoración dijo: {[
             (valoracion.dias_asistencia||'').split(',').filter(Boolean).join(', '),
             valoracion.franja ? (valoracion.franja==='manana'?'mañanas':valoracion.franja==='tarde'?'tardes':valoracion.franja==='noche'?'noches':'flexible') : ''
           ].filter(Boolean).join(' · ')}
         </div>
       )}
-      {/* CAMBIAR DE SALA: todas sus citas desde un día en adelante, mirando la plaza. */}
-      {ubicar && <CambiarSala pacienteId={pac.id}/>}
+        </div>
+      </div>}
 
       {/* Los consentimientos ya no van aquí: están en la cabecera («Firmas»), junto a Documentos. */}
 
