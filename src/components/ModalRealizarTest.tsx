@@ -111,6 +111,14 @@ export default function ModalRealizarTest({ test, tv, onCambiar, onCerrar, pie, 
       })
       nuevos[l] = { ...prev, items_resultado: it, observaciones: [prev.observaciones, obs].filter(Boolean).join(' · ') }
     }
+    /* EL RESULTADO TAMBIÉN. Solo se pasaban los ítems y el lado quedaba «sin realizar»:
+       en la ficha «Guardar resultado» decía que faltaba marcar el resultado, y en la
+       valoración el test se descartaba al guardar. Se calcula como al tocar un ítem,
+       cada lado con el otro para la asimetría. */
+    for (const l of Object.keys(r)) {
+      const op = ladoOpuesto(l)
+      nuevos[l] = { ...nuevos[l], resultado: resultadoDeTest(test, conOtroLado(nuevos[l].items_resultado, op ? nuevos[op]?.items_resultado || null : null), 'positivo', ctx) }
+    }
     const primero = Object.keys(r)[0]
     onCambiar({ ...tv, lados: nuevos, ladoActivo: primero || tv.ladoActivo })
     setCamara(false)
