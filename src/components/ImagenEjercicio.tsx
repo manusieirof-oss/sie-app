@@ -61,13 +61,19 @@ export default function ImagenEjercicio({ src: srcSesion, ejercicioId, etiquetas
   const [cat, setCat] = useState<Catalogo | null>(listo)
   // Si cambian SU foto (fotoCambiada), se vuelve a pintar con la nueva.
   const [, setVersion] = useState(0)
+  /* FOTO ROTA: si la URL no carga (archivo borrado o movido) se salía el icono de imagen
+     rota del navegador. Se recuerda cuál falló y se pinta lo de sin foto (postura,
+     músculos, material o icono). */
+  const [rota, setRota] = useState<string | null>(null)
   useEffect(() => {
     if (!ejercicioId) return
     const f = (e: Event) => { if ((e as CustomEvent).detail === ejercicioId) setVersion(v => v + 1) }
     window.addEventListener('sie-foto', f); return () => window.removeEventListener('sie-foto', f)
   }, [ejercicioId])
   useEffect(() => { if (ejercicioId && !cat) catalogo().then(setCat).catch(() => {}) }, [ejercicioId]) // eslint-disable-line react-hooks/exhaustive-deps
-  const src = (ejercicioId && cat?.foto[ejercicioId]) || srcSesion
+  const srcBruta = (ejercicioId && cat?.foto[ejercicioId]) || srcSesion
+  const src = srcBruta && srcBruta !== rota ? srcBruta : null
+  const alFallar = () => setRota(srcBruta || null)
   const duenoFoto = src ? /\/ejercicios\/([^/]+)\//.exec(src)?.[1] : null
   const heredada = !!(src && ejercicioId && duenoFoto && duenoFoto !== ejercicioId)
   useEffect(() => { if ((!src || heredada) && !cat) catalogo().then(setCat).catch(() => {}) }, [src, heredada]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,17 +99,17 @@ export default function ImagenEjercicio({ src: srcSesion, ejercicioId, etiquetas
   // Un dibujo en SVG (subido como ilustración) se ve entero y con aire; una foto llena.
   if (src && /\.svg(\?|$)/i.test(src)) return (
     <span style={{ ...caja, background: '#fff' }}>
-      <img src={src} alt={alt} draggable={false} style={{ position: 'absolute', inset: '7%', width: '86%', height: '86%', objectFit: 'contain' }}/>
+      <img src={src} alt={alt} draggable={false} onError={alFallar} style={{ position: 'absolute', inset: '7%', width: '86%', height: '86%', objectFit: 'contain' }}/>
       {heredada && insignias}
     </span>
   )
   if (src && heredada && insignias) return (
     <span style={caja}>
-      <img src={src} alt={alt} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}/>
+      <img src={src} alt={alt} draggable={false} onError={alFallar} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}/>
       {insignias}
     </span>
   )
-  if (src) return <img src={src} alt={alt} draggable={false} style={{ ...caja, objectFit: 'cover', display: 'block' }}/>
+  if (src) return <img src={src} alt={alt} draggable={false} onError={alFallar} style={{ ...caja, objectFit: 'cover', display: 'block' }}/>
   if (postura) return (
     <span style={{ ...caja, background: '#fff' }} title="Imagen automática por su postura">
       <img src={urlPostura(postura)} alt={postura} draggable={false}

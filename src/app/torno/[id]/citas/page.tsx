@@ -1,4 +1,5 @@
 'use client'
+import CaraPaciente from '@/components/CaraPaciente'
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -131,7 +132,9 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const cara = (x: { foto: string | null, completo: string } | undefined, tam = 28) => (
     <span style={{ width: tam, height: tam, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: 'var(--gl)', color: 'var(--gd)',
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: tam * .42, fontWeight: 600 }}>
-      {x?.foto ? <img src={x.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : (x?.completo || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+      {/* foto_url guarda la RUTA del almacén privado, no una URL: se usaba tal cual en el
+          <img> y salía rota. CaraPaciente pide la URL firmada (y pone iniciales si falla). */}
+      <CaraPaciente p={{ foto_url: x?.foto, nombre: (x?.completo || '?').split(' ')[0], apellidos: (x?.completo || '').split(' ').slice(1).join(' ') }}/>
     </span>)
   const txtPac = (x: { nombre: string, completo: string } | undefined) => x ? (x.completo && x.completo !== x.nombre ? `${x.completo} (${x.nombre})` : x.nombre) : ''
   function irAPaciente(id: string | undefined) {
