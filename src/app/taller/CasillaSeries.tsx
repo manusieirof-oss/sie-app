@@ -29,7 +29,7 @@ const media = (xs: (number | null)[]) => {
   return Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10
 }
 
-export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie, quitarSerie }: any) {
+export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie, quitarSerie, desplegado = false }: any) {
   const [abierto, setAbierto] = useState(false)
   // Bandas y escalas de esfuerzo, de Ajustes (una sola consulta por página).
   const [aj, setAj] = useState<AjustesMedida | null>(null)
@@ -103,6 +103,36 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
   const hueco = (c: string) => prescrito(c) || ant[c] || '—'
   const textoPlan = campos.map(c => prescrito(c)).filter(Boolean)
     .map((v, i) => campos.length > 1 && i > 0 ? v : v).join(tm === 'peso_reps' ? '×' : '·')
+  /* CONFIRMAR: LO HIZO TAL CUAL. Para marcarlo hecho habia que pinchar en cada hueco
+     y reescribir lo mismo. Con esto se apunta lo que ya se ve (lo de la casilla, lo
+     planificado o lo de la ultima vez) en todas las series, y queda como de hoy.
+     Lo que ya se apunto hoy no se toca. */
+  const valorConfirmado = (si: number, c: string) => {
+    const ser = series[si] || {}
+    const propio = ser[c] != null && String(ser[c]).trim() !== '' ? String(ser[c]) : ''
+    return propio || prescrito(c) || String(((ej.ultimo || [])[si] || {})[c] ?? '') || String(ant[c] ?? '')
+  }
+  const todoHecho = series.length > 0 && series.every((_, si) => campos.every(c => esHoy(si, c)))
+  const confirmarTodas = () => {
+    series.forEach((_, si) => campos.forEach(c => {
+      if (esHoy(si, c)) return
+      const v = valorConfirmado(si, c)
+      if (v) mutarSerie(pacienteId, ei, si, c, v)
+    }))
+  }
+  /** El boton discreto de confirmar: un circulo pequeño con la palomita. */
+  const botonConfirmar = (pos?: any) => (
+    <button type="button" data-guia="taller-confirmar" disabled={todoHecho}
+      onClick={e => { e.stopPropagation(); confirmarTodas() }}
+      title={todoHecho ? 'Todas las series apuntadas' : 'Lo hizo tal cual: marcar todas las series como hechas'}
+      aria-label="Marcar todas las series como hechas"
+      style={{ width: 23, height: 23, borderRadius: '50%', padding: 0, flexShrink: 0,
+        display: 'grid', placeItems: 'center', cursor: todoHecho ? 'default' : 'pointer',
+        border: '2px solid var(--w)', boxShadow: '0 1px 5px rgba(38,40,37,.20)',
+        background: todoHecho ? 'var(--gd)' : 'var(--w)', color: todoHecho ? '#fff' : 'var(--gd)', ...pos }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+    </button>
+  )
   const celda = {
     width: 52, height: 30, fontFamily: 'inherit', fontSize: 14, padding: '0 3px',
     textAlign: 'center' as const, borderRadius: 6, color: 'var(--n)',
@@ -131,11 +161,55 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
     ? String(series.length) + '×' + campos.map(c => muestra(c) || '—').join('×')
     : String(series.length) + (textoPlan ? '× ' + textoPlan + (porTiempo ? 's' : campos.includes('metros') ? 'm' : '') : '×')
 
+  /* DESPLEGADO (filtro del taller): las series fuera, a la izquierda de la foto, una
+     fila por serie para cambiarlas una a una sin abrir nada. Abajo, discreto, el
+     de marcarlas todas como hechas. */
+  if (desplegado) {
+    const mini = { ...celda, width: 40, height: 26, fontSize: 13, padding: '0 2px' }
+    return (
+      <div onClick={e => e.stopPropagation()} data-guia="taller-series"
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, flexShrink: 0,
+          padding: '6px 4px', textAlign: 'center' }}>
+        <div style={{ ...fila, gap: 3 }}>
+          <span style={{ width: 12 }}/>
+          {campos.map((c, k) => (
+            <span key={c} style={{ display: 'contents' }}>
+              {k > 0 && <span style={{ ...sep, width: 6 }}/>}
+              <span style={{ width: c === 'banda' ? 66 : 40, fontSize: 8.5, color: 'var(--grl)' }}>{etiqueta(c)}</span>
+            </span>
+          ))}
+        </div>
+        {series.map((ser: any, si: number) => (
+          <div key={si} style={{ ...fila, gap: 3 }}>
+            <span style={{ width: 12, fontSize: 10, color: 'var(--grl)', textAlign: 'center' }}>{si + 1}</span>
+            {campos.map((c, k) => (
+              <span key={c} style={{ display: 'contents' }}>
+                {k > 0 && <span style={{ ...sep, width: 6 }}>{tm === 'peso_reps' ? '×' : '·'}</span>}
+                {casilla(c, esHoy(si, c) ? (ser?.[c] || '') : '',
+                  (ser?.[c] != null && String(ser[c]) !== '' ? String(ser[c]) : '') || prescrito(c) || ((ej.ultimo || [])[si] || {})[c] || '—',
+                  v => mutarSerie(pacienteId, ei, si, c, v), { ...mini, ...(c === 'banda' ? { width: 66 } : {}), ...tinta(esHoy(si, c)) })}
+              </span>
+            ))}
+          </div>
+        ))}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 2 }}>
+          {addSerie && (
+            <button type="button" onClick={() => addSerie(pacienteId, ei)} title="Añadir una serie"
+              style={{ fontSize: 10, color: 'var(--g)', background: 'none', border: 'none',
+                cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>+ serie</button>
+          )}
+          {botonConfirmar()}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
+      <div style={{ position: 'absolute', left: 5, bottom: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
       <button ref={ancla} data-guia="taller-series" onClick={e => { e.stopPropagation(); setAbierto(v => v === false) }}
         title={mezclado ? 'Las series no son iguales · pulsa para verlas' : 'Apuntar las series'}
-        style={{ position: 'absolute', left: 5, bottom: 5, height: 23, borderRadius: 99,
+        style={{ height: 23, borderRadius: 99,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontFamily: 'inherit', padding: '0 9px',
           border: '2px solid var(--w)', cursor: 'pointer',
@@ -145,6 +219,9 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
           fontWeight: algoHoy ? 700 : 500 }}>
         {resumen}{mezclado ? ' ~' : ''}
       </button>
+      {/* Al lado de la chapa: lo hizo tal cual, sin tener que abrirla. */}
+      {!todoHecho && botonConfirmar()}
+      </div>
 
       <Flotante abierto={abierto} ancla={ancla} onCerrar={() => setAbierto(false)}
         ancho={224 + (campos.includes('banda') ? 30 : 0) + esfuerzos.length * 46}>

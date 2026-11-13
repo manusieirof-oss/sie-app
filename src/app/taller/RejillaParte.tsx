@@ -45,7 +45,7 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA }: any) {
+  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA, desplegar = false }: any) {
   const [moviendo, setMoviendo] = useState(false)
   /* ARRASTRAR (ordenando): con el dedo o el ratón, por eventos de puntero para que vaya
      también en la tablet. Se coge una tarjeta y se suelta encima de otra: ocupa su sitio. */
@@ -108,7 +108,7 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
         <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--gd)', marginBottom: 6 }}>Grupo {gr.g}</div>
       )}
       <div style={{ display: 'grid', gap: 9,
-        gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
+        gridTemplateColumns: `repeat(auto-fill, minmax(${desplegar ? 290 : 170}px, 1fr))` }}>
 
         {gr.items.map(({ ej, ei }: any) => {
           // LIGADO A SU MOMENTO: las operaciones que ahora le importan son las de su momento
@@ -183,7 +183,11 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   no queremos: manda la imagen. */}
               {/* NO LO HIZO: la foto se apaga y el nombre se tacha. Lo normal es hacerlo
                   todo, asi que es lo unico que se marca y tiene que verse de lejos. */}
-              <div style={{ position: 'relative', display: 'block' }}>
+              {/* DESPLEGADO: las series salen a la izquierda de la foto (filtro del taller). */}
+              <div style={desplegar ? { display: 'flex', alignItems: 'center', gap: 4 } : undefined}>
+              {desplegar && <CasillaSeries desplegado pacienteId={pacienteId} ej={ej} ei={ei}
+                mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>}
+              <div style={{ position: 'relative', display: 'block', ...(desplegar ? { flex: 1, minWidth: 0 } : {}) }}>
                 {/* ORDENANDO: flechas grandes encima de la foto para moverlo antes o después. */}
                 {ordenando && onMover && ej.pos != null && (() => {
                   const pe = Number(String(ej.pos).split('.')[1]), n = ejercicios.length
@@ -222,8 +226,9 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
                   objetivosLib={objetivosLib} objsPac={objsPac}
                   onObjetivo={toggleObjetivo ? (oid: string) => toggleObjetivo(pacienteId, oid, ej.ejercicio_id, ej.nombre) : undefined}/>
                 <ChapaComentario pacienteId={pacienteId} ej={ej} ei={ei} setComent={setComent}/>
-                <CasillaSeries pacienteId={pacienteId} ej={ej} ei={ei}
-                  mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>
+                {!desplegar && <CasillaSeries pacienteId={pacienteId} ej={ej} ei={ei}
+                  mutarSerie={mutarSerie} addSerie={addSerie} quitarSerie={quitarSerie}/>}
+              </div>
               </div>
 
               <div style={{ fontSize: 12, marginTop: 7, lineHeight: 1.3 }}>

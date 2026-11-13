@@ -120,6 +120,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   // Se lee despues de montar: leerlo al crear el estado descuadraba el render del servidor.
   useEffect(() => { if (solo) return; try { if (localStorage.getItem('taller_vista') === 'todos') setVistaE('todos') } catch {} }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const setVista = (v:'uno'|'todos') => { setVistaE(v); if (!solo) try { localStorage.setItem('taller_vista', v) } catch {} }
+  /* SERIES DESPLEGADAS: filtro de vista. Encendido, las repes y el peso salen a la
+     izquierda de cada ejercicio para tocarlas una a una; apagado, en la chapa de
+     siempre. Se recuerda en este dispositivo. */
+  const [desplegar, setDesplegarE] = useState(false)
+  useEffect(() => { try { if (localStorage.getItem('taller_series') === 'fuera') setDesplegarE(true) } catch {} }, [])
+  const setDesplegar = (v:boolean) => { setDesplegarE(v); try { localStorage.setItem('taller_series', v ? 'fuera' : 'chapa') } catch {} }
 
   /* ── QUIEN ESTA CON CADA PACIENTE (presencia en directo) ─────────────────────
      Varias tablets y ordenadores trabajan a la vez. Si dos apuntan al mismo
@@ -2050,6 +2056,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 <button style={icoVista(vista === 'uno')} onClick={() => setVista('uno')} title="Uno a uno"><Ic name="usuario" size={17}/></button>
                 <button style={icoVista(vista === 'todos')} onClick={() => setVista('todos')} title="Todos"><Ic name="pacientes" size={17}/></button>
               </div>
+              {/* Series desplegadas a la izquierda de cada ejercicio, o en la chapa. */}
+              <button style={{ ...redondo(desplegar), color: desplegar ? 'var(--n)' : 'var(--gr)' }}
+                onClick={() => setDesplegar(!desplegar)} title={desplegar ? 'Series en la chapa' : 'Desplegar las series junto a cada ejercicio'}
+                aria-label="Desplegar las series">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h3M4 12h3M4 18h3M11 6h9M11 12h9M11 18h9"/></svg>
+              </button>
               {/* Pulsómetros: antes una fila propia. Rojo si hay bandas emitiendo. */}
               <button style={{ ...redondo(pulsoAbierto), color: conPulso ? '#B05A5A' : (pulsoAbierto ? 'var(--n)' : 'var(--gr)') }}
                 onClick={() => setPulsoAbierto(v => !v)} title={pulsoAbierto ? 'Ocultar pulsómetros' : piden ? `Pulsómetros · ${piden} lo llevan hoy según su sesión` : 'Pulsómetros'}>
@@ -2471,7 +2483,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               onCambiarA={cambiaEj ? (i:number, nuevo:any)=>sustituir(act.paciente.id, i, nuevo) : undefined}
               ordenando={ej.pos != null && ordenando === `${act.paciente.id}|${String(ej.pos).split('.')[0]}`}
               onMover={(pos:string, dir:-1|1)=>moverEnParte(act.paciente.id, pos, dir)}
-              onMoverA={(pos:string, a:number)=>{ const [pi, pe] = String(pos).split('.').map(Number); return reordenarParte(act.paciente.id, pi, pe, a) }}/>}
+              onMoverA={(pos:string, a:number)=>{ const [pi, pe] = String(pos).split('.').map(Number); return reordenarParte(act.paciente.id, pi, pe, a) }}
+              desplegar={desplegar}/>}
             </div>
             )
           })}
