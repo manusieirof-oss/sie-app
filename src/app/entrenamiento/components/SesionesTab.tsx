@@ -43,7 +43,7 @@ type Parte = {
 const VARIANTES = ['Bilateral','Unilateral','Alterno','Unipodal','Supino','Prono','Decúbito lateral']
 const CAPACIDADES = ['Fuerza','Fuerza máxima','Movilidad','Estiramiento','Resistencia','Propiocepción','Coordinación']
 
-export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial, objetivoInicial }: any) {
+export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas, objetivos, cargar, getNombre, pacienteIdInicial, objetivoInicial, cambioVista }: any) {
   const [buscarSes, setBuscarSes] = useState('')
   /**
    * De quién es la sesión. Por defecto, PLANTILLAS.
@@ -64,7 +64,9 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
   type VistaS = 'normal' | 'tiempo' | 'objetivos' | 'uso' | 'ejercicios'
   const VISTAS_S: { k: VistaS, t: string, ic: string }[] = [
     { k: 'normal', t: 'Normal', ic: 'biblioteca' }, { k: 'tiempo', t: 'Tiempo', ic: 'reloj' }, { k: 'objetivos', t: 'Objetivos', ic: 'objetivo' },
-    { k: 'uso', t: 'Uso', ic: 'stats' }, { k: 'ejercicios', t: 'Ejercicios', ic: 'fuerza' },
+    // Sin «Uso»: las plantillas se copian al dárselas a alguien, así que en sus citas sale
+    // la copia y la plantilla siempre tenía 0. Ese dato no interesa aquí.
+    { k: 'ejercicios', t: 'Ejercicios', ic: 'fuerza' },
   ]
   const ORDENES_S: Record<VistaS, { k: string, t: string }[]> = {
     normal: [{ k: 'nombre', t: 'Nombre' }, { k: 'nuevas', t: 'Nuevas' }],
@@ -285,8 +287,11 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         </div>
       )}
       {/* CABECERA: buscador + nueva */}
+      {/* TODO EN UNA FILA: un buscador más corto y los botones a su derecha. */}
       <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
-        <input className="input" placeholder="Buscar por nombre, objetivo o paciente..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <input className="input" placeholder="Buscar por nombre, objetivo o paciente..." value={buscarSes} onChange={e=>setBuscarSes(e.target.value)} style={{flex:'0 1 340px',minWidth:180}}/>
+        <span style={{flex:1}}/>
+        {cambioVista}
         {/* De quién son: el botón de la biblioteca (pasa de una a otra con cada toque). */}
         <BotonVista valor={origen} onChange={k=>setOrigen(k as any)} titulo="Plantillas, de pacientes o todas"
           opciones={([['plantillas','Plantillas'],['pacientes','De pacientes'],['todas','Todas']] as const).map(([k,t])=>({ k, t,
@@ -304,16 +309,8 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         </button>
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
-      {/* Filtro por objetivo: el mismo velo de bolas que en Ciclos. */}
-      {/* Objetivos, tiempo de entreno y partes del cuerpo: los botones de la biblioteca. */}
-      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
-        {(objetivos||[]).length>0 && <FiltroObjetivos objetivos={objetivos||[]} valor={filtroObjetivos} onChange={setFiltroObjetivos} nResultado={sesionesFiltradas.length} nombre="sesiones"/>}
-        <BotonVista icono="reloj" prefijo="Tiempo" lista valor={filtroTiempo} onChange={setFiltroTiempo} titulo="Duración estimada de la sesión"
-          opciones={[{k:'',t:'Cualquiera'},...TIEMPOS.map(([k,t])=>({k,t}))]}/>
-        {zonasUsadas.length>0 && <FiltroZonas etiquetas={etiquetas||[]} usadas={zonasUsadas} valor={filtroZona} onChange={setFiltroZona}
-            nSinZona={sesiones.filter((s:any)=>zonasDe(etiquetas||[], zonasDeSesion(s)).length===0).length} todas="Todo el cuerpo"/>}
-      </div>
-
+      {/* Los filtros de objetivo, tiempo y zona se quitaron de aquí (no se usaban): el
+         orden por tiempo u objetivos está en sus vistas. */}
       {sesionesFiltradas.length===0?(
         <div style={{textAlign:'center',padding:40,color:'var(--grl)',fontSize:11}}>
           {sesiones.length===0 ? 'Sin sesiones. Crea la primera con + Nueva sesión.'

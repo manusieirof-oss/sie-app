@@ -253,14 +253,16 @@ function EntrenamientoContent() {
           {/* SESIONES Y SISTEMAS EN UNA PESTAÑA: arriba se pasa de una lista a la otra
               (antes eran dos pestañas). Por dentro siguen siendo 'sesiones' y 'sistemas',
               así los enlaces de siempre (?tab=sistemas) llevan a su lista. */}
-          {(tab==='sesiones'||tab==='sistemas')&&(
+          {/* En Sesiones el botón va en su fila de filtros (lo pinta SesionesTab). */}
+          {tab==='sistemas'&&(
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
-              <BotonVista icono={tab==='sesiones'?'valoracion':'objetivo'} valor={tab} onChange={setTab} titulo="Pasar de Sesiones a Sistemas"
+              <BotonVista icono="objetivo" valor={tab} onChange={setTab} titulo="Pasar de Sesiones a Sistemas"
                 opciones={[{k:'sesiones',t:'Sesiones'},{k:'sistemas',t:'Sistemas'}]}/>
             </div>
           )}
           {(tab==='sesiones'||tab==='sistemas')&&!sesionesCargadas.current&&<div className="loading">Cargando sesiones...</div>}
-          {tab==='sesiones'&&sesionesCargadas.current&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}/>}
+          {tab==='sesiones'&&sesionesCargadas.current&&<SesionesTab sesiones={sesiones} pacientes={pacientes} ejercicios={ejercicios} etiquetas={etiquetas} objetivos={objetivos} cargar={cargar} getNombre={getNombre} pacienteIdInicial={pacienteIdParam} objetivoInicial={objetivoParam}
+            cambioVista={<BotonVista icono="valoracion" valor={tab} onChange={setTab} titulo="Pasar de Sesiones a Sistemas" opciones={[{k:'sesiones',t:'Sesiones'},{k:'sistemas',t:'Sistemas'}]}/>}/>}
           {tab==='sistemas'&&sesionesCargadas.current&&<SistemasTab objetivos={objetivos} sesiones={sesiones} ejercicios={ejercicios} etiquetas={etiquetas} testsLib={testsLib} cargar={cargar} objetivoInicial={objetivoParam}/>}
           {tab==='cuestionarios'&&<CuestionariosTab/>}
           {tab==='tests'&&<TestsTab testsLib={testsLib} etiquetas={etiquetas} objetivos={objetivos} setTestsLib={setTestsLib} SelectorColumnas={SelectorColumnas} abrirTestId={searchParams.get('test')}/>}

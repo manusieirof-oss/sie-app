@@ -18,7 +18,10 @@ export function minutosDe(partes: any[]): number {
     const ejs = p.ejercicios || []
     if (!ejs.length) continue
     const desc = parseInt(String(p.descanso || '')) || 0
+    // UNILATERAL, POR LOS DOS LADOS: 3 × 10 a una pierna son 10 con cada una, el doble de
+    // trabajo. El descanso se cuenta una vez por serie (entre un lado y otro casi no hay).
     const trabajo = (e: any) => (parseInt(String(e.tiempo || '')) || (parseInt(String(e.reps || '')) || 10) * 3)
+      * (/^unilat/i.test(String(e.lado || '')) ? 2 : 1)
     if (p.modo === 'circuito') {
       const v = parseInt(String(p.vueltas || '')) || 1
       s += v * ejs.reduce((a: number, e: any) => a + trabajo(e) + 15, 0) + Math.max(0, v - 1) * desc
