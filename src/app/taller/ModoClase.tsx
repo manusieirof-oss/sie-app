@@ -752,33 +752,43 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
      dentro de su parte. Cambia su sesión, así que sale así en sus próximas clases. */
   const [ordenando, setOrdenando] = useState<string | null>(null)
   async function moverEnParte(pid: string, pos: string, dir: -1 | 1) {
-    const item = seleccion.find((x:any) => x.paciente.id === pid)
-    if (!item?.sesionId) return
     const [pi, pe] = String(pos).split('.').map(Number)
-    const otro = pe + dir
+    return reordenarParte(pid, pi, pe, pe + dir)
+  }
+  /** Lleva el ejercicio `de` de la parte `pi` al sitio `a` (arrastrando o con las flechas). */
+  async function reordenarParte(pid: string, pi: number, de: number, a: number) {
+    const item = seleccion.find((x:any) => x.paciente.id === pid)
+    if (!item?.sesionId || de === a) return
     const n = item.datos.filter((d:any) => String(d.pos || '').startsWith(pi + '.')).length
-    if (otro < 0 || otro >= n) return
-    // Los ajustes del día van por posición (parte.ejercicio): se intercambian también, o
-    // el peso de hoy de uno caería en el otro.
+    if (a < 0 || a >= n || de < 0 || de >= n) return
+    // Dónde acaba cada uno: el movido va a `a` y los de en medio se corren un puesto.
+    const orden = Array.from({ length: n }, (_, k) => k)
+    orden.splice(a, 0, orden.splice(de, 1)[0])
+    const nuevoSitio: Record<number, number> = {}
+    orden.forEach((viejo, nuevo) => { nuevoSitio[viejo] = nuevo })
+    // Los ajustes del día van por posición (parte.ejercicio): se recolocan igual, o el
+    // peso de hoy de uno caería en otro.
     const fechaC = item.fechaClase || fecha
     const { data: cs } = await supabase.from('citas').select('id,ajustes')
       .eq('paciente_id', pid).eq('sesion_id', item.sesionId).gte('fecha', fechaC).not('ajustes', 'is', null)
     for (const c of (cs || [])) {
-      const ej = { ...(c.ajustes?.ejercicios || {}) }
-      const a = `${pi}.${pe}`, b = `${pi}.${otro}`
-      if (!(a in ej) && !(b in ej)) continue
-      const va = ej[a], vb = ej[b]; delete ej[a]; delete ej[b]
-      if (vb !== undefined) ej[a] = vb
-      if (va !== undefined) ej[b] = va
-      await supabase.from('citas').update({ ajustes: { ...c.ajustes, ejercicios: ej } }).eq('id', c.id)
+      const ej = c.ajustes?.ejercicios || {}
+      if (!Object.keys(ej).some(k => k.startsWith(pi + '.'))) continue
+      const nuevo: Record<string, any> = {}
+      Object.entries(ej).forEach(([k, v]) => {
+        const [x, y] = k.split('.').map(Number)
+        nuevo[x === pi && y in nuevoSitio ? `${x}.${nuevoSitio[y]}` : k] = v
+      })
+      await supabase.from('citas').update({ ajustes: { ...c.ajustes, ejercicios: nuevo } }).eq('id', c.id)
     }
     await editarSuSesion(pid, partes => {
       const l = partes[pi]?.ejercicios
-      if (!l || !l[pe] || !l[otro]) return partes
-      ;[l[pe], l[otro]] = [l[otro], l[pe]]
+      if (!l || l.length !== n) return partes
+      partes[pi].ejercicios = orden.map(k => l[k])
       return partes
     })
   }
+
   /* LA BIBLIOTECA SE TRAE SOLA, al poco de abrir el taller: al pulsar «+» o «cambiar
      ejercicio» ya está y no sale una pantalla de «Cargando…» antes de poder elegir. */
   useEffect(() => { const t = setTimeout(() => { cargarCatalogo() }, 2500); return () => clearTimeout(t) }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2412,10 +2422,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 )}
                 {/* ORDENAR, junto a añadir: las flechas salen en cada ejercicio de la parte. */}
                 {ej.pos != null && editaPlan && delaParte.length > 1 && !plegada && (() => { const k = `${act.paciente.id}|${String(ej.pos).split('.')[0]}`; return (
-                  <button type="button" title="Cambiar el orden de los ejercicios de esta parte"
+                  <button type="button" title={ordenando === k ? 'Terminar de ordenar' : 'Ordenar: arrastra los ejercicios de esta parte'}
+                    aria-label="Ordenar los ejercicios de esta parte"
                     onClick={e=>{ e.stopPropagation(); setOrdenando(ordenando === k ? null : k) }}
-                    className={ordenando === k ? 'btn btn-p btn-sm' : 'btn btn-t btn-sm'} style={{fontSize:12}}>
-                    {ordenando === k ? '✓ Listo' : '⇅ Ordenar'}
+                    style={{width:30,height:30,borderRadius:'50%',border:0,background:ordenando === k ? 'var(--g)' : 'transparent',
+                      color:ordenando === k ? '#fff' : 'var(--gr)',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',padding:0,flexShrink:0}}>
+                    {ordenando === k
+                      ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>}
                   </button>) })()}
                 {ej.parteObj && ej.pos == null && descansoDeParte(ej.parteObj) && (
                   <span style={{fontSize:12.5,color:'var(--gr)',display:'inline-flex',alignItems:'center',gap:5}}>
@@ -2456,7 +2470,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
               onSustituir={cambiaEj ? (i:number)=>abrirSustituir(act.paciente.id, i) : undefined}
               onCambiarA={cambiaEj ? (i:number, nuevo:any)=>sustituir(act.paciente.id, i, nuevo) : undefined}
               ordenando={ej.pos != null && ordenando === `${act.paciente.id}|${String(ej.pos).split('.')[0]}`}
-              onMover={(pos:string, dir:-1|1)=>moverEnParte(act.paciente.id, pos, dir)}/>}
+              onMover={(pos:string, dir:-1|1)=>moverEnParte(act.paciente.id, pos, dir)}
+              onMoverA={(pos:string, a:number)=>{ const [pi, pe] = String(pos).split('.').map(Number); return reordenarParte(act.paciente.id, pi, pe, a) }}/>}
             </div>
             )
           })}

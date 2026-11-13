@@ -45,8 +45,16 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover }: any) {
+  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover, onMoverA }: any) {
   const [moviendo, setMoviendo] = useState(false)
+  /* ARRASTRAR (ordenando): con el dedo o el ratón, por eventos de puntero para que vaya
+     también en la tablet. Se coge una tarjeta y se suelta encima de otra: ocupa su sitio. */
+  const [arrastra, setArrastra] = useState<{ pos: string, sobre: number | null } | null>(null)
+  const peDe = (pos: any) => Number(String(pos).split('.')[1])
+  const tarjetaBajo = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y)?.closest('[data-pe]') as HTMLElement | null
+    return el ? Number(el.dataset.pe) : null
+  }
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -125,8 +133,23 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
           const volCambiable = ['reps', 'segundos'].includes(partesMedida(ej.tipo_medida).volumen)
           const porSeg = camposDelEjercicio(ej, ejecucionPorTiempo(cfgTrabajo, String(ej.regimen || ej.plan?.regimen || '').toLowerCase())).includes('segundos')
           const franjaCambiada = cambiadoHoy(ej, 'lado', 'Bilateral') || (hayRegimen && cambiadoHoy(ej, 'regimen')) || !!ej.volumenHoy
+          const pe = ej.pos != null ? peDe(ej.pos) : null
+          const cogida = arrastra?.pos === ej.pos, destino = arrastra && arrastra.sobre === pe && !cogida
           return (
-            <div key={ei} style={{ textAlign: 'center' }}>
+            <div key={ei} data-pe={ordenando && pe != null ? pe : undefined}
+              onPointerDown={ordenando && onMoverA && ej.pos != null ? e => {
+                if ((e.target as HTMLElement).closest('button')) return
+                ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setArrastra({ pos: ej.pos, sobre: pe })
+              } : undefined}
+              onPointerMove={arrastra && cogida ? e => { const s = tarjetaBajo(e.clientX, e.clientY); if (s !== arrastra.sobre) setArrastra({ ...arrastra, sobre: s }) } : undefined}
+              onPointerUp={arrastra && cogida ? async e => {
+                const s = tarjetaBajo(e.clientX, e.clientY); setArrastra(null)
+                if (s != null && s !== pe) { setMoviendo(true); await onMoverA(ej.pos, s); setMoviendo(false) }
+              } : undefined}
+              onPointerCancel={() => setArrastra(null)}
+              style={{ textAlign: 'center', ...(ordenando ? { cursor: cogida ? 'grabbing' : 'grab', touchAction: 'none', userSelect: 'none',
+                opacity: cogida ? .45 : 1, outline: destino ? '3px dashed var(--g)' : 'none', outlineOffset: 3, borderRadius: 12,
+                transition: 'opacity .1s' } : {}) }}>
               {/* CÓMO SE HACE, EN LA CABEZA DE LA TARJETA. En píldoras pequeñas, junto a la
                   capacidad, la lateralidad y la ejecución no se distinguían (lo vio Mario en
                   sala). Una franja que se lee de lejos: verde si es lo del plan, ámbar si hoy
