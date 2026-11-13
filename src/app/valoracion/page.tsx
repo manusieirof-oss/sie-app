@@ -522,37 +522,35 @@ export default function ValoracionPage() {
       <div style={{fontSize:17,fontWeight:400,color:'var(--n)'}}>{esRevaloracion?'Revaloración guardada':'Valoración guardada'}</div>
       <div style={{fontSize:13,color:'var(--gr)',textAlign:'center',maxWidth:440,lineHeight:1.6}}>
         {guardado?.nombre ? <><strong style={{fontWeight:500}}>{guardado.nombre}</strong> ya tiene su ficha al día. </> : null}
-        {guardado?.citas ? 'Lo que falta es repartirle las sesiones.' : 'Lo que falta es ponerle las citas y repartirle las sesiones.'}
+        {/* LAS CITAS YA VAN ANTES, en el paso Plan con el calendario: aquí solo queda
+            repartirle las sesiones. Antes pedía otra vez ponerle las citas. */}
+        Lo que falta es repartirle las sesiones.
       </div>
       {guardado?.citas && <div style={{fontSize:13,maxWidth:560,lineHeight:1.5,color:guardado.citas.startsWith('Error')?'var(--red)':guardado.citas.includes('⚠')?'#7A5800':'var(--gd)',background:guardado.citas.startsWith('Error')?'var(--redl)':guardado.citas.includes('⚠')?'var(--ambl)':'var(--gl)',borderRadius:10,padding:'8px 14px'}}>{guardado.citas}</div>}
 
       <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',maxWidth:360,marginTop:6}}>
-        {/* AGENDA DE HUECOS: tras la valoracion lo que hace falta es ver donde hay sitio
-            y marcarlo, no la agenda entera. La completa sigue a un toque. */}
-        <button className="btn btn-p" style={{justifyContent:'center',padding:'12px'}}
-          onClick={()=>setHuecos(true)} disabled={!guardado?.id}>
-          <Ic name="calendario" size={14}/> {guardado?.citas ? 'Ver o añadir citas' : 'Ponerle las citas'}
-        </button>
-        <button className="btn btn-t" style={{justifyContent:'center',padding:'6px',fontSize:12}}
-          onClick={()=>router.push(`/agenda?nuevaCitaPara=${guardado?.id||''}`)}>
-          Abrir la agenda completa
-        </button>
-        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} preMarcadas={guardado.citas ? [] : ((form.horario_pref as any)?.huecos||[]).filter((x:any)=>!x.espera)} onCerrar={()=>setHuecos(false)}/>}
-        <button className="btn btn-s" style={{justifyContent:'center',padding:'12px'}}
-          onClick={()=>router.push(`/pacientes/${guardado?.id}?tab=entreno`)}>
-          <Ic name="entreno" size={14}/> Asignarle las sesiones
+        {/* A la pantalla de repartir sesiones en sus citas (la del torno). */}
+        <button className="btn btn-p" style={{justifyContent:'center',padding:'12px'}} disabled={!guardado?.id}
+          onClick={()=>router.push(`/torno/${guardado?.id}/citas`)}>
+          <Ic name="entreno" size={14}/> Repartirle las sesiones
         </button>
         <button className="btn btn-t" style={{justifyContent:'center',padding:'10px'}}
           onClick={()=>router.push(`/pacientes/${guardado?.id}`)}>
           Ver su ficha
         </button>
+        {/* Por si en el Plan no se le puso ninguna: discreto, ya no es el paso normal. */}
+        {!esRevaloracion && !guardado?.citas && guardado?.id && (
+          <button className="btn btn-t" style={{justifyContent:'center',padding:'6px',fontSize:12}}
+            onClick={()=>setHuecos(true)}>No tiene citas · ponérselas</button>
+        )}
+        {huecos && guardado?.id && <VeloAgendaHuecos pacienteId={guardado.id} nombre={guardado.nombre} preMarcadas={((form.horario_pref as any)?.huecos||[]).filter((x:any)=>!x.espera)} onCerrar={()=>setHuecos(false)}/>}
       </div>
 
       {/* Encadenar valoraciones es lo normal en un día de altas: se sale sin hacer nada
           más y el paciente queda avisado como "Sin citas" en la lista. */}
       <button className="btn btn-t btn-sm" style={{marginTop:4,color:'var(--grl)'}}
         onClick={()=>router.push('/pacientes')}>
-        Ahora no · queda marcado como "Sin citas" en la lista
+        Ahora no
       </button>
     </div>
   )
