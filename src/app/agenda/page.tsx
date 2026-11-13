@@ -19,7 +19,7 @@ import ProgramacionCitas from '@/components/ProgramacionCitas'
 import ModalAlertasCita from './components/ModalAlertasCita'
 import { avisarGuia } from '@/lib/guiaEventos'
 import ModalTareas from './components/ModalTareas'
-import AvisoTareas from './components/AvisoTareas'
+import AvisoTareas, { esAvisoEquipo } from './components/AvisoTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
 import { ultimasDeBono, bonoTrasEstado, engancharCitas, revisarBonoDeCita } from '@/lib/bonoSesiones'
@@ -551,7 +551,8 @@ export default function AgendaPage() {
   const clases=new Set(citasHoyActivas.map(c=>`${(c.hora||'').slice(0,5)}|${c.sala}`)).size
   const pacsHoy=new Set(citasHoyActivas.map((c:any)=>c.paciente_id))
   const alertasHoy=(alertasPaciente||[]).filter((a:any)=>pacsHoy.has(a.paciente_id))
-  const tareasPend=(tareas||[]).filter((t:any)=>!t.completada)
+  // Sin los avisos del equipo: esos son privados de quien los recibe (ver AvisoTareas).
+  const tareasPend=(tareas||[]).filter((t:any)=>!t.completada && (!esAvisoEquipo(t) || t.asignado_a===userId))
   const nombrePacDe=(pid:string)=>{const c=citas.find((x:any)=>x.paciente_id===pid);return c?.pacientes?`${c.pacientes.nombre} ${c.pacientes.apellidos||''}`.trim():''}
   // Las alertas se leen siguiendo el día: agrupadas por paciente (las dos suyas juntas)
   // y en el orden en que van llegando, de primera a última hora.

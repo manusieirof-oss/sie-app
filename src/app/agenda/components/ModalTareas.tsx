@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { usePuede } from '@/lib/permisos'
+import { esAvisoEquipo } from './AvisoTareas'
 
 export default function ModalTareas({ tareas, perfiles, pacientes, userId, crearTarea, completarTarea, borrarTarea, onCerrar }: any) {
   const [titulo, setTitulo] = useState('')
@@ -34,8 +35,11 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
     ? (pacientes||[]).filter((p)=>`${p.nombre} ${p.apellidos||''} ${p.nombre_clinica||''}`.toLowerCase().includes(buscarPac.toLowerCase())).slice(0,5)
     : []
 
+  // Los avisos del equipo van aparte y solo los ve a quien van dirigidos («Mis avisos»).
+  const misAvisos = (tareas||[]).filter((t:any)=>esAvisoEquipo(t) && t.asignado_a===userId)
   let lista = (tareas||[]).filter((t)=>verCompletadas?t.completada:!t.completada)
-  if (filtroTrab!=='todos') lista = lista.filter((t)=>t.asignado_a===filtroTrab)
+  lista = filtroTrab==='avisos' ? lista.filter((t:any)=>esAvisoEquipo(t) && t.asignado_a===userId) : lista.filter((t:any)=>!esAvisoEquipo(t))
+  if (filtroTrab!=='todos' && filtroTrab!=='avisos') lista = lista.filter((t)=>t.asignado_a===filtroTrab)
 
   async function guardar() {
     if (!titulo.trim()) return
@@ -104,6 +108,12 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
             <option value="todos">Todos los trabajadores</option>
             {(perfiles||[]).map((p)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
           </select> : <span style={{flex:1}}/>}
+          {misAvisos.length > 0 && (
+            <button className={`chip-sel ${filtroTrab==='avisos'?'on':''}`} style={{flexShrink:0,fontSize:11.5}}
+              onClick={()=>setFiltroTrab(filtroTrab==='avisos'?'todos':'avisos')} title="Los avisos del equipo que te han mandado: solo los ves tú">
+              Mis avisos · {misAvisos.filter((t:any)=>!t.completada).length}
+            </button>
+          )}
           {/* Dos pestañas, como «Uno a uno / Todos»: antes era un solo botón que cambiaba
               de nombre al pulsarlo y parecía una etiqueta. */}
           <div style={{display:'inline-flex',background:'#E8E7E1',borderRadius:99,padding:3,flexShrink:0}}>

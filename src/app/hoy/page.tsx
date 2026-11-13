@@ -11,6 +11,7 @@ import { testsPorConfirmar } from '@/lib/mantenimiento'
 import CaraPaciente from '@/components/CaraPaciente'
 import { usePuede } from '@/lib/permisos'
 import { MisAvisosArreglados } from '@/components/BuzonAvisos'
+import { esAvisoEquipo } from '@/app/agenda/components/AvisoTareas'
 
 // HOY: LA PORTADA DE SIE.
 //
@@ -31,6 +32,7 @@ export default function Hoy() {
   const [molestias, setMolestias] = useState<any[]>([])
   const [tests, setTests] = useState<Record<string, string[]>>({})
   const [tareas, setTareas] = useState<any[]>([])
+  const [misAvisos, setMisAvisos] = useState<any[]>([])
   // Las de «Revisar ejercicio» llevan a su torno (quien puede entrar en él).
   const puedeTorno = usePuede()('torno')
   const [notas, setNotas] = useState<any[]>([])
@@ -66,7 +68,9 @@ export default function Hoy() {
         supabase.from('bonos').select('estado_pago').eq('activo', true).in('estado_pago', ['pendiente', 'impago']),
       ])
       setAlertas(al || []); setMolestias((mo || []).filter((m: any) => m.activa !== false))
-      setTareas((ta || []).filter((t: any) => !t.asignado_a || t.asignado_a === user.id))
+      // Los avisos del equipo, aparte y solo para quien los recibe.
+      setTareas((ta || []).filter((t: any) => !esAvisoEquipo(t) && (!t.asignado_a || t.asignado_a === user.id)))
+      setMisAvisos((ta || []).filter((t: any) => esAvisoEquipo(t) && t.asignado_a === user.id))
       setNotas(no || []); setCobros((bo || []).length)
       setTurnos(await cargarTurnos())
       setCargando(false)
@@ -220,6 +224,19 @@ export default function Hoy() {
         </section>
 
         <MisAvisosArreglados/>
+        {/* MIS AVISOS: lo que el equipo me ha mandado por el buzón. Solo lo veo yo. */}
+        {misAvisos.length > 0 && (
+          <section style={caja}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Mis avisos <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--grl)' }}>· solo los ves tú</span></h3>
+            {misAvisos.slice(0, 8).map(t => (
+              <label key={t.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderTop: '1px solid var(--bl)', fontSize: 13.5, cursor: 'pointer' }}>
+                <input type="checkbox" onChange={() => { setMisAvisos(p => p.filter(x => x.id !== t.id)); hecha(t) }} style={{ marginTop: 3 }}/>
+                <span>{String(t.titulo).replace(/^Aviso del equipo\s*/, '')}</span>
+              </label>
+            ))}
+            {misAvisos.length > 8 && <Link href="/avisos" style={{ fontSize: 12.5, color: 'var(--gd)' }}>Ver los {misAvisos.length} →</Link>}
+          </section>
+        )}
         <section style={caja} data-guia="hoy-tareas">
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Tareas del equipo</h3>
           {tareas.length === 0 && <div style={{ fontSize: 13, color: 'var(--gr)' }}>Sin tareas pendientes.</div>}

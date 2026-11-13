@@ -25,10 +25,12 @@ export function AvisarDeAlgo({ nombre, onCerrar }: { nombre?: string, onCerrar: 
        para cada persona de dirección; si no se pueden leer, para todo el equipo. */
     try {
       const { data: u } = await supabase.auth.getUser()
-      const { data: dir } = await supabase.from('perfiles').select('user_id').eq('rol', 'admin')
-      const para = (dir || []).map((x: any) => x.user_id).filter(Boolean)
+      // Solo dirección (no la encargada): son avisos para quien lleva la app.
+      const { data: dir } = await supabase.from('perfiles').select('user_id,permisos').eq('rol', 'admin')
+      const para = (dir || []).filter((x: any) => x.permisos?.sin_finanzas !== true).map((x: any) => x.user_id).filter(Boolean)
       const titulo = `Aviso del equipo${nombre ? ' (' + nombre + ')' : ''}: ${texto.trim()}`.slice(0, 300)
-      const filas = (para.length ? para : [null]).map((a: string | null) => ({ titulo, asignado_a: a, creada_por: u.user?.id || null, completada: false }))
+      if (!para.length) return setEstado('hecho'), setTimeout(onCerrar, 1400)
+      const filas = para.map((a: string | null) => ({ titulo, asignado_a: a, creada_por: u.user?.id || null, completada: false }))
       await supabase.from('tareas').insert(filas)
     } catch { /* El aviso ya está guardado: la tarea es un extra. */ }
     setEstado('hecho'); setTimeout(onCerrar, 1400)

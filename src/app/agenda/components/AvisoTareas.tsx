@@ -11,8 +11,17 @@ import Flotante from '@/app/taller/Flotante'
 // ---------------------------------------------------------------------------
 
 /** Las pendientes de ese dia (y, si es hoy, las vencidas). */
+/**
+ * LOS AVISOS DEL EQUIPO son tareas, pero PRIVADAS de quien las recibe (dirección): no
+ * salen en las tareas del equipo ni en la agenda de nadie más, solo en su filtro
+ * «Mis avisos». Se reconocen por el título que les pone el buzón (BuzonAvisos).
+ */
+export const esAvisoEquipo = (t: any) => String(t?.titulo || '').startsWith('Aviso del equipo')
+/** Las tareas de equipo de siempre, sin los avisos privados. */
+export const sinAvisos = (tareas: any[]) => (tareas || []).filter(t => !esAvisoEquipo(t))
+
 export function tareasDelDia(tareas: any[], f: string, hoy: string) {
-  return (tareas || []).filter(t => {
+  return sinAvisos(tareas).filter(t => {
     if (t.completada || !t.fecha_limite) return false
     const d = String(t.fecha_limite).slice(0, 10)
     return d === f || (f === hoy && d < hoy)
