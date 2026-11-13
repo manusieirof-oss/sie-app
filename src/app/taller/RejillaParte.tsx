@@ -45,7 +45,8 @@ const chapa = (pos: any): any => ({
 export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setComent,
   toggleItem, marcarTodosItems, itemMarcado, objetivosLib = [], objsPac = [], toggleObjetivo,
   addSerie, quitarSerie, setRegimen, setLado, setVolumen, molestias = [], patologias = [], etiquetas = [],
-  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida }: any) {
+  superserie = false, noHechos = [], onNoHecho, repetidos = {}, paciente, onSustituir, onCambiarA, arreglar = false, onMedida, ordenando = false, onMover }: any) {
+  const [moviendo, setMoviendo] = useState(false)
 
   /* NI UNA BARRA DE SCROLL POR FILA. Si no caben en el ancho, bajan de linea:
      la parte se sigue leyendo de izquierda a derecha y nadie tiene que
@@ -160,6 +161,20 @@ export default function RejillaParte({ pacienteId, ejercicios, mutarSerie, setCo
               {/* NO LO HIZO: la foto se apaga y el nombre se tacha. Lo normal es hacerlo
                   todo, asi que es lo unico que se marca y tiene que verse de lejos. */}
               <div style={{ position: 'relative', display: 'block' }}>
+                {/* ORDENANDO: flechas grandes encima de la foto para moverlo antes o después. */}
+                {ordenando && onMover && ej.pos != null && (() => {
+                  const pe = Number(String(ej.pos).split('.')[1]), n = ejercicios.length
+                  const flecha = (dir: -1 | 1, txt: string, off: boolean) => (
+                    <button type="button" disabled={off || moviendo} title={dir < 0 ? 'Antes' : 'Después'}
+                      onClick={async e => { e.stopPropagation(); setMoviendo(true); await onMover(ej.pos, dir); setMoviendo(false) }}
+                      style={{ width: 44, height: 44, borderRadius: '50%', border: 0, fontSize: 20, cursor: off ? 'default' : 'pointer',
+                        background: off ? 'rgba(255,255,255,.4)' : '#fff', color: 'var(--gd)', boxShadow: '0 2px 8px rgba(0,0,0,.18)', opacity: off ? .5 : 1 }}>{txt}</button>)
+                  return (
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+                      background: 'rgba(38,40,37,.25)', borderRadius: '0 0 12px 12px' }}>
+                      {flecha(-1, '‹', pe <= 0)}{flecha(1, '›', pe >= n - 1)}
+                    </div>)
+                })()}
                 {/* Se apaga solo la foto: la chapa de "no lo hizo" tiene que seguir viva
                     para poder deshacerlo. */}
                 {/* Tocar la foto abre el cromo del ejercicio: cómo se hace, la animación y lo
