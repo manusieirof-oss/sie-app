@@ -2433,7 +2433,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                   </button>
                 )}
                 {/* ORDENAR, junto a añadir: las flechas salen en cada ejercicio de la parte. */}
-                {ej.pos != null && editaPlan && delaParte.length > 1 && !plegada && (() => { const k = `${act.paciente.id}|${String(ej.pos).split('.')[0]}`; return (
+                {/* Desde el nivel 1: cambiar el orden en sala lo necesita cualquier entrenador. */}
+                {ej.pos != null && delaParte.length > 1 && !plegada && (() => { const k = `${act.paciente.id}|${String(ej.pos).split('.')[0]}`; return (
                   <button type="button" title={ordenando === k ? 'Terminar de ordenar' : 'Ordenar: arrastra los ejercicios de esta parte'}
                     aria-label="Ordenar los ejercicios de esta parte"
                     onClick={e=>{ e.stopPropagation(); setOrdenando(ordenando === k ? null : k) }}

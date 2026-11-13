@@ -178,7 +178,23 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
               <span style={{ width: c === 'banda' ? 66 : 40, fontSize: 8.5, color: 'var(--grl)' }}>{etiqueta(c)}</span>
             </span>
           ))}
+          {quitarSerie && <span style={{ width: 14 }}/>}
         </div>
+        {/* TODAS A LA VEZ: si hace lo mismo en todas (mismo peso, mismas repes) se escribe
+            una vez aquí y se rellenan todas. Debajo, cada serie para cambiar la que no. */}
+        {series.length > 1 && (
+          <div style={{ ...fila, gap: 3, paddingBottom: 4, marginBottom: 1, borderBottom: '1px solid var(--bl)' }} title="Escribe aquí y se rellenan todas las series">
+            <span style={{ width: 12, fontSize: 8, fontWeight: 700, color: 'var(--gd)', textAlign: 'center' }}>T</span>
+            {campos.map((c, k) => (
+              <span key={c} style={{ display: 'contents' }}>
+                {k > 0 && <span style={{ ...sep, width: 6 }}>{tm === 'peso_reps' ? '×' : '·'}</span>}
+                {casilla(c, todasHoy(c) ? muestra(c) : '', muestra(c) || hueco(c), v => ponerEnTodas(c, v),
+                  { ...mini, ...(c === 'banda' ? { width: 66 } : {}), ...tinta(todasHoy(c)) })}
+              </span>
+            ))}
+            {quitarSerie && <span style={{ width: 14 }}/>}
+          </div>
+        )}
         {series.map((ser: any, si: number) => (
           <div key={si} style={{ ...fila, gap: 3 }}>
             <span style={{ width: 12, fontSize: 10, color: 'var(--grl)', textAlign: 'center' }}>{si + 1}</span>
@@ -190,6 +206,13 @@ export default function CasillaSeries({ pacienteId, ej, ei, mutarSerie, addSerie
                   v => mutarSerie(pacienteId, ei, si, c, v), { ...mini, ...(c === 'banda' ? { width: 66 } : {}), ...tinta(esHoy(si, c)) })}
               </span>
             ))}
+            {/* QUITAR UNA SERIE: si se metió una de más. Siempre queda al menos una. */}
+            {quitarSerie && (
+              <button type="button" onClick={() => series.length > 1 && quitarSerie(pacienteId, ei, si)}
+                title="Quitar esta serie" aria-label="Quitar esta serie" disabled={series.length <= 1}
+                style={{ width: 14, fontSize: 10, padding: 0, background: 'none', border: 'none',
+                  color: series.length > 1 ? 'var(--red)' : 'transparent', cursor: series.length > 1 ? 'pointer' : 'default' }}>✕</button>
+            )}
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 2 }}>
