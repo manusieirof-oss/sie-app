@@ -2,6 +2,7 @@
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import HorarioFavorito from '@/app/pacientes/[id]/components/HorarioFavorito'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
@@ -111,16 +112,36 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   /** Las sesiones elegidas para repartir, en el orden en que se tocan sus fichas. */
   const [rot, setRot] = useState<string[]>([])
 
-  useEffect(() => { cargar() }, [sp.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { cargar() }, [sp.toString(), pid]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* DE UN PACIENTE A OTRO sin salir de aquí: flechas y buscador con los activos (y en
+     pausa), por nombre. Si hay cambios sin confirmar, se pregunta antes. */
+  const [tipoClase, setTipoClase] = useState<string | null>(null)
+  const [pacientes, setPacientes] = useState<{ id: string, nombre: string }[]>([])
+  const [buscandoPac, setBuscandoPac] = useState(false)
+  const [buscaPac, setBuscaPac] = useState('')
+  useEffect(() => {
+    supabase.from('pacientes').select('id,nombre,apellidos,nombre_clinica').in('estado', ['activo', 'pausa']).then(({ data }) =>
+      setPacientes((data || []).map((x: any) => ({ id: x.id, nombre: (x.nombre_clinica || `${x.nombre || ''} ${x.apellidos || ''}`).trim() }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))))
+  }, [])
+  const iPac = pacientes.findIndex(x => x.id === pid)
+  function irAPaciente(id: string | undefined) {
+    if (!id || id === pid) return
+    if (cambios.length > 0 && !confirm(`Hay ${cambios.length} cambios sin confirmar en ${nombre}. ¿Salir sin guardarlos?`)) return
+    setBuscandoPac(false); setBuscaPac('')
+    router.push(`/torno/${id}/citas`)
+  }
 
   async function cargar() {
     const hoy = hoyISO()
     const [{ data: p }, { data: cs }] = await Promise.all([
-      supabase.from('pacientes').select('nombre,apellidos,nombre_clinica').eq('id', pid).maybeSingle(),
+      supabase.from('pacientes').select('nombre,apellidos,nombre_clinica,tipo_clase').eq('id', pid).maybeSingle(),
       supabase.from('citas').select('id,fecha,hora,sala,sesion_id').eq('paciente_id', pid)
         .gte('fecha', hoy).neq('estado', 'cancelada').order('fecha').order('hora'),
     ])
     setNombre((p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim())
+    setTipoClase((p as any)?.tipo_clase || null)
     setCitas((cs || []) as Cita[])
 
     // Las sesiones: las de la URL, o las del ciclo con las fechas de su fase.
@@ -474,8 +495,25 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <button className="btn btn-t btn-sm" onClick={() => router.push(encargo?.volver || `/pacientes/${pid}?tab=entreno`)}>Ahora no</button>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: 17 }}>{nombre || '…'}</div>
+        <div style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" className="btn btn-s btn-sm" disabled={iPac <= 0} onClick={() => irAPaciente(pacientes[iPac - 1]?.id)} title={pacientes[iPac - 1]?.nombre || ''}>‹</button>
+            <button type="button" onClick={() => setBuscandoPac(v => !v)} title="Cambiar de paciente"
+              style={{ fontSize: 17, border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--n)', textDecoration: 'underline dotted', textUnderlineOffset: 4 }}>{nombre || '…'}</button>
+            <button type="button" className="btn btn-s btn-sm" disabled={iPac < 0 || iPac >= pacientes.length - 1} onClick={() => irAPaciente(pacientes[iPac + 1]?.id)} title={pacientes[iPac + 1]?.nombre || ''}>›</button>
+          </div>
+          {buscandoPac && (
+            <div style={{ position: 'absolute', left: '50%', top: 34, transform: 'translateX(-50%)', zIndex: 30, background: '#fff', borderRadius: 14, padding: 10,
+              boxShadow: '0 12px 30px rgba(38,40,37,.18)', width: 300, textAlign: 'left' }}>
+              <input className="input" autoFocus value={buscaPac} onChange={e => setBuscaPac(e.target.value)} placeholder="Buscar paciente…" style={{ marginBottom: 6 }}/>
+              <div style={{ maxHeight: 260, overflow: 'auto', display: 'grid' }}>
+                {pacientes.filter(x => !buscaPac.trim() || x.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(buscaPac.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))).slice(0, 40).map(x => (
+                  <button key={x.id} type="button" onClick={() => irAPaciente(x.id)}
+                    style={{ border: 'none', background: x.id === pid ? 'var(--gl)' : 'none', textAlign: 'left', padding: '7px 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>{x.nombre}</button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ fontSize: 11.5, color: 'var(--gd)' }}>Ponerlo en sus citas</div>
           {encargo?.citaId && (
             <div style={{ fontSize: 10.5, color: 'var(--grl)', marginTop: 2 }}>
@@ -485,6 +523,14 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         </div>
         <div style={{ width: 80 }}/>
       </div>
+
+      {/* AÑADIR MÁS CITAS CON SU PATRÓN (los días y horas a los que viene de verdad, como en
+          su ficha). Las que ya tiene no se repiten; al crearlas salen aquí para pintarlas. */}
+      {!cargando && (
+        <div style={{ maxWidth: 1500, margin: '0 auto 10px' }}>
+          <HorarioFavorito pacienteId={pid} tipoClase={tipoClase} onCreadas={() => cargar()}/>
+        </div>
+      )}
 
       {cargando ? <div className="muted" style={{ textAlign: 'center', padding: 40 }}>Trayendo sus citas…</div> : citas.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--gr)', fontSize: 13.5 }}>
