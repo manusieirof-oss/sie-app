@@ -6,6 +6,7 @@ import { cargarBonosTipos, BonoTipo } from '@/lib/bonos'
 import { Ic } from '@/lib/icons'
 import { cargarTiposClase, cargarViasCaptacion, iconTipoClase, TIPOS_CLASE_FALLBACK, VIAS_CAPTACION_FALLBACK } from '@/lib/tipos'
 import { hoyISO } from '@/lib/fechas'
+import { esDeSesiones, caducidadDesde } from '@/lib/bonoSesiones'
 
 export default function NuevoPacientePage() {
   
@@ -53,13 +54,18 @@ export default function NuevoPacientePage() {
       notas: form.notas || null
     }).select().single()
     if (err || !pat) { setError('Error al guardar: ' + err?.message); setSaving(false); return }
-    await supabase.from('bonos').insert({
+    const tipoB = bonosOpts.find(b => b.id === bono.tipo)
+    const { error: errB } = await supabase.from('bonos').insert({
       paciente_id: pat.id, tipo: bono.tipo,
-      dias_semana: bonosOpts.find(b => b.id === bono.tipo)?.dias_semana || 1,
+      dias_semana: tipoB?.dias_semana || 1,
       estado_pago: 'pendiente', activo: true,
       mes: new Date().getMonth() + 1, anio: new Date().getFullYear(),
-      fecha_inicio: hoyISO()
+      fecha_inicio: hoyISO(),
+      // Un bono de sesiones lleva sus sesiones y su caducidad: sin ellas no descontaba nada.
+      ...(esDeSesiones(tipoB) ? { sesiones_totales: tipoB?.sesiones || null, caduca: caducidadDesde(hoyISO(), tipoB?.caduca_meses) } : {}),
     })
+    // Antes un fallo aquí no se decía: el paciente se quedaba sin bono sin enterarse.
+    if (errB) alert('El paciente se ha creado, pero el bono no: ' + errB.message + '\nPónselo desde su ficha.')
     router.push(`/pacientes/${pat.id}`)
   }
 

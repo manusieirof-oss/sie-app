@@ -22,7 +22,7 @@ import ModalTareas from './components/ModalTareas'
 import AvisoTareas from './components/AvisoTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
-import { ultimasDeBono, soltarDelBono, engancharCitas } from '@/lib/bonoSesiones'
+import { ultimasDeBono, bonoTrasEstado, engancharCitas } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
 import { porRecuperar, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
@@ -444,8 +444,8 @@ export default function AgendaPage() {
     const antes = await citaAntes(id)
     await supabase.from('citas').update({estado}).eq('id',id)
     if (antes) await correrTrasEstado(antes, estado)
-    // Cancelada no gasta: el hueco del bono lo coge su siguiente cita.
-    if (estado==='cancelada') await soltarDelBono(id)
+    // Cancelada no gasta (su hueco pasa a la siguiente); si vuelve, se ata otra vez.
+    await bonoTrasEstado(id, estado)
     // Recuperaciones: la misma regla que en todos los sitios (lib/recuperaciones).
     // Aquí antes la daba la FALTA, al revés que en el resto.
     const { data: cRec } = await supabase.from('citas').select('id,paciente_id,fecha,hora').eq('id',id).maybeSingle()
@@ -463,8 +463,8 @@ export default function AgendaPage() {
     await supabase.from('citas').update({estado}).eq('id',cita.id)
     // Falta o cancelada: su sesion pasa a la siguiente (si corren, ver lib/correrSesiones).
     if (antes) await correrTrasEstado(antes, estado)
-    // Cancelada no gasta: el hueco del bono lo coge su siguiente cita.
-    if (estado==='cancelada') await soltarDelBono(cita.id)
+    // Cancelada no gasta (su hueco pasa a la siguiente); si vuelve, se ata otra vez.
+    await bonoTrasEstado(cita.id, estado)
     // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
     const rr = await recuperacionAlCambiarEstado(cita, estado)
     if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)

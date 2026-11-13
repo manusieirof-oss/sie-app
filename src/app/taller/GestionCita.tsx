@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hoyISO } from '@/lib/fechas'
 import { crearCita, ocupacionPorSala } from '@/lib/citas'
-import { soltarDelBono } from '@/lib/bonoSesiones'
+import { bonoTrasEstado } from '@/lib/bonoSesiones'
 import { citaAntes, correrTrasEstado } from '@/lib/correrSesiones'
 import { recuperacionAlCambiarEstado } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
@@ -39,7 +39,7 @@ async function cambiarEstado(cita: { id: string, paciente_id: string, fecha: str
   if (error) return 'No se ha podido cambiar: ' + error.message
   // Su sesion pasa a la siguiente clase si las sesiones corren (Ajustes).
   if (antes) await correrTrasEstado(antes, estado)
-  if (estado === 'cancelada') await soltarDelBono(cita.id)
+  await bonoTrasEstado(cita.id, estado)
   const rr = await recuperacionAlCambiarEstado(cita, estado)
   if (rr.ok === false) return 'La recuperación no se ha actualizado: ' + rr.error
   if (rr.motivo) return 'Cancelada sin recuperación: ' + rr.motivo + '.'

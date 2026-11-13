@@ -284,6 +284,20 @@ export async function soltarDelBono(citaId: string) {
 }
 
 /**
+ * EL BONO TRAS CAMBIAR EL ESTADO DE UNA CITA. Un solo sitio para agenda, ficha y taller.
+ *   · Cancelada: deja de gastar, se suelta y su hueco lo coge la siguiente cita sin bono.
+ *   · Cualquier otro (vuelve a programada, o se marca hecha o falta): si no lleva bono,
+ *     se ata al que tenga sesiones libres. Antes, deshacer una cancelación dejaba la cita
+ *     fuera del bono para siempre (solo se arreglaba al volver de una pausa).
+ */
+export async function bonoTrasEstado(citaId: string, estado: string) {
+  if (estado === 'cancelada') return soltarDelBono(citaId)
+  const { data: c } = await supabase.from('citas').select('bono_id,paciente_id,fecha').eq('id', citaId).maybeSingle()
+  if (!c || c.bono_id) return
+  await atarCitaABono(citaId, c.paciente_id, c.fecha)
+}
+
+/**
  * CAMBIAR CUÁNDO EMPEZÓ un bono de sesiones.
  *
  * Caso real: viene a clase, y el bono se le crea días después. El bono nacía

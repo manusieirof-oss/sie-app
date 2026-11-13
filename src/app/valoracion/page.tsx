@@ -7,7 +7,7 @@ import { guardarConsentimientos, TipoConsentimiento } from '@/lib/consentimiento
 import { registrarResultadoTest, testsPositivosDe, ladoOpuesto } from '@/lib/tests'
 import { anadirALista, leerLista } from '@/lib/listasPaciente'
 import { cargarBonosTipos, type BonoTipo } from '@/lib/bonos'
-import { esAsignable, SOLO_VALORACION } from '@/lib/bonoSesiones'
+import { esAsignable, SOLO_VALORACION, esDeSesiones, caducidadDesde, engancharCitas } from '@/lib/bonoSesiones'
 import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseListaSimple } from '@/lib/tipos'
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
@@ -342,7 +342,10 @@ export default function ValoracionPage() {
         // Y SOLO SI HAY ALGO QUE ASIGNAR. Un suelto —una valoración a secas— no
         // crea bono: se cobra en el momento y ahí acaba. Abrirle una fila en
         // `bonos` le montaría una cuota mensual que nadie ha contratado.
-        ...(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true })]),
+        ...(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel) ? [] : [supabase.from('bonos').insert({ paciente_id:pacienteId, tipo:form.bono, dias_semana:bonoSel?.dias_semana||1, estado_pago:'pendiente', mes:new Date().getMonth()+1, anio:new Date().getFullYear(), fecha_inicio:hoyISO(), activo:true,
+          // UN BONO DE SESIONES LLEVA SUS SESIONES Y SU CADUCIDAD. Sin esto se creaba como
+          // una cuota y no descontaba ninguna cita (desde la ficha sí se hacía bien).
+          ...(esDeSesiones(bonoSel) ? { sesiones_totales: bonoSel?.sesiones || null, caduca: caducidadDesde(hoyISO(), bonoSel?.caduca_meses) } : {}) }).select('id').single()]),
         supabase.from('valoraciones').insert({ paciente_id:pacienteId, fecha:hoyISO(), tipo:esRevaloracion?'revaloracion':'inicial', anamnesis:form.anamnesis, trabajo:form.trabajo, tipo_jornada:form.tipo_jornada, objetivos:[form.objetivo1,form.objetivo2,form.objetivo3].filter(Boolean), deseo:form.deseo, borg:form.borg, estres:form.estres, estado_general:JSON.stringify({operaciones:form.operaciones,alergias:form.alergias,intolerancias:form.intolerancias,dieta:form.dieta,plantillas:form.plantillas,tipo_plantilla:form.tipo_plantilla,pie_izq:form.pie_izq||null,pie_der:form.pie_der||null,plantilla_izq:form.plantilla_izq,plantilla_der:form.plantilla_der,hace_deporte:form.hace_deporte,deportes:form.deportes,notas_plan:form.notas_plan,programa_nombre:form.programa_nombre,programa_progresion:form.programa_progresion,dias_asistencia:form.dias_asistencia,franja:form.franja,horario_pref:form.horario_pref}), firma_imagen:firmaCanvas||null, consent_datos:firmaAceptada, consent_imagenes:imagenesAceptada, consent_fecha:(firmaAceptada||imagenesAceptada)?new Date().toISOString():null }),
         // `biblioteca_id` viaja desde el paso de historial. Sin él, lo que queda en la
         // ficha es solo el texto, y relacionar esa molestia con nada más obliga a comparar
@@ -356,6 +359,9 @@ export default function ValoracionPage() {
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
       ])
       const fallos = resultados.map((r:any) => r?.error?.message).filter(Boolean)
+      // Las citas que ya tuviera desde hoy pasan a descontar de su bono de sesiones.
+      const bonoCreado = !(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel)) ? resultados[0]?.data?.id : null
+      if (bonoCreado && esDeSesiones(bonoSel)) await engancharCitas(bonoCreado)
       if (fallos.length > 0) {
         alert('ATENCIÓN: parte de la valoración NO se ha guardado.\n\n' + fallos.join('\n') + '\n\nNo cierres esta pantalla: haz una captura y avisa.')
         setGuardando(false)
