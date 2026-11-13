@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { esBonoIndividual } from '@/lib/bonoSesiones'
 import SesionesBono from '@/components/SesionesBono'
 import { iconTipoClase, nombreTipoClase } from '@/lib/tipos'
 import { guardarVias, retratoDe } from '@/lib/objetivos'
@@ -1533,9 +1534,21 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
               sesión sola. */}
           {bonosSesiones.length > 0 && (
             <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
-              {bonosSesiones.map((bs:any)=>(
-                <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} onRenovar={onRenovarSesiones} onRetirar={onRetirarSesiones} onCambio={onCambioSesiones}/>
-              ))}
+              {/* RENOVAR SOLO DESDE EL ÚLTIMO. Si ya tiene otro bono de su misma clase
+                  (individual o de clases) que empezó después, el viejo no ofrece renovar
+                  —ya está renovado— y, si está acabado, se pliega en una línea. Los que
+                  siguen en uso van primero; los acabados, debajo. */}
+              {(() => {
+                const individual = (b:any) => esBonoIndividual({ id: b.tipo, nombre: bonoLabel?.[b.tipo] || b.tipo })
+                const conNuevo = (bs:any) => bonosSesiones.some((o:any) => o.bono_id !== bs.bono_id && individual(o) === individual(bs)
+                  && String(o.fecha_inicio || '') > String(bs.fecha_inicio || ''))
+                const acabado = (bs:any) => bs.caducado || bs.restantes <= 0
+                const plegar = (bs:any) => conNuevo(bs) && acabado(bs)
+                return [...bonosSesiones].sort((a:any, b:any) => Number(plegar(a)) - Number(plegar(b))).map((bs:any)=>(
+                  <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} plegado={plegar(bs)}
+                    onRenovar={conNuevo(bs) ? undefined : onRenovarSesiones} onRetirar={onRetirarSesiones} onCambio={onCambioSesiones}/>
+                ))
+              })()}
             </div>
           )}
         </div>

@@ -13,7 +13,7 @@ import {
 // las citas. Este componente no suma ni resta nada: si lo hiciera, sería una
 // segunda forma de contar el consumo y acabaría discrepando de la primera.
 
-export default function SesionesBono({ bono, nombre, compacto, onRenovar, onRetirar, onCambio }: {
+export default function SesionesBono({ bono, nombre, compacto, plegado, onRenovar, onRetirar, onCambio }: {
   bono: BonoSesiones
   nombre?: string
   compacto?: boolean
@@ -30,7 +30,10 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
   onRetirar?: (bono: BonoSesiones) => void
   /** Tras cambiar cuándo empezó: hay que releer el bono, sus casillas han cambiado. */
   onCambio?: () => void
+  /** Acabado y con otro detrás: sale en una línea, y se abre al tocarla. */
+  plegado?: boolean
 }) {
+  const [abiertoPlegado, setAbiertoPlegado] = useState(false)
   const [cambiandoInicio, setCambiandoInicio] = useState(false)
   async function nuevoInicio(f: string) {
     if (!f || f === bono.fecha_inicio) { setCambiandoInicio(false); return }
@@ -111,6 +114,25 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
     return { tipo: 'libre', id: undefined as string | undefined, fecha: undefined, txt: 'sin cita' }
   })
 
+  // UN BONO YA ACABADO, EN UNA LÍNEA. Con tres o cuatro bonos uno debajo de otro, los
+  // gastados ocupaban la ficha entera y tapaban el que está en uso.
+  if (plegado && !abiertoPlegado) {
+    const desde = citas[0]?.fecha, hasta = citas[citas.length - 1]?.fecha
+    return (
+      <button type="button" onClick={() => setAbiertoPlegado(true)} title="Ver el bono entero"
+        style={{display:'flex',alignItems:'center',gap:10,width:'100%',textAlign:'left',border:'1px solid var(--bd)',borderRadius:10,
+          padding:'8px 13px',background:'var(--bl)',cursor:'pointer',fontFamily:'inherit',fontSize:12.5,color:'var(--gr)'}}>
+        <span style={{color:'var(--n)',fontWeight:500}}>{nombre || 'Bono de sesiones'}</span>
+        <span>{desde ? `${fechaCorta(desde)}${hasta && hasta !== desde ? ' – ' + fechaCorta(hasta) : ''}` : ''}</span>
+        <span>· {gastadas} de {total} {estado === 'caducado' ? '· caducado' : 'gastadas'}</span>
+        <span style={{flex:1}}/>
+        {pago && <span style={{fontSize:11,color:pago==='cobrado'?'var(--gd)':pago==='impago'?'var(--red)':'#8A6410'}}>
+          {pago==='cobrado'?'Cobrado':pago==='impago'?'Impago':'Sin cobrar'}</span>}
+        <span style={{color:'var(--g)'}}>▾</span>
+      </button>
+    )
+  }
+
   const ses = (n: number) => `${n} ${n === 1 ? 'sesión' : 'sesiones'}`
   const frase = restantes <= 0
     ? <>Ha gastado las <b>{total}</b> sesiones.</>
@@ -134,7 +156,9 @@ export default function SesionesBono({ bono, nombre, compacto, onRenovar, onReti
                  background: estado==='ok' ? 'var(--w)' : estado==='pocas' ? 'var(--ambl)' : 'var(--redl)'}}>
       <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:14,fontWeight:500,color:'var(--n)'}}>{nombre || 'Bono de sesiones'}</div>
+          <div style={{fontSize:14,fontWeight:500,color:'var(--n)'}}>{nombre || 'Bono de sesiones'}
+            {plegado && <button type="button" onClick={() => setAbiertoPlegado(false)} style={{marginLeft:8,border:'none',background:'none',color:'var(--g)',cursor:'pointer',fontSize:12}}>▴ plegar</button>}
+          </div>
           <div style={{fontSize:11.5,color:'var(--gr)',marginTop:2}}>
             {/* EMPEZÓ EL: se puede cambiar. Si el bono se creó después de la primera
                 clase, se pone aquí el día de esa clase y la recoge. */}
