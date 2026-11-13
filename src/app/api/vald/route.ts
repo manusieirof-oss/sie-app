@@ -92,11 +92,30 @@ export async function POST(req: Request) {
     // mismo perfil en vez de duplicarlo, y si ya existía con su email o nombre+fecha,
     // lo reconoce y lo enlaza (así lo describe VALD).
     if (cuerpo.accion === 'crear') {
-      const { data: p, error } = await sb.from('pacientes').select('id,nombre,apellidos,fecha_nacimiento,sexo,email,vald_profile_id').eq('id', cuerpo.pacienteId).maybeSingle()
-      if (error || !p) return NextResponse.json({ error: 'No encuentro al paciente.' }, { status: 404 })
+      /* DESDE LA VALORACION, ANTES DE QUE EXISTA: el DynaMo se pasa durante la valoración
+         y el paciente no se crea en SIE hasta guardarla, así que había que darlo de alta a
+         mano en la app de VALD. Ahora la pantalla manda los datos del formulario y el id
+         que tendrá en SIE (se crea con ese id al guardar). */
+      const nuevoSinFicha = !cuerpo.pacienteId && cuerpo.datos?.id
+      let p: any
+      if (nuevoSinFicha) {
+        const d = cuerpo.datos
+        p = { id: String(d.id), nombre: d.nombre || '', apellidos: d.apellidos || '', fecha_nacimiento: d.fecha_nacimiento || null,
+          sexo: d.sexo || null, email: d.email || null, vald_profile_id: null }
+      } else {
+        const { data, error } = await sb.from('pacientes').select('id,nombre,apellidos,fecha_nacimiento,sexo,email,vald_profile_id').eq('id', cuerpo.pacienteId).maybeSingle()
+        if (error || !data) return NextResponse.json({ error: 'No encuentro al paciente.' }, { status: 404 })
+        p = data
+      }
       if (p.vald_profile_id) return NextResponse.json({ profileId: p.vald_profile_id })
+      // Si ya se mandó antes (otro clic, o desde la valoración) no se importa dos veces.
+      const [yaEsta] = await perfiles(tid, { syncId: p.id })
+      if (yaEsta?.profileId) {
+        if (!nuevoSinFicha) await sb.from('pacientes').update({ vald_profile_id: yaEsta.profileId }).eq('id', p.id)
+        return NextResponse.json({ profileId: yaEsta.profileId })
+      }
       const faltan = [!p.nombre && 'nombre', !p.apellidos && 'apellidos', !p.fecha_nacimiento && 'fecha de nacimiento', !p.sexo && 'sexo'].filter(Boolean)
-      if (faltan.length) return NextResponse.json({ error: `Para crearlo en VALD falta en su ficha: ${faltan.join(', ')}.` }, { status: 400 })
+      if (faltan.length) return NextResponse.json({ error: `Para crearlo en VALD falta: ${faltan.join(', ')}.` }, { status: 400 })
       await vald(`${base('externalprofile')}/profiles/import`, {
         method: 'POST',
         body: JSON.stringify({
@@ -111,7 +130,7 @@ export async function POST(req: Request) {
       // La importación no siempre devuelve el id: se busca por el syncId.
       const [nuevo] = await perfiles(tid, { syncId: p.id })
       if (!nuevo?.profileId) return NextResponse.json({ error: 'VALD lo ha recibido pero aún no aparece. Prueba en un minuto.' }, { status: 202 })
-      await sb.from('pacientes').update({ vald_profile_id: nuevo.profileId }).eq('id', p.id)
+      if (!nuevoSinFicha) await sb.from('pacientes').update({ vald_profile_id: nuevo.profileId }).eq('id', p.id)
       return NextResponse.json({ profileId: nuevo.profileId })
     }
 

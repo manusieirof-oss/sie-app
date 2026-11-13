@@ -4,12 +4,19 @@ import { supabase } from '@/lib/supabase'
 // claves de VALD no salen del servidor. Ver src/app/api/vald/route.ts.
 
 export async function llamarVald(accion: 'perfiles' | 'crear' | 'sincronizar', extra: Record<string, any> = {}) {
-  const { data: { session } } = await supabase.auth.getSession()
-  const r = await fetch('/api/vald', {
+  const pedir = (tk: string) => fetch('/api/vald', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
     body: JSON.stringify({ accion, ...extra }),
   })
+  const { data: { session } } = await supabase.auth.getSession()
+  let r = await pedir(session?.access_token || '')
+  /* «SESIÓN NO VÁLIDA»: la sesión guardada había caducado (la tablet o la pestaña
+     dormida no la renueva) y el servidor la rechazaba. Se renueva y se repite una vez. */
+  if (r.status === 401) {
+    const { data: nueva } = await supabase.auth.refreshSession()
+    if (nueva.session?.access_token) r = await pedir(nueva.session.access_token)
+  }
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`)
   return j

@@ -19,6 +19,7 @@ import PasoAnamnesis from './components/PasoAnamnesis'
 import PasoHistorial from './components/PasoHistorial'
 import PasoCompletar from './components/PasoCompletar'
 import PasoTests from './components/PasoTests'
+import RegistrarVald from './components/RegistrarVald'
 import PasoPlan from './components/PasoPlan'
 import PasoResumen from './components/PasoResumen'
 import NotaAnamnesis from './components/NotaAnamnesis'
@@ -51,6 +52,8 @@ const STEPS_POR_MODO: Record<Modo, string[]> = {
 }
 
 const FORM_VACIO = {
+  // Si se registra en VALD durante la valoración: el id que tendrá en SIE y su perfil de VALD.
+  id_previo:'', vald_profile_id:'',
   paciente_id:'',desde_pendiente:false as boolean,nombre:'',apellidos:'',nombre_clinica:'',telefono:'',email:'',dni:'',fecha_nacimiento:'',sexo:'',altura_cm:'',peso_kg:'',como_nos_conocio:'',
   anamnesis:'',trabajo:'',tipo_jornada:'',objetivo1:'',objetivo2:'',objetivo3:'',deseo:'',borg:5,estres:5,
   hace_deporte:false as boolean,deportes:[] as string[],
@@ -330,7 +333,8 @@ export default function ValoracionPage() {
       let pacienteId = form.paciente_id
       if (!pacienteId) {
         if (!form.nombre || !form.apellidos) { alert('Nombre y apellidos son obligatorios'); setGuardando(false); return }
-        const { data: p, error } = await supabase.from('pacientes').insert({ nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
+        // Con el id reservado al registrarlo en VALD (RegistrarVald): así queda enlazado.
+        const { data: p, error } = await supabase.from('pacientes').insert({ ...(form.id_previo ? { id: form.id_previo } : {}), vald_profile_id: form.vald_profile_id || null, nombre:form.nombre, apellidos:form.apellidos, nombre_clinica:form.nombre_clinica||null, telefono:form.telefono, email:form.email, dni:form.dni, fecha_nacimiento:form.fecha_nacimiento||null, sexo:form.sexo||null, altura_cm:form.altura_cm?parseInt(form.altura_cm):null, peso_kg:form.peso_kg?parseFloat(form.peso_kg):null, tipo_clase:form.tipo_clase_def, como_nos_conocio:form.como_nos_conocio||null, usa_plantillas:!!form.plantillas, plantilla_izq:form.plantillas?(form.plantilla_izq||null):null, plantilla_der:form.plantillas?(form.plantilla_der||null):null, estado:'activo' }).select().single()
         if (error || !p) { alert('Error al crear el paciente'); setGuardando(false); return }
         pacienteId = p.id
         // Que ya exista en VALD para cuando se le pase el DynaMo (ver lib/vald altaEnVald).
@@ -600,6 +604,7 @@ export default function ValoracionPage() {
       {paso==='Historial'&&<PasoHistorial form={form} up={up} etiquetasLib={etiquetasLib} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {paso==='Completar'&&<PasoCompletar form={form} up={up} etiquetasLib={etiquetasLib} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {/* Los archivados no se pueden pasar a nadie mas: fuera del paso de elegir. */}
+      {paso==='Tests'&&<RegistrarVald form={form} up={up}/>}
       {paso==='Tests'&&<PasoTests testsLib={testsLib.filter((t:any)=>t.archivado_el == null)} etiquetasLib={etiquetasLib} testsValoracion={testsValoracion} setTestsValoracion={setTestsValoracion} testActivo={testActivo} setTestActivo={setTestActivo}
         paciente={{ id: form.paciente_id, sexo: form.sexo, fecha_nacimiento: form.fecha_nacimiento }}/>}
       {paso==='Plan'&&<PasoPlan form={form} up={up} tiposClaseOpts={tiposClaseOpts} bonosOpts={bonosOpts}/>}
