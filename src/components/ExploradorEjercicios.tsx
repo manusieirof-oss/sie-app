@@ -697,7 +697,7 @@ export default function ExploradorEjercicios({
       {/* FILTROS EN UN VELO: fuera solo quedan las marcadas, que se quitan con un toque. */}
       <PastillasFiltro etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt} onAbrir={() => setVerFiltros(true)}/>
       {grupos.length > 0 && verFiltros && paneles && (
-        <FiltroCuerpo etiquetas={etiquetas} valor={filtroEt} onChange={setFiltroEt} nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
+        <FiltroCuerpo etiquetas={etiquetas} ejercicios={ejercicios} valor={filtroEt} onChange={setFiltroEt} nResultado={filtrados.length} onCerrar={() => setVerFiltros(false)}/>
       )}
       {grupos.length > 0 && verFiltros && !paneles && (
         <VeloFiltros grupos={grupos} etiquetas={etiquetas} ejercicios={ejercicios} valor={filtroEt} onChange={setFiltroEt}

@@ -38,12 +38,17 @@ const clave = (n: string) => normalizar(n).replace(/\s+/g, ' ').trim()
 const LATERAL_IZQ = ['movimiento', 'posicion', 'apoyo']
 const LATERAL_DER = ['agarre', 'patron', 'plano_eje', 'patologia']
 
-export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, onCerrar }: {
-  etiquetas: any[], valor: string[], onChange: (v: string[]) => void, nResultado: number, onCerrar: () => void
+export default function FiltroCuerpo({ etiquetas, ejercicios = [], valor, onChange, nResultado, onCerrar }: {
+  etiquetas: any[], ejercicios?: any[], valor: string[], onChange: (v: string[]) => void, nResultado: number, onCerrar: () => void
 }) {
   const [modo, setModo] = useState<'musculo' | 'articulacion'>('musculo')
   const [pestana, setPestana] = useState<string | null>(null)
   const [abierta, setAbierta] = useState<string | null>(null)
+  // ACERCARSE A UNA ZONA (la que tiene subetiquetas): la cámara va a ella y sus hijas
+  // salen alrededor. Al elegir una, vuelve.
+  const [zoom, setZoom] = useState<string | null>(null)
+  const zoomRef = useRef<string | null>(null); zoomRef.current = zoom
+  const corona = useRef<HTMLDivElement>(null)
   const [fallo, setFallo] = useState('')
   const caja = useRef<HTMLDivElement>(null)
   const motor = useRef<CuerpoFiltro3D | null>(null)
@@ -73,6 +78,13 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
              en su órbita alrededor del cuerpo (lo calcula el motor), unido a su zona con un
              hilo. Delante, grande y encima de todo; detrás, pequeño y apagado. Si dos se
              tocan en pantalla, el de detrás se aparta hacia abajo. */
+          // Acercado: los rótulos de órbita se esconden y la corona de hijas sigue a su zona.
+          if (zoomRef.current) {
+            const z = l.find(p => p.k === zoomRef.current)
+            if (z && corona.current) corona.current.style.transform = `translate(${z.ax}px, ${z.ay}px)`
+            l.forEach(p => { const d = rotulos.current[p.k], h = hilos.current[p.k]; if (d) { d.style.opacity = '0'; d.style.pointerEvents = 'none' } if (h) h.setAttribute('opacity', '0') })
+            return
+          }
           const caidas = l.map(p => {
             const d = rotulos.current[p.k]
             return { p, d, w: (d?.offsetWidth || 90) * (.7 + .3 * p.frente), y: p.y }
@@ -128,9 +140,32 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
     m.musculos(Array.from(grupos)); m.articulaciones(puntos)
   })
 
+  useEffect(() => {
+    const r = zoom ? etiquetas.find(e => e.id === zoom) : null
+    motor.current?.enfocar(r ? tabla[clave(r.nombre)] || null : null)
+  }, [zoom]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setZoom(null) }, [modo])
+
+  /* MOVIMIENTOS QUE VAN CON LO MARCADO. De los ejercicios que tienen las articulaciones o
+     músculos marcados, qué movimientos llevan más a menudo: así se proponen los de verdad
+     (la abducción con el hombro, la flexión con la rodilla…) y se añaden con un toque. */
+  const sugeridos = useMemo(() => {
+    const zonas = valor.filter(id => { const e = etiquetas.find(x => x.id === id); const c = e && categoriaDe(etiquetas, e); return c === 'articulacion' || c === 'musculo' })
+    if (!zonas.length) return [] as { e: any, n: number }[]
+    const esMov = new Set(etiquetas.filter(e => categoriaDe(etiquetas, e) === 'movimiento').map(e => e.id))
+    const cuenta: Record<string, number> = {}
+    ejercicios.forEach((ej: any) => {
+      const ets: string[] = ej.etiquetas || []
+      if (!zonas.some(z => ets.includes(z))) return
+      ets.forEach(id => { if (esMov.has(id)) cuenta[id] = (cuenta[id] || 0) + 1 })
+    })
+    return Object.entries(cuenta).filter(([id]) => !valor.includes(id)).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([id, n]) => ({ e: etiquetas.find(x => x.id === id), n })).filter(x => x.e)
+  }, [valor, etiquetas, ejercicios])
+
   // Cerrar con Escape.
   useEffect(() => {
-    const f = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar() }
+    const f = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (zoomRef.current) setZoom(null); else onCerrar() } }
     window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f)
   }, [onCerrar])
 
@@ -215,7 +250,7 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
                   style={{ border: `2px solid ${algo ? 'var(--gd)' : '#2F4F53'}`, background: on ? 'var(--gd)' : algo ? '#E3F0F1' : '#fff',
                     color: on ? '#fff' : '#1E2B2D', borderRadius: 99, padding: '5px 13px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                     whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(20,30,32,.28)' }}>{r.nombre}</button>
-                {n > 0 && <button type="button" onClick={() => setAbierta(abierta === r.id ? null : r.id)}
+                {n > 0 && <button type="button" onClick={() => setZoom(r.id)} title="Acercar para ver sus subetiquetas"
                   style={{ border: 'none', background: 'rgba(255,255,255,.9)', borderRadius: 99, color: 'var(--g)', cursor: 'pointer', fontSize: 11, padding: '3px 6px' }}>{abierta === r.id ? '▴' : `${n}▾`}</button>}
                 {abierta === r.id && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, background: '#fff', borderRadius: 12, padding: 8, display: 'grid', gap: 5,
@@ -226,7 +261,55 @@ export default function FiltroCuerpo({ etiquetas, valor, onChange, nResultado, o
               </div>
             )
           })}
+          {/* ACERCADO: la zona y sus hijas en corona alrededor, unidas a ella. */}
+          {zoom && (() => {
+            const r = etiquetas.find(e => e.id === zoom); if (!r) return null
+            const hs = hijas(r.id), R = 150
+            const ang = (i: number) => -Math.PI / 2 + (i - (hs.length - 1) / 2) * Math.min(.62, 5.2 / Math.max(1, hs.length))
+            return (
+              <div ref={corona} style={{ position: 'absolute', left: 0, top: 0, zIndex: 70, width: 0, height: 0 }}>
+                <svg style={{ position: 'absolute', left: -R - 120, top: -R - 60, width: 2 * R + 240, height: 2 * R + 120, overflow: 'visible', pointerEvents: 'none' }}>
+                  {hs.map((h, i) => <line key={h.id} x1={R + 120} y1={R + 60} x2={R + 120 + Math.cos(ang(i)) * R} y2={R + 60 + Math.sin(ang(i)) * R} stroke="#2F4F53" strokeWidth={1.3} strokeDasharray="3 3"/>)}
+                  <circle cx={R + 120} cy={R + 60} r={7} fill="#E0B24F" stroke="#fff" strokeWidth={2}/>
+                </svg>
+                {hs.map((h, i) => {
+                  const on = valor.includes(h.id)
+                  return (
+                    <button key={h.id} type="button" onClick={() => { alternar(h.id); setZoom(null) }}
+                      style={{ position: 'absolute', left: Math.cos(ang(i)) * R, top: Math.sin(ang(i)) * R, transform: 'translate(-50%, -50%)',
+                        border: '2px solid #2F4F53', background: on ? 'var(--gd)' : '#fff', color: on ? '#fff' : '#1E2B2D', borderRadius: 99,
+                        padding: '6px 14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                        boxShadow: '0 3px 10px rgba(20,30,32,.28)', animation: 'fc-entra .35s ease backwards', animationDelay: `${i * 40}ms` }}>{h.nombre}</button>
+                  )
+                })}
+                {/* La zona entera también se elige, debajo del punto */}
+                <button type="button" onClick={() => { alternar(r.id); setZoom(null) }}
+                  style={{ position: 'absolute', left: 0, top: 34, transform: 'translateX(-50%)', border: '2px solid var(--gd)',
+                    background: valor.includes(r.id) ? 'var(--gd)' : '#E3F0F1', color: valor.includes(r.id) ? '#fff' : 'var(--gd)', borderRadius: 99,
+                    padding: '5px 13px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{r.nombre} entero</button>
+              </div>
+            )
+          })()}
+          {zoom && (
+            <button type="button" className="btn btn-s btn-sm" onClick={() => setZoom(null)}
+              style={{ position: 'absolute', left: 8, top: 8, zIndex: 75 }}>← Volver al cuerpo</button>
+          )}
+          <style>{`@keyframes fc-entra { from { opacity: 0; transform: translate(-50%, -50%) scale(.6) } }`}</style>
         </div>
+        {/* MOVIMIENTOS PROPUESTOS por lo marcado, arriba en el centro */}
+        {sugeridos.length > 0 && !zoom && (
+          <div style={{ position: 'absolute', left: '50%', top: 6, transform: 'translateX(-50%)', zIndex: 85, background: 'rgba(255,255,255,.95)',
+            borderRadius: 14, padding: '8px 12px', boxShadow: '0 6px 20px rgba(38,40,37,.15)', maxWidth: '58vw' }}>
+            <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--gr)', marginBottom: 6 }}>Movimientos de lo marcado</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {sugeridos.map(({ e, n }) => (
+                <button key={e.id} type="button" onClick={() => alternar(e.id)} title={`${n} ejercicios con lo marcado lo llevan`}
+                  style={{ border: '1.5px dashed var(--g)', background: '#fff', color: 'var(--gd)', borderRadius: 99, padding: '4px 11px', fontSize: 12.5,
+                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>+ {e.nombre} <span style={{ opacity: .6 }}>{n}</span></button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Las del modo que no tienen sitio en el cuerpo, debajo del cuerpo */}
         {sinSitio.length > 0 && (
           <div style={{ position: 'absolute', left: '50%', bottom: 8, transform: 'translateX(-50%)', display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center', maxWidth: '60vw', zIndex: 70 }}>

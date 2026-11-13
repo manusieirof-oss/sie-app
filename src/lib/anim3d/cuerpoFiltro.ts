@@ -20,6 +20,8 @@ export interface CuerpoFiltro3D {
   anclas(a: Ancla[]): void
   musculos(grupos: string[]): void
   articulaciones(puntos: [number, number, number][]): void
+  /** Acercarse a una zona (deja de girar y la pone de frente) o volver (null). */
+  enfocar(p: [number, number, number] | null): void
   destruir(): void
 }
 
@@ -105,6 +107,10 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
 
   // ── Girar: solo, o arrastrando ──
   let giro = 0, arr: { x: number } | null = null, pausa = 0
+  // ACERCARSE: el cuerpo gira hasta poner la zona de frente y la cámara se acerca a ella.
+  let foco: [number, number, number] | null = null, giroFoco = 0
+  const camPos = new THREE.Vector3(0, 46, 205), camMira = new THREE.Vector3(0, 44, 0)
+  const camPosObj = camPos.clone(), camMiraObj = camMira.clone()
   const cv = r.domElement
   const abajo = (e: PointerEvent) => { arr = { x: e.clientX }; cv.setPointerCapture?.(e.pointerId); cv.style.cursor = 'grabbing' }
   const mover = (e: PointerEvent) => { if (!arr) return; giro += (e.clientX - arr.x) * 0.012; arr.x = e.clientX; pausa = performance.now() + PAUSA }
@@ -120,8 +126,14 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
     raf = requestAnimationFrame(bucle)
     if (document.hidden) { antes = ahora; return }
     const dt = Math.min((ahora - antes) / 1000, .1); antes = ahora
-    if (!quieto && !arr && ahora > pausa) giro += dt * VEL_GIRO
+    if (foco) {
+      // Hacia el giro que la pone de frente, por el camino corto.
+      let d = giroFoco - giro; d = Math.atan2(Math.sin(d), Math.cos(d))
+      if (!arr) giro += d * Math.min(1, dt * 4)
+    } else if (!quieto && !arr && ahora > pausa) giro += dt * VEL_GIRO
     cuerpo.rotation.y = giro
+    camPos.lerp(camPosObj, Math.min(1, dt * 3.5)); camMira.lerp(camMiraObj, Math.min(1, dt * 3.5))
+    cam.position.copy(camPos); cam.lookAt(camMira)
     const late = 1 + .15 * Math.sin(ahora / 300)
     esferas.forEach(s => s.scale.setScalar(late))
     // Dónde cae cada ancla y si mira hacia delante.
@@ -162,6 +174,14 @@ export async function crearCuerpoFiltro(el: HTMLElement, alFotograma: (l: Proyec
           m.position.set(...q); m.renderOrder = 5; cuerpo.add(m); esferas.push(m)
         })
       })
+    },
+    enfocar(p) {
+      foco = p
+      if (p) {
+        const [x, y, z] = p, rr = Math.hypot(x, z)
+        giroFoco = -Math.atan2(x, z)
+        camPosObj.set(0, y + 2, rr + 62); camMiraObj.set(0, y, rr * .5)
+      } else { camPosObj.set(0, 46, 205); camMiraObj.set(0, 44, 0); pausa = performance.now() + 800 }
     },
     destruir() {
       cancelAnimationFrame(raf); ro.disconnect()
