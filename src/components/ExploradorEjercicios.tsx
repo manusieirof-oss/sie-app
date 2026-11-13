@@ -7,7 +7,6 @@ import { Ic } from '@/lib/icons'
 import ImagenEjercicio from './ImagenEjercicio'
 import MonedaObjetivo from './MonedaObjetivo'
 import VeloFiltros, { PastillasFiltro } from './VeloFiltros'
-import BotonVista from './BotonVista'
 import { CATEGORIAS_ETIQUETA, conDescendientes, categoriaDe, nivelDe, agrupaPorRaiz, nombreConRama } from '@/lib/etiquetas'
 import { TIPOS_MEDIDA, problemasDeEjercicio, nombreMedida } from '@/lib/ejercicios'
 import { contiene, normalizar } from '@/lib/texto'
@@ -101,16 +100,27 @@ export default function ExploradorEjercicios({
   const setPanel = (v: Panel) => { setPanelE(v); try { localStorage.setItem('bib_lente', v) } catch {} }
   const lente = LENTES.find(l => l.k === panel) || LENTES[0]
   const siguienteLente = () => setPanel(LENTES[(LENTES.indexOf(lente) + 1) % LENTES.length].k)
-  /* ORDENAR (Biblioteca): por nombre, por familia, por uso o los recién añadidos. Junto
-     a la lente, con el mismo botón de toda la biblioteca. Se recuerda en este aparato. */
-  type Orden = 'nombre' | 'familia' | 'uso' | 'ultima' | 'nuevos'
-  const ORDENES: { k: Orden, t: string }[] = [
-    { k: 'nombre', t: 'Nombre (A-Z)' }, { k: 'familia', t: 'Por familia' }, { k: 'uso', t: 'Más usados' },
-    { k: 'ultima', t: 'Usados hace poco' }, { k: 'nuevos', t: 'Recién añadidos' },
-  ]
-  const [orden, setOrdenE] = useState<Orden>('nombre')
-  useEffect(() => { if (!paneles) return; try { const v = localStorage.getItem('bib_orden') as Orden; if (ORDENES.some(o => o.k === v)) setOrdenE(v) } catch {} }, [paneles]) // eslint-disable-line react-hooks/exhaustive-deps
-  const setOrden = (v: Orden) => { setOrdenE(v); try { localStorage.setItem('bib_orden', v) } catch {} }
+  /* ORDENAR (Biblioteca), SEGÚN LA VISTA. Cada vista tiene sus órdenes: en Uso, por
+     veces o por última vez; en Cromo, de los más comunes a los raros… Un orden que no
+     es de lo que se ve no tiene sentido (por uso viendo la intensidad). El botón es como
+     el de la vista: un toque, el siguiente orden. Se recuerda por vista en este aparato. */
+  type Orden = 'nombre' | 'familia' | 'nuevos' | 'comunes' | 'raros' | 'intensidad' | 'uso' | 'ultima' | 'pacientes' | 'objetivos'
+  const ORDENES_DE: Record<Panel, { k: Orden, t: string }[]> = {
+    normal: [{ k: 'nombre', t: 'Nombre' }, { k: 'familia', t: 'Familia' }, { k: 'nuevos', t: 'Nuevos' }],
+    cromo: [{ k: 'comunes', t: 'Comunes' }, { k: 'raros', t: 'Raros' }],
+    capacidad: [{ k: 'intensidad', t: 'Intensidad' }, { k: 'nombre', t: 'Nombre' }],
+    uso: [{ k: 'uso', t: 'Más usados' }, { k: 'ultima', t: 'Recientes' }, { k: 'pacientes', t: 'Pacientes' }],
+    objetivos: [{ k: 'objetivos', t: 'Más objetivos' }, { k: 'nombre', t: 'Nombre' }],
+  }
+  const ordenes = ORDENES_DE[panel] || ORDENES_DE.normal
+  const [ordenPor, setOrdenPor] = useState<Partial<Record<Panel, Orden>>>({})
+  useEffect(() => { if (!paneles) return; try { setOrdenPor(JSON.parse(localStorage.getItem('bib_orden') || '{}')) } catch {} }, [paneles])
+  const orden: Orden = ordenes.some(o => o.k === ordenPor[panel]) ? ordenPor[panel]! : ordenes[0].k
+  const ordenAct = ordenes.find(o => o.k === orden) || ordenes[0]
+  const siguienteOrden = () => {
+    const n = { ...ordenPor, [panel]: ordenes[(ordenes.indexOf(ordenAct) + 1) % ordenes.length].k }
+    setOrdenPor(n); try { localStorage.setItem('bib_orden', JSON.stringify(n)) } catch {}
+  }
   const [resumenClinica, setResumen] = useState<Record<string, any> | null>(null)
   const resumen = resumenFijo || resumenClinica
   const [faltaVista, setFaltaVista] = useState(false)
@@ -118,13 +128,12 @@ export default function ExploradorEjercicios({
   useEffect(() => { if (paneles && resumenFijo) setPanelE('uso') }, [paneles, !!resumenFijo]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     // El de la clínica hace falta también con un cliente elegido: el color del cromo es de la clínica.
-    // Hace falta para la lente y también para ordenar por uso.
-    if (!paneles || (panel === 'normal' && orden !== 'uso' && orden !== 'ultima') || resumenClinica) return
+    if (!paneles || panel === 'normal' || resumenClinica) return
     traerTodo((d, h) => supabase.from('ejercicio_resumen').select('*').range(d, h)).then(({ filas, error }) => {
       if (error) { setFaltaVista(true); return }
       setResumen(Object.fromEntries(filas.map((f: any) => [f.ejercicio_id, f])))
     })
-  }, [paneles, panel, orden, resumenClinica])
+  }, [paneles, panel, resumenClinica])
   const fechaCorta = (f?: string) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : ''
 
   const [buscar, setBuscar] = useState('')
@@ -279,12 +288,24 @@ export default function ExploradorEjercicios({
   const famDeOrden = (e: any) => { const id = (e.etiquetas || []).find((x: string) => etiquetas.some((t: any) => t.id === x && t.categoria === 'familia')); return id ? (etiquetas.find((t: any) => t.id === id)?.nombre || '') : '' }
   const filtrados = !paneles || orden === 'nombre' ? filtrados0 : [...filtrados0].sort((a: any, b: any) => {
     const rs = (x: any) => (resumenFijo || resumenClinica)?.[x.id]
+    const veces = (x: any) => Number(resumenClinica?.[x.id]?.veces) || 0
+    const num = (f: (x: any) => number) => f(b) - f(a)
     const porNombre = String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es')
     if (orden === 'familia') return (famDeOrden(a) || '\uffff').localeCompare(famDeOrden(b) || '\uffff', 'es') || porNombre
-    if (orden === 'uso') return (Number(rs(b)?.veces) || 0) - (Number(rs(a)?.veces) || 0) || porNombre
+    if (orden === 'nuevos') return String(b.created_at || '').localeCompare(String(a.created_at || '')) || porNombre
+    if (orden === 'comunes') return num(veces) || porNombre
+    if (orden === 'raros') return veces(a) - veces(b) || porNombre
+    if (orden === 'intensidad') {
+      const top = (x: any) => (intensidades?.[x.id] || []).slice().sort((p: any, q: any) => q.n - p.n)[0]?.nombre || '\uffff'
+      return top(a).localeCompare(top(b), 'es') || porNombre
+    }
+    if (orden === 'uso') return num(x => Number(rs(x)?.veces) || 0) || porNombre
     if (orden === 'ultima') return String(rs(b)?.ultima || '').localeCompare(String(rs(a)?.ultima || '')) || porNombre
-    return String(b.created_at || '').localeCompare(String(a.created_at || '')) || porNombre
+    if (orden === 'pacientes') return num(x => Number(rs(x)?.pacientes) || 0) || porNombre
+    if (orden === 'objetivos') return num(x => (rs(x)?.objetivos || []).length) || porNombre
+    return porNombre
   })
+
 
 
   const nPendientes = ejercicios.filter(e => problemasDeEjercicio(e).length > 0).length
@@ -590,14 +611,20 @@ export default function ExploradorEjercicios({
         </span>
         {paneles && (
           // Un toque, siguiente modo. Con su nombre al lado para saber en cuál estás.
-          <button type="button" data-guia="bib-lente" className="chip-sel on" onClick={siguienteLente} title="Cambiar lo que se ve en las tarjetas"
+          <button type="button" data-guia="bib-lente" className="chip-sel" onClick={siguienteLente} title="Cambiar lo que se ve en las tarjetas"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Ic name={lente.ic} size={13}/> {lente.t}
             <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{LENTES.map(l => <i key={l.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: l.k === panel ? 1 : .3 }}/>)}</span>
           </button>
         )}
+        {/* EL ORDEN, igual que el botón de la vista: un toque, el siguiente. */}
         {paneles && (
-          <BotonVista opciones={ORDENES} valor={orden} onChange={(v: any) => setOrden(v)} prefijo="Orden" titulo="Cómo se ordenan los ejercicios"/>
+          <button type="button" className="chip-sel" onClick={siguienteOrden} title="Cambiar el orden (depende de la vista)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>
+            {ordenAct.t}
+            {ordenes.length > 1 && <span style={{ display: 'inline-flex', gap: 2, marginLeft: 2 }}>{ordenes.map(o => <i key={o.k} style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: o.k === orden ? 1 : .3 }}/>)}</span>}
+          </button>
         )}
         {grupos.length > 0 && (
           <button type="button" className={`chip-sel ${verFiltros || filtroEt.length > 0 ? 'on' : ''}`}
