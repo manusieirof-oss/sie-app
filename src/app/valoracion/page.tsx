@@ -12,6 +12,7 @@ import { TIPOS_CLASE_FALLBACK, parseTiposClase, VIAS_CAPTACION_FALLBACK, parseLi
 import { useRouter } from 'next/navigation'
 import { Ic } from '@/lib/icons'
 import { subirFotoPaciente } from '@/lib/fotos'
+import { comprimirImagen, MAX_FOTO_PACIENTE } from '@/lib/imagen'
 import PasoPaciente from './components/PasoPaciente'
 import PasoPacienteRevaloracion from './components/PasoPacienteRevaloracion'
 import PasoAnamnesis from './components/PasoAnamnesis'
@@ -141,9 +142,32 @@ export default function ValoracionPage() {
     }, 500)
     return () => clearTimeout(t)
   }, [modo, step, form, testsValoracion, firmaAceptada, imagenesAceptada, clinicaAceptada, firmaCanvas, borradorPend, exito, hayContenido])
+  /* LA FOTO TAMBIEN EN EL BORRADOR. Iba solo en memoria: si la tablet recargaba la página
+     (pasa en el iPad al abrir la cámara o al dejarla un rato) el formulario se recuperaba
+     del borrador pero la foto no, y se guardaba la valoración sin foto sin avisar (María
+     Bóveda, 13/11). Se guarda ya reducida (600 px, unos 50-100 KB) aparte del borrador. */
+  const CLAVE_FOTO = 'sie-valoracion-foto'
+  function ponerFoto(f: File | null) {
+    setFoto(f)
+    if (!f) { try { localStorage.removeItem(CLAVE_FOTO) } catch {} ; return }
+    comprimirImagen(f, MAX_FOTO_PACIENTE).then(c => {
+      const lector = new FileReader()
+      lector.onload = () => { try { localStorage.setItem(CLAVE_FOTO, String(lector.result)) } catch {} }
+      lector.readAsDataURL(c)
+    }).catch(() => {})
+  }
+  async function recuperarFoto() {
+    try {
+      const d = localStorage.getItem(CLAVE_FOTO)
+      if (!d) return
+      const blob = await (await fetch(d)).blob()
+      setFoto(new File([blob], 'foto.jpg', { type: blob.type || 'image/jpeg' }))
+    } catch {}
+  }
   function recuperarBorrador() {
     const b = borradorPend
     if (!b) return
+    recuperarFoto()
     setModo(b.modo || 'inicial'); setStep(b.step || 1)
     setForm({ ...FORM_VACIO, ...(b.form || {}) }); setTestsValoracion(b.testsValoracion || [])
     setFirmaAceptada(!!b.firmaAceptada); setImagenesAceptada(!!b.imagenesAceptada)
@@ -152,7 +176,7 @@ export default function ValoracionPage() {
   }
   function descartarBorrador() {
     if (!confirm('Se borrará la valoración a medias. No se puede deshacer.')) return
-    try { localStorage.removeItem(CLAVE_BORRADOR) } catch {}
+    try { localStorage.removeItem(CLAVE_BORRADOR); localStorage.removeItem(CLAVE_FOTO) } catch {}
     setBorradorPend(null)
   }
 
@@ -217,7 +241,7 @@ export default function ValoracionPage() {
     if (m === modo) return
     const algoEscrito = form.paciente_id || form.nombre || form.anamnesis || testsValoracion.length > 0
     if (algoEscrito && !confirm('Se perderá lo que llevas escrito en esta pestaña. ¿Cambiar?')) return
-    setFoto(null); setModo(m); setStep(1); setForm({...FORM_VACIO, bono: bonosOpts[0]?.id || ''}); setTestsValoracion([]); setTestActivo(null)
+    ponerFoto(null); setModo(m); setStep(1); setForm({...FORM_VACIO, bono: bonosOpts[0]?.id || ''}); setTestsValoracion([]); setTestActivo(null)
     setPrevio(null); setFirmaCanvas(''); setFirmaAceptada(false); setImagenesAceptada(false); setClinicaAceptada(false)
   }
 
@@ -465,7 +489,7 @@ export default function ValoracionPage() {
       // lista de pacientes ya avisa de quién se quedó sin citas.
       setGuardado({ id: pacienteId, nombre: `${form.nombre} ${form.apellidos}`.trim(), citas: citasTxt })
       // Guardada de verdad: el borrador ya no hace falta.
-      try { localStorage.removeItem(CLAVE_BORRADOR) } catch {}
+      try { localStorage.removeItem(CLAVE_BORRADOR); localStorage.removeItem(CLAVE_FOTO) } catch {}
       setExito(true)
     } catch(e) { alert('Error al guardar: '+String(e)) }
     setGuardando(false)
@@ -571,7 +595,7 @@ export default function ValoracionPage() {
       <div className="valo">
       {paso==='Paciente'&&(esRevaloracion
         ? <PasoPacienteRevaloracion form={form} pacientes={pacientes} previo={previo} cargando={cargandoPrevio} onElegir={elegirParaRevaloracion} onLimpiar={limpiarPaciente}/>
-        : <PasoPaciente foto={foto} setFoto={setFoto} form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>)}
+        : <PasoPaciente foto={foto} setFoto={ponerFoto} form={form} up={up} pacientes={pacientes} comoNosConocioOpts={comoNosConocioOpts} firmaCanvas={firmaCanvas} setFirmaCanvas={setFirmaCanvas} firmaAceptada={firmaAceptada} setFirmaAceptada={setFirmaAceptada} imagenesAceptada={imagenesAceptada} setImagenesAceptada={setImagenesAceptada} clinicaAceptada={clinicaAceptada} setClinicaAceptada={setClinicaAceptada}/>)}
       {paso==='Anamnesis'&&<PasoAnamnesis form={form} up={up} tiposJornada={tiposJornada} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} modo={modo} previo={previo}/>}
       {paso==='Historial'&&<PasoHistorial form={form} up={up} etiquetasLib={etiquetasLib} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
       {paso==='Completar'&&<PasoCompletar form={form} up={up} etiquetasLib={etiquetasLib} deportesOpts={deportesOpts} tiposPlantilla={tiposPlantilla} yaTiene={previo||{}} medsBiblio={medsBiblio} alergiasBiblio={alergiasBiblio} intolBiblio={intolBiblio} opsBiblio={opsBiblio} patsBiblio={patsBiblio} molsBiblio={molsBiblio} setMedsBiblio={setMedsBiblio} setAlergiasBiblio={setAlergiasBiblio} setIntolBiblio={setIntolBiblio} setOpsBiblio={setOpsBiblio} setPatsBiblio={setPatsBiblio} setMolsBiblio={setMolsBiblio}/>}
