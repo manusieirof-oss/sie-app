@@ -28,7 +28,9 @@ export default function BotonVista({ opciones, valor, onChange, icono, prefijo, 
   const enLista = lista || opciones.length > 3
   return (
     <>
-      <button type="button" className="btn-vista" title={titulo}
+      {/* El mismo aspecto que los botones de Ejercicios (Vista, Orden, Filtros): todos
+          iguales en toda la biblioteca. */}
+      <button type="button" className="chip-sel" title={titulo} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         onClick={e => {
           if (!enLista) { onChange(opciones[(i + 1) % opciones.length].k); return }
           const r = (e.currentTarget as HTMLElement).getBoundingClientRect()

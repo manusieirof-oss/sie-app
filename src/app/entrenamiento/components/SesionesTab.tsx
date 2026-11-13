@@ -59,6 +59,42 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
      cuerpo trabaja (las articulaciones de sus ejercicios, por raíz: Rodilla, Columna...). */
   const [filtroTiempo, setFiltroTiempo] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
+  /* LA VISTA Y EL ORDEN, como en Ejercicios: un toque, la siguiente. La vista cambia lo
+     que dice cada tarjeta y el orden depende de la vista. Se recuerdan en este aparato. */
+  type VistaS = 'normal' | 'tiempo' | 'objetivos' | 'uso' | 'ejercicios'
+  const VISTAS_S: { k: VistaS, t: string, ic: string }[] = [
+    { k: 'normal', t: 'Normal', ic: 'biblioteca' }, { k: 'tiempo', t: 'Tiempo', ic: 'reloj' }, { k: 'objetivos', t: 'Objetivos', ic: 'objetivo' },
+    { k: 'uso', t: 'Uso', ic: 'stats' }, { k: 'ejercicios', t: 'Ejercicios', ic: 'fuerza' },
+  ]
+  const ORDENES_S: Record<VistaS, { k: string, t: string }[]> = {
+    normal: [{ k: 'nombre', t: 'Nombre' }, { k: 'nuevas', t: 'Nuevas' }],
+    tiempo: [{ k: 'cortas', t: 'Más cortas' }, { k: 'largas', t: 'Más largas' }],
+    objetivos: [{ k: 'masobj', t: 'Más objetivos' }, { k: 'nombre', t: 'Nombre' }],
+    uso: [{ k: 'usadas', t: 'Más usadas' }, { k: 'pacientes', t: 'Más pacientes' }, { k: 'recientes', t: 'Recientes' }],
+    ejercicios: [{ k: 'masej', t: 'Más ejercicios' }, { k: 'menosej', t: 'Menos ejercicios' }],
+  }
+  const [vistaS, setVistaSE] = useState<VistaS>('normal')
+  const [ordenPorS, setOrdenPorS] = useState<Partial<Record<VistaS, string>>>({})
+  useEffect(() => { try { const v = localStorage.getItem('ses_vista') as VistaS; if (VISTAS_S.some(x => x.k === v)) setVistaSE(v); setOrdenPorS(JSON.parse(localStorage.getItem('ses_orden') || '{}')) } catch {} }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const vistaAct = VISTAS_S.find(x => x.k === vistaS) || VISTAS_S[0]
+  const siguienteVista = () => { const n = VISTAS_S[(VISTAS_S.indexOf(vistaAct) + 1) % VISTAS_S.length].k; setVistaSE(n); try { localStorage.setItem('ses_vista', n) } catch {} }
+  const ordenesS = ORDENES_S[vistaS]
+  const ordenS = ordenesS.find(o => o.k === ordenPorS[vistaS]) || ordenesS[0]
+  const siguienteOrdenS = () => { const n = { ...ordenPorS, [vistaS]: ordenesS[(ordenesS.indexOf(ordenS) + 1) % ordenesS.length].k }; setOrdenPorS(n); try { localStorage.setItem('ses_orden', JSON.stringify(n)) } catch {} }
+  // Uso: en cuántas citas y de cuántos pacientes sale cada sesión (se pide al ver Uso).
+  const [usoSes, setUsoSes] = useState<Record<string, { citas: number, pacientes: number, ultima: string }> | null>(null)
+  useEffect(() => {
+    if (vistaS !== 'uso' || usoSes) return
+    ;(async () => {
+      const out: Record<string, { citas: number, pacientes: Set<string>, ultima: string }> = {}
+      for (let d = 0; ; d += 1000) {
+        const { data } = await supabase.from('citas').select('sesion_id,paciente_id,fecha').not('sesion_id', 'is', null).neq('estado', 'cancelada').order('id').range(d, d + 999)
+        ;(data || []).forEach((c: any) => { const o = out[c.sesion_id] ||= { citas: 0, pacientes: new Set(), ultima: '' }; o.citas++; o.pacientes.add(c.paciente_id); if (c.fecha > o.ultima) o.ultima = c.fecha })
+        if (!data || data.length < 1000) break
+      }
+      setUsoSes(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, { citas: v.citas, pacientes: v.pacientes.size, ultima: v.ultima }])))
+    })()
+  }, [vistaS]) // eslint-disable-line react-hooks/exhaustive-deps
   const [sesionVista, setSesionVista] = useState<any>(null)
   const [sustituyendo, setSustituyendo] = useState<any>(null)
   const [menuMas, setMenuMas] = useState(false)
@@ -208,6 +244,22 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
     const matchT = !tramo || tramo[2](minutosDe(s.partes||[]))
     const matchZ = casaZona(etiquetas||[], zonasDeSesion(s), filtroZona)
     return matchQ && matchObj && matchT && matchZ
+  }).sort((a:any, b:any) => {
+    const porNombre = String(a.nombre||'').localeCompare(String(b.nombre||''), 'es')
+    const nEjD = (x:any) => (x.partes||[]).reduce((n:number,p:any)=>n+(p.ejercicios||[]).length,0)
+    const u = (x:any) => usoSes?.[x.id]
+    switch (ordenS.k) {
+      case 'nuevas': return String(b.created_at||'').localeCompare(String(a.created_at||'')) || porNombre
+      case 'cortas': return minutosDe(a.partes||[]) - minutosDe(b.partes||[]) || porNombre
+      case 'largas': return minutosDe(b.partes||[]) - minutosDe(a.partes||[]) || porNombre
+      case 'masobj': return (b.sesiones_objetivos||[]).length - (a.sesiones_objetivos||[]).length || porNombre
+      case 'usadas': return (u(b)?.citas||0) - (u(a)?.citas||0) || porNombre
+      case 'pacientes': return (u(b)?.pacientes||0) - (u(a)?.pacientes||0) || porNombre
+      case 'recientes': return String(u(b)?.ultima||'').localeCompare(String(u(a)?.ultima||'')) || porNombre
+      case 'masej': return nEjD(b) - nEjD(a) || porNombre
+      case 'menosej': return nEjD(a) - nEjD(b) || porNombre
+      default: return porNombre
+    }
   })
 
   return (
@@ -239,7 +291,17 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
         <BotonVista valor={origen} onChange={k=>setOrigen(k as any)} titulo="Plantillas, de pacientes o todas"
           opciones={([['plantillas','Plantillas'],['pacientes','De pacientes'],['todas','Todas']] as const).map(([k,t])=>({ k, t,
             n: k==='todas' ? sesiones.length : sesiones.filter((s:any)=>k==='plantillas' ? esPlantilla(s) : !esPlantilla(s)).length }))}/>
-        <span style={{fontSize:10,color:'var(--grl)'}}>{sesionesFiltradas.length} en pantalla</span>
+        <span style={{fontSize:12,color:'var(--gr)'}}>{sesionesFiltradas.length} {sesionesFiltradas.length===1?'sesión':'sesiones'}</span>
+        {/* VISTA Y ORDEN: los mismos botones que en Ejercicios */}
+        <button type="button" className="chip-sel" onClick={siguienteVista} title="Cambiar lo que dicen las tarjetas" style={{display:'inline-flex',alignItems:'center',gap:6}}>
+          <Ic name={vistaAct.ic} size={13}/> {vistaAct.t}
+          <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{VISTAS_S.map(x=><i key={x.k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:x.k===vistaS?1:.3}}/>)}</span>
+        </button>
+        <button type="button" className="chip-sel" onClick={siguienteOrdenS} title="Cambiar el orden (depende de la vista)" style={{display:'inline-flex',alignItems:'center',gap:6}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>
+          {ordenS.t}
+          {ordenesS.length>1 && <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{ordenesS.map(o=><i key={o.k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:o.k===ordenS.k?1:.3}}/>)}</span>}
+        </button>
         <button className="btn btn-p btn-sm" onClick={()=>setSesionEditando({ paciente_id: pacienteIdInicial||'', nombre:'', descripcion:'', partes:[{nombre:'Calentamiento',ejercicios:[]},{nombre:'Parte principal',ejercicios:[]},{nombre:'Vuelta a la calma',ejercicios:[]}] })}>+ Nueva sesión</button>
       </div>
       {/* Filtro por objetivo: el mismo velo de bolas que en Ciclos. */}
@@ -269,9 +331,34 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                 onMouseOut={el=>(el.currentTarget as HTMLElement).style.borderColor='var(--bd)'}>
                 <div>
                   <div style={{fontSize:13,fontWeight:500,color:'var(--n)',marginBottom:3}}>{s.nombre}</div>
-                  {s.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,lineHeight:1.4}}>{s.descripcion.slice(0,90)}{s.descripcion.length>90?'...':''}</div>}
+                  {vistaS==='normal' && s.descripcion&&<div style={{fontSize:10,color:'var(--gr)',fontWeight:300,lineHeight:1.4}}>{s.descripcion.slice(0,90)}{s.descripcion.length>90?'...':''}</div>}
                 </div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:'auto'}}>
+                {/* LO QUE DICE LA TARJETA, SEGÚN LA VISTA */}
+                {vistaS==='tiempo' && (
+                  <div>
+                    <div style={{fontSize:22,fontWeight:600,color:'var(--n)',lineHeight:1}}>~{minutosDe(s.partes||[])} <span style={{fontSize:12,fontWeight:400,color:'var(--gr)'}}>min</span></div>
+                    <div style={{display:'grid',gap:2,marginTop:6}}>
+                      {(s.partes||[]).map((p:any,i:number)=><div key={i} style={{display:'flex',fontSize:11,color:'var(--gr)'}}><span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.nombre||`Parte ${i+1}`}</span><b style={{color:'var(--n)',fontWeight:500}}>~{minutosDe([p])} min</b></div>)}
+                    </div>
+                  </div>
+                )}
+                {vistaS==='objetivos' && (objsDeSesion(s).length===0
+                  ? <div style={{fontSize:11,color:'var(--grl)'}}>Sin objetivos</div>
+                  : <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{objsDeSesion(s).map((o:any)=>(
+                      <span key={o.id} style={{display:'inline-flex',flexDirection:'column',alignItems:'center',gap:2,width:64}}>
+                        <MonedaObjetivo objetivo={o} tam="mini"/><span style={{fontSize:9.5,color:'var(--gr)',textAlign:'center',lineHeight:1.2}}>{o.nombre}</span></span>))}</div>)}
+                {vistaS==='uso' && (() => { const u = usoSes?.[s.id]; return !usoSes ? <div style={{fontSize:11,color:'var(--grl)'}}>Contando…</div> : (
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:2,textAlign:'center'}}>
+                    {([[u?.citas||0,'Citas'],[u?.pacientes||0,'Pac.'],[u?.ultima ? new Date(u.ultima+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'}) : '—','Última']] as [any,string][]).map(([n,t])=>(
+                      <div key={t}><div style={{fontSize:typeof n==='number'?16:12.5,fontWeight:600,color:'var(--n)',lineHeight:'20px'}}>{n}</div><div style={{fontSize:9.5,textTransform:'uppercase',letterSpacing:.5,color:'var(--grl)'}}>{t}</div></div>))}
+                  </div>) })()}
+                {vistaS==='ejercicios' && (
+                  <div style={{fontSize:11,color:'var(--gr)',lineHeight:1.5}}>
+                    {(s.partes||[]).flatMap((p:any)=>p.ejercicios||[]).slice(0,8).map((e:any,i:number)=><div key={i} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>· {e.nombre}</div>)}
+                    {nEj>8 && <div style={{color:'var(--grl)'}}>y {nEj-8} más</div>}
+                  </div>
+                )}
+                {vistaS==='normal' && <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:'auto'}}>
                   {/* De quién es. Sin esto, en la lista no se distingue un molde de una
                       sesión ya prescrita, que es la diferencia que más importa aquí. */}
                   {esPlantilla(s)
@@ -281,11 +368,11 @@ export default function SesionesTab({ sesiones, pacientes, ejercicios, etiquetas
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bl)',color:'var(--gd)',border:'1px solid var(--bd)'}}>{modoDeSesion(s.partes||[]).nombre}</span>
                   <span style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>{nEj} {nEj===1?'ejercicio':'ejercicios'}</span>
                   {nEj>0 && <span title="Duración estimada" style={{fontSize:9,padding:'2px 8px',borderRadius:99,background:'var(--bm)',color:'var(--gr)'}}>~{minutosDe(s.partes||[])} min</span>}
-                </div>
+                </div>}
                 {/* En monedas mini, igual que en las sesiones del paciente. El nombre va en
                     el tooltip: en una tarjeta pequeña, tres nombres seguidos ocupaban más
                     que el resto de la tarjeta. */}
-                {objsDeSesion(s).length>0&&(
+                {vistaS==='normal' && objsDeSesion(s).length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                     {objsDeSesion(s).map((o:any)=><MonedaObjetivo key={o.id} objetivo={o} tam="mini"/>)}
                   </div>
