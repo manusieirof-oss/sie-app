@@ -1,4 +1,5 @@
 'use client'
+import { useNivel } from '@/lib/permisos'
 import { abrirAlerta, cerrarAlerta, LBL_ALERTA, type CuerpoAlerta } from '@/lib/alertas'
 import { ZONAS } from '@/lib/mapaTrabajo'
 import { avisarGuia } from '@/lib/guiaEventos'
@@ -104,6 +105,9 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
      qué es y se guarda en su sitio. La anamnesis se añade al final de la de su última
      valoración, con la fecha, sin borrar lo que había. */
   const [modo, setModo] = useState<'alerta' | 'anamnesis'>('alerta')
+  // La anamnesis es del entrenador 2 en adelante (el 1 observa y anota alertas). La base
+  // tampoco se lo deja, y como un cambio sin permiso no da error, parecia guardada.
+  const puedeAnamnesis = useNivel() >= 2
   const [anam, setAnam] = useState('')
   const [anamPrevia, setAnamPrevia] = useState<{ id: string, texto: string } | null | undefined>(undefined)
   useEffect(() => {
@@ -116,8 +120,9 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
     setOcupado(true); setMsg('')
     const dia = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
     const nuevo = (anamPrevia.texto.trim() ? anamPrevia.texto.trimEnd() + '\n\n' : '') + `${dia}: ${anam.trim()}`
-    const { error } = await supabase.from('valoraciones').update({ anamnesis: nuevo }).eq('id', anamPrevia.id)
+    const { data: tocadas, error } = await supabase.from('valoraciones').update({ anamnesis: nuevo }).eq('id', anamPrevia.id).select('id')
     if (error) { setOcupado(false); setMsg('No se ha podido guardar la anamnesis: ' + error.message); return }
+    if (!tocadas || tocadas.length === 0) { setOcupado(false); setMsg('La anamnesis no se ha guardado: no tienes permiso para cambiarla.'); return }
     await supabase.from('eventos_paciente').insert({ paciente_id: pacienteId, tipo: 'anamnesis', titulo: 'Anamnesis completada', descripcion: anam.trim(), fecha: hoyISO() })
     setOcupado(false); setAnam(''); setAnamPrevia({ ...anamPrevia, texto: nuevo }); setMsg('')
     onCambio?.()
@@ -125,7 +130,7 @@ export function BloqueAlertas({ pacienteId, onCambio }: { pacienteId: string, on
   return <>
     <div className="gc-chips" style={{ marginBottom: 8 }}>
       <button className={modo === 'alerta' ? 'on' : ''} onClick={() => setModo('alerta')}>Alerta</button>
-      <button className={modo === 'anamnesis' ? 'on' : ''} onClick={() => setModo('anamnesis')}>Anamnesis</button>
+      {puedeAnamnesis && <button className={modo === 'anamnesis' ? 'on' : ''} onClick={() => setModo('anamnesis')}>Anamnesis</button>}
     </div>
     {modo === 'anamnesis' ? <>
       <div className="gc-lbl">Anamnesis</div>
