@@ -1,0 +1,9 @@
+# Lo que Vercel no necesita para construir la app y no debe subir en cada publicacion.
+Imagenes ejercicios
+Claude outputs
+docs
+datos
+sql
+migraciones
+scripts
+Finanzas 26

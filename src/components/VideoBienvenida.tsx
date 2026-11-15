@@ -6,7 +6,13 @@
 // inicial («Ver el vídeo»). Los vídeos están en public/videos.
 // ---------------------------------------------------------------------------
 
-export const VIDEOS: Partial<Record<1 | 2, string>> = { 1: '/videos/nivel1.mp4', 2: '/videos/nivel2.mp4' }
+/* LOS VIDEOS NO VAN DENTRO DE LA APP. Estaban en public/videos (35 MB entre los dos) y
+   Vercel guarda una copia en CADA publicacion: con varias al dia, el almacenamiento del
+   plan gratis (10 GB) se llenaba solo. Ahora viven en el cajon publico de Supabase
+   (fotos/videos), se suben una vez y publicar ya no los arrastra. No son datos de
+   nadie: son las guias de bienvenida. */
+const BASE_VIDEOS = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos/videos`
+export const VIDEOS: Partial<Record<1 | 2, string>> = { 1: `${BASE_VIDEOS}/nivel1.mp4`, 2: `${BASE_VIDEOS}/nivel2.mp4` }
 
 const CLAVE = (uid: string, n: number) => `sie_video${n}_visto_${uid}`
 export const videoVisto = (uid: string, n: number) => { try { return localStorage.getItem(CLAVE(uid, n)) === '1' } catch { return true } }
