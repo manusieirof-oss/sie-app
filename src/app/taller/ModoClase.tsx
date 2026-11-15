@@ -44,7 +44,7 @@ import { traerTodo } from '@/lib/paginar'
 import IconosContexto from './IconosContexto'
 import HojaLibre from '@/components/HojaLibre'
 import { leerHoja, registrosDeHoja, type Hoja } from '@/lib/hoja'
-import { CAMPOS_MEDIDA, CAMPOS_SERIE, serieLlena, antesDeClase, sinEjerciciosBorrados, cerrarBorrador, guardarBorradorEjercicio } from './guardarTaller'
+import { CAMPOS_MEDIDA, CAMPOS_SERIE, serieLlena, antesDeClase, sinEjerciciosBorrados, cerrarBorrador, guardarBorradorEjercicio, clavePendiente, apuntarPendiente, quitarPendiente, cuantosPendientes, leerPendientes, enviarPendientes } from './guardarTaller'
 
 // Ver lib/fechas: por UTC esto daba ayer entre las 00:00 y las 02:00.
 const hoy = hoyISO
@@ -271,10 +271,20 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   const [sinGuardar, setSinGuardar] = useState(0)
   const autoguardarRef = useRef<any>(null)
   autoguardarRef.current = autoguardar
-  const quitarFallo = (k: string) => {
-    if (!fallos.current[k]) return
+  /* Lo que no entra se apunta ademas en este equipo (guardarTaller: pendientes), para
+     que sobreviva a una recarga o a un apagado. El aviso rojo cuenta eso, que es todo lo
+     que falta por entrar, este o no en pantalla. */
+  const entro = (k: string, pk: string) => {
     delete fallos.current[k]
-    setSinGuardar(Object.keys(fallos.current).length)
+    quitarPendiente(pk)
+    setSinGuardar(cuantosPendientes())
+  }
+  /* Al abrir el taller, primero se manda lo que quedo pendiente la ultima vez, y solo
+     despues se carga la clase: asi lo recuperado ya sale en pantalla. Una sola vez. */
+  const envioInicial = useRef<Promise<void> | null>(null)
+  const esperarPendientes = () => {
+    if (!envioInicial.current) envioInicial.current = enviarPendientes().catch(() => 0).then(() => setSinGuardar(cuantosPendientes()))
+    return envioInicial.current
   }
   useEffect(() => {
     if (sinGuardar === 0) return
@@ -284,12 +294,18 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const ej = s?.datos?.[f.ei]
         // Ya no esta en pantalla, se le cambio la sesion o se finalizo (finalizar vuelve
         // a guardar y, si no puede, no cierra): no queda nada que reintentar.
-        if (!s || !ej || s.sesionId !== f.sesionId || s.finalizado) { quitarFallo(k); return }
+        if (s?.finalizado && s.sesionId === f.sesionId) { entro(k, clavePendiente(f.pid, f.sesionId, f.ei)); return }
+        // Ya no esta en pantalla (se cambio de dia, de hora o de sesion): deja de
+        // reintentarlo la pantalla, pero sigue apuntado en el equipo y se manda abajo.
+        if (!s || !ej || s.sesionId !== f.sesionId) { delete fallos.current[k]; return }
         // Si se acaba de tocar otra vez, ese guardado ya va en camino.
         if (timers.current[k]) return
         setPendientes(p => p + 1)
         autoguardarRef.current?.(f.pid, f.ei, ej, f.sesionId, f.fechaC)
       })
+      // Lo pendiente que no esta en pantalla (de antes de recargar, o de otra hora).
+      const enPantalla = new Set(Object.values(fallos.current).map(f => clavePendiente(f.pid, f.sesionId, f.ei)))
+      enviarPendientes(enPantalla).catch(() => 0).then(() => setSinGuardar(cuantosPendientes()))
     }, 6000)
     return () => clearInterval(t)
   }, [sinGuardar])
@@ -477,6 +493,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     trayendoRef.current = true
     if (!silencio) { setTrayendo(true); setAvisoAgenda('') }
     try {
+      await esperarPendientes()
       let delDia = await pacientesDelDia(fecha, sala || undefined, hora || undefined)
       if (solo) delDia = delDia.filter(d => d.pacienteId === solo.pacienteId)
       /* LAS FALTAS FUERA. Salian en gris y ocupaban sitio en la sala; quien no viene no
@@ -1477,8 +1494,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     const hayComent = (ej.comentario||'').trim()!==''
     const iv = ej.items_evaluados || {}
     const hayItems = Object.values(iv).some((v:any)=>v===true)
-    if (ej.precargado && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); quitarFallo(kFallo); return true }
-    if (seriesLlenas.length===0 && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); quitarFallo(kFallo); return true }
+    const kPend = clavePendiente(pid, sesionId, ei)
+    if (ej.precargado && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); entro(kFallo, kPend); return true }
+    if (seriesLlenas.length===0 && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); entro(kFallo, kPend); return true }
     let error: any
     // Por si la red corta de forma que lance en vez de devolver { error }: cuenta igual
     // como fallo, y el contador de "guardando" no se queda colgado.
@@ -1488,11 +1506,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     if (error){
       console.error('autoguardar clase', error.message)
       fallos.current[kFallo] = { pid, ei, sesionId, fechaC, motivo: error.message || '' }
-      setSinGuardar(Object.keys(fallos.current).length)
+      apuntarPendiente(kPend, pid, sesionId, fechaC, ej, error.message || '')
+      setSinGuardar(cuantosPendientes())
       setPendientes(p=>Math.max(0,p-1))
       return false
     }
-    quitarFallo(kFallo)
+    entro(kFallo, kPend)
     setPendientes(p=>Math.max(0,p-1))
     setUltimoGuardado(new Date())
     setSeleccion(prev => prev.map(s=>{
@@ -2005,7 +2024,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                   fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', padding: '0 4px', border: '2px solid var(--bl)' }}>{piden}</span>}
               </button>
               {sinGuardar > 0 ? (
-                <button onClick={() => alert(`Hay ${sinGuardar} ${sinGuardar === 1 ? 'ejercicio' : 'ejercicios'} sin guardar.\n\nSe reintenta solo cada pocos segundos. No cierres esta pantalla hasta que desaparezca el aviso.\n\nMotivo: ${Object.values(fallos.current)[0]?.motivo || 'sin conexión'}`)}
+                <button onClick={() => alert(`Hay ${sinGuardar} ${sinGuardar === 1 ? 'ejercicio' : 'ejercicios'} sin guardar.\n\nSe reintenta solo cada pocos segundos. Queda apuntado en este equipo: si se cierra la pantalla, se manda al volver a abrir el taller con conexión.\n\nMotivo: ${Object.values(leerPendientes())[0]?.motivo || 'sin conexión'}`)}
                   style={{ height: 24, padding: '0 9px', borderRadius: 99, border: 'none', background: '#C25B5B', color: '#fff', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0, cursor: 'pointer' }}>
                   <Ic name="alerta" size={12}/> Sin guardar
                 </button>

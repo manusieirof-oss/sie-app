@@ -142,3 +142,78 @@ export async function guardarBorradorEjercicio(pid: string, ej: any, sesionId: s
   }
   return error || null
 }
+
+/**
+ * LO QUE NO HA ENTRADO, TAMBIEN GUARDADO EN ESTE EQUIPO.
+ *
+ * Sin conexion, lo apuntado solo vivia en la memoria de la pagina: si se recargaba, se
+ * cerraba o la tablet se quedaba sin bateria antes de volver el wifi, se perdia. Ahora
+ * cada ejercicio que no entra se apunta ademas en el navegador, y se manda en cuanto se
+ * puede: al volver la conexion o la proxima vez que se abre el taller.
+ *
+ * Dos cuidados para no pisar lo bueno con lo viejo:
+ *   · si esa clase ya esta finalizada (se guardo desde otro equipo), lo de aqui se tira;
+ *   · a los dos dias se tira igual: una tablet que aparece una semana despues no debe
+ *     reescribir una clase antigua.
+ *
+ * Se guarda solo lo necesario para escribir el registro, no la ficha del ejercicio.
+ */
+const CLAVE_PEND = 'sie-taller-pendientes'
+const CADUCA_MS = 48 * 3600 * 1000
+export type Pendiente = { pid: string, sesionId: string, fechaC: string, ej: any, motivo: string, t: number }
+
+export const clavePendiente = (pid: string, sesionId: string, ei: number) => `${pid}|${sesionId}|${ei}`
+
+export function leerPendientes(): Record<string, Pendiente> {
+  try { const m = JSON.parse(localStorage.getItem(CLAVE_PEND) || '{}'); return m && typeof m === 'object' ? m : {} } catch { return {} }
+}
+function escribirPendientes(m: Record<string, Pendiente>) {
+  try { if (Object.keys(m).length === 0) localStorage.removeItem(CLAVE_PEND); else localStorage.setItem(CLAVE_PEND, JSON.stringify(m)) } catch {}
+}
+const loJusto = (ej: any) => ({
+  ejercicio_id: ej.ejercicio_id || null, nombre: ej.nombre, series: ej.series || [], comentario: ej.comentario || '',
+  items_evaluados: ej.items_evaluados || {}, regimen: ej.regimen || null, variante: ej.variante || null, lado: ej.lado || null,
+  tipo_medida: ej.tipo_medida || null,
+  plan: ej.plan ? { regimen: ej.plan.regimen, lado: ej.plan.lado, capacidad: ej.plan.capacidad, reps: ej.plan.reps } : undefined,
+})
+export function apuntarPendiente(k: string, pid: string, sesionId: string, fechaC: string, ej: any, motivo: string) {
+  const m = leerPendientes()
+  m[k] = { pid, sesionId, fechaC, ej: loJusto(ej), motivo, t: Date.now() }
+  escribirPendientes(m)
+}
+export function quitarPendiente(k: string) {
+  const m = leerPendientes()
+  if (!(k in m)) return
+  delete m[k]
+  escribirPendientes(m)
+}
+export const cuantosPendientes = () => Object.keys(leerPendientes()).length
+
+/**
+ * Manda lo pendiente que NO esta en pantalla (`saltar` son los que ya reintenta la
+ * pantalla con lo ultimo que tiene). Devuelve cuantos han entrado.
+ */
+let enviando = false
+export async function enviarPendientes(saltar: Set<string> = new Set()): Promise<number> {
+  // De una en una: si la anterior sigue en marcha (red lenta), esta vuelta se salta,
+  // para no escribir dos veces el mismo ejercicio.
+  if (enviando) return 0
+  enviando = true
+  try { return await enviarPendientesAhora(saltar) } finally { enviando = false }
+}
+async function enviarPendientesAhora(saltar: Set<string>): Promise<number> {
+  let n = 0
+  for (const [k, p] of Object.entries(leerPendientes())) {
+    if (saltar.has(k)) continue
+    if (!p?.t || Date.now() - p.t > CADUCA_MS) { quitarPendiente(k); continue }
+    try {
+      const { data: fin, error: eF } = await supabase.from('registros_ejercicio').select('id')
+        .eq('paciente_id', p.pid).eq('sesion_id', p.sesionId).eq('fecha', p.fechaC).eq('finalizado', true).limit(1)
+      if (eF) continue // sigue sin conexion: se queda para la proxima
+      if ((fin || []).length > 0) { quitarPendiente(k); continue }
+      const err = await guardarBorradorEjercicio(p.pid, p.ej, p.sesionId, p.fechaC)
+      if (!err) { quitarPendiente(k); n++ }
+    } catch {}
+  }
+  return n
+}
