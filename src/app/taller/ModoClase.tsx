@@ -302,14 +302,45 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
   const [cambiando, setCambiando] = useState<any>(null)
   const [pendientes, setPendientes] = useState(0)
   const [ultimoGuardado, setUltimoGuardado] = useState<Date|null>(null)
+  /* LO QUE NO HA ENTRADO, A LA VISTA. Si un autoguardado fallaba (la wifi de la tablet,
+     casi siempre) solo se apuntaba en la consola y arriba seguia el "Guardado 10:32" de
+     la vez anterior: se seguia dando clase creyendo que estaba todo apuntado. Ahora cada
+     ejercicio que no entra se anota aqui, arriba sale en rojo, y se reintenta solo con lo
+     que haya en pantalla en ese momento hasta que entre. */
+  const fallos = useRef<Record<string, { pid: string, ei: number, sesionId: string, fechaC: string, motivo: string }>>({})
+  const [sinGuardar, setSinGuardar] = useState(0)
+  const autoguardarRef = useRef<any>(null)
+  autoguardarRef.current = autoguardar
+  const quitarFallo = (k: string) => {
+    if (!fallos.current[k]) return
+    delete fallos.current[k]
+    setSinGuardar(Object.keys(fallos.current).length)
+  }
+  useEffect(() => {
+    if (sinGuardar === 0) return
+    const t = setInterval(() => {
+      Object.entries(fallos.current).forEach(([k, f]) => {
+        const s = seleccionRef.current.find((x:any) => x.paciente.id === f.pid)
+        const ej = s?.datos?.[f.ei]
+        // Ya no esta en pantalla, se le cambio la sesion o se finalizo (finalizar vuelve
+        // a guardar y, si no puede, no cierra): no queda nada que reintentar.
+        if (!s || !ej || s.sesionId !== f.sesionId || s.finalizado) { quitarFallo(k); return }
+        // Si se acaba de tocar otra vez, ese guardado ya va en camino.
+        if (timers.current[k]) return
+        setPendientes(p => p + 1)
+        autoguardarRef.current?.(f.pid, f.ei, ej, f.sesionId, f.fechaC)
+      })
+    }, 6000)
+    return () => clearInterval(t)
+  }, [sinGuardar])
 
   useEffect(() => {
     const antesDeSalir = (e: BeforeUnloadEvent) => {
-      if (pendientes > 0) { e.preventDefault(); e.returnValue = '' }
+      if (pendientes > 0 || sinGuardar > 0) { e.preventDefault(); e.returnValue = '' }
     }
     window.addEventListener('beforeunload', antesDeSalir)
     return () => window.removeEventListener('beforeunload', antesDeSalir)
-  }, [pendientes])
+  }, [pendientes, sinGuardar])
 
   /* REPETIDOS EN LA SEMANA: qué ejercicios de hoy ya hizo otro día o tiene en otra cita
      de esta semana (lib/repetidosSemana). Solo es un aviso en la tarjeta. */
@@ -1500,13 +1531,14 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     return partesMedida(ej.tipo_medida || 'peso_reps').volumen
   }
 
-  async function autoguardar(pid:string, ei:number, ej:any, sesionId:string, fechaC:string = fecha){
+  async function autoguardar(pid:string, ei:number, ej:any, sesionId:string, fechaC:string = fecha): Promise<boolean> {
+    const kFallo = `${pid}_${ei}`
     const seriesLlenas = ej.series.filter(serieLlena)
     const hayComent = (ej.comentario||'').trim()!==''
     const iv = ej.items_evaluados || {}
     const hayItems = Object.values(iv).some((v:any)=>v===true)
-    if (ej.precargado && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); return }
-    if (seriesLlenas.length===0 && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); return }
+    if (ej.precargado && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); quitarFallo(kFallo); return true }
+    if (seriesLlenas.length===0 && !hayComent && !hayItems) { setPendientes(p=>Math.max(0,p-1)); quitarFallo(kFallo); return true }
     const fila:any = {
       paciente_id: pid, ejercicio_id: ej.ejercicio_id, ejercicio_nombre: ej.nombre,
       sesion_id: sesionId, series: seriesLlenas, comentario: ej.comentario||null, items_evaluados: iv, finalizado:false,
@@ -1526,7 +1558,10 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       medida: volumenDe(ej, seriesLlenas),
       capacidad: ej.plan?.capacidad || (volumenDe(ej, seriesLlenas) === 'reps' ? capacidadPorReps(seriesLlenas[0]?.reps || ej.plan?.reps || '') || null : null),
     }
-    let error
+    let error: any
+    // Por si la red corta de forma que lance en vez de devolver { error }: cuenta igual
+    // como fallo, y el contador de "guardando" no se queda colgado.
+    try {
     if (ej.ejercicio_id){
       // Con la variante en la clave: el mismo ejercicio puede salir dos veces en
       // la misma sesion —bilateral y unilateral— y sin esto el segundo pisaba al
@@ -1563,7 +1598,15 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (error && /n_series/.test(error.message)) { delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
       if (error && /lado/.test(error.message)) { delete fila.lado; delete fila.n_series; ({ error } = await supabase.from('registros_ejercicio').insert(fila)) }
     }
-    if (error){ console.error('autoguardar clase', error.message); setPendientes(p=>Math.max(0,p-1)); return }
+    } catch (e: any) { error = { message: String(e?.message || e) } }
+    if (error){
+      console.error('autoguardar clase', error.message)
+      fallos.current[kFallo] = { pid, ei, sesionId, fechaC, motivo: error.message || '' }
+      setSinGuardar(Object.keys(fallos.current).length)
+      setPendientes(p=>Math.max(0,p-1))
+      return false
+    }
+    quitarFallo(kFallo)
     setPendientes(p=>Math.max(0,p-1))
     setUltimoGuardado(new Date())
     setSeleccion(prev => prev.map(s=>{
@@ -1571,6 +1614,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const datos=[...s.datos]; if(datos[ei]) datos[ei]={...datos[ei],guardado:true}
       return {...s,datos}
     }))
+    return true
   }
 
   function mutarSerie(pid:string, ei:number, si:number, campo:string, val:string){
@@ -1778,7 +1822,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const ej=item.datos[i]
       const llenas=ej.series.filter(serieLlena)
       const hayComent=(ej.comentario||'').trim()!==''
-      if (llenas.length>0 || hayComent) await autoguardar(pid,i,ej,item.sesionId,fechaC)
+      if (llenas.length>0 || hayComent) {
+        // Si lo apuntado no entra, no se cierra: se cerraria con lo viejo y lo de la
+        // pantalla se perderia al salir.
+        const entro = await autoguardar(pid,i,ej,item.sesionId,fechaC)
+        if (!entro) { alert(`No se ha podido guardar lo apuntado de ${nombrePac(item.paciente)} (¿hay conexión?).\n\nNo se ha finalizado. No cierres esta pantalla y vuelve a intentarlo.`); return false }
+      }
     }
     /**
      * LO QUE NO SE MARCO COMO "NO LO HIZO", SE HIZO.
@@ -2069,7 +2118,12 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
                 {piden > 0 && <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, borderRadius: 99, background: '#B05A5A', color: '#fff',
                   fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', padding: '0 4px', border: '2px solid var(--bl)' }}>{piden}</span>}
               </button>
-              {pendientes > 0 ? (
+              {sinGuardar > 0 ? (
+                <button onClick={() => alert(`Hay ${sinGuardar} ${sinGuardar === 1 ? 'ejercicio' : 'ejercicios'} sin guardar.\n\nSe reintenta solo cada pocos segundos. No cierres esta pantalla hasta que desaparezca el aviso.\n\nMotivo: ${Object.values(fallos.current)[0]?.motivo || 'sin conexión'}`)}
+                  style={{ height: 24, padding: '0 9px', borderRadius: 99, border: 'none', background: '#C25B5B', color: '#fff', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0, cursor: 'pointer' }}>
+                  <Ic name="alerta" size={12}/> Sin guardar
+                </button>
+              ) : pendientes > 0 ? (
                 <span title="Guardando…" style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ambl)', color: '#7A5800', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Ic name="reloj" size={11}/></span>
               ) : ultimoGuardado ? (
                 <span title={`Guardado ${ultimoGuardado.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`}
