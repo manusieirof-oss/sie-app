@@ -1,4 +1,5 @@
 'use client'
+import { borrarBorradores } from '@/lib/borradores'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -30,7 +31,7 @@ export default function MovilYo() {
     try { localStorage.setItem('sie_version', 'completa') } catch {}
     router.push('/agenda')
   }
-  const salir = async () => { await supabase.auth.signOut(); router.push('/login') }
+  const salir = async () => { borrarBorradores(); await supabase.auth.signOut(); router.push('/login') }
 
   return (
     <div className="m-pag">

@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import AvisoRenovacion from './AvisoRenovacion'
 import { renovarCuotas } from '@/lib/bonos'
+import { borrarBorradores } from '@/lib/borradores'
 import { aplicarEstadosProgramados } from '@/lib/estadosPaciente'
 import { Ic } from '@/lib/icons'
 import HojaCita from './movil/components/HojaCita'
@@ -281,6 +282,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }, [user?.id, perfilListo, firmada, perfil])
 
   const handleLogout = async () => {
+    borrarBorradores()
     await supabase.auth.signOut()
     router.push('/login')
   }
