@@ -20,8 +20,8 @@ import { TIPOS_CLASE_FALLBACK, parseTiposClase } from '@/lib/tipos'
 import { duplicarSesion as duplicarSesionLib, registrarSesion, modoDeSesion } from '@/lib/sesiones'
 import { agrupaPorLinaje, evolucionarPrograma, evolucionarDesde, marcarFija, esVigente, versionDe, linajeDe } from '@/lib/linaje'
 import { hoyISO } from '@/lib/fechas'
-import { estadoRecuperacion, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
-import { bonoTrasEstado, engancharCitas, revisarBonoDeCita } from '@/lib/bonoSesiones'
+import { estadoRecuperacion } from '@/lib/recuperaciones'
+import { cambiarEstadoDeCita, moverCita, eliminarCitaDel } from '@/lib/gestionCita'
 import HistorialAjustes from '@/app/entrenamiento/components/HistorialAjustes'
 import SistemasPaciente from './SistemasPaciente'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
@@ -296,41 +296,28 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
     cargarDatos()
   }
 
+  // Lo mismo que hace la agenda, por el mismo sitio (lib/gestionCita).
   async function guardarEdicionCita() {
     if (!editandoCita) return
     setGuardando(true)
     const original = citasFuturas.find((c:any)=>c.id===editandoCita.id)
-    await supabase.from('citas').update({fecha:editandoCita.fecha,hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
-    // Si ha pasado a Individual (o al revés) o se ha movido fuera de su bono, se corrige.
-    await revisarBonoDeCita(editandoCita.id)
-    if (original) {
-      const registros:any[]=[]
-      if (editandoCita.fecha && original.fecha && editandoCita.fecha!==original.fecha) registros.push({cita_id:editandoCita.id,paciente_id:pacienteId,campo_cambiado:'fecha',valor_anterior:original.fecha,valor_nuevo:editandoCita.fecha})
-      const hAnt=(original.hora||'').slice(0,5), hNue=(editandoCita.hora||'').slice(0,5)
-      if (hNue && hAnt && hNue!==hAnt) registros.push({cita_id:editandoCita.id,paciente_id:pacienteId,campo_cambiado:'hora',valor_anterior:hAnt,valor_nuevo:hNue})
-      if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
-    }
-    setEditandoCita(null); setGuardando(false); cargarDatos(); onRefresh()
+    const r = await moverCita({ ...editandoCita, paciente_id: editandoCita.paciente_id || pacienteId }, original)
+    setGuardando(false)
+    if (!r.ok) { alert(r.error); return }
+    setEditandoCita(null); cargarDatos(); onRefresh()
   }
 
   async function cambiarEstadoCita(cita:any, estado:string) {
-    await supabase.from('citas').update({estado}).eq('id',cita.id)
-    // Cancelada no gasta del bono, igual que desde la agenda (aquí no se soltaba).
-    // Y si deja de estar cancelada, vuelve a su bono.
-    await bonoTrasEstado(cita.id, estado)
-    // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
-    const rr = await recuperacionAlCambiarEstado({ id: cita.id, paciente_id: cita.paciente_id||pacienteId, fecha: cita.fecha, hora: cita.hora }, estado)
-    if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
-    else if (rr.motivo) alert('Cancelada sin recuperación: '+rr.motivo+'.')
+    const r = await cambiarEstadoDeCita(cita.id, estado)
+    if (!r.ok) { alert(r.error); cargarDatos(); return }
+    if (r.aviso) alert(r.aviso)
     setEditandoCita(null); cargarDatos(); onRefresh()
   }
 
   async function eliminarCita(cita:any) {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
-    await recuperacionAlEliminar(cita.id)
-    await supabase.from('citas').delete().eq('id',cita.id)
-    // Si gastaba de un bono, el hueco lo coge su siguiente cita sin bono (como en la agenda).
-    if (cita.bono_id) await engancharCitas(cita.bono_id)
+    const r = await eliminarCitaDel(cita)
+    if (!r.ok) { alert(r.error); cargarDatos(); return }
     setEditandoCita(null); cargarDatos(); onRefresh()
   }
 

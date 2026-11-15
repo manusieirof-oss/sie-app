@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { citaAntes, correrTrasEstado, correrAlQuitar, correrAlMover } from '@/lib/correrSesiones'
+import { cambiarEstadoDeCita, moverCita, eliminarCitaDel } from '@/lib/gestionCita'
 import { supabase } from '@/lib/supabase'
 import { horasDeAgenda } from '@/lib/generarHoras'
 import { cargarTurnos } from '@/lib/turnos'
@@ -22,9 +22,9 @@ import ModalTareas from './components/ModalTareas'
 import AvisoTareas, { esAvisoEquipo } from './components/AvisoTareas'
 import { crearCita as crearUnaCita, crearCitas, crearCitasPlan, planDeFechas, planDeFechasAlterno, finDePeriodo, type Periodo } from '@/lib/citas'
 import { useRouter } from 'next/navigation'
-import { ultimasDeBono, bonoTrasEstado, engancharCitas, revisarBonoDeCita } from '@/lib/bonoSesiones'
+import { ultimasDeBono } from '@/lib/bonoSesiones'
 import { hoyISO } from '@/lib/fechas'
-import { porRecuperar, recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
+import { porRecuperar } from '@/lib/recuperaciones'
 import { pacientesAgendables } from '@/lib/estadosPaciente'
 import { usePuede } from '@/lib/permisos'
 import { LENTES_AGENDA, type LenteAgenda } from '@/lib/lenteAgenda'
@@ -301,32 +301,17 @@ export default function AgendaPage() {
     setGuardandoAnot(null)
   }
 
+  // Mover, cambiar de estado y eliminar viven en lib/gestionCita: un solo sitio para la
+  // agenda y la ficha, y que mira si el cambio ha entrado antes de seguir.
   async function guardarEdicionCita() {
     if (!editandoCita) return
     setGuardando(true)
-    // Detectar la cita original para comparar fecha/hora
     const original = citas.find((c:any)=>c.id===editandoCita.id)
-    const fechaNueva = editandoCita.fecha
-    const horaNueva = editandoCita.hora
-    await supabase.from('citas').update({fecha:editandoCita.fecha,hora:editandoCita.hora,sala:editandoCita.sala,tipo:editandoCita.tipo,notas:editandoCita.notas}).eq('id',editandoCita.id)
-    // Si ha pasado a Individual (o al revés) o se ha movido fuera de su bono, se corrige.
-    await revisarBonoDeCita(editandoCita.id)
-    // Registrar cambios de fecha y hora en el historial
-    if (original) {
-      const registros:any[]=[]
-      if (fechaNueva && original.fecha && fechaNueva!==original.fecha) {
-        registros.push({cita_id:editandoCita.id,paciente_id:editandoCita.paciente_id,campo_cambiado:'fecha',valor_anterior:original.fecha,valor_nuevo:fechaNueva})
-      }
-      const hAnt=(original.hora||'').slice(0,5), hNue=(horaNueva||'').slice(0,5)
-      if (hNue && hAnt && hNue!==hAnt) {
-        registros.push({cita_id:editandoCita.id,paciente_id:editandoCita.paciente_id,campo_cambiado:'hora',valor_anterior:hAnt,valor_nuevo:hNue})
-      }
-      if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
-      // Otro DIA: la cita coge la sesion que le toca en su nueva posicion. Hora o sala, no.
-      if (fechaNueva && original.fecha && fechaNueva!==original.fecha)
-        await correrAlMover(editandoCita.paciente_id, editandoCita.id, original.fecha, original.hora)
-    }
-    setEditandoCita(null); setGuardando(false); cargar()
+    const r = await moverCita(editandoCita, original)
+    setGuardando(false)
+    // Si no ha entrado, el modal se queda abierto con lo que se habia puesto.
+    if (!r.ok) { alert(r.error); return }
+    setEditandoCita(null); cargar()
   }
 
   /**
@@ -352,22 +337,16 @@ export default function AgendaPage() {
   async function guardarCitasMultiple(editados:any[]) {
     if (!editados || editados.length===0) { setEditandoMulti(null); return }
     setGuardando(true)
-    const registros:any[]=[]
+    const fallos:string[]=[]
     for (const e of editados) {
       const orig = citas.find((c:any)=>c.id===e.id)
-      await supabase.from('citas').update({fecha:e.fecha,hora:e.hora,sala:e.sala,tipo:e.tipo}).eq('id',e.id)
-      await revisarBonoDeCita(e.id)
-      if (orig) {
-        if (orig.fecha && e.fecha && orig.fecha!==e.fecha) {
-          registros.push({cita_id:e.id,paciente_id:e.paciente_id,campo_cambiado:'fecha',valor_anterior:orig.fecha,valor_nuevo:e.fecha})
-          await correrAlMover(e.paciente_id || orig.paciente_id, e.id, orig.fecha, orig.hora)
-        }
-        const hA=(orig.hora||'').slice(0,5), hN=(e.hora||'').slice(0,5)
-        if (hN&&hA&&hN!==hA) registros.push({cita_id:e.id,paciente_id:e.paciente_id,campo_cambiado:'hora',valor_anterior:hA,valor_nuevo:hN})
-      }
+      // Aqui las notas no se editan: no se tocan.
+      const r = await moverCita(e, orig, false)
+      if (!r.ok) fallos.push(`${e.fecha} ${(e.hora||'').slice(0,5)} · ${r.error}`)
     }
-    if (registros.length>0) await supabase.from('cambios_cita').insert(registros)
-    setEditandoMulti(null); setGuardando(false); cargar()
+    setGuardando(false)
+    if (fallos.length>0) alert(`ATENCIÓN: ${fallos.length} de ${editados.length} citas NO se han cambiado.\n\n${fallos.join('\n')}`)
+    setEditandoMulti(null); cargar()
   }
 
   async function crearCita() {
@@ -444,56 +423,30 @@ export default function AgendaPage() {
   }
 
   async function cambiarEstado(id:string,estado:string) {
-    const antes = await citaAntes(id)
-    await supabase.from('citas').update({estado}).eq('id',id)
-    if (antes) await correrTrasEstado(antes, estado)
-    // Cancelada no gasta (su hueco pasa a la siguiente); si vuelve, se ata otra vez.
-    await bonoTrasEstado(id, estado)
-    // Recuperaciones: la misma regla que en todos los sitios (lib/recuperaciones).
-    // Aquí antes la daba la FALTA, al revés que en el resto.
-    const { data: cRec } = await supabase.from('citas').select('id,paciente_id,fecha,hora').eq('id',id).maybeSingle()
-    if (cRec) {
-      const rr = await recuperacionAlCambiarEstado(cRec, estado)
-      if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
-      else if (rr.motivo) alert('Cancelada sin recuperación: '+rr.motivo+'.')
-    }
+    const r = await cambiarEstadoDeCita(id, estado)
+    if (!r.ok) { alert(r.error); cargar(); return }
+    if (r.aviso) alert(r.aviso)
     setPanelPac((prev:any)=>prev?{...prev,estado}:null)
     cargar()
   }
 
   async function cambiarEstadoCita(cita:any, estado:string) {
-    const antes = await citaAntes(cita.id)
-    await supabase.from('citas').update({estado}).eq('id',cita.id)
-    // Falta o cancelada: su sesion pasa a la siguiente (si corren, ver lib/correrSesiones).
-    if (antes) await correrTrasEstado(antes, estado)
-    // Cancelada no gasta (su hueco pasa a la siguiente); si vuelve, se ata otra vez.
-    await bonoTrasEstado(cita.id, estado)
-    // Cancelada recupera, falta no (lib/recuperaciones, igual en todos los sitios).
-    const rr = await recuperacionAlCambiarEstado(cita, estado)
-    if (rr.ok===false) alert('La recuperación no se ha actualizado: '+rr.error)
-    else if (rr.motivo) alert('Cancelada sin recuperación: '+rr.motivo+'.')
+    const r = await cambiarEstadoDeCita(cita.id, estado)
+    if (!r.ok) { alert(r.error); cargar(); return }
+    if (r.aviso) alert(r.aviso)
     setEditandoCita(null); cargar()
   }
 
   async function eliminarCita(cita:any) {
     if (!confirm('Al eliminar esta cita NO se guardará ningún dato (ni realizada, ni falta, ni recuperación). Úsalo solo para errores.\n\n¿Eliminar la cita?')) return
-    // Fuera su recuperación; y si recuperaba otra falta, esa vuelve al banco.
-    await recuperacionAlEliminar(cita.id)
-    const antes = await citaAntes(cita.id)
-    await supabase.from('citas').delete().eq('id',cita.id)
-    // Estaba mal puesta: las sesiones se recolocan como si no hubiera existido.
-    if (antes && antes.estado==='programada') await correrAlQuitar(antes)
-    // Si gastaba de un bono, el hueco lo coge su siguiente cita sin bono.
-    if (cita.bono_id) await engancharCitas(cita.bono_id)
+    const r = await eliminarCitaDel(cita)
+    if (!r.ok) { alert(r.error); cargar(); return }
     setEditandoCita(null); cargar()
   }
 
   async function borrarCitaDirecto(cita:any) {
-    await recuperacionAlEliminar(cita.id)
-    const antes = await citaAntes(cita.id)
-    await supabase.from('citas').delete().eq('id',cita.id)
-    if (antes && antes.estado==='programada') await correrAlQuitar(antes)
-    if (cita.bono_id) await engancharCitas(cita.bono_id)
+    const r = await eliminarCitaDel(cita)
+    if (!r.ok) alert(r.error)
     cargar()
   }
 
