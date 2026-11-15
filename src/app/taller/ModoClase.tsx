@@ -793,7 +793,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const [x, y] = k.split('.').map(Number)
         nuevo[x === pi && y in nuevoSitio ? `${x}.${nuevoSitio[y]}` : k] = v
       })
-      await supabase.from('citas').update({ ajustes: { ...c.ajustes, ejercicios: nuevo } }).eq('id', c.id)
+      const { error: eAj } = await supabase.from('citas').update({ ajustes: { ...c.ajustes, ejercicios: nuevo } }).eq('id', c.id)
+      if (eAj) { alert('El cambio se ha hecho, pero el ajuste del día de alguna cita no se ha podido actualizar (' + eAj.message + '). Revisa sus próximas clases.'); break }
     }
     await editarSuSesion(pid, partes => {
       const l = partes[pi]?.ejercicios
@@ -859,8 +860,11 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       const r: any = await duplicarSesion(ses, pid, { sufijo: '', plantillaId: ses.id, motivo: 'Ajustada en el taller' })
       if (!r.ok || !r.sesion) { alert('No se ha podido hacer su copia de la sesión: ' + r.error); return }
       destino = r.sesion
-      await supabase.from('citas').update({ sesion_id: destino.id })
+      // Si sus citas no pasan a apuntar a SU copia, lo que se cambie abajo no lo veria en
+      // clase (seguirian con la de la biblioteca). Mejor parar aqui y decirlo.
+      const { error: eCit } = await supabase.from('citas').update({ sesion_id: destino.id })
         .eq('paciente_id', pid).eq('sesion_id', ses.id).gte('fecha', fechaC)
+      if (eCit) { alert('No se ha podido poner su copia de la sesión en sus citas: ' + eCit.message + '\n\nNo se ha cambiado nada. Vuelve a intentarlo.'); return }
     }
     const partes = cambiar(JSON.parse(JSON.stringify(destino.partes || [])))
     const { error: e2 } = await supabase.from('sesiones').update({ partes }).eq('id', destino.id)
@@ -885,7 +889,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         })
         // Si le queda el método de alguna parte, el ajuste sigue aunque no queden ejercicios.
         const queda = { ...c.ajustes, ejercicios: nuevo }
-        await supabase.from('citas').update({ ajustes: sinAjustes(queda) ? null : queda }).eq('id', c.id)
+        const { error: eAj } = await supabase.from('citas').update({ ajustes: sinAjustes(queda) ? null : queda }).eq('id', c.id)
+        if (eAj) { alert('El cambio se ha hecho, pero el ajuste del día de alguna cita no se ha podido actualizar (' + eAj.message + '). Revisa sus próximas clases.'); break }
       }
     }
     if (texto) await supabase.from('eventos_paciente').insert({ paciente_id: pid, tipo: 'sesion', titulo: texto, fecha: fechaC })
@@ -928,7 +933,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
         const resto = { ...aj.partes }; delete resto[String(pi)]
         const nuevo = { ...aj, partes: resto }
         const vacio = sinAjustes(nuevo)
-        await supabase.from('citas').update({ ajustes: vacio ? null : nuevo }).eq('id', item.citaId)
+        const { error: eAj } = await supabase.from('citas').update({ ajustes: vacio ? null : nuevo }).eq('id', item.citaId)
+        if (eAj) { alert('No se ha podido guardar: ' + eAj.message); return }
       }
       await editarSuSesion(pid, partes => {
         if (partes[pi]) partes[pi] = aplicarMetodo(partes[pi], modo, v)
@@ -1044,7 +1050,8 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       if (c?.ajustes?.ejercicios?.[ej.pos]) {
         const aj = { ...c.ajustes, ejercicios: { ...c.ajustes.ejercicios } }
         delete aj.ejercicios[ej.pos]
-        await supabase.from('citas').update({ ajustes: sinAjustes(aj) ? null : aj }).eq('id', item.citaId)
+        const { error: eAj } = await supabase.from('citas').update({ ajustes: sinAjustes(aj) ? null : aj }).eq('id', item.citaId)
+        if (eAj) { alert('No se ha podido guardar el cambio: ' + eAj.message); return }
       }
     }
     const antes = ej.sustituye || ej.nombre
