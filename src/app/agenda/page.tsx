@@ -456,17 +456,20 @@ export default function AgendaPage() {
   }
 
   async function crearTarea(titulo:string, asignadoA:string, fechaLimite:string, pacienteId:string) {
-    await supabase.from('tareas').insert({titulo,asignado_a:asignadoA||null,fecha_limite:fechaLimite||null,paciente_id:pacienteId||null,creada_por:userId,completada:false})
+    const { error } = await supabase.from('tareas').insert({titulo,asignado_a:asignadoA||null,fecha_limite:fechaLimite||null,paciente_id:pacienteId||null,creada_por:userId,completada:false})
+    if (error) alert('La tarea no se ha guardado: ' + error.message)
     recargarTareas()
   }
 
   async function completarTarea(tareaId:string, completada:boolean) {
-    await supabase.from('tareas').update({completada,fecha_completada:completada?new Date().toISOString():null,completada_por:completada?userId:null}).eq('id',tareaId)
+    const { error } = await supabase.from('tareas').update({completada,fecha_completada:completada?new Date().toISOString():null,completada_por:completada?userId:null}).eq('id',tareaId)
+    if (error) alert('La tarea no se ha podido marcar: ' + error.message)
     recargarTareas()
   }
 
   async function borrarTarea(tareaId:string) {
-    await supabase.from('tareas').delete().eq('id',tareaId)
+    const { error } = await supabase.from('tareas').delete().eq('id',tareaId)
+    if (error) alert('La tarea no se ha podido borrar: ' + error.message)
     recargarTareas()
   }
 

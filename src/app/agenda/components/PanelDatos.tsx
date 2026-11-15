@@ -31,7 +31,9 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
     if (!textoNota.trim()) return
     setGuardandoNota(true)
     const texto = tipoNota==='molestia' ? `Molestia (EVA ${evaRapido}/10): ${textoNota}` : textoNota
-    await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto, tipo: 'info', fecha: hoyISO(), visible_agenda: false })
+    const { error } = await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto, tipo: 'info', fecha: hoyISO(), visible_agenda: false })
+    // Si no entra, la nota se queda escrita para volver a intentarlo.
+    if (error) { setGuardandoNota(false); alert('La nota NO se ha guardado: ' + error.message); return }
     setTextoNota(''); setModalNota(false); setGuardandoNota(false)
     alert('✓ Nota guardada en el historial del paciente')
   }
@@ -39,7 +41,8 @@ export default function PanelDatos({ panelPac, editandoCita, setEditandoCita, gu
   async function guardarAviso() {
     if (!textoAviso.trim() || !fechaAviso) return
     setGuardandoNota(true)
-    await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto: textoAviso, tipo: 'urgente', fecha: fechaAviso, visible_agenda: true })
+    const { error } = await supabase.from('notas').insert({ paciente_id: panelPac.paciente_id, texto: textoAviso, tipo: 'urgente', fecha: fechaAviso, visible_agenda: true })
+    if (error) { setGuardandoNota(false); alert('El aviso NO se ha guardado: ' + error.message); return }
     setTextoAviso(''); setFechaAviso(''); setModalAviso(false); setGuardandoNota(false)
     alert('✓ Aviso guardado')
   }

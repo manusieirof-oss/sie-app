@@ -350,7 +350,11 @@ export default function EntrenoTab({ pacienteId, nombrePaciente, sesiones, onRef
 
   async function eliminarSesion(id: string) {
     if (!confirm('¿Eliminar esta sesión?')) return
-    await supabase.from('sesiones').delete().eq('id',id); cargarDatos()
+    // Una sesion con citas o registros no se deja borrar: antes no pasaba nada y no se decia.
+    const { data: borradas, error } = await supabase.from('sesiones').delete().eq('id',id).select('id')
+    if (error) alert('No se ha podido eliminar la sesión: ' + error.message)
+    else if (!borradas || borradas.length === 0) alert('La sesión no se ha eliminado: ya no existe o no tienes permiso para hacerlo.')
+    cargarDatos()
   }
 
   // La biblioteca de ejercicios solo la necesita el editor de sesión. Traerla en cada

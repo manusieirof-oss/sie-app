@@ -83,10 +83,15 @@ export default function AjustesPage() {
       tipos_plantilla: JSON.stringify(tiposPlantilla),
       deportes_lista: JSON.stringify(deportesLista),
     }
+    // Decia «Guardado» aunque algun ajuste no entrara (sin conexion, o sin permiso de
+    // direccion): al recargar volvia el valor de antes y parecia que se habia borrado.
+    const fallos: string[] = []
     for (const [clave, valor] of Object.entries(datos)) {
-      await supabase.from('ajustes').upsert({ clave, valor: String(valor) }, { onConflict: 'clave' })
+      const { error } = await supabase.from('ajustes').upsert({ clave, valor: String(valor) }, { onConflict: 'clave' })
+      if (error) fallos.push(`${clave}: ${error.message}`)
     }
     setGuardando(false)
+    if (fallos.length) { alert(`ATENCIÓN: ${fallos.length} ${fallos.length === 1 ? 'ajuste NO se ha guardado' : 'ajustes NO se han guardado'}.\n\n${fallos.slice(0, 6).join('\n')}`); return }
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2000)
   }

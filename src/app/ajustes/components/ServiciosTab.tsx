@@ -153,7 +153,8 @@ export default function ServiciosTab() {
   }
 
   async function toggleActivo(b: BonoTipo) {
-    await supabase.from('bonos_tipos').update({ activo: !b.activo }).eq('id', b.id)
+    const { error } = await supabase.from('bonos_tipos').update({ activo: !b.activo }).eq('id', b.id)
+    if (error) alert('No se ha podido cambiar: ' + error.message)
     cargar()
   }
 

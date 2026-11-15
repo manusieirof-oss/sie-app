@@ -113,21 +113,27 @@ export default function Hoy() {
   // ---- Tareas y notas ----
   async function hecha(t: any) {
     setTareas(p => p.filter(x => x.id !== t.id))
-    await supabase.from('tareas').update({ completada: true, fecha_completada: new Date().toISOString(), completada_por: yo?.id || null }).eq('id', t.id)
+    const { error } = await supabase.from('tareas').update({ completada: true, fecha_completada: new Date().toISOString(), completada_por: yo?.id || null }).eq('id', t.id)
+    // Se quito de la lista antes de saber si entraba: si no entra, vuelve.
+    if (error) { setTareas(p => [t, ...p]); alert('La tarea no se ha podido marcar: ' + error.message) }
   }
   async function anotar() {
     const texto = nueva.trim(); if (!texto) return
     setNueva('')
-    const { data } = await supabase.from('notas_personales').insert({ texto }).select().single()
-    if (data) setNotas(p => [data, ...p])
+    const { data, error } = await supabase.from('notas_personales').insert({ texto }).select().single()
+    // Si no entra, el texto vuelve a la casilla en vez de desaparecer.
+    if (error || !data) { setNueva(texto); alert('La nota no se ha guardado' + (error ? ': ' + error.message : '')); return }
+    setNotas(p => [data, ...p])
   }
   async function marcarNota(n: any) {
     setNotas(p => p.map(x => x.id === n.id ? { ...x, hecha: !x.hecha } : x))
-    await supabase.from('notas_personales').update({ hecha: !n.hecha }).eq('id', n.id)
+    const { error } = await supabase.from('notas_personales').update({ hecha: !n.hecha }).eq('id', n.id)
+    if (error) { setNotas(p => p.map(x => x.id === n.id ? { ...x, hecha: n.hecha } : x)); alert('No se ha podido marcar la nota: ' + error.message) }
   }
   async function borrarNota(n: any) {
     setNotas(p => p.filter(x => x.id !== n.id))
-    await supabase.from('notas_personales').delete().eq('id', n.id)
+    const { error } = await supabase.from('notas_personales').delete().eq('id', n.id)
+    if (error) { setNotas(p => [n, ...p]); alert('No se ha podido borrar la nota: ' + error.message) }
   }
 
   // Con la sala: así el Taller abre la clase de esa sala, no las dos mezcladas.
