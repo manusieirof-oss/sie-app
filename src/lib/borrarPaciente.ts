@@ -55,6 +55,16 @@ export type ResultadoBorrado =
 export async function borrarPaciente(pacienteId: string): Promise<ResultadoBorrado> {
   if (!pacienteId) return { ok: false, error: 'Falta el paciente' }
 
+  /* EL PERMISO SE MIRA ANTES DE TOCAR NADA. Borrar un paciente es solo de direccion o
+     encargada, y asi lo manda tambien la base de datos (sql/seguridad_salud.sql). Pero
+     sus citas, sesiones y registros si los puede borrar cualquiera con sesion, y esto
+     los borra primero: sin esta comprobacion, alguien sin permiso se habria llevado por
+     delante todo lo del paciente y al final el paciente seguiria ahi, vacio, sin que la
+     base diera ningun error (un borrado sin permiso no falla, solo no borra). */
+  const { data: soyDireccion, error: errPerm } = await supabase.rpc('es_direccion')
+  if (errPerm) return { ok: false, error: 'No se ha podido comprobar el permiso: ' + errPerm.message }
+  if (soyDireccion !== true) return { ok: false, error: 'Solo dirección puede eliminar un paciente.' }
+
   const borradas: string[] = []
 
   for (const tabla of TABLAS_HIJAS) {

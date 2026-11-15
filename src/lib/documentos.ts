@@ -118,8 +118,10 @@ export async function urlFirmada(ruta: string, segundos = 300) {
 }
 
 export async function borrarDocumento(doc: DocumentoPaciente) {
-  const { error } = await supabase.from('documentos_paciente').delete().eq('id', doc.id)
+  // `.select('id')`: un borrado sin permiso no da error, solo no borra nada. Asi se sabe.
+  const { data: borrados, error } = await supabase.from('documentos_paciente').delete().eq('id', doc.id).select('id')
   if (error) return { ok: false as const, error: error.message }
+  if (!borrados || borrados.length === 0) return { ok: false as const, error: 'No tienes permiso para eliminar documentos.' }
   await supabase.storage.from(BUCKET).remove([doc.ruta])
   await supabase.from('eventos_paciente').insert({
     paciente_id: doc.paciente_id, tipo: 'documento',

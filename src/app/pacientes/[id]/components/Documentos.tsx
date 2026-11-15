@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { Ic } from '@/lib/icons'
+import { usePuede } from '@/lib/permisos'
 import {
   DocumentoPaciente, TIPOS_DOCUMENTO, listarDocumentos, subirDocumento,
   borrarDocumento, urlFirmada, tamanoLegible, esImagen, esPdf,
@@ -17,6 +18,10 @@ export default function Documentos({ pacienteId, patologias = [], compacto = fal
   compacto?: boolean
   onCambio?: (n: number) => void
 }) {
+  // Subir y borrar documentos es de quien lleva la salud (igual que en la base de datos).
+  // Quien solo entra en fichas los ve y los abre, sin botones que luego no hacen nada.
+  const puede = usePuede()
+  const puedeCambiar = puede('editar_salud') || puede('valoracion')
   const [docs, setDocs] = useState<DocumentoPaciente[]>([])
   const [cargando, setCargando] = useState(true)
   const [subiendo, setSubiendo] = useState(false)
@@ -87,7 +92,7 @@ export default function Documentos({ pacienteId, patologias = [], compacto = fal
                 {pat ? ` · ${pat}` : ''}
               </div>
             </div>
-            {!compacto && (
+            {!compacto && puedeCambiar && (
               <button className="fila-x" title="Eliminar" onClick={() => borrar(d)}><Ic name="cerrar" size={13} /></button>
             )}
           </div>
@@ -103,9 +108,9 @@ export default function Documentos({ pacienteId, patologias = [], compacto = fal
       <div className="sec-h">
         <span className="sh-l">
           <span className="ct-l"><Ic name="carpeta" size={13} /> Documentos</span>
-          <button className="btn btn-s btn-sm" onClick={() => inputRef.current?.click()} disabled={subiendo}>
+          {puedeCambiar && <button className="btn btn-s btn-sm" onClick={() => inputRef.current?.click()} disabled={subiendo}>
             {subiendo ? 'Subiendo…' : '+ Subir documento'}
-          </button>
+          </button>}
         </span>
       </div>
 
