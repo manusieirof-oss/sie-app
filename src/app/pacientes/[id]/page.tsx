@@ -544,6 +544,9 @@ export default function FichaPacientePage() {
     setSubiendoFoto(false)
     if (!r.ok) { alert('Error al subir la foto: ' + r.error); return }
     setPac((prev:any)=>prev?{...prev, foto_url:r.ruta}:prev)
+    // La ruta es la misma que antes (se sustituye el fichero), asi que nada avisaba a la
+    // pantalla y la foto nueva no salia hasta recargar. Se pide su enlace nuevo ya.
+    urlFotoPaciente(r.ruta).then(u => setFotoUrl(u))
   }
 
   async function darDeBaja() {
