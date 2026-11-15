@@ -29,15 +29,17 @@ import TrabajoObjetivo from './TrabajoObjetivo'
 import { porRecuperar } from '@/lib/recuperaciones'
 import HorarioFavorito from './HorarioFavorito'
 import CambiarSala from './CambiarSala'
+import FichaPorUbicar from './FichaPorUbicar'
+import FichaObjetivosResumen from './FichaObjetivosResumen'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
-const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
+export const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
 const DOT_PAGO: Record<string,string> = { pagado:'var(--g)', pendiente:'var(--amb)', impago:'var(--red)' }
 
 const fmtDia = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})
-const fmtLargo = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})
+export const fmtLargo = (f:string) => new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})
 
-function haceCuanto(f:string) {
+export function haceCuanto(f:string) {
   const meses = Math.floor((Date.now()-new Date(f+'T12:00:00').getTime())/(1000*60*60*24*30.44))
   if (meses < 1) return 'este mes'
   if (meses === 1) return 'hace 1 mes'
@@ -53,13 +55,13 @@ function haceCuanto(f:string) {
  * rotular el bono: a quien tenia ya la cuota de octubre, la ficha le ponia
  * "Mes 9/2026". El dato estaba bien guardado; mentia la etiqueta.
  */
-const mesDeBono = (b: any) => b?.mes && b?.anio ? `${b.mes}/${b.anio}` : '—'
-const empiezaDespues = (b: any) => {
+export const mesDeBono = (b: any) => b?.mes && b?.anio ? `${b.mes}/${b.anio}` : '—'
+export const empiezaDespues = (b: any) => {
   if (!b?.mes || !b?.anio) return false
   const h = new Date()
   return b.anio > h.getFullYear() || (b.anio === h.getFullYear() && b.mes > h.getMonth() + 1)
 }
-const nombreMes = (b: any) =>
+export const nombreMes = (b: any) =>
   new Date(b.anio, b.mes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 
 export default function FichaTab({ pac, bono, recuperaciones, editando, form, setForm, setModalBono, bonoLabel, mes, anio, alertas, cerrarAlerta, cambiarPago, tiposClase = [], cambiarTipoClase, estadoPago = 'pendiente', onCobrar, bonosSesiones = [], onRenovarSesiones, onRetirarSesiones, onCambioSesiones, abrirTest, irA, parte = 'resumen' }: any) {
@@ -1319,115 +1321,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           Dentro van ordenados por vía, que es el orden en que se explican. */}
       {/* DE UN VISTAZO: su programación (el cubo) y lo que tiene para entrenar (el cuerpo). */}
       {resumen && !editando && <ProgramaPaciente pacienteId={pac.id} alerta={(alertas?.length||0)>0} lateral={columnaIzq} ampliado={abiertoIzq}/>}
-      {resumen && hayObjetivos && (() => {
-        const ordenVia = (o:any) => {
-          const vs = viasDe(o)
-          const i = VIAS.findIndex(v => vs.includes(v.valor))
-          return i < 0 ? VIAS.length : i
-        }
-        const porVia = (lista:any[]) => [...lista].sort((a:any,b:any)=>
-          orden==='parado'
-            ? porParado(a,b) || String(a.nombre||'').localeCompare(String(b.nombre||''))
-            : ordenVia(a)-ordenVia(b) || String(a.nombre||'').localeCompare(String(b.nombre||'')))
-
-        const visibles = porVia(filtroVia
-          ? objetivosActivos.filter((o:any)=>viasDe(o).includes(filtroVia as ViaOrigen))
-          : objetivosActivos)
-        // Lo que escribió en la valoración y todavía no es un objetivo de verdad.
-        const pendientesPide = (filtroVia === '' || filtroVia === 'pide')
-          ? objPide.filter((t:string)=>objetivosTrabajo.some((x:any)=>x.pide_texto===t) === false)
-          : []
-
-        return (
-        <div className="sec">
-          <div className="sec-h">
-            <span className="ct-l"><Ic name="objetivo" size={13}/> Objetivos</span>
-            <span className="sh-r" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-              {VIAS.map(v=>{
-                const n = objetivosActivos.filter((o:any)=>viasDe(o).includes(v.valor)).length
-                  + (v.valor==='pide' ? objPide.filter((t:string)=>objetivosTrabajo.some((x:any)=>x.pide_texto===t)===false).length : 0)
-                return (
-                  <button key={v.valor} type="button" title={v.ayuda}
-                    onClick={()=>setFiltroVia(f=>f===v.valor?'':v.valor)}
-                    style={{fontSize:10,padding:'2px 9px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
-                      opacity:n===0?.45:1,
-                      background:filtroVia===v.valor?v.fondo:'transparent',
-                      color:filtroVia===v.valor?v.color:'var(--gr)',
-                      border:`1px solid ${filtroVia===v.valor?v.color:'var(--bd)'}`}}>
-                    {v.nombre} · {n}
-                  </button>
-                )
-              })}
-              {/* LO MAS PARADO PRIMERO. La fila estaba ordenada por via, que dice de
-                  donde sale cada uno pero no cual lleva medio ano sin que le pase
-                  nada. Ver `lib/antiguedad`. */}
-              <button type="button" title="Ordenar por el que lleva más tiempo sin que le pase nada"
-                onClick={()=>setOrden(x=>x==='parado'?'via':'parado')}
-                style={{fontSize:10,padding:'2px 9px',borderRadius:99,cursor:'pointer',fontFamily:'inherit',
-                  background:orden==='parado'?'var(--gl)':'transparent',
-                  color:orden==='parado'?'var(--gd)':'var(--gr)',
-                  border:`1px solid ${orden==='parado'?'var(--gm)':'var(--bd)'}`}}>
-                lo más parado
-              </button>
-              <button className="btn btn-t btn-sm"
-                onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setPideTexto(null);setViaAnadir('plan');setModalAnadir(true)}}>
-                <Ic name="mas" size={12}/> Añadir
-              </button>
-            </span>
-          </div>
-
-          {valoracion?.fecha && (
-            <div className="sec-sub" style={{marginBottom:6}}>
-              Lo que pide sale de la {tipoVal.toLowerCase()} del {fmtLargo(valoracion.fecha)}, {haceCuanto(valoracion.fecha)}
-            </div>
-          )}
-
-          {objetivosTrabajo.length===0 && pendientesPide.length===0 && (
-            <div className="muted">Sin objetivos todavía</div>
-          )}
-          {objetivosTrabajo.length>0 && visibles.length===0 && pendientesPide.length===0 && (
-            <div className="muted">
-              {objetivosActivos.length===0 ? 'Todos los objetivos logrados' : 'Ninguno por esa vía'}
-            </div>
-          )}
-
-          {(visibles.length>0 || pendientesPide.length>0) && (
-            <div className="obj-rej">
-              {visibles.map(pintarMoneda)}
-              {/* Los deseos que aún no son objetivo, en la misma fila y al final: son lo
-                  que queda por convertir, no una categoría aparte. */}
-              {pendientesPide.map((t:string,i:number)=>(
-                <div key={'p'+i} className="obj-mon-b" title={t + ' · hazlo objetivo para poder medirlo'}
-                  onClick={()=>{ setPideTexto(t); setViaAnadir('pide'); setSelObj([]); setBuscarObj(''); setModalAnadir(true) }}>
-                  <span className="obj-moneda g pide"><b>{(t||'?').trim().charAt(0).toUpperCase()}</b></span>
-                  <span className="obj-mon-g">{t}</span>
-                  <span style={{fontSize:10,color:'#7B4E86'}}>+ hacerlo objetivo</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-
-          {objetivosLogrados.length>0 && (
-            <details style={{marginTop:9}}>
-              <summary className="det-sum">
-                <Ic name="trofeo" size={12} style={{verticalAlign:'-2px',marginRight:5}}/>
-                Logrados · {objetivosLogrados.length}
-              </summary>
-              <div style={{marginTop:6}}>
-                <div className="obj-rej">{porVia(objetivosLogrados).map(pintarMoneda)}</div>
-              </div>
-            </details>
-          )}
-
-          {valoracion?.deseo && (
-            <div style={{marginTop:9,padding:'8px 10px',background:'var(--ambl)',fontSize:12,color:'#7A5800',display:'flex',gap:6,alignItems:'flex-start'}}>
-              <span style={{display:'inline-flex',flexShrink:0,marginTop:1}}><Ic name="estrella" size={12}/></span>{valoracion.deseo}
-            </div>
-          )}
-        </div>
-        )
-      })()}
+      <FichaObjetivosResumen {...{ filtroVia, hayObjetivos, objPide, objetivosActivos, objetivosLogrados, objetivosTrabajo, orden, pintarMoneda, resumen, setBuscarObj, setFiltroVia, setModalAnadir, setOrden, setPideTexto, setSelObj, setViaAnadir, setZonaObj, tipoVal, valoracion }} />
 
       {/* EL PANEL DEL OBJETIVO. Encima y no debajo de la rejilla: abriendo uno se
           perdía de vista la fila desde la que se había pulsado. */}
@@ -1481,95 +1375,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
       )}
 
       {/* 4. BONO Y TIPO DE CLASE — cada cosa en su columna (en «Por ubicar») */}
-      {ubicar && <div className="g2">
-        <div className="sec">
-          <div className="sec-h"><span className="ct-l"><Ic name="finanzas" size={13}/> Bono y cuota</span></div>
-          {bono ? (
-            <>
-              <div style={{fontSize:14,color:'var(--n)'}}>{bonoLabel[bono.tipo]||bono.tipo}</div>
-              <div style={{fontSize:12,color:'var(--gr)',marginTop:2}}>
-                Mes {mesDeBono(bono)}
-                {/* Que no esta pagado se entiende distinto si el mes no ha llegado. */}
-                {empiezaDespues(bono) && (
-                  <span style={{color:'var(--gd)'}}> · empieza en {nombreMes(bono)}</span>
-                )}
-                {bono.descuento_tipo && bono.descuento_valor > 0 && (
-                  <> · descuento {bono.descuento_tipo==='porcentaje'?`${bono.descuento_valor}%`:`${bono.descuento_valor}€`}{bono.descuento_motivo?` (${bono.descuento_motivo})`:''}</>
-                )}
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,flexWrap:'wrap'}}>
-                <button className={`chip-ed ${estadoPago==='impago'?'chip-ed-r':estadoPago==='pendiente'?'chip-ed-a':''}`} title="Cobrar o cambiar el estado"
-                  onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ x:r.left, y:r.bottom+4 })}}>
-                  {LBL_PAGO[estadoPago]||'—'} <Ic name="abajo" size={12}/>
-                </button>
-                <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>Cambiar bono</button>
-              </div>
-
-            </>
-          ) : (
-            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-              {/* Con un bono de sesiones debajo, "Sin cuota mensual + Asignar bono" parecia
-                  decir que no tenia bono. Ahora la cuota va en su linea y se dice que no tiene. */}
-              {bonosSesiones.length > 0
-                ? <><span style={{fontSize:11.5,color:'var(--gr)',width:110}}>Cuota mensual</span><span className="muted">No tiene</span></>
-                : <span className="muted">Sin bono activo</span>}
-              <span style={{flex:1}}/>
-              <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bonosSesiones.length > 0 ? '+ Asignar cuota o bono' : '+ Asignar bono'}</button>
-            </div>
-          )}
-
-          {/* BONOS POR SESIONES. FUERA DEL `if` DE LA CUOTA.
-              Estaban dentro, y por eso quien tenía sesiones compradas pero NINGUNA cuota
-              mensual —alguien que solo viene a individuales, o que empieza el mes que
-              viene— no las veía por ningún lado: la ficha entraba por la rama de "sin
-              bono activo" y ese bloque no llegaba a pintarse. El bono estaba guardado y
-              la vista lo devolvía; simplemente no había nada que lo dibujara.
-
-              Son cosas independientes: la cuota es lo que se factura cada mes y las
-              sesiones son una compra suelta. Que una dependa de la otra para verse era
-              atarlas sin motivo.
-
-              Las restantes no salen de ningún contador: se cuentan desde sus citas cada
-              vez que se abre la ficha. Cambiar una cita de "vino" a "canceló" devuelve la
-              sesión sola. */}
-          {bonosSesiones.length > 0 && (
-            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:12}}>
-              {/* RENOVAR SOLO DESDE EL ÚLTIMO. Si ya tiene otro bono de su misma clase
-                  (individual o de clases) que empezó después, el viejo no ofrece renovar
-                  —ya está renovado— y, si está acabado, se pliega en una línea. Los que
-                  siguen en uso van primero; los acabados, debajo. */}
-              {(() => {
-                const individual = (b:any) => esBonoIndividual({ id: b.tipo, nombre: bonoLabel?.[b.tipo] || b.tipo })
-                const conNuevo = (bs:any) => bonosSesiones.some((o:any) => o.bono_id !== bs.bono_id && individual(o) === individual(bs)
-                  && String(o.fecha_inicio || '') > String(bs.fecha_inicio || ''))
-                const acabado = (bs:any) => bs.caducado || bs.restantes <= 0
-                const plegar = (bs:any) => conNuevo(bs) && acabado(bs)
-                return [...bonosSesiones].sort((a:any, b:any) => Number(plegar(a)) - Number(plegar(b))).map((bs:any)=>(
-                  <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} plegado={plegar(bs)}
-                    onRenovar={conNuevo(bs) ? undefined : onRenovarSesiones} onRetirar={onRetirarSesiones} onCambio={onCambioSesiones}/>
-                ))
-              })()}
-            </div>
-          )}
-        </div>
-
-        <div className="sec">
-          <div className="sec-h"><span className="ct-l"><Ic name="etiqueta" size={13}/> Tipo de clase</span></div>
-          <button className="chip-ed" title="Cambiar el tipo de clase"
-            onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuTipo({ x:r.left, y:r.bottom+4 })}}>
-            <Ic name={iconTipoClase(pac.tipo_clase, tiposClase.find((t:any)=>t.valor===pac.tipo_clase)?.icono)} size={12}/>
-            {pac.tipo_clase ? nombreTipoClase(tiposClase, pac.tipo_clase) : 'Sin asignar'}
-            <Ic name="abajo" size={12}/>
-          </button>
-          <div style={{fontSize:12,color:'var(--gr)',marginTop:8,lineHeight:1.5}}>
-            Se usa como tipo por defecto al darle cita nueva desde la agenda.
-          </div>
-          {/* LA SALA, junto al tipo de clase: las dos dicen cómo es su clase. Antes iba
-              suelta al final, debajo del horario. */}
-          <div className="sec-h" style={{marginTop:18}}><span className="ct-l"><Ic name="ubicacion" size={13}/> Sala</span></div>
-          <div style={{paddingTop:8}}><CambiarSala pacienteId={pac.id}/></div>
-        </div>
-      </div>}
+      <FichaPorUbicar {...{ bono, bonoLabel, bonosSesiones, estadoPago, onCambioSesiones, onRenovarSesiones, onRetirarSesiones, pac, setMenuPago, setMenuTipo, setModalBono, tiposClase, ubicar }} />
 
       {/* 5. ANAMNESIS · ahora va en la columna de la izquierda de la ficha (se abre al lado
           de la nebulosa). Al editar la ficha sigue aquí abajo. */}

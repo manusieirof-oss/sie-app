@@ -39,6 +39,8 @@ import { usePuede } from '@/lib/permisos'
 import { traerTodo } from '@/lib/paginar'
 import { recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recuperaciones'
 import { soltarDelBono, atarCitaABono } from '@/lib/bonoSesiones'
+import ModalSalida from './ModalSalida'
+import ModalMomento from './ModalMomento'
 
 
 export default function FichaPacientePage() {
@@ -962,70 +964,7 @@ export default function FichaPacientePage() {
         </div>
       </div>
 
-      {editMomento && (
-        <div className="modal-bg" onClick={e=>{ if (e.target===e.currentTarget) setEditMomento(null) }}>
-          <div className="modal" style={{ maxWidth: 460 }}>
-            <div className="modal-title">Su momento<button className="modal-close" onClick={()=>setEditMomento(null)}>✕</button></div>
-            <div className="field"><label>En qué momento está</label>
-              <input className="input" value={editMomento.texto} autoFocus placeholder="Embarazo, postoperatorio de rodilla, vuelta de lesión…"
-                onChange={e=>setEditMomento(m=>m && ({ ...m, texto: e.target.value }))}/>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:6 }}>
-                {['Embarazo','Postparto','Postoperatorio','Vuelta de lesión','Fase aguda','Mantenimiento'].map(t =>
-                  <button key={t} type="button" className={'chip-sel' + (editMomento.texto === t ? ' on' : '')} style={{ textTransform:'none', letterSpacing:0 }}
-                    onClick={()=>setEditMomento(m=>m && ({ ...m, texto: t }))}>{t}</button>)}
-              </div>
-            </div>
-            {/* LO QUE TIENE QUE VER: sus patologías, molestias activas y operaciones, para
-                ligarlas a este momento (p. ej. Postoperatorio → Ligamento cruzado). */}
-            {(() => {
-              const opciones: CosaMomento[] = [
-                ...(patologias||[]).filter((x:any)=>x.estado!=='resuelta').map((x:any)=>({ tipo:'patologia' as const, id:x.id, nombre:x.nombre })),
-                ...(molestias||[]).filter((x:any)=>x.activa).map((x:any)=>({ tipo:'molestia' as const, id:x.id, nombre:x.zona })),
-                ...(operaciones||[]).map((x:any)=>({ tipo:'operacion' as const, id:x.id, nombre:x.nombre })),
-              ]
-              if (!opciones.length) return null
-              const puesta = (o: CosaMomento) => editMomento.cosas.some(c => c.tipo===o.tipo && c.id===o.id)
-              const ETQ = { patologia:'Patología', molestia:'Molestia', operacion:'Operación' }
-              return <div className="field"><label>Tiene que ver con <span style={{ color:'var(--grl)', fontWeight:400 }}>· opcional</span></label>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                  {opciones.map(o => <button key={o.tipo+o.id} type="button" className={'chip-sel' + (puesta(o) ? ' on' : '')} style={{ textTransform:'none', letterSpacing:0 }}
-                    onClick={()=>setEditMomento(m=>m && ({ ...m, cosas: puesta(o) ? m.cosas.filter(c=>!(c.tipo===o.tipo && c.id===o.id)) : [...m.cosas, o] }))}>
-                    <span style={{ color:'var(--grl)', fontWeight:400 }}>{ETQ[o.tipo]} ·</span> {o.nombre}</button>)}
-                </div></div>
-            })()}
-            {/* LO QUE DICE CLÍNICO DE ESTE MOMENTO: el propio momento («Embarazo») y sus
-                patologías y operaciones, si en Clínico tienen «qué evitar / qué conviene». */}
-            {(() => {
-              const nombres = [editMomento.texto, ...editMomento.cosas.filter(c => c.tipo !== 'molestia').map(c => c.nombre)].filter(Boolean)
-              const rs = nombres.flatMap(n => reglasDe(n))
-              const ev = Array.from(new Set(rs.flatMap(r => r.evitar))), co = Array.from(new Set(rs.flatMap(r => r.conviene)))
-              const nm = (id: string) => { if (id.includes('+')) return nombreRegla(etiquetasLib, id); const e = etiquetasLib.find((x: any) => x.id === id); return e ? nombreConRama(etiquetasLib, e) : '' }
-              if (!ev.length && !co.length) return null
-              return <div style={{ fontSize: 12.5, lineHeight: 1.6, background: 'var(--bl)', borderRadius: 10, padding: '8px 11px', marginBottom: 10 }}>
-                {ev.length > 0 && <div><b style={{ color: 'var(--red)', fontWeight: 500 }}>Evitar:</b> {ev.map(nm).filter(Boolean).join(', ')}</div>}
-                {co.length > 0 && <div><b style={{ color: 'var(--gd)', fontWeight: 500 }}>Conviene:</b> {co.map(nm).filter(Boolean).join(', ')}</div>}
-                <div style={{ fontSize: 11, color: 'var(--grl)' }}>Sale de Clínico. En el taller avisa en los ejercicios que lleven algo a evitar.</div>
-              </div>
-            })()}
-            {/* Embarazo: la FPP manda (semana y trimestre salen de ella). Otros: desde y,
-                si se sabe, hasta cuándo, para la cuenta atrás. */}
-            <div className="g2">
-              {!esEmbarazo(editMomento.texto) && <div className="field"><label>Desde</label>
-                <input className="input" type="date" value={editMomento.desde} onChange={e=>setEditMomento(m=>m && ({ ...m, desde: e.target.value }))}/></div>}
-              <div className="field"><label>{esEmbarazo(editMomento.texto) ? 'Fecha probable de parto (FPP)' : 'Hasta'} <span style={{ color:'var(--grl)', fontWeight:400 }}>{esEmbarazo(editMomento.texto) ? '' : '· opcional'}</span></label>
-                <input className="input" type="date" value={editMomento.hasta} onChange={e=>setEditMomento(m=>m && ({ ...m, hasta: e.target.value }))}/></div>
-            </div>
-            {editMomento.hasta && <div style={{ margin:'2px 0 10px' }}>
-              <BarraMomento p={{ momento: editMomento.texto, momento_desde: editMomento.desde, momento_hasta: editMomento.hasta }} ancho={400}/></div>}
-            <div style={{ display:'flex', gap:8, marginTop:8 }}>
-              {pac?.momento && <button className="btn btn-d btn-sm" onClick={()=>guardarMomento(null, null)}>Quitar momento</button>}
-              <div style={{ flex:1 }}/>
-              <button className="btn btn-t btn-sm" onClick={()=>setEditMomento(null)}>Cancelar</button>
-              <button className="btn btn-p btn-sm" disabled={!editMomento.texto.trim()} onClick={()=>guardarMomento(editMomento.texto.trim(), editMomento.desde, editMomento.cosas, editMomento.hasta)}>Guardar</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalMomento {...{ editMomento, etiquetasLib, guardarMomento, molestias, operaciones, pac, patologias, setEditMomento }} />
 
       {papeles && pac && (
         <div className="modal-bg" onClick={e=>{ if (e.target===e.currentTarget) { setPapeles(null); contarPapeles() } }}>
@@ -1251,74 +1190,7 @@ export default function FichaPacientePage() {
           Alguien avisa el día 10 de que lo deja a fin de mes. Hasta ahora había
           que elegir entre marcarlo ya —y perder sus quince clases pendientes de
           la agenda— o acordarse el día 30. */}
-      {modalSalida && (
-        <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)setModalSalida(false)}}>
-          <div className="modal" style={{maxWidth:430}}>
-            <div className="modal-title">
-              <span className="ct-l"><Ic name="calendario" size={16}/> {salida.estado==='activo' ? 'Programar vuelta' : 'Programar salida'}</span>
-              <button className="modal-close" onClick={()=>setModalSalida(false)}>✕</button>
-            </div>
-            <div style={{fontSize:10,color:'var(--grl)',marginBottom:14,lineHeight:1.6}}>
-              {salida.estado==='activo'
-                ? <>Hasta ese día <strong>no cambia nada</strong>: no cuenta como cliente ni se le
-                    cobra. Esa fecha vuelve a estar activo solo, sin tocarle ninguna cita.
-                    El bono se le asigna aparte, con su propia fecha de inicio.</>
-                : <>Hasta ese día, <strong>no cambia nada</strong>: sigue en la agenda, se le
-                    cobra el mes y aparece en las listas. A partir de esa fecha se aplica
-                    solo y se le cancelan las citas.</>}
-            </div>
-
-            <div className="field">
-              <label>{salida.estado==='activo' ? '¿Qué se programa?' : '¿Qué pasa con esta persona?'}</label>
-              {/* Mismas palabras y mismos iconos que el menú de los tres puntos.
-                  Si allí pone "Puede volver" y aquí "Lo deja, pero puede volver",
-                  parecen dos cosas distintas y hay que pararse a comprobar que no
-                  lo son. Y en el mismo orden, por lo mismo. */}
-              <div style={{display:'flex',gap:6}}>
-                {opcionesSalida.map(([v,l,ic])=>(
-                  <button key={v} type="button" onClick={()=>setSalida(p=>({...p,estado:v}))}
-                    style={{flex:1,padding:'8px 6px',borderRadius:6,cursor:'pointer',fontFamily:'inherit',fontSize:10,
-                            display:'flex',alignItems:'center',justifyContent:'center',gap:5,
-                            border:`1.5px solid ${salida.estado===v?'var(--g)':'var(--bd)'}`,
-                            background:salida.estado===v?'var(--g)':'var(--w)',
-                            color:salida.estado===v?'#fff':'var(--gr)'}}>
-                    <Ic name={ic} size={13}/> {l}
-                  </button>
-                ))}
-              </div>
-              <div style={{fontSize:9,color:'var(--grl)',marginTop:4,lineHeight:1.5}}>
-                {situacionDe(salida.estado).ayuda}
-              </div>
-            </div>
-
-            <div className="field">
-              <label>{salida.estado==='activo' ? 'Primer día que vuelve *' : 'Primer día que ya no viene *'}</label>
-              <input type="date" className="input" value={salida.desde}
-                min={hoyISO()}
-                onChange={e=>setSalida(p=>({...p,desde:e.target.value}))}/>
-              <div style={{fontSize:9,color:'var(--grl)',marginTop:4}}>
-                {salida.estado==='activo'
-                  ? 'Ese día amanece activo. Acuérdate de asignarle el bono y de ponerle citas.'
-                  : 'Su última clase es el día ANTERIOR a este. Si lo deja a final de agosto, pon el 1 de septiembre. Las citas de ese día en adelante se cancelan.'}
-              </div>
-            </div>
-
-            <div className="field">
-              <label>Motivo (opcional)</label>
-              <input className="input" placeholder={salida.estado==='activo' ? 'ej. vuelve tras la lesión' : 'ej. se muda, lesión, precio'}
-                value={salida.motivo} onChange={e=>setSalida(p=>({...p,motivo:e.target.value}))}/>
-            </div>
-
-            <div style={{display:'flex',gap:8,marginTop:8}}>
-              <button className="btn btn-d btn-sm" onClick={()=>setModalSalida(false)}>Cancelar</button>
-              <div style={{flex:1}}/>
-              <button className="btn btn-p" onClick={guardarSalida} disabled={procesando||!salida.desde}>
-                {procesando?'…':'✓ Programar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalSalida {...{ guardarSalida, modalSalida, opcionesSalida, procesando, salida, setModalSalida, setSalida }} />
 
       {/* MODAL PAUSA */}
       {modalPausa && (
