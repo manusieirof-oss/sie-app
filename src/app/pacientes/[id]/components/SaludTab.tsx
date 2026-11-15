@@ -52,7 +52,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   }, [])
 
   async function toggleMolestia(mid: string, activa: boolean) {
-    await supabase.from('molestias').update({ activa: !activa }).eq('id', mid)
+    const { error: eG } = await supabase.from('molestias').update({ activa: !activa }).eq('id', mid)
+    if (eG) { alert('No se ha podido cambiar la molestia:\n\n' + eG.message); return }
     // El día en que se quita: la nebulosa deja la huella desde ahí. Aparte, para que si falta la columna lo de activa funcione igual.
     await supabase.from('molestias').update({ resuelta_el: activa ? hoyISO() : null }).eq('id', mid)
     const mol = (molestias||[]).find((m:any)=>m.id===mid)
@@ -66,7 +67,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   }
 
   async function cambiarEstadoPatologia(pid: string, nombre: string, nuevoEstado: string) {
-    await supabase.from('patologias').update({ estado:nuevoEstado }).eq('id', pid)
+    const { error: eG } = await supabase.from('patologias').update({ estado:nuevoEstado }).eq('id', pid)
+    if (eG) { alert('No se ha podido cambiar la patología:\n\n' + eG.message); return }
     const lbl: Record<string,string> = { activa:'Activa', cronica:'Crónica', resuelta:'Resuelta' }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:nuevoEstado==='resuelta'?'patologia_resuelta':'patologia', titulo:`Patología ${nombre}: ${lbl[nuevoEstado]||nuevoEstado}`, fecha:hoyISO() })
     cargar()
@@ -75,13 +77,15 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function addDeporte(nombre: string) {
     if (!nombre.trim()) return
     const yaTiene = (deportesPac||[]).length>0
-    await supabase.from('deportes_paciente').insert({ paciente_id:id, nombre })
+    const { error: eG } = await supabase.from('deportes_paciente').insert({ paciente_id:id, nombre })
+    if (eG) { alert('No se ha podido guardar el deporte:\n\n' + eG.message); return }
     if (!yaTiene) await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Empieza a practicar deporte: ${nombre}`, fecha:hoyISO() })
     else await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Nuevo deporte: ${nombre}`, fecha:hoyISO() })
     cargar()
   }
   async function delDeporte(did: string, nombre: string) {
-    await supabase.from('deportes_paciente').delete().eq('id', did)
+    const { error: eG } = await supabase.from('deportes_paciente').delete().eq('id', did)
+    if (eG) { alert('No se ha podido quitar el deporte:\n\n' + eG.message); return }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'deporte', titulo:`Deja el deporte: ${nombre}`, fecha:hoyISO() })
     cargar()
   }
@@ -89,7 +93,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   // Se borra la fila pero queda el evento: la medicación que tomó en su día
   // es historia clínica y no debe evaporarse al quitarla de la ficha.
   async function delMedicamento(mid: string, nombre: string) {
-    await supabase.from('medicamentos').delete().eq('id', mid)
+    const { error: eG } = await supabase.from('medicamentos').delete().eq('id', mid)
+    if (eG) { alert('No se ha podido quitar el medicamento:\n\n' + eG.message); return }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Deja el medicamento: ${nombre}`, fecha:hoyISO() })
     cargar()
   }
@@ -144,10 +149,11 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function guardarEscala() {
     if (!escalaConfig) return
     setGuardando(true)
-    await supabase.from('escalas').insert({
+    const { error: eG } = await supabase.from('escalas').insert({
       paciente_id:id, fecha:escalaConfig.fecha,
       borg:escalaConfig.borg, estres:escalaConfig.estres,
     })
+    if (eG) { setGuardando(false); alert('No se ha podido guardar la escala:\n\n' + eG.message); return }
     await supabase.from('eventos_paciente').insert({
       paciente_id:id, tipo:'escala',
       titulo:`Escalas: bienestar ${textoEscala(escalaConfig.borg)} · estrés ${textoEscala(escalaConfig.estres)}`,
@@ -180,11 +186,12 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
     if (usaPlantillas === antes && plantIzq === izqAntes && plantDer === derAntes) return
 
     setGuardandoSalud(true)
-    await supabase.from('pacientes').update({
+    const { error: eG } = await supabase.from('pacientes').update({
       usa_plantillas: usaPlantillas,
       plantilla_izq: usaPlantillas ? (plantIzq || null) : null,
       plantilla_der: usaPlantillas ? (plantDer || null) : null,
     }).eq('id', id)
+    if (eG) { setGuardandoSalud(false); alert('No se ha podido guardar las plantillas:\n\n' + eG.message); return }
 
     const hoy = hoyISO()
     const detalle = [plantIzq?`Izq: ${plantIzq}`:'', plantDer?`Der: ${plantDer}`:''].filter(Boolean).join(' · ') || null
@@ -200,7 +207,8 @@ export default function SaludTab({ id, pac, deportesPac, molestias, patologias, 
   async function guardarMedicamento() {
     if (!medConfig) return
     setGuardando(true)
-    await supabase.from('medicamentos').insert({ paciente_id:id, nombre:medConfig.nombre, frecuencia:medConfig.frecuencia||'', observaciones:medConfig.observaciones||'' })
+    const { error: eG } = await supabase.from('medicamentos').insert({ paciente_id:id, nombre:medConfig.nombre, frecuencia:medConfig.frecuencia||'', observaciones:medConfig.observaciones||'' })
+    if (eG) { setGuardando(false); alert('No se ha podido guardar el medicamento:\n\n' + eG.message); return }
     await supabase.from('eventos_paciente').insert({ paciente_id:id, tipo:'medicamento', titulo:`Medicamento: ${medConfig.nombre}`, descripcion:medConfig.frecuencia?`Frecuencia: ${medConfig.frecuencia}`:null, fecha:hoyISO() })
     setMedConfig(null); setGuardando(false); cargar()
   }

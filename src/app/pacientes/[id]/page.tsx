@@ -443,7 +443,8 @@ export default function FichaPacientePage() {
   async function cambiarTipoClase(valor: string) {
     if (!pac || valor === pac.tipo_clase) return
     const anterior = pac.tipo_clase
-    await supabase.from('pacientes').update({ tipo_clase: valor }).eq('id', id)
+    const { error: eG } = await supabase.from('pacientes').update({ tipo_clase: valor }).eq('id', id)
+    if (eG) { alert('No se ha podido cambiar el tipo de clase:\n\n' + eG.message); return }
     await registrarEvento('cambio_tipo_clase', `Cambio de clase: ${nombreTipoClase(tiposClase, anterior)} → ${nombreTipoClase(tiposClase, valor)}`, null)
     cargar()
   }
@@ -604,7 +605,8 @@ export default function FichaPacientePage() {
         else recuperables++
       }
     }
-    await supabase.from('pacientes').update({ estado:'pausa', estado_desde:pausa.desde, pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
+    const { error: eG } = await supabase.from('pacientes').update({ estado:'pausa', estado_desde:pausa.desde, pausa_desde:pausa.desde, pausa_hasta:pausa.hasta }).eq('id',id)
+    if (eG) { setProcesando(false); cargar(); alert('No se ha podido dejar al paciente en pausa (sus citas de ese periodo sí se han cancelado; vuelve a intentarlo):\n\n' + eG.message); return }
     await registrarEvento('pausa', `Pausa del ${pausa.desde} al ${pausa.hasta}`, `${citasPausa?.length||0} citas canceladas en ese periodo.`)
     setProcesando(false)
     setModalPausa(false)
@@ -722,7 +724,8 @@ export default function FichaPacientePage() {
         }
       }
     }
-    await supabase.from('pacientes').update({ estado:'activo', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    const { error: eG } = await supabase.from('pacientes').update({ estado:'activo', estado_desde:hoy, pausa_desde:null, pausa_hasta:null }).eq('id',id)
+    if (eG) { setProcesando(false); cargar(); alert('No se ha podido reactivar al paciente (vuelve a intentarlo):\n\n' + eG.message); return }
     await registrarEvento('reactivacion', 'Reactivación del servicio', null)
     setProcesando(false)
     alert('✓ Paciente reactivado. ' + txtCitas)
@@ -769,7 +772,8 @@ export default function FichaPacientePage() {
 
 
   async function toggleMolestia(molId: string, activa: boolean) {
-    await supabase.from('molestias').update({ activa:!activa }).eq('id',molId)
+    const { error: eG } = await supabase.from('molestias').update({ activa:!activa }).eq('id',molId)
+    if (eG) { alert('No se ha podido cambiar la molestia:\n\n' + eG.message); return }
     // El día en que se quita: la nebulosa deja la huella desde ahí. Aparte, para que si falta la columna lo de activa funcione igual.
     await supabase.from('molestias').update({ resuelta_el: activa ? hoyISO() : null }).eq('id', molId)
     cargar()
@@ -781,7 +785,8 @@ export default function FichaPacientePage() {
 
   async function cambiarPago(estado: string) {
     if (!bono) return
-    await supabase.from('bonos').update({ estado_pago:estado }).eq('id',bono.id)
+    const { error: eG } = await supabase.from('bonos').update({ estado_pago:estado }).eq('id',bono.id)
+    if (eG) { alert('No se ha podido cambiar el estado de pago:\n\n' + eG.message); return }
     await registrarEvento('pago_bono', `Cuota marcada como: ${LBL_PAGO[estado]||estado}`, `Bono ${LBL_BONO[bono.tipo]||bono.tipo}`)
     cargar()
   }

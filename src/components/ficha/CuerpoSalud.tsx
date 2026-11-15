@@ -264,11 +264,13 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
     if (!it.ref) return
     const hoy = hoyISO()
     if (it.ref.tabla === 'molestias') {
-      await supabase.from('molestias').update({ activa: false }).eq('id', it.ref.id)
+      const { error: eG } = await supabase.from('molestias').update({ activa: false }).eq('id', it.ref.id)
+      if (eG) { alert('No se ha podido resolver la molestia:\n\n' + eG.message); return }
       await supabase.from('molestias').update({ resuelta_el: hoy }).eq('id', it.ref.id)
       await supabase.from('eventos_paciente').insert({ paciente_id: pacienteId, tipo: 'molestia', titulo: `Molestia resuelta: ${it.titulo}`, fecha: hoy })
     } else {
-      await supabase.from('patologias').update({ estado: 'resuelta' }).eq('id', it.ref.id)
+      const { error: eG } = await supabase.from('patologias').update({ estado: 'resuelta' }).eq('id', it.ref.id)
+      if (eG) { alert('No se ha podido resolver la patología:\n\n' + eG.message); return }
       await supabase.from('eventos_paciente').insert({ paciente_id: pacienteId, tipo: 'patologia', titulo: `Patología resuelta: ${it.titulo}`, fecha: hoy })
     }
     setSel(null); setRecarga(n => n + 1)
