@@ -201,6 +201,13 @@ export default function ValoracionPage() {
      DynaMo ya está y no hay que escribir nada en su app. Una vez por valoración; si falla,
      queda el botón del paso Tests. */
   const valdIntentado = useRef(false)
+  /* LO QUE YA HA ENTRADO DE ESTA VALORACION. Guardar no es un solo paso: si algo falla a
+     medias, o se dice que no en el aviso de la firma, la pantalla se queda abierta para
+     volver a pulsar Guardar. Y al volver a pulsar se metia TODO otra vez: dos valoraciones,
+     las molestias y patologias repetidas, y el bono chocando con el que ya estaba. Aqui se
+     apunta cada cosa que entra (con el paciente delante de la clave) y al reintentar solo
+     se manda lo que falta. */
+  const yaGuardado = useRef<Set<string>>(new Set())
   useEffect(() => {
     if (step < 2 || esRevaloracion || (form.paciente_id && !form.desde_pendiente) || form.vald_profile_id || valdIntentado.current) return
     if (faltanParaVald(form).length) return
@@ -375,7 +382,9 @@ export default function ValoracionPage() {
       /* LOS FALLOS SE MIRAN. Supabase no lanza: devuelve { error }. Este Promise.all no
          miraba nada, asi que si la fila de la valoracion (o una molestia, o el bono) no
          entraba, la pantalla decia "guardado" igual. */
-      const resultados: any[] = await Promise.all([
+      // Las consultas no salen hacia la base hasta que se esperan: se preparan todas,
+      // y abajo solo se lanzan las que aun no habian entrado.
+      const consultas: any[] = [
         // El bono es cosa de la valoración inicial. Una revaloración abría uno nuevo
         // en paralelo al que el paciente ya estaba pagando.
         // Y SOLO SI HAY ALGO QUE ASIGNAR. Un suelto —una valoración a secas— no
@@ -396,10 +405,28 @@ export default function ValoracionPage() {
         // dos huecos vacíos no dice nada y ensucia la evolución con un punto muerto.
         ...((form.borg!=null||form.estres!=null) ? [supabase.from('escalas').insert({ paciente_id:pacienteId, fecha:hoyISO(), borg:form.borg, estres:form.estres })] : []),
         ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>supabase.from('deportes_paciente').insert({ paciente_id:pacienteId, nombre:d })):[]),
-      ])
+      ]
+      // Una clave por consulta, EN EL MISMO ORDEN que la lista de arriba.
+      const conBono = !(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel))
+      const claves: string[] = [
+        ...(conBono ? ['bono'] : []),
+        'valoracion',
+        ...form.molestias.filter((m:any)=>m.zona).map((m:any)=>'molestia:'+JSON.stringify(m)),
+        ...form.patologias.map((p:any)=>'patologia:'+JSON.stringify(p)),
+        ...form.medicacion.map((m:any)=>'medicamento:'+JSON.stringify(m)),
+        ...((form.borg!=null||form.estres!=null) ? ['escala'] : []),
+        ...((form.hace_deporte&&Array.isArray(form.deportes))?form.deportes.map((d:string)=>'deporte:'+d):[]),
+      ].map(k => pacienteId + '|' + k)
+      // Si las dos listas no casan es un fallo de programacion: mejor parar que guardar a ciegas.
+      if (claves.length !== consultas.length) throw new Error('la lista de guardado no cuadra (' + claves.length + '/' + consultas.length + ')')
+      const hechas = yaGuardado.current
+      const faltan = consultas.map((q, i) => ({ q, k: claves[i] })).filter(x => !hechas.has(x.k))
+      const resultados: any[] = await Promise.all(faltan.map(x => x.q))
+      resultados.forEach((r:any, i:number) => { if (!r?.error) hechas.add(faltan[i].k) })
       const fallos = resultados.map((r:any) => r?.error?.message).filter(Boolean)
       // Las citas que ya tuviera desde hoy pasan a descontar de su bono de sesiones.
-      const bonoCreado = !(esRevaloracion || form.bono === SOLO_VALORACION || !esAsignable(bonoSel)) ? resultados[0]?.data?.id : null
+      const iBono = faltan.findIndex(x => x.k === pacienteId + '|bono')
+      const bonoCreado = iBono >= 0 ? resultados[iBono]?.data?.id : null
       if (bonoCreado && esDeSesiones(bonoSel)) await engancharCitas(bonoCreado)
       if (fallos.length > 0) {
         alert('ATENCIÓN: parte de la valoración NO se ha guardado.\n\n' + fallos.join('\n') + '\n\nNo cierres esta pantalla: haz una captura y avisa.')
@@ -426,7 +453,7 @@ export default function ValoracionPage() {
       // Antes la firma y las casillas se quedaban en memoria y se perdían al terminar.
       // En la revaloración no hay nada que firmar: los consentimientos se dieron una vez
       // y siguen vigentes; volver a pedirlos crearía un segundo registro del mismo acto.
-      if (!esRevaloracion) {
+      if (!esRevaloracion && !hechas.has(pacienteId + '|consentimientos')) {
         const aceptados: TipoConsentimiento[] = [
           ...(firmaAceptada ? ['datos' as const] : []),
           ...(imagenesAceptada ? ['imagenes' as const] : []),
@@ -443,6 +470,7 @@ export default function ValoracionPage() {
           nombre: `${form.nombre} ${form.apellidos}`.trim(), dni: form.dni || undefined,
         })
         if (!rCons.ok) alert('Aviso: no se pudieron registrar los consentimientos (' + rCons.error + '). El resto de la valoración sí se ha guardado.')
+        else hechas.add(pacienteId + '|consentimientos')
       }
 
       // Antes esto solo insertaba la fila: un test positivo en la valoración inicial no
@@ -460,6 +488,8 @@ export default function ValoracionPage() {
         for (const ladoKey of aGuardar) {
           const d = lados[ladoKey]
           if (!d) continue
+          const kTest = pacienteId + '|test:' + t.test_id + ':' + ladoKey
+          if (hechas.has(kTest)) continue
           // La fila ENTERA de la biblioteca, no un resumen. Con `{id, nombre, logica}`
           // bastaba mientras el veredicto salía de contar casillas; un test de puntuación
           // necesita además sus BANDAS, y sin ellas se habría guardado un "sin resultado"
@@ -473,6 +503,7 @@ export default function ValoracionPage() {
             otrosItems: lados[ladoOpuesto(ladoKey) || '']?.items_resultado || null,
           })
           if (!r.ok) alert(`Aviso: no se pudo guardar el test "${t.nombre || ''}" (${r.error}). El resto de la valoración sí se ha guardado.`)
+          else hechas.add(kTest)
         }
       }
       // LAS CITAS, ya desde la valoracion: lo marcado en Plan, repetido cada semana los
