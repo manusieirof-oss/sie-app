@@ -204,9 +204,12 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
     // otra vez septiembre, aquí se comparaba contra agosto, salía "no es el mismo mes", se
     // insertaba una segunda de septiembre y Postgres la rechazaba con un
     // "duplicate key value violates unique constraint", que no le dice nada a nadie.
-    const { data: yaDelMes } = await supabase.from('bonos')
+    const { data: yaDelMes, error: errDelMes } = await supabase.from('bonos')
       .select('*').eq('paciente_id', pacienteId).eq('activo', true)
       .eq('mes', mes).eq('anio', anio).is('sesiones_totales', null).maybeSingle()
+    // Si no se puede saber si ya tiene cuota de ese mes, no se sigue a ciegas: abajo se
+    // decidiria crear una nueva cuando quiza habia que corregir la que ya tiene.
+    if (errDelMes) { setError(`No se ha podido comprobar su cuota de ese mes: ${errDelMes.message}. No se ha cambiado nada.`); setGuardando(false); return }
 
     // Si el bono que se sustituye YA ES DE ESE MES, se corrige en su sitio en
     // vez de crear otro.
@@ -269,7 +272,10 @@ export default function ModalBono({ pacienteId, bonoActual, bonosOpts, onCerrar,
       if (sustituye) {
         const posterior = anio > bonoActual.anio || (anio === bonoActual.anio && mes > bonoActual.mes)
         if (!posterior) {
-          await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
+          // El nuevo ya esta creado. Si el anterior no se retira, quedan dos cuotas activas
+          // y Cobros y Finanzas cuentan las dos: se dice, en vez de cerrar como si nada.
+          const { error: errViejo } = await supabase.from('bonos').update({ activo:false }).eq('id', bonoActual.id)
+          if (errViejo) { setError(`El bono nuevo se ha creado, pero el anterior NO se ha podido retirar (${errViejo.message}). Ahora tiene dos cuotas activas: quita la anterior desde su ficha.`); setGuardando(false); onGuardado?.(); return }
         } else if (bonoActual.estado_pago !== 'impago') {
           // quitarBono comprueba el cobro y no borra si lo hay: la cobrada se queda.
           const r = await quitarBono(bonoActual)
