@@ -18,6 +18,6 @@ export default function CaraPaciente({ p }: { p: any }) {
   }, [ruta])
   const ini = (((p?.nombre || '').trim()[0] || '') + ((p?.apellidos || '').trim()[0] || '')).toUpperCase() || '·'
   return u
-    ? <img src={u} alt="" onError={() => setU(null)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}/>
+    ? <img src={u} alt="" loading="lazy" onError={() => setU(null)} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}/>
     : <>{ini}</>
 }
