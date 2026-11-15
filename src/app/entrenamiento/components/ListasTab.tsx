@@ -17,7 +17,7 @@ export default function ListasTab({ medsBiblio, alergiasBiblio, intolBiblio, ops
       {/* OPERACIONES */}
       <div className="card" style={{marginBottom:10}}>
         <div className="card-title"><span className="ct-l"><Ic name="cruz"/> Operaciones / Cirugías</span> <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'operacion',categoria:''})}>+ Añadir</button></div>
-        {[...new Set(opsBiblioLib.map((o:any)=>o.zona))].map((cat:any)=>{
+        {Array.from(new Set(opsBiblioLib.map((o:any)=>o.zona))).map((cat:any)=>{
           const items = opsBiblioLib.filter((o:any)=>o.zona===cat&&(!buscarLista||o.nombre.toLowerCase().includes(buscarLista.toLowerCase())))
           if (!items.length) return null
           return (
@@ -34,7 +34,7 @@ export default function ListasTab({ medsBiblio, alergiasBiblio, intolBiblio, ops
       {/* MEDICAMENTOS */}
       <div className="card" style={{marginBottom:10}}>
         <div className="card-title"><span className="ct-l"><Ic name="medicamento"/> Medicamentos</span> <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'medicamento',categoria:''})}>+ Añadir</button></div>
-        {[...new Set(medsBiblio.map((m:any)=>m.categoria))].map((cat:any)=>{
+        {Array.from(new Set(medsBiblio.map((m:any)=>m.categoria))).map((cat:any)=>{
           const items = medsBiblio.filter((m:any)=>m.categoria===cat&&(!buscarLista||m.nombre.toLowerCase().includes(buscarLista.toLowerCase())))
           if (!items.length) return null
           return (
@@ -51,7 +51,7 @@ export default function ListasTab({ medsBiblio, alergiasBiblio, intolBiblio, ops
       {/* ALERGIAS */}
       <div className="card" style={{marginBottom:10}}>
         <div className="card-title"><span className="ct-l"><Ic name="alergia"/> Alergias</span> <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'alergia',categoria:''})}>+ Añadir</button></div>
-        {[...new Set(alergiasBiblio.map((m:any)=>m.categoria))].map((cat:any)=>{
+        {Array.from(new Set(alergiasBiblio.map((m:any)=>m.categoria))).map((cat:any)=>{
           const items = alergiasBiblio.filter((m:any)=>m.categoria===cat&&(!buscarLista||m.nombre.toLowerCase().includes(buscarLista.toLowerCase())))
           if (!items.length) return null
           return (
@@ -68,7 +68,7 @@ export default function ListasTab({ medsBiblio, alergiasBiblio, intolBiblio, ops
       {/* INTOLERANCIAS */}
       <div className="card">
         <div className="card-title"><span className="ct-l"><Ic name="intolerancia"/> Intolerancias</span> <button className="btn btn-p btn-sm" onClick={()=>setModalNuevoItem({tipo:'intolerancia',categoria:''})}>+ Añadir</button></div>
-        {[...new Set(intolBiblio.map((m:any)=>m.categoria))].map((cat:any)=>{
+        {Array.from(new Set(intolBiblio.map((m:any)=>m.categoria))).map((cat:any)=>{
           const items = intolBiblio.filter((m:any)=>m.categoria===cat&&(!buscarLista||m.nombre.toLowerCase().includes(buscarLista.toLowerCase())))
           if (!items.length) return null
           return (

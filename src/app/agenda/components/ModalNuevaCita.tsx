@@ -89,7 +89,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
             <div className="field"><label>Hora</label>
               <select className="input" value={nuevaCita.hora} onChange={e=>setNuevaCita((p:any)=>({...p,hora:e.target.value}))} disabled={guardando}>
                 <option value="">Elegir hora...</option>
-                {HORAS.map(h=><option key={h} value={h}>{h}</option>)}
+                {HORAS.map((h: any)=><option key={h} value={h}>{h}</option>)}
               </select>
             </div>
             <div className="field"><label>Sala</label>
@@ -136,7 +136,7 @@ export default function ModalNuevaCita({ fechaDisplay, pacientes, nuevaCita, set
                       <div style={{fontSize:9,color:'var(--grl)',margin:'7px 0 2px'}}>Hora</div>
                       <select className="input" value={nuevaCita[b.kh]||''} onChange={e=>setNuevaCita((p:any)=>({...p,[b.kh]:e.target.value}))} disabled={guardando} style={{fontSize:11,padding:'5px 7px'}}>
                         <option value="">Elegir…</option>
-                        {HORAS.map(h=><option key={h} value={h}>{h}</option>)}
+                        {HORAS.map((h: any)=><option key={h} value={h}>{h}</option>)}
                       </select>
                       <div style={{fontSize:9,color:'var(--grl)',margin:'6px 0 2px'}}>Sala</div>
                       <select className="input" value={nuevaCita[b.ks]||''} onChange={e=>setNuevaCita((p:any)=>({...p,[b.ks]:e.target.value}))} disabled={guardando} style={{fontSize:11,padding:'5px 7px'}}>

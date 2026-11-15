@@ -22,24 +22,24 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
   const manda = usePuede()('tareas')
   const puedeMarcar = (t:any) => manda || !t.asignado_a || t.asignado_a === userId
 
-  function nombreTrab(uid) {
-    const p = (perfiles||[]).find((x)=>x.user_id===uid)
+  function nombreTrab(uid: any) {
+    const p = (perfiles||[]).find((x: any)=>x.user_id===uid)
     return p?p.nombre:'—'
   }
-  function nombrePac(pid) {
-    const p = (pacientes||[]).find((x)=>x.id===pid)
+  function nombrePac(pid: any) {
+    const p = (pacientes||[]).find((x: any)=>x.id===pid)
     return p?`${p.nombre} ${p.apellidos||''}`:''
   }
 
   const pacFiltrados = buscarPac.trim()
-    ? (pacientes||[]).filter((p)=>`${p.nombre} ${p.apellidos||''} ${p.nombre_clinica||''}`.toLowerCase().includes(buscarPac.toLowerCase())).slice(0,5)
+    ? (pacientes||[]).filter((p: any)=>`${p.nombre} ${p.apellidos||''} ${p.nombre_clinica||''}`.toLowerCase().includes(buscarPac.toLowerCase())).slice(0,5)
     : []
 
   // Los avisos del equipo van aparte y solo los ve a quien van dirigidos («Mis avisos»).
   const misAvisos = (tareas||[]).filter((t:any)=>esAvisoEquipo(t) && t.asignado_a===userId)
-  let lista = (tareas||[]).filter((t)=>verCompletadas?t.completada:!t.completada)
+  let lista = (tareas||[]).filter((t: any)=>verCompletadas?t.completada:!t.completada)
   lista = filtroTrab==='avisos' ? lista.filter((t:any)=>esAvisoEquipo(t) && t.asignado_a===userId) : lista.filter((t:any)=>!esAvisoEquipo(t))
-  if (filtroTrab!=='todos' && filtroTrab!=='avisos') lista = lista.filter((t)=>t.asignado_a===filtroTrab)
+  if (filtroTrab!=='todos' && filtroTrab!=='avisos') lista = lista.filter((t: any)=>t.asignado_a===filtroTrab)
 
   async function guardar() {
     if (!titulo.trim()) return
@@ -48,7 +48,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
     setTitulo(''); setAsignadoA(''); setFechaLimite(''); setPacienteId(''); setBuscarPac(''); setCreando(false)
   }
 
-  function estadoTarea(t) {
+  function estadoTarea(t: any) {
     if (t.completada) return {color:'var(--grl)', label:'completada'}
     if (t.fecha_limite && t.fecha_limite < hoyStr) return {color:'var(--red)', label:'vencida', bg:'var(--redl)', bd:'#F5C8C8'}
     if (t.fecha_limite === hoyStr) return {color:'#7A5800', label:'hoy', bg:'var(--ambl)', bd:'#E8D9A0'}
@@ -72,7 +72,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
           <div className="field"><label>Asignar a</label>
             <select className="input" value={asignadoA} onChange={e=>setAsignadoA(e.target.value)}>
               <option value="">Todo el equipo</option>
-              {(perfiles||[]).map((p)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
+              {(perfiles||[]).map((p: any)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
             </select>
           </div>
           <div className="field"><label>Fecha límite</label>
@@ -90,7 +90,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
               <input className="input" value={buscarPac} onChange={e=>setBuscarPac(e.target.value)} placeholder="Buscar paciente..."/>
               {pacFiltrados.length>0&&(
                 <div style={{border:'1px solid var(--bd)',borderRadius:6,marginTop:3,overflow:'hidden'}}>
-                  {pacFiltrados.map((p)=>(
+                  {pacFiltrados.map((p: any)=>(
                     <div key={p.id} onClick={()=>{setPacienteId(p.id);setBuscarPac('')}} style={{padding:'6px 10px',fontSize:10,cursor:'pointer',borderBottom:'1px solid var(--bl)'}} onMouseOver={e=>(e.currentTarget).style.background='var(--gl)'} onMouseOut={e=>(e.currentTarget).style.background=''}>{p.nombre} {p.apellidos}</div>
                   ))}
                 </div>
@@ -106,7 +106,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,borderTop:'1px solid var(--bl)',paddingTop:12}}>
           {manda ? <select className="input" value={filtroTrab} onChange={e=>setFiltroTrab(e.target.value)} style={{flex:1,fontSize:10,padding:'5px 8px'}}>
             <option value="todos">Todos los trabajadores</option>
-            {(perfiles||[]).map((p)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
+            {(perfiles||[]).map((p: any)=><option key={p.user_id} value={p.user_id}>{p.nombre}</option>)}
           </select> : <span style={{flex:1}}/>}
           {misAvisos.length > 0 && (
             <button className={`chip-sel ${filtroTrab==='avisos'?'on':''}`} style={{flexShrink:0,fontSize:11.5}}
@@ -127,7 +127,7 @@ export default function ModalTareas({ tareas, perfiles, pacientes, userId, crear
         </div>
 
         {lista.length===0&&<div style={{fontSize:10,color:'var(--grl)',textAlign:'center',padding:'20px',fontStyle:'italic'}}>{verCompletadas?'No hay tareas hechas':'No hay tareas pendientes'}</div>}
-        {lista.map((t)=>{
+        {lista.map((t: any)=>{
           const est = estadoTarea(t)
           return (
             <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'9px 11px',borderRadius:7,border:`1px solid ${est.bd||'var(--bd)'}`,background:est.bg||'var(--bl)',marginBottom:5}}>
