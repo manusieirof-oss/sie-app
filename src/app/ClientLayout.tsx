@@ -172,7 +172,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             if (r.omitidos) console.log('Cuotas no renovadas (paciente de baja):', r.omitidos)
             // Un bono que no se ha podido renovar deja a alguien sin cuota este
             // mes. Que se vea, aunque de momento sea solo en la consola.
-            if (r.fallidos?.length) console.error('Cuotas que NO se han podido renovar:', r.fallidos)
+            if (r.fallidos?.length) {
+              console.error('Cuotas que NO se han podido renovar:', r.fallidos)
+              // A la vista, una vez por sesion del navegador: en la consola no lo ve nadie
+              // y quien se queda sin cuota no aparece en Cobros.
+              let avisado = false
+              try { avisado = sessionStorage.getItem('sie_aviso_cuotas') === '1'; sessionStorage.setItem('sie_aviso_cuotas', '1') } catch {}
+              if (!avisado) alert(`ATENCIÓN: ${r.fallidos.length} ${r.fallidos.length === 1 ? 'cuota de este mes no se ha podido renovar' : 'cuotas de este mes no se han podido renovar'}.\n\nSe volverá a intentar la próxima vez que entres. Si el aviso se repite, haz una captura y revísalo.\n\nMotivo: ${String(r.fallidos[0]).split(': ').slice(1).join(': ') || r.fallidos[0]}`)
+            }
           })
         }
       })

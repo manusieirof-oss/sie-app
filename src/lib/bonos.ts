@@ -341,8 +341,15 @@ export async function renovarCuotas(modoPrueba = false) {
     ok++
   }
 
-  // Marcar que este mes ya se renovó
-  await supabase.from('ajustes').upsert({ clave: 'ultima_renovacion', valor: claveMes }, { onConflict: 'clave' })
+  // Marcar que este mes ya se renovó. SOLO SI ENTRARON TODAS. Antes se marcaba igual
+  // aunque alguna fallara: esa persona se quedaba sin cuota del mes, no salia en Cobros y
+  // ya no se volvia a intentar. Sin la marca, la proxima vez que entre direccion se
+  // repite, y como los ya renovados tienen su cuota del mes, solo se reintentan los que
+  // faltan.
+  if (fallidos.length === 0) {
+    const { error: errMarca } = await supabase.from('ajustes').upsert({ clave: 'ultima_renovacion', valor: claveMes }, { onConflict: 'clave' })
+    if (errMarca) console.error('No se pudo marcar la renovacion del mes:', errMarca.message)
+  }
   return { ejecutado: true, renovados: ok, omitidos, fallidos, retirados: superados.length }
 }
 
