@@ -60,12 +60,37 @@ export const PASOS_N2: Paso[] = [
   { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Sigues en modo práctica: prueba todo lo que has visto. Esta guía y la de inicio están siempre en tu menú. Cambiar una sesión para siempre lo hace el encargado/a.' },
 ]
 
-const CLAVE = (uid: string, n = 1) => n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`
+/**
+ * GUÍA DEL NIVEL 3: SOLO LO NUEVO respecto al nivel 2. Preparar los entrenos y la
+ * programación: las fichas, el torno (crear sesiones y ponerlas en las citas), la
+ * biblioteca para crear y cambiar, y cambiar una sesión para siempre desde el taller.
+ *
+ * SIN PASOS DE «hazlo tú», a propósito. En modo práctica los pacientes son de prueba,
+ * pero la biblioteca (ejercicios, sesiones de plantilla) es LA DE VERDAD, compartida por
+ * toda la clínica: un paso que obligara a crear o cambiar algo ahí lo dejaría cambiado
+ * para todos. Aquí se enseña dónde está cada cosa y se avisa de eso.
+ */
+export const PASOS_N3: Paso[] = [
+  { titulo: 'Guía del entrenador 3', texto: 'Ahora preparas los entrenos y la programación de cada persona. Te enseño solo lo nuevo: las fichas, el torno y la biblioteca para crear.' },
+  { ruta: '/pacientes', sitio: 'nav/pacientes', titulo: 'Pacientes', texto: 'La lista de todos. De un vistazo ves quién se ha quedado sin citas o sin sesiones preparadas. Toca a una persona para abrir su ficha.' },
+  { ruta: '/pacientes', titulo: 'Su ficha', texto: 'Dentro de cada ficha: un resumen de lo que hace y lo que tiene programado, su Entreno (sesiones y citas) y sus Resultados. La Salud la ves para tenerla en cuenta, pero no la cambias: eso es de quien hace la valoración.' },
+  { ruta: '/torno', sitio: 'nav/torno', titulo: 'El torno', texto: 'Donde se le da forma al entreno. Empieza vacío: elige un camino. «A quién más le falta» te enseña primero a quien tiene citas por delante y nada preparado.' },
+  { ruta: '/torno', titulo: 'Crear sus sesiones', texto: 'Al elegir a una persona ves sus objetivos y lo que tiene que trabajar. Ahí montas sus sesiones: partes, ejercicios, series y método. La sesión es suya y va guardando su historial.' },
+  { ruta: '/torno', titulo: 'Ponerlo en sus citas', texto: 'Con las sesiones guardadas, «Ponerlo en sus citas» abre su calendario y las repartes en los días que viene. Es la única forma de poner sesiones en las citas, se entre por donde se entre.' },
+  { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'La biblioteca, completa', texto: 'Además de consultar, ahora ves Sesiones, Sistemas y Objetivos, y puedes crear y cambiar ejercicios.' },
+  { ruta: '/entrenamiento', titulo: 'Ojo: la biblioteca es de todos', texto: 'Aunque estés en modo práctica, los ejercicios y las sesiones de la biblioteca son los de verdad. Lo que crees o cambies ahí lo ve toda la clínica. Practica con los pacientes de prueba, no con la biblioteca.' },
+  { ruta: '/torno', titulo: 'Amasar un ejercicio', texto: 'En el torno, por el lado de los ejercicios, completas cada uno: su foto, sus etiquetas, cómo se mide, los puntos de buena ejecución y cómo se suele hacer. El rosco te dice lo que le falta.' },
+  { ruta: '/taller', sitio: 'nav/taller', titulo: 'Cambiar para siempre', texto: 'En el taller ya cambiabas cosas solo para hoy. Ahora, al cambiar un ejercicio o el método, puedes elegir «Para siempre»: se cambia su sesión y queda apuntado en su historial. Si nadie más tiene que verlo distinto mañana, déjalo en «solo hoy».' },
+  { ruta: '/agenda', sitio: 'nav/agenda', titulo: 'Quién lleva cada sala', texto: 'En la agenda puedes cambiar quién se hace cargo de cada sala y los horarios del equipo.' },
+  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Sigues en modo práctica: abre la ficha de un paciente de prueba y prepárale una sesión en el torno. Las tres guías están siempre en tu menú. Las valoraciones, los tests y los cobros los lleva dirección.' },
+]
+
+const CLAVE = (uid: string, n = 1) => n === 3 ? `sie_guia3_vista_${uid}` : n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`
 export const guiaVista = (uid: string, n = 1) => { try { return localStorage.getItem(CLAVE(uid, n)) === '1' } catch { return true } }
 const marcarVista = (uid: string, n = 1) => { try { localStorage.setItem(CLAVE(uid, n), '1') } catch {} }
 
-export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, onCerrar: () => void, nivel?: 1 | 2 }) {
-  const PASOS_G = nivel === 2 ? PASOS_N2 : PASOS
+export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, onCerrar: () => void, nivel?: 1 | 2 | 3 }) {
+  const PASOS_G = nivel === 3 ? PASOS_N3 : nivel === 2 ? PASOS_N2 : PASOS
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   /* MIENTRAS SE BUSCA EL SITIO, NO SE ENSEÑA EL GLOBO. Antes salía en el centro y al
