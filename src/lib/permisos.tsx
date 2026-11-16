@@ -133,7 +133,13 @@ export function nivelDe(perfil: any): Nivel {
 /** Qué rutas pide cada nivel (por prefijo). Lo que no sale aquí, lo ve cualquiera. */
 export const RUTAS: [string, Accion][] = [
   ['/pacientes', 'pacientes'], ['/movil/pacientes', 'pacientes'], ['/resultados', 'pacientes'],
-  ['/valoracion', 'valoracion'], ['/camara', 'valoracion'], ['/vald', 'torno'],
+  ['/valoracion', 'valoracion'], ['/camara', 'valoracion'], ['/vald', 'direccion'],
+  // Herramientas de mantenimiento de la biblioteca y de las fotos: solo direccion. Van
+  // ANTES de la regla general de /entrenamiento/, que se queda con la primera que casa.
+  ['/entrenamiento/sembrar', 'direccion'], ['/entrenamiento/sembrar-contenido', 'direccion'], ['/entrenamiento/sembrar-etiquetas', 'direccion'],
+  ['/entrenamiento/sembrar-masajes', 'direccion'], ['/entrenamiento/sembrar-objetivos', 'direccion'], ['/entrenamiento/sembrar-sesiones', 'direccion'],
+  ['/entrenamiento/sembrar-tests', 'direccion'], ['/entrenamiento/limpiar', 'direccion'], ['/entrenamiento/completar-fotos', 'direccion'],
+  ['/entrenamiento/familias', 'direccion'], ['/ajustes/fotos-privadas', 'direccion'], ['/ajustes/fotos-ligeras', 'direccion'],
   // La biblioteca se consulta desde el 2; sus pantallas de trabajo (/entrenamiento/…), del 3.
   ['/torno', 'torno'], ['/entrenamiento/', 'biblioteca'], ['/entrenamiento', 'ver_biblioteca'],
   ['/estadisticas', 'direccion'], ['/avisos', 'direccion'],

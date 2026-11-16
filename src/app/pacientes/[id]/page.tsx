@@ -49,7 +49,14 @@ export default function FichaPacientePage() {
   const [tab, setTab] = useState('ficha')
   // En qué parte de Entrenamiento se abre (la etiqueta del bono lleva a «Datos de entrenamiento»).
   const [entrenoEn, setEntrenoEn] = useState('activo')
-  const puedeSalud = usePuede()('editar_salud')
+  const puede = usePuede()
+  const puedeSalud = puede('editar_salud')
+  /* LO QUE ES DE DIRECCION O ENCARGADA, FUERA DE LA VISTA DE LOS DEMAS. El entrenador 3
+     entra en la ficha para preparar el entreno: no cambia datos personales ni la foto,
+     no da pausas ni bajas, no toca bonos ni pagos, y los tests y las firmas son de quien
+     valora. Antes lo veia todo y parte le daba error al pulsarlo. */
+  const esDir = puede('direccion')
+  const puedeTests = puede('valoracion')
   // Llegar con la pestaña puesta: `/pacientes/<id>?tab=entreno`, que es a donde manda
   // la valoración al terminar para repartir las sesiones.
   useEffect(() => {
@@ -458,6 +465,7 @@ export default function FichaPacientePage() {
   // `items`: si el objetivo se mide con items sueltos, solo se ensenan esos. Antes
   // salia el test entero y habia que buscar entre todos el que tocaba.
   function abrirTest(testId: string, lado: string, items?: string[]) {
+    if (!puedeTests) { alert('Los tests los pasa quien hace las valoraciones.'); return }
     const test = testsDisp.find((t:any)=>t.id===testId)
     if (!test) { alert('Ese test ya no está en la biblioteca'); return }
     /**
@@ -856,7 +864,7 @@ export default function FichaPacientePage() {
           tiposClase={tiposClase} cambiarTipoClase={cambiarTipoClase}
           /* Repetir un test desde el objetivo que abrió. Vive aquí porque aquí está
              el formulario y el guardado; la ficha solo dice cuál y de qué lado. */
-          abrirTest={abrirTest}
+          abrirTest={puedeTests ? abrirTest : undefined}
           /* Cambiar de pestaña desde dentro. `router.push('?tab=entreno')` no hacía nada:
              el parámetro solo se lee al montar y aquí no se remonta nada. */
           irA={(t:string)=>{ if (t === 'ubicar') { setEntrenoEn('datos'); setTab('entreno') } else setTab(t === 'salud' ? 'ficha' : t) }}
@@ -877,10 +885,10 @@ export default function FichaPacientePage() {
           ) : (
             <div className="pat-avatar">{iniciales}</div>
           )}
-          <label style={{position:'absolute',bottom:-4,right:-4,width:20,height:20,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid var(--n)'}}>
+          {esDir && <label style={{position:'absolute',bottom:-4,right:-4,width:20,height:20,borderRadius:'50%',background:'var(--g)',color:'#fff',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',border:'2px solid var(--n)'}}>
             {subiendoFoto?'…':<Ic name="camara" size={12}/>}
             <input type="file" accept="image/*" onChange={subirFoto} style={{display:'none'}}/>
-          </label>
+          </label>}
         </div>
 
         <div style={{flex:editando?1:'0 1 auto',minWidth:0}}>
@@ -951,10 +959,10 @@ export default function FichaPacientePage() {
             <>
               <button className="btn-cab" onClick={()=>setPapeles('documentos')} title="Informes, imágenes y archivos">
                 <Ic name="carpeta" size={13}/> Documentos{nDocsCab ? ` · ${nDocsCab}` : ''}</button>
-              <button className="btn-cab" onClick={()=>setPapeles('firmas')} title="Consentimientos firmados"
+              {puedeSalud && <button className="btn-cab" onClick={()=>setPapeles('firmas')} title="Consentimientos firmados"
                 style={firmasFaltan ? { borderColor:'rgba(224,123,123,.7)', color:'#F2B8B8' } : undefined}>
-                <Ic name="firmar" size={13}/> Firmas{firmasFaltan ? ` · faltan ${firmasFaltan}` : ''}</button>
-              <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}><Ic name="editar" size={12}/> Editar</button>
+                <Ic name="firmar" size={13}/> Firmas{firmasFaltan ? ` · faltan ${firmasFaltan}` : ''}</button>}
+              {esDir && <button className="btn btn-p btn-sm" onClick={()=>setEditando(true)}><Ic name="editar" size={12}/> Editar</button>}
               <button className="btn-ico" title="Más acciones" aria-label="Más acciones"
                 onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuAcc({ x:r.right-160, y:r.bottom+5 })}}>
                 <Ic name="acciones" size={17}/>
@@ -984,6 +992,7 @@ export default function FichaPacientePage() {
           <div style={{position:'fixed',inset:0,zIndex:59}} onClick={()=>setMenuAcc(null)}/>
           <div className="menu-flot" style={{left:menuAcc.x,top:menuAcc.y,minWidth:160}}>
             <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalAlertas(true)}}><Ic name="alerta" size={14}/> Añadir alerta</button>
+            {esDir && <>
             <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
             {pac.estado==='activo' && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalPausa(true)}}><Ic name="pausa" size={14}/> Pausa temporal</button>
@@ -1020,6 +1029,7 @@ export default function FichaPacientePage() {
             <button className="menu-it" style={{color:'var(--red)'}} onClick={()=>{setMenuAcc(null);eliminarPaciente()}} disabled={procesando}>
               <Ic name="papelera" size={14}/> Eliminar paciente
             </button>
+            </>}
           </div>
         </>
       )}

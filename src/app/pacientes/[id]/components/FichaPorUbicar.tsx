@@ -1,4 +1,5 @@
 'use client'
+import { usePuede } from '@/lib/permisos'
 import ProgramaPaciente from '@/components/ficha/ProgramaPaciente'
 import { traerTodo } from '@/lib/paginar'
 import { HorarioDeseado } from '@/components/AgendaHuecos'
@@ -35,6 +36,8 @@ import { LBL_PAGO, empiezaDespues, mesDeBono, nombreMes } from './FichaTab'
 // el archivo grande se queda con el estado y este solo pinta. Lo que necesita le llega
 // por props desde alli.
 export default function FichaPorUbicar(p: any) {
+  // Bonos y pagos: solo direccion o encargada los cambian. Los demas ven que bono tiene.
+  const esDir = usePuede()('direccion')
   const { bono, bonoLabel, bonosSesiones, estadoPago, onCambioSesiones, onRenovarSesiones, onRetirarSesiones, pac, setMenuPago, setMenuTipo, setModalBono, tiposClase, ubicar } = p
   return (<>{ubicar && <div className="g2">
         <div className="sec">
@@ -53,11 +56,13 @@ export default function FichaPorUbicar(p: any) {
                 )}
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10,flexWrap:'wrap'}}>
+                {esDir && <>
                 <button className={`chip-ed ${estadoPago==='impago'?'chip-ed-r':estadoPago==='pendiente'?'chip-ed-a':''}`} title="Cobrar o cambiar el estado"
                   onClick={e=>{const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ x:r.left, y:r.bottom+4 })}}>
                   {LBL_PAGO[estadoPago]||'—'} <Ic name="abajo" size={12}/>
                 </button>
                 <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>Cambiar bono</button>
+                </>}
               </div>
 
             </>
@@ -69,7 +74,7 @@ export default function FichaPorUbicar(p: any) {
                 ? <><span style={{fontSize:11.5,color:'var(--gr)',width:110}}>Cuota mensual</span><span className="muted">No tiene</span></>
                 : <span className="muted">Sin bono activo</span>}
               <span style={{flex:1}}/>
-              <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bonosSesiones.length > 0 ? '+ Asignar cuota o bono' : '+ Asignar bono'}</button>
+              {esDir && <button className="btn btn-s btn-sm" onClick={()=>setModalBono(true)}>{bonosSesiones.length > 0 ? '+ Asignar cuota o bono' : '+ Asignar bono'}</button>}
             </div>
           )}
 
@@ -101,7 +106,7 @@ export default function FichaPorUbicar(p: any) {
                 const plegar = (bs:any) => conNuevo(bs) && acabado(bs)
                 return [...bonosSesiones].sort((a:any, b:any) => Number(plegar(a)) - Number(plegar(b))).map((bs:any)=>(
                   <SesionesBono key={bs.bono_id} bono={bs} nombre={bonoLabel?.[bs.tipo] || bs.tipo} plegado={plegar(bs)}
-                    onRenovar={conNuevo(bs) ? undefined : onRenovarSesiones} onRetirar={onRetirarSesiones} onCambio={onCambioSesiones}/>
+                    onRenovar={!esDir || conNuevo(bs) ? undefined : onRenovarSesiones} onRetirar={esDir ? onRetirarSesiones : undefined} onCambio={onCambioSesiones}/>
                 ))
               })()}
             </div>

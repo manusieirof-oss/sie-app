@@ -1,4 +1,5 @@
 'use client'
+import { usePuede } from '@/lib/permisos'
 import { useEffect, useState } from 'react'
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
 import { Ic } from '@/lib/icons'
@@ -17,6 +18,8 @@ const G = COLOR.g, GD = COLOR.gd, GL = COLOR.gl, RED = COLOR.red, AMB = COLOR.am
 
 export default function ResultadosTab({ citas, escalas, tests, recuperaciones, pac, molestias=[], patologias=[], deportesPac=[], registros=[], generarPDF }: any) {
   const [vista, setVista] = useState<'analisis'|'paciente'|'progreso'|'mapa'|'vald'>('analisis')
+  // El DynaMo (VALD) trae y guarda tests: es de quien valora.
+  const puedeVald = usePuede()('valoracion')
 
   // Un solo sitio calcula las cifras. Antes se repetían aquí, en la vista del paciente
   // y en generarPDF, cada una por su cuenta.
@@ -60,7 +63,7 @@ export default function ResultadosTab({ citas, escalas, tests, recuperaciones, p
       {/* Mismo conmutador que el resto de la app. Era el quinto estilo de pestañas. */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
         <div className="vista-sw" style={{marginBottom:0}}>
-          {([['analisis','progreso','Análisis'],['progreso','fuerza','Progresión'],['mapa','objetivo','Mapa'],['vald','fuerza','DynaMo'],['paciente','usuario','Para el paciente']] as const).map(([k,ic,l])=>(
+          {([['analisis','progreso','Análisis'],['progreso','fuerza','Progresión'],['mapa','objetivo','Mapa'],['vald','fuerza','DynaMo'],['paciente','usuario','Para el paciente']] as const).filter(([k]) => k !== 'vald' || puedeVald).map(([k,ic,l])=>(
             <button key={k} className={`vista-b ${vista===k?'on':''}`} onClick={()=>setVista(k)}>
               <Ic name={ic} size={13}/> {l}
             </button>

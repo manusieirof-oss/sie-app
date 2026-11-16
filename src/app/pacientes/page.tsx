@@ -1,4 +1,5 @@
 'use client'
+import { usePuede } from '@/lib/permisos'
 import { useEffect, useState } from 'react'
 import CaraPaciente from '@/components/CaraPaciente'
 import { supabase } from '@/lib/supabase'
@@ -21,6 +22,8 @@ import { consumoDe, UMBRAL_POCAS, type BonoSesiones } from '@/lib/bonoSesiones'
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 export default function PacientesPage() {
+  // Cobrar y marcar pagos desde la lista: solo direccion o encargada.
+  const esDir = usePuede()('direccion')
   const [pacientes, setPacientes] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
   const [bonosOpts, setBonosOpts] = useState<BonoTipo[]>([])
@@ -698,7 +701,7 @@ export default function PacientesPage() {
                 <div style={{padding:'8px 10px',borderLeft:'1px solid var(--bl)'}}>
                   {bono ? (
                     <button className={`chip-ed ${pago==='impago'?'chip-ed-r':pago==='pendiente'?'chip-ed-a':''}`} title="Cambiar el estado de pago"
-                      onClick={e=>{e.preventDefault();e.stopPropagation();const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ bono, paciente:p, x:r.left, y:r.bottom+4 })}}>
+                      onClick={e=>{e.preventDefault();e.stopPropagation();if(!esDir)return;const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setMenuPago({ bono, paciente:p, x:r.left, y:r.bottom+4 })}}>
                       {pagoLabel[pago]||'—'} <Ic name="abajo" size={12}/>
                     </button>
                   ) : (
