@@ -65,10 +65,10 @@ export const PASOS_N2: Paso[] = [
  * programación: las fichas, el torno (crear sesiones y ponerlas en las citas), la
  * biblioteca para crear y cambiar, y cambiar una sesión para siempre desde el taller.
  *
- * SIN PASOS DE «hazlo tú», a propósito. En modo práctica los pacientes son de prueba,
- * pero la biblioteca (ejercicios, sesiones de plantilla) es LA DE VERDAD, compartida por
- * toda la clínica: un paso que obligara a crear o cambiar algo ahí lo dejaría cambiado
- * para todos. Aquí se enseña dónde está cada cosa y se avisa de eso.
+ * UN SOLO PASO DE «hazlo tú»: amasar un ejercicio DE PRÁCTICA (sql/biblioteca-practica.sql).
+ * En modo práctica los pacientes son de prueba y hay unos pocos ejercicios de prueba; los
+ * de verdad no se dejan cambiar desde ahí. Las sesiones de plantilla sí son las de
+ * verdad, así que no hay paso que obligue a crear o cambiar una.
  */
 export const PASOS_N3: Paso[] = [
   { titulo: 'Guía del entrenador 3', texto: 'Ahora preparas los entrenos y la programación de cada persona. Te enseño solo lo nuevo: las fichas, el torno y la biblioteca para crear.' },
@@ -78,8 +78,8 @@ export const PASOS_N3: Paso[] = [
   { ruta: '/torno', titulo: 'Crear sus sesiones', texto: 'Al elegir a una persona ves sus objetivos y lo que tiene que trabajar. Ahí montas sus sesiones: partes, ejercicios, series y método. La sesión es suya y va guardando su historial.' },
   { ruta: '/torno', titulo: 'Ponerlo en sus citas', texto: 'Con las sesiones guardadas, «Ponerlo en sus citas» abre su calendario y las repartes en los días que viene. Es la única forma de poner sesiones en las citas, se entre por donde se entre.' },
   { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'La biblioteca, completa', texto: 'Además de consultar, ahora ves Sesiones, Sistemas y Objetivos, y puedes crear y cambiar ejercicios.' },
-  { ruta: '/entrenamiento', titulo: 'Ojo: la biblioteca es de todos', texto: 'Aunque estés en modo práctica, los ejercicios y las sesiones de la biblioteca son los de verdad. Lo que crees o cambies ahí lo ve toda la clínica. Practica con los pacientes de prueba, no con la biblioteca.' },
-  { ruta: '/torno', titulo: 'Amasar un ejercicio', texto: 'En el torno, por el lado de los ejercicios, completas cada uno: su foto, sus etiquetas, cómo se mide, los puntos de buena ejecución y cómo se suele hacer. El rosco te dice lo que le falta.' },
+  { ruta: '/entrenamiento', titulo: 'Los ejercicios de práctica', texto: 'En modo práctica hay unos pocos ejercicios para probar: llevan «(práctica)» en el nombre y solo se ven aquí. Esos puedes cambiarlos sin miedo. Los de verdad están protegidos: si intentas cambiar uno, te avisa y no lo toca. Las sesiones de plantilla sí son las de verdad: no las cambies practicando.' },
+  { ruta: '/torno', titulo: 'Amasar un ejercicio', haz: 'amasar-guardar', texto: 'Hazlo tú: en el torno, por el lado de los ejercicios, busca «práctica» y abre uno. Complétalo (su descripción, sus etiquetas, cómo se mide, los puntos de buena ejecución) y guarda. El rosco te dice lo que le falta.' },
   { ruta: '/taller', sitio: 'nav/taller', titulo: 'Cambiar para siempre', texto: 'En el taller ya cambiabas cosas solo para hoy. Ahora, al cambiar un ejercicio o el método, puedes elegir «Para siempre»: se cambia su sesión y queda apuntado en su historial. Si nadie más tiene que verlo distinto mañana, déjalo en «solo hoy».' },
   { ruta: '/agenda', sitio: 'nav/agenda', titulo: 'Quién lleva cada sala', texto: 'En la agenda puedes cambiar quién se hace cargo de cada sala y los horarios del equipo.' },
   { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Sigues en modo práctica: abre la ficha de un paciente de prueba y prepárale una sesión en el torno. Las tres guías están siempre en tu menú. Las valoraciones, los tests y los cobros los lleva dirección.' },

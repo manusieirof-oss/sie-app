@@ -17,6 +17,7 @@ import { EditorLista } from '@/app/entrenamiento/components/BibliotecaTab'
 import { EditorTrabajo, EditorAnatomia, useConfigTrabajo, trabajoDe, anatomiaDe, idsAnatomia, trabajoVacio, anatomiaVacia, type TrabajoEj, type AnatomiaEj } from '@/components/TrabajoEjercicio'
 import { C, R0, R1, HUECO, polar, quesito } from './geometria'
 import CuerpoAmasar from './CuerpoAmasar'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 // ---------------------------------------------------------------------------
 // AMASAR · EL ROSCO
@@ -332,6 +333,7 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
     } else {
       const { error } = await supabase.from('ejercicios').update(fila).eq('id', id)
       if (error) { setGuardando(false); setAviso('No se ha guardado: ' + error.message); return false }
+      avisarGuia('amasar-guardar')
       // La familia, por sus funciones: si tenía variantes, se mueven con él.
       if (d.portada_id !== orig.portada_id) {
         const r = d.portada_id ? await moverAFamilia(id, { id: d.portada_id }) : await sacarDeFamilia(id)
