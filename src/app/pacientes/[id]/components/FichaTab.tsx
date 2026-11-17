@@ -32,6 +32,7 @@ import CambiarSala from './CambiarSala'
 import FichaPorUbicar from './FichaPorUbicar'
 import FichaObjetivosResumen from './FichaObjetivosResumen'
 import { avisarGuia } from '@/lib/guiaEventos'
+import { usePuede } from '@/lib/permisos'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 export const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -204,6 +205,10 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
     return n.size ? Array.from(n) : undefined
   }
   const [modalAnadir, setModalAnadir] = useState(false)
+  /* LOS OBJETIVOS DEL PACIENTE SON DE QUIEN LO VALORA (nivel 4): ponerlos, cerrarlos,
+     marcar sus vías y quitarlos. El entrenador 3 los ve y programa a partir de ellos,
+     pero no los decide: no ha hecho la valoración. */
+  const puedeObj = usePuede()('valoracion')
   const [catalogo, setCatalogo] = useState<any[]>([])
   const [buscarObj, setBuscarObj] = useState('')
   const [selObj, setSelObj] = useState<string[]>([])
@@ -258,6 +263,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
    */
   async function anadirObjetivos(lista:any[], movs:Record<string,string[]> = espSel, via: ViaOrigen = 'plan', texto: string|null = null) {
     if (lista.length===0) return
+    if (!puedeObj) { alert('Los objetivos los pone quien hace la valoración.'); return }
     setGuardandoVia('anadir')
     const { error } = await supabase.from('pacientes_objetivos').insert(
       lista.map((o:any)=>{
@@ -393,6 +399,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   // Se les crea una vía de cierre manual en vez de tocar `logrado` a mano, para que
   // la regla siga siendo la única que decide y el objetivo se pueda reabrir igual.
   async function cerrarSinVias(o:any) {
+    if (!puedeObj) { alert('Los objetivos los cierra quien hace la valoración.'); return }
     const via = { tipo:'manual', ref:'', etiqueta:'Cierre manual', resuelto:true,
       fecha_resuelto:hoyISO() }
     setGuardandoVia(o.id)
@@ -422,6 +429,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   }
 
   async function toggleVia(o:any, vi:number) {
+    if (!puedeObj) { alert('Los objetivos los marca quien hace la valoración.'); return }
     const vias = (Array.isArray(o.vias)?o.vias:[]).map((v:any,i:number)=>
       i===vi ? {...v, resuelto:!v.resuelto, fecha_resuelto:!v.resuelto?hoyISO():null} : v)
     setGuardandoVia(o.id)
@@ -1008,9 +1016,9 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
         {vias.length===0 && !o.logrado && (
           <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
             <span style={{fontSize:12,color:'var(--gr)'}}>Sin nada que marcar · no vino de un test ni de un ejercicio</span>
-            <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id} onClick={()=>cerrarSinVias(o)}>
+            {puedeObj && <button className="btn btn-t btn-sm" disabled={guardandoVia===o.id} onClick={()=>cerrarSinVias(o)}>
               Dar por logrado
-            </button>
+            </button>}
           </div>
         )}
         {/* Las vías solo se pintan en los objetivos que se CIERRAN con ellas.
@@ -1162,8 +1170,8 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
             ya no toca, se quedaba para siempre contando como abierto. Se quita su copia
             y sus vias; la biblioteca, los tests pasados y las sesiones no se tocan. */}
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:14,paddingTop:12,borderTop:'1px solid var(--bd2)'}}>
-          <button className="btn btn-s btn-sm" style={{color:'var(--gr)',borderColor:'var(--bd)'}}
-            onClick={()=>quitarObjetivo(o)}>Quitar de su ficha</button>
+          {puedeObj && <button className="btn btn-s btn-sm" style={{color:'var(--gr)',borderColor:'var(--bd)'}}
+            onClick={()=>quitarObjetivo(o)}>Quitar de su ficha</button>}
         </div>
       </div>
       </div>
@@ -1171,6 +1179,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
   }
 
   async function quitarObjetivo(o:any) {
+    if (!puedeObj) return
     if (!confirm(`¿Quitar «${o.nombre}» de su ficha? Los tests pasados se quedan. Si vuelve a dar positivo un test que lo abre, se le volverá a poner.`)) return
     const { error } = await supabase.from('pacientes_objetivos').delete()
       .eq('paciente_id', pac.id).eq('objetivo_id', o.id)

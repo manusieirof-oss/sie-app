@@ -31,11 +31,14 @@ import HorarioFavorito from './HorarioFavorito'
 import CambiarSala from './CambiarSala'
 import FichaPorUbicar from './FichaPorUbicar'
 import { fmtLargo, haceCuanto } from './FichaTab'
+import { usePuede } from '@/lib/permisos'
 
 // Trozo de pantalla sacado de FichaTab.tsx tal cual (misma logica, mismos datos):
 // el archivo grande se queda con el estado y este solo pinta. Lo que necesita le llega
 // por props desde alli.
 export default function FichaObjetivosResumen(p: any) {
+  // Los objetivos del paciente los pone quien lo ha valorado (nivel 4). El resto los ve.
+  const puedeObj = usePuede()('valoracion')
   const { filtroVia, hayObjetivos, objPide, objetivosActivos, objetivosLogrados, objetivosTrabajo, orden, pintarMoneda, resumen, setBuscarObj, setFiltroVia, setModalAnadir, setOrden, setPideTexto, setSelObj, setViaAnadir, setZonaObj, tipoVal, valoracion } = p
   return (<>{resumen && hayObjetivos && (() => {
         const ordenVia = (o:any) => {
@@ -57,7 +60,7 @@ export default function FichaObjetivosResumen(p: any) {
           : []
 
         return (
-        <div className="sec">
+        <div data-guia="ficha-objetivos" className="sec">
           <div className="sec-h">
             <span className="ct-l"><Ic name="objetivo" size={13}/> Objetivos</span>
             <span className="sh-r" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
@@ -87,10 +90,10 @@ export default function FichaObjetivosResumen(p: any) {
                   border:`1px solid ${orden==='parado'?'var(--gm)':'var(--bd)'}`}}>
                 lo más parado
               </button>
-              <button className="btn btn-t btn-sm"
+              {puedeObj && <button className="btn btn-t btn-sm"
                 data-guia="ficha-objetivo" onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setPideTexto(null);setViaAnadir('plan');setModalAnadir(true)}}>
                 <Ic name="mas" size={12}/> Añadir
-              </button>
+              </button>}
             </span>
           </div>
 
@@ -116,7 +119,7 @@ export default function FichaObjetivosResumen(p: any) {
                   que queda por convertir, no una categoría aparte. */}
               {pendientesPide.map((t:string,i:number)=>(
                 <div key={'p'+i} className="obj-mon-b" title={t + ' · hazlo objetivo para poder medirlo'}
-                  onClick={()=>{ setPideTexto(t); setViaAnadir('pide'); setSelObj([]); setBuscarObj(''); setModalAnadir(true) }}>
+                  onClick={()=>{ if (!puedeObj) return; setPideTexto(t); setViaAnadir('pide'); setSelObj([]); setBuscarObj(''); setModalAnadir(true) }}>
                   <span className="obj-moneda g pide"><b>{(t||'?').trim().charAt(0).toUpperCase()}</b></span>
                   <span className="obj-mon-g">{t}</span>
                   <span style={{fontSize:10,color:'#7B4E86'}}>+ hacerlo objetivo</span>
