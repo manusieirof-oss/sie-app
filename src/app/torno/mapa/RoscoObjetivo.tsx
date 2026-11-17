@@ -306,7 +306,7 @@ export default function RoscoObjetivo({ objetivo, etiquetas, tests, onGuardado, 
       )}
 
       {/* GUARDAR, abajo y fijo, como al amasar. */}
-      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(22px + var(--franja-practica, 0px))', display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
         <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderRadius: 99,
           padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
           <span style={{ fontSize: 12.5, color: aviso.startsWith('✓') ? 'var(--gd)' : aviso ? 'var(--red)' : 'var(--gr)' }}>

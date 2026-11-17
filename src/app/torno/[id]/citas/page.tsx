@@ -811,7 +811,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       )}
 
       {!pieza && (cambios.length > 0 || cambiosEval.length > 0) && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(22px + var(--franja-practica, 0px))', display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--w)', border: '1px solid var(--bd)',
             borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
             <span style={{ fontSize: 13 }}>

@@ -14,6 +14,7 @@ import ImagenEjercicio from '@/components/ImagenEjercicio'
 import FiltroCuerpo from '@/components/FiltroCuerpo'
 import { conDescendientes } from '@/lib/etiquetas'
 import { avisarGuia } from '@/lib/guiaEventos'
+import { enModoPractica } from '@/lib/practica'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
 // FOTO PROPIA. Sin foto ya sale una figura automática, así que no cuenta para "listo"
@@ -120,7 +121,8 @@ export default function TornoPage() {
   // se recuerda en esta pestaña del navegador.
   useEffect(() => { try {
     if (sessionStorage.getItem('torno-familias') === '1') { setPorFamilias(true); setAbierto(true) }
-    const b = sessionStorage.getItem('torno-busca'); if (b) { setBusca(b); setAbierto(true) }
+    // En práctica no se recupera la búsqueda de antes: sería de la biblioteca de verdad.
+    const b = enModoPractica() ? '' : sessionStorage.getItem('torno-busca'); if (b) { setBusca(b); setAbierto(true) }
     if (Number(sessionStorage.getItem('torno-scroll') || 0) > 0) setAbierto(true)
   } catch {} }, [])
   /* AL VOLVER DE UN EJERCICIO, A LA MISMA ALTURA: cuando ya están cargados los ejercicios
@@ -547,7 +549,7 @@ export default function TornoPage() {
               con transform) un position:fixed se pega a ese contenedor y no a la pantalla,
               así que la barra acababa al final de la lista y el panel ni se veía. */}
           {modoSel && selec.length > 0 && createPortal(
-            <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 40, pointerEvents: 'none' }}>
+            <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(22px + var(--franja-practica, 0px))', display: 'flex', justifyContent: 'center', zIndex: 40, pointerEvents: 'none' }}>
               <div className="t-fade" style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 99,
                 padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)' }}>
                 <span style={{ fontSize: 12.5, color: 'var(--gd)' }}>{selec.length} elegido{selec.length === 1 ? '' : 's'}</span>

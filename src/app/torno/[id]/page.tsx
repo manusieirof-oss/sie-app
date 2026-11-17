@@ -336,7 +336,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
 
       {/* ACEPTAR, abajo y fijo: se ve siempre lo elegido. */}
       {!aceptado && elegidos.length > 0 && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 22, display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(22px + var(--franja-practica, 0px))', display: 'flex', justifyContent: 'center', zIndex: 20, pointerEvents: 'none' }}>
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--w)', border: '1px solid var(--bd)',
             borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)', animation: 'b-entra .3s ease backwards' }}>
             <span style={{ fontSize: 13 }}>{elegidos.length} elegido{elegidos.length === 1 ? '' : 's'}</span>

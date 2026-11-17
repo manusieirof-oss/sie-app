@@ -129,6 +129,8 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
 
   // Durante la guía se ven los botones que normalmente solo salen al pasar el ratón
   // (los de cada persona en la agenda): si no, se señalaba un hueco vacío.
+  // El torno recuerda la última búsqueda: en la guía se empieza siempre con el buscador vacío.
+  useEffect(() => { try { ['torno-busca', 'torno-scroll', 'torno-familias'].forEach(k => sessionStorage.removeItem(k)) } catch {} }, [])
   useEffect(() => {
     document.body.classList.add('guia-on')
     return () => document.body.classList.remove('guia-on')
@@ -193,7 +195,7 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
     <>
       {marco && <div style={{ position: 'fixed', zIndex: 1000, left: marco.left - 6, top: marco.top - 6, width: marco.width + 12, height: marco.height + 12, borderRadius: 14,
         border: '3px solid #E8A33D', boxShadow: '0 0 0 6px rgba(232,163,61,.25)', pointerEvents: 'none', transition: 'all .25s' }}/>}
-      <div style={{ position: 'fixed', zIndex: 1000, left: 16, bottom: 72, width: 340, maxWidth: 'calc(100vw - 32px)', background: '#fff', borderRadius: 16,
+      <div style={{ position: 'fixed', zIndex: 1000, left: 16, bottom: 'calc(72px + var(--franja-practica, 0px))', width: 340, maxWidth: 'calc(100vw - 32px)', background: '#fff', borderRadius: 16,
         padding: '14px 16px', boxShadow: '0 12px 40px rgba(0,0,0,.25)', border: '2px solid #E8A33D' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', color: '#7A5800', background: '#FCEFD6', borderRadius: 99, padding: '2px 8px' }}>HAZLO TÚ</span>
