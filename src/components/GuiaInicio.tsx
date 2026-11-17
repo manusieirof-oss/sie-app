@@ -38,7 +38,7 @@ export const PASOS: Paso[] = [
   { ruta: '/taller', sitio: 'taller-ejecucion', titulo: 'Ejecución', haz: 'ejecucion', texto: 'Hazlo tú: toca el contador (0/4) y marca un punto de buena ejecución que haga bien. Así se ve si mejora la técnica.' },
   { ruta: '/taller', sitio: 'taller-nolohizo', titulo: 'Si no hace un ejercicio', haz: 'nolohizo', texto: 'Hazlo tú: toca este botón y marca «No lo hizo». Se deshace tocando otra vez. Lo demás se da por hecho tal como sale.' },
   { ruta: '/taller', sitio: 'taller-finalizar', titulo: 'Al acabar la clase', haz: 'finalizar', texto: 'Hazlo tú: pulsa Finalizar. Queda guardado en el historial de cada uno, con lo apuntado y lo que salía en gris.' },
-  { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. Sigues en modo práctica: prueba lo que quieras y sal con «Salir» en la franja naranja.' },
+  { sitio: 'menu-usuario', titulo: 'Tu menú', texto: 'Aquí cambias tu contraseña (Mi cuenta), ves tu compromiso de confidencialidad y repites esta guía. Sigues en modo práctica: prueba lo que quieras y para salir, toca «Práctica» abajo a la derecha y «Salir de práctica».' },
 ]
 
 /**

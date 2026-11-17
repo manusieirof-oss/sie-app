@@ -1,6 +1,6 @@
 'use client'
 import { esFalloDeVersion, recargarPorVersion } from '@/lib/recargaVersion'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -98,35 +98,39 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     try { v ? localStorage.setItem('sie_ver_como', v) : localStorage.removeItem('sie_ver_como') } catch {}
     window.location.reload()
   }
-  /* LA FRANJA DE PRÁCTICA TAPABA LOS BOTONES DE ABAJO. Va fija abajo y encima de todo,
-     así que la barra de «Aceptar» del torno (y las de Amasar, el calendario de citas…)
-     quedaba debajo y no se podía pulsar. Se mide y se publica su alto en
-     --franja-practica; esas barras se suben eso. */
-  const franjaRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const raiz = document.documentElement
-    if (!practica || !franjaRef.current) { raiz.style.removeProperty('--franja-practica'); return }
-    const el = franjaRef.current
-    const medir = () => raiz.style.setProperty('--franja-practica', `${el.getBoundingClientRect().height + 14}px`)
-    medir()
-    const ro = new ResizeObserver(medir); ro.observe(el)
-    return () => { ro.disconnect(); raiz.style.removeProperty('--franja-practica') }
-  }, [practica])
-  const franjaPractica = () => practica && (
-    <div ref={franjaRef} style={{ position: 'fixed', left: '50%', bottom: 14, transform: 'translateX(-50%)', zIndex: 200, display: 'flex', alignItems: 'center', gap: 10,
-      background: '#E8A33D', color: '#2b1d05', borderRadius: 99, padding: '8px 10px 8px 16px', boxShadow: '0 8px 24px rgba(0,0,0,.18)', fontSize: 13, maxWidth: 'calc(100vw - 24px)', flexWrap: 'wrap' }}>
-      <b>Modo práctica</b><span>Pacientes de prueba: practica tranquilo, no toca a ningún paciente real.</span>
-      {perfil?.rol === 'admin' && (() => {
-        let vc: string | null = null; try { vc = localStorage.getItem('sie_ver_como') } catch {}
-        const chip = (v: string | null, t: string) => (
-          <button key={t} onClick={() => practicarComo(v)} style={{ border: '1px solid #2b1d05', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', font: 'inherit', fontSize: 12,
-            background: vc === v ? '#2b1d05' : 'transparent', color: vc === v ? '#fff' : '#2b1d05' }}>{t}</button>)
-        return <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>Como: {chip('1', 'Nivel 1')}{chip('2', 'Nivel 2')}{chip('3', 'Nivel 3')}{chip(null, 'Todo')}</span>
-      })()}
-      <button onClick={empezarDeNuevo} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Empezar de nuevo</button>
-      <button onClick={salirPractica} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#2b1d05', color: '#fff', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Salir</button>
+  /* EL AVISO DE PRÁCTICA, PEQUEÑO. Era una franja naranja ancha abajo, encima de todo:
+     molestaba y tapaba botones (la barra de «Aceptar» del torno). Ahora es una pastilla
+     en la esquina de abajo a la derecha, más una línea naranja fina arriba para que no
+     se olvide que se está en práctica. Al tocarla se abren las opciones. */
+  const [franjaAbierta, setFranjaAbierta] = useState(false)
+  const franjaPractica = () => practica && (<>
+    <div style={{ position: 'fixed', left: 0, right: 0, top: 0, height: 3, background: '#E8A33D', zIndex: 200, pointerEvents: 'none' }}/>
+    <div style={{ position: 'fixed', right: 14, bottom: 14, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+      {franjaAbierta && (
+        <div style={{ background: '#fff', border: '2px solid #E8A33D', borderRadius: 14, padding: '12px 14px', boxShadow: '0 10px 30px rgba(0,0,0,.18)',
+          fontSize: 13, color: '#2b1d05', width: 280, display: 'grid', gap: 10 }}>
+          <div>Pacientes y ejercicios de prueba: practica tranquilo, no toca nada real.</div>
+          {perfil?.rol === 'admin' && (() => {
+            let vc: string | null = null; try { vc = localStorage.getItem('sie_ver_como') } catch {}
+            const chip = (v: string | null, t: string) => (
+              <button key={t} onClick={() => practicarComo(v)} style={{ border: '1px solid #2b1d05', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', font: 'inherit', fontSize: 12,
+                background: vc === v ? '#2b1d05' : 'transparent', color: vc === v ? '#fff' : '#2b1d05' }}>{t}</button>)
+            return <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>Como: {chip('1', 'Nivel 1')}{chip('2', 'Nivel 2')}{chip('3', 'Nivel 3')}{chip(null, 'Todo')}</div>
+          })()}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={empezarDeNuevo} style={{ border: '1px solid #E8A33D', borderRadius: 99, padding: '5px 12px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Empezar de nuevo</button>
+            <span style={{ flex: 1 }}/>
+            <button onClick={salirPractica} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#2b1d05', color: '#fff', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Salir de práctica</button>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setFranjaAbierta(v => !v)} title="Opciones del modo práctica"
+        style={{ border: 0, borderRadius: 99, padding: '6px 12px', background: '#E8A33D', color: '#2b1d05', cursor: 'pointer', font: 'inherit', fontSize: 12.5, fontWeight: 600,
+          boxShadow: '0 4px 14px rgba(0,0,0,.15)' }}>
+        Práctica {franjaAbierta ? '▾' : '▴'}
+      </button>
     </div>
-  )
+  </>)
   /** Este equipo es compartido (tablet de sala, ordenador central): lib/compartido. */
   const [compartido, setCompartido] = useState(false)
   useEffect(() => { setCompartido(esCompartido()) }, [])
