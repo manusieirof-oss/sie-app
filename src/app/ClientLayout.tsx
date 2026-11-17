@@ -108,26 +108,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div style={{ position: 'fixed', right: 14, bottom: 14, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
       {franjaAbierta && (
         <div style={{ background: '#fff', border: '2px solid #E8A33D', borderRadius: 14, padding: '12px 14px', boxShadow: '0 10px 30px rgba(0,0,0,.18)',
-          fontSize: 13, color: '#2b1d05', width: 280, display: 'grid', gap: 10 }}>
-          <div>Pacientes y ejercicios de prueba: practica tranquilo, no toca nada real.</div>
+          fontSize: 15, lineHeight: 1.45, color: '#2b1d05', width: 330, display: 'grid', gap: 12 }}>
+          <div><b>Modo práctica.</b> Pacientes y ejercicios de prueba: practica tranquilo, no toca nada real.</div>
           {perfil?.rol === 'admin' && (() => {
             let vc: string | null = null; try { vc = localStorage.getItem('sie_ver_como') } catch {}
             const chip = (v: string | null, t: string) => (
-              <button key={t} onClick={() => practicarComo(v)} style={{ border: '1px solid #2b1d05', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', font: 'inherit', fontSize: 12,
+              <button key={t} onClick={() => practicarComo(v)} style={{ border: '1px solid #2b1d05', borderRadius: 99, padding: '5px 12px', cursor: 'pointer', font: 'inherit', fontSize: 14,
                 background: vc === v ? '#2b1d05' : 'transparent', color: vc === v ? '#fff' : '#2b1d05' }}>{t}</button>)
             return <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>Como: {chip('1', 'Nivel 1')}{chip('2', 'Nivel 2')}{chip('3', 'Nivel 3')}{chip(null, 'Todo')}</div>
           })()}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={empezarDeNuevo} style={{ border: '1px solid #E8A33D', borderRadius: 99, padding: '5px 12px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Empezar de nuevo</button>
+            <button onClick={empezarDeNuevo} style={{ border: '1px solid #E8A33D', borderRadius: 99, padding: '7px 14px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 14 }}>Empezar de nuevo</button>
             <span style={{ flex: 1 }}/>
-            <button onClick={salirPractica} style={{ border: 0, borderRadius: 99, padding: '5px 12px', background: '#2b1d05', color: '#fff', cursor: 'pointer', font: 'inherit', fontSize: 12.5 }}>Salir de práctica</button>
+            <button onClick={salirPractica} style={{ border: 0, borderRadius: 99, padding: '7px 14px', background: '#2b1d05', color: '#fff', cursor: 'pointer', font: 'inherit', fontSize: 14 }}>Salir de práctica</button>
           </div>
         </div>
       )}
       <button onClick={() => setFranjaAbierta(v => !v)} title="Opciones del modo práctica"
-        style={{ border: 0, borderRadius: 99, padding: '6px 12px', background: '#E8A33D', color: '#2b1d05', cursor: 'pointer', font: 'inherit', fontSize: 12.5, fontWeight: 600,
+        style={{ border: 0, borderRadius: 99, padding: '9px 16px', background: '#E8A33D', color: '#2b1d05', cursor: 'pointer', font: 'inherit', fontSize: 15, fontWeight: 600,
           boxShadow: '0 4px 14px rgba(0,0,0,.15)' }}>
-        Práctica {franjaAbierta ? '▾' : '▴'}
+        Modo práctica {franjaAbierta ? '▾' : '▴'}
       </button>
     </div>
   </>)
