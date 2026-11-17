@@ -876,6 +876,7 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
     if (e2) { alert('No se ha podido cambiar su sesión: ' + e2.message); return }
     // Sesion viva: el cambio para siempre hecho en la sala, a su historial.
     await apuntarHistorial(destino.id, pid, 'cambio', (texto || 'Cambiada en el taller').replace(/^Ejercicio /, ''), 'Taller', partes)
+    avisarGuia('para-siempre')
 
     /* Los ajustes del dia van por POSICION (parte.ejercicio). Al quitar uno, los de
        detras de esa parte se corren un puesto en sus citas de hoy en adelante; si

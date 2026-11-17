@@ -16,6 +16,7 @@ import MonedaObjetivo from '@/components/MonedaObjetivo'
 import PiezaTorno, { FilaPieza } from './PiezaTorno'
 import RepartirPanel, { repartoVacio, type EstadoReparto } from './RepartirPanel'
 import { planReparto, diaSemana, seguirAlternando } from '@/lib/repartir'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 // ---------------------------------------------------------------------------
 // PONERLO EN SUS CITAS
@@ -401,9 +402,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       }
     }
     // Con encargo se vuelve directo: en la sala no hay tiempo para la animación.
-    if (encargo) { setGuardando(false); router.push(encargo.volver); return }
+    if (encargo) { setGuardando(false); avisarGuia('torno-programar'); router.push(encargo.volver); return }
     await new Promise(res => setTimeout(res, Math.max(0, 1600 - (Date.now() - t0))))
     setGuardando(false)
+    avisarGuia('torno-programar')
     setPieza(p => p && { ...p, estado: 'lista' })
   }
 
@@ -818,7 +820,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             </span>
             {pasos.length > 0 && <button className="btn btn-t btn-sm" onClick={deshacer} title="Vuelve atrás el último toque">↶ Deshacer</button>}
             <button className="btn btn-t btn-sm" onClick={() => { setPintado({}); setAMano({}); setPasos([]); setEvalPlan(Object.fromEntries(evals.map(e => [e.key, e.cita]))) }}>Deshacer todo</button>
-            <button className="btn btn-p" disabled={guardando} onClick={confirmar}><Ic name="ok" size={13}/> {guardando ? 'Guardando…' : 'Programar'}</button>
+            <button className="btn btn-p" data-guia="torno-programar" disabled={guardando} onClick={confirmar}><Ic name="ok" size={13}/> {guardando ? 'Guardando…' : 'Programar'}</button>
           </div>
         </div>
       )}

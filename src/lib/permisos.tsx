@@ -42,7 +42,7 @@ export const MINIMO = {
   valoracion: 4,           // valoraciones y tests (también los que tocan en clase): el especialista
   editar_salud: 4,         // editar la salud de la ficha (el nivel 3 la ve, no la cambia)
   editar_agenda: 4,        // crear, mover, editar o borrar citas: por persona (POR_PERSONA)
-  turnos: 3,               // quién se hace cargo de cada sala (agenda) y los horarios
+  turnos: 4,               // quién se hace cargo de cada sala (agenda) y los horarios: dirección o encargado
   tareas: 4,               // poner y borrar tareas, y ver las de todos: el encargado (cada uno marca las suyas)
   cambiar_ejercicios: 2,   // cambios de UN DÍA en el taller: ejercicio, método, series (solo hoy)
   editar_plan: 3,          // cambiar la sesión PARA SIEMPRE: editor, «para siempre», crear, borrar

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
 import { PROGRESIONES } from '@/lib/sistemas'
 import dynamic from 'next/dynamic'
+import { avisarGuia } from '@/lib/guiaEventos'
 // El cuerpo 3D (three.js) se carga aparte, para no frenar la entrada.
 const MapaCalorMini = dynamic(() => import('@/components/MapaCalorMini'), { ssr: false })
 
@@ -52,8 +53,8 @@ export default function OrigenPage({ params }: { params: { id: string } }) {
   }
 
   const boton = (via: 'bib' | 'calor', ic: string, titulo: string, texto: string, dibujo: React.ReactNode, listo = true) => (
-    <button type="button" onClick={() => ir(via)} disabled={!listo}
-      className="origen-b"
+    <button type="button" onClick={() => { if (via === 'bib') avisarGuia('torno-origen'); ir(via) }} disabled={!listo}
+      data-guia={'origen-' + via} className="origen-b"
       style={{ fontFamily: 'inherit', textAlign: 'left', cursor: listo ? 'pointer' : 'default', padding: 26, borderRadius: 24,
         background: '#fff', border: '1.5px solid var(--bd)', minHeight: 'min(62vh, 520px)', display: 'flex', flexDirection: 'column',
         opacity: yendo && yendo !== via ? .35 : 1, transform: yendo === via ? 'scale(1.02)' : 'none', transition: 'all .25s' }}>

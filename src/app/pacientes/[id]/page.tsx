@@ -41,6 +41,7 @@ import { recuperacionAlCambiarEstado, recuperacionAlEliminar } from '@/lib/recup
 import { soltarDelBono, atarCitaABono } from '@/lib/bonoSesiones'
 import ModalSalida from './ModalSalida'
 import ModalMomento from './ModalMomento'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 
 export default function FichaPacientePage() {
@@ -300,7 +301,7 @@ export default function FichaPacientePage() {
   const mes = new Date().getMonth()+1
   const anio = new Date().getFullYear()
 
-  useEffect(() => { if(id) { primeraCarga.current = true; cargar() } }, [id])
+  useEffect(() => { if(id) { primeraCarga.current = true; cargar(); avisarGuia('ficha') } }, [id])
   useEffect(() => { let vivo = true
     urlFotoPaciente(pac?.foto_url).then(u => { if (vivo) setFotoUrl(u) })
     return () => { vivo = false }
@@ -1103,7 +1104,7 @@ export default function FichaPacientePage() {
       )}
 
       {/* TABS */}
-      <div className="tabs">
+      <div className="tabs" data-guia="ficha-pestanas">
         {[['ficha','ficha','Ficha'],['timeline','historial','Historial'],['entreno','entreno','Entrenamiento'],['resultados','resultados','Resultados']].map(([k,ic,l])=>(
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={()=>{ if (k==='entreno') setEntrenoEn('activo'); setTab(k) }}><span className="ct-l"><Ic name={ic} size={14}/> {l}</span></button>
         ))}

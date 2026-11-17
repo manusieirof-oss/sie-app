@@ -9,6 +9,7 @@ import { cargarSistemas, PROGRESIONES } from '@/lib/sistemas'
 import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import Torneado from './Torneado'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 // ---------------------------------------------------------------------------
 // EL BANCO DEL TORNO
@@ -274,13 +275,13 @@ export default function BancoPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* LAS ESFERAS: lo que manda. Centradas, de izquierda a derecha. */}
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginBottom: 40 }}>
+      <div data-guia="torno-objetivos" style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginBottom: 40 }}>
         {objs.map(o => {
           const on = selObj.includes(o.id)
           return (
             <button key={o.id} type="button" ref={el => { refs.current['o:' + o.id] = el }}
               className={`b-esf ${on ? 'on' : selObj.length > 0 ? 'off' : ''}`}
-              onClick={() => setSelObj(p => p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id])}
+              onClick={() => { avisarGuia('torno-objetivo'); setSelObj(p => p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]) }}
               title={on ? 'Pulsa para soltarlo' : 'Ver lo que lo trabaja'}>
               <MonedaObjetivo objetivo={o} titulo=""/>
               <span style={{ fontSize: 11, lineHeight: 1.25, textAlign: 'center', color: on ? 'var(--gd)' : 'var(--n)', fontWeight: on ? 600 : 400 }}>{o.nombre}</span>
@@ -301,7 +302,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
         return (
           <div key={tipo} style={{ position: 'relative', zIndex: 2 }}>
             <div className="b-rot">{tipo === 'c' ? 'Ciclos' : tipo === 's' ? 'Sesiones' : 'Ejercicios'}</div>
-            <div className="b-banda">
+            <div className="b-banda" data-guia="torno-banda">
               {lista.map((it, i) => {
                 const nv = nivel(it)
                 const cls = `b-it ${nv === 0 ? 'apagado' : nv === 2 && selObj.length > 0 ? 'sube' : ''} ${relacionados.has(it.clave) ? 'rel' : ''} ${elegidos.includes(it.clave) ? 'elegido' : ''}`
@@ -340,7 +341,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
             borderRadius: 99, padding: '8px 10px 8px 18px', boxShadow: '0 12px 30px rgba(38,40,37,.18)', animation: 'b-entra .3s ease backwards' }}>
             <span style={{ fontSize: 13 }}>{elegidos.length} elegido{elegidos.length === 1 ? '' : 's'}</span>
             <button className="btn btn-t btn-sm" onClick={() => setElegidos([])}>Quitar</button>
-            <button className="btn btn-p" onClick={() => setAceptado(true)}><Ic name="ok" size={13}/> Aceptar</button>
+            <button className="btn btn-p" data-guia="torno-aceptar" onClick={() => { avisarGuia('torno-aceptar'); setAceptado(true) }}><Ic name="ok" size={13}/> Aceptar</button>
           </div>
         </div>
       )}

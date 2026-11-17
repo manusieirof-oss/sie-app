@@ -12,6 +12,7 @@ import CaraPaciente from '@/components/CaraPaciente'
 import { usePuede } from '@/lib/permisos'
 import { MisAvisosArreglados } from '@/components/BuzonAvisos'
 import { esAvisoEquipo } from '@/app/agenda/components/AvisoTareas'
+import { enModoPractica } from '@/lib/practica'
 
 // HOY: LA PORTADA DE SIE.
 //
@@ -69,9 +70,13 @@ export default function Hoy() {
       ])
       setAlertas(al || []); setMolestias((mo || []).filter((m: any) => m.activa !== false))
       // Los avisos del equipo, aparte y solo para quien los recibe.
-      setTareas((ta || []).filter((t: any) => !esAvisoEquipo(t) && (!t.asignado_a || t.asignado_a === user.id)))
-      setMisAvisos((ta || []).filter((t: any) => esAvisoEquipo(t) && t.asignado_a === user.id))
-      setNotas(no || []); setCobros((bo || []).length)
+      /* EN PRÁCTICA, NADA DE VERDAD. Las tareas y las notas no son de ningún paciente,
+         así que el modo práctica no las separaba: salían las tuyas reales en mitad de la
+         guía (y con muchas, la guía se atascaba). En práctica se ven vacías. */
+      const pr = enModoPractica()
+      setTareas(pr ? [] : (ta || []).filter((t: any) => !esAvisoEquipo(t) && (!t.asignado_a || t.asignado_a === user.id)))
+      setMisAvisos(pr ? [] : (ta || []).filter((t: any) => esAvisoEquipo(t) && t.asignado_a === user.id))
+      setNotas(pr ? [] : (no || [])); setCobros(pr ? 0 : (bo || []).length)
       setTurnos(await cargarTurnos())
       setCargando(false)
     })()
@@ -119,6 +124,8 @@ export default function Hoy() {
   }
   async function anotar() {
     const texto = nueva.trim(); if (!texto) return
+    // En práctica no se guarda nada de verdad (las notas no son de ningún paciente).
+    if (enModoPractica()) { alert('En modo práctica las notas no se guardan.'); return }
     setNueva('')
     const { data, error } = await supabase.from('notas_personales').insert({ texto }).select().single()
     // Si no entra, el texto vuelve a la casilla en vez de desaparecer.
@@ -245,7 +252,7 @@ export default function Hoy() {
         )}
         <section style={caja} data-guia="hoy-tareas">
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Tareas del equipo</h3>
-          {tareas.length === 0 && <div style={{ fontSize: 13, color: 'var(--gr)' }}>Sin tareas pendientes.</div>}
+          {tareas.length === 0 && <div style={{ fontSize: 13, color: 'var(--gr)' }}>{enModoPractica() ? 'En modo práctica no se ven las tareas de verdad.' : 'Sin tareas pendientes.'}</div>}
           {tareas.slice(0, 8).map(t => (
             <label key={t.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderTop: '1px solid var(--bl)', fontSize: 13.5, cursor: 'pointer' }}>
               <input type="checkbox" onChange={() => hecha(t)} style={{ marginTop: 3 }}/>

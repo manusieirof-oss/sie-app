@@ -88,7 +88,7 @@ export default function FichaObjetivosResumen(p: any) {
                 lo más parado
               </button>
               <button className="btn btn-t btn-sm"
-                onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setPideTexto(null);setViaAnadir('plan');setModalAnadir(true)}}>
+                data-guia="ficha-objetivo" onClick={()=>{setSelObj([]);setBuscarObj('');setZonaObj('');setPideTexto(null);setViaAnadir('plan');setModalAnadir(true)}}>
                 <Ic name="mas" size={12}/> Añadir
               </button>
             </span>

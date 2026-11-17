@@ -61,28 +61,32 @@ export const PASOS_N2: Paso[] = [
 ]
 
 /**
- * GUÍA DEL NIVEL 3: SOLO LO NUEVO respecto al nivel 2. Preparar los entrenos y la
- * programación: las fichas, el torno (crear sesiones y ponerlas en las citas), la
- * biblioteca para crear y cambiar, y cambiar una sesión para siempre desde el taller.
+ * GUÍA DEL NIVEL 3: SOLO LO NUEVO respecto al nivel 2. Preparar el entreno de una persona
+ * de principio a fin, HACIÉNDOLO, con un paciente de prueba: su objetivo en la ficha, el
+ * torno (elegir, montar, guardar), repartirlo en sus citas, cambiar para siempre en el
+ * taller y amasar un ejercicio de práctica.
  *
- * UN SOLO PASO DE «hazlo tú»: amasar un ejercicio DE PRÁCTICA (sql/biblioteca-practica.sql).
- * En modo práctica los pacientes son de prueba y hay unos pocos ejercicios de prueba; los
- * de verdad no se dejan cambiar desde ahí. Las sesiones de plantilla sí son las de
- * verdad, así que no hay paso que obligue a crear o cambiar una.
+ * Todo lo que se toca es de práctica: los pacientes de prueba y sus sesiones, y los
+ * ejercicios «(práctica)» (sql/biblioteca-practica.sql). Las sesiones de plantilla de la
+ * biblioteca son las de verdad, pero aquí solo se COPIAN (Aceptar hace una copia suya).
  */
 export const PASOS_N3: Paso[] = [
-  { titulo: 'Guía del entrenador 3', texto: 'Ahora preparas los entrenos y la programación de cada persona. Te enseño solo lo nuevo: las fichas, el torno y la biblioteca para crear.' },
-  { ruta: '/pacientes', sitio: 'nav/pacientes', titulo: 'Pacientes', texto: 'La lista de todos. De un vistazo ves quién se ha quedado sin citas o sin sesiones preparadas. Toca a una persona para abrir su ficha.' },
-  { ruta: '/pacientes', titulo: 'Su ficha', texto: 'Dentro de cada ficha: un resumen de lo que hace y lo que tiene programado, su Entreno (sesiones y citas) y sus Resultados. La Salud la ves para tenerla en cuenta, pero no la cambias: eso es de quien hace la valoración.' },
-  { ruta: '/torno', sitio: 'nav/torno', titulo: 'El torno', texto: 'Donde se le da forma al entreno. Empieza vacío: elige un camino. «A quién más le falta» te enseña primero a quien tiene citas por delante y nada preparado.' },
-  { ruta: '/torno', titulo: 'Crear sus sesiones', texto: 'Al elegir a una persona ves sus objetivos y lo que tiene que trabajar. Ahí montas sus sesiones: partes, ejercicios, series y método. La sesión es suya y va guardando su historial.' },
-  { ruta: '/torno', titulo: 'Ponerlo en sus citas', texto: 'Con las sesiones guardadas, «Ponerlo en sus citas» abre su calendario y las repartes en los días que viene. Es la única forma de poner sesiones en las citas, se entre por donde se entre.' },
-  { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'La biblioteca, completa', texto: 'Además de consultar, ahora ves Sesiones, Sistemas y Objetivos, y puedes crear y cambiar ejercicios.' },
-  { ruta: '/entrenamiento', titulo: 'Los ejercicios de práctica', texto: 'En modo práctica hay unos pocos ejercicios para probar: llevan «(práctica)» en el nombre y solo se ven aquí. Esos puedes cambiarlos sin miedo. Los de verdad están protegidos: si intentas cambiar uno, te avisa y no lo toca. Las sesiones de plantilla sí son las de verdad: no las cambies practicando.' },
-  { ruta: '/torno', titulo: 'Amasar un ejercicio', haz: 'amasar-guardar', texto: 'Hazlo tú: en el torno, por el lado de los ejercicios, busca «práctica» y abre uno. Complétalo (su descripción, sus etiquetas, cómo se mide, los puntos de buena ejecución) y guarda. El rosco te dice lo que le falta.' },
-  { ruta: '/taller', sitio: 'nav/taller', titulo: 'Cambiar para siempre', texto: 'En el taller ya cambiabas cosas solo para hoy. Ahora, al cambiar un ejercicio o el método, puedes elegir «Para siempre»: se cambia su sesión y queda apuntado en su historial. Si nadie más tiene que verlo distinto mañana, déjalo en «solo hoy».' },
-  { ruta: '/agenda', sitio: 'nav/agenda', titulo: 'Quién lleva cada sala', texto: 'En la agenda puedes cambiar quién se hace cargo de cada sala y los horarios del equipo.' },
-  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Sigues en modo práctica: abre la ficha de un paciente de prueba y prepárale una sesión en el torno. Las tres guías están siempre en tu menú. Las valoraciones, los tests y los cobros los lleva dirección.' },
+  { titulo: 'Guía del entrenador 3', texto: 'Ahora preparas el entreno de cada persona: sus objetivos, sus sesiones y qué días las hace. Lo vas a hacer tú, de principio a fin, con un paciente de prueba. Unos diez minutos.' },
+  { ruta: '/pacientes', sitio: 'nav/pacientes', haz: 'ficha', titulo: 'Abre su ficha', texto: 'Hazlo tú: entra en Pacientes y abre la ficha de un paciente de prueba (Carmen, Antonio, Laura o Javier). En modo práctica solo salen ellos.' },
+  { ruta: '/pacientes', sitio: 'ficha-pestanas', titulo: 'Lo que hay en la ficha', texto: 'Ficha: su resumen, alertas y anamnesis. Historial: todo lo que le ha pasado. Entrenamiento: sus sesiones y sus citas. Resultados: cómo evoluciona. La salud la ves para tenerla en cuenta, pero no la cambias: es de quien valora.' },
+  { ruta: '/pacientes', sitio: 'ficha-objetivo', haz: 'objetivo', titulo: 'Lo primero: su objetivo', texto: 'Hazlo tú: añádele un objetivo (de fuerza, de movilidad…). En el torno todo parte de sus objetivos: sin ellos no sale nada que programar.' },
+  { ruta: '/torno', sitio: 'nav/torno', haz: 'torno-paciente', titulo: 'El torno', texto: 'Donde se monta el entreno. Hazlo tú: toca «A quién más le falta» o busca, y elige al mismo paciente de prueba.' },
+  { ruta: '/torno', sitio: 'origen-bib', haz: 'torno-origen', titulo: '¿Con qué lo montas?', texto: 'Hazlo tú: elige «De la biblioteca». Parte de sus objetivos y te ofrece lo que ya los trabaja.' },
+  { ruta: '/torno', sitio: 'torno-sesion', haz: 'torno-empezar', titulo: 'Una sesión o un ciclo', texto: 'Un ciclo son fases con varias sesiones; una sesión, partes y ejercicios. Hazlo tú: elige «Una sesión» y pulsa Empezar.' },
+  { ruta: '/torno', sitio: 'torno-objetivos', haz: 'torno-objetivo', titulo: 'Sus objetivos, arriba', texto: 'Hazlo tú: toca el objetivo que le pusiste. Abajo se encienden las sesiones y los ejercicios que lo trabajan; lo demás se apaga.' },
+  { ruta: '/torno', sitio: 'torno-banda', haz: 'torno-aceptar', titulo: 'Elige el material', texto: 'Hazlo tú: toca una sesión de plantilla o unos ejercicios encendidos y pulsa Aceptar, abajo. La plantilla no se toca: se hace una copia para él.' },
+  { ruta: '/torno', sitio: 'torno-guardar', haz: 'torno-guardar', titulo: 'Dale forma y guarda', texto: 'A la derecha está su sesión: quita, reordena, cambia series o método. Hazlo tú: cuando te guste, Guardar. Queda como sesión suya, con su propio historial.' },
+  { ruta: '/torno', sitio: 'torno-citas', haz: 'torno-citas', titulo: 'Ponerlo en sus citas', texto: 'Hazlo tú: pulsa «Ponerlo en sus citas». Es la única forma de poner sesiones en las citas, se entre por donde se entre.' },
+  { ruta: '/torno', sitio: 'torno-programar', haz: 'torno-programar', titulo: 'Repartir en el calendario', texto: 'Son sus citas de las próximas semanas. Hazlo tú: elige la sesión arriba, toca los días en que la hace y pulsa Programar. Si te equivocas, Deshacer.' },
+  { ruta: '/taller', sitio: 'taller-nolohizo', haz: 'para-siempre', titulo: 'Cambiar para siempre', texto: 'En el taller ya cambiabas cosas solo para hoy. Ahora también «Para siempre»: se cambia su sesión y queda en su historial. Hazlo tú: con ⇄ cambia un ejercicio de un paciente de prueba y elige «Para siempre».' },
+  { ruta: '/entrenamiento', sitio: 'nav/entrenamiento', titulo: 'La biblioteca, completa', texto: 'Además de consultar, ves Sesiones, Sistemas y Objetivos, y creas ejercicios. En modo práctica hay seis con «(práctica)» en el nombre: esos se pueden cambiar; los de verdad están protegidos. Las sesiones de plantilla sí son las de verdad: no las cambies practicando.' },
+  { ruta: '/torno', sitio: 'torno-buscar', haz: 'amasar-guardar', titulo: 'Amasar un ejercicio', texto: 'Hazlo tú: en el torno pasa a Ejercicios, busca «práctica» y abre uno. Complétalo (descripción, etiquetas, cómo se mide, puntos de buena ejecución) y guarda. El rosco te dice lo que le falta.' },
+  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Ya sabes preparar un entreno de principio a fin. Sigues en modo práctica: repítelo con otro paciente de prueba. Esta guía está en tu menú. Valoraciones, tests, salud, agenda, cobros, tareas y salas los llevan dirección o encargado.' },
 ]
 
 const CLAVE = (uid: string, n = 1) => n === 3 ? `sie_guia3_vista_${uid}` : n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`
@@ -141,7 +145,9 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
       if (!vivo) return
       const el = Array.from(document.querySelectorAll(`[data-guia="${paso.sitio}"]`)).find(x => visible(x as HTMLElement)) as HTMLElement | undefined
       if (el) {
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        // Si el sitio no cabe en la pantalla (una lista larga), se lleva arriba del todo.
+        const alto = el.getBoundingClientRect().height > window.innerHeight * 0.6
+        el.scrollIntoView({ block: alto ? 'start' : 'center', behavior: 'smooth' })
         setTimeout(() => { if (vivo) { setRect(el.getBoundingClientRect()); setBuscando(false) } }, 350)
         return
       }
@@ -161,20 +167,30 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
   const cerrar = () => { marcarVista(uid, nivel); onCerrar() }
   const ultimo = i === PASOS_G.length - 1
 
-  // El globo: debajo del sitio si cabe, si no encima; sin sitio, en el centro.
+  // El globo: debajo del sitio si cabe, si no encima; si no cabe en ninguno, abajo del
+  // todo, encima del sitio. Y SIEMPRE dentro de la pantalla.
+  //
+  // Se atascaba con un sitio más alto que la pantalla (las tareas, con muchas): no cabía
+  // ni debajo ni encima y el globo se iba fuera, con sus botones, y la tapa no dejaba
+  // hacer scroll. Ahora se mide solo la parte visible del sitio.
   const W = 340, M = 12
   let globo: React.CSSProperties = { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
+  let marco: { left: number, top: number, width: number, height: number } | null = null
   if (rect && typeof window !== 'undefined') {
-    const left = Math.max(M, Math.min(rect.left + rect.width / 2 - W / 2, window.innerWidth - W - M))
-    const abajo = window.innerHeight - rect.bottom > 220
-    globo = abajo ? { left, top: rect.bottom + 14 } : { left, top: Math.max(M, rect.top - 14), transform: 'translateY(-100%)' }
+    const vw = window.innerWidth, vh = window.innerHeight
+    const t = Math.max(8, rect.top), b = Math.min(vh - 8, rect.bottom), l = Math.max(8, rect.left), r = Math.min(vw - 8, rect.right)
+    marco = { left: l, top: t, width: Math.max(0, r - l), height: Math.max(0, b - t) }
+    const left = Math.max(M, Math.min(l + (r - l) / 2 - W / 2, vw - W - M))
+    if (vh - b > 230) globo = { left, top: b + 14 }
+    else if (t > 230) globo = { left, top: t - 14, transform: 'translateY(-100%)' }
+    else globo = { left, bottom: M }
   }
 
   /* HAZLO TÚ: sin velo ni tapa, para poder tocar la app. Un aro señala el sitio y la
      tarjeta va abajo a la izquierda, encima de las ventanas que se abran. */
   if (paso.haz) return (
     <>
-      {rect && <div style={{ position: 'fixed', zIndex: 1000, left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, borderRadius: 14,
+      {marco && <div style={{ position: 'fixed', zIndex: 1000, left: marco.left - 6, top: marco.top - 6, width: marco.width + 12, height: marco.height + 12, borderRadius: 14,
         border: '3px solid #E8A33D', boxShadow: '0 0 0 6px rgba(232,163,61,.25)', pointerEvents: 'none', transition: 'all .25s' }}/>}
       <div style={{ position: 'fixed', zIndex: 1000, left: 16, bottom: 72, width: 340, maxWidth: 'calc(100vw - 32px)', background: '#fff', borderRadius: 16,
         padding: '14px 16px', boxShadow: '0 12px 40px rgba(0,0,0,.25)', border: '2px solid #E8A33D' }}>
@@ -200,8 +216,8 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000 }}>
       {/* El velo oscuro con un hueco sobre el sitio que se explica. */}
-      {rect
-        ? <div style={{ position: 'fixed', left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, borderRadius: 14,
+      {marco
+        ? <div style={{ position: 'fixed', left: marco.left - 6, top: marco.top - 6, width: marco.width + 12, height: marco.height + 12, borderRadius: 14,
             boxShadow: '0 0 0 9999px rgba(38,40,37,.55)', border: '2px solid #fff', transition: 'all .25s', pointerEvents: 'none' }}/>
         : <div style={{ position: 'fixed', inset: 0, background: 'rgba(38,40,37,.55)' }}/>}
       {/* Tapa los clics: durante la guía no se toca la app sin querer. */}

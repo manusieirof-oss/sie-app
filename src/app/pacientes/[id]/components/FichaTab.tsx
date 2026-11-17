@@ -31,6 +31,7 @@ import HorarioFavorito from './HorarioFavorito'
 import CambiarSala from './CambiarSala'
 import FichaPorUbicar from './FichaPorUbicar'
 import FichaObjetivosResumen from './FichaObjetivosResumen'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 const TIPOS_AL: Record<string,string> = {dolor:'Dolor / molestia',lesion:'Lesión',cita_medica:'Cita médica',personal:'Situación personal',duda:'Duda / consulta',otro:'Otro'}
 export const LBL_PAGO: Record<string,string> = { pagado:'Pagado', pendiente:'Pendiente', impago:'Impago' }
@@ -276,6 +277,7 @@ export default function FichaTab({ pac, bono, recuperaciones, editando, form, se
           vias_origen: [via], pide_texto: texto, ...retratoDe(o) }
       }))
     if (error) { setGuardandoVia(null); alert(error.message); return }
+    avisarGuia('objetivo')
     // Ya no se le copia ninguna parte: un objetivo añadido a mano nace sin nada y se cierra
     // a mano, con "Dar por logrado". Es lo que se decidió al quitar metas y logros.
     setGuardandoVia(null)

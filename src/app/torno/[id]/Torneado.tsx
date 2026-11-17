@@ -7,6 +7,7 @@ import MonedaObjetivo from '@/components/MonedaObjetivo'
 import { Ic } from '@/lib/icons'
 import { sugerirObjetivos } from '@/lib/ejercicioObjetivos'
 import { guardarSesionTorno, guardarCicloTorno } from '@/lib/tornoGuardar'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 // ---------------------------------------------------------------------------
 // TORNEAR Y ARRASTRAR
@@ -100,6 +101,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
         hechas.push({ tipo: 'sesion', id: r.id, nombre: nom }); hechasKeys.push(sd.key)
       }
       setGuardando(false)
+      if (hechas.length) avisarGuia('torno-guardar')
       setGuardadas(g => [...g, ...hechas])
       // Las guardadas se quitan; si alguna falla, se queda a la vista para reintentar.
       setFases(l => [{ ...l[0], sesiones: l[0].sesiones.filter(sd => !hechasKeys.includes(sd.key)) }])
@@ -436,7 +438,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
             <span style={{ fontSize: 12.5, color: 'var(--gd)' }}>✓ Guardado:</span>
             {guardadas.map(g => <span key={g.id} className="pill pill-o on">{g.nombre}</span>)}
             <span style={{ flex: 1 }}/>
-            <button className="btn btn-p btn-sm" onClick={() => onACitas(guardadas)}>Ponerlo en sus citas →</button>
+            <button className="btn btn-p btn-sm" data-guia="torno-citas" onClick={() => { avisarGuia('torno-citas'); onACitas(guardadas) }}>Ponerlo en sus citas →</button>
           </div>
         )}
         {/* NOMBRE Y GUARDAR: arriba, que es donde se mira al acabar. */}
@@ -446,7 +448,7 @@ export default function Torneado({ modo, elegidos, bib, objs, pid, paciente, pro
             ? <input className="input" value={nombre} onChange={e => setNombre(e.target.value)}
                 placeholder={`Ciclo de ${paciente}`} style={{ flex: 1, fontSize: 13 }}/>
             : <span style={{ flex: 1 }}/>}
-          <button className="btn btn-p" disabled={vacio || guardando} onClick={guardar}>
+          <button className="btn btn-p" data-guia="torno-guardar" disabled={vacio || guardando} onClick={guardar}>
             {guardando ? 'Guardando…' : modo === 'sesion' && fases[0].sesiones.length > 1 ? `Guardar las ${fases[0].sesiones.length}` : guardadas.length > 0 ? 'Guardar otra' : 'Guardar como suyo'}
           </button>
         </div>

@@ -13,6 +13,7 @@ import { FALTAS_AMASAR, faltasAmasar, guardarCola, guardarGrupo, nombreCorto, ty
 import ImagenEjercicio from '@/components/ImagenEjercicio'
 import FiltroCuerpo from '@/components/FiltroCuerpo'
 import { conDescendientes } from '@/lib/etiquetas'
+import { avisarGuia } from '@/lib/guiaEventos'
 
 // Los mismos iconos que los quesitos del rosco de Amasar.
 // FOTO PROPIA. Sin foto ya sale una figura automática, así que no cuenta para "listo"
@@ -151,6 +152,7 @@ export default function TornoPage() {
   const [fin, setFin] = useState('')
   function empezar() {
     if (!panel || !tipo) return
+    avisarGuia('torno-empezar')
     const q = new URLSearchParams({ modo: tipo })
     if (tipo === 'ciclo') { q.set('prog', prog); if (prog === 'fecha_fin' && fin) q.set('fin', fin) }
     setYendo(panel.id)
@@ -160,6 +162,7 @@ export default function TornoPage() {
   // ORDEN NUEVO: paciente → ¿con qué lo montamos? (biblioteca o mapa de calor) → y solo en la
   // biblioteca, ciclo o sesión. En el mapa de calor eso lo deciden sus citas y sus fases.
   function irOrigen(f: Fila) {
+    avisarGuia('torno-paciente')
     setYendo(f.id)
     setTimeout(() => router.push(`/torno/${f.id}/origen`), 360)
   }
@@ -368,7 +371,7 @@ export default function TornoPage() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%',
           maxWidth: 520, margin: abierto ? '14px auto 0' : '0 auto',
           transform: abierto ? 'none' : 'translateY(-50%)', position: 'relative' }}>
-          <input className="input" value={busca}
+          <input className="input" value={busca} data-guia="torno-buscar"
             onFocus={() => setAbierto(true)}
             onChange={e => { setBusca(e.target.value); setAbierto(true) }}
             placeholder={que === 'pacientes' ? 'Busca a alguien de la clínica…' : que === 'ejercicios' ? 'Busca un ejercicio…' : 'Busca un objetivo o un test…'}
@@ -622,7 +625,7 @@ export default function TornoPage() {
                       style={{ animationDelay: `${Math.min(i, 12) * 26}ms`,
                         background: 'var(--w)', border: '1px solid var(--bd)', borderRadius: 10,
                         padding: '13px 14px', cursor: 'pointer' }}
-                      onClick={() => irOrigen(f)}>
+                      data-guia="torno-paciente" onClick={() => irOrigen(f)}>
                       <div style={{ fontSize: 14, color: 'var(--n)' }}>{f.nombre}</div>
                       {f.reciente && (
                         <div style={{ fontSize: 9, color: 'var(--gd)', fontWeight: 600, marginTop: 2 }}>
@@ -666,7 +669,7 @@ export default function TornoPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
               {([['ciclo', 'Un ciclo', 'Fases con sus sesiones'], ['sesion', 'Una sesión', 'Partes y ejercicios']] as const).map(([v, n, a]) => (
-                <button key={v} type="button" className="t-card" onClick={() => setTipo(v)}
+                <button key={v} type="button" className="t-card" data-guia={'torno-' + v} onClick={() => setTipo(v)}
                   style={{ fontFamily: 'inherit', cursor: 'pointer', textAlign: 'center', padding: '16px 10px', borderRadius: 12,
                     background: tipo === v ? 'var(--gl)' : 'var(--w)', border: `1.5px solid ${tipo === v ? 'var(--g)' : 'var(--bd)'}` }}>
                   <div style={{ fontSize: 15, color: tipo === v ? 'var(--gd)' : 'var(--n)' }}>{n}</div>
@@ -698,7 +701,7 @@ export default function TornoPage() {
               <button className="btn btn-t btn-sm" onClick={() => router.push(`/pacientes/${panel.id}?tab=entreno`)}>Ver su ficha</button>
               <div style={{ flex: 1 }}/>
               <button className="btn btn-s" onClick={() => setPanel(null)}>Cancelar</button>
-              <button className="btn btn-p" disabled={!tipo || (tipo === 'ciclo' && prog === 'fecha_fin' && !fin)} onClick={empezar}>Empezar</button>
+              <button className="btn btn-p" data-guia="torno-empezar" disabled={!tipo || (tipo === 'ciclo' && prog === 'fecha_fin' && !fin)} onClick={empezar}>Empezar</button>
             </div>
           </div>
         </div>
