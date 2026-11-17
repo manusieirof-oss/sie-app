@@ -26,6 +26,9 @@ async function prepararClase(): Promise<string | null> {
 
 export async function entrarPractica(destino = '/taller') {
   try { localStorage.setItem(CLAVE, '1') } catch {}
+  // El torno recuerda la ultima busqueda y el desplazamiento: al entrar o salir de la
+  // practica no se arrastran (salia «masaje» escrito en el buscador de la guia).
+  try { ['torno-busca', 'torno-scroll', 'torno-familias'].forEach(k => sessionStorage.removeItem(k)) } catch {}
   // Se prepara la clase ya con la cabecera puesta: hay que recargar primero.
   try { sessionStorage.setItem('sie_practica_preparar', '1') } catch {}
   window.location.href = destino
@@ -49,6 +52,9 @@ export function guiaPendiente(): 1 | 2 | 3 | null {
 }
 
 export function salirPractica() {
+  // El torno recuerda la ultima busqueda y el desplazamiento: al entrar o salir de la
+  // practica no se arrastran (salia «masaje» escrito en el buscador de la guia).
+  try { ['torno-busca', 'torno-scroll', 'torno-familias'].forEach(k => sessionStorage.removeItem(k)) } catch {}
   try { localStorage.removeItem(CLAVE); sessionStorage.removeItem('sie_practica_preparar') } catch {}
   window.location.href = '/hoy'
 }

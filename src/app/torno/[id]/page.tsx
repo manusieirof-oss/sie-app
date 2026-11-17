@@ -182,7 +182,7 @@ export default function BancoPage({ params }: { params: { id: string } }) {
     return lista.flatMap(i => familiasAbiertas.includes(i.clave)
       ? [i, ...items.filter(x => (i.familia || []).includes(x.clave))] : [i])
   }
-  const toggle = (k: string) => setElegidos(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])
+  const toggle = (k: string) => { avisarGuia('torno-elegir'); setElegidos(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k]) }
 
   // ---- Los hilos ------------------------------------------------------------
   // Del pie de cada esfera pinchada a lo que la trabaja. Se redibujan en cada
