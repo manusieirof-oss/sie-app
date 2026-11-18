@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       const encargada = cuerpo.rol === 'encargada'
       const rol = cuerpo.rol === 'admin' || encargada ? 'admin' : 'usuario'
       // Nivel de entrenador (lib/permisos): 1 principiante, 2 entrenador, 3 encargado/a.
-      const nivel = [1, 2, 3].includes(Number(cuerpo.nivel)) ? Number(cuerpo.nivel) : 1
+      const nivel = [1, 2, 3, 4].includes(Number(cuerpo.nivel)) ? Number(cuerpo.nivel) : 1
       if (!nombre) return NextResponse.json({ error: 'Falta el nombre.' }, { status: 400 })
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'El correo no parece válido.' }, { status: 400 })
       const password = provisional()

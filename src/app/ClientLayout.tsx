@@ -115,7 +115,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             const chip = (v: string | null, t: string) => (
               <button key={t} onClick={() => practicarComo(v)} style={{ border: '1px solid #2b1d05', borderRadius: 99, padding: '5px 12px', cursor: 'pointer', font: 'inherit', fontSize: 14,
                 background: vc === v ? '#2b1d05' : 'transparent', color: vc === v ? '#fff' : '#2b1d05' }}>{t}</button>)
-            return <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>Como: {chip('1', 'Nivel 1')}{chip('2', 'Nivel 2')}{chip('3', 'Nivel 3')}{chip(null, 'Todo')}</div>
+            return <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>Como: {chip('1', 'Nivel 1')}{chip('2', 'Nivel 2')}{chip('3', 'Nivel 3')}{chip('4', 'Nivel 4')}{chip(null, 'Todo')}</div>
           })()}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={empezarDeNuevo} style={{ border: '1px solid #E8A33D', borderRadius: 99, padding: '7px 14px', background: '#fff8ea', cursor: 'pointer', font: 'inherit', fontSize: 14 }}>Empezar de nuevo</button>
@@ -245,7 +245,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const n = nivelDe(perfil)
     // Un prefijo que acaba en «/» vale solo para lo que cuelga de él (/entrenamiento/…).
     const regla = RUTAS.find(([pre]) => pre.endsWith('/') ? pathname.startsWith(pre) : (pathname === pre || pathname.startsWith(pre + '/')))
-    const dinero = pathname.startsWith('/finanzas') ? !((n >= 4 && perfil?.permisos?.sin_finanzas !== true) || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
+    const dinero = pathname.startsWith('/finanzas') ? !((n >= 5 && perfil?.permisos?.sin_finanzas !== true) || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
       : pathname.startsWith('/cobros') ? !(n >= minimos.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
       : false
     if ((regla && n < minimos[regla[1]]) || dinero) router.replace('/hoy')
@@ -309,7 +309,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Dirección: cuántos avisos nuevos hay, al abrir el menú. Va ANTES de los «return»
   // de arriba: un hook después de ellos rompía la app entera («SIE ha tenido un fallo»).
   useEffect(() => {
-    if (!menuUsuario || nivelDe(perfil) < 4) return
+    if (!menuUsuario || nivelDe(perfil) < 5) return
     supabase.from('avisos').select('id', { count: 'exact', head: true }).eq('estado', 'nuevo')
       .then(({ count }) => setAvisosNuevos(count || 0))
   }, [menuUsuario, perfil])
@@ -335,7 +335,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // qué ven los demás; queda apuntado en este equipo.
   const nivel = nivelDe(perfil)
   const esAdmin = perfil?.rol==='admin'
-  const esDireccion = nivel >= 4
+  const esDireccion = nivel >= 5
   // Dirección sin Finanzas (perfiles.permisos.sin_finanzas): todo menos el dinero de la clínica.
   const veFinanzas = (esDireccion && perfil?.permisos?.sin_finanzas !== true) || (!esAdmin && perfil?.permisos?.finanzas===true)
   const veCobros   = veFinanzas || nivel >= minimos.cobros || perfil?.permisos?.cobros===true
@@ -425,7 +425,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setAvisando(true) }}>
                     <Ic name="mensaje" size={15}/> Avisar de algo
                   </button>
-                  {nivel >= 4 && <Link href="/avisos" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
+                  {nivel >= 5 && <Link href="/avisos" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="campana" size={15}/> Avisos del equipo{avisosNuevos > 0 ? ` · ${avisosNuevos}` : ''}
                   </Link>}
                   <Link href="/ajustes?tab=cuenta" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>

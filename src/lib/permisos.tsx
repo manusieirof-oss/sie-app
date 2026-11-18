@@ -14,23 +14,26 @@ import { createContext, useContext } from 'react'
 // LA AGENDA VA POR PERSONA, no por nivel: editarla (crear, mover, faltas, cancelar)
 // es de quien lleva el teléfono, y eso no depende de cuánto sepa de entrenamiento.
 // Se da en Ajustes → Equipo con el interruptor «Agenda» (perfiles.permisos.agenda).
-//   4 · Dirección    → todo (rol 'admin'): Finanzas, Stats, Ajustes y el equipo.
+//   4 · Entrenador 4 → el que valora: además valoraciones y tests, salud y objetivos.
+//   5 · Dirección    → todo (rol 'admin'): Finanzas, Stats, Ajustes y el equipo.
+//                      (Hasta noviembre de 2026 dirección era el 4: sql/nivel4.sql.)
 //
 // LA MISMA REGLA EN LOS DOS SITIOS. Los mínimos de abajo son los de serie; los que
 // mandan están en la tabla permisos_nivel, que lee la app (ClientLayout) y también las
 // reglas de la base de datos (función puedo() en sql/seguridad_niveles.sql). Cambiar un
 // mínimo en Ajustes → Equipo cambia a la vez lo que se enseña y lo que se deja hacer.
 
-export type Nivel = 1 | 2 | 3 | 4
+export type Nivel = 1 | 2 | 3 | 4 | 5
 
-export const NIVELES: { n: 1 | 2 | 3, nombre: string, que: string }[] = [
+export const NIVELES: { n: 1 | 2 | 3 | 4, nombre: string, que: string }[] = [
   { n: 1, nombre: 'Entrenador 1', que: 'Observa y anota lo que hacen los pacientes.' },
   { n: 2, nombre: 'Entrenador 2', que: 'Observa, anota y añade cambios a las sesiones (solo para hoy).' },
   { n: 3, nombre: 'Entrenador 3', que: 'Prepara los entrenos y la programación.' },
+  { n: 4, nombre: 'Entrenador 4', que: 'Además valora: valoraciones, tests, salud y objetivos.' },
 ]
-export const nombreNivel = (n: number) => n >= 4 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
+export const nombreNivel = (n: number) => n >= 5 ? 'Dirección' : NIVELES.find(x => x.n === n)?.nombre || 'Entrenador'
 /* PUESTO «ENCARGADA»: hace y ve todo, como dirección, MENOS Finanzas. Por dentro es
-   dirección (rol admin, nivel 4) con permisos.sin_finanzas = true, así todas las reglas
+   dirección (rol admin, nivel 5) con permisos.sin_finanzas = true, así todas las reglas
    de nivel 4 le valen sin duplicarlas, y Finanzas se le cierra en la app y en la base de
    datos (veo_finanzas, sql/direccion-sin-finanzas.sql). */
 export const esEncargada = (perfil: any) => perfil?.rol === 'admin' && perfil?.permisos?.sin_finanzas === true
@@ -39,22 +42,22 @@ export const nombrePuesto = (perfil: any) => perfil?.rol === 'admin' ? (esEncarg
 /** El mínimo nivel para cada cosa, de serie (si la tabla aún no existe o falla). */
 export const MINIMO = {
   pacientes: 3,
-  valoracion: 4,           // valoraciones y tests (también los que tocan en clase): el especialista
+  valoracion: 4,           // valoraciones y tests (también los que tocan en clase): el entrenador 4, que valora
   editar_salud: 4,         // editar la salud de la ficha (el nivel 3 la ve, no la cambia)
-  editar_agenda: 4,        // crear, mover, editar o borrar citas: por persona (POR_PERSONA)
-  turnos: 4,               // quién se hace cargo de cada sala (agenda) y los horarios: dirección o encargado
-  tareas: 4,               // poner y borrar tareas, y ver las de todos: el encargado (cada uno marca las suyas)
+  editar_agenda: 5,        // crear, mover, editar o borrar citas: por persona (POR_PERSONA)
+  turnos: 5,               // quién se hace cargo de cada sala (agenda) y los horarios: dirección o encargado
+  tareas: 5,               // poner y borrar tareas, y ver las de todos: el encargado (cada uno marca las suyas)
   cambiar_ejercicios: 2,   // cambios de UN DÍA en el taller: ejercicio, método, series (solo hoy)
   editar_plan: 3,          // cambiar la sesión PARA SIEMPRE: editor, «para siempre», crear, borrar
   cambiar_sesion: 2,       // asignar, cambiar o quitar la sesión de la cita
-  cancelar_cita: 4,        // falta, cancelada y cambio de sala: por persona (POR_PERSONA)
+  cancelar_cita: 5,        // falta, cancelada y cambio de sala: por persona (POR_PERSONA)
   citas_taller: 2,         // falta o cancelada SOLO desde el taller: lo que nos avisan en sala
   torno: 3,
   ver_biblioteca: 2,       // la biblioteca de ejercicios, solo para consultar
   biblioteca: 3,
-  cobros: 4,               // cobrar y facturar: quien administra
+  cobros: 5,               // cobrar y facturar: quien administra
   medida_biblioteca: 3,    // 🔧 cambiar cómo se mide un ejercicio para todos
-  direccion: 4,
+  direccion: 5,
 } as const
 export type Accion = keyof typeof MINIMO
 export type Minimos = Record<Accion, number>
@@ -65,7 +68,7 @@ export const POR_PERSONA: Partial<Record<Accion, string>> = { editar_agenda: 'ag
 /** Lo de la tabla manda; lo que no esté, el de serie. */
 export function mezclarMinimos(filas: { accion: string, minimo: number }[] | null | undefined): Minimos {
   const m: any = { ...MINIMO }
-  ;(filas || []).forEach(f => { if (f.accion in m && f.minimo >= 1 && f.minimo <= 4) m[f.accion] = f.minimo })
+  ;(filas || []).forEach(f => { if (f.accion in m && f.minimo >= 1 && f.minimo <= 5) m[f.accion] = f.minimo })
   return m
 }
 
@@ -122,12 +125,12 @@ export function nivelDe(perfil: any): Nivel {
     let v: string | null = null
     try { v = localStorage.getItem('sie_ver_como') } catch {}
     if (v === 'entrenador') return 2
-    if (v === '1' || v === '2' || v === '3') return Number(v) as Nivel
-    return 4
+    if (v === '1' || v === '2' || v === '3' || v === '4') return Number(v) as Nivel
+    return 5
   }
   // Sin nivel puesto, el más bajo: se sube a mano en Ajustes → Equipo.
   const n = Number(perfil.nivel)
-  return (n === 2 || n === 3 ? n : 1) as Nivel
+  return (n === 2 || n === 3 || n === 4 ? n : 1) as Nivel
 }
 
 /** Qué rutas pide cada nivel (por prefijo). Lo que no sale aquí, lo ve cualquiera. */
@@ -145,7 +148,7 @@ export const RUTAS: [string, Accion][] = [
   ['/estadisticas', 'direccion'], ['/avisos', 'direccion'],
 ]
 
-const Ctx = createContext<{ nivel: Nivel, minimos: Minimos, sueltos?: Record<string, any> }>({ nivel: 4, minimos: MINIMO })
+const Ctx = createContext<{ nivel: Nivel, minimos: Minimos, sueltos?: Record<string, any> }>({ nivel: 5, minimos: MINIMO })
 export const ProveedorNivel = Ctx.Provider
 
 /** puede('cambiar_ejercicios') → true/false según quien está dentro. */

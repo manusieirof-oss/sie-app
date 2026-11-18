@@ -55,7 +55,7 @@ function ReglasNiveles() {
   // La agenda tampoco: va por persona (interruptor «Agenda» de cada uno, más abajo).
   const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion' && !POR_PERSONA[a])
     .sort((a, b) => m[a] - m[b])
-  /* UNA COLUMNA POR ENTRENADOR (1, 2 y 3), con lo que hace en una frase arriba; cada
+  /* UNA COLUMNA POR ENTRENADOR (1, 2, 3 y 4), con lo que hace en una frase arriba; cada
      fila, un permiso explicado, y su casilla en cada columna. */
   const col: React.CSSProperties = { width: 92, textAlign: 'center', flexShrink: 0 }
   return (
@@ -81,7 +81,7 @@ function ReglasNiveles() {
       {acciones.map(a => (
         <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--bl)', opacity: guardando === a ? .5 : 1 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: 500 }}>{ETIQUETA_ACCION[a]}{m[a] >= 4 && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--grl)' }}> · ahora solo dirección</span>}</div>
+            <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: 500 }}>{ETIQUETA_ACCION[a]}{m[a] >= 5 && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--grl)' }}> · ahora solo dirección</span>}</div>
             <div style={{ fontSize: 11.5, color: 'var(--gr)', marginTop: 2 }}>{EXPLICA_ACCION[a]}</div>
           </div>
           {NIVELES.map(x => {
