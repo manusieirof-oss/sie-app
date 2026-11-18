@@ -591,7 +591,7 @@ export default function ValoracionPage() {
             <button key={m} className={modo===m?'on':''} onClick={()=>cambiarModo(m)}>{label}</button>
           ))}
         </div>
-        <div className="val-pasos">
+        <div className="val-pasos" data-guia="val-pasos">
           {STEPS.map((s,i)=>{
             const idx=i+1; const cls=idx<step?'hecho':idx===step?'on':''
             return (

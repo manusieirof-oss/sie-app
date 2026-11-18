@@ -278,7 +278,7 @@ export default function CuerpoSalud({ pacienteId, vista }: { pacienteId: string,
   return (
     // TRES COLUMNAS: el muñeco (mismo ancho y alto que en entreno, para que no salte),
     // en medio lo que se toque de la lista, y la lista. Sin tarjeta ni sombra alrededor.
-    <div className="cuerpo3">
+    <div className="cuerpo3" data-guia="ficha-salud">
       <div>
         <div ref={caja} style={{ position: 'relative', height: 500, borderRadius: 14, background: '#fff', overflow: 'hidden' }}>
           {(!listo || !items) && !fallo && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 12, color: 'var(--grl)' }}>Cargando…</div>}

@@ -40,15 +40,15 @@ export async function entrarPractica(destino = '/taller') {
  * se entra. Al acabar la guía SE QUEDA en práctica para probar lo aprendido; se sale
  * con «Salir» de la franja cuando se quiera.
  */
-export function guiaEnPractica(nivel: 1 | 2 | 3): boolean {
+export function guiaEnPractica(nivel: 1 | 2 | 3 | 4): boolean {
   if (enModoPractica()) return false
   try { sessionStorage.setItem('sie_guia_pendiente', String(nivel)) } catch {}
   entrarPractica('/hoy')
   return true
 }
 /** La guía que quedó pendiente al entrar en práctica (y se borra). */
-export function guiaPendiente(): 1 | 2 | 3 | null {
-  try { const v = sessionStorage.getItem('sie_guia_pendiente'); sessionStorage.removeItem('sie_guia_pendiente'); return v === '1' ? 1 : v === '2' ? 2 : v === '3' ? 3 : null } catch { return null }
+export function guiaPendiente(): 1 | 2 | 3 | 4 | null {
+  try { const v = sessionStorage.getItem('sie_guia_pendiente'); sessionStorage.removeItem('sie_guia_pendiente'); return v === '1' ? 1 : v === '2' ? 2 : v === '3' ? 3 : v === '4' ? 4 : null } catch { return null }
 }
 
 export function salirPractica() {

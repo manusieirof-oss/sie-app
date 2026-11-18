@@ -101,7 +101,24 @@ export const PASOS_N3: Paso[] = [
   { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Ya sabes preparar un entreno de principio a fin. Sigues en modo práctica: repítelo con otro paciente de prueba. Esta guía está en tu menú. Valoraciones, tests, salud, agenda, cobros, tareas y salas los llevan dirección o encargado.' },
 ]
 
-const CLAVE = (uid: string, n = 1) => n === 3 ? `sie_guia3_vista_${uid}` : n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`
+/**
+ * GUÍA DEL NIVEL 4: SOLO LO NUEVO respecto al 3. El entrenador que valora: la valoración
+ * y la revaloración, la salud de la ficha, los objetivos del paciente, los tests y el
+ * DynaMo. En modo práctica, con los pacientes de prueba.
+ */
+export const PASOS_N4: Paso[] = [
+  { titulo: 'Guía del entrenador 4', texto: 'Ahora también valoras: haces la valoración, pasas tests, llevas la salud de la ficha y pones los objetivos. Te enseño solo lo nuevo; preparar entrenos ya lo viste en la guía del 3.' },
+  { ruta: '/valoracion', sitio: 'nav/valoracion', titulo: 'Valoración', texto: 'Aquí haces la valoración de alguien nuevo o la revaloración de quien ya viene. Lo que salga de aquí mueve sus objetivos.' },
+  { ruta: '/valoracion', sitio: 'val-pasos', titulo: 'Paso a paso', texto: 'Va por pasos: paciente, anamnesis, historial, tests, plan (su bono y sus clases) y resumen con la firma. Se guarda al final. La revaloración no vuelve a firmar ni abre otro bono: pregunta qué ha cambiado.' },
+  { ruta: '/pacientes', exacta: true, sitio: 'pac-fila', haz: 'ficha', titulo: 'Su ficha', texto: 'Hazlo tú: abre un paciente de prueba (Carmen, Antonio, Laura o Javier).' },
+  { ruta: '/pacientes', sitio: 'ficha-salud', titulo: 'La salud, ahora la cambias tú', texto: 'Molestias, patologías, medicación, alergias, operaciones… Toca el cuerpo o la lista para anotar o corregir. Antes solo la veías.' },
+  { ruta: '/pacientes', sitio: 'ficha-objetivo', haz: 'objetivo', titulo: 'Ponerle un objetivo', texto: 'Hazlo tú: pulsa Añadir, elige un objetivo y guárdalo. Es un paciente de prueba: no toca a nadie real.', corto: 'Elige un objetivo y guárdalo.' },
+  { ruta: '/pacientes', sitio: 'ficha-objetivos', titulo: 'Cómo se cierran', texto: 'Un objetivo se cierra cuando sus tests dan negativo, o a mano con «Dar por logrado». Si un test da positivo, su objetivo se abre solo.' },
+  { ruta: '/pacientes', sitio: 'ficha-pestanas', titulo: 'Tests y DynaMo', texto: 'Los tests los pasas en la valoración, desde un objetivo de la ficha o en el taller cuando le toca. En Resultados, la pestaña DynaMo trae los tests del VALD.' },
+  { sitio: 'menu-usuario', titulo: 'Listo', texto: 'Ya sabes lo que añade el nivel 4. Sigues en modo práctica: prueba una revaloración con un paciente de prueba. Esta guía está en tu menú. Tareas, salas, cobros y la agenda siguen siendo de dirección o encargado.' },
+]
+
+const CLAVE = (uid: string, n = 1) => n === 4 ? `sie_guia4_vista_${uid}` : n === 3 ? `sie_guia3_vista_${uid}` : n === 2 ? `sie_guia2_vista_${uid}` : `sie_guia_vista_${uid}`
 export const guiaVista = (uid: string, n = 1) => { try { return localStorage.getItem(CLAVE(uid, n)) === '1' } catch { return true } }
 const marcarVista = (uid: string, n = 1) => { try { localStorage.setItem(CLAVE(uid, n), '1') } catch {} }
 
@@ -123,8 +140,8 @@ function ventanaDe(el: Element | null): Element | null {
   return null
 }
 
-export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, onCerrar: () => void, nivel?: 1 | 2 | 3 }) {
-  const PASOS_G = nivel === 3 ? PASOS_N3 : nivel === 2 ? PASOS_N2 : PASOS
+export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, onCerrar: () => void, nivel?: 1 | 2 | 3 | 4 }) {
+  const PASOS_G = nivel === 4 ? PASOS_N4 : nivel === 3 ? PASOS_N3 : nivel === 2 ? PASOS_N2 : PASOS
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   /* Mientras se busca el sitio, no se enseña el globo: aparece ya en su sitio. */

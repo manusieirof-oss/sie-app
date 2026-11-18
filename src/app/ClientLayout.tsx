@@ -58,7 +58,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [perfilListo, setPerfilListo] = useState(false)
   /** La guía de inicio en pantalla (sale sola la primera vez al nivel 1; siempre desde el menú). */
   /** La guía en pantalla: 1 = de inicio (nivel 1), 2 = del entrenador (nivel 2), 3 = del que programa (nivel 3). */
-  const [guia, setGuia] = useState<false | 1 | 2 | 3>(false)
+  const [guia, setGuia] = useState<false | 1 | 2 | 3 | 4>(false)
   /* Primero el vídeo de su nivel y, al acabar o saltarlo, la guía (VideoBienvenida). */
   const [video, setVideo] = useState<false | 1 | 2 | 3>(false)
   const [guiaTrasVideo, setGuiaTrasVideo] = useState(false)
@@ -78,7 +78,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     })
   }, [])
   /** Abrir la guía: siempre en modo práctica (si no se está, entra y la abre allí). */
-  const abrirGuia = async (n: 1 | 2 | 3) => {
+  const abrirGuia = async (n: 1 | 2 | 3 | 4) => {
     if (guiaEnPractica(n)) return
     // Ya en práctica: que la clase esté a esta hora antes de enseñar el taller.
     if (await claseAEstaHora()) { try { sessionStorage.setItem('sie_guia_pendiente', String(n)) } catch {} ; window.location.reload(); return }
@@ -298,6 +298,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (n === 1 && !guiaVista(user.id, 1)) abrirGuia(1)
     else if (n === 2 && !guiaVista(user.id, 2)) abrirGuia(2)
     else if (n === 3 && !guiaVista(user.id, 3)) abrirGuia(3)
+    else if (n === 4 && !guiaVista(user.id, 4)) abrirGuia(4)
   }, [user?.id, perfilListo, firmada, perfil])
 
   const handleLogout = async () => {
@@ -442,6 +443,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   </button>}
                   {nivel >= 3 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(3) }}>
                     <Ic name="ayuda" size={15}/> Guía del entrenador 3
+                  </button>}
+                  {nivel >= 4 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(4) }}>
+                    <Ic name="ayuda" size={15}/> Guía del entrenador 4
                   </button>}
                   {/* Para aprender sin miedo: pacientes de prueba, no toca a ningún paciente real. */}
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); practica ? salirPractica() : entrarPractica() }}>
