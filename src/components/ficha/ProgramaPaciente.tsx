@@ -369,7 +369,7 @@ export default function ProgramaPaciente({ pacienteId, alerta, lateral, ampliado
         </div>
        </div>
       </div>
-      <div style={{ marginBottom: 0 }}>
+      <div style={{ marginBottom: 0 }} data-guia="ficha-salud">
         {/* Sin título: los dos botones bastan. Salud a la izquierda, entreno a la derecha. */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <BotonVistas t={<><Ic name={VISTAS_SALUD[iS].ic} size={14}/> {VISTAS_SALUD[iS].t}</>} n={VISTAS_SALUD.length} i={iS} onClick={tocaSalud} apagado={modo !== 'salud'}/>
