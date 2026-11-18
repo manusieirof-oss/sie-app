@@ -136,7 +136,7 @@ export function nivelDe(perfil: any): Nivel {
 /** Qué rutas pide cada nivel (por prefijo). Lo que no sale aquí, lo ve cualquiera. */
 export const RUTAS: [string, Accion][] = [
   ['/pacientes', 'pacientes'], ['/movil/pacientes', 'pacientes'], ['/resultados', 'pacientes'],
-  ['/valoracion', 'valoracion'], ['/camara', 'valoracion'], ['/vald', 'direccion'],
+  ['/valoracion', 'valoracion'], ['/camara', 'valoracion'], ['/vald', 'valoracion'],
   // Herramientas de mantenimiento de la biblioteca y de las fotos: solo direccion. Van
   // ANTES de la regla general de /entrenamiento/, que se queda con la primera que casa.
   ['/entrenamiento/sembrar', 'direccion'], ['/entrenamiento/sembrar-contenido', 'direccion'], ['/entrenamiento/sembrar-etiquetas', 'direccion'],
