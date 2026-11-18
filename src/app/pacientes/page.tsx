@@ -539,7 +539,7 @@ export default function PacientesPage() {
             const fondo = pago==='impago' ? 'var(--redl)' : nuevo ? '#F3F9EE' : 'var(--w)'
             const fondoHover = pago==='impago' ? '#fce8e8' : nuevo ? '#E9F3E1' : 'var(--gl)'
             return (
-              <Link key={p.id} id={idFila('pacientes', p.id)} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:fondo,transition:'background .1s',
+              <Link key={p.id} data-guia="pac-fila" id={idFila('pacientes', p.id)} href={`/pacientes/${p.id}`} style={{textDecoration:'none',display:'grid',gridTemplateColumns:ronda?'1fr 74px 95px 100px 120px 90px 105px 170px':'1fr 74px 95px 100px 120px 90px 105px',borderBottom:'1px solid var(--bl)',alignItems:'center',cursor:'pointer',background:fondo,transition:'background .1s',
                 // Marca lateral, no borde: un borde de verdad correría las columnas y
                 // desalinearía la fila del nuevo respecto a todas las demás.
                 // Reciente: solo la marca, más clara, y sin fondo. Se lee como "aún algo

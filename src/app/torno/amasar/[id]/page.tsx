@@ -151,6 +151,8 @@ export default function AmasarRosco({ params }: { params: { id: string } }) {
   const [colaEjs, setColaEjs] = useState<any[]>([])
   const [pendientes, setPendientes] = useState<Record<string, Borrador>>({})
   useEffect(() => { setPendientes(leerBorradores()) }, [params.id])
+  // La guía del nivel 3 espera a que se abra un ejercicio para amasarlo.
+  useEffect(() => { avisarGuia('amasar-abrir') }, [params.id])
   useEffect(() => {
     if (cola.length < 2) return
     supabase.from('ejercicios').select('*').in('id', cola).then(({ data }) => {

@@ -388,7 +388,7 @@ export default function TornoPage() {
           )}
 
           {/* GENTE O EJERCICIOS: lo que se busca. */}
-          <div style={{ display: 'inline-flex', background: 'var(--bl)', borderRadius: 99, padding: 3, gap: 2 }}>
+          <div data-guia="torno-que" style={{ display: 'inline-flex', background: 'var(--bl)', borderRadius: 99, padding: 3, gap: 2 }}>
             {([['pacientes', 'pacientes', 'Pacientes'], ['ejercicios', 'fuerza', 'Ejercicios'], ['mapa', 'objetivo', 'Objetivos y tests']] as const).map(([v, ic, t]) => (
               <button key={v} type="button" title={t} onClick={() => { setQue(v); setMenu(false); setBusca('') }}
                 style={{ border: 'none', cursor: 'pointer', borderRadius: 99, padding: '7px 11px', lineHeight: 0,
