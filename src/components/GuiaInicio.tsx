@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 // ---------------------------------------------------------------------------
@@ -149,21 +149,40 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
 
   /* PASO INTERACTIVO: se espera a que la app avise de que se ha hecho. Y entonces SIGUE
      SOLA si el paso siguiente es en la misma pantalla (explica lo que ha salido). Si el
-     siguiente lleva a otra pantalla, espera a «Siguiente» para que se pueda mirar. */
+     siguiente lleva a otra pantalla, espera a «Siguiente» para que se pueda mirar.
+     Ojo: el temporizador NO se cancela al cambiar de pantalla. Antes sí, y como al hacerlo
+     la app suele cambiar de pantalla (elegir paciente → origen), la guía se quedaba
+     atrás mientras la persona seguía, y luego «Atrás» la devolvía al buscador del torno. */
+  const avance = useRef<any>(null)
+  /* Lo que ya se ha hecho (y cuándo), para cuando se hace algo antes de que la guía lo
+     pida: al llegar a ese paso, se da por hecho y sigue. */
+  const hechoEn = useRef<Record<string, number>>({})
+  const empezoPaso = useRef<number[]>([])
   useEffect(() => {
+    const oir = (e: Event) => { const n = (e as CustomEvent).detail; if (typeof n === 'string') hechoEn.current[n] = Date.now() }
+    window.addEventListener('sie-guia', oir)
+    return () => window.removeEventListener('sie-guia', oir)
+  }, [])
+  useEffect(() => {
+    empezoPaso.current[i] = Date.now()
     if (!paso.haz) return
-    let t: any
-    const oir = (e: Event) => {
-      if ((e as CustomEvent).detail !== paso.haz) return
+    const darPorHecho = () => {
       setHechos(h => new Set(h).add(i))
       const sig = PASOS_G[i + 1]
       const aqui = window.location.pathname
       const mismaPantalla = !sig || !sig.ruta || aqui.startsWith(sig.ruta) || sig.ruta === paso.ruta
-      if (!ultimo && mismaPantalla) t = setTimeout(() => { setI(x => x === i ? i + 1 : x); setAviso(false) }, 900)
+      if (!ultimo && mismaPantalla) {
+        clearTimeout(avance.current)
+        avance.current = setTimeout(() => { setI(x => x === i ? i + 1 : x); setAviso(false) }, 900)
+      }
     }
+    // ¿Ya lo hizo, antes de que se lo pidiera (desde el paso anterior)?
+    const desde = empezoPaso.current[i - 1] ?? Infinity
+    if (!hechos.has(i) && (hechoEn.current[paso.haz] ?? 0) >= desde) darPorHecho()
+    const oir = (e: Event) => { if ((e as CustomEvent).detail === paso.haz) darPorHecho() }
     window.addEventListener('sie-guia', oir)
-    return () => { window.removeEventListener('sie-guia', oir); clearTimeout(t) }
-  }, [i, pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { window.removeEventListener('sie-guia', oir); clearTimeout(avance.current) }
+  }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si el paso es de otra pantalla, se va a ella.
   useEffect(() => {
