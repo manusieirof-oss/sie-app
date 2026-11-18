@@ -124,6 +124,11 @@ export default function TornoPage() {
     // En práctica no se recupera la búsqueda de antes: sería de la biblioteca de verdad.
     const b = enModoPractica() ? '' : sessionStorage.getItem('torno-busca'); if (b) { setBusca(b); setAbierto(true) }
     if (Number(sessionStorage.getItem('torno-scroll') || 0) > 0) setAbierto(true)
+    /* VUELTA DE «¿CON QUÉ LO MONTAMOS?» (?elegir=…): hay que traer a la gente para abrir
+       su panel de ciclo o sesión. Antes se traía solo porque se recuperaba la búsqueda
+       guardada; en práctica (y sin búsqueda) no se traía, el panel no salía y te dejaba
+       en el buscador. */
+    if (new URLSearchParams(window.location.search).get('elegir')) { setQue('pacientes'); setAbierto(true) }
   } catch {} }, [])
   /* AL VOLVER DE UN EJERCICIO, A LA MISMA ALTURA: cuando ya están cargados los ejercicios
      (y las familias, si se ven por familias) se baja a donde estaba, una sola vez. */
