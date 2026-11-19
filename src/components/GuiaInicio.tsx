@@ -151,6 +151,11 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
   /* Hay una ventana abierta encima (la que abrió lo que se ha tocado): la tarjeta se
      hace pequeña y se va arriba, para no taparla. */
   const [ventana, setVentana] = useState(false)
+  /* YA HA EMPEZADO A HACERLO: al tocar lo señalado suele abrirse algo justo al lado (el
+     menú de la franja, un editor…) y la tarjeta grande lo tapaba. Desde el primer toque
+     pasa a la tira pequeña. */
+  const [toco, setToco] = useState(false)
+  useEffect(() => { setToco(false) }, [i])
   /* Se ha tocado fuera de lo señalado: la tarjeta lo dice. */
   const [aviso, setAviso] = useState(false)
   const router = useRouter()
@@ -281,7 +286,8 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
     }
     const parar = (e: Event) => {
       const t = e.target as Element
-      if (!t || !(t instanceof Element) || permitido(t)) return
+      if (!t || !(t instanceof Element)) return
+      if (permitido(t)) { if (e.type === 'pointerdown' && !esUI(t)) setToco(true); return }
       e.preventDefault(); e.stopPropagation()
       if (e.type === 'click') { setAviso(true); setTimeout(() => setAviso(false), 2500) }
     }
@@ -329,16 +335,17 @@ export default function GuiaInicio({ uid, onCerrar, nivel = 1 }: { uid: string, 
       <div data-guia-ui>
         {marcoVisible && marco && <div style={{ position: 'fixed', zIndex: 1000, left: marco.left - 6, top: marco.top - 6, width: marco.width + 12, height: marco.height + 12, borderRadius: 14,
           border: '3px solid #E8A33D', boxShadow: aviso ? '0 0 0 10px rgba(232,163,61,.45)' : '0 0 0 6px rgba(232,163,61,.25)', pointerEvents: 'none', transition: 'all .25s' }}/>}
-        {ventana ? (
+        {ventana || toco ? (
           /* Con una ventana abierta: una tira arriba, pequeña. */
-          <div style={{ position: 'fixed', zIndex: 1001, top: 10, left: '50%', transform: 'translateX(-50%)', width: 'min(560px, calc(100vw - 24px))',
+          <div style={{ position: 'fixed', zIndex: 1001, ...(marco && marco.top < 140 && !ventana ? { bottom: 14 } : { top: 10 }), left: '50%', transform: 'translateX(-50%)', width: 'min(560px, calc(100vw - 24px))',
             background: '#fff', borderRadius: 12, padding: '9px 14px', boxShadow: '0 8px 26px rgba(0,0,0,.22)', border: '2px solid #E8A33D',
             display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#7A5800', background: '#FCEFD6', borderRadius: 99, padding: '2px 8px', flexShrink: 0 }}>HAZLO TÚ</span>
             <span style={{ fontSize: 14, color: 'var(--n)', flex: 1, lineHeight: 1.35 }}>
-              {hecho ? <b style={{ color: 'var(--gd)' }}>✓ ¡Hecho! Cierra la ventana cuando lo hayas mirado.</b> : (paso.corto || paso.titulo)}
+              {hecho ? <b style={{ color: 'var(--gd)' }}>✓ ¡Hecho! {ventana ? 'Cierra la ventana cuando lo hayas mirado.' : 'Míralo y pulsa Siguiente.'}</b> : (paso.corto || paso.titulo)}
             </span>
             {hecho && !ultimo && <button className="btn btn-p btn-sm" onClick={siguiente}>Siguiente</button>}
+            {!hecho && <button onClick={siguiente} title="Si no te sale o ya lo sabes" style={{ border: 0, background: 'none', color: 'var(--grl)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Saltar</button>}
           </div>
         ) : (
           <div style={{ position: 'fixed', zIndex: 1001, width: W, maxWidth: `calc(100vw - ${2 * M}px)`, background: '#fff', borderRadius: 16,
