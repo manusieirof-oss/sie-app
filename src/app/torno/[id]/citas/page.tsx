@@ -118,6 +118,18 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
      su sesión solas, sin tener que volver aquí cada semana. */
   const [ultimoReparto, setUltimoReparto] = useState<any>(null)
   const [planGuardado, setPlanGuardado] = useState<any>(null)
+  /* LO QUE HIZO: las citas del mes pasado y de este mes hasta ayer, con la sesión que
+     llevaban y si vino. Se ven en el calendario (el mes pasado a la izquierda, este en el
+     centro) para decidir qué le toca sin ir a la ficha. */
+  const [pasadas, setPasadas] = useState<{ id: string, fecha: string, hora: string | null, estado: string | null, sesion_id: string | null, nombre: string | null }[]>([])
+  useEffect(() => {
+    const d = new Date(); const ini = new Date(d.getFullYear(), d.getMonth() - 1, 1)
+    const desde = `${ini.getFullYear()}-${String(ini.getMonth() + 1).padStart(2, '0')}-01`
+    supabase.from('citas').select('id,fecha,hora,estado,sesion_id,sesiones:sesion_id(nombre)').eq('paciente_id', pid)
+      .gte('fecha', desde).lt('fecha', hoyISO()).neq('estado', 'cancelada').order('fecha').order('hora')
+      .then(({ data }) => setPasadas((data || []).map((c: any) => ({ id: c.id, fecha: c.fecha, hora: c.hora, estado: c.estado, sesion_id: c.sesion_id,
+        nombre: (Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones)?.nombre || null }))))
+  }, [pid])
   useEffect(() => {
     supabase.from('reparto_paciente').select('*').eq('paciente_id', pid).maybeSingle().then(({ data }) => setPlanGuardado(data || null))
   }, [pid])
@@ -429,15 +441,31 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   }
 
   // ---- El calendario: de este mes al de la última cita ----------------------
+  /* TRES MESES COMO MÍNIMO, CON ESTE EN EL CENTRO: el pasado (lo que hizo), este y el
+     que viene; y más a la derecha si tiene citas más adelante. */
   const meses = useMemo(() => {
-    if (citas.length === 0) return []
-    const ini = new Date(); ini.setDate(1)
-    const fin = new Date(citas[citas.length - 1].fecha + 'T12:00:00')
+    const hoyD = new Date()
+    const d = new Date(hoyD.getFullYear(), hoyD.getMonth() - 1, 1)
+    const finMin = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 1)
+    const fin = citas.length ? new Date(Math.max(finMin.getTime(), new Date(citas[citas.length - 1].fecha + 'T12:00:00').getTime())) : finMin
     const out: Date[] = []
-    const d = new Date(ini.getFullYear(), ini.getMonth(), 1)
-    while (d <= fin && out.length < 12) { out.push(new Date(d)); d.setMonth(d.getMonth() + 1) }
+    while (d <= fin && out.length < 13) { out.push(new Date(d)); d.setMonth(d.getMonth() + 1) }
     return out
   }, [citas])
+  const pasadasPorDia = useMemo(() => {
+    const m: Record<string, typeof pasadas> = {}
+    pasadas.forEach(c => { (m[c.fecha] ||= []).push(c) })
+    return m
+  }, [pasadas])
+  /* El resumen de lo hecho: cuántas veces cada sesión y cuándo fue la última. */
+  const resumenHecho = useMemo(() => {
+    const vino = pasadas.filter(c => c.estado !== 'falta' && c.sesion_id)
+    const n: Record<string, { nombre: string, veces: number }> = {}
+    vino.forEach(c => { const k = c.sesion_id!; (n[k] ||= { nombre: c.nombre || 'Sesión', veces: 0 }).veces++ })
+    const ultima = vino[vino.length - 1]
+    const faltas = pasadas.filter(c => c.estado === 'falta').length
+    return { lista: Object.entries(n).sort((a, b) => b[1].veces - a[1].veces), ultima, faltas }
+  }, [pasadas])
   const porDia = useMemo(() => {
     const m: Record<string, Cita[]> = {}
     citas.forEach(c => { (m[c.fecha] = m[c.fecha] || []).push(c) })
@@ -713,6 +741,16 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           {/* EL CALENDARIO */}
           {/* Meses de ancho fijo, centrados. Con 1fr las celdas con cita se ensanchaban
               y descuadraban la semana entera. */}
+          {pasadas.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--gr)', marginBottom: 14 }}>
+              <span>Desde el mes pasado:</span>
+              {resumenHecho.lista.map(([id, x]) => (
+                <span key={id} style={{ padding: '2px 9px', borderRadius: 99, background: sesDe(id)?.color || 'var(--gm)', color: '#fff' }}>{x.nombre} ×{x.veces}</span>
+              ))}
+              {resumenHecho.faltas > 0 && <span style={{ padding: '2px 9px', borderRadius: 99, border: '1px dashed var(--bd)' }}>{resumenHecho.faltas} falta{resumenHecho.faltas === 1 ? '' : 's'}</span>}
+              {resumenHecho.ultima && <span>· la última, {resumenHecho.ultima.nombre || 'una sesión'} el {resumenHecho.ultima.fecha.split('-').reverse().slice(0, 2).join('/')}</span>}
+            </div>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 28, maxWidth: 1300, margin: '0 auto' }}>
             {meses.map((m, mi) => {
               const primero = (new Date(m.getFullYear(), m.getMonth(), 1).getDay() + 6) % 7
@@ -727,6 +765,28 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     {DIAS.map(d => <div key={d} style={{ fontSize: 10, color: 'var(--grl)', textAlign: 'center' }}>{d}</div>)}
                     {celdas.map((f, i) => {
                       if (!f) return <div key={i}/>
+                      // LO PASADO: la sesión que hizo (o la falta), para mirar, no se toca.
+                      if (f < hoy) {
+                        const ps = pasadasPorDia[f] || []
+                        return (
+                          <div key={i} style={{ minHeight: 50, minWidth: 0, borderRadius: 8, padding: 3, background: ps.length ? 'var(--bl)' : 'transparent' }}>
+                            <div style={{ fontSize: 10, color: 'var(--grl)' }}>{Number(f.slice(8))}</div>
+                            {ps.map(c => {
+                              const s = sesDe(c.sesion_id || null)
+                              const falta = c.estado === 'falta'
+                              return (
+                                <div key={c.id} title={`${c.hora ? String(c.hora).slice(0, 5) + ' · ' : ''}${falta ? 'Faltó' : c.nombre || 'Sin sesión'}`}
+                                  style={{ borderRadius: 6, padding: '2px 4px', marginTop: 2, fontSize: 9.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    background: falta ? 'transparent' : s ? s.color : c.sesion_id ? 'var(--gm)' : '#fff',
+                                    color: falta ? 'var(--grl)' : s || c.sesion_id ? '#fff' : 'var(--grl)', opacity: falta ? 1 : .75,
+                                    border: falta ? '1px dashed var(--bd)' : 'none', textDecoration: falta ? 'line-through' : 'none' }}>
+                                  {falta ? 'Faltó' : c.nombre || 'sin sesión'}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      }
                       const cs = porDia[f] || []
                       const pasado = f < hoy
                       return (
