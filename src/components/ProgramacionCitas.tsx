@@ -1,4 +1,5 @@
 'use client'
+import { useColoresSesion } from '@/lib/coloresSesion'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -48,6 +49,8 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
    */
   soloHoy?: boolean
 }) {
+  // El color de cada sesión, el mismo que en la ficha y el torno (lib/coloresSesion).
+  const coloresPac = useColoresSesion(pacienteId)
   const sinMover = soloVer || soloHoy
   const router = useRouter()
   const [citas, setCitas] = useState<Cita[]>([])
@@ -212,7 +215,7 @@ export default function ProgramacionCitas({ pacienteId, citaFoco, volver, etique
               onClick={sinMover ? undefined : e => { e.stopPropagation(); if (cogida && cogida !== c.id) { pedirIntercambio(cogida, c.id); return } if (c.sesion_id) setCogida(cogida === c.id ? null : c.id) }}
               title={c.sesion_id && !sinMover ? 'Arrastra encima de otra cita, o tócala y luego toca la otra' : undefined}
               style={{ flex: 1, minWidth: 0, fontSize: 11.5, padding: '4px 8px', borderRadius: 7, cursor: c.sesion_id && !sinMover ? 'grab' : 'default',
-                background: c.sesion_id ? (cogida === c.id ? 'var(--gd)' : 'var(--g)') : 'transparent', color: c.sesion_id ? '#fff' : 'var(--grl)',
+                background: c.sesion_id ? (cogida === c.id ? 'var(--n)' : coloresPac[c.sesion_id] || 'var(--g)') : 'transparent', color: c.sesion_id ? '#fff' : 'var(--grl)',
                 border: c.sesion_id ? 'none' : '1px dashed var(--bd)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {c.fija && <span title="Con candado">🔒 </span>}{c.sesNombre || 'Sin sesión'}
             </span>

@@ -16,6 +16,7 @@ import MonedaObjetivo from '@/components/MonedaObjetivo'
 import PiezaTorno, { FilaPieza } from './PiezaTorno'
 import RepartirPanel, { repartoVacio, type EstadoReparto } from './RepartirPanel'
 import { planReparto, diaSemana, seguirAlternando } from '@/lib/repartir'
+import { coloresDelPaciente } from '@/lib/coloresSesion'
 import { avisarGuia } from '@/lib/guiaEventos'
 
 // ---------------------------------------------------------------------------
@@ -176,6 +177,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     setTipoClase((p as any)?.tipo_clase || null)
     setCitas((cs || []) as Cita[])
 
+    // El color de cada sesión, el mismo que en la ficha (lib/coloresSesion).
+    const colorSes = await coloresDelPaciente(pid)
     // Las sesiones: las de la URL, o las del ciclo con las fechas de su fase.
     let lista: Ses[] = []
     const cics: Ciclo[] = []
@@ -195,7 +198,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           const t = tr.find(x => x.fase.id === f.id)
           ;(f.sesiones || []).forEach(sid => {
             const s = (ss || []).find((x: any) => x.id === sid)
-            if (s) lista.push({ id: s.id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: t?.desde || null, hasta: t?.hasta || null, fase: f.nombre, ciclo: sisId, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
+            if (s) lista.push({ id: s.id, nombre: s.nombre, color: colorSes[s.id] || COLORES[k++ % COLORES.length], desde: t?.desde || null, hasta: t?.hasta || null, fase: f.nombre, ciclo: sisId, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
           })
         })
       }
@@ -205,7 +208,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       const { data: ss } = await supabase.from('sesiones').select('id,nombre,partes,sesiones_objetivos(objetivos(id,nombre,imagen_url))').in('id', q.ses)
       q.ses.forEach(id => {
         const s = (ss || []).find((x: any) => x.id === id)
-        if (s) lista.push({ id, nombre: s.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
+        if (s) lista.push({ id, nombre: s.nombre, color: colorSes[s.id] || COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: s.partes || [], objs: (s.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
       })
     }
     /**
@@ -220,7 +223,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
       const { data: ss } = await supabase.from('sesiones').select('*, sesiones_objetivos(objetivos(id,nombre,imagen_url))')
         .eq('paciente_id', pid).order('created_at', { ascending: false })
       ;(ss || []).filter((x: any) => !x.finalizada_en).forEach((x: any) => {
-        lista.push({ id: x.id, nombre: x.nombre, color: COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: x.partes || [],
+        lista.push({ id: x.id, nombre: x.nombre, color: colorSes[x.id] || COLORES[k++ % COLORES.length], desde: null, hasta: null, partes: x.partes || [],
           objs: (x.sesiones_objetivos || []).map((r: any) => r.objetivos).filter(Boolean) })
       })
     }

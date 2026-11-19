@@ -3,6 +3,7 @@ import { finalizarSesion, diasActiva, avisoDias, AVISO_DIAS_DEFECTO, partesEnFec
 import { VeloFinalizar } from '@/components/SustituirSesion'
 import { traerTodo } from '@/lib/paginar'
 import { useEffect, useState } from 'react'
+import { useColoresSesion, PALETA_SESIONES } from '@/lib/coloresSesion'
 import { supabase } from '@/lib/supabase'
 import ModalEditarCita from '@/app/agenda/components/ModalEditarCita'
 import ModalEditarSesion from '@/app/entrenamiento/components/ModalEditarSesion'
@@ -38,6 +39,8 @@ import EntrenoSesiones from './EntrenoSesiones'
 // por props desde alli.
 export default function EntrenoActivo(p: any) {
   const { abrirCalendario, citasFuturas, citasPasadas, editaPlan, escalones, evaluaciones, logrados, pacienteId, pinta, pintaMarco, regsPasados, seccion, setVistaPlan, sistemasPac, testsDia, vistaPlan } = p
+  // El color de cada sesión, el mismo que en el torno (lib/coloresSesion).
+  const coloresPac = useColoresSesion(pacienteId)
   return (<>{seccion==='activo'&&(()=>{
         const total=citasFuturas.length
         const conSes=citasFuturas.filter((c: any)=>c.sesiones).length
@@ -109,9 +112,8 @@ export default function EntrenoActivo(p: any) {
         // CAMBIAR: la misma pieza que en la agenda (Programación), con todas sus citas.
         // «Cambiar sesiones» ya no está aquí: para cambiar algo se va al torno.
         if (vistaPlan==='interactiva') {
-          const PALETA = ['#5A969E','#C9A84C','#B0708C','#6E8FC7','#7C9A6B','#C77F5A','#8A7CC7','#4F9C8A']
-          const colorSes: Record<string,string> = {}
-          citasFuturas.forEach((c:any)=>{ if (c.sesion_id && !colorSes[c.sesion_id]) colorSes[c.sesion_id]=PALETA[Object.keys(colorSes).length%PALETA.length] })
+          const PALETA = PALETA_SESIONES
+          const colorSes: Record<string,string> = { ...coloresPac }
           const filas: FilaPieza[] = citasFuturas.map((c:any): FilaPieza=>{
             const fase = marco?.sistema ? faseEn(marco.sistema, marco, c.fecha, logrados, escalones) : null
             return { id: c.id, fecha: c.fecha, hora: c.hora || null, nueva: false,
