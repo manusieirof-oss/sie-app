@@ -51,47 +51,64 @@ function ReglasNiveles() {
     setGuardando(null)
   }
   if (!m) return null
-  // Dirección no se toca desde aquí: bajarla dejaría Finanzas y Equipo a cualquiera.
-  // La agenda tampoco: va por persona (interruptor «Agenda» de cada uno, más abajo).
+  /* COMO LOS PLANES DE UN PRODUCTO. Una tarjeta por nivel, de menos a más, y en cada una
+     SOLO LO QUE SE ESTRENA en ese nivel («Todo lo del nivel 2, y además…»): así se ve el
+     salto de responsabilidad de uno a otro. La última es dirección y encargado.
+     Cada permiso se puede llevar al nivel de al lado con las flechas: va en escalera,
+     así que lo que tiene un nivel lo tienen todos los de arriba.
+     La agenda no sale aquí: va por persona (interruptor «Agenda» de cada uno, abajo). */
   const acciones = (Object.keys(MINIMO) as Accion[]).filter(a => a !== 'direccion' && !POR_PERSONA[a])
-    .sort((a, b) => m[a] - m[b])
-  /* UNA COLUMNA POR ENTRENADOR (1, 2, 3 y 4), con lo que hace en una frase arriba; cada
-     fila, un permiso explicado, y su casilla en cada columna. */
-  const col: React.CSSProperties = { width: 92, textAlign: 'center', flexShrink: 0 }
+  const COL = ['#8DB9BF', '#5A969E', '#3E7179', '#23474D', '#262825']
+  const tarjetas: { n: number, nombre: string, que: string }[] = [
+    ...NIVELES.map(x => ({ n: x.n, nombre: x.nombre, que: x.que })),
+    { n: 5, nombre: 'Dirección y encargado', que: 'Lleva el centro: el equipo, el dinero y la agenda.' },
+  ]
+  const SOLO_DIRECCION = ['Finanzas y estadísticas (encargado: sin Finanzas)', 'Ajustes y el equipo', 'Bonos, pausas, bajas y borrar pacientes', 'Avisos del equipo']
+  const flecha = (a: Accion, a_n: number, txt: string, t: string) => (
+    <button type="button" disabled={guardando === a} onClick={() => cambiar(a, a_n)} title={t}
+      style={{ border: 0, background: 'none', color: 'var(--grl)', cursor: 'pointer', fontSize: 13, padding: '0 3px', lineHeight: 1 }}>{txt}</button>
+  )
   return (
     <div className="card" style={{ marginTop: 14 }}>
-      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada entrenador</span></div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, paddingBottom: 8, borderBottom: '1.5px solid var(--bd)' }}>
-        <div style={{ flex: 1 }}/>
-        {NIVELES.map(x => (
-          <div key={x.n} style={col}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--n)' }}>{x.nombre}</div>
-            <div style={{ fontSize: 10.5, color: 'var(--gr)', lineHeight: 1.3, marginTop: 3 }}>{x.que}</div>
-          </div>
-        ))}
+      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span></div>
+      <div style={{ fontSize: 12.5, color: 'var(--gr)', margin: '-4px 0 14px' }}>De menos a más responsabilidad. Cada nivel tiene todo lo del anterior y estrena lo que sale en su tarjeta.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(210px, 1fr))', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
+        {tarjetas.map((t, k) => {
+          const nuevas = acciones.filter(a => (t.n === 5 ? m[a] >= 5 : m[a] === t.n))
+          return (
+            <div key={t.n} style={{ border: '1px solid var(--bd)', borderRadius: 16, overflow: 'hidden', background: 'var(--w)', display: 'flex', flexDirection: 'column',
+              boxShadow: t.n === 4 ? '0 8px 24px rgba(62,113,121,.18)' : 'none' }}>
+              <div style={{ background: COL[k], color: '#fff', padding: '14px 16px 12px' }}>
+                <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', opacity: .85 }}>{t.n === 5 ? 'Responsable' : `Nivel ${t.n}`}</div>
+                <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>{t.nombre}</div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.4, marginTop: 6, opacity: .95 }}>{t.que}</div>
+              </div>
+              <div style={{ padding: '12px 14px 14px', display: 'grid', gap: 9, alignContent: 'start', flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: COL[Math.max(1, k)] }}>
+                  {t.n === 1 ? 'Para empezar:' : `Todo lo del ${k === 4 ? 'nivel 4' : 'nivel ' + (t.n - 1)}, y además:`}
+                </div>
+                {(t.n === 1 ? SIEMPRE : t.n === 5 ? SOLO_DIRECCION : []).map(x => (
+                  <div key={x} style={{ display: 'flex', gap: 7, fontSize: 12.5, color: 'var(--n)', lineHeight: 1.4 }}>
+                    <span style={{ color: COL[Math.max(1, k)], fontWeight: 700 }}>✓</span><span>{x}</span>
+                  </div>
+                ))}
+                {nuevas.map(a => (
+                  <div key={a} title={EXPLICA_ACCION[a]} style={{ display: 'flex', gap: 7, fontSize: 12.5, color: 'var(--n)', lineHeight: 1.4, opacity: guardando === a ? .5 : 1 }}>
+                    <span style={{ color: COL[Math.max(1, k)], fontWeight: 700 }}>✓</span>
+                    <span style={{ flex: 1 }}>{ETIQUETA_ACCION[a]}</span>
+                    <span style={{ whiteSpace: 'nowrap' }}>
+                      {t.n > 1 && flecha(a, t.n - 1, '‹', `Dárselo también al nivel ${t.n - 1}`)}
+                      {t.n < 5 && flecha(a, t.n + 1, '›', t.n === 4 ? 'Dejarlo solo para dirección' : `Quitárselo al nivel ${t.n}`)}
+                    </span>
+                  </div>
+                ))}
+                {t.n > 1 && t.n < 5 && nuevas.length === 0 && <div style={{ fontSize: 12, color: 'var(--grl)' }}>Nada nuevo en este nivel.</div>}
+              </div>
+            </div>
+          )
+        })}
       </div>
-      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '10px 0 2px' }}>Siempre</div>
-      {SIEMPRE.map(t => (
-        <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderTop: '1px solid var(--bl)' }}>
-          <div style={{ flex: 1, fontSize: 12.5, color: 'var(--n)' }}>{t}</div>
-          {NIVELES.map(x => <div key={x.n} style={{ ...col, color: 'var(--g)' }}>✓</div>)}
-        </div>
-      ))}
-      <div style={{ fontSize: 10.5, letterSpacing: .6, textTransform: 'uppercase', color: 'var(--grl)', margin: '14px 0 2px' }}>Permisos</div>
-      {acciones.map(a => (
-        <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--bl)', opacity: guardando === a ? .5 : 1 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: 'var(--n)', fontWeight: 500 }}>{ETIQUETA_ACCION[a]}{m[a] >= 5 && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--grl)' }}> · ahora solo dirección</span>}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--gr)', marginTop: 2 }}>{EXPLICA_ACCION[a]}</div>
-          </div>
-          {NIVELES.map(x => {
-            const on = m[a] <= x.n
-            return <div key={x.n} style={col}><input type="checkbox" checked={on} disabled={guardando === a}
-              title={`${x.nombre}: ${on ? 'quitar' : 'dar'}`} onChange={() => cambiar(a, on ? x.n + 1 : x.n)} style={{ width: 17, height: 17, cursor: 'pointer' }}/></div>
-          })}
-        </div>
-      ))}
-      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Van en escalera: dar algo a un entrenador se lo da también a los de arriba, y quitarlo se lo quita también a los de abajo. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, más abajo. Los demás lo ven al recargar.</div>
+      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Las flechas ‹ › llevan un permiso al nivel de al lado. Pasa el ratón por un permiso para ver qué supone. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, abajo.</div>
       {error && <div style={{fontSize:11,color:'var(--red)',marginTop:8}}>{error}</div>}
     </div>
   )
