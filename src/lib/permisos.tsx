@@ -37,7 +37,8 @@ export const nombreNivel = (n: number) => n >= 5 ? 'Dirección' : NIVELES.find(x
    de nivel 4 le valen sin duplicarlas, y Finanzas se le cierra en la app y en la base de
    datos (veo_finanzas, sql/direccion-sin-finanzas.sql). */
 export const esEncargada = (perfil: any) => perfil?.rol === 'admin' && perfil?.permisos?.sin_finanzas === true
-export const nombrePuesto = (perfil: any) => perfil?.rol === 'admin' ? (esEncargada(perfil) ? 'Encargada' : 'Dirección') : nombreNivel(Number(perfil?.nivel) || 1)
+export const nombrePuesto = (perfil: any) => perfil?.rol === 'admin' ? (esEncargada(perfil) ? 'Encargada' : 'Dirección')
+  : nombreNivel(Number(perfil?.nivel) || 1) + (perfil?.permisos?.oficina === true ? ' · Administración' : '')
 
 /** El mínimo nivel para cada cosa, de serie (si la tabla aún no existe o falla). */
 export const MINIMO = {
@@ -64,6 +65,13 @@ export type Minimos = Record<Accion, number>
 
 /** Lo que se da a cada persona aparte de su nivel (clave en perfiles.permisos). */
 export const POR_PERSONA: Partial<Record<Accion, string>> = { editar_agenda: 'agenda', cancelar_cita: 'agenda' }
+
+/** GALONES: lo que se SUMA a su nivel de entreno por un puesto, sin quitarle nada.
+ *  Administración (permisos.oficina) ve Pacientes aunque su nivel no llegue. */
+export const GALONES: Partial<Record<Accion, string>> = { pacientes: 'oficina' }
+/** ¿Lo tiene por su nivel, por la agenda de la persona o por un galón? */
+export const tienePermiso = (que: Accion, nivel: number, minimos: Minimos, sueltos?: Record<string, any>) =>
+  nivel >= minimos[que] || (!!POR_PERSONA[que] && sueltos?.[POR_PERSONA[que]!] === true) || (!!GALONES[que] && sueltos?.[GALONES[que]!] === true)
 
 /** Lo de la tabla manda; lo que no esté, el de serie. */
 export function mezclarMinimos(filas: { accion: string, minimo: number }[] | null | undefined): Minimos {
@@ -154,6 +162,6 @@ export const ProveedorNivel = Ctx.Provider
 /** puede('cambiar_ejercicios') → true/false según quien está dentro. */
 export function usePuede() {
   const { nivel, minimos, sueltos } = useContext(Ctx)
-  return (que: Accion) => nivel >= minimos[que] || (!!POR_PERSONA[que] && sueltos?.[POR_PERSONA[que]!] === true)
+  return (que: Accion) => tienePermiso(que, nivel, minimos, sueltos)
 }
 export const useNivel = () => useContext(Ctx).nivel

@@ -19,7 +19,7 @@ import VideoBienvenida, { VIDEOS, videoVisto } from '@/components/VideoBienvenid
 import { AvisarDeAlgo } from '@/components/BuzonAvisos'
 import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente, claseAEstaHora } from '@/lib/practica'
 import { hoyISO } from '@/lib/fechas'
-import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
+import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, tienePermiso, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
 // lo de programar y lo de gestión. Ajustes baja al pie, junto a tu inicial.
@@ -268,7 +268,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const dinero = pathname.startsWith('/finanzas') ? !((n >= 5 && perfil?.permisos?.sin_finanzas !== true) || (perfil?.rol !== 'admin' && perfil?.permisos?.finanzas === true))
       : pathname.startsWith('/cobros') ? !(n >= minimos.cobros || perfil?.permisos?.cobros === true || perfil?.permisos?.finanzas === true)
       : false
-    if ((regla && n < minimos[regla[1]]) || dinero) router.replace('/hoy')
+    if ((regla && !tienePermiso(regla[1], n, minimos, perfil?.permisos)) || dinero) router.replace('/hoy')
   }, [user, perfilListo, perfil, pathname, minimos])
 
   // EQUIPO COMPARTIDO: la sesión se cierra sola tras MINUTOS_INACTIVO sin tocarlo. La
@@ -360,7 +360,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Dirección sin Finanzas (perfiles.permisos.sin_finanzas): todo menos el dinero de la clínica.
   const veFinanzas = (esDireccion && perfil?.permisos?.sin_finanzas !== true) || (!esAdmin && perfil?.permisos?.finanzas===true)
   const veCobros   = veFinanzas || nivel >= minimos.cobros || perfil?.permisos?.cobros===true
-  const ve = (n: { acc?: Accion }) => !n.acc || nivel >= minimos[n.acc]
+  const ve = (n: { acc?: Accion }) => !n.acc || tienePermiso(n.acc, nivel, minimos, perfil?.permisos)
   /** Dirección «ve como» un nivel (1-3) o vuelve a lo suyo (null). */
   const cambiarVista = (v: string | null) => {
     try { v ? localStorage.setItem('sie_ver_como', v) : localStorage.removeItem('sie_ver_como') } catch {}
@@ -389,7 +389,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <main className="m-main"><ProveedorNivel value={{ nivel, minimos, sueltos: perfil?.permisos || {} }}>{children}</ProveedorNivel></main>
         <nav className="m-tabs">
           {tab('/movil', 'agenda', 'Hoy')}
-          {nivel >= minimos.pacientes && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
+          {tienePermiso('pacientes', nivel, minimos, perfil?.permisos) && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
           {/* Dar citas, solo quien lleva la agenda (nivel o interruptor «Agenda» de la persona). */}
           {(nivel >= minimos.editar_agenda || perfil?.permisos?.agenda === true) && <button className="m-tab-mas" onClick={() => setCitaMovil(true)} aria-label="Nueva cita"><Ic name="mas" size={22}/></button>}
           {tab('/movil/avisos', 'campana', 'Avisos')}

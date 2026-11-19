@@ -62,9 +62,18 @@ function ReglasNiveles() {
   const COL = ['#8DB9BF', '#5A969E', '#3E7179', '#23474D', '#262825']
   const tarjetas: { n: number, nombre: string, que: string }[] = [
     ...NIVELES.map(x => ({ n: x.n, nombre: x.nombre, que: x.que })),
-    { n: 5, nombre: 'Dirección y encargado', que: 'Lleva el centro: el equipo, el dinero y la agenda.' },
   ]
-  const SOLO_DIRECCION = ['Finanzas y estadísticas (encargado: sin Finanzas)', 'Ajustes y el equipo', 'Bonos, pausas, bajas y borrar pacientes', 'Avisos del equipo']
+  /* PUESTOS Y GALONES: se SUMAN a su nivel de entreno, no le quitan nada. Los galones se
+     encienden a cada persona en la lista de arriba; encargado y dirección, en su selector. */
+  const soloDir = acciones.filter(a => m[a] >= 5).map(a => ETIQUETA_ACCION[a])
+  const PUESTOS: { t: string, ic: string, d: string, lista: string[] }[] = [
+    { t: 'Administración', ic: 'ficha', d: 'Trabajo de oficina. Se suma a su nivel de entreno.', lista: ['Ve Pacientes y sus fichas aunque su nivel no llegue'] },
+    { t: 'Agenda', ic: 'telefono', d: 'Quien coge el teléfono.', lista: ['Crea, mueve y borra citas', 'Marca faltas, cancela y cambia de sala'] },
+    { t: 'Cobros', ic: 'recibo', d: 'Quien atiende el mostrador.', lista: ['Cobra y emite facturas', 'Modo Cobro de la agenda'] },
+    { t: 'Finanzas', ic: 'finanzas', d: 'Ver el dinero del centro.', lista: ['Ingresos, gastos, impuestos y rentabilidad', 'Incluye Cobros'] },
+    { t: 'Encargado', ic: 'pacientes', d: 'Lleva el centro, sin el dinero.', lista: ['Todo lo de dirección menos Finanzas', ...soloDir.filter(x => !/Finanzas/.test(x))] },
+    { t: 'Dirección', ic: 'candado', d: 'Todo.', lista: ['Finanzas, estadísticas, ajustes y el equipo', 'Bonos, pausas, bajas y borrar pacientes', 'Avisos y uso del equipo'] },
+  ]
   /* CAMBIAR UN PERMISO DE NIVEL, SOLO A PROPÓSITO. Las tarjetas son para mirar; con un
      toque sin querer se movían permisos. Ahora hay que pulsar «Cambiar permisos», y cada
      cambio pide confirmación. */
@@ -78,22 +87,22 @@ function ReglasNiveles() {
       <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span>
         <button className={`btn btn-sm ${editando ? 'btn-p' : 'btn-s'}`} onClick={() => setEditando(v => !v)}>{editando ? 'Hecho' : 'Cambiar permisos'}</button></div>
       <div style={{ fontSize: 12.5, color: 'var(--gr)', margin: '-4px 0 14px' }}>De menos a más responsabilidad. Cada nivel tiene todo lo del anterior y estrena lo que sale en su tarjeta.</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(210px, 1fr))', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(210px, 1fr))', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
         {tarjetas.map((t, k) => {
-          const nuevas = acciones.filter(a => (t.n === 5 ? m[a] >= 5 : m[a] === t.n))
+          const nuevas = acciones.filter(a => m[a] === t.n)
           return (
             <div key={t.n} style={{ border: '1px solid var(--bd)', borderRadius: 16, overflow: 'hidden', background: 'var(--w)', display: 'flex', flexDirection: 'column',
               boxShadow: t.n === 4 ? '0 8px 24px rgba(62,113,121,.18)' : 'none' }}>
               <div style={{ background: COL[k], color: '#fff', padding: '14px 16px 12px' }}>
-                <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', opacity: .85 }}>{t.n === 5 ? 'Responsable' : `Nivel ${t.n}`}</div>
+                <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', opacity: .85 }}>Nivel {t.n}</div>
                 <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2 }}>{t.nombre}</div>
                 <div style={{ fontSize: 12.5, lineHeight: 1.4, marginTop: 6, opacity: .95 }}>{t.que}</div>
               </div>
               <div style={{ padding: '12px 14px 14px', display: 'grid', gap: 9, alignContent: 'start', flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: COL[Math.max(1, k)] }}>
-                  {t.n === 1 ? 'Para empezar:' : `Todo lo del ${k === 4 ? 'nivel 4' : 'nivel ' + (t.n - 1)}, y además:`}
+                  {t.n === 1 ? 'Para empezar:' : `Todo lo del nivel ${t.n - 1}, y además:`}
                 </div>
-                {(t.n === 1 ? SIEMPRE : t.n === 5 ? SOLO_DIRECCION : []).map(x => (
+                {(t.n === 1 ? SIEMPRE : []).map(x => (
                   <div key={x} style={{ display: 'flex', gap: 7, fontSize: 12.5, color: 'var(--n)', lineHeight: 1.4 }}>
                     <span style={{ color: COL[Math.max(1, k)], fontWeight: 700 }}>✓</span><span>{x}</span>
                   </div>
@@ -104,15 +113,29 @@ function ReglasNiveles() {
                     <span style={{ flex: 1 }}>{ETIQUETA_ACCION[a]}</span>
                     {editando && <span style={{ whiteSpace: 'nowrap' }}>
                       {t.n > 1 && flecha(a, t.n - 1, '‹', `Dárselo también al nivel ${t.n - 1}`)}
-                      {t.n < 5 && flecha(a, t.n + 1, '›', t.n === 4 ? 'Dejarlo solo para dirección' : `Quitárselo al nivel ${t.n}`)}
+                      {flecha(a, t.n + 1, '›', t.n === 4 ? 'Dejarlo solo para dirección' : `Quitárselo al nivel ${t.n}`)}
                     </span>}
                   </div>
                 ))}
-                {t.n > 1 && t.n < 5 && nuevas.length === 0 && <div style={{ fontSize: 12, color: 'var(--grl)' }}>Nada nuevo en este nivel.</div>}
+                {t.n > 1 && nuevas.length === 0 && <div style={{ fontSize: 12, color: 'var(--grl)' }}>Nada nuevo en este nivel.</div>}
               </div>
             </div>
           )
         })}
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--n)', margin: '22px 0 4px' }}>Puestos y galones</div>
+      <div style={{ fontSize: 12.5, color: 'var(--gr)', marginBottom: 12 }}>Se suman a su nivel de entreno: no le quitan nada. Los galones se encienden a cada persona en la lista de arriba; encargado y dirección, en su selector.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+        {PUESTOS.map(p => (
+          <div key={p.t} style={{ border: '1px solid var(--bd)', borderRadius: 14, padding: '12px 14px', background: 'var(--w)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ width: 28, height: 28, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--gl)', color: 'var(--gd)' }}><Ic name={p.ic} size={15}/></span>
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--n)' }}>{p.t}</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--gr)', marginBottom: 6 }}>{p.d}</div>
+            {p.lista.map(x => <div key={x} style={{ display: 'flex', gap: 6, fontSize: 12.5, color: 'var(--n)', lineHeight: 1.4 }}><span style={{ color: 'var(--g)', fontWeight: 700 }}>+</span><span>{x}</span></div>)}
+          </div>
+        ))}
       </div>
       <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Con «Cambiar permisos» salen las flechas ‹ › para llevar un permiso al nivel de al lado (cada cambio pide confirmación). Pasa el ratón por un permiso para ver qué supone. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, abajo.</div>
       {error && <div style={{fontSize:11,color:'var(--red)',marginTop:8}}>{error}</div>}
@@ -223,7 +246,7 @@ export default function UsuariosTab({ perfilActual }: any) {
   // factura; lo necesita cualquiera que atienda el mostrador. FINANZAS es ver el
   // dinero de la clínica: ingresos, gastos, impuestos y rentabilidad.
   // Quien tiene Finanzas puede cobrar; al revés no.
-  async function togglePermiso(id: string, permisos: any, cual: 'finanzas' | 'cobros' | 'agenda') {
+  async function togglePermiso(id: string, permisos: any, cual: 'finanzas' | 'cobros' | 'agenda' | 'oficina') {
     setGuardando(id)
     const nuevos = { ...permisos, [cual]: !permisos?.[cual] }
     // Dar Finanzas implica poder cobrar: si no, verías el dinero sin poder
@@ -361,10 +384,10 @@ export default function UsuariosTab({ perfilActual }: any) {
             {/* PERMISOS · cobrar y ver el dinero son cosas distintas */}
             {/* AGENDA: crear y mover citas, marcar faltas y cancelar. Por persona porque es
                 de quien coge el teléfono, sea del nivel que sea. */}
-            {([['agenda','telefono','Agenda'],['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).filter(([clave]) => !(yoSinFin && clave==='finanzas')).map(([clave,icono,etiqueta])=>{
+            {([['oficina','ficha','Administración'],['agenda','telefono','Agenda'],['cobros','recibo','Cobros'],['finanzas','finanzas','Finanzas']] as const).filter(([clave]) => !(yoSinFin && clave==='finanzas')).map(([clave,icono,etiqueta])=>{
               // Dirección los tiene siempre; con Finanzas, Cobros va implícito.
               // El nivel 3 (encargado/a) cobra siempre.
-              const n3 = u.rol!=='admin' && u.nivel===3 && clave==='cobros'
+              const n3 = false // (antes el nivel 3 cobraba siempre; ahora cobrar es un galón)
               // DIRECCIÓN SIN FINANZAS: en dirección, el interruptor de Finanzas sí se puede
               // apagar (guarda permisos.sin_finanzas). Lo demás de dirección lo sigue teniendo.
               // Encargada: Finanzas apagado y fijo (lo dice su puesto); dirección, todo encendido.
@@ -393,7 +416,7 @@ export default function UsuariosTab({ perfilActual }: any) {
       )}
 
       <div style={{marginTop:14,padding:'10px 12px',background:'var(--gl)',border:'1px solid var(--gm)',borderRadius:6,fontSize:9,color:'var(--gd)'}}>
-<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> <strong>Nivel 1 · Principiante</strong>: Hoy, Agenda (solo consulta) y Taller; da las clases y apunta lo que se hace. <strong>Nivel 2 · Entrenador</strong>: además Pacientes y Valoración, cambia ejercicios y sesiones, marca faltas y cancela citas. <strong>Nivel 3 · Encargado/a</strong>: además El torno, Biblioteca y Cobros. <strong>Dirección</strong> lo ve todo. <strong>Cobros</strong> permite cobrar al paciente y emitir su factura; <strong>Finanzas</strong> es el dinero de la clínica e incluye Cobros.
+<Ic name="info" size={12} style={{verticalAlign:'-2px',marginRight:4}}/> Cada persona tiene su <strong>nivel de entreno</strong> (1 a 4) y, si hace falta, <strong>galones</strong> que se suman: Administración, Agenda, Cobros y Finanzas. Encargada y Dirección lo tienen todo. Qué supone cada cosa, abajo.
       </div>
     </div>
     <ReglasNiveles/>
