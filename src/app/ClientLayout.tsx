@@ -60,7 +60,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   /** La guía en pantalla: 1 = de inicio (nivel 1), 2 = del entrenador (nivel 2), 3 = del que programa (nivel 3). */
   const [guia, setGuia] = useState<false | 1 | 2 | 3 | 4>(false)
   /* Primero el vídeo de su nivel y, al acabar o saltarlo, la guía (VideoBienvenida). */
-  const [video, setVideo] = useState<false | 1 | 2 | 3>(false)
+  const [video, setVideo] = useState<false | 1 | 2 | 3 | 4>(false)
   const [guiaTrasVideo, setGuiaTrasVideo] = useState(false)
   /* MODO PRÁCTICA (lib/practica): pacientes inventados. Al entrar se les pone la clase a
      la hora de ahora y se recarga para verla. */
@@ -294,7 +294,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (!user?.id || !perfilListo || firmada !== true) return
     const n = nivelDe(perfil)
     // Primero su vídeo (si hay y no lo ha visto) y después la guía.
-    if ((n === 1 || n === 2 || n === 3) && VIDEOS[n] && !videoVisto(user.id, n) && !enModoPractica()) { setGuiaTrasVideo(!guiaVista(user.id, n)); setVideo(n); return }
+    if ((n === 1 || n === 2 || n === 3 || n === 4) && VIDEOS[n] && !videoVisto(user.id, n) && !enModoPractica()) { setGuiaTrasVideo(!guiaVista(user.id, n)); setVideo(n); return }
     if (n === 1 && !guiaVista(user.id, 1)) abrirGuia(1)
     else if (n === 2 && !guiaVista(user.id, 2)) abrirGuia(2)
     else if (n === 3 && !guiaVista(user.id, 3)) abrirGuia(3)
@@ -435,7 +435,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(1) }}>
                     <Ic name="ayuda" size={15}/> Guía de inicio
                   </button>
-                  {VIDEOS[Math.min(Math.max(nivel, 1), 3) as 1 | 2 | 3] && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuiaTrasVideo(false); setVideo(Math.min(Math.max(nivel, 1), 3) as 1 | 2 | 3) }}>
+                  {VIDEOS[Math.min(Math.max(nivel, 1), 4) as 1 | 2 | 3 | 4] && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuiaTrasVideo(false); setVideo(Math.min(Math.max(nivel, 1), 4) as 1 | 2 | 3 | 4) }}>
                     <Ic name="ojo" size={15}/> Ver el vídeo
                   </button>}
                   {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(2) }}>

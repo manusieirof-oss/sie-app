@@ -12,13 +12,13 @@
    (fotos/videos), se suben una vez y publicar ya no los arrastra. No son datos de
    nadie: son las guias de bienvenida. */
 const BASE_VIDEOS = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos/videos`
-export const VIDEOS: Partial<Record<1 | 2 | 3, string>> = { 1: `${BASE_VIDEOS}/nivel1.mp4`, 2: `${BASE_VIDEOS}/nivel2.mp4`, 3: `${BASE_VIDEOS}/nivel3.mp4` }
+export const VIDEOS: Partial<Record<1 | 2 | 3 | 4, string>> = { 1: `${BASE_VIDEOS}/nivel1.mp4`, 2: `${BASE_VIDEOS}/nivel2.mp4`, 3: `${BASE_VIDEOS}/nivel3.mp4`, 4: `${BASE_VIDEOS}/nivel4.mp4` }
 
 const CLAVE = (uid: string, n: number) => `sie_video${n}_visto_${uid}`
 export const videoVisto = (uid: string, n: number) => { try { return localStorage.getItem(CLAVE(uid, n)) === '1' } catch { return true } }
 const marcar = (uid: string, n: number) => { try { localStorage.setItem(CLAVE(uid, n), '1') } catch {} }
 
-export default function VideoBienvenida({ uid, nivel, onFin, conGuia = false }: { uid: string, nivel: 1 | 2 | 3, onFin: () => void, conGuia?: boolean }) {
+export default function VideoBienvenida({ uid, nivel, onFin, conGuia = false }: { uid: string, nivel: 1 | 2 | 3 | 4, onFin: () => void, conGuia?: boolean }) {
   const src = VIDEOS[nivel]
   const fin = () => { marcar(uid, nivel); onFin() }
   if (!src) return null
