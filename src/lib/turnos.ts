@@ -29,6 +29,9 @@ export type Turno = {
   perfil?: { id: string, nombre: string | null } | null
 }
 
+/** La sala de quien está trabajando pero no da clase. No sale en la agenda como sala. */
+export const SALA_OFICINA = 'Oficina'
+
 export const DIAS = [
   { valor: 1, corto: 'Lun', nombre: 'Lunes' },
   { valor: 2, corto: 'Mar', nombre: 'Martes' },
@@ -107,7 +110,8 @@ export function responsableDe(turnos: Turno[], fecha: string, hora: string, sala
   const deTodas = mandan(cubren.filter(t => (t.sala || '') === ''))
   if (deTodas.length > 0) { const l = deTodas.filter(t => t.perfil_id != null); return { lista: l, deducido: false } }
   // Nadie asignado a esa sala ni a todas: quien esté trabajando a esa hora, en cualquier sala.
-  const suyos = cubren.filter(t => t.perfil_id != null)
+  // Menos quien está en la oficina: no está dando clase.
+  const suyos = cubren.filter(t => t.perfil_id != null && t.sala !== SALA_OFICINA)
   return { lista: suyos, deducido: suyos.length > 0 }
 }
 
@@ -139,4 +143,64 @@ export async function guardarTurno(t: Partial<Turno>) {
 export async function borrarTurno(id: string) {
   const { error } = await supabase.from('turnos').delete().eq('id', id)
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+// ---------------------------------------------------------------------------
+// PINTAR EL HORARIO EN LA SEMANA (Ajustes → Horarios). Se toca una casilla (día, hora,
+// sala) con una persona elegida y se pone o se quita. Por debajo siguen siendo turnos
+// fijos (sin fecha): se parten y se juntan solos para que quede lo menos posible.
+// ---------------------------------------------------------------------------
+const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+
+/** Los fijos de ese día que cubren esa hora en esa sala (los de «todas» cuentan, salvo en la oficina). */
+export function fijosEnCelda(turnos: Turno[], dia: number, hora: string, sala: string) {
+  const h = min(hora), hoy = new Date().toISOString().slice(0, 10)
+  return turnos.filter(t => t.fecha == null && t.dia_semana === dia && (t.hasta == null || t.hasta >= hoy)
+    && min(t.hora_inicio) <= h && h < min(t.hora_fin)
+    && (String(t.sala || '') === sala || (!t.sala && sala !== SALA_OFICINA)))
+}
+
+/** Quita un turno de esa casilla: lo parte en lo de antes, lo de después y (si era de
+ *  todas las salas) esa hora en las otras salas. */
+async function sacarDeCelda(t: Turno, hora: string, fin: string, sala: string, salasClase: string[]) {
+  await borrarTurno(t.id)
+  const base = { perfil_id: t.perfil_id, dia_semana: t.dia_semana, desde: t.desde, hasta: t.hasta }
+  const ini = String(t.hora_inicio).slice(0, 5), fn = String(t.hora_fin).slice(0, 5)
+  if (min(ini) < min(hora)) await guardarTurno({ ...base, hora_inicio: ini, hora_fin: hora, sala: t.sala })
+  if (min(fin) < min(fn)) await guardarTurno({ ...base, hora_inicio: fin, hora_fin: fn, sala: t.sala })
+  if (!t.sala) for (const s of salasClase.filter(x => x !== sala)) await guardarTurno({ ...base, hora_inicio: hora, hora_fin: fin, sala: s })
+}
+
+/** Junta los tramos seguidos de una persona, un día y una sala (sin fechas de vigencia). */
+async function juntar(perfil: string, dia: number, sala: string) {
+  const { data } = await supabase.from('turnos').select('*').eq('perfil_id', perfil).eq('dia_semana', dia).eq('sala', sala)
+    .is('fecha', null).is('desde', null).is('hasta', null).order('hora_inicio')
+  const filas = (data || []) as Turno[]
+  for (let i = 0; i < filas.length - 1; i++) {
+    const a = filas[i], b = filas[i + 1]
+    if (min(b.hora_inicio) <= min(a.hora_fin)) {
+      const fin = hm(Math.max(min(a.hora_fin), min(b.hora_fin)))
+      await supabase.from('turnos').update({ hora_fin: fin }).eq('id', a.id)
+      await borrarTurno(b.id)
+      a.hora_fin = fin; filas.splice(i + 1, 1); i--
+    }
+  }
+}
+
+/**
+ * Toca una casilla. Con una persona: si ya está, se quita; si no, se pone (y en una sala
+ * de clase quita a quien estuviera, porque una clase la lleva uno; en la oficina caben
+ * varios). Con `null` (la goma): se quita a todos de esa casilla.
+ */
+export async function pintarCelda(turnos: Turno[], o: { perfil: string | null, dia: number, hora: string, minutos: number, sala: string, salasClase: string[] }) {
+  const fin = hm(min(o.hora) + o.minutos)
+  const hay = fijosEnCelda(turnos, o.dia, o.hora, o.sala)
+  const yaEsta = o.perfil != null && hay.some(t => t.perfil_id === o.perfil)
+  const quitar = o.perfil == null ? hay : yaEsta ? hay.filter(t => t.perfil_id === o.perfil)
+    : (o.sala === SALA_OFICINA ? [] : hay.filter(t => t.perfil_id !== o.perfil))
+  for (const t of quitar) await sacarDeCelda(t, o.hora, fin, o.sala, o.salasClase)
+  if (o.perfil != null && !yaEsta) {
+    await guardarTurno({ perfil_id: o.perfil, dia_semana: o.dia, hora_inicio: o.hora, hora_fin: fin, sala: o.sala })
+    await juntar(o.perfil, o.dia, o.sala)
+  }
 }

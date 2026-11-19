@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
-import { cargarTurnos, guardarTurno, borrarTurno, DIAS, type Turno } from '@/lib/turnos'
+import { cargarTurnos, guardarTurno, borrarTurno, DIAS, SALA_OFICINA, type Turno } from '@/lib/turnos'
 import { hoyISO } from '@/lib/fechas'
+import HorarioSemana from './HorarioSemana'
 
 // ---------------------------------------------------------------------------
 // EL HORARIO DE QUIEN DA LAS CLASES
@@ -76,7 +77,7 @@ export default function HorariosTab() {
       <span style={{ flex: 1, minWidth: 0 }}>{nombre(t)}</span>
       <span style={{ color: 'var(--gr)' }}>{hh(t.hora_inicio)}–{hh(t.hora_fin)}</span>
       <span style={{ width: 74, fontSize: 11, color: 'var(--grl)' }}>
-        {t.sala ? 'sala ' + t.sala : 'todas'}
+        {t.sala === SALA_OFICINA ? 'oficina' : t.sala ? 'sala ' + t.sala : 'todas'}
       </span>
       <button className="btn btn-s btn-sm" onClick={() => setEdit({ ...t, sala: t.sala || '',
         dias: t.dia_semana ? [t.dia_semana] : [], hora_inicio: String(t.hora_inicio).slice(0,5),
@@ -96,9 +97,14 @@ export default function HorariosTab() {
       </div>
 
       <div className="sec-sub" style={{ marginBottom: 10 }}>
-        Quien está en cada franja. Su nombre sale en la agenda y en el taller.
+        Quién está en cada hora y en qué sala, o en la oficina. Sale en la agenda, en el taller y en Hoy. Para cubrir un día suelto, «+ Añadir turno» con fecha.
       </div>
 
+      <HorarioSemana turnos={turnos} perfiles={perfiles} salas={salas} onCambio={cargar}/>
+
+      {/* La lista de siempre, plegada: para tramos con vigencia (desde/hasta) o revisar. */}
+      <details style={{ marginBottom: 12 }}>
+        <summary style={{ fontSize: 12.5, color: 'var(--gd)', cursor: 'pointer', marginBottom: 8 }}>Ver el horario fijo en lista</summary>
       {DIAS.map(d => {
         const suyos = fijos.filter(t => t.dia_semana === d.valor)
         if (suyos.length === 0) return null
@@ -110,6 +116,7 @@ export default function HorariosTab() {
         )
       })}
       {fijos.length === 0 && <div className="muted">Sin horarios. Nadie sale en las clases.</div>}
+      </details>
 
       {puntuales.length > 0 && (
         <div style={{ marginTop: 16 }}>
@@ -198,6 +205,7 @@ export default function HorariosTab() {
                 onChange={e => setEdit((p: any) => ({ ...p, sala: e.target.value }))}>
                 <option value="">Todas</option>
                 {salas.map(s => <option key={s} value={s}>Sala {s}</option>)}
+                <option value={SALA_OFICINA}>Oficina (no da clase)</option>
               </select>
             </div>
 
