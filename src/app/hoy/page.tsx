@@ -13,6 +13,7 @@ import { usePuede } from '@/lib/permisos'
 import { MisAvisosArreglados } from '@/components/BuzonAvisos'
 import { esAvisoEquipo } from '@/app/agenda/components/AvisoTareas'
 import { enModoPractica } from '@/lib/practica'
+import PorProgramar from '@/components/PorProgramar'
 
 // HOY: LA PORTADA DE SIE.
 //
@@ -236,6 +237,8 @@ export default function Hoy() {
           })}
         </section>
 
+        {/* POR PROGRAMAR: citas sin sesión y planes que se acaban (quien prepara entrenos). */}
+        {puedeTorno && <PorProgramar caja={caja}/>}
         <MisAvisosArreglados/>
         {/* MIS AVISOS: lo que el equipo me ha mandado por el buzón. Solo lo veo yo. */}
         {misAvisos.length > 0 && (

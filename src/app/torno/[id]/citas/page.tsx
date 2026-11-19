@@ -170,7 +170,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     const hoy = hoyISO()
     const [{ data: p }, { data: cs }] = await Promise.all([
       supabase.from('pacientes').select('nombre,apellidos,nombre_clinica,tipo_clase').eq('id', pid).maybeSingle(),
-      supabase.from('citas').select('id,fecha,hora,sala,sesion_id').eq('paciente_id', pid)
+      supabase.from('citas').select('id,fecha,hora,sala,sesion_id,sesion_auto').eq('paciente_id', pid)
         .gte('fecha', hoy).neq('estado', 'cancelada').order('fecha').order('hora'),
     ])
     setNombre((p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim())
@@ -827,6 +827,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                                   // hacer Confirmar antes de pulsarlo.
                                   outline: (plan[c.id] || null) !== (c.sesion_id || null) ? '2px solid var(--n)' : 'none', outlineOffset: 1 }}>
                                 {c.hora ? String(c.hora).slice(0, 5) : '·'}
+                                {/* PUESTA POR SU PLAN (no a mano): un ⟳ pequeño. Si la cambias, deja de serlo. */}
+                                {sid && (c as any).sesion_auto && sid === c.sesion_id && (
+                                  <span title="La puso su plan. Si la cambias tú, se queda como la pongas." style={{ marginLeft: 3, fontSize: 9, opacity: .9 }}>⟳</span>
+                                )}
                                 {sid && fijas.has(sid) && (
                                   <span title="Con candado: repartir no la mueve. A mano sí se puede cambiar." style={{ marginLeft: 3 }}>
                                     <Ic name="candado" size={9}/></span>
