@@ -65,14 +65,13 @@ function ReglasNiveles() {
   ]
   /* PUESTOS Y GALONES: se SUMAN a su nivel de entreno, no le quitan nada. Los galones se
      encienden a cada persona en la lista de arriba; encargado y dirección, en su selector. */
-  const soloDir = acciones.filter(a => m[a] >= 5).map(a => ETIQUETA_ACCION[a])
   const PUESTOS: { t: string, ic: string, d: string, lista: string[] }[] = [
     { t: 'Administración', ic: 'ficha', d: 'Trabajo de oficina. Se suma a su nivel de entreno.', lista: ['Agenda: dar, mover y cancelar citas', 'Cobros: cobrar y facturar', 'Ve Pacientes y sus fichas aunque su nivel no llegue'] },
     /* Agenda y Cobros sueltos: para quien no es de administración pero coge el teléfono o cobra. */
     { t: 'Agenda', ic: 'telefono', d: 'Suelto, para quien coge el teléfono sin ser de administración.', lista: ['Crea, mueve y borra citas', 'Marca faltas, cancela y cambia de sala'] },
     { t: 'Cobros', ic: 'recibo', d: 'Suelto, para quien cobra sin ser de administración.', lista: ['Cobra y emite facturas', 'Modo Cobro de la agenda'] },
     { t: 'Finanzas', ic: 'finanzas', d: 'Ver el dinero del centro.', lista: ['Ingresos, gastos, impuestos y rentabilidad', 'Incluye Cobros'] },
-    { t: 'Encargado', ic: 'pacientes', d: 'Lleva el centro, sin el dinero.', lista: ['Todo lo de dirección menos Finanzas', ...soloDir.filter(x => !/Finanzas/.test(x))] },
+    { t: 'Encargado', ic: 'pacientes', d: 'Lleva el centro, sin el dinero.', lista: ['Todo lo de Administración (agenda y cobros)', 'Pone tareas al equipo y lleva las salas', 'Todo lo de dirección menos Finanzas'] },
     { t: 'Dirección', ic: 'candado', d: 'Todo.', lista: ['Finanzas, estadísticas, ajustes y el equipo', 'Bonos, pausas, bajas y borrar pacientes', 'Avisos y uso del equipo'] },
   ]
   /* CAMBIAR UN PERMISO DE NIVEL, SOLO A PROPÓSITO. Las tarjetas son para mirar; con un
