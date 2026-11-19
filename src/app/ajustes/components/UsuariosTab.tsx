@@ -36,6 +36,7 @@ const SIEMPRE = [
 function ReglasNiveles() {
   const [m, setM] = useState<Minimos | null>(null)
   const [guardando, setGuardando] = useState<string | null>(null)
+  const [editando, setEditando] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
     supabase.from('permisos_nivel').select('accion,minimo').then(({ data, error }) => {
@@ -64,13 +65,18 @@ function ReglasNiveles() {
     { n: 5, nombre: 'Dirección y encargado', que: 'Lleva el centro: el equipo, el dinero y la agenda.' },
   ]
   const SOLO_DIRECCION = ['Finanzas y estadísticas (encargado: sin Finanzas)', 'Ajustes y el equipo', 'Bonos, pausas, bajas y borrar pacientes', 'Avisos del equipo']
+  /* CAMBIAR UN PERMISO DE NIVEL, SOLO A PROPÓSITO. Las tarjetas son para mirar; con un
+     toque sin querer se movían permisos. Ahora hay que pulsar «Cambiar permisos», y cada
+     cambio pide confirmación. */
   const flecha = (a: Accion, a_n: number, txt: string, t: string) => (
-    <button type="button" disabled={guardando === a} onClick={() => cambiar(a, a_n)} title={t}
-      style={{ border: 0, background: 'none', color: 'var(--grl)', cursor: 'pointer', fontSize: 13, padding: '0 3px', lineHeight: 1 }}>{txt}</button>
+    <button type="button" disabled={guardando === a} title={t}
+      onClick={() => { if (confirm(`${ETIQUETA_ACCION[a]}\n\n${t}. ¿Seguro?`)) cambiar(a, a_n) }}
+      style={{ border: '1px solid var(--bd)', borderRadius: 6, background: 'var(--w)', color: 'var(--gr)', cursor: 'pointer', fontSize: 11, padding: '1px 6px', marginLeft: 3 }}>{txt}</button>
   )
   return (
     <div className="card" style={{ marginTop: 14 }}>
-      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span></div>
+      <div className="card-title"><span className="ct-l"><Ic name="candado"/> Qué puede cada nivel</span>
+        <button className={`btn btn-sm ${editando ? 'btn-p' : 'btn-s'}`} onClick={() => setEditando(v => !v)}>{editando ? 'Hecho' : 'Cambiar permisos'}</button></div>
       <div style={{ fontSize: 12.5, color: 'var(--gr)', margin: '-4px 0 14px' }}>De menos a más responsabilidad. Cada nivel tiene todo lo del anterior y estrena lo que sale en su tarjeta.</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(210px, 1fr))', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
         {tarjetas.map((t, k) => {
@@ -96,10 +102,10 @@ function ReglasNiveles() {
                   <div key={a} title={EXPLICA_ACCION[a]} style={{ display: 'flex', gap: 7, fontSize: 12.5, color: 'var(--n)', lineHeight: 1.4, opacity: guardando === a ? .5 : 1 }}>
                     <span style={{ color: COL[Math.max(1, k)], fontWeight: 700 }}>✓</span>
                     <span style={{ flex: 1 }}>{ETIQUETA_ACCION[a]}</span>
-                    <span style={{ whiteSpace: 'nowrap' }}>
+                    {editando && <span style={{ whiteSpace: 'nowrap' }}>
                       {t.n > 1 && flecha(a, t.n - 1, '‹', `Dárselo también al nivel ${t.n - 1}`)}
                       {t.n < 5 && flecha(a, t.n + 1, '›', t.n === 4 ? 'Dejarlo solo para dirección' : `Quitárselo al nivel ${t.n}`)}
-                    </span>
+                    </span>}
                   </div>
                 ))}
                 {t.n > 1 && t.n < 5 && nuevas.length === 0 && <div style={{ fontSize: 12, color: 'var(--grl)' }}>Nada nuevo en este nivel.</div>}
@@ -108,7 +114,7 @@ function ReglasNiveles() {
           )
         })}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Las flechas ‹ › llevan un permiso al nivel de al lado. Pasa el ratón por un permiso para ver qué supone. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, abajo.</div>
+      <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 10 }}>Con «Cambiar permisos» salen las flechas ‹ › para llevar un permiso al nivel de al lado (cada cambio pide confirmación). Pasa el ratón por un permiso para ver qué supone. La agenda (crear, mover, cancelar) va por persona: interruptor «Agenda» de cada uno, abajo.</div>
       {error && <div style={{fontSize:11,color:'var(--red)',marginTop:8}}>{error}</div>}
     </div>
   )
