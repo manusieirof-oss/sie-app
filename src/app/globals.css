@@ -663,7 +663,9 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .m-tab-mas{width:50px;height:50px;border-radius:99px;border:none;background:var(--n);color:#fff;display:flex;align-items:center;justify-content:center;margin-top:-10px;box-shadow:0 4px 14px rgba(38,40,37,.25)}
 .m-cab{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 12px}
 .m-cab h1{font-size:27px;font-weight:700;letter-spacing:-.5px;line-height:1.1}
-.m-cab small{display:block;font-size:13px;color:var(--grl);margin-top:2px;text-transform:capitalize}
+.m-cab small{display:block;font-size:13px;color:var(--grl);margin-top:2px}
+/* Solo la primera letra: con capitalize salía «19 De Noviembre» y «Lo Que Hay Que…». */
+.m-cab small::first-letter{text-transform:uppercase}
 .m-pildora{font-family:inherit;font-size:13px;padding:7px 14px;border-radius:99px;border:1px solid var(--bd);background:var(--w);color:var(--gr)}
 .m-pildora.on{background:var(--gl);border-color:var(--gm);color:var(--gd)}
 .m-ic{width:30px;height:44px;border:none;background:none;color:var(--grl);display:flex;align-items:center;justify-content:center;flex-shrink:0}

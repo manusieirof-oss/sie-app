@@ -106,7 +106,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [franjaAbierta, setFranjaAbierta] = useState(false)
   const franjaPractica = () => practica && (<>
     <div style={{ position: 'fixed', left: 0, right: 0, top: 0, height: 3, background: '#E8A33D', zIndex: 200, pointerEvents: 'none' }}/>
-    <div data-guia-no style={{ position: 'fixed', right: 14, bottom: 14, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+    <div data-guia-no style={{ position: 'fixed', right: 14, bottom: pathname.startsWith('/movil') ? 'calc(78px + env(safe-area-inset-bottom))' : 14, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
       {franjaAbierta && (
         <div style={{ background: '#fff', border: '2px solid #E8A33D', borderRadius: 14, padding: '12px 14px', boxShadow: '0 10px 30px rgba(0,0,0,.18)',
           fontSize: 15, lineHeight: 1.45, color: '#2b1d05', width: 330, display: 'grid', gap: 12 }}>
