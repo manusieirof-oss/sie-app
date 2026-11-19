@@ -21,6 +21,11 @@ export default function HorarioSemana({ turnos, perfiles, salas, onCambio }: { t
   const [minutos, setMinutos] = useState(60)
   const [pincel, setPincel] = useState<string | null | undefined>(undefined)   // undefined = nada elegido; null = goma
   const [ocupado, setOcupado] = useState<string | null>(null)
+  /* DE LUNES A VIERNES, y se añaden sábado y domingo si hace falta (se recuerda). */
+  const [hastaDia, setHastaDia] = useState(5)
+  useEffect(() => { try { const v = Number(localStorage.getItem('sie_horario_dias')); if (v >= 5 && v <= 7) setHastaDia(v) } catch {} }, [])
+  const ponerDias = (n: number) => { setHastaDia(n); try { localStorage.setItem('sie_horario_dias', String(n)) } catch {} }
+  const dias = [...DIAS, { valor: 7, corto: 'Dom', nombre: 'Domingo' }].filter(d => d.valor <= hastaDia)
 
   useEffect(() => {
     supabase.from('ajustes').select('clave,valor').then(({ data }) => {
@@ -75,42 +80,61 @@ export default function HorarioSemana({ turnos, perfiles, salas, onCambio }: { t
         </button>
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--grl)', marginBottom: 10 }}>
-        Toca una casilla para poner o quitar a quien tienes elegido. Cada hora tiene una línea por sala y la oficina (trabaja pero no da clase). Las horas a la semana salen al lado de cada nombre.
+        Toca una casilla para poner o quitar a quien tienes elegido. En cada día, las salas una al lado de otra y la oficina (trabaja pero no da clase). Con «+» añades el sábado y el domingo. Las horas a la semana salen al lado de cada nombre.
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'separate', borderSpacing: 3, width: '100%', minWidth: 760 }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 3, width: '100%', minWidth: 160 * dias.length }}>
           <thead>
             <tr>
               <th style={{ width: 52 }}/>
-              {DIAS.map(d => <th key={d.valor} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--n)', padding: '4px 0' }}>{d.nombre}</th>)}
+              {dias.map(d => (
+                <th key={d.valor} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--n)', padding: '4px 0' }}>
+                  {d.nombre}
+                  {/* Una fila con las salas, como en la agenda: una a la izquierda y otra a la derecha. */}
+                  <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
+                    {lineas.map(sala => <span key={sala} style={{ flex: 1, fontSize: 10, fontWeight: 600, color: 'var(--grl)' }}>{sala === SALA_OFICINA ? 'Oficina' : 'Sala ' + sala}</span>)}
+                  </div>
+                </th>
+              ))}
+              <th style={{ width: 34, verticalAlign: 'top' }}>
+                {hastaDia < 7
+                  ? <button type="button" onClick={() => ponerDias(hastaDia + 1)} title={`Añadir el ${hastaDia === 5 ? 'sábado' : 'domingo'}`}
+                      style={{ border: '1px dashed var(--bd)', background: 'var(--w)', borderRadius: 8, cursor: 'pointer', fontSize: 15, color: 'var(--gd)', padding: '2px 8px' }}>+</button>
+                  : <button type="button" onClick={() => ponerDias(5)} title="Volver a lunes a viernes"
+                      style={{ border: '1px dashed var(--bd)', background: 'var(--w)', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--gr)', padding: '2px 8px' }}>−</button>}
+                {hastaDia === 6 && <button type="button" onClick={() => ponerDias(5)} title="Quitar el sábado"
+                  style={{ display: 'block', marginTop: 4, border: '1px dashed var(--bd)', background: 'var(--w)', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--gr)', padding: '2px 8px' }}>−</button>}
+              </th>
             </tr>
           </thead>
           <tbody>
             {horas.map(h => (
               <tr key={h}>
                 <td style={{ fontSize: 12, color: 'var(--gr)', verticalAlign: 'top', paddingTop: 4 }}>{h}</td>
-                {DIAS.map(d => (
+                {dias.map(d => (
                   <td key={d.valor} style={{ background: 'var(--bl)', borderRadius: 8, padding: 3, verticalAlign: 'top' }}>
+                    <div style={{ display: 'flex', gap: 3 }}>
                     {lineas.map(sala => {
                       const quien = fijosEnCelda(turnos, d.valor, h, sala).map(t => t.perfil_id).filter((x, i, a) => x && a.indexOf(x) === i) as string[]
                       const k = `${d.valor}|${h}|${sala}`
                       return (
                         <button key={sala} type="button" onClick={() => tocar(d.valor, h, sala)} disabled={ocupado != null}
                           title={`${d.nombre} ${h} · ${sala === SALA_OFICINA ? 'Oficina' : 'Sala ' + sala}${quien.length ? ': ' + quien.map(nombre).join(', ') : ''}`}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', minHeight: 22, margin: '1px 0', padding: '2px 5px', borderRadius: 6, cursor: 'pointer',
+                          style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4, minHeight: 30, padding: '2px 5px', borderRadius: 6, cursor: 'pointer',
                             border: 0, fontFamily: 'inherit', textAlign: 'left', opacity: ocupado === k ? .4 : 1,
                             background: quien.length ? color(quien[0]) : (sala === SALA_OFICINA ? 'transparent' : 'var(--w)'),
                             outline: sala === SALA_OFICINA && !quien.length ? '1px dashed var(--bd)' : 'none' }}>
-                          <span style={{ fontSize: 9.5, fontWeight: 700, width: 16, color: quien.length ? 'rgba(255,255,255,.85)' : 'var(--grl)' }}>{sala === SALA_OFICINA ? 'Of' : sala}</span>
                           <span style={{ fontSize: 11.5, color: quien.length ? '#fff' : 'var(--grl)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {quien.map(nombre).map(n => n.split(' ')[0]).join(' · ')}
                           </span>
                         </button>
                       )
                     })}
+                    </div>
                   </td>
                 ))}
+                <td/>
               </tr>
             ))}
           </tbody>
