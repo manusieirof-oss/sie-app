@@ -18,6 +18,7 @@ import GuiaInicio, { guiaVista } from '@/components/GuiaInicio'
 import VideoBienvenida, { VIDEOS, videoVisto } from '@/components/VideoBienvenida'
 import { AvisarDeAlgo } from '@/components/BuzonAvisos'
 import { enModoPractica, entrarPractica, salirPractica, prepararSiToca, guiaEnPractica, guiaPendiente, claseAEstaHora } from '@/lib/practica'
+import { hoyISO } from '@/lib/fechas'
 import { nivelDe, MINIMO, RUTAS, ProveedorNivel, NIVELES, mezclarMinimos, type Minimos, type Accion } from '@/lib/permisos'
 
 // Los pilares van en tres bloques, separados por una rayita: lo del día a día,
@@ -212,6 +213,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     supabase.from('bonos').select('estado_pago').eq('activo', true).in('estado_pago', ['pendiente', 'impago'])
       .then(({ data }) => setPorCobrar((data || []).length))
   }, [user, pathname])
+
+  /* USO DEL EQUIPO: cada pantalla que abre cada uno, una vez al día (pantalla /uso de
+     dirección). Si la tabla aún no existe, falla en silencio. */
+  useEffect(() => {
+    if (!user?.id) return
+    const pantalla = pathname.split('/')[1] || 'hoy'
+    if (pantalla === 'login') return
+    supabase.from('uso_app').upsert({ user_id: user.id, dia: hoyISO(), pantalla, practica: enModoPractica() },
+      { onConflict: 'user_id,dia,pantalla,practica', ignoreDuplicates: true }).then(() => {})
+  }, [user?.id, pathname])
 
   // Red de seguridad: la página en sí nunca debe quedar desplazada (lo que hace scroll
   // es la caja de contenido). Si algo la ha movido, al cambiar de pantalla vuelve a su sitio.
@@ -427,6 +438,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setAvisando(true) }}>
                     <Ic name="mensaje" size={15}/> Avisar de algo
                   </button>
+                  {nivel >= 5 && <Link href="/uso" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
+                    <Ic name="progreso" size={15}/> Uso del equipo
+                  </Link>}
                   {nivel >= 5 && <Link href="/avisos" className="sb-menu-it" onClick={() => setMenuUsuario(false)}>
                     <Ic name="campana" size={15}/> Avisos del equipo{avisosNuevos > 0 ? ` · ${avisosNuevos}` : ''}
                   </Link>}
