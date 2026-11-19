@@ -11,7 +11,7 @@ import { usePathname, useRouter } from 'next/navigation'
 // no está en pantalla (no hay clase ahora, nadie en la sala…), el paso sale igual en
 // el centro: la explicación sirve aunque falte el ejemplo.
 //
-// Se repite cuando se quiera desde el menú de la inicial → «Guía de inicio».
+// Se repite cuando se quiera desde el menú de la inicial → «Guía del entrenador 1».
 // ---------------------------------------------------------------------------
 
 /**

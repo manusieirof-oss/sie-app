@@ -224,6 +224,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       { onConflict: 'user_id,dia,pantalla,practica', ignoreDuplicates: true }).then(() => {})
   }, [user?.id, pathname])
 
+  /* DESDE EL MÓVIL («Yo»): ver el vídeo o abrir una guía. En el móvil no hay menú de la
+     inicial, así que no había forma de volver a verlos. */
+  useEffect(() => {
+    const video = () => { setGuiaTrasVideo(false); setVideo(Math.min(Math.max(nivelDe(perfil), 1), 4) as 1 | 2 | 3 | 4) }
+    const guia = (e: Event) => { const n = Number((e as CustomEvent).detail); if (n >= 1 && n <= 4) abrirGuia(n as 1 | 2 | 3 | 4) }
+    window.addEventListener('sie-ver-video', video); window.addEventListener('sie-abrir-guia', guia)
+    return () => { window.removeEventListener('sie-ver-video', video); window.removeEventListener('sie-abrir-guia', guia) }
+  }, [perfil]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Red de seguridad: la página en sí nunca debe quedar desplazada (lo que hace scroll
   // es la caja de contenido). Si algo la ha movido, al cambiar de pantalla vuelve a su sitio.
   useEffect(() => {
@@ -448,13 +457,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     <Ic name="candado" size={15}/> Mi cuenta
                   </Link>
                   <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(1) }}>
-                    <Ic name="ayuda" size={15}/> Guía de inicio
+                    <Ic name="ayuda" size={15}/> Guía del entrenador 1
                   </button>
                   {VIDEOS[Math.min(Math.max(nivel, 1), 4) as 1 | 2 | 3 | 4] && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); setGuiaTrasVideo(false); setVideo(Math.min(Math.max(nivel, 1), 4) as 1 | 2 | 3 | 4) }}>
                     <Ic name="ojo" size={15}/> Ver el vídeo
                   </button>}
                   {nivel >= 2 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(2) }}>
-                    <Ic name="ayuda" size={15}/> Guía del entrenador
+                    <Ic name="ayuda" size={15}/> Guía del entrenador 2
                   </button>}
                   {nivel >= 3 && <button className="sb-menu-it" onClick={() => { setMenuUsuario(false); abrirGuia(3) }}>
                     <Ic name="ayuda" size={15}/> Guía del entrenador 3

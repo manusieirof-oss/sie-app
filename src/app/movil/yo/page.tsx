@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Ic } from '@/lib/icons'
+import { useNivel } from '@/lib/permisos'
 
 /**
  * YO · quién eres, ir a la versión completa y cerrar sesión.
@@ -16,6 +17,7 @@ export default function MovilYo() {
   const [perfil, setPerfil] = useState<any>(null)
   const [email, setEmail] = useState('')
   const router = useRouter()
+  const nivel = useNivel()
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -40,6 +42,11 @@ export default function MovilYo() {
         <b>{perfil?.nombre || 'Tu cuenta'}</b>
         <small>{email}</small>
       </div>
+      {/* Su vídeo y sus guías: las del 1 hasta la de su nivel. */}
+      <button className="m-opcion" onClick={() => window.dispatchEvent(new Event('sie-ver-video'))}><Ic name="ojo" size={18}/> Ver el vídeo</button>
+      {[1, 2, 3, 4].filter(n => n <= nivel).map(n => (
+        <button key={n} className="m-opcion" onClick={() => window.dispatchEvent(new CustomEvent('sie-abrir-guia', { detail: n }))}><Ic name="ayuda" size={18}/> Guía del entrenador {n}</button>
+      ))}
       <button className="m-opcion" onClick={completa}><Ic name="clinica" size={18}/> Versión completa (ordenador)<Ic name="der" size={15} style={{ marginLeft: 'auto', color: 'var(--grl)' }}/></button>
       <button className="m-opcion rojo" onClick={salir}><Ic name="salir" size={18}/> Cerrar sesión</button>
       <img src="/marca/sie-logo.svg" alt="SIE" style={{ display: 'block', width: 90, margin: '40px auto 0', opacity: .7 }}/>
