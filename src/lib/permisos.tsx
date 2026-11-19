@@ -67,11 +67,13 @@ export type Minimos = Record<Accion, number>
 export const POR_PERSONA: Partial<Record<Accion, string>> = { editar_agenda: 'agenda', cancelar_cita: 'agenda' }
 
 /** GALONES: lo que se SUMA a su nivel de entreno por un puesto, sin quitarle nada.
- *  Administración (permisos.oficina) ve Pacientes aunque su nivel no llegue. */
+ *  Administración (permisos.oficina): agenda, cobros y ve Pacientes aunque su nivel no llegue. */
 export const GALONES: Partial<Record<Accion, string>> = { pacientes: 'oficina' }
 /** ¿Lo tiene por su nivel, por la agenda de la persona o por un galón? */
+// Administración es también agenda y cobros (Ajustes los enciende juntos; aquí, por si acaso).
+const DE_OFICINA: Accion[] = ['pacientes', 'editar_agenda', 'cancelar_cita', 'cobros']
 export const tienePermiso = (que: Accion, nivel: number, minimos: Minimos, sueltos?: Record<string, any>) =>
-  nivel >= minimos[que] || (!!POR_PERSONA[que] && sueltos?.[POR_PERSONA[que]!] === true) || (!!GALONES[que] && sueltos?.[GALONES[que]!] === true)
+  nivel >= minimos[que] || (sueltos?.oficina === true && DE_OFICINA.includes(que)) || (!!POR_PERSONA[que] && sueltos?.[POR_PERSONA[que]!] === true) || (!!GALONES[que] && sueltos?.[GALONES[que]!] === true)
 
 /** Lo de la tabla manda; lo que no esté, el de serie. */
 export function mezclarMinimos(filas: { accion: string, minimo: number }[] | null | undefined): Minimos {

@@ -67,9 +67,10 @@ function ReglasNiveles() {
      encienden a cada persona en la lista de arriba; encargado y dirección, en su selector. */
   const soloDir = acciones.filter(a => m[a] >= 5).map(a => ETIQUETA_ACCION[a])
   const PUESTOS: { t: string, ic: string, d: string, lista: string[] }[] = [
-    { t: 'Administración', ic: 'ficha', d: 'Trabajo de oficina. Se suma a su nivel de entreno.', lista: ['Ve Pacientes y sus fichas aunque su nivel no llegue'] },
-    { t: 'Agenda', ic: 'telefono', d: 'Quien coge el teléfono.', lista: ['Crea, mueve y borra citas', 'Marca faltas, cancela y cambia de sala'] },
-    { t: 'Cobros', ic: 'recibo', d: 'Quien atiende el mostrador.', lista: ['Cobra y emite facturas', 'Modo Cobro de la agenda'] },
+    { t: 'Administración', ic: 'ficha', d: 'Trabajo de oficina. Se suma a su nivel de entreno.', lista: ['Agenda: dar, mover y cancelar citas', 'Cobros: cobrar y facturar', 'Ve Pacientes y sus fichas aunque su nivel no llegue'] },
+    /* Agenda y Cobros sueltos: para quien no es de administración pero coge el teléfono o cobra. */
+    { t: 'Agenda', ic: 'telefono', d: 'Suelto, para quien coge el teléfono sin ser de administración.', lista: ['Crea, mueve y borra citas', 'Marca faltas, cancela y cambia de sala'] },
+    { t: 'Cobros', ic: 'recibo', d: 'Suelto, para quien cobra sin ser de administración.', lista: ['Cobra y emite facturas', 'Modo Cobro de la agenda'] },
     { t: 'Finanzas', ic: 'finanzas', d: 'Ver el dinero del centro.', lista: ['Ingresos, gastos, impuestos y rentabilidad', 'Incluye Cobros'] },
     { t: 'Encargado', ic: 'pacientes', d: 'Lleva el centro, sin el dinero.', lista: ['Todo lo de dirección menos Finanzas', ...soloDir.filter(x => !/Finanzas/.test(x))] },
     { t: 'Dirección', ic: 'candado', d: 'Todo.', lista: ['Finanzas, estadísticas, ajustes y el equipo', 'Bonos, pausas, bajas y borrar pacientes', 'Avisos y uso del equipo'] },
@@ -252,6 +253,8 @@ export default function UsuariosTab({ perfilActual }: any) {
     // Dar Finanzas implica poder cobrar: si no, verías el dinero sin poder
     // registrarlo, que no le sirve a nadie.
     if (cual === 'finanzas' && nuevos.finanzas) nuevos.cobros = true
+    // ADMINISTRACIÓN ES AGENDA Y COBROS (y ver las fichas): se encienden y apagan juntos.
+    if (cual === 'oficina') { nuevos.agenda = nuevos.oficina; nuevos.cobros = nuevos.oficina || nuevos.finanzas === true }
     const { error } = await supabase.from('perfiles').update({ permisos: nuevos }).eq('id', id)
     if (error) alert('No se ha podido cambiar el permiso: ' + error.message)
     await cargar()
@@ -391,13 +394,14 @@ export default function UsuariosTab({ perfilActual }: any) {
               // DIRECCIÓN SIN FINANZAS: en dirección, el interruptor de Finanzas sí se puede
               // apagar (guarda permisos.sin_finanzas). Lo demás de dirección lo sigue teniendo.
               // Encargada: Finanzas apagado y fijo (lo dice su puesto); dirección, todo encendido.
-              const activo = esEncargada(u) && clave==='finanzas' ? false : (u.rol==='admin' || n3 || u.permisos?.[clave]===true || (clave==='cobros' && u.permisos?.finanzas===true))
-              const fijo = u.rol==='admin' || n3 || (clave==='cobros' && u.permisos?.finanzas===true)
+              const activo = esEncargada(u) && clave==='finanzas' ? false : (u.rol==='admin' || n3 || u.permisos?.[clave]===true || (u.permisos?.oficina===true && (clave==='agenda' || clave==='cobros')) || (clave==='cobros' && u.permisos?.finanzas===true))
+              const porOficina = u.permisos?.oficina===true && (clave==='agenda' || clave==='cobros')
+              const fijo = u.rol==='admin' || n3 || porOficina || (clave==='cobros' && u.permisos?.finanzas===true)
               return (
                 <div key={clave} style={{display:'flex',alignItems:'center',gap:6}}>
                   <span style={{fontSize:10,color:'var(--grl)',display:'inline-flex',alignItems:'center',gap:4}}><Ic name={icono} size={11}/> {etiqueta}</span>
                   <button onClick={()=>togglePermiso(u.id, u.permisos, clave)} disabled={guardando===u.id||fijo}
-                    title={fijo ? (esEncargada(u) && clave==='finanzas' ? 'Encargada: todo menos Finanzas' : u.rol==='admin' ? (esEncargada(u) ? 'Encargada lo tiene siempre' : 'Dirección lo tiene siempre') : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : clave==='agenda' ? 'Crear y mover citas, marcar faltas y cancelar (quien lleva el teléfono)' : undefined}
+                    title={fijo ? (porOficina ? 'Va con Administración' : esEncargada(u) && clave==='finanzas' ? 'Encargada: todo menos Finanzas' : u.rol==='admin' ? (esEncargada(u) ? 'Encargada lo tiene siempre' : 'Dirección lo tiene siempre') : n3 ? 'El nivel 3 cobra siempre' : 'Con Finanzas, cobrar va incluido') : clave==='agenda' ? 'Crear y mover citas, marcar faltas y cancelar (quien lleva el teléfono)' : undefined}
                     style={{width:38,height:21,borderRadius:99,background:activo?'var(--g)':'var(--bm)',border:'none',cursor:fijo?'not-allowed':'pointer',transition:'background .2s',position:'relative',opacity:fijo?0.5:1}}>
                     <div style={{width:15,height:15,borderRadius:'50%',background:'#fff',position:'absolute',top:3,transition:'left .2s',left:activo?'20px':'3px',boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
                   </button>
