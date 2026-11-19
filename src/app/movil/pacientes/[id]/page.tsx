@@ -11,6 +11,7 @@ import { cuotaVigenteDe, cargarBonosTipos } from '@/lib/bonos'
 import { iniciales, nombreDe, hhmm } from '@/lib/movil'
 import HojaCita from '../../components/HojaCita'
 import { usePuede } from '@/lib/permisos'
+import { coloresDelPaciente, PALETA_SESIONES } from '@/lib/coloresSesion'
 import Cuerpo3D, { Foco3D } from '@/app/pacientes/[id]/components/Cuerpo3D'
 import { puntos3DDeZona } from '@/lib/anatomia3d'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
@@ -80,9 +81,10 @@ export default function MovilFicha() {
     if (vista !== 'plan' || plan) return
     supabase.from('citas').select('id,fecha,hora,sesion_id,sesiones:sesion_id(nombre,partes)')
       .eq('paciente_id', id).gte('fecha', hoyISO()).neq('estado', 'cancelada').order('fecha').order('hora').limit(40)
-      .then(({ data }) => {
-        const PALETA = ['#5A969E', '#C9A84C', '#B0708C', '#6E8FC7', '#7C9A6B', '#C77F5A', '#8A7CC7', '#4F9C8A']
-        const col: Record<string, string> = {}
+      .then(async ({ data }) => {
+        const PALETA = PALETA_SESIONES
+        // El color de cada sesión, el mismo que en la ficha y el torno (lib/coloresSesion).
+        const col: Record<string, string> = await coloresDelPaciente(id)
         ;(data || []).forEach((c: any) => { if (c.sesion_id && !col[c.sesion_id]) col[c.sesion_id] = PALETA[Object.keys(col).length % PALETA.length] })
         setPlan((data || []).filter((c: any) => c.sesiones).map((c: any) => ({
           id: c.id, fecha: c.fecha, hora: c.hora, nueva: false, evs: [],

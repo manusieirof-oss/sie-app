@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { hoyISO } from '@/lib/fechas'
 import { Ic } from '@/lib/icons'
+import { useColoresSesion } from '@/lib/coloresSesion'
 
 // ---------------------------------------------------------------------------
 // SU PLANIFICACIÓN COMO EN EL TORNO (ficha › Entrenamiento), pero para MIRAR: los
@@ -43,12 +44,14 @@ export default function CalendarioCitasPaciente({ pacienteId, puedeEditar }: { p
 
   const hoy = hoyISO()
   const ses = (c: any) => Array.isArray(c.sesiones) ? c.sesiones[0] : c.sesiones
-  // Un color por sesión, en el orden en que salen (como el torno).
+  // El color de cada sesión, el MISMO que en el torno (lib/coloresSesion). Antes se
+  // repartían en el orden en que salían aquí y no coincidían.
+  const coloresPac = useColoresSesion(pacienteId)
   const colorSes = useMemo(() => {
-    const m: Record<string, string> = {}
+    const m: Record<string, string> = { ...coloresPac }
     ;(citas || []).forEach(c => { if (c.sesion_id && !m[c.sesion_id]) m[c.sesion_id] = PALETA[Object.keys(m).length % PALETA.length] })
     return m
-  }, [citas])
+  }, [citas, coloresPac])
   const porDia = useMemo(() => {
     const m: Record<string, any[]> = {}
     ;(citas || []).forEach(c => { (m[c.fecha] = m[c.fecha] || []).push(c) })
