@@ -10,6 +10,7 @@ import { recuperacionAlCambiarEstado } from '@/lib/recuperaciones'
 import { cargarTurnos, nombresDe } from '@/lib/turnos'
 import { configMovil, ConfigMovil, iniciales, nombreDe, textoFecha } from '@/lib/movil'
 import HojaCita from '../components/HojaCita'
+import { usePuede } from '@/lib/permisos'
 
 /**
  * PASAR LISTA desde el móvil.
@@ -28,6 +29,15 @@ export default function MovilClase() {
   const [quien, setQuien] = useState('')
   const [cargando, setCargando] = useState(true)
   const [hoja, setHoja] = useState(false)
+  /* LO QUE NO LE TOCA NO SE ENSEÑA. En el móvil se saltaban los niveles: el 1 marcaba
+     faltas, daba citas, veía bonos y entraba a la ficha (y le echaba a Hoy). Ahora va con
+     los mismos permisos que la versión completa (lib/permisos). */
+  const puede = usePuede()
+  const puedeFicha = puede('pacientes')
+  const Enlace = ({ href, className, children }: any) => puedeFicha ? <Link href={href} className={className}>{children}</Link> : <span className={className}>{children}</span>
+  const marcaFaltas = puede('citas_taller') || puede('cancelar_cita')
+  const daCitas = puede('editar_agenda')
+  const veBonos = puede('cobros')
   const [error, setError] = useState('')
 
   // Los parámetros se leen de la URL a mano para no arrastrar el Suspense de useSearchParams.
@@ -103,25 +113,25 @@ export default function MovilClase() {
             const aviso = i.alerta || i.molestia
             return (
               <div key={c.id} className="m-pac">
-                <Link href={`/movil/pacientes/${c.paciente_id}`} className={`m-av ${aviso ? 'rojo' : ''}`}><CaraPaciente p={c.pacientes}/></Link>
-                <Link href={`/movil/pacientes/${c.paciente_id}`} className="m-pac-m">
+                <Enlace href={`/movil/pacientes/${c.paciente_id}`} className={`m-av ${aviso ? 'rojo' : ''}`}><CaraPaciente p={c.pacientes}/></Enlace>
+                <Enlace href={`/movil/pacientes/${c.paciente_id}`} className="m-pac-m">
                   <b>{nombreDe(c.pacientes)}</b>
                   {aviso ? <span className="rojo">⚠ {aviso}</span>
-                    : i.bono === 'última' ? <span className="ambar">Última sesión del bono</span>
-                    : i.bono ? <span>{i.bono}</span> : null}
-                </Link>
-                <div className="m-marca">
+                    : veBonos && i.bono === 'última' ? <span className="ambar">Última sesión del bono</span>
+                    : veBonos && i.bono ? <span>{i.bono}</span> : null}
+                </Enlace>
+                {marcaFaltas && <div className="m-marca">
                   <button className={c.estado === 'realizada' ? 'si' : ''} onClick={() => marcar(c, 'realizada')} aria-label="Vino"><Ic name="check" size={18}/></button>
                   <button className={c.estado === 'falta' ? 'no' : ''} onClick={() => marcar(c, 'falta')} aria-label="Faltó"><Ic name="cerrar" size={18}/></button>
-                </div>
+                </div>}
               </div>
             )
           })}
           {activas.length === 0 && <div className="m-vacio">Nadie en esta clase.</div>}
           {bajas.length > 0 && <div className="m-bajas">{bajas.length === 1 ? 'Baja' : 'Bajas'}: {bajas.map(c => nombreDe(c.pacientes)).join(', ')}</div>}
-          <button className="m-boton punteado" onClick={() => setHoja(true)}>
+          {daCitas && <button className="m-boton punteado" onClick={() => setHoja(true)}>
             <Ic name="mas" size={16}/> Añadir a esta clase{activas.length < max ? ` · ${max - activas.length} libres` : ''}
-          </button>
+          </button>}
         </>
       )}
       {hoja && <HojaCita fecha={p.f} hora={p.h} sala={p.s} onCerrar={() => setHoja(false)} onCreada={cargar}/>}

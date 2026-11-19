@@ -10,6 +10,7 @@ import { bonosDe, BonoSesiones } from '@/lib/bonoSesiones'
 import { cuotaVigenteDe, cargarBonosTipos } from '@/lib/bonos'
 import { iniciales, nombreDe, hhmm } from '@/lib/movil'
 import HojaCita from '../../components/HojaCita'
+import { usePuede } from '@/lib/permisos'
 import Cuerpo3D, { Foco3D } from '@/app/pacientes/[id]/components/Cuerpo3D'
 import { puntos3DDeZona } from '@/lib/anatomia3d'
 import PiezaCitas, { type FilaPieza } from '@/components/PiezaCitas'
@@ -26,6 +27,9 @@ export default function MovilFicha() {
   const { id } = useParams() as { id: string }
   const [pac, setPac] = useState<any>(null)
   const [bonos, setBonos] = useState<BonoSesiones[]>([])
+  // Bono y pagos, solo quien cobra; dar cita, quien lleva la agenda (lib/permisos).
+  const puede = usePuede()
+  const veBonos = puede('cobros'), daCitas = puede('editar_agenda')
   const [cuota, setCuota] = useState<any>(null)
   const [cuidado, setCuidado] = useState<{ color: string, texto: string }[]>([])
   const [proximas, setProximas] = useState<any[]>([])
@@ -116,7 +120,7 @@ export default function MovilFicha() {
       <div className="m-acciones">
         <a href={tel ? `tel:${tel}` : undefined} className={tel ? '' : 'off'}><Ic name="telefono" size={19}/>Llamar</a>
         <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer" className={wa ? '' : 'off'}><Ic name="mensaje" size={19}/>WhatsApp</a>
-        <button onClick={() => setHoja(true)}><Ic name="calendario" size={19}/>Cita</button>
+        {daCitas && <button onClick={() => setHoja(true)}><Ic name="calendario" size={19}/>Cita</button>}
         <button className={vista !== 'resumen' ? 'on' : ''} onClick={() => setVista(v => v === 'resumen' ? 'cuerpo' : 'resumen')}><Ic name="ficha" size={19}/>Ficha</button>
       </div>
 
@@ -153,7 +157,7 @@ export default function MovilFicha() {
           </div>
         )))}
 
-      {vista === 'resumen' && (b || cuota) && (
+      {vista === 'resumen' && veBonos && (b || cuota) && (
         <div className="m-tarj">
           <h4>Bono</h4>
           {b ? (

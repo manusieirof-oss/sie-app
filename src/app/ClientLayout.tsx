@@ -370,7 +370,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <nav className="m-tabs">
           {tab('/movil', 'agenda', 'Hoy')}
           {nivel >= minimos.pacientes && tab('/movil/pacientes', 'pacientes', 'Pacientes')}
-          <button className="m-tab-mas" onClick={() => setCitaMovil(true)} aria-label="Nueva cita"><Ic name="mas" size={22}/></button>
+          {/* Dar citas, solo quien lleva la agenda (nivel o interruptor «Agenda» de la persona). */}
+          {(nivel >= minimos.editar_agenda || perfil?.permisos?.agenda === true) && <button className="m-tab-mas" onClick={() => setCitaMovil(true)} aria-label="Nueva cita"><Ic name="mas" size={22}/></button>}
           {tab('/movil/avisos', 'campana', 'Avisos')}
           {tab('/movil/yo', 'usuario', 'Yo')}
         </nav>

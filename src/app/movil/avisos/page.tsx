@@ -7,6 +7,8 @@ import { Ic } from '@/lib/icons'
 import { hoyISO } from '@/lib/fechas'
 import { porAgotar } from '@/lib/bonoSesiones'
 import { iniciales, nombreDe, hhmm } from '@/lib/movil'
+import { usePuede } from '@/lib/permisos'
+import { enModoPractica } from '@/lib/practica'
 
 /**
  * AVISOS · lo que hay que tener en la cabeza hoy, en un solo sitio:
@@ -16,6 +18,13 @@ export default function MovilAvisos() {
   const [alertas, setAlertas] = useState<any[]>([])
   const [tareas, setTareas] = useState<any[]>([])
   const [bonos, setBonos] = useState<any[]>([])
+  /* LO QUE NO LE TOCA NO SE ENSEÑA. En el móvil se saltaban los niveles: el 1 marcaba
+     faltas, daba citas, veía bonos y entraba a la ficha (y le echaba a Hoy). Ahora va con
+     los mismos permisos que la versión completa (lib/permisos). */
+  const puede = usePuede()
+  const puedeFicha = puede('pacientes')
+  const Enlace = ({ href, className, children }: any) => puedeFicha ? <Link href={href} className={className}>{children}</Link> : <span className={className}>{children}</span>
+  const veBonos = puede('cobros')
   const [cargando, setCargando] = useState(true)
 
   async function cargar() {
@@ -26,12 +35,13 @@ export default function MovilAvisos() {
     const ids = Object.keys(horaDe)
     const [al, ta, bo] = await Promise.all([
       ids.length ? supabase.from('alertas_paciente').select('id,paciente_id,descripcion,afecta_sesion,pacientes(nombre,apellidos)').eq('activa', true).in('paciente_id', ids) : Promise.resolve({ data: [] }),
-      supabase.from('tareas').select('*').eq('completada', false).order('fecha_limite', { ascending: true, nullsFirst: false }),
-      porAgotar(),
+      // En práctica no se ven ni se marcan las tareas de verdad (igual que en Hoy).
+      enModoPractica() ? Promise.resolve({ data: [] }) : supabase.from('tareas').select('*').eq('completada', false).order('fecha_limite', { ascending: true, nullsFirst: false }),
+      veBonos ? porAgotar() : Promise.resolve({ filas: [] }),
     ])
     setAlertas(((al as any).data || []).map((a: any) => ({ ...a, hora: horaDe[a.paciente_id] })).sort((a: any, b: any) => a.hora.localeCompare(b.hora)))
-    setTareas(ta.data || [])
-    setBonos(bo.filas || [])
+    setTareas((ta as any).data || [])
+    setBonos((bo as any).filas || [])
     setCargando(false)
   }
   useEffect(() => { cargar() }, [])
@@ -51,10 +61,10 @@ export default function MovilAvisos() {
           <div className="m-sec">Alertas de hoy · {alertas.length}</div>
           {alertas.length === 0 && <div className="m-nada tarj">Ningún paciente de hoy tiene alertas.</div>}
           {alertas.map(a => (
-            <Link key={a.id} href={`/movil/pacientes/${a.paciente_id}`} className="m-aviso">
+            <Enlace key={a.id} href={`/movil/pacientes/${a.paciente_id}`} className="m-aviso">
               <span className="m-aviso-ic rojo"><Ic name="alerta" size={16}/></span>
               <span style={{ minWidth: 0 }}><b>{a.hora} · {nombreDe(a.pacientes)}</b><small>{a.descripcion}{a.afecta_sesion ? ' · afecta a la sesión' : ''}</small></span>
-            </Link>
+            </Enlace>
           ))}
 
           <div className="m-sec">Tareas · {tareas.length}</div>
@@ -70,6 +80,7 @@ export default function MovilAvisos() {
             )
           })}
 
+          {veBonos && <>
           <div className="m-sec">Bonos que se acaban · {bonos.length}</div>
           {bonos.length === 0 && <div className="m-nada tarj">Ninguno.</div>}
           {bonos.map(b => (
@@ -78,6 +89,7 @@ export default function MovilAvisos() {
               <span style={{ minWidth: 0 }}><b>{nombreDe(b)}</b><small>{b.caducado ? 'Caducado' : b.restantes <= 0 ? 'Sin sesiones' : `Le quedan ${b.restantes}`}{b.bono_nombre ? ' · ' + b.bono_nombre : ''}</small></span>
             </Link>
           ))}
+          </>}
         </>
       )}
     </div>
