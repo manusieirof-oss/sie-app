@@ -1965,7 +1965,9 @@ export default function ModoClase({ solo }: { solo?: SoloTaller } = {}) {
       {/* Bandas de pulso: siempre montado (las conexiones viven ahí), visible con el ❤. */}
       <PulsoClase seleccion={seleccion} fecha={fecha} abierto={pulsoAbierto} editarFc={puede('pacientes')}/>
 
-      {!solo && viejos.length > 0 && (() => {
+      {/* En práctica no: las clases de prueba de otros días se quedan sin guardar a propósito
+          y el aviso solo liaba (salían 16 seguidas). */}
+      {!solo && !enModoPractica() && viejos.length > 0 && (() => {
         const quien = viejos.map((r:any) => {
           const p = Array.isArray(r.pacientes) ? r.pacientes[0] : r.pacientes
           const n = (p?.nombre_clinica || `${p?.nombre||''} ${p?.apellidos||''}`).trim() || 'Paciente'
