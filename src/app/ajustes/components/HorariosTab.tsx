@@ -25,6 +25,7 @@ export default function HorariosTab() {
   const [salas, setSalas] = useState<string[]>(['A', 'B'])
   const [edit, setEdit] = useState<any>(null)
   const [guardando, setGuardando] = useState(false)
+  const [verTodos, setVerTodos] = useState(false)
 
   useEffect(() => { cargar() }, [])
 
@@ -58,6 +59,13 @@ export default function HorariosTab() {
     // Seguir deja puesto quién y qué días: lo que cambia entre tramos son las horas.
     if (seguir) setEdit((p: any) => ({ ...p, id: undefined, hora_inicio: p.hora_fin, hora_fin: '' }))
     else setEdit(null)
+  }
+
+  /** Los cambios de días que ya han pasado no sirven para nada: fuera, de una vez. */
+  async function limpiarPasados(lista: Turno[]) {
+    if (!confirm(`¿Borrar ${lista.length} cambios de días que ya han pasado? No toca el horario fijo.`)) return
+    for (const t of lista) await borrarTurno(t.id)
+    cargar()
   }
 
   async function quitar(t: Turno) {
@@ -118,26 +126,45 @@ export default function HorariosTab() {
       {fijos.length === 0 && <div className="muted">Sin horarios. Nadie sale en las clases.</div>}
       </details>
 
-      {puntuales.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div className="et-mini">Cambios de un día</div>
-          {puntuales.map(t => (
-            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0',
-              borderBottom: '1px solid var(--bl)', fontSize: 12.5 }}>
-              <span style={{ width: 96, color: 'var(--gd)' }}>
-                {new Date(t.fecha + 'T12:00:00').toLocaleDateString('es-ES',
-                  { day: 'numeric', month: 'short' })}
-              </span>
-              <span style={{ flex: 1, minWidth: 0 }}>{nombre(t)}</span>
-              <span style={{ color: 'var(--gr)' }}>{hh(t.hora_inicio)}–{hh(t.hora_fin)}</span>
-              <span style={{ width: 74, fontSize: 11, color: 'var(--grl)' }}>
-                {t.sala ? 'sala ' + t.sala : 'todas'}
-              </span>
-              <button className="btn btn-s btn-sm" onClick={() => quitar(t)}>✕</button>
+      {/* CAMBIOS DE UN DÍA: solo los que vienen, agrupados por día y en una línea cada
+          uno. Antes salían todos, también los de hace meses, y la lista no acababa. */}
+      {(() => {
+        const hoy = hoyISO()
+        const vienen = puntuales.filter(t => String(t.fecha) >= hoy)
+        const pasados = puntuales.filter(t => String(t.fecha) < hoy)
+        const porDia: Record<string, Turno[]> = {}
+        vienen.forEach(t => { (porDia[String(t.fecha)] ||= []).push(t) })
+        const fechas = Object.keys(porDia).sort()
+        const ver = verTodos ? fechas : fechas.slice(0, 6)
+        return (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div className="et-mini" style={{ margin: 0 }}>Cambios de un día</div>
+              <span style={{ flex: 1 }}/>
+              {pasados.length > 0 && <button className="btn btn-s btn-sm" onClick={() => limpiarPasados(pasados)}
+                title="Ya no sirven: son de días que han pasado">Borrar {pasados.length} pasados</button>}
             </div>
-          ))}
-        </div>
-      )}
+            {fechas.length === 0 && <div className="muted" style={{ fontSize: 12.5 }}>Ninguno próximo.</div>}
+            {ver.map(f => (
+              <div key={f} style={{ display: 'flex', gap: 10, alignItems: 'baseline', padding: '6px 0', borderBottom: '1px solid var(--bl)', fontSize: 12.5 }}>
+                <span style={{ width: 92, color: 'var(--gd)', flexShrink: 0 }}>
+                  {new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </span>
+                <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                  {porDia[f].map(t => (
+                    <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bl)', borderRadius: 99, padding: '2px 4px 2px 9px' }}>
+                      {t.perfil_id ? nombre(t) : 'Nadie'} · {hh(t.hora_inicio)}–{hh(t.hora_fin)} · {t.sala === SALA_OFICINA ? 'oficina' : t.sala ? 'sala ' + t.sala : 'todas'}
+                      <button onClick={() => quitar(t)} title="Quitar este cambio" style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--grl)', fontSize: 12 }}>✕</button>
+                    </span>
+                  ))}
+                </span>
+              </div>
+            ))}
+            {fechas.length > 6 && <button className="btn btn-t btn-sm" style={{ marginTop: 6 }} onClick={() => setVerTodos(v => !v)}>
+              {verTodos ? 'Ver menos' : `Ver los ${fechas.length} días`}</button>}
+          </div>
+        )
+      })()}
 
       {edit && (
         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setEdit(null) }}>
