@@ -113,6 +113,14 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [rep, setRep] = useState<EstadoReparto>(repartoVacio())
   /** Las sesiones elegidas para repartir, en el orden en que se tocan sus fichas. */
   const [rot, setRot] = useState<string[]>([])
+  /* EL PLAN QUE SE QUEDA (sql/plan-reparto.sql). Lo último que se pintó con «Pintar» se
+     guarda al Programar como la regla del paciente: las citas que se creen después cogen
+     su sesión solas, sin tener que volver aquí cada semana. */
+  const [ultimoReparto, setUltimoReparto] = useState<any>(null)
+  const [planGuardado, setPlanGuardado] = useState<any>(null)
+  useEffect(() => {
+    supabase.from('reparto_paciente').select('*').eq('paciente_id', pid).maybeSingle().then(({ data }) => setPlanGuardado(data || null))
+  }, [pid])
 
   useEffect(() => { cargar() }, [sp.toString(), pid]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -349,6 +357,10 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     diasConCitas.forEach((d, i) => { if (rot.length) porDia[d] = rot[i % rot.length] })
     if (!rep.modo) return
     guardarPaso()
+    const libres = citas.filter(c => !(c.id in aMano))
+    setUltimoReparto({ modo: rep.modo, orden: rot, por_dia: porDia, semanas: Math.max(1, rep.semanas || 4),
+      hasta_tipo: rep.hasta?.tipo || 'todas', hasta_fecha: rep.hasta?.fecha || null, hasta_semanas: rep.hasta?.semanas || null,
+      inicio: libres[0]?.fecha || new Date().toISOString().slice(0, 10) })
     setPintado(planReparto({ citas, original, aMano, fijas, sesiones, modo: rep.modo, cada: rep.cada,
       porDia, orden: rot, bloques: rot.map(ses => ({ ses, semanas: rep.semanas })), hasta: rep.hasta, pisar: rep.pisar }))
   }
@@ -387,6 +399,13 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
         ? await moverEvaluacion(e.existente, { fecha: cita?.fecha || null, citaId: cita?.id || null })
         : cita ? await abrirEvaluacion({ pacienteId: pid, asignacionId: e.asig, faseId: e.fase, fecha: cita.fecha, citaId: cita.id, momento: e.momento }) : { ok: true as const }
       if (r.ok === false) { falla('Una evaluación: ' + r.error); return }
+    }
+    // La regla del reparto se queda en el paciente (si la tabla aún no existe, no pasa nada).
+    if (ultimoReparto) {
+      const fila = { paciente_id: pid, ...ultimoReparto, actualizado: new Date().toISOString() }
+      const { error } = await supabase.from('reparto_paciente').upsert(fila, { onConflict: 'paciente_id' })
+      if (!error) setPlanGuardado(fila)
+      setUltimoReparto(null)
     }
     if (cambios.length > 0) await registrarSesion(pid, `Sesiones puestas en ${cambios.length} cita${cambios.length === 1 ? '' : 's'}`, 'Desde el torno')
     // Cambio en la sala: el motivo viene del taller. Solo si de verdad ha cambiado.
@@ -575,6 +594,25 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             {/* REPARTIR, arriba del todo y en vertical: es lo primero que se mira. */}
           <RepartirPanel r={rep} setR={setRep} nombres={rot.map(id => sesDe(id)?.nombre || '—')} diasConCitas={diasConCitas} hoy={hoy}
             onPintar={repartir} nCambian={cambios.length}/>
+          {/* SU PLAN: la regla que cogen solas las citas nuevas. */}
+          {(planGuardado || ultimoReparto) && (() => {
+            const pl = ultimoReparto || planGuardado
+            const nom = (id: string) => sesDe(id)?.nombre || '—'
+            const txt = pl.modo === 'alternar' ? `Alternando ${(pl.orden || []).map(nom).join(' → ')}`
+              : pl.modo === 'bloques' ? `Por bloques de ${pl.semanas} semanas: ${(pl.orden || []).map(nom).join(' → ')}`
+              : `Por día: ${Object.entries(pl.por_dia || {}).map(([d, id]) => `${['L', 'M', 'X', 'J', 'V', 'S', 'D'][Number(d)]} ${nom(String(id))}`).join(' · ')}`
+            return (
+              <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 10, background: 'var(--gl)', fontSize: 12, color: 'var(--gd)', lineHeight: 1.45 }}>
+                <b>{ultimoReparto ? 'Se guardará como su plan' : 'Su plan'}</b>: {txt}
+                {pl.hasta_tipo === 'fecha' && pl.hasta_fecha ? ` · hasta el ${pl.hasta_fecha.split('-').reverse().join('/')}` : pl.hasta_tipo === 'semanas' && pl.hasta_semanas ? ` · ${pl.hasta_semanas} semanas` : ''}.
+                <div style={{ color: 'var(--gr)', marginTop: 3 }}>Las citas nuevas cogen su sesión solas. Si falta, la siguiente repite la que no hizo.</div>
+                {planGuardado && !ultimoReparto && <button className="btn btn-t btn-sm" style={{ marginTop: 6 }} onClick={async () => {
+                  if (!confirm('¿Quitar su plan? Las citas que ya tienen sesión se quedan como están; las nuevas vendrán sin sesión.')) return
+                  await supabase.from('reparto_paciente').delete().eq('paciente_id', pid); setPlanGuardado(null)
+                }}>Quitar su plan</button>}
+              </div>
+            )
+          })()}
             <div className="tc-lado-rot">Sesiones</div>
             {[...ciclos.map(c => ({ ciclo: c as Ciclo | null, ses: sesiones.filter(s => s.ciclo === c.id) })),
               ...(sesiones.some(s => !s.ciclo) ? [{ ciclo: null as Ciclo | null, ses: sesiones.filter(s => !s.ciclo) }] : [])].map((g, gi) => (
