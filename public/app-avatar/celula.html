@@ -65,7 +65,11 @@ h1{font-size:22px;font-weight:700;margin-bottom:4px}.sub{color:#6B6D6A;font-size
 
 /* EN LA APP (?modo=app): solo el escenario, a toda la ventana, sin los mandos de prueba. */
 body.app{padding:0;background:transparent;overflow:hidden}
-body.app .w>h1,body.app .sub,body.app .asis,body.app .ops,body.app .panel,body.app .ayuda{display:none}
+body.app .w>h1,body.app .sub,body.app .asis,body.app .ops,body.app .ayuda{display:none}
+body.app:not(.conpanel) .panel{display:none}
+body.app.conpanel{overflow:auto}
+body.app.conpanel #esc{height:62vh;border-radius:24px}
+body.app.conpanel .panel{margin:12px 0 30px}
 body.app .w{max-width:none}
 body.mini #estado,body.mini .bocadillo,body.mini .eleccion,body.mini .aviso{display:none!important}
 body.app #esc{height:100vh;border-radius:0;background:radial-gradient(circle at 50% 42%,#fff 0%,#EEF5F3 70%)}
@@ -108,7 +112,9 @@ body.app #esc{height:100vh;border-radius:0;background:radial-gradient(circle at 
 // En la app de clientes: la asistencia real (?pct=) y, si tiene clase pronto, el ángel y el
 // demonio (?cita=HH:MM). Lo que elija se avisa a la app (postMessage 'sie-dilema').
 const Q = new URLSearchParams(location.search)
-if (Q.get('modo') === 'app') document.body.classList.add('app')
+const APP = Q.get('modo') === 'app'
+if (APP) document.body.classList.add('app')
+if (Q.get('panel')) document.body.classList.add('conpanel')   // en grande: vestuario, medallas y objetivos
 if (Q.get('mini')) document.body.classList.add('mini')   // la pequeña del inicio: sin letreros
 
 import * as THREE from 'three'
@@ -665,7 +671,8 @@ const avisa = (txt, seg = 3) => { avisoEl.textContent = txt; avisoEl.classList.a
 // Los de su programación en la app. Al cumplirse, sale una bola de luz que se absorbe
 // y se queda dentro flotando como un orgánulo dorado: se ven todos los que lleva.
 // En la app: fecha de inicio del objetivo, sesiones y los ejercicios enganchados a él.
-const OBJETIVOS = [
+// En la app llegan los suyos de verdad (mensaje 'sie-datos'); estos son de muestra.
+let OBJETIVOS = APP ? [] : [
   { nombre: 'Correr 5 km sin parar', pct: 100, hecho: true, inicio: '2026-03-02', fecha: '2026-07-14', sesiones: 38, ejercicios: [['Carrera continua en cinta', 31], ['Zancadas', 24], ['Elevación de gemelos', 22]] },
   { nombre: 'Movilidad de tobillo', pct: 85, inicio: '2026-06-10', sesiones: 21, ejercicios: [['Dorsiflexión en pared', 19], ['Sentadilla con talón elevado', 14], ['Movilidad con banda', 12]] },
   { nombre: 'Sentadilla sin dolor', pct: 70, inicio: '2026-05-20', sesiones: 26, ejercicios: [['Sentadilla a cajón', 22], ['Puente de glúteo', 20], ['Isométrico de cuádriceps', 15]] },
@@ -761,7 +768,7 @@ function pasoCeremonia(t, dt, k) {
   } else if (orbe.visible) {
     // Dentro: queda como un orgánulo dorado con la fecha de hoy.
     orbe.visible = false
-    const o = punt.obj; o.hecho = true; o.fecha = new Date().toISOString().slice(0, 10)
+    const o = punt.obj; o.hecho = true; o.fecha = o.fecha || new Date().toISOString().slice(0, 10)
     nuevoLogro(o); brillo = 1; lanzaConfeti(raiz.localToWorld(new THREE.Vector3(0, 1.4, 0))); pintaPanel()
     const n = OBJETIVOS.filter(x => x.hecho).length
     if (n >= 1) ganaMedalla('objetivo'); if (n >= 3) ganaMedalla('tres')
@@ -845,8 +852,8 @@ function muestraFicha(o) {
 }
 document.getElementById('fichaX').onclick = () => { fichaEl.classList.remove('on'); fichaAbierta = false }
 // Lo que ya traía conseguido al abrir (en la app, de su historial).
-OBJETIVOS.filter(o => o.hecho).forEach(o => nuevoLogro(o))
-{
+if (!APP) {
+  OBJETIVOS.filter(o => o.hecho).forEach(o => nuevoLogro(o))
   const m = MEDALLAS.find(x => x.id === 'objetivo'), [hx, hy] = HUECOS_MED[0]
   const pin = hazMedalla(m); pegar(pin, hx, hy, .08, cuerpo); conseguidas.push('objetivo')
 }
@@ -942,6 +949,7 @@ function pintaPanel() {
       if (bloq) { avisa('🔒 Se desbloquea con la medalla «' + MEDALLAS.find(m => m.id === r.medalla).nombre + '»'); return }
       const quitar = equipo[r.hueco] === k
       equipo[r.hueco] = quitar ? null : k
+      try { parent.postMessage({ tipo: 'sie-ropa', equipo: { ...equipo } }, location.origin) } catch {}
       if (!quitar) { modo = 'flota'; pintaOps(); encola('presume') }
       pintaPanel()
     }
@@ -952,18 +960,45 @@ function pintaPanel() {
     const b = document.createElement('button'), ok = conseguidas.includes(m.id)
     b.className = 'med' + (ok ? ' ok' : '')
     b.innerHTML = `<i style="${ok ? `background:${m.color}33;box-shadow:inset 0 0 0 3px ${m.color}` : ''}">${m.emoji}</i>${m.nombre}<small>${m.reto}</small>`
-    b.onclick = () => { if (ok) return; if (m.id === 'objetivo' || m.id === 'tres') { avisa('🎯 Ésta se gana cumpliendo objetivos'); return } modo = 'flota'; pintaOps(); ganaMedalla(m.id) }
+    b.onclick = () => { if (ok) return; if (APP) { avisa('🏅 ' + m.reto); return } if (m.id === 'objetivo' || m.id === 'tres') { avisa('🎯 Ésta se gana cumpliendo objetivos'); return } modo = 'flota'; pintaOps(); ganaMedalla(m.id) }
     medEl.appendChild(b)
   })
   objEl.innerHTML = ''
   OBJETIVOS.forEach(o => {
     const d = document.createElement('div'); d.className = 'obj'
-    d.innerHTML = `<span>${o.hecho ? '✅' : '🎯'} ${o.nombre}</span><button ${o.hecho || o.yendo ? 'disabled' : ''}>${o.hecho ? 'Absorbido' : 'Cumplir'}</button><div class="barra"><i style="width:${o.hecho ? 100 : o.pct}%"></i></div>`
-    d.querySelector('button').onclick = () => { if (o.hecho || o.yendo) return; o.yendo = true; modo = 'flota'; pintaOps(); encola('absorbe', { obj: o }); pintaPanel() }
+    d.innerHTML = APP
+      ? `<span>${o.hecho ? '✅' : '🎯'} ${o.nombre}</span><small style="color:#6B6D6A">${o.hecho ? 'Conseguido' : 'En camino'}</small>`
+      : `<span>${o.hecho ? '✅' : '🎯'} ${o.nombre}</span><button ${o.hecho || o.yendo ? 'disabled' : ''}>${o.hecho ? 'Absorbido' : 'Cumplir'}</button><div class="barra"><i style="width:${o.hecho ? 100 : o.pct}%"></i></div>`
+    const bt = d.querySelector('button'); if (bt) bt.onclick = () => { if (o.hecho || o.yendo) return; o.yendo = true; modo = 'flota'; pintaOps(); encola('absorbe', { obj: o }); pintaPanel() }
     objEl.appendChild(d)
   })
 }
 pintaPanel()
+
+// EN LA APP: sus datos de verdad. Lo que ya había visto se pone sin más; lo nuevo, con su
+// ceremonia (medalla que baja del cielo, objetivo que se absorbe). La app decide qué es nuevo.
+if (APP) {
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin || !e.data || e.data.tipo !== 'sie-datos') return
+    const d = e.data
+    if (d.ropa) Object.keys(equipo).forEach(h => { equipo[h] = d.ropa[h] && ROPA[d.ropa[h]] ? d.ropa[h] : null })
+    ;(d.medallas || []).forEach(id => {
+      const m = MEDALLAS.find(x => x.id === id)
+      if (!m || conseguidas.includes(id)) return
+      if ((d.nuevasMed || []).includes(id)) { ganaMedalla(id); return }
+      const [hx, hy] = HUECOS_MED[conseguidas.length % HUECOS_MED.length]
+      pegar(hazMedalla(m), hx, hy, .08, cuerpo); conseguidas.push(id)
+    })
+    OBJETIVOS = (d.objetivos || []).map(o => ({ ...o, pct: o.hecho ? 100 : 0 }))
+    OBJETIVOS.forEach(o => {
+      if (!o.hecho) return
+      if ((d.nuevosObj || []).includes(o.nombre)) { o.hecho = false; o.yendo = true; encola('absorbe', { obj: o }) }
+      else nuevoLogro(o)
+    })
+    pintaPanel()
+  })
+  try { parent.postMessage({ tipo: 'sie-listo' }, location.origin) } catch {}
+}
 
 
 // ── EMOCIONES ─────────────────────────────────────────────────────────────────
