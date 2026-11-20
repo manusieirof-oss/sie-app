@@ -193,3 +193,16 @@
 .cromo.oscuro .foto img{filter:grayscale(1) brightness(.35) contrast(.9);opacity:.75}
 .cromo.oscuro .nom{color:rgba(255,255,255,.7)}
 .cromo.oscuro .pie{color:rgba(255,255,255,.55)}
+
+/* EL SELLO del centro: su logo, pequeño y translúcido sobre la foto, como el holograma
+   de un carné. En la rejilla apenas se intuye; en grande aparece al inclinar el cromo. */
+.cromo .foto{position:relative}
+.cromo .sello{position:absolute;right:5px;bottom:5px;width:24%;aspect-ratio:1;border-radius:99px;display:flex;align-items:center;justify-content:center;
+  opacity:var(--sello,.14);mix-blend-mode:multiply;transition:opacity .2s;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.0) 55%,rgba(31,74,80,.15) 56%,rgba(31,74,80,.15) 62%,transparent 63%)}
+.cromo .sello img{width:70%;height:70%;object-fit:contain;filter:grayscale(1) contrast(1.2)}
+.cromo .sello b{font-family:var(--f-titulo);font-size:10px;color:var(--tinta)}
+.cromo.grande{transform:perspective(700px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .12s ease-out;touch-action:none}
+.cromo.grande .sello{width:20%;--sello-min:.12}
+.cromo.grande .sello::after{content:'';position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(115deg,transparent 20%,rgba(140,230,220,.6) var(--luz,50%),rgba(255,200,240,.5) calc(var(--luz,50%) + 12%),transparent 80%);mix-blend-mode:screen}

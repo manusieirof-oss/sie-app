@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Carta from './Carta'
-import { Cromo, nivelDe } from './cromos'
+import { Cromo, Sello, nivelDe } from './cromos'
 
 // ABRIR EL SOBRE DE LA SEMANA. Tres momentos: el sobre cerrado (se toca y se rasga),
 // las cartas saliendo una a una con lo que ha pasado («¡Nuevo!», «¡Sube a Plata!»,
@@ -20,7 +20,7 @@ function queHaPasado(c: Carta_) {
   return { titulo: `+${mas} ${mas === 1 ? 'vez' : 'veces'}`, fuerte: false }
 }
 
-export default function SobreAnimado({ onFin }: { onFin: () => void }) {
+export default function SobreAnimado({ onFin, sello }: { onFin: () => void, sello?: Sello }) {
   const [fase, setFase] = useState<'cerrado' | 'rasgando' | 'cartas' | 'resumen'>('cerrado')
   const [cartas, setCartas] = useState<Carta_[]>([])
   const [vistos, setVistos] = useState(0)   // ejercicios nuevos que aún no ha hecho bien
@@ -66,7 +66,7 @@ export default function SobreAnimado({ onFin }: { onFin: () => void }) {
         return (
           <div className="capp-sobre-escena" key={i}>
             <p className={`capp-sobre-txt${q.fuerte ? ' fuerte' : ''}`}>{q.titulo}</p>
-            <div className="capp-sobre-carta" onClick={siguiente}><Carta c={c.cromo} grande onAbrir={siguiente}/></div>
+            <div className="capp-sobre-carta" onClick={siguiente}><Carta c={c.cromo} grande sello={sello} onAbrir={siguiente}/></div>
             <div className="capp-sobre-botones">
               <button type="button" className="capp-boton" onClick={siguiente}>{i + 1 < cartas.length ? `Siguiente (${i + 1} de ${cartas.length})` : 'Ver el resumen'}</button>
               {cartas.length > 3 && i + 1 < cartas.length && <button type="button" className="capp-sobre-saltar" onClick={() => setFase('resumen')}>Verlos todos</button>}
@@ -79,11 +79,11 @@ export default function SobreAnimado({ onFin }: { onFin: () => void }) {
         <div className="capp-sobre-resumen">
           <h2>{cartas.length ? '¡Enhorabuena!' : 'Sobre vacío'}</h2>
           <p>{cartas.length
-            ? [nuevos && `${nuevos} ${nuevos === 1 ? 'cromo nuevo' : 'cromos nuevos'}`, suben && `${suben} ${suben === 1 ? 'sube' : 'suben'} de color`, brillan && `${brillan} ${brillan === 1 ? 'brilla' : 'brillan'} por primera vez`]
+            ? [nuevos && `${nuevos} ${nuevos === 1 ? 'cromo nuevo' : 'cromos nuevos'}`, suben && `${suben} ${suben === 1 ? 'sube' : 'suben'} de color`, brillan && `${brillan} ${brillan === 1 ? 'brilla porque has mejorado' : 'brillan porque has mejorado'}`]
                 .filter(Boolean).join(', ') || 'Has sumado veces a tus cromos.'
             : 'Esta semana no te ha tocado ningún cromo. ¡A por la próxima!'}</p>
           {vistos > 0 && <p>{vistos === 1 ? 'Además, hay 1 ejercicio nuevo en tu álbum que aún sale oscuro' : `Además, hay ${vistos} ejercicios nuevos en tu álbum que aún salen oscuros`}: hazlos bien en clase para conseguirlos.</p>}
-          {cartas.length > 0 && <div className="capp-rejilla">{cartas.map((c, k) => <Carta key={k} c={c.cromo}/>)}</div>}
+          {cartas.length > 0 && <div className="capp-rejilla">{cartas.map((c, k) => <Carta key={k} c={c.cromo} sello={sello}/>)}</div>}
           <button type="button" className="capp-boton" onClick={onFin}>Pegarlos en mi álbum</button>
         </div>
       )}

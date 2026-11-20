@@ -2,14 +2,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Navegacion from '../Navegacion'
-import { Cromo, siguienteDe, tiempo, fecha } from './cromos'
+import { Cromo, Sello, siguienteDe, tiempo, fecha, mejoras } from './cromos'
 import Carta from './Carta'
 import SobreAnimado from './SobreAnimado'
 
 // EL ÁLBUM DE CROMOS. Una página por zona del cuerpo con los ejercicios que ha hecho en
 // clase. Oscuro si nunca lo ha hecho bien; cromo cuando sí, con el color según las veces
-// bien hecho (sin color, bronce, plata, oro, diamante); brilla si está verificado por el
-// centro. Llega con el sobre de los miércoles. Datos: app_album() (sql/app-7-…).
+// bien hecho (sin color, bronce, plata, oro, diamante); brilla si ha mejorado; lleva el
+// sello del centro. Llega con el sobre de los miércoles. Datos: app_album() (sql/app-7-…).
 
 type Filtro = 'todos' | 'favoritos' | 'brillan'
 
@@ -22,12 +22,13 @@ export default function Album() {
   const [sobre, setSobre] = useState(false)
   const [proximo, setProximo] = useState('')
   const [abriendo, setAbriendo] = useState(false)
+  const [sello, setSello] = useState<Sello | undefined>()
 
   async function cargar() {
     const { data: a } = await supabase.rpc('app_album')
     if (!a) { setFuera(true); return }   // sin la parte 'album' (aún en pruebas)
     setCromos(((a?.cromos || []) as Cromo[]).map((c, i) => ({ ...c, numero: i + 1 })))
-    setSobre(a?.sobre === true); setProximo(a?.proximo || '')
+    setSobre(a?.sobre === true); setProximo(a?.proximo || ''); setSello(a?.sello || undefined)
   }
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { if (!data.session) setFuera(true); else cargar() })
@@ -78,14 +79,14 @@ export default function Album() {
 
         {cromos.length === 0 && <div className="capp-vacio">{sobre ? 'Abre tu sobre para empezar la colección.' : 'Tu colección empieza con los ejercicios que hagas en clase. Llegan en el sobre de cada miércoles.'}</div>}
         {cromos.length > 0 && zonas.length === 0 && <div className="capp-vacio">
-          {filtro === 'favoritos' ? 'Aún no tienes favoritos. Abre un cromo y toca el corazón.' : 'Todavía no tienes cromos que brillen. Brillan los ejercicios verificados por el centro.'}
+          {filtro === 'favoritos' ? 'Aún no tienes favoritos. Abre un cromo y toca el corazón.' : 'Todavía no tienes cromos que brillen. Un cromo brilla cuando mejoras: más carga, más repeticiones o más tiempo.'}
         </div>}
 
         {zonas.map(([zona, lista]) => (
           <section key={zona} className="capp-pagina">
             <h2>{zona}<span>{lista.filter(c => c.veces > 0).length}/{lista.length}</span></h2>
             <div className="capp-rejilla">
-              {lista.map(c => <Carta key={c.id} c={c} onAbrir={() => setAbierto(c)}/>)}
+              {lista.map(c => <Carta key={c.id} c={c} sello={sello} onAbrir={() => setAbierto(c)}/>)}
             </div>
           </section>
         ))}
@@ -103,14 +104,17 @@ export default function Album() {
           <div className="capp-velo" onClick={e => { if (e.target === e.currentTarget) setAbierto(null) }}>
             <div className="capp-hoja" role="dialog" aria-label={abierto.nombre}>
               <button type="button" className="cerrar" onClick={() => setAbierto(null)} aria-label="Cerrar">✕</button>
-              <Carta c={abierto} grande/>
+              <Carta c={abierto} grande sello={sello}/>
               <h2>{abierto.nombre}</h2>
               <p className="sub">
                 {abierto.veces === 0
                   ? `Lo has hecho ${abierto.vistas} ${abierto.vistas === 1 ? 'vez' : 'veces'}, pero aún no te ha tocado: hazlo bien en clase para ganar el cromo.`
-                  : <>{abierto.brilla ? 'Ejercicio verificado por el centro. ' : ''}
-                    {sig ? `Hazlo bien ${sig.desde - abierto.veces} ${sig.desde - abierto.veces === 1 ? 'vez' : 'veces'} más para llegar a ${sig.nombre}.` : '¡Nivel máximo!'}</>}
+                  : sig ? `Hazlo bien ${sig.desde - abierto.veces} ${sig.desde - abierto.veces === 1 ? 'vez' : 'veces'} más para llegar a ${sig.nombre}.` : '¡Nivel máximo!'}
               </p>
+              {abierto.veces > 0 && (abierto.brilla
+                ? <p className="sub"><b>Brilla porque has mejorado:</b> {mejoras(abierto).join(', ')}.</p>
+                : <p className="sub">Brillará cuando mejores: más carga, más repeticiones o más tiempo que la primera vez.</p>)}
+              {abierto.veces > 0 && sello?.nombre && <p className="sub">Lleva el sello de {sello.nombre}: comprobado que lo haces bien. Mueve el cromo para verlo.</p>}
               <div className="capp-marcas">
                 <div><b>{abierto.veces}</b><span>{abierto.veces === 1 ? 'vez bien hecho' : 'veces bien hecho'}</span></div>
                 {marcas.map(([l, v]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
@@ -123,7 +127,7 @@ export default function Album() {
           </div>
         )
       })()}
-      {abriendo && <SobreAnimado onFin={() => { setAbriendo(false); cargar() }}/>}
+      {abriendo && <SobreAnimado sello={sello} onFin={() => { setAbriendo(false); cargar() }}/>}
       <Navegacion/>
     </>
   )
