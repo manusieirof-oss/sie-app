@@ -240,3 +240,5 @@
 .capp-avisos button{margin-top:10px;border:0;border-radius:12px;padding:10px 16px;font-size:16px;font-weight:700;cursor:pointer}
 .capp-avisos button.si{background:var(--tinta);color:#fff}
 .capp-avisos button.link{background:none;padding:6px 0;color:var(--gris);font-weight:400;text-decoration:underline}
+
+.capp-campo{width:100%;border:1.5px solid rgba(31,74,80,.2);border-radius:14px;padding:14px;font-size:16px;font-family:inherit;background:var(--blanco);color:var(--tinta)}

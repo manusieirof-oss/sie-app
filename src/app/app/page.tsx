@@ -37,12 +37,7 @@ export default function InicioApp() {
   }, [])
 
   if (estado === 'cargando') return <div className="capp-centro"><h1>Un momento…</h1></div>
-  if (estado === 'fuera') return (
-    <div className="capp-centro">
-      <h1>Tu entreno, en el móvil</h1>
-      <p>Para entrar necesitas el enlace que te mandamos desde el centro. Si no lo tienes o ha caducado, pídelo y ábrelo en este móvil.</p>
-    </div>
-  )
+  if (estado === 'fuera') return <Fuera/>
   if (estado === 'equipo') return (
     <div className="capp-centro">
       <h1>Esta es la app de los clientes</h1>
@@ -109,5 +104,32 @@ export default function InicioApp() {
     </main>
     <Navegacion/>
     </>
+  )
+}
+
+/* SIN SESIÓN. Además de abrir el enlace, se puede PEGAR aquí: en iPhone la app instalada
+   no comparte la sesión con Safari, y los enlaces de WhatsApp se abren en Safari. */
+function Fuera() {
+  const [texto, setTexto] = useState('')
+  const [error, setError] = useState('')
+  const [entrando, setEntrando] = useState(false)
+  async function entrar() {
+    setError('')
+    let t = ''
+    try { t = new URL(texto.trim()).searchParams.get('t') || '' } catch { t = '' }
+    if (!t) { setError('Eso no parece tu enlace. Cópialo entero del mensaje del centro.'); return }
+    setEntrando(true)
+    const { error } = await supabase.auth.verifyOtp({ token_hash: t, type: 'magiclink' })
+    setEntrando(false)
+    if (error) setError('Este enlace ya no sirve. Pide uno nuevo en el centro.'); else window.location.reload()
+  }
+  return (
+    <div className="capp-centro">
+      <h1>Tu entreno, en el móvil</h1>
+      <p>Para entrar, abre el enlace que te mandamos desde el centro. Si tienes la app en tu pantalla de inicio, copia el enlace y pégalo aquí:</p>
+      <input className="capp-campo" value={texto} onChange={e => setTexto(e.target.value)} placeholder="Pega aquí tu enlace" inputMode="url" autoCapitalize="off" autoCorrect="off"/>
+      <button type="button" className="capp-boton" disabled={entrando || !texto.trim()} onClick={entrar}>{entrando ? 'Entrando…' : 'Entrar'}</button>
+      {error && <p style={{ color: 'var(--mora)' }}>{error}</p>}
+    </div>
   )
 }
