@@ -231,3 +231,12 @@
 .capp-instalar .botones{display:flex;gap:8px;margin-top:10px}
 .capp-instalar button{border:0;border-radius:12px;padding:9px 14px;font-size:15px;font-weight:700;background:var(--papel);color:var(--tinta);cursor:pointer}
 .capp-instalar button.si{background:var(--tinta);color:#fff}
+
+/* ---- Avisos ---- */
+.capp-avisos{display:flex;gap:12px;align-items:flex-start;background:var(--blanco);border-radius:18px;padding:16px}
+.capp-avisos .campana{font-size:26px;line-height:1}
+.capp-avisos b{display:block;font-family:var(--f-titulo);font-size:18px}
+.capp-avisos span{display:block;font-size:15px;color:var(--gris)}
+.capp-avisos button{margin-top:10px;border:0;border-radius:12px;padding:10px 16px;font-size:16px;font-weight:700;cursor:pointer}
+.capp-avisos button.si{background:var(--tinta);color:#fff}
+.capp-avisos button.link{background:none;padding:6px 0;color:var(--gris);font-weight:400;text-decoration:underline}

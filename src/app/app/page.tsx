@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Navegacion from './Navegacion'
 import { tiene } from './activas'
+import Avisos from './Avisos'
 
 // INICIO DE LA APP DE CLIENTES: su próxima cita, lo que lleva hecho y el álbum que viene.
 // Todo llega por funciones app_… (sql/app-3-clientes.sql): el cliente no lee tablas.
@@ -76,6 +77,8 @@ export default function InicioApp() {
         <div><b>{citas.hechas}</b><span>entrenos hechos</span></div>
         <div><b>{citas.proximas.length}</b><span>citas por venir</span></div>
       </div>
+
+      {tiene(yo.activas, 'avisos') && <Avisos/>}
 
       {tiene(yo.activas, 'album') && <section className="capp-sec">
         <Link href="/app/album" className="capp-album" style={{ color: 'inherit', textDecoration: 'none' }}>
