@@ -246,6 +246,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (user === null && pathname !== '/login') router.push('/login')
   }, [user, pathname])
 
+  // UN CLIENTE (usuario sin ficha de equipo) que acaba aquí, a su app: SIE no es para él.
+  useEffect(() => {
+    if (user && perfilListo && !perfil) router.replace('/app')
+  }, [user, perfilListo, perfil])
+
   // EN EL MÓVIL, A LA VERSIÓN MÓVIL. Al abrir la app (o la agenda) en una pantalla
   // estrecha se va a /movil. Si alguien eligió la versión completa desde "Yo", se
   // respeta: queda apuntado en este móvil.

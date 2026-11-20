@@ -1,0 +1,62 @@
+/* APP DE CLIENTES. Todo cuelga de .capp para no tocar nada de SIE.
+   Tinta verde oscura del centro, papel verde muy claro, y el amarillo de los cromos
+   (se guarda para lo que se gana: cromos, rachas, premios). */
+.capp{
+  --tinta:#1F4A50; --verde:#5A969E; --verde-2:#A8CDD1; --papel:#EEF5F3; --blanco:#FFFFFF;
+  --oro:#F2C14E; --oro-2:#FFF3D1; --mora:#B5476A; --gris:#5E6B69;
+  min-height:100dvh; background:var(--papel); color:var(--tinta);
+  font-family:var(--f-texto),system-ui,sans-serif; font-size:17px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; padding-bottom:env(safe-area-inset-bottom);
+}
+.capp *{box-sizing:border-box}
+.capp h1,.capp h2,.capp h3{font-family:var(--f-titulo),system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+.capp button{font-family:inherit}
+.capp :focus-visible{outline:3px solid var(--oro);outline-offset:2px}
+.capp-col{max-width:480px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 20px 40px}
+
+/* Cabecera: el saludo es grande y es lo primero. */
+.capp-hola{padding:18px 0 22px}
+.capp-hola small{display:block;font-size:15px;color:var(--gris);margin-bottom:2px}
+.capp-hola h1{font-size:40px;line-height:1.02;font-weight:800}
+
+/* La próxima cita como un billete: la parte de la fecha y la de la sesión, con el corte. */
+.capp-billete{display:grid;grid-template-columns:96px 1fr;background:var(--tinta);color:#fff;border-radius:22px;overflow:hidden;position:relative}
+.capp-billete::before,.capp-billete::after{content:'';position:absolute;left:88px;width:16px;height:16px;border-radius:99px;background:var(--papel)}
+.capp-billete::before{top:-8px}.capp-billete::after{bottom:-8px}
+.capp-billete .dia{padding:18px 0;text-align:center;border-right:2px dashed rgba(255,255,255,.25)}
+.capp-billete .dia b{display:block;font-family:var(--f-titulo);font-size:38px;line-height:1;font-weight:800}
+.capp-billete .dia span{font-size:14px;opacity:.8}
+.capp-billete .que{padding:16px 18px}
+.capp-billete .que h2{font-size:22px;font-weight:700;line-height:1.15;margin-bottom:4px}
+.capp-billete .que p{margin:0;font-size:15px;opacity:.85}
+
+.capp-sec{margin-top:30px}
+.capp-sec h3{font-size:20px;font-weight:700;margin-bottom:10px}
+.capp-lista{list-style:none;margin:0;padding:0;background:var(--blanco);border-radius:18px}
+.capp-lista li{display:flex;gap:12px;align-items:baseline;padding:13px 16px;border-bottom:1px solid var(--papel);font-size:16px}
+.capp-lista li:last-child{border-bottom:0}
+.capp-lista li b{min-width:86px;font-weight:700}
+.capp-lista li span{color:var(--gris)}
+
+/* El álbum que viene: sobres cerrados, en oro. */
+.capp-album{display:flex;gap:10px;align-items:center;background:var(--oro-2);border-radius:18px;padding:16px}
+.capp-album .sobres{display:flex}
+.capp-album .sobre{width:38px;height:52px;border-radius:7px;background:linear-gradient(160deg,var(--oro),#E2A63A);border:2px solid #fff;margin-left:-12px;box-shadow:0 2px 6px rgba(31,74,80,.18)}
+.capp-album .sobre:first-child{margin-left:0;transform:rotate(-8deg)}
+.capp-album .sobre:last-child{transform:rotate(7deg)}
+.capp-album p{margin:0;font-size:15px}
+.capp-album p b{display:block;font-family:var(--f-titulo);font-size:18px}
+
+.capp-cuenta{display:flex;gap:10px;margin-top:12px}
+.capp-cuenta div{flex:1;background:var(--blanco);border-radius:16px;padding:12px 14px}
+.capp-cuenta b{display:block;font-family:var(--f-titulo);font-size:30px;font-weight:800;line-height:1.1}
+.capp-cuenta span{font-size:14px;color:var(--gris)}
+
+.capp-vacio{background:var(--blanco);border-radius:18px;padding:18px;color:var(--gris);font-size:16px}
+.capp-centro{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;gap:12px;max-width:420px;margin:0 auto;padding:30px 24px}
+.capp-centro h1{font-size:34px;font-weight:800;line-height:1.05}
+.capp-centro p{margin:0;color:var(--gris)}
+@media (prefers-reduced-motion:no-preference){
+  .capp-billete{animation:capp-entra .5s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes capp-entra{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+}

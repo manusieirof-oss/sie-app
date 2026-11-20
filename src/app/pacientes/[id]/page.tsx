@@ -16,6 +16,7 @@ import TimelineTab from './components/TimelineTab'
 import SaludTab from './components/SaludTab'
 import ResultadosTab from './components/ResultadosTab'
 import EntrenoTab from './components/EntrenoTab'
+import ModalAppCliente from './components/ModalAppCliente'
 import { Ic } from '@/lib/icons'
 import { nombreTipoClase, cargarTiposClase, TIPOS_CLASE_FALLBACK } from '@/lib/tipos'
 import { subirFotoPaciente, urlFotoPaciente } from '@/lib/fotos'
@@ -100,6 +101,7 @@ export default function FichaPacientePage() {
   const [form, setForm] = useState<any>({})
   const [modalBono, setModalBono] = useState(false)
   const [modalPausa, setModalPausa] = useState(false)
+  const [modalApp, setModalApp] = useState(false)
   // Baja o "puede volver" con fecha futura. Ver lib/estadosPaciente.ts.
   const [modalSalida, setModalSalida] = useState(false)
   const [salida, setSalida] = useState({ estado:'baja', desde:'', motivo:'' })
@@ -987,6 +989,7 @@ export default function FichaPacientePage() {
         </div>
       )}
 
+      {modalApp && <ModalAppCliente pac={pac} onCerrar={()=>setModalApp(false)}/>}
       {/* MENU DE ACCIONES */}
       {menuAcc && (
         <>
@@ -995,6 +998,7 @@ export default function FichaPacientePage() {
             <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalAlertas(true)}}><Ic name="alerta" size={14}/> Añadir alerta</button>
             {esDir && <>
             <div style={{height:1,background:'var(--bd)',margin:'4px 0'}}/>
+            <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalApp(true)}}><Ic name="mensaje" size={14}/> App del cliente</button>
             {pac.estado==='activo' && (
               <button className="menu-it" onClick={()=>{setMenuAcc(null);setModalPausa(true)}}><Ic name="pausa" size={14}/> Pausa temporal</button>
             )}
