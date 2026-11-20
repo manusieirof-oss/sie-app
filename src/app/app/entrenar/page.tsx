@@ -5,19 +5,19 @@ import { supabase } from '@/lib/supabase'
 import Navegacion from '../Navegacion'
 import { fechaCorta } from './comun'
 
-// ENTRENAR POR SU CUENTA: la sesión que le ha puesto el centro, las suyas (listas de
+// ENTRENAR POR SU CUENTA (APARCADO: es para particulares, no para la clínica; no sale en
+// la barra). Sus sesiones (listas de
 // ejercicios verificados) y lo último que entrenó. Lo que haga aquí suma veces a sus
 // cromos, sin sello (no lo ha visto nadie). Datos: sql/app-10-entreno.sql.
 export default function Entrenar() {
   const [mias, setMias] = useState<any[] | null>(null)
   const [hechos, setHechos] = useState<any[]>([])
-  const [centro, setCentro] = useState<any>(null)
   const [fuera, setFuera] = useState(false)
 
   useEffect(() => {
-    Promise.all([supabase.rpc('app_mis_sesiones'), supabase.rpc('app_mis_entrenos'), supabase.rpc('app_mi_sesion')]).then(([a, b, c]) => {
+    Promise.all([supabase.rpc('app_mis_sesiones'), supabase.rpc('app_mis_entrenos')]).then(([a, b]) => {
       if (a.data == null) { setFuera(true); return }
-      setMias(a.data); setHechos(b.data || []); setCentro(c.data?.sesion || null)
+      setMias(a.data); setHechos(b.data || [])
     })
   }, [])
 
@@ -28,12 +28,7 @@ export default function Entrenar() {
       <main className="capp-col capp-con-nav">
         <header className="capp-hola"><small>Por tu cuenta</small><h1>Entrenar</h1></header>
 
-        {centro && (
-          <Link href="/app/entrenar/hacer?de=centro" className="capp-tarjeta-entreno centro">
-            <span><small>La que te ha puesto el centro</small><b>{centro.nombre}</b></span>
-            <span className="ir">Empezar</span>
-          </Link>
-        )}
+        {/* Las sesiones del centro son para hacer en el centro: aquí solo las suyas. */}
 
         <section className="capp-sec">
           <h3>Tus sesiones</h3>

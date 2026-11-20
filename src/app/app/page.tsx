@@ -56,8 +56,6 @@ export default function InicioApp() {
         <h1>Hola, {yo.nombre}</h1>
       </header>
 
-      {tiene(yo.activas, 'avatar') && <Avatar/>}
-
       {prox ? (
         <section className="capp-billete" aria-label="Tu próxima cita"
           onClick={tiene(yo.activas, 'sesion') ? () => { window.location.href = '/app/sesion' } : undefined}
@@ -95,6 +93,8 @@ export default function InicioApp() {
           </ul>
         </section>
       )}
+
+      {tiene(yo.activas, 'avatar') && <section className="capp-sec"><Avatar/></section>}
 
       {citas.ultimas.length > 0 && (
         <section className="capp-sec">
