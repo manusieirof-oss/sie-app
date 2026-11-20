@@ -242,3 +242,46 @@
 .capp-avisos button.link{background:none;padding:6px 0;color:var(--gris);font-weight:400;text-decoration:underline}
 
 .capp-campo{width:100%;border:1.5px solid rgba(31,74,80,.2);border-radius:14px;padding:14px;font-size:16px;font-family:inherit;background:var(--blanco);color:var(--tinta)}
+
+/* ---- Entrenar por su cuenta ---- */
+.capp-nota{font-size:14px;color:var(--gris);margin:10px 2px 0}
+.capp-tarjeta-entreno{display:flex;align-items:stretch;background:var(--blanco);border-radius:18px;margin-bottom:10px;color:var(--tinta);text-decoration:none;overflow:hidden}
+.capp-tarjeta-entreno.centro{background:var(--tinta);color:#fff;padding:16px 18px;justify-content:space-between;align-items:center;margin-top:4px}
+.capp-tarjeta-entreno .cuerpo{flex:1;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;color:inherit;text-decoration:none}
+.capp-tarjeta-entreno b{display:block;font-family:var(--f-titulo);font-size:19px}
+.capp-tarjeta-entreno small{display:block;font-size:14px;opacity:.75}
+.capp-tarjeta-entreno .ir{font-weight:700;color:var(--verde)}
+.capp-tarjeta-entreno.centro .ir{color:var(--oro)}
+.capp-tarjeta-entreno .editar{display:flex;align-items:center;padding:0 14px;border-left:1px solid var(--papel);color:var(--gris);font-size:14px;text-decoration:none}
+.capp-boton.secundario{background:var(--blanco);color:var(--tinta);margin-top:10px}
+.capp-boton:disabled{opacity:.5}
+.capp-elegidos{list-style:none;margin:0;padding:0;background:var(--blanco);border-radius:16px}
+.capp-elegidos li{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--papel)}
+.capp-elegidos li:last-child{border-bottom:0}
+.capp-elegidos .img{width:44px;height:44px;border-radius:10px;background:var(--papel);overflow:hidden;flex-shrink:0}
+.capp-elegidos .img img{width:100%;height:100%;object-fit:contain}
+.capp-elegidos b{flex:1;font-size:16px;font-weight:700}
+.capp-elegidos .acc{display:flex;gap:4px}
+.capp-elegidos .acc button{width:34px;height:34px;border:0;border-radius:10px;background:var(--papel);color:var(--tinta);font-size:15px;cursor:pointer}
+.capp-elegidos .acc button:disabled{opacity:.3}
+.capp-elegidos .mas{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:99px;background:var(--tinta);color:#fff;font-size:20px}
+.capp-hacer{background:var(--blanco);border-radius:18px;padding:12px;margin-top:12px;border:2px solid transparent}
+.capp-hacer.hecho{border-color:var(--verde-2)}
+.capp-hacer.falta{border-color:var(--mora)}
+.capp-hacer .cab{display:flex;align-items:center;gap:12px}
+.capp-hacer .img{width:58px;height:58px;border-radius:12px;background:var(--papel);overflow:hidden;flex-shrink:0}
+.capp-hacer .img img{width:100%;height:100%;object-fit:contain}
+.capp-hacer .txt{flex:1;min-width:0}
+.capp-hacer .txt b{display:block;font-family:var(--f-titulo);font-size:17px;line-height:1.2}
+.capp-hacer .txt span{font-size:14px;color:var(--verde);font-weight:700}
+.capp-hacer .marca{border:2px solid var(--tinta);background:#fff;color:var(--tinta);border-radius:12px;padding:9px 12px;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap}
+.capp-hacer.hecho .marca{background:var(--tinta);color:#fff}
+.capp-hacer .aviso{margin:10px 0 0;color:var(--mora);font-size:14px;font-weight:700}
+.capp-hacer .series{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.capp-hacer .serie{display:flex;align-items:center;gap:8px}
+.capp-hacer .serie .n{width:22px;text-align:center;font-weight:700;color:var(--gris)}
+.capp-hacer .serie label{flex:1}
+.capp-hacer .serie input{width:100%;border:1.5px solid rgba(31,74,80,.18);border-radius:10px;padding:10px;font-size:16px;font-family:inherit;color:var(--tinta)}
+.capp-hacer .series .mas{align-self:flex-start;border:0;background:none;color:var(--verde);font-weight:700;font-size:15px;padding:6px 0;cursor:pointer}
+.capp-pie-fijo{position:fixed;left:0;right:0;bottom:0;padding:12px 20px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--papel) 30%);z-index:20}
+.capp-pie-fijo .capp-boton{max-width:440px;display:block;margin:0 auto}
