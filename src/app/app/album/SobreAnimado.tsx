@@ -1,0 +1,90 @@
+'use client'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import Carta from './Carta'
+import { Cromo, nivelDe } from './cromos'
+
+// ABRIR EL SOBRE DE LA SEMANA. Tres momentos: el sobre cerrado (se toca y se rasga),
+// las cartas saliendo una a una con lo que ha pasado («¡Nuevo!», «¡Sube a Plata!»,
+// «¡Ahora brilla!»), y el resumen para pegarlas en el álbum. Ver app_abrir_sobre().
+
+interface Carta_ { cromo: Cromo, veces_antes: number, brillaba: boolean }
+
+/** Lo que le ha pasado a este cromo con el sobre. */
+function queHaPasado(c: Carta_) {
+  const antes = nivelDe(c.veces_antes), ahora = nivelDe(c.cromo.veces)
+  if (!antes) return { titulo: '¡Nuevo cromo!', fuerte: true }
+  if (ahora && ahora.clase !== antes.clase) return { titulo: `¡Sube a ${ahora.nombre}!`, fuerte: true }
+  if (c.cromo.brilla && !c.brillaba) return { titulo: '¡Ahora brilla!', fuerte: true }
+  const mas = c.cromo.veces - c.veces_antes
+  return { titulo: `+${mas} ${mas === 1 ? 'vez' : 'veces'}`, fuerte: false }
+}
+
+export default function SobreAnimado({ onFin }: { onFin: () => void }) {
+  const [fase, setFase] = useState<'cerrado' | 'rasgando' | 'cartas' | 'resumen'>('cerrado')
+  const [cartas, setCartas] = useState<Carta_[]>([])
+  const [i, setI] = useState(0)
+  const [error, setError] = useState('')
+
+  async function abrir() {
+    if (fase !== 'cerrado') return
+    setFase('rasgando')
+    const [{ data, error }] = await Promise.all([
+      supabase.rpc('app_abrir_sobre'),
+      new Promise(r => setTimeout(r, 900)),   // lo que dura el rasgado
+    ])
+    if (error) { setError('No se ha podido abrir. Inténtalo otra vez.'); setFase('cerrado'); return }
+    const lista = ((data?.cartas || []) as Carta_[])
+      // Primero lo nuevo y lo que sube de color; lo que solo suma veces, al final.
+      .sort((a, b) => Number(queHaPasado(b).fuerte) - Number(queHaPasado(a).fuerte))
+    setCartas(lista); setI(0)
+    setFase(lista.length ? 'cartas' : 'resumen')
+  }
+
+  const siguiente = () => { if (i + 1 < cartas.length) setI(i + 1); else setFase('resumen') }
+  const nuevos = cartas.filter(c => !nivelDe(c.veces_antes)).length
+  const suben = cartas.filter(c => { const a = nivelDe(c.veces_antes), b = nivelDe(c.cromo.veces); return a && b && a.clase !== b.clase }).length
+  const brillan = cartas.filter(c => c.cromo.brilla && !c.brillaba).length
+
+  return (
+    <div className="capp-sobre-velo" role="dialog" aria-label="Tu sobre de la semana">
+      {(fase === 'cerrado' || fase === 'rasgando') && (
+        <div className="capp-sobre-escena">
+          <p className="capp-sobre-txt">{fase === 'cerrado' ? 'Tu sobre de esta semana' : '¡Allá va!'}</p>
+          <button type="button" className={`capp-sobre${fase === 'rasgando' ? ' rasga' : ''}`} onClick={abrir} aria-label="Abrir el sobre">
+            <span className="tapa" aria-hidden/>
+            <span className="cuerpo" aria-hidden><b>SIE</b><small>Cromos</small></span>
+          </button>
+          {fase === 'cerrado' && <p className="capp-sobre-pista">Toca para abrirlo</p>}
+          {error && <p className="capp-sobre-pista">{error}</p>}
+        </div>
+      )}
+
+      {fase === 'cartas' && cartas[i] && (() => {
+        const c = cartas[i], q = queHaPasado(c)
+        return (
+          <div className="capp-sobre-escena" key={i}>
+            <p className={`capp-sobre-txt${q.fuerte ? ' fuerte' : ''}`}>{q.titulo}</p>
+            <div className="capp-sobre-carta" onClick={siguiente}><Carta c={c.cromo} grande onAbrir={siguiente}/></div>
+            <div className="capp-sobre-botones">
+              <button type="button" className="capp-boton" onClick={siguiente}>{i + 1 < cartas.length ? `Siguiente (${i + 1} de ${cartas.length})` : 'Ver el resumen'}</button>
+              {cartas.length > 3 && i + 1 < cartas.length && <button type="button" className="capp-sobre-saltar" onClick={() => setFase('resumen')}>Verlos todos</button>}
+            </div>
+          </div>
+        )
+      })()}
+
+      {fase === 'resumen' && (
+        <div className="capp-sobre-resumen">
+          <h2>{cartas.length ? '¡Enhorabuena!' : 'Sobre vacío'}</h2>
+          <p>{cartas.length
+            ? [nuevos && `${nuevos} ${nuevos === 1 ? 'cromo nuevo' : 'cromos nuevos'}`, suben && `${suben} ${suben === 1 ? 'sube' : 'suben'} de color`, brillan && `${brillan} ${brillan === 1 ? 'brilla' : 'brillan'} por primera vez`]
+                .filter(Boolean).join(', ') || 'Has sumado veces a tus cromos.'
+            : 'Esta semana no hay cromos nuevos. ¡A por la próxima!'}</p>
+          {cartas.length > 0 && <div className="capp-rejilla">{cartas.map((c, k) => <Carta key={k} c={c.cromo}/>)}</div>}
+          <button type="button" className="capp-boton" onClick={onFin}>Pegarlos en mi álbum</button>
+        </div>
+      )}
+    </div>
+  )
+}

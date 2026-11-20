@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Navegacion from '../Navegacion'
-import { Cromo, nivelDe, siguienteDe, tiempo, fecha } from './cromos'
+import { Cromo, siguienteDe, tiempo, fecha } from './cromos'
+import Carta from './Carta'
+import SobreAnimado from './SobreAnimado'
 
 // EL ÁLBUM DE CROMOS. Una página por zona del cuerpo. Cada hueco es un ejercicio
 // verificado del centro; el cromo aparece cuando lo hace en clase, cambia de color con
@@ -11,39 +13,23 @@ import { Cromo, nivelDe, siguienteDe, tiempo, fecha } from './cromos'
 
 type Filtro = 'todos' | 'favoritos' | 'brillan'
 
-function Carta({ c, onAbrir, grande = false }: { c: Cromo, onAbrir?: () => void, grande?: boolean }) {
-  const n = nivelDe(c.veces)
-  if (!n) return (
-    <div className={`cromo vacio${grande ? ' grande' : ''}`} aria-label={`Cromo ${c.numero}, ${c.nombre}, sin conseguir`}>
-      <span className="num">{c.numero}</span>
-      <span className="silueta" aria-hidden/>
-      <span className="nom">{c.nombre}</span>
-    </div>
-  )
-  return (
-    <button type="button" className={`cromo ${n.clase}${c.brilla ? ' brilla' : ''}${grande ? ' grande' : ''}`} onClick={onAbrir}
-      aria-label={`${c.nombre}, ${n.nombre}${c.brilla ? ', técnica comprobada' : ''}`}>
-      <span className="num">{c.numero}</span>
-      {c.favorito && <span className="fav" aria-hidden>♥</span>}
-      <span className="foto">{c.imagen ? <img src={c.imagen} alt="" loading="lazy"/> : <span className="sin"/>}</span>
-      <span className="nom">{c.nombre}</span>
-      <span className="pie">{n.nombre}{c.brilla && <b> · Técnica ✓</b>}</span>
-    </button>
-  )
-}
-
 export default function Album() {
   const [cromos, setCromos] = useState<Cromo[] | null>(null)
   const [fuera, setFuera] = useState(false)
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [abierto, setAbierto] = useState<Cromo | null>(null)
+  // El sobre de la semana: si hay uno esperando, y cuándo llega el siguiente.
+  const [sobre, setSobre] = useState(false)
+  const [proximo, setProximo] = useState('')
+  const [abriendo, setAbriendo] = useState(false)
 
+  async function cargar() {
+    const { data: a } = await supabase.rpc('app_album')
+    setCromos(((a?.cromos || []) as Cromo[]).map((c, i) => ({ ...c, numero: i + 1 })))
+    setSobre(a?.sobre === true); setProximo(a?.proximo || '')
+  }
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) { setFuera(true); return }
-      const { data: a } = await supabase.rpc('app_album')
-      setCromos(((a?.cromos || []) as Cromo[]).map((c, i) => ({ ...c, numero: i + 1 })))
-    })
+    supabase.auth.getSession().then(({ data }) => { if (!data.session) setFuera(true); else cargar() })
   }, [])
 
   async function favorito(c: Cromo) {
@@ -74,6 +60,15 @@ export default function Album() {
           <h1>Tu álbum</h1>
         </header>
         <div className="capp-progreso" aria-hidden><span style={{ width: `${cromos.length ? tiene / cromos.length * 100 : 0}%` }}/></div>
+
+        {sobre ? (
+          <button type="button" className="capp-hay-sobre" onClick={() => setAbriendo(true)}>
+            <span className="mini-sobre" aria-hidden/>
+            <span><b>¡Tienes un sobre nuevo!</b>Ábrelo para ver los cromos de esta semana.</span>
+          </button>
+        ) : proximo && (
+          <p className="capp-proximo">Próximo sobre: {new Date(proximo).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las 12:00</p>
+        )}
 
         <div className="capp-filtros" role="group" aria-label="Ver">
           {([['todos', 'Todos'], ['favoritos', 'Favoritos'], ['brillan', 'Técnica comprobada']] as [Filtro, string][]).map(([k, t]) => (
@@ -126,6 +121,7 @@ export default function Album() {
           </div>
         )
       })()}
+      {abriendo && <SobreAnimado onFin={() => { setAbriendo(false); cargar() }}/>}
       <Navegacion/>
     </>
   )
