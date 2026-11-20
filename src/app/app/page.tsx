@@ -60,11 +60,14 @@ export default function InicioApp() {
       </header>
 
       {prox ? (
-        <section className="capp-billete" aria-label="Tu próxima cita">
+        <section className="capp-billete" aria-label="Tu próxima cita"
+          onClick={tiene(yo.activas, 'sesion') ? () => { window.location.href = '/app/sesion' } : undefined}
+          style={tiene(yo.activas, 'sesion') ? { cursor: 'pointer' } : undefined}>
           <div className="dia"><b>{diaMes(prox.fecha)}</b><span>{mes(prox.fecha)}</span></div>
           <div className="que">
             <h2>{cuando(prox.fecha)} a las {prox.hora}</h2>
             <p>{prox.sesion || 'Entrenamiento'}{prox.sala ? `, sala ${prox.sala}` : ''}</p>
+            {tiene(yo.activas, 'sesion') && prox.sesion && <p className="ver">Ver lo que te toca</p>}
           </div>
         </section>
       ) : <div className="capp-vacio">No tienes citas próximas. Pídela en el centro.</div>}
