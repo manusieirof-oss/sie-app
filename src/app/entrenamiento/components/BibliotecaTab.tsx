@@ -523,6 +523,25 @@ export default function BibliotecaTab({ ejercicios, etiquetas, objetivos, cargar
                           ))}
                         </div>
                       )}
+                      {/* APP DE CLIENTES: solo los verificados salen en el álbum de cromos. Sin
+                          ítems de ejecución no se puede verificar: son los que dicen si se hace bien. */}
+                      <div style={{marginTop:14,display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderRadius:10,
+                        background:ejSeleccionado.verificado_app?'var(--gl)':'var(--bl)'}}>
+                        <span style={{flex:1,fontSize:12.5,color:'var(--n)'}}>
+                          <b style={{fontWeight:600}}>{ejSeleccionado.verificado_app?'Verificado para la app':'No sale en la app'}</b>
+                          <span style={{display:'block',fontSize:11.5,color:'var(--gr)'}}>
+                            {(ejSeleccionado.items_ejecucion||[]).length ? 'Los verificados son cromos del álbum de los clientes.' : 'Para verificarlo, ponle antes sus ítems de ejecución.'}
+                          </span>
+                        </span>
+                        <button className={`btn btn-sm ${ejSeleccionado.verificado_app?'btn-s':'btn-p'}`}
+                          disabled={!ejSeleccionado.verificado_app && !(ejSeleccionado.items_ejecucion||[]).length}
+                          onClick={async()=>{
+                            const v=!ejSeleccionado.verificado_app
+                            const { error } = await supabase.from('ejercicios').update({ verificado_app:v }).eq('id',ejSeleccionado.id)
+                            if (error) { alert('No se ha podido: ' + error.message); return }
+                            setEjSeleccionado({ ...ejSeleccionado, verificado_app:v }); cargar()
+                          }}>{ejSeleccionado.verificado_app?'Quitar':'Verificar'}</button>
+                      </div>
                       {(ejSeleccionado.feedbacks||[]).length>0 && (
                         <div style={{marginTop:14}}>
                           <div className="et-mini" style={{marginBottom:6}}>Feedbacks</div>

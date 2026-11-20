@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import Navegacion from './Navegacion'
 
 // INICIO DE LA APP DE CLIENTES: su próxima cita, lo que lleva hecho y el álbum que viene.
 // Todo llega por funciones app_… (sql/app-3-clientes.sql): el cliente no lee tablas.
@@ -49,7 +51,8 @@ export default function InicioApp() {
 
   const prox = citas.proximas[0]
   return (
-    <main className="capp-col">
+    <>
+    <main className="capp-col capp-con-nav">
       <header className="capp-hola">
         <small>{yo.centro || 'Tu centro'}</small>
         <h1>Hola, {yo.nombre}</h1>
@@ -71,10 +74,10 @@ export default function InicioApp() {
       </div>
 
       <section className="capp-sec">
-        <div className="capp-album">
+        <Link href="/app/album" className="capp-album" style={{ color: 'inherit', textDecoration: 'none' }}>
           <div className="sobres" aria-hidden><span className="sobre"/><span className="sobre"/><span className="sobre"/></div>
-          <p><b>Tu álbum de ejercicios</b>Muy pronto: cada ejercicio que domines en clase será un cromo para tu colección.</p>
-        </div>
+          <p><b>Tu álbum de cromos</b>Cada ejercicio que haces en clase es un cromo. Cuantas más veces, mejor color.</p>
+        </Link>
       </section>
 
       {citas.proximas.length > 1 && (
@@ -97,5 +100,7 @@ export default function InicioApp() {
         </section>
       )}
     </main>
+    <Navegacion/>
+    </>
   )
 }
