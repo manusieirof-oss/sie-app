@@ -1,0 +1,15 @@
+{
+  "name": "Mi entreno",
+  "short_name": "Mi entreno",
+  "description": "Tu entreno, tus citas y tu álbum de cromos.",
+  "lang": "es",
+  "start_url": "/app",
+  "scope": "/app",
+  "display": "standalone",
+  "background_color": "#EEF5F3",
+  "theme_color": "#1F4A50",
+  "icons": [
+    { "src": "/app-icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app-icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
