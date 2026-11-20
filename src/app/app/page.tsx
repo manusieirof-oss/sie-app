@@ -116,7 +116,9 @@ function Fuera() {
   async function entrar() {
     setError('')
     let t = ''
-    try { t = new URL(texto.trim()).searchParams.get('t') || '' } catch { t = '' }
+    // Vale el enlace solo o el mensaje entero de WhatsApp: se busca el «t=…» dentro.
+    const m = texto.match(/[?&]t=([^\s&]+)/)
+    if (m) { try { t = decodeURIComponent(m[1]) } catch { t = m[1] } }
     if (!t) { setError('Eso no parece tu enlace. Cópialo entero del mensaje del centro.'); return }
     setEntrando(true)
     const { error } = await supabase.auth.verifyOtp({ token_hash: t, type: 'magiclink' })
