@@ -186,3 +186,10 @@
 .capp-sobre-resumen h2{font-size:40px;font-weight:800;color:var(--oro)}
 .capp-sobre-resumen p{margin:8px 0 22px;font-size:17px;opacity:.9}
 .capp-sobre-resumen .capp-rejilla{text-align:left;margin-bottom:8px}
+
+/* Hecho pero aún no bien: el cromo se ve, apagado, como uno que aún no le ha tocado. */
+.cromo.oscuro{--marco:#3D5457;--marco-2:#24373A;box-shadow:none}
+.cromo.oscuro .foto{background:#E3E9E7}
+.cromo.oscuro .foto img{filter:grayscale(1) brightness(.35) contrast(.9);opacity:.75}
+.cromo.oscuro .nom{color:rgba(255,255,255,.7)}
+.cromo.oscuro .pie{color:rgba(255,255,255,.55)}

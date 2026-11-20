@@ -77,7 +77,7 @@ export default function InicioApp() {
       {tiene(yo.activas, 'album') && <section className="capp-sec">
         <Link href="/app/album" className="capp-album" style={{ color: 'inherit', textDecoration: 'none' }}>
           <div className="sobres" aria-hidden><span className="sobre"/><span className="sobre"/><span className="sobre"/></div>
-          <p><b>Tu álbum de cromos</b>Cada ejercicio que haces en clase es un cromo. Repite para ganar bronce, plata, oro y diamante.</p>
+          <p><b>Tu álbum de cromos</b>Cada ejercicio que haces bien en clase es un cromo. Repítelo bien para ganar bronce, plata, oro y diamante.</p>
         </Link>
       </section>}
 

@@ -23,6 +23,7 @@ function queHaPasado(c: Carta_) {
 export default function SobreAnimado({ onFin }: { onFin: () => void }) {
   const [fase, setFase] = useState<'cerrado' | 'rasgando' | 'cartas' | 'resumen'>('cerrado')
   const [cartas, setCartas] = useState<Carta_[]>([])
+  const [vistos, setVistos] = useState(0)   // ejercicios nuevos que aún no ha hecho bien
   const [i, setI] = useState(0)
   const [error, setError] = useState('')
 
@@ -37,7 +38,7 @@ export default function SobreAnimado({ onFin }: { onFin: () => void }) {
     const lista = ((data?.cartas || []) as Carta_[])
       // Primero lo nuevo y lo que sube de color; lo que solo suma veces, al final.
       .sort((a, b) => Number(queHaPasado(b).fuerte) - Number(queHaPasado(a).fuerte))
-    setCartas(lista); setI(0)
+    setCartas(lista); setI(0); setVistos(Number(data?.vistos) || 0)
     setFase(lista.length ? 'cartas' : 'resumen')
   }
 
@@ -80,7 +81,8 @@ export default function SobreAnimado({ onFin }: { onFin: () => void }) {
           <p>{cartas.length
             ? [nuevos && `${nuevos} ${nuevos === 1 ? 'cromo nuevo' : 'cromos nuevos'}`, suben && `${suben} ${suben === 1 ? 'sube' : 'suben'} de color`, brillan && `${brillan} ${brillan === 1 ? 'brilla' : 'brillan'} por primera vez`]
                 .filter(Boolean).join(', ') || 'Has sumado veces a tus cromos.'
-            : 'Esta semana no hay cromos nuevos. ¡A por la próxima!'}</p>
+            : 'Esta semana no te ha tocado ningún cromo. ¡A por la próxima!'}</p>
+          {vistos > 0 && <p>{vistos === 1 ? 'Además, hay 1 ejercicio nuevo en tu álbum que aún sale oscuro' : `Además, hay ${vistos} ejercicios nuevos en tu álbum que aún salen oscuros`}: hazlos bien en clase para conseguirlos.</p>}
           {cartas.length > 0 && <div className="capp-rejilla">{cartas.map((c, k) => <Carta key={k} c={c.cromo}/>)}</div>}
           <button type="button" className="capp-boton" onClick={onFin}>Pegarlos en mi álbum</button>
         </div>

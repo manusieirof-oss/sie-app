@@ -1,5 +1,6 @@
-// EL COLOR DE CADA CROMO sube con las veces que lo ha hecho en clase. Brillar es otra
-// cosa: que el centro ha comprobado su técnica (todos los ítems de ejecución bien).
+// EL COLOR DE CADA CROMO sube con las veces que lo ha hecho BIEN en clase (todos sus
+// ítems de ejecución marcados). Hecho pero nunca bien: oscuro. Brillar es otra cosa:
+// que el ejercicio está verificado por el centro en la biblioteca.
 // Las primeras veces sale sin color (blanco); el metal se gana a fuerza de repetir.
 export const NIVELES = [
   { desde: 1, nombre: 'Sin color', clase: 'nuevo' },
@@ -12,7 +13,7 @@ export const nivelDe = (veces: number) => [...NIVELES].reverse().find(n => veces
 export const siguienteDe = (veces: number) => NIVELES.find(n => veces < n.desde) || null
 
 export interface Cromo {
-  id: string, nombre: string, imagen: string | null, zona: string, veces: number
+  id: string, nombre: string, imagen: string | null, zona: string, veces: number, vistas: number
   primera: string | null, ultima: string | null
   peso_max: number | null, reps_max: number | null, seg_max: number | null, metros_max: number | null
   brilla: boolean, favorito: boolean, numero?: number
