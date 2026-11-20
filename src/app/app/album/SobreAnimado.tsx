@@ -8,16 +8,16 @@ import { Cromo, Sello, nivelDe } from './cromos'
 // las cartas saliendo una a una con lo que ha pasado («¡Nuevo!», «¡Sube a Plata!»,
 // «¡Ahora brilla!»), y el resumen para pegarlas en el álbum. Ver app_abrir_sobre().
 
-interface Carta_ { cromo: Cromo, veces_antes: number, brillaba: boolean }
+interface Carta_ { cromo: Cromo, veces_antes: number, vistas_antes: number, brillaba: boolean }
 
 /** Lo que le ha pasado a este cromo con el sobre. */
 function queHaPasado(c: Carta_) {
-  const antes = nivelDe(c.veces_antes), ahora = nivelDe(c.cromo.veces)
+  const antes = c.veces_antes > 0 ? nivelDe(c.vistas_antes) : null, ahora = nivelDe(c.cromo.vistas)
   if (!antes) return { titulo: '¡Nuevo cromo!', fuerte: true }
   if (ahora && ahora.clase !== antes.clase) return { titulo: `¡Sube a ${ahora.nombre}!`, fuerte: true }
   if (c.cromo.brilla && !c.brillaba) return { titulo: '¡Ahora brilla!', fuerte: true }
-  const mas = c.cromo.veces - c.veces_antes
-  return { titulo: `+${mas} ${mas === 1 ? 'vez' : 'veces'}`, fuerte: false }
+  const mas = c.cromo.vistas - c.vistas_antes
+  return { titulo: mas > 0 ? `+${mas} ${mas === 1 ? 'vez' : 'veces'}` : 'Repetido', fuerte: false }
 }
 
 export default function SobreAnimado({ onFin, sello }: { onFin: () => void, sello?: Sello }) {
@@ -43,8 +43,8 @@ export default function SobreAnimado({ onFin, sello }: { onFin: () => void, sell
   }
 
   const siguiente = () => { if (i + 1 < cartas.length) setI(i + 1); else setFase('resumen') }
-  const nuevos = cartas.filter(c => !nivelDe(c.veces_antes)).length
-  const suben = cartas.filter(c => { const a = nivelDe(c.veces_antes), b = nivelDe(c.cromo.veces); return a && b && a.clase !== b.clase }).length
+  const nuevos = cartas.filter(c => c.veces_antes === 0).length
+  const suben = cartas.filter(c => { const a = c.veces_antes > 0 ? nivelDe(c.vistas_antes) : null, b = nivelDe(c.cromo.vistas); return a && b && a.clase !== b.clase }).length
   const brillan = cartas.filter(c => c.cromo.brilla && !c.brillaba).length
 
   return (

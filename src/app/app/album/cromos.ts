@@ -1,7 +1,8 @@
-// EL COLOR DE CADA CROMO sube con las veces que lo ha hecho BIEN en clase (todos sus
-// ítems de ejecución marcados). Hecho pero nunca bien: oscuro. BRILLA cuando ha mejorado
-// desde la primera vez (carga, repeticiones, tiempo o distancia). Cada cromo ganado lleva
-// el SELLO del centro que comprobó que lo hace bien.
+// EL CROMO se gana el primer día que lo hace BIEN (todos sus ítems de ejecución marcados);
+// hecho pero nunca bien, oscuro. Su COLOR sube con las veces que lo hace en clase. BRILLA
+// si a la vez tiene color (el blanco no brilla), ha mejorado desde la primera vez y lo
+// ha hecho bien tantas veces como pide su color. Lleva el SELLO del centro que lo comprobó.
+// Las veces de cada color están también en la base (app_umbral): cambiarlas en los dos.
 // Las primeras veces sale sin color (blanco); el metal se gana a fuerza de repetir.
 export const NIVELES = [
   { desde: 1, nombre: 'Sin color', clase: 'nuevo' },
@@ -17,7 +18,7 @@ export interface Cromo {
   id: string, nombre: string, imagen: string | null, zona: string, veces: number, vistas: number
   primera: string | null, ultima: string | null
   peso_max: number | null, reps_max: number | null, seg_max: number | null, metros_max: number | null
-  brilla: boolean, favorito: boolean, verificado?: boolean, numero?: number
+  brilla: boolean, mejorado?: boolean, favorito: boolean, verificado?: boolean, numero?: number
   inicio?: { peso: number | null, reps: number | null, seg: number | null, metros: number | null }
 }
 export interface Sello { nombre: string | null, logo: string | null }

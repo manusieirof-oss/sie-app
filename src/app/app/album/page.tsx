@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Navegacion from '../Navegacion'
-import { Cromo, Sello, siguienteDe, tiempo, fecha, mejoras } from './cromos'
+import { Cromo, Sello, nivelDe, siguienteDe, tiempo, fecha, mejoras } from './cromos'
 import Carta from './Carta'
 import SobreAnimado from './SobreAnimado'
 
@@ -12,6 +12,15 @@ import SobreAnimado from './SobreAnimado'
 // sello del centro. Llega con el sobre de los miércoles. Datos: app_album() (sql/app-7-…).
 
 type Filtro = 'todos' | 'favoritos' | 'brillan'
+
+/** Qué le falta para que brille: color, hacerlo bien las veces de su color y mejorar. */
+function brilloFalta(c: Cromo, umbral: number) {
+  if (umbral < 5) return 'Para que brille, primero tiene que llegar a bronce (5 veces).'
+  const falta: string[] = []
+  if (c.veces < umbral) falta.push(`hacerlo bien ${umbral - c.veces} ${umbral - c.veces === 1 ? 'vez' : 'veces'} más`)
+  if (!c.mejorado) falta.push('mejorar tu primera vez (más carga, repeticiones o tiempo)')
+  return `Para que brille te falta ${falta.join(' y ')}.`
+}
 
 export default function Album() {
   const [cromos, setCromos] = useState<Cromo[] | null>(null)
@@ -79,7 +88,7 @@ export default function Album() {
 
         {cromos.length === 0 && <div className="capp-vacio">{sobre ? 'Abre tu sobre para empezar la colección.' : 'Tu colección empieza con los ejercicios que hagas en clase. Llegan en el sobre de cada miércoles.'}</div>}
         {cromos.length > 0 && zonas.length === 0 && <div className="capp-vacio">
-          {filtro === 'favoritos' ? 'Aún no tienes favoritos. Abre un cromo y toca el corazón.' : 'Todavía no tienes cromos que brillen. Un cromo brilla cuando mejoras: más carga, más repeticiones o más tiempo.'}
+          {filtro === 'favoritos' ? 'Aún no tienes favoritos. Abre un cromo y toca el corazón.' : 'Todavía no tienes cromos que brillen. Brilla cuando, con color, lo haces bien tantas veces como pide su color y has mejorado.'}
         </div>}
 
         {zonas.map(([zona, lista]) => (
@@ -93,7 +102,8 @@ export default function Album() {
       </main>
 
       {abierto && (() => {
-        const sig = siguienteDe(abierto.veces)
+        const sig = siguienteDe(abierto.vistas)
+        const nivel = nivelDe(abierto.vistas)
         const marcas = [
           abierto.peso_max != null && ['Carga máxima', `${abierto.peso_max} kg`],
           abierto.reps_max != null && ['Más repeticiones', `${abierto.reps_max}`],
@@ -109,14 +119,15 @@ export default function Album() {
               <p className="sub">
                 {abierto.veces === 0
                   ? `Lo has hecho ${abierto.vistas} ${abierto.vistas === 1 ? 'vez' : 'veces'}, pero aún no te ha tocado: hazlo bien en clase para ganar el cromo.`
-                  : sig ? `Hazlo bien ${sig.desde - abierto.veces} ${sig.desde - abierto.veces === 1 ? 'vez' : 'veces'} más para llegar a ${sig.nombre}.` : '¡Nivel máximo!'}
+                  : sig ? `Hazlo ${sig.desde - abierto.vistas} ${sig.desde - abierto.vistas === 1 ? 'vez' : 'veces'} más para llegar a ${sig.nombre}.` : '¡Nivel máximo!'}
               </p>
               {abierto.veces > 0 && (abierto.brilla
-                ? <p className="sub"><b>Brilla porque has mejorado:</b> {mejoras(abierto).join(', ')}.</p>
-                : <p className="sub">Brillará cuando mejores: más carga, más repeticiones o más tiempo que la primera vez.</p>)}
+                ? <p className="sub"><b>Brilla:</b> lo haces bien y has mejorado ({mejoras(abierto).join(', ')}).</p>
+                : <p className="sub">{brilloFalta(abierto, nivel?.desde || 0)}</p>)}
               {abierto.veces > 0 && sello?.nombre && <p className="sub">Lleva el sello de {sello.nombre}: comprobado que lo haces bien. Mueve el cromo para verlo.</p>}
               <div className="capp-marcas">
-                <div><b>{abierto.veces}</b><span>{abierto.veces === 1 ? 'vez bien hecho' : 'veces bien hecho'}</span></div>
+                <div><b>{abierto.vistas}</b><span>{abierto.vistas === 1 ? 'vez' : 'veces'}</span></div>
+                <div><b>{abierto.veces}</b><span>bien hecho</span></div>
                 {marcas.map(([l, v]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
               </div>
               {abierto.primera && <p className="sub">Lo conseguiste el {fecha(abierto.primera)}.</p>}

@@ -49,7 +49,8 @@ export default function Carta({ c, onAbrir, grande = false, sello }: { c: Cromo,
     if (grande && D?.requestPermission) D.requestPermission().catch(() => {})
   }
 
-  const n = nivelDe(c.veces)
+  // Ganado si lo ha hecho bien alguna vez; el color, por las veces que lo ha hecho.
+  const n = c.veces > 0 ? nivelDe(c.vistas) : null
   // Lo ha hecho pero nunca bien: se ve, oscuro, como un cromo que aún no le ha tocado.
   if (!n) return (
     <button type="button" className={`cromo oscuro${grande ? ' grande' : ''}`} onClick={onAbrir} aria-label={`${c.nombre}, aún no conseguido`}>
@@ -67,7 +68,7 @@ export default function Carta({ c, onAbrir, grande = false, sello }: { c: Cromo,
       {c.favorito && <span className="fav" aria-hidden>♥</span>}
       <span className="foto">{c.imagen ? <img src={c.imagen} alt="" loading="lazy"/> : <span className="sin"/>}<Sello_ sello={sello}/></span>
       <span className="nom">{c.nombre}</span>
-      <span className="pie">{n.nombre}{c.veces > 1 && ` · ×${c.veces}`}</span>
+      <span className="pie">{n.nombre}{c.vistas > 1 && ` · ×${c.vistas}`}</span>
     </button>
   )
 }
