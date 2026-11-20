@@ -18,7 +18,13 @@ export default function ModalAppCliente({ pac, onCerrar }: { pac: any, onCerrar:
 
   async function llamar(accion: 'enlace' | 'quitar') {
     setTrabajando(true); setError('')
-    const { data: { session } } = await supabase.auth.getSession()
+    // Token recién renovado: con la pestaña mucho rato abierta, el guardado puede estar
+    // caducado y el servidor contestaba «Sesión no válida».
+    let { data: { session } } = await supabase.auth.getSession()
+    if (!session || (session.expires_at || 0) * 1000 < Date.now() + 60000) {
+      const r = await supabase.auth.refreshSession()
+      if (r.data.session) session = r.data.session
+    }
     const r = await fetch('/api/app/invitar', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
       body: JSON.stringify({ accion, paciente_id: pac.id }) })
     const j = await r.json().catch(() => ({}))
