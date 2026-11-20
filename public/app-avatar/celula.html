@@ -1,0 +1,1600 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Célula SIE 3D</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,system-ui,sans-serif;background:#ECE9E2;color:#262825;padding:22px 16px 30px}
+.w{max-width:900px;margin:0 auto}
+h1{font-size:22px;font-weight:700;margin-bottom:4px}.sub{color:#6B6D6A;font-size:14px;margin-bottom:16px;line-height:1.5}
+#esc{width:100%;height:540px;border-radius:24px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#fff 0%,#EEF3F2 60%,#E1E9E8 100%);cursor:grab;touch-action:none;position:relative}
+.bocadillo{position:absolute;left:0;top:0;max-width:200px;padding:9px 12px;border-radius:16px;background:#fff;font-size:13.5px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.12);pointer-events:none;opacity:0;transition:opacity .25s;transform:translate(-50%,-100%);z-index:2}
+.bocadillo::after{content:'';position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:#fff}
+.bocadillo.angel{border:2px solid #E8C35A}.bocadillo.demonio{border:2px solid #E2574C}
+.bocadillo.on{opacity:1}
+.eleccion{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(255,255,255,.94);border-radius:18px;padding:10px 14px;display:none;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;box-shadow:0 4px 18px rgba(0,0,0,.12);font-size:13.5px;z-index:3;width:max-content;max-width:calc(100% - 24px)}
+.eleccion.on{display:flex}
+.eleccion button{font-family:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:99px;border:0;cursor:pointer}
+.eleccion .si{background:#3E7179;color:#fff}.eleccion .no{background:#F1EEE8;color:#262825}
+#estado{z-index:2;position:absolute;top:14px;left:16px;font-size:13px;color:#3E7179;background:rgba(255,255,255,.8);padding:5px 11px;border-radius:99px;pointer-events:none}
+.ops{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.op{font-family:inherit;font-size:13.5px;padding:9px 14px;border-radius:99px;border:1px solid #E0DACE;background:#fff;cursor:pointer}
+.op.on{background:#262825;color:#fff;border-color:#262825}
+.ayuda{font-size:12.5px;color:#6B6D6A;margin-top:10px;line-height:1.6}
+.panel{background:#fff;border:1px solid #E0DACE;border-radius:18px;padding:6px 16px 16px;margin-top:12px}
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:12px 0 8px;font-size:14px;flex-wrap:wrap}
+.sec .nota{font-size:12px;color:#6B6D6A}
+.ropa{display:flex;flex-wrap:wrap;gap:6px}
+.prenda{font-family:inherit;font-size:13px;padding:7px 11px;border-radius:12px;border:1px solid #E0DACE;background:#FAF8F4;cursor:pointer;display:flex;gap:6px;align-items:center}
+.prenda.on{background:#3E7179;color:#fff;border-color:#3E7179}
+.prenda.lock{opacity:.55;cursor:not-allowed}
+.prenda small{font-size:11px;opacity:.8}
+.medallas{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.med{border:0;background:none;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:#262825;text-align:center;line-height:1.25}
+.med i{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:24px;background:#EEE;filter:grayscale(1);opacity:.5;box-shadow:inset 0 0 0 3px #DDD}
+.med.ok i{filter:none;opacity:1}
+.med small{color:#6B6D6A;font-size:10.5px}
+.objs{display:flex;flex-direction:column;gap:8px}
+.obj{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:13.5px}
+.obj .barra{grid-column:1;height:7px;border-radius:9px;background:#EEEAE2;overflow:hidden}
+.obj .barra i{display:block;height:100%;background:#3E7179;border-radius:9px;transition:width .6s}
+.obj button{grid-row:1/3;grid-column:2;font-family:inherit;font-size:12.5px;padding:7px 11px;border-radius:99px;border:0;background:#3E7179;color:#fff;cursor:pointer}
+.obj button[disabled]{background:#E8F1EF;color:#3E7179;cursor:default}
+.aviso{position:absolute;left:50%;top:14px;transform:translate(-50%,-30px);background:#262825;color:#fff;font-size:13.5px;padding:8px 14px;border-radius:99px;opacity:0;transition:all .35s;pointer-events:none;z-index:4;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.aviso.on{opacity:1;transform:translate(-50%,0)}
+#esc canvas{position:relative;z-index:1}
+.noche{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,#24345a 0%,#121a33 60%,#0a0f1f 100%);opacity:0;transition:opacity 1.2s;z-index:0;pointer-events:none}
+.noche.on{opacity:1}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:3}
+.ficha{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.9);width:min(320px,calc(100% - 32px));background:#fff;border-radius:20px;padding:16px 18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:5;opacity:0;pointer-events:none;transition:all .25s;font-size:13.5px;line-height:1.45}
+.ficha.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.ficha .x{position:absolute;right:10px;top:8px;border:0;background:#F1EEE8;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer}
+.ficha .tit{font-size:16px;font-weight:700;margin:0 30px 10px 0}
+.ficha .fila{display:flex;gap:8px;margin:5px 0}.ficha .fila b{font-weight:600}
+.ficha .sub{margin:12px 0 6px;font-weight:600}
+.ficha ol{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.ficha li{display:grid;grid-template-columns:22px 1fr auto;gap:6px;align-items:center;background:#F6F4EF;border-radius:10px;padding:6px 9px}
+.ficha li i{font-style:normal;font-weight:700;color:#3E7179}.ficha li small{color:#6B6D6A}
+.asis{background:#fff;border:1px solid #E0DACE;border-radius:18px;padding:14px 16px;margin-top:12px}
+.asis-cab{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+.asis-cab span{font-size:22px;font-weight:700;color:#3E7179}
+.asis input{width:100%;margin:10px 0 8px;accent-color:#3E7179}
+.asis-niv{display:flex;gap:6px;flex-wrap:wrap;font-size:12.5px}
+.asis-niv span{padding:5px 10px;border-radius:99px;background:#F1EEE8;color:#6B6D6A}
+.asis-niv span.on{background:#3E7179;color:#fff}
+.asis-pie{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;color:#6B6D6A}
+
+/* EN LA APP (?modo=app): solo el escenario, a toda la ventana, sin los mandos de prueba. */
+body.app{padding:0;background:transparent;overflow:hidden}
+body.app .w>h1,body.app .sub,body.app .asis,body.app .ops,body.app .panel,body.app .ayuda{display:none}
+body.app .w{max-width:none}
+body.app #esc{height:100vh;border-radius:0;background:radial-gradient(circle at 50% 42%,#fff 0%,#EEF5F3 70%)}
+</style></head><body><div class="w">
+<h1>Célula SIE en 3D</h1>
+<div class="sub">Su ánimo depende de cuánto vienes a clase. Si vas mucho, está a tope: hace deporte por su cuenta y hace el tonto. Si faltas, se tira al sofá en pijama con el móvil, la tele y la comida basura.</div>
+<div id="esc"><div id="estado">😊 contenta</div>
+  <div class="noche" id="noche"></div><div class="flash" id="flash"></div>
+  <div class="aviso" id="aviso"></div>
+  <div class="ficha" id="ficha"><button class="x" id="fichaX">×</button><div id="fichaC"></div></div>
+  <div class="bocadillo angel" id="bocA"></div><div class="bocadillo demonio" id="bocD"></div>
+  <div class="eleccion" id="eleccion"><span id="eleTxt">⏰ Clase a las 18:00</span><button class="si" id="eleSi">💪 ¡Voy!</button><button class="no" id="eleNo">😴 Hoy no…</button></div>
+</div>
+<div class="asis">
+  <div class="asis-cab"><b>Asistencia del último mes</b><span id="pctTxt">85%</span></div>
+  <input type="range" id="pct" min="0" max="100" value="85">
+  <div class="asis-niv"><span data-n="vago">🛋️ menos del 40% · modo sofá</span><span data-n="normal">🙂 40–69% · normal</span><span data-n="activo">💪 70% o más · en forma</span></div>
+  <div class="asis-pie"><span>En la app saldrá de las clases realizadas frente a las programadas.</span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="op" id="cita">⏰ Cita en 1 hora</button><button class="op" id="sig">Siguiente actividad ›</button></span></div>
+</div>
+<div class="ops" id="ops"></div>
+<div class="panel">
+  <div class="sec"><b>👕 Vestuario</b><span class="nota">Toca para ponérselo o quitárselo</span></div>
+  <div class="ropa" id="ropa"></div>
+  <div class="sec"><b>🏅 Medallas</b><span class="nota">Toca una gris para simular que supera el reto</span></div>
+  <div class="medallas" id="medallas"></div>
+  <div class="sec"><b>🎯 Objetivos</b><span class="nota">Cuando se cumple uno, se lo absorbe</span></div>
+  <div class="objs" id="objs"></div>
+</div>
+<div class="ayuda">
+• <b>Toca y mantén</b> cualquier parte: se hunde y al soltar vuelve a salir.<br>
+• <b>Toca 3 veces seguidas</b> un ojo, una mano o un pie: se le mete dentro y flota unos segundos hasta volver a su sitio.<br>
+• <b>Arrastra desde el fondo</b> para girarla; si la dejas boca abajo, se endereza sola. Si la giras mucho, se marea.<br>
+• Si la dejas tranquila un rato, se aburre y acaba durmiéndose.<br>
+• <b>⏰ Cita en 1 hora</b>: le salen del cuerpo un ángel y un demonio que discuten si ir a clase. Elige abajo o <b>toca al demonio</b> para echarlo.<br>
+• Si ya tiene objetivos dentro y <b>la giras mucho</b>, le salen fuera: <b>toca uno</b> para ver cuándo lo consiguió, cuánto le llevó y sus 3 ejercicios más hechos.
+</div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+// En la app de clientes: la asistencia real (?pct=) y, si tiene clase pronto, el ángel y el
+// demonio (?cita=HH:MM). Lo que elija se avisa a la app (postMessage 'sie-dilema').
+const Q = new URLSearchParams(location.search)
+if (Q.get('modo') === 'app') document.body.classList.add('app')
+
+import * as THREE from 'three'
+const el = document.getElementById('esc'), estadoEl = document.getElementById('estado')
+const W = () => el.clientWidth, H = () => el.clientHeight
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(W(), H())
+r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05
+el.appendChild(r.domElement)
+const escena = new THREE.Scene()
+const cam = new THREE.PerspectiveCamera(32, W() / H(), .1, 100)
+cam.position.set(0, .35, 7.4); cam.lookAt(0, .1, 0)
+escena.add(new THREE.HemisphereLight(0xffffff, 0xd9e6e4, 1.4))
+const sol = new THREE.DirectionalLight(0xffffff, 2.2); sol.position.set(-3, 4, 5); escena.add(sol)
+const contra = new THREE.DirectionalLight(0xbfe7e3, 1.6); contra.position.set(3, 2, -4); escena.add(contra)
+
+const MENTA = 0x8fd6cb
+const lerp = (a, b, k) => a + (b - a) * k
+const reloj = new THREE.Clock()
+
+// raiz: rebotes y bailes. orient: el giro que le das (y del que se endereza sola).
+// truco: volteretas y giros de las animaciones graciosas, aparte del giro del usuario.
+const raiz = new THREE.Group(); escena.add(raiz)
+const truco = new THREE.Group(); raiz.add(truco)
+const orient = new THREE.Group(); truco.add(orient)
+const cuerpo = new THREE.Group(); orient.add(cuerpo)
+
+// ── MEMBRANA ─────────────────────────────────────────────────────────────────
+const geoMem = new THREE.SphereGeometry(1.6, 96, 72)
+const base = geoMem.attributes.position.array.slice()
+// Los brazos y pies salen fuera de la esfera: se agranda la esfera de colisión para poder tocarlos.
+geoMem.computeBoundingSphere(); geoMem.boundingSphere.radius = 2.6
+const memMat = new THREE.MeshPhysicalMaterial({ color: MENTA, roughness: .15, transmission: .35, thickness: .8, ior: 1.25,
+  emissive: 0x3f9c90, emissiveIntensity: .35, clearcoat: 1, clearcoatRoughness: .12, transparent: true, opacity: .78,
+  attenuationColor: new THREE.Color(0x6fc0b5), attenuationDistance: 6 })
+const membrana = new THREE.Mesh(geoMem, memMat); membrana.scale.set(1, .94, .9); cuerpo.add(membrana)
+const borde = new THREE.Mesh(geoMem, new THREE.MeshBasicMaterial({ color: 0x2f6f6a, side: THREE.BackSide }))
+borde.scale.set(1.035, .975, .935); cuerpo.add(borde)
+
+const nucleo = new THREE.Mesh(new THREE.SphereGeometry(.78, 64, 48),
+  new THREE.MeshPhysicalMaterial({ color: 0x6cc2b6, roughness: .25, clearcoat: .8, emissive: 0x2f7f75, emissiveIntensity: .25 }))
+nucleo.position.set(0, .02, .55); nucleo.scale.set(1, 1, .75); cuerpo.add(nucleo)
+
+const orgMat = new THREE.MeshStandardMaterial({ color: 0x4f9e95, roughness: .5, transparent: true, opacity: .8 })
+const organulos = []
+;[[-.95, .55, .55, .5], [1.0, .75, .4, -.4], [-.85, -.6, .5, .9], [.9, -.55, .55, 1.6], [.2, -1.05, .35, .2], [-.3, 1.05, .3, -.8]].forEach(([x, y, z, rot], i) => {
+  const g = i % 2 ? new THREE.CapsuleGeometry(.09, .22, 6, 12) : new THREE.SphereGeometry(.09, 16, 12)
+  const m = new THREE.Mesh(g, orgMat); m.position.set(x, y, z); m.rotation.z = rot; m.userData = { y0: y, f: .6 + i * .17 }
+  cuerpo.add(m); organulos.push(m)
+})
+
+// ── CARA ─────────────────────────────────────────────────────────────────────
+// Cada pieza va pegada a la superficie de la membrana mirando hacia fuera.
+const cara = new THREE.Group(); cuerpo.add(cara)
+const A = 1.6, B = 1.6 * .94, C = 1.6 * .9
+const piezas = []
+const enSuperficie = (obj, x, y, sobre = .02) => {
+  const z = C * Math.sqrt(Math.max(0, 1 - (x / A) ** 2 - (y / B) ** 2))
+  const nrm = new THREE.Vector3(x / (A * A), y / (B * B), z / (C * C)).normalize()
+  obj.position.set(x, y, z).addScaledVector(nrm, sobre)
+  obj.lookAt(obj.position.clone().add(nrm))
+  obj.userData.p0 = obj.position.clone(); obj.userData.q0 = obj.quaternion.clone(); obj.userData.n = nrm
+  piezas.push(obj)
+}
+const negro = new THREE.MeshPhysicalMaterial({ color: 0x111414, roughness: .08, clearcoat: 1 })
+const blanco = new THREE.MeshBasicMaterial({ color: 0xffffff })
+const trazo = new THREE.MeshBasicMaterial({ color: 0x1a2322 })
+const arco = (rad, grosor, ang = Math.PI) => new THREE.TorusGeometry(rad, grosor, 10, 28, ang)
+
+// Un ojo tiene varias formas y se enseña la que toque según la emoción.
+function hazOjo(lado) {
+  const o = new THREE.Group(); o.userData.lado = lado
+  const formas = {}
+  const normal = new THREE.Group()
+  const bola = new THREE.Mesh(new THREE.SphereGeometry(.2, 32, 24), negro); bola.scale.set(1, 1.05, .55); normal.add(bola)
+  const b1 = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 12), blanco); b1.position.set(.06, .08, .1); normal.add(b1)
+  const b2 = new THREE.Mesh(new THREE.SphereGeometry(.035, 12, 10), blanco); b2.position.set(-.06, -.07, .1); normal.add(b2)
+  formas.normal = normal
+  const feliz = new THREE.Mesh(arco(.15, .035), trazo); feliz.position.y = -.04; formas.feliz = feliz                 // ^ ^
+  const cerrado = new THREE.Mesh(arco(.15, .032), trazo); cerrado.rotation.z = Math.PI; cerrado.position.y = .06; formas.cerrado = cerrado // —
+  const apretado = new THREE.Group()                                                                                  // > <
+  ;[1, -1].forEach(s => { const c = new THREE.Mesh(new THREE.CapsuleGeometry(.032, .16, 4, 8), trazo); c.rotation.z = Math.PI / 2 - lado * s * .55; c.position.set(0, s * .06, 0); apretado.add(c) })
+  formas.apretado = apretado
+  const sorpresa = new THREE.Group()                                                                                  // O
+  const sb = new THREE.Mesh(new THREE.SphereGeometry(.24, 32, 24), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .2, clearcoat: 1 })); sb.scale.set(1, 1.05, .5); sorpresa.add(sb)
+  const sr = new THREE.Mesh(new THREE.TorusGeometry(.24, .025, 8, 32), trazo); sr.position.z = .04; sorpresa.add(sr)
+  const sp = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 12), negro); sp.position.z = .1; sorpresa.add(sp)
+  formas.sorpresa = sorpresa
+  const pts = []; for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 5, rr = .02 + i / 60 * .17; pts.push(new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr, 0)) }
+  formas.mareo = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, .022, 6), trazo)         // @
+  // Medio cerrado, de pocas ganas: el ojo normal con un párpado del color del cuerpo encima.
+  // Es la mitad de abajo del ojo, con el borde de arriba recto como un párpado caído.
+  const medio = new THREE.Group()
+  const mb = new THREE.Mesh(new THREE.SphereGeometry(.2, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), negro); mb.scale.set(1, 1.05, .55); mb.position.y = .02; medio.add(mb)
+  const mb1 = new THREE.Mesh(new THREE.SphereGeometry(.045, 12, 10), blanco); mb1.position.set(.07, -.05, .1); medio.add(mb1)
+  const linea = new THREE.Mesh(new THREE.CapsuleGeometry(.026, .42, 4, 8), trazo); linea.rotation.z = Math.PI / 2; linea.position.set(0, .02, .03); medio.add(linea)
+  formas.medio = medio
+  Object.values(formas).forEach(f => { f.visible = false; o.add(f) })
+  formas.normal.visible = true
+  o.userData.formas = formas
+  // Un "cuenco" invisible para poder tocar el ojo sea cual sea su forma.
+  const toque = new THREE.Mesh(new THREE.SphereGeometry(.26, 12, 10), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }))
+  toque.userData.parte = o; o.add(toque); o.userData.toque = toque
+  return o
+}
+const ojos = [-1, 1].map(s => { const o = hazOjo(s); enSuperficie(o, s * .48, .14, .03); cara.add(o); return o })
+
+// Cejas: aparecen para enfadarse o preocuparse.
+const cejas = [-1, 1].map(s => {
+  const c = new THREE.Mesh(new THREE.CapsuleGeometry(.03, .2, 4, 8), trazo); c.rotation.z = Math.PI / 2
+  const g = new THREE.Group(); g.add(c); enSuperficie(g, s * .48, .46, .03); g.userData.lado = s; g.visible = false; cara.add(g); return g
+})
+
+// Mofletes que se encienden cuando se emociona o se enfada.
+const moflMat = new THREE.MeshBasicMaterial({ color: 0xf58f86, transparent: true, opacity: .6 })
+const mofletes = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.CircleGeometry(.14, 24), moflMat); enSuperficie(m, s * .68, -.1, .012); m.scale.set(1.3, .8, 1); cara.add(m); return m })
+
+// Boca: varias formas, como los ojos.
+const boca = new THREE.Group(); enSuperficie(boca, 0, -.1, .012); cara.add(boca)
+const bocas = {}
+bocas.sonrisa = new THREE.Mesh(arco(.13, .028), trazo); bocas.sonrisa.rotation.z = Math.PI
+const abierta = new THREE.Group()
+const ab = new THREE.Mesh(new THREE.CircleGeometry(.17, 32, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0x3a1f22, side: THREE.DoubleSide })); ab.rotation.z = Math.PI; abierta.add(ab)
+const lengua = new THREE.Mesh(new THREE.CircleGeometry(.08, 24), new THREE.MeshBasicMaterial({ color: 0xf07a7a })); lengua.position.set(0, -.11, .005); lengua.scale.y = .6; abierta.add(lengua)
+abierta.position.y = .04; bocas.abierta = abierta
+bocas.o = new THREE.Mesh(new THREE.TorusGeometry(.07, .03, 10, 24), trazo); bocas.o.scale.y = 1.25
+bocas.triste = new THREE.Mesh(arco(.11, .028), trazo); bocas.triste.position.y = -.08
+const ondaPts = []; for (let i = 0; i <= 30; i++) ondaPts.push(new THREE.Vector3(-.16 + i / 30 * .32, Math.sin(i / 30 * Math.PI * 3) * .03, 0))
+bocas.onda = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ondaPts), 40, .024, 6), trazo)
+bocas.recta = new THREE.Mesh(new THREE.CapsuleGeometry(.025, .16, 4, 8), trazo); bocas.recta.rotation.z = Math.PI / 2
+Object.values(bocas).forEach(b => { b.visible = false; boca.add(b) })
+
+// ── BRACITOS Y PIES ──────────────────────────────────────────────────────────
+// ── BRACITOS Y PIES: salen de la propia membrana ─────────────────────────────
+// No son piezas pegadas: son bultos de la misma gelatina. En el bucle, los vértices
+// de la membrana que miran hacia cada extremidad se empujan hacia fuera con una
+// curva suave, así brazo y cuerpo son una sola superficie (mismo brillo, mismo
+// contorno). Mover un brazo es cambiar hacia dónde apunta su bulto.
+const extremidades = [-1, 1].flatMap(s => [
+  { tipo: 'brazo', lado: s, elev: -.4, L: .3, L0: .3, abre: .945, abre0: .945, dir: new THREE.Vector3(), peso: 0, objetivo: new THREE.Vector3(0, 0, 1) },
+  { tipo: 'pie', lado: s, elev: 0, L: .2, L0: .2, abre: .955, abrir: 0, dir: new THREE.Vector3(s * .36, -.93, .1).normalize() },
+])
+const brazos = extremidades.filter(x => x.tipo === 'brazo'), pies = extremidades.filter(x => x.tipo === 'pie')
+// Un brazo puede "agarrar" algo (móvil, comida): con peso 1 su bulto apunta al objetivo.
+const dirBrazo = (b) => {
+  b.dir.set(b.lado * Math.cos(b.elev), Math.sin(b.elev), .08).normalize()
+  if (b.peso > .001) b.dir.lerp(b.objetivo, b.peso).normalize()
+}
+// Punta de una extremidad en coordenadas del cuerpo: ahí se cuelga lo que sujeta.
+const puntaDe = (x) => x.dir.clone().multiplyScalar(1.6 * (1 + x.L * .7)).multiply(membrana.scale)
+brazos.forEach(dirBrazo)
+// Cuando una extremidad se mete dentro, lo que flota es una gotita de su misma gelatina.
+const gotaMat = new THREE.MeshPhysicalMaterial({ color: MENTA, roughness: .2, clearcoat: 1, emissive: 0x3f9c90, emissiveIntensity: .3 })
+extremidades.forEach(x => { const g = new THREE.Mesh(new THREE.SphereGeometry(.2, 24, 18), gotaMat); g.visible = false; cuerpo.add(g); x.gota = g })
+const sombra = new THREE.Mesh(new THREE.CircleGeometry(1.5, 48), new THREE.MeshBasicMaterial({ color: 0x3e7179, transparent: true, opacity: .14 }))
+sombra.rotation.x = -Math.PI / 2; sombra.position.y = -1.85; escena.add(sombra)
+
+// Adornos de emoción como sprites de texto: z de dormir, 💢, estrellitas, !
+function sprite(txt, color, tam = 64) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d')
+  const tex = new THREE.CanvasTexture(c)
+  // pinta() deja cambiar el texto luego (el contador de repeticiones lo usa).
+  const pinta = (t) => { x.clearRect(0, 0, 128, 128); x.font = `800 ${tam}px -apple-system, sans-serif`; x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, 64, 64); tex.needsUpdate = true }
+  pinta(txt)
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }))
+  s.userData.pinta = pinta
+  s.scale.setScalar(.5); s.visible = false; escena.add(s); return s
+}
+const zetas = [sprite('z', '#3E7179'), sprite('z', '#3E7179', 50), sprite('Z', '#3E7179', 80)]
+const enfado = sprite('💢', '#B05A5A', 80), exclam = sprite('!', '#B05A5A', 96)
+const estrellas = [sprite('★', '#E8C35A'), sprite('★', '#E8C35A', 48), sprite('★', '#E8C35A', 56)]
+const sudor = [sprite('💦', '#5AA7D6', 70), sprite('💦', '#5AA7D6', 56)]
+const brillos = [sprite('✨', '#E8C35A', 70), sprite('✨', '#E8C35A', 70)]
+const corazones = [sprite('❤️', '#E25C6A', 64), sprite('👍', '#E8C35A', 64), sprite('❤️', '#E25C6A', 52)]
+const migas = [0, 1, 2, 3, 4].map(() => { const s = sprite('●', '#B9824A', 40); s.scale.setScalar(.16); s.userData.v = new THREE.Vector3(); s.userData.t0 = -9; return s })
+const contador = sprite('1', '#3E7179', 84)
+
+// ── LO QUE LA RODEA SEGÚN SU ÁNIMO ───────────────────────────────────────────
+// Todo se hace con piezas sencillas y aparece/desaparece creciendo, como en dibujos.
+const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: .6, ...extra })
+const textura = (dibuja, w = 256, h = 256, rep = [1, 1]) => {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; dibuja(c.getContext('2d'), w, h)
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); return t
+}
+const rayas = textura((x, w, h) => { x.fillStyle = '#A9C6EC'; x.fillRect(0, 0, w, h); x.fillStyle = '#F4F8FF'; for (let i = 0; i < 8; i++) x.fillRect(i * 32, 0, 12, h) }, 256, 64, [6, 1])
+const cuadros = textura((x, w, h) => { x.fillStyle = '#F2C66D'; x.fillRect(0, 0, w, h); x.fillStyle = 'rgba(214,120,90,.55)'; for (let i = 0; i < 8; i += 2) { x.fillRect(i * 32, 0, 32, h); x.fillRect(0, i * 32, w, 32) } }, 256, 256, [3, 1])
+const capsula = (r, largo, m) => new THREE.Mesh(new THREE.CapsuleGeometry(r, largo, 8, 20), m)
+const caja = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m)
+
+// Sofá: su origen está en el suelo para que crezca desde abajo.
+const sofa = new THREE.Group(); sofa.position.y = -1.95; escena.add(sofa)
+{
+  const tela = mat(0xC98D6B), cojin = mat(0xDBA283), pata = mat(0x6B4A37)
+  const asiento = caja(4.1, .4, 2.3, cojin); asiento.position.set(0, .4, .15); sofa.add(asiento)
+  const base = caja(4.6, .3, 2.5, tela); base.position.set(0, .15, .05); sofa.add(base)
+  const respaldo = capsula(.6, 3.9, tela); respaldo.rotation.z = Math.PI / 2; respaldo.scale.z = .7; respaldo.position.set(0, 1.65, -1.25); sofa.add(respaldo)
+  ;[-1, 1].forEach(s => {
+    const brazo = capsula(.42, 1.9, tela); brazo.rotation.x = Math.PI / 2; brazo.position.set(s * 2.3, .8, .05); sofa.add(brazo)
+    ;[-1, 1].forEach(z => { const p = new THREE.Mesh(new THREE.CylinderGeometry(.07, .05, .2, 10), pata); p.position.set(s * 2.1, -.05, z * 1.05); sofa.add(p) })
+  })
+}
+// Cama vista de frente: cabecero, almohada y una manta que la tapa hasta la boca.
+const cama = new THREE.Group(); cama.position.y = -1.95; escena.add(cama)
+{
+  const madera = mat(0xB98A5E)
+  const cabecero = caja(4.6, 2.4, .22, madera); cabecero.position.set(0, 1.5, -1.6); cama.add(cabecero)
+  const remate = capsula(.16, 4.4, madera); remate.rotation.z = Math.PI / 2; remate.position.set(0, 2.72, -1.6); cama.add(remate)
+  const somier = caja(4.6, .45, 3.2, madera); somier.position.set(0, .2, 0); cama.add(somier)
+  const colchon = caja(4.4, .5, 3.0, mat(0xF4F1EA)); colchon.position.set(0, .65, 0); cama.add(colchon)
+  const almohada = capsula(.38, 1.6, mat(0xFFFFFF)); almohada.rotation.z = Math.PI / 2; almohada.scale.z = .6; almohada.position.set(0, 2.2, -1.15); cama.add(almohada)
+  const manta = caja(4.5, 1.2, 1.1, mat(0xffffff, { map: cuadros })); manta.position.set(0, .95, 1.0); cama.add(manta)
+  const sabana = capsula(.13, 4.4, mat(0xFFFFFF)); sabana.rotation.z = Math.PI / 2; sabana.position.set(0, 1.55, 1.42); cama.add(sabana)
+}
+// Tele a un lado, girada hacia ella; la pantalla cambia de color como si echaran algo.
+const tele = new THREE.Group(); tele.position.set(2.75, -1.95, 1.5); tele.rotation.y = -.85; escena.add(tele)
+const teleIn = new THREE.Group(); teleIn.scale.setScalar(1.3); tele.add(teleIn)
+const pantallaCv = document.createElement('canvas'); pantallaCv.width = 128; pantallaCv.height = 80
+const pantallaTex = new THREE.CanvasTexture(pantallaCv); pantallaTex.colorSpace = THREE.SRGBColorSpace
+{
+  const mueble = caja(1.7, .75, .75, mat(0xB98A5E)); mueble.position.y = .38; teleIn.add(mueble)
+  const pie = caja(.12, .3, .12, mat(0x2B2F33)); pie.position.y = .9; teleIn.add(pie)
+  const marco = caja(1.55, .98, .12, mat(0x2B2F33)); marco.position.y = 1.5; teleIn.add(marco)
+  const pant = new THREE.Mesh(new THREE.PlaneGeometry(1.42, .86), new THREE.MeshBasicMaterial({ map: pantallaTex })); pant.position.set(0, 1.5, .065); teleIn.add(pant)
+}
+const luzTele = new THREE.PointLight(0x88aaff, 0, 6); luzTele.position.set(1.6, -.2, 1.6); escena.add(luzTele)
+const pintaPantalla = () => {
+  const x = pantallaCv.getContext('2d'), cols = ['#6EC6FF', '#FFB74D', '#81C784', '#F06292', '#BA68C8', '#FFF176']
+  x.fillStyle = cols[Math.random() * 6 | 0]; x.fillRect(0, 0, 128, 80)
+  for (let i = 0; i < 3; i++) { x.fillStyle = cols[Math.random() * 6 | 0]; x.beginPath(); x.arc(Math.random() * 128, 40 + Math.random() * 40, 10 + Math.random() * 22, 0, 7); x.fill() }
+  pantallaTex.needsUpdate = true; luzTele.color.set(x.fillStyle)
+}
+pintaPantalla()
+
+// Pijama: media esfera de rayas por debajo de la cara. Los bracitos y pies salen por fuera.
+const pijama = new THREE.Group(); cuerpo.add(pijama)
+{
+  // Pegado al cuerpo y sólo por fuera: si se ve por dentro parece un cuenco.
+  const t0 = 2.0, R = 1.6 * 1.03
+  const tela = new THREE.Mesh(new THREE.SphereGeometry(R, 64, 24, 0, Math.PI * 2, t0, Math.PI - t0), mat(0xffffff, { map: rayas, roughness: .85 }))
+  // Inclinado con el delantero más alto: así el corte se ve como el cuello de una camiseta y no como un cuenco.
+  tela.scale.copy(membrana.scale); tela.rotation.x = -.15; pijama.add(tela)
+  const ribete = new THREE.Mesh(new THREE.TorusGeometry(R * Math.sin(t0), .045, 8, 64), mat(0xF4F8FF)); ribete.rotation.x = Math.PI / 2; ribete.position.y = R * Math.cos(t0); tela.add(ribete)
+  ;[-.95, -1.3].forEach(y => { const b = new THREE.Mesh(new THREE.SphereGeometry(.06, 12, 10), mat(0xF4F8FF)); b.position.set(0, y, Math.sqrt(R * R - y * y) + .02); tela.add(b) })
+}
+// Gorro de dormir, sólo en la cama.
+const gorro = new THREE.Group(); gorro.position.set(.25, 1.36, -.05); gorro.rotation.z = -.45; cuerpo.add(gorro)
+{
+  const ala = new THREE.Mesh(new THREE.TorusGeometry(.55, .11, 10, 32), mat(0xF4F8FF)); ala.rotation.x = Math.PI / 2; gorro.add(ala)
+  const cono = new THREE.Mesh(new THREE.ConeGeometry(.55, 1.15, 24, 1, true), mat(0xffffff, { map: rayas, side: THREE.DoubleSide })); cono.position.y = .6; gorro.add(cono)
+  const borla = new THREE.Mesh(new THREE.SphereGeometry(.15, 16, 12), mat(0xF4F8FF)); borla.position.y = 1.2; gorro.add(borla)
+}
+// Cinta de deporte en la frente cuando está en forma.
+const cinta = new THREE.Group(); cinta.position.y = .98; cinta.rotation.z = .07; cuerpo.add(cinta)
+{ const g = new THREE.Group(); g.scale.z = .9; cinta.add(g); const c = new THREE.Mesh(new THREE.TorusGeometry(1.25, .09, 12, 64), mat(0xE8574A)); c.rotation.x = Math.PI / 2; g.add(c) }
+// Mancuernas, una en cada mano.
+const mancuernas = brazos.map(() => {
+  const g = new THREE.Group(), hierro = mat(0x39403F, { roughness: .35, metalness: .4 })
+  // La barra va de lado (eje x) para que desde delante se vea la mancuerna entera.
+  const barra = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, .7, 10), hierro); barra.rotation.z = Math.PI / 2; g.add(barra)
+  ;[-1, 1].forEach(s => { const d = new THREE.Mesh(new THREE.CylinderGeometry(.21, .21, .12, 24), hierro); d.rotation.z = Math.PI / 2; d.position.x = s * .28; g.add(d) })
+  cuerpo.add(g); return g
+})
+// Móvil: la pantalla mira hacia ella, así que desde fuera se le ve la tapa y su luz azul en la cara.
+const movil = new THREE.Group(); cuerpo.add(movil)
+{
+  movil.add(caja(.3, .54, .045, mat(0x2B2F33, { roughness: .3 })))
+  const pant = new THREE.Mesh(new THREE.PlaneGeometry(.26, .48), new THREE.MeshBasicMaterial({ color: 0x9fd0ff })); pant.position.z = .024; movil.add(pant)
+  const cam = new THREE.Mesh(new THREE.CircleGeometry(.03, 12), mat(0x111111)); cam.position.set(-.08, .19, -.024); cam.rotation.y = Math.PI; movil.add(cam)
+}
+const luzMovil = new THREE.PointLight(0x8ab8ff, 0, 3); cuerpo.add(luzMovil)
+// Comida basura.
+const comidas = {}
+{
+  const pan = mat(0xD9A35B), sesamo = mat(0xFFF6DD)
+  const b = new THREE.Group()
+  const p1 = new THREE.Mesh(new THREE.CylinderGeometry(.31, .29, .1, 24), pan); p1.position.y = -.14; b.add(p1)
+  const carne = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .1, 24), mat(0x5A3220)); carne.position.y = -.05; b.add(carne)
+  const queso = caja(.6, .025, .6, mat(0xF5C542)); queso.position.y = .01; queso.rotation.y = .78; b.add(queso)
+  const lechuga = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .03, 24), mat(0x6CBF4A)); lechuga.position.y = .04; b.add(lechuga)
+  const p2 = new THREE.Mesh(new THREE.SphereGeometry(.32, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), pan); p2.position.y = .05; p2.scale.y = .6; b.add(p2)
+  for (let i = 0; i < 7; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(.022, 6, 4), sesamo); const a = i * 2.4, rr = .08 + (i % 3) * .07; s.position.set(Math.cos(a) * rr, .05 + .19 * Math.sqrt(1 - (rr / .32) ** 2) * .98, Math.sin(a) * rr); s.scale.y = .5; b.add(s) }
+  b.rotation.set(.35, 0, .15); comidas.burger = b
+  const k = new THREE.Group()
+  const torta = new THREE.Mesh(new THREE.CylinderGeometry(.15, .13, .75, 20), mat(0xE8C48A)); k.add(torta)
+  const papel = new THREE.Mesh(new THREE.CylinderGeometry(.165, .145, .38, 20, 1, true), mat(0xFFFFFF, { side: THREE.DoubleSide })); papel.position.y = -.2; k.add(papel)
+  ;[[0x8A4B2A, 7], [0x6CBF4A, 4], [0xE2574C, 3], [0xFFF3D6, 3]].forEach(([c, n]) => { for (let i = 0; i < n; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 6), mat(c)); const a = Math.random() * 7; s.position.set(Math.cos(a) * .08, .38 + Math.random() * .06, Math.sin(a) * .08); k.add(s) } })
+  k.rotation.z = .55; comidas.kebab = k
+  const tn = new THREE.Group(), metal = mat(0xCFD6D8, { metalness: .6, roughness: .25 })
+  const mango = new THREE.Mesh(new THREE.CylinderGeometry(.02, .025, .5, 8), metal); tn.add(mango)
+  ;[-1, 0, 1].forEach(i => { const d = new THREE.Mesh(new THREE.CylinderGeometry(.008, .008, .14, 6), metal); d.position.set(i * .03, .31, 0); tn.add(d) })
+  const enrollado = new THREE.Mesh(new THREE.SphereGeometry(.07, 10, 8), mat(0xF2D27A)); enrollado.position.y = .32; enrollado.scale.y = .8; tn.add(enrollado)
+  tn.rotation.z = .8; comidas.tenedor = tn
+  Object.values(comidas).forEach(c => cuerpo.add(c))
+}
+// El plato de pasta descansa en la barriga.
+const plato = new THREE.Group(); plato.position.set(.05, -.95, 1.45); cuerpo.add(plato)
+{
+  const bol = new THREE.Mesh(new THREE.SphereGeometry(.4, 24, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat(0xF4F1EA, { side: THREE.DoubleSide })); plato.add(bol)
+  const espagueti = new THREE.Mesh(new THREE.TorusKnotGeometry(.17, .03, 120, 8, 3, 7), mat(0xF2D27A)); espagueti.position.y = .04; espagueti.scale.y = .55; espagueti.rotation.x = Math.PI / 2; plato.add(espagueti)
+  const salsa = new THREE.Mesh(new THREE.SphereGeometry(.13, 16, 10), mat(0xC9442F, { roughness: .3 })); salsa.position.y = .1; salsa.scale.y = .45; plato.add(salsa)
+  plato.userData.pasta = espagueti
+}
+// Aparecer y desaparecer creciendo/encogiendo.
+const ver = (o, si, vel = .12) => {
+  // Desaparece más rápido de lo que aparece, para que no quede un sofá diminuto un rato.
+  const s = o.userData.s = lerp(o.userData.s ?? 0, si ? 1 : 0, si ? vel : Math.max(vel, .2))
+  o.visible = s > .01; o.scale.setScalar(Math.max(s, .001)); return s
+}
+;[sofa, cama, tele, pijama, gorro, cinta, movil, plato, ...mancuernas, ...Object.values(comidas)].forEach(o => { o.visible = false; o.userData.s = 0 })
+
+// ── ÁNGEL Y DEMONIO ──────────────────────────────────────────────────────────
+// Cuando se acerca su clase le brotan del cuerpo dos célulitas, una en cada hombro.
+// Son de la misma gelatina (mismo brillo y contorno), en pequeño.
+function hazMini(tipo) {
+  const ang = tipo === 'angel', ent = tipo === 'entrenador', g = new THREE.Group()
+  const m = new THREE.MeshPhysicalMaterial({ color: ang ? 0xEFFAF7 : ent ? 0x7FD3C6 : 0xF0796A, roughness: .15, clearcoat: 1, transmission: .2, thickness: .5,
+    emissive: ang ? 0x9fd8cf : ent ? 0x2F7F75 : 0xB8443A, emissiveIntensity: .28, transparent: true, opacity: .92 })
+  const geo = new THREE.SphereGeometry(.42, 40, 30)
+  const cuerpoM = new THREE.Mesh(geo, m); cuerpoM.scale.set(1, .95, .9); cuerpoM.userData.mini = tipo; g.add(cuerpoM)
+  const bordeM = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: ang ? 0x6FB3A8 : ent ? 0x2F6F6A : 0x9A3127, side: THREE.BackSide })); bordeM.scale.set(1.06, 1.01, .95); g.add(bordeM)
+  const cara = new THREE.Group(); cara.position.z = .36; g.add(cara)
+  const ojos = [-1, 1].map(s => {
+    const o = new THREE.Group(); o.position.set(s * .14, .05, 0)
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.065, 16, 12), negro); b.scale.z = .55; o.add(b)
+    const h = new THREE.Mesh(new THREE.SphereGeometry(.022, 8, 6), blanco); h.position.set(.02, .025, .03); o.add(h)
+    cara.add(o); return o
+  })
+  // Boca: sonrisa en el ángel, sonrisa torcida de pillo en el demonio.
+  const boca = new THREE.Mesh(arco(.075, .016), trazo); boca.rotation.z = Math.PI + (ang ? 0 : .35); boca.position.set(ang ? 0 : .03, -.07, .01); cara.add(boca)
+  const triste = new THREE.Mesh(arco(.06, .016), trazo); triste.position.set(0, -.12, .01); triste.visible = false; cara.add(triste)
+  ;[-1, 1].forEach(s => { const c = new THREE.Mesh(new THREE.CircleGeometry(.05, 16), moflMat); c.position.set(s * .22, -.05, -.02); c.scale.set(1.3, .8, 1); cara.add(c) })
+  const extra = {}
+  if (ent) {
+    // El entrenador: gorra SIE y silbato.
+    const verdeG = mat(0x3E7179, { roughness: .5 })
+    const copa = new THREE.Mesh(new THREE.SphereGeometry(.4, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), verdeG); copa.scale.set(1, .55, .95); copa.position.y = .2; g.add(copa)
+    const vis = new THREE.Mesh(new THREE.CylinderGeometry(.28, .28, .03, 20, 1, false, -Math.PI / 2, Math.PI), verdeG); vis.position.set(0, .21, .34); vis.scale.z = .8; g.add(vis)
+    const silbato = new THREE.Mesh(new THREE.CapsuleGeometry(.04, .07, 4, 8), mat(0xF2C14E, { metalness: .6, roughness: .3 })); silbato.rotation.z = Math.PI / 2; silbato.position.set(.1, -.24, .36); g.add(silbato)
+  } else if (ang) {
+    const aureola = new THREE.Mesh(new THREE.TorusGeometry(.2, .03, 10, 32), new THREE.MeshStandardMaterial({ color: 0xFFD36B, emissive: 0xE8B53A, emissiveIntensity: .8, roughness: .3 }))
+    aureola.rotation.x = Math.PI / 2 - .25; aureola.position.y = .58; g.add(aureola); extra.aureola = aureola
+    extra.alas = [-1, 1].map(s => {
+      const piv = new THREE.Group(); piv.position.set(s * .3, .08, -.22); g.add(piv)
+      const a = new THREE.Mesh(new THREE.SphereGeometry(.22, 20, 14), mat(0xFFFFFF, { roughness: .4 })); a.scale.set(1, .6, .22); a.position.x = s * .2; a.rotation.z = s * .5; piv.add(a)
+      piv.userData.lado = s; return piv
+    })
+  } else {
+    const rojo = mat(0x8E2A22, { roughness: .35 })
+    ;[-1, 1].forEach(s => { const c = new THREE.Mesh(new THREE.ConeGeometry(.065, .2, 12), rojo); c.position.set(s * .2, .4, 0); c.rotation.z = -s * .35; g.add(c) })
+    // Cejas de pillo: bajan hacia el centro.
+    ;[-1, 1].forEach(s => { const c = new THREE.Mesh(new THREE.CapsuleGeometry(.014, .08, 4, 6), trazo); c.rotation.z = Math.PI / 2 + s * .5; c.position.set(s * .14, .15, .01); cara.add(c) })
+    const curva = new THREE.CatmullRomCurve3([new THREE.Vector3(.1, -.3, -.25), new THREE.Vector3(.35, -.45, -.3), new THREE.Vector3(.55, -.3, -.25), new THREE.Vector3(.6, -.08, -.2)])
+    const cola = new THREE.Group(); g.add(cola)
+    cola.add(new THREE.Mesh(new THREE.TubeGeometry(curva, 30, .022, 6), rojo))
+    const punta = new THREE.Mesh(new THREE.ConeGeometry(.06, .13, 4), rojo); punta.position.set(.6, -.03, -.2); cola.add(punta)
+    extra.cola = cola
+    // Tridente pequeño en la mano.
+    const tri = new THREE.Group(); tri.position.set(.5, -.05, .1); tri.rotation.z = -.25; g.add(tri)
+    tri.add(new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, .62, 6), rojo))
+    ;[-1, 0, 1].forEach(i => { const d = new THREE.Mesh(new THREE.ConeGeometry(.02, .12, 6), rojo); d.position.set(i * .05, .36, 0); tri.add(d) })
+    const trav = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .12, 6), rojo); trav.rotation.z = Math.PI / 2; trav.position.y = .3; tri.add(trav)
+    extra.tri = tri
+  }
+  g.userData = { tipo, ojos, boca, triste, cuerpoM, ...extra, s: 0 }
+  g.visible = false; raiz.add(g); return g
+}
+const angel = hazMini('angel'), demonio = hazMini('demonio')
+const minis = [angel, demonio]
+angel.userData.lado = -1; demonio.userData.lado = 1          // ángel a la izquierda de la pantalla, demonio a la derecha
+// Los bultos de los que brotan: como los brazos, pero en los hombros.
+const brotes = minis.map(m => ({ dir: new THREE.Vector3(m.userData.lado * .62, .72, .3).normalize(), L: 0, abre: .95 }))
+const bultos = [...extremidades, ...brotes]
+const humo = sprite('💨', '#9AA', 80), lagrima = sprite('💧', '#5AA7D6', 60), risaD = sprite('😈', '#E2574C', 70)
+const FRASES = {
+  angel: ['¡Venga, que en un rato tienes clase!', 'Luego te vas a sentir genial 💪', 'Tu espalda te lo va a agradecer', '¡Solo es una hora, tú puedes!', 'Piensa en lo bien que duermes después'],
+  demonio: ['Uff… con lo bien que se está en el sofá 😏', 'Mañana vas, hoy descansa', 'Seguro que llueve… ni mires', 'Total, por un día no pasa nada', 'Hay pizza en la nevera…'],
+}
+let dilema = null
+const bocA = document.getElementById('bocA'), bocD = document.getElementById('bocD'), eleccion = document.getElementById('eleccion')
+
+// ── VESTUARIO ────────────────────────────────────────────────────────────────
+// Prendas por hueco (cabeza, ojos, cuello, espalda): sólo una por hueco.
+// Algunas se desbloquean con medallas.
+const ROPA = {
+  gorra: { hueco: 'cabeza', nombre: 'Gorra SIE', emoji: '🧢' },
+  lana: { hueco: 'cabeza', nombre: 'Gorro de lana', emoji: '🧶' },
+  auriculares: { hueco: 'cabeza', nombre: 'Auriculares', emoji: '🎧', medalla: 'diez' },
+  corona: { hueco: 'cabeza', nombre: 'Corona', emoji: '👑', medalla: 'tres' },
+  sol: { hueco: 'ojos', nombre: 'Gafas de sol', emoji: '🕶️' },
+  redondas: { hueco: 'ojos', nombre: 'Gafas redondas', emoji: '👓' },
+  pajarita: { hueco: 'cuello', nombre: 'Pajarita', emoji: '🎀' },
+  bufanda: { hueco: 'cuello', nombre: 'Bufanda', emoji: '🧣' },
+  capa: { hueco: 'espalda', nombre: 'Capa de héroe', emoji: '🦸', medalla: 'racha' },
+}
+const equipo = { cabeza: null, ojos: null, cuello: null, espalda: null }
+// Un punto de la superficie del cuerpo (sin deformar) y su normal, para pegar cosas.
+const superficie = (x, y, off = .02) => {
+  const z = C * Math.sqrt(Math.max(0, 1 - (x / A) ** 2 - (y / B) ** 2))
+  const n = new THREE.Vector3(x / (A * A), y / (B * B), z / (C * C)).normalize()
+  return { p: new THREE.Vector3(x, y, z).addScaledVector(n, off), n }
+}
+// Coloca y orienta un objeto ANTES de meterlo en su padre (lookAt trabaja en coordenadas del mundo).
+const pegar = (obj, x, y, off, padre) => { const { p, n } = superficie(x, y, off); obj.position.copy(p); obj.lookAt(p.clone().add(n)); padre.add(obj); return obj }
+const piezasRopa = {}
+{
+  const verde = mat(0x3E7179, { roughness: .5 }), blancoM = mat(0xFFFFFF, { roughness: .5 }), oro = mat(0xF2C14E, { metalness: .6, roughness: .25 })
+  // Gorra SIE
+  const gorra = new THREE.Group(); gorra.position.set(0, 1.0, 0); gorra.rotation.set(-.12, 0, .08)
+  const copa = new THREE.Mesh(new THREE.SphereGeometry(1.2, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2), verde); copa.scale.set(1, .6, .95); gorra.add(copa)
+  const visera = new THREE.Mesh(new THREE.CylinderGeometry(.8, .8, .05, 32, 1, false, -Math.PI / 2, Math.PI), verde); visera.position.set(0, .03, .95); visera.scale.z = .75; visera.rotation.x = .12; gorra.add(visera)
+  const boton = new THREE.Mesh(new THREE.SphereGeometry(.09, 12, 8), verde); boton.position.y = .72; gorra.add(boton)
+  const logoTex = textura((x, w, h) => { x.fillStyle = '#fff'; x.font = '700 120px -apple-system, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('sie', w / 2, h / 2 + 6) }, 256, 128)
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(.55, .27), new THREE.MeshBasicMaterial({ map: logoTex, transparent: true })); logo.position.set(0, .38, 1.06); logo.rotation.x = -.42; gorra.add(logo)
+  piezasRopa.gorra = gorra
+  // Gorro de lana con pompón
+  const lana = new THREE.Group(); lana.position.y = .98; lana.rotation.z = -.08
+  const rojo = mat(0xD9534F, { roughness: .9 })
+  const cupula = new THREE.Mesh(new THREE.SphereGeometry(1.24, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2), rojo); cupula.scale.set(1, .78, .94); lana.add(cupula)
+  const vuelta = new THREE.Mesh(new THREE.TorusGeometry(1.24, .16, 10, 48), mat(0xF1EDE4, { roughness: .9 })); vuelta.rotation.x = Math.PI / 2; vuelta.scale.y = .94; lana.add(vuelta)
+  const pompon = new THREE.Mesh(new THREE.SphereGeometry(.28, 16, 12), mat(0xF1EDE4, { roughness: 1 })); pompon.position.y = 1.0; lana.add(pompon)
+  piezasRopa.lana = lana
+  // Auriculares
+  const auri = new THREE.Group(); auri.position.y = .2
+  const negroM = mat(0x2B2F33, { roughness: .35 })
+  const diadema = new THREE.Mesh(new THREE.TorusGeometry(1.58, .07, 10, 48, Math.PI), negroM); auri.add(diadema)
+  ;[-1, 1].forEach(s => {
+    const cas = new THREE.Mesh(new THREE.CylinderGeometry(.32, .32, .22, 24), negroM); cas.rotation.z = Math.PI / 2; cas.position.x = s * 1.58; auri.add(cas)
+    const aro = new THREE.Mesh(new THREE.TorusGeometry(.32, .05, 8, 24), mat(0x6FD3C3, { emissive: 0x3FA89A, emissiveIntensity: .6 })); aro.rotation.y = Math.PI / 2; aro.position.x = s * 1.7; auri.add(aro)
+  })
+  piezasRopa.auriculares = auri
+  // Corona
+  const corona = new THREE.Group(); corona.position.set(.1, 1.38, 0); corona.rotation.z = -.14
+  const banda = new THREE.Mesh(new THREE.CylinderGeometry(.55, .5, .28, 32, 1, true), mat(0xF2C14E, { metalness: .7, roughness: .25, side: THREE.DoubleSide })); corona.add(banda)
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, c = new THREE.Mesh(new THREE.ConeGeometry(.1, .3, 10), oro); c.position.set(Math.sin(a) * .53, .28, Math.cos(a) * .53); corona.add(c); const b = new THREE.Mesh(new THREE.SphereGeometry(.045, 10, 8), oro); b.position.set(Math.sin(a) * .53, .45, Math.cos(a) * .53); corona.add(b) }
+  ;[[0xE2574C, 0], [0x5AA7D6, .9], [0x5FB98B, -.9]].forEach(([c, a]) => { const g = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 10), mat(c, { roughness: .1, metalness: .2 })); g.position.set(Math.sin(a) * .54, 0, Math.cos(a) * .54); corona.add(g) })
+  piezasRopa.corona = corona
+  // Gafas: un cristal en cada ojo (van con el ojo si se lo metes dentro) y el puente.
+  const hazGafas = (sol) => {
+    const g = new THREE.Group(), lentes = []
+    const montura = mat(sol ? 0x1B1F22 : 0x3A2A22, { roughness: .3 })
+    const cristal = sol ? new THREE.MeshPhysicalMaterial({ color: 0x15191c, roughness: .05, clearcoat: 1, transparent: true, opacity: .82 })
+                        : new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .05, transparent: true, opacity: .15 })
+    ojos.forEach(o => {
+      const l = new THREE.Group(); l.position.z = .13
+      const c = new THREE.Mesh(new THREE.CircleGeometry(sol ? .27 : .25, 32), cristal); l.add(c)
+      const m = new THREE.Mesh(new THREE.TorusGeometry(sol ? .27 : .25, sol ? .035 : .025, 8, 32), montura); l.add(m)
+      o.add(l); lentes.push(l)
+    })
+    const puente = new THREE.Mesh(new THREE.CapsuleGeometry(.025, .26, 4, 8), montura); puente.rotation.z = Math.PI / 2
+    const pg = new THREE.Group(); puente.position.z = 0; pg.add(puente); pegar(pg, 0, .2, .13, cara)
+    g.userData.partes = [...lentes, pg]
+    return g
+  }
+  piezasRopa.sol = hazGafas(true); piezasRopa.redondas = hazGafas(false)
+  // Pajarita
+  const paj = new THREE.Group(), pajM = mat(0xD9534F, { roughness: .5 })
+  ;[-1, 1].forEach(s => { const c = new THREE.Mesh(new THREE.ConeGeometry(.17, .3, 4), pajM); c.rotation.z = s * Math.PI / 2; c.position.x = s * .15; c.scale.z = .45; paj.add(c) })
+  const nudo = new THREE.Mesh(new THREE.SphereGeometry(.075, 12, 10), pajM); paj.add(nudo)
+  const pajG = new THREE.Group(); pegar(pajG, 0, -.52, .07, cuerpo); pajG.add(paj); piezasRopa.pajarita = pajG
+  // Bufanda de rayas con una punta colgando
+  const rayasB = textura((x, w, h) => { x.fillStyle = '#E2574C'; x.fillRect(0, 0, w, h); x.fillStyle = '#F6F1E7'; for (let i = 0; i < 8; i++) x.fillRect(i * 32, 0, 14, h) }, 256, 64, [10, 1])
+  const bufM = mat(0xffffff, { map: rayasB, roughness: .9 })
+  const buf = new THREE.Group(); buf.position.y = -.46
+  const anillo = new THREE.Mesh(new THREE.TorusGeometry(1.52, .17, 12, 64), bufM); anillo.rotation.x = Math.PI / 2; anillo.scale.y = .93; buf.add(anillo)
+  const punta = caja(.34, .85, .1, mat(0xffffff, { map: textura((x, w, h) => { x.fillStyle = '#E2574C'; x.fillRect(0, 0, w, h); x.fillStyle = '#F6F1E7'; for (let i = 0; i < 4; i++) x.fillRect(0, i * 64, w, 26) }, 64, 256) , roughness: .9 }))
+  const pp = superficie(.55, -.85, .2).p; punta.position.set(pp.x, pp.y + .46, pp.z); punta.rotation.set(-.35, .2, .12); buf.add(punta)
+  piezasRopa.bufanda = buf
+  // Capa de héroe: media "falda" de cono abierto por detrás, con broches dorados.
+  const capa = new THREE.Group()
+  const tela = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 2.05, 2.4, 40, 4, true, Math.PI / 2, Math.PI), mat(0xC0392B, { roughness: .55, side: THREE.DoubleSide }))
+  tela.position.set(0, -.25, -.1); tela.scale.z = .92; capa.add(tela); capa.userData.tela = tela
+  ;[-1, 1].forEach(s => { const b = new THREE.Mesh(new THREE.SphereGeometry(.09, 12, 10), oro); const q = superficie(s * 1.1, .85, .04).p; b.position.copy(q); capa.add(b) })
+  piezasRopa.capa = capa
+  Object.entries(piezasRopa).forEach(([k, g]) => { if (!g.parent) cuerpo.add(g); g.userData.s = 0; g.visible = false; (g.userData.partes || []).forEach(p => p.visible = false) })
+}
+// Comba y mando de consola (para las animaciones nuevas)
+const comba = new THREE.Group(); comba.position.y = -.38; cuerpo.add(comba)
+{
+  const pts = []; for (let i = 0; i <= 40; i++) { const u = i / 40 * Math.PI; pts.push(new THREE.Vector3(-1.95 * Math.cos(u), -2.05 * Math.sin(u), 0)) }
+  comba.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, .03, 6), mat(0xE8574A)))
+  ;[-1, 1].forEach(s => { const m = capsula(.06, .22, mat(0xF2C14E)); m.position.x = s * 1.95; m.rotation.z = Math.PI / 2; comba.add(m) })
+}
+const mando = new THREE.Group(); cuerpo.add(mando)
+{
+  const gris = mat(0x3A3F44, { roughness: .4 })
+  const cuerpoMando = capsula(.12, .38, gris); cuerpoMando.rotation.z = Math.PI / 2; mando.add(cuerpoMando)
+  ;[-1, 1].forEach(s => { const a = capsula(.1, .16, gris); a.position.set(s * .24, -.1, 0); a.rotation.z = s * .5; mando.add(a) })
+  ;[[0xE2574C, .15, .05], [0x5FB98B, .21, -.01], [0x5AA7D6, .09, -.01], [0xF2C14E, .15, -.07]].forEach(([c, x, y]) => { const b = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), mat(c)); b.position.set(x, y, .1); mando.add(b) })
+  const cruz = caja(.12, .035, .02, mat(0x1B1F22)); cruz.position.set(-.15, 0, .11); mando.add(cruz); const cruz2 = cruz.clone(); cruz2.rotation.z = Math.PI / 2; mando.add(cruz2)
+  mando.userData.botones = mando.children.slice(-6, -2)
+}
+;[comba, mando].forEach(o => { o.visible = false; o.userData.s = 0 })
+function pasoRopa(t, actEsc) {
+  Object.entries(piezasRopa).forEach(([k, g]) => {
+    const r = ROPA[k]
+    // En la cama el gorro de dormir manda sobre lo de la cabeza.
+    let si = equipo[r.hueco] === k && !(r.hueco === 'cabeza' && actEsc === 'cama')
+    const sc = ver(g, si, .15)
+    // Al ponérsela, un pequeño "boing".
+    if (si && sc < .98) g.scale.setScalar(Math.max(.001, sc * (1 + Math.sin(sc * Math.PI) * .25)))
+    ;(g.userData.partes || []).forEach(p => { p.visible = g.visible; p.scale.setScalar(Math.max(.001, sc)) })
+  })
+  if (piezasRopa.capa.visible) piezasRopa.capa.userData.tela.rotation.x = Math.sin(t * 2.2) * .05 - Math.min(.25, Math.abs(raiz.position.y - .0) * .3)
+  ver(comba, actEsc === 'comba', .2)
+  const sM = ver(mando, actEsc === 'consola')
+  if (mando.visible) {
+    const der = brazos[1], izq = brazos[0]
+    mando.position.copy(puntaDe(der)).add(puntaDe(izq)).multiplyScalar(.5).add(new THREE.Vector3(0, .1, .25))
+    mando.rotation.set(-.5, 0, Math.sin(t * 3) * .12)
+    mando.userData.botones.forEach((b, i) => b.position.z = .1 - (Math.sin(t * 17 + i * 2.3) > .6 ? .02 : 0))
+  }
+}
+
+// ── MEDALLAS ─────────────────────────────────────────────────────────────────
+const MEDALLAS = [
+  { id: 'primera', nombre: 'Primera clase', reto: 'Ven a tu primera sesión', emoji: '🎉', color: '#E8A95A' },
+  { id: 'madrugador', nombre: 'Madrugador', reto: '5 clases antes de las 9', emoji: '☀️', color: '#F2C94C' },
+  { id: 'diez', nombre: '10 clases', reto: 'Completa 10 sesiones', emoji: '🔟', color: '#6FB3E0' },
+  { id: 'racha', nombre: 'Racha de 4 semanas', reto: 'Sin faltar 4 semanas', emoji: '🔥', color: '#E2574C' },
+  { id: 'objetivo', nombre: 'Primer objetivo', reto: 'Cumple un objetivo', emoji: '🎯', color: '#5FB98B' },
+  { id: 'tres', nombre: '3 objetivos', reto: 'Cumple tres objetivos', emoji: '🏆', color: '#B58AE0' },
+]
+const conseguidas = [], enCamino = new Set()
+// Dónde se prenden en la barriga, por orden de llegada.
+const HUECOS_MED = [[-.62, -.78], [-.2, -.86], [.2, -.86], [.62, -.78], [-.4, -1.15], [.4, -1.15]]
+function hazMedalla(m) {
+  const g = new THREE.Group()
+  const tex = textura((x, w, h) => {
+    const gr = x.createRadialGradient(w * .4, h * .35, 10, w / 2, h / 2, w / 2); gr.addColorStop(0, '#FFF3C4'); gr.addColorStop(.7, '#F2C14E'); gr.addColorStop(1, '#C8902A')
+    x.fillStyle = gr; x.beginPath(); x.arc(w / 2, h / 2, w / 2, 0, 7); x.fill()
+    x.fillStyle = m.color; x.beginPath(); x.arc(w / 2, h / 2, w * .36, 0, 7); x.fill()
+    x.font = `${w * .4}px -apple-system, "Apple Color Emoji", sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(m.emoji, w / 2, h / 2 + 4)
+  }, 128, 128)
+  const cara = new THREE.Mesh(new THREE.CircleGeometry(.17, 32), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); cara.position.z = .012; g.add(cara)
+  const canto = new THREE.Mesh(new THREE.CylinderGeometry(.17, .17, .02, 32), mat(0xD9A441, { metalness: .6, roughness: .3 })); canto.rotation.x = Math.PI / 2; g.add(canto)
+  const cinta = mat(new THREE.Color(m.color).getHex(), { roughness: .6 })
+  ;[-1, 1].forEach(s => { const c = caja(.08, .24, .012, cinta); c.position.set(s * .05, .2, -.006); c.rotation.z = s * .32; g.add(c) })
+  return g
+}
+// Confeti de colores para las celebraciones.
+const confeti = Array.from({ length: 36 }, (_, i) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(.09, .05), new THREE.MeshBasicMaterial({ color: ['#E2574C', '#F2C94C', '#5FB98B', '#6FB3E0', '#B58AE0'][i % 5], side: THREE.DoubleSide }))
+  m.visible = false; m.userData = { v: new THREE.Vector3(), t0: -9, giro: new THREE.Vector3() }; escena.add(m); return m
+})
+function lanzaConfeti(desde) {
+  const t = reloj.getElapsedTime()
+  confeti.forEach(c => { c.position.copy(desde); c.userData.t0 = t; c.userData.v.set((Math.random() - .5) * 5, 3 + Math.random() * 3, (Math.random() - .2) * 2); c.userData.giro.set(Math.random() * 9, Math.random() * 9, 0) })
+}
+const avisoEl = document.getElementById('aviso')
+let avisoHasta = 0
+const avisa = (txt, seg = 3) => { avisoEl.textContent = txt; avisoEl.classList.add('on'); avisoHasta = reloj.getElapsedTime() + seg }
+
+// ── OBJETIVOS ────────────────────────────────────────────────────────────────
+// Los de su programación en la app. Al cumplirse, sale una bola de luz que se absorbe
+// y se queda dentro flotando como un orgánulo dorado: se ven todos los que lleva.
+// En la app: fecha de inicio del objetivo, sesiones y los ejercicios enganchados a él.
+const OBJETIVOS = [
+  { nombre: 'Correr 5 km sin parar', pct: 100, hecho: true, inicio: '2026-03-02', fecha: '2026-07-14', sesiones: 38, ejercicios: [['Carrera continua en cinta', 31], ['Zancadas', 24], ['Elevación de gemelos', 22]] },
+  { nombre: 'Movilidad de tobillo', pct: 85, inicio: '2026-06-10', sesiones: 21, ejercicios: [['Dorsiflexión en pared', 19], ['Sentadilla con talón elevado', 14], ['Movilidad con banda', 12]] },
+  { nombre: 'Sentadilla sin dolor', pct: 70, inicio: '2026-05-20', sesiones: 26, ejercicios: [['Sentadilla a cajón', 22], ['Puente de glúteo', 20], ['Isométrico de cuádriceps', 15]] },
+  { nombre: 'Fuerza de cuádriceps', pct: 60, inicio: '2026-07-01', sesiones: 18, ejercicios: [['Prensa de piernas', 16], ['Sentadilla búlgara', 13], ['Step-up', 11]] },
+  { nombre: 'Bajar el dolor lumbar', pct: 45, inicio: '2026-08-05', sesiones: 12, ejercicios: [['Bird-dog', 12], ['Plancha frontal', 10], ['Peso muerto rumano', 8]] },
+]
+const logros = []
+let brillo = 0
+const orbe = new THREE.Group(); escena.add(orbe); orbe.visible = false
+{
+  const bola = new THREE.Mesh(new THREE.SphereGeometry(.3, 32, 24), new THREE.MeshPhysicalMaterial({ color: 0xFFD36B, emissive: 0xF2B233, emissiveIntensity: 1.1, roughness: .2, clearcoat: 1 }))
+  orbe.add(bola)
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: textura((x, w, h) => { const g = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g.addColorStop(0, 'rgba(255,220,120,.9)'); g.addColorStop(1, 'rgba(255,220,120,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h) }, 128, 128), transparent: true, depthWrite: false }))
+  halo.scale.setScalar(1.4); orbe.add(halo); orbe.userData.halo = halo
+}
+const iconoOrbe = sprite('🎯', '#000', 70)
+
+// ── CEREMONIA DEL OBJETIVO ───────────────────────────────────────────────────
+// Se hace de noche, fuegos artificiales, llega el entrenador con el objetivo, se lo
+// entrega, posa con él en alto entre flashes de fotos, se lo traga y gran final.
+const entrenador = hazMini('entrenador')
+const nocheEl = document.getElementById('noche'), flashEl = document.getElementById('flash')
+let flashAhora = 0
+const brilloTex = textura((x, w, h) => { const g = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h) }, 64, 64)
+const chispa = () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilloTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); s.visible = false; s.userData = { v: new THREE.Vector3(), t0: -9, vida: 1.4 }; escena.add(s); return s }
+const chispas = Array.from({ length: 320 }, chispa), cohetes = Array.from({ length: 8 }, chispa)
+let chispaI = 0, coheteI = 0
+const COLORES_F = [0xFF5E5E, 0xFFD36B, 0x6FE3D0, 0x8AB8FF, 0xD58AFF, 0xFFFFFF]
+function explota(pos, color) {
+  const t = reloj.getElapsedTime()
+  for (let i = 0; i < 48; i++) {
+    const c = chispas[chispaI++ % chispas.length]
+    c.position.copy(pos); c.userData.v.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize().multiplyScalar(1.9 + Math.random() * 1.3)
+    c.userData.t0 = t; c.userData.vida = 1.1 + Math.random() * .7; c.material.color.setHex(i % 5 ? color : 0xffffff); c.visible = true
+  }
+}
+function lanzaCohete() {
+  const c = cohetes[coheteI++ % cohetes.length]
+  c.position.set((Math.random() - .5) * 6, -1.9, -1.2 - Math.random()); c.userData.v.set((Math.random() - .5) * .6, 5.5, 0)
+  c.userData.alto = .9 + Math.random() * 1.6; c.userData.color = COLORES_F[Math.random() * COLORES_F.length | 0]
+  c.material.color.setHex(0xFFE6A8); c.scale.setScalar(.16); c.visible = true; c.userData.vuela = true
+}
+function pasoFuegos(t, dt) {
+  cohetes.forEach(c => {
+    if (!c.userData.vuela) return
+    c.position.addScaledVector(c.userData.v, dt)
+    if (c.position.y > c.userData.alto) { c.userData.vuela = false; c.visible = false; explota(c.position, c.userData.color) }
+  })
+  chispas.forEach((c, i) => {
+    if (!c.visible) return
+    const f = (t - c.userData.t0) / c.userData.vida
+    if (f >= 1) { c.visible = false; return }
+    c.userData.v.y -= 1.4 * dt; c.userData.v.multiplyScalar(Math.pow(.97, dt * 60)); c.position.addScaledVector(c.userData.v, dt)
+    c.material.opacity = (1 - f) * (.7 + .3 * Math.sin(t * 40 + i)); c.scale.setScalar(.36 * (1 - f * .5))
+  })
+}
+// Fotógrafos: cámaras que disparan desde los lados.
+const camaras = [sprite('📸', '#333', 80), sprite('📸', '#333', 80), sprite('📸', '#333', 80)]
+const POS_CAM = [new THREE.Vector3(-3.1, -1.2, 1.4), new THREE.Vector3(3.1, -1.4, 1.2), new THREE.Vector3(-2.7, 2.1, .6)]
+const destellos = camaras.map(() => { const s = chispa(); s.material.color.setHex(0xffffff); return s })
+const FLASHES = [3.35, 3.6, 3.95, 4.15, 4.6, 4.85, 5.2, 5.4]
+const aplauso = sprite('👏', '#333', 80)
+const ezC = x => x * x * (3 - 2 * x)
+function pasoCeremonia(t, dt, k) {
+  const der = brazos[1]
+  const mano = () => cuerpo.localToWorld(puntaDe(der))
+  // Fuegos: al principio unos cuantos, y al final una traca.
+  if ((k > .2 && k < 2.8) || (k > 7 && k < 9.3)) {
+    if (k > punt.proxFuego) { lanzaCohete(); punt.proxFuego = k + (k > 7 ? .28 : .55) }
+  }
+  if (k > 7 && !punt.traca) { punt.traca = true; [-1.6, 0, 1.6].forEach((x, i) => explota(new THREE.Vector3(x, 2.1 + (i % 2) * .4, -1.5), COLORES_F[i])) }
+  // Entrenador: llega dando saltitos, hace una reverencia, aplaude y se va.
+  const E = entrenador
+  if (k < 2.3) { const p = ezC(Math.min(1, k / 2.3)); E.position.set(4.6 - p * 2.75, -1.4 + Math.abs(Math.sin(k * 9)) * .18, .6); E.rotation.set(0, 0, Math.sin(k * 9) * .1) }
+  else if (k < 3.2) { E.position.set(1.85, -1.4, .6); E.rotation.set(Math.sin((k - 2.3) / .9 * Math.PI) * .5, 0, 0) }
+  else if (k < 5.6) { E.position.set(1.95, -1.4 + Math.abs(Math.sin(k * 10)) * .1, .6); E.rotation.set(0, 0, Math.sin(k * 10) * .06) }
+  else if (k < 6.8) { const p = ezC(Math.min(1, (k - 5.6) / 1.2)); E.position.set(1.95 + p * 3, -1.4 + Math.abs(Math.sin(k * 9)) * .18, .6) }
+  else E.visible = false
+  E.userData.boca.scale.y = k > 1.6 && k < 3.4 ? 1 + Math.abs(Math.sin(t * 14)) * 1.4 : 1
+  aplauso.visible = k > 3.2 && k < 5.6; aplauso.position.copy(E.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(0, .75, 0)); aplauso.scale.setScalar(.35 + Math.abs(Math.sin(t * 10)) * .08)
+  if (k > 1.6 && k < 3.4) { bocA.textContent = '¡Enhorabuena! Objetivo conseguido 🎉'; bocA.classList.add('on'); ponBocadillo(bocA, E) } else bocA.classList.remove('on')
+  // El objetivo: aparece sobre el entrenador, pasa a la mano, en alto para las fotos y dentro.
+  const sobreEnt = E.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, .85, 0))
+  orbe.userData.halo.material.opacity = .6 + Math.sin(t * 8) * .3
+  if (k < 2.3) { orbe.position.copy(sobreEnt); orbe.scale.setScalar(Math.max(.01, Math.min(1, k / .6))) }
+  else if (k < 3.2) orbe.position.lerpVectors(sobreEnt, mano().add(new THREE.Vector3(0, .32, 0)), ezC((k - 2.3) / .9))
+  else if (k < 6.4) { orbe.position.copy(mano()).add(new THREE.Vector3(0, .32, 0)); orbe.rotation.y += dt * 3 }
+  else if (k < 7) {
+    const p = ezC((k - 6.4) / .6), dentro = cuerpo.localToWorld(new THREE.Vector3(.3, -.1, .4))
+    orbe.position.lerpVectors(mano().add(new THREE.Vector3(0, .32, 0)), dentro, p); orbe.scale.setScalar(1 - p * .5)
+    if (!punt.hoyo && p > .25) { punt.hoyo = { c: membrana.worldToLocal(orbe.position.clone()), prof: 0, vel: 0, pulsado: true, ojo: null }; hoyos.push(punt.hoyo) }
+    if (punt.hoyo && p > .7) punt.hoyo.pulsado = false
+  } else if (orbe.visible) {
+    // Dentro: queda como un orgánulo dorado con la fecha de hoy.
+    orbe.visible = false
+    const o = punt.obj; o.hecho = true; o.fecha = new Date().toISOString().slice(0, 10)
+    nuevoLogro(o); brillo = 1; lanzaConfeti(raiz.localToWorld(new THREE.Vector3(0, 1.4, 0))); pintaPanel()
+    const n = OBJETIVOS.filter(x => x.hecho).length
+    if (n >= 1) ganaMedalla('objetivo'); if (n >= 3) ganaMedalla('tres')
+  }
+  iconoOrbe.visible = orbe.visible && k < 6.4; iconoOrbe.position.copy(orbe.position).add(new THREE.Vector3(0, .5, 0)); iconoOrbe.scale.setScalar(.38)
+  // Flashes de fotos: la pantalla destella y la cámara que dispara brilla.
+  flashAhora = 0
+  FLASHES.forEach((ti, i) => {
+    const f = k >= ti ? Math.max(0, 1 - (k - ti) / .22) : 0
+    flashAhora = Math.max(flashAhora, f)
+    const d = destellos[i % 3]; if (f > 0) { d.visible = true; d.position.copy(POS_CAM[i % 3]).add(new THREE.Vector3(.1, .15, .1)); d.scale.setScalar(.4 + f * 1.4); d.material.opacity = f }
+  })
+  destellos.forEach(d => { if (d.material.opacity < .02) d.visible = false; d.material.opacity *= .9 })
+  flashEl.style.opacity = flashAhora * .7
+  camaras.forEach((c, i) => { c.visible = k > 3.1 && k < 5.8; c.position.copy(POS_CAM[i]); c.scale.setScalar(.55 + flashAhora * .15) })
+}
+
+// ── LOS OBJETIVOS QUE YA LLEVA DENTRO ────────────────────────────────────────
+// Si le das muchas vueltas salen disparados y orbitan a su alrededor. Tocando uno se
+// ve su ficha. A los pocos segundos vuelven a entrar.
+let salida = null, fichaAbierta = false
+function nuevoLogro(obj) {
+  const n = logros.length
+  const o = new THREE.Mesh(new THREE.SphereGeometry(.15, 20, 14), new THREE.MeshPhysicalMaterial({ color: 0xFFD36B, emissive: 0xF2B233, emissiveIntensity: 1.3, roughness: .2, clearcoat: 1 }))
+  o.userData = { obj, a0: n * 2.1, r: .95 + (n % 2) * .12, h: -.5 + (n % 4) * .3, f: .25 + n * .04 }
+  const ic = sprite('🎯', '#000', 80); o.add(ic); ic.scale.setScalar(.17); ic.position.set(0, .2, 0); ic.visible = false; o.userData.icono = ic
+  o.scale.setScalar(.01); cuerpo.add(o); logros.push(o)
+  return o
+}
+const posDentro = (u, t) => { const a = t * u.f + u.a0; return new THREE.Vector3(Math.cos(a) * u.r, u.h + Math.sin(t * .7 + u.a0) * .1, .55 + Math.sin(a) * .42) }
+function sacaLogros(t) {
+  salida = { t0: t, hasta: t + 9 }
+  logros.forEach(o => escena.attach(o))
+  brillo = .6; ponEmo('sorpresa', 1.2)
+  avisa('✨ ¡Han salido sus objetivos! Toca uno para ver su historia', 4)
+}
+function pasoLogros(t, suave) {
+  if (!salida) {
+    logros.forEach(o => { o.position.copy(posDentro(o.userData, t)); o.scale.setScalar(Math.min(1, o.scale.x + .02)) })
+    return
+  }
+  if (fichaAbierta) salida.hasta = Math.max(salida.hasta, t + 2.5)
+  const n = logros.length, c = raiz.position, volver = t > salida.hasta
+  let todos = true
+  logros.forEach((o, i) => {
+    const u = o.userData
+    if (!volver) {
+      const a = t * .45 + i / n * Math.PI * 2
+      o.position.lerp(new THREE.Vector3(c.x + Math.cos(a) * 2.5, c.y + .3 + Math.sin(t * 1.4 + i) * .22, .5 + Math.sin(a) * .6), suave(.08))
+      o.scale.setScalar(lerp(o.scale.x, 2.4, suave(.08))); u.icono.visible = o.scale.x > 1.5
+    } else {
+      const meta = cuerpo.localToWorld(posDentro(u, t))
+      o.position.lerp(meta, suave(.1)); o.scale.setScalar(lerp(o.scale.x, 1, suave(.1))); u.icono.visible = false
+      if (o.position.distanceTo(meta) > .1) todos = false
+    }
+  })
+  if (volver && todos) {
+    logros.forEach(o => cuerpo.attach(o)); salida = null
+    // Al volver a entrar, un "glup" en la membrana.
+    const h = { c: new THREE.Vector3(0, .2, 1.5), prof: 0, vel: 0, pulsado: true, ojo: null }; hoyos.push(h); setTimeout(() => h.pulsado = false, 250)
+  }
+}
+// Ficha del objetivo: fecha, cuánto le llevó y los tres ejercicios que más hizo.
+const fichaEl = document.getElementById('ficha'), fichaC = document.getElementById('fichaC')
+function duracion(a, b) {
+  let meses = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth()
+  if (b.getDate() < a.getDate()) meses--
+  const m = new Date(a); m.setMonth(a.getMonth() + meses)
+  const dias = Math.round((b - m) / 864e5)
+  const tm = meses > 0 ? `${meses} ${meses === 1 ? 'mes' : 'meses'}` : '', td = dias > 0 ? `${dias} ${dias === 1 ? 'día' : 'días'}` : ''
+  return [tm, td].filter(Boolean).join(' y ') || 'menos de un día'
+}
+function muestraFicha(o) {
+  const fin = new Date(o.fecha + 'T12:00:00'), ini = new Date(o.inicio + 'T12:00:00')
+  fichaC.innerHTML = `<div class="tit">🎯 ${o.nombre}</div>
+    <div class="fila">📅 <span><b>Conseguido el</b> ${fin.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+    <div class="fila">⏱️ <span><b>Te llevó</b> ${duracion(ini, fin)} · ${o.sesiones} sesiones</span></div>
+    <div class="sub">🏋️ Los ejercicios que más hiciste</div>
+    <ol>${o.ejercicios.map((e, i) => `<li><i>${i + 1}</i><span>${e[0]}</span><small>×${e[1]}</small></li>`).join('')}</ol>`
+  fichaEl.classList.add('on'); fichaAbierta = true
+}
+document.getElementById('fichaX').onclick = () => { fichaEl.classList.remove('on'); fichaAbierta = false }
+// Lo que ya traía conseguido al abrir (en la app, de su historial).
+OBJETIVOS.filter(o => o.hecho).forEach(o => nuevoLogro(o))
+{
+  const m = MEDALLAS.find(x => x.id === 'objetivo'), [hx, hy] = HUECOS_MED[0]
+  const pin = hazMedalla(m); pegar(pin, hx, hy, .08, cuerpo); conseguidas.push('objetivo')
+}
+
+// ── ANIMACIONES PUNTUALES ────────────────────────────────────────────────────
+// Van en cola para que no se pisen: medalla tras absorber un objetivo, etc.
+const cola = []
+let punt = null
+const encola = (tipo, datos = {}) => cola.push({ tipo, ...datos })
+const DUR = { presume: 1.3, medalla: 3.4, absorbe: 9.6 }
+function arrancaPuntual(t) {
+  if (punt || dilema || !cola.length) return
+  punt = cola.shift(); punt.t0 = t; punt.dur = DUR[punt.tipo]
+  if (punt.tipo === 'medalla') {
+    const m = punt.med
+    punt.txt = '🏅 ¡medalla nueva!'
+    punt.grande = hazMedalla(m); punt.grande.scale.setScalar(2.4); escena.add(punt.grande)
+    // La que se queda prendida: se crea ya, escondida, en su hueco.
+    const [hx, hy] = HUECOS_MED[conseguidas.length % HUECOS_MED.length]
+    punt.pin = hazMedalla(m); pegar(punt.pin, hx, hy, .08, cuerpo); punt.pin.visible = false
+    avisa(m.emoji + ' Medalla: ' + m.nombre, 3.4)
+  }
+  if (punt.tipo === 'absorbe') {
+    punt.txt = '🤩 ¡objetivo cumplido!'
+    orbe.visible = true; orbe.scale.setScalar(.01)
+    entrenador.visible = true; entrenador.position.set(4.6, -1.4, .6); entrenador.scale.setScalar(1)
+    nocheEl.classList.add('on'); punt.proxFuego = 0
+    avisa('🎯 Objetivo cumplido: ' + punt.obj.nombre, 5)
+  }
+  if (punt.tipo === 'presume') punt.txt = '😎 ¿qué tal me queda?'
+}
+function emoPuntual(t) {
+  const k = t - punt.t0
+  if (punt.tipo === 'presume') return 'chulo'
+  if (punt.tipo === 'medalla') return k < 1.3 ? 'sorpresa' : 'risa'
+  if (punt.tipo === 'absorbe') return k < 1 ? 'sorpresa' : k < 3.2 ? 'feliz' : k < 5.6 ? (flashAhora > .5 ? 'risa' : 'chulo') : k < 7 ? 'feliz' : 'risa'
+}
+function miraPuntual(t) {
+  const k = t - punt.t0
+  if (punt.tipo === 'medalla' && k < 1.3) return [0, 1]
+  if (punt.tipo === 'absorbe' && k < 3.2) return [1, -.2]
+  if (punt.tipo === 'absorbe' && k < 5.6) return [Math.sin(k * 3) * .8, -.1]   // mira a los fotógrafos
+  return null
+}
+function pasoPuntual(t, dt) {
+  // Confeti y aviso siempre se actualizan.
+  confeti.forEach(c => {
+    const v = t - c.userData.t0; c.visible = v < 2.2
+    if (c.visible) { c.userData.v.y -= 6 * dt; c.userData.v.multiplyScalar(Math.pow(.985, dt * 60)); c.position.addScaledVector(c.userData.v, dt); c.rotation.x += c.userData.giro.x * dt; c.rotation.y += c.userData.giro.y * dt }
+  })
+  if (avisoHasta && t > avisoHasta) { avisoEl.classList.remove('on'); avisoHasta = 0 }
+  if (!punt) return
+  const k = t - punt.t0
+  if (punt.tipo === 'medalla') {
+    const G = punt.grande, pinW = new THREE.Vector3(), pinQ = new THREE.Quaternion()
+    punt.pin.getWorldPosition(pinW); punt.pin.getWorldQuaternion(pinQ)
+    if (k < 1.3) {
+      // Baja del cielo girando.
+      const p = ezz(k / 1.3); G.position.set(0, 4.2 - p * 3.0, .9 + p * 1.2); G.rotation.set(0, k * 9, 0)
+    } else if (k < 1.9) {
+      // Se va a su sitio en la barriga y se encoge.
+      const p = ezz((k - 1.3) / .6); G.position.lerpVectors(new THREE.Vector3(0, 1.2, 2.1), pinW, p)
+      G.quaternion.slerp(pinQ, p); G.scale.setScalar(2.4 - p * 1.4)
+    } else if (G.visible) {
+      G.visible = false; escena.remove(G); punt.pin.visible = true; punt.pin.userData.s = 0
+      conseguidas.push(punt.med.id); enCamino.delete(punt.med.id); pintaPanel()
+      lanzaConfeti(pinW); brillo = .6
+    }
+    if (punt.pin.visible) { const s = Math.min(1, (punt.pin.userData.s += dt * 4)); punt.pin.scale.setScalar(1 + Math.sin(s * Math.PI) * .6) }
+  }
+  if (punt.tipo === 'absorbe') pasoCeremonia(t, dt, k)
+  if (k > punt.dur) {
+    if (punt.tipo === 'absorbe') { nocheEl.classList.remove('on'); entrenador.visible = false; bocA.classList.remove('on') }
+    // Si el giro de presumir terminó en 360°, se deja en 0 para que no "desgire".
+    truco.rotation.y %= Math.PI * 2; if (truco.rotation.y > Math.PI) truco.rotation.y -= Math.PI * 2
+    punt = null
+  }
+}
+function ganaMedalla(id) {
+  if (conseguidas.includes(id) || enCamino.has(id)) return
+  enCamino.add(id); encola('medalla', { med: MEDALLAS.find(m => m.id === id) })
+}
+
+// ── PANEL ────────────────────────────────────────────────────────────────────
+const ropaEl = document.getElementById('ropa'), medEl = document.getElementById('medallas'), objEl = document.getElementById('objs')
+function pintaPanel() {
+  ropaEl.innerHTML = ''
+  Object.entries(ROPA).forEach(([k, r]) => {
+    const b = document.createElement('button'), bloq = r.medalla && !conseguidas.includes(r.medalla)
+    b.className = 'prenda' + (equipo[r.hueco] === k ? ' on' : '') + (bloq ? ' lock' : '')
+    b.innerHTML = `${r.emoji} ${r.nombre}` + (bloq ? ` <small>🔒 ${MEDALLAS.find(m => m.id === r.medalla).nombre}</small>` : '')
+    b.onclick = () => {
+      if (bloq) { avisa('🔒 Se desbloquea con la medalla «' + MEDALLAS.find(m => m.id === r.medalla).nombre + '»'); return }
+      const quitar = equipo[r.hueco] === k
+      equipo[r.hueco] = quitar ? null : k
+      if (!quitar) { modo = 'flota'; pintaOps(); encola('presume') }
+      pintaPanel()
+    }
+    ropaEl.appendChild(b)
+  })
+  medEl.innerHTML = ''
+  MEDALLAS.forEach(m => {
+    const b = document.createElement('button'), ok = conseguidas.includes(m.id)
+    b.className = 'med' + (ok ? ' ok' : '')
+    b.innerHTML = `<i style="${ok ? `background:${m.color}33;box-shadow:inset 0 0 0 3px ${m.color}` : ''}">${m.emoji}</i>${m.nombre}<small>${m.reto}</small>`
+    b.onclick = () => { if (ok) return; if (m.id === 'objetivo' || m.id === 'tres') { avisa('🎯 Ésta se gana cumpliendo objetivos'); return } modo = 'flota'; pintaOps(); ganaMedalla(m.id) }
+    medEl.appendChild(b)
+  })
+  objEl.innerHTML = ''
+  OBJETIVOS.forEach(o => {
+    const d = document.createElement('div'); d.className = 'obj'
+    d.innerHTML = `<span>${o.hecho ? '✅' : '🎯'} ${o.nombre}</span><button ${o.hecho || o.yendo ? 'disabled' : ''}>${o.hecho ? 'Absorbido' : 'Cumplir'}</button><div class="barra"><i style="width:${o.hecho ? 100 : o.pct}%"></i></div>`
+    d.querySelector('button').onclick = () => { if (o.hecho || o.yendo) return; o.yendo = true; modo = 'flota'; pintaOps(); encola('absorbe', { obj: o }); pintaPanel() }
+    objEl.appendChild(d)
+  })
+}
+pintaPanel()
+
+
+// ── EMOCIONES ─────────────────────────────────────────────────────────────────
+// Qué ojos, qué boca, si hay cejas y cuánto se sonrojan los mofletes.
+const EMO = {
+  contenta:  { ojos: 'normal', boca: 'sonrisa', rubor: .6,  txt: '😊 contenta' },
+  feliz:     { ojos: 'feliz', boca: 'abierta', rubor: .9,   txt: '😄 feliz' },
+  ay:        { ojos: 'apretado', boca: 'o', rubor: .8,      txt: '😣 ¡ay!' },
+  molesta:   { ojos: 'normal', boca: 'onda', rubor: .7, cejas: 'enfado', txt: '😒 molesta' },
+  enfadada:  { ojos: 'normal', boca: 'triste', rubor: 1, cejas: 'enfado', txt: '😠 enfadada' },
+  sorpresa:  { ojos: 'sorpresa', boca: 'o', rubor: .5,      txt: '😮 ¡oh!' },
+  mareada:   { ojos: 'mareo', boca: 'onda', rubor: .4,      txt: '😵‍💫 mareada' },
+  preocupada:{ ojos: 'sorpresa', boca: 'triste', rubor: .5, cejas: 'pena', txt: '😟 ¿y mi…?' },
+  aburrida:  { ojos: 'cerrado', boca: 'recta', rubor: .3,   txt: '😑 aburrida' },
+  dormida:   { ojos: 'cerrado', boca: 'o', rubor: .5,       txt: '😴 dormida' },
+  risa:      { ojos: 'apretado', boca: 'abierta', rubor: 1, txt: '😆 ¡jaja!' },
+  // Estados de su rutina según la asistencia.
+  entrena:   { ojos: 'apretado', boca: 'recta', rubor: 1, cejas: 'enfado', txt: '💪 entrenando' },
+  deporte:   { ojos: 'feliz', boca: 'abierta', rubor: .9,   txt: '😄 a tope' },
+  chulo:     { ojos: 'feliz', boca: 'sonrisa', rubor: 1,    txt: '😎 chula' },
+  pocho:     { ojos: 'medio', boca: 'recta', rubor: .15,    txt: '😑 sin ganas' },
+  tele:      { ojos: 'medio', boca: 'o', rubor: .15,        txt: '😶 embobada' },
+  come:      { ojos: 'feliz', boca: 'onda', rubor: .5,      txt: '😋 comiendo' },
+  estira:    { ojos: 'cerrado', boca: 'o', rubor: .6,       txt: '🙆 estirando' },
+  juega:     { ojos: 'normal', boca: 'onda', rubor: .4, cejas: 'enfado', txt: '🎮 jugando' },
+  duda:      { ojos: 'normal', boca: 'onda', rubor: .5, cejas: 'pena', txt: '🤔 ¿voy o no voy?' },
+  tentada:   { ojos: 'medio', boca: 'sonrisa', rubor: .6,  txt: '😏 mmm…' },
+}
+
+// ── ÁNIMO SEGÚN LA ASISTENCIA ─────────────────────────────────────────────────
+// Con 70 % o más hace deporte por su cuenta y tonterías; por debajo de 40 % se
+// queda en el sofá en pijama. Entre medias es la célula de siempre.
+// Cada actividad dura unos segundos y pasa a la siguiente de su lista.
+const RUTINAS = {
+  activo: [['pesas', 7], ['saluda', 2.6], ['saltos', 6], ['voltereta', 1.8], ['comba', 6.5], ['musculo', 2.8], ['correr', 6], ['estira', 2.8], ['trompo', 1.6]],
+  vago: [['movil', 9], ['tele', 9], ['comer', 10.4], ['consola', 9], ['cama', 10]],
+}
+const ACT = {
+  pesas: { emo: 'entrena', txt: '🏋️ haciendo pesas' }, saltos: { emo: 'deporte', txt: '🤸 saltos de tijera' },
+  correr: { emo: 'deporte', txt: '🏃 corriendo' }, voltereta: { emo: 'risa', txt: '🤸 ¡voltereta!' },
+  musculo: { emo: 'chulo', txt: '💪 ¡mira qué bíceps!' }, trompo: { emo: 'risa', txt: '🌀 ¡giro!' },
+  saluda: { emo: 'feliz', txt: '👋 ¡hola!' }, comba: { emo: 'deporte', txt: '🪢 saltando a la comba' }, estira: { emo: 'estira', txt: '🙆 estirando' },
+  consola: { emo: 'juega', txt: '🎮 enganchada a la consola' },
+  movil: { emo: 'pocho', txt: '📱 en el sofá con el móvil' }, tele: { emo: 'tele', txt: '📺 tirada viendo la tele' },
+  comer: { emo: 'come', txt: '' }, cama: { emo: 'dormida', txt: '🛏️ no hay quien la saque de la cama' },
+}
+const COMIDAS = [['kebab', '🥙 comiéndose un kebab'], ['pasta', '🍝 platazo de pasta en el sofá'], ['burger', '🍔 hamburguesa con queso']]
+let pct = Q.has('pct') ? Math.max(0, Math.min(100, +Q.get('pct') || 0)) : 85, nivel = '', act = null, actDur = 0, actT0 = 0, actI = -1, comidaI = 0, comida = 'kebab', mordiscos = 0, ultMordisco = -1, repMostrada = 0
+const nivelDe = (p) => p >= 70 ? 'activo' : p >= 40 ? 'normal' : 'vago'
+function siguienteAct(t) {
+  const lista = RUTINAS[nivel]
+  // La voltereta acaba en 360°: se deja en 0 para que no "desgire" al cambiar.
+  truco.rotation.set(0, truco.rotation.y % (Math.PI * 2), 0)
+  if (!lista) { act = null; return }
+  actI = (actI + 1) % lista.length; [act, actDur] = lista[actI]; actT0 = t
+  if (act === 'comer') { comida = COMIDAS[comidaI++ % COMIDAS.length][0]; mordiscos = 0; ultMordisco = -1 }
+  repMostrada = 0
+}
+let emo = 'contenta', emoHasta = 0, ultimoToque = 0
+const ponEmo = (e, seg) => { emo = e; emoHasta = reloj.getElapsedTime() + seg; ultimoToque = reloj.getElapsedTime() }
+
+// ── INTERACCIÓN ───────────────────────────────────────────────────────────────
+let gesto = null, velX = 0, velY = 0, modo = 'flota', golpes = [], giroAcum = 0
+const hoyos = []                 // hundimientos de la membrana
+const fuera = new Map()          // pieza -> { t0, destino }: piezas metidas dentro
+const toquesParte = new Map()
+const cv = r.domElement, ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), raton = new THREE.Vector2(9, 9)
+const tocables = () => [...ojos.map(o => o.userData.toque), membrana]
+function toca(e) {
+  const rc = cv.getBoundingClientRect()
+  ptr.set((e.clientX - rc.left) / rc.width * 2 - 1, -(e.clientY - rc.top) / rc.height * 2 + 1)
+  ray.setFromCamera(ptr, cam)
+  return ray.intersectObjects(tocables(), false)[0]
+}
+const girar = (dx, dy) => {
+  orient.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx))
+  orient.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy))
+  giroAcum += Math.abs(dx) + Math.abs(dy)
+}
+// Meter una pieza dentro: flota en el gel unos segundos y vuelve.
+function meterDentro(p) {
+  if (fuera.has(p)) return
+  const enCara = ojos.includes(p)
+  const lado = enCara ? p.userData.lado : p.lado
+  const destino = enCara ? new THREE.Vector3(lado * .3, -.35 - Math.random() * .25, 1.0)
+                         : new THREE.Vector3(lado * .5, p.tipo === 'pie' ? -.6 : .1, .75)
+  fuera.set(p, { t0: reloj.getElapsedTime(), destino, fase: Math.random() * 6 })
+  ponEmo('sorpresa', 1.2)
+}
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId)
+  // Con los objetivos fuera: tocar uno abre su ficha.
+  if (salida) {
+    toca(e)
+    const lh = ray.intersectObjects(logros, false)[0]
+    if (lh) { muestraFicha(lh.object.userData.obj); gesto = null; return }
+  }
+  // Con el ángel y el demonio fuera: tocar al demonio lo echa (cuenta como "voy").
+  if (dilema && dilema.fase === 'habla') {
+    toca(e)
+    const m = ray.intersectObjects(minis.map(x => x.userData.cuerpoM), false)[0]
+    if (m) { if (m.object.userData.mini === 'demonio') elegir('voy'); else angel.userData.salto = reloj.getElapsedTime(); gesto = null; return }
+  }
+  let hit = toca(e)
+  // Brazos y pies se buscan por cercanía a su punta en pantalla: son bultos de la
+  // membrana que cambian de forma, y el rayo a veces resbala por su borde.
+  const extTocada = extremidades.filter(x => !fuera.has(x)).map(x => {
+    const punta = membrana.localToWorld(x.dir.clone().multiplyScalar(1.6 * (1 + x.L * .75))).project(cam)
+    // Distancia en pantalla con x corregida por el ancho, para que el radio sea redondo.
+    let d = Math.hypot((punta.x - ptr.x) * cam.aspect, punta.y - ptr.y)
+    // Si el rayo da en la membrana justo sobre el bulto de la extremidad, también cuenta.
+    if (hit && hit.object === membrana) {
+      const n = membrana.worldToLocal(hit.point.clone()).normalize()
+      if (n.dot(x.dir) > x.abre - .03) d = 0
+    }
+    return { x, d }
+  }).sort((a, b) => a.d - b.d)[0]
+  const parteExt = extTocada && extTocada.d < .14 ? extTocada.x : null
+  // La extremidad pinchada se queda quieta un momento: si se levantara con el "ay"
+  // se escaparía del dedo y no habría forma de darle tres veces.
+  if (parteExt) parteExt.quieta = reloj.getElapsedTime() + 1.6
+  if (!hit && parteExt) hit = { object: membrana, point: membrana.localToWorld(parteExt.dir.clone().multiplyScalar(1.6 * (1 + parteExt.L * .6))) }
+  gesto = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, tipo: hit ? 'pica' : 'gira', hoyo: null }
+  if (!hit) return
+  const t = reloj.getElapsedTime()
+  const parte = hit.object.userData.parte || parteExt || null
+  // Tres toques seguidos en un ojo, mano o pie: se le mete dentro.
+  let metida = false
+  if (parte) {
+    const lista = (toquesParte.get(parte) || []).filter(x => t - x < 1.6); lista.push(t); toquesParte.set(parte, lista)
+    if (lista.length >= 3) { toquesParte.set(parte, []); meterDentro(parte); metida = true }
+  }
+  // De "ay" a molesta y a enfadada según cuántas veces la pinchas seguidas.
+  golpes = golpes.filter(x => t - x < 4); golpes.push(t)
+  if (!metida) ponEmo(golpes.length >= 7 ? 'enfadada' : golpes.length >= 4 ? 'molesta' : 'ay', golpes.length >= 7 ? 3 : golpes.length >= 4 ? 1.8 : 1)
+  const esOjo = ojos.includes(parte)
+  if (fuera.has(parte)) return
+  const punto = esOjo ? parte.getWorldPosition(new THREE.Vector3()) : hit.point.clone()
+  const h = { c: membrana.worldToLocal(punto), prof: 0, vel: 0, pulsado: true, ojo: esOjo ? parte : null }
+  hoyos.push(h); gesto.hoyo = h; if (hoyos.length > 5) hoyos.shift()
+})
+cv.addEventListener('pointermove', e => {
+  const rc = cv.getBoundingClientRect()
+  raton.set((e.clientX - rc.left) / rc.width * 2 - 1, -(e.clientY - rc.top) / rc.height * 2 + 1)
+  if (!gesto) return
+  const dx = e.clientX - gesto.x, dy = e.clientY - gesto.y; gesto.x = e.clientX; gesto.y = e.clientY
+  if (gesto.tipo === 'pica' && Math.hypot(e.clientX - gesto.x0, e.clientY - gesto.y0) > 14) { if (gesto.hoyo) gesto.hoyo.pulsado = false; gesto.tipo = 'gira' }
+  if (gesto.tipo === 'gira') { velX = dx * .01; velY = dy * .01; girar(velX, velY); ultimoToque = reloj.getElapsedTime() }
+})
+cv.addEventListener('pointerleave', () => raton.set(9, 9))
+const soltar = () => { if (gesto?.hoyo) gesto.hoyo.pulsado = false; gesto = null }
+cv.addEventListener('pointerup', soltar); cv.addEventListener('pointercancel', soltar)
+new ResizeObserver(() => { r.setSize(W(), H()); cam.aspect = W() / H(); cam.updateProjectionMatrix() }).observe(el)
+
+const MODOS = [['flota', 'A su aire'], ['baila', 'Bailar'], ['salta', 'Saltar'], ['celebra', 'Celebrar'], ['duerme', 'Dormir']]
+const ops = document.getElementById('ops')
+const pintaOps = () => { ops.innerHTML = ''; MODOS.forEach(([k, l]) => { const b = document.createElement('button'); b.className = 'op' + (modo === k ? ' on' : ''); b.textContent = l; b.onclick = () => { modo = k; emoHasta = 0; ultimoToque = reloj.getElapsedTime(); pintaOps() }; ops.appendChild(b) }) }
+pintaOps()
+const pctEl = document.getElementById('pct'), pctTxt = document.getElementById('pctTxt')
+pctEl.oninput = () => { pct = +pctEl.value; pctTxt.textContent = pct + '%'; modo = 'flota'; emoHasta = 0; pintaOps() }
+document.getElementById('sig').onclick = () => { modo = 'flota'; emoHasta = 0; pintaOps(); siguienteAct(reloj.getElapsedTime()) }
+
+// ── BUCLE ─────────────────────────────────────────────────────────────────────
+const pos = geoMem.attributes.position, v = new THREE.Vector3()
+const ARRIBA = new THREE.Vector3(0, 1, 0)
+let emoMostrada = '', tPrev = 0, camD = 7.4
+const COLORES = { activo: new THREE.Color(0x86e2d2), normal: new THREE.Color(MENTA), vago: new THREE.Color(0xa7c3bd) }
+// Un bocado: unas miguitas saltan de la boca.
+function muerde() {
+  const boca0 = cuerpo.localToWorld(new THREE.Vector3(.1, -.15, 1.5))
+  migas.forEach((m, i) => { m.userData.t0 = reloj.getElapsedTime(); m.position.copy(boca0); m.userData.v.set((Math.random() - .3) * 1.6, 1 + Math.random() * 1.2, .5) })
+}
+function bucle() {
+  requestAnimationFrame(bucle)
+  const t = reloj.getElapsedTime(), dt = Math.min(.1, t - tPrev); tPrev = t
+  // Factor de suavizado que no depende de los fotogramas por segundo.
+  const suave = k => 1 - Math.pow(1 - k, dt * 60)
+
+  // Qué siente: una reacción manda mientras dura; si no, el modo o la calma.
+  giroAcum *= .985
+  if (giroAcum > 5 && !salida && logros.length && !punt) sacaLogros(t)
+  if (giroAcum > 9 && t > emoHasta) { ponEmo('mareada', 2.5); giroAcum = 0 }
+  // Nivel de ánimo: si cambia, empieza su rutina nueva.
+  const n = nivelDe(pct)
+  if (n !== nivel) {
+    nivel = n; actI = -1; siguienteAct(t)
+    document.querySelectorAll('.asis-niv span').forEach(s => s.classList.toggle('on', s.dataset.n === nivel))
+  }
+  arrancaPuntual(t)
+  if (act && !dilema && !punt && t - actT0 > actDur) siguienteAct(t)
+  // Mientras el ángel y el demonio discuten, la rutina se para.
+  const actEsc = !dilema && !punt && modo === 'flota' && act ? act : null      // decorado y objetos
+  const actPose = actEsc && t > emoHasta ? act : null       // postura (un pinchazo la interrumpe)
+  let e = emo
+  if (t > emoHasta) {
+    const quieta = t - ultimoToque
+    if (actPose) e = ACT[act].emo
+    else if (modo === 'celebra') e = 'risa'
+    else if (modo === 'baila' || modo === 'salta') e = 'feliz'
+    else if (modo === 'duerme' || quieta > 22) e = 'dormida'
+    else if (quieta > 12) e = 'aburrida'
+    else e = 'contenta'
+    if (ARRIBA.clone().applyQuaternion(orient.quaternion).y < -.2) e = 'sorpresa'   // boca abajo
+    if (fuera.size) e = 'preocupada'
+    if (punt) e = emoPuntual(t)
+    if (dilema) e = dilema.r ? (dilema.r === 'voy' ? 'feliz' : 'tentada') : dilema.fase === 'brota' ? 'sorpresa' : dilema.habla === 'demonio' ? 'tentada' : 'duda'
+  }
+  const E = EMO[e]
+  const txt = punt && punt.txt && t > emoHasta ? punt.txt : dilema && dilema.r ? (dilema.r === 'voy' ? '💪 ¡me voy a clase!' : '😈 hoy no voy…') : dilema && t > emoHasta ? '⏰ ' + dilema.hora + ' · ¿voy o no voy?' : actPose && e === ACT[act].emo ? (act === 'comer' ? COMIDAS.find(c => c[0] === comida)[1] : ACT[act].txt) : E.txt
+  if (txt !== emoMostrada) { estadoEl.textContent = txt; emoMostrada = txt }
+
+  // Lo que hace ahora mismo: datos que usan la cara y la postura más abajo.
+  const k = actPose ? t - actT0 : 0
+  let lift = 0      // al comer: 0 con la comida abajo, 1 en la boca
+  if (actPose === 'comer') {
+    const p = (k % 2.6) / 2.6, ez = x => x * x * (3 - 2 * x)
+    lift = p < .35 ? ez(p / .35) : p < .55 ? 1 : p < .85 ? 1 - ez((p - .55) / .3) : 0
+    const bocado = Math.floor(k / 2.6)
+    if (p > .45 && bocado !== ultMordisco) { ultMordisco = bocado; mordiscos++; muerde() }
+  }
+  // Hacia dónde mira: al móvil, a la tele, a la comida o al ratón.
+  const mira = punt ? miraPuntual(t) : dilema && dilema.fase === 'habla' ? [dilema.habla === 'angel' ? -1 : 1, .7] : actPose === 'movil' ? [.35, -.9] : actPose === 'tele' ? [1, -.1] : actPose === 'comer' ? [.2, -.6] : null
+
+  // Ojos, boca, cejas y mofletes de la emoción.
+  const parp = (t % 4.2) < .12
+  ojos.forEach(o => {
+    const f = o.userData.formas
+    Object.entries(f).forEach(([k, m]) => m.visible = k === E.ojos)
+    f.normal.scale.y = parp ? .1 : 1
+    // La mirada sigue al ratón (o pasea si no hay ratón).
+    const mx = mira ? mira[0] : raton.x > 5 ? Math.sin(t * .5) * .4 : raton.x, my = mira ? mira[1] : raton.y > 5 ? Math.sin(t * .3) * .2 : raton.y
+    f.normal.position.x = lerp(f.normal.position.x, mx * .055, .15)
+    f.normal.position.y = lerp(f.normal.position.y, my * .05, .15)
+    f.medio.position.x = f.normal.position.x * .6; f.medio.position.y = f.normal.position.y * .4
+    f.sorpresa.children[2].position.x = f.normal.position.x * 1.4
+    f.mareo.rotation.z = t * 6 * o.userData.lado
+  })
+  // Comiendo: abre la boca al llegar el bocado y luego mastica.
+  const bocaK = actPose === 'comer' && e === 'come' && lift > .75 ? 'abierta' : E.boca
+  Object.entries(bocas).forEach(([k, m]) => m.visible = k === bocaK)
+  bocas.abierta.scale.y = 1 + Math.sin(t * 9) * .12
+  bocas.onda.scale.set(1, e === 'come' ? 1 + Math.sin(t * 14) * .6 : 1, 1)
+  cejas.forEach(c => {
+    c.visible = !!E.cejas && !fuera.has(ojos[c.userData.lado < 0 ? 0 : 1])
+    c.quaternion.copy(c.userData.q0); c.rotateZ(c.userData.lado * (E.cejas === 'enfado' ? -.45 : .35))
+  })
+  moflMat.opacity = lerp(moflMat.opacity, E.rubor * .85, .08)
+  mofletes.forEach(m => m.scale.set(1.3 + E.rubor * .35, .8 + E.rubor * .2, 1))
+
+  // Membrana viva + hundimientos.
+  for (let i = 0; i < pos.count; i++) {
+    v.set(base[i * 3], base[i * 3 + 1], base[i * 3 + 2])
+    const n = Math.sin(v.x * 2.1 + t * 1.3) * Math.sin(v.y * 2.4 + t * 1.1) * Math.sin(v.z * 1.9 + t * .9)
+    let k = 1 + n * (e === 'enfadada' ? .07 : .035)
+    for (const h of hoyos) {
+      const d2 = (base[i * 3] - h.c.x) ** 2 + (base[i * 3 + 1] - h.c.y) ** 2 + (base[i * 3 + 2] - h.c.z) ** 2
+      k -= h.prof * Math.exp(-d2 / .26) * .34
+    }
+    // Bultos de brazos y pies: punta redondeada y base que se funde con el cuerpo.
+    const ix = base[i * 3] / 1.6, iy = base[i * 3 + 1] / 1.6, iz = base[i * 3 + 2] / 1.6
+    for (const x of bultos) {
+      if (x.L < .002) continue
+      const dot = ix * x.dir.x + iy * x.dir.y + iz * x.dir.z
+      if (dot > x.abre) { const w = (dot - x.abre) / (1 - x.abre); k += x.L * Math.pow(w * w * (3 - 2 * w), .55) }
+    }
+    v.multiplyScalar(k); pos.setXYZ(i, v.x, v.y, v.z)
+  }
+  pos.needsUpdate = true; geoMem.computeVertexNormals()
+  for (let i = hoyos.length - 1; i >= 0; i--) {
+    const h = hoyos[i]
+    h.vel = h.vel * .8 + ((h.pulsado ? 1 : 0) - h.prof) * .11; h.prof += h.vel
+    if (!h.pulsado && Math.abs(h.prof) < .003 && Math.abs(h.vel) < .003) hoyos.splice(i, 1)
+  }
+
+  // La cara se hunde con la membrana.
+  const esc = membrana.scale
+  for (const p of piezas) {
+    if (fuera.has(p)) continue
+    let hundir = 0
+    for (const h of hoyos) {
+      const d2 = (p.userData.p0.x - h.c.x * esc.x) ** 2 + (p.userData.p0.y - h.c.y * esc.y) ** 2 + (p.userData.p0.z - h.c.z * esc.z) ** 2
+      hundir += h.prof * (h.ojo === p ? .75 : Math.exp(-d2 / .26) * .5)
+    }
+    p.position.lerp(p.userData.p0.clone().addScaledVector(p.userData.n, -hundir), .5)
+  }
+  // Piezas metidas dentro: van al interior, flotan girando y a los 4 s vuelven a su sitio.
+  for (const [p, d] of fuera) {
+    if (p.tipo) {   // brazo o pie: se recoge en el cuerpo y flota una gotita dentro
+      const g = p.gota, dentro = t - d.t0 < 4.2
+      p.L = lerp(p.L, dentro ? 0 : p.L0, suave(dentro ? .12 : .06))
+      if (dentro) {
+        if (!d.salio) { g.position.copy(p.dir).multiplyScalar(1.4); g.scale.setScalar(.01); g.visible = true; d.salio = true }
+        const meta = d.destino.clone().add(new THREE.Vector3(Math.sin(t * 1.3 + d.fase) * .14, Math.sin(t * 1.7 + d.fase) * .12, 0))
+        g.position.lerp(meta, suave(.06)); g.scale.lerp(new THREE.Vector3(1, 1, 1), suave(.08))
+      } else {
+        // La gotita vuelve a su sitio y se disuelve mientras crece el bulto.
+        g.position.lerp(p.dir.clone().multiplyScalar(1.4), suave(.12)); g.scale.multiplyScalar(.9)
+        if (Math.abs(p.L - p.L0) < .01) { p.L = p.L0; g.visible = false; fuera.delete(p); ponEmo('feliz', 1.2) }
+      }
+      continue
+    }
+    if (t - d.t0 < 4.2) {
+      const meta = d.destino.clone().add(new THREE.Vector3(Math.sin(t * 1.3 + d.fase) * .14, Math.sin(t * 1.7 + d.fase) * .12, 0))
+      p.position.lerp(meta, .06); p.rotation.z += .03
+      const s0 = p.userData.s0 || new THREE.Vector3(1, 1, 1); p.scale.lerp(s0.clone().multiplyScalar(.7), .05)
+    } else {
+      const s0 = p.userData.s0 || new THREE.Vector3(1, 1, 1)
+      p.position.lerp(p.userData.p0, .12); p.scale.lerp(s0, .12)
+      if (p.userData.q0) p.quaternion.slerp(p.userData.q0, .15); else p.rotation.z *= .85
+      if (p.position.distanceTo(p.userData.p0) < .01) {
+        p.position.copy(p.userData.p0); p.scale.copy(s0); if (p.userData.q0) p.quaternion.copy(p.userData.q0)
+        fuera.delete(p); ponEmo('feliz', 1.2)
+      }
+    }
+  }
+
+  // Cuerpo según modo, actividad y emoción.
+  let y = Math.sin(t * 2) * .06, rz = 0, sx = 1, sy = 1
+  const libres = brazos.filter(b => !fuera.has(b))
+  // Elevación de cada brazo (radianes): negativo, hacia abajo; positivo, hacia arriba.
+  let elev = (b) => -.4 + Math.sin(t * 2 + b.lado) * .06
+  let agarra = 0, objetivo = null                       // brazo derecho sujetando algo
+  let agarraIzq = 0, objetivoIzq = null                 // y el izquierdo (mando de la consola)
+  let largoBrazo = b => b.L0, abreBrazo = .945, abrirPies = 0, largoPie = p => p.L0
+  let giroY = 0, conTruco = false
+  const ez = x => x < .5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2
+  if (punt && t > emoHasta) {
+    // Animaciones puntuales: presumir de ropa, recibir medalla, absorber un objetivo.
+    const k = t - punt.t0
+    if (punt.tipo === 'presume') { const p = Math.min(1, k / 1.2); conTruco = true; truco.rotation.y = ez(p) * Math.PI * 2; y = Math.sin(p * Math.PI) * .35; elev = b => .5 + Math.sin(t * 9 + b.lado) * .2 }
+    else if (punt.tipo === 'medalla') {
+      if (k < 1.3) elev = () => .7 + Math.sin(t * 6) * .1
+      else if (k < 1.9) { elev = () => .2; sx = 1.06; sy = .94 }
+      else { const j = k - 1.9; y = Math.abs(Math.sin(j * 7)) * .5; elev = b => 1 + Math.sin(t * 12 + b.lado) * .25 }
+    }
+    else if (punt.tipo === 'absorbe') {
+      // Ceremonia: llega el entrenador, se lo entrega, posa para las fotos, se lo traga y lo celebra.
+      if (k < 2.3) { elev = () => .45 + Math.sin(t * 8) * .1; y = Math.abs(Math.sin(t * 6)) * .12 }
+      else if (k < 3.2) { agarra = 1; objetivo = new THREE.Vector3(.9, -.2, .45); elev = () => -.3 }
+      else if (k < 5.6) {
+        // Trofeo en alto y posturitas: cambia de lado con cada flash.
+        agarra = 1; objetivo = new THREE.Vector3(.45, 1, .3); elev = b => b.lado < 0 ? .3 + Math.sin(t * 4) * .15 : .5
+        giroY = (Math.floor(k * 2.2) % 2 ? 1 : -1) * .22; y = Math.sin(t * 3) * .04
+      }
+      else if (k < 7) { agarra = 1; objetivo = new THREE.Vector3(.55, -.15, .85); elev = () => -.2 }
+      else { const j = k - 7; y = Math.abs(Math.sin(j * 7)) * .5; elev = b => 1 + Math.sin(t * 12 + b.lado) * .25 }
+    }
+  }
+  else if (modo === 'baila') { rz = Math.sin(t * 7) * .18; y = Math.abs(Math.sin(t * 7)) * .25; elev = b => -.1 + Math.sin(t * 7 + b.lado * 1.5) * .8 }
+  else if (modo === 'salta') { const f = (t * 1.3) % 1; y = Math.sin(f * Math.PI) * 1.1; const sq = f < .12 || f > .9 ? .15 : 0; sx = 1 + sq; sy = 1 - sq; elev = () => -.3 + Math.sin(f * Math.PI) * 1.3; largoPie = p => p.L0 * (1 + Math.sin(f * Math.PI) * .35) }
+  else if (modo === 'celebra') { y = Math.abs(Math.sin(t * 5)) * .35; elev = b => 1.05 + Math.sin(t * 10 + b.lado) * .15 }
+  else if (actPose === 'pesas') {
+    // Curl alterno: cuando un brazo sube el otro baja. Cada subida cuenta una repetición.
+    const f = Math.sin(k * 3.2) * .5 + .5
+    elev = b => -.8 + (b.lado > 0 ? f : 1 - f) * 1.5
+    y = Math.abs(Math.sin(k * 3.2)) * .04; sy = 1 - Math.abs(Math.cos(k * 3.2)) * .03
+  }
+  else if (actPose === 'saltos') {
+    const f = (k * 1.7) % 1, a = Math.sin(f * Math.PI)
+    y = a * .55; elev = () => -.6 + a * 1.75; abrirPies = a
+    if (f < .1 || f > .93) { sx = 1.1; sy = .9 }
+  }
+  else if (actPose === 'correr') {
+    const ph = k * 11
+    y = Math.abs(Math.sin(ph)) * .14; rz = Math.sin(ph) * .04
+    elev = b => -.45 + Math.sin(ph + (b.lado > 0 ? 0 : Math.PI)) * .6
+    largoPie = p => p.L0 * (1 + Math.max(0, Math.sin(ph + (p.lado > 0 ? Math.PI : 0))) * .8)
+  }
+  else if (actPose === 'voltereta') {
+    const p = Math.min(1, k / 1.6); conTruco = true
+    y = Math.sin(p * Math.PI) * 1.5; truco.rotation.z = -ez(p) * Math.PI * 2; elev = () => .9
+    if (p > .2 && p < .8) { sx = .92; sy = .92 } else if (p >= .95) { sx = 1.12; sy = .88 }
+  }
+  else if (actPose === 'trompo') {
+    const p = Math.min(1, k / 1.4); conTruco = true
+    y = Math.sin(p * Math.PI) * .35; truco.rotation.y = ez(p) * Math.PI * 4; elev = () => .15
+  }
+  else if (actPose === 'musculo') {
+    // Saca bíceps: los bracitos se hacen más gordos y laten.
+    y = Math.abs(Math.sin(t * 4)) * .06
+    elev = b => .95 + Math.sin(t * 9 + b.lado) * .06
+    largoBrazo = () => .46 + Math.sin(t * 9) * .05; abreBrazo = .91
+  }
+  else if (actPose === 'saluda') {
+    // Saluda con el brazo derecho; el otro se queda tranquilo.
+    elev = b => b.lado > 0 ? 1.05 + Math.sin(t * 11) * .3 : -.4; rz = Math.sin(t * 5.5) * .05; y = Math.sin(t * 3) * .05
+  }
+  else if (actPose === 'estira') {
+    const p = Math.min(1, k / 1.2), a = Math.sin(Math.min(1, k / 2.6) * Math.PI)
+    sy = 1 + a * .2; sx = 1 - a * .08; y = a * .2; elev = () => -.4 + p * 1.5;   // en V: si suben del todo se juntan en un solo pico
+    rz = Math.sin(t * 2) * .05 * a
+  }
+  else if (actPose === 'comba') {
+    // La comba da vueltas; cuando pasa por debajo, ella está en el aire.
+    const fi = k * 7
+    y = .5 * Math.pow(Math.max(0, Math.cos(fi)), 1.5); elev = () => -.22 + Math.cos(fi) * .08
+    if (Math.cos(fi) < -.85) { sx = 1.06; sy = .94 }
+    comba.rotation.x = fi
+  }
+  else if (actPose === 'consola') {
+    y = -.2; sx = 1.05; sy = .94; rz = Math.sin(t * 2.3) * .04; giroY = .22; elev = () => -.6
+    agarra = 1; objetivo = new THREE.Vector3(.5, -.5, .75); agarraIzq = 1; objetivoIzq = new THREE.Vector3(-.5, -.5, .75)
+  }
+  else if (actPose === 'movil') {
+    y = -.18; sx = 1.05; sy = .94; rz = .05; elev = () => -.85
+    agarra = 1; objetivo = new THREE.Vector3(.85, -.3, .5)
+  }
+  else if (actPose === 'tele') {
+    y = -.2; sx = 1.05; sy = .94; rz = -.04; giroY = .22; elev = () => -.9
+  }
+  else if (actPose === 'comer') {
+    y = -.18; sx = 1.05; sy = .94; elev = () => -.85
+    agarra = 1; objetivo = new THREE.Vector3(.9, -.5, .3).lerp(new THREE.Vector3(.7, -.15, .7), lift)
+  }
+  else if (actPose === 'cama') { y = -.15 + Math.sin(t * 1.2) * .03; rz = .08; sx = 1.04; elev = () => -.95 }
+  else if (e === 'enfadada') { rz = Math.sin(t * 40) * .03; sy = 1.04; elev = () => -.85 }
+  else if (e === 'ay' || e === 'sorpresa' || e === 'preocupada') elev = () => .55
+  // Sin truco, el giro extra vuelve a cero (o mira un poco hacia la tele).
+  if (dilema && dilema.fase === 'habla') giroY = dilema.habla === 'angel' ? -.22 : .22
+  if (!conTruco) { truco.rotation.z = lerp(truco.rotation.z, 0, suave(.1)); truco.rotation.y = lerp(truco.rotation.y, giroY, suave(.06)) }
+  brazos.forEach(b => {
+    b.peso = lerp(b.peso, b.lado > 0 ? agarra : agarraIzq, suave(.12))
+    const o = b.lado > 0 ? objetivo : objetivoIzq; if (o) b.objetivo.copy(o).normalize()
+  })
+  libres.forEach(b => {
+    if (!(b.quieta > t)) b.elev = lerp(b.elev, elev(b), suave(.25))
+    b.L = lerp(b.L, largoBrazo(b), suave(.15)); b.abre = lerp(b.abre, abreBrazo, suave(.15)); dirBrazo(b)
+  })
+  // Pies: se abren en los saltos de tijera y se estiran al correr o saltar.
+  pies.forEach(p => {
+    p.abrir = lerp(p.abrir, abrirPies, suave(.3))
+    p.dir.set(p.lado * (.36 + p.abrir * .5), -.93 + p.abrir * .3, .1).normalize()
+    if (!fuera.has(p)) p.L = lerp(p.L, largoPie(p), suave(.3))
+  })
+  if (e === 'ay') { sx = 1.06; sy = .94 }
+  if (e === 'dormida' && actPose !== 'cama') { y = Math.sin(t * 1.2) * .04; sy = 1 + Math.sin(t * 1.2) * .02 }
+  if (e === 'aburrida') { rz = Math.sin(t * .8) * .06 }
+  if (e === 'mareada') rz = Math.sin(t * 3) * .15
+  raiz.position.y = lerp(raiz.position.y, y, .3); raiz.rotation.z = lerp(raiz.rotation.z, rz, .2)
+  raiz.scale.set(lerp(raiz.scale.x, sx, .25), lerp(raiz.scale.y, sy, .25), lerp(raiz.scale.z, sx, .25))
+  sombra.scale.setScalar(1 - y * .25); sombra.material.opacity = .14 - y * .05
+  pasoLogros(t, suave)
+  organulos.forEach(o => { o.position.y = o.userData.y0 + Math.sin(t * o.userData.f) * .06; o.rotation.z += .004 })
+
+  // Giro con inercia y, como un tentetieso, siempre tiende a ponerse de pie.
+  if (!(gesto && gesto.tipo === 'gira')) {
+    velX *= .93; velY *= .93; if (Math.abs(velX) + Math.abs(velY) > .0005) girar(velX, velY)
+    const up = ARRIBA.clone().applyQuaternion(orient.quaternion)
+    const fix = new THREE.Quaternion().setFromUnitVectors(up, ARRIBA).multiply(orient.quaternion)
+    orient.quaternion.slerp(fix, suave(up.y < 0 ? .03 : .06))
+  }
+
+  // Adornos: z al dormir, 💢 al enfadarse, estrellitas al marearse, ! al sorprenderse.
+  zetas.forEach((z, i) => { z.visible = e === 'dormida'; const f = (t * .5 + i / 3) % 1; z.position.set(1.1 + f * .6, 1.2 + f * 1.1 + y, 0); z.material.opacity = 1 - f })
+  enfado.visible = e === 'enfadada' || e === 'molesta'; enfado.position.set(1.15, 1.35 + y, 0); enfado.scale.setScalar(.45 + Math.sin(t * 12) * .05)
+  estrellas.forEach((s, i) => { s.visible = e === 'mareada'; const a = t * 3 + i * 2.1; s.position.set(Math.cos(a) * 1.1, 1.75 + y, Math.sin(a) * .6) })
+  exclam.visible = e === 'sorpresa' || e === 'preocupada'; exclam.position.set(-1.2, 1.45 + y, 0)
+
+  // ── Decorado y objetos de su rutina ──
+  escena.updateMatrixWorld()
+  const mundo = (v) => cuerpo.localToWorld(v.clone())
+  const enSofa = ['movil', 'tele', 'comer', 'consola'].includes(actEsc)
+  const sSofa = ver(sofa, enSofa, .08), sCama = ver(cama, actEsc === 'cama', .08), sTele = ver(tele, actEsc === 'tele' || actEsc === 'consola', .08)
+  sombra.material.opacity *= 1 - Math.max(sSofa, sCama)
+  ver(pijama, nivel === 'vago'); ver(gorro, actEsc === 'cama'); ver(cinta, nivel === 'activo' && (!equipo.cabeza || equipo.cabeza === 'auriculares'))
+  pasoRopa(t, actEsc)
+  // Color: más vivo cuando está en forma, más apagado cuando no se mueve del sofá.
+  memMat.color.lerp(COLORES[nivel] || COLORES.normal, suave(.03))
+  const emiBase = nivel === 'vago' ? .2 : nivel === 'activo' ? .42 : .35
+  memMat.emissiveIntensity = Math.max(lerp(memMat.emissiveIntensity, emiBase, suave(.03)), emiBase + brillo * 1.4); brillo *= Math.pow(.96, dt * 60)
+  const der = brazos.find(b => b.lado > 0)
+  // Mancuernas en las puntas de los bracitos.
+  mancuernas.forEach((m, i) => { ver(m, actEsc === 'pesas' && !fuera.has(brazos[i])); m.position.copy(puntaDe(brazos[i])) })
+  // Móvil delante de la cara, con su luz azul.
+  ver(movil, actEsc === 'movil' && !fuera.has(der))
+  movil.position.copy(puntaDe(der)).add(new THREE.Vector3(-.35, .3, .55))
+  movil.lookAt(mundo(new THREE.Vector3(0, .2, 1.2)))
+  luzMovil.position.copy(movil.position).add(new THREE.Vector3(-.2, .1, -.1))
+  luzMovil.intensity = movil.visible ? movil.userData.s * (2.2 + Math.sin(t * 7) * .3 + (Math.sin(t * 2.3) > .9 ? 1 : 0)) : 0
+  // Tele: la imagen cambia y su luz de colores le da en la cara.
+  if (sTele > .5 && t - (tele.userData.ult || 0) > .35) { tele.userData.ult = t; pintaPantalla() }
+  luzTele.intensity = sTele * 3
+  // Comida: sube a la boca, muerde y se va haciendo pequeña.
+  const resto = 1 - Math.min(.4, mordiscos * .07)
+  ;['kebab', 'burger', 'tenedor'].forEach(c => {
+    const o = comidas[c], si = actEsc === 'comer' && !fuera.has(der) && (c === 'tenedor' ? comida === 'pasta' : comida === c)
+    const sc = ver(o, si); if (o.visible && c !== 'tenedor') o.scale.setScalar(Math.max(.001, sc * resto))
+    // Abajo va en la mano; en el bocado se acerca a la boca.
+    o.position.copy(puntaDe(der)).add(new THREE.Vector3(-.15, .12, .4)).lerp(new THREE.Vector3(.2, -.1, 1.75), lift * .85)
+  })
+  ver(plato, actEsc === 'comer' && comida === 'pasta'); plato.userData.pasta.scale.set(resto, .55 * resto, resto)
+  migas.forEach(m => {
+    const v = t - m.userData.t0; m.visible = v < .8
+    if (m.visible) { m.userData.v.y -= 7 * dt; m.position.addScaledVector(m.userData.v, dt); m.material.opacity = 1 - v / .8 }
+  })
+  // Sudor cuando hace deporte, brillitos al sacar bíceps, likes del móvil.
+  const suda = ['pesas', 'saltos', 'correr'].includes(actPose)
+  sudor.forEach((g, i) => { g.visible = suda; const f = (t * .9 + i * .5) % 1; g.position.copy(mundo(new THREE.Vector3((i ? -1 : 1) * (1.15 + f * .25), 1.25 - f * .5, .4))); g.material.opacity = 1 - f; g.scale.setScalar(.32) })
+  brillos.forEach((g, i) => { g.visible = actPose === 'musculo'; g.position.copy(mundo(puntaDe(brazos[i]).addScaledVector(brazos[i].dir, .3))); g.scale.setScalar(.35 + Math.sin(t * 10 + i * 2) * .1) })
+  corazones.forEach((g, i) => {
+    const f = (t * .45 + i / 3) % 1; g.visible = actPose === 'movil' && movil.visible
+    g.position.copy(mundo(movil.position)).add(new THREE.Vector3(.15 + Math.sin(f * 6 + i) * .15, .35 + f * 1.1, 0)); g.material.opacity = 1 - f; g.scale.setScalar(.3)
+  })
+  // Contador de repeticiones encima de la cabeza.
+  const rep = actPose === 'pesas' ? Math.floor(k * 3.2 / Math.PI) : 0
+  contador.visible = rep > 0
+  if (rep !== repMostrada) { repMostrada = rep; if (rep > 0) { contador.userData.pinta(String(rep)); contador.userData.pop = t } }
+  contador.position.set(0, 2.05 + y, 0); contador.scale.setScalar(.45 + Math.max(0, .25 - (t - (contador.userData.pop || 0))) * 1.2)
+
+  // Cámara: se aleja para que quepan el sofá, la cama o la tele (también en pantallas estrechas).
+  const enFiesta = (punt && punt.tipo === 'absorbe') || salida
+  const ancho = sTele > .05 ? 3.9 : Math.max(sSofa, sCama) > .05 ? 2.9 : dilema || enFiesta ? 2.9 : 2.0
+  const dObj = Math.min(19, Math.max(Math.max(sSofa, sCama) > .05 ? 8.6 : dilema || enFiesta ? 9.4 : 7.4, ancho / (Math.tan(THREE.MathUtils.degToRad(16)) * cam.aspect)))
+  camD = lerp(camD, dObj, suave(.04))
+  cam.position.set(0, .35 + (camD - 7.4) * .06, camD); cam.lookAt(0, .1 - (camD - 7.4) * .05 + (dilema || enFiesta ? .5 : 0), 0)
+  pasoDilema(t, dt, suave)
+  pasoPuntual(t, dt)
+  pasoFuegos(t, dt)
+  if (!(punt && punt.tipo === 'absorbe')) { camaras.forEach(c => c.visible = false); aplauso.visible = false; flashEl.style.opacity = 0; flashAhora = 0 }
+  r.render(escena, cam)
+}
+
+// ── EL DILEMA: ¿voy a clase o no? ────────────────────────────────────────────
+// brota → habla (se turnan y aparece la elección) → gana uno → el otro se esfuma
+// → el que queda vuelve a meterse en el cuerpo. Luego hace deporte o se va al sofá.
+function empiezaDilema() {
+  if (dilema || punt) return
+  const h = new Date(); h.setHours(h.getHours() + 1, 0, 0, 0)
+  dilema = { fase: 'brota', t0: reloj.getElapsedTime(), habla: 'angel', linea: -1, tLinea: 0, hora: 'Clase a las ' + h.toTimeString().slice(0, 5), usadas: { angel: 0, demonio: 0 } }
+  document.getElementById('eleTxt').textContent = '⏰ ' + dilema.hora
+  minis.forEach(m => { m.visible = true; m.scale.setScalar(.01); m.userData.triste.visible = false; m.userData.boca.visible = true })
+}
+function elegir(r) {
+  if (!dilema || dilema.fase !== 'habla') return
+  try { parent.postMessage({ tipo: 'sie-dilema', r }, location.origin) } catch {}
+  dilema.fase = 'gana'; dilema.gana = r === 'voy' ? angel : demonio; dilema.pierde = r === 'voy' ? demonio : angel; dilema.t0 = reloj.getElapsedTime(); dilema.r = r
+  eleccion.classList.remove('on'); bocA.classList.remove('on'); bocD.classList.remove('on')
+  const b = r === 'voy' ? bocA : bocD
+  b.textContent = r === 'voy' ? '¡Bieeen! ¡A entrenar! 🎉' : 'Jejeje… sofá, mantita y móvil 😈'; b.classList.add('on')
+  ponEmo(r === 'voy' ? 'feliz' : 'tentada', 2.2)
+}
+document.getElementById('cita').onclick = () => { modo = 'flota'; pintaOps(); empiezaDilema() }
+document.getElementById('eleSi').onclick = () => elegir('voy')
+document.getElementById('eleNo').onclick = () => elegir('no')
+if (Q.get('cita')) setTimeout(() => {
+  empiezaDilema()
+  if (dilema) { dilema.hora = 'Clase a las ' + Q.get('cita'); document.getElementById('eleTxt').textContent = '⏰ ' + dilema.hora }
+}, 2500)
+const ezz = x => x < .5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2
+const _v = new THREE.Vector3()
+// Punta del bulto de un hombro, en coordenadas de raiz (donde viven las célulitas).
+const puntaBrote = (b) => raiz.worldToLocal(membrana.localToWorld(b.dir.clone().multiplyScalar(1.6 * (1 + b.L * .8))))
+const posHombro = (m) => new THREE.Vector3(m.userData.lado * 1.75, 1.7, .35)
+function ponBocadillo(el, m) {
+  m.getWorldPosition(_v); _v.y += .7 * m.scale.y; _v.project(cam)
+  const w = el.parentElement.clientWidth, h = el.parentElement.clientHeight, bw = el.offsetWidth
+  const x = Math.min(w - bw / 2 - 8, Math.max(bw / 2 + 8, (_v.x + 1) / 2 * w)), y = Math.max(el.offsetHeight + 8, (1 - _v.y) / 2 * h)
+  el.style.left = x + 'px'; el.style.top = y + 'px'
+}
+function pasoDilema(t, dt, suave) {
+  if (!dilema) { brotes.forEach(b => b.L = lerp(b.L, 0, suave(.2))); return }
+  const d = dilema, k = t - d.t0
+  escena.updateMatrixWorld()
+  // Movimiento de cada célulita: flota, parpadea, el ángel aletea y el demonio menea la cola.
+  minis.forEach((m, i) => {
+    const u = m.userData, habla = d.fase === 'habla' && d.habla === u.tipo
+    u.ojos.forEach(o => o.scale.y = (t + i) % 3.6 < .1 ? .15 : 1)
+    u.boca.scale.y = habla ? 1 + Math.abs(Math.sin(t * 14)) * 1.4 : 1
+    if (u.alas) u.alas.forEach(a => a.rotation.y = a.userData.lado * Math.sin(t * 14) * .5)
+    if (u.cola) u.cola.rotation.y = Math.sin(t * 3) * .3
+    if (u.tri) u.tri.rotation.z = -.25 + (habla ? Math.sin(t * 8) * .25 : 0)
+    if (u.aureola) u.aureola.rotation.z = t
+  })
+  if (d.fase === 'brota') {
+    // 0–0,9 s: el hombro se hincha como un brazo; 0,9–1,5 s: la célulita sale disparada y el bulto vuelve.
+    brotes.forEach((b, i) => {
+      const m = minis[i]
+      if (k < .9) { b.L = ezz(k / .9) * .45; m.position.copy(puntaBrote(b)); m.scale.setScalar(.15 + ezz(k / .9) * .45) }
+      else {
+        const p = Math.min(1, (k - .9) / .6)
+        b.L = .45 * Math.max(0, 1 - p * 2.2) + Math.sin(p * 12) * .05 * (1 - p)     // rebote al soltarla
+        m.position.lerpVectors(puntaBrote(b), posHombro(m), ezz(p)); m.position.y += Math.sin(p * Math.PI) * .35
+        m.scale.setScalar(.6 + ezz(p) * .4)
+      }
+    })
+    if (k > 1.5) { brotes.forEach(b => b.L = 0); d.fase = 'habla'; d.tLinea = t - 99 }
+  } else if (d.fase === 'habla') {
+    minis.forEach((m, i) => {
+      const habla = d.habla === m.userData.tipo
+      m.position.copy(posHombro(m)); m.position.y += Math.sin(t * 2.2 + i * 2) * .07 + (habla ? Math.abs(Math.sin(t * 7)) * .08 : 0)
+      m.rotation.z = habla ? Math.sin(t * 5) * .08 : 0
+      m.scale.setScalar(habla ? 1.08 : .95)
+    })
+    // Se turnan cada 2,8 s. A la segunda frase sale la pregunta.
+    if (t - d.tLinea > 2.8) {
+      d.tLinea = t; d.linea++
+      d.habla = d.linea % 2 ? 'demonio' : 'angel'
+      const lista = FRASES[d.habla], b = d.habla === 'angel' ? bocA : bocD
+      b.textContent = lista[d.usadas[d.habla]++ % lista.length]
+      bocA.classList.toggle('on', d.habla === 'angel'); bocD.classList.toggle('on', d.habla === 'demonio')
+      if (d.linea >= 1) eleccion.classList.add('on')
+    }
+  } else if (d.fase === 'gana') {
+    const g = d.gana, pz = d.pierde
+    // El ganador da saltitos de alegría.
+    g.position.copy(posHombro(g)); g.position.y += Math.abs(Math.sin(t * 9)) * .3; g.rotation.z = Math.sin(t * 9) * .15; g.scale.setScalar(1.1)
+    // El perdedor: el demonio se esfuma en humo; el ángel se pone triste, suelta una lágrima y se encoge.
+    pz.userData.boca.visible = false; pz.userData.triste.visible = true
+    const p = Math.min(1, k / 1.6)
+    pz.position.copy(posHombro(pz)); pz.position.y -= p * .4; pz.rotation.z = Math.sin(t * 30) * .1 * (1 - p)
+    pz.scale.setScalar(Math.max(.001, 1 - ezz(p)))
+    const puf = pz === demonio ? humo : lagrima
+    puf.visible = p > .5 && p < 1; puf.position.copy(pz.getWorldPosition(_v)); if (pz === angel) puf.position.y -= (p - .5) * .8
+    puf.scale.setScalar(pz === demonio ? .3 + p * .5 : .3); puf.material.opacity = 1 - Math.max(0, p - .7) / .3
+    risaD.visible = d.r === 'no' && k > .3; risaD.position.copy(demonio.getWorldPosition(_v)).add(new THREE.Vector3(.45, .55, 0)); risaD.scale.setScalar(.35 + Math.sin(t * 10) * .04)
+    ponBocadillo(d.r === 'voy' ? bocA : bocD, g)
+    if (k > 2.4) { d.fase = 'vuelve'; d.t0 = t; bocA.classList.remove('on'); bocD.classList.remove('on'); pz.visible = false; humo.visible = lagrima.visible = risaD.visible = false; d.desde = g.position.clone() }
+  } else if (d.fase === 'vuelve') {
+    // El que queda vuelve a su hombro y el bulto se lo traga.
+    const i = minis.indexOf(d.gana), b = brotes[i], g = d.gana, p = Math.min(1, k / 1.1)
+    b.L = Math.sin(Math.min(1, p * 1.2) * Math.PI) * .4
+    g.position.lerpVectors(d.desde, puntaBrote(b), ezz(Math.min(1, p * 1.4))); g.rotation.z = 0
+    g.scale.setScalar(Math.max(.001, 1.1 * (1 - ezz(Math.max(0, p - .35) / .65))))
+    if (p >= 1) {
+      g.visible = false; b.L = 0
+      const r = d.r; dilema = null
+      // Resultado: si va, se pone a hacer deporte; si no, al sofá con el móvil.
+      act = r === 'voy' ? 'saltos' : 'movil'; actDur = r === 'voy' ? 6 : 9; actT0 = reloj.getElapsedTime(); repMostrada = 0
+      ponEmo(r === 'voy' ? 'risa' : 'pocho', 1)
+    }
+  }
+  if (dilema && dilema.fase === 'habla') { ponBocadillo(bocA, angel); ponBocadillo(bocD, demonio) }
+}
+bucle()
+</script>
+</body></html>

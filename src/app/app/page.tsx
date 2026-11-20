@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Navegacion from './Navegacion'
 import { tiene } from './activas'
 import Avisos from './Avisos'
+import Avatar from './Avatar'
 
 // INICIO DE LA APP DE CLIENTES: su próxima cita, lo que lleva hecho y el álbum que viene.
 // Todo llega por funciones app_… (sql/app-3-clientes.sql): el cliente no lee tablas.
@@ -54,6 +55,8 @@ export default function InicioApp() {
         <small>{yo.centro || 'Tu centro'}</small>
         <h1>Hola, {yo.nombre}</h1>
       </header>
+
+      {tiene(yo.activas, 'avatar') && <Avatar/>}
 
       {prox ? (
         <section className="capp-billete" aria-label="Tu próxima cita"
