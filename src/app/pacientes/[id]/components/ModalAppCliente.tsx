@@ -7,13 +7,13 @@ import { Ic } from '@/lib/icons'
 // abrirlo entra en su app sin contraseña. El enlace caduca pronto (si no lo abre a
 // tiempo, se genera otro). Ver /api/app/invitar.
 export default function ModalAppCliente({ pac, onCerrar }: { pac: any, onCerrar: () => void }) {
-  const [tiene, setTiene] = useState<null | { ultimo: string | null }>(null)
+  const [tiene, setTiene] = useState<null | { ultimo: string | null, pruebas: boolean }>(null)
   const [enlace, setEnlace] = useState('')
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState('')
 
-  const cargar = () => supabase.from('clientes_app').select('ultimo').eq('paciente_id', pac.id).maybeSingle()
-    .then(({ data }) => setTiene(data ? { ultimo: data.ultimo } : null))
+  const cargar = () => supabase.from('clientes_app').select('*').eq('paciente_id', pac.id).maybeSingle()
+    .then(({ data }) => setTiene(data ? { ultimo: data.ultimo, pruebas: data.pruebas === true } : null))
   useEffect(() => { cargar() }, [pac.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function llamar(accion: 'enlace' | 'quitar') {
@@ -50,6 +50,16 @@ export default function ModalAppCliente({ pac, onCerrar }: { pac: any, onCerrar:
           <p style={{ fontSize: 12, color: 'var(--grl)', marginBottom: 0 }}>Caduca en poco tiempo. Si no le funciona, genera otro.</p>
         </>}
         {error && <p style={{ color: 'var(--red)', fontSize: 13 }}>{error}</p>}
+        {/* EN PRUEBAS: ve lo nuevo de la app antes que nadie (para probarlo tú). */}
+        {tiene && <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 14, fontSize: 13, cursor: 'pointer' }}>
+          <input type="checkbox" checked={tiene.pruebas} onChange={async e => {
+            const v = e.target.checked
+            const { error } = await supabase.from('clientes_app').update({ pruebas: v }).eq('paciente_id', pac.id)
+            if (error) { alert('No se ha podido: ' + error.message); return }
+            setTiene(t => t && { ...t, pruebas: v })
+          }}/>
+          <span><b style={{ fontWeight: 600 }}>En pruebas</b><span style={{ display: 'block', fontSize: 12, color: 'var(--gr)' }}>Ve lo nuevo de la app antes que los demás clientes. Para probarlo tú.</span></span>
+        </label>}
         {tiene && <div style={{ borderTop: '1px solid var(--bd)', marginTop: 14, paddingTop: 10 }}>
           <button className="btn btn-d btn-sm" disabled={trabajando} onClick={() => { if (confirm(`¿Quitar el acceso a la app de ${pac.nombre}? Su ficha no se toca.`)) llamar('quitar') }}>Quitar el acceso</button>
         </div>}

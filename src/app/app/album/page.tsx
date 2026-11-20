@@ -25,6 +25,7 @@ export default function Album() {
 
   async function cargar() {
     const { data: a } = await supabase.rpc('app_album')
+    if (!a) { setFuera(true); return }   // sin la parte 'album' (aún en pruebas)
     setCromos(((a?.cromos || []) as Cromo[]).map((c, i) => ({ ...c, numero: i + 1 })))
     setSobre(a?.sobre === true); setProximo(a?.proximo || '')
   }
@@ -46,7 +47,7 @@ export default function Album() {
     return Object.entries(g)
   }, [cromos, filtro])
 
-  if (fuera) return <div className="capp-centro"><h1>Tu álbum</h1><p>Entra con el enlace que te mandamos desde el centro.</p></div>
+  if (fuera) return <div className="capp-centro"><h1>Tu álbum</h1><p>Muy pronto podrás coleccionar tus ejercicios aquí.</p><p><a href="/app" style={{ color: 'var(--tinta)', fontWeight: 700 }}>Volver al inicio</a></p></div>
   if (!cromos) return <div className="capp-centro"><h1>Abriendo el álbum…</h1></div>
 
   const tiene = cromos.filter(c => c.veces > 0).length

@@ -77,6 +77,10 @@ export async function POST(req: Request) {
   const sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${tk}` } }, auth: { persistSession: false, autoRefreshToken: false } })
   const { data: { user } } = await sb.auth.getUser(tk)
   if (!user?.id) return NextResponse.json({ error: 'Sesión no válida.' }, { status: 401 })
+  // Solo quien valora (nivel 4 o más). Antes bastaba con tener usuario, y desde que hay
+  // clientes con usuario (app) un cliente podía pedir la lista de VALD.
+  const { data: puede } = await sb.rpc('puedo', { que: 'valoracion' })
+  if (puede !== true) return NextResponse.json({ error: 'Sin permiso.' }, { status: 403 })
 
   let cuerpo: any = {}
   try { cuerpo = await req.json() } catch { /* sin cuerpo */ }
