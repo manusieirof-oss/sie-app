@@ -1,10 +1,12 @@
 // EL COLOR DE CADA CROMO sube con las veces que lo ha hecho en clase. Brillar es otra
 // cosa: que el centro ha comprobado su técnica (todos los ítems de ejecución bien).
+// Las primeras veces sale sin color (blanco); el metal se gana a fuerza de repetir.
 export const NIVELES = [
-  { desde: 1, nombre: 'Bronce', clase: 'bronce' },
-  { desde: 5, nombre: 'Plata', clase: 'plata' },
-  { desde: 15, nombre: 'Oro', clase: 'oro' },
-  { desde: 30, nombre: 'Diamante', clase: 'diamante' },
+  { desde: 1, nombre: 'Sin color', clase: 'nuevo' },
+  { desde: 5, nombre: 'Bronce', clase: 'bronce' },
+  { desde: 20, nombre: 'Plata', clase: 'plata' },
+  { desde: 50, nombre: 'Oro', clase: 'oro' },
+  { desde: 100, nombre: 'Diamante', clase: 'diamante' },
 ]
 export const nivelDe = (veces: number) => [...NIVELES].reverse().find(n => veces >= n.desde) || null
 export const siguienteDe = (veces: number) => NIVELES.find(n => veces < n.desde) || null

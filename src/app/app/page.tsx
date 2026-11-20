@@ -76,7 +76,7 @@ export default function InicioApp() {
       <section className="capp-sec">
         <Link href="/app/album" className="capp-album" style={{ color: 'inherit', textDecoration: 'none' }}>
           <div className="sobres" aria-hidden><span className="sobre"/><span className="sobre"/><span className="sobre"/></div>
-          <p><b>Tu álbum de cromos</b>Cada ejercicio que haces en clase es un cromo. Cuantas más veces, mejor color.</p>
+          <p><b>Tu álbum de cromos</b>Cada ejercicio que haces en clase es un cromo. Repite para ganar bronce, plata, oro y diamante.</p>
         </Link>
       </section>
 

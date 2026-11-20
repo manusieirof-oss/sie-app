@@ -6,7 +6,7 @@ import { Cromo, nivelDe, siguienteDe, tiempo, fecha } from './cromos'
 
 // EL ÁLBUM DE CROMOS. Una página por zona del cuerpo. Cada hueco es un ejercicio
 // verificado del centro; el cromo aparece cuando lo hace en clase, cambia de color con
-// las veces (bronce, plata, oro, diamante) y brilla cuando el centro ha comprobado su
+// las veces (sin color, bronce, plata, oro, diamante) y brilla cuando el centro ha comprobado su
 // técnica. Datos: app_album() (sql/app-4-album.sql).
 
 type Filtro = 'todos' | 'favoritos' | 'brillan'
