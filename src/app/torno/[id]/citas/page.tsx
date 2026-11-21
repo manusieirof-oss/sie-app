@@ -14,7 +14,8 @@ import { registrarCambio } from '@/lib/cambioSesion'
 import { abrirEvaluacion, moverEvaluacion } from '@/lib/evaluaciones'
 import MonedaObjetivo from '@/components/MonedaObjetivo'
 import PiezaTorno, { FilaPieza } from './PiezaTorno'
-import RepartirPanel, { repartoVacio, type EstadoReparto } from './RepartirPanel'
+import { repartoVacio, type EstadoReparto } from './RepartirPanel'
+import PasosProgramar, { CSS_PASOS } from './PasosProgramar'
 import { planReparto, diaSemana, seguirAlternando } from '@/lib/repartir'
 import { coloresDelPaciente } from '@/lib/coloresSesion'
 import { avisarGuia } from '@/lib/guiaEventos'
@@ -368,20 +369,58 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   }
 
   /** REPARTIR: la cuenta es de lib/repartir, la misma en toda la app. */
-  function repartir() {
+  function repartir(silencio = false) {
     // Por día: el primer día de la semana que viene se lleva la 1ª sesión tocada, el
     // segundo la 2ª… Por bloques: cada sesión tocada, las semanas elegidas.
     const porDia: Record<number, string> = {}
     diasConCitas.forEach((d, i) => { if (rot.length) porDia[d] = rot[i % rot.length] })
     if (!rep.modo) return
-    guardarPaso()
-    const libres = citas.filter(c => !(c.id in aMano))
+    if (!silencio) guardarPaso()
+    // DESDE: las citas antes de esa fecha no se tocan.
+    const cuales = citas.filter(c => !rep.desde || c.fecha >= rep.desde)
+    const libres = cuales.filter(c => !(c.id in aMano))
     setUltimoReparto({ modo: rep.modo, orden: rot, por_dia: porDia, semanas: Math.max(1, rep.semanas || 4),
       hasta_tipo: rep.hasta?.tipo || 'todas', hasta_fecha: rep.hasta?.fecha || null, hasta_semanas: rep.hasta?.semanas || null,
       inicio: libres[0]?.fecha || new Date().toISOString().slice(0, 10) })
-    setPintado(planReparto({ citas, original, aMano, fijas, sesiones, modo: rep.modo, cada: rep.cada,
+    setPintado(planReparto({ citas: cuales, original, aMano, fijas, sesiones, modo: rep.modo, cada: rep.cada,
       porDia, orden: rot, bloques: rot.map(ses => ({ ses, semanas: rep.semanas })), hasta: rep.hasta, pisar: rep.pisar }))
   }
+  /* SE VE AL MOMENTO: en cuanto se eligen sesiones o se cambia cómo se turnan, se pinta
+     (sin guardar nada). Solo tras tocar algo a propósito en los pasos: al llegar con una
+     sesión pedida (?pincel=, encargo de la sala) no se pinta nada solo. */
+  const [tocado, setTocado] = useState(false)
+  useEffect(() => {
+    if (!tocado) return
+    if (rep.modo && rot.length) repartir(true)
+    else { setPintado({}); setUltimoReparto(null) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tocado, rot, rep])
+  const setRotPasos = (f: (r: string[]) => string[]) => {
+    setTocado(true); setPincelEval(null)
+    setRot(r => { const n = f(r); setPincel(n.length ? (n.find(x => !r.includes(x)) || (pincel && n.includes(pincel) ? pincel : n[n.length - 1])) : null); return n })
+  }
+  const setRepPasos = (f: (r: EstadoReparto) => EstadoReparto) => { setTocado(true); setRep(f) }
+  /** En la franja: tocar una cita le pone la siguiente sesión elegida (A → B → C → A…). */
+  function ciclarCita(c: Cita) {
+    if (!rot.length) return
+    const act = plan[c.id] || null, i = act ? rot.indexOf(act) : -1
+    let sig: string | null = null
+    for (let k = 1; k <= rot.length; k++) { const id = rot[(i + k + rot.length) % rot.length]; const s = sesDe(id); if (s && cabe(s, c.fecha)) { sig = id; break } }
+    if (!sig) { alert('Ninguna de las sesiones elegidas cabe ese día (es de otra fase).'); return }
+    if (sig === act) return
+    if (act && fijas.has(act) && !confirm('Esa cita lleva una sesión con candado. ¿Cambiarla igualmente?')) return
+    guardarPaso()
+    setAMano(m => ({ ...m, [c.id]: sig }))
+  }
+  function limpiar() {
+    setRot([]); setPincel(null); setPintado({}); setAMano({}); setPasos([]); setUltimoReparto(null)
+    setRep(repartoVacio()); setEvalPlan(Object.fromEntries(evals.map(e => [e.key, e.cita])))
+  }
+  const ultimaVez = (id: string) => {
+    const v = pasadas.filter(c => c.sesion_id === id && c.estado !== 'falta').slice(-1)[0]
+    return v ? v.fecha.split('-').reverse().slice(0, 2).join('/') : null
+  }
+
   // Los días de la semana en que viene, para "Por día".
   const diasConCitas = Array.from(new Set(citas.map(c => diaSemana(c.fecha)))).sort()
 
@@ -481,7 +520,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
 
   return (
     <div className="tc">
-      <style>{`
+      <style>{CSS_PASOS + `
         .tc { background:#fff; margin:-16px -18px; padding:18px 22px 110px; min-height:calc(100vh - 32px) }
         @keyframes tc-entra { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:none } }
         .tc-ficha { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:99px; cursor:pointer;
@@ -623,13 +662,13 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
               lo que lleva. Las de un ciclo van detrás del cuadrado de su ciclo. */}
           {/* TRES COLUMNAS: a la izquierda sesiones y ciclos, en el centro el calendario y a
               la derecha las evaluaciones. Todo en una fila arriba era un lío. */}
-          <div className={`tc-tres ${pieza ? 'tc-recoge' : ''}`}>
-          <div className="tc-lado">
-            {/* REPARTIR, arriba del todo y en vertical: es lo primero que se mira. */}
-          <RepartirPanel r={rep} setR={setRep} nombres={rot.map(id => sesDe(id)?.nombre || '—')} diasConCitas={diasConCitas} hoy={hoy}
-            onPintar={repartir} nCambian={cambios.length}/>
-          {/* SU PLAN: la regla que cogen solas las citas nuevas. */}
-          {(planGuardado || ultimoReparto) && (() => {
+          <div className={pieza ? 'tc-recoge' : ''}>
+            <PasosProgramar sesiones={sesiones} ciclos={ciclos} citas={citas} rot={rot} setRot={setRotPasos} rep={rep} setRep={setRepPasos}
+              plan={plan} original={original} aMano={aMano} esFija={c => !!original[c.id] && fijas.has(original[c.id]!)}
+              ultimaVez={ultimaVez} diasConCitas={diasConCitas} hoy={hoy} onCita={c => { const x = citas.find(y => y.id === c.id); if (x) ciclarCita(x) }}
+              onLimpiar={limpiar} onPoner={confirmar} guardando={guardando} hayCambios={cambios.length + cambiosEval.length > 0}
+              planTexto={
+          (planGuardado || ultimoReparto) ? (() => {
             const pl = ultimoReparto || planGuardado
             const nom = (id: string) => sesDe(id)?.nombre || '—'
             const txt = pl.modo === 'alternar' ? `Alternando ${(pl.orden || []).map(nom).join(' → ')}`
@@ -646,101 +685,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                 }}>Quitar su plan</button>}
               </div>
             )
-          })()}
-            <div className="tc-lado-rot">Sesiones</div>
-            {[...ciclos.map(c => ({ ciclo: c as Ciclo | null, ses: sesiones.filter(s => s.ciclo === c.id) })),
-              ...(sesiones.some(s => !s.ciclo) ? [{ ciclo: null as Ciclo | null, ses: sesiones.filter(s => !s.ciclo) }] : [])].map((g, gi) => (
-              <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-                {g.ciclo && (() => {
-                  const c = g.ciclo!
-                  const ab = abierto === 'c:' + c.id
-                  return (
-                    <div className="tc-sq-w">
-                      <button type="button" className="tc-sq" onClick={() => {
-                          // El ciclo entero: todas sus sesiones al reparto, en su orden.
-                          setPincelEval(null)
-                          const suyas = sesiones.filter(x => x.ciclo === c.id).map(x => x.id)
-                          // Tocar el ciclo lo prepara para repartir alternando sus sesiones;
-                          // cada una solo cae en las fechas de su fase.
-                          const todas = suyas.every(id => rot.includes(id))
-                          setRot(r => todas ? r.filter(x => !suyas.includes(x)) : [...r.filter(x => !suyas.includes(x)), ...suyas])
-                          setPincel(todas ? null : suyas[0] || null)
-                        }}
-                        style={{ background: c.color, color: '#fff', justifyContent: 'center', padding: 10 }}>
-                        <span style={{ fontSize: 10, letterSpacing: .6, textTransform: 'uppercase', opacity: .85 }}>Ciclo</span>
-                        <span style={{ fontSize: 12.5, lineHeight: 1.25, marginTop: 3 }}>{c.nombre}</span>
-                        <span style={{ fontSize: 10.5, opacity: .85, marginTop: 3 }}>{c.fases.length} fase{c.fases.length === 1 ? '' : 's'}</span>
-                        <span className="tc-sq-i" title="Ver qué lleva" onClick={e => { e.stopPropagation(); setAbierto(ab ? null : 'c:' + c.id) }}>i</span>
-                      </button>
-                      {ab && (
-                        <div className="tc-info">
-                          {c.fases.map((f, fi) => (
-                            <div key={fi} style={{ marginBottom: 7 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)' }}>{f.nombre}</div>
-                              <div style={{ fontSize: 11, color: 'var(--grl)' }}>{f.desde ? corta(f.desde) : '…'} – {f.hasta ? corta(f.hasta) : 'sin fin'}</div>
-                              <div style={{ fontSize: 11.5, color: 'var(--gr)' }}>{f.sesiones.map(id => sesiones.find(x => x.id === id)?.nombre).filter(Boolean).join(' · ')}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-                {g.ses.map(s => {
-                  const on = pincel === s.id
-                  const ab = abierto === 's:' + s.id
-                  const n = citas.filter(c => plan[c.id] === s.id).length
-                  const ejs = (s.partes || []).flatMap((p: any) => p.ejercicios || [])
-                  const fotos = ejs.slice(0, 4)
-                  return (
-                    <div key={s.id} className="tc-sq-w">
-                      <button type="button" className={`tc-sq ${on ? 'on' : ''}`}
-                        onClick={() => {
-                          // TOCAR = ELEGIRLA. Entra en el reparto (en el orden en que se tocan) y
-                          // es el pincel para tocar días a mano. Tocar otra vez la saca.
-                          setPincelEval(null)
-                          const dentro = rot.includes(s.id)
-                          setRot(r => dentro ? r.filter(x => x !== s.id) : [...r, s.id])
-                          setPincel(dentro ? (rot.filter(x => x !== s.id).slice(-1)[0] || null) : s.id)
-                        }}
-                        style={{ boxShadow: rot.includes(s.id) ? `0 0 0 3px ${s.color}, 0 12px 26px rgba(38,40,37,.18)` : undefined,
-                          opacity: rot.length > 0 && !rot.includes(s.id) ? .55 : 1 }}>
-                        <span className="tc-sq-fotos" style={{ gridTemplateColumns: fotos.length > 1 ? '1fr 1fr' : '1fr', gridTemplateRows: fotos.length > 2 ? '1fr 1fr' : '1fr' }}>
-                          {/* Foto, o la figura con sus músculos, o el icono (ImagenEjercicio). */}
-                          {fotos.map((e: any, k: number) => <ImagenEjercicio insignias={false} key={k} relleno radio={0} fondo="#fff" icono={18} src={e.imagen_url} ejercicioId={e.ejercicio_id}/>)}
-                        </span>
-                        <span className="tc-sq-nom">{s.nombre}</span>
-                        <span className="tc-sq-n" style={{ background: s.color }} title="Citas con ella">{n}</span>
-                        {rot.includes(s.id) && <span className="tc-sq-orden" style={{ color: s.color }}>{rot.indexOf(s.id) + 1}º</span>}
-                        <span className="tc-sq-i" title="Ver qué lleva" onClick={e => { e.stopPropagation(); setAbierto(ab ? null : 's:' + s.id) }}>i</span>
-                      </button>
-                      {ab && (
-                        <div className="tc-info">
-                          {s.fase && <div style={{ fontSize: 11, color: 'var(--grl)', marginBottom: 6 }}>{s.fase}{s.desde ? ` · desde ${corta(s.desde)}` : ''}{s.hasta ? ` hasta ${corta(s.hasta)}` : ''}</div>}
-                          {(s.objs || []).length > 0 && (
-                            <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
-                              {(s.objs || []).map((o: any) => (
-                                <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
-                                  <MonedaObjetivo objetivo={o} tam="mini"/> {o.nombre}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {(s.partes || []).map((p: any, pi: number) => (
-                            <div key={pi} style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gd)' }}>{p.nombre || `Parte ${pi + 1}`}</div>
-                              <div style={{ fontSize: 11, color: 'var(--gr)', lineHeight: 1.4 }}>{(p.ejercicios || []).map((e: any) => e.nombre).join(' · ')}</div>
-                            </div>
-                          ))}
-                          <div style={{ fontSize: 11, color: 'var(--grl)', marginTop: 4 }}>{n} cita{n === 1 ? '' : 's'} con ella</div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+          })() : null
+              }/>
           </div>
+          {/* LA AGENDA, ANCHA EN EL CENTRO; a la derecha solo las evaluaciones, si tiene. */}
+          <div className={`tc-tres ${pieza ? 'tc-recoge' : ''}`} style={{ gridTemplateColumns: evals.length ? 'minmax(0,1fr) 140px' : 'minmax(0,1fr)' }}>
           <div className="tc-centro">
 
 
@@ -859,8 +808,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
             })}
           </div>
           </div>
-          <div className="tc-lado">
-            {evals.length > 0 && <div className="tc-lado-rot">Evaluaciones</div>}
+          {evals.length > 0 && <div className="tc-lado">
+            <div className="tc-lado-rot">Evaluaciones</div>
                 {/* LAS EVALUACIONES DE SU CICLO: cuadrados blancos con el borde del ciclo y
                     el icono de test, para no confundirlos con las sesiones. */}
                 {evals.map(e => {
@@ -904,7 +853,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                     </div>
                   )
                 })}
-          </div>
+          </div>}
           </div>
         </>
       )}

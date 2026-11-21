@@ -17,11 +17,14 @@ export type EstadoReparto = {
   semanas: number
   hasta: HastaReparto
   pisar: boolean
+  /** Desde qué fecha se reparte ('' = desde su próxima cita). */
+  desde?: string
 }
 
 // SIN NADA ELEGIDO DE ENTRADA: con «Alternando» ya marcado se pintaba sin querer. Hay que
 // tocar la condición (y las sesiones) a propósito.
-export const repartoVacio = (): EstadoReparto => ({ modo: null, cada: 1, semanas: 4, hasta: { tipo: 'todas' }, pisar: false })
+// Ahora sale «Alternando» marcado: no pinta nada hasta que se elige una sesión (PasosProgramar).
+export const repartoVacio = (): EstadoReparto => ({ modo: 'alternar', cada: 1, semanas: 4, hasta: { tipo: 'todas' }, pisar: false, desde: '' })
 
 export default function RepartirPanel({ r, setR, nombres, diasConCitas, hoy, onPintar, nCambian }: {
   r: EstadoReparto
