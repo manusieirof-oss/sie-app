@@ -170,12 +170,15 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     const hoy = hoyISO()
     const [{ data: p }, { data: cs }] = await Promise.all([
       supabase.from('pacientes').select('nombre,apellidos,nombre_clinica,tipo_clase').eq('id', pid).maybeSingle(),
-      supabase.from('citas').select('id,fecha,hora,sala,sesion_id,sesion_auto').eq('paciente_id', pid)
+      supabase.from('citas').select('id,fecha,hora,sala,sesion_id,sesion_auto,estado').eq('paciente_id', pid)
         .gte('fecha', hoy).neq('estado', 'cancelada').order('fecha').order('hora'),
     ])
     setNombre((p?.nombre_clinica || `${p?.nombre || ''} ${p?.apellidos || ''}`).trim())
     setTipoClase((p as any)?.tipo_clase || null)
-    setCitas((cs || []) as Cita[])
+    // DESDE AHORA, NO DESDE HOY: si tuvo clase esta mañana y se programa por la tarde,
+    // esa clase ya pasó (o ya está marcada como hecha o falta) y no se reparte.
+    const ahora = new Date(), hhmm = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`
+    setCitas(((cs || []) as any[]).filter(c => c.fecha > hoy || (c.estado === 'programada' && String(c.hora || '').slice(0, 5) > hhmm)) as Cita[])
 
     // El color de cada sesión, el mismo que en la ficha (lib/coloresSesion).
     const colorSes = await coloresDelPaciente(pid)
