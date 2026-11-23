@@ -685,7 +685,11 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
                 }}>Quitar su plan</button>}
               </div>
             )
-          })() : null
+          })() : (
+            <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 10, background: 'var(--bl)', fontSize: 12, color: 'var(--gr)', lineHeight: 1.45 }}>
+              Aún no tiene plan. Al ponerlo en sus citas, esto se queda como su plan y las citas nuevas cogen su sesión solas.
+            </div>
+          )
               }/>
           </div>
           {/* LA AGENDA, ANCHA EN EL CENTRO; a la derecha solo las evaluaciones, si tiene. */}

@@ -103,15 +103,17 @@ export default function PasosProgramar(p: {
               <button key={k} type="button" className={chip(rep.modo === k)} onClick={() => p.setRep(r => ({ ...r, modo: k }))}><b>{t}</b><small>{sub}</small></button>
             ))}
           </div>
-          {rep.modo === 'alternar' && <div className="pp-fila"><span>Cambia de sesión</span>
+          {/* SIEMPRE UNA FILA AQUÍ, sea cual sea el modo: así la página no salta al cambiarlo. */}
+          {rep.modo === 'dias' && <div className="pp-fila pp-fija"><span>Cada día de la semana, su sesión (en el orden de arriba).</span></div>}
+          {rep.modo === 'alternar' && <div className="pp-fila pp-fija"><span>Cambia de sesión</span>
             {[[1, 'en cada cita'], [2, 'cada 2 citas'], [3, 'cada 3']].map(([v, t]) => <button key={v} type="button" className={chip(rep.cada === v)} onClick={() => p.setRep(r => ({ ...r, cada: Number(v) }))}>{t}</button>)}</div>}
-          {rep.modo === 'bloques' && <div className="pp-fila"><span>Cada sesión durante</span>
+          {rep.modo === 'bloques' && <div className="pp-fila pp-fija"><span>Cada sesión durante</span>
             {[2, 4, 6].map(v => <button key={v} type="button" className={chip(rep.semanas === v)} onClick={() => p.setRep(r => ({ ...r, semanas: v }))}>{v} semanas</button>)}</div>}
           <div className="pp-fila"><span>Desde</span>
             <button type="button" className={chip(!rep.desde)} onClick={() => p.setRep(r => ({ ...r, desde: '' }))}>su próxima cita</button>
             <label className={chip(!!rep.desde)}>una fecha <input type="date" min={p.hoy} value={rep.desde || ''} onChange={e => p.setRep(r => ({ ...r, desde: e.target.value }))}/></label>
           </div>
-          <div className="pp-fila"><span>Hasta</span>
+          <div className="pp-fila pp-fija"><span>Hasta</span>
             {([['todas', 'todas sus citas'], ['semanas', 'unas semanas'], ['fecha', 'una fecha']] as const).map(([k, t]) => (
               <button key={k} type="button" className={chip(rep.hasta.tipo === k)} onClick={() => p.setRep(r => ({ ...r, hasta: { ...r.hasta, tipo: k } }))}>{t}</button>))}
             {rep.hasta.tipo === 'semanas' && <input type="number" min={1} value={rep.hasta.semanas || 4} style={{ width: 64 }} onChange={e => p.setRep(r => ({ ...r, hasta: { ...r.hasta, semanas: Math.max(1, Number(e.target.value) || 1) } }))}/>}
@@ -119,7 +121,7 @@ export default function PasosProgramar(p: {
           </div>
           <label className="pp-pisar"><input type="checkbox" checked={rep.pisar} onChange={e => p.setRep(r => ({ ...r, pisar: e.target.checked }))}/> Cambiar también las que ya tienen otra sesión (nunca las de candado)</label>
           <div className="pp-frase">{desdeTxt}{frase}</div>
-          {p.planTexto}
+          <div className="pp-plan">{p.planTexto}</div>
         </section>
       </div>
 
@@ -182,7 +184,9 @@ export const CSS_PASOS = `
   .pp-fila { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:10px; font-size:12.5px; color:var(--gr) }
   .pp-fila input[type=number], .pp-fila > input[type=date] { border:1px solid var(--bd); border-radius:8px; padding:5px 8px; font-family:inherit }
   .pp-pisar { display:flex; gap:6px; align-items:flex-start; margin-top:10px; font-size:12px; color:var(--gr) }
-  .pp-frase { margin-top:12px; background:var(--gl); color:var(--gd); border-radius:10px; padding:9px 12px; font-size:13px }
+  .pp-fija { min-height:32px }
+  .pp-plan { min-height:118px }
+  .pp-frase { min-height:56px; margin-top:12px; background:var(--gl); color:var(--gd); border-radius:10px; padding:9px 12px; font-size:13px }
   .pp-tira-c { padding:12px 18px }
   .pp-tira-cab { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px }
   .pp-cuenta { flex:1; font-size:12.5px; color:var(--gr) }
