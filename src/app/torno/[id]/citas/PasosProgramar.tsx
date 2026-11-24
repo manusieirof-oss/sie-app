@@ -32,8 +32,10 @@ export default function PasosProgramar(p: {
   onCita: (c: Cita) => void
   onLimpiar: () => void, onPoner: () => void, guardando: boolean, hayCambios: boolean
   planTexto: React.ReactNode
+  pincel: string | null, onElegir: (id: string) => void
 }) {
   const { sesiones, rot, rep } = p
+  const mano = rep.modo === 'mano'
   const letra = (id: string) => rot.includes(id) ? LETRAS[rot.indexOf(id)] : ''
   const color = (id: string | null) => sesiones.find(s => s.id === id)?.color
   const mover = (id: string, d: number) => p.setRot(r => { const a = [...r], i = a.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= a.length) return r; [a[i], a[j]] = [a[j], a[i]]; return a })
@@ -43,7 +45,8 @@ export default function PasosProgramar(p: {
 
   // La frase de lo que va a hacer, en palabras.
   const desdeTxt = rep.desde ? `Desde el ${new Date(rep.desde + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}: ` : ''
-  const frase = !rot.length ? 'Elige al menos una sesión.'
+  const frase = mano ? (p.pincel ? `Poniendo ${nom(p.pincel)}: toca sus citas aquí abajo o en la agenda. Cambia de sesión y sigue; las ya puestas se quedan. Tocar otra vez una cita la deja como estaba.` : 'Toca arriba la sesión que quieres poner y luego sus citas, una a una.')
+    : !rot.length ? 'Elige al menos una sesión.'
     : rep.modo === 'dias' ? p.diasConCitas.map((d, i) => `los ${DIAS_LARGOS[d].toLowerCase()}, ${nom(rot[i % rot.length])}`).join(' y ') + '.'
     : rep.modo === 'bloques' ? rot.map(nom).join(', luego ') + `: ${rep.semanas} semanas cada una, y vuelta a empezar.`
     : rot.length === 1 ? `${nom(rot[0])} en todas las citas.`
@@ -72,18 +75,18 @@ export default function PasosProgramar(p: {
                 )
               })()}
               {g.ses.map(s => {
-                const on = rot.includes(s.id)
+                const on = rot.includes(s.id), poniendo = mano && p.pincel === s.id
                 const n = (s.partes || []).reduce((t: number, x: any) => t + (x.ejercicios || []).length, 0)
                 const ult = p.ultimaVez(s.id)
                 return (
-                  <div key={s.id} className="pp-ses" style={on ? { border: `2px solid ${s.color}`, background: s.color + '12' } : undefined}>
-                    <button type="button" className="pp-toca" onClick={() => p.setRot(r => on ? r.filter(x => x !== s.id) : [...r, s.id])} aria-pressed={on}>
+                  <div key={s.id} className="pp-ses" style={on ? { border: `2px solid ${s.color}`, background: poniendo ? s.color + '30' : s.color + '12', boxShadow: poniendo ? `0 0 0 3px ${s.color}55` : undefined } : undefined}>
+                    <button type="button" className="pp-toca" onClick={() => mano ? p.onElegir(s.id) : p.setRot(r => on ? r.filter(x => x !== s.id) : [...r, s.id])} aria-pressed={on}>
                       <span className="pp-chapa" style={on ? { background: s.color, color: '#fff' } : undefined}>{on ? letra(s.id) : '+'}</span>
                       <span className="pp-txt"><b>{s.nombre}</b>
                         <small>{n} ejercicio{n === 1 ? '' : 's'}{s.fase ? ` · ${s.fase}` : ''}{ult ? ` · hecha el ${ult}` : ' · sin estrenar'}</small></span>
                     </button>
-                    {on && <>
-                      <span className="pp-puesto">{rot.indexOf(s.id) + 1}º</span>
+                    {on && !mano && <>
+                      <span className="pp-puesto" style={poniendo ? { color: s.color } : undefined}>{poniendo ? 'poniendo' : mano ? '' : `${rot.indexOf(s.id) + 1}º`}</span>
                       <button type="button" className="pp-fl" aria-label="Subir" onClick={() => mover(s.id, -1)}><Ic name="arriba" size={14}/></button>
                       <button type="button" className="pp-fl" aria-label="Bajar" onClick={() => mover(s.id, 1)}><Ic name="abajo" size={14}/></button>
                     </>}
@@ -99,16 +102,18 @@ export default function PasosProgramar(p: {
         <section className="pp-card">
           <div className="pp-paso" style={{ marginBottom: 12 }}><i>2</i><h2>Cómo se turnan</h2></div>
           <div className="pp-modos">
-            {([['alternar', 'Alternando', 'una tras otra'], ['dias', 'Por día', 'cada día la suya'], ['bloques', 'Por bloques', 'unas semanas cada una']] as [ModoReparto, string, string][]).map(([k, t, sub]) => (
+            {([['alternar', 'Alternando', 'una tras otra'], ['dias', 'Por día', 'cada día la suya'], ['bloques', 'Por bloques', 'unas semanas cada una'], ['mano', 'A mano', 'cita a cita']] as [ModoReparto | 'mano', string, string][]).map(([k, t, sub]) => (
               <button key={k} type="button" className={chip(rep.modo === k)} onClick={() => p.setRep(r => ({ ...r, modo: k }))}><b>{t}</b><small>{sub}</small></button>
             ))}
           </div>
           {/* SIEMPRE UNA FILA AQUÍ, sea cual sea el modo: así la página no salta al cambiarlo. */}
+          {mano && <div className="pp-fila pp-fija"><span>Una sesión marcada arriba; tocas sus citas. Nada más se mueve.</span></div>}
           {rep.modo === 'dias' && <div className="pp-fila pp-fija"><span>Cada día de la semana, su sesión (en el orden de arriba).</span></div>}
           {rep.modo === 'alternar' && <div className="pp-fila pp-fija"><span>Cambia de sesión</span>
             {[[1, 'en cada cita'], [2, 'cada 2 citas'], [3, 'cada 3']].map(([v, t]) => <button key={v} type="button" className={chip(rep.cada === v)} onClick={() => p.setRep(r => ({ ...r, cada: Number(v) }))}>{t}</button>)}</div>}
           {rep.modo === 'bloques' && <div className="pp-fila pp-fija"><span>Cada sesión durante</span>
             {[2, 4, 6].map(v => <button key={v} type="button" className={chip(rep.semanas === v)} onClick={() => p.setRep(r => ({ ...r, semanas: v }))}>{v} semanas</button>)}</div>}
+          <div className={mano ? 'pp-apagado' : undefined}>
           <div className="pp-fila"><span>Desde</span>
             <button type="button" className={chip(!rep.desde)} onClick={() => p.setRep(r => ({ ...r, desde: '' }))}>su próxima cita</button>
             <label className={chip(!!rep.desde)}>una fecha <input type="date" min={p.hoy} value={rep.desde || ''} onChange={e => p.setRep(r => ({ ...r, desde: e.target.value }))}/></label>
@@ -120,6 +125,7 @@ export default function PasosProgramar(p: {
             {rep.hasta.tipo === 'fecha' && <input type="date" min={p.hoy} value={rep.hasta.fecha || ''} onChange={e => p.setRep(r => ({ ...r, hasta: { ...r.hasta, fecha: e.target.value } }))}/>}
           </div>
           <label className="pp-pisar"><input type="checkbox" checked={rep.pisar} onChange={e => p.setRep(r => ({ ...r, pisar: e.target.checked }))}/> Cambiar también las que ya tienen otra sesión (nunca las de candado)</label>
+          </div>
           <div className="pp-frase">{desdeTxt}{frase}</div>
           <div className="pp-plan">{p.planTexto}</div>
         </section>
@@ -175,7 +181,8 @@ export const CSS_PASOS = `
   .pp-txt small { font-size:12px; color:var(--gr) }
   .pp-puesto { font-size:12.5px; font-weight:600; color:var(--gr) }
   .pp-fl { width:30px; height:30px; border-radius:8px; border:1px solid var(--bd); background:#fff; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; color:var(--n) }
-  .pp-modos { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px }
+  .pp-modos { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px }
+  .pp-apagado { opacity:.35; pointer-events:none }
   .pp-modos .pp-chip { border-radius:12px; padding:10px; text-align:left; display:flex; flex-direction:column; gap:1px }
   .pp-modos .pp-chip b { font-size:13.5px } .pp-modos .pp-chip small { font-size:11.5px; opacity:.8 }
   .pp-chip { border:1px solid var(--bd); background:#fff; color:var(--n); border-radius:99px; padding:6px 12px; font-size:12.5px; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px }

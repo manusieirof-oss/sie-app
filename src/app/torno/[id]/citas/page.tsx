@@ -374,7 +374,7 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     // segundo la 2ª… Por bloques: cada sesión tocada, las semanas elegidas.
     const porDia: Record<number, string> = {}
     diasConCitas.forEach((d, i) => { if (rot.length) porDia[d] = rot[i % rot.length] })
-    if (!rep.modo) return
+    if (!rep.modo || rep.modo === 'mano') return
     if (!silencio) guardarPaso()
     // DESDE: las citas antes de esa fecha no se tocan.
     const cuales = citas.filter(c => !rep.desde || c.fecha >= rep.desde)
@@ -391,6 +391,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
   const [tocado, setTocado] = useState(false)
   useEffect(() => {
     if (!tocado) return
+    // A MANO no se repinta nada: lo puesto se queda y solo cambia lo que se toca.
+    if (rep.modo === 'mano') return
     if (rep.modo && rot.length) repartir(true)
     else { setPintado({}); setUltimoReparto(null) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -400,6 +402,12 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
     setRot(r => { const n = f(r); setPincel(n.length ? (n.find(x => !r.includes(x)) || (pincel && n.includes(pincel) ? pincel : n[n.length - 1])) : null); return n })
   }
   const setRepPasos = (f: (r: EstadoReparto) => EstadoReparto) => { setTocado(true); setRep(f) }
+  /** A MANO: tocar una sesión la deja marcada para ir poniéndola; otra vez, la suelta. */
+  function elegirMano(id: string) {
+    setTocado(true); setPincelEval(null)
+    if (pincel === id) { setPincel(null); return }
+    setRot(r => r.includes(id) ? r : [...r, id]); setPincel(id)
+  }
   /** En la franja: tocar una cita le pone la siguiente sesión elegida (A → B → C → A…). */
   function ciclarCita(c: Cita) {
     if (!rot.length) return
@@ -665,7 +673,8 @@ export default function CitasTorno({ params }: { params: { id: string } }) {
           <div className={pieza ? 'tc-recoge' : ''}>
             <PasosProgramar sesiones={sesiones} ciclos={ciclos} citas={citas} rot={rot} setRot={setRotPasos} rep={rep} setRep={setRepPasos}
               plan={plan} original={original} aMano={aMano} esFija={c => !!original[c.id] && fijas.has(original[c.id]!)}
-              ultimaVez={ultimaVez} diasConCitas={diasConCitas} hoy={hoy} onCita={c => { const x = citas.find(y => y.id === c.id); if (x) ciclarCita(x) }}
+              ultimaVez={ultimaVez} diasConCitas={diasConCitas} hoy={hoy} onCita={c => { const x = citas.find(y => y.id === c.id); if (!x) return; if (rep.modo === 'mano') { if (!pincel) { alert('Toca primero arriba la sesión que quieres poner.'); return } tocarCita(x) } else ciclarCita(x) }}
+              pincel={pincel} onElegir={elegirMano}
               onLimpiar={limpiar} onPoner={confirmar} guardando={guardando} hayCambios={cambios.length + cambiosEval.length > 0}
               planTexto={
           (planGuardado || ultimoReparto) ? (() => {

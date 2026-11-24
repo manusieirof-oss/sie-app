@@ -12,7 +12,8 @@ import { DIAS_LARGOS, type ModoReparto, type HastaReparto } from '@/lib/repartir
 
 export type EstadoReparto = {
   /** null = sin elegir: hay que tocar una condición antes de pintar. */
-  modo: ModoReparto | null
+  /** 'mano' = cita a cita: no se reparte nada solo (PasosProgramar). */
+  modo: ModoReparto | 'mano' | null
   cada: number
   semanas: number
   hasta: HastaReparto
