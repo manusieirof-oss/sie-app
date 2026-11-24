@@ -97,13 +97,14 @@ export default function EntrenoActivo(p: any) {
         const VPL = [['calendario','Calendario'],['interactiva','Vista interactiva']] as const
         const iV = Math.max(0, VPL.findIndex(([k])=>k===vistaPlan))
         const conmutador = (
-          <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginBottom:10,flexWrap:'wrap'}}>
-            <button type="button" className="btn-vista" onClick={()=>setVistaPlan(VPL[(iV+1)%VPL.length][0])} title="Cambiar la vista">
-              <Ic name={vistaPlan==='calendario'?'calendario':'lista'} size={14}/> {VPL[iV][1]}
+          <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:2,marginBottom:8,flexWrap:'wrap'}}>
+            <button type="button" className="btn-suave" onClick={()=>setVistaPlan(VPL[(iV+1)%VPL.length][0])} title="Cambiar la vista">
+              <Ic name={vistaPlan==='calendario'?'calendario':'lista'} size={13}/> {VPL[iV][1]}
               <span style={{display:'inline-flex',gap:2,marginLeft:2}}>{VPL.map((_,k)=><i key={k} style={{width:4,height:4,borderRadius:'50%',background:'currentColor',opacity:k===iV?1:.3}}/>)}</span>
             </button>
-            {editaPlan && <button type="button" className="btn-vista" onClick={()=>abrirCalendario()} title="Cambiar sesiones y citas en el torno">
-              <Ic name="recuperar" size={14}/> Cambiar en el torno</button>}
+            {editaPlan && <span style={{width:1,height:14,background:'var(--bd)',margin:'0 4px'}}/>}
+            {editaPlan && <button type="button" className="btn-suave" onClick={()=>abrirCalendario()} title="Cambiar sesiones y citas en el torno">
+              <Ic name="recuperar" size={13}/> Cambiar en el torno</button>}
           </div>
         )
 

@@ -872,6 +872,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .btn-vista:hover{border-color:var(--gm)}
 .btn-vista.apagado{color:var(--grl);border-color:transparent}
 .btn-vista.apagado:hover{border-color:var(--bd)}
+/* Botón discreto: solo texto gris, sin borde; se marca al pasar por encima (ficha > Entrenamiento). */
+.btn-suave{font-family:inherit;font-size:12.5px;padding:4px 8px;border-radius:8px;border:0;background:transparent;color:var(--gr);display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;transition:background .12s,color .12s}
+.btn-suave:hover{background:var(--bl);color:var(--n)}
+.btn-suave:focus-visible{outline:2px solid var(--gm);outline-offset:1px}
 
 /* Atajos discretos (fechas de la nebulosa): solo texto; el elegido, subrayado. */
 .atajo{font-family:inherit;font-size:11.5px;font-weight:500;padding:3px 7px;border:none;background:none;color:var(--grl);cursor:pointer}
